@@ -59,6 +59,10 @@
     "defaultMessage": "Rename Run",
     "description": "Modal title to rename the experiment run name"
   },
+  "+GVDd2": {
+    "defaultMessage": "Assign reviewers by name. They'll find this queue under “Feedback requested”.",
+    "description": "Queue settings: members field hint"
+  },
   "+HgSTK": {
     "defaultMessage": "Use these code examples to call your endpoint. Choose between unified APIs for seamless model switching or passthrough APIs for provider-specific features.",
     "description": "Endpoint usage modal description"
@@ -103,6 +107,10 @@
     "defaultMessage": "Persona",
     "description": "Label for the simulation persona metadata in chat session metrics"
   },
+  "+a87Om": {
+    "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
+    "description": "Queue settings: questions dropdown selected-count summary"
+  },
   "+d9nXK": {
     "defaultMessage": "Output cost",
     "description": "Label for output cost"
@@ -138,6 +146,10 @@
   "+hkg/y": {
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
+  },
+  "+kOR9h": {
+    "defaultMessage": "Save",
+    "description": "Queue settings: save button"
   },
   "+khKtf": {
     "defaultMessage": "None",
@@ -351,10 +363,6 @@
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
   },
-  "/pOUrC": {
-    "defaultMessage": "Add a reviewer by username or email",
-    "description": "Edit review queue: member typeahead placeholder"
-  },
   "/qIHh7": {
     "defaultMessage": "Traces",
     "description": "Label for the scorer evaluation scope selection"
@@ -463,6 +471,10 @@
     "defaultMessage": "+{count} more",
     "description": "Suffix on the dataset record tags column indicating how many additional tags are hidden in the preview"
   },
+  "0PXsSn": {
+    "defaultMessage": "Add a reviewer by username or email",
+    "description": "Queue settings: member typeahead placeholder"
+  },
   "0QTEQi": {
     "defaultMessage": "Usage",
     "description": "Tab label for usage charts"
@@ -482,6 +494,10 @@
   "0T1I+b": {
     "defaultMessage": "MLflow documentation",
     "description": "Link to tracing documentation"
+  },
+  "0WRZjy": {
+    "defaultMessage": "Questions",
+    "description": "Review queue: questions dropdown label"
   },
   "0WzWvy": {
     "defaultMessage": "Issues detected on the trace by automatic issue detection",
@@ -611,6 +627,10 @@
     "defaultMessage": "When the trace was created",
     "description": "Tooltip description for the Request Time column in the traces table"
   },
+  "1FCO3Y": {
+    "defaultMessage": "Questions are locked once the queue has traces attached.",
+    "description": "Queue settings: questions frozen hint"
+  },
   "1IExHV": {
     "defaultMessage": "Delete",
     "description": "Confirm-button text for the V2 dataset records bulk-delete modal"
@@ -706,6 +726,10 @@
   "1jPG5D": {
     "defaultMessage": "Creator",
     "description": "Lable name for the creator under details tab on the model view page"
+  },
+  "1kXqgv": {
+    "defaultMessage": "Cancel",
+    "description": "Delete review queue: cancel button"
   },
   "1khEE+": {
     "defaultMessage": "Name",
@@ -1047,6 +1071,10 @@
     "defaultMessage": "Sending...",
     "description": "Send request button loading state"
   },
+  "3db93e": {
+    "defaultMessage": "Failed to save the queue settings.",
+    "description": "Queue settings: error alert title"
+  },
   "3geT+I": {
     "defaultMessage": "Use the log artifact APIs to store file outputs from MLflow runs.",
     "description": "Information in the empty state explaining how one could log artifacts output files for the experiment runs"
@@ -1118,6 +1146,10 @@
   "46+W5N": {
     "defaultMessage": "New to MLflow?",
     "description": "Demo banner title"
+  },
+  "460gm9": {
+    "defaultMessage": "Choose which questions reviewers answer for traces in this queue.",
+    "description": "Queue settings: questions field hint"
   },
   "46xd2Z": {
     "defaultMessage": "Compare",
@@ -2251,10 +2283,6 @@
     "defaultMessage": "Edit tags",
     "description": "Edit tags action"
   },
-  "A8r29l": {
-    "defaultMessage": "Edit default queue",
-    "description": "Edit review queue modal: title for the default queue"
-  },
   "AAdQxU": {
     "defaultMessage": "Messages",
     "description": "Section header in the chat tab that displays the message history between the user and the chat model"
@@ -2995,10 +3023,6 @@
     "defaultMessage": "No existing API keys for this provider.",
     "description": "Message when no existing API keys"
   },
-  "EBjz+P": {
-    "defaultMessage": "Delete queue",
-    "description": "Review queue sidebar: confirm delete-queue button"
-  },
   "EBwDIg": {
     "defaultMessage": "Delete",
     "description": "Delete evaluation runs modal button text"
@@ -3347,10 +3371,6 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
   },
-  "GGR7ao": {
-    "defaultMessage": "Edit queue",
-    "description": "Review queue sidebar: edit-queue gear button aria label"
-  },
   "GJWVBA": {
     "defaultMessage": "Inputs",
     "description": "Table subtitle for schema inputs in the model comparison page"
@@ -3386,10 +3406,6 @@
   "Gcpe+r": {
     "defaultMessage": "Are you sure you want to delete the webhook \"{name}\"? This action cannot be undone.",
     "description": "Delete webhook confirmation message"
-  },
-  "GdNr3r": {
-    "defaultMessage": "Cancel",
-    "description": "Edit review queue: cancel button"
   },
   "GdtTc/": {
     "defaultMessage": "Run evaluation",
@@ -3534,10 +3550,6 @@
   "HVeBoh": {
     "defaultMessage": "Admin",
     "description": "Roles table column header for the admin marker (single-tenant)"
-  },
-  "HVlkqV": {
-    "defaultMessage": "Failed to update the review queue.",
-    "description": "Edit review queue: error alert title"
   },
   "HXbUkt": {
     "defaultMessage": "Child runs",
@@ -3947,10 +3959,6 @@
     "defaultMessage": "Sample rate:",
     "description": "Sample rate label for scorer"
   },
-  "Jh9FEB": {
-    "defaultMessage": "Reviewers",
-    "description": "Edit review queue: members field label"
-  },
   "Jj2kRy": {
     "defaultMessage": "No details for assessment",
     "description": "Evaluation review > assessments > no history"
@@ -4006,10 +4014,6 @@
   "K2IAP7": {
     "defaultMessage": "Success",
     "description": "Column header for success rate"
-  },
-  "K5OU8U": {
-    "defaultMessage": "Back to traces",
-    "description": "Review focused view: back button"
   },
   "K5rmCE": {
     "defaultMessage": "S3",
@@ -4098,10 +4102,6 @@
   "KW2dOC": {
     "defaultMessage": "Inputs / Outputs",
     "description": "Label for the inputs and outputs tab of the model trace explorer."
-  },
-  "KY/h5L": {
-    "defaultMessage": "Delete queue",
-    "description": "Edit review queue: delete button"
   },
   "KYJxmN": {
     "defaultMessage": "Machine learning",
@@ -4339,6 +4339,10 @@
     "defaultMessage": "No resources connected to this endpoint",
     "description": "Gateway > Endpoint bindings drawer > Empty state"
   },
+  "LxYgXq": {
+    "defaultMessage": "{count, plural, one {# question} other {# questions}}",
+    "description": "Review queue header: number of questions the queue asks"
+  },
   "M+HfWb": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > chunk relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -4422,6 +4426,10 @@
   "MP+H1B": {
     "defaultMessage": "No webhooks configured. Create one to get started. <link>Learn more about webhooks.</link>",
     "description": "Empty state for webhooks list"
+  },
+  "MP8Hv3": {
+    "defaultMessage": "Added {count, plural, one {# trace} other {# traces}} to review",
+    "description": "Add to review queue: success toast after traces are added"
   },
   "MQ4Voz": {
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
@@ -4618,10 +4626,6 @@
   "NPlcrl": {
     "defaultMessage": "Clear filters",
     "description": "Button to clear filters in the tags filter popover for experiments page search by tags"
-  },
-  "NQCWKF": {
-    "defaultMessage": "Edit “{name}”",
-    "description": "Edit review queue modal: title for a custom queue"
   },
   "NQYTBb": {
     "defaultMessage": "Cached",
@@ -5391,6 +5395,10 @@
     "defaultMessage": "All {groupLabel}",
     "description": "Evaluation review > evaluations list > select all columns in group"
   },
+  "RXpnec": {
+    "defaultMessage": "Queue settings",
+    "description": "Review queue header: queue settings gear button aria label"
+  },
   "RZvsu5": {
     "defaultMessage": "No pre-built LLM-as-a-judge scorers found",
     "description": "Empty-state label when no pre-built LLM-as-a-judge templates match the search"
@@ -5927,6 +5935,10 @@
     "defaultMessage": "Filter: {filterString}",
     "description": "Filter display for scorer"
   },
+  "UP/Atk": {
+    "defaultMessage": "Preview how the questions will appear for the human reviewer.",
+    "description": "Queue settings: question preview section hint"
+  },
   "UQhorr": {
     "defaultMessage": "Edit",
     "description": "Edit assessment menu item"
@@ -6263,10 +6275,6 @@
     "defaultMessage": "forecasting",
     "description": "A short label for experiments focused on time series forecasting"
   },
-  "W+5C3n": {
-    "defaultMessage": "Save",
-    "description": "Edit review queue: save button"
-  },
   "W+aLXo": {
     "defaultMessage": "Manage webhooks to receive HTTP notifications when events occur in MLflow.",
     "description": "Webhooks settings section description"
@@ -6382,6 +6390,10 @@
   "WXbDNv": {
     "defaultMessage": "Tags",
     "description": "Header for the dataset record tags column"
+  },
+  "WZHixa": {
+    "defaultMessage": "Back",
+    "description": "Review focused view: back button"
   },
   "Wbpp7P": {
     "defaultMessage": "Create a role to assign permissions to users.",
@@ -6715,10 +6727,6 @@
     "defaultMessage": "Collect a free-form rationale alongside the input",
     "description": "Enable rationale checkbox"
   },
-  "YH23ul": {
-    "defaultMessage": "Questions",
-    "description": "Create review queue: questions dropdown label"
-  },
   "YIKNtj": {
     "defaultMessage": "An error occurred while creating the budget policy. Please try again.",
     "description": "Generic error message for budget policy creation"
@@ -6838,6 +6846,10 @@
   "YvxyMH": {
     "defaultMessage": "No responses or targets logged",
     "description": "Evaluation review > Response section > no values"
+  },
+  "Ywtqwx": {
+    "defaultMessage": "Delete queue",
+    "description": "Review queue header: delete-queue menu item"
   },
   "Yx79Vd": {
     "defaultMessage": "Confirm",
@@ -7263,10 +7275,6 @@
     "defaultMessage": "Full Path:",
     "description": "Label to display the full path of where the artifact of the experiment runs is located"
   },
-  "ayfcRA": {
-    "defaultMessage": "No reviewers assigned yet.",
-    "description": "Edit review queue: empty members state"
-  },
   "b0KTgh": {
     "defaultMessage": "Add/edit alias for prompt version {version}",
     "description": "Title for the edit aliases modal on the registered prompt details page"
@@ -7382,6 +7390,10 @@
   "bcFuUb": {
     "defaultMessage": "Are you sure you want to remove {count, plural, one {this guardrail} other {these # guardrails}}?",
     "description": "Bulk remove guardrails confirmation message"
+  },
+  "bcWao0": {
+    "defaultMessage": "Delete",
+    "description": "Delete review queue: confirm button"
   },
   "bcw06n": {
     "defaultMessage": "Is the output semantically equivalent to the expected output?",
@@ -7803,6 +7815,10 @@
     "defaultMessage": "Run name",
     "description": "Column label for run name"
   },
+  "dY0HOA": {
+    "defaultMessage": "No reviewers assigned yet.",
+    "description": "Queue settings: empty members state"
+  },
   "dY1g+4": {
     "defaultMessage": "Optional character limit for the free-form text. Leave blank for no limit.",
     "description": "Text max length hint"
@@ -7819,6 +7835,10 @@
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
   },
+  "dft8gv": {
+    "defaultMessage": "Permanently delete \"{name}\" and remove its traces from review? This cannot be undone.",
+    "description": "Delete review queue: confirm body"
+  },
   "dl0TeT": {
     "defaultMessage": "Save",
     "description": "Experiment tracking > experiment page > runs > save tags button"
@@ -7826,6 +7846,10 @@
   "dl3Yfr": {
     "defaultMessage": "No results match this search.",
     "description": "No results message in datasets drawer table"
+  },
+  "dmN/nA": {
+    "defaultMessage": "Name",
+    "description": "Queue settings: name field label"
   },
   "dq8MJd": {
     "defaultMessage": "Contour Plot",
@@ -8255,6 +8279,10 @@
     "defaultMessage": "Examples:",
     "description": "Text header for examples of logged models search syntax"
   },
+  "fygCDU": {
+    "defaultMessage": "Cancel",
+    "description": "Queue settings: cancel button"
+  },
   "g++0mY": {
     "defaultMessage": "Does the response follow the provided guidelines?",
     "description": "Hint for Guidelines template"
@@ -8619,6 +8647,10 @@
     "defaultMessage": "True",
     "description": "Label for an assessment with a 'true' boolean value"
   },
+  "hWSpwE": {
+    "defaultMessage": "Manage queue",
+    "description": "Review queue header: manage-queue menu item"
+  },
   "hX4/P0": {
     "defaultMessage": "User:",
     "description": "User selector label"
@@ -8710,6 +8742,10 @@
   "i1Hj20": {
     "defaultMessage": "{count, plural, =1 {1 hour} other {# hours}} ago",
     "description": "Time duration in hours"
+  },
+  "i2cP1l": {
+    "defaultMessage": "Questions",
+    "description": "Queue settings: questions field label"
   },
   "i3T+JQ": {
     "defaultMessage": "Retry",
@@ -8887,6 +8923,10 @@
     "defaultMessage": "Could not determine the current user. Please log in again.",
     "description": "Alert description prompting the user to log in again"
   },
+  "irTwlj": {
+    "defaultMessage": "Delete queue?",
+    "description": "Delete review queue: confirm title"
+  },
   "iruFlr": {
     "defaultMessage": "Running the judge from the UI is only supported with {supportedProvider} endpoints, but the current model uses the {currentProvider} provider",
     "description": "Tooltip message when model provider is not supported. supportedProvider is the required provider type, currentProvider is what the model currently uses."
@@ -8910,10 +8950,6 @@
   "izt2q6": {
     "defaultMessage": "Cancel",
     "description": "Cancel-button text for the V2 evaluation dataset delete modal on the detail page"
-  },
-  "j+QAwv": {
-    "defaultMessage": "Assign reviewers by name. They'll find this queue under “Feedback requested”.",
-    "description": "Edit review queue: members field hint"
   },
   "j/BF11": {
     "defaultMessage": "Connect to the tracking server",
@@ -9147,6 +9183,10 @@
     "defaultMessage": "Range",
     "description": "Label for the range in the tooltip for the numeric aggregate chart."
   },
+  "kBDjOX": {
+    "defaultMessage": "Queue settings — “{name}”",
+    "description": "Queue settings modal title"
+  },
   "kBXHTA": {
     "defaultMessage": "Edit chart",
     "description": "Title of the modal when editing a runs comparison chart"
@@ -9294,6 +9334,10 @@
   "l/+0SR": {
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the experiments table"
+  },
+  "l119W9": {
+    "defaultMessage": "No matching questions",
+    "description": "Review queue: no questions match the search"
   },
   "l8Z2nP": {
     "defaultMessage": "Remove filter",
@@ -9474,10 +9518,6 @@
   "lvcGaz": {
     "defaultMessage": "e.g., 100.00",
     "description": "Budget amount placeholder"
-  },
-  "lwwRyV": {
-    "defaultMessage": "Delete queue",
-    "description": "Review queue sidebar: delete-queue trash button aria label"
   },
   "lxGVDu": {
     "defaultMessage": "Percentage of traces evaluated by this judge.",
@@ -10143,6 +10183,10 @@
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
   },
+  "p9ZErC": {
+    "defaultMessage": "Start review",
+    "description": "Review queue: start-review button"
+  },
   "pAiHNY": {
     "defaultMessage": "New review queue",
     "description": "Create review queue modal title"
@@ -10751,10 +10795,6 @@
     "defaultMessage": "No runs logged",
     "description": "Empty state title text for experiment runs page when no runs are logged in the experiment"
   },
-  "sCMbei": {
-    "defaultMessage": "Select questions",
-    "description": "Create review queue: questions dropdown placeholder"
-  },
   "sD3+jL": {
     "defaultMessage": "Failed to save webhook",
     "description": "Generic error message informing the user that webhook saving failed"
@@ -11239,6 +11279,10 @@
     "defaultMessage": "Prompt alias created",
     "description": "Webhook event label"
   },
+  "usjDde": {
+    "defaultMessage": "Reviewers",
+    "description": "Queue settings: members field label"
+  },
   "utyagz": {
     "defaultMessage": "Feedback",
     "description": "Label for the feedback section in the assessments pane"
@@ -11318,6 +11362,10 @@
   "vNmXQ2": {
     "defaultMessage": "Loading guardrails...",
     "description": "Loading guardrails"
+  },
+  "vO6fuZ": {
+    "defaultMessage": "Question preview",
+    "description": "Queue settings: question preview section label"
   },
   "vPnoNk": {
     "defaultMessage": "Save changes",
@@ -12023,6 +12071,10 @@
     "defaultMessage": "Detect Issues",
     "description": "Title of the issue detection configuration modal"
   },
+  "zDdLvE": {
+    "defaultMessage": "Select questions",
+    "description": "Review queue: questions dropdown placeholder"
+  },
   "zE5aGj": {
     "defaultMessage": "Guidelines",
     "description": "Section header for scorer guidelines"
@@ -12078,10 +12130,6 @@
   "zUoxV1": {
     "defaultMessage": "Expectations",
     "description": "Label for expectations variable option"
-  },
-  "zVCooB": {
-    "defaultMessage": "The default queue asks every question in the experiment and can't be deleted. You can still change who's assigned to it.",
-    "description": "Edit review queue: default-queue explanation"
   },
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",
@@ -12142,10 +12190,6 @@
   "zmMR5p": {
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description for default error message in prompts management UI"
-  },
-  "zmdTnv": {
-    "defaultMessage": "Questions in this queue",
-    "description": "Review queue sidebar: header for the selected queue's questions"
   },
   "znEC5M": {
     "defaultMessage": "Adherence",

@@ -6,50 +6,33 @@ import {
   ChevronRightIcon,
   GearIcon,
   PlusIcon,
-  Popover,
-  Tag,
-  TrashIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useQueries } from '@databricks/web-shared/query-client';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import type { LabelSchema } from '../../components/label-schemas';
 import { displayUser } from './hooks/useReviewer';
 import { buildReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
-import { canDeleteQueue, canManageQueue, sameUser } from './queuePermissions';
+import { sameUser } from './queuePermissions';
 import type { ReviewQueueItem, ReviewQueue } from './types';
 
 const CID = 'mlflow.experiment-review-queue.sidebar';
 
-// Fixed widths so the "To do" count and the row action line up into columns across rows.
+// Fixed width so the "To do" count lines up into a column across rows.
 const COUNT_COL_WIDTH = 48;
-const ACTION_COL_WIDTH = 32;
-// Fixed type-tag column for the questions list so every question name truncates
-// at the same point (wide enough for the longest tag, "Expectation").
-const QUESTION_TAG_COL_WIDTH = 96;
 
 const QueueRow = ({
   queue,
   selected,
-  canEdit,
-  canDelete,
   pending,
   onSelect,
-  onEdit,
-  onDelete,
 }: {
   queue: ReviewQueue;
   selected: boolean;
-  /** Show the gear (edit members / delete via the modal); auth servers only. */
-  canEdit: boolean;
-  canDelete: boolean;
   /** Count of still-to-review traces; `undefined` while the count loads. */
   pending: number | undefined;
   onSelect: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -90,51 +73,6 @@ const QueueRow = ({
       <Typography.Text color="secondary" css={{ width: COUNT_COL_WIDTH, flexShrink: 0, textAlign: 'right' }}>
         {pending ?? ''}
       </Typography.Text>
-      {/* Stop row selection on the wrapper, not the trigger: suppressing the
-          trigger's own onClick would also swallow Radix's open-toggle. */}
-      <div
-        css={{ width: ACTION_COL_WIDTH, flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-      >
-        {/* Auth: gear opens the edit-members modal (which owns delete). No-auth:
-            there are no members to assign, so fall back to the delete popover. */}
-        {canEdit ? (
-          <Button
-            componentId={`${CID}.edit-trigger`}
-            size="small"
-            icon={<GearIcon />}
-            onClick={onEdit}
-            aria-label={intl.formatMessage({
-              defaultMessage: 'Edit queue',
-              description: 'Review queue sidebar: edit-queue gear button aria label',
-            })}
-          />
-        ) : canDelete ? (
-          <Popover.Root componentId={`${CID}.delete-popover`}>
-            <Popover.Trigger asChild>
-              <Button
-                componentId={`${CID}.delete-trigger`}
-                size="small"
-                icon={<TrashIcon />}
-                aria-label={intl.formatMessage({
-                  defaultMessage: 'Delete queue',
-                  description: 'Review queue sidebar: delete-queue trash button aria label',
-                })}
-              />
-            </Popover.Trigger>
-            {/* Override the DuBois 220px min-width so the popover hugs the button. */}
-            <Popover.Content align="end" css={{ minWidth: 'auto' }}>
-              <Button componentId={`${CID}.delete-confirm`} danger icon={<TrashIcon />} onClick={onDelete}>
-                <FormattedMessage
-                  defaultMessage="Delete queue"
-                  description="Review queue sidebar: confirm delete-queue button"
-                />
-              </Button>
-            </Popover.Content>
-          </Popover.Root>
-        ) : null}
-      </div>
     </div>
   );
 };
@@ -202,8 +140,9 @@ const CollapsibleGroup = ({
  * Left panel of the Review tab: the reviewer's queues, each showing how many
  * traces are still to review. Queues with nothing left to review collapse into a
  * "No work to do" group. On an authenticated server the active queues are split
- * into "Feedback requested" (assigned by others — answer only) and "Created by
- * me" (deletable via the row trash action); a no-auth server shows one list.
+ * into "Feedback requested" (assigned by others) and "Created by me"; a no-auth
+ * server shows one list. The selected queue's questions and per-queue actions
+ * (manage / delete) live in the right pane's header, not here.
  */
 export const ReviewQueueSidebar = ({
   queues,
@@ -211,12 +150,8 @@ export const ReviewQueueSidebar = ({
   reviewer,
   authAvailable,
   canManage,
-  selectedQueueQuestions,
   onSelect,
   onDeselectQueue,
-  onDeleteQueue,
-  onEditQueue,
-  onEditQuestion,
   onNewQueue,
   onManageQuestions,
 }: {
@@ -225,20 +160,12 @@ export const ReviewQueueSidebar = ({
   reviewer: string;
   authAvailable: boolean;
   canManage: boolean;
-  /** Questions (label schemas) the selected queue asks, shown at the bottom. */
-  selectedQueueQuestions: LabelSchema[];
   onSelect: (queueId: string) => void;
   onDeselectQueue: () => void;
-  onDeleteQueue: (queueId: string) => void;
-  /** Open the edit-members modal for a queue (sidebar gear). */
-  onEditQueue: (queueId: string) => void;
-  /** When provided, a question row is clickable to open its edit modal. */
-  onEditQuestion?: (schema: LabelSchema) => void;
   onNewQueue: () => void;
   onManageQuestions: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
   const [noWorkOpen, setNoWorkOpen] = useState(false);
 
   // One fetch per queue for its pending count; shares cache with the right
@@ -286,12 +213,8 @@ export const ReviewQueueSidebar = ({
       key={queue.queue_id}
       queue={queue}
       selected={queue.queue_id === selectedQueueId}
-      canEdit={authAvailable && canManageQueue(queue, reviewer, authAvailable, canManage)}
-      canDelete={canDeleteQueue(queue, reviewer, authAvailable, canManage)}
       pending={pendingByQueueId.get(queue.queue_id)}
       onSelect={() => onSelect(queue.queue_id)}
-      onEdit={() => onEditQueue(queue.queue_id)}
-      onDelete={() => onDeleteQueue(queue.queue_id)}
     />
   );
 
@@ -355,7 +278,6 @@ export const ReviewQueueSidebar = ({
               description="Review queue sidebar: still-to-review count column header"
             />
           </Typography.Text>
-          <div css={{ width: ACTION_COL_WIDTH, flexShrink: 0 }} />
         </div>
       )}
 
@@ -404,73 +326,6 @@ export const ReviewQueueSidebar = ({
         >
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>{noWork.map(renderRow)}</div>
         </CollapsibleGroup>
-      )}
-
-      {/* Questions the selected queue asks, pinned to the bottom so reviewers
-          can see what they'll be answering before opening a trace. */}
-      {selectedQueueId && selectedQueueQuestions.length > 0 && (
-        <div
-          css={{
-            marginTop: 'auto',
-            paddingTop: theme.spacing.sm,
-            borderTop: `1px solid ${theme.colors.border}`,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing.xs,
-          }}
-        >
-          <Typography.Text size="sm" color="secondary" bold css={{ paddingLeft: theme.spacing.sm }}>
-            <FormattedMessage
-              defaultMessage="Questions in this queue"
-              description="Review queue sidebar: header for the selected queue's questions"
-            />
-          </Typography.Text>
-          {selectedQueueQuestions.map((q) => {
-            const editable = Boolean(onEditQuestion);
-            return (
-              <div
-                key={q.schema_id}
-                role={editable ? 'button' : undefined}
-                tabIndex={editable ? 0 : undefined}
-                onClick={editable ? () => onEditQuestion?.(q) : undefined}
-                onKeyDown={
-                  editable
-                    ? (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          onEditQuestion?.(q);
-                        }
-                      }
-                    : undefined
-                }
-                css={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: theme.spacing.sm,
-                  padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
-                  borderRadius: theme.borders.borderRadiusMd,
-                  cursor: editable ? 'pointer' : 'default',
-                  '&:hover': editable ? { backgroundColor: theme.colors.actionDefaultBackgroundHover } : undefined,
-                }}
-              >
-                <Typography.Text ellipsis css={{ flex: 1, minWidth: 0 }}>
-                  {q.name}
-                </Typography.Text>
-                <div
-                  css={{ width: QUESTION_TAG_COL_WIDTH, flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}
-                >
-                  <Tag componentId={`${CID}.question-type`} color={q.type === 'EXPECTATION' ? 'turquoise' : 'lime'}>
-                    {q.type === 'EXPECTATION' ? (
-                      <FormattedMessage defaultMessage="Expectation" description="Label schema type: expectation" />
-                    ) : (
-                      <FormattedMessage defaultMessage="Feedback" description="Label schema type: feedback" />
-                    )}
-                  </Tag>
-                </div>
-              </div>
-            );
-          })}
-        </div>
       )}
     </div>
   );

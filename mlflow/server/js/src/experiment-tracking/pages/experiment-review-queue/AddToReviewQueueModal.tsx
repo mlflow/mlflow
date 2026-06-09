@@ -21,6 +21,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import { useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useIsAuthAvailable } from '../../../account/hooks';
+import Utils from '../../../common/utils/Utils';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { getQueueAssignability } from './queueAssignability';
 import { sameUser } from './queuePermissions';
@@ -244,6 +245,17 @@ export const AddToReviewQueueModal = ({
     );
     const queueIds = Array.from(new Set([...selectedQueueIds, ...resolvedDefaultQueueIds, ...resolvedUserQueueIds]));
     await Promise.all(queueIds.map((queue_id) => addTracesToReviewQueueAsync({ queue_id, target_ids: targetIds })));
+    // Confirm the add with a global toast — it must be global to survive this
+    // modal unmounting on close.
+    Utils.displayGlobalInfoNotification(
+      intl.formatMessage(
+        {
+          defaultMessage: 'Added {count, plural, one {# trace} other {# traces}} to review',
+          description: 'Add to review queue: success toast after traces are added',
+        },
+        { count: targetIds.length },
+      ),
+    );
     handleClose();
   };
 

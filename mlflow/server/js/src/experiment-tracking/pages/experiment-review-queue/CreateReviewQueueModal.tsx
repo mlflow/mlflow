@@ -6,11 +6,6 @@ import {
   Button,
   ChevronDownIcon,
   ChevronRightIcon,
-  DialogCombobox,
-  DialogComboboxContent,
-  DialogComboboxOptionList,
-  DialogComboboxOptionListCheckboxItem,
-  DialogComboboxTrigger,
   Empty,
   FormUI,
   Input,
@@ -24,6 +19,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { LabelSchemaInputRenderer, useListLabelSchemasQuery } from '../../components/label-schemas';
+import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { useCreateReviewQueueMutation } from './hooks/useCreateReviewQueueMutation';
 import { useReviewer } from './hooks/useReviewer';
@@ -199,37 +195,14 @@ export const CreateReviewQueueModal = ({
               />
             ) : (
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                <DialogCombobox
+                <QuestionChecklistCombobox
                   componentId={`${CID}.questions`}
-                  label={intl.formatMessage({
-                    defaultMessage: 'Questions',
-                    description: 'Create review queue: questions dropdown label',
-                  })}
-                  multiSelect
-                  value={questionsTriggerValue}
-                >
-                  <DialogComboboxTrigger
-                    allowClear={false}
-                    placeholder={intl.formatMessage({
-                      defaultMessage: 'Select questions',
-                      description: 'Create review queue: questions dropdown placeholder',
-                    })}
-                  />
-                  <DialogComboboxContent maxHeight={240} matchTriggerWidth style={{ zIndex: dropdownZIndex }}>
-                    <DialogComboboxOptionList>
-                      {labelSchemas.map((schema) => (
-                        <DialogComboboxOptionListCheckboxItem
-                          key={schema.schema_id}
-                          value={schema.name}
-                          checked={checkedIds.has(schema.schema_id)}
-                          onChange={() => toggle(schema.schema_id, !checkedIds.has(schema.schema_id))}
-                        >
-                          {schema.name}
-                        </DialogComboboxOptionListCheckboxItem>
-                      ))}
-                    </DialogComboboxOptionList>
-                  </DialogComboboxContent>
-                </DialogCombobox>
+                  schemas={labelSchemas}
+                  checkedIds={checkedIds}
+                  onToggle={(schemaId) => toggle(schemaId, !checkedIds.has(schemaId))}
+                  triggerValue={questionsTriggerValue}
+                  dropdownZIndex={dropdownZIndex}
+                />
 
                 {/* Live preview of the selected questions, as a reviewer will see them. */}
                 {selectedSchemas.length > 0 && (

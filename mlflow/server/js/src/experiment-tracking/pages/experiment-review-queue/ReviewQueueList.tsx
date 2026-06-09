@@ -5,7 +5,9 @@ import {
   Checkbox,
   ChevronDownIcon,
   ChevronRightIcon,
+  DropdownMenu,
   Empty,
+  GearIcon,
   SearchIcon,
   Table,
   TableCell,
@@ -48,12 +50,6 @@ const formatAgo = (ms: number, nowMs: number) => {
   return hours < 24 ? `${hours}h` : `${Math.round(hours / 24)}d`;
 };
 
-// Sort items newest-added first, breaking ties (a bulk add shares one add-time)
-// by the trace's own creation time, newest first.
-const byAddedThenTrace = (traceTimeMsById: Map<string, number>) => (a: ReviewQueueItem, b: ReviewQueueItem) =>
-  b.creation_time_ms - a.creation_time_ms ||
-  (traceTimeMsById.get(b.target_id) ?? 0) - (traceTimeMsById.get(a.target_id) ?? 0);
-
 type ColumnKey = 'target_id' | 'status' | 'completed_by' | 'creation_time_ms';
 
 const COLUMNS: { key: ColumnKey; label: React.ReactNode; flex: number }[] = [
@@ -82,15 +78,20 @@ const COLUMNS: { key: ColumnKey; label: React.ReactNode; flex: number }[] = [
 export const ReviewQueueList = ({
   items,
   title,
+  questionCount,
   onOpen,
   nowMs,
   latestQuestionCreatedAtMs,
   onRemoveTraces,
   isRemovingTraces,
+  onManageQueue,
+  onDeleteQueue,
 }: {
   items: ReviewQueueItem[];
-  /** Queue name shown in the header, next to the delete-traces action. */
+  /** Queue name shown in the header, next to the question count + gear menu. */
   title?: React.ReactNode;
+  /** Number of questions the queue asks, shown under the name. */
+  questionCount?: number;
   onOpen: (item: ReviewQueueItem) => void;
   nowMs: number;
   /** Newest question's creation time; flags completed traces reviewed before it. */
@@ -99,6 +100,10 @@ export const ReviewQueueList = ({
    *  so the queue's manager can remove traces from this view. */
   onRemoveTraces?: (targetIds: string[]) => void;
   isRemovingTraces?: boolean;
+  /** When provided (editable non-default custom queues only), a gear menu offers
+   *  "Manage queue"; `onDeleteQueue`, when also provided, adds "Delete queue". */
+  onManageQueue?: () => void;
+  onDeleteQueue?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -119,31 +124,11 @@ export const ReviewQueueList = ({
     });
     return map;
   }, [traces]);
-  // The trace's own creation time, used as a secondary sort key (a bulk add
-  // gives every item the same queue add-time, so that alone leaves ties).
-  const traceTimeMsById = useMemo(() => {
-    const map = new Map<string, number>();
-    (traces ?? []).forEach((t) => {
-      const id = t?.info?.trace_id;
-      const ms = t?.info?.request_time ? Date.parse(t.info.request_time) : NaN;
-      if (id && !Number.isNaN(ms)) {
-        map.set(id, ms);
-      }
-    });
-    return map;
-  }, [traces]);
-
-  // Split into still-to-review vs. resolved (complete/declined). Newest-added
-  // first; ties (e.g. a single bulk add) break by the trace's own creation
-  // time, newest first.
-  const toDo = useMemo(
-    () => items.filter((i) => i.status === 'PENDING').sort(byAddedThenTrace(traceTimeMsById)),
-    [items, traceTimeMsById],
-  );
-  const completed = useMemo(
-    () => items.filter((i) => i.status !== 'PENDING').sort(byAddedThenTrace(traceTimeMsById)),
-    [items, traceTimeMsById],
-  );
+  // Split into still-to-review vs. resolved (complete/declined). The page passes
+  // items already ordered (completed first, then to-do), so filtering preserves
+  // that order — keeping the list in sync with the focused view's prev/next.
+  const toDo = useMemo(() => items.filter((i) => i.status === 'PENDING'), [items]);
+  const completed = useMemo(() => items.filter((i) => i.status !== 'PENDING'), [items]);
 
   // Select-all only covers the rows currently visible: "To do" always, plus
   // "Completed" only when that group is expanded.
@@ -234,11 +219,60 @@ export const ReviewQueueList = ({
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: theme.spacing.sm }}>
-      {(title || selectable) && (
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-          <Typography.Title level={4} withoutMargins css={{ flex: 1, minWidth: 0 }}>
-            {title}
-          </Typography.Title>
+      {(title || selectable || onManageQueue) && (
+        <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm }}>
+          <div css={{ minWidth: 0 }}>
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs / 2, minWidth: 0 }}>
+              <Typography.Title level={3} withoutMargins ellipsis css={{ minWidth: 0 }}>
+                {title}
+              </Typography.Title>
+              {onManageQueue && (
+                <DropdownMenu.Root modal={false}>
+                  <DropdownMenu.Trigger asChild>
+                    <Button
+                      componentId={`${CID}.queue-settings-trigger`}
+                      icon={<GearIcon />}
+                      aria-label={intl.formatMessage({
+                        defaultMessage: 'Queue settings',
+                        description: 'Review queue header: queue settings gear button aria label',
+                      })}
+                    />
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content align="start">
+                    <DropdownMenu.Item componentId={`${CID}.manage-queue`} onClick={onManageQueue}>
+                      <FormattedMessage
+                        defaultMessage="Manage queue"
+                        description="Review queue header: manage-queue menu item"
+                      />
+                    </DropdownMenu.Item>
+                    {onDeleteQueue && (
+                      <DropdownMenu.Item danger componentId={`${CID}.delete-queue`} onClick={onDeleteQueue}>
+                        <FormattedMessage
+                          defaultMessage="Delete queue"
+                          description="Review queue header: delete-queue menu item"
+                        />
+                      </DropdownMenu.Item>
+                    )}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Root>
+              )}
+            </div>
+            {questionCount != null && (
+              <Typography.Text size="sm" color="secondary">
+                <FormattedMessage
+                  defaultMessage="{count, plural, one {# question} other {# questions}}"
+                  description="Review queue header: number of questions the queue asks"
+                  values={{ count: questionCount }}
+                />
+              </Typography.Text>
+            )}
+          </div>
+          <div css={{ flex: 1 }} />
+          {toDo.length > 0 && (
+            <Button componentId={`${CID}.start-review`} type="primary" onClick={() => onOpen(toDo[0])}>
+              <FormattedMessage defaultMessage="Start review" description="Review queue: start-review button" />
+            </Button>
+          )}
           {selectable && (
             <Button
               componentId={`${CID}.delete-selected`}
@@ -306,6 +340,9 @@ export const ReviewQueueList = ({
               toDo.map(renderRow)
             )}
 
+            {/* To-do is shown first here; the queue's review order (completed
+                first, then to-do) lives in ExperimentReviewQueuePage and drives
+                the focused view's Prev/Next, not this grouping. */}
             {completed.length > 0 &&
               groupBand(
                 <FormattedMessage defaultMessage="Completed" description="Review queue table: completed group label" />,

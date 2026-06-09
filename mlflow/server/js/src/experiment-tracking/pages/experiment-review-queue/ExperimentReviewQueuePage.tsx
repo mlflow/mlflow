@@ -1,17 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { Empty, SearchIcon, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
-import { ModelTraceExplorerResizablePane } from '@databricks/web-shared/model-trace-explorer';
+import { Empty, Modal, SearchIcon, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { ModelTraceExplorerResizablePane, useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { LabelSchemaFormModal, useListLabelSchemasQuery } from '../../components/label-schemas';
-import type { LabelSchema } from '../../components/label-schemas';
+import { useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useParams } from '../../../common/utils/RoutingUtils';
+import { useMlflowSidebar } from '../../../common/contexts/MlflowSidebarContext';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
-import { EditReviewQueueModal } from './EditReviewQueueModal';
 import { FocusedReview } from './FocusedReview';
 import { ManageQuestionsModal } from './ManageQuestionsModal';
+import { QueueSettingsModal } from './QueueSettingsModal';
 import { ReviewQueueList } from './ReviewQueueList';
 import { ReviewQueueSidebar } from './ReviewQueueSidebar';
 import { useCanManageReviews } from './hooks/useCanManageReviews';
@@ -22,14 +22,14 @@ import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { useRemoveTracesFromReviewQueueMutation } from './hooks/useRemoveTracesFromReviewQueueMutation';
 import { displayUser, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueTraceStatusMutation } from './hooks/useSetReviewQueueTraceStatusMutation';
-import { canManageQueue } from './queuePermissions';
-import type { ReviewStatus } from './types';
+import { canDeleteQueue, canManageQueue } from './queuePermissions';
+import type { ReviewQueueItem, ReviewStatus } from './types';
 
 /**
  * Review tab — a master/detail surface modeled on the labeling-session page:
  * the reviewer's queues on the left, the selected queue's traces on the right.
- * Clicking a trace swaps the right panel to the focused question-answering view
- * (with a "Back to traces" control); the left queue list stays put.
+ * Clicking a trace opens the full-page focused question-answering view (the
+ * queue list collapses), with a "Back" control to return to the list.
  *
  * The left list is grouped on authenticated servers (queues others assigned to
  * me vs. queues I created); a no-auth server shows one list. See
@@ -50,10 +50,10 @@ const ExperimentReviewQueuePage = () => {
   const [openTargetId, setOpenTargetId] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  // A question (label schema) being edited from the sidebar's questions list.
-  const [editingQuestion, setEditingQuestion] = useState<LabelSchema | null>(null);
-  // A queue being edited (members / delete) from the sidebar gear.
+  // The queue open in "Manage queue" (questions + members), from the right-pane gear.
   const [editingQueueId, setEditingQueueId] = useState<string>();
+  // The queue pending delete confirmation, from the right-pane gear.
+  const [confirmDeleteQueueId, setConfirmDeleteQueueId] = useState<string>();
   const [paneWidth, setPaneWidth] = useState(320);
 
   const { reviewQueues, isLoading: queuesLoading } = useListReviewQueuesQuery({
@@ -101,10 +101,19 @@ const ExperimentReviewQueuePage = () => {
     () => (editingQueueId ? (reviewQueues.find((q) => q.queue_id === editingQueueId) ?? null) : null),
     [reviewQueues, editingQueueId],
   );
+  const confirmDeleteQueue = useMemo(
+    () => (confirmDeleteQueueId ? (reviewQueues.find((q) => q.queue_id === confirmDeleteQueueId) ?? null) : null),
+    [reviewQueues, confirmDeleteQueueId],
+  );
   // Whether the reviewer may manage the selected queue (remove traces) — a
   // CUSTOM queue they created, or any on a no-auth server.
   const canManageSelectedQueue = selectedQueue
     ? canManageQueue(selectedQueue, reviewer, authAvailable, canManage)
+    : false;
+  // Whether the right-pane gear (manage settings / delete) shows — editable
+  // non-default custom queues only (never USER queues or the default queue).
+  const canEditSelectedQueue = selectedQueue
+    ? canDeleteQueue(selectedQueue, reviewer, authAvailable, canManage)
     : false;
 
   const handleDeleteQueue = (queueId: string) =>
@@ -125,6 +134,33 @@ const ExperimentReviewQueuePage = () => {
     queueId: selectedQueueId ?? '',
     enabled: Boolean(selectedQueueId),
   });
+  // Each trace's own creation time, to order the queue by when traces were
+  // produced (not when they were added to the queue). Shares the cache with the
+  // trace-list preview fetch.
+  const { data: orderingTraceData } = useGetTracesById(traces.map((t) => t.target_id));
+  const traceCreatedMsById = useMemo(() => {
+    const map = new Map<string, number>();
+    (orderingTraceData ?? []).forEach((t) => {
+      const id = t?.info?.trace_id;
+      const ms = t?.info?.request_time ? Date.parse(t.info.request_time) : NaN;
+      if (id && !Number.isNaN(ms)) {
+        map.set(id, ms);
+      }
+    });
+    return map;
+  }, [orderingTraceData]);
+  // Queue order for review: completed (terminal) traces first, then the to-do
+  // (pending) traces, each by trace creation time (newest first). This puts the
+  // to-do traces contiguous at the end so "Start review" lands on the first
+  // to-do and Next walks the rest through to the end. The same order drives both
+  // the list display and the focused view's prev/next.
+  const orderedTraces = useMemo(() => {
+    const byTraceNewest = (a: ReviewQueueItem, b: ReviewQueueItem) =>
+      (traceCreatedMsById.get(b.target_id) ?? 0) - (traceCreatedMsById.get(a.target_id) ?? 0);
+    const done = traces.filter((t) => t.status !== 'PENDING').sort(byTraceNewest);
+    const todo = traces.filter((t) => t.status === 'PENDING').sort(byTraceNewest);
+    return [...done, ...todo];
+  }, [traces, traceCreatedMsById]);
 
   // A user queue (and the default queue) inherits all of the experiment's
   // schemas; any other custom queue uses its explicit subset.
@@ -142,6 +178,38 @@ const ExperimentReviewQueuePage = () => {
 
   const openItem = useMemo(() => traces.find((t) => t.target_id === openTargetId) ?? null, [traces, openTargetId]);
   const nowMs = Date.now();
+
+  // Focus mode (a trace open) dedicates the full page to the review: the queue
+  // list (left pane) collapses below, and the app-shell sidebar collapses too.
+  // We save the sidebar's state on entering and restore it on exit/unmount, so a
+  // sidebar the user had already collapsed stays collapsed when they go back.
+  const inFocusMode = Boolean(openTargetId && openItem);
+  const sidebar = useMlflowSidebar();
+  // Read the sidebar context through a ref so the effect can collapse/restore it
+  // without listing `sidebar` as a dependency — `setShowSidebar` changes the
+  // context value on every toggle, and depending on it would re-run the effect
+  // mid-focus-mode and fight its own write. The effect keys only on `inFocusMode`;
+  // the cleanup restores the saved state on exit and on unmount.
+  const sidebarRef = useRef(sidebar);
+  sidebarRef.current = sidebar;
+  const savedSidebarRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    const current = sidebarRef.current;
+    if (!current) {
+      return undefined;
+    }
+    if (inFocusMode && savedSidebarRef.current === null) {
+      savedSidebarRef.current = current.showSidebar;
+      current.setShowSidebar(false);
+    }
+    return () => {
+      const latest = sidebarRef.current;
+      if (latest && savedSidebarRef.current !== null) {
+        latest.setShowSidebar(savedSidebarRef.current);
+        savedSidebarRef.current = null;
+      }
+    };
+  }, [inFocusMode]);
 
   const selectQueue = (queueId: string) => {
     setSelectedQueueIdState(queueId);
@@ -200,7 +268,7 @@ const ExperimentReviewQueuePage = () => {
         // Remount per trace so answer state never bleeds across traces.
         key={openItem.target_id}
         item={openItem}
-        items={traces}
+        items={orderedTraces}
         schemas={questionSchemas}
         completedBy={reviewer}
         isSettingStatus={isSettingStatus}
@@ -218,7 +286,8 @@ const ExperimentReviewQueuePage = () => {
         // groups) reset instead of leaking stale target ids across queues.
         key={selectedQueue.queue_id}
         title={selectedQueue.queue_type === 'USER' ? displayUser(selectedQueue.name, intl) : selectedQueue.name}
-        items={traces}
+        questionCount={questionSchemas.length}
+        items={orderedTraces}
         onOpen={(item) => setOpenTargetId(item.target_id)}
         nowMs={nowMs}
         latestQuestionCreatedAtMs={latestQuestionCreatedAtMs}
@@ -228,6 +297,9 @@ const ExperimentReviewQueuePage = () => {
             : undefined
         }
         isRemovingTraces={isRemovingTraces}
+        // Gear menu (manage / delete) only for editable non-default custom queues.
+        onManageQueue={canEditSelectedQueue ? () => setEditingQueueId(selectedQueue.queue_id) : undefined}
+        onDeleteQueue={canEditSelectedQueue ? () => setConfirmDeleteQueueId(selectedQueue.queue_id) : undefined}
       />
     );
   }
@@ -235,51 +307,62 @@ const ExperimentReviewQueuePage = () => {
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, padding: theme.spacing.md }}>
       <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <ModelTraceExplorerResizablePane
-          initialRatio={0.26}
-          paneWidth={paneWidth}
-          setPaneWidth={setPaneWidth}
-          leftMinWidth={260}
-          rightMinWidth={480}
-          leftChild={
-            <div css={{ width: '100%', height: '100%', minHeight: 0 }}>
-              <ReviewQueueSidebar
-                queues={reviewQueues}
-                selectedQueueId={selectedQueueId}
-                reviewer={reviewer}
-                authAvailable={authAvailable}
-                canManage={canManage}
-                selectedQueueQuestions={questionSchemas}
-                onSelect={selectQueue}
-                onDeselectQueue={() => {
-                  setSelectedQueueIdState(undefined);
-                  setOpenTargetId(null);
+        {inFocusMode ? (
+          <div
+            css={{
+              width: '100%',
+              height: '100%',
+              minHeight: 0,
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            {rightContent}
+          </div>
+        ) : (
+          <ModelTraceExplorerResizablePane
+            initialRatio={0.26}
+            paneWidth={paneWidth}
+            setPaneWidth={setPaneWidth}
+            leftMinWidth={260}
+            rightMinWidth={480}
+            leftChild={
+              <div css={{ width: '100%', height: '100%', minHeight: 0 }}>
+                <ReviewQueueSidebar
+                  queues={reviewQueues}
+                  selectedQueueId={selectedQueueId}
+                  reviewer={reviewer}
+                  authAvailable={authAvailable}
+                  canManage={canManage}
+                  onSelect={selectQueue}
+                  onDeselectQueue={() => {
+                    setSelectedQueueIdState(undefined);
+                    setOpenTargetId(null);
+                  }}
+                  onNewQueue={() => setCreateOpen(true)}
+                  onManageQuestions={() => setManageOpen(true)}
+                />
+              </div>
+            }
+            rightChild={
+              <div
+                css={{
+                  width: '100%',
+                  height: '100%',
+                  minHeight: 0,
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  paddingLeft: theme.spacing.md,
+                  borderLeft: `1px solid ${theme.colors.border}`,
                 }}
-                onDeleteQueue={handleDeleteQueue}
-                onEditQueue={setEditingQueueId}
-                onEditQuestion={canManage ? setEditingQuestion : undefined}
-                onNewQueue={() => setCreateOpen(true)}
-                onManageQuestions={() => setManageOpen(true)}
-              />
-            </div>
-          }
-          rightChild={
-            <div
-              css={{
-                width: '100%',
-                height: '100%',
-                minHeight: 0,
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                paddingLeft: theme.spacing.md,
-                borderLeft: `1px solid ${theme.colors.border}`,
-              }}
-            >
-              {rightContent}
-            </div>
-          }
-        />
+              >
+                {rightContent}
+              </div>
+            }
+          />
+        )}
       </div>
 
       {manageOpen && experimentId && (
@@ -290,26 +373,28 @@ const ExperimentReviewQueuePage = () => {
         <CreateReviewQueueModal experimentId={experimentId} onClose={() => setCreateOpen(false)} />
       )}
 
-      {editingQueue && (
-        <EditReviewQueueModal
-          queue={editingQueue}
-          onClose={() => setEditingQueueId(undefined)}
-          onDeleted={() => {
-            if (selectedQueueId === editingQueue.queue_id) {
-              setSelectedQueueIdState(undefined);
-              setOpenTargetId(null);
-            }
-          }}
-        />
-      )}
+      {editingQueue && <QueueSettingsModal queue={editingQueue} onClose={() => setEditingQueueId(undefined)} />}
 
-      {editingQuestion && experimentId && (
-        <LabelSchemaFormModal
-          experimentId={experimentId}
-          editingSchema={editingQuestion}
+      {confirmDeleteQueue && (
+        <Modal
+          componentId="mlflow.experiment-review-queue.delete-queue-confirm"
           visible
-          onClose={() => setEditingQuestion(null)}
-        />
+          title={<FormattedMessage defaultMessage="Delete queue?" description="Delete review queue: confirm title" />}
+          okText={<FormattedMessage defaultMessage="Delete" description="Delete review queue: confirm button" />}
+          okButtonProps={{ danger: true }}
+          cancelText={<FormattedMessage defaultMessage="Cancel" description="Delete review queue: cancel button" />}
+          onOk={() => {
+            handleDeleteQueue(confirmDeleteQueue.queue_id);
+            setConfirmDeleteQueueId(undefined);
+          }}
+          onCancel={() => setConfirmDeleteQueueId(undefined)}
+        >
+          <FormattedMessage
+            defaultMessage='Permanently delete "{name}" and remove its traces from review? This cannot be undone.'
+            description="Delete review queue: confirm body"
+            values={{ name: confirmDeleteQueue.name }}
+          />
+        </Modal>
       )}
     </div>
   );

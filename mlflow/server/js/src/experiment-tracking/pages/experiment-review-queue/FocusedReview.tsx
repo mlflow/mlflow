@@ -21,6 +21,7 @@ import { useCreateReviewAssessmentMutation } from './hooks/useCreateReviewAssess
 import { useTraceAssessmentsQuery } from './hooks/useTraceAssessmentsQuery';
 import { buildPrefilledAnswers, buildPrefilledRationales } from './reviewAnswers';
 import { StatusTag } from './ReviewQueueList';
+import { SegmentedProgressBar } from './SegmentedProgressBar';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 const CID = 'mlflow.experiment-review-queue.focused-review';
@@ -96,6 +97,15 @@ export const FocusedReview = ({
   const setRationale = (name: string, value: string) => setEditedRationales((prev) => ({ ...prev, [name]: value }));
 
   const isTerminal = item.status === 'COMPLETE' || item.status === 'DECLINED';
+  // A queue whose only question is a single Pass/Fail (no rationale) submits as
+  // soon as the reviewer picks an answer — no Submit click needed.
+  const autoSubmitSchema =
+    schemas.length === 1 && schemas[0].input.pass_fail && !schemas[0].enable_comment ? schemas[0] : null;
+  // For the auto-submit case the Submit button is redundant while the answer is
+  // still empty (picking it submits). Show it again once there's a value, so a
+  // reopened trace or a failed auto-submit still has an explicit re-submit path.
+  const autoSubmitValue = autoSubmitSchema ? valueFor(autoSubmitSchema.name) : undefined;
+  const hideSubmit = autoSubmitSchema != null && (autoSubmitValue === undefined || autoSubmitValue === null);
 
   // Position in the queue + adjacent traces for prev/next navigation.
   const currentIndex = items.findIndex((i) => i.target_id === item.target_id);
@@ -107,6 +117,17 @@ export const FocusedReview = ({
   const reviewedCount = items.filter((i) => i.status === 'COMPLETE' || i.status === 'DECLINED').length;
   const totalCount = items.length;
   const percentage = totalCount > 0 ? Math.round((reviewedCount / totalCount) * 100) : 0;
+  // One segment per trace (capped at 100, then proportional), filled blue up to
+  // the reviewed count — ported from the universe review app's progress bar.
+  const filledColor = theme.colors.blue600;
+  const remainingColor = theme.isDarkMode ? theme.colors.blue800 : theme.colors.blue200;
+  const maxSegments = 100;
+  const segmentCount = Math.min(totalCount, maxSegments);
+  const progressBarItems = Array.from({ length: segmentCount }, (_, index) => {
+    const filled =
+      totalCount <= maxSegments ? index < reviewedCount : Math.round((index / maxSegments) * 100) < percentage;
+    return { color: filled ? filledColor : remainingColor };
+  });
 
   // The next still-pending trace after the current one, wrapping around.
   const nextPendingTargetId = items
@@ -114,10 +135,14 @@ export const FocusedReview = ({
     .concat(items.slice(0, Math.max(currentIndex, 0)))
     .find((i) => i.target_id !== item.target_id && i.status === 'PENDING')?.target_id;
 
-  const submitAnswersAndComplete = async () => {
+  const submitAnswersAndComplete = async (answerOverrides?: Record<string, LabelSchemaValue>) => {
     setSubmitError(null);
+    // Auto-submit passes the just-picked value directly, since the answer state
+    // set in the same click hasn't flushed yet.
+    const effectiveValue = (name: string): LabelSchemaValue =>
+      answerOverrides && name in answerOverrides ? answerOverrides[name] : valueFor(name);
     const answered = schemas.filter((s) => {
-      const v = valueFor(s.name);
+      const v = effectiveValue(s.name);
       return v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
     });
     try {
@@ -129,7 +154,7 @@ export const FocusedReview = ({
             traceId: item.target_id,
             name: s.name,
             assessmentKind: s.type === 'EXPECTATION' ? 'expectation' : 'feedback',
-            value: valueFor(s.name) as Exclude<LabelSchemaValue, null | undefined>,
+            value: effectiveValue(s.name) as Exclude<LabelSchemaValue, null | undefined>,
             sourceId: completedBy,
             rationale: s.enable_comment ? rationaleFor(s.name).trim() || undefined : undefined,
           }),
@@ -161,7 +186,7 @@ export const FocusedReview = ({
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, height: '100%' }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
         <Button componentId={`${CID}.back`} icon={<ChevronLeftIcon />} onClick={onBack}>
-          <FormattedMessage defaultMessage="Back to traces" description="Review focused view: back button" />
+          <FormattedMessage defaultMessage="Back" description="Review focused view: back button" />
         </Button>
         <Typography.Text bold>{item.target_id}</Typography.Text>
         <StatusTag status={item.status} />
@@ -188,33 +213,16 @@ export const FocusedReview = ({
         />
       </div>
 
-      {/* Progress across the queue's traces */}
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-        <Typography.Text bold size="lg">
+      {/* Progress across the queue's traces: count/percentage + segmented bar. */}
+      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
+        <Typography.Text bold size="lg" css={{ flexShrink: 0 }}>
           <FormattedMessage
             defaultMessage="{reviewed} of {total} reviewed ({percentage}%)"
             description="Review focused view: queue progress summary"
             values={{ reviewed: reviewedCount, total: totalCount, percentage }}
           />
         </Typography.Text>
-        <div
-          css={{
-            width: '100%',
-            height: theme.spacing.sm,
-            borderRadius: theme.borders.borderRadiusMd,
-            backgroundColor: theme.colors.backgroundSecondary,
-            overflow: 'hidden',
-          }}
-        >
-          <div
-            css={{
-              width: `${percentage}%`,
-              height: '100%',
-              backgroundColor: theme.colors.primary,
-              transition: 'width 0.2s ease',
-            }}
-          />
-        </div>
+        <SegmentedProgressBar items={progressBarItems} css={{ width: 240, height: theme.typography.fontSizeSm }} />
       </div>
 
       <div css={{ display: 'flex', gap: theme.spacing.lg, flex: 1, minHeight: 0 }}>
@@ -323,109 +331,143 @@ export const FocusedReview = ({
             flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
-            gap: theme.spacing.lg,
             borderLeft: `1px solid ${theme.colors.border}`,
             paddingLeft: theme.spacing.lg,
-            overflow: 'auto',
+            minHeight: 0,
+            overflow: 'hidden',
           }}
         >
-          <Typography.Title level={4} withoutMargins>
+          <Typography.Title level={4} withoutMargins css={{ marginBottom: theme.spacing.lg, flexShrink: 0 }}>
             <FormattedMessage defaultMessage="Review" description="Review focused view: questions panel title" />
           </Typography.Title>
 
-          {schemas.length === 0 ? (
-            <Typography.Hint>
-              <FormattedMessage
-                defaultMessage="No questions configured for this queue."
-                description="Review focused view: empty questions state"
-              />
-            </Typography.Hint>
-          ) : (
-            schemas.map((schema) => (
-              <div key={schema.schema_id} css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                <Typography.Text bold>{schema.name}</Typography.Text>
-                {schema.instruction && (
-                  <Typography.Hint css={{ marginBottom: theme.spacing.xs }}>{schema.instruction}</Typography.Hint>
-                )}
-                <LabelSchemaInputRenderer
-                  input={schema.input}
-                  value={valueFor(schema.name)}
-                  onChange={(value) => setAnswer(schema.name, value)}
-                  disabled={isTerminal}
-                  componentId={`${CID}.question`}
-                  label={schema.name}
-                  instruction={schema.instruction}
-                />
-                {schema.enable_comment && (
-                  <Input.TextArea
-                    componentId={`${CID}.rationale`}
-                    rows={2}
-                    value={rationaleFor(schema.name)}
-                    onChange={(e) => setRationale(schema.name, e.target.value)}
-                    disabled={isTerminal}
-                    placeholder={intl.formatMessage({
-                      defaultMessage: 'Rationale (optional)',
-                      description: 'Review focused view: free-form rationale placeholder',
-                    })}
-                  />
-                )}
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* Actions */}
-      <div
-        css={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: theme.spacing.sm,
-          borderTop: `1px solid ${theme.colors.border}`,
-          paddingTop: theme.spacing.md,
-        }}
-      >
-        {submitError && (
-          <Alert
-            componentId={`${CID}.submit-error`}
-            type="error"
-            closable
-            onClose={() => setSubmitError(null)}
-            message={intl.formatMessage(
-              {
-                defaultMessage: 'Could not save your review: {error}',
-                description: 'Review focused view: submit error alert',
-              },
-              { error: submitError },
-            )}
-          />
-        )}
-        <div css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
-          {isTerminal ? (
-            <Button componentId={`${CID}.reopen`} disabled={isSettingStatus} onClick={() => handleSetStatus('PENDING')}>
-              <FormattedMessage defaultMessage="Reopen" description="Review focused view: reopen action" />
-            </Button>
-          ) : (
-            <Button
-              componentId={`${CID}.decline`}
-              disabled={isSettingStatus}
-              onClick={() => handleSetStatus('DECLINED')}
-            >
-              <FormattedMessage defaultMessage="Decline" description="Review focused view: decline action" />
-            </Button>
-          )}
-          <Button
-            componentId={`${CID}.complete`}
-            type="primary"
-            disabled={isTerminal || isCreatingAssessment || isSettingStatus}
-            loading={isCreatingAssessment || isSettingStatus}
-            onClick={submitAnswersAndComplete}
+          {/* Only the questions scroll. The actions below are a non-scrolling
+              sibling, so they stay put (no sticky jiggle) when the list is long;
+              when it's short this box shrinks to fit and the actions sit right
+              under the last question. */}
+          <div
+            css={{
+              flex: '0 1 auto',
+              minHeight: 0,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.lg,
+            }}
           >
-            <FormattedMessage
-              defaultMessage="Submit"
-              description="Review focused view: submit answers and mark the trace complete"
-            />
-          </Button>
+            {schemas.length === 0 ? (
+              <Typography.Hint>
+                <FormattedMessage
+                  defaultMessage="No questions configured for this queue."
+                  description="Review focused view: empty questions state"
+                />
+              </Typography.Hint>
+            ) : (
+              schemas.map((schema) => (
+                <div key={schema.schema_id} css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <Typography.Text bold>{schema.name}</Typography.Text>
+                  {schema.instruction && (
+                    <Typography.Hint css={{ marginBottom: theme.spacing.xs }}>{schema.instruction}</Typography.Hint>
+                  )}
+                  <LabelSchemaInputRenderer
+                    input={schema.input}
+                    value={valueFor(schema.name)}
+                    onChange={(value) => {
+                      setAnswer(schema.name, value);
+                      if (
+                        autoSubmitSchema?.schema_id === schema.schema_id &&
+                        !isTerminal &&
+                        !isCreatingAssessment &&
+                        !isSettingStatus
+                      ) {
+                        submitAnswersAndComplete({ [schema.name]: value });
+                      }
+                    }}
+                    disabled={isTerminal}
+                    componentId={`${CID}.question`}
+                    label={schema.name}
+                    instruction={schema.instruction}
+                  />
+                  {schema.enable_comment && (
+                    <Input.TextArea
+                      componentId={`${CID}.rationale`}
+                      rows={2}
+                      value={rationaleFor(schema.name)}
+                      onChange={(e) => setRationale(schema.name, e.target.value)}
+                      disabled={isTerminal}
+                      placeholder={intl.formatMessage({
+                        defaultMessage: 'Rationale (optional)',
+                        description: 'Review focused view: free-form rationale placeholder',
+                      })}
+                    />
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Actions: fixed at the panel bottom (a non-scrolling sibling, so no
+              jiggle), with the questions scrolling above. */}
+          <div
+            css={{
+              flexShrink: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.sm,
+              marginTop: theme.spacing.lg,
+              paddingTop: theme.spacing.md,
+              borderTop: `1px solid ${theme.colors.border}`,
+            }}
+          >
+            {submitError && (
+              <Alert
+                componentId={`${CID}.submit-error`}
+                type="error"
+                closable
+                onClose={() => setSubmitError(null)}
+                message={intl.formatMessage(
+                  {
+                    defaultMessage: 'Could not save your review: {error}',
+                    description: 'Review focused view: submit error alert',
+                  },
+                  { error: submitError },
+                )}
+              />
+            )}
+            <div css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
+              {isTerminal ? (
+                <Button
+                  componentId={`${CID}.reopen`}
+                  disabled={isSettingStatus}
+                  onClick={() => handleSetStatus('PENDING')}
+                >
+                  <FormattedMessage defaultMessage="Reopen" description="Review focused view: reopen action" />
+                </Button>
+              ) : (
+                <Button
+                  componentId={`${CID}.decline`}
+                  disabled={isSettingStatus}
+                  onClick={() => handleSetStatus('DECLINED')}
+                >
+                  <FormattedMessage defaultMessage="Decline" description="Review focused view: decline action" />
+                </Button>
+              )}
+              {!hideSubmit && (
+                <Button
+                  componentId={`${CID}.complete`}
+                  type="primary"
+                  disabled={isTerminal || isCreatingAssessment || isSettingStatus}
+                  loading={isCreatingAssessment || isSettingStatus}
+                  onClick={() => submitAnswersAndComplete()}
+                >
+                  <FormattedMessage
+                    defaultMessage="Submit"
+                    description="Review focused view: submit answers and mark the trace complete"
+                  />
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
