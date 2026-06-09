@@ -19,7 +19,7 @@ import { LabelSchemaInputRenderer } from '../../components/label-schemas';
 import type { LabelSchema, LabelSchemaValue } from '../../components/label-schemas';
 import { useCreateReviewAssessmentMutation } from './hooks/useCreateReviewAssessmentMutation';
 import { useTraceAssessmentsQuery } from './hooks/useTraceAssessmentsQuery';
-import { buildPrefilledAnswers, buildPrefilledRationales } from './reviewAnswers';
+import { buildPrefilledAnswers, buildPrefilledRationales, buildPriorAssessmentIds } from './reviewAnswers';
 import { StatusTag } from './ReviewQueueList';
 import { SegmentedProgressBar } from './SegmentedProgressBar';
 import type { ReviewQueueItem, ReviewStatus } from './types';
@@ -95,9 +95,14 @@ export const FocusedReview = ({
 
   // Prefill the widgets from the trace's existing assessments; edits overlay
   // the prefill so the query result never clobbers what the reviewer typed.
-  const { priorAnswers } = useTraceAssessmentsQuery({ traceId: item.target_id });
+  // Scope prior answers to this reviewer's own source so the prefill and the
+  // supersede target are never another reviewer's answer.
+  const { priorAnswers } = useTraceAssessmentsQuery({ traceId: item.target_id, sourceId: completedBy });
   const prefilled = useMemo(() => buildPrefilledAnswers(priorAnswers, schemas), [priorAnswers, schemas]);
   const prefilledRationales = useMemo(() => buildPrefilledRationales(priorAnswers, schemas), [priorAnswers, schemas]);
+  // Each question's prior assessment id (this reviewer's), so a re-submit
+  // supersedes it instead of writing a duplicate.
+  const priorAssessmentIds = useMemo(() => buildPriorAssessmentIds(priorAnswers, schemas), [priorAnswers, schemas]);
   const [edited, setEdited] = useState<Record<string, LabelSchemaValue>>({});
   const [editedRationales, setEditedRationales] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -169,6 +174,7 @@ export const FocusedReview = ({
             value: effectiveValue(s.name) as Exclude<LabelSchemaValue, null | undefined>,
             sourceId: completedBy,
             rationale: s.enable_comment ? rationaleFor(s.name).trim() || undefined : undefined,
+            overrides: priorAssessmentIds[s.name],
           }),
         ),
       );
