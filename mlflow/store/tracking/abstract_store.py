@@ -1839,7 +1839,7 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     # ------------------------------------------------------------------
-    # Review queues: named bundles of attached traces + questions (label
+    # Review queues: named bundles of attached items + questions (label
     # schemas) + assigned users, scoped to an experiment. See
     # mlflow/genai/review_queues/ for the entity dataclasses + validation.
     # ------------------------------------------------------------------
@@ -1908,27 +1908,6 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def _get_or_create_default_queue(
-        self,
-        experiment_id: str,
-        *,
-        created_by: str | None = None,
-    ) -> "ReviewQueue":
-        """Return the experiment's single default queue, creating it if absent.
-
-        Internal: the default queue is seeded lazily from ``list_review_queues``
-        (no-auth only) rather than via a dedicated RPC. It's a custom queue that
-        inherits all of the experiment's schemas, cannot have its questions
-        edited, and cannot be deleted. Atomic and idempotent: concurrent callers
-        converge on the single default queue.
-
-        Raises:
-            MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
-                doesn't exist.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
-    @requires_sql_backend
     def get_review_queue(self, queue_id: str) -> "ReviewQueue":
         """Fetch a review queue by its server-generated ID.
 
@@ -1954,22 +1933,15 @@ class AbstractStore(GatewayStoreMixin):
         user: str | None = None,
         max_results: int | None = None,
         page_token: str | None = None,
-        ensure_default: bool = False,
     ) -> PagedList["ReviewQueue"]:
         """List an experiment's review queues, newest first.
 
         Args:
             experiment_id: Parent experiment ID.
             user: If set, restrict to queues this user is assigned to (their
-                user queue plus any custom queue they belong to). The
-                experiment's default queue, when present, is always included
-                (it is everyone's queue).
+                user queue plus any custom queue they belong to).
             max_results: Page size.
             page_token: Opaque continuation token from a previous call.
-            ensure_default: No-auth only. When true, seed the experiment's
-                protected default queue (idempotently) before listing. Set by the
-                no-auth UI; left false on authenticated servers and SDK/API
-                callers, so no default queue is created there.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -1989,44 +1961,44 @@ class AbstractStore(GatewayStoreMixin):
         and their schemas resolve to all of the experiment's).
 
         ``schema_ids`` (the questions) are frozen once the queue has any
-        attached traces: changing them after reviewers start would strand
-        answers or leave completed traces with never-seen questions. Detach
-        the traces first to edit questions. Assigned users stay editable.
+        attached items: changing them after reviewers start would strand
+        answers or leave completed items with never-seen questions. Detach
+        the items first to edit questions. Assigned users stay editable.
 
         Raises:
             MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
             MlflowException(INVALID_PARAMETER_VALUE): on validation failure,
                 when called against a user queue, or when changing
-                ``schema_ids`` on a queue that already has traces.
+                ``schema_ids`` on a queue that already has items.
         """
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
     def delete_review_queue(self, queue_id: str) -> None:
-        """Hard-delete a queue and its user / trace / schema associations.
+        """Hard-delete a queue and its user / item / schema associations.
 
         No-op if the queue doesn't exist. Assessments written by reviewers
-        against the queue's traces are unaffected.
+        against the queue's items are unaffected.
         """
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def add_traces_to_review_queue(
+    def add_items_to_review_queue(
         self,
         queue_id: str,
         *,
-        target_ids: list[str],
-        target_type: Literal["trace"] = "trace",
+        item_ids: list[str],
+        item_type: Literal["trace"] = "trace",
     ) -> list["ReviewQueueItem"]:
-        """Attach traces to a queue, returning the resulting items.
+        """Attach items to a queue, returning the resulting queue items.
 
-        Idempotent per trace: re-attaching an already-attached trace is a
-        no-op that preserves its existing status. Newly-attached traces
+        Idempotent per item: re-attaching an already-attached item is a
+        no-op that preserves its existing status. Newly-attached items
         start ``pending``. The returned list covers every requested
-        ``target_id`` (newly-added and already-present), in the requested
+        ``item_id`` (newly-added and already-present), in the requested
         order.
 
-        ``target_ids`` are stored as soft references — this store method
+        ``item_ids`` are stored as soft references — this store method
         validates only their shape, NOT that each is a real trace in the
         queue's experiment/workspace. Trace existence and workspace
         membership are enforced at the handler/API layer that fronts this
@@ -2040,8 +2012,8 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def remove_traces_from_review_queue(self, queue_id: str, *, target_ids: list[str]) -> None:
-        """Detach traces from a queue. No-op for traces not attached.
+    def remove_items_from_review_queue(self, queue_id: str, *, item_ids: list[str]) -> None:
+        """Detach items from a queue. No-op for items not attached.
 
         Raises:
             MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
@@ -2050,7 +2022,7 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def list_review_queue_traces(
+    def list_review_queue_items(
         self,
         queue_id: str,
         *,
@@ -2058,7 +2030,7 @@ class AbstractStore(GatewayStoreMixin):
         max_results: int | None = None,
         page_token: str | None = None,
     ) -> PagedList["ReviewQueueItem"]:
-        """List a queue's attached traces, newest-attached first.
+        """List a queue's attached items, newest-attached first.
 
         Args:
             queue_id: The queue to list.
@@ -2072,15 +2044,15 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def set_review_queue_trace_status(
+    def set_review_queue_item_status(
         self,
         queue_id: str,
         *,
-        target_id: str,
+        item_id: str,
         status: Literal["pending", "complete", "declined"],
         completed_by: str | None = None,
     ) -> "ReviewQueueItem":
-        """Set the shared-pool status of an attached trace.
+        """Set the shared-pool status of an attached item.
 
         Moving to ``complete`` / ``declined`` records ``completed_by`` and a
         completion timestamp; moving back to ``pending`` (reopen) clears
@@ -2090,7 +2062,7 @@ class AbstractStore(GatewayStoreMixin):
 
         Raises:
             MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue or the
-                attached trace doesn't exist.
+                attached item doesn't exist.
             MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
         """
         raise NotImplementedError(self.__class__.__name__)

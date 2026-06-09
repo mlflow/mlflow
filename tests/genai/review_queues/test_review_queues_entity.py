@@ -2,11 +2,11 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.review_queues import (
+    ReviewItemType,
     ReviewQueue,
     ReviewQueueItem,
     ReviewQueueType,
     ReviewStatus,
-    ReviewTargetType,
 )
 from mlflow.protos import review_queues_pb2 as pb
 
@@ -14,7 +14,7 @@ from mlflow.protos import review_queues_pb2 as pb
 @pytest.mark.parametrize(
     ("enum_cls", "member", "proto_value"),
     [
-        (ReviewTargetType, ReviewTargetType.TRACE, pb.TRACE),
+        (ReviewItemType, ReviewItemType.TRACE, pb.TRACE),
         (ReviewQueueType, ReviewQueueType.USER, pb.USER),
         (ReviewQueueType, ReviewQueueType.CUSTOM, pb.CUSTOM),
         (ReviewStatus, ReviewStatus.PENDING, pb.PENDING),
@@ -30,7 +30,7 @@ def test_enum_proto_round_trip(enum_cls, member, proto_value):
 @pytest.mark.parametrize(
     ("enum_cls", "bad_proto"),
     [
-        (ReviewTargetType, pb.REVIEW_TARGET_TYPE_UNSPECIFIED),
+        (ReviewItemType, pb.REVIEW_ITEM_TYPE_UNSPECIFIED),
         (ReviewQueueType, pb.REVIEW_QUEUE_TYPE_UNSPECIFIED),
         (ReviewStatus, pb.REVIEW_STATUS_UNSPECIFIED),
         (ReviewStatus, 999),
@@ -69,14 +69,13 @@ def test_enum_from_proto_rejects_invalid(enum_cls, bad_proto):
         ReviewQueue(
             queue_id="rq-3",
             experiment_id="7",
-            name="Default",
+            name="custom-empty",
             queue_type=ReviewQueueType.CUSTOM,
             created_by=None,
             creation_time_ms=10,
             last_update_time_ms=10,
             users=[],
             schema_ids=[],
-            is_default=True,
         ),
     ],
 )
@@ -104,16 +103,16 @@ def test_review_queue_created_by_none_absent_on_wire():
     [
         ReviewQueueItem(
             queue_id="rq-1",
-            target_type=ReviewTargetType.TRACE,
-            target_id="tr-1",
+            item_type=ReviewItemType.TRACE,
+            item_id="tr-1",
             status=ReviewStatus.PENDING,
             creation_time_ms=1,
             last_update_time_ms=1,
         ),
         ReviewQueueItem(
             queue_id="rq-1",
-            target_type=ReviewTargetType.TRACE,
-            target_id="tr-2",
+            item_type=ReviewItemType.TRACE,
+            item_id="tr-2",
             status=ReviewStatus.COMPLETE,
             creation_time_ms=1,
             last_update_time_ms=2,
@@ -129,8 +128,8 @@ def test_review_queue_item_proto_round_trip(item):
 def test_review_queue_item_pending_attribution_absent_on_wire():
     item = ReviewQueueItem(
         queue_id="rq-1",
-        target_type=ReviewTargetType.TRACE,
-        target_id="tr-1",
+        item_type=ReviewItemType.TRACE,
+        item_id="tr-1",
         status=ReviewStatus.PENDING,
         creation_time_ms=1,
         last_update_time_ms=1,
