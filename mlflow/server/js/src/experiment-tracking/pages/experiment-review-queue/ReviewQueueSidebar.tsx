@@ -14,7 +14,6 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import { displayUser } from './hooks/useReviewer';
 import { buildReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
-import { sameUser } from './queuePermissions';
 import type { ReviewQueueItem, ReviewQueue } from './types';
 
 const CID = 'mlflow.experiment-review-queue.sidebar';
@@ -137,18 +136,16 @@ const CollapsibleGroup = ({
 };
 
 /**
- * Left panel of the Review tab: the reviewer's queues, each showing how many
- * traces are still to review. Queues with nothing left to review collapse into a
- * "No work to do" group. On an authenticated server the active queues are split
- * into "Feedback requested" (assigned by others) and "Created by me"; a no-auth
- * server shows one list. The selected queue's questions and per-queue actions
- * (manage / delete) live in the right pane's header, not here.
+ * Left panel of the Review tab: the reviewer's visible queues, each showing how
+ * many traces are still to review. Queues with work sit under "Work to do";
+ * queues with nothing left collapse into "No work to do". Which queues are
+ * visible is decided server-side (managers see all; reviewers see only the
+ * queues they're assigned to). The selected queue's questions and per-queue
+ * actions (manage / delete) live in the right pane's header, not here.
  */
 export const ReviewQueueSidebar = ({
   queues,
   selectedQueueId,
-  reviewer,
-  authAvailable,
   canManage,
   onSelect,
   onDeselectQueue,
@@ -157,8 +154,6 @@ export const ReviewQueueSidebar = ({
 }: {
   queues: ReviewQueue[];
   selectedQueueId: string | undefined;
-  reviewer: string;
-  authAvailable: boolean;
   canManage: boolean;
   onSelect: (queueId: string) => void;
   onDeselectQueue: () => void;
@@ -217,10 +212,6 @@ export const ReviewQueueSidebar = ({
       onSelect={() => onSelect(queue.queue_id)}
     />
   );
-
-  // Auth: split active queues owned vs assigned-by-others. No-auth: one list.
-  const created = authAvailable ? active.filter((q) => sameUser(q.created_by, reviewer)) : [];
-  const requested = authAvailable ? active.filter((q) => !sameUser(q.created_by, reviewer)) : [];
 
   return (
     <div
@@ -281,35 +272,17 @@ export const ReviewQueueSidebar = ({
         </div>
       )}
 
-      {authAvailable ? (
-        <>
-          {requested.length > 0 && (
-            <Group
-              title={
-                <FormattedMessage
-                  defaultMessage="Feedback requested"
-                  description="Review queue sidebar: group of queues assigned to the reviewer by others"
-                />
-              }
-            >
-              {requested.map(renderRow)}
-            </Group>
-          )}
-          {created.length > 0 && (
-            <Group
-              title={
-                <FormattedMessage
-                  defaultMessage="Created by me"
-                  description="Review queue sidebar: group of queues the reviewer owns"
-                />
-              }
-            >
-              {created.map(renderRow)}
-            </Group>
-          )}
-        </>
-      ) : (
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>{active.map(renderRow)}</div>
+      {active.length > 0 && (
+        <Group
+          title={
+            <FormattedMessage
+              defaultMessage="Work to do"
+              description="Review queue sidebar: group of queues with traces still to review"
+            />
+          }
+        >
+          {active.map(renderRow)}
+        </Group>
       )}
 
       {noWork.length > 0 && (

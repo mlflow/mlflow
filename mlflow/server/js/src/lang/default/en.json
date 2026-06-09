@@ -1655,10 +1655,6 @@
     "defaultMessage": "Failed to load attachment",
     "description": "Error message when trace attachment fails to load"
   },
-  "6zZT8f": {
-    "defaultMessage": "Created by me",
-    "description": "Review queue sidebar: group of queues the reviewer owns"
-  },
   "7+XQ3q": {
     "defaultMessage": "Correctness",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
@@ -3111,6 +3107,10 @@
     "defaultMessage": "Learn more",
     "description": "Documentation link text"
   },
+  "EYqwy2": {
+    "defaultMessage": "Assign myself",
+    "description": "Review focused view: self-assign to the queue to start reviewing"
+  },
   "EZfSbs": {
     "defaultMessage": "No trace data available",
     "description": "Evaluation review > no trace data available"
@@ -3706,10 +3706,6 @@
   "IEORCP": {
     "defaultMessage": "Comparing {numRuns} Runs from {numExperiments} Experiments",
     "description": "Breadcrumb title for compare runs page with multiple experiments"
-  },
-  "IF3wII": {
-    "defaultMessage": "Feedback requested",
-    "description": "Review queue sidebar: group of queues assigned to the reviewer by others"
   },
   "IFJQom": {
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
@@ -5383,6 +5379,10 @@
     "defaultMessage": "Create prompt version",
     "description": "Label for the create prompt action on the registered prompt details page"
   },
+  "RQ80MZ": {
+    "defaultMessage": "You're not assigned to this queue, so you can't submit reviews here.",
+    "description": "Review focused view: viewing a queue the reviewer is not assigned to"
+  },
   "RRvtnM": {
     "defaultMessage": "Did the conversation avoid causing user frustration?",
     "description": "Hint for UserFrustration template"
@@ -5734,6 +5734,10 @@
   "TCkOxn": {
     "defaultMessage": "Positive label",
     "description": "Pass/Fail positive label input"
+  },
+  "TGCfJL": {
+    "defaultMessage": "Work to do",
+    "description": "Review queue sidebar: group of queues with traces still to review"
   },
   "TKtJIK": {
     "defaultMessage": "Page not found",

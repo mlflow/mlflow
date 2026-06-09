@@ -2215,14 +2215,14 @@ def validate_can_get_or_create_user_queue():
 
 def validate_can_view_review_queue():
     # Per-queue read: experiment READ plus (MANAGE or membership). Mirrors the
-    # row predicate in ``filter_list_review_queues``.
-    perm = _get_permission_from_review_queue_id()
+    # row predicate in ``filter_list_review_queues``. Fetch the queue once and
+    # resolve the experiment permission from it.
+    username = authenticate_request().username
+    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+    perm = _get_experiment_permission(queue.experiment_id, username)
     if not perm.can_read:
         return False
-    if perm.can_manage:
-        return True
-    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    return _review_queue_has_member(queue, authenticate_request().username)
+    return perm.can_manage or _review_queue_has_member(queue, username)
 
 
 def validate_can_view_review_queue_by_name():
@@ -2242,11 +2242,11 @@ def validate_can_view_review_queue_by_name():
 def validate_can_review_queue_trace():
     # Submitting / reopening review work: experiment EDIT plus membership in the
     # queue's assigned-user pool (even a manager must assign themselves first).
-    perm = _get_permission_from_review_queue_id()
-    if not perm.can_update:
-        return False
+    # Fetch the queue once and resolve the experiment permission from it.
+    username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    return _review_queue_has_member(queue, authenticate_request().username)
+    perm = _get_experiment_permission(queue.experiment_id, username)
+    return perm.can_update and _review_queue_has_member(queue, username)
 
 
 def validate_can_create_label_schema():

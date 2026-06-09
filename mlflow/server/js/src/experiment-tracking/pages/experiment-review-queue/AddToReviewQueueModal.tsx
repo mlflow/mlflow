@@ -20,7 +20,7 @@ import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explor
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { LabelSchemaFormModal, useListLabelSchemasQuery } from '../../components/label-schemas';
-import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useIsAuthAvailable } from '../../../account/hooks';
+import { useIsAuthAvailable } from '../../../account/hooks';
 import Utils from '../../../common/utils/Utils';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { getQueueAssignability } from './queueAssignability';
@@ -72,11 +72,10 @@ export const AddToReviewQueueModal = ({
   const reviewer = useReviewer();
   const authAvailable = useIsAuthAvailable();
   const canManage = useCanManageReviews(experimentId);
-  const isAdmin = useCurrentUserIsAdmin();
-  const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
-  // The user roster is workspace-admin gated server-side; only fetch it when the
-  // caller can actually list users (and the modal is open).
-  const canListUsers = authAvailable && (isAdmin || isWorkspaceAdmin);
+  // Any authenticated user may list users server-side; we fetch the roster only
+  // for managers (who can assign reviewers — assignment needs experiment MANAGE)
+  // when the modal is open.
+  const canListUsers = authAvailable && canManage;
 
   const [search, setSearch] = useState('');
   // The experiment's default queue. Nothing is selected by default; the caller

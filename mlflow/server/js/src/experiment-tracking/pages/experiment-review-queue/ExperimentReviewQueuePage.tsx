@@ -18,10 +18,11 @@ import { useCanManageReviews } from './hooks/useCanManageReviews';
 import { useDeleteReviewQueueMutation } from './hooks/useDeleteReviewQueueMutation';
 import { useListReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
+import { useUpdateReviewQueueMutation } from './hooks/useUpdateReviewQueueMutation';
 import { useRemoveTracesFromReviewQueueMutation } from './hooks/useRemoveTracesFromReviewQueueMutation';
 import { displayUser, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueTraceStatusMutation } from './hooks/useSetReviewQueueTraceStatusMutation';
-import { canDeleteQueue, canManageQueue } from './queuePermissions';
+import { canDeleteQueue, canManageQueue, sameUser } from './queuePermissions';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 /**
@@ -69,6 +70,7 @@ const ExperimentReviewQueuePage = () => {
   const { setReviewQueueTraceStatusAsync, isSettingStatus } = useSetReviewQueueTraceStatusMutation();
   const { removeTracesFromReviewQueue, isRemovingTraces } = useRemoveTracesFromReviewQueueMutation();
   const { deleteReviewQueue } = useDeleteReviewQueueMutation();
+  const { updateReviewQueueAsync, isUpdatingQueue } = useUpdateReviewQueueMutation();
 
   // No queue is selected until the reviewer picks one (the right panel prompts
   // them to). Auto-selecting the first queue would land on a no-work queue and
@@ -92,6 +94,26 @@ const ExperimentReviewQueuePage = () => {
   // Whether the right-pane gear (manage settings / delete) shows — editable
   // non-default custom queues only (never USER queues or the default queue).
   const canEditSelectedQueue = selectedQueue ? canDeleteQueue(selectedQueue, canManage) : false;
+  // Whether the reviewer may submit reviews in the selected queue: always on a
+  // no-auth server; otherwise only if they're in the queue's assigned-user pool
+  // (the server enforces this on set-status). A manager viewing a queue they're
+  // not assigned to gets a view-only pane with a self-assign affordance.
+  const canReviewSelectedQueue =
+    !authAvailable || (selectedQueue ? (selectedQueue.users ?? []).some((u) => sameUser(u, reviewer)) : false);
+  const handleAssignSelf =
+    authAvailable &&
+    canManage &&
+    !canReviewSelectedQueue &&
+    selectedQueue &&
+    selectedQueue.queue_type === 'CUSTOM' &&
+    !selectedQueue.is_default
+      ? () => {
+          void updateReviewQueueAsync({
+            queue_id: selectedQueue.queue_id,
+            users: [...(selectedQueue.users ?? []), reviewer],
+          });
+        }
+      : undefined;
 
   const handleDeleteQueue = (queueId: string) =>
     deleteReviewQueue(
@@ -249,6 +271,9 @@ const ExperimentReviewQueuePage = () => {
         schemas={questionSchemas}
         completedBy={reviewer}
         isSettingStatus={isSettingStatus}
+        canReview={canReviewSelectedQueue}
+        onAssignSelf={handleAssignSelf}
+        isAssigningSelf={isUpdatingQueue}
         onBack={() => setOpenTargetId(null)}
         onSelect={(targetId) => setOpenTargetId(targetId)}
         onSetStatus={setOpenStatus}
@@ -309,8 +334,6 @@ const ExperimentReviewQueuePage = () => {
                 <ReviewQueueSidebar
                   queues={reviewQueues}
                   selectedQueueId={selectedQueueId}
-                  reviewer={reviewer}
-                  authAvailable={authAvailable}
                   canManage={canManage}
                   onSelect={selectQueue}
                   onDeselectQueue={() => {

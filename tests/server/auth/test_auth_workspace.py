@@ -2689,22 +2689,18 @@ def test_validate_can_list_roles_multi_workspace(role_auth_setup, actor, workspa
         assert auth_module.validate_can_list_roles() is expected
 
 
-# Super admin is omitted from these parametrizations: ``_before_request``
-# short-circuits via ``sender_is_admin`` before the validator is reached, so
-# the validator is unreachable for them in production.
+# Any authenticated user may list users (the review-queue assignment UI needs
+# the roster; assigning still requires experiment MANAGE). Super admin is
+# omitted: ``_before_request`` short-circuits via ``sender_is_admin`` before the
+# validator is reached.
 @pytest.mark.parametrize(
-    ("actor", "expected"),
-    [
-        ("ws_admin_foo", True),
-        ("ws_admin_bar", True),
-        ("ws_member_foo", False),
-        ("outsider", False),
-    ],
+    "actor",
+    ["ws_admin_foo", "ws_admin_bar", "ws_member_foo", "outsider"],
 )
-def test_validate_can_list_users(role_auth_setup, actor, expected):
+def test_validate_can_list_users(role_auth_setup, actor):
     role_auth_setup["login_as"](actor)
     with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
-        assert auth_module.validate_can_list_users() is expected
+        assert auth_module.validate_can_list_users() is True
 
 
 def test_list_users_handler_eager_loads_scoped_roles(role_auth_setup):

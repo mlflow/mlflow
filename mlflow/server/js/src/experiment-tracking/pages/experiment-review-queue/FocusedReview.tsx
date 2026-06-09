@@ -53,6 +53,9 @@ export const FocusedReview = ({
   schemas,
   completedBy,
   isSettingStatus,
+  canReview,
+  onAssignSelf,
+  isAssigningSelf,
   onBack,
   onSelect,
   onSetStatus,
@@ -64,6 +67,15 @@ export const FocusedReview = ({
   completedBy: string;
   /** True while a status write is in flight (disables the actions). */
   isSettingStatus: boolean;
+  /**
+   * Whether the current reviewer may submit reviews in this queue — true unless
+   * an auth-server manager is viewing a queue they aren't assigned to. When
+   * false the answer inputs and submit/decline/reopen are disabled (view-only).
+   */
+  canReview: boolean;
+  /** Self-assign action; shown to a manager viewing a queue they aren't in. */
+  onAssignSelf?: () => void;
+  isAssigningSelf?: boolean;
   onBack: () => void;
   onSelect: (targetId: string) => void;
   onSetStatus: (status: ReviewStatus) => Promise<void>;
@@ -375,6 +387,7 @@ export const FocusedReview = ({
                     onChange={(value) => {
                       setAnswer(schema.name, value);
                       if (
+                        canReview &&
                         autoSubmitSchema?.schema_id === schema.schema_id &&
                         !isTerminal &&
                         !isCreatingAssessment &&
@@ -383,7 +396,7 @@ export const FocusedReview = ({
                         submitAnswersAndComplete({ [schema.name]: value });
                       }
                     }}
-                    disabled={isTerminal}
+                    disabled={isTerminal || !canReview}
                     componentId={`${CID}.question`}
                     label={schema.name}
                     instruction={schema.instruction}
@@ -394,7 +407,7 @@ export const FocusedReview = ({
                       rows={2}
                       value={rationaleFor(schema.name)}
                       onChange={(e) => setRationale(schema.name, e.target.value)}
-                      disabled={isTerminal}
+                      disabled={isTerminal || !canReview}
                       placeholder={intl.formatMessage({
                         defaultMessage: 'Rationale (optional)',
                         description: 'Review focused view: free-form rationale placeholder',
@@ -419,6 +432,32 @@ export const FocusedReview = ({
               borderTop: `1px solid ${theme.colors.border}`,
             }}
           >
+            {!canReview && (
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                <Alert
+                  componentId={`${CID}.not-assigned`}
+                  type="info"
+                  closable={false}
+                  message={intl.formatMessage({
+                    defaultMessage: "You're not assigned to this queue, so you can't submit reviews here.",
+                    description: 'Review focused view: viewing a queue the reviewer is not assigned to',
+                  })}
+                />
+                {onAssignSelf && (
+                  <Button
+                    componentId={`${CID}.assign-self`}
+                    css={{ alignSelf: 'flex-start' }}
+                    loading={isAssigningSelf}
+                    onClick={onAssignSelf}
+                  >
+                    <FormattedMessage
+                      defaultMessage="Assign myself"
+                      description="Review focused view: self-assign to the queue to start reviewing"
+                    />
+                  </Button>
+                )}
+              </div>
+            )}
             {submitError && (
               <Alert
                 componentId={`${CID}.submit-error`}
@@ -438,7 +477,7 @@ export const FocusedReview = ({
               {isTerminal ? (
                 <Button
                   componentId={`${CID}.reopen`}
-                  disabled={isSettingStatus}
+                  disabled={isSettingStatus || !canReview}
                   onClick={() => handleSetStatus('PENDING')}
                 >
                   <FormattedMessage defaultMessage="Reopen" description="Review focused view: reopen action" />
@@ -446,7 +485,7 @@ export const FocusedReview = ({
               ) : (
                 <Button
                   componentId={`${CID}.decline`}
-                  disabled={isSettingStatus}
+                  disabled={isSettingStatus || !canReview}
                   onClick={() => handleSetStatus('DECLINED')}
                 >
                   <FormattedMessage defaultMessage="Decline" description="Review focused view: decline action" />
@@ -456,7 +495,7 @@ export const FocusedReview = ({
                 <Button
                   componentId={`${CID}.complete`}
                   type="primary"
-                  disabled={isTerminal || isCreatingAssessment || isSettingStatus}
+                  disabled={isTerminal || isCreatingAssessment || isSettingStatus || !canReview}
                   loading={isCreatingAssessment || isSettingStatus}
                   onClick={() => submitAnswersAndComplete()}
                 >
