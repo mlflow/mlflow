@@ -8085,8 +8085,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def list_label_schemas(self, experiment_id, max_results=100, page_token=None):
         self._validate_max_results_param(max_results)
         offset = SearchUtils.parse_start_offset_from_page_token(page_token) if page_token else 0
-        with self.ManagedSessionMaker() as session:
+        # Writable session: the protected default question is seeded lazily on
+        # first access (see `_ensure_default_label_schema`), so a list may create
+        # it. This is the SDK + REST chokepoint, so every experiment always has
+        # at least one question regardless of how it's first reached.
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_experiment_exists(session, experiment_id)
+            self._ensure_default_label_schema(session, experiment_id)
 
             results = (
                 self
@@ -8197,7 +8202,73 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if sql_schema is None:
                 _logger.debug(f"Label schema with id '{schema_id}' not found; delete is a no-op.")
                 return
+            if sql_schema.is_default:
+                raise MlflowException(
+                    "The experiment's default question cannot be deleted.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             session.delete(sql_schema)
+
+    def _ensure_default_label_schema(self, session, experiment_id):
+        """Seed the experiment's protected default question if it's absent.
+
+        The default question is a FEEDBACK free-text schema named
+        ``DEFAULT_LABEL_SCHEMA_NAME``, marked ``is_default`` so it is undeletable
+        and uneditable. It's created lazily from ``list_label_schemas`` (the SDK +
+        REST chokepoint) so every experiment always presents at least one question
+        on first access, without a dedicated endpoint. Idempotent: at most one row
+        per experiment carries the reserved name.
+        """
+        from mlflow.genai.label_schemas.label_schemas import (
+            InputText,
+            LabelSchema,
+            LabelSchemaType,
+        )
+        from mlflow.genai.label_schemas.validation import (
+            DEFAULT_LABEL_SCHEMA_INSTRUCTION,
+            DEFAULT_LABEL_SCHEMA_NAME,
+        )
+
+        # Key the idempotency check on the is_default flag (dialect-agnostic): a
+        # name `==` is case-sensitive on some backends. A pre-existing user schema
+        # literally named "Feedback" (only creatable before the reserved-name
+        # rule) collides on the (experiment_id, name) unique constraint below, is
+        # caught, and that experiment keeps its own "Feedback" with no separate
+        # protected default — an accepted edge for already-created data.
+        existing = (
+            self
+            ._label_schema_query(session)
+            .filter(
+                SqlLabelSchema.experiment_id == int(experiment_id),
+                SqlLabelSchema.is_default.is_(True),
+            )
+            .first()
+        )
+        if existing is not None:
+            return
+
+        entity = LabelSchema(
+            schema_id=f"{SqlLabelSchema.LABEL_SCHEMA_ID_PREFIX}{uuid.uuid4().hex}",
+            experiment_id=str(experiment_id),
+            name=DEFAULT_LABEL_SCHEMA_NAME,
+            type=LabelSchemaType.FEEDBACK,
+            input=InputText(),
+            instruction=DEFAULT_LABEL_SCHEMA_INSTRUCTION,
+            enable_comment=False,
+            is_default=True,
+        )
+        try:
+            # SAVEPOINT isolates this insert so a benign IntegrityError drops only
+            # it, not the caller's transaction (same pattern as
+            # add_traces_to_review_queue). Two cases are safe to swallow: a
+            # concurrent ensure won the (experiment_id, name) unique race (the
+            # existing row is the default), or the experiment vanished concurrently
+            # (a FK error, which the list's experiment validation then surfaces).
+            with session.begin_nested():
+                session.add(SqlLabelSchema.from_mlflow_entity(entity))
+                session.flush()
+        except IntegrityError:
+            pass
 
     # ------------------------------------------------------------------
     # Review queues: see mlflow/genai/review_queues/ for the entity

@@ -2455,9 +2455,15 @@ def test_label_schemas_are_workspace_scoped(workspace_tracking_store):
         assert intact.schema_id == schema_a.schema_id
         assert intact.instruction != "hijacked"
 
-        # Within-workspace list resolves schema A via the experiment join.
-        listed = workspace_tracking_store.list_label_schemas(exp_a_id)
+        # Within-workspace list resolves schema A via the experiment join
+        # (filtering out the auto-seeded default question).
+        listed = [
+            s for s in workspace_tracking_store.list_label_schemas(exp_a_id) if not s.is_default
+        ]
         assert [s.schema_id for s in listed] == [schema_a.schema_id]
+
+        # The protected default question is seeded within team-a's own workspace.
+        assert sum(s.is_default for s in workspace_tracking_store.list_label_schemas(exp_a_id)) == 1
 
         # Cross-workspace get-by-id from workspace-a → workspace-b.
         with pytest.raises(MlflowException, match="not found"):
