@@ -4,7 +4,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.label_schemas.label_schemas import InputPassFail
-from mlflow.genai.review_queues import ReviewQueueType, ReviewStatus, ReviewTargetType
+from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
@@ -150,6 +150,41 @@ def test_same_name_different_experiments_coexist(store):
     assert qa.queue_id != qb.queue_id
 
 
+def test_create_custom_queue_accepts_users_at_cap(store):
+    exp_id = _create_experiments(store, "cap_at_limit")
+    queue = store.create_review_queue(
+        exp_id, name="full", queue_type="custom", users=["a", "b", "c", "d"]
+    )
+    assert queue.users == ["a", "b", "c", "d"]
+
+
+def test_create_custom_queue_rejects_users_over_cap(store):
+    exp_id = _create_experiments(store, "cap_over")
+    with pytest.raises(MlflowException, match="at most 4 assigned users") as exc:
+        store.create_review_queue(
+            exp_id, name="too_many", queue_type="custom", users=["a", "b", "c", "d", "e"]
+        )
+    _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+
+
+def test_create_custom_queue_caps_after_dedup(store):
+    exp_id = _create_experiments(store, "cap_dedup")
+    # Five raw users that de-duplicate to four are under the cap (the cap is
+    # checked on the de-duplicated set, not the raw input).
+    queue = store.create_review_queue(
+        exp_id, name="dupes", queue_type="custom", users=["a", "b", "c", "d", "a"]
+    )
+    assert queue.users == ["a", "b", "c", "d"]
+
+
+def test_update_custom_queue_rejects_users_over_cap(store):
+    exp_id = _create_experiments(store, "cap_update")
+    queue = store.create_review_queue(exp_id, name="growing", queue_type="custom", users=["a"])
+    with pytest.raises(MlflowException, match="at most 4 assigned users") as exc:
+        store.update_review_queue(queue.queue_id, users=["a", "b", "c", "d", "e"])
+    _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+
+
 # --------------------------------------------------------------------------
 # get_or_create_user_queue
 # --------------------------------------------------------------------------
@@ -243,17 +278,16 @@ def test_list_review_queues_filtered_by_user(store):
     assert custom.users == ["alice", "bob"]
 
 
-def test_list_review_queues_always_includes_default(store):
-    exp_id = _create_experiments(store, "list_default")
-    default = store._get_or_create_default_queue(exp_id)
+def test_list_review_queues_scopes_to_assigned_user(store):
+    exp_id = _create_experiments(store, "list_scoped")
+    store.get_or_create_user_queue(exp_id, user="default")
     store.create_review_queue(exp_id, name="solo", queue_type="custom", users=["carol"])
 
-    # The default queue is everyone's, so it appears in any user's scoped list
-    # even though that user is not an assigned member; the 'solo' queue (which
-    # bob is not on) does not.
+    # A user's scoped list contains only the queues they are assigned to; the
+    # no-auth 'default' user queue belongs to 'default', not bob, so it is not
+    # included for bob (neither is the 'solo' queue, which bob is not on).
     bob_queues = {q.name for q in store.list_review_queues(exp_id, user="bob")}
-    assert bob_queues == {"Default"}
-    assert default.users == []
+    assert bob_queues == set()
 
 
 def test_list_review_queues_pagination(store):
@@ -346,8 +380,8 @@ def test_update_questions_locked_once_traces_assigned(store):
     queue = store.create_review_queue(
         exp_id, name="q", queue_type="custom", schema_ids=[ls1.schema_id]
     )
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
-    with pytest.raises(MlflowException, match="locked once traces are assigned") as exc:
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
+    with pytest.raises(MlflowException, match="locked once items are assigned") as exc:
         store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id, ls2.schema_id])
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
 
@@ -358,7 +392,7 @@ def test_update_users_allowed_after_traces_assigned(store):
     queue = store.create_review_queue(
         exp_id, name="q", queue_type="custom", users=["bob"], schema_ids=[ls.schema_id]
     )
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
     # Questions are locked, but assigned users stay editable.
     updated = store.update_review_queue(queue.queue_id, users=["dave"])
     assert updated.users == ["dave"]
@@ -372,8 +406,8 @@ def test_update_questions_allowed_after_traces_detached(store):
     queue = store.create_review_queue(
         exp_id, name="q", queue_type="custom", schema_ids=[ls1.schema_id]
     )
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
-    store.remove_traces_from_review_queue(queue.queue_id, target_ids=["tr-1"])
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
+    store.remove_items_from_review_queue(queue.queue_id, item_ids=["tr-1"])
     # With the queue empty again, questions can be edited.
     updated = store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id, ls2.schema_id])
     assert sorted(updated.schema_ids) == sorted([ls1.schema_id, ls2.schema_id])
@@ -390,7 +424,7 @@ def test_delete_review_queue_removes_queue_and_children(store):
     queue = store.create_review_queue(
         exp_id, name="q", queue_type="custom", users=["bob"], schema_ids=[ls.schema_id]
     )
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
 
     store.delete_review_queue(queue.queue_id)
     with pytest.raises(MlflowException, match="not found"):
@@ -405,36 +439,36 @@ def test_delete_missing_queue_is_noop(store):
 
 
 # --------------------------------------------------------------------------
-# Attach / detach traces
+# Attach / detach items
 # --------------------------------------------------------------------------
 
 
 def test_add_traces_returns_items_in_order(store):
     exp_id = _create_experiments(store, "attach")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    items = store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-3", "tr-1", "tr-2"])
-    assert [i.target_id for i in items] == ["tr-3", "tr-1", "tr-2"]
+    items = store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-3", "tr-1", "tr-2"])
+    assert [i.item_id for i in items] == ["tr-3", "tr-1", "tr-2"]
     assert all(i.status == ReviewStatus.PENDING for i in items)
-    assert all(i.target_type == ReviewTargetType.TRACE for i in items)
+    assert all(i.item_type == ReviewItemType.TRACE for i in items)
     assert all(i.completed_by is None for i in items)
 
 
 def test_add_traces_dedups_within_call(store):
     exp_id = _create_experiments(store, "attach_dedup")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    items = store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1", "tr-1"])
+    items = store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1", "tr-1"])
     assert len(items) == 1
 
 
 def test_add_traces_is_idempotent_and_preserves_status(store):
     exp_id = _create_experiments(store, "attach_idempotent")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
-    store.set_review_queue_trace_status(
-        queue.queue_id, target_id="tr-1", status="complete", completed_by="bob"
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
+    store.set_review_queue_item_status(
+        queue.queue_id, item_id="tr-1", status="complete", completed_by="bob"
     )
-    items = store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1", "tr-2"])
-    by_id = {i.target_id: i for i in items}
+    items = store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1", "tr-2"])
+    by_id = {i.item_id: i for i in items}
     assert by_id["tr-1"].status == ReviewStatus.COMPLETE
     assert by_id["tr-1"].completed_by == "bob"
     assert by_id["tr-2"].status == ReviewStatus.PENDING
@@ -442,7 +476,7 @@ def test_add_traces_is_idempotent_and_preserves_status(store):
 
 def test_add_traces_to_missing_queue_raises(store):
     with pytest.raises(MlflowException, match="not found") as exc:
-        store.add_traces_to_review_queue("rq-missing", target_ids=["tr-1"])
+        store.add_items_to_review_queue("rq-missing", item_ids=["tr-1"])
     _assert_error_code(exc, RESOURCE_DOES_NOT_EXIST)
 
 
@@ -450,88 +484,82 @@ def test_add_traces_rejects_empty_list(store):
     exp_id = _create_experiments(store, "attach_empty")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
     with pytest.raises(MlflowException, match="non-empty list") as exc:
-        store.add_traces_to_review_queue(queue.queue_id, target_ids=[])
+        store.add_items_to_review_queue(queue.queue_id, item_ids=[])
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
 
 
 def test_remove_traces(store):
     exp_id = _create_experiments(store, "detach")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1", "tr-2", "tr-3"])
-    store.remove_traces_from_review_queue(queue.queue_id, target_ids=["tr-2"])
-    remaining = {i.target_id for i in store.list_review_queue_traces(queue.queue_id)}
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1", "tr-2", "tr-3"])
+    store.remove_items_from_review_queue(queue.queue_id, item_ids=["tr-2"])
+    remaining = {i.item_id for i in store.list_review_queue_items(queue.queue_id)}
     assert remaining == {"tr-1", "tr-3"}
 
 
 def test_remove_unattached_trace_is_noop(store):
     exp_id = _create_experiments(store, "detach_noop")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
-    store.remove_traces_from_review_queue(queue.queue_id, target_ids=["tr-9"])
-    assert len(store.list_review_queue_traces(queue.queue_id)) == 1
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
+    store.remove_items_from_review_queue(queue.queue_id, item_ids=["tr-9"])
+    assert len(store.list_review_queue_items(queue.queue_id)) == 1
 
 
 def test_same_trace_in_two_queues_has_independent_status(store):
     exp_id = _create_experiments(store, "two_queues")
     q1 = store.create_review_queue(exp_id, name="q1", queue_type="custom")
     q2 = store.create_review_queue(exp_id, name="q2", queue_type="custom")
-    store.add_traces_to_review_queue(q1.queue_id, target_ids=["tr-1"])
-    store.add_traces_to_review_queue(q2.queue_id, target_ids=["tr-1"])
-    store.set_review_queue_trace_status(
-        q1.queue_id, target_id="tr-1", status="complete", completed_by="bob"
+    store.add_items_to_review_queue(q1.queue_id, item_ids=["tr-1"])
+    store.add_items_to_review_queue(q2.queue_id, item_ids=["tr-1"])
+    store.set_review_queue_item_status(
+        q1.queue_id, item_id="tr-1", status="complete", completed_by="bob"
     )
-    item_q1 = store.list_review_queue_traces(q1.queue_id)[0]
-    item_q2 = store.list_review_queue_traces(q2.queue_id)[0]
+    item_q1 = store.list_review_queue_items(q1.queue_id)[0]
+    item_q2 = store.list_review_queue_items(q2.queue_id)[0]
     assert item_q1.status == ReviewStatus.COMPLETE
     assert item_q2.status == ReviewStatus.PENDING
 
 
 # --------------------------------------------------------------------------
-# List traces
+# List items
 # --------------------------------------------------------------------------
 
 
 def test_list_traces_filtered_by_status(store):
     exp_id = _create_experiments(store, "list_traces_status")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1", "tr-2", "tr-3"])
-    store.set_review_queue_trace_status(
-        queue.queue_id, target_id="tr-1", status="complete", completed_by="bob"
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1", "tr-2", "tr-3"])
+    store.set_review_queue_item_status(
+        queue.queue_id, item_id="tr-1", status="complete", completed_by="bob"
     )
-    store.set_review_queue_trace_status(
-        queue.queue_id, target_id="tr-2", status="declined", completed_by="carol"
+    store.set_review_queue_item_status(
+        queue.queue_id, item_id="tr-2", status="declined", completed_by="carol"
     )
 
-    pending = {
-        i.target_id for i in store.list_review_queue_traces(queue.queue_id, status="pending")
-    }
+    pending = {i.item_id for i in store.list_review_queue_items(queue.queue_id, status="pending")}
     assert pending == {"tr-3"}
-    complete = {
-        i.target_id for i in store.list_review_queue_traces(queue.queue_id, status="complete")
-    }
+    complete = {i.item_id for i in store.list_review_queue_items(queue.queue_id, status="complete")}
     assert complete == {"tr-1"}
-    declined = {
-        i.target_id for i in store.list_review_queue_traces(queue.queue_id, status="declined")
-    }
+    declined = {i.item_id for i in store.list_review_queue_items(queue.queue_id, status="declined")}
     assert declined == {"tr-2"}
 
 
 def test_list_traces_pagination(store):
     exp_id = _create_experiments(store, "list_traces_paginate")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=[f"tr-{i}" for i in range(5)])
-    page1 = store.list_review_queue_traces(queue.queue_id, max_results=2)
+    store.add_items_to_review_queue(queue.queue_id, item_ids=[f"tr-{i}" for i in range(5)])
+    page1 = store.list_review_queue_items(queue.queue_id, max_results=2)
     assert len(page1) == 2
     assert page1.token is not None
-    page2 = store.list_review_queue_traces(queue.queue_id, max_results=2, page_token=page1.token)
-    page3 = store.list_review_queue_traces(queue.queue_id, max_results=2, page_token=page2.token)
-    all_ids = {i.target_id for i in [*page1, *page2, *page3]}
+    page2 = store.list_review_queue_items(queue.queue_id, max_results=2, page_token=page1.token)
+    page3 = store.list_review_queue_items(queue.queue_id, max_results=2, page_token=page2.token)
+    all_ids = {i.item_id for i in [*page1, *page2, *page3]}
     assert all_ids == {f"tr-{i}" for i in range(5)}
 
 
 def test_list_traces_missing_queue_raises(store):
     with pytest.raises(MlflowException, match="not found") as exc:
-        store.list_review_queue_traces("rq-missing")
+        store.list_review_queue_items("rq-missing")
     _assert_error_code(exc, RESOURCE_DOES_NOT_EXIST)
 
 
@@ -543,9 +571,9 @@ def test_list_traces_missing_queue_raises(store):
 def test_complete_records_attribution(store):
     exp_id = _create_experiments(store, "complete")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
-    item = store.set_review_queue_trace_status(
-        queue.queue_id, target_id="tr-1", status="complete", completed_by="Bob"
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
+    item = store.set_review_queue_item_status(
+        queue.queue_id, item_id="tr-1", status="complete", completed_by="Bob"
     )
     assert item.status == ReviewStatus.COMPLETE
     assert item.completed_by == "bob"  # normalized
@@ -555,9 +583,9 @@ def test_complete_records_attribution(store):
 def test_decline_records_attribution(store):
     exp_id = _create_experiments(store, "decline")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
-    item = store.set_review_queue_trace_status(
-        queue.queue_id, target_id="tr-1", status="declined", completed_by="carol"
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
+    item = store.set_review_queue_item_status(
+        queue.queue_id, item_id="tr-1", status="declined", completed_by="carol"
     )
     assert item.status == ReviewStatus.DECLINED
     assert item.completed_by == "carol"
@@ -567,13 +595,11 @@ def test_decline_records_attribution(store):
 def test_reopen_clears_attribution(store):
     exp_id = _create_experiments(store, "reopen")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
-    store.set_review_queue_trace_status(
-        queue.queue_id, target_id="tr-1", status="complete", completed_by="bob"
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
+    store.set_review_queue_item_status(
+        queue.queue_id, item_id="tr-1", status="complete", completed_by="bob"
     )
-    reopened = store.set_review_queue_trace_status(
-        queue.queue_id, target_id="tr-1", status="pending"
-    )
+    reopened = store.set_review_queue_item_status(queue.queue_id, item_id="tr-1", status="pending")
     assert reopened.status == ReviewStatus.PENDING
     assert reopened.completed_by is None
     assert reopened.completed_time_ms is None
@@ -582,14 +608,14 @@ def test_reopen_clears_attribution(store):
 def test_repeat_same_status_preserves_attribution(store):
     exp_id = _create_experiments(store, "repeat_status")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
-    first = store.set_review_queue_trace_status(
-        queue.queue_id, target_id="tr-1", status="complete", completed_by="bob"
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
+    first = store.set_review_queue_item_status(
+        queue.queue_id, item_id="tr-1", status="complete", completed_by="bob"
     )
     # Re-completing with the same status (a repeat or a concurrent second
     # reviewer) is a no-op and must not overwrite the original completer.
-    again = store.set_review_queue_trace_status(
-        queue.queue_id, target_id="tr-1", status="complete", completed_by="carol"
+    again = store.set_review_queue_item_status(
+        queue.queue_id, item_id="tr-1", status="complete", completed_by="carol"
     )
     assert again.completed_by == "bob"
     assert again.completed_time_ms == first.completed_time_ms
@@ -598,14 +624,14 @@ def test_repeat_same_status_preserves_attribution(store):
 def test_terminal_status_change_reattributes(store):
     exp_id = _create_experiments(store, "status_change")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
-    store.set_review_queue_trace_status(
-        queue.queue_id, target_id="tr-1", status="complete", completed_by="bob"
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
+    store.set_review_queue_item_status(
+        queue.queue_id, item_id="tr-1", status="complete", completed_by="bob"
     )
     # A genuine status change (complete -> declined) is a real action and
     # re-records the reviewer who made it.
-    changed = store.set_review_queue_trace_status(
-        queue.queue_id, target_id="tr-1", status="declined", completed_by="carol"
+    changed = store.set_review_queue_item_status(
+        queue.queue_id, item_id="tr-1", status="declined", completed_by="carol"
     )
     assert changed.status == ReviewStatus.DECLINED
     assert changed.completed_by == "carol"
@@ -614,19 +640,19 @@ def test_terminal_status_change_reattributes(store):
 def test_complete_requires_completed_by(store):
     exp_id = _create_experiments(store, "complete_requires")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
     with pytest.raises(MlflowException, match="`completed_by` is required") as exc:
-        store.set_review_queue_trace_status(queue.queue_id, target_id="tr-1", status="complete")
+        store.set_review_queue_item_status(queue.queue_id, item_id="tr-1", status="complete")
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
 
 
 def test_reopen_rejects_completed_by(store):
     exp_id = _create_experiments(store, "reopen_rejects")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
     with pytest.raises(MlflowException, match="must not be set when reopening") as exc:
-        store.set_review_queue_trace_status(
-            queue.queue_id, target_id="tr-1", status="pending", completed_by="bob"
+        store.set_review_queue_item_status(
+            queue.queue_id, item_id="tr-1", status="pending", completed_by="bob"
         )
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
 
@@ -635,71 +661,23 @@ def test_set_status_on_unattached_trace_raises(store):
     exp_id = _create_experiments(store, "status_unattached")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
     with pytest.raises(MlflowException, match="not attached") as exc:
-        store.set_review_queue_trace_status(
-            queue.queue_id, target_id="tr-x", status="complete", completed_by="bob"
+        store.set_review_queue_item_status(
+            queue.queue_id, item_id="tr-x", status="complete", completed_by="bob"
         )
     _assert_error_code(exc, RESOURCE_DOES_NOT_EXIST)
 
 
 def test_set_status_missing_queue_raises(store):
     with pytest.raises(MlflowException, match="not found") as exc:
-        store.set_review_queue_trace_status(
-            "rq-missing", target_id="tr-1", status="complete", completed_by="bob"
+        store.set_review_queue_item_status(
+            "rq-missing", item_id="tr-1", status="complete", completed_by="bob"
         )
     _assert_error_code(exc, RESOURCE_DOES_NOT_EXIST)
 
 
 # --------------------------------------------------------------------------
-# Default queue
+# Reserved queue name
 # --------------------------------------------------------------------------
-
-
-def test_get_or_create_default_queue_creates_inheriting_custom_queue(store):
-    exp_id = _create_experiments(store, "default_queue")
-    queue = store._get_or_create_default_queue(exp_id, created_by="kris")
-
-    assert queue.is_default is True
-    assert queue.queue_type == ReviewQueueType.CUSTOM
-    assert queue.name == "Default"
-    assert queue.created_by == "kris"
-    # Like a user queue, the default queue attaches no schemas and resolves to
-    # all of the experiment's schemas at read time.
-    assert queue.schema_ids == []
-    assert queue.users == []
-
-
-def test_get_or_create_default_queue_is_idempotent(store):
-    exp_id = _create_experiments(store, "default_idempotent")
-    first = store._get_or_create_default_queue(exp_id)
-    second = store._get_or_create_default_queue(exp_id)
-
-    assert first.queue_id == second.queue_id
-    defaults = [q.queue_id for q in store.list_review_queues(exp_id) if q.is_default]
-    assert defaults == [first.queue_id]
-
-
-def test_default_queue_cannot_be_deleted(store):
-    exp_id = _create_experiments(store, "default_undeletable")
-    queue = store._get_or_create_default_queue(exp_id)
-
-    with pytest.raises(MlflowException, match="default queue cannot be deleted") as exc:
-        store.delete_review_queue(queue.queue_id)
-    _assert_error_code(exc, INVALID_PARAMETER_VALUE)
-    assert store.get_review_queue(queue.queue_id).queue_id == queue.queue_id
-
-
-def test_default_queue_questions_locked_but_users_editable(store):
-    exp_id = _create_experiments(store, "default_uneditable")
-    ls = _pass_fail(store, exp_id, "quality")
-    queue = store._get_or_create_default_queue(exp_id)
-
-    with pytest.raises(MlflowException, match="questions cannot be edited") as exc:
-        store.update_review_queue(queue.queue_id, schema_ids=[ls.schema_id])
-    _assert_error_code(exc, INVALID_PARAMETER_VALUE)
-
-    updated = store.update_review_queue(queue.queue_id, users=["Bob"])
-    assert updated.users == ["bob"]
-    assert updated.schema_ids == []
 
 
 def test_create_custom_queue_rejects_default_name(store):
@@ -715,9 +693,3 @@ def test_create_custom_queue_rejects_default_name_case_insensitive(store, name):
     with pytest.raises(MlflowException, match="reserved queue name") as exc:
         store.create_review_queue(exp_id, name=name, queue_type="custom")
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
-
-
-def test_get_or_create_default_queue_missing_experiment_raises(store):
-    with pytest.raises(MlflowException, match="No Experiment with id") as exc:
-        store._get_or_create_default_queue("999999")
-    _assert_error_code(exc, RESOURCE_DOES_NOT_EXIST)

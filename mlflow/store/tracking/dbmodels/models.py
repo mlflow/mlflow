@@ -3390,7 +3390,7 @@ class SqlReviewQueue(Base):
     """
     DB model for review queues.
 
-    A review queue is a named bundle of attached traces, questions
+    A review queue is a named bundle of attached items, questions
     (label schemas), and assigned users, scoped to an experiment and
     keyed on ``(experiment_id, name)``. See
     ``mlflow/genai/review_queues/review_queues.py`` for the entity
@@ -3400,7 +3400,7 @@ class SqlReviewQueue(Base):
     workspace-aware store filters via a join to ``experiments``, exactly
     like ``label_schemas``), so there is no denormalized ``workspace``
     column. The three child tables (``review_queue_users``,
-    ``review_queue_traces``, ``review_queue_label_schemas``) inherit it
+    ``review_queue_items``, ``review_queue_label_schemas``) inherit it
     transitively through this table.
     """
 
@@ -3429,21 +3429,14 @@ class SqlReviewQueue(Base):
     Queue name: ``String`` (limit 250, matching ``label_schemas.name``).
     For a user queue this equals the (normalized) user identifier; for a
     custom queue it is an arbitrary display name. Unique within
-    ``experiment_id``. ``'default'`` (the no-auth default user queue) and
-    ``'Default'`` (the experiment's default review queue, ``is_default``)
-    are reserved and rejected for custom queues.
+    ``experiment_id``. ``'default'`` (the no-auth default user queue) is
+    reserved case-insensitively (any casing of ``'default'``) and rejected
+    for custom queues.
     """
 
     queue_type = Column(String(16), nullable=False)
     """
     Queue flavor: ``'user'`` or ``'custom'``. ``String`` (limit 16).
-    """
-
-    is_default = Column(Boolean, nullable=False, default=False)
-    """
-    Whether this is the experiment's single default queue: a ``'custom'`` queue
-    that inherits all of the experiment's label schemas, whose questions cannot
-    be edited and which cannot be deleted. At most one per experiment.
     """
 
     created_by = Column(String(255), nullable=True)
@@ -3460,8 +3453,8 @@ class SqlReviewQueue(Base):
     """
     Time of the most recent change to the queue's own configuration (its
     assigned users / attached schemas) in milliseconds since epoch. It does
-    NOT track attach/detach or per-trace status churn in
-    ``review_queue_traces`` — those carry their own timestamps — so a "last
+    NOT track attach/detach or per-item status churn in
+    ``review_queue_items`` — those carry their own timestamps — so a "last
     activity" view must consult the child rows, not just this field.
     """
 
@@ -3502,7 +3495,6 @@ class SqlReviewQueue(Base):
             last_update_time_ms=self.last_update_time_ms,
             users=list(users) if users is not None else [],
             schema_ids=list(schema_ids) if schema_ids is not None else [],
-            is_default=bool(self.is_default),
         )
 
 
@@ -3511,7 +3503,7 @@ class SqlReviewQueueUser(Base):
     DB model for the assigned-user set of a review queue.
 
     One row per ``(queue_id, user)``. The assigned users are a *pool*:
-    any one of them may work the queue's traces. A user queue has exactly
+    any one of them may work the queue's items. A user queue has exactly
     one row (``user == queue.name``); a custom queue has 0..N.
     """
 
@@ -3544,19 +3536,19 @@ class SqlReviewQueueUser(Base):
         return f"<SqlReviewQueueUser (queue_id={self.queue_id}, user_id={self.user_id})>"
 
 
-class SqlReviewQueueTrace(Base):
+class SqlReviewQueueItem(Base):
     """
-    DB model for a trace attached to a review queue + its shared-pool
+    DB model for an item attached to a review queue + its shared-pool
     workflow status.
 
-    One row per ``(queue_id, target_id)``. ``status`` is per-``(queue,
-    trace)`` (NOT per-user): a trace is addressed when **any** assigned
+    One row per ``(queue_id, item_id)``. ``status`` is per-``(queue,
+    item)`` (NOT per-user): an item is addressed when **any** assigned
     user completes/declines it, and ``completed_by`` records who. There is
     no ``in_progress`` state; status only changes on an explicit reviewer
     action, never as a side effect of writing an assessment.
     """
 
-    __tablename__ = "review_queue_traces"
+    __tablename__ = "review_queue_items"
 
     queue_id = Column(
         String(36),
@@ -3564,16 +3556,16 @@ class SqlReviewQueueTrace(Base):
         nullable=False,
     )
     """
-    Queue this trace is attached to. *Foreign Key* into ``review_queues``.
+    Queue this item is attached to. *Foreign Key* into ``review_queues``.
     """
 
-    target_type = Column(String(16), nullable=False)
+    item_type = Column(String(16), nullable=False)
     """
     What kind of object is attached: ``String`` (limit 16). v1 ships
     ``'trace'`` only; ``'session'`` / ``'span'`` are reserved.
     """
 
-    target_id = Column(String(50), nullable=False)
+    item_id = Column(String(50), nullable=False)
     """
     The attached object's id — a trace id today. ``String`` (limit 50).
     """
@@ -3586,38 +3578,38 @@ class SqlReviewQueueTrace(Base):
 
     completed_by = Column(String(250), nullable=True)
     """
-    Who completed or declined this trace; ``NULL`` while ``pending``.
+    Who completed or declined this item; ``NULL`` while ``pending``.
     Same shape as ``review_queue_users.user_id``. Cleared on reopen.
     """
 
     completed_time_ms = Column(BigInteger, nullable=True)
     """
-    Time the trace reached a terminal status in milliseconds since epoch;
+    Time the item reached a terminal status in milliseconds since epoch;
     ``NULL`` while ``pending``. Cleared on reopen.
     """
 
     creation_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
     """
-    Time the trace was attached to the queue in milliseconds since epoch.
+    Time the item was attached to the queue in milliseconds since epoch.
     """
 
     last_update_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
     """
     Time of the most recent status change in milliseconds since epoch.
-    Equals ``creation_time_ms`` for a trace that is still ``pending``.
+    Equals ``creation_time_ms`` for an item that is still ``pending``.
     """
 
     __table_args__ = (
-        PrimaryKeyConstraint("queue_id", "target_id", name="review_queue_traces_pk"),
-        # "Show me this queue's <status> traces" — the queue view's status tabs.
-        Index("index_review_queue_traces_queue_id_status", "queue_id", "status"),
-        # "Which queues is this trace in?" — the per-trace review widget.
-        Index("index_review_queue_traces_target_id", "target_id"),
+        PrimaryKeyConstraint("queue_id", "item_id", name="review_queue_items_pk"),
+        # "Show me this queue's <status> items" — the queue view's status tabs.
+        Index("index_review_queue_items_queue_id_status", "queue_id", "status"),
+        # "Which queues is this item in?" — the per-item review widget.
+        Index("index_review_queue_items_item_id", "item_id"),
     )
 
     def __repr__(self):
         return (
-            f"<SqlReviewQueueTrace (queue_id={self.queue_id}, target_id={self.target_id}, "
+            f"<SqlReviewQueueItem (queue_id={self.queue_id}, item_id={self.item_id}, "
             f"status={self.status})>"
         )
 
@@ -3627,12 +3619,12 @@ class SqlReviewQueueTrace(Base):
         Returns:
             :py:class:`mlflow.genai.review_queues.ReviewQueueItem`.
         """
-        from mlflow.genai.review_queues import ReviewQueueItem, ReviewStatus, ReviewTargetType
+        from mlflow.genai.review_queues import ReviewItemType, ReviewQueueItem, ReviewStatus
 
         return ReviewQueueItem(
             queue_id=self.queue_id,
-            target_type=ReviewTargetType(self.target_type),
-            target_id=self.target_id,
+            item_type=ReviewItemType(self.item_type),
+            item_id=self.item_id,
             status=ReviewStatus(self.status),
             creation_time_ms=self.creation_time_ms,
             last_update_time_ms=self.last_update_time_ms,

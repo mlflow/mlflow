@@ -153,8 +153,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlOnlineScoringConfig,
     SqlParam,
     SqlReviewQueue,
+    SqlReviewQueueItem,
     SqlReviewQueueLabelSchema,
-    SqlReviewQueueTrace,
     SqlReviewQueueUser,
     SqlRun,
     SqlScorer,
@@ -8260,7 +8260,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         try:
             # SAVEPOINT isolates this insert so a benign IntegrityError drops only
             # it, not the caller's transaction (same pattern as
-            # add_traces_to_review_queue). Two cases are safe to swallow: a
+            # add_items_to_review_queue). Two cases are safe to swallow: a
             # concurrent ensure won the (experiment_id, name) unique race (the
             # existing row is the default), or the experiment vanished concurrently
             # (a FK error, which the list's experiment validation then surfaces).
@@ -8377,7 +8377,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         created_by=None,
         users=None,
         schema_ids=None,
-        is_default=False,
     ):
         from mlflow.genai.review_queues.validation import validate_queue_for_create
 
@@ -8386,7 +8385,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             queue_type=queue_type,
             users=users,
             schema_ids=schema_ids,
-            is_default=is_default,
         )
 
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -8415,7 +8413,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 experiment_id=int(experiment_id),
                 name=validated.name,
                 queue_type=str(validated.queue_type),
-                is_default=validated.is_default,
                 created_by=created_by,
                 creation_time_ms=now_ms,
                 last_update_time_ms=now_ms,
@@ -8469,42 +8466,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 ) from e
             return existing
 
-    def _get_or_create_default_queue(self, experiment_id, *, created_by=None):
-        from mlflow.genai.review_queues.validation import DEFAULT_QUEUE_NAME
-
-        try:
-            return self.create_review_queue(
-                experiment_id,
-                name=DEFAULT_QUEUE_NAME,
-                queue_type="custom",
-                created_by=created_by,
-                is_default=True,
-            )
-        except MlflowException as e:
-            if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
-                raise
-            # Lost the create race (or it already existed): return the existing
-            # default queue, resolved by the is_default flag rather than by name.
-            # A name lookup is unsafe on case-insensitive collations (e.g. MSSQL):
-            # a user queue named "default" shares the (experiment_id, name) key
-            # with "Default" and would be returned instead. If no is_default queue
-            # exists, the reserved name is held by a non-default queue (only
-            # reachable on such collations) — re-raise rather than return it.
-            with self.ManagedSessionMaker() as session:
-                self._validate_experiment_exists(session, experiment_id)
-                sql_queue = (
-                    self
-                    ._review_queue_query(session)
-                    .filter(
-                        SqlReviewQueue.experiment_id == int(experiment_id),
-                        SqlReviewQueue.is_default.is_(True),
-                    )
-                    .one_or_none()
-                )
-                if sql_queue is None:
-                    raise
-                return self._hydrate_review_queues(session, [sql_queue])[0]
-
     def get_review_queue(self, queue_id):
         with self.ManagedSessionMaker() as session:
             sql_queue = self._get_sql_review_queue(session, queue_id)
@@ -8544,18 +8505,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 SqlReviewQueue.experiment_id == int(experiment_id)
             )
             if user is not None:
-                # Scope to queues the user is assigned to, but always include the
-                # experiment's default queue (everyone's queue) even when it has
-                # no assigned members yet.
+                # Scope to queues the user is assigned to (their own user queue
+                # plus any custom queue they belong to).
                 assigned_queue_ids = session.query(SqlReviewQueueUser.queue_id).filter(
                     SqlReviewQueueUser.user_id == normalize_user(user)
                 )
-                query = query.filter(
-                    or_(
-                        SqlReviewQueue.is_default.is_(True),
-                        SqlReviewQueue.queue_id.in_(assigned_queue_ids),
-                    )
-                )
+                query = query.filter(SqlReviewQueue.queue_id.in_(assigned_queue_ids))
 
             results = (
                 query
@@ -8586,13 +8541,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            if sql_queue.is_default and schema_ids is not None:
-                raise MlflowException(
-                    "The default queue inherits all of the experiment's questions; its "
-                    "questions cannot be edited. Its assigned users can still be updated.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
             if users is None and schema_ids is None:
                 return self._hydrate_review_queues(session, [sql_queue])[0]
 
@@ -8605,21 +8553,21 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     session.add(SqlReviewQueueUser(queue_id=sql_queue.queue_id, user_id=user))
 
             if schema_ids is not None:
-                # A queue's questions are frozen once it has traces to review:
+                # A queue's questions are frozen once it has items to review:
                 # changing the schema set after reviewers have started would
-                # strand their answers or leave completed traces with
+                # strand their answers or leave completed items with
                 # never-seen questions. Editing is allowed only while the queue
                 # is still empty (in setup). Assigned users stay editable.
-                attached_trace_count = (
+                attached_item_count = (
                     session
-                    .query(SqlReviewQueueTrace)
-                    .filter(SqlReviewQueueTrace.queue_id == sql_queue.queue_id)
+                    .query(SqlReviewQueueItem)
+                    .filter(SqlReviewQueueItem.queue_id == sql_queue.queue_id)
                     .count()
                 )
-                if attached_trace_count > 0:
+                if attached_item_count > 0:
                     raise MlflowException(
-                        "A review queue's questions are locked once traces are assigned to it. "
-                        "Remove the traces before changing its questions.",
+                        "A review queue's questions are locked once items are assigned to it. "
+                        "Remove the items before changing its questions.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 normalized_schema_ids = normalize_schema_ids(schema_ids)
@@ -8639,10 +8587,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return self._hydrate_review_queues(session, [sql_queue])[0]
 
     def delete_review_queue(self, queue_id):
-        # No-op when the queue doesn't exist. Child rows (users, traces,
+        # No-op when the queue doesn't exist. Child rows (users, items,
         # schemas) are deleted explicitly so the behaviour doesn't depend on
         # DB-level ON DELETE CASCADE being honoured by the active dialect.
-        # Reviewer assessments on the queue's traces are untouched.
+        # Reviewer assessments on the queue's items are untouched.
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_queue = (
                 self
@@ -8653,14 +8601,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if sql_queue is None:
                 _logger.debug(f"Review queue with id '{queue_id}' not found; delete is a no-op.")
                 return
-            if sql_queue.is_default:
-                raise MlflowException(
-                    "The experiment's default queue cannot be deleted.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
             for child_model in (
                 SqlReviewQueueUser,
-                SqlReviewQueueTrace,
+                SqlReviewQueueItem,
                 SqlReviewQueueLabelSchema,
             ):
                 session.query(child_model).filter(
@@ -8668,48 +8611,48 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 ).delete(synchronize_session=False)
             session.delete(sql_queue)
 
-    def add_traces_to_review_queue(self, queue_id, *, target_ids, target_type="trace"):
+    def add_items_to_review_queue(self, queue_id, *, item_ids, item_type="trace"):
         from mlflow.genai.review_queues import ReviewStatus
         from mlflow.genai.review_queues.validation import (
-            coerce_target_type,
-            validate_target_ids_for_attach,
+            coerce_item_type,
+            validate_item_ids_for_attach,
         )
 
-        coerced_target_type = coerce_target_type(target_type)
-        normalized_target_ids = validate_target_ids_for_attach(target_ids)
+        coerced_item_type = coerce_item_type(item_type)
+        normalized_item_ids = validate_item_ids_for_attach(item_ids)
 
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_queue = self._get_sql_review_queue(session, queue_id)
 
-            existing_target_ids = {
-                row.target_id
+            existing_item_ids = {
+                row.item_id
                 for row in session
-                .query(SqlReviewQueueTrace.target_id)
+                .query(SqlReviewQueueItem.item_id)
                 .filter(
-                    SqlReviewQueueTrace.queue_id == sql_queue.queue_id,
-                    SqlReviewQueueTrace.target_id.in_(normalized_target_ids),
+                    SqlReviewQueueItem.queue_id == sql_queue.queue_id,
+                    SqlReviewQueueItem.item_id.in_(normalized_item_ids),
                 )
                 .all()
             }
 
             now_ms = get_current_time_millis()
-            for target_id in normalized_target_ids:
-                if target_id in existing_target_ids:
+            for item_id in normalized_item_ids:
+                if item_id in existing_item_ids:
                     # Idempotent: keep the existing row and its status.
                     continue
                 try:
                     # SAVEPOINT around the add+flush so a concurrent attach of
-                    # the same trace (the only possible IntegrityError here —
-                    # the queue FK is validated and target_id has no FK) drops
+                    # the same item (the only possible IntegrityError here —
+                    # the queue FK is validated and item_id has no FK) drops
                     # just that row rather than the whole batch. The row is
                     # then picked up by the re-read below. The add lives inside
                     # the savepoint so its pending state is rolled back cleanly.
                     with session.begin_nested():
                         session.add(
-                            SqlReviewQueueTrace(
+                            SqlReviewQueueItem(
                                 queue_id=sql_queue.queue_id,
-                                target_type=str(coerced_target_type),
-                                target_id=target_id,
+                                item_type=str(coerced_item_type),
+                                item_id=item_id,
                                 status=str(ReviewStatus.PENDING),
                                 creation_time_ms=now_ms,
                                 last_update_time_ms=now_ms,
@@ -8721,32 +8664,30 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             final_rows = (
                 session
-                .query(SqlReviewQueueTrace)
+                .query(SqlReviewQueueItem)
                 .filter(
-                    SqlReviewQueueTrace.queue_id == sql_queue.queue_id,
-                    SqlReviewQueueTrace.target_id.in_(normalized_target_ids),
+                    SqlReviewQueueItem.queue_id == sql_queue.queue_id,
+                    SqlReviewQueueItem.item_id.in_(normalized_item_ids),
                 )
                 .all()
             )
             # Every requested id is present now (pre-existing, just-inserted, or
             # inserted by a racing writer), so the response covers them all.
-            rows_by_target = {row.target_id: row for row in final_rows}
-            return [
-                rows_by_target[target_id].to_mlflow_entity() for target_id in normalized_target_ids
-            ]
+            rows_by_item = {row.item_id: row for row in final_rows}
+            return [rows_by_item[item_id].to_mlflow_entity() for item_id in normalized_item_ids]
 
-    def remove_traces_from_review_queue(self, queue_id, *, target_ids):
-        from mlflow.genai.review_queues.validation import validate_target_ids_for_attach
+    def remove_items_from_review_queue(self, queue_id, *, item_ids):
+        from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
 
-        normalized_target_ids = validate_target_ids_for_attach(target_ids)
+        normalized_item_ids = validate_item_ids_for_attach(item_ids)
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_queue = self._get_sql_review_queue(session, queue_id)
-            session.query(SqlReviewQueueTrace).filter(
-                SqlReviewQueueTrace.queue_id == sql_queue.queue_id,
-                SqlReviewQueueTrace.target_id.in_(normalized_target_ids),
+            session.query(SqlReviewQueueItem).filter(
+                SqlReviewQueueItem.queue_id == sql_queue.queue_id,
+                SqlReviewQueueItem.item_id.in_(normalized_item_ids),
             ).delete(synchronize_session=False)
 
-    def list_review_queue_traces(self, queue_id, *, status=None, max_results=None, page_token=None):
+    def list_review_queue_items(self, queue_id, *, status=None, max_results=None, page_token=None):
         from mlflow.genai.review_queues.validation import coerce_status
 
         if max_results is None:
@@ -8758,17 +8699,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             sql_queue = self._get_sql_review_queue(session, queue_id)
-            query = session.query(SqlReviewQueueTrace).filter(
-                SqlReviewQueueTrace.queue_id == sql_queue.queue_id
+            query = session.query(SqlReviewQueueItem).filter(
+                SqlReviewQueueItem.queue_id == sql_queue.queue_id
             )
             if coerced_status is not None:
-                query = query.filter(SqlReviewQueueTrace.status == str(coerced_status))
+                query = query.filter(SqlReviewQueueItem.status == str(coerced_status))
 
             results = (
                 query
                 .order_by(
-                    SqlReviewQueueTrace.creation_time_ms.desc(),
-                    SqlReviewQueueTrace.target_id.asc(),
+                    SqlReviewQueueItem.creation_time_ms.desc(),
+                    SqlReviewQueueItem.item_id.asc(),
                 )
                 .offset(offset)
                 .limit(max_results + 1)
@@ -8781,23 +8722,23 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 next_token = SearchUtils.create_page_token(offset + max_results)
             return PagedList([row.to_mlflow_entity() for row in results], next_token)
 
-    def set_review_queue_trace_status(self, queue_id, *, target_id, status, completed_by=None):
+    def set_review_queue_item_status(self, queue_id, *, item_id, status, completed_by=None):
         from mlflow.genai.review_queues import ReviewStatus
         from mlflow.genai.review_queues.validation import (
             USER_MAX_LENGTH,
             coerce_status,
-            normalize_target_id,
+            normalize_item_id,
             normalize_user,
         )
 
         new_status = coerce_status(status)
-        target_id = normalize_target_id(target_id)
+        item_id = normalize_item_id(item_id)
         normalized_completed_by = normalize_user(completed_by) if completed_by is not None else None
 
         if new_status == ReviewStatus.PENDING:
             if normalized_completed_by is not None:
                 raise MlflowException(
-                    "`completed_by` must not be set when reopening a trace to `pending`.",
+                    "`completed_by` must not be set when reopening an item to `pending`.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         elif not normalized_completed_by:
@@ -8818,16 +8759,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             sql_queue = self._get_sql_review_queue(session, queue_id)
             row = (
                 session
-                .query(SqlReviewQueueTrace)
+                .query(SqlReviewQueueItem)
                 .filter(
-                    SqlReviewQueueTrace.queue_id == sql_queue.queue_id,
-                    SqlReviewQueueTrace.target_id == target_id,
+                    SqlReviewQueueItem.queue_id == sql_queue.queue_id,
+                    SqlReviewQueueItem.item_id == item_id,
                 )
                 .one_or_none()
             )
             if row is None:
                 raise MlflowException(
-                    f"Trace '{target_id}' is not attached to review queue '{queue_id}'.",
+                    f"Item '{item_id}' is not attached to review queue '{queue_id}'.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
