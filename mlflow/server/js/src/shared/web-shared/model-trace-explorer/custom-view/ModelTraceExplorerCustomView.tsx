@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Button,
@@ -6,13 +6,17 @@ import {
   ChevronUpIcon,
   CloseIcon,
   Empty,
+  Input,
   PlusIcon,
+  SegmentedControlButton,
+  SegmentedControlGroup,
   SimpleSelect,
   SimpleSelectOption,
   Switch,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { useEndpointsQuery } from '@mlflow/mlflow/src/gateway/hooks/useEndpointsQuery';
 import {
   Catalog,
   MessageProcessor,
@@ -22,7 +26,7 @@ import {
 import { BASIC_FUNCTIONS } from '@a2ui/web_core/v0_9/basic_catalog';
 import { A2uiSurface, Column, Row, Text, type ReactComponentImplementation } from '@a2ui/react/v0_9';
 
-import type { ModelTrace, ModelTraceInfo, ModelTraceSpanNode } from '../ModelTrace.types';
+import type { Assessment, ModelTrace, ModelTraceInfo, ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
 import {
   getIconTypeForSpan,
@@ -33,6 +37,8 @@ import {
 } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { spanTimeFormatter } from '../timeline-tree/TimelineTree.utils';
+import { AssessmentBoard } from './AssessmentBoard';
+import { AssessmentCard } from './AssessmentCard';
 import { Carousel } from './Carousel';
 import { ContentViewer } from './ContentViewer';
 import { DataTable } from './DataTable';
@@ -42,6 +48,8 @@ import { TreeCheckProvider } from './TreeCheckContext';
 import { StatCard } from './StatCard';
 import { TimelineChart } from './TimelineChart';
 import { TreeView } from './TreeView';
+import type { AgentAssessment, AgentNode } from './agent/buildAgentPrompt';
+import { useAgentDashboard } from './agent/useAgentDashboard';
 
 // Must match the `catalogId` declared in `catalog.json`.
 const CUSTOM_VIEW_CATALOG_ID = 'https://mlflow.org/model-trace-explorer/custom-view/catalog.json';
@@ -107,11 +115,22 @@ type TreeNode = {
 // snippet renderer can show it as JSON (objects) or text/markdown (strings).
 type ContentField = { label: string; value: string };
 
+type AssessmentSentiment = 'positive' | 'negative' | 'neutral' | 'error';
+
+type AssessmentBoardItem = {
+  name: string;
+  value?: string;
+  rationale?: string;
+  source?: string;
+  sentiment: AssessmentSentiment;
+};
+
 type CustomViewData = {
   metrics: TraceMetrics;
   toolRows: TableRow[];
   timelineRows: TimelineRow[];
   treeNodes: TreeNode[];
+  assessmentItems: AssessmentBoardItem[];
 };
 
 // Turns an arbitrary inputs/outputs payload into ContentViewer fields. Objects
@@ -229,6 +248,105 @@ const getTreeNodesFromNodes = (topLevelNodes: ModelTraceSpanNode[], traceStartUs
 
   return topLevelNodes.map(toTreeNode);
 };
+
+// Extracts the displayable value + error from any assessment variant
+// (feedback / expectation), so the agent receives real judge/feedback results.
+const getAssessmentValueAndError = (assessment: Assessment): { value: unknown; error?: string } => {
+  if ('feedback' in assessment && assessment.feedback) {
+    const err = assessment.feedback.error ?? assessment.error;
+    return {
+      value: assessment.feedback.value,
+      error: err ? err.error_message ?? err.error_code : undefined,
+    };
+  }
+  if ('expectation' in assessment && assessment.expectation) {
+    const expectation = assessment.expectation;
+    if ('value' in expectation) {
+      return { value: expectation.value };
+    }
+    if ('serialized_value' in expectation) {
+      return { value: expectation.serialized_value.value };
+    }
+  }
+  return { value: undefined, error: assessment.error?.error_message ?? assessment.error?.error_code };
+};
+
+// Collects the trace's real assessments (trace-level + span-level), deduped by
+// id and skipping invalidated ones, into the flat shape the agent prompt uses.
+const getAgentAssessments = (
+  info: ModelTrace['info'],
+  nodeMap: Record<string, ModelTraceSpanNode>,
+): AgentAssessment[] => {
+  const byId = new Map<string, AgentAssessment>();
+  const add = (assessment: Assessment) => {
+    if (assessment.valid === false || byId.has(assessment.assessment_id)) {
+      return;
+    }
+    const { value, error } = getAssessmentValueAndError(assessment);
+    byId.set(assessment.assessment_id, {
+      name: assessment.assessment_name,
+      value,
+      rationale: assessment.rationale,
+      source: assessment.source?.source_type ?? 'SOURCE_TYPE_UNSPECIFIED',
+      spanId: assessment.span_id,
+      error,
+    });
+  };
+
+  const traceAssessments = (info as { assessments?: Assessment[] } | undefined)?.assessments ?? [];
+  for (const assessment of traceAssessments) {
+    add(assessment);
+  }
+  for (const node of Object.values(nodeMap)) {
+    for (const assessment of node.assessments ?? []) {
+      add(assessment);
+    }
+  }
+  return Array.from(byId.values());
+};
+
+// Maps an assessment's raw value to a verdict polarity for coloring. Affirmative
+// values (yes/true/pass/correct) are positive (green); negatives (no/false/fail)
+// are negative (red); an error overrides everything; otherwise neutral.
+const POSITIVE_VALUES = new Set(['yes', 'true', 'pass', 'passed', 'correct', 'good', 'success']);
+const NEGATIVE_VALUES = new Set(['no', 'false', 'fail', 'failed', 'incorrect', 'bad', 'failure']);
+
+const getAssessmentSentiment = ({ value, error }: AgentAssessment): AssessmentSentiment => {
+  if (error) {
+    return 'error';
+  }
+  if (typeof value === 'boolean') {
+    return value ? 'positive' : 'negative';
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (POSITIVE_VALUES.has(normalized)) {
+      return 'positive';
+    }
+    if (NEGATIVE_VALUES.has(normalized)) {
+      return 'negative';
+    }
+  }
+  return 'neutral';
+};
+
+// Shapes the trace's real assessments into AssessmentBoard items for the
+// predefined "LLM-as-a-judge" view: category header, verdict value, rationale,
+// and a derived sentiment that drives the green/red coloring.
+const getAssessmentBoardItems = (assessments: AgentAssessment[]): AssessmentBoardItem[] =>
+  assessments.map((assessment) => {
+    const hasError = Boolean(assessment.error);
+    const hasValue = assessment.value !== undefined && assessment.value !== null;
+    return {
+      name: assessment.name,
+      // Keep the badge short: errors show "Error" and surface the message in the
+      // body, otherwise a long value would blow out the badge/card layout.
+      value: hasError ? 'Error' : hasValue ? String(assessment.value) : undefined,
+      rationale: assessment.rationale ?? (hasError ? assessment.error : undefined),
+      source: assessment.source,
+      sentiment: getAssessmentSentiment(assessment),
+    };
+  });
 
 // A span in scope for feedback: the info the FeedbackForm needs to create a
 // span-scoped assessment, plus its inputs/outputs for the optional I/O toggle.
@@ -423,6 +541,41 @@ const buildTraceTreeMessages = (surfaceId: string, { treeNodes }: CustomViewData
   },
 ];
 
+// One AssessmentCard per LLM-as-a-judge / human assessment, laid out in a
+// wrapping AssessmentBoard. Each card is a reusable catalog primitive, so more
+// assessments simply mean more cards appended to the board's children.
+const buildAssessmentsMessages = (surfaceId: string, { assessmentItems }: CustomViewData): A2uiMessage[] => {
+  const cardIds = assessmentItems.map((_, index) => `assessment-${index}`);
+  return [
+    createSurfaceMessage(surfaceId),
+    {
+      version: 'v0.9',
+      updateComponents: {
+        surfaceId,
+        components: [
+          {
+            id: 'root',
+            component: 'AssessmentBoard',
+            title: 'LLM-as-a-Judge Assessments',
+            icon: 'checklist',
+            children: cardIds,
+            emptyMessage: 'No assessments on this trace.',
+          },
+          ...assessmentItems.map((item, index) => ({
+            id: cardIds[index],
+            component: 'AssessmentCard',
+            name: item.name,
+            ...(item.value !== undefined ? { value: item.value } : {}),
+            ...(item.rationale !== undefined ? { rationale: item.rationale } : {}),
+            ...(item.source !== undefined ? { source: item.source } : {}),
+            sentiment: item.sentiment,
+          })),
+        ],
+      },
+    },
+  ];
+};
+
 // A ContentViewer surface for one specific span's inputs & outputs, rendered
 // beside the tree when "open span details on select" is on. Built on demand
 // (depends on the clicked span), like the feedback carousel.
@@ -461,10 +614,11 @@ const buildSpanDetailsMessages = (
 ];
 
 const MESSAGE_SETS: MessageSet[] = [
-  { id: 'trace-summary', label: 'Trace summary', build: buildTraceSummaryMessages },
-  { id: 'tool-performance', label: 'Tool performance', build: buildToolPerformanceMessages },
-  { id: 'trace-breakdown', label: 'Trace breakdown', build: buildTraceBreakdownMessages },
-  { id: 'trace-tree', label: 'Trace tree', build: buildTraceTreeMessages },
+  { id: 'trace-summary', label: 'Show me the high level summary of this trace', build: buildTraceSummaryMessages },
+  { id: 'tool-performance', label: 'List performance summary for all tools', build: buildToolPerformanceMessages },
+  { id: 'trace-breakdown', label: 'Give me a timeline of all spans calls', build: buildTraceBreakdownMessages },
+  { id: 'trace-tree', label: 'Show me the span calls in a tree view', build: buildTraceTreeMessages },
+  { id: 'assessments', label: 'Show the LLM-as-a-judge assessments', build: buildAssessmentsMessages },
 ];
 
 // An appended dashboard block, each backed by its own A2UI surface. `setId`
@@ -503,7 +657,20 @@ export const ModelTraceExplorerCustomView = ({ modelTraceInfo }: { modelTraceInf
     () =>
       new Catalog<ReactComponentImplementation>(
         CUSTOM_VIEW_CATALOG_ID,
-        [Text, Row, Column, StatCard, DataTable, TimelineChart, TreeView, Carousel, FeedbackForm, ContentViewer],
+        [
+          Text,
+          Row,
+          Column,
+          StatCard,
+          DataTable,
+          TimelineChart,
+          TreeView,
+          Carousel,
+          FeedbackForm,
+          ContentViewer,
+          AssessmentBoard,
+          AssessmentCard,
+        ],
         BASIC_FUNCTIONS,
       ),
     [],
@@ -528,14 +695,59 @@ export const ModelTraceExplorerCustomView = ({ modelTraceInfo }: { modelTraceInf
     return getTreeNodesFromNodes(treeRoots, traceStartUs);
   }, [treeRoots, topLevelNodes]);
 
+  // Real assessments (LLM-judge / human feedback), used by both the predefined
+  // "LLM-as-a-judge" board and Agent Mode (so the model shows real results).
+  const agentAssessments = useMemo(() => getAgentAssessments(modelTraceInfo, nodeMap), [modelTraceInfo, nodeMap]);
+  const assessmentItems = useMemo(() => getAssessmentBoardItems(agentAssessments), [agentAssessments]);
+
   const viewData = useMemo<CustomViewData>(
-    () => ({ metrics, toolRows, timelineRows, treeNodes }),
-    [metrics, toolRows, timelineRows, treeNodes],
+    () => ({ metrics, toolRows, timelineRows, treeNodes, assessmentItems }),
+    [metrics, toolRows, timelineRows, treeNodes, assessmentItems],
   );
+
+  // The trace's nodeMap as plain JSON (keyed by span id) for Agent Mode. The LLM
+  // parses this to extract the data it needs (including span inputs/outputs) and
+  // binds it into components via the A2UI data model.
+  const agentNodeMap = useMemo(() => {
+    const nodes = Object.values(nodeMap);
+    if (nodes.length === 0) {
+      return {};
+    }
+    const traceStartUs = Math.min(...nodes.map((node) => node.start));
+    const json: Record<string, AgentNode> = {};
+    for (const node of nodes) {
+      json[String(node.key)] = {
+        name: typeof node.title === 'string' ? node.title : String(node.title ?? 'unknown'),
+        type: node.type ?? ModelSpanType.UNKNOWN,
+        startMs: Math.max(node.start - traceStartUs, 0) / 1000,
+        endMs: Math.max(node.end - traceStartUs, 0) / 1000,
+        durationMs: Math.max(node.end - node.start, 0) / 1000,
+        parentId: node.parentId ? String(node.parentId) : undefined,
+        inputs: node.inputs,
+        outputs: node.outputs,
+      };
+    }
+    return json;
+  }, [nodeMap]);
 
   const [selectedSetId, setSelectedSetId] = useState(MESSAGE_SETS[0].id);
   const [blocks, setBlocks] = useState<DashboardBlock[]>([]);
   const blockCounter = useRef(0);
+
+  // 'predefined' appends a canned message set from the dropdown; 'agent' asks an
+  // LLM (via a gateway endpoint) to generate the A2UI message stream.
+  const [viewMode, setViewMode] = useState<'predefined' | 'agent'>('predefined');
+  const { data: endpoints, isLoading: endpointsLoading } = useEndpointsQuery();
+  const [selectedEndpoint, setSelectedEndpoint] = useState('');
+  const [instruction, setInstruction] = useState('');
+  const { generate, isLoading: agentLoading, error: agentError, reset: resetAgent } = useAgentDashboard();
+
+  // Default to the first available endpoint once the list loads.
+  useEffect(() => {
+    if (!selectedEndpoint && endpoints.length > 0) {
+      setSelectedEndpoint(endpoints[0].name);
+    }
+  }, [endpoints, selectedEndpoint]);
 
   const handleAddBlock = () => {
     const messageSet = MESSAGE_SETS.find((set) => set.id === selectedSetId) ?? MESSAGE_SETS[0];
@@ -551,6 +763,32 @@ export const ModelTraceExplorerCustomView = ({ modelTraceInfo }: { modelTraceInf
         setId: messageSet.id,
       },
     ]);
+  };
+
+  // Generates a dashboard block from the user's instruction via the LLM. The
+  // returned messages are already validated + normalized to our surface id, so
+  // we can hand them straight to the processor.
+  const handleGenerateAgentBlock = async () => {
+    const endpointName = selectedEndpoint;
+    const prompt = instruction.trim();
+    if (!endpointName || !prompt) {
+      return;
+    }
+    blockCounter.current += 1;
+    const surfaceId = `custom-view-agent-${blockCounter.current}`;
+    try {
+      const messages = await generate({
+        instruction: prompt,
+        endpointName,
+        surfaceId,
+        catalogId: CUSTOM_VIEW_CATALOG_ID,
+        data: { ...viewData, nodeMap: agentNodeMap, assessments: agentAssessments },
+      });
+      processor.processMessages(messages);
+      setBlocks((prev) => [...prev, { surfaceId, label: prompt, setId: 'agent' }]);
+    } catch {
+      // The failure is surfaced via `agentError` below; the block is not added.
+    }
   };
 
   // Toggles a span's checkbox within a Trace tree block. The checked set scopes
@@ -729,36 +967,108 @@ export const ModelTraceExplorerCustomView = ({ modelTraceInfo }: { modelTraceInf
         padding: theme.spacing.md,
       }}
     >
-      <div css={{ display: 'flex', alignItems: 'flex-end', gap: theme.spacing.sm, flexShrink: 0 }}>
-        <div css={{ width: 240 }}>
-          <SimpleSelect
-            componentId="shared.model-trace-explorer.custom-view.message-set-select"
-            id="model-trace-explorer-custom-view-message-set-select"
-            label="View"
-            value={selectedSetId}
-            onChange={(event) => setSelectedSetId(event.target.value)}
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, flexShrink: 0 }}>
+        <div css={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: theme.spacing.sm }}>
+          <SegmentedControlGroup
+            name="custom-view-mode"
+            componentId="shared.model-trace-explorer.custom-view.mode-toggle"
+            value={viewMode}
+            onChange={(event) => {
+              setViewMode(event.target.value);
+              resetAgent();
+            }}
           >
-            {MESSAGE_SETS.map((set) => (
-              <SimpleSelectOption key={set.id} value={set.id}>
-                {set.label}
-              </SimpleSelectOption>
-            ))}
-          </SimpleSelect>
+            <SegmentedControlButton value="predefined">Predefined Prompts</SegmentedControlButton>
+            <SegmentedControlButton value="agent">Agent Mode</SegmentedControlButton>
+          </SegmentedControlGroup>
+          <Button
+            componentId="shared.model-trace-explorer.custom-view.clear-all"
+            onClick={handleClearAll}
+            disabled={blocks.length === 0}
+          >
+            Clear all
+          </Button>
         </div>
-        <Button
-          componentId="shared.model-trace-explorer.custom-view.add-block"
-          icon={<PlusIcon />}
-          onClick={handleAddBlock}
-        >
-          Add to dashboard
-        </Button>
-        <Button
-          componentId="shared.model-trace-explorer.custom-view.clear-all"
-          onClick={handleClearAll}
-          disabled={blocks.length === 0}
-        >
-          Clear all
-        </Button>
+
+        {viewMode === 'predefined' ? (
+          <div css={{ display: 'flex', alignItems: 'flex-end', gap: theme.spacing.sm }}>
+            <div css={{ width: 380 }}>
+              <SimpleSelect
+                componentId="shared.model-trace-explorer.custom-view.message-set-select"
+                id="model-trace-explorer-custom-view-message-set-select"
+                label="View"
+                value={selectedSetId}
+                onChange={(event) => setSelectedSetId(event.target.value)}
+              >
+                {MESSAGE_SETS.map((set) => (
+                  <SimpleSelectOption key={set.id} value={set.id}>
+                    {set.label}
+                  </SimpleSelectOption>
+                ))}
+              </SimpleSelect>
+            </div>
+            <Button
+              componentId="shared.model-trace-explorer.custom-view.add-block"
+              icon={<PlusIcon />}
+              onClick={handleAddBlock}
+            >
+              Add to dashboard
+            </Button>
+          </div>
+        ) : (
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+            {endpoints.length === 0 ? (
+              <Typography.Text color="secondary">
+                {endpointsLoading
+                  ? 'Loading AI gateway endpoints…'
+                  : 'No AI gateway endpoints are configured. Add one to use Agent Mode.'}
+              </Typography.Text>
+            ) : (
+              <>
+                <div css={{ display: 'flex', alignItems: 'flex-end', gap: theme.spacing.sm }}>
+                  <div css={{ width: 240 }}>
+                    <SimpleSelect
+                      componentId="shared.model-trace-explorer.custom-view.agent-endpoint-select"
+                      id="model-trace-explorer-custom-view-agent-endpoint-select"
+                      label="AI endpoint"
+                      value={selectedEndpoint}
+                      onChange={(event) => setSelectedEndpoint(event.target.value)}
+                    >
+                      {endpoints.map((endpoint) => (
+                        <SimpleSelectOption key={endpoint.name} value={endpoint.name}>
+                          {endpoint.name}
+                        </SimpleSelectOption>
+                      ))}
+                    </SimpleSelect>
+                  </div>
+                  <Button
+                    componentId="shared.model-trace-explorer.custom-view.agent-generate"
+                    icon={<PlusIcon />}
+                    loading={agentLoading}
+                    disabled={!selectedEndpoint || !instruction.trim() || agentLoading}
+                    onClick={handleGenerateAgentBlock}
+                  >
+                    Generate
+                  </Button>
+                </div>
+                <Input.TextArea
+                  componentId="shared.model-trace-explorer.custom-view.agent-instruction"
+                  placeholder="Describe the dashboard to generate, e.g. “Show a table of tool latencies and a timeline of all spans”."
+                  value={instruction}
+                  autoSize={{ minRows: 2, maxRows: 5 }}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  onChange={(event) => setInstruction(event.target.value)}
+                  disabled={agentLoading}
+                />
+                {agentError && (
+                  <Typography.Text size="sm" css={{ color: theme.colors.textValidationDanger }}>
+                    {agentError.message}
+                  </Typography.Text>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div css={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>

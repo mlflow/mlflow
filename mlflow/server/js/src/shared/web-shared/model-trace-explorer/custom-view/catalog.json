@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mlflow.org/model-trace-explorer/custom-view/catalog.json",
   "title": "MLflow Custom View Catalog",
-  "description": "Custom A2UI catalog for the model trace explorer custom view. Extends the basic catalog's Text, Row, and Column components with MLflow-specific StatCard, DataTable, TimelineChart, TreeView, Carousel, FeedbackForm, and ContentViewer components.",
+  "description": "Custom A2UI catalog for the model trace explorer custom view. Extends the basic catalog's Text, Row, and Column components with MLflow-specific StatCard, DataTable, TimelineChart, TreeView, Carousel, FeedbackForm, ContentViewer, and AssessmentBoard components.",
   "catalogId": "https://mlflow.org/model-trace-explorer/custom-view/catalog.json",
   "components": {
     "allOf": [
@@ -324,6 +324,68 @@
             }
           },
           "required": ["component"]
+        }
+      },
+      {
+        "AssessmentCard": {
+          "type": "object",
+          "description": "A single assessment box: the category is the header, the verdict is a colored badge, and the rationale fills the body. Sentiment drives the color (green positive, red negative/error). Reusable — append one per assessment into an AssessmentBoard (or any Row/Column).",
+          "properties": {
+            "component": {
+              "const": "AssessmentCard"
+            },
+            "name": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "The assessment category, shown as the box header."
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "The verdict/value, shown as a colored badge."
+            },
+            "rationale": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "The explanation shown in the box body."
+            },
+            "source": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Optional source label, e.g. \"LLM_JUDGE\"."
+            },
+            "sentiment": {
+              "type": "string",
+              "description": "Verdict polarity: positive (green), negative/error (red), neutral (gray).",
+              "enum": ["positive", "negative", "neutral", "error"]
+            }
+          },
+          "required": ["component", "name"]
+        }
+      },
+      {
+        "AssessmentBoard": {
+          "type": "object",
+          "description": "A wrapping container for assessment boxes. Renders an optional title followed by a wrapping row of child component ids (typically one AssessmentCard per assessment). Add more assessments by appending more AssessmentCard children.",
+          "properties": {
+            "component": {
+              "const": "AssessmentBoard"
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Optional heading shown above the boxes."
+            },
+            "icon": {
+              "type": "string",
+              "description": "Optional icon shown next to the title.",
+              "enum": ["checklist", "list", "checkCircle"]
+            },
+            "children": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/ChildList",
+              "description": "The card component ids to lay out in a wrapping row."
+            },
+            "emptyMessage": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Text shown when there are no cards."
+            }
+          },
+          "required": ["component", "children"]
         }
       }
     ]
