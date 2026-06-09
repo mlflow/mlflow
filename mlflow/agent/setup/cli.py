@@ -106,22 +106,29 @@ def _run_setup(
     else:
         click.secho("Skipping skill installation.", fg="yellow", err=True)
 
-    tracking_uri_input = click.prompt(
-        click.style(
-            "Tracking URI (leave empty to let the agent start a local server, "
-            "or 'databricks' for a Databricks workspace)",
-            fg="cyan",
-            bold=True,
-        ),
-        default="",
-        show_default=False,
+    backend_options = [
+        "Start a new local server",
+        "Databricks workspace",
+        "Existing server URL (e.g. http://localhost:5000)",
+    ]
+    click.secho("Tracking backend:", bold=True, err=True)
+    for i, label in enumerate(backend_options, 1):
+        click.echo(f"  {click.style(str(i), fg='cyan')}. {label}", err=True)
+    backend_choice = click.prompt(
+        click.style("Select backend", fg="cyan", bold=True),
+        type=click.IntRange(1, len(backend_options)),
+        default=1,
         err=True,
-    ).strip()
+    )
     experiment_path: str | None = None
-    if tracking_uri_input:
-        tracking_uri = tracking_uri_input
-        local_server_port: int | None = None
-        if tracking_uri == "databricks":
+    local_server_port: int | None = None
+    match backend_choice:
+        case 1:
+            local_server_port = _find_available_port()
+            tracking_uri = f"http://127.0.0.1:{local_server_port}"
+            click.secho(f"Picked local tracking URI: {tracking_uri}", fg="green", err=True)
+        case 2:
+            tracking_uri = "databricks"
             experiment_path = click.prompt(
                 click.style(
                     "Workspace experiment path (e.g. /Users/you@example.com/my-app)",
@@ -135,10 +142,11 @@ def _run_setup(
                     "Databricks experiment path must start with '/' "
                     "(e.g. /Users/you@example.com/my-app)."
                 )
-    else:
-        local_server_port = _find_available_port()
-        tracking_uri = f"http://127.0.0.1:{local_server_port}"
-        click.secho(f"Picked local tracking URI: {tracking_uri}", fg="green", err=True)
+        case _:
+            tracking_uri = click.prompt(
+                click.style("Tracking server URL", fg="cyan", bold=True),
+                err=True,
+            ).strip()
 
     prompt = build_prompt(
         repo_root,

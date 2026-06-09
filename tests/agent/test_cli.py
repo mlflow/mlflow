@@ -40,7 +40,7 @@ def test_setup_user_provided_uri(tmp_git_repo: Path):
         "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
     ) as mock_which:
         result = CliRunner().invoke(
-            setup, ["--agent", "claude", "--print"], input="y\nhttp://localhost:5001\n"
+            setup, ["--agent", "claude", "--print"], input="y\n3\nhttp://localhost:5001\n"
         )
     assert result.exit_code == 0, result.stderr
     assert "Start a local MLflow tracking server" not in result.stdout
@@ -61,7 +61,7 @@ def test_setup_renders_per_agent_skills_dir(
 ):
     with mock.patch("mlflow.agent.agents.shutil.which", return_value=binary) as mock_which:
         result = CliRunner().invoke(
-            setup, ["--agent", agent, "--print"], input="y\nhttp://localhost:5001\n"
+            setup, ["--agent", agent, "--print"], input="y\n3\nhttp://localhost:5001\n"
         )
     assert result.exit_code == 0, result.stderr
     assert f"Install MLflow skills at {skills_dir}/" in result.stderr
@@ -88,7 +88,7 @@ def test_setup_launches_agent_with_correct_argv(
             return_value=subprocess.CompletedProcess([], 0),
         ) as mock_run,
     ):
-        CliRunner().invoke(setup, ["--agent", agent], input="y\nhttp://localhost:5001\n")
+        CliRunner().invoke(setup, ["--agent", agent], input="y\n3\nhttp://localhost:5001\n")
     mock_run.assert_called_once()
     cmd = mock_run.call_args.args[0]
     assert cmd[:-1] == expected_args_before_prompt
@@ -100,7 +100,7 @@ def test_setup_declined_skills_uses_bundled_path(tmp_git_repo: Path):
         "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
     ) as mock_which:
         result = CliRunner().invoke(
-            setup, ["--agent", "claude", "--print"], input="n\nhttp://localhost:5001\n"
+            setup, ["--agent", "claude", "--print"], input="n\n3\nhttp://localhost:5001\n"
         )
     assert result.exit_code == 0, result.stderr
     assert "Skipping skill installation." in result.stderr
@@ -126,7 +126,7 @@ def test_setup_records_telemetry(
         result = CliRunner().invoke(
             setup,
             ["--agent", "claude", "--print"],
-            input=f"{skills_input}\nhttp://localhost:5001\n",
+            input=f"{skills_input}\n3\nhttp://localhost:5001\n",
         )
     assert result.exit_code == 0, result.stderr
     mock_which.assert_called()
@@ -183,7 +183,7 @@ def test_setup_databricks_prompts_for_workspace_path(tmp_git_repo: Path):
         result = CliRunner().invoke(
             setup,
             ["--agent", "claude", "--print"],
-            input="y\ndatabricks\n/Users/me@example.com/my-app\n",
+            input="y\n2\n/Users/me@example.com/my-app\n",
         )
     assert result.exit_code == 0, result.stderr
     assert "Workspace experiment path" in result.stderr
@@ -202,7 +202,7 @@ def test_setup_databricks_rejects_non_absolute_experiment_path(tmp_git_repo: Pat
         result = CliRunner().invoke(
             setup,
             ["--agent", "claude", "--print"],
-            input="y\ndatabricks\nmy-app\n",
+            input="y\n2\nmy-app\n",
         )
     assert result.exit_code != 0
     assert "must start with '/'" in result.stderr
