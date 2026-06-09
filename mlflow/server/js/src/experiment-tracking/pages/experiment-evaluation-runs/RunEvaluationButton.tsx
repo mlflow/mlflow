@@ -188,7 +188,7 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
       <Modal
         componentId="mlflow.eval-runs.start-run-modal"
         title={
-          <FormattedMessage defaultMessage="Run evaluation" description="Title for the run evaluation modal dialog" />
+          <FormattedMessage defaultMessage="Evaluate traces" description="Title for the run evaluation modal dialog" />
         }
         visible={isOpen}
         cancelText={intl.formatMessage({

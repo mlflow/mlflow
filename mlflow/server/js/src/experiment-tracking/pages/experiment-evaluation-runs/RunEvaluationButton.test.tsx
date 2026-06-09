@@ -255,12 +255,12 @@ describe('RunEvaluationButton', () => {
   it('closes the modal when the Cancel button is clicked', async () => {
     renderButton('exp-1');
     await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
-    expect(screen.getByRole('dialog', { name: 'Run evaluation' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Evaluate traces' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Run evaluation' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: 'Evaluate traces' })).not.toBeInTheDocument();
     });
   });
 
@@ -327,7 +327,7 @@ describe('RunEvaluationButton', () => {
     // Cancel — the close handler should wipe judge/template/endpoint state.
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     await waitFor(() => {
-      expect(screen.queryByRole('dialog', { name: 'Run evaluation' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: 'Evaluate traces' })).not.toBeInTheDocument();
     });
 
     // Second session: re-open. The button is back to "Run judge" (singular, disabled),
