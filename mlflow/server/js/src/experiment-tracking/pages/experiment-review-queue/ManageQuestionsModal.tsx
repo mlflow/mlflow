@@ -89,7 +89,30 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
             }
           />
         ) : (
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.sm,
+              // Cap the list so the modal stops growing with every question; the
+              // list scrolls past this height.
+              maxHeight: 360,
+              overflowY: 'auto',
+              // CSS scroll-shadows (Lea Verou technique): a soft shadow shows at
+              // the top/bottom edge only when there's more to scroll that way, so
+              // the scrollable-ness is noticeable. The cover gradients are the
+              // modal's own background; the shadow radials are scroll-attached.
+              background: `
+                linear-gradient(${theme.colors.backgroundPrimary} 30%, rgba(0, 0, 0, 0)) 0 0,
+                linear-gradient(rgba(0, 0, 0, 0), ${theme.colors.backgroundPrimary} 70%) 0 100%,
+                radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0)) 0 0,
+                radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0)) 0 100%
+              `,
+              backgroundRepeat: 'no-repeat',
+              backgroundSize: '100% 28px, 100% 28px, 100% 10px, 100% 10px',
+              backgroundAttachment: 'local, local, scroll, scroll',
+            }}
+          >
             {labelSchemas.map((schema) => (
               <div
                 key={schema.schema_id}

@@ -67,11 +67,11 @@ const ExperimentReviewQueuePage = () => {
   const { deleteReviewQueue } = useDeleteReviewQueueMutation();
   const { getOrCreateDefaultQueueAsync, isResolvingDefaultQueue } = useGetOrCreateDefaultQueueMutation();
 
-  // Ensure the experiment's default queue exists when the Review tab loads. It
-  // starts with no members but is listed for everyone, so once created it shows
-  // in the sidebar; the endpoint is idempotent, so a repeat call is a no-op.
+  // The default queue is a no-auth-only catch-all; ensure it exists when the
+  // Review tab loads (idempotent, so a repeat call is a no-op). Authenticated
+  // MLflow has no default queue — reviewers use their own user/custom queues.
   useEffect(() => {
-    if (queuesLoading || isResolvingDefaultQueue || !experimentId) {
+    if (authAvailable || queuesLoading || isResolvingDefaultQueue || !experimentId) {
       return;
     }
     if (!reviewQueues.some((q) => q.is_default)) {
@@ -79,9 +79,15 @@ const ExperimentReviewQueuePage = () => {
         // Non-fatal: the tab still works without it; the next load retries.
       });
     }
-    // Relies on the backend listing is_default queues for everyone, so once
-    // created the default appears in this list and the guard above stops firing.
-  }, [queuesLoading, isResolvingDefaultQueue, experimentId, reviewer, reviewQueues, getOrCreateDefaultQueueAsync]);
+  }, [
+    authAvailable,
+    queuesLoading,
+    isResolvingDefaultQueue,
+    experimentId,
+    reviewer,
+    reviewQueues,
+    getOrCreateDefaultQueueAsync,
+  ]);
 
   // No queue is selected until the reviewer picks one (the right panel prompts
   // them to). Auto-selecting the first queue would land on a no-work queue and

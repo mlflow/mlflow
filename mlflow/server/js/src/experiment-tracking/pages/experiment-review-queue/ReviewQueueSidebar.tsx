@@ -256,14 +256,14 @@ export const ReviewQueueSidebar = ({
     }
   });
 
-  // The default queue is pinned at the top (always visible) and kept out of the
-  // grouped lists below.
-  const defaultQueue = queues.find((q) => q.is_default);
-  const grouped = queues.filter((q) => !q.is_default);
   // No-work == loaded with zero pending. Loading queues stay in the active list.
   const isNoWork = (q: ReviewQueue) => pendingByQueueId.get(q.queue_id) === 0;
-  const active = grouped.filter((q) => !isNoWork(q));
-  const noWork = grouped.filter(isNoWork);
+  // The default queue flows through the normal grouping like any other queue,
+  // but is surfaced first among the active queues when it has work to do.
+  const active = queues
+    .filter((q) => !isNoWork(q))
+    .sort((a, b) => Number(Boolean(b.is_default)) - Number(Boolean(a.is_default)));
+  const noWork = queues.filter(isNoWork);
   // Keep the selected queue visible even if it has no work — selecting a no-work
   // queue force-expands the group.
   const selectedInNoWork = noWork.some((q) => q.queue_id === selectedQueueId);
@@ -358,9 +358,6 @@ export const ReviewQueueSidebar = ({
           <div css={{ width: ACTION_COL_WIDTH, flexShrink: 0 }} />
         </div>
       )}
-
-      {/* The default queue is everyone's; pin it at the top, always visible. */}
-      {defaultQueue && renderRow(defaultQueue)}
 
       {authAvailable ? (
         <>

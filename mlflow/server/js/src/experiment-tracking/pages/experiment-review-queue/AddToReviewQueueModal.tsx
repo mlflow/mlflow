@@ -159,7 +159,9 @@ export const AddToReviewQueueModal = ({
       .slice(0, MAX_USER_MATCHES);
   }, [users, query, reviewer]);
 
-  const defaultQueueChecked = defaultQueueSelected && inheritAllAssignable;
+  // The default queue is a no-auth-only catch-all, so it's only offered here on
+  // a no-auth server; authenticated MLflow routes via custom queues / users.
+  const defaultQueueChecked = !authAvailable && defaultQueueSelected && inheritAllAssignable;
   const selectedCount = (defaultQueueChecked ? 1 : 0) + selectedQueueIds.size + selectedUsers.size;
 
   const actionError = addError ?? resolveError ?? resolveDefaultError;
@@ -324,16 +326,18 @@ export const AddToReviewQueueModal = ({
               >
                 <DialogComboboxOptionList>
                   <DialogComboboxOptionListSearch controlledValue={search} setControlledValue={setSearch}>
-                    {/* Pinned default queue (everyone's; resolved on confirm). */}
-                    <DialogComboboxOptionListCheckboxItem
-                      value={defaultQueueLabel}
-                      checked={defaultQueueChecked}
-                      disabled={!inheritAllAssignable}
-                      disabledReason={inheritAllAssignable ? undefined : reasonText('no-experiment-schemas')}
-                      onChange={() => setDefaultQueueSelected((prev) => !prev)}
-                    >
-                      {defaultQueueLabel}
-                    </DialogComboboxOptionListCheckboxItem>
+                    {/* Pinned default queue (no-auth only; resolved on confirm). */}
+                    {!authAvailable && (
+                      <DialogComboboxOptionListCheckboxItem
+                        value={defaultQueueLabel}
+                        checked={defaultQueueChecked}
+                        disabled={!inheritAllAssignable}
+                        disabledReason={inheritAllAssignable ? undefined : reasonText('no-experiment-schemas')}
+                        onChange={() => setDefaultQueueSelected((prev) => !prev)}
+                      >
+                        {defaultQueueLabel}
+                      </DialogComboboxOptionListCheckboxItem>
+                    )}
 
                     <DialogComboboxSectionHeader>
                       <FormattedMessage
