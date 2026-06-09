@@ -3321,6 +3321,12 @@ class SqlLabelSchema(Base):
     Last update time in milliseconds.
     """
 
+    is_default = Column(Boolean, nullable=False, default=False, server_default="0")
+    """
+    Whether this is the experiment's protected default question: server-seeded,
+    undeletable, and uneditable. At most one row per experiment is ``True``.
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("schema_id", name="label_schemas_pk"),
         UniqueConstraint("experiment_id", "name", name="uq_label_schemas_exp_name"),
@@ -3349,6 +3355,7 @@ class SqlLabelSchema(Base):
             created_by=self.created_by,
             created_at=self.created_time,
             updated_at=self.last_update_time,
+            is_default=self.is_default,
         )
 
     @classmethod
@@ -3375,6 +3382,7 @@ class SqlLabelSchema(Base):
             created_by=schema.created_by,
             created_time=schema.created_at or now,
             last_update_time=schema.updated_at or now,
+            is_default=schema.is_default,
         )
 
 
@@ -3661,10 +3669,11 @@ class SqlReviewQueueLabelSchema(Base):
     here (to ``label_schemas``) would converge with the ``queue_id`` ->
     ``review_queues`` -> ``experiments`` cascade on a single experiment
     delete, which MSSQL rejects as a multiple-cascade-path. The reference is
-    therefore soft (like an assessment's ``name`` -> schema link): a row
-    pointing at a since-deleted schema is dropped when the read path resolves
-    schema ids against ``label_schemas``, so orphans are harmless; a periodic
-    sweep to physically prune them is deferred.
+    therefore soft (like an assessment's ``name`` -> schema link): a row may
+    point at a since-deleted schema. The store read path returns the stored ids
+    as-is (no pruning); orphans are harmless because callers resolve a queue's
+    schema ids against the experiment's live label schemas, so a missing one is
+    simply not surfaced. A periodic sweep to physically prune orphans is deferred.
     """
 
     __table_args__ = (

@@ -121,21 +121,6 @@ message GetOrCreateUserQueue {
   }
 }
 
-// Get-or-create the experiment's single default queue (a CUSTOM queue that
-// inherits all of the experiment's schemas, cannot have its questions edited,
-// and cannot be deleted). Idempotent: concurrent callers converge on the one
-// default queue.
-message GetOrCreateDefaultQueue {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
-  optional string experiment_id = 1 [(validate_required) = true];
-  optional string created_by = 2;
-
-  message Response {
-    optional ReviewQueue review_queue = 1;
-  }
-}
-
 // Fetch one queue by `queue_id`.
 message GetReviewQueue {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
@@ -168,6 +153,11 @@ message ListReviewQueues {
   optional string user = 2;
   optional int32 max_results = 3;
   optional string page_token = 4;
+  // No-auth only: when true, the experiment's protected default queue is seeded
+  // (idempotently) before listing. Set by the no-auth UI; left false on
+  // authenticated servers and for SDK/API callers, so no default queue is
+  // created there.
+  optional bool ensure_default = 5;
 
   message Response {
     repeated ReviewQueue review_queues = 1;

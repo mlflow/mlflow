@@ -1908,7 +1908,7 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
-    def get_or_create_default_queue(
+    def _get_or_create_default_queue(
         self,
         experiment_id: str,
         *,
@@ -1916,10 +1916,11 @@ class AbstractStore(GatewayStoreMixin):
     ) -> "ReviewQueue":
         """Return the experiment's single default queue, creating it if absent.
 
-        The default queue is a custom queue that inherits all of the
-        experiment's schemas, cannot have its questions edited, and cannot be
-        deleted. Atomic and idempotent: concurrent callers converge on the
-        single default queue.
+        Internal: the default queue is seeded lazily from ``list_review_queues``
+        (no-auth only) rather than via a dedicated RPC. It's a custom queue that
+        inherits all of the experiment's schemas, cannot have its questions
+        edited, and cannot be deleted. Atomic and idempotent: concurrent callers
+        converge on the single default queue.
 
         Raises:
             MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
@@ -1953,6 +1954,7 @@ class AbstractStore(GatewayStoreMixin):
         user: str | None = None,
         max_results: int | None = None,
         page_token: str | None = None,
+        ensure_default: bool = False,
     ) -> PagedList["ReviewQueue"]:
         """List an experiment's review queues, newest first.
 
@@ -1962,6 +1964,10 @@ class AbstractStore(GatewayStoreMixin):
                 user queue plus any custom queue they belong to).
             max_results: Page size.
             page_token: Opaque continuation token from a previous call.
+            ensure_default: No-auth only. When true, seed the experiment's
+                protected default queue (idempotently) before listing. Set by the
+                no-auth UI; left false on authenticated servers and SDK/API
+                callers, so no default queue is created there.
         """
         raise NotImplementedError(self.__class__.__name__)
 
