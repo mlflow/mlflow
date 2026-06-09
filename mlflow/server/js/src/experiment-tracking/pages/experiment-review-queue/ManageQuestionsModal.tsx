@@ -113,55 +113,72 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
               backgroundAttachment: 'local, local, scroll, scroll',
             }}
           >
-            {labelSchemas.map((schema) => (
-              <div
-                key={schema.schema_id}
-                role="button"
-                tabIndex={0}
-                onClick={() => openEdit(schema)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    openEdit(schema);
+            {labelSchemas.map((schema) => {
+              // The protected default question can't be edited or deleted, so its
+              // row is static (no click-to-edit) and its delete button is disabled.
+              const isDefault = Boolean(schema.is_default);
+              return (
+                <div
+                  key={schema.schema_id}
+                  role={isDefault ? undefined : 'button'}
+                  tabIndex={isDefault ? undefined : 0}
+                  onClick={isDefault ? undefined : () => openEdit(schema)}
+                  onKeyDown={
+                    isDefault
+                      ? undefined
+                      : (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            openEdit(schema);
+                          }
+                        }
                   }
-                }}
-                css={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: theme.spacing.sm,
-                  padding: theme.spacing.sm,
-                  border: `1px solid ${theme.colors.border}`,
-                  borderRadius: theme.borders.borderRadiusMd,
-                  cursor: 'pointer',
-                  '&:hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
-                }}
-              >
-                <Typography.Text bold css={{ flex: 1 }}>
-                  {schema.name}
-                </Typography.Text>
-                <Tag componentId={`${CID}.type-tag`} color={schema.type === 'EXPECTATION' ? 'turquoise' : 'lime'}>
-                  {schema.type === 'EXPECTATION' ? (
-                    <FormattedMessage defaultMessage="Expectation" description="Label schema type: expectation" />
-                  ) : (
-                    <FormattedMessage defaultMessage="Feedback" description="Label schema type: feedback" />
-                  )}
-                </Tag>
-                <Button
-                  componentId={`${CID}.delete`}
-                  icon={<TrashIcon />}
-                  size="small"
-                  disabled={isDeleting}
-                  aria-label={intl.formatMessage({
-                    defaultMessage: 'Delete question',
-                    description: 'Manage review questions: delete button aria label',
-                  })}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPendingDelete(schema);
+                  css={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: theme.spacing.sm,
+                    padding: theme.spacing.sm,
+                    border: `1px solid ${theme.colors.border}`,
+                    borderRadius: theme.borders.borderRadiusMd,
+                    cursor: isDefault ? 'default' : 'pointer',
+                    ...(isDefault ? {} : { '&:hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover } }),
                   }}
-                />
-              </div>
-            ))}
+                >
+                  <Typography.Text bold css={{ flex: 1 }}>
+                    {schema.name}
+                  </Typography.Text>
+                  {isDefault && (
+                    <Tag componentId={`${CID}.default-tag`} color="charcoal">
+                      <FormattedMessage
+                        defaultMessage="Default"
+                        description="Manage review questions: tag marking the protected default question"
+                      />
+                    </Tag>
+                  )}
+                  <Tag componentId={`${CID}.type-tag`} color={schema.type === 'EXPECTATION' ? 'turquoise' : 'lime'}>
+                    {schema.type === 'EXPECTATION' ? (
+                      <FormattedMessage defaultMessage="Expectation" description="Label schema type: expectation" />
+                    ) : (
+                      <FormattedMessage defaultMessage="Feedback" description="Label schema type: feedback" />
+                    )}
+                  </Tag>
+                  <Button
+                    componentId={`${CID}.delete`}
+                    icon={<TrashIcon />}
+                    size="small"
+                    disabled={isDeleting || isDefault}
+                    aria-label={intl.formatMessage({
+                      defaultMessage: 'Delete question',
+                      description: 'Manage review questions: delete button aria label',
+                    })}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPendingDelete(schema);
+                    }}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </Modal>

@@ -16,7 +16,6 @@ import { ReviewQueueList } from './ReviewQueueList';
 import { ReviewQueueSidebar } from './ReviewQueueSidebar';
 import { useCanManageReviews } from './hooks/useCanManageReviews';
 import { useDeleteReviewQueueMutation } from './hooks/useDeleteReviewQueueMutation';
-import { useGetOrCreateDefaultQueueMutation } from './hooks/useGetOrCreateDefaultQueueMutation';
 import { useListReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { useRemoveTracesFromReviewQueueMutation } from './hooks/useRemoveTracesFromReviewQueueMutation';
@@ -60,34 +59,15 @@ const ExperimentReviewQueuePage = () => {
     experimentId: experimentId ?? '',
     // Scope to the current reviewer (the single default queue on a no-auth server).
     user: reviewer,
+    // No-auth only: the server seeds the experiment's protected default queue
+    // while listing. Authenticated MLflow has no default queue — reviewers use
+    // their own user/custom queues.
+    ensureDefault: !authAvailable,
   });
   const { labelSchemas } = useListLabelSchemasQuery({ experimentId: experimentId ?? '' });
   const { setReviewQueueTraceStatusAsync, isSettingStatus } = useSetReviewQueueTraceStatusMutation();
   const { removeTracesFromReviewQueue, isRemovingTraces } = useRemoveTracesFromReviewQueueMutation();
   const { deleteReviewQueue } = useDeleteReviewQueueMutation();
-  const { getOrCreateDefaultQueueAsync, isResolvingDefaultQueue } = useGetOrCreateDefaultQueueMutation();
-
-  // The default queue is a no-auth-only catch-all; ensure it exists when the
-  // Review tab loads (idempotent, so a repeat call is a no-op). Authenticated
-  // MLflow has no default queue — reviewers use their own user/custom queues.
-  useEffect(() => {
-    if (authAvailable || queuesLoading || isResolvingDefaultQueue || !experimentId) {
-      return;
-    }
-    if (!reviewQueues.some((q) => q.is_default)) {
-      getOrCreateDefaultQueueAsync({ experiment_id: experimentId, created_by: reviewer }).catch(() => {
-        // Non-fatal: the tab still works without it; the next load retries.
-      });
-    }
-  }, [
-    authAvailable,
-    queuesLoading,
-    isResolvingDefaultQueue,
-    experimentId,
-    reviewer,
-    reviewQueues,
-    getOrCreateDefaultQueueAsync,
-  ]);
 
   // No queue is selected until the reviewer picks one (the right panel prompts
   // them to). Auto-selecting the first queue would land on a no-work queue and

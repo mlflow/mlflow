@@ -11491,6 +11491,10 @@
     "defaultMessage": "Register",
     "description": "Register button text to register the model"
   },
+  "wCaDws": {
+    "defaultMessage": "Default",
+    "description": "Manage review questions: tag marking the protected default question"
+  },
   "wDFPtr": {
     "defaultMessage": "AVG",
     "description": "Header label for numeric assessment type for the average value"
