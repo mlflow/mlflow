@@ -155,6 +155,10 @@
     "defaultMessage": "Load prompt from registry",
     "description": "Label for the playground top-bar button that opens the registered prompt picker"
   },
+  "+sYnv4": {
+    "defaultMessage": "Save prompt to registry",
+    "description": "Label for the playground top-bar button that opens the save-prompt-version drawer"
+  },
   "+tURAJ": {
     "defaultMessage": "Cancel",
     "description": "Button text for canceling evaluation"
@@ -478,10 +482,6 @@
   "0XZ2zu": {
     "defaultMessage": "No image logged at this step",
     "description": "Experiment tracking > runs charts > charts > image plot with history > no image text"
-  },
-  "0Ytk+h": {
-    "defaultMessage": "Save to registry",
-    "description": "Label for the playground top-bar button that opens the save-prompt-version drawer"
   },
   "0eoz8L": {
     "defaultMessage": "Hour",
