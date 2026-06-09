@@ -1,21 +1,19 @@
 import sqlalchemy as sa
 
+from mlflow.store.db.workspace_utils import (
+    MODEL_CHILD_TABLES,
+    OTHER_WORKSPACE_CHILD_TABLES,
+    format_truncated_list,
+    get_workspace_table,
+)
 from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-# Derive table names from the shared ORM model list and add child/tags tables that also carry
-# a workspace column but are not "root" tables (they are updated via FK cascades during
-# delete_workspace, but the migration script must handle them explicitly).
-_WORKSPACE_CHILD_TABLES = [
-    "model_versions",
-    "registered_model_tags",
-    "model_version_tags",
-    "registered_model_aliases",
-]
-
-_WORKSPACE_TABLES = [
-    model.__tablename__ for model in _WORKSPACE_ROOT_MODELS
-] + _WORKSPACE_CHILD_TABLES
+_WORKSPACE_TABLES = (
+    [model.__tablename__ for model in _WORKSPACE_ROOT_MODELS]
+    + MODEL_CHILD_TABLES
+    + OTHER_WORKSPACE_CHILD_TABLES
+)
 
 _CONFLICT_SPECS = [
     ("experiments", ("name",), "experiments with the same name"),
@@ -49,26 +47,13 @@ def _format_conflicts(
     *,
     max_rows: int | None,
 ) -> str:
-    rows = conflicts if max_rows is None else conflicts[:max_rows]
-    formatted_conflicts = "\n  ".join(
-        ", ".join(f"{column}={value!r}" for column, value in zip(columns, row)) for row in rows
-    )
-    if formatted_conflicts:
-        formatted_conflicts = f"\n  {formatted_conflicts}"
+    display = conflicts if max_rows is None else conflicts[:max_rows]
+    items = [
+        ", ".join(f"{column}={value!r}" for column, value in zip(columns, row)) for row in display
+    ]
     if max_rows is not None and len(conflicts) > max_rows:
-        formatted_conflicts += f"\n  ... ({len(conflicts) - max_rows} more)"
-    return formatted_conflicts
-
-
-def _get_table(conn, table_name: str) -> sa.Table:
-    table = sa.Table(table_name, sa.MetaData(), autoload_with=conn)
-    if "workspace" not in table.c:
-        raise RuntimeError(
-            "Move aborted: the specified tracking server does not have workspaces enabled. "
-            "This command is intended for a workspace-enabled tracking server. Please make sure "
-            "the specified tracking URI is correct."
-        )
-    return table
+        items.append(f"... ({len(conflicts) - max_rows} more)")
+    return format_truncated_list(items, max_rows=None)
 
 
 def _assert_no_workspace_conflicts(
@@ -79,7 +64,7 @@ def _assert_no_workspace_conflicts(
     *,
     verbose: bool,
 ) -> None:
-    table = _get_table(conn, table_name)
+    table = get_workspace_table(conn, table_name)
     group_columns = [table.c[column] for column in columns]
     conflict_keys = (
         sa.select(*group_columns).group_by(*group_columns).having(sa.func.count() > 1).subquery()
@@ -131,7 +116,7 @@ def migrate_to_default_workspace(
 
         counts = {}
         for table_name in _WORKSPACE_TABLES:
-            table = _get_table(conn, table_name)
+            table = get_workspace_table(conn, table_name)
             stmt = (
                 sa
                 .select(sa.func.count())

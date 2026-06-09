@@ -1,6 +1,5 @@
 import { TableFilterInput, TableFilterLayout } from '@databricks/design-system';
 import { ModelSearchInputHelpTooltip } from '../../../../model-registry/components/model-list/ModelListFilters';
-import type { PromptsListComponentId } from '../PromptsPage';
 
 export const PromptsListFilters = ({
   searchFilter,
@@ -9,12 +8,12 @@ export const PromptsListFilters = ({
 }: {
   searchFilter: string;
   onSearchFilterChange: (searchFilter: string) => void;
-  componentId: PromptsListComponentId;
+  componentId: string;
 }) => {
   return (
     <TableFilterLayout>
       <TableFilterInput
-        placeholder="Search prompts by name or tags"
+        placeholder="Search prompts by name"
         componentId={componentId}
         value={searchFilter}
         onChange={(e) => onSearchFilterChange(e.target.value)}

@@ -12,5 +12,5 @@ serving = ["flask"]
 ml = ["xgboost"]
 
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=61,<=82.0.1"]
 build-backend = "setuptools.build_meta"

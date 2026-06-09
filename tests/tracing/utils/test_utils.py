@@ -30,6 +30,7 @@ from mlflow.tracing.utils import (
     calculate_cost_by_model_and_token_usage,
     capture_function_input_args,
     construct_full_inputs,
+    dump_span_attribute_value,
     encode_span_id,
     encode_trace_id,
     generate_trace_id_v4,
@@ -586,8 +587,17 @@ def test_get_spans_table_name_for_trace_no_destination():
 @pytest.mark.skipif(IS_TRACING_SDK_ONLY, reason="mock_litellm_cost cannot affect server-side cost")
 @pytest.mark.parametrize("is_databricks", [True, False])
 def test_cost_not_computed_client_side(is_databricks, mock_litellm_cost):
+    # Mock should_compute_cost_client_side in the span module (where it's bound at import time)
+    # rather than is_databricks_uri. Mocking is_databricks_uri captures the reference in
+    # mlflow_v3.py during lazy import and causes _export_spans_incrementally to skip spans.
     with (
-        mock.patch("mlflow.utils.uri.is_databricks_uri", return_value=is_databricks),
+        mock.patch(
+            "mlflow.entities.span.should_compute_cost_client_side", return_value=is_databricks
+        ),
+        mock.patch(
+            "mlflow.tracing.processor.base_mlflow.should_compute_cost_client_side",
+            return_value=is_databricks,
+        ),
         mock.patch(
             "mlflow.entities.span.set_span_cost_attribute", wraps=lambda span: None
         ) as mock_set_cost,
@@ -608,7 +618,7 @@ def test_cost_not_computed_client_side(is_databricks, mock_litellm_cost):
         else:
             mock_set_cost.assert_not_called()
 
-    trace = mlflow.get_trace(trace_id=span.trace_id)
+    trace = mlflow.get_trace(trace_id=span.trace_id, flush=True)
     # cost should be set
     assert trace.info.cost is not None
     assert CostKey.INPUT_COST in trace.info.cost
@@ -633,6 +643,70 @@ def test_generate_trace_id_v4_from_otel_trace_id():
     parsed_location, parsed_id = parse_trace_id_v4(result)
     assert parsed_location == location
     assert parsed_id == expected_hex_id
+
+
+def test_builtin_cost_fallback_when_litellm_unavailable():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o", {"input_tokens": 1000, "output_tokens": 500}
+        )
+    assert result is not None
+    assert result["input_cost"] == pytest.approx(0.0025)
+    assert result["output_cost"] == pytest.approx(0.005)
+    assert result["total_cost"] == pytest.approx(0.0075)
+
+
+def test_builtin_cost_fallback_returns_none_for_unknown_model():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "unknown-model", {"input_tokens": 100, "output_tokens": 50}
+        )
+    assert result is None
+
+
+def test_builtin_cost_fallback_with_cache_tokens():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o",
+            {
+                "input_tokens": 1000,
+                "output_tokens": 500,
+                "cache_read_input_tokens": 200,
+            },
+        )
+    assert result is not None
+    assert result["input_cost"] == pytest.approx(0.00225)
+
+
+def test_builtin_cost_fallback_with_provider():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o",
+            {"input_tokens": 1000, "output_tokens": 500},
+            model_provider="openai",
+        )
+    assert result is not None
+    assert result["total_cost"] == pytest.approx(0.0075)
+
+
+@pytest.mark.parametrize("model_provider", ["OpenAI", "OPENAI", "openai"])
+def test_builtin_cost_fallback_with_provider_case_insensitive(model_provider):
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o",
+            {"input_tokens": 1000, "output_tokens": 500},
+            model_provider=model_provider,
+        )
+    assert result is not None
+    assert result["total_cost"] == pytest.approx(0.0075)
+
+
+@pytest.mark.parametrize("model_name", ["gateway:/my-endpoint", "endpoints:/my-endpoint"])
+def test_cost_skipped_for_internal_routing_uris(model_name):
+    result = calculate_cost_by_model_and_token_usage(
+        model_name, {"input_tokens": 1000, "output_tokens": 500}
+    )
+    assert result is None
 
 
 def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
@@ -667,3 +741,17 @@ def test_litellm_provider_list_printed_when_debug_logging(capsys):
     # During the call to calculate cost, suppress was set to False
     # We are asserting that suppress is reset to the original value after
     assert litellm.suppress_debug_info is True
+
+
+def test_dump_span_attribute_value_handles_circular_reference():
+    cyclic = {"name": "run_context"}
+    cyclic["self"] = cyclic
+
+    with pytest.raises(ValueError, match="Circular reference detected"):
+        json.dumps(cyclic)
+
+    # Must not raise; fall back result is a valid JSON string containing repr(value).
+    result = dump_span_attribute_value(cyclic)
+    loaded = json.loads(result)
+    assert isinstance(loaded, str)
+    assert "run_context" in loaded

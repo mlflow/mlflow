@@ -1,15 +1,3 @@
-"""
-Integration tests for uv package manager support in model logging and loading.
-
-Tests the end-to-end workflow:
-1. uv project detection during log_model()
-2. Artifact generation (uv.lock, pyproject.toml, .python-version, requirements.txt)
-3. Model loading with uv artifacts
-
-These tests use REAL uv calls (not mocked) where possible, following MLflow best practices.
-Tests requiring uv are skipped if uv is not installed or below minimum version.
-"""
-
 import platform
 import shutil
 import subprocess
@@ -36,7 +24,7 @@ _PYTHON_ENV_FILE_NAME = "python_env.yaml"
 # Skip marker for tests requiring uv
 requires_uv = pytest.mark.skipif(
     not is_uv_available(),
-    reason="uv is not installed or below minimum required version (0.5.0)",
+    reason="uv is not installed or below minimum required version (0.6.10)",
 )
 
 

@@ -78,7 +78,7 @@ export const EvaluationsOverviewSortDropdown = React.memo(
               label: column.label,
               key: column.id,
               type: TracesTableColumnType.INPUT,
-              group: TracesTableColumnGroup.INFO,
+              group: column.group ?? TracesTableColumnGroup.INFO,
             });
           } else if (column.type === TracesTableColumnType.TRACE_INFO) {
             const label =
@@ -93,7 +93,7 @@ export const EvaluationsOverviewSortDropdown = React.memo(
                 label,
                 key: column.id,
                 type: TracesTableColumnType.TRACE_INFO,
-                group: TracesTableColumnGroup.INFO,
+                group: column.group ?? TracesTableColumnGroup.INFO,
               });
             }
           }
@@ -158,7 +158,6 @@ export const EvaluationsOverviewSortDropdown = React.memo(
         // metrics.`metric_key_name` => metric_key_name
         const extractedKeyName = tableSort?.key?.match(/^.+\.`(.+)`$/);
         if (extractedKeyName) {
-          // eslint-disable-next-line prefer-destructuring
           sortOptionLabel = extractedKeyName[1];
         }
       }
@@ -340,8 +339,8 @@ const EvaluationsOverviewSortDropdownBodyGrouped = ({
           <React.Fragment key={groupName}>
             <DropdownMenu.Group>
               <DropdownMenu.Label>
-                {groupName === TracesTableColumnGroup.INFO
-                  ? 'Attributes'
+                {groupName === TracesTableColumnGroup.BASE
+                  ? 'Base Attributes'
                   : TracesTableColumnGroupToLabelMap[groupName as TracesTableColumnGroup]}
               </DropdownMenu.Label>
               {opts.map((opt, idx) => (

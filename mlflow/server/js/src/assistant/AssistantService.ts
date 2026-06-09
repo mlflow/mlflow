@@ -10,7 +10,7 @@ import type {
   HealthCheckResult,
   InstallSkillsResponse,
 } from './types';
-import { getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
 
@@ -56,27 +56,19 @@ const processContentBlocks = (
  * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
  */
 export const checkProviderHealth = async (provider: string): Promise<HealthCheckResult> => {
-  const response = await fetch(`${API_BASE}/providers/${provider}/health`, {
-    headers: { ...getDefaultHeaders(document.cookie) },
-  });
-  if (response.ok) {
+  try {
+    await fetchAPI(getAjaxUrl(`${API_BASE}/providers/${provider}/health`));
     return { ok: true };
+  } catch (error: any) {
+    return { ok: false, error: error.message || 'Unknown error', status: error.status };
   }
-  const data = await response.json();
-  return { ok: false, error: data.detail || 'Unknown error', status: response.status };
 };
 
 /**
  * Get the assistant configuration.
  */
 export const getConfig = async (): Promise<AssistantConfig> => {
-  const response = await fetch(`${API_BASE}/config`, {
-    headers: { ...getDefaultHeaders(document.cookie) },
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to get config: ${response.statusText}`);
-  }
-  return response.json();
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/config`));
 };
 
 /**
@@ -84,16 +76,10 @@ export const getConfig = async (): Promise<AssistantConfig> => {
  * Pass null for a project to remove it.
  */
 export const updateConfig = async (config: AssistantConfigUpdate): Promise<AssistantConfig> => {
-  const response = await fetch(`${API_BASE}/config`, {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/config`), {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...getDefaultHeaders(document.cookie) },
     body: JSON.stringify(config),
   });
-  if (!response.ok) {
-    const data = await response.json();
-    throw new Error(data.detail || 'Failed to update config');
-  }
-  return response.json();
 };
 
 /**
@@ -107,20 +93,10 @@ export const createEventSource = (sessionId: string): EventSource => {
  * Cancel an active session by terminating the backend process.
  */
 export const cancelSession = async (sessionId: string): Promise<{ message: string }> => {
-  const response = await fetch(`${API_BASE}/sessions/${sessionId}`, {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/sessions/${sessionId}`), {
     method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      ...getDefaultHeaders(document.cookie),
-    },
     body: JSON.stringify({ status: 'cancelled' }),
   });
-
-  if (!response.ok) {
-    throw new Error('Failed to cancel session');
-  }
-
-  return response.json();
 };
 
 export interface SendMessageStreamCallbacks {
@@ -221,6 +197,7 @@ export const sendMessageStream = async (
 
     // Listen for 'done' event (completion)
     eventSource.addEventListener('done', () => {
+      onToolUse?.([]);
       onDone();
       eventSource.close();
     });
@@ -229,21 +206,6 @@ export const sendMessageStream = async (
     eventSource.addEventListener('interrupted', () => {
       onInterrupted?.();
       eventSource.close();
-    });
-
-    eventSource.addEventListener('done', (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        // Backend sends: {"result": null, "session_id": "..."}
-        onToolUse?.([]);
-        onDone();
-        eventSource.close();
-      } catch (err) {
-        // fail silently
-        onToolUse?.([]);
-        onDone();
-        eventSource.close();
-      }
     });
 
     // Listen for 'error' event
@@ -272,6 +234,25 @@ export const sendMessageStream = async (
   }
 };
 
+export const listProviderModels = async (provider: string, baseUrl: string, apiKey?: string): Promise<string[]> => {
+  // api_key is sent as an X-API-Key header (not a query param) so the
+  // bearer token doesn't end up in access logs, browser history, or
+  // referer headers.
+  const params = new URLSearchParams({ base_url: baseUrl });
+  const url = `${API_BASE}/providers/${encodeURIComponent(provider)}/models?${params.toString()}`;
+  const headers = {
+    ...getDefaultHeaders(document.cookie),
+    ...(apiKey ? { 'X-API-Key': apiKey } : {}),
+  };
+  const response = await fetch(url, { headers });
+  if (!response.ok) {
+    const data = await response.json();
+    throw new Error(data.detail || `Failed to list models for provider '${provider}': ${response.statusText}`);
+  }
+  const data = await response.json();
+  return data.models as string[];
+};
+
 /**
  * Install skills from the MLflow skills repository.
  * Returns { installed_skills, skills_directory } on success.
@@ -284,20 +265,12 @@ export const installSkills = async (
   customPath?: string,
   experimentId?: string,
 ): Promise<InstallSkillsResponse> => {
-  const response = await fetch(`${API_BASE}/skills/install`, {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/skills/install`), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getDefaultHeaders(document.cookie) },
     body: JSON.stringify({
       type,
       custom_path: customPath,
       experiment_id: experimentId,
     }),
   });
-  if (!response.ok) {
-    const data = await response.json();
-    const error = new Error(data.detail || 'Failed to install skills');
-    (error as any).status = response.status;
-    throw error;
-  }
-  return response.json();
 };

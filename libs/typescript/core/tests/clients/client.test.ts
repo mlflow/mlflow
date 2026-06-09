@@ -62,7 +62,7 @@ describe('MlflowClient', () => {
       expect(createdTraceInfo.requestPreview).toBe('{"input":"test"}');
       expect(createdTraceInfo.responsePreview).toBe('{"output":"result"}');
       expect(createdTraceInfo.clientRequestId).toBe('client-request-id');
-      expect(createdTraceInfo.traceMetadata).toEqual({ 'meta-key': 'meta-value' });
+      expect(createdTraceInfo.traceMetadata).toMatchObject({ 'meta-key': 'meta-value' });
       expect(createdTraceInfo.tags).toEqual({
         'tag-key': 'tag-value',
         'mlflow.artifactLocation': expect.any(String),
@@ -118,6 +118,28 @@ describe('MlflowClient', () => {
       expect(retrievedTraceInfo.traceId).toBe(traceId);
       expect(retrievedTraceInfo.state).toBe(TraceState.OK);
       expect(retrievedTraceInfo.requestTime).toBe(1000);
+    });
+  });
+
+  describe('getExperimentByName', () => {
+    it('should retrieve an existing experiment by name', async () => {
+      const experiment = await client.getExperimentByName(
+        `test-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`,
+      );
+
+      expect(experiment).toBeNull();
+
+      const createdName = `lookup-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+      const createdId = await client.createExperiment(createdName);
+      try {
+        const found = await client.getExperimentByName(createdName);
+        expect(found).toEqual({
+          experimentId: createdId,
+          name: createdName,
+        });
+      } finally {
+        await client.deleteExperiment(createdId);
+      }
     });
   });
 });

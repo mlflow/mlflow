@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 from typing import Any, AsyncIterable
 
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig, LiteLLMConfig
+from mlflow.gateway.providers.anthropic import _normalize_anthropic_input_tokens
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import parse_sse_lines
@@ -49,7 +52,7 @@ class LiteLLMProvider(BaseProvider):
     This serves as a fallback for providers not natively supported.
     """
 
-    NAME = "LiteLLM"
+    DISPLAY_NAME = "LiteLLM"
     CONFIG_TYPE = LiteLLMConfig
 
     PASSTHROUGH_PROVIDER_PATHS = {
@@ -63,6 +66,11 @@ class LiteLLMProvider(BaseProvider):
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
         super().__init__(config, enable_tracing=enable_tracing)
+        if importlib.util.find_spec("litellm") is None:
+            raise MlflowException(
+                "The `litellm` package is required to use the LiteLLM provider but is not "
+                "installed. Please install it with: `pip install litellm`"
+            )
         if config.model.config is None or not isinstance(config.model.config, LiteLLMConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.litellm_config: LiteLLMConfig = config.model.config
@@ -76,7 +84,7 @@ class LiteLLMProvider(BaseProvider):
         """
         if self.litellm_config.litellm_provider:
             return self.litellm_config.litellm_provider
-        return self.NAME
+        return self.DISPLAY_NAME
 
     @property
     def adapter_class(self):
@@ -266,7 +274,8 @@ class LiteLLMProvider(BaseProvider):
             cache_read_key="cache_read_input_tokens",
             cache_creation_key="cache_creation_input_tokens",
         ):
-            return token_usage
+            # Anthropic reports input_tokens excluding cache tokens — normalize.
+            return _normalize_anthropic_input_tokens(token_usage)
 
         # Try Gemini format
         return self._extract_token_usage_from_dict(

@@ -6,14 +6,21 @@ import pytest
 from click.testing import CliRunner
 
 from mlflow.claude_code.cli import commands
-from mlflow.claude_code.config import HOOK_FIELD_COMMAND, HOOK_FIELD_HOOKS
-from mlflow.claude_code.hooks import upsert_hook
 
 
 @pytest.fixture
 def runner():
-    """Provide a CLI runner for tests."""
     return CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _clear_mlflow_env(monkeypatch):
+    for name in (
+        "MLFLOW_TRACKING_URI",
+        "MLFLOW_EXPERIMENT_ID",
+        "MLFLOW_EXPERIMENT_NAME",
+    ):
+        monkeypatch.delenv(name, raising=False)
 
 
 def test_claude_help_command(runner):
@@ -29,6 +36,7 @@ def test_trace_command_help(runner):
     assert "Set up Claude Code tracing" in result.output
     assert "--tracking-uri" in result.output
     assert "--experiment-id" in result.output
+    assert "--non-interactive" in result.output
     assert "--disable" in result.output
     assert "--status" in result.output
 
@@ -37,7 +45,7 @@ def test_trace_status_with_no_config(runner):
     with runner.isolated_filesystem():
         result = runner.invoke(commands, ["claude", "--status"])
         assert result.exit_code == 0
-        assert "❌ Claude tracing is not enabled" in result.output
+        assert "Claude tracing is not enabled" in result.output
 
 
 def test_trace_disable_with_no_config(runner):
@@ -46,64 +54,167 @@ def test_trace_disable_with_no_config(runner):
         assert result.exit_code == 0
 
 
-def _get_hook_command_from_settings() -> str:
-    settings_path = Path(".claude/settings.json")
-    with open(settings_path) as f:
-        config = json.load(f)
-
-    if hooks := config.get("hooks"):
-        for group in hooks.get("Stop", []):
-            for hook in group.get("hooks", []):
-                if command := hook.get("command"):
-                    return command
-
-    raise AssertionError("No hook command found in settings.json")
-
-
-def test_claude_setup_with_uv_env_var(runner, monkeypatch):
-    monkeypatch.setenv("UV", "/path/to/uv")
-
-    with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["claude"])
+def test_claude_setup_installs_plugin_and_writes_env(runner):
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed") as mock_install,
+    ):
+        result = runner.invoke(commands, ["claude", "-u", "http://localhost:5000", "-e", "123"])
         assert result.exit_code == 0
 
-        hook_command = _get_hook_command_from_settings()
-        assert hook_command == "uv run mlflow autolog claude stop-hook"
+        mock_install.assert_called_once_with(Path(".").resolve())
+
+        config = json.loads(Path(".claude/settings.json").read_text())
+        assert config["env"]["MLFLOW_CLAUDE_TRACING_ENABLED"] == "true"
+        assert config["env"]["MLFLOW_TRACKING_URI"] == "http://localhost:5000"
+        assert config["env"]["MLFLOW_EXPERIMENT_ID"] == "123"
+        assert "hooks" not in config
 
 
-def test_claude_setup_without_uv_env_var(runner, monkeypatch):
+def test_claude_setup_prompts_for_missing_values_in_interactive_mode(runner):
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
+        mock.patch("mlflow.claude_code.cli._is_interactive_shell", return_value=True),
+        mock.patch("mlflow.get_tracking_uri", return_value="http://localhost:5000"),
+    ):
+        result = runner.invoke(commands, ["claude"], input="\n42\n")
+        assert result.exit_code == 0
+
+        config = json.loads(Path(".claude/settings.json").read_text())
+        assert config["env"]["MLFLOW_TRACKING_URI"] == "http://localhost:5000"
+        assert config["env"]["MLFLOW_EXPERIMENT_ID"] == "42"
+        assert "interactive mode" in result.output
+        assert "MLFLOW_TRACKING_URI and MLFLOW_EXPERIMENT_ID" in result.output
+
+
+def test_claude_setup_shows_plugin_install_message(runner):
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
+    ):
+        result = runner.invoke(commands, ["claude", "-u", "http://localhost:5000", "-e", "123"])
+        assert result.exit_code == 0
+        assert "MLflow Claude plugin for Claude Code" in result.output
+        assert "Claude Code plugin installed" in result.output
+
+
+def test_claude_setup_non_interactive_uses_defaults(runner):
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
+        mock.patch("mlflow.get_tracking_uri", return_value="file:///tmp/mlruns"),
+    ):
+        result = runner.invoke(commands, ["claude", "--non-interactive"])
+        assert result.exit_code == 0
+
+        config = json.loads(Path(".claude/settings.json").read_text())
+        assert config["env"]["MLFLOW_TRACKING_URI"] == "file:///tmp/mlruns"
+        assert config["env"]["MLFLOW_EXPERIMENT_ID"] == "0"
+
+
+def test_mlflow_cmd_empty_string_raises_error(runner):
+    with runner.isolated_filesystem():
+        result = runner.invoke(commands, ["claude", "--mlflow-cmd", ""])
+        assert result.exit_code != 0
+        assert "must not be empty or whitespace-only" in result.output
+
+
+def test_claude_setup_surfaces_plugin_install_failure(runner):
+    with (
+        runner.isolated_filesystem(),
+        mock.patch(
+            "mlflow.claude_code.cli.ensure_plugin_installed",
+            side_effect=RuntimeError("boom"),
+        ),
+    ):
+        result = runner.invoke(commands, ["claude"])
+        assert result.exit_code != 0
+        assert "boom" in result.output
+
+
+def test_mlflow_cmd_whitespace_only_raises_error(runner):
+    with runner.isolated_filesystem():
+        result = runner.invoke(commands, ["claude", "--mlflow-cmd", "   "])
+        assert result.exit_code != 0
+        assert "must not be empty or whitespace-only" in result.output
+
+
+def test_setup_rejects_experiment_id_and_name_together(runner):
+    with runner.isolated_filesystem():
+        result = runner.invoke(
+            commands,
+            ["claude", "--experiment-id", "1", "--experiment-name", "my-exp"],
+        )
+        assert result.exit_code != 0
+        assert "Choose either --experiment-id or --experiment-name" in result.output
+
+
+def test_claude_setup_with_local_flag(runner, monkeypatch):
     monkeypatch.delenv("UV", raising=False)
+    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
 
-    with runner.isolated_filesystem():
-        result = runner.invoke(commands, ["claude"])
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
+    ):
+        result = runner.invoke(commands, ["claude", "--local"])
         assert result.exit_code == 0
 
-        hook_command = _get_hook_command_from_settings()
-        assert hook_command == "mlflow autolog claude stop-hook"
+        local_path = Path(".claude/settings.local.json")
+        assert local_path.exists()
+
+        with open(local_path) as f:
+            config = json.load(f)
+        assert "MLFLOW_CLAUDE_TRACING_ENABLED" in config.get("env", {})
+
+        settings_path = Path(".claude/settings.json")
+        assert not settings_path.exists()
 
 
-def test_upsert_hook_uses_cli_command():
-    config = {HOOK_FIELD_HOOKS: {}}
-    upsert_hook(config, "Stop", "stop-hook")
+def test_claude_setup_local_status(runner, monkeypatch):
+    monkeypatch.delenv("UV", raising=False)
+    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
 
-    hook_command = config[HOOK_FIELD_HOOKS]["Stop"][0][HOOK_FIELD_HOOKS][0][HOOK_FIELD_COMMAND]
-    assert "mlflow autolog claude stop-hook" in hook_command
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
+    ):
+        result = runner.invoke(commands, ["claude", "--local"])
+        assert result.exit_code == 0
+
+        result = runner.invoke(commands, ["claude", "--status"])
+        assert result.exit_code == 0
+        assert "Claude tracing is enabled" in result.output
 
 
-def test_upsert_hook_upgrades_legacy_hook():
-    legacy_command = (
-        'python -I -c "from mlflow.claude_code.hooks import stop_hook_handler; stop_hook_handler()"'
-    )
-    config = {
-        HOOK_FIELD_HOOKS: {
-            "Stop": [{HOOK_FIELD_HOOKS: [{"type": "command", HOOK_FIELD_COMMAND: legacy_command}]}]
-        }
-    }
-    upsert_hook(config, "Stop", "stop-hook")
+def test_claude_disable_cleans_local_without_flag(runner, monkeypatch):
+    monkeypatch.delenv("UV", raising=False)
+    monkeypatch.delenv("PIXI_ENVIRONMENT_NAME", raising=False)
 
-    hook_command = config[HOOK_FIELD_HOOKS]["Stop"][0][HOOK_FIELD_HOOKS][0][HOOK_FIELD_COMMAND]
-    assert "mlflow autolog claude stop-hook" in hook_command
-    assert "python -I -c" not in hook_command
+    with (
+        runner.isolated_filesystem(),
+        mock.patch("mlflow.claude_code.cli.ensure_plugin_installed"),
+    ):
+        result = runner.invoke(commands, ["claude", "--local"])
+        assert result.exit_code == 0
+
+        # Disable without --local should still clean settings.local.json
+        result = runner.invoke(commands, ["claude", "--disable"])
+        assert result.exit_code == 0
+        assert "Claude tracing disabled" in result.output
+
+
+def test_local_with_status_raises_error(runner):
+    result = runner.invoke(commands, ["claude", "--local", "--status"])
+    assert result.exit_code != 0
+    assert "--local can only be used during setup" in result.output
+
+
+def test_local_with_disable_raises_error(runner):
+    result = runner.invoke(commands, ["claude", "--local", "--disable"])
+    assert result.exit_code != 0
+    assert "--local can only be used during setup" in result.output
 
 
 def test_stop_hook_subcommand_is_routable(runner):

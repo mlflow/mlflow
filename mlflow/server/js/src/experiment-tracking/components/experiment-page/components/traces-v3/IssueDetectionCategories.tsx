@@ -19,6 +19,7 @@ interface IssueCategoryDefinition {
   icon: React.ReactNode;
   title: React.ReactNode;
   description: React.ReactNode;
+  componentId: string;
 }
 
 export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
@@ -32,6 +33,7 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
         description="Issue category description for correctness"
       />
     ),
+    componentId: 'mlflow.traces.issue-detection-modal.category.correctness',
   },
   {
     id: 'latency',
@@ -43,6 +45,7 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
         description="Issue category description for latency"
       />
     ),
+    componentId: 'mlflow.traces.issue-detection-modal.category.latency',
   },
   {
     id: 'execution',
@@ -54,6 +57,7 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
         description="Issue category description for execution"
       />
     ),
+    componentId: 'mlflow.traces.issue-detection-modal.category.execution',
   },
   {
     id: 'adherence',
@@ -65,6 +69,7 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
         description="Issue category description for adherence"
       />
     ),
+    componentId: 'mlflow.traces.issue-detection-modal.category.adherence',
   },
   {
     id: 'relevance',
@@ -76,6 +81,7 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
         description="Issue category description for relevance"
       />
     ),
+    componentId: 'mlflow.traces.issue-detection-modal.category.relevance',
   },
   {
     id: 'safety',
@@ -87,6 +93,7 @@ export const ISSUE_CATEGORY_DEFINITIONS: IssueCategoryDefinition[] = [
         description="Issue category description for safety"
       />
     ),
+    componentId: 'mlflow.traces.issue-detection-modal.category.safety',
   },
 ];
 
@@ -96,9 +103,10 @@ interface IssueCategoryCardProps {
   category: IssueCategoryDefinition;
   isSelected: boolean;
   onToggle: (categoryId: IssueCategory, isChecked: boolean) => void;
+  componentId: string;
 }
 
-const IssueCategoryCard: React.FC<IssueCategoryCardProps> = ({ category, isSelected, onToggle }) => {
+const IssueCategoryCard: React.FC<IssueCategoryCardProps> = ({ category, isSelected, onToggle, componentId }) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -119,7 +127,7 @@ const IssueCategoryCard: React.FC<IssueCategoryCardProps> = ({ category, isSelec
       onClick={() => onToggle(category.id, !isSelected)}
     >
       <Checkbox
-        componentId={`mlflow.traces.issue-detection-modal.category.${category.id}`}
+        componentId={componentId}
         isChecked={isSelected}
         onChange={(checked) => onToggle(category.id, checked)}
         onClick={(e) => e.stopPropagation()}
@@ -153,6 +161,7 @@ export const IssueCategoryList: React.FC<IssueCategoryListProps> = ({ selectedCa
           category={category}
           isSelected={selectedCategories.has(category.id)}
           onToggle={onToggle}
+          componentId={category.componentId}
         />
       ))}
     </div>

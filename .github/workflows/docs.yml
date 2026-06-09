@@ -8,6 +8,7 @@ on:
       - mlflow/**
       - docs/**
       - .github/workflows/docs.yml
+      - .github/actions/setup-node/**
     branches:
       - master
   pull_request:
@@ -21,6 +22,7 @@ on:
       - mlflow/**
       - docs/**
       - .github/workflows/docs.yml
+      - .github/actions/setup-node/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -31,6 +33,8 @@ defaults:
     shell: bash
     working-directory: docs
 
+permissions: {}
+
 jobs:
   check:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
@@ -40,10 +44,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: |
           npm ci
+      - name: Check package-lock.json is up-to-date
+        run: |
+          npm install --package-lock-only --no-audit --no-fund
+          git diff --exit-code package-lock.json || {
+            echo "package-lock.json is out of date. Run 'npm install --package-lock-only' locally and commit the result."
+            exit 1
+          }
       - name: Run lint
         run: |
           npm run eslint
@@ -59,6 +72,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
@@ -66,6 +81,7 @@ jobs:
         working-directory: .
         run: |
           uv sync --group docs --extra gateway
+          uv pip install -r requirements/torch.txt
       - run: |
           npm ci
       - uses: ./.github/actions/show-versions
@@ -129,11 +145,14 @@ jobs:
         working-directory: docs/api_reference
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         working-directory: .
         run: |
           uv sync --group docs --extra gateway
+          uv pip install -r requirements/torch.txt
       - name: Extract examples
         run: |
           uv run source/testcode_block.py
@@ -142,13 +161,15 @@ jobs:
           uv run pytest .examples
 
   r:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: (github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     permissions:
       contents: read
     timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Build docs
         working-directory: docs/api_reference
         run: |

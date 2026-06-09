@@ -2,10 +2,11 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-import sqlalchemy
-from sqlalchemy import Column, and_, case, exists, func, literal_column
+from sqlalchemy import Column, Float, and_, case, distinct, exists, func, literal_column
+from sqlalchemy.orm import aliased
 from sqlalchemy.orm.query import Query
 
+from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.trace_metrics import (
     AggregationType,
     MetricAggregation,
@@ -16,6 +17,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.db import db_types
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
+    SqlEntityAssociation,
     SqlSpan,
     SqlSpanMetrics,
     SqlTraceInfo,
@@ -31,6 +33,7 @@ from mlflow.tracing.constant import (
     SpanMetricDimensionKey,
     SpanMetricKey,
     SpanMetricSearchKey,
+    TraceMetadataKey,
     TraceMetricDimensionKey,
     TraceMetricKey,
     TraceMetricSearchKey,
@@ -58,6 +61,10 @@ TRACES_METRICS_CONFIGS: dict[TraceMetricKey, TraceMetricsConfig] = {
     TraceMetricKey.TRACE_COUNT: TraceMetricsConfig(
         aggregation_types={AggregationType.COUNT},
         dimensions={TraceMetricDimensionKey.TRACE_NAME, TraceMetricDimensionKey.TRACE_STATUS},
+    ),
+    TraceMetricKey.SESSION_COUNT: TraceMetricsConfig(
+        aggregation_types={AggregationType.COUNT},
+        dimensions=set(),
     ),
     TraceMetricKey.LATENCY: TraceMetricsConfig(
         aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
@@ -145,6 +152,7 @@ VIEW_TYPE_CONFIGS: dict[MetricViewType, dict[str, TraceMetricsConfig]] = {
 }
 
 TIME_BUCKET_LABEL = "time_bucket"
+_SESSION_TRACE_METADATA = aliased(SqlTraceMetadata)
 
 
 def get_percentile_aggregation(
@@ -306,7 +314,7 @@ def _get_assessment_numeric_value_column(json_column: Column) -> Column:
         (json_column == "null", None),
         (func.substring(json_column, 1, 1).in_(['"', "[", "{"]), None),
         # For numbers, cast to float
-        else_=func.cast(json_column, sqlalchemy.Float),
+        else_=func.cast(json_column, Float),
     )
 
 
@@ -326,6 +334,8 @@ def _get_column_to_aggregate(view_type: MetricViewType, metric_name: str) -> Col
             match metric_name:
                 case TraceMetricKey.TRACE_COUNT:
                     return SqlTraceInfo.request_id
+                case TraceMetricKey.SESSION_COUNT:
+                    return distinct(_SESSION_TRACE_METADATA.value)
                 case TraceMetricKey.LATENCY:
                     return SqlTraceInfo.execution_time_ms
                 case metric_name if metric_name in TraceMetricKey.token_usage_keys():
@@ -489,6 +499,15 @@ def _apply_metric_specific_joins(
                         SqlTraceMetrics.key == metric_name,
                     ),
                 )
+            elif metric_name == TraceMetricKey.SESSION_COUNT:
+                # Join with SqlTraceMetadata to access session IDs for unique session counting.
+                query = query.join(
+                    _SESSION_TRACE_METADATA,
+                    and_(
+                        SqlTraceInfo.request_id == _SESSION_TRACE_METADATA.request_id,
+                        _SESSION_TRACE_METADATA.key == TraceMetadataKey.TRACE_SESSION,
+                    ),
+                )
         case MetricViewType.SPANS:
             # Join with SqlSpanMetrics for cost metrics
             if metric_name in SpanMetricKey.cost_keys():
@@ -533,7 +552,24 @@ def _apply_filters(query: Query, filters: list[str], view_type: MetricViewType) 
                                 SqlTraceMetadata.value == parsed_filter.value,
                             )
                         )
-                        query = query.filter(metadata_filter)
+                        if parsed_filter.key == TraceMetadataKey.SOURCE_RUN:
+                            # OTLP traces linked post-hoc via link_traces_to_run() store the
+                            # run association in SqlEntityAssociation, not in trace metadata.
+                            # Include both paths so the filter works regardless of how the
+                            # trace was created.
+                            src_type = EntityAssociationType.TRACE
+                            dst_type = EntityAssociationType.RUN
+                            association_filter = exists().where(
+                                and_(
+                                    SqlEntityAssociation.source_id == SqlTraceInfo.request_id,
+                                    SqlEntityAssociation.source_type == src_type,
+                                    SqlEntityAssociation.destination_type == dst_type,
+                                    SqlEntityAssociation.destination_id == parsed_filter.value,
+                                )
+                            )
+                            query = query.filter(metadata_filter | association_filter)
+                        else:
+                            query = query.filter(metadata_filter)
                     case TraceMetricSearchKey.TAG:
                         tag_filter = exists().where(
                             and_(

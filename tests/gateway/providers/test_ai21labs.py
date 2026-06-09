@@ -4,9 +4,9 @@ import pytest
 from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.ai21labs import AI21LabsProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -83,6 +83,13 @@ def completions_response():
     }
 
 
+def test_get_provider_name():
+    config = completions_config()
+    provider = AI21LabsProvider(EndpointConfig(**config))
+    assert provider.DISPLAY_NAME == "AI21Labs"
+    assert provider.get_provider_name() == "ai21"
+
+
 @pytest.mark.asyncio
 async def test_completions():
     resp = completions_response()
@@ -117,7 +124,7 @@ async def test_completions():
                 "maxTokens": 1000,
                 "prompt": "This is a test",
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 

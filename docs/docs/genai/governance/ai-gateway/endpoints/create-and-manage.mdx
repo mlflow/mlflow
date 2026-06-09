@@ -1,5 +1,6 @@
 ---
 title: Create and Manage Endpoints
+description: Create and manage MLflow AI Gateway endpoints that route requests to LLM models. Configure single-model endpoints or set up traffic splitting and fallback chains.
 ---
 
 # Create and Manage Endpoints
@@ -21,14 +22,14 @@ Navigate to the AI Gateway section at `http://localhost:5000/#/gateway`. The End
    - This name becomes part of your API path: `/gateway/my-chat-endpoint/...`
 3. Select your provider from 100+ supported options
    - Common providers (OpenAI, Anthropic, Google Gemini) appear first
-   - Click "View all providers" for the full LiteLLM catalog
+   - Click "LiteLLM" for the full LiteLLM catalog (**Note:** you will need to install LiteLLM separately)
 4. Choose your model
    - The selector displays capability badges (Tools, Reasoning, Caching)
    - Context window size and token costs are shown
    - Use the search function for quick filtering
-5. Configure API key:
-   - **Create new API key**: Configure credentials inline (convenient for first-time setup)
-   - **Use existing API key**: Select from previously created keys (recommended for consistency)
+5. Configure credentials:
+   - **Create new LLM connection**: Configure credentials inline (convenient for first-time setup)
+   - **Use existing LLM connection**: Select from previously created connections (recommended for consistency)
 6. Review your configuration in the summary panel
 7. Click **Create Endpoint**
 
@@ -45,7 +46,7 @@ For endpoints that need traffic splitting or fallbacks, see [Traffic Routing & F
 Click on any endpoint name to view its configuration:
 
 - **Provider and model**: The currently configured model
-- **API key**: Which credentials are being used
+- **LLM connection**: Which credentials are being used
 - **Traffic split**: Percentage distribution across models (if configured)
 - **Fallbacks**: Ordered list of fallback models (if configured)
 
@@ -56,7 +57,7 @@ To modify an endpoint:
 1. Click on the endpoint name to open details
 2. Update the configuration as needed:
    - Change the model
-   - Switch API keys
+   - Switch LLM connections
    - Add or modify traffic splitting
    - Configure fallbacks
 3. Changes take effect immediately with zero downtime
@@ -77,7 +78,7 @@ The AI Gateway supports dynamic configuration updates. You can:
 
 - Add new endpoints without restarting the server
 - Modify existing endpoint configurations
-- Change API keys and credentials
+- Change LLM connections and credentials
 - Adjust traffic splitting percentages
 - Reorder fallback chains
 

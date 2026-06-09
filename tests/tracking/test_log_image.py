@@ -336,3 +336,31 @@ def test_async_log_image_flush():
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         files = os.listdir(run_artifact_dir)
         assert len(files) == 100 * 2
+
+
+def test_log_image_with_slash_in_key():
+    image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
+
+    with mlflow.start_run():
+        mlflow.log_image(image, key="category/name", step=5, synchronous=True)
+
+        logged_path = "images/"
+        artifact_uri = mlflow.get_artifact_uri(logged_path)
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        files = os.listdir(run_artifact_dir)
+
+        assert len(files) == 2
+        for file in files:
+            # '~' must be used instead of '#' as the separator
+            assert "category~name" in file
+            assert "#" not in file
+
+        run_id = mlflow.active_run().info.run_id
+
+    client = mlflow.MlflowClient()
+    artifacts = client.list_artifacts(run_id, path="images")
+    assert len(artifacts) == 2
+    for artifact in artifacts:
+        # download_artifacts must not raise MlflowException about '#' in path
+        local_path = client.download_artifacts(run_id, artifact.path)
+        assert os.path.exists(local_path)

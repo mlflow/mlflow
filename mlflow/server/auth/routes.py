@@ -3,78 +3,77 @@ from mlflow.server.handlers import _add_static_prefix, _get_ajax_path, _get_rest
 HOME = "/"
 SIGNUP = "/signup"
 CREATE_USER = _get_rest_path("/mlflow/users/create")
+AJAX_CREATE_USER = _get_ajax_path("/mlflow/users/create")
 CREATE_USER_UI = _get_rest_path("/mlflow/users/create-ui")
 GET_USER = _get_rest_path("/mlflow/users/get")
+AJAX_GET_USER = _get_ajax_path("/mlflow/users/get")
+GET_CURRENT_USER = _get_rest_path("/mlflow/users/current")
+AJAX_GET_CURRENT_USER = _get_ajax_path("/mlflow/users/current")
+LIST_CURRENT_USER_PERMISSIONS = _get_rest_path("/mlflow/users/current/permissions", version=3)
+AJAX_LIST_CURRENT_USER_PERMISSIONS = _get_ajax_path("/mlflow/users/current/permissions", version=3)
+LIST_USER_PERMISSIONS = _get_rest_path("/mlflow/users/permissions/list", version=3)
+AJAX_LIST_USER_PERMISSIONS = _get_ajax_path("/mlflow/users/permissions/list", version=3)
+# Unified per-user grant convenience APIs. ``grant`` / ``revoke`` write to the
+# user's synthetic ``__user_<id>__`` role in the active workspace; ``check``
+# resolves the user's effective permission on the resource the same way the
+# runtime authorization check does, so callers see exactly what a real request
+# would see.
+GRANT_USER_PERMISSION = _get_rest_path("/mlflow/users/permissions/grant", version=3)
+AJAX_GRANT_USER_PERMISSION = _get_ajax_path("/mlflow/users/permissions/grant", version=3)
+REVOKE_USER_PERMISSION = _get_rest_path("/mlflow/users/permissions/revoke", version=3)
+AJAX_REVOKE_USER_PERMISSION = _get_ajax_path("/mlflow/users/permissions/revoke", version=3)
+GET_USER_PERMISSION = _get_rest_path("/mlflow/users/permissions/get", version=3)
+AJAX_GET_USER_PERMISSION = _get_ajax_path("/mlflow/users/permissions/get", version=3)
 UPDATE_USER_PASSWORD = _get_rest_path("/mlflow/users/update-password")
+AJAX_UPDATE_USER_PASSWORD = _get_ajax_path("/mlflow/users/update-password")
 UPDATE_USER_ADMIN = _get_rest_path("/mlflow/users/update-admin")
+AJAX_UPDATE_USER_ADMIN = _get_ajax_path("/mlflow/users/update-admin")
 DELETE_USER = _get_rest_path("/mlflow/users/delete")
+AJAX_DELETE_USER = _get_ajax_path("/mlflow/users/delete")
 LIST_USERS = _get_rest_path("/mlflow/users/list")
 AJAX_LIST_USERS = _get_ajax_path("/mlflow/users/list")
-CREATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/create")
-GET_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/get")
-UPDATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/update")
-DELETE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/delete")
-CREATE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/create")
-GET_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/get")
-UPDATE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/update")
-DELETE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/delete")
-CREATE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/create", version=3)
-GET_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/get", version=3)
-UPDATE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/update", version=3)
-DELETE_SCORER_PERMISSION = _get_rest_path("/mlflow/scorers/permissions/delete", version=3)
-LIST_WORKSPACE_PERMISSIONS = _get_rest_path(
-    "/mlflow/workspaces/<workspace_name>/permissions", version=3
-)
-LIST_USER_WORKSPACE_PERMISSIONS = _get_rest_path("/mlflow/workspace-permissions", version=3)
 
 # Flask routes (not part of Protobuf API)
 GET_ARTIFACT = _add_static_prefix("/get-artifact")
 UPLOAD_ARTIFACT = _get_ajax_path("/mlflow/upload-artifact")
 GET_MODEL_VERSION_ARTIFACT = _add_static_prefix("/model-versions/get-artifact")
 GET_TRACE_ARTIFACT = _get_ajax_path("/mlflow/get-trace-artifact")
+GET_TRACE_ARTIFACT_V3 = _get_ajax_path("/mlflow/get-trace-artifact", version=3)
 GET_METRIC_HISTORY_BULK = _get_ajax_path("/mlflow/metrics/get-history-bulk")
 GET_METRIC_HISTORY_BULK_INTERVAL = _get_ajax_path("/mlflow/metrics/get-history-bulk-interval")
 SEARCH_DATASETS = _get_ajax_path("/mlflow/experiments/search-datasets")
 CREATE_PROMPTLAB_RUN = _get_ajax_path("/mlflow/runs/create-promptlab-run")
 GATEWAY_PROXY = _get_ajax_path("/mlflow/gateway-proxy")
 
-# Gateway permission routes
-CREATE_GATEWAY_SECRET_PERMISSION = _get_rest_path(
-    "/mlflow/gateway/secrets/permissions/create", version=3
-)
-GET_GATEWAY_SECRET_PERMISSION = _get_rest_path("/mlflow/gateway/secrets/permissions/get", version=3)
-UPDATE_GATEWAY_SECRET_PERMISSION = _get_rest_path(
-    "/mlflow/gateway/secrets/permissions/update", version=3
-)
-DELETE_GATEWAY_SECRET_PERMISSION = _get_rest_path(
-    "/mlflow/gateway/secrets/permissions/delete", version=3
-)
-
-CREATE_GATEWAY_ENDPOINT_PERMISSION = _get_rest_path(
-    "/mlflow/gateway/endpoints/permissions/create", version=3
-)
-GET_GATEWAY_ENDPOINT_PERMISSION = _get_rest_path(
-    "/mlflow/gateway/endpoints/permissions/get", version=3
-)
-UPDATE_GATEWAY_ENDPOINT_PERMISSION = _get_rest_path(
-    "/mlflow/gateway/endpoints/permissions/update", version=3
-)
-DELETE_GATEWAY_ENDPOINT_PERMISSION = _get_rest_path(
-    "/mlflow/gateway/endpoints/permissions/delete", version=3
-)
-
-CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION = _get_rest_path(
-    "/mlflow/gateway/model-definitions/permissions/create", version=3
-)
-GET_GATEWAY_MODEL_DEFINITION_PERMISSION = _get_rest_path(
-    "/mlflow/gateway/model-definitions/permissions/get", version=3
-)
-UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION = _get_rest_path(
-    "/mlflow/gateway/model-definitions/permissions/update", version=3
-)
-DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION = _get_rest_path(
-    "/mlflow/gateway/model-definitions/permissions/delete", version=3
-)
+# Role management routes (RBAC). Each route is exposed at both the `/api/` path (for
+# the Python client) and the `/ajax-api/` path (for the MLflow frontend), following the
+# same convention as LIST_USERS / AJAX_LIST_USERS and handlers._get_paths.
+CREATE_ROLE = _get_rest_path("/mlflow/roles/create", version=3)
+AJAX_CREATE_ROLE = _get_ajax_path("/mlflow/roles/create", version=3)
+GET_ROLE = _get_rest_path("/mlflow/roles/get", version=3)
+AJAX_GET_ROLE = _get_ajax_path("/mlflow/roles/get", version=3)
+LIST_ROLES = _get_rest_path("/mlflow/roles/list", version=3)
+AJAX_LIST_ROLES = _get_ajax_path("/mlflow/roles/list", version=3)
+UPDATE_ROLE = _get_rest_path("/mlflow/roles/update", version=3)
+AJAX_UPDATE_ROLE = _get_ajax_path("/mlflow/roles/update", version=3)
+DELETE_ROLE = _get_rest_path("/mlflow/roles/delete", version=3)
+AJAX_DELETE_ROLE = _get_ajax_path("/mlflow/roles/delete", version=3)
+ADD_ROLE_PERMISSION = _get_rest_path("/mlflow/roles/permissions/add", version=3)
+AJAX_ADD_ROLE_PERMISSION = _get_ajax_path("/mlflow/roles/permissions/add", version=3)
+REMOVE_ROLE_PERMISSION = _get_rest_path("/mlflow/roles/permissions/remove", version=3)
+AJAX_REMOVE_ROLE_PERMISSION = _get_ajax_path("/mlflow/roles/permissions/remove", version=3)
+LIST_ROLE_PERMISSIONS = _get_rest_path("/mlflow/roles/permissions/list", version=3)
+AJAX_LIST_ROLE_PERMISSIONS = _get_ajax_path("/mlflow/roles/permissions/list", version=3)
+UPDATE_ROLE_PERMISSION = _get_rest_path("/mlflow/roles/permissions/update", version=3)
+AJAX_UPDATE_ROLE_PERMISSION = _get_ajax_path("/mlflow/roles/permissions/update", version=3)
+ASSIGN_ROLE = _get_rest_path("/mlflow/roles/assign", version=3)
+AJAX_ASSIGN_ROLE = _get_ajax_path("/mlflow/roles/assign", version=3)
+UNASSIGN_ROLE = _get_rest_path("/mlflow/roles/unassign", version=3)
+AJAX_UNASSIGN_ROLE = _get_ajax_path("/mlflow/roles/unassign", version=3)
+LIST_USER_ROLES = _get_rest_path("/mlflow/users/roles/list", version=3)
+AJAX_LIST_USER_ROLES = _get_ajax_path("/mlflow/users/roles/list", version=3)
+LIST_ROLE_USERS = _get_rest_path("/mlflow/roles/users/list", version=3)
+AJAX_LIST_ROLE_USERS = _get_ajax_path("/mlflow/roles/users/list", version=3)
 
 # Gateway AJAX-only routes
 GATEWAY_SUPPORTED_PROVIDERS = _get_ajax_path("/mlflow/gateway/supported-providers", version=3)

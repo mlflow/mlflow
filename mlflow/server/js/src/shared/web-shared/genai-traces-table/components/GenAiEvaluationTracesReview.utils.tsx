@@ -101,6 +101,7 @@ export interface AssessmentLearnMoreLink {
  * https://learn.microsoft.com/en-us/azure/databricks/generative-ai/agent-evaluation/${hash}`
  * https://docs.databricks.com/en/generative-ai/agent-evaluation/${page}.html#${hash}
  */
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 export const ASSESSMENTS_DOC_LINKS: Record<string, AssessmentLearnMoreLink> = {
   [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT]: {
     // TODO(nsthorat): Update this link to the overall deep link once it's available.
@@ -322,6 +323,7 @@ export enum KnownEvaluationResultAssessmentMetadataFields {
   IS_COPIED_FROM_AI = 'is_copied_from_ai',
 }
 
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 export const KnownEvaluationResultAssessmentOutputLabel: Record<string, MessageDescriptor> = {
   response: defineMessage({
     defaultMessage: 'Model output',
@@ -331,6 +333,7 @@ export const KnownEvaluationResultAssessmentOutputLabel: Record<string, MessageD
 
 export const EXPECTED_FACTS_FIELD_NAME = 'expected_facts';
 
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 export const KnownEvaluationResultAssessmentTargetLabel: Record<string, MessageDescriptor> = {
   expected_response: defineMessage({
     defaultMessage: 'Expected output',
@@ -342,6 +345,7 @@ export const KnownEvaluationResultAssessmentTargetLabel: Record<string, MessageD
   }),
 };
 
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 export const KnownEvaluationResultAssessmentValueLabel: Record<string, MessageDescriptor> = {
   [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT]: defineMessage({
     defaultMessage: 'Overall',
@@ -414,6 +418,7 @@ export const KnownEvaluationResultAssessmentValueLabel: Record<string, MessageDe
   }),
 };
 
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 export const KnownEvaluationResultAssessmentValueMissingTooltip: Record<string, MessageDescriptor> = {
   [KnownEvaluationResultAssessmentName.CORRECTNESS]: defineMessage({
     defaultMessage:
@@ -447,6 +452,7 @@ export const KnownEvaluationResultAssessmentValueMissingTooltip: Record<string, 
   }),
 };
 
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 export const KnownEvaluationResultAssessmentValueDescription: Record<string, MessageDescriptor> = {
   [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT]: defineMessage({
     defaultMessage: 'The overall assessment passes when all of the judges pass.',
@@ -522,6 +528,7 @@ export const KnownEvaluationResultAssessmentValueDescription: Record<string, Mes
   }),
 };
 
+// eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 export const KnownEvaluationResultAssessmentValueMapping: Record<string, Record<string, MessageDescriptor>> = {
   [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT]: {
     [KnownEvaluationResultAssessmentStringValue.YES]: defineMessage({

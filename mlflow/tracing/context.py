@@ -5,6 +5,8 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Generator
 
+from mlflow.tracing.constant import TraceMetadataKey
+
 
 @dataclass(frozen=True)
 class _UserTraceContext:
@@ -38,6 +40,8 @@ def context(
     metadata: dict[str, str] | None = None,
     tags: dict[str, str] | None = None,
     enabled: bool | None = None,
+    session_id: str | None = None,
+    user: str | None = None,
 ) -> Generator[None, None, None]:
     """
     A context manager that injects metadata and/or tags into any trace created
@@ -57,10 +61,9 @@ def context(
         mlflow.langchain.autolog()
 
         with mlflow.tracing.context(
-            # Specify metadata and tags you want to inject into the trace
+            session_id="session-123",
+            user="user-456",
             tags={"project": "my-project"},
-            # Reserved metadata key for associating traces with a conversation session.
-            metadata={"mlflow.trace.session": "session-123"},
         ):
             # Any trace created inside this block will carry the metadata and tags.
             agent.invoke("What is the capital of France?")
@@ -92,11 +95,22 @@ def context(
             any traces. If ``None`` (default), the value is inherited from the outer
             scope. This does not affect the global tracing state set by
             :py:func:`mlflow.tracing.disable`.
+        session_id: Session ID to associate with traces created in this scope.
+            Internally stored as metadata under the ``mlflow.trace.session`` key.
+        user: User identifier to associate with traces created in this scope.
+            Internally stored as metadata under the ``mlflow.trace.user`` key.
     """
+    # Inject session_id and user into metadata
+    metadata = dict(metadata) if metadata else {}
+    if session_id is not None:
+        metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+    if user is not None:
+        metadata[TraceMetadataKey.TRACE_USER] = user
+
     current = _USER_TRACE_CONTEXT.get()
 
     # Merge with any outer context scope
-    merged_metadata = {**(current.metadata if current else {}), **(metadata or {})}
+    merged_metadata = {**(current.metadata if current else {}), **metadata}
     merged_tags = {**(current.tags if current else {}), **(tags or {})}
     resolved_enabled = enabled if enabled is not None else (current.enabled if current else None)
 

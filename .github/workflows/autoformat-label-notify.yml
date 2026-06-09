@@ -9,10 +9,12 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   notify:
     runs-on: ubuntu-slim
-    if: ${{ github.event.label.name == 'autoformat' }}
+    if: github.event.label.name == 'autoformat'
     timeout-minutes: 5
     permissions:
       pull-requests: write # to post a comment on the PR

@@ -303,9 +303,22 @@ function extractTokenUsage(response: any): TokenUsage | undefined {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const totalTokens = usage.total_tokens ?? (inputTokens ?? 0) + (outputTokens ?? 0);
 
-  return {
+  const result: TokenUsage = {
     input_tokens: inputTokens ?? 0,
     output_tokens: outputTokens ?? 0,
     total_tokens: totalTokens ?? 0,
   };
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  if (usage.cache_read_input_tokens != null) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    result.cache_read_input_tokens = usage.cache_read_input_tokens;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  if (usage.cache_creation_input_tokens != null) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    result.cache_creation_input_tokens = usage.cache_creation_input_tokens;
+  }
+
+  return result;
 }

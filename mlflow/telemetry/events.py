@@ -1,10 +1,13 @@
 import inspect
 import os
 import sys
+from collections import Counter
 from enum import Enum
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
 from mlflow.entities import Feedback
+from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_OTEL_GENAI_SEMCONV
 from mlflow.telemetry.constant import (
     GENAI_MODULES,
@@ -132,7 +135,7 @@ class GenAIEvaluateEvent(Event):
         if eval_data is not None:
             from mlflow.genai.evaluation.utils import _get_eval_data_type
 
-            record_params.update(_get_eval_data_type(eval_data))
+            record_params["eval_data_type"] = _get_eval_data_type(eval_data)
 
         # Track scorer information
         scorers = arguments.get("scorers") or []
@@ -140,7 +143,7 @@ class GenAIEvaluateEvent(Event):
             {
                 "class": _get_scorer_class_name_for_tracking(scorer),
                 "kind": scorer.kind.value,
-                "scope": "session" if scorer.is_session_level_scorer else "response",
+                "scope": "session" if scorer.is_session_level_scorer else "trace",
             }
             for scorer in scorers
             if isinstance(scorer, Scorer)
@@ -406,6 +409,32 @@ class McpRunEvent(Event):
     name: str = "mcp_run"
 
 
+class TrackingServerStartEvent(Event):
+    name: str = "tracking_server_start"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        backend_store_uri = arguments.get("backend_store_uri") or ""
+        scheme = urlparse(backend_store_uri).scheme
+        # Treat empty schemes (relative paths) and single-letter schemes
+        # (Windows drive letters like C:\) as local file storage.
+        # Strip SQLAlchemy driver suffixes (e.g. mysql+pymysql → mysql).
+        backend_store_type = "file" if not scheme or len(scheme) == 1 else scheme.split("+")[0]
+
+        app_name = arguments.get("app_name")
+        return {
+            "auth_enabled": app_name == "basic-auth",
+            "app_name": app_name,
+            "backend_store_type": backend_store_type,
+            "serve_artifacts": bool(arguments.get("serve_artifacts")),
+            "artifacts_only": bool(arguments.get("artifacts_only")),
+            "expose_prometheus": arguments.get("expose_prometheus") is not None,
+            "enable_workspaces": bool(arguments.get("enable_workspaces")),
+            "workers": arguments.get("workers"),
+            "dev": bool(arguments.get("dev")),
+        }
+
+
 class GatewayStartEvent(Event):
     name: str = "gateway_start"
 
@@ -461,6 +490,17 @@ class GatewayListEndpointsEvent(Event):
         }
 
 
+class GatewayCreateModelDefinitionEvent(Event):
+    name: str = "gateway_create_model_definition"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "model_name": arguments.get("model_name"),
+            "provider": arguments.get("provider"),
+        }
+
+
 # Gateway Budget Policy CRUD Events
 class GatewayCreateBudgetPolicyEvent(Event):
     name: str = "gateway_create_budget_policy"
@@ -491,6 +531,33 @@ class GatewayDeleteBudgetPolicyEvent(Event):
 
 class GatewayListBudgetPoliciesEvent(Event):
     name: str = "gateway_list_budget_policies"
+
+
+# Gateway Guardrail CRUD Events
+class GatewayCreateGuardrailEvent(Event):
+    name: str = "gateway_create_guardrail"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "stage": str(arguments.get("stage")) if arguments.get("stage") else None,
+            "action": str(arguments.get("action")) if arguments.get("action") else None,
+        }
+
+
+class GatewayUpdateGuardrailEvent(Event):
+    name: str = "gateway_update_guardrail"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "stage": str(arguments.get("stage")) if arguments.get("stage") else None,
+            "action": str(arguments.get("action")) if arguments.get("action") else None,
+        }
+
+
+class GatewayDeleteGuardrailEvent(Event):
+    name: str = "gateway_delete_guardrail"
 
 
 # Gateway Secret CRUD Events
@@ -534,6 +601,7 @@ class GatewayInvocationType(str, Enum):
     ANTHROPIC_PASSTHROUGH_MESSAGES = "anthropic_passthrough_messages"
     GEMINI_PASSTHROUGH_GENERATE_CONTENT = "gemini_passthrough_generate_content"
     GEMINI_PASSTHROUGH_STREAM_GENERATE_CONTENT = "gemini_passthrough_stream_generate_content"
+    RAW_PROXY = "raw_proxy"
 
 
 class GatewayInvocationEvent(Event):
@@ -542,6 +610,10 @@ class GatewayInvocationEvent(Event):
 
 class AiCommandRunEvent(Event):
     name: str = "ai_command_run"
+
+
+class AgentSetupEvent(Event):
+    name: str = "agent_setup"
 
 
 class TracingContextPropagation(Event):
@@ -604,10 +676,22 @@ class AutologgingEvent(Event):
     name: str = "autologging"
 
 
+class TraceAttachmentsEvent(Event):
+    name: str = "trace_attachments"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        if attachments := arguments.get("attachments"):
+            content_types = Counter(att.content_type for att in attachments.values())
+            return {"content_types": dict(content_types)}
+        return None
+
+
 class TraceSource(str, Enum):
     """Source of a trace received by the MLflow server."""
 
     MLFLOW_PYTHON_CLIENT = "MLFLOW_PYTHON_CLIENT"
+    EXTERNAL_OTEL_CLIENT = "EXTERNAL_OTEL_CLIENT"
     UNKNOWN = "UNKNOWN"
 
 
@@ -700,7 +784,7 @@ class ScorerCallEvent(Event):
         return {
             "scorer_class": _get_scorer_class_name_for_tracking(scorer_instance),
             "scorer_kind": scorer_instance.kind.value,
-            "is_session_level_scorer": scorer_instance.is_session_level_scorer,
+            "scope": "session" if scorer_instance.is_session_level_scorer else "trace",
             "callsite": callsite,
         }
 
@@ -724,6 +808,7 @@ class DiscoverIssuesEvent(Event):
             "model": arguments.get("model"),
             "trace_count": len(arguments.get("traces") or []),
             "categories": arguments.get("categories"),
+            "source_run_id": arguments.get("run_id"),
         }
 
     @classmethod
@@ -732,4 +817,28 @@ class DiscoverIssuesEvent(Event):
             "issue_count": len(result.issues),
             "total_traces_analyzed": result.total_traces_analyzed,
             "total_cost_usd": result.total_cost_usd,
+            "triage_run_id": result.triage_run_id,
         }
+
+
+class UpdateIssueEvent(Event):
+    name: str = "update_issue"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        status = arguments.get("status")
+        if isinstance(status, IssueStatus):
+            status = status.value
+        severity = arguments.get("severity")
+        if isinstance(severity, IssueSeverity):
+            severity = severity.value
+        return {
+            "status": status,
+            "has_name": arguments.get("name") is not None,
+            "has_description": arguments.get("description") is not None,
+            "severity": severity,
+        }
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any]:
+        return {"source_run_id": result.source_run_id} if result else {}

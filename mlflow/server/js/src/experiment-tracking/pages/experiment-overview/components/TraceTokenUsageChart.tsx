@@ -85,14 +85,15 @@ export const TraceTokenUsageChart: React.FC = () => {
                 content={
                   <ScrollableTooltip
                     formatter={tooltipFormatter}
+                    componentId="mlflow.overview.usage.token_usage.view_traces_link"
                     linkConfig={{
                       experimentId: experimentIds[0],
                       timeIntervalSeconds,
-                      componentId: 'mlflow.overview.usage.token_usage.view_traces_link',
                     }}
                   />
                 }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               <Area
                 type="monotone"

@@ -1,7 +1,7 @@
 import bisect
 import json
 from abc import ABCMeta, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities import (
     Assessment,
@@ -28,6 +28,7 @@ from mlflow.entities.trace_metrics import (
 
 if TYPE_CHECKING:
     from mlflow.entities import EvaluationDataset
+    from mlflow.genai.label_schemas.label_schemas import InputType, LabelSchema
     from mlflow.genai.scorers.online.entities import (
         CompletedSession,
         OnlineScorer,
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
 from mlflow.entities.metric import MetricWithRunId
 from mlflow.entities.trace import Span, Trace
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
@@ -45,6 +47,7 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.gateway import GatewayStoreMixin
+from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.utils import mlflow_tags
 from mlflow.utils.annotations import developer_stable, requires_sql_backend
@@ -71,6 +74,11 @@ class AbstractStore(GatewayStoreMixin):
     @property
     def supports_workspaces(self) -> bool:
         """Return whether workspaces are supported by this tracking store."""
+        return False
+
+    @property
+    def supports_trace_archival(self) -> bool:
+        """Return whether server-owned trace archival is supported by this tracking store."""
         return False
 
     @abstractmethod
@@ -315,7 +323,7 @@ class AbstractStore(GatewayStoreMixin):
             raise MlflowException.invalid_parameter_value(
                 "Either `max_timestamp_millis` or `trace_ids` must be specified.",
             )
-        if max_timestamp_millis and trace_ids:
+        if max_timestamp_millis is not None and trace_ids:
             raise MlflowException.invalid_parameter_value(
                 "Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
             )
@@ -399,6 +407,65 @@ class AbstractStore(GatewayStoreMixin):
             List of TraceInfo objects containing only metadata (no spans).
         """
         raise MlflowNotImplementedException()
+
+    def archive_traces(
+        self,
+        *,
+        resolved_trace_archival_location: str,
+        broader_retention: str,
+        long_retention_allowlist: set[str] | list[str] | None = None,
+        max_traces_per_pass: int | None = None,
+    ) -> int:
+        """
+        Archive eligible DB-backed trace payloads into the archival repository.
+
+        Concurrent executions of this method against the same backing store / trace population
+        are not supported.
+
+        Args:
+            resolved_trace_archival_location: Final archival repository root for this archival
+                pass after broader-scope server and workspace resolution has already been applied.
+            broader_retention: Resolved broader-scope retention in the form ``<int><unit>`` where
+                unit is one of ``m``, ``h``, or ``d``. Experiment-level retention overrides are
+                resolved against this value during the pass.
+            long_retention_allowlist: Experiment IDs allowed to exceed the broader-scope
+                retention with a longer experiment-level retention override.
+            max_traces_per_pass: Maximum number of traces to archive in this invocation. When the
+                scheduler applies a pass-level budget across multiple scopes, it passes the
+                remaining budget for the current scope here. If unset, archive all eligible
+                traces.
+
+        Returns:
+            The number of traces archived during the pass.
+        """
+        raise MlflowNotImplementedException()
+
+    def resolve_trace_archival_config(
+        self,
+        *,
+        default_trace_archival_location: str,
+        default_retention: str,
+    ) -> ResolvedTraceArchivalConfig:
+        """
+        Resolve the effective trace archival configuration for the current store context.
+
+        Single-tenant stores use the broader-scope defaults directly. Workspace-aware stores may
+        override this to apply workspace-specific archival settings. Any field left as ``None``
+        inherits the broader-scope default in core.
+
+        Returns:
+            A ``ResolvedTraceArchivalConfig`` describing the effective archival location,
+            retention, and whether additional workspace path scoping should be applied by the
+            caller.
+        """
+
+        return ResolvedTraceArchivalConfig(
+            config=TraceArchivalConfig(
+                location=default_trace_archival_location,
+                retention=default_retention,
+            ),
+            append_workspace_prefix=False,
+        )
 
     def get_online_trace_details(
         self,
@@ -698,14 +765,12 @@ class AbstractStore(GatewayStoreMixin):
         Args:
             location: The location to log spans to. Can be either experiment ID or the
                 full UC table name.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            spans: List of Span entities to log. Spans may belong to different traces;
+                the store will group them by trace_id internally.
             tracking_uri: The tracking URI to use. Default to None.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 
@@ -715,13 +780,10 @@ class AbstractStore(GatewayStoreMixin):
 
         Args:
             location: The location to log spans to.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            spans: List of Span entities to log. Spans may belong to different traces.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces.
         """
         raise NotImplementedError
 
@@ -1562,6 +1624,18 @@ class AbstractStore(GatewayStoreMixin):
         """
         raise NotImplementedError(self.__class__.__name__)
 
+    def list_scorers_across_experiments(self, experiment_ids: list[str]) -> list[ScorerVersion]:
+        """
+        List all scorers across multiple experiments in one batch. The default
+        impl just iterates ``list_scorers`` per experiment; ``SqlAlchemyStore``
+        overrides with a single JOIN for admin pickers that need to enumerate
+        scorers across hundreds of experiments without N+1 round trips.
+        """
+        result: list[ScorerVersion] = []
+        for exp_id in experiment_ids:
+            result.extend(self.list_scorers(exp_id))
+        return result
+
     def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
         Get a specific scorer for an experiment.
@@ -1659,5 +1733,106 @@ class AbstractStore(GatewayStoreMixin):
         Returns:
             List of OnlineScorer entities with serialized_scorer, sample_rate,
             and filter_string fields populated.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    # ------------------------------------------------------------------
+    # Label schemas: UI rendering hints attached to an experiment.
+    # See mlflow/genai/label_schemas/ for the entity dataclasses + validation.
+    # ------------------------------------------------------------------
+
+    @requires_sql_backend
+    def create_label_schema(
+        self,
+        experiment_id: str,
+        *,
+        name: str,
+        type: Literal["feedback", "expectation"],
+        input: "InputType",
+        instruction: str | None = None,
+        enable_comment: bool = False,
+    ) -> "LabelSchema":
+        """Create a new label schema scoped to an experiment.
+
+        Args:
+            experiment_id: Parent experiment ID.
+            name: Schema name, unique within the experiment. Shown to
+                reviewers as the label prompt and used as the assessment key.
+            type: Schema type (``"feedback"`` or ``"expectation"``).
+            input: One of ``InputPassFail`` / ``InputCategorical`` /
+                ``InputNumeric`` / ``InputText``.
+            instruction: Optional supplementary guidance shown to reviewers.
+            enable_comment: UI hint; persisted but not consumed server-side.
+
+        Returns:
+            The created :py:class:`LabelSchema` with backend-generated
+            ``schema_id`` and audit fields.
+
+        Raises:
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_ALREADY_EXISTS): on
+                ``(experiment_id, name)`` collision.
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if the experiment
+                doesn't exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_label_schema(self, schema_id: str) -> "LabelSchema":
+        """Fetch a label schema by its server-generated ID.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no schema has the given ID.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_label_schema_by_name(self, experiment_id: str, name: str) -> "LabelSchema":
+        """Fetch a label schema by ``(experiment_id, name)``.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if no schema matches.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def list_label_schemas(
+        self,
+        experiment_id: str,
+        max_results: int = 100,
+        page_token: str | None = None,
+    ) -> PagedList["LabelSchema"]:
+        """List label schemas for an experiment, ordered by creation time descending."""
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def update_label_schema(
+        self,
+        schema_id: str,
+        *,
+        name: str | None = None,
+        instruction: str | None = None,
+        enable_comment: bool | None = None,
+        input: "InputType | None" = None,
+    ) -> "LabelSchema":
+        """Sparse update on a label schema.
+
+        ``type`` is immutable post-create and is not accepted as a parameter.
+        Renames are supported (set ``name`` to the new value); existing
+        assessment rows are not migrated.
+
+        Raises:
+            MlflowException(RESOURCE_DOES_NOT_EXIST): if schema_id doesn't exist.
+            MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
+            MlflowException(RESOURCE_ALREADY_EXISTS): on rename collision.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def delete_label_schema(self, schema_id: str) -> None:
+        """Hard-delete a label schema. No-op if it doesn't exist.
+
+        Assessments whose ``name`` matches this schema retain their data
+        but render as free-form values in the UI after deletion.
         """
         raise NotImplementedError(self.__class__.__name__)

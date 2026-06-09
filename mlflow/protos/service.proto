@@ -9,6 +9,7 @@ import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "issues.proto";
+import "label_schemas.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
 import "prompt_optimization.proto";
 import "scalapb/scalapb.proto";
@@ -510,6 +511,29 @@ service MlflowService {
       rpc_doc_title: "List Artifacts"
     };
     option (graphql) = {};
+  }
+
+  // Generate a presigned URL for uploading an artifact directly to cloud storage.
+  // The server uses its own credentials to sign the URL, enabling clients to upload
+  // artifacts without needing direct cloud storage write permissions.
+  //
+  // Consumed by external artifact repository plugins
+  // (e.g. https://github.com/aws/sagemaker-mlflow).
+  rpc createPresignedUploadUrl(CreatePresignedUploadUrl) returns (CreatePresignedUploadUrl.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/artifacts/presigned-upload-url"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Presigned Upload URL"
+    };
   }
 
   // Get a list of all values for the specified metric for a given run.
@@ -1420,6 +1444,149 @@ service MlflowService {
     };
   }
 
+  // =============================================================================
+  // Label Schema RPCs
+  // =============================================================================
+
+  // Create a new label schema scoped to an experiment.
+  rpc createLabelSchema(mlflow.label_schemas.CreateLabelSchema) returns (mlflow.label_schemas.CreateLabelSchema.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/label-schemas/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        ALREADY_EXISTS,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create a label schema"
+    };
+  }
+
+  // Get a label schema by ID.
+  rpc getLabelSchema(mlflow.label_schemas.GetLabelSchema) returns (mlflow.label_schemas.GetLabelSchema.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/label-schemas/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get a label schema by ID"
+    };
+  }
+
+  // Get a label schema by (experiment_id, name).
+  rpc getLabelSchemaByName(mlflow.label_schemas.GetLabelSchemaByName) returns (mlflow.label_schemas.GetLabelSchemaByName.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/label-schemas/get-by-name"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get a label schema by name"
+    };
+  }
+
+  // List label schemas for an experiment, paginated.
+  rpc listLabelSchemas(mlflow.label_schemas.ListLabelSchemas) returns (mlflow.label_schemas.ListLabelSchemas.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/label-schemas/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "List label schemas"
+    };
+  }
+
+  // Sparse-update an existing label schema (type is immutable).
+  rpc updateLabelSchema(mlflow.label_schemas.UpdateLabelSchema) returns (mlflow.label_schemas.UpdateLabelSchema.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/label-schemas/update"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        ALREADY_EXISTS,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Update a label schema"
+    };
+  }
+
+  // Delete a label schema by ID. No-op if the schema doesn't exist.
+  rpc deleteLabelSchema(mlflow.label_schemas.DeleteLabelSchema) returns (mlflow.label_schemas.DeleteLabelSchema.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/label-schemas/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete a label schema"
+    };
+  }
+
   // Evaluation Dataset RPCs
 
   // Create an evaluation dataset
@@ -2316,6 +2483,149 @@ service MlflowService {
     };
   }
 
+  // Create a new guardrail backed by a scorer
+  rpc createGatewayGuardrail(CreateGatewayGuardrail) returns (CreateGatewayGuardrail.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/guardrails/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Guardrail"
+    };
+  }
+
+  // Get a guardrail by ID
+  rpc getGatewayGuardrail(GetGatewayGuardrail) returns (GetGatewayGuardrail.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/guardrails/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Guardrail"
+    };
+  }
+
+  // Delete a guardrail
+  rpc deleteGatewayGuardrail(DeleteGatewayGuardrail) returns (DeleteGatewayGuardrail.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/guardrails/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Guardrail"
+    };
+  }
+
+  // List guardrails
+  rpc listGatewayGuardrails(ListGatewayGuardrails) returns (ListGatewayGuardrails.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/guardrails/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Guardrails"
+    };
+  }
+
+  // Add a guardrail to a gateway endpoint
+  rpc addGuardrailToEndpoint(AddGuardrailToEndpoint) returns (AddGuardrailToEndpoint.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/guardrails/add-to-endpoint"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Add Guardrail to Endpoint"
+    };
+  }
+
+  // Remove a guardrail from a gateway endpoint
+  rpc removeGuardrailFromEndpoint(RemoveGuardrailFromEndpoint) returns (RemoveGuardrailFromEndpoint.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/guardrails/remove-from-endpoint"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Remove Guardrail from Endpoint"
+    };
+  }
+
+  // List guardrail configs for an endpoint
+  rpc listEndpointGuardrailConfigs(ListEndpointGuardrailConfigs) returns (ListEndpointGuardrailConfigs.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/guardrails/list-for-endpoint"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Endpoint Guardrail Configs"
+    };
+  }
+
+  rpc updateEndpointGuardrailConfig(UpdateEndpointGuardrailConfig) returns (UpdateEndpointGuardrailConfig.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/gateway/guardrails/update-config"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Endpoint Guardrail Config"
+    };
+  }
+
   // Create a new prompt optimization job.
   // This endpoint initiates an optimization run with the specified configuration.
   // The optimization process runs asynchronously and can be monitored via getPromptOptimizationJob.
@@ -2650,6 +2960,12 @@ message Experiment {
 
   // Tags: Additional metadata key-value pairs.
   repeated ExperimentTag tags = 7;
+
+  // Effective trace archival retention after broader-scope and experiment overrides are applied.
+  optional string effective_trace_archival_retention = 8;
+
+  // Workspace name of the experiment (Always `default` if workspace is not enabled).
+  optional string workspace = 9;
 }
 
 // DatasetInput. Represents a dataset and input tags.
@@ -3101,6 +3417,28 @@ message ListArtifacts {
 
     // Token that can be used to retrieve the next page of artifact results
     optional string next_page_token = 3;
+  }
+}
+
+message CreatePresignedUploadUrl {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Run ID that owns the artifact. Must be provided.
+  optional string run_id = 1;
+
+  // Relative path within the run's artifact directory (e.g. "models/model.pkl").
+  // Must be provided.
+  optional string path = 2;
+
+  // URL expiration time in seconds (default: 900).
+  optional int64 expiration = 3;
+
+  message Response {
+    // Presigned URL for direct artifact upload.
+    optional string presigned_url = 1;
+
+    // Required headers for the upload request (e.g. Content-Type).
+    map<string, string> headers = 2;
   }
 }
 
@@ -4530,11 +4868,12 @@ message RegisterScorer {
   }
 }
 
-// List all scorers for an experiment.
+// List all scorers, optionally scoped to a single experiment.
 message ListScorers {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // The experiment ID.
+  // The experiment ID. If empty, returns scorers across all experiments
+  // in the active workspace (used by the admin-UI scorer picker).
   optional string experiment_id = 1;
 
   message Response {
@@ -4940,6 +5279,20 @@ enum BudgetUnit {
   USD = 1;
 }
 
+// Whether a guardrail runs before or after LLM invocation
+enum GuardrailStage {
+  GUARDRAIL_STAGE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  BEFORE = 1;
+  AFTER = 2;
+}
+
+// Whether a guardrail blocks or modifies the request/response
+enum GuardrailAction {
+  GUARDRAIL_ACTION_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  VALIDATION = 1;
+  SANITIZATION = 2;
+}
+
 // Fixed window duration: a (unit, value) pair that defines how long a budget window is
 message BudgetDuration {
   // Unit of time (MINUTES, HOURS, DAYS, WEEKS, MONTHS)
@@ -5231,6 +5584,150 @@ message ListGatewayBudgetWindows {
   }
 }
 
+// ========== Gateway Guardrails API Messages ==========
+
+message GatewayGuardrail {
+  optional string guardrail_id = 1;
+
+  optional string name = 2;
+
+  optional Scorer scorer = 3;
+
+  optional GuardrailStage stage = 4;
+
+  optional GuardrailAction action = 5;
+
+  // Optional gateway endpoint ID for the LLM used by the action (e.g. sanitization).
+  optional string action_endpoint_id = 6;
+
+  optional string created_by = 7;
+
+  optional int64 created_at = 8;
+
+  optional string last_updated_by = 9;
+
+  optional int64 last_updated_at = 10;
+}
+
+message GatewayGuardrailConfig {
+  optional string endpoint_id = 1;
+
+  optional string guardrail_id = 2;
+
+  optional int64 execution_order = 3;
+
+  optional string created_by = 4;
+
+  optional int64 created_at = 5;
+
+  // The full guardrail entity, populated when listing configs.
+  optional GatewayGuardrail guardrail = 6;
+}
+
+message CreateGatewayGuardrail {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string name = 1;
+
+  optional string scorer_id = 2;
+
+  optional int64 scorer_version = 3;
+
+  optional GuardrailStage stage = 4;
+
+  optional GuardrailAction action = 5;
+
+  // Optional gateway endpoint ID for the LLM used by the action.
+  optional string action_endpoint_id = 6;
+
+  message Response {
+    optional GatewayGuardrail guardrail = 1;
+  }
+}
+
+message GetGatewayGuardrail {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string guardrail_id = 1;
+
+  message Response {
+    optional GatewayGuardrail guardrail = 1;
+  }
+}
+
+message DeleteGatewayGuardrail {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string guardrail_id = 1;
+
+  message Response {}
+}
+
+message ListGatewayGuardrails {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional int64 max_results = 1;
+
+  optional string page_token = 2;
+
+  message Response {
+    repeated GatewayGuardrail guardrails = 1;
+
+    optional string next_page_token = 2;
+  }
+}
+
+message AddGuardrailToEndpoint {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string endpoint_id = 1;
+
+  optional string guardrail_id = 2;
+
+  optional int64 execution_order = 3;
+
+  message Response {
+    optional GatewayGuardrailConfig config = 1;
+  }
+}
+
+message RemoveGuardrailFromEndpoint {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string endpoint_id = 1;
+
+  optional string guardrail_id = 2;
+
+  message Response {}
+}
+
+message ListEndpointGuardrailConfigs {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string endpoint_id = 1;
+
+  message Response {
+    repeated GatewayGuardrailConfig configs = 1;
+  }
+}
+
+message UpdateEndpointGuardrailConfig {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The endpoint ID.
+  optional string endpoint_id = 1;
+
+  // The guardrail ID.
+  optional string guardrail_id = 2;
+
+  // The new execution order.
+  optional int64 execution_order = 3;
+
+  message Response {
+    optional GatewayGuardrailConfig config = 1;
+  }
+}
+
 // ========== Secrets Configuration API Messages ==========
 
 message GetSecretsConfig {
@@ -5304,6 +5801,15 @@ message DeletePromptOptimizationJob {
 // Workspace Management Messages
 // =============================================================================
 
+// Trace archival settings accepted by workspace APIs and returned in workspace metadata.
+message TraceArchivalConfig {
+  // Optional archival repository root override.
+  optional string location = 1;
+
+  // Optional archival retention override. Format: <int><unit>, for example 30d.
+  optional string retention = 2;
+}
+
 // Workspace metadata returned by workspace APIs.
 message Workspace {
   // The unique workspace name.
@@ -5314,6 +5820,9 @@ message Workspace {
 
   // Optional default artifact root override for this workspace.
   optional string default_artifact_root = 3;
+
+  // Optional trace archival settings for this workspace.
+  optional TraceArchivalConfig trace_archival_config = 4;
 }
 
 // List workspaces available to the current principal.
@@ -5338,6 +5847,9 @@ message CreateWorkspace {
 
   // Optional default artifact root override to apply at creation time.
   optional string default_artifact_root = 3;
+
+  // Optional trace archival settings to apply at creation time.
+  optional TraceArchivalConfig trace_archival_config = 4;
 
   message Response {
     // Metadata describing the created workspace.
@@ -5370,6 +5882,9 @@ message UpdateWorkspace {
 
   // Optional default artifact root override update.
   optional string default_artifact_root = 3;
+
+  // Optional trace archival settings update.
+  optional TraceArchivalConfig trace_archival_config = 4;
 
   message Response {
     // Metadata describing the updated workspace.

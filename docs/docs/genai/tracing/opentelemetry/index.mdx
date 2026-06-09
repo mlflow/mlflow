@@ -27,8 +27,8 @@ import { CircleCheck, CircleArrowRight, CircleArrowLeft } from "lucide-react";
   },
   {
     icon: CircleCheck,
-    title: "Understand Semantic Conventions",
-    description: "MLflow understands popular OpenTelemetry semantic conventions for GenAI, such as GenAI Semantic Conventions, OpenInference, OpenLLMetry, etc. Traces generated with these conventions are treated as first-class citizens in MLflow and can be pipelined to other MLflow features."
+    title: "Native GenAI Semantic Conventions",
+    description: "MLflow both ingests and exports traces in the OpenTelemetry GenAI Semantic Convention format, keeping your AI observability vendor-neutral. Traces from any GenAI semconv-compliant tool are first-class citizens in MLflow."
   },
 ]} />
 
@@ -59,3 +59,9 @@ See [Collect OpenTelemetry Traces into MLflow](/genai/tracing/opentelemetry/inge
 MLflow traces and metrics can be exported to other OpenTelemetry-compatible backends such as Datadog, Grafana, Prometheus, etc., to integrate with your existing observability platform. You can also use [dual export](/genai/tracing/opentelemetry/export#dual-export) to send traces to both MLflow and an OpenTelemetry-compatible backend simultaneously.
 
 See [Export MLflow Traces/Metrics via OTLP](/genai/tracing/opentelemetry/export) for more details.
+
+## OpenTelemetry GenAI Semantic Conventions
+
+MLflow natively supports [OpenTelemetry GenAI Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/), the industry standard for describing AI and LLM telemetry. MLflow can both ingest GenAI semconv traces from external tools and export its own traces in GenAI semconv format for consumption by any compliant backend.
+
+See [GenAI Semantic Conventions](/genai/tracing/opentelemetry/genai-semconv) for setup instructions and details.

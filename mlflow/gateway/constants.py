@@ -1,6 +1,8 @@
 from enum import Enum
 
 MLFLOW_GATEWAY_CALLER_HEADER = "X-MLflow-Gateway-Caller"
+MLFLOW_GATEWAY_DURATION_HEADER = "X-MLflow-Gateway-Duration-Ms"
+MLFLOW_GATEWAY_OVERHEAD_HEADER = "X-MLflow-Gateway-Overhead-Duration-Ms"
 
 
 class GatewayCaller(str, Enum):
@@ -17,10 +19,6 @@ MLFLOW_GATEWAY_LIMITS_BASE = "/api/2.0/gateway/limits/"
 MLFLOW_GATEWAY_ROUTE_BASE = "/gateway/"
 MLFLOW_QUERY_SUFFIX = "/invocations"
 MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE = 3000
-
-# Specifies the timeout for the Gateway server to declare a request submitted to a provider has
-# timed out.
-MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS = 300
 
 # Abridged retryable error codes for the interface to the Gateway Server.
 # These are modified from the standard MLflow Tracking server retry codes for the MLflowClient to

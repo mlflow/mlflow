@@ -5,6 +5,7 @@ import { DesignSystemContainer } from './DesignSystemContainer';
 
 let mockGetPopupContainerFn: any;
 
+// eslint-disable-next-line @databricks/no-restricted-jest-mock-modules -- TODO(FEINF-4402)
 jest.mock('@databricks/design-system', () => ({
   DesignSystemProvider: ({ getPopupContainer, children }: any) => {
     mockGetPopupContainerFn = getPopupContainer;

@@ -1,0 +1,158 @@
+"""Launch the MLflow dev backend and the React dev server for local development.
+
+Cleans up child process groups on exit/SIGINT/SIGTERM so we don't leave zombies.
+"""
+
+from __future__ import annotations
+
+import argparse
+import atexit
+import os
+import shlex
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+JS_DIR = REPO_ROOT / "mlflow" / "server" / "js"
+
+
+def find_free_port(preferred: int, avoid: frozenset[int] = frozenset()) -> int:
+    for port in range(preferred, preferred + 100):
+        if port in avoid:
+            continue
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            try:
+                sock.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+            return port
+    raise SystemExit(f"No free port in [{preferred}, {preferred + 100})")
+
+
+def cleanup(children: list[subprocess.Popen[bytes]], tmp_paths: list[Path]) -> None:
+    for proc in children:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            pass
+    for proc in children:
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+    for path in tmp_paths:
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            path.unlink(missing_ok=True)
+
+
+def on_signal(signum: int, _frame: object) -> None:
+    sys.exit(128 + signum)
+
+
+def start_backend(port: int) -> tuple[subprocess.Popen[bytes], list[Path]]:
+    backend_args: list[str] = []
+    tmp_paths: list[Path] = []
+    if tracking_uri := os.environ.get("MLFLOW_TRACKING_URI"):
+        backend_args += ["--backend-store-uri", tracking_uri, "--default-artifact-root", "mlruns"]
+    elif backend_uri := os.environ.get("MLFLOW_BACKEND_STORE_URI"):
+        backend_args += ["--backend-store-uri", backend_uri, "--default-artifact-root", "mlruns"]
+    else:
+        db_fd, db_path_str = tempfile.mkstemp(prefix="mlflow-dev-", suffix=".db")
+        os.close(db_fd)
+        db_path = Path(db_path_str)
+        artifacts_path = Path(tempfile.mkdtemp(prefix="mlflow-dev-artifacts-"))
+        tmp_paths += [db_path, artifacts_path]
+        backend_args += [
+            "--backend-store-uri",
+            f"sqlite:///{db_path}",
+            "--default-artifact-root",
+            str(artifacts_path),
+        ]
+        print(f"Using tmp SQLite store: {db_path} (artifacts: {artifacts_path})")
+    if registry_uri := os.environ.get("MLFLOW_REGISTRY_URI"):
+        backend_args += ["--registry-store-uri", registry_uri]
+
+    cmd = [sys.executable, "-m", "mlflow", "server", *backend_args, "--dev", "--port", str(port)]
+    print(f"Running tracking server: {shlex.join(cmd)}")
+    proc = subprocess.Popen(cmd, cwd=REPO_ROOT, start_new_session=True)
+    wait_ready(f"http://localhost:{port}/health", "tracking server")
+    return proc, tmp_paths
+
+
+def start_frontend(backend_port: int, frontend_port: int) -> subprocess.Popen[bytes]:
+    proc = subprocess.Popen(
+        ["yarn", "start"],
+        cwd=JS_DIR,
+        env={
+            **os.environ,
+            "PORT": str(frontend_port),
+            "MLFLOW_PROXY": f"http://localhost:{backend_port}",
+            "MLFLOW_DEV_PROXY_MODE": "1",
+            "BROWSER": "none",
+        },
+        start_new_session=True,
+    )
+    wait_ready(f"http://localhost:{frontend_port}/", "React dev server", timeout=180)
+    return proc
+
+
+def wait_ready(url: str, label: str, timeout: float = 60.0) -> None:
+    print(f"Waiting for {label} to be ready...")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=2) as resp:
+                if 200 <= resp.status < 300:
+                    print(f"{label} is ready")
+                    return
+        except (urllib.error.URLError, ConnectionError, TimeoutError):
+            pass
+        time.sleep(2)
+    raise SystemExit(f"Failed to launch {label} (gave up after {timeout:.0f}s)")
+
+
+def main() -> None:
+    # Line-buffer prints so progress shows up live when stdout is redirected to a file.
+    sys.stdout.reconfigure(line_buffering=True)  # type: ignore[union-attr]
+
+    argparse.ArgumentParser(description=__doc__).parse_args()
+
+    subprocess.check_call(["yarn", "install"], cwd=JS_DIR)
+
+    backend_port = find_free_port(5000)
+    frontend_port = find_free_port(3000, avoid=frozenset({backend_port}))
+    print(f"Backend:  http://localhost:{backend_port}")
+    print(f"Frontend: http://localhost:{frontend_port} (with hot reload)")
+
+    children: list[subprocess.Popen[bytes]] = []
+    tmp_paths: list[Path] = []
+
+    atexit.register(cleanup, children, tmp_paths)
+    for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+        signal.signal(sig, on_signal)
+
+    backend_proc, backend_tmp = start_backend(backend_port)
+    children.append(backend_proc)
+    tmp_paths.extend(backend_tmp)
+    children.append(start_frontend(backend_port, frontend_port))
+
+    # Block until any child exits; atexit reaps the rest.
+    while all(proc.poll() is None for proc in children):
+        time.sleep(1)
+    exited = next(p for p in children if p.poll() is not None)
+    print(f"Child process (pid {exited.pid}) exited with code {exited.returncode}")
+    sys.exit(exited.returncode or 0)
+
+
+if __name__ == "__main__":
+    main()

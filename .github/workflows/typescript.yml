@@ -14,6 +14,7 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   push:
     branches:
       - master
@@ -27,6 +28,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   typescript-sdk:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
@@ -36,7 +39,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20, 22, 24]
+        # 22.22.2 has a regression where `npm install -g` fails
+        # See: https://github.com/nodejs/node/issues/62425
+        node-version: [22.22.1, 24]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -44,17 +49,25 @@ jobs:
         working-directory: libs/typescript
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python # Required for running a tracking server
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        uses: ./.github/actions/setup-node
         with:
           node-version: ${{ matrix.node-version }}
-          cache: "npm"
-          cache-dependency-path: libs/typescript/package-lock.json
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Check package-lock.json is up-to-date
+        run: |
+          npm install --package-lock-only --no-audit --no-fund
+          git diff --exit-code package-lock.json || {
+            echo "package-lock.json is out of date. Run 'npm install --package-lock-only' locally and commit the result."
+            exit 1
+          }
 
       - name: Run format check
         run: npm run format:check

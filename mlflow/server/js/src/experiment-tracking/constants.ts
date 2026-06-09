@@ -75,6 +75,7 @@ export const AUTOML_TEST_EVALUATION_METRIC_PREFIX = 'test_';
 
 export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = 'mlflow.experiment.primaryMetric.name';
 export const MLFLOW_RUN_DATASET_CONTEXT_TAG = 'mlflow.data.context';
+export const MLFLOW_EXPERIMENT_TRACE_STORAGE_UC_SCHEMA_TAG = 'mlflow.experiment.databricksTraceDestinationPath';
 export const MLFLOW_LOGGED_ARTIFACTS_TAG = 'mlflow.loggedArtifacts';
 export const MLFLOW_LINKED_PROMPTS_TAG = 'mlflow.linkedPrompts';
 export const MLFLOW_LOGGED_MODEL_USER_TAG = 'mlflow.user';
@@ -88,6 +89,9 @@ export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
 export const MLFLOW_RUN_TYPE_VALUE_GENAI_EVALUATE = 'genai_evaluate';
 export const MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION = 'issue_detection';
 export const MLFLOW_ISSUE_DETECTION_JOB_ID_TAG = 'mlflow.issueDetection.jobId';
+export const MLFLOW_ISSUE_DETECTION_RESULT_ISSUES_TAG = 'mlflow.issueDetection.result.issues';
+export const MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG = 'mlflow.issueDetection.result.totalTracesAnalyzed';
+export const MLFLOW_ISSUE_DETECTION_RESULT_SUMMARY_TAG = 'mlflow.issueDetection.result.summary';
 
 export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';
 export const MLFLOW_PROMPT_VERSION_COUNT_TAG = 'PromptVersionCount';
@@ -160,7 +164,13 @@ export enum ExperimentPageTabName {
 }
 
 export const getMlflow3DocsLink = () => {
+  // eslint-disable-next-line @databricks/no-hardcoded-doc-links -- See go/dbguidelinks
   return 'https://docs.databricks.com/aws/en/mlflow/mlflow-3-install';
+};
+
+export const getMlflow3GenAIDocsLink = () => {
+  // eslint-disable-next-line @databricks/no-hardcoded-doc-links -- See go/dbguidelinks
+  return 'https://docs.databricks.com/aws/en/mlflow3/genai/';
 };
 
 export enum ExperimentKind {

@@ -1,8 +1,10 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Button,
   CheckCircleIcon,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
   ParagraphSkeleton,
   XCircleIcon,
   Typography,
@@ -16,6 +18,7 @@ import Utils from '../../../../common/utils/Utils';
 import { useSearchIssuesQuery } from '../hooks/useSearchIssuesQuery';
 import { JobStatus, isJobComplete } from '../hooks/useFetchJobStatus';
 import { useCancelJob } from '../hooks/useCancelJob';
+import { useLogTelemetryEvent } from '../../../../telemetry/hooks/useLogTelemetryEvent';
 
 export interface IssueJobResult {
   issues?: number;
@@ -55,6 +58,7 @@ export const IssueDetectionProgress = ({
 }: IssueDetectionProgressProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const logTelemetryEvent = useLogTelemetryEvent();
   const navigate = useNavigate();
   const { experimentId, runUuid } = useParams<{ experimentId: string; runUuid: string }>();
   const { cancelJob, isCancelling } = useCancelJob();
@@ -92,18 +96,35 @@ export const IssueDetectionProgress = ({
   };
 
   const isJobSucceeded = jobStatus === JobStatus.SUCCEEDED;
-  const isJobFailed = jobStatus === JobStatus.FAILED || jobStatus === JobStatus.TIMEOUT || !!jobStatusError;
+  const isJobFailed = jobStatus === JobStatus.FAILED || jobStatus === JobStatus.TIMEOUT || Boolean(jobStatusError);
   const isJobCanceled = jobStatus === JobStatus.CANCELED;
-  const jobComplete = isJobComplete(jobStatus) || !!jobStatusError;
+  const jobComplete = isJobComplete(jobStatus) || Boolean(jobStatusError);
 
   const { issues } = useSearchIssuesQuery({
     experimentId: experimentId ?? '',
     sourceRunId: runUuid ?? '',
-    enabled: !!experimentId && !!runUuid,
+    enabled: Boolean(experimentId) && Boolean(runUuid),
     pollingEnabled: !jobComplete,
   });
 
   const identifiedIssues = issues.length;
+
+  useEffect(() => {
+    if (isJobSucceeded && runUuid) {
+      logTelemetryEvent({
+        componentId: 'mlflow.issue-detection.completed',
+        componentType: DesignSystemEventProviderComponentTypes.Card,
+        // Use runUuid as componentViewId to track the same eval result across sessions
+        componentViewId: runUuid ?? '',
+        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnView,
+        value: JSON.stringify({
+          totalTraces,
+          identifiedIssues: result?.issues,
+          totalCostUsd: result?.total_cost_usd,
+        }),
+      });
+    }
+  }, [isJobSucceeded, runUuid, totalTraces, result?.issues, result?.total_cost_usd, logTelemetryEvent]);
 
   if (isLoadingJobStatus) {
     return (

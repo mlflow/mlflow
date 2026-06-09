@@ -25,6 +25,7 @@ class PassthroughAction(str, Enum):
     OPENAI_CHAT = "openai_chat"
     OPENAI_EMBEDDINGS = "openai_embeddings"
     OPENAI_RESPONSES = "openai_responses"
+    OPENAI_RESPONSES_COMPACT = "openai_responses_compact"
     ANTHROPIC_MESSAGES = "anthropic_messages"
     GEMINI_GENERATE_CONTENT = "gemini_generate_content"
     GEMINI_STREAM_GENERATE_CONTENT = "gemini_stream_generate_content"
@@ -35,10 +36,41 @@ PASSTHROUGH_ROUTES = {
     PassthroughAction.OPENAI_CHAT: "/openai/v1/chat/completions",
     PassthroughAction.OPENAI_EMBEDDINGS: "/openai/v1/embeddings",
     PassthroughAction.OPENAI_RESPONSES: "/openai/v1/responses",
+    PassthroughAction.OPENAI_RESPONSES_COMPACT: "/openai/v1/responses/compact",
     PassthroughAction.ANTHROPIC_MESSAGES: "/anthropic/v1/messages",
     PassthroughAction.GEMINI_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:generateContent",  # noqa: E501
     PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT: "/gemini/v1beta/models/{endpoint_name}:streamGenerateContent",  # noqa: E501
 }
+
+# User-agent prefixes for subscription-based CLI tools that carry their own credentials.
+# When one of these tools is detected, the gateway preserves the client's auth header
+# instead of overwriting it with the server-side API key.
+# - Claude Code sends:  claude-cli/<version> (external, cli)
+# - OpenAI Codex sends: codex-tui/<version>, codex_cli_rs/<version>, etc. (prefix: "codex")
+# - Gemini CLI sends:   GeminiCLI/<version>/<model> (<platform>; <arch>)
+#
+# Security note: User-Agent strings are not cryptographically verified, so any HTTP
+# client can claim these prefixes. However, the client must still supply valid upstream
+# credentials for the API call to succeed — bypassing the server key only matters when
+# the client already holds its own valid credentials (e.g., a personal subscription
+# account). Admins who need to enforce server-side key usage exclusively (for billing
+# attribution or rate limiting) should leave the endpoint's auth unconfigured or
+# restrict network-level access to trusted clients.
+_USER_CREDENTIAL_AGENTS = ("claude-cli", "codex", "geminicli")
+
+# Auth header names that subscription-based CLI tools may include.
+_CLIENT_AUTH_HEADERS = ("authorization", "x-api-key", "x-goog-api-key", "api-key")
+
+
+def _client_provides_auth(headers: dict[str, str] | None) -> bool:
+    """Return True when the request comes from a known CLI tool and includes its own auth header."""
+    if not headers:
+        return False
+    lower_headers = {k.lower(): v for k, v in headers.items()}
+    user_agent = lower_headers.get("user-agent", "").lower()
+    is_credential_agent = any(agent in user_agent for agent in _USER_CREDENTIAL_AGENTS)
+    has_auth = any(key in lower_headers for key in _CLIENT_AUTH_HEADERS)
+    return is_credential_agent and has_auth
 
 
 def _get_nested(d: dict[str, Any], key: str) -> Any:
@@ -64,16 +96,16 @@ class BaseProvider(ABC):
         enable_tracing: If True, wraps method calls with MLflow tracing spans.
     """
 
-    NAME: str = ""
+    DISPLAY_NAME: str = ""
     SUPPORTED_ROUTE_TYPES: tuple[str, ...]
     CONFIG_TYPE: type[ConfigModel]
     PASSTHROUGH_PROVIDER_PATHS: dict[PassthroughAction, str] = {}
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False):
-        if self.NAME == "":
+        if self.DISPLAY_NAME == "":
             raise ValueError(
                 f"{self.__class__.__name__} is a subclass of BaseProvider and must "
-                f"override 'NAME' attribute as a non-empty string."
+                f"override 'DISPLAY_NAME' attribute as a non-empty string."
             )
 
         if not hasattr(self, "CONFIG_TYPE") or not issubclass(self.CONFIG_TYPE, ConfigModel):
@@ -84,6 +116,16 @@ class BaseProvider(ABC):
 
         self.config = config
         self._enable_tracing = enable_tracing
+        provider = config.model.provider
+        self._provider_name = provider.value if isinstance(provider, Enum) else str(provider)
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        """Return the full endpoint URL for the given route type.
+
+        Subclasses that support direct HTTP invocation (e.g. for judge
+        evaluation) should override this method.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not implement get_endpoint_url")
 
     # -------------------------------------------------------------------------
     # Internal implementation methods (override these in subclasses)
@@ -94,13 +136,13 @@ class BaseProvider(ABC):
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         raise AIGatewayException(
             status_code=501,
-            detail=f"The chat streaming route is not implemented for {self.NAME} models.",
+            detail=f"The chat streaming route is not implemented for {self.DISPLAY_NAME} models.",
         )
 
     async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         raise AIGatewayException(
             status_code=501,
-            detail=f"The chat route is not implemented for {self.NAME} models.",
+            detail=f"The chat route is not implemented for {self.DISPLAY_NAME} models.",
         )
 
     async def _completions_stream(
@@ -108,7 +150,8 @@ class BaseProvider(ABC):
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         raise AIGatewayException(
             status_code=501,
-            detail=f"The completions streaming route is not implemented for {self.NAME} models.",
+            detail="The completions streaming route is not implemented for "
+            f"{self.DISPLAY_NAME} models.",
         )
 
     async def _completions(
@@ -116,13 +159,13 @@ class BaseProvider(ABC):
     ) -> completions.ResponsePayload:
         raise AIGatewayException(
             status_code=501,
-            detail=f"The completions route is not implemented for {self.NAME} models.",
+            detail=f"The completions route is not implemented for {self.DISPLAY_NAME} models.",
         )
 
     async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         raise AIGatewayException(
             status_code=501,
-            detail=f"The embeddings route is not implemented for {self.NAME} models.",
+            detail=f"The embeddings route is not implemented for {self.DISPLAY_NAME} models.",
         )
 
     async def _passthrough(
@@ -134,7 +177,19 @@ class BaseProvider(ABC):
         route = PASSTHROUGH_ROUTES.get(action)
         raise AIGatewayException(
             status_code=501,
-            detail=f"The passthrough route '{route}' is not implemented for {self.NAME} models.",
+            detail=f"The passthrough route '{route}' is not implemented for "
+            f"{self.DISPLAY_NAME} models.",
+        )
+
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        raise AIGatewayException(
+            status_code=501,
+            detail=f"The proxy endpoint is not implemented for {self.DISPLAY_NAME} models.",
         )
 
     # -------------------------------------------------------------------------
@@ -147,10 +202,13 @@ class BaseProvider(ABC):
         async for chunk in self._maybe_trace_stream_method(
             "chat_stream", self._chat_stream, payload
         ):
+            chunk.provider = self._provider_name
             yield chunk
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        return await self._maybe_trace_method("chat", self._chat, payload)
+        result = await self._maybe_trace_method("chat", self._chat, payload)
+        result.provider = self._provider_name
+        return result
 
     async def completions_stream(
         self, payload: completions.RequestPayload
@@ -212,6 +270,49 @@ class BaseProvider(ABC):
                 span.set_attributes({**self._get_provider_attributes(), "action": action.value})
                 raise e
 
+    async def proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        if not self._enable_tracing:
+            return await self._proxy(path, payload, headers)
+
+        try:
+            result = await self._proxy(path, payload, headers)
+            if isinstance(result, AsyncIterable):
+
+                @mlflow.trace(span_type=SpanType.LLM, name=self._get_span_name())
+                async def proxy():
+                    span = mlflow.get_current_active_span()
+                    if span is not None:
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "proxy_path": path,
+                        })
+                    async for chunk in result:
+                        yield chunk
+
+                return proxy()
+            else:
+
+                @mlflow.trace(span_type=SpanType.LLM, name=self._get_span_name())
+                async def proxy():
+                    span = mlflow.get_current_active_span()
+                    if span is not None:
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "proxy_path": path,
+                        })
+                    return result
+
+                return await proxy()
+        except Exception as e:
+            with mlflow.start_span(span_type=SpanType.LLM, name=self._get_span_name()) as span:
+                span.set_attributes({**self._get_provider_attributes(), "proxy_path": path})
+                raise e
+
     # -------------------------------------------------------------------------
     # Tracing helper methods
     # -------------------------------------------------------------------------
@@ -220,14 +321,14 @@ class BaseProvider(ABC):
         """
         Get the provider name for tracing and metrics.
 
-        Override this method to return a different provider name than the class NAME.
+        Override this method to return a different provider name than the class DISPLAY_NAME.
         For example, LiteLLM provider overrides this to return the actual underlying
         provider name (e.g., "anthropic", "openai") instead of "litellm".
 
         Returns:
             The provider name string.
         """
-        return self.NAME
+        return self.DISPLAY_NAME.lower()
 
     def _get_span_name(self) -> str:
         """Generate span name based on provider and model."""
@@ -459,7 +560,7 @@ class BaseProvider(ABC):
             raise AIGatewayException(
                 status_code=400,
                 detail="Unsupported passthrough endpoint "
-                f"'{requested_route}' for {self.NAME} provider. "
+                f"'{requested_route}' for {self.DISPLAY_NAME} provider. "
                 f"Supported endpoints: {supported_routes}",
             )
         return provider_path
@@ -514,7 +615,7 @@ class TrafficRouteProvider(BaseProvider):
     A provider that split traffic and forward to multiple providers
     """
 
-    NAME: str = "TrafficRoute"
+    DISPLAY_NAME: str = "TrafficRoute"
 
     def __init__(
         self,
@@ -583,6 +684,15 @@ class TrafficRouteProvider(BaseProvider):
         prov = self._get_provider()
         return await prov.passthrough(action, payload, headers)
 
+    async def proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        prov = self._get_provider()
+        return await prov.proxy(path, payload, headers)
+
 
 class FallbackProvider(BaseProvider):
     """
@@ -591,7 +701,7 @@ class FallbackProvider(BaseProvider):
     Attempts to call providers in order until one succeeds or max_attempts is reached.
     """
 
-    NAME: str = "Fallback"
+    DISPLAY_NAME: str = "Fallback"
 
     def __init__(
         self,
@@ -725,6 +835,14 @@ class FallbackProvider(BaseProvider):
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any] | AsyncIterable[Any]:
         return await self._execute_with_fallback("passthrough", action, payload, headers)
+
+    async def proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        return await self._execute_with_fallback("proxy", path, payload, headers)
 
 
 class ProviderAdapter(ABC):

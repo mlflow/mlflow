@@ -3,16 +3,16 @@ sklearn:
     repo: https://github.com/scikit-learn/scikit-learn/tree/HEAD
     pip_release: "scikit-learn"
     install_dev: |
-      pip install git+https://github.com/scikit-learn/scikit-learn.git
+      uv pip install --system git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
-    minimum: "1.4.2"
+    minimum: "1.5.0"
     maximum: "1.8.0"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py
 
   autologging:
-    minimum: "1.4.2"
+    minimum: "1.5.0"
     maximum: "1.8.0"
     requirements:
       ">= 0.0.0": ["matplotlib", "polars"]
@@ -29,22 +29,24 @@ pytorch:
     pip_release: "torch"
     module_name: "torch"
     install_dev: |
-      pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+      uv pip install --system --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
-    minimum: "2.2.2"
-    maximum: "2.10.0"
+    minimum: "2.3.1"
+    maximum: "2.11.0"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
-      "== 2.3.*": ["transformers<5"]
-      "< 2.3": ["numpy<2", "transformers<=4.49.0", "safetensors<0.6.0"]
+      # transformers 5.x trips torch.library.infer_schema on EmbeddingBag.forward
+      # for torch < 2.5 (annotations stored as strings under `from __future__`).
+      # https://github.com/huggingface/transformers/issues/42352
+      "< 2.5": ["transformers<5"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
   autologging:
-    minimum: "2.2.2"
-    maximum: "2.10.0"
+    minimum: "2.3.1"
+    maximum: "2.11.0"
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
@@ -57,10 +59,10 @@ pytorch-lightning:
     module_name: "lightning"
     install_dev: |
       export PACKAGE_NAME=pytorch
-      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
+      uv pip install --system git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
-    minimum: "2.2.2"
+    minimum: "2.2.5"
     maximum: "2.6.1"
     requirements:
       ">= 0.0.0":
@@ -76,7 +78,7 @@ pytorch-lightning:
       pytest tests/pytorch/test_pytorch_autolog.py
 
   models:
-    minimum: "2.2.2"
+    minimum: "2.2.5"
     maximum: "2.6.1"
     requirements:
       ">= 0.0.0": ["pytorch-forecasting"]
@@ -88,11 +90,11 @@ keras:
     repo: https://github.com/keras-team/keras/tree/HEAD
     pip_release: "keras"
     install_dev: |
-      pip install --upgrade git+https://github.com/keras-team/keras.git
+      uv pip install --system --upgrade git+https://github.com/keras-team/keras.git
 
   models:
-    minimum: "3.1.0"
-    maximum: "3.13.2"
+    minimum: "3.4.0"
+    maximum: "3.14.1"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -101,8 +103,8 @@ keras:
       pytest tests/keras/test_callback.py
 
   autologging:
-    minimum: "3.1.0"
-    maximum: "3.13.2"
+    minimum: "3.4.0"
+    maximum: "3.14.1"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -115,7 +117,7 @@ tensorflow:
     repo: https://github.com/tensorflow/tensorflow/tree/HEAD
     pip_release: "tensorflow"
     install_dev: |
-      pip install --pre tf-nightly
+      uv pip install --system --pre tf-nightly
 
   models:
     minimum: "2.16.2"
@@ -145,7 +147,7 @@ xgboost:
     repo: https://github.com/dmlc/xgboost/tree/HEAD
     pip_release: "xgboost"
     install_dev: |
-      pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
+      uv pip install --system git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
     minimum: "2.1.0"
@@ -193,7 +195,7 @@ catboost:
     pip_release: "catboost"
 
   models:
-    minimum: "1.2.5"
+    minimum: "1.2.6"
     maximum: "1.2.10"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
@@ -218,11 +220,11 @@ onnx:
         quay.io/pypa/manylinux_2_28_x86_64 .github/workflows/manylinux/entrypoint.sh $python_version manylinux_2_28_x86_64 pull_request
 
       # Install wheel
-      pip install dist/*manylinux*.whl
+      uv pip install --system dist/*manylinux*.whl
 
   models:
     minimum: "1.17.0"
-    maximum: "1.20.1"
+    maximum: "1.21.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "onnxscript", "torch", "scikit-learn"]
     run: |
@@ -234,11 +236,11 @@ semantic_kernel:
     repo: https://github.com/microsoft/semantic-kernel/tree/HEAD/python
     pip_release: "semantic-kernel"
     install_dev: |
-      pip install git+https://github.com/microsoft/semantic-kernel.git@main#subdirectory=python
+      uv pip install --system git+https://github.com/microsoft/semantic-kernel.git@main#subdirectory=python
 
   autologging:
     minimum: "1.34.0"
-    maximum: "1.41.0"
+    maximum: "1.41.3"
     requirements:
       ">= 1.34.0": [
           "pydantic>=2.0,<2.12",
@@ -246,6 +248,9 @@ semantic_kernel:
           # https://github.com/openai/openai-python/issues/2525
           "openai>=1.99.9",
         ]
+      # semantic-kernel>=1.36.1 depends on azure-ai-agents>=1.2.0b3 (pre-release).
+      # Explicitly specifying the prerelease requirement allows uv to resolve it without --prerelease=allow.
+      ">= 1.36.1": ["azure-ai-agents>=1.2.0b3"]
     run: |
       pytest tests/semantic_kernel/test_semantic_kernel_autolog.py
 
@@ -254,11 +259,11 @@ spacy:
     repo: https://github.com/explosion/spaCy/tree/HEAD
     pip_release: "spacy"
     install_dev: |
-      pip install git+https://github.com/explosion/spaCy.git
+      uv pip install --system git+https://github.com/explosion/spaCy.git
 
   models:
     minimum: "3.7.5"
-    maximum: "3.8.11"
+    maximum: "3.8.14"
     requirements:
       "< 3.8": ["numpy<2"]
     run: |
@@ -269,16 +274,16 @@ statsmodels:
     repo: https://github.com/statsmodels/statsmodels/tree/HEAD
     pip_release: "statsmodels"
     install_dev: |
-      pip install git+https://github.com/statsmodels/statsmodels.git
+      uv pip install --system git+https://github.com/statsmodels/statsmodels.git
 
   models:
-    minimum: "0.14.2"
+    minimum: "0.14.3"
     maximum: "0.14.6"
     run: |
       pytest tests/statsmodels/test_statsmodels_model_export.py
 
   autologging:
-    minimum: "0.14.2"
+    minimum: "0.14.3"
     maximum: "0.14.6"
     run: |
       pytest tests/statsmodels/test_statsmodels_autolog.py
@@ -295,7 +300,7 @@ spark:
       # -Pconnect -Phive is required by spark connect
       ./build/sbt -Pconnect -Phive clean package connect/assembly
       cd python/packaging/classic
-      pip install '.[connect]'
+      uv pip install --system '.[connect]'
       pyspark --version
 
   models:
@@ -405,7 +410,7 @@ h2o:
   package_info:
     pip_release: "h2o"
   models:
-    minimum: "3.46.0.2"
+    minimum: "3.46.0.3"
     maximum: "3.46.0.10"
     run: |
       pytest tests/h2o
@@ -414,10 +419,8 @@ shap:
   package_info:
     pip_release: "shap"
   models:
-    minimum: "0.45.1"
+    minimum: "0.46.0"
     maximum: "0.51.0"
-    requirements:
-      "< 0.46.0": ["numpy<1.24.0"]
     run: |
       pytest tests/shap
 
@@ -426,13 +429,13 @@ paddle:
     pip_release: "paddlepaddle"
   models:
     minimum: "2.6.2"
-    maximum: "3.3.0"
+    maximum: "3.3.1"
     requirements:
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autologging:
     minimum: "2.6.2"
-    maximum: "3.3.0"
+    maximum: "3.3.1"
     requirements:
     run: |
       pytest tests/paddle/test_paddle_autolog.py
@@ -442,10 +445,10 @@ transformers:
     repo: https://github.com/huggingface/transformers/tree/HEAD
     pip_release: "transformers"
     install_dev: |
-      pip install git+https://github.com/huggingface/transformers
+      uv pip install --system git+https://github.com/huggingface/transformers
   models:
-    minimum: "4.39.0"
-    maximum: "5.3.0"
+    minimum: "4.41.1"
+    maximum: "5.8.1"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
@@ -453,6 +456,9 @@ transformers:
         # https://github.com/huggingface/transformers/issues/38269
         "== 4.52.1",
         "== 4.52.2",
+        # 5.0.0 broke the TAPAS table-QA and Whisper ASR pipelines; fixed in later 5.x patches.
+        # https://github.com/huggingface/transformers/issues/43792
+        "== 5.0.0",
       ]
     requirements:
       ">= 0.0.0": [
@@ -480,18 +486,18 @@ transformers:
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       "< 4.52.0.dev0": ["accelerate<1"]
     pre_test: |
-      sudo apt-get update -y
+      sudo apt-get update
       sudo apt-get install -y ffmpeg
       export PYTHONPATH=./
       python tests/transformers/helper.py
     run: |
       # Run all Transformers tests except autologging
       pytest tests/transformers --ignore tests/transformers/test_transformers_autolog.py
-      pip uninstall -y accelerate
+      uv pip uninstall --system accelerate
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
-    minimum: "4.39.0"
-    maximum: "5.3.0"
+    minimum: "4.41.1"
+    maximum: "5.8.1"
     test_every_n_versions: 4
     unsupported: [
         # https://github.com/huggingface/transformers/issues/38269
@@ -512,14 +518,11 @@ transformers:
           "boto3<1.36",
         ]
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
-      # hf_hub>=0.24.0 is broken with setfit<=1.0.3. the incompatibility was fixed in setfit>=1.1, but
-      # that version of setfit requires tranformers>=4.41
-      # datasets > 2.4.0 is incompatible with huggingface_hub<0.24.0
-      # evaluate >= 0.4.3 is incompatible with datasets<=2.4.0
-      # pyarrow >= 21.0.0 is incompatible with datasets<=2.4.0
-      "< 4.41": ["huggingface_hub<0.24.0", "datasets<=2.4.0", "evaluate<0.4.3", "pyarrow<21.0.0"]
       # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
       "< 4.42": ["sentence-transformers<5.1.2"]
+      # sentence-transformers 5.4 passes `processing_class` to transformers Trainer,
+      # which was added in transformers 4.46.0
+      "< 4.46": ["sentence-transformers<5.4"]
       "< 4.52.0.dev0": ["accelerate<1"]
       # transformers 5.x requires accelerate>=1.1.0 for Trainer
       ">= 5.0": ["accelerate>=1.1.0"]
@@ -528,16 +531,33 @@ transformers:
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
+diffusers:
+  package_info:
+    repo: https://github.com/huggingface/diffusers/tree/HEAD
+    pip_release: "diffusers"
+    install_dev: |
+      uv pip install --system git+https://github.com/huggingface/diffusers
+  models:
+    minimum: "0.37.0"
+    maximum: "0.37.1"
+    requirements:
+      ">= 0.0.0": ["transformers", "safetensors", "accelerate", "peft", "torch"]
+      # diffusers>=0.38.0 depends on safetensors>=0.8.0rc0 (pre-release).
+      # Explicitly specifying the prerelease requirement allows uv to resolve it without --prerelease=allow.
+      ">= 0.38.0": ["safetensors>=0.8.0rc0"]
+    run: |
+      pytest tests/diffusers/test_diffusers_model_export.py
+
 openai:
   package_info:
     genai: true
     repo: https://github.com/openai/openai-python/tree/HEAD
     pip_release: "openai"
     install_dev: |
-      pip install git+https://github.com/openai/openai-python
+      uv pip install --system git+https://github.com/openai/openai-python
   models:
-    minimum: "1.66.5"
-    maximum: "2.28.0"
+    minimum: "1.80.0"
+    maximum: "2.36.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -554,8 +574,8 @@ openai:
     # many test tasks for openai. Reducing the number of testing only for every 10 version.
     test_every_n_versions: 10
   autologging:
-    minimum: "1.66.5"
-    maximum: "2.28.0"
+    minimum: "1.80.0"
+    maximum: "2.36.0"
     requirements:
       ">= 0.0.0": [
           "tiktoken",
@@ -577,17 +597,17 @@ dspy:
     repo: https://github.com/stanfordnlp/dspy/tree/HEAD
     pip_release: "dspy"
     install_dev: |
-      pip install git+https://github.com/stanfordnlp/dspy.git
+      uv pip install --system git+https://github.com/stanfordnlp/dspy.git
   models:
-    minimum: "2.6.13"
-    maximum: "3.1.3"
+    minimum: "2.6.27"
+    maximum: "3.2.1"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
-    minimum: "2.6.13"
-    maximum: "3.1.3"
+    minimum: "2.6.27"
+    maximum: "3.2.1"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
@@ -600,11 +620,11 @@ langchain:
     repo: https://github.com/langchain-ai/langchain/tree/HEAD/libs/langchain
     pip_release: "langchain"
     install_dev: |
-      pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain_v1
+      uv pip install --system git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain_v1
   models:
     # Where the large package update was made (langchain-core, community, ...)
-    minimum: "0.3.21"
-    maximum: "1.2.12"
+    minimum: "0.3.26"
+    maximum: "1.3.0"
     unsupported: [
         # Chain.save() broken in 0.3.28 due to model_dump() regression: https://github.com/langchain-ai/langchain/issues/35665
         "== 0.3.28",
@@ -638,20 +658,24 @@ langchain:
           # required for testing legacy modules
           "langchain-classic",
         ]
+      # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
+      # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`. `langchain < 1.2`
+      # pins `langgraph < 1.1.0`, so hold `langgraph-prebuilt` back to a compatible version.
+      "< 1.2": ["langgraph-prebuilt<1.0.9"]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
-      pip install --no-deps --force-reinstall pyspark
+      uv pip install --system --no-deps --force-reinstall pyspark
     run: |
       # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
       # This causes installation of mlflow-skinny from stable version, while 'mlflow' points to the dev version,
       # resulting in a weird module conflict issue.
-      pip install './libs/skinny'
+      uv pip install --system './libs/skinny'
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
   autologging:
-    minimum: "0.3.21"
-    maximum: "1.2.12"
+    minimum: "0.3.26"
+    maximum: "1.3.0"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -667,10 +691,14 @@ langchain:
           "langchain-openai>=0.2.0",
         ]
       ">= 1.0.0": ["langchain-classic"]
+      # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
+      # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`. `langchain < 1.2`
+      # pins `langgraph < 1.1.0`, so hold `langgraph-prebuilt` back to a compatible version.
+      "< 1.2": ["langgraph-prebuilt<1.0.9"]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
-      pip install --no-deps --force-reinstall pyspark
+      uv pip install --system --no-deps --force-reinstall pyspark
     run: |
       pytest tests/langchain/test_langchain_autolog.py
 
@@ -682,13 +710,13 @@ langgraph:
     repo: https://github.com/langchain-ai/langgraph/tree/HEAD/libs/langgraph
     pip_release: "langgraph"
     install_dev: |
-      pip install git+https://github.com/langchain-ai/langgraph#subdirectory=libs/langgraph
+      uv pip install --system git+https://github.com/langchain-ai/langgraph#subdirectory=libs/langgraph
       # Force-reinstall prebuilt to ensure dev version compatibility and prevent pipeline failures
-      pip install --force-reinstall --no-deps git+https://github.com/langchain-ai/langgraph#subdirectory=libs/prebuilt
+      uv pip install --system --force-reinstall --no-deps git+https://github.com/langchain-ai/langgraph#subdirectory=libs/prebuilt
 
   models:
-    minimum: "0.3.12"
-    maximum: "1.1.2"
+    minimum: "0.4.6"
+    maximum: "1.2.0"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -700,12 +728,15 @@ langgraph:
       ">= 0.3.0": ["langgraph-prebuilt"]
       # `langgraph == 0.4.*` is incompatible with `langgraph-prebuilt >= 0.5`
       "== 0.4.*": ["langgraph-prebuilt<0.5"]
+      # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
+      # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`.
+      "< 1.1.5": ["langgraph-prebuilt<1.0.9"]
     run: |
       pytest tests/langgraph --ignore tests/langgraph/test_langgraph_autolog.py
 
   autologging:
-    minimum: "0.3.12"
-    maximum: "1.1.2"
+    minimum: "0.4.6"
+    maximum: "1.2.0"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -717,6 +748,9 @@ langgraph:
       ">= 0.3.0": ["langgraph-prebuilt"]
       # `langgraph == 0.4.*` is incompatible with `langgraph-prebuilt >= 0.5`
       "== 0.4.*": ["langgraph-prebuilt<0.5"]
+      # `langgraph-prebuilt >= 1.0.9` imports `ExecutionInfo`/`ServerInfo` from
+      # `langgraph.runtime`, which only exist in `langgraph >= 1.1.5`.
+      "< 1.1.5": ["langgraph-prebuilt<1.0.9"]
     run: |
       pytest tests/langgraph/test_langgraph_autolog.py
     test_tracing_sdk: true
@@ -728,11 +762,15 @@ llama_index:
     pip_release: "llama-index"
     module_name: "llama_index.core"
     install_dev: |
-      pip install git+https://github.com/run-llama/llama_index.git
+      uv pip install --system git+https://github.com/run-llama/llama_index.git
   models:
     # New event/span framework is fully implemented in 0.10.44
-    minimum: "0.12.25"
-    maximum: "0.14.16"
+    minimum: "0.12.38"
+    maximum: "0.14.21"
+    unsupported:
+      # 0.14.17+ requires llama-index-llms-openai>=0.7 which conflicts with
+      # llama-index-llms-databricks (requires llama-index-llms-openai-like<0.6)
+      - ">= 0.14.17"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:
@@ -741,19 +779,23 @@ llama_index:
           # Required to test Databricks integration
           "llama-index-llms-databricks",
           "llama-index-embeddings-databricks",
-          # Required to test external vector stores
-          "llama-index-vector-stores-qdrant",
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
-          # TODO: qdrant-client 1.16 is currently broken with llama-index until
-          # https://github.com/run-llama/llama_index/issues/20271 is resolved
-          "qdrant-client<1.16.0",
         ]
+      # llama-index-vector-stores-qdrant 0.7+ requires qdrant-client>=1.13 which
+      # conflicts with llama-index 0.12.x dependency resolution.
+      # TODO: qdrant-client 1.16 is currently broken with llama-index until
+      # https://github.com/run-llama/llama_index/issues/20271 is resolved
+      ">= 0.13.0": ["llama-index-vector-stores-qdrant", "qdrant-client<1.16.0"]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
-    minimum: "0.12.25"
-    maximum: "0.14.16"
+    minimum: "0.12.38"
+    maximum: "0.14.21"
+    unsupported:
+      # 0.14.17+ requires llama-index-llms-openai>=0.7 which conflicts with
+      # llama-index-llms-databricks (requires llama-index-llms-openai-like<0.6)
+      - ">= 0.14.17"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:
@@ -772,8 +814,8 @@ ag2:
     pip_release: "ag2"
     module_name: "autogen"
   autologging:
-    minimum: "0.8.2"
-    maximum: "0.11.2"
+    minimum: "0.9.2"
+    maximum: "0.12.3"
     requirements:
       ">= 0.0.0": [
           # Required to run tests/openai/mock_openai.py
@@ -782,10 +824,6 @@ ag2:
           "openai",
           "numpy<2",
         ]
-      # see https://github.com/ag2ai/ag2/issues/2046, this release
-      # used simple string comparison for packages and does not
-      # recognize that version 1.100 is greater than 1.66
-      "== 0.8.7": ["openai<1.99.9"]
     run: pytest tests/ag2
 
 autogen:
@@ -794,7 +832,7 @@ autogen:
     pip_release: "autogen-agentchat"
     module_name: "autogen_agentchat"
   autologging:
-    minimum: "0.4.9.3"
+    minimum: "0.6.0"
     maximum: "0.7.5"
     requirements:
       ">= 0.0.0": [
@@ -815,14 +853,14 @@ gemini:
     pip_release: "google-genai"
     module_name: "google.genai"
     install_dev: |
-      pip install git+https://github.com/googleapis/python-genai
+      uv pip install --system git+https://github.com/googleapis/python-genai
   autologging:
-    minimum: "1.7.0"
-    maximum: "1.67.0"
+    minimum: "1.17.0"
+    maximum: "2.2.0"
     requirements:
     run: |
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK
-      pip install google-generativeai
+      uv pip install --system google-generativeai
       pytest tests/gemini
     test_tracing_sdk: true
     test_every_n_versions: 10
@@ -833,10 +871,10 @@ anthropic:
     repo: https://github.com/anthropics/anthropic-sdk-python/tree/HEAD
     pip_release: "anthropic"
     install_dev: |
-      pip install git+https://github.com/anthropics/anthropic-sdk-python
+      uv pip install --system git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
-    minimum: "0.50.0"
-    maximum: "0.84.0"
+    minimum: "0.52.0"
+    maximum: "0.101.0"
     requirements:
     run: pytest tests/anthropic
     # Our CI runs tests for every minor version of the library by default, which results in
@@ -851,10 +889,10 @@ crewai:
     pip_release: "crewai"
     module_name: "crewai"
     install_dev: |
-      pip install git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
+      uv pip install --system git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
-    minimum: "0.108.0"
-    maximum: "1.10.3"
+    minimum: "0.121.0"
+    maximum: "1.14.5"
     unsupported: ["==0.114.0"]
     requirements:
     run: pytest tests/crewai
@@ -868,14 +906,16 @@ agno:
     pip_release: "agno"
     module_name: "agno"
     install_dev: |
-      pip install git+https://github.com/agno-agi/agno.git#subdirectory=libs/agno
+      uv pip install --system git+https://github.com/agno-agi/agno.git#subdirectory=libs/agno
   autologging:
     minimum: "1.7.0"
-    maximum: "2.5.9"
+    maximum: "2.6.5"
     requirements:
       ">= 0.0.0": ["anthropic", "yfinance"]
       ">= 2.0.0": ["opentelemetry-exporter-otlp", "openinference-instrumentation-agno"]
-      "<= 2.4.8": ["openinference-instrumentation-agno==0.1.20"]
+      # openinference-instrumentation-agno <= 0.1.30 calls wrap_function_wrapper(module=...),
+      # but wrapt 2.0 renamed the kwarg to `target`. Pin wrapt<2 until we can move off 0.1.20.
+      "<= 2.4.8": ["openinference-instrumentation-agno==0.1.20", "wrapt<2"]
     run: pytest tests/agno
     test_tracing_sdk: true
 
@@ -888,11 +928,11 @@ pydantic_ai:
 
     install_dev: |
       # Install the stable version first to install dependencies
-      pip install pydantic-ai
+      uv pip install --system pydantic-ai
       # We need to install deno to run test suite for MCPServer as deno is used to start the MCPServer
       curl -fsSL https://deno.land/install.sh | sh -s -- -y --no-modify-path
       # Update key libraries from source w/ no-deps
-      pip install --no-deps \
+      uv pip install --system --no-deps \
       # We need to install pydantic_graph and pydantic_ai_slim as pydantic_ai is dependent on both of them
       # and we need to install them separately. Without pinning them separately would result in dependency
       # conflict errors and the installation of pydantic_ai would get failed.
@@ -901,8 +941,8 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai-slim&subdirectory=pydantic_ai_slim" \
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
-    minimum: "0.1.9"
-    maximum: "1.68.0"
+    minimum: "0.2.5"
+    maximum: "1.94.0"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
@@ -916,9 +956,9 @@ smolagents:
     pip_release: "smolagents"
     module_name: "smolagents"
     install_dev: |
-      pip install "git+https://github.com/huggingface/smolagents"
+      uv pip install --system "git+https://github.com/huggingface/smolagents"
   autologging:
-    minimum: "1.14.0"
+    minimum: "1.17.0"
     maximum: "1.24.0"
     requirements:
       "< 1.21.0": ["duckduckgo-search"]
@@ -935,10 +975,10 @@ strands:
     pip_release: "strands-agents"
     module_name: "strands"
     install_dev: |
-      pip install "git+https://github.com/strands-agents/sdk-python"
+      uv pip install --system "git+https://github.com/strands-agents/sdk-python"
   autologging:
     minimum: "1.4.0"
-    maximum: "1.30.0"
+    maximum: "1.39.0"
     run: pytest tests/strands
     test_tracing_sdk: true
 
@@ -948,10 +988,10 @@ haystack:
     pip_release: "haystack-ai"
     module_name: "haystack"
     install_dev: |
-      pip install git+https://github.com/deepset-ai/haystack
+      uv pip install --system git+https://github.com/deepset-ai/haystack
   autologging:
-    minimum: "2.0.1"
-    maximum: "2.25.2"
+    minimum: "2.2.0"
+    maximum: "2.29.0"
     requirements:
     run: pytest tests/haystack
     test_tracing_sdk: true
@@ -968,12 +1008,18 @@ mistral:
       git clone --depth 1 https://github.com/mistralai/client-python $TMP_DIR
       cd $TMP_DIR
       python scripts/prepare_readme.py
-      pip install .
+      uv pip install --system .
       rm -rf $TMP_DIR
   autologging:
-    minimum: "1.5.2"
-    maximum: "2.0.2"
+    minimum: "1.7.1"
+    maximum: "2.4.5"
     requirements:
+      # mistralai 2.x hard-pins opentelemetry-semantic-conventions==0.60b1, which is only
+      # paired with opentelemetry-sdk 1.39.x. mlflow's `.[extras]` install pulls in the
+      # newest sdk, leaving an inconsistent api/sdk/semconv trio that breaks span start
+      # with `TraceFlags.RANDOM_TRACE_ID` AttributeError. Hold the sdk back so the trio
+      # stays aligned with mistralai's semconv pin.
+      ">= 2.0.0": ["opentelemetry-sdk<1.40"]
     run: pytest tests/mistral
     test_tracing_sdk: true
     test_every_n_versions: 10
@@ -983,10 +1029,10 @@ sentence_transformers:
     repo: https://github.com/UKPLab/sentence-transformers/tree/HEAD
     pip_release: "sentence-transformers"
     install_dev: |
-      pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
+      uv pip install --system git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
-    minimum: "2.6.0"
-    maximum: "5.3.0"
+    minimum: "3.0.0"
+    maximum: "5.5.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -1007,8 +1053,8 @@ johnsnowlabs:
   package_info:
     pip_release: "johnsnowlabs"
   models:
-    minimum: "5.3.3"
-    maximum: "6.3.0"
+    minimum: "5.3.6"
+    maximum: "6.4.0"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
     run: |
@@ -1018,38 +1064,16 @@ johnsnowlabs:
         echo "Skipping tests due to missing license key"
       fi
 
-litellm:
-  package_info:
-    genai: true
-    repo: https://github.com/BerriAI/litellm/tree/HEAD
-    pip_release: "litellm"
-    install_dev: |
-      pip install git+https://github.com/BerriAI/litellm.git
-  autologging:
-    minimum: "1.63.14"
-    maximum: "1.74.9"
-    requirements:
-      ">= 0.0.0": [
-          "openai",
-          # Required to run tests/openai/mock_openai.py
-          "fastapi",
-          "uvicorn",
-        ]
-    run: pytest tests/litellm
-    # NB: LiteLLM tracing callback still depends on MLflowClient, so we need to migrate it before
-    # enabling tracing SDK tests. There are other issues like the one linked above, too.
-    test_tracing_sdk: false
-
 groq:
   package_info:
     genai: true
     repo: https://github.com/groq/groq-python/tree/HEAD
     pip_release: "groq"
     install_dev: |
-      pip install git+https://github.com/groq/groq-python
+      uv pip install --system git+https://github.com/groq/groq-python
   autologging:
-    minimum: "0.20.0"
-    maximum: "1.1.1"
+    minimum: "0.26.0"
+    maximum: "1.2.0"
     requirements:
     run: pytest tests/groq
     test_tracing_sdk: true
@@ -1062,7 +1086,7 @@ bedrock:
     module_name: "boto3"
   autologging:
     # BedrockRuntime client is added in boto3 1.33
-    minimum: "1.37.14"
-    maximum: "1.42.68"
+    minimum: "1.38.20"
+    maximum: "1.43.6"
     run: pytest tests/bedrock
     test_tracing_sdk: true

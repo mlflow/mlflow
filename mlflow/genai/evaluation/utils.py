@@ -60,30 +60,30 @@ PGBAR_FORMAT = (
 )
 
 
-def _get_eval_data_type(data: "EvaluationDatasetTypes") -> dict[str, Any]:
+def _get_eval_data_type(data: "EvaluationDatasetTypes") -> str:
     data_type = type(data)
 
     if data_type is list:
         if len(data) > 0 and all(isinstance(item, Trace) for item in data):
-            return {"eval_data_type": "list[Trace]"}
-        return {"eval_data_type": "list[dict]"}
+            return "list[Trace]"
+        return "list[dict]"
 
     if data_type is EntityEvaluationDataset:
-        return {"eval_data_type": "EntityEvaluationDataset"}
+        return "EntityEvaluationDataset"
     if data_type is ManagedEvaluationDataset:
-        return {"eval_data_type": "EvaluationDataset"}
+        return "EvaluationDataset"
 
     module = data_type.__module__
     qualname = data_type.__qualname__
 
     if qualname == "DataFrame":
         if module.startswith("pandas"):
-            return {"eval_data_type": "pd.DataFrame"}
+            return "pd.DataFrame"
         if module.startswith("pyspark"):
-            return {"eval_data_type": "pyspark.sql.DataFrame"}
+            return "pyspark.sql.DataFrame"
 
     if qualname == "ConversationSimulator":
-        return {"eval_data_type": "ConversationSimulator"}
+        return "ConversationSimulator"
 
     return "unknown"
 

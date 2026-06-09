@@ -12,6 +12,7 @@ import { useGenAiTraceTableRowSelection } from './hooks/useGenAiTraceTableRowSel
 import type { GetTraceFunction } from './hooks/useGetTrace';
 import type {
   AssessmentFilter,
+  AssessmentCountMetrics,
   AssessmentInfo,
   TracesTableColumn,
   EvaluationsOverviewTableSort,
@@ -66,6 +67,15 @@ interface GenAITracesTableBodyContainerProps {
    * Current search query; when set, matching text in the Request column is highlighted.
    */
   searchQuery?: string;
+
+  // Infinite scroll props (active when shouldUseInfinitePaginatedTraces is true)
+  fetchNextPage?: () => void;
+  hasNextPage?: boolean;
+  isFetchingNextPage?: boolean;
+
+  // Server-side assessment count data (active when shouldUseInfinitePaginatedTraces is true)
+  assessmentCountMetrics?: AssessmentCountMetrics;
+  compareAssessmentCountMetrics?: AssessmentCountMetrics;
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
@@ -92,6 +102,11 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       isTableLoading = false,
       isGroupedBySession,
       searchQuery,
+      fetchNextPage,
+      hasNextPage,
+      isFetchingNextPage,
+      assessmentCountMetrics,
+      compareAssessmentCountMetrics,
     } = props;
     const { theme } = useDesignSystemTheme();
 
@@ -223,13 +238,13 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
             gap: theme.spacing.md,
             width: '100%',
             flex: 1,
-            overflowY: 'hidden',
+            overflow: 'hidden',
           }}
         >
           <div
             css={{
               flex: 1,
-              overflowY: 'hidden',
+              overflow: 'hidden',
               position: 'relative',
             }}
           >
@@ -260,6 +275,11 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 isTableLoading={isTableLoading}
                 isGroupedBySession={isGroupedBySession}
                 searchQuery={searchQuery}
+                fetchNextPage={fetchNextPage}
+                hasNextPage={hasNextPage}
+                isFetchingNextPage={isFetchingNextPage}
+                assessmentCountMetrics={assessmentCountMetrics}
+                compareAssessmentCountMetrics={compareAssessmentCountMetrics}
               />
             </AssessmentSchemaContextProvider>
           </div>

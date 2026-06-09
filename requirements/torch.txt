@@ -1,0 +1,5 @@
+# TODO: Move these into the `docs` dependency group in pyproject.toml
+# once https://download.pytorch.org/whl/cpu is accessible again.
+torch>=1.11.0
+torchvision>=0.12.0,!=0.24.0
+lightning>=1.8.1

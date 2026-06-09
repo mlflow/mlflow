@@ -17,11 +17,12 @@ import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified, type FetchArtifactUnifiedFn } from './utils/fetchArtifactUnified';
+import sanitizeHtml from 'sanitize-html';
 
 function onEachFeature(feature: any, layer: any) {
   if (feature.properties && feature.properties.popupContent) {
     const { popupContent } = feature.properties;
-    layer.bindPopup(popupContent);
+    layer.bindPopup(sanitizeHtml(popupContent));
   }
 }
 

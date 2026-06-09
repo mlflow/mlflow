@@ -29,6 +29,7 @@ from mlflow.store.artifact.utils.models import _parse_model_uri
 from mlflow.store.db.utils import (
     _all_tables_exist,
     _get_managed_session_maker,
+    _get_routing_session_maker,
     _initialize_tables,
     create_sqlalchemy_engine_with_retry,
 )
@@ -71,6 +72,17 @@ from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _logger = logging.getLogger(__name__)
 
+# Models that carry a ``workspace`` column and must be filtered
+# by the active workspace in every query.
+_WORKSPACE_MODELS = (
+    SqlRegisteredModel,
+    SqlModelVersion,
+    SqlWebhook,
+    SqlRegisteredModelTag,
+    SqlModelVersionTag,
+    SqlRegisteredModelAlias,
+)
+
 # For each database table, fetch its columns and define an appropriate attribute for each column
 # on the table's associated object representation (Mapper). This is necessary to ensure that
 # columns defined via backreference are available as Mapper instance attributes (e.g.,
@@ -112,7 +124,7 @@ class SqlAlchemyStore(AbstractStore):
                     cls._engine_map[db_uri] = create_sqlalchemy_engine_with_retry(db_uri)
         return cls._engine_map[db_uri]
 
-    def __init__(self, db_uri):
+    def __init__(self, db_uri, read_db_uri=None):
         """
         Create a database backed store.
 
@@ -122,6 +134,9 @@ class SqlAlchemyStore(AbstractStore):
                 <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_
                 for format specifications. MLflow supports the dialects ``mysql``,
                 ``mssql``, ``sqlite``, and ``postgresql``.
+            read_db_uri: Optional SQLAlchemy database URI for a read replica. When provided,
+                read operations are routed to this URI while write operations use ``db_uri``.
+                If not provided, all operations use ``db_uri``.
         """
         super().__init__()
         self.db_uri = db_uri
@@ -131,8 +146,25 @@ class SqlAlchemyStore(AbstractStore):
             _initialize_tables(self.engine)
         # Verify that all model registry tables exist.
         SqlAlchemyStore._verify_registry_tables_exist(self.engine)
-        SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
-        self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
+
+        # Set up read replica engine if provided
+        if read_db_uri and read_db_uri != db_uri:
+            self.read_engine = self._get_or_create_engine(read_db_uri)
+            WriteSessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
+            ReadSessionMaker = sqlalchemy.orm.sessionmaker(bind=self.read_engine)
+            self.ManagedSessionMaker = _get_routing_session_maker(
+                WriteSessionMaker, ReadSessionMaker, self.db_type
+            )
+        else:
+            if read_db_uri and read_db_uri == db_uri:
+                _logger.warning(
+                    "read_db_uri is the same as the primary db_uri; "
+                    "read replica routing will not be enabled. "
+                    "This is likely a configuration mistake."
+                )
+            self.read_engine = None
+            SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
+            self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
         # TODO: verify schema here once we add logic to initialize the registry tables if they
         # don't exist (schema verification will fail in tests otherwise)
         # mlflow.store.db.utils._verify_schema(self.engine)
@@ -155,9 +187,12 @@ class SqlAlchemyStore(AbstractStore):
     def _get_query(self, session, model):
         """
         Return a query for ``model``.
-        Workspace-aware subclasses override this to enforce scoping.
+        Always filter on workspace for relevant models, to benefit from DB index.
         """
-        return session.query(model)
+        query = session.query(model)
+        if model in _WORKSPACE_MODELS:
+            query = query.filter(model.workspace == self._get_active_workspace())
+        return query
 
     def _with_workspace_field(self, instance):
         """
@@ -259,9 +294,8 @@ class SqlAlchemyStore(AbstractStore):
             sqlalchemy.orm.subqueryload(SqlRegisteredModel.registered_model_aliases),
         ]
 
-    @classmethod
     def _get_latest_versions_for_models(
-        cls, session, model_names: list[str]
+        self, session, model_names: list[str]
     ) -> dict[str, list[SqlModelVersion]]:
         """
         Batch-fetch the latest model version per stage for multiple registered models.
@@ -272,11 +306,17 @@ class SqlAlchemyStore(AbstractStore):
         if not model_names:
             return {}
 
+        workspace_clauses = self._get_workspace_clauses(SqlModelVersion)
+
         row_num = (
             sqlalchemy.func
             .row_number()
             .over(
-                partition_by=[SqlModelVersion.name, SqlModelVersion.current_stage],
+                partition_by=[
+                    SqlModelVersion.workspace,
+                    SqlModelVersion.name,
+                    SqlModelVersion.current_stage,
+                ],
                 order_by=SqlModelVersion.version.desc(),
             )
             .label("rn")
@@ -285,6 +325,7 @@ class SqlAlchemyStore(AbstractStore):
         subquery = (
             select(SqlModelVersion, row_num)
             .where(
+                *workspace_clauses,
                 SqlModelVersion.name.in_(model_names),
                 SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL,
             )
@@ -293,15 +334,17 @@ class SqlAlchemyStore(AbstractStore):
 
         query = (
             select(SqlModelVersion)
+            .where(*workspace_clauses)
             .join(
                 subquery,
                 sqlalchemy.and_(
+                    SqlModelVersion.workspace == subquery.c.workspace,
                     SqlModelVersion.name == subquery.c.name,
                     SqlModelVersion.version == subquery.c.version,
                 ),
             )
             .where(subquery.c.rn == 1)
-            .options(*cls._get_eager_model_version_query_options())
+            .options(*self._get_eager_model_version_query_options())
         )
 
         latest_versions = session.execute(query).scalars().all()
@@ -328,9 +371,10 @@ class SqlAlchemyStore(AbstractStore):
     def _get_workspace_clauses(self, model):
         """
         Return workspace filter clauses for the model.
-        Used for select() queries that can't use _get_query().
-        Workspace-aware subclasses override to return actual filters.
+        Always filter on workspace for relevant models, to benefit from DB index.
         """
+        if model in _WORKSPACE_MODELS:
+            return [model.workspace == self._get_active_workspace()]
         return []
 
     def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
@@ -351,7 +395,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_model_name(name)
         for tag in tags or []:
             _validate_registered_model_tag(tag.key, tag.value)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             try:
                 creation_time = get_current_time_millis()
                 registered_model = self._with_workspace_field(
@@ -416,7 +460,7 @@ class SqlAlchemyStore(AbstractStore):
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
 
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_registered_model = self._get_registered_model(session, name)
             updated_time = get_current_time_millis()
             sql_registered_model.description = description
@@ -438,7 +482,7 @@ class SqlAlchemyStore(AbstractStore):
 
         """
         _validate_model_renaming(new_name)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_registered_model = self._get_registered_model(session, name)
             try:
                 updated_time = get_current_time_millis()
@@ -467,7 +511,7 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             None
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_registered_model = self._get_registered_model(session, name)
             session.delete(sql_registered_model)
 
@@ -601,15 +645,19 @@ class SqlAlchemyStore(AbstractStore):
         if tag_filters:
             sql_tag_filters = (sqlalchemy.and_(*x) for x in tag_filters.values())
             tag_filter_query = (
-                select(SqlRegisteredModelTag.name)
+                select(SqlRegisteredModelTag.workspace, SqlRegisteredModelTag.name)
                 .filter(sqlalchemy.or_(*sql_tag_filters))
-                .group_by(SqlRegisteredModelTag.name)
+                .group_by(SqlRegisteredModelTag.workspace, SqlRegisteredModelTag.name)
                 .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
                 .subquery()
             )
 
             return rm_query.join(
-                tag_filter_query, SqlRegisteredModel.name == tag_filter_query.c.name
+                tag_filter_query,
+                sqlalchemy.and_(
+                    SqlRegisteredModel.workspace == tag_filter_query.c.workspace,
+                    SqlRegisteredModel.name == tag_filter_query.c.name,
+                ),
             )
         else:
             return rm_query
@@ -700,15 +748,24 @@ class SqlAlchemyStore(AbstractStore):
         if tag_filters:
             sql_tag_filters = (sqlalchemy.and_(*x) for x in tag_filters.values())
             tag_filter_query = (
-                select(SqlModelVersionTag.name, SqlModelVersionTag.version)
+                select(
+                    SqlModelVersionTag.workspace,
+                    SqlModelVersionTag.name,
+                    SqlModelVersionTag.version,
+                )
                 .filter(sqlalchemy.or_(*sql_tag_filters))
-                .group_by(SqlModelVersionTag.name, SqlModelVersionTag.version)
+                .group_by(
+                    SqlModelVersionTag.workspace,
+                    SqlModelVersionTag.name,
+                    SqlModelVersionTag.version,
+                )
                 .having(sqlalchemy.func.count(sqlalchemy.literal(1)) == len(tag_filters))
                 .subquery()
             )
             return mv_query.join(
                 tag_filter_query,
                 sqlalchemy.and_(
+                    SqlModelVersion.workspace == tag_filter_query.c.workspace,
                     SqlModelVersion.name == tag_filter_query.c.name,
                     SqlModelVersion.version == tag_filter_query.c.version,
                 ),
@@ -743,17 +800,22 @@ class SqlAlchemyStore(AbstractStore):
         # Filter to get all prompt rows
         equal = SearchUtils.get_sql_comparison_func("=", dialect)
         prompts_subquery = (
-            select(tag_db_model.name)
+            select(tag_db_model.workspace, tag_db_model.name)
             .filter(
                 equal(tag_db_model.key, IS_PROMPT_TAG_KEY),
                 equal(tag_db_model.value, "true"),
                 *self._get_workspace_clauses(tag_db_model),
             )
-            .group_by(tag_db_model.name)
+            .group_by(tag_db_model.workspace, tag_db_model.name)
             .subquery()
         )
         return query.join(
-            prompts_subquery, main_db_model.name == prompts_subquery.c.name, isouter=True
+            prompts_subquery,
+            sqlalchemy.and_(
+                main_db_model.workspace == prompts_subquery.c.workspace,
+                main_db_model.name == prompts_subquery.c.name,
+            ),
+            isouter=True,
         ).filter(prompts_subquery.c.name.is_(None))
 
     @classmethod
@@ -882,7 +944,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_model_name(name)
         _validate_registered_model_tag(tag.key, tag.value)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # check if registered model exists
             sql_registered_model = self._get_registered_model(session, name)
             session.merge(
@@ -907,7 +969,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_model_name(name)
         _validate_tag_name(key)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # check if registered model exists
             self._get_registered_model(session, name)
             existing_tag = self._get_registered_model_tag(session, name, key)
@@ -948,12 +1010,6 @@ class SqlAlchemyStore(AbstractStore):
 
         """
 
-        def next_version(sql_registered_model):
-            if sql_registered_model.model_versions:
-                return max(mv.version for mv in sql_registered_model.model_versions) + 1
-            else:
-                return 1
-
         _validate_model_name(name)
         for tag in tags or []:
             _validate_model_version_tag(tag.key, tag.value)
@@ -982,13 +1038,22 @@ class SqlAlchemyStore(AbstractStore):
             model = MlflowClient().get_logged_model(model_id)
             run_id = model.source_run_id
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             creation_time = get_current_time_millis()
             for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
                 try:
                     sql_registered_model = self._get_registered_model(session, name)
                     sql_registered_model.last_updated_time = creation_time
-                    version = next_version(sql_registered_model)
+                    max_version = (
+                        session
+                        .query(sqlalchemy.func.max(SqlModelVersion.version))
+                        .filter(
+                            SqlModelVersion.name == name,
+                            *self._get_workspace_clauses(SqlModelVersion),
+                        )
+                        .scalar()
+                    )
+                    version = (max_version or 0) + 1
                     model_version = self._with_workspace_field(
                         SqlModelVersion(
                             name=name,
@@ -1017,6 +1082,7 @@ class SqlAlchemyStore(AbstractStore):
                         session, name, model_version.to_mlflow_entity()
                     )
                 except sqlalchemy.exc.IntegrityError:
+                    session.rollback()
                     more_retries = self.CREATE_MODEL_VERSION_RETRIES - attempt - 1
                     _logger.info(
                         "Model Version creation error (name=%s) Retrying %s more time%s.",
@@ -1113,7 +1179,7 @@ class SqlAlchemyStore(AbstractStore):
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
 
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             updated_time = get_current_time_millis()
             sql_model_version = self._get_sql_model_version(session, name=name, version=version)
             sql_model_version.description = description
@@ -1148,7 +1214,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             raise MlflowException(msg_tpl.format(stage, DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS))
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             last_updated_time = get_current_time_millis()
 
             model_versions = []
@@ -1187,7 +1253,7 @@ class SqlAlchemyStore(AbstractStore):
             None
         """
         # currently delete model version still keeps the tags associated with the version
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             updated_time = get_current_time_millis()
             sql_model_version = self._get_sql_model_version(session, name, version)
             sql_registered_model = sql_model_version.registered_model
@@ -1394,7 +1460,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_model_name(name)
         _validate_model_version(version)
         _validate_model_version_tag(tag.key, tag.value)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
             sql_model_version = self._get_sql_model_version(session, name, version)
             session.merge(
@@ -1422,7 +1488,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_model_name(name)
         _validate_model_version(version)
         _validate_tag_name(key)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
             self._get_sql_model_version(session, name, version)
             existing_tag = self._get_model_version_tag(session, name, version, key)
@@ -1456,7 +1522,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_model_alias_name(alias)
         _validate_model_alias_name_reserved(alias)
         _validate_model_version(version)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # check if model version exists
             sql_model_version = self._get_sql_model_version(session, name, version)
             session.merge(
@@ -1481,7 +1547,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         _validate_model_name(name)
         _validate_model_alias_name(alias)
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # check if registered model exists
             self._get_registered_model(session, name)
             existing_alias = self._get_registered_model_alias(session, name, alias)
@@ -1546,7 +1612,7 @@ class SqlAlchemyStore(AbstractStore):
         _validate_webhook_url(url)
         _validate_webhook_events(events)
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             webhook_id = str(uuid.uuid4())
             creation_time = get_current_time_millis()
             webhook = self._with_workspace_field(
@@ -1663,7 +1729,7 @@ class SqlAlchemyStore(AbstractStore):
         secret: str | None = None,
         status: WebhookStatus | None = None,
     ) -> Webhook:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             webhook = self._get_webhook_by_id(session, webhook_id)
 
             # Update fields if provided
@@ -1701,7 +1767,7 @@ class SqlAlchemyStore(AbstractStore):
             return webhook.to_mlflow_entity()
 
     def delete_webhook(self, webhook_id: str) -> None:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             webhook = self._get_webhook_by_id(session, webhook_id)
 
             # Soft delete by setting deleted_timestamp

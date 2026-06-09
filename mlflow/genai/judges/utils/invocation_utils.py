@@ -18,7 +18,6 @@ from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     _run_databricks_agentic_loop,
 )
-from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 from mlflow.genai.judges.adapters.utils import get_adapter
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
@@ -54,8 +53,8 @@ def invoke_judge_model(
     Routes to the appropriate adapter based on the model URI and configuration.
     Uses a factory pattern to select the correct adapter:
     - DatabricksManagedJudgeAdapter: For the default Databricks judge
-    - LiteLLMAdapter: For LiteLLM-supported providers (including Databricks served models)
-    - GatewayAdapter: Fallback for native providers
+    - GatewayAdapter: For native AI Gateway providers
+    - LiteLLMAdapter: Fallback for providers not supported by the gateway
 
     Args:
         model_uri: The model URI.
@@ -124,25 +123,24 @@ def _invoke_databricks_structured_output(
     Raises:
         MlflowException: If databricks-agents is not installed or invocation fails.
     """
-    import litellm
+    from mlflow.types.llm import ChatMessage
 
-    # Convert ChatMessage to litellm Messages
-    litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
+    judge_messages = [ChatMessage(role=msg.role, content=msg.content) for msg in messages]
 
     # Add schema instructions to the system message
     schema_instruction = (
         f"\n\nYou must return your response as JSON matching this schema:\n"
         f"{json.dumps(output_schema.model_json_schema(), indent=2)}"
     )
-    if litellm_messages and litellm_messages[0].role == "system":
-        litellm_messages[0] = litellm.Message(
+    if judge_messages and judge_messages[0].role == "system":
+        judge_messages[0] = ChatMessage(
             role="system",
-            content=litellm_messages[0].content + schema_instruction,
+            content=judge_messages[0].content + schema_instruction,
         )
     else:
-        litellm_messages.insert(
+        judge_messages.insert(
             0,
-            litellm.Message(role="system", content=schema_instruction),
+            ChatMessage(role="system", content=schema_instruction),
         )
 
     def parse_structured_output(content: str | None) -> pydantic.BaseModel:
@@ -150,7 +148,7 @@ def _invoke_databricks_structured_output(
             raise MlflowException("Empty content in final response from Databricks judge")
         try:
             cleaned = _strip_markdown_code_blocks(content)
-            response_dict = json.loads(cleaned)
+            response_dict = json.loads(cleaned, strict=False)
             return output_schema(**response_dict)
         except json.JSONDecodeError as e:
             raise MlflowException(
@@ -161,7 +159,7 @@ def _invoke_databricks_structured_output(
                 f"Response does not match expected schema: {e}\n\nResponse: {content}"
             ) from e
 
-    return _run_databricks_agentic_loop(litellm_messages, trace, parse_structured_output)
+    return _run_databricks_agentic_loop(judge_messages, trace, parse_structured_output)
 
 
 def get_chat_completions_with_structured_output(
@@ -195,8 +193,7 @@ def get_chat_completions_with_structured_output(
         Instance of output_schema with the structured data from the LLM.
 
     Raises:
-        ImportError: If LiteLLM is not installed.
-        JSONDecodeError: If the LLM response cannot be parsed as JSON.
+        MlflowException: If the LLM invocation fails or the response is not valid JSON.
         ValidationError: If the LLM response does not match the output schema.
 
     Example:
@@ -230,14 +227,32 @@ def get_chat_completions_with_structured_output(
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
         return _invoke_databricks_structured_output(messages, output_schema, trace)
 
+    from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
+
+    if GatewayAdapter.is_applicable(model_uri=model_uri, prompt=messages):
+        return GatewayAdapter().invoke_with_structured_output(
+            model_uri=model_uri,
+            messages=messages,
+            output_schema=output_schema,
+            trace=trace,
+            num_retries=num_retries,
+            inference_params=inference_params,
+        )
+
+    # Fallback to litellm for providers not supported by the gateway
+    from mlflow.genai.judges.adapters.litellm_adapter import (
+        _invoke_litellm_and_handle_tools,
+        _is_litellm_available,
+    )
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
-    model_provider, model_name = _parse_model_uri(model_uri)
+    if not _is_litellm_available():
+        raise MlflowException(
+            f"No suitable adapter found for model_uri='{model_uri}'. "
+            "Some providers may require LiteLLM. Install it with: `pip install litellm`",
+        )
 
-    # TODO: The cost measurement and telemetry data are discarded here from the
-    # parsing of the tool handling response. We should eventually pass this cost
-    # estimation through so that the total cost of the usage of the scorer incorporates
-    # tool call usage. Deferring for initial implementation due to complexity.
+    model_provider, model_name = _parse_model_uri(model_uri)
     output = _invoke_litellm_and_handle_tools(
         provider=model_provider,
         model_name=model_name,
@@ -247,7 +262,11 @@ def get_chat_completions_with_structured_output(
         response_format=output_schema,
         inference_params=inference_params,
     )
-
     cleaned_response = _strip_markdown_code_blocks(output.response)
-    response_dict = json.loads(cleaned_response)
+    try:
+        response_dict = json.loads(cleaned_response, strict=False)
+    except json.JSONDecodeError as e:
+        raise MlflowException(
+            f"Failed to parse response from judge model. Response: {output.response}",
+        ) from e
     return output_schema(**response_dict)

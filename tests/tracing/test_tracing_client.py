@@ -13,7 +13,12 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.environment_variables import MLFLOW_TRACING_SQL_WAREHOUSE_ID
+from mlflow.environment_variables import (
+    MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS,
+    MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS,
+    MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS,
+    MLFLOW_TRACING_SQL_WAREHOUSE_ID,
+)
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -42,12 +47,88 @@ def test_get_trace_v4_retry():
     mock_store = Mock()
     mock_store.batch_get_traces.side_effect = [[], ["dummy_trace"]]
 
-    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client.time.sleep"),
+    ):
         client = TracingClient()
         trace = client.get_trace("trace:/catalog.schema/1234567890")
 
     assert trace == "dummy_trace"
     assert mock_store.batch_get_traces.call_count == 2
+
+
+def test_get_trace_v4_retry_timeout_exhausted(monkeypatch):
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS.name, "0")
+    mock_store = Mock()
+    mock_store.batch_get_traces.return_value = []
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        with pytest.raises(MlflowException, match="is not found"):
+            client.get_trace("trace:/catalog.schema/abc")
+
+    assert mock_store.batch_get_traces.call_count == 1
+
+
+def test_get_trace_v4_retry_uses_initial_interval(monkeypatch):
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS.name, "0.25")
+    mock_store = Mock()
+    mock_store.batch_get_traces.side_effect = [[], ["dummy_trace"]]
+
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client.time.sleep") as mock_sleep,
+    ):
+        client = TracingClient()
+        trace = client.get_trace("trace:/catalog.schema/abc")
+
+    assert trace == "dummy_trace"
+    mock_sleep.assert_called_once_with(0.25)
+
+
+def test_get_trace_v4_retry_caps_max_interval(monkeypatch):
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS.name, "60")
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS.name, "1")
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS.name, "3")
+    mock_store = Mock()
+    mock_store.batch_get_traces.side_effect = [[], [], [], [], ["dummy_trace"]]
+
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client.time.sleep") as mock_sleep,
+    ):
+        client = TracingClient()
+        trace = client.get_trace("trace:/catalog.schema/abc")
+
+    assert trace == "dummy_trace"
+    assert [call.args[0] for call in mock_sleep.call_args_list] == [1, 2, 3, 3]
+
+
+def test_get_trace_v4_retry_clamps_sleep_to_deadline(monkeypatch):
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS.name, "5")
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS.name, "10")
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS.name, "20")
+    mock_store = Mock()
+    mock_store.batch_get_traces.return_value = []
+    clock = [1000.0]
+
+    def fake_time():
+        return clock[0]
+
+    def fake_sleep(seconds):
+        clock[0] += seconds
+
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client.time.monotonic", side_effect=fake_time),
+        patch("mlflow.tracing.client.time.sleep", side_effect=fake_sleep) as mock_sleep,
+    ):
+        client = TracingClient()
+        with pytest.raises(MlflowException, match="is not found"):
+            client.get_trace("trace:/catalog.schema/abc")
+
+    assert [call.args[0] for call in mock_sleep.call_args_list] == [5]
 
 
 def test_batch_get_traces():
@@ -81,6 +162,171 @@ def test_batch_get_traces_without_location():
     assert traces == ["trace1"]
     mock_store.batch_get_trace_infos.assert_called_once_with(["id1"])
     mock_store.batch_get_traces.assert_called_once_with(["id1"], None)
+
+
+def test_batch_get_traces_without_location_for_archive_repo():
+    mock_store = Mock()
+    archived_trace = Trace(
+        info=TraceInfo(
+            trace_id="id1",
+            trace_location=TraceLocation.from_experiment_id("0"),
+            request_time=1000,
+            state=TraceState.OK,
+            tags={
+                TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO,
+                TraceTagKey.ARCHIVE_LOCATION: "s3://bucket/archive/id1",
+            },
+        ),
+        data=TraceData(spans=[]),
+    )
+    mock_store.batch_get_trace_infos.return_value = [archived_trace.info]
+    mock_store.batch_get_traces.return_value = [archived_trace]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        with patch.object(TracingClient, "_download_spans_from_artifact_repo") as mock_download:
+            traces = client.batch_get_traces(["id1"])
+
+    assert traces == [archived_trace]
+    mock_store.batch_get_trace_infos.assert_called_once_with(["id1"])
+    mock_store.batch_get_traces.assert_called_once_with(["id1"], None)
+    mock_download.assert_not_called()
+
+
+def test_get_trace_for_archive_repo_uses_store_get_trace():
+    mock_store = Mock()
+    archived_trace = Trace(
+        info=TraceInfo(
+            trace_id="id1",
+            trace_location=TraceLocation.from_experiment_id("0"),
+            request_time=1000,
+            state=TraceState.OK,
+            tags={
+                TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO,
+                TraceTagKey.ARCHIVE_LOCATION: "s3://bucket/archive/id1",
+            },
+        ),
+        data=TraceData(spans=[]),
+    )
+    mock_store.get_trace_info.return_value = archived_trace.info
+    mock_store.get_trace.return_value = archived_trace
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        with patch.object(client, "_download_trace_data") as mock_download:
+            trace = client.get_trace("id1")
+
+    assert trace == archived_trace
+    mock_store.get_trace_info.assert_called_once_with("id1")
+    mock_store.get_trace.assert_called_once_with("id1")
+    mock_store.batch_get_traces.assert_not_called()
+    mock_download.assert_not_called()
+
+
+def test_get_trace_for_archive_repo_falls_back_to_batch_get_traces():
+    mock_store = Mock()
+    archived_trace = Trace(
+        info=TraceInfo(
+            trace_id="id1",
+            trace_location=TraceLocation.from_experiment_id("0"),
+            request_time=1000,
+            state=TraceState.OK,
+            tags={
+                TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO,
+                TraceTagKey.ARCHIVE_LOCATION: "s3://bucket/archive/id1",
+            },
+        ),
+        data=TraceData(spans=[]),
+    )
+    mock_store.get_trace_info.return_value = archived_trace.info
+    mock_store.get_trace.side_effect = MlflowNotImplementedException()
+    mock_store.batch_get_traces.return_value = [archived_trace]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        with patch.object(client, "_download_trace_data") as mock_download:
+            trace = client.get_trace("id1")
+
+    assert trace == archived_trace
+    mock_store.get_trace_info.assert_called_once_with("id1")
+    mock_store.get_trace.assert_called_once_with("id1")
+    mock_store.batch_get_traces.assert_called_once_with(["id1"])
+    mock_download.assert_not_called()
+
+
+def test_get_trace_for_artifact_repo_downloads_client_side():
+    mock_store = Mock()
+    trace_info = TraceInfo(
+        trace_id="id1",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1000,
+        state=TraceState.OK,
+        tags={
+            TraceTagKey.SPANS_LOCATION: SpansLocation.ARTIFACT_REPO,
+        },
+    )
+    artifact_trace_data = TraceData(spans=[])
+    mock_store.get_trace_info.return_value = trace_info
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        with patch.object(
+            client, "_download_trace_data", return_value=artifact_trace_data
+        ) as mock_download:
+            trace = client.get_trace("id1")
+
+    assert trace == Trace(trace_info, artifact_trace_data)
+    mock_store.batch_get_traces.assert_not_called()
+    mock_store.get_trace.assert_not_called()
+    mock_download.assert_called_once_with(trace_info)
+
+
+def test_batch_get_traces_skips_traces_with_missing_location_metadata():
+    mock_store = Mock()
+    trace_info = TraceInfo(
+        trace_id="id1",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1000,
+        state=TraceState.OK,
+        tags={},
+    )
+    mock_store.batch_get_trace_infos.return_value = [trace_info]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        with patch("mlflow.tracing.client._logger") as mock_logger:
+            mock_logger.isEnabledFor.return_value = False
+            traces = client.batch_get_traces(["id1"])
+
+    assert traces == []
+    mock_store.batch_get_traces.assert_not_called()
+    mock_logger.warning.assert_called_once()
+
+
+def test_batch_get_traces_for_archive_repo_does_not_require_archive_location_tag():
+    mock_store = Mock()
+    archived_trace = Trace(
+        info=TraceInfo(
+            trace_id="id1",
+            trace_location=TraceLocation.from_experiment_id("0"),
+            request_time=1000,
+            state=TraceState.OK,
+            tags={TraceTagKey.SPANS_LOCATION: SpansLocation.ARCHIVE_REPO},
+        ),
+        data=TraceData(spans=[]),
+    )
+    mock_store.batch_get_trace_infos.return_value = [archived_trace.info]
+    mock_store.batch_get_traces.return_value = [archived_trace]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        with patch.object(TracingClient, "_download_spans_from_artifact_repo") as mock_download:
+            traces = client.batch_get_traces(["id1"])
+
+    assert traces == [archived_trace]
+    mock_store.batch_get_trace_infos.assert_called_once_with(["id1"])
+    mock_store.batch_get_traces.assert_called_once_with(["id1"], None)
+    mock_download.assert_not_called()
 
 
 def test_batch_get_traces_empty():
@@ -119,6 +365,7 @@ def test_batch_get_traces_with_artifact_repo_traces():
         info=store.get_trace_info(artifact_trace_id),
         data=TraceData(spans=[]),
     )
+    mlflow.flush_trace_async_logging()
     with patch.object(
         TracingClient, "_download_spans_from_artifact_repo", return_value=artifact_trace
     ) as mock_download:
@@ -160,7 +407,7 @@ def test_tracing_client_link_prompt_versions_to_trace():
         client.link_prompt_versions_to_trace(trace_id, [prompt_version])
 
         # Verify the linked prompts tag was set
-        trace = mlflow.get_trace(trace_id)
+        trace = mlflow.get_trace(trace_id, flush=True)
         assert "mlflow.linkedPrompts" in trace.info.tags
 
         # Parse and verify the linked prompts

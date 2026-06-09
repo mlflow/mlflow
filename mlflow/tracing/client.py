@@ -4,9 +4,19 @@ import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 import mlflow
+
+if TYPE_CHECKING:
+    from mlflow.genai.label_schemas.label_schemas import (
+        InputCategorical,
+        InputNumeric,
+        InputPassFail,
+        InputText,
+        LabelSchema,
+        LabelSchemaType,
+    )
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.entities.model_registry import PromptVersion
@@ -17,6 +27,9 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
 from mlflow.environment_variables import (
     _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE,
+    MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS,
+    MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS,
+    MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS,
     MLFLOW_SEARCH_TRACES_MAX_THREADS,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
@@ -36,11 +49,10 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
-from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
+from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent, TraceAttachmentsEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.constant import (
-    GET_TRACE_V4_RETRY_TIMEOUT_SECONDS,
     SpansLocation,
     TraceMetadataKey,
     TraceTagKey,
@@ -150,19 +162,26 @@ class TracingClient:
         """
         location, _ = parse_trace_id_v4(trace_id)
         if location is not None:
-            start_time = time.time()
+            # For a V4 trace, load spans from the v4 BatchGetTraces endpoint.
+            # BatchGetTraces returns an empty list if the trace is not found, which is
+            # retried with exponential backoff (capped per-interval) up to
+            # MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS in total.
+            deadline = time.monotonic() + MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS.get()
+            initial_interval = max(0.0, MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS.get())
+            max_interval = max(0.0, MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS.get())
             attempt = 0
-            while time.time() - start_time < GET_TRACE_V4_RETRY_TIMEOUT_SECONDS:
-                # For a V4 trace, load spans from the v4 BatchGetTraces endpoint.
-                # BatchGetTraces returns an empty list if the trace is not found, which will be
-                # retried up to GET_TRACE_V4_RETRY_TIMEOUT_SECONDS seconds.
+            while True:
                 if traces := self.store.batch_get_traces([trace_id], location):
                     return traces[0]
 
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+
+                interval = min(initial_interval * 2**attempt, max_interval, remaining)
                 attempt += 1
-                interval = 2**attempt
                 _logger.debug(
-                    f"Trace not found, retrying in {interval} seconds (attempt {attempt})"
+                    f"Trace not found, retrying in {interval:.2f} seconds (attempt {attempt})"
                 )
                 time.sleep(interval)
 
@@ -173,9 +192,12 @@ class TracingClient:
         else:
             try:
                 trace_info = self.get_trace_info(trace_id)
-                # if the trace is stored in the tracking store, load spans from the tracking store
-                # otherwise, load spans from the artifact repository
-                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
+                # if the trace is stored in the tracking store or archive repo, load spans via the
+                # store/server path; otherwise, load spans from the artifact repository
+                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) in (
+                    SpansLocation.TRACKING_STORE,
+                    SpansLocation.ARCHIVE_REPO,
+                ):
                     try:
                         return self.store.get_trace(trace_id)
                     except MlflowNotImplementedException:
@@ -393,10 +415,10 @@ class TracingClient:
             return self._load_traces_by_location(trace_infos_by_location, executor)
 
     def _download_spans_from_batch_get_traces(
-        self, trace_ids: list[str], location: str, executor: ThreadPoolExecutor
+        self, trace_ids: list[str], location: str | None, executor: ThreadPoolExecutor
     ) -> list[Trace]:
         """
-        Fetch full traces including spans from the BatchGetTrace v4 endpoint.
+        Fetch full traces including spans from the store batch-get path.
         BatchGetTrace endpoint only support up to 10 traces in a single call.
         """
         traces = []
@@ -427,9 +449,10 @@ class TracingClient:
                     if tr
                 )
             else:
+                batch_get_location = None if location == SpansLocation.ARCHIVE_REPO else location
                 traces.extend(
                     self._download_spans_from_batch_get_traces(
-                        [t.trace_id for t in location_trace_infos], location, executor
+                        [t.trace_id for t in location_trace_infos], batch_get_location, executor
                     )
                 )
         return traces
@@ -439,7 +462,8 @@ class TracingClient:
         Download trace data for the given trace_info and returns a Trace object.
         If the download fails (e.g., the trace data is missing or corrupted), returns None.
 
-        This is used for traces logged via v3 endpoint, where spans are stored in artifact store.
+        This is used for traces whose spans are fetched directly from artifact storage, including
+        the existing artifact-backed path.
         """
         is_online_trace = is_uuid(trace_info.trace_id)
         is_databricks = is_databricks_uri(self.tracking_uri)
@@ -489,13 +513,19 @@ class TracingClient:
                 location = f"{uc_tp.catalog_name}.{uc_tp.schema_name}.{uc_tp.table_prefix}"
                 trace_infos_by_location[location].append(trace_info)
             elif trace_info.trace_location.mlflow_experiment:
-                # New traces in SQL store store spans in the tracking store, while for old traces or
-                # traces with File store, spans are stored in artifact repository.
-                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
+                # DB-backed experiment traces use the tracking store. Legacy artifact-backed traces
+                # and archived traces are grouped by their spans-location tag so they can be
+                # fetched through the correct non-DB retrieval path.
+                spans_location = trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
+                if spans_location == SpansLocation.TRACKING_STORE:
                     # location is not used for traces with mlflow experiment location in tracking
                     # store, so we use None as the location
                     trace_infos_by_location[None].append(trace_info)
+                elif spans_location in (SpansLocation.ARTIFACT_REPO, SpansLocation.ARCHIVE_REPO):
+                    trace_infos_by_location[spans_location].append(trace_info)
                 else:
+                    # Older traces may not set spansLocation and should continue to use the
+                    # artifact-backed trace-data path.
                     trace_infos_by_location[SpansLocation.ARTIFACT_REPO].append(trace_info)
             else:
                 _logger.warning(f"Unsupported location: {trace_info.trace_location}. Skipping.")
@@ -581,16 +611,17 @@ class TracingClient:
                 "will automatically be stringified when the trace is logged."
             )
 
+        if key in IMMUTABLE_TAGS:
+            _logger.warning(f"Tag '{key}' is immutable and cannot be set on a trace.")
+            return
+
         # Trying to set the tag on the active trace first
         with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
                 trace.info.tags[key] = str(value)
                 return
 
-        if key in IMMUTABLE_TAGS:
-            _logger.warning(f"Tag '{key}' is immutable and cannot be set on a trace.")
-        else:
-            self.store.set_trace_tag(trace_id, key, str(value))
+        self.store.set_trace_tag(trace_id, key, str(value))
 
     def delete_trace_tag(self, trace_id: str, key: str):
         """
@@ -601,6 +632,12 @@ class TracingClient:
             key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
         """
+        # Allow users to clear archival-failure markers so the scheduler can retry after
+        # manual intervention, while keeping other internal storage tags immutable.
+        if key in IMMUTABLE_TAGS and key != TraceTagKey.ARCHIVAL_FAILURE:
+            _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
+            return
+
         # Trying to delete the tag on the active trace first
         with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
@@ -613,10 +650,7 @@ class TracingClient:
                         error_code=RESOURCE_DOES_NOT_EXIST,
                     )
 
-        if key in IMMUTABLE_TAGS:
-            _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
-        else:
-            self.store.delete_trace_tag(trace_id, key)
+        self.store.delete_trace_tag(trace_id, key)
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
@@ -653,7 +687,9 @@ class TracingClient:
             )
             return assessment
 
-        # If the trace is the active trace, add the assessment to it in-memory
+        # If the trace is the active trace, add the assessment to it in-memory.
+        # Exception: remote (distributed) traces use a dummy in-memory entry that is discarded
+        # when the context exits, so assessments must be persisted directly to the backend.
         if trace_id == mlflow.get_active_trace_id():
             with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
                 if trace is None:
@@ -661,6 +697,9 @@ class TracingClient:
                         f"Trace {trace_id} is active but not found in the in-memory buffer. "
                         "Something is wrong with trace handling. Skipping assessment logging."
                     )
+                    return assessment
+                if trace.is_remote_trace:
+                    return self.store.create_assessment(assessment)
                 trace.info.assessments.append(assessment)
             return assessment
         return self.store.create_assessment(assessment)
@@ -724,6 +763,7 @@ class TracingClient:
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
+    @record_usage_event(TraceAttachmentsEvent)
     def _upload_attachments(
         self,
         trace_info: TraceInfo,
@@ -849,3 +889,87 @@ class TracingClient:
             The Issue entity.
         """
         return self.store.get_issue(issue_id)
+
+    # ----- Label schemas (tracking-store CRUD) -----
+
+    def _create_label_schema(
+        self,
+        experiment_id: str,
+        *,
+        name: str,
+        type: "LabelSchemaType | str",
+        input: "InputPassFail | InputCategorical | InputNumeric | InputText",
+        instruction: str | None = None,
+        enable_comment: bool = False,
+    ) -> "LabelSchema":
+        """Create a new label schema.
+
+        Args:
+            experiment_id: Parent experiment ID.
+            name: Schema name. Free text shown to reviewers as the label
+                prompt and used as the assessment key; unique within the
+                experiment.
+            type: ``"feedback"`` or ``"expectation"``.
+            input: One of :py:class:`InputPassFail` / :py:class:`InputCategorical`
+                / :py:class:`InputNumeric` / :py:class:`InputText`.
+            instruction: Optional supplementary guidance (<=1000 chars).
+            enable_comment: UI hint; persisted but not consumed server-side.
+
+        Returns:
+            The created :py:class:`LabelSchema` with backend-generated
+            ``schema_id`` and audit fields populated.
+        """
+        return self.store.create_label_schema(
+            experiment_id=experiment_id,
+            name=name,
+            type=type,
+            input=input,
+            instruction=instruction,
+            enable_comment=enable_comment,
+        )
+
+    def _get_label_schema(self, schema_id: str) -> "LabelSchema":
+        return self.store.get_label_schema(schema_id)
+
+    def _get_label_schema_by_name(self, experiment_id: str, name: str) -> "LabelSchema":
+        return self.store.get_label_schema_by_name(experiment_id, name)
+
+    def _list_label_schemas(
+        self,
+        experiment_id: str,
+        max_results: int = 100,
+        page_token: str | None = None,
+    ) -> "PagedList[LabelSchema]":
+        return self.store.list_label_schemas(
+            experiment_id, max_results=max_results, page_token=page_token
+        )
+
+    def _update_label_schema(
+        self,
+        schema_id: str,
+        *,
+        name: str | None = None,
+        instruction: str | None = None,
+        enable_comment: bool | None = None,
+        input: "InputPassFail | InputCategorical | InputNumeric | InputText | None" = None,
+    ) -> "LabelSchema":
+        """Sparse-update a label schema.
+
+        ``type`` is immutable post-create and is not accepted. Fields left as
+        ``None`` are unchanged on the server. ``enable_comment=None`` is
+        treated as "unchanged"; pass ``True`` or ``False`` to set explicitly.
+
+        Returns:
+            The updated :py:class:`LabelSchema`.
+        """
+        return self.store.update_label_schema(
+            schema_id,
+            name=name,
+            instruction=instruction,
+            enable_comment=enable_comment,
+            input=input,
+        )
+
+    def _delete_label_schema(self, schema_id: str) -> None:
+        """Delete a label schema. No-op when the schema doesn't exist."""
+        return self.store.delete_label_schema(schema_id)

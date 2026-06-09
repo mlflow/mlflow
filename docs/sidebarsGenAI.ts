@@ -9,6 +9,12 @@ const sidebarsGenAI: SidebarsConfig = {
       label: 'Overview',
     },
     {
+      type: 'doc',
+      id: 'demo',
+      className: 'sidebar-overview',
+      label: 'Live Demo',
+    },
+    {
       type: 'html',
       value: '<b>Getting Started</b>',
       defaultStyle: true,
@@ -34,6 +40,12 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'doc',
       id: 'getting-started/try-assistant',
       label: "Try MLflow's AI Assistant",
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'doc',
+      id: 'eval-monitor/ai-insights/detect-issues',
+      label: 'Automatic Issue Detection',
       className: 'sidebar-top-level-category',
     },
     {
@@ -102,13 +114,18 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/observe-with-traces/archive-traces',
+                  label: 'Archive Traces',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/observe-with-traces/delete-traces',
                   label: 'Delete Traces',
                 },
                 {
                   type: 'doc',
                   id: 'tracing/observe-with-traces/multimodal',
-                  label: 'Multimodal Content',
+                  label: 'Multimodal Content & Attachments',
                 },
               ],
             },
@@ -140,6 +157,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/observe-with-traces/masking',
                   label: 'Redact Sensitive Data',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/logging',
+                  label: 'Setting Log Levels',
                 },
                 {
                   type: 'doc',
@@ -193,6 +215,16 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/autogen',
                   label: 'AutoGen',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/claude_agent_sdk_python',
+                  label: 'Claude Agent SDK (Python)',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/claude_agent_sdk_typescript',
+                  label: 'Claude Agent SDK (TS)',
                 },
                 {
                   type: 'doc',
@@ -266,6 +298,16 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/n8n',
+                  label: 'n8n',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/open-webui',
+                  label: 'Open WebUI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/openai-agent',
                   label: 'OpenAI Agent',
                 },
@@ -328,12 +370,27 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'category',
-              label: 'Coding Agents',
+              label: 'Coding Agents & Long-Running Agents',
               items: [
                 {
                   type: 'doc',
                   id: 'tracing/integrations/listing/claude_code',
                   label: 'Claude Code',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/codex',
+                  label: 'Codex CLI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/gemini_cli',
+                  label: 'Gemini CLI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/hermes_agent',
+                  label: 'Hermes Agent',
                 },
                 {
                   type: 'doc',
@@ -344,6 +401,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/openhands',
                   label: 'OpenHands',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/qwen_code',
+                  label: 'Qwen Code',
                 },
               ],
             },
@@ -540,6 +602,11 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'tracing/opentelemetry/genai-semconv',
+              label: 'GenAI Semantic Conventions',
+            },
+            {
+              type: 'doc',
               id: 'tracing/opentelemetry/attribute-mapping',
               label: 'Attribute Mapping',
             },
@@ -565,6 +632,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'eval-monitor/quickstart',
           label: 'Quickstart',
+        },
+        {
+          type: 'doc',
+          id: 'eval-monitor/ai-insights/detect-issues',
+          label: 'Automatic Issue Detection',
         },
         {
           type: 'category',
@@ -726,6 +798,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/guardrails',
                       label: 'Guardrails AI',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/google-adk',
+                      label: 'Google ADK',
+                    },
                   ],
                   collapsed: false,
                   link: {
@@ -857,7 +934,7 @@ const sidebarsGenAI: SidebarsConfig = {
             {
               type: 'doc',
               id: 'eval-monitor/ai-insights/ai-issue-discovery',
-              label: 'AI Issue Discovery',
+              label: 'AI Issue Discovery (MCP)',
             },
           ],
         },
@@ -1010,28 +1087,43 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Budget Alerts & Limits',
         },
         {
+          type: 'doc',
+          id: 'governance/ai-gateway/guardrails',
+          label: 'Guardrails',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/benchmarks',
+          label: 'Performance & Benchmarks',
+        },
+        {
           type: 'category',
-          label: 'Gateway Server (Legacy)',
+          label: 'Coding Agents & Long-Running Agents',
           items: [
             {
               type: 'doc',
-              id: 'governance/ai-gateway/legacy/setup',
-              label: 'Setup',
+              id: 'governance/ai-gateway/coding-agents/claude-code',
+              label: 'Claude Code',
             },
             {
               type: 'doc',
-              id: 'governance/ai-gateway/legacy/configuration',
-              label: 'Configuration',
+              id: 'governance/ai-gateway/coding-agents/codex',
+              label: 'OpenAI Codex',
             },
             {
               type: 'doc',
-              id: 'governance/ai-gateway/legacy/usage',
-              label: 'Usage',
+              id: 'governance/ai-gateway/coding-agents/gemini-cli',
+              label: 'Gemini CLI',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/coding-agents/hermes-agent',
+              label: 'Hermes Agent',
             },
           ],
           link: {
             type: 'doc',
-            id: 'governance/ai-gateway/legacy/index',
+            id: 'governance/ai-gateway/coding-agents/index',
           },
         },
       ],

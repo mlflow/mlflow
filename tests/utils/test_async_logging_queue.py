@@ -215,10 +215,14 @@ def test_publish_multithread_consume_single_thread():
 
         run_operations = []
         t1 = threading.Thread(
-            target=_send_metrics_tags_params, args=(async_logging_queue, run_id, run_operations)
+            name="test-async-logging-1",
+            target=_send_metrics_tags_params,
+            args=(async_logging_queue, run_id, run_operations),
         )
         t2 = threading.Thread(
-            target=_send_metrics_tags_params, args=(async_logging_queue, run_id, run_operations)
+            name="test-async-logging-2",
+            target=_send_metrics_tags_params,
+            args=(async_logging_queue, run_id, run_operations),
         )
 
         t1.start()

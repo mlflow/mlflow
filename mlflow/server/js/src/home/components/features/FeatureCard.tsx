@@ -1,12 +1,14 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { FeatureDefinition } from './feature-definitions';
 import { useHomePageViewState } from '../../HomePageViewStateContext';
+import { Link } from '../../../common/utils/RoutingUtils';
 
 interface FeatureCardProps {
   feature: FeatureDefinition;
+  componentId: string;
 }
 
-export const FeatureCard = ({ feature }: FeatureCardProps) => {
+export const FeatureCard = ({ feature, componentId }: FeatureCardProps) => {
   const { theme } = useDesignSystemTheme();
   const { openLogTracesDrawer } = useHomePageViewState();
 
@@ -18,8 +20,6 @@ export const FeatureCard = ({ feature }: FeatureCardProps) => {
     padding: theme.spacing.sm + theme.spacing.xs,
     display: 'flex',
     gap: theme.spacing.sm,
-    minWidth: 240,
-    flex: 1,
     boxSizing: 'border-box' as const,
     boxShadow: theme.shadows.sm,
     cursor: 'pointer',
@@ -77,44 +77,42 @@ export const FeatureCard = ({ feature }: FeatureCardProps) => {
     </div>
   );
 
+  const wrapperStyles = {
+    textDecoration: 'none',
+    color: theme.colors.textPrimary,
+    display: 'block',
+    flex: 1,
+    minWidth: 240,
+  };
+
   if (feature.hasDrawer) {
     return (
-      <button
-        type="button"
-        onClick={openLogTracesDrawer}
-        css={{
-          textDecoration: 'none',
-          color: theme.colors.textPrimary,
-          display: 'block',
-          border: 0,
-          padding: 0,
-          background: 'transparent',
-          cursor: 'pointer',
-          font: 'inherit',
-          textAlign: 'left',
-          flex: 1,
-          minWidth: 240,
+      <Link
+        componentId={componentId}
+        to="#"
+        disableWorkspacePrefix
+        onClick={(e: React.MouseEvent) => {
+          e.preventDefault();
+          openLogTracesDrawer();
         }}
+        css={wrapperStyles}
       >
         {card}
-      </button>
+      </Link>
     );
   }
 
   return (
-    <a
-      href={feature.docsLink}
+    <Link
+      componentId={componentId}
+      to={feature.docsLink}
       target="_blank"
       rel="noopener noreferrer"
-      css={{
-        textDecoration: 'none',
-        color: theme.colors.textPrimary,
-        display: 'block',
-        flex: 1,
-        minWidth: 240,
-      }}
+      reloadDocument
+      disableWorkspacePrefix
+      css={wrapperStyles}
     >
       {card}
-    </a>
+    </Link>
   );
 };

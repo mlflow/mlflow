@@ -24,6 +24,9 @@ import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tra
 import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/route-defs';
 import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
 import { getGatewayRouteDefs } from './gateway/route-defs';
+import { getAccountRouteDefs } from './account/route-defs';
+import { getAdminRouteDefs } from './admin/route-defs';
+import { DEV_USER_SWITCHER_ENABLED } from './admin/DevUserSwitcher';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
 import { MlflowSidebar } from './common/components/MlflowSidebar';
 import { AssistantProvider, AssistantRouteContextProvider } from './assistant';
@@ -35,8 +38,18 @@ import {
   isGlobalRoute,
   setActiveWorkspace,
   setLastUsedWorkspace,
+  WORKSPACE_QUERY_PARAM,
 } from './workspaces/utils/WorkspaceUtils';
 import { useWorkspaces } from './workspaces/hooks/useWorkspaces';
+
+// Lazy-load so the switcher (which stores plaintext passwords in
+// localStorage and manipulates auth cookies) doesn't get pulled into the
+// production bundle. ``DEV_USER_SWITCHER_ENABLED`` is also gated at build
+// time on ``process.env.NODE_ENV === 'development'``, so the import never
+// fires in production.
+const LazyDevUserSwitcher = React.lazy(() =>
+  import('./admin/DevUserSwitcher').then((m) => ({ default: m.DevUserSwitcher })),
+);
 
 type MlflowRouteDef = {
   path?: string;
@@ -89,6 +102,11 @@ const MlflowRootLayout = ({
               <React.Suspense fallback={<LegacySkeleton />}>
                 <Outlet />
               </React.Suspense>
+              {DEV_USER_SWITCHER_ENABLED && (
+                <React.Suspense fallback={null}>
+                  <LazyDevUserSwitcher />
+                </React.Suspense>
+              )}
             </main>
           </div>
         </RootAssistantLayout>
@@ -130,11 +148,11 @@ const MlflowRootRoute = () => {
   );
 };
 
-const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean }) => {
+export const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean }) => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate({ bypassWorkspacePrefix: true });
-  const { workspaces, isLoading } = useWorkspaces(workspacesEnabled);
+  useWorkspaces(workspacesEnabled);
 
   useEffect(() => {
     if (!workspacesEnabled) {
@@ -151,27 +169,11 @@ const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean
     const activeWorkspace = getActiveWorkspace();
     const isRootPath = location.pathname === '/' || location.pathname === '';
 
-    // If workspace is in query param, validate it once workspaces are loaded
+    // If workspace is in query param, keep it active. The workspace list is not
+    // authoritative because users may still have access to individual resources
+    // inside a workspace even when the workspace itself is filtered out from
+    // listWorkspaces.
     if (workspaceFromQuery) {
-      if (isLoading) {
-        // Still loading workspaces, optimistically set the workspace
-        // (will validate once loaded)
-        if (activeWorkspace !== workspaceFromQuery) {
-          setActiveWorkspace(workspaceFromQuery);
-        }
-        return;
-      }
-
-      // Workspaces loaded - validate
-      const workspaceExists = workspaces.some((ws) => ws.name === workspaceFromQuery);
-      if (!workspaceExists) {
-        // Invalid workspace - clear it and redirect to workspace selector
-        setActiveWorkspace(null);
-        navigate('/', { replace: true });
-        return;
-      }
-
-      // Valid workspace - sync to active state
       if (activeWorkspace !== workspaceFromQuery) {
         setActiveWorkspace(workspaceFromQuery);
       }
@@ -182,8 +184,11 @@ const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean
     const isOnGlobalRoute = isRootPath || isGlobalRoute(location.pathname);
 
     if (isOnGlobalRoute) {
-      // Clear active workspace on global routes (workspace selector, settings)
-      if (activeWorkspace) {
+      // The workspace selector (root '/') clears the in-memory active
+      // workspace so the user is in selector mode. Other global routes
+      // (e.g. /account) leave the active workspace alone so navigating
+      // back to a workspace-scoped page resumes in the same workspace.
+      if (isRootPath && activeWorkspace) {
         setActiveWorkspace(null);
       }
       return;
@@ -196,9 +201,9 @@ const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean
       navigate('/', { replace: true });
       return;
     } else {
-      navigate(location.pathname + '?workspace=' + lastUsedWorkspace, { replace: true });
+      navigate(location.pathname + '?' + WORKSPACE_QUERY_PARAM + '=' + lastUsedWorkspace, { replace: true });
     }
-  }, [location, navigate, workspacesEnabled, searchParams, workspaces, isLoading]);
+  }, [location, navigate, workspacesEnabled, searchParams]);
 
   return null;
 };
@@ -211,19 +216,24 @@ const WorkspaceAwareRootRoute = ({ workspacesEnabled }: { workspacesEnabled: boo
 );
 
 export const MlflowRouter = () => {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { workspacesEnabled, loading: featuresLoading } = useWorkspacesEnabled();
 
   // Routes are the same regardless of workspace mode - workspace context comes from query param
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const routes = useMemo<MlflowRouteDef[]>(
     () => [
       ...getExperimentTrackingRouteDefs(),
       ...getModelRegistryRouteDefs(),
       ...getGatewayRouteDefs(),
+      ...getAccountRouteDefs(),
+      ...getAdminRouteDefs(),
       ...getCommonRouteDefs(),
     ],
     [],
   );
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const hashRouter = useMemo(
     () =>
       // Don't create router while still loading features

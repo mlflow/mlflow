@@ -26,64 +26,16 @@ function truncateId(id: string, maxLen = 8): string {
   return id.length > maxLen ? `${id.slice(0, maxLen)}...` : id;
 }
 
-type ContextType = 'trace' | 'run' | 'session' | 'dataset' | 'prompt' | 'model' | 'scorer';
-
 interface ContextTagGroupProps {
   ids: string[];
   color: TagColors;
   label: string;
-  type: ContextType;
+  componentId: string;
   Icon: typeof ForkHorizontalIcon;
 }
 
-const COMPONENT_IDS: Record<ContextType, { tag: string; tooltip: string; more: string; moreTooltip: string }> = {
-  trace: {
-    tag: 'mlflow.assistant.chat_panel.context.trace',
-    tooltip: 'mlflow.assistant.chat_panel.context.trace.tooltip',
-    more: 'mlflow.assistant.chat_panel.context.trace.more',
-    moreTooltip: 'mlflow.assistant.chat_panel.context.trace.more.tooltip',
-  },
-  run: {
-    tag: 'mlflow.assistant.chat_panel.context.run',
-    tooltip: 'mlflow.assistant.chat_panel.context.run.tooltip',
-    more: 'mlflow.assistant.chat_panel.context.run.more',
-    moreTooltip: 'mlflow.assistant.chat_panel.context.run.more.tooltip',
-  },
-  session: {
-    tag: 'mlflow.assistant.chat_panel.context.session',
-    tooltip: 'mlflow.assistant.chat_panel.context.session.tooltip',
-    more: 'mlflow.assistant.chat_panel.context.session.more',
-    moreTooltip: 'mlflow.assistant.chat_panel.context.session.more.tooltip',
-  },
-  dataset: {
-    tag: 'mlflow.assistant.chat_panel.context.dataset',
-    tooltip: 'mlflow.assistant.chat_panel.context.dataset.tooltip',
-    more: 'mlflow.assistant.chat_panel.context.dataset.more',
-    moreTooltip: 'mlflow.assistant.chat_panel.context.dataset.more.tooltip',
-  },
-  prompt: {
-    tag: 'mlflow.assistant.chat_panel.context.prompt',
-    tooltip: 'mlflow.assistant.chat_panel.context.prompt.tooltip',
-    more: 'mlflow.assistant.chat_panel.context.prompt.more',
-    moreTooltip: 'mlflow.assistant.chat_panel.context.prompt.more.tooltip',
-  },
-  model: {
-    tag: 'mlflow.assistant.chat_panel.context.model',
-    tooltip: 'mlflow.assistant.chat_panel.context.model.tooltip',
-    more: 'mlflow.assistant.chat_panel.context.model.more',
-    moreTooltip: 'mlflow.assistant.chat_panel.context.model.more.tooltip',
-  },
-  scorer: {
-    tag: 'mlflow.assistant.chat_panel.context.scorer',
-    tooltip: 'mlflow.assistant.chat_panel.context.scorer.tooltip',
-    more: 'mlflow.assistant.chat_panel.context.scorer.more',
-    moreTooltip: 'mlflow.assistant.chat_panel.context.scorer.more.tooltip',
-  },
-};
-
-function ContextTagGroup({ ids, color, label, type, Icon }: ContextTagGroupProps): React.ReactElement | null {
+function ContextTagGroup({ ids, color, label, componentId, Icon }: ContextTagGroupProps): React.ReactElement | null {
   const { theme } = useDesignSystemTheme();
-  const componentIds = COMPONENT_IDS[type];
 
   if (ids.length === 0) return null;
 
@@ -93,8 +45,8 @@ function ContextTagGroup({ ids, color, label, type, Icon }: ContextTagGroupProps
   return (
     <>
       {visibleIds.map((id) => (
-        <Tooltip key={id} componentId={componentIds.tooltip} content={`${label}: ${id}`}>
-          <Tag componentId={componentIds.tag} color={color}>
+        <Tooltip key={id} componentId={`${componentId}.tooltip`} content={`${label}: ${id}`}>
+          <Tag componentId={componentId} color={color}>
             <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
               <Icon css={{ fontSize: 12 }} />
               <span>{truncateId(id)}</span>
@@ -103,8 +55,8 @@ function ContextTagGroup({ ids, color, label, type, Icon }: ContextTagGroupProps
         </Tooltip>
       ))}
       {hiddenCount > 0 && (
-        <Tooltip componentId={componentIds.moreTooltip} content={`${hiddenCount} more ${label.toLowerCase()}s`}>
-          <Tag componentId={componentIds.more} color={color}>
+        <Tooltip componentId={`${componentId}.more.tooltip`} content={`${hiddenCount} more ${label.toLowerCase()}s`}>
+          <Tag componentId={`${componentId}.more`} color={color}>
             +{hiddenCount}
           </Tag>
         </Tooltip>
@@ -178,13 +130,55 @@ export function AssistantContextTags(): React.ReactElement | null {
 
   return (
     <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs, paddingTop: theme.spacing.sm }}>
-      <ContextTagGroup ids={traceIds} color="indigo" label="Trace" type="trace" Icon={ForkHorizontalIcon} />
-      <ContextTagGroup ids={runIds} color="turquoise" label="Run" type="run" Icon={PlayIcon} />
-      <ContextTagGroup ids={sessionIds} color="purple" label="Session" type="session" Icon={SpeechBubbleIcon} />
-      <ContextTagGroup ids={datasetIds} color="brown" label="Dataset" type="dataset" Icon={DatabaseIcon} />
-      <ContextTagGroup ids={promptIds} color="teal" label="Prompt" type="prompt" Icon={TextBoxIcon} />
-      <ContextTagGroup ids={modelIds} color="lemon" label="Model" type="model" Icon={ModelsIcon} />
-      <ContextTagGroup ids={scorerIds} color="pink" label="Judge" type="scorer" Icon={SparkleDoubleIcon} />
+      <ContextTagGroup
+        ids={traceIds}
+        color="indigo"
+        label="Trace"
+        componentId="mlflow.assistant.chat_panel.context.trace"
+        Icon={ForkHorizontalIcon}
+      />
+      <ContextTagGroup
+        ids={runIds}
+        color="turquoise"
+        label="Run"
+        componentId="mlflow.assistant.chat_panel.context.run"
+        Icon={PlayIcon}
+      />
+      <ContextTagGroup
+        ids={sessionIds}
+        color="purple"
+        label="Session"
+        componentId="mlflow.assistant.chat_panel.context.session"
+        Icon={SpeechBubbleIcon}
+      />
+      <ContextTagGroup
+        ids={datasetIds}
+        color="brown"
+        label="Dataset"
+        componentId="mlflow.assistant.chat_panel.context.dataset"
+        Icon={DatabaseIcon}
+      />
+      <ContextTagGroup
+        ids={promptIds}
+        color="teal"
+        label="Prompt"
+        componentId="mlflow.assistant.chat_panel.context.prompt"
+        Icon={TextBoxIcon}
+      />
+      <ContextTagGroup
+        ids={modelIds}
+        color="lemon"
+        label="Model"
+        componentId="mlflow.assistant.chat_panel.context.model"
+        Icon={ModelsIcon}
+      />
+      <ContextTagGroup
+        ids={scorerIds}
+        color="pink"
+        label="Judge"
+        componentId="mlflow.assistant.chat_panel.context.scorer"
+        Icon={SparkleDoubleIcon}
+      />
     </div>
   );
 }

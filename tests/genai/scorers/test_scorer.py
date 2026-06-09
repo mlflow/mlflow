@@ -360,7 +360,7 @@ def test_custom_scorer_loading_blocked_for_non_databricks_uri():
     )
 
     with pytest.raises(
-        mlflow.exceptions.MlflowException, match="Loading custom scorer.*not supported"
+        mlflow.exceptions.MlflowException, match="Custom scorer registration.*not supported"
     ):
         Scorer._reconstruct_decorator_scorer(serialized)
 

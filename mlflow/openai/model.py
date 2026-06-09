@@ -149,10 +149,9 @@ def _get_task_name(task):
 
 def _get_api_config() -> _OpenAIApiConfig:
     """Gets the parameters and configuration of the OpenAI API connected to."""
-    import openai
 
-    api_type = os.environ.get(_OpenAIEnvVar.OPENAI_API_TYPE.value, openai.api_type)
-    api_version = os.environ.get(_OpenAIEnvVar.OPENAI_API_VERSION.value, openai.api_version)
+    api_type = os.environ.get(_OpenAIEnvVar.OPENAI_API_TYPE.value)
+    api_version = os.environ.get(_OpenAIEnvVar.OPENAI_API_VERSION.value)
     api_base = os.environ.get(_OpenAIEnvVar.OPENAI_API_BASE.value) or os.environ.get(
         _OpenAIEnvVar.OPENAI_BASE_URL.value
     )
