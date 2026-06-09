@@ -129,11 +129,26 @@ describe('EvalRunsEmptyStateCard', () => {
     expect(panel.textContent).not.toContain('mlflow.search_traces');
   });
 
-  it('hides the Python tab until the trace-count query resolves', () => {
-    mockUseTraceMetricsQuery.mockReturnValue({ data: undefined, isSuccess: false });
+  it('does not fire the trace-count query until the Python tab is opened (lazy fetch)', async () => {
+    mockUseTraceMetricsQuery.mockReset();
+    mockUseTraceMetricsQuery.mockImplementation((args: unknown) => {
+      // Mirror the real hook: if disabled, no data; once enabled, return our fixture.
+      const enabled = (args as { enabled?: boolean })?.enabled !== false;
+      return enabled
+        ? { data: { data_points: [{ values: { [AggregationType.COUNT]: 5 } }] }, isSuccess: true }
+        : { data: undefined, isSuccess: false };
+    });
+
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
     renderCard();
 
-    const tabs = screen.getAllByRole('tab').map((t) => t.textContent?.trim() ?? '');
-    expect(tabs).toEqual(['Your coding agent', 'MLflow assistant']);
+    // Before any interaction, the hook is called with enabled=false.
+    const firstCallArgs = mockUseTraceMetricsQuery.mock.calls[0]?.[0] as { enabled?: boolean };
+    expect(firstCallArgs.enabled).toBe(false);
+
+    // After opening the Python tab, the hook is re-called with enabled=true.
+    await user.click(screen.getByRole('tab', { name: /Python/ }));
+    const lastCallArgs = mockUseTraceMetricsQuery.mock.calls.at(-1)?.[0] as { enabled?: boolean };
+    expect(lastCallArgs.enabled).toBe(true);
   });
 });

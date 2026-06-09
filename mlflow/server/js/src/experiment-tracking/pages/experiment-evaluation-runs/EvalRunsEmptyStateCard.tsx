@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { AggregationType, MetricViewType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage } from 'react-intl';
 
-import { AgentActionCard, type AgentActionCardCodeSnippet } from '../../components/onboarding/AgentActionCard';
+import { AgentActionCard } from '../../components/onboarding/AgentActionCard';
 import { useTraceMetricsQuery } from '../experiment-overview/hooks/useTraceMetricsQuery';
 
 import { buildEvaluateAssistantPrompt, buildEvaluatePrompt } from './evalRunsAgentPrompt';
@@ -19,25 +20,29 @@ const PYTHON_TAB_LABEL = (
 export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
 
-  // Pick between the trace-based and dataset-based snippet based on whether this experiment
-  // has any traces yet. Until the query resolves we don't render the Python tab to avoid
-  // briefly showing the wrong variant.
-  const { data: traceMetrics, isSuccess: isTraceMetricsLoaded } = useTraceMetricsQuery({
+  // Only fire the trace-count query once the user actually opens the Python tab — most
+  // empty-state visitors click "Evaluate traces" or the coding-agent path and never need it.
+  const [hasOpenedPythonTab, setHasOpenedPythonTab] = useState(false);
+
+  const { data: traceMetrics } = useTraceMetricsQuery({
     experimentIds: [experimentId],
     viewType: MetricViewType.TRACES,
     metricName: TraceMetricKey.TRACE_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
+    enabled: hasOpenedPythonTab,
   });
   const traceCount = Number(traceMetrics?.data_points?.[0]?.values?.[AggregationType.COUNT] ?? 0);
   const hasTraces = traceCount > 0;
 
-  const codeSnippet: AgentActionCardCodeSnippet | undefined = isTraceMetricsLoaded
-    ? {
-        content: hasTraces ? getTraceCodeSnippet(experimentId) : getDatasetCodeSnippet(experimentId),
-        language: 'python',
-        label: PYTHON_TAB_LABEL,
-      }
-    : undefined;
+  // The Python tab is always shown so it doesn't pop in and steal clicks. Default to the
+  // dataset variant until the query confirms there are traces — if a user copies the snippet
+  // in the first few ms before the count returns, the dataset path still produces a runnable
+  // eval. With traces present we swap to the trace-based snippet.
+  const codeSnippet = {
+    content: hasTraces ? getTraceCodeSnippet(experimentId) : getDatasetCodeSnippet(experimentId),
+    language: 'python' as const,
+    label: PYTHON_TAB_LABEL,
+  };
 
   const header = (
     <>
@@ -71,6 +76,11 @@ export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string 
         assistantPrompt={buildEvaluateAssistantPrompt(experimentId)}
         componentId="mlflow.eval-runs.empty-state.unified"
         codeSnippet={codeSnippet}
+        onActiveTabChange={(tab) => {
+          if (tab === 'code-snippet') {
+            setHasOpenedPythonTab(true);
+          }
+        }}
       />
     </div>
   );

@@ -24,6 +24,7 @@ export const AgentActionCard = ({
   componentId,
   showAgentSetupTab = false,
   codeSnippet,
+  onActiveTabChange,
 }: {
   /** Card title — rendered as Typography.Title level 4 above the tabs. Ignored if `header` is set. */
   title?: ReactNode;
@@ -36,6 +37,8 @@ export const AgentActionCard = ({
   /** When provided, renders an additional tab with a syntax-highlighted code block between
    *  coding-agent and assistant. */
   codeSnippet?: AgentActionCardCodeSnippet;
+  /** Fires whenever the user selects a tab — lets the parent lazy-load tab-specific data. */
+  onActiveTabChange?: (tab: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const { openPanel, sendMessage, setupComplete } = useAssistant();
@@ -78,7 +81,10 @@ export const AgentActionCard = ({
         componentId={`${componentId}.tabs`}
         valueHasNoPii
         value={activeTab}
-        onValueChange={(value) => setActiveTab(value as TabKey)}
+        onValueChange={(value) => {
+          setActiveTab(value as TabKey);
+          onActiveTabChange?.(value);
+        }}
       >
         <Tabs.List
           // Tabs.List paints scroll-shadow gradients on an inner viewport using
