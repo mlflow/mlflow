@@ -1,7 +1,6 @@
 import {
   Alert,
   Button,
-  Header,
   HoverCard,
   Notification,
   PlayIcon,
@@ -12,7 +11,6 @@ import {
 } from '@databricks/design-system';
 import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { ScrollablePageWrapper } from '../../../common/components/ScrollablePageWrapper';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import { PlaygroundTopBar } from './components/PlaygroundTopBar';
@@ -225,26 +223,7 @@ const PlaygroundPage = () => {
   };
 
   return (
-    <ScrollablePageWrapper css={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-      <Spacer shrinks={false} />
-      <Header
-        title={
-          <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-            <span
-              css={{
-                display: 'flex',
-                borderRadius: theme.borders.borderRadiusSm,
-                backgroundColor: theme.colors.backgroundSecondary,
-                padding: theme.spacing.sm,
-              }}
-            >
-              <PlayIcon />
-            </span>
-            <FormattedMessage defaultMessage="Playground" description="Title of the LLM playground page" />
-          </span>
-        }
-      />
-      <Spacer shrinks={false} />
+    <div css={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
       <PlaygroundTopBar
         endpointName={endpointName}
         onEndpointSelect={setEndpointName}
@@ -412,7 +391,7 @@ const PlaygroundPage = () => {
           <Notification.Viewport />
         </Notification.Provider>
       )}
-    </ScrollablePageWrapper>
+    </div>
   );
 };
 
