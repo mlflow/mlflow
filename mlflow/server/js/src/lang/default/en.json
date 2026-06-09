@@ -671,6 +671,10 @@
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label for the number of traces selected"
   },
+  "1OQt7+": {
+    "defaultMessage": "Evaluate traces",
+    "description": "Title for the run evaluation modal dialog"
+  },
   "1RAM3C": {
     "defaultMessage": "Failed to delete some API keys. Please try again.",
     "description": "Gateway > Bulk delete API keys modal > Error message"
@@ -8674,10 +8678,6 @@
   "hDExYR": {
     "defaultMessage": "Fallback Model {order}",
     "description": "Label for fallback model"
-  },
-  "hDSawl": {
-    "defaultMessage": "Run evaluation",
-    "description": "Title for the run evaluation modal dialog"
   },
   "hHNj31": {
     "defaultMessage": "Cancel",
