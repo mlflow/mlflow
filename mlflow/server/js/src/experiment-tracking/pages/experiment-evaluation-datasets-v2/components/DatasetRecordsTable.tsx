@@ -231,15 +231,11 @@ export const DatasetRecordsTable = ({
     [],
   );
 
-  // `header` strings are unused at render — each `<TableHeader>` below renders
-  // its own `<FormattedMessage>`. The field exists only to satisfy `ColumnDef`'s
-  // type and any fallback TanStack code path that calls `flexRender(header)`.
   const columns = useMemo<ColumnDef<DatasetRecord>[]>(
     () =>
       RECORD_COLUMN_IDS.map((id) => ({
         id,
         accessorKey: id,
-        header: id,
         size: columnWidthsForViewport[TIER_BY_COLUMN[id]],
       })),
     [columnWidthsForViewport],
