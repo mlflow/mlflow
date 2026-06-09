@@ -3423,10 +3423,6 @@
     "defaultMessage": "Only alphanumeric characters, underscores, hyphens, and dots are allowed",
     "description": "A validation state for the prompt name format in the prompt creation modal"
   },
-  "HZgS8a": {
-    "defaultMessage": "Add tag",
-    "description": "Aria label for the add-tag button in the V2 dataset record side panel (create mode)"
-  },
   "Hay/ss": {
     "defaultMessage": "Select up to 2 runs to compare",
     "description": "Tooltip for the compare button when disabled"
@@ -4686,10 +4682,6 @@
   "OfLABN": {
     "defaultMessage": "Close",
     "description": "Error modal close button text"
-  },
-  "OhVnQ5": {
-    "defaultMessage": "Record saved",
-    "description": "Success toast after saving an edited dataset record"
   },
   "OiNC9u": {
     "defaultMessage": "No budget policies created",
@@ -6098,6 +6090,10 @@
   "WXbDNv": {
     "defaultMessage": "Tags",
     "description": "Header for the dataset record tags column"
+  },
+  "WXyGJ+": {
+    "defaultMessage": "Failed to save record",
+    "description": "Generic fallback save-error text for the dataset record side panel"
   },
   "Wbpp7P": {
     "defaultMessage": "Create a role to assign permissions to users.",
@@ -8027,10 +8023,6 @@
     "defaultMessage": "Cancel",
     "description": "Key-value tag editor modal > Unsaved tag message > cancel button"
   },
-  "geqWda": {
-    "defaultMessage": "Add tag",
-    "description": "Button text for adding a tag in the V2 dataset record side panel (create mode) when no tags exist"
-  },
   "gerwuf": {
     "defaultMessage": "Edit",
     "description": "Trace actions dropdown group label"
@@ -8055,10 +8047,6 @@
     "defaultMessage": "Assessment added by LLM-as-a-judge",
     "description": "Evaluation review > assessments > tooltip > assessment added by LLM-as-a-judge"
   },
-  "gq5QX+": {
-    "defaultMessage": "New record",
-    "description": "Heading at the top of the V2 dataset record side panel when composing a new record"
-  },
   "gqFQc3": {
     "defaultMessage": "API Key",
     "description": "Summary API key label"
@@ -8070,10 +8058,6 @@
   "grMcuy": {
     "defaultMessage": "Failed to delete some endpoints. Please try again.",
     "description": "Gateway > Bulk delete endpoints modal > Error message"
-  },
-  "grhPkj": {
-    "defaultMessage": "New dataset record",
-    "description": "Aria label for the dataset record create side panel"
   },
   "gsF5IQ": {
     "defaultMessage": "{agentName} uses its own credentials, so no API key is required. The provider and model are pre-configured.",
@@ -9062,10 +9046,6 @@
   "mBhoMH": {
     "defaultMessage": "Last modified",
     "description": "Last modified column header"
-  },
-  "mGUpJv": {
-    "defaultMessage": "Failed to create record",
-    "description": "Generic fallback save-error text for the dataset record side panel (create mode)"
   },
   "mHAue4": {
     "defaultMessage": "Detect Issues in Your Traces",
@@ -10447,17 +10427,9 @@
     "defaultMessage": "Model {modelName} does not exist",
     "description": "Sub-message text for error message on overall model page"
   },
-  "tD0f2z": {
-    "defaultMessage": "Add record",
-    "description": "Primary-button label on the dataset record side panel in create mode"
-  },
   "tDIQ/h": {
     "defaultMessage": "Trace",
     "description": "Title shown in the v2 dataset record side-panel trace modal before a trace id is known"
-  },
-  "tE/dvG": {
-    "defaultMessage": "Failed to save record",
-    "description": "Generic fallback save-error text for the dataset record side panel (edit mode)"
   },
   "tEX/Gk": {
     "defaultMessage": "Select a Guardrail Model endpoint to create this guardrail.",
@@ -10630,10 +10602,6 @@
   "uW5+ph": {
     "defaultMessage": "Pass the function directly to {evaluate}, just like other predefined or LLM-based judges.",
     "description": "Step 2 description for running the judge"
-  },
-  "uWtgjJ": {
-    "defaultMessage": "Record added",
-    "description": "Success toast after adding a new V2 dataset record"
   },
   "uX2XCM": {
     "defaultMessage": "Edit Model Configuration",

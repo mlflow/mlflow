@@ -11,13 +11,15 @@ import { FormattedMessage } from 'react-intl';
 
 interface NoRecordsEmptyStateProps {
   onAddRecord: () => void;
+  /** True while a record create is in flight — shows the Add button busy and blocks double-adds. */
+  isAddingRecord?: boolean;
 }
 
 /**
  * Initial empty state for a freshly-created dataset. Per spec: one primary "Add record"
  * button and a single link to the SDK docs for programmatic record creation.
  */
-export const DatasetRecordsEmptyState = ({ onAddRecord }: NoRecordsEmptyStateProps) => {
+export const DatasetRecordsEmptyState = ({ onAddRecord, isAddingRecord }: NoRecordsEmptyStateProps) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -77,6 +79,7 @@ export const DatasetRecordsEmptyState = ({ onAddRecord }: NoRecordsEmptyStatePro
         type="primary"
         icon={<PlusIcon />}
         onClick={onAddRecord}
+        loading={isAddingRecord}
         css={{ marginTop: theme.spacing.md }}
       >
         <FormattedMessage

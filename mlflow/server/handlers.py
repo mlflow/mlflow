@@ -273,6 +273,7 @@ from mlflow.protos.service_pb2 import (
     StartTrace,
     StartTraceV3,
     UpdateAssessment,
+    UpdateDatasetRecords,
     UpdateEndpointGuardrailConfig,
     UpdateExperiment,
     UpdateGatewayBudgetPolicy,
@@ -6839,6 +6840,7 @@ def _upsert_dataset_records_handler(dataset_id):
     response_message = UpsertDatasetRecords.Response()
     response_message.inserted_count = result["inserted"]
     response_message.updated_count = result["updated"]
+    response_message.record_ids.extend(result.get("record_ids", []))
 
     return _wrap_response(response_message)
 
@@ -6940,6 +6942,28 @@ def _delete_dataset_records_handler(dataset_id):
 
     response_message = DeleteDatasetRecords.Response()
     response_message.deleted_count = deleted_count
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_dataset_records_handler(dataset_id):
+    request_message = _get_request_message(
+        UpdateDatasetRecords(),
+        schema={
+            "records": [_assert_required, _assert_string],
+        },
+    )
+
+    records = json.loads(request_message.records)
+
+    result = _get_tracking_store().update_dataset_records(
+        dataset_id=dataset_id,
+        records=records,
+    )
+
+    response_message = UpdateDatasetRecords.Response()
+    response_message.updated_count = result["updated"]
     return _wrap_response(response_message)
 
 
@@ -7399,6 +7423,7 @@ HANDLERS = {
     GetDatasetExperimentIds: _get_dataset_experiment_ids_handler,
     GetDatasetRecords: _get_dataset_records_handler,
     DeleteDatasetRecords: _delete_dataset_records_handler,
+    UpdateDatasetRecords: _update_dataset_records_handler,
     AddDatasetToExperiments: _add_dataset_to_experiments_handler,
     RemoveDatasetFromExperiments: _remove_dataset_from_experiments_handler,
     # Model Registry APIs

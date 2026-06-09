@@ -14,17 +14,14 @@ import type { DatasetRecord } from '../hooks/useDatasetsQueries';
 import {
   CreatedByCell,
   CreateTimeCell,
-  truncateCss,
   JsonPreviewCell,
   LastUpdatedByCell,
   LastUpdatedCell,
   RecordIdCell,
   SourceCell,
-  TagsInlinePreviewBody,
   TagsPreviewCell,
 } from './DatasetRecordCell';
 import { SORTABLE_RECORD_COLUMNS, type RecordColumnId, type SortDirection } from '../utils/constants';
-import type { PendingNewRecord } from '../hooks/useRecordCreateState';
 
 interface DatasetRecordsTableProps {
   records: DatasetRecord[];
@@ -59,15 +56,6 @@ interface DatasetRecordsTableProps {
   sort: RecordColumnId;
   dir: SortDirection;
   onSort: (column: RecordColumnId, direction: SortDirection) => void;
-  /**
-   * In-progress new record. When non-null, the table renders a synthetic row at the top
-   * (key="__new__") that reflects the side panel's live edits. The row is excluded from
-   * `selectedForBulk`, pagination math, and sort — it's a UI-only preview. `inputsText` and
-   * `expectationsText` carry the raw editor text so the row updates per keystroke even while
-   * JSON is partial/invalid; the parsed objects (when valid) are preferred for display so
-   * pretty-printed source collapses to compact JSON.
-   */
-  pendingNewRecord?: PendingNewRecord | null;
 }
 
 const SORTABLE_COLUMN_SET = new Set<RecordColumnId>(SORTABLE_RECORD_COLUMNS);
@@ -127,7 +115,6 @@ export const DatasetRecordsTable = ({
   sort,
   dir,
   onSort,
-  pendingNewRecord,
 }: DatasetRecordsTableProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -265,91 +252,6 @@ export const DatasetRecordsTable = ({
               </TableRow>
             ))
           : null}
-        {!isLoading && pendingNewRecord && (
-          // Synthetic "new record" row. Lives outside `records` so it's invisible to
-          // pagination, sort, and bulk selection — pure UI preview wired to the side
-          // panel's editor state. Uses `<TableRowSelectCell noCheckbox>` for the leading
-          // cell so its `flex: 0` and fixed checkbox-column width match the data rows;
-          // an empty `<TableCell>` here would inherit `flex: 1` and shift every column
-          // out of alignment with the rows above and below.
-          <TableRow
-            key="__new__"
-            css={{
-              backgroundColor: theme.colors.tableBackgroundUnselectedHover,
-              ...selectCellBodyAlign,
-            }}
-          >
-            <TableRowSelectCell componentId="mlflow.eval-datasets-v2.records.row-select.phantom" noCheckbox />
-            {visibleColumns.map((col) => {
-              // Phantom row only. `wrapContent={false}` skips the DS TableCell's auto
-              // Typography.Text wrapper (we render our own), and the cell wrapper below
-              // forces `text-align: left` + `justify-items: start` so the short
-              // "(empty)" / "-" placeholders hug the left edge of the cell instead of
-              // floating in the middle. Data rows wrap their content in inline-block
-              // activator components that already render flush-left, so they don't need
-              // this override.
-              const colCellStyles = {
-                ...cellStylesForColumn(col),
-                textAlign: 'left' as const,
-                justifyItems: 'start' as const,
-              };
-              if (col === 'inputs' || col === 'expectations') {
-                const value = col === 'inputs' ? pendingNewRecord.inputs : pendingNewRecord.expectations;
-                const text = col === 'inputs' ? pendingNewRecord.inputsText : pendingNewRecord.expectationsText;
-                const hasValidContent = value !== undefined && Object.keys(value).length > 0;
-                const trimmedText = text.trim();
-                const isEmpty = !hasValidContent && trimmedText === '';
-                // Prefer compact JSON for valid input (collapses pretty-printed source onto one
-                // line); otherwise echo the raw text so each keystroke shows up immediately.
-                const display = hasValidContent ? JSON.stringify(value) : trimmedText;
-                return (
-                  <TableCell key={col} css={colCellStyles} align="left" wrapContent={false}>
-                    {isEmpty ? (
-                      <Typography.Text color="secondary" size="sm">
-                        <FormattedMessage defaultMessage="(empty)" description="Placeholder for an empty JSON cell" />
-                      </Typography.Text>
-                    ) : (
-                      <span
-                        css={[
-                          truncateCss,
-                          { fontFamily: 'monospace', fontSize: theme.typography.fontSizeSm, display: 'block' },
-                        ]}
-                      >
-                        {display}
-                      </span>
-                    )}
-                  </TableCell>
-                );
-              }
-              if (col === 'tags') {
-                // Read-only preview of the draft tags. Phantom row has no record yet, so it
-                // skips the saved-row activator + tooltip and renders the same inline
-                // pill + "+N more" body as `TagsPreviewCell` directly.
-                const tagEntries = Object.entries(pendingNewRecord.tags);
-                if (tagEntries.length === 0) {
-                  return (
-                    <TableCell key={col} css={colCellStyles} align="left" wrapContent={false}>
-                      <Typography.Text color="secondary">-</Typography.Text>
-                    </TableCell>
-                  );
-                }
-                return (
-                  <TableCell key={col} css={colCellStyles} align="left" wrapContent={false}>
-                    <TagsInlinePreviewBody
-                      entries={tagEntries}
-                      componentId="mlflow.eval-datasets-v2.records.tag.phantom-pill"
-                    />
-                  </TableCell>
-                );
-              }
-              return (
-                <TableCell key={col} css={colCellStyles} align="left" wrapContent={false}>
-                  <Typography.Text color="secondary">-</Typography.Text>
-                </TableCell>
-              );
-            })}
-          </TableRow>
-        )}
         {!isLoading &&
           records.map((record) => {
             const isSelected = record.dataset_record_id === selectedRecordId;

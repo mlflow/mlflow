@@ -20,6 +20,8 @@ export interface DatasetRecordsToolbarProps {
   /** Timestamp (ms) of the last successful records fetch — drives the refresh tooltip. */
   lastRefreshTime: number | undefined;
   onAddRecord: () => void;
+  /** True while a record create is in flight — shows the Add button busy and blocks double-adds. */
+  isAddingRecord?: boolean;
   /** Slot for additional toolbar controls (column selector, etc.). */
   trailingControls?: React.ReactNode;
   /** Forwarded to the search Input so callers can focus it (e.g. via the "/" hotkey). */
@@ -40,6 +42,7 @@ export const DatasetRecordsToolbar = ({
   isRefreshing,
   lastRefreshTime,
   onAddRecord,
+  isAddingRecord,
   trailingControls,
   searchInputRef,
   selectionCount,
@@ -123,6 +126,7 @@ export const DatasetRecordsToolbar = ({
         type="primary"
         icon={<PlusIcon />}
         onClick={onAddRecord}
+        loading={isAddingRecord}
       >
         {intl.formatMessage({
           defaultMessage: 'Add record',

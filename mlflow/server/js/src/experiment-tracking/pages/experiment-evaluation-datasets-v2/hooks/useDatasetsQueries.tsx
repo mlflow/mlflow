@@ -99,6 +99,13 @@ interface GetDatasetRecordsResponse {
 interface UpsertDatasetRecordsResponse {
   inserted_count: number;
   updated_count: number;
+  // Server-assigned ids for the upserted records, in request order. Used by the create flow to
+  // bind the side panel to the freshly-created record without a follow-up list refetch.
+  record_ids?: string[];
+}
+
+interface UpdateDatasetRecordsResponse {
+  updated_count: number;
 }
 
 const msToIso = (ms?: number): string => (typeof ms === 'number' ? new Date(ms).toISOString() : '');
@@ -340,12 +347,11 @@ export function useUpsertDatasetRecordsMutation(datasetId: string) {
 
 /**
  * Single-record create. OSS has no dedicated create endpoint — `POST /records` upserts by
- * id and emits inserted/updated counts. The adapter sends a one-element array and then
- * refetches the records list so the new server-assigned id is visible to the table.
+ * input hash — but the upsert response now echoes back the server-assigned `record_ids`, so
+ * the create flow can resolve the new id directly instead of refetching and guessing.
  *
- * Returns the input record echoed back (without a server id), because OSS upsert response
- * carries only counts. Universe callers that need the new id read it from the refetched
- * list cache rather than from this hook's resolved value.
+ * Resolves the new `dataset_record_id` (from `record_ids[0]`). The single-step "add record"
+ * flow uses it to bind the side panel to the just-created record and then autosave edits by id.
  */
 export function useCreateDatasetRecordMutation(datasetId: string) {
   const queryClient = useQueryClient();
@@ -355,14 +361,13 @@ export function useCreateDatasetRecordMutation(datasetId: string) {
         dataset_id: datasetId,
         records: JSON.stringify([universeRecordToOss(record)]),
       };
-      await fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}/records`), {
+      const response = (await fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}/records`), {
         method: 'POST',
         body,
-      });
-      // Universe consumers ignore the resolved value beyond its existence; a zero-filled
-      // shell here is good enough until the followup refetch lands the real record.
+      })) as UpsertDatasetRecordsResponse;
+      const newId = response.record_ids?.[0] ?? record.dataset_record_id ?? '';
       return {
-        dataset_record_id: record.dataset_record_id ?? '',
+        dataset_record_id: newId,
         create_time: new Date().toISOString(),
         last_update_time: new Date().toISOString(),
         inputs: record.inputs ?? {},
@@ -371,7 +376,73 @@ export function useCreateDatasetRecordMutation(datasetId: string) {
         source: record.source,
       };
     },
-    onSuccess: () => {
+    onSuccess: (created) => {
+      // Insert the new record into the list cache immediately so a caller that selects it by id
+      // (the single-step add flow) resolves it without waiting for the refetch — otherwise the
+      // controller's "selected record not found" guard would briefly close the panel.
+      const key = listDatasetRecordsQueryKey(datasetId);
+      queryClient.setQueryData<DatasetRecord[]>(key, (old) => {
+        const list = old ?? [];
+        return list.some((r) => r.dataset_record_id === created.dataset_record_id) ? list : [...list, created];
+      });
+      queryClient.invalidateQueries({ queryKey: key });
+    },
+  });
+}
+
+/**
+ * Update existing records in place by id via the dedicated `PATCH /records` endpoint. Unlike
+ * the hash-keyed upsert (which can't change a record's `inputs` without orphaning the old row),
+ * this addresses the record by `dataset_record_id`, so it is the write path the autosave flow
+ * uses for every edit after a record exists — including `inputs` edits.
+ *
+ * Each entry names a record and supplies a partial patch; the cache is updated optimistically
+ * (and rolled back on error) the same way the upsert mutation handles its writes.
+ */
+export function useUpdateDatasetRecordMutation(datasetId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      updates: Array<{ recordId: string; updates: Partial<DatasetRecord> }>,
+    ): Promise<UpdateDatasetRecordsResponse> => {
+      const records = updates.map(({ recordId, updates: patch }) =>
+        universeRecordToOss({ ...patch, dataset_record_id: recordId }),
+      );
+      return (await fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}/records`), {
+        method: 'PATCH',
+        body: { dataset_id: datasetId, records: JSON.stringify(records) },
+      })) as UpdateDatasetRecordsResponse;
+    },
+    onMutate: async (updates) => {
+      await queryClient.cancelQueries(listDatasetRecordsQueryKey(datasetId));
+      const current = queryClient.getQueryData<DatasetRecord[]>(listDatasetRecordsQueryKey(datasetId));
+      const touchedIds = new Set(updates.map((u) => u.recordId));
+      const snapshots = new Map<string, DatasetRecord>();
+      current?.forEach((r) => {
+        if (touchedIds.has(r.dataset_record_id)) snapshots.set(r.dataset_record_id, r);
+      });
+      if (current) {
+        const updatesMap = new Map(updates.map((u) => [u.recordId, u.updates] as const));
+        queryClient.setQueryData(
+          listDatasetRecordsQueryKey(datasetId),
+          current.map((r) => {
+            const patch = updatesMap.get(r.dataset_record_id);
+            return patch ? { ...r, ...patch, last_update_time: new Date().toISOString() } : r;
+          }),
+        );
+      }
+      return { snapshots };
+    },
+    onError: (_err, _variables, context) => {
+      if (!context?.snapshots || context.snapshots.size === 0) return;
+      const live = queryClient.getQueryData<DatasetRecord[]>(listDatasetRecordsQueryKey(datasetId));
+      if (!live) return;
+      queryClient.setQueryData(
+        listDatasetRecordsQueryKey(datasetId),
+        live.map((r) => context.snapshots.get(r.dataset_record_id) ?? r),
+      );
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: listDatasetRecordsQueryKey(datasetId) });
     },
   });

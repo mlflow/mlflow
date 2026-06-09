@@ -1401,6 +1401,48 @@ def test_upsert_dataset_records_is_workspace_scoped(workspace_tracking_store):
         assert records[0].inputs == {"x": 1}
 
 
+def test_update_dataset_records_is_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-update-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-update-a")
+        dataset_a = workspace_tracking_store.create_dataset(
+            name="dataset-update-a",
+            experiment_ids=[exp_a],
+        )
+        workspace_tracking_store.upsert_dataset_records(
+            dataset_a.dataset_id,
+            [{"inputs": {"x": 1}, "expectations": {"y": 2}}],
+        )
+        record_a, _ = workspace_tracking_store._load_dataset_records(dataset_a.dataset_id)
+        record_id_a = record_a[0].dataset_record_id
+
+        # Same workspace update works
+        result = workspace_tracking_store.update_dataset_records(
+            dataset_a.dataset_id,
+            [{"dataset_record_id": record_id_a, "inputs": {"x": 99}}],
+        )
+        assert result["updated"] == 1
+
+    with WorkspaceContext("team-update-b"):
+        workspace_tracking_store.create_experiment("exp-update-b")
+
+        # Cross-workspace update fails at the dataset-access gate
+        with pytest.raises(
+            MlflowException,
+            match=f"Dataset '{dataset_a.dataset_id}' not found",
+        ) as excinfo:
+            workspace_tracking_store.update_dataset_records(
+                dataset_a.dataset_id,
+                [{"dataset_record_id": record_id_a, "inputs": {"x": 1234}}],
+            )
+        assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+    # Verify the record reflects only the same-workspace update
+    with WorkspaceContext("team-update-a"):
+        records, _ = workspace_tracking_store._load_dataset_records(dataset_a.dataset_id)
+        assert len(records) == 1
+        assert records[0].inputs == {"x": 99}
+
+
 def test_load_dataset_records_is_workspace_scoped(workspace_tracking_store):
     with WorkspaceContext("team-load-a"):
         exp_a = workspace_tracking_store.create_experiment("exp-load-a")

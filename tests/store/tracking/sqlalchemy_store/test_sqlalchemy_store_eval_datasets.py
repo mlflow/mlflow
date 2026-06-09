@@ -1019,3 +1019,214 @@ def test_sql_dataset_record_wrapping_unwrapping():
 
     sql_record7.merge({"outputs": {"new": "dict"}})
     assert sql_record7.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: {"new": "dict"}}
+
+
+def _record_by_input(store, dataset_id, predicate):
+    loaded, _ = store._load_dataset_records(dataset_id)
+    return next(r for r in loaded if predicate(r))
+
+
+def test_dataset_update_records_changes_inputs_in_place(store):
+    dataset = store.create_dataset(name="update_inputs_in_place")
+    store.upsert_dataset_records(
+        dataset.dataset_id,
+        [{"inputs": {"question": "What is MLflow?"}, "expectations": {"answer": "A platform"}}],
+    )
+    original = _record_by_input(store, dataset.dataset_id, lambda r: True)
+    record_id = original.dataset_record_id
+    initial_update_time = original.last_update_time
+    time.sleep(0.01)
+
+    result = store.update_dataset_records(
+        dataset.dataset_id,
+        [{"dataset_record_id": record_id, "inputs": {"question": "What is MLflow tracing?"}}],
+    )
+    assert result == {"updated": 1}
+
+    loaded, _ = store._load_dataset_records(dataset.dataset_id)
+    # The same row is updated in place — no duplicate, no orphan (the bug this method fixes).
+    assert len(loaded) == 1
+    assert loaded[0].dataset_record_id == record_id
+    assert loaded[0].inputs == {"question": "What is MLflow tracing?"}
+    # Untouched fields are preserved; touched fields bump last_update_time.
+    assert loaded[0].expectations == {"answer": "A platform"}
+    assert loaded[0].last_update_time > initial_update_time
+
+
+def test_dataset_update_records_replaces_fields_not_merges(store):
+    dataset = store.create_dataset(name="update_replaces")
+    store.upsert_dataset_records(
+        dataset.dataset_id,
+        [
+            {
+                "inputs": {"q": "hi"},
+                "expectations": {"answer": "a", "score": 0.8},
+                "tags": {"version": "v1", "quality": "high"},
+            }
+        ],
+    )
+    record_id = _record_by_input(store, dataset.dataset_id, lambda r: True).dataset_record_id
+
+    store.update_dataset_records(
+        dataset.dataset_id,
+        [
+            {
+                "dataset_record_id": record_id,
+                "expectations": {"answer": "b"},
+                "tags": {"version": "v2"},
+            }
+        ],
+    )
+    updated = _record_by_input(store, dataset.dataset_id, lambda r: True)
+    # PATCH semantics: provided fields are overwritten outright, unlike upsert's merge() which
+    # would have kept score=0.8 and quality=high.
+    assert updated.expectations == {"answer": "b"}
+    assert updated.tags == {"version": "v2"}
+    # inputs were not in the patch, so they are untouched.
+    assert updated.inputs == {"q": "hi"}
+
+
+def test_dataset_update_records_partial_inputs_unchanged_keeps_id(store):
+    dataset = store.create_dataset(name="update_partial")
+    store.upsert_dataset_records(
+        dataset.dataset_id, [{"inputs": {"q": "hi"}, "expectations": {"answer": "a"}}]
+    )
+    record_id = _record_by_input(store, dataset.dataset_id, lambda r: True).dataset_record_id
+
+    # Re-sending identical inputs alongside new expectations must not false-positive on the
+    # uniqueness check against the record's own row.
+    result = store.update_dataset_records(
+        dataset.dataset_id,
+        [{"dataset_record_id": record_id, "inputs": {"q": "hi"}, "expectations": {"answer": "z"}}],
+    )
+    assert result == {"updated": 1}
+    updated = _record_by_input(store, dataset.dataset_id, lambda r: True)
+    assert updated.dataset_record_id == record_id
+    assert updated.expectations == {"answer": "z"}
+
+
+def test_dataset_update_records_missing_record_id_raises(store):
+    dataset = store.create_dataset(name="update_missing_id")
+    with pytest.raises(MlflowException, match="must include a 'dataset_record_id'") as excinfo:
+        store.update_dataset_records(dataset.dataset_id, [{"inputs": {"q": "hi"}}])
+    assert excinfo.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+def test_dataset_update_records_unknown_record_id_raises(store):
+    dataset = store.create_dataset(name="update_unknown_id")
+    with pytest.raises(MlflowException, match="not found in dataset") as excinfo:
+        store.update_dataset_records(
+            dataset.dataset_id, [{"dataset_record_id": "dr-does-not-exist", "inputs": {"q": "hi"}}]
+        )
+    assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_dataset_update_records_duplicate_inputs_conflict_raises(store):
+    dataset = store.create_dataset(name="update_conflict")
+    store.upsert_dataset_records(
+        dataset.dataset_id,
+        [{"inputs": {"q": "one"}}, {"inputs": {"q": "two"}}],
+    )
+    rec_one = _record_by_input(store, dataset.dataset_id, lambda r: r.inputs == {"q": "one"})
+
+    # Editing rec_one's inputs to collide with rec_two's inputs would violate the
+    # (dataset_id, input_hash) unique constraint — surfaced as a clean ALREADY_EXISTS.
+    with pytest.raises(MlflowException, match="record with identical inputs already exists") as e:
+        store.update_dataset_records(
+            dataset.dataset_id,
+            [{"dataset_record_id": rec_one.dataset_record_id, "inputs": {"q": "two"}}],
+        )
+    assert e.value.error_code == "RESOURCE_ALREADY_EXISTS"
+    # Nothing changed: both rows still present with their original inputs.
+    loaded, _ = store._load_dataset_records(dataset.dataset_id)
+    assert {json.dumps(r.inputs, sort_keys=True) for r in loaded} == {
+        json.dumps({"q": "one"}, sort_keys=True),
+        json.dumps({"q": "two"}, sort_keys=True),
+    }
+
+
+def test_dataset_update_records_sets_last_updated_by_from_user_tag(store):
+    dataset = store.create_dataset(name="update_user_tag")
+    store.upsert_dataset_records(dataset.dataset_id, [{"inputs": {"q": "hi"}}])
+    record_id = _record_by_input(store, dataset.dataset_id, lambda r: True).dataset_record_id
+
+    store.update_dataset_records(
+        dataset.dataset_id,
+        [
+            {
+                "dataset_record_id": record_id,
+                "expectations": {"answer": "a"},
+                "tags": {mlflow_tags.MLFLOW_USER: "alice"},
+            }
+        ],
+    )
+    updated = _record_by_input(store, dataset.dataset_id, lambda r: True)
+    assert updated.last_updated_by == "alice"
+
+
+def test_dataset_upsert_returns_record_ids(store):
+    dataset = store.create_dataset(name="upsert_record_ids")
+    result = store.upsert_dataset_records(
+        dataset.dataset_id,
+        [{"inputs": {"q": "one"}}, {"inputs": {"q": "two"}}],
+    )
+    assert result["inserted"] == 2
+    # record_ids are returned in request order and match the persisted rows — this is what the
+    # single-step add UI uses to bind to a just-created record without a list refetch.
+    assert len(result["record_ids"]) == 2
+    loaded, _ = store._load_dataset_records(dataset.dataset_id)
+    assert set(result["record_ids"]) == {r.dataset_record_id for r in loaded}
+
+    # A dedup-merge of the same inputs echoes the existing id rather than minting a new one.
+    again = store.upsert_dataset_records(dataset.dataset_id, [{"inputs": {"q": "one"}}])
+    assert again["updated"] == 1
+    assert again["record_ids"] == [result["record_ids"][0]]
+
+
+def test_dataset_update_records_overwrites_outputs(store):
+    dataset = store.create_dataset(name="update_outputs")
+    store.upsert_dataset_records(dataset.dataset_id, [{"inputs": {"q": "hi"}}])
+    record_id = _record_by_input(store, dataset.dataset_id, lambda r: True).dataset_record_id
+
+    result = store.update_dataset_records(
+        dataset.dataset_id,
+        [{"dataset_record_id": record_id, "outputs": {"answer": "world"}}],
+    )
+    assert result == {"updated": 1}
+
+    updated = _record_by_input(store, dataset.dataset_id, lambda r: True)
+    # outputs round-trip through the wrapped-key storage and back to the plain dict.
+    assert updated.outputs == {"answer": "world"}
+    # inputs are untouched by an outputs-only patch.
+    assert updated.inputs == {"q": "hi"}
+
+
+def test_dataset_update_records_preserves_dataset_last_updated_by(store):
+    dataset = store.create_dataset(name="update_preserve_user")
+    # An upsert carrying a user tag sets the dataset's last_updated_by.
+    store.upsert_dataset_records(
+        dataset.dataset_id,
+        [{"inputs": {"q": "hi"}, "tags": {mlflow_tags.MLFLOW_USER: "alice"}}],
+    )
+    assert store.get_dataset(dataset.dataset_id).last_updated_by == "alice"
+    record_id = _record_by_input(store, dataset.dataset_id, lambda r: True).dataset_record_id
+
+    # An autosave-style update with no user tag must NOT clobber it back to None.
+    store.update_dataset_records(
+        dataset.dataset_id,
+        [{"dataset_record_id": record_id, "expectations": {"a": "b"}}],
+    )
+    assert store.get_dataset(dataset.dataset_id).last_updated_by == "alice"
+
+
+def test_dataset_upsert_preserves_dataset_last_updated_by_when_tagless(store):
+    dataset = store.create_dataset(name="upsert_preserve_user")
+    store.upsert_dataset_records(
+        dataset.dataset_id,
+        [{"inputs": {"q": "one"}, "tags": {mlflow_tags.MLFLOW_USER: "alice"}}],
+    )
+    assert store.get_dataset(dataset.dataset_id).last_updated_by == "alice"
+
+    # A tagless upsert (e.g. "+ Add record" sends no user tag) must not clobber it to None.
+    store.upsert_dataset_records(dataset.dataset_id, [{"inputs": {"q": "two"}}])
+    assert store.get_dataset(dataset.dataset_id).last_updated_by == "alice"

@@ -7153,6 +7153,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             updated_count = 0
             current_time = get_current_time_millis()
             updated_by = None  # Track who last updated the dataset
+            # Resulting record id per input record, in order — the new id for an insert, the
+            # existing id for a dedup-merge. Lets callers (e.g. the single-step "add record" UI)
+            # bind to the just-created record without a follow-up list refetch.
+            record_ids: list[str] = []
 
             for record_dict in records:
                 inputs_json = json.dumps(record_dict.get("inputs", {}), sort_keys=True)
@@ -7175,6 +7179,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 if existing_record:
                     existing_record.merge(record_dict)
                     updated_count += 1
+                    record_ids.append(existing_record.dataset_record_id)
                 else:
                     created_by = None
                     if tags and MLFLOW_USER in tags:
@@ -7204,6 +7209,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     sql_record = SqlEvaluationDatasetRecord.from_mlflow_entity(record, input_hash)
                     session.add(sql_record)
                     inserted_count += 1
+                    # `dataset_record_id` is assigned client-side in __init__ (a uuid), so it is
+                    # available before flush — no need to round-trip the DB for the new id.
+                    record_ids.append(sql_record.dataset_record_id)
 
             dataset_info = (
                 self
@@ -7228,9 +7236,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             update_fields = {
                 "last_update_time": current_time,
-                "last_updated_by": updated_by,
                 "digest": new_digest,
             }
+
+            # Only advance last_updated_by when this upsert carried a user (via the mlflow.user
+            # tag). A tagless upsert — e.g. the single-step "+ Add record", which sends no tags —
+            # would otherwise clobber the dataset's existing last_updated_by to NULL.
+            if updated_by is not None:
+                update_fields["last_updated_by"] = updated_by
 
             if updated_schema:
                 update_fields["schema"] = json.dumps(updated_schema)
@@ -7242,7 +7255,137 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 SqlEvaluationDataset.dataset_id == dataset_id
             ).update(update_fields)
 
-            return {"inserted": inserted_count, "updated": updated_count}
+            return {
+                "inserted": inserted_count,
+                "updated": updated_count,
+                "record_ids": record_ids,
+            }
+
+    def update_dataset_records(
+        self, dataset_id: str, records: list[dict[str, Any]]
+    ) -> dict[str, int]:
+        """
+        Update existing records in place, addressed by ``dataset_record_id``.
+
+        Unlike ``upsert_dataset_records`` — which matches by ``input_hash`` and so can only
+        ever touch outputs/expectations/tags of a row with identical inputs — this looks up
+        each record by its id and overwrites the supplied fields, recomputing ``input_hash``
+        when ``inputs`` changes. Fields omitted from a record dict are left unchanged.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            records: List of dicts, each with a required ``dataset_record_id`` and any of
+                ``inputs`` / ``expectations`` / ``tags`` / ``outputs`` to overwrite.
+
+        Returns:
+            Dictionary with the count of updated records: ``{'updated': int}``.
+        """
+        with self.ManagedSessionMaker(read_only=False) as session:
+            self._validate_dataset_accessible(session, dataset_id)
+
+            current_time = get_current_time_millis()
+            updated_by = None
+            updated_count = 0
+
+            for record_dict in records:
+                record_id = record_dict.get("dataset_record_id")
+                if not record_id:
+                    raise MlflowException(
+                        "Each record to update must include a 'dataset_record_id'.",
+                        INVALID_PARAMETER_VALUE,
+                    )
+
+                existing_record = (
+                    session
+                    .query(SqlEvaluationDatasetRecord)
+                    .filter(
+                        SqlEvaluationDatasetRecord.dataset_id == dataset_id,
+                        SqlEvaluationDatasetRecord.dataset_record_id == record_id,
+                    )
+                    .one_or_none()
+                )
+                if existing_record is None:
+                    raise MlflowException(
+                        f"Dataset record '{record_id}' not found in dataset '{dataset_id}'.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    )
+
+                new_input_hash = None
+                if "inputs" in record_dict:
+                    inputs_json = json.dumps(record_dict.get("inputs", {}), sort_keys=True)
+                    new_input_hash = hashlib.sha256(inputs_json.encode()).hexdigest()
+                    # Changing inputs would violate the (dataset_id, input_hash) unique
+                    # constraint if another record already owns the new hash. Surface that as
+                    # a clean ALREADY_EXISTS rather than letting the flush raise IntegrityError.
+                    if new_input_hash != existing_record.input_hash:
+                        conflict = (
+                            session
+                            .query(SqlEvaluationDatasetRecord.dataset_record_id)
+                            .filter(
+                                SqlEvaluationDatasetRecord.dataset_id == dataset_id,
+                                SqlEvaluationDatasetRecord.input_hash == new_input_hash,
+                                SqlEvaluationDatasetRecord.dataset_record_id != record_id,
+                            )
+                            .first()
+                        )
+                        if conflict is not None:
+                            raise MlflowException(
+                                f"A record with identical inputs already exists in dataset "
+                                f"'{dataset_id}' (record '{conflict[0]}').",
+                                RESOURCE_ALREADY_EXISTS,
+                            )
+
+                tags = record_dict.get("tags")
+                if tags and MLFLOW_USER in tags:
+                    updated_by = tags[MLFLOW_USER]
+
+                existing_record.apply_patch(record_dict, new_input_hash=new_input_hash)
+                existing_record.last_update_time = current_time
+                updated_count += 1
+
+            dataset_info = (
+                self
+                ._dataset_query(session)
+                .with_entities(SqlEvaluationDataset.schema, SqlEvaluationDataset.name)
+                .filter(SqlEvaluationDataset.dataset_id == dataset_id)
+                .first()
+            )
+
+            if dataset_info:
+                existing_schema = dataset_info[0]
+                dataset_name = dataset_info[1]
+            else:
+                existing_schema = None
+                dataset_name = None
+
+            updated_schema = self._update_dataset_schema(existing_schema, records)
+
+            updated_profile = self._compute_dataset_profile(session, dataset_id)
+
+            new_digest = self._compute_dataset_digest(dataset_name, current_time)
+
+            update_fields = {
+                "last_update_time": current_time,
+                "digest": new_digest,
+            }
+
+            # Only advance last_updated_by when an update actually carried a user (via the
+            # mlflow.user tag). Autosaves send no tags, so writing `updated_by` unconditionally
+            # would clobber the dataset's existing last_updated_by to NULL on every keystroke.
+            if updated_by is not None:
+                update_fields["last_updated_by"] = updated_by
+
+            if updated_schema:
+                update_fields["schema"] = json.dumps(updated_schema)
+
+            if updated_profile:
+                update_fields["profile"] = json.dumps(updated_profile)
+
+            self._dataset_query(session).filter(
+                SqlEvaluationDataset.dataset_id == dataset_id
+            ).update(update_fields)
+
+            return {"updated": updated_count}
 
     def delete_dataset_records(self, dataset_id: str, dataset_record_ids: list[str]) -> int:
         """

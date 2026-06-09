@@ -137,6 +137,7 @@ from mlflow.protos.service_pb2 import (
     TraceRequestMetadata,
     TraceTag,
     UpdateAssessment,
+    UpdateDatasetRecords,
     UpdateExperiment,
     UpdateRun,
     UpsertDatasetRecords,
@@ -2001,7 +2002,34 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         return {
             "inserted": response_proto.inserted_count,
             "updated": response_proto.updated_count,
+            "record_ids": list(response_proto.record_ids),
         }
+
+    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
+    def update_dataset_records(
+        self, dataset_id: str, records: list[dict[str, Any]]
+    ) -> dict[str, int]:
+        """
+        Update evaluation dataset records in place, addressed by ``dataset_record_id``.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            records: List of record dicts, each with a ``dataset_record_id`` and any of
+                ``inputs`` / ``expectations`` / ``tags`` / ``outputs`` to overwrite.
+
+        Returns:
+            Dictionary with the count of updated records: ``{'updated': int}``.
+        """
+        req = UpdateDatasetRecords(
+            records=json.dumps(records),
+        )
+        req_body = message_to_json(req)
+        response_proto = self._call_endpoint(
+            UpdateDatasetRecords,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+        )
+        return {"updated": response_proto.updated_count}
 
     @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
     def delete_dataset_records(self, dataset_id: str, dataset_record_ids: list[str]) -> int:

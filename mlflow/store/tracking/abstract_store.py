@@ -1393,6 +1393,31 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
+    def update_dataset_records(
+        self,
+        dataset_id: str,
+        records: list[dict[str, Any]],
+    ) -> dict[str, int]:
+        """
+        Update existing dataset records in place, addressed by ``dataset_record_id``.
+
+        Unlike :meth:`upsert_dataset_records` (which dedups by ``input_hash`` and therefore
+        cannot change a record's ``inputs``), this updates the named records directly —
+        including ``inputs``, recomputing the stored hash. Fields omitted from a record dict
+        are left unchanged.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            records: List of record dictionaries. Each must include a ``dataset_record_id``
+                and may include any of ``inputs``, ``expectations``, ``tags``, ``outputs``
+                to overwrite.
+
+        Returns:
+            Dictionary with the count of updated records: ``{'updated': int}``.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
     def delete_dataset_records(
         self,
         dataset_id: str,

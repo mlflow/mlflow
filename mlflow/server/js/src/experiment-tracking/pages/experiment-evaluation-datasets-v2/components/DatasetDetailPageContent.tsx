@@ -6,9 +6,9 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 // useNavigationBlock stubbed for OSS — see useDatasetsPageQuery comment in PR2 plan
 import type { Dataset, DatasetRecord } from '../hooks/useDatasetsQueries';
-import { useDeleteDatasetRecordsMutation } from '../hooks/useDatasetsQueries';
+import { useCreateDatasetRecordMutation, useDeleteDatasetRecordsMutation } from '../hooks/useDatasetsQueries';
 import { useDatasetRecordsController } from '../hooks/useDatasetRecordsController';
-import type { PendingNewRecord } from '../hooks/useRecordCreateState';
+import { getDefaultRecord, makeDistinctInputs } from '../utils/datasetSchemaUtils';
 import { useDatasetNotifications } from '../hooks/useDatasetNotifications';
 import { useGuardedTransition } from '../hooks/useGuardedTransition';
 import { useSlashFocusSearch } from '../hooks/useSlashFocusSearch';
@@ -87,18 +87,13 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
   );
 
   const deleteRecordsMutation = useDeleteDatasetRecordsMutation(datasetId);
+  const createRecordMutation = useCreateDatasetRecordMutation(datasetId);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   // Snapshot of ids captured when the confirm modal opens. The modal renders `count` and the
   // confirm handler acts on this snapshot — never on the live `bulk.selected` — so a refetch,
   // page clamp, or any future code path that triggers `bulk.clear()` mid-prompt cannot zero
   // out the count or turn the confirm click into a no-op.
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
-  // Live preview of the in-progress new record. Non-null while the side panel is open in
-  // create mode; the records table renders a synthetic row at the top reflecting these
-  // values so the create flow feels continuous with the table instead of modal-disjoint.
-  // Raw text fields let the row mirror what the user is typing even before the JSON parses.
-  const [pendingNewRecord, setPendingNewRecord] = useState<PendingNewRecord | null>(null);
-
   // Trace explorer modal — opened from the side panel's Source row when a record is
   // trace-sourced. Hosting it here (instead of inside the side panel) lets the modal
   // overlay the entire page.
@@ -130,8 +125,10 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
   // happens once on resize stop.
   const tableWrapperRef = useRef<HTMLDivElement | null>(null);
 
-  const panelMode: 'edit' | 'create' | null = url.recordId ? 'edit' : pendingNewRecord !== null ? 'create' : null;
-  const panelOpen = panelMode !== null;
+  // The panel is open whenever a record is selected. New records are created up front by
+  // `handleAddRecord` (immediate POST) and then selected by id, so there is no separate
+  // "create mode" — the panel only ever edits an existing record.
+  const panelOpen = Boolean(url.recordId);
 
   // Dirty flag is owned by the side panel (drives its editor state) but consumed here so
   // every transition that would discard those edits — close, record-switch, mode-switch,
@@ -219,25 +216,38 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
   }, [pendingDeleteIds, deleteRecordsMutation, bulk, intl, notify]);
 
   const handleAddRecord = useCallback(() => {
-    // Open the panel in create mode by seeding the pending-new-record preview. Clearing
-    // `recordId` ensures the panel's mode derivation lands on 'create' even if an edit was
-    // previously open. The fake row appears at the top of the table immediately.
+    // Ignore repeat clicks while a create is in flight: two fast clicks would both compute the
+    // distinct seed against the same (stale) record list, producing identical inputs whose second
+    // POST dedups into the first row (reopening it) instead of adding a second record.
+    if (createRecordMutation.isLoading) return;
+    // Single-step add: immediately POST one record seeded with the dataset's default JSON shape,
+    // then open it in edit mode (autosave-by-id from there). Creating exactly once here — on the
+    // click — avoids the "new row per keystroke" duplication of a create-on-edit flow, and the
+    // editor opens pre-filled with the template so the user tweaks rather than types from scratch.
+    // Create goes through the dedup-upsert endpoint, so the seed is made distinct from existing
+    // rows first — otherwise an identical seed would dedup into (reopen) an existing row instead
+    // of adding a new one.
     requestTransition(() => {
-      setPendingNewRecord({
-        inputsText: '',
-        expectationsText: '',
-        inputs: undefined,
-        expectations: undefined,
-        tags: {},
-      });
-      url.setRecordId(undefined);
+      const seed = getDefaultRecord(records.allRecords);
+      const inputs = makeDistinctInputs((seed.inputs ?? {}) as Record<string, unknown>, records.allRecords);
+      createRecordMutation.mutate(
+        { inputs, expectations: seed.expectations },
+        {
+          onSuccess: (created) => {
+            if (!created.dataset_record_id) return;
+            // No success toast: the new row appearing + the panel opening to edit is the feedback
+            // (matches Braintrust); a toast on click reads as premature.
+            url.setRecordId(created.dataset_record_id);
+          },
+          onError: notify.error,
+        },
+      );
     });
-  }, [requestTransition, url]);
+  }, [requestTransition, records.allRecords, createRecordMutation, url, notify]);
 
   const handleRecordSelected = useCallback(
     (record: DatasetRecord) => {
       requestTransition(() => {
-        setPendingNewRecord(null);
         url.setRecordId(record.dataset_record_id);
       });
     },
@@ -247,7 +257,6 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
   const handleClosePanel = useCallback(() => {
     requestTransition(() => {
       url.setRecordId(undefined);
-      setPendingNewRecord(null);
     });
   }, [requestTransition, url]);
 
@@ -255,28 +264,6 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
     setSelectedTraceId(traceId);
     setIsTraceModalOpen(true);
   }, []);
-
-  const handleEditSaveSuccess = useCallback(
-    () =>
-      notify.success(
-        intl.formatMessage({
-          defaultMessage: 'Record saved',
-          description: 'Success toast after saving an edited dataset record',
-        }),
-      ),
-    [intl, notify],
-  );
-
-  const handleCreateSaveSuccess = useCallback(() => {
-    setPendingNewRecord(null);
-    records.refetch();
-    notify.success(
-      intl.formatMessage({
-        defaultMessage: 'Record added',
-        description: 'Success toast after adding a new V2 dataset record',
-      }),
-    );
-  }, [intl, notify, records]);
 
   return (
     <div
@@ -328,11 +315,10 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
             // flashing in. Subsequent refetches (search, refresh) skip this branch and keep the
             // toolbar visible — the records table's own `isFetching` path handles those.
             <DatasetRecordsLoadingSkeleton />
-          ) : flags.hasNoRecordsAtAll && pendingNewRecord === null ? (
-            // Hide the empty state once the user clicks "Add record" on an empty dataset so
-            // the toolbar + table render and the phantom row preview appears alongside the
-            // open side panel — same continuous-create flow as the non-empty case.
-            <DatasetRecordsEmptyState onAddRecord={handleAddRecord} />
+          ) : flags.hasNoRecordsAtAll ? (
+            // Empty dataset: + Add record creates the first record (which flips this branch off
+            // once the record lands in the list), so the empty state owns the add affordance.
+            <DatasetRecordsEmptyState onAddRecord={handleAddRecord} isAddingRecord={createRecordMutation.isLoading} />
           ) : (
             <>
               <DatasetRecordsToolbar
@@ -343,6 +329,7 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
                 isRefreshing={records.isFetching && !records.isLoading}
                 lastRefreshTime={records.dataUpdatedAt > 0 ? records.dataUpdatedAt : undefined}
                 onAddRecord={handleAddRecord}
+                isAddingRecord={createRecordMutation.isLoading}
                 searchInputRef={searchInputRef}
                 trailingControls={
                   panelOpen ? null : (
@@ -409,7 +396,6 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
                       sort={url.sort}
                       dir={url.dir}
                       onSort={url.setSort}
-                      pendingNewRecord={pendingNewRecord}
                     />
                   </div>
                 </div>
@@ -460,24 +446,12 @@ export const DatasetDetailPageContent = ({ experimentId, datasetId, dataset }: D
             handle={<SidePanelResizeHandle />}
           >
             <DatasetRecordSidePanel
-              // Remount the side panel — including the Monaco editors — on every
-              // create↔edit mode flip. Both `useRecordSaveState` and `useRecordCreateState`
-              // run in the same instance to satisfy rules-of-hooks; without a key, the
-              // edit-mode editor's text drifts to '' during a create-mode interlude (its
-              // `record` becomes undefined, the recordId-change effect resets it), and the
-              // subsequent reset to the next selected row's text races with Monaco's
-              // change-tracking plugin. Keying on mode gives the next mode a fresh hook
-              // instance initialized synchronously with the correct content.
-              key={panelMode ?? 'edit'}
-              mode={panelMode ?? 'edit'}
               datasetId={datasetId}
               record={selectedRecord}
               existingRecords={records.allRecords}
               open={panelOpen}
               onClose={handleClosePanel}
-              onSaveSuccess={panelMode === 'create' ? handleCreateSaveSuccess : handleEditSaveSuccess}
               onSaveError={notify.error}
-              onPendingChange={setPendingNewRecord}
               onDirtyChange={setIsPanelDirty}
               onOpenTraceModal={handleOpenTraceModal}
             />
