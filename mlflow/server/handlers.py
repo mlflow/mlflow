@@ -19,8 +19,10 @@ from cachetools import TTLCache
 from flask import Request, Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
+from werkzeug.http import quote_header_value
 
 import mlflow
+from mlflow.client import MlflowClient
 from mlflow.entities import (
     Assessment,
     DatasetInput,
@@ -340,8 +342,10 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_GENAI_EVALUATE_JOB_ID,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_RUN_TYPE,
+    MLFLOW_RUN_TYPE_GENAI_EVALUATE,
     MLFLOW_RUN_TYPE_ISSUE_DETECTION,
     MLFLOW_TRACE_ARCHIVAL_FAILURE,
     MLFLOW_TRACE_ARCHIVE_LOCATION,
@@ -1090,8 +1094,10 @@ def _content_disposition_attachment(filename: str) -> str:
         )
         # safe = RFC 5987 attr-char
         quoted = urllib.parse.quote(filename, safe="!#$&+-.^_`|~")
-        return f"attachment; filename={ascii_fallback}; filename*=UTF-8''{quoted}"
-    return f"attachment; filename={filename}"
+        quoted_ascii_fallback = quote_header_value(ascii_fallback, allow_token=True)
+        return f"attachment; filename={quoted_ascii_fallback}; filename*=UTF-8''{quoted}"
+    quoted_filename = quote_header_value(filename, allow_token=True)
+    return f"attachment; filename={quoted_filename}"
 
 
 def _response_with_file_attachment_headers(file_path, response):
@@ -1108,13 +1114,36 @@ def _response_with_file_attachment_headers(file_path, response):
     return response
 
 
+def _create_artifact_file_response(file_path: str, artifact_name: str) -> Response:
+    """Serve a local file while preserving the logical artifact name for downloads."""
+    if os.path.isdir(file_path):
+        raise MlflowException.invalid_parameter_value(
+            f"Artifact path refers to a directory, not a file: '{artifact_name}'"
+        )
+    file_sender_response = send_file(file_path, mimetype=_guess_mime_type(file_path))
+    file_sender_response.headers["Content-Disposition"] = _content_disposition_attachment(
+        pathlib.Path(artifact_name).name
+    )
+    return _response_with_file_attachment_headers(file_path, file_sender_response)
+
+
 def _send_artifact(artifact_repository, path):
-    file_path = os.path.abspath(artifact_repository.download_artifacts(path))
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
-    mime_type = _guess_mime_type(file_path)
-    file_sender_response = send_file(file_path, mimetype=mime_type, as_attachment=True)
-    return _response_with_file_attachment_headers(file_path, file_sender_response)
+    if (local_path := artifact_repository.get_local_path(path)) is not None:
+        return _create_artifact_file_response(os.path.abspath(local_path), path)
+
+    tmp_dir = tempfile.TemporaryDirectory()
+    try:
+        file_path = os.path.abspath(
+            artifact_repository.download_artifacts(path, dst_path=tmp_dir.name)
+        )
+        response = _create_artifact_file_response(file_path, path)
+        response.call_on_close(tmp_dir.cleanup)
+        return response
+    except Exception:
+        tmp_dir.cleanup()
+        raise
 
 
 def catch_mlflow_exception(func):
@@ -3484,12 +3513,20 @@ def _download_artifact(artifact_path):
     """
     artifact_path = validate_path_is_safe(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
-    tmp_dir = tempfile.TemporaryDirectory()
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
-    dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
 
-    # Ref: https://stackoverflow.com/a/24613980/6943581
-    file_handle = open(dst, "rb")  # noqa: SIM115
+    if (local_path := artifact_repo.get_local_path(artifact_path)) is not None:
+        return _create_artifact_file_response(os.path.abspath(local_path), artifact_path)
+
+    tmp_dir = tempfile.TemporaryDirectory()
+    try:
+        dst = os.path.abspath(artifact_repo.download_artifacts(artifact_path, tmp_dir.name))
+
+        # Ref: https://stackoverflow.com/a/24613980/6943581
+        file_handle = open(dst, "rb")  # noqa: SIM115
+    except Exception:
+        tmp_dir.cleanup()
+        raise
 
     def stream_and_remove_file():
         while chunk := file_handle.read(ARTIFACT_STREAM_CHUNK_SIZE):
@@ -4657,6 +4694,71 @@ def _invoke_issue_detection_handler():
     # Tag the run with job ID for later retrieval
     mlflow.set_tag(MLFLOW_ISSUE_DETECTION_JOB_ID, job.job_id)
     mlflow.end_run(RunStatus.to_string(RunStatus.RUNNING))
+
+    return jsonify({"job_id": job.job_id, "run_id": run_id})
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _invoke_genai_evaluate_handler():
+    """
+    Run mlflow.genai.evaluate(...) against the chosen traces + scorers as an
+    async job, attached to a brand-new MLflow eval run.
+
+    This is a UI-only AJAX endpoint that backs the "Run evaluation" feature on
+    the Evaluation Runs page.
+    """
+    from mlflow.genai.evaluation.job import invoke_genai_evaluate_job
+    from mlflow.server.jobs import submit_job
+
+    _validate_content_type(request, ["application/json"])
+
+    request_json = _get_validated_flask_request_json(
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "trace_ids": [_assert_required, _assert_array],
+            "serialized_scorers": [_assert_required, _assert_array],
+        }
+    )
+
+    experiment_id = request_json["experiment_id"]
+    trace_ids = request_json["trace_ids"]
+    serialized_scorers = request_json["serialized_scorers"]
+
+    if not trace_ids:
+        raise MlflowException(
+            "Please select at least one trace to evaluate.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not serialized_scorers:
+        raise MlflowException(
+            "Please select at least one judge.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Create the run upfront so we can return run_id immediately, so the run
+    # shows up on /evaluation-runs even before the job has produced artifacts.
+    tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_GENAI_EVALUATE}
+    client = MlflowClient()
+    run = client.create_run(experiment_id=experiment_id, tags=tags)
+    run_id = run.info.run_id
+
+    username = request.authorization.username if request.authorization else None
+
+    try:
+        job = submit_job(
+            function=invoke_genai_evaluate_job,
+            params={
+                "trace_ids": trace_ids,
+                "serialized_scorers": serialized_scorers,
+                "run_id": run_id,
+                "username": username,
+            },
+        )
+        client.set_tag(run_id, MLFLOW_GENAI_EVALUATE_JOB_ID, job.job_id)
+    except Exception:
+        client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
+        raise
 
     return jsonify({"job_id": job.job_id, "run_id": run_id})
 
@@ -6400,6 +6502,7 @@ def get_endpoints(get_handler=get_handler):
         + get_gateway_endpoints()
         + get_demo_endpoints()
         + get_issues_detection_endpoints()
+        + get_genai_evaluate_endpoints()
         + get_job_endpoints()
     )
 
@@ -6440,6 +6543,16 @@ def get_issues_detection_endpoints():
         (
             _get_ajax_path("/mlflow/issues/invoke", version=3),
             _invoke_issue_detection_handler,
+            ["POST"],
+        ),
+    ]
+
+
+def get_genai_evaluate_endpoints():
+    return [
+        (
+            _get_ajax_path("/mlflow/genai/evaluate/invoke", version=3),
+            _invoke_genai_evaluate_handler,
             ["POST"],
         ),
     ]

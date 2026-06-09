@@ -67,15 +67,27 @@ jobs:
       - name: Install Python dependencies
         run: |
           uv sync --locked --only-group lint --only-group pytest
-      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      - name: Cache action pins
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: .cache/action-pins.json
           key: action-pins-${{ hashFiles('dev/check_actions.py') }}
-      - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      - name: Cache mypy
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: .mypy_cache
           key: mypy-${{ matrix.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
           restore-keys: mypy-${{ matrix.os }}-
+      - name: Cache install-bin tools
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            bin/*
+            !bin/install.py
+            !bin/README.md
+            !bin/.gitignore
+          key: install-bin-${{ matrix.os }}-${{ hashFiles('bin/install.py') }}
+          restore-keys: install-bin-${{ matrix.os }}-
       - name: Install pre-commit hooks
         run: |
           uv run --no-sync pre-commit install --install-hooks
