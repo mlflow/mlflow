@@ -111,8 +111,11 @@ describe('EvalRunsEmptyStateCard', () => {
     renderCard();
 
     await user.click(screen.getByRole('tab', { name: /Python/ }));
-    expect(screen.getByText(/mlflow\.search_traces/)).toBeInTheDocument();
-    expect(screen.queryByText(/eval_dataset = \[\{/)).not.toBeInTheDocument();
+    // CodeSnippet splits text across syntax-highlighted spans, so we read textContent
+    // of the active tab panel and check for substrings instead of using getByText.
+    const panel = screen.getByRole('tabpanel');
+    expect(panel.textContent).toContain('mlflow.search_traces');
+    expect(panel.textContent).not.toContain('eval_dataset = [{');
   });
 
   it('renders the dataset-based snippet when the experiment has no traces', async () => {
@@ -121,8 +124,9 @@ describe('EvalRunsEmptyStateCard', () => {
     renderCard();
 
     await user.click(screen.getByRole('tab', { name: /Python/ }));
-    expect(screen.getByText(/eval_dataset = \[\{/)).toBeInTheDocument();
-    expect(screen.queryByText(/mlflow\.search_traces/)).not.toBeInTheDocument();
+    const panel = screen.getByRole('tabpanel');
+    expect(panel.textContent).toContain('eval_dataset = [{');
+    expect(panel.textContent).not.toContain('mlflow.search_traces');
   });
 
   it('hides the Python tab until the trace-count query resolves', () => {
