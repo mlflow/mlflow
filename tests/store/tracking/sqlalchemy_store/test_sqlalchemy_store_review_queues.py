@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -215,6 +217,10 @@ def test_get_review_queue_by_name_missing_raises(store):
 def test_list_review_queues_newest_first(store):
     exp_id = _create_experiments(store, "list_order")
     q1 = store.create_review_queue(exp_id, name="first", queue_type="custom")
+    # Sleep so creation_time_ms differs: SQLite's millisecond resolution can
+    # collide on back-to-back creates, leaving the queue_id tiebreaker to decide
+    # order and making the assertion flaky.
+    time.sleep(0.005)
     q2 = store.create_review_queue(exp_id, name="second", queue_type="custom")
     listed = store.list_review_queues(exp_id)
     assert [q.queue_id for q in listed] == [q2.queue_id, q1.queue_id]
@@ -239,7 +245,7 @@ def test_list_review_queues_filtered_by_user(store):
 
 def test_list_review_queues_always_includes_default(store):
     exp_id = _create_experiments(store, "list_default")
-    default = store.get_or_create_default_queue(exp_id)
+    default = store._get_or_create_default_queue(exp_id)
     store.create_review_queue(exp_id, name="solo", queue_type="custom", users=["carol"])
 
     # The default queue is everyone's, so it appears in any user's scoped list
@@ -650,7 +656,7 @@ def test_set_status_missing_queue_raises(store):
 
 def test_get_or_create_default_queue_creates_inheriting_custom_queue(store):
     exp_id = _create_experiments(store, "default_queue")
-    queue = store.get_or_create_default_queue(exp_id, created_by="kris")
+    queue = store._get_or_create_default_queue(exp_id, created_by="kris")
 
     assert queue.is_default is True
     assert queue.queue_type == ReviewQueueType.CUSTOM
@@ -664,8 +670,8 @@ def test_get_or_create_default_queue_creates_inheriting_custom_queue(store):
 
 def test_get_or_create_default_queue_is_idempotent(store):
     exp_id = _create_experiments(store, "default_idempotent")
-    first = store.get_or_create_default_queue(exp_id)
-    second = store.get_or_create_default_queue(exp_id)
+    first = store._get_or_create_default_queue(exp_id)
+    second = store._get_or_create_default_queue(exp_id)
 
     assert first.queue_id == second.queue_id
     defaults = [q.queue_id for q in store.list_review_queues(exp_id) if q.is_default]
@@ -674,7 +680,7 @@ def test_get_or_create_default_queue_is_idempotent(store):
 
 def test_default_queue_cannot_be_deleted(store):
     exp_id = _create_experiments(store, "default_undeletable")
-    queue = store.get_or_create_default_queue(exp_id)
+    queue = store._get_or_create_default_queue(exp_id)
 
     with pytest.raises(MlflowException, match="default queue cannot be deleted") as exc:
         store.delete_review_queue(queue.queue_id)
@@ -685,7 +691,7 @@ def test_default_queue_cannot_be_deleted(store):
 def test_default_queue_questions_locked_but_users_editable(store):
     exp_id = _create_experiments(store, "default_uneditable")
     ls = _pass_fail(store, exp_id, "quality")
-    queue = store.get_or_create_default_queue(exp_id)
+    queue = store._get_or_create_default_queue(exp_id)
 
     with pytest.raises(MlflowException, match="questions cannot be edited") as exc:
         store.update_review_queue(queue.queue_id, schema_ids=[ls.schema_id])
@@ -713,5 +719,5 @@ def test_create_custom_queue_rejects_default_name_case_insensitive(store, name):
 
 def test_get_or_create_default_queue_missing_experiment_raises(store):
     with pytest.raises(MlflowException, match="No Experiment with id") as exc:
-        store.get_or_create_default_queue("999999")
+        store._get_or_create_default_queue("999999")
     _assert_error_code(exc, RESOURCE_DOES_NOT_EXIST)

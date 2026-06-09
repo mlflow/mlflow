@@ -8468,7 +8468,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 ) from e
             return existing
 
-    def get_or_create_default_queue(self, experiment_id, *, created_by=None):
+    def _get_or_create_default_queue(self, experiment_id, *, created_by=None):
         from mlflow.genai.review_queues.validation import DEFAULT_QUEUE_NAME
 
         try:
@@ -8482,14 +8482,27 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         except MlflowException as e:
             if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 raise
-            # Lost the create race (or it already existed): return the single
-            # existing default queue, keeping the call idempotent. Unlike
-            # get_or_create_user_queue, no "non-default queue squatting on this
-            # name" guard is needed: "Default" is unreachable for any
-            # non-default queue (validate_queue_for_create rejects it for custom
-            # queues and user names are lowercased), so any queue under that
-            # name is the default queue.
-            return self.get_review_queue_by_name(experiment_id, name=DEFAULT_QUEUE_NAME)
+            # Lost the create race (or it already existed): return the existing
+            # default queue, resolved by the is_default flag rather than by name.
+            # A name lookup is unsafe on case-insensitive collations (e.g. MSSQL):
+            # a user queue named "default" shares the (experiment_id, name) key
+            # with "Default" and would be returned instead. If no is_default queue
+            # exists, the reserved name is held by a non-default queue (only
+            # reachable on such collations) — re-raise rather than return it.
+            with self.ManagedSessionMaker() as session:
+                self._validate_experiment_exists(session, experiment_id)
+                sql_queue = (
+                    self
+                    ._review_queue_query(session)
+                    .filter(
+                        SqlReviewQueue.experiment_id == int(experiment_id),
+                        SqlReviewQueue.is_default.is_(True),
+                    )
+                    .one_or_none()
+                )
+                if sql_queue is None:
+                    raise
+                return self._hydrate_review_queues(session, [sql_queue])[0]
 
     def get_review_queue(self, queue_id):
         with self.ManagedSessionMaker() as session:
@@ -8770,6 +8783,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def set_review_queue_trace_status(self, queue_id, *, target_id, status, completed_by=None):
         from mlflow.genai.review_queues import ReviewStatus
         from mlflow.genai.review_queues.validation import (
+            USER_MAX_LENGTH,
             coerce_status,
             normalize_target_id,
             normalize_user,
@@ -8788,6 +8802,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         elif not normalized_completed_by:
             raise MlflowException(
                 f"`completed_by` is required when setting status to `{new_status}`.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if normalized_completed_by is not None and len(normalized_completed_by) > USER_MAX_LENGTH:
+            # Match the cap the assigned-user list enforces, so an over-long value
+            # raises a clear error rather than failing at the VARCHAR write.
+            raise MlflowException(
+                f"`completed_by` must be at most {USER_MAX_LENGTH} characters; "
+                f"got {len(normalized_completed_by)}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
