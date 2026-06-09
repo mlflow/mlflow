@@ -1221,6 +1221,9 @@ module.exports = {
   "mlflow.experiment-page.header.docs-link": "",
   "mlflow.experiment-page.header.docs-link-button": "",
 
+  // -- mlflow.experiment-review-queue --
+  "mlflow.experiment-review-queue.delete-queue-confirm": "",
+
   // -- mlflow.experiment-scorers --
   "mlflow.experiment-scorers.add-variable-button": "",
   "mlflow.experiment-scorers.add-variable-conversation": "",
