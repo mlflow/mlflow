@@ -88,6 +88,12 @@ jobs:
             !bin/.gitignore
           key: install-bin-${{ matrix.os }}-${{ hashFiles('bin/install.py') }}
           restore-keys: install-bin-${{ matrix.os }}-
+      - name: Cache pre-commit hooks
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ matrix.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: pre-commit-${{ matrix.os }}-
       - name: Install pre-commit hooks
         run: |
           uv run --no-sync pre-commit install --install-hooks
