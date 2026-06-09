@@ -8344,9 +8344,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def _validate_schema_ids_exist(self, session, experiment_id, schema_ids):
         """Raise INVALID_PARAMETER_VALUE if any schema id isn't in the experiment.
 
-        Enforces both existence and same-experiment membership (the FK only
-        covers existence), and yields a clear error rather than a raw
-        IntegrityError from the FK.
+        ``review_queue_label_schemas.schema_id`` is a soft reference (no foreign
+        key), so the store validates both existence and same-experiment
+        membership here, yielding a clear error rather than leaving a bad id to
+        surface (or silently persist) at write time.
         """
         if not schema_ids:
             return
