@@ -65,6 +65,20 @@ describe('SavePromptVersionDrawer', () => {
     expect(onCancel).toHaveBeenCalled();
   });
 
+  it('surfaces the backend error and does not call onSaved when the mutation rejects', async () => {
+    jest
+      .spyOn(RegisteredPromptsApi, 'createRegisteredPromptVersion')
+      .mockRejectedValue(new Error('RESOURCE_ALREADY_EXISTS: prompt version conflict'));
+    const { onSaved } = renderDrawer({ loadedPromptName: 'greeter' });
+
+    await userEvent.click(screen.getByRole('button', { name: /save version/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/resource_already_exists: prompt version conflict/i)).toBeInTheDocument();
+    });
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
   it('saves a new version of the loaded prompt with the serialized chat messages', async () => {
     const { onSaved } = renderDrawer({ loadedPromptName: 'greeter' });
 

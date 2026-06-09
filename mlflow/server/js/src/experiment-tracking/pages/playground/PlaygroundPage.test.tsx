@@ -631,6 +631,38 @@ describe('PlaygroundPage', () => {
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
   });
 
+  it('chains subsequent saves onto the freshly created prompt after a brand-new save', async () => {
+    jest.spyOn(RegisteredPromptsApi, 'createRegisteredPrompt').mockResolvedValue({});
+    jest
+      .spyOn(RegisteredPromptsApi, 'createRegisteredPromptVersion')
+      .mockResolvedValue({ model_version: { version: '1' } as any });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    // First save: nothing is loaded, so the drawer creates a brand-new prompt and
+    // requires a name (no destination toggle is shown yet).
+    await userEvent.click(screen.getByRole('button', { name: /save prompt to registry/i }));
+    expect(screen.queryByText(/new version of/i)).not.toBeInTheDocument();
+    await userEvent.type(await screen.findByPlaceholderText(/provide a unique prompt name/i), 'fresh');
+    await userEvent.click(screen.getByRole('button', { name: /save version/i }));
+
+    // The success toast confirms the new version, and handleSaved records it as the
+    // loaded prompt.
+    await waitFor(() => {
+      expect(screen.getByText(/Saved fresh v1 to the registry/i)).toBeInTheDocument();
+    });
+    expect(RegisteredPromptsApi.createRegisteredPrompt).toHaveBeenCalledWith('fresh', []);
+
+    // Reopening the drawer now defaults to appending a new version of `fresh`
+    // rather than creating another brand-new prompt.
+    await userEvent.click(screen.getByRole('button', { name: /save prompt to registry/i }));
+    expect(await screen.findByText(/new version of fresh/i)).toBeInTheDocument();
+  });
+
   it('exposes a hook that posts to the chat completions API', async () => {
     const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
       choices: [{ index: 0, message: { role: 'assistant', content: 'Hello back!' }, finish_reason: 'stop' }],
