@@ -21,16 +21,19 @@ export const useListReviewQueuesQuery = ({
   user,
   maxResults,
   pageToken,
+  ensureDefault = false,
   enabled = true,
 }: {
   experimentId: string;
   user?: string;
   maxResults?: number;
   pageToken?: string;
+  /** No-auth only: ask the server to seed the experiment's default queue. */
+  ensureDefault?: boolean;
   enabled?: boolean;
 }) => {
   const { data, isLoading, isFetching, refetch, error } = useQuery<ListReviewQueuesResponse, Error>({
-    queryKey: [LIST_REVIEW_QUEUES_QUERY_KEY, experimentId, user, maxResults, pageToken],
+    queryKey: [LIST_REVIEW_QUEUES_QUERY_KEY, experimentId, user, maxResults, pageToken, ensureDefault],
     queryFn: async () => {
       const params = new URLSearchParams({ experiment_id: experimentId });
       if (user) {
@@ -43,6 +46,12 @@ export const useListReviewQueuesQuery = ({
       }
       if (pageToken) {
         params.set('page_token', pageToken);
+      }
+      // No-auth only: ask the server to seed the experiment's protected default
+      // queue (idempotent) before listing. The caller sets this when auth is
+      // unavailable; auth servers leave it off, so no default queue is created.
+      if (ensureDefault) {
+        params.set('ensure_default', 'true');
       }
       return (await fetchAPI(getAjaxUrl(`${REVIEW_QUEUES_API_BASE}/list?${params.toString()}`), {
         method: 'GET',
