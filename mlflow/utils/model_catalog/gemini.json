@@ -860,7 +860,7 @@
             "input_per_million_tokens": 1.0
           },
           "video": {
-            "input_per_second": 3.3333333333333335e-05
+            "input_per_second": 3.3333333333333335e-5
           }
         }
       },
