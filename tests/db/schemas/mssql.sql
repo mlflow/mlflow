@@ -233,6 +233,7 @@ CREATE TABLE label_schemas (
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_time BIGINT NOT NULL,
 	last_update_time BIGINT NOT NULL,
+	is_default BIT DEFAULT ((0)) NOT NULL,
 	CONSTRAINT label_schemas_pk PRIMARY KEY (schema_id),
 	CONSTRAINT fk_label_schemas_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
 )
