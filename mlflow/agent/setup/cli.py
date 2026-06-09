@@ -120,7 +120,7 @@ def _run_setup(
         default=1,
         err=True,
     )
-    experiment_path: str | None = None
+    experiment_id: str | None = None
     local_server_port: int | None = None
     match backend_choice:
         case 1:
@@ -129,19 +129,15 @@ def _run_setup(
             click.secho(f"Picked local tracking URI: {tracking_uri}", fg="green", err=True)
         case 2:
             tracking_uri = "databricks"
-            experiment_path = click.prompt(
+            experiment_id = click.prompt(
                 click.style(
-                    "Workspace experiment path (e.g. /Users/you@example.com/my-app)",
+                    "Workspace experiment ID (find it in the experiment's URL or "
+                    "metadata panel in the workspace UI)",
                     fg="cyan",
                     bold=True,
                 ),
                 err=True,
             ).strip()
-            if not experiment_path.startswith("/"):
-                raise click.ClickException(
-                    "Databricks experiment path must start with '/' "
-                    "(e.g. /Users/you@example.com/my-app)."
-                )
         case _:
             tracking_uri = click.prompt(
                 click.style("Tracking server URL", fg="cyan", bold=True),
@@ -153,7 +149,7 @@ def _run_setup(
         agent,
         tracking_uri,
         local_server_port=local_server_port,
-        experiment_path=experiment_path,
+        experiment_id=experiment_id,
         skills_installed=skills_installed,
     )
 

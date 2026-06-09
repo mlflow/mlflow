@@ -176,34 +176,20 @@ def test_setup_records_failure_on_abort(tmp_git_repo: Path):
     )
 
 
-def test_setup_databricks_prompts_for_workspace_path(tmp_git_repo: Path):
+def test_setup_databricks_prompts_for_experiment_id(tmp_git_repo: Path):
     with mock.patch(
         "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
     ) as mock_which:
         result = CliRunner().invoke(
             setup,
             ["--agent", "claude", "--print"],
-            input="y\n2\n/Users/me@example.com/my-app\n",
+            input="y\n2\n1234567890\n",
         )
     assert result.exit_code == 0, result.stderr
-    assert "Workspace experiment path" in result.stderr
+    assert "Workspace experiment ID" in result.stderr
     assert "Configure the Databricks workspace" in result.stdout
     assert "MLFLOW_TRACKING_URI=databricks" in result.stdout
     assert "WorkspaceClient().current_user.me()" in result.stdout
-    assert 'mlflow.set_experiment("/Users/me@example.com/my-app")' in result.stdout
+    assert 'mlflow.set_experiment(experiment_id="1234567890")' in result.stdout
     assert "Start a local MLflow tracking server" not in result.stdout
-    mock_which.assert_called()
-
-
-def test_setup_databricks_rejects_non_absolute_experiment_path(tmp_git_repo: Path):
-    with mock.patch(
-        "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
-    ) as mock_which:
-        result = CliRunner().invoke(
-            setup,
-            ["--agent", "claude", "--print"],
-            input="y\n2\nmy-app\n",
-        )
-    assert result.exit_code != 0
-    assert "must start with '/'" in result.stderr
     mock_which.assert_called()

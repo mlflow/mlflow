@@ -63,9 +63,9 @@ def test_build_prompt_skills_declined_uses_bundled_path(tmp_path: Path):
 
 @pytest.mark.parametrize("skills_installed", [True, False])
 @pytest.mark.parametrize(
-    ("tracking_uri", "local_server_port", "experiment_path"),
+    ("tracking_uri", "local_server_port", "experiment_id"),
     [
-        ("databricks", None, "/Users/me@example.com/my-app"),
+        ("databricks", None, "1234567890"),
         ("http://127.0.0.1:5050", 5050, None),
         ("http://some-remote:5000", None, None),
     ],
@@ -74,7 +74,7 @@ def test_build_prompt_renders_all_placeholders(
     tmp_path: Path,
     tracking_uri: str,
     local_server_port: int | None,
-    experiment_path: str | None,
+    experiment_id: str | None,
     skills_installed: bool,
 ):
     out = build_prompt(
@@ -82,7 +82,7 @@ def test_build_prompt_renders_all_placeholders(
         AGENTS["claude"],
         tracking_uri,
         local_server_port=local_server_port,
-        experiment_path=experiment_path,
+        experiment_id=experiment_id,
         skills_installed=skills_installed,
     )
     assert "{{" not in out
@@ -94,16 +94,16 @@ def test_build_prompt_databricks_injects_workspace_section(tmp_path: Path):
         tmp_path,
         AGENTS["claude"],
         "databricks",
-        experiment_path="/Users/me@example.com/my-app",
+        experiment_id="1234567890",
     )
     assert "Configure the Databricks workspace" in out
     assert "WorkspaceClient().current_user.me()" in out
-    assert 'mlflow.set_experiment("/Users/me@example.com/my-app")' in out
+    assert 'mlflow.set_experiment(experiment_id="1234567890")' in out
     assert "Start a local MLflow tracking server" not in out
 
 
-def test_build_prompt_databricks_without_experiment_path_raises(tmp_path: Path):
-    with pytest.raises(ValueError, match="experiment_path is required"):
+def test_build_prompt_databricks_without_experiment_id_raises(tmp_path: Path):
+    with pytest.raises(ValueError, match="experiment_id is required"):
         build_prompt(tmp_path, AGENTS["claude"], "databricks")
 
 
