@@ -56,6 +56,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSpanMetrics,
     SqlTraceInfo,
     SqlTraceMetrics,
+    SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _TraceArchiveCandidate
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
@@ -3400,6 +3401,104 @@ def test_log_spans_multiple_traces(store: SqlAlchemyStore):
 
         span_row2 = session.query(SqlSpan).filter_by(trace_id="tr-multi-2").one()
         assert span_row2.name == "span_trace2"
+
+
+def test_log_spans_persists_resource_attributes_as_tags(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_resource_attrs")
+
+    resource = _OTelResource(
+        {
+            "service.name": "my-service",
+            "deployment.environment": "staging",
+            "host.arch": "amd64",
+            # telemetry.sdk.* should be filtered out
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            # non-string value should be converted to str
+            "process.pid": 12345,
+        }
+    )
+
+    span = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_with_resource",
+            context=trace_api.SpanContext(
+                trace_id=99999,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps("tr-resource-test"),
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=resource,
+        ),
+        "tr-resource-test",
+    )
+
+    store.log_spans(experiment_id, [span])
+
+    with store.ManagedSessionMaker() as session:
+        tags = {
+            row.key: row.value
+            for row in session.query(SqlTraceTag)
+            .filter(SqlTraceTag.request_id == "tr-resource-test")
+            .all()
+        }
+
+    # Resource attributes should be persisted
+    assert tags["service.name"] == "my-service"
+    assert tags["deployment.environment"] == "staging"
+    assert tags["host.arch"] == "amd64"
+    # Non-string values should be converted
+    assert tags["process.pid"] == "12345"
+    # telemetry.sdk.* should be filtered out
+    assert "telemetry.sdk.language" not in tags
+    assert "telemetry.sdk.name" not in tags
+
+
+def test_log_spans_resource_tags_do_not_overwrite_user_tags(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_resource_tag_priority")
+
+    resource = _OTelResource({"service.name": "from-resource"})
+
+    span = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_tag_priority",
+            context=trace_api.SpanContext(
+                trace_id=88888,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps("tr-tag-priority"),
+                # User-defined trace tag via mlflow.traceTag.* attribute
+                f"{SpanAttributeKey.TRACE_TAG_PREFIX}service.name": json.dumps("from-user"),
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=resource,
+        ),
+        "tr-tag-priority",
+    )
+
+    store.log_spans(experiment_id, [span])
+
+    with store.ManagedSessionMaker() as session:
+        tags = {
+            row.key: row.value
+            for row in session.query(SqlTraceTag)
+            .filter(SqlTraceTag.request_id == "tr-tag-priority")
+            .all()
+        }
+
+    # User-defined tag should take precedence over resource attribute
+    assert tags["service.name"] == "from-user"
 
 
 def test_log_spans_persists_links(store: SqlAlchemyStore):

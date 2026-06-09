@@ -5293,6 +5293,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # span writes, including span-only changes that did not update trace_info, commit
             # atomically with the new DB-backed payload generation.
             for trace_id in all_trace_ids:
+                agg = trace_aggregates[trace_id]
                 session.merge(
                     SqlTraceTag(
                         request_id=trace_id,
@@ -5300,15 +5301,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         value=SpansLocation.TRACKING_STORE.value,
                     )
                 )
-                # Restore user-defined tags carried via mlflow.traceTag.* attributes on the root
-                # span (set by OtelSpanProcessor when the trace was exported over OTLP).
-                for tag_key, tag_value in agg.trace_tags.items():
-                    session.merge(SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value))
 
                 # Persist OTel resource attributes (e.g., service.name) as trace tags so
                 # they are visible in the UI and available for filtering. Resource is attached
                 # to every span produced from the same OTLP ResourceSpans block; use any span
                 # in this trace so multi-trace batches are handled correctly.
+                # These are written first so that user-defined trace tags (below) take
+                # precedence over resource attributes on key collision.
                 resource = next(
                     (
                         getattr(span._span, "resource", None)
@@ -5320,21 +5319,26 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 if resource is not None:
                     for key, value in resource.attributes.items():
-                        if not isinstance(value, str):
-                            continue
                         # Skip OTel SDK internal metadata attributes — these are
                         # auto-added by the SDK and not user-meaningful resource info.
                         if key.startswith("telemetry.sdk."):
                             continue
+                        str_value = str(value) if not isinstance(value, str) else value
                         # SqlTraceTag column limits: key=String(250), value=String(8000)
-                        if len(key) <= 250 and len(value) <= 8000:
+                        if len(key) <= 250 and len(str_value) <= 8000:
                             session.merge(
                                 SqlTraceTag(
                                     request_id=trace_id,
                                     key=key,
-                                    value=value,
+                                    value=str_value,
                                 )
                             )
+
+                # Restore user-defined tags carried via mlflow.traceTag.* attributes on the root
+                # span (set by OtelSpanProcessor when the trace was exported over OTLP).
+                # Written after resource attributes so user tags take precedence on collision.
+                for tag_key, tag_value in agg.trace_tags.items():
+                    session.merge(SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value))
 
         return spans
 
