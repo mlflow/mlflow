@@ -13,7 +13,7 @@ import { useQueries } from '@databricks/web-shared/query-client';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { displayUser } from './hooks/useReviewer';
-import { buildReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
+import { buildReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { sameUser } from './queuePermissions';
 import type { ReviewQueueItem, ReviewQueue } from './types';
 
@@ -36,14 +36,7 @@ const QueueRow = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const label = queue.is_default
-    ? intl.formatMessage({
-        defaultMessage: 'Default queue',
-        description: 'Review queue sidebar: label for the experiment default queue',
-      })
-    : queue.queue_type === 'USER'
-      ? displayUser(queue.name, intl)
-      : queue.name;
+  const label = queue.queue_type === 'USER' ? displayUser(queue.name, intl) : queue.name;
 
   return (
     <div
@@ -171,7 +164,7 @@ export const ReviewQueueSidebar = ({
   // One fetch per queue for its pending count; shares cache with the right
   // panel's trace list (same query config).
   const traceQueries = useQueries({
-    queries: queues.map((q) => buildReviewQueueTracesQuery({ queueId: q.queue_id })),
+    queries: queues.map((q) => buildReviewQueueItemsQuery({ queueId: q.queue_id })),
   });
   // Pending count once loaded; absent (undefined) while a queue's count loads.
   const pendingByQueueId = new Map<string, number>();
@@ -185,11 +178,7 @@ export const ReviewQueueSidebar = ({
 
   // No-work == loaded with zero pending. Loading queues stay in the active list.
   const isNoWork = (q: ReviewQueue) => pendingByQueueId.get(q.queue_id) === 0;
-  // The default queue flows through the normal grouping like any other queue,
-  // but is surfaced first among the active queues when it has work to do.
-  const active = queues
-    .filter((q) => !isNoWork(q))
-    .sort((a, b) => Number(Boolean(b.is_default)) - Number(Boolean(a.is_default)));
+  const active = queues.filter((q) => !isNoWork(q));
   const noWork = queues.filter(isNoWork);
   // Keep the selected queue visible even if it has no work — selecting a no-work
   // queue force-expands the group.

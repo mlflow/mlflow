@@ -2476,7 +2476,7 @@ def test_review_queues_are_workspace_scoped(workspace_tracking_store):
         queue_a = workspace_tracking_store.create_review_queue(
             exp_a_id, name="triage", queue_type="custom", users=["alice"]
         )
-        workspace_tracking_store.add_traces_to_review_queue(queue_a.queue_id, target_ids=["tr-a"])
+        workspace_tracking_store.add_items_to_review_queue(queue_a.queue_id, item_ids=["tr-a"])
 
     with WorkspaceContext("team-b"):
         exp_b_id = workspace_tracking_store.create_experiment("exp-b")
@@ -2497,11 +2497,9 @@ def test_review_queues_are_workspace_scoped(workspace_tracking_store):
         with pytest.raises(MlflowException, match="not found"):
             workspace_tracking_store.update_review_queue(queue_a.queue_id, users=["mallory"])
         with pytest.raises(MlflowException, match="not found"):
-            workspace_tracking_store.add_traces_to_review_queue(
-                queue_a.queue_id, target_ids=["tr-x"]
-            )
+            workspace_tracking_store.add_items_to_review_queue(queue_a.queue_id, item_ids=["tr-x"])
         with pytest.raises(MlflowException, match="not found"):
-            workspace_tracking_store.list_review_queue_traces(queue_a.queue_id)
+            workspace_tracking_store.list_review_queue_items(queue_a.queue_id)
 
         # Cross-workspace delete silently no-ops (the queue is invisible).
         workspace_tracking_store.delete_review_queue(queue_a.queue_id)
@@ -2512,7 +2510,7 @@ def test_review_queues_are_workspace_scoped(workspace_tracking_store):
         assert intact.queue_id == queue_a.queue_id
         assert intact.users == ["alice"]
         assert {
-            i.target_id for i in workspace_tracking_store.list_review_queue_traces(queue_a.queue_id)
+            i.item_id for i in workspace_tracking_store.list_review_queue_items(queue_a.queue_id)
         } == {"tr-a"}
 
         # Within-workspace list resolves queue A via the experiment join only.
@@ -2548,9 +2546,9 @@ def test_review_queue_question_lock_holds_in_workspace_store(workspace_tracking_
         workspace_tracking_store.update_review_queue(
             queue.queue_id, schema_ids=[ls1.schema_id, ls2.schema_id]
         )
-        # Once a trace is attached, questions lock but users stay editable.
-        workspace_tracking_store.add_traces_to_review_queue(queue.queue_id, target_ids=["tr-1"])
-        with pytest.raises(MlflowException, match="locked once traces are assigned"):
+        # Once an item is attached, questions lock but users stay editable.
+        workspace_tracking_store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
+        with pytest.raises(MlflowException, match="locked once items are assigned"):
             workspace_tracking_store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id])
         updated = workspace_tracking_store.update_review_queue(queue.queue_id, users=["alice"])
         assert updated.users == ["alice"]

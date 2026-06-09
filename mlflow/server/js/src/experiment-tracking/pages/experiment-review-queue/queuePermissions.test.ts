@@ -48,23 +48,12 @@ describe('canManageQueue', () => {
   it('requires review-management permission', () => {
     expect(canManageQueue(queue({ created_by: 'alice' }), 'alice', true, false)).toBe(false);
   });
-
-  it('lets any manager manage the default queue, even a non-owner on an auth server', () => {
-    expect(canManageQueue(queue({ is_default: true, created_by: 'someone-else' }), 'bob', true, true)).toBe(true);
-    // still gated on review-management permission
-    expect(canManageQueue(queue({ is_default: true, created_by: 'someone-else' }), 'bob', true, false)).toBe(false);
-  });
 });
 
 describe('canDeleteQueue', () => {
   it('lets a manager delete a custom queue they can manage', () => {
     expect(canDeleteQueue(queue({ created_by: 'alice' }), 'alice', true, true)).toBe(true);
     expect(canDeleteQueue(queue({ created_by: 'someone-else' }), 'default', false, true)).toBe(true);
-  });
-
-  it('never deletes the default queue, even for a manager who can otherwise manage it', () => {
-    expect(canDeleteQueue(queue({ is_default: true }), 'alice', true, true)).toBe(false);
-    expect(canDeleteQueue(queue({ is_default: true, created_by: 'alice' }), 'alice', false, true)).toBe(false);
   });
 
   it('does not delete a queue the caller cannot manage', () => {

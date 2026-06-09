@@ -66,15 +66,6 @@ def test_get_or_create_user_queue_endpoint():
     assert captured["body"]["user"] == "alice"
 
 
-def test_list_review_queues_forwards_ensure_default():
-    resp = pb.ListReviewQueues.Response(review_queues=[])
-    patcher, captured = _capture(resp)
-    with patcher:
-        _store().list_review_queues("1", ensure_default=True)
-    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/list"
-    assert captured["body"]["ensure_default"] is True
-
-
 def test_update_review_queue_sets_flags():
     resp = pb.UpdateReviewQueue.Response(
         review_queue=pb.ReviewQueue(queue_id="rq-1", queue_type=pb.CUSTOM)
@@ -101,58 +92,58 @@ def test_update_review_queue_empty_list_still_flags():
     assert captured["body"].get("schema_ids", []) == []
 
 
-def test_add_traces_sends_target_type_and_ids():
-    resp = pb.AddTracesToReviewQueue.Response(
+def test_add_items_sends_item_type_and_ids():
+    resp = pb.AddItemsToReviewQueue.Response(
         items=[
             pb.ReviewQueueItem(
-                queue_id="rq-1", target_id="tr-1", target_type=pb.TRACE, status=pb.PENDING
+                queue_id="rq-1", item_id="tr-1", item_type=pb.TRACE, status=pb.PENDING
             )
         ]
     )
     patcher, captured = _capture(resp)
     with patcher:
-        items = _store().add_traces_to_review_queue("rq-1", target_ids=["tr-1"])
-    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/traces/add"
-    assert captured["body"]["target_type"] == "TRACE"
-    assert captured["body"]["target_ids"] == ["tr-1"]
-    assert items[0].target_id == "tr-1"
+        items = _store().add_items_to_review_queue("rq-1", item_ids=["tr-1"])
+    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/items/add"
+    assert captured["body"]["item_type"] == "TRACE"
+    assert captured["body"]["item_ids"] == ["tr-1"]
+    assert items[0].item_id == "tr-1"
 
 
-def test_list_review_queue_traces_status_filter_and_pagination():
-    resp = pb.ListReviewQueueTraces.Response(
+def test_list_review_queue_items_status_filter_and_pagination():
+    resp = pb.ListReviewQueueItems.Response(
         items=[
             pb.ReviewQueueItem(
-                queue_id="rq-1", target_id="tr-1", target_type=pb.TRACE, status=pb.COMPLETE
+                queue_id="rq-1", item_id="tr-1", item_type=pb.TRACE, status=pb.COMPLETE
             )
         ],
         next_page_token="tok",
     )
     patcher, captured = _capture(resp)
     with patcher:
-        page = _store().list_review_queue_traces("rq-1", status="complete", max_results=5)
-    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/traces/list"
+        page = _store().list_review_queue_items("rq-1", status="complete", max_results=5)
+    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/items/list"
     assert captured["body"]["status"] == "COMPLETE"
     assert captured["body"]["max_results"] == 5
     assert page.token == "tok"
-    assert page[0].target_id == "tr-1"
+    assert page[0].item_id == "tr-1"
 
 
 def test_set_status_sends_completed_by():
-    resp = pb.SetReviewQueueTraceStatus.Response(
+    resp = pb.SetReviewQueueItemStatus.Response(
         item=pb.ReviewQueueItem(
             queue_id="rq-1",
-            target_id="tr-1",
-            target_type=pb.TRACE,
+            item_id="tr-1",
+            item_type=pb.TRACE,
             status=pb.COMPLETE,
             completed_by="bob",
         )
     )
     patcher, captured = _capture(resp)
     with patcher:
-        item = _store().set_review_queue_trace_status(
-            "rq-1", target_id="tr-1", status="complete", completed_by="bob"
+        item = _store().set_review_queue_item_status(
+            "rq-1", item_id="tr-1", status="complete", completed_by="bob"
         )
-    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/traces/set-status"
+    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/items/set-status"
     assert captured["body"]["status"] == "COMPLETE"
     assert captured["body"]["completed_by"] == "bob"
     assert item.completed_by == "bob"
@@ -206,10 +197,10 @@ def test_get_review_queue_by_name_endpoint():
     assert result.queue_id == "rq-1"
 
 
-def test_remove_traces_endpoint():
-    patcher, captured = _capture(pb.RemoveTracesFromReviewQueue.Response())
+def test_remove_items_endpoint():
+    patcher, captured = _capture(pb.RemoveItemsFromReviewQueue.Response())
     with patcher:
-        _store().remove_traces_from_review_queue("rq-1", target_ids=["tr-1", "tr-2"])
-    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/traces/remove"
+        _store().remove_items_from_review_queue("rq-1", item_ids=["tr-1", "tr-2"])
+    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/items/remove"
     assert captured["body"]["queue_id"] == "rq-1"
-    assert captured["body"]["target_ids"] == ["tr-1", "tr-2"]
+    assert captured["body"]["item_ids"] == ["tr-1", "tr-2"]

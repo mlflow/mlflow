@@ -89,7 +89,7 @@ from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import _policy_applies, get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
-from mlflow.genai.review_queues import ReviewQueueType, ReviewStatus, ReviewTargetType
+from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
 from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
@@ -158,18 +158,18 @@ from mlflow.protos.prompt_optimization_pb2 import (
     PromptOptimizationJob as PromptOptimizationJobProto,
 )
 from mlflow.protos.review_queues_pb2 import (
+    REVIEW_ITEM_TYPE_UNSPECIFIED,
     REVIEW_STATUS_UNSPECIFIED,
-    REVIEW_TARGET_TYPE_UNSPECIFIED,
-    AddTracesToReviewQueue,
+    AddItemsToReviewQueue,
     CreateReviewQueue,
     DeleteReviewQueue,
     GetOrCreateUserQueue,
     GetReviewQueue,
     GetReviewQueueByName,
+    ListReviewQueueItems,
     ListReviewQueues,
-    ListReviewQueueTraces,
-    RemoveTracesFromReviewQueue,
-    SetReviewQueueTraceStatus,
+    RemoveItemsFromReviewQueue,
+    SetReviewQueueItemStatus,
     UpdateReviewQueue,
 )
 from mlflow.protos.service_pb2 import (
@@ -4735,17 +4735,11 @@ def _list_review_queues():
     max_results = request_message.max_results if request_message.HasField("max_results") else None
     page_token = request_message.page_token if request_message.HasField("page_token") else None
     user = request_message.user if request_message.HasField("user") else None
-    # No-auth UI sets ensure_default to seed the protected default queue lazily;
-    # left false on auth servers + SDK callers, so no default queue is created there.
-    ensure_default = (
-        request_message.ensure_default if request_message.HasField("ensure_default") else False
-    )
     queues = _get_tracking_store().list_review_queues(
         request_message.experiment_id,
         user=user,
         max_results=max_results,
         page_token=page_token,
-        ensure_default=ensure_default,
     )
     response = ListReviewQueues.Response(
         review_queues=[q.to_proto() for q in queues],
@@ -4782,40 +4776,40 @@ def _delete_review_queue():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _add_traces_to_review_queue():
+def _add_items_to_review_queue():
     request_message = _get_request_message(
-        AddTracesToReviewQueue(),
+        AddItemsToReviewQueue(),
         schema={"queue_id": [_assert_required, _assert_string]},
     )
-    kwargs: dict[str, object] = {"target_ids": list(request_message.target_ids)}
+    kwargs: dict[str, object] = {"item_ids": list(request_message.item_ids)}
     if (
-        request_message.HasField("target_type")
-        and request_message.target_type != REVIEW_TARGET_TYPE_UNSPECIFIED
+        request_message.HasField("item_type")
+        and request_message.item_type != REVIEW_ITEM_TYPE_UNSPECIFIED
     ):
-        kwargs["target_type"] = ReviewTargetType.from_proto(request_message.target_type)
-    items = _get_tracking_store().add_traces_to_review_queue(request_message.queue_id, **kwargs)
-    response = AddTracesToReviewQueue.Response(items=[i.to_proto() for i in items])
+        kwargs["item_type"] = ReviewItemType.from_proto(request_message.item_type)
+    items = _get_tracking_store().add_items_to_review_queue(request_message.queue_id, **kwargs)
+    response = AddItemsToReviewQueue.Response(items=[i.to_proto() for i in items])
     return _wrap_response(response)
 
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _remove_traces_from_review_queue():
+def _remove_items_from_review_queue():
     request_message = _get_request_message(
-        RemoveTracesFromReviewQueue(),
+        RemoveItemsFromReviewQueue(),
         schema={"queue_id": [_assert_required, _assert_string]},
     )
-    _get_tracking_store().remove_traces_from_review_queue(
-        request_message.queue_id, target_ids=list(request_message.target_ids)
+    _get_tracking_store().remove_items_from_review_queue(
+        request_message.queue_id, item_ids=list(request_message.item_ids)
     )
-    return _wrap_response(RemoveTracesFromReviewQueue.Response())
+    return _wrap_response(RemoveItemsFromReviewQueue.Response())
 
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _list_review_queue_traces():
+def _list_review_queue_items():
     request_message = _get_request_message(
-        ListReviewQueueTraces(),
+        ListReviewQueueItems(),
         schema={
             "queue_id": [_assert_required, _assert_string],
             "max_results": [_assert_intlike, _review_queue_max_results_validator],
@@ -4826,13 +4820,13 @@ def _list_review_queue_traces():
     status = None
     if request_message.HasField("status") and request_message.status != REVIEW_STATUS_UNSPECIFIED:
         status = ReviewStatus.from_proto(request_message.status)
-    items = _get_tracking_store().list_review_queue_traces(
+    items = _get_tracking_store().list_review_queue_items(
         request_message.queue_id,
         status=status,
         max_results=max_results,
         page_token=page_token,
     )
-    response = ListReviewQueueTraces.Response(
+    response = ListReviewQueueItems.Response(
         items=[i.to_proto() for i in items],
         next_page_token=items.token or "",
     )
@@ -4841,12 +4835,12 @@ def _list_review_queue_traces():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _set_review_queue_trace_status():
+def _set_review_queue_item_status():
     request_message = _get_request_message(
-        SetReviewQueueTraceStatus(),
+        SetReviewQueueItemStatus(),
         schema={
             "queue_id": [_assert_required, _assert_string],
-            "target_id": [_assert_required, _assert_string],
+            "item_id": [_assert_required, _assert_string],
         },
     )
     completed_by = (
@@ -4855,13 +4849,13 @@ def _set_review_queue_trace_status():
     # `status` is intentionally not in the input schema above: rejection of an
     # absent/UNSPECIFIED status is delegated to `ReviewStatus.from_proto` (a
     # required-field schema entry would only check HasField, not enum value).
-    item = _get_tracking_store().set_review_queue_trace_status(
+    item = _get_tracking_store().set_review_queue_item_status(
         request_message.queue_id,
-        target_id=request_message.target_id,
+        item_id=request_message.item_id,
         status=ReviewStatus.from_proto(request_message.status),
         completed_by=completed_by,
     )
-    return _wrap_response(SetReviewQueueTraceStatus.Response(item=item.to_proto()))
+    return _wrap_response(SetReviewQueueItemStatus.Response(item=item.to_proto()))
 
 
 @catch_mlflow_exception
@@ -7722,10 +7716,10 @@ HANDLERS = {
     ListReviewQueues: _list_review_queues,
     UpdateReviewQueue: _update_review_queue,
     DeleteReviewQueue: _delete_review_queue,
-    AddTracesToReviewQueue: _add_traces_to_review_queue,
-    RemoveTracesFromReviewQueue: _remove_traces_from_review_queue,
-    ListReviewQueueTraces: _list_review_queue_traces,
-    SetReviewQueueTraceStatus: _set_review_queue_trace_status,
+    AddItemsToReviewQueue: _add_items_to_review_queue,
+    RemoveItemsFromReviewQueue: _remove_items_from_review_queue,
+    ListReviewQueueItems: _list_review_queue_items,
+    SetReviewQueueItemStatus: _set_review_queue_item_status,
     # Legacy MLflow Tracing V2 APIs. Kept for backward compatibility but do not use.
     StartTrace: _deprecated_start_trace_v2,
     EndTrace: _deprecated_end_trace_v2,

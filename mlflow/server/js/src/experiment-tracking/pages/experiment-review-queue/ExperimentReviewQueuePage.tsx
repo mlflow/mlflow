@@ -16,11 +16,12 @@ import { ReviewQueueList } from './ReviewQueueList';
 import { ReviewQueueSidebar } from './ReviewQueueSidebar';
 import { useCanManageReviews } from './hooks/useCanManageReviews';
 import { useDeleteReviewQueueMutation } from './hooks/useDeleteReviewQueueMutation';
-import { useListReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
+import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
+import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
-import { useRemoveTracesFromReviewQueueMutation } from './hooks/useRemoveTracesFromReviewQueueMutation';
-import { displayUser, useReviewer } from './hooks/useReviewer';
-import { useSetReviewQueueTraceStatusMutation } from './hooks/useSetReviewQueueTraceStatusMutation';
+import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
+import { DEFAULT_REVIEWER, displayUser, useReviewer } from './hooks/useReviewer';
+import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
 import { canDeleteQueue, canManageQueue } from './queuePermissions';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
@@ -46,7 +47,7 @@ const ExperimentReviewQueuePage = () => {
 
   const [selectedQueueIdState, setSelectedQueueIdState] = useState<string>();
   // The trace open in focused review (null = show the queue's trace table).
-  const [openTargetId, setOpenTargetId] = useState<string | null>(null);
+  const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   // The queue open in "Manage queue" (questions + members), from the right-pane gear.
@@ -57,17 +58,29 @@ const ExperimentReviewQueuePage = () => {
 
   const { reviewQueues, isLoading: queuesLoading } = useListReviewQueuesQuery({
     experimentId: experimentId ?? '',
-    // Scope to the current reviewer (the single default queue on a no-auth server).
+    // Scope to the current reviewer (the reserved `default` user on a no-auth server).
     user: reviewer,
-    // No-auth only: the server seeds the experiment's protected default queue
-    // while listing. Authenticated MLflow has no default queue — reviewers use
-    // their own user/custom queues.
-    ensureDefault: !authAvailable,
   });
   const { labelSchemas } = useListLabelSchemasQuery({ experimentId: experimentId ?? '' });
-  const { setReviewQueueTraceStatusAsync, isSettingStatus } = useSetReviewQueueTraceStatusMutation();
-  const { removeTracesFromReviewQueue, isRemovingTraces } = useRemoveTracesFromReviewQueueMutation();
+  const { setReviewQueueItemStatusAsync, isSettingStatus } = useSetReviewQueueItemStatusMutation();
+  const { removeItemsFromReviewQueue, isRemovingItems } = useRemoveItemsFromReviewQueueMutation();
   const { deleteReviewQueue } = useDeleteReviewQueueMutation();
+  const { getOrCreateUserQueueAsync } = useGetOrCreateUserQueueMutation();
+
+  // No-auth catch-all: the reviewer's reserved `default` user queue. Ensure it
+  // once on load (idempotent) so it appears in the sidebar before any item is
+  // flagged. Best-effort — the mutation invalidates the queue list on success,
+  // so the sidebar refreshes on its own; a failure just means the default queue
+  // appears once the first item is flagged into it (the modal re-resolves it
+  // and surfaces any error there). Authenticated MLflow has no default queue.
+  useEffect(() => {
+    if (!authAvailable && experimentId) {
+      getOrCreateUserQueueAsync({ experiment_id: experimentId, user: DEFAULT_REVIEWER, created_by: reviewer }).catch(
+        () => {},
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authAvailable, experimentId]);
 
   // No queue is selected until the reviewer picks one (the right panel prompts
   // them to). Auto-selecting the first queue would land on a no-work queue and
@@ -91,7 +104,7 @@ const ExperimentReviewQueuePage = () => {
     ? canManageQueue(selectedQueue, reviewer, authAvailable, canManage)
     : false;
   // Whether the right-pane gear (manage settings / delete) shows — editable
-  // non-default custom queues only (never USER queues or the default queue).
+  // custom queues only (never USER queues).
   const canEditSelectedQueue = selectedQueue
     ? canDeleteQueue(selectedQueue, reviewer, authAvailable, canManage)
     : false;
@@ -104,20 +117,20 @@ const ExperimentReviewQueuePage = () => {
           // Drop the selection if the queue that was open got deleted.
           if (selectedQueueId === queueId) {
             setSelectedQueueIdState(undefined);
-            setOpenTargetId(null);
+            setOpenItemId(null);
           }
         },
       },
     );
 
-  const { items: traces, isLoading: tracesLoading } = useListReviewQueueTracesQuery({
+  const { items: traces, isLoading: itemsLoading } = useListReviewQueueItemsQuery({
     queueId: selectedQueueId ?? '',
     enabled: Boolean(selectedQueueId),
   });
   // Each trace's own creation time, to order the queue by when traces were
   // produced (not when they were added to the queue). Shares the cache with the
   // trace-list preview fetch.
-  const { data: orderingTraceData } = useGetTracesById(traces.map((t) => t.target_id));
+  const { data: orderingTraceData } = useGetTracesById(traces.map((t) => t.item_id));
   const traceCreatedMsById = useMemo(() => {
     const map = new Map<string, number>();
     (orderingTraceData ?? []).forEach((t) => {
@@ -136,19 +149,19 @@ const ExperimentReviewQueuePage = () => {
   // the list display and the focused view's prev/next.
   const orderedTraces = useMemo(() => {
     const byTraceNewest = (a: ReviewQueueItem, b: ReviewQueueItem) =>
-      (traceCreatedMsById.get(b.target_id) ?? 0) - (traceCreatedMsById.get(a.target_id) ?? 0);
+      (traceCreatedMsById.get(b.item_id) ?? 0) - (traceCreatedMsById.get(a.item_id) ?? 0);
     const done = traces.filter((t) => t.status !== 'PENDING').sort(byTraceNewest);
     const todo = traces.filter((t) => t.status === 'PENDING').sort(byTraceNewest);
     return [...done, ...todo];
   }, [traces, traceCreatedMsById]);
 
-  // A user queue (and the default queue) inherits all of the experiment's
-  // schemas; any other custom queue uses its explicit subset.
+  // A user queue inherits all of the experiment's schemas; a custom queue uses
+  // its explicit subset.
   const questionSchemas = useMemo(() => {
     if (!selectedQueue) {
       return [];
     }
-    if (selectedQueue.queue_type === 'USER' || selectedQueue.is_default) {
+    if (selectedQueue.queue_type === 'USER') {
       return labelSchemas;
     }
     const ids = new Set(selectedQueue.schema_ids ?? []);
@@ -156,14 +169,14 @@ const ExperimentReviewQueuePage = () => {
   }, [selectedQueue, labelSchemas]);
   const latestQuestionCreatedAtMs = questionSchemas.reduce((max, s) => Math.max(max, s.created_at ?? 0), 0);
 
-  const openItem = useMemo(() => traces.find((t) => t.target_id === openTargetId) ?? null, [traces, openTargetId]);
+  const openItem = useMemo(() => traces.find((t) => t.item_id === openItemId) ?? null, [traces, openItemId]);
   const nowMs = Date.now();
 
   // Focus mode (a trace open) dedicates the full page to the review: the queue
   // list (left pane) collapses below, and the app-shell sidebar collapses too.
   // We save the sidebar's state on entering and restore it on exit/unmount, so a
   // sidebar the user had already collapsed stays collapsed when they go back.
-  const inFocusMode = Boolean(openTargetId && openItem);
+  const inFocusMode = Boolean(openItemId && openItem);
   const sidebar = useMlflowSidebar();
   // Read the sidebar context through a ref so the effect can collapse/restore it
   // without listing `sidebar` as a dependency — `setShowSidebar` changes the
@@ -193,16 +206,16 @@ const ExperimentReviewQueuePage = () => {
 
   const selectQueue = (queueId: string) => {
     setSelectedQueueIdState(queueId);
-    setOpenTargetId(null);
+    setOpenItemId(null);
   };
 
   const setOpenStatus = async (status: ReviewStatus) => {
     if (!selectedQueueId || !openItem) {
       return;
     }
-    await setReviewQueueTraceStatusAsync({
+    await setReviewQueueItemStatusAsync({
       queue_id: selectedQueueId,
-      target_id: openItem.target_id,
+      item_id: openItem.item_id,
       status,
       // Attribution only applies to the terminal states; reopen clears it.
       completed_by: status === 'PENDING' ? undefined : reviewer,
@@ -242,22 +255,22 @@ const ExperimentReviewQueuePage = () => {
         description="Review queue: prompt to pick a queue"
       />,
     );
-  } else if (openTargetId && openItem) {
+  } else if (openItemId && openItem) {
     rightContent = (
       <FocusedReview
         // Remount per trace so answer state never bleeds across traces.
-        key={openItem.target_id}
+        key={openItem.item_id}
         item={openItem}
         items={orderedTraces}
         schemas={questionSchemas}
         completedBy={reviewer}
         isSettingStatus={isSettingStatus}
-        onBack={() => setOpenTargetId(null)}
-        onSelect={(targetId) => setOpenTargetId(targetId)}
+        onBack={() => setOpenItemId(null)}
+        onSelect={(itemId) => setOpenItemId(itemId)}
         onSetStatus={setOpenStatus}
       />
     );
-  } else if (tracesLoading) {
+  } else if (itemsLoading) {
     rightContent = <TableSkeleton lines={5} />;
   } else {
     rightContent = (
@@ -268,15 +281,15 @@ const ExperimentReviewQueuePage = () => {
         title={selectedQueue.queue_type === 'USER' ? displayUser(selectedQueue.name, intl) : selectedQueue.name}
         questionCount={questionSchemas.length}
         items={orderedTraces}
-        onOpen={(item) => setOpenTargetId(item.target_id)}
+        onOpen={(item) => setOpenItemId(item.item_id)}
         nowMs={nowMs}
         latestQuestionCreatedAtMs={latestQuestionCreatedAtMs}
-        onRemoveTraces={
+        onRemoveItems={
           canManageSelectedQueue
-            ? (targetIds) => removeTracesFromReviewQueue({ queue_id: selectedQueue.queue_id, target_ids: targetIds })
+            ? (itemIds) => removeItemsFromReviewQueue({ queue_id: selectedQueue.queue_id, item_ids: itemIds })
             : undefined
         }
-        isRemovingTraces={isRemovingTraces}
+        isRemovingItems={isRemovingItems}
         // Gear menu (manage / delete) only for editable non-default custom queues.
         onManageQueue={canEditSelectedQueue ? () => setEditingQueueId(selectedQueue.queue_id) : undefined}
         onDeleteQueue={canEditSelectedQueue ? () => setConfirmDeleteQueueId(selectedQueue.queue_id) : undefined}
@@ -318,7 +331,7 @@ const ExperimentReviewQueuePage = () => {
                   onSelect={selectQueue}
                   onDeselectQueue={() => {
                     setSelectedQueueIdState(undefined);
-                    setOpenTargetId(null);
+                    setOpenItemId(null);
                   }}
                   onNewQueue={() => setCreateOpen(true)}
                   onManageQuestions={() => setManageOpen(true)}

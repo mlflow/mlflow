@@ -2,7 +2,7 @@
 
 Called from the store layer's create / update / attach / status paths.
 Length caps on the validated identity fields (queue name, user, schema id,
-target id) are aligned with their SQL column widths so a value that passes
+item id) are aligned with their SQL column widths so a value that passes
 validation also fits its column. Audit-only fields populated by the server
 (e.g. ``created_by``) are not part of the validated payload and follow the
 same convention as the sibling ``label_schemas`` store (unvalidated).
@@ -17,9 +17,9 @@ from typing import NamedTuple
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.review_queues.review_queues import (
+    ReviewItemType,
     ReviewQueueType,
     ReviewStatus,
-    ReviewTargetType,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -32,16 +32,17 @@ QUEUE_NAME_MAX_LENGTH = 250
 USER_MAX_LENGTH = 250
 # `schema_id` mirrors `SqlLabelSchema.schema_id` (`String(36)`).
 SCHEMA_ID_MAX_LENGTH = 36
-# `target_id` mirrors `SqlReviewQueueTrace.target_id` (`String(50)`).
-TARGET_ID_MAX_LENGTH = 50
+# `item_id` mirrors `SqlReviewQueueItem.item_id` (`String(50)`).
+ITEM_ID_MAX_LENGTH = 50
 
-# Reserved for the legacy no-auth user queue; custom queues may not use it.
+# Reserved for the no-auth default user queue; custom queues may not use it
+# (case-insensitively, so "Default"/"DEFAULT" are rejected too).
 RESERVED_QUEUE_NAME = "default"
 
-# Name of the experiment's single default queue (a special CUSTOM queue that
-# inherits all of the experiment's schemas and is undeletable). Reserved from
-# regular custom queues.
-DEFAULT_QUEUE_NAME = "Default"
+# Cap on a queue's assigned users, mirroring the managed-evals
+# `LabelingSession.assigned_users` ceiling so an OSS queue can't be assigned an
+# unbounded reviewer set. A user queue always stays well under this (exactly 1).
+MAX_ASSIGNED_USERS = 4
 
 
 def _invalid(message: str) -> MlflowException:
@@ -65,14 +66,12 @@ def coerce_queue_type(queue_type: object) -> ReviewQueueType:
     return ReviewQueueType(queue_type)
 
 
-def coerce_target_type(target_type: object) -> ReviewTargetType:
-    if isinstance(target_type, ReviewTargetType):
-        return target_type
-    if target_type not in ReviewTargetType:
-        raise _invalid(
-            f"`target_type` must be one of {ReviewTargetType.values()}; got {target_type!r}."
-        )
-    return ReviewTargetType(target_type)
+def coerce_item_type(item_type: object) -> ReviewItemType:
+    if isinstance(item_type, ReviewItemType):
+        return item_type
+    if item_type not in ReviewItemType:
+        raise _invalid(f"`item_type` must be one of {ReviewItemType.values()}; got {item_type!r}.")
+    return ReviewItemType(item_type)
 
 
 def coerce_status(status: object) -> ReviewStatus:
@@ -96,14 +95,14 @@ def normalize_user(user: object) -> str:
     return user.strip().lower()
 
 
-def normalize_target_id(target_id: object) -> str:
-    """Strip a target identifier.
+def normalize_item_id(item_id: object) -> str:
+    """Strip an item identifier.
 
     Trace ids are case-sensitive (UUID/hex), so only strip whitespace.
     """
-    if not isinstance(target_id, str):
-        raise _invalid(f"`target_id` must be a string; got {target_id!r}.")
-    return target_id.strip()
+    if not isinstance(item_id, str):
+        raise _invalid(f"`item_id` must be a string; got {item_id!r}.")
+    return item_id.strip()
 
 
 def normalize_schema_id(schema_id: object) -> str:
@@ -128,7 +127,13 @@ def normalize_users(users: list[str] | None) -> list[str]:
         normalized_user = normalize_user(user)
         _validate_non_empty_string(normalized_user, "user", USER_MAX_LENGTH)
         normalized.append(normalized_user)
-    return _dedup_preserving_order(normalized)
+    deduped = _dedup_preserving_order(normalized)
+    if len(deduped) > MAX_ASSIGNED_USERS:
+        raise _invalid(
+            f"A review queue can have at most {MAX_ASSIGNED_USERS} assigned users; "
+            f"got {len(deduped)}."
+        )
+    return deduped
 
 
 def normalize_schema_ids(schema_ids: list[str] | None) -> list[str]:
@@ -152,7 +157,6 @@ class ValidatedQueue(NamedTuple):
     name: str
     users: list[str]
     schema_ids: list[str]
-    is_default: bool = False
 
 
 def validate_queue_for_create(
@@ -161,7 +165,6 @@ def validate_queue_for_create(
     queue_type: object,
     users: list[str] | None,
     schema_ids: list[str] | None,
-    is_default: bool = False,
 ) -> ValidatedQueue:
     """Validate + normalize a queue about to be created, enforcing the
     user-vs-custom invariants.
@@ -171,9 +174,7 @@ def validate_queue_for_create(
     schemas may be attached (a user queue resolves to all of the
     experiment's schemas at read time). Custom queue: ``name`` is stripped,
     case-preserved, and may not be a reserved name; users are 0..N and schemas
-    are the chosen subset. Default queue (``is_default``): a CUSTOM queue named
-    :data:`DEFAULT_QUEUE_NAME` that, like a user queue, attaches no schemas and
-    resolves to all of the experiment's schemas at read time.
+    are the chosen subset.
 
     ``experiment_id`` is intentionally NOT validated here — the store-layer
     existence check inside the write transaction owns that.
@@ -182,16 +183,7 @@ def validate_queue_for_create(
     normalized_users = normalize_users(users)
     normalized_schema_ids = normalize_schema_ids(schema_ids)
 
-    if is_default:
-        if coerced_type != ReviewQueueType.CUSTOM:
-            raise _invalid("The default queue must be a custom queue.")
-        if normalized_schema_ids:
-            raise _invalid(
-                "The default queue cannot have explicitly-attached schemas; it resolves to "
-                "all of the experiment's label schemas."
-            )
-        normalized_name = DEFAULT_QUEUE_NAME
-    elif coerced_type == ReviewQueueType.USER:
+    if coerced_type == ReviewQueueType.USER:
         normalized_name = normalize_user(name)
         _validate_non_empty_string(normalized_name, "name", QUEUE_NAME_MAX_LENGTH)
         if not normalized_users:
@@ -211,7 +203,7 @@ def validate_queue_for_create(
             raise _invalid(f"`name` must be a string; got {name!r}.")
         normalized_name = name.strip()
         _validate_non_empty_string(normalized_name, "name", QUEUE_NAME_MAX_LENGTH)
-        if normalized_name.lower() in (RESERVED_QUEUE_NAME, DEFAULT_QUEUE_NAME.lower()):
+        if normalized_name.lower() == RESERVED_QUEUE_NAME:
             raise _invalid(
                 f"`{normalized_name}` is a reserved queue name and cannot be used for a "
                 "custom queue."
@@ -222,22 +214,21 @@ def validate_queue_for_create(
         name=normalized_name,
         users=normalized_users,
         schema_ids=normalized_schema_ids,
-        is_default=is_default,
     )
 
 
-def validate_target_ids_for_attach(target_ids: object) -> list[str]:
-    """Normalize + validate a batch of target ids for attach/detach.
+def validate_item_ids_for_attach(item_ids: object) -> list[str]:
+    """Normalize + validate a batch of item ids for attach/detach.
 
     Validates the whole batch up front (fail-fast): one bad id fails the
     call rather than silently dropping that row. De-duplicates so attaching
-    the same trace twice in one call is a single row.
+    the same item twice in one call is a single row.
     """
-    if not isinstance(target_ids, (list, tuple)) or len(target_ids) == 0:
-        raise _invalid(f"`target_ids` must be a non-empty list; got {target_ids!r}.")
+    if not isinstance(item_ids, (list, tuple)) or len(item_ids) == 0:
+        raise _invalid(f"`item_ids` must be a non-empty list; got {item_ids!r}.")
     normalized = []
-    for target_id in target_ids:
-        normalized_target_id = normalize_target_id(target_id)
-        _validate_non_empty_string(normalized_target_id, "target_id", TARGET_ID_MAX_LENGTH)
-        normalized.append(normalized_target_id)
+    for item_id in item_ids:
+        normalized_item_id = normalize_item_id(item_id)
+        _validate_non_empty_string(normalized_item_id, "item_id", ITEM_ID_MAX_LENGTH)
+        normalized.append(normalized_item_id)
     return _dedup_preserving_order(normalized)

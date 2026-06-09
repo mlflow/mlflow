@@ -24,7 +24,7 @@ import { LabelSchemaInputRenderer, useListLabelSchemasQuery } from '../../compon
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
 import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useIsAuthAvailable } from '../../../account/hooks';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
-import { useListReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
+import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { useUpdateReviewQueueMutation } from './hooks/useUpdateReviewQueueMutation';
 import type { ReviewQueue } from './types';
 
@@ -49,14 +49,14 @@ export const QueueSettingsModal = ({ queue, onClose }: { queue: ReviewQueue; onC
   const canListUsers = authAvailable && (isAdmin || isWorkspaceAdmin);
 
   const { labelSchemas, isLoading: schemasLoading } = useListLabelSchemasQuery({ experimentId: queue.experiment_id });
-  const { items: traces, isLoading: tracesLoading } = useListReviewQueueTracesQuery({ queueId: queue.queue_id });
+  const { items: traces, isLoading: itemsLoading } = useListReviewQueueItemsQuery({ queueId: queue.queue_id });
   const { users: assignableUsers } = useAssignableUsersQuery({ enabled: canListUsers });
   const { updateReviewQueueAsync, isUpdatingQueue, error: updateError } = useUpdateReviewQueueMutation();
 
   // Questions freeze once the queue has traces (the backend rejects schema
   // changes then), so the picker is read-only in that case. Default to frozen
   // until the count loads, so it doesn't flash editable for a queue with traces.
-  const canEditQuestions = !tracesLoading && traces.length === 0;
+  const canEditQuestions = !itemsLoading && traces.length === 0;
 
   const [selectedSchemaIds, setSelectedSchemaIds] = useState<Set<string>>(new Set(queue.schema_ids ?? []));
   const [members, setMembers] = useState<string[]>(queue.users ?? []);

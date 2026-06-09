@@ -18,11 +18,11 @@ if TYPE_CHECKING:
         LabelSchemaType,
     )
     from mlflow.genai.review_queues import (
+        ReviewItemType,
         ReviewQueue,
         ReviewQueueItem,
         ReviewQueueType,
         ReviewStatus,
-        ReviewTargetType,
     )
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
@@ -1037,21 +1037,21 @@ class TracingClient:
     def _delete_review_queue(self, queue_id: str) -> None:
         return self.store.delete_review_queue(queue_id)
 
-    def _add_traces_to_review_queue(
+    def _add_items_to_review_queue(
         self,
         queue_id: str,
         *,
-        target_ids: list[str],
-        target_type: "ReviewTargetType | str" = "trace",
+        item_ids: list[str],
+        item_type: "ReviewItemType | str" = "trace",
     ) -> "list[ReviewQueueItem]":
-        return self.store.add_traces_to_review_queue(
-            queue_id, target_ids=target_ids, target_type=target_type
+        return self.store.add_items_to_review_queue(
+            queue_id, item_ids=item_ids, item_type=item_type
         )
 
-    def _remove_traces_from_review_queue(self, queue_id: str, *, target_ids: list[str]) -> None:
-        return self.store.remove_traces_from_review_queue(queue_id, target_ids=target_ids)
+    def _remove_items_from_review_queue(self, queue_id: str, *, item_ids: list[str]) -> None:
+        return self.store.remove_items_from_review_queue(queue_id, item_ids=item_ids)
 
-    def _list_review_queue_traces(
+    def _list_review_queue_items(
         self,
         queue_id: str,
         *,
@@ -1059,18 +1059,18 @@ class TracingClient:
         max_results: int | None = None,
         page_token: str | None = None,
     ) -> "PagedList[ReviewQueueItem]":
-        return self.store.list_review_queue_traces(
+        return self.store.list_review_queue_items(
             queue_id, status=status, max_results=max_results, page_token=page_token
         )
 
-    def _set_review_queue_trace_status(
+    def _set_review_queue_item_status(
         self,
         queue_id: str,
         *,
-        target_id: str,
+        item_id: str,
         status: "ReviewStatus | str",
         completed_by: str | None = None,
     ) -> "ReviewQueueItem":
-        return self.store.set_review_queue_trace_status(
-            queue_id, target_id=target_id, status=status, completed_by=completed_by
+        return self.store.set_review_queue_item_status(
+            queue_id, item_id=item_id, status=status, completed_by=completed_by
         )

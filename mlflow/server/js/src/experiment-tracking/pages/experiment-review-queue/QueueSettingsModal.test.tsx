@@ -26,8 +26,8 @@ jest.mock('../../../account/hooks', () => ({
 jest.mock('./hooks/useAssignableUsersQuery', () => ({ useAssignableUsersQuery: () => ({ users: [] }) }));
 
 let mockTraces: ReviewQueueItem[] = [];
-jest.mock('./hooks/useListReviewQueueTracesQuery', () => ({
-  useListReviewQueueTracesQuery: () => ({ items: mockTraces, isLoading: false }),
+jest.mock('./hooks/useListReviewQueueItemsQuery', () => ({
+  useListReviewQueueItemsQuery: () => ({ items: mockTraces, isLoading: false }),
 }));
 
 const mockUpdate = jest.fn();
@@ -50,10 +50,10 @@ const queue: ReviewQueue = {
   schema_ids: ['s1'],
 };
 
-const trace = (targetId: string): ReviewQueueItem => ({
+const trace = (itemId: string): ReviewQueueItem => ({
   queue_id: 'rq-1',
-  target_type: 'TRACE',
-  target_id: targetId,
+  item_type: 'TRACE',
+  item_id: itemId,
   status: 'PENDING',
   creation_time_ms: 0,
   last_update_time_ms: 0,
