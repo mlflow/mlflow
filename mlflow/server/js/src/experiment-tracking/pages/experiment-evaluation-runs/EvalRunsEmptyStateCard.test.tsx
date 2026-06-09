@@ -2,17 +2,31 @@ import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import userEvent from '@testing-library/user-event';
+import { AggregationType } from '@databricks/web-shared/model-trace-explorer';
 
 import { EvalRunsEmptyStateCard } from './EvalRunsEmptyStateCard';
 
+const mockUseTraceMetricsQuery = jest.fn();
+jest.mock('../experiment-overview/hooks/useTraceMetricsQuery', () => ({
+  __esModule: true,
+  useTraceMetricsQuery: (...args: unknown[]) => mockUseTraceMetricsQuery(...args),
+}));
+
+const mockTraceMetricsCount = (count: number) =>
+  mockUseTraceMetricsQuery.mockReturnValue({
+    data: { data_points: [{ values: { [AggregationType.COUNT]: count } }] },
+    isSuccess: true,
+  });
+
 const mockOpenPanel = jest.fn();
-const mockQueueMessage = jest.fn();
+const mockSendMessage = jest.fn();
 
 jest.mock('@mlflow/mlflow/src/assistant', () => ({
   __esModule: true,
   useAssistant: () => ({
     openPanel: mockOpenPanel,
-    queueMessage: mockQueueMessage,
+    sendMessage: mockSendMessage,
+    setupComplete: true,
     isPanelOpen: false,
     sessionId: null,
     messages: [],
@@ -20,11 +34,9 @@ jest.mock('@mlflow/mlflow/src/assistant', () => ({
     error: null,
     currentStatus: null,
     activeTools: [],
-    setupComplete: false,
     isLoadingConfig: false,
     isLocalServer: true,
     closePanel: jest.fn(),
-    sendMessage: jest.fn(),
     regenerateLastMessage: jest.fn(),
     reset: jest.fn(),
     cancelSession: jest.fn(),
@@ -56,7 +68,9 @@ const renderCard = () =>
 
 beforeEach(() => {
   mockOpenPanel.mockClear();
-  mockQueueMessage.mockClear();
+  mockSendMessage.mockClear();
+  mockUseTraceMetricsQuery.mockReset();
+  mockTraceMetricsCount(5); // default: experiment has traces
 });
 
 describe('EvalRunsEmptyStateCard', () => {
@@ -79,7 +93,7 @@ describe('EvalRunsEmptyStateCard', () => {
     expect(screen.getByTestId('assistant-sparkle-icon')).toBeInTheDocument();
   });
 
-  it('clicking "Open assistant" calls openPanel and queueMessage with the eval assistant prompt', async () => {
+  it('clicking "Open assistant" calls openPanel and sendMessage with the eval assistant prompt', async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     renderCard();
 
@@ -87,7 +101,35 @@ describe('EvalRunsEmptyStateCard', () => {
     await user.click(screen.getByRole('button', { name: /Open assistant/ }));
 
     expect(mockOpenPanel).toHaveBeenCalledTimes(1);
-    expect(mockQueueMessage).toHaveBeenCalledTimes(1);
-    expect(mockQueueMessage.mock.calls[0][0]).toContain('Target experiment ID: 42');
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage.mock.calls[0][0]).toContain('Target experiment ID: 42');
+  });
+
+  it('renders the trace-based snippet when the experiment has traces', async () => {
+    mockTraceMetricsCount(5);
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    renderCard();
+
+    await user.click(screen.getByRole('tab', { name: /Python/ }));
+    expect(screen.getByText(/mlflow\.search_traces/)).toBeInTheDocument();
+    expect(screen.queryByText(/eval_dataset = \[\{/)).not.toBeInTheDocument();
+  });
+
+  it('renders the dataset-based snippet when the experiment has no traces', async () => {
+    mockTraceMetricsCount(0);
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    renderCard();
+
+    await user.click(screen.getByRole('tab', { name: /Python/ }));
+    expect(screen.getByText(/eval_dataset = \[\{/)).toBeInTheDocument();
+    expect(screen.queryByText(/mlflow\.search_traces/)).not.toBeInTheDocument();
+  });
+
+  it('hides the Python tab until the trace-count query resolves', () => {
+    mockUseTraceMetricsQuery.mockReturnValue({ data: undefined, isSuccess: false });
+    renderCard();
+
+    const tabs = screen.getAllByRole('tab').map((t) => t.textContent?.trim() ?? '');
+    expect(tabs).toEqual(['Your coding agent', 'MLflow assistant']);
   });
 });

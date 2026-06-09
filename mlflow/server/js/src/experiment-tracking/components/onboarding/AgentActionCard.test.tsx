@@ -6,13 +6,15 @@ import userEvent from '@testing-library/user-event';
 import { AgentActionCard } from './AgentActionCard';
 
 const mockOpenPanel = jest.fn();
-const mockQueueMessage = jest.fn();
+const mockSendMessage = jest.fn();
+let mockSetupComplete = true;
 
 jest.mock('../../../assistant', () => ({
   __esModule: true,
   useAssistant: () => ({
     openPanel: mockOpenPanel,
-    queueMessage: mockQueueMessage,
+    sendMessage: mockSendMessage,
+    setupComplete: mockSetupComplete,
     isPanelOpen: false,
     sessionId: null,
     messages: [],
@@ -20,11 +22,9 @@ jest.mock('../../../assistant', () => ({
     error: null,
     currentStatus: null,
     activeTools: [],
-    setupComplete: false,
     isLoadingConfig: false,
     isLocalServer: true,
     closePanel: jest.fn(),
-    sendMessage: jest.fn(),
     regenerateLastMessage: jest.fn(),
     reset: jest.fn(),
     cancelSession: jest.fn(),
@@ -51,7 +51,8 @@ const renderCard = (props: Partial<React.ComponentProps<typeof AgentActionCard>>
 
 beforeEach(() => {
   mockOpenPanel.mockClear();
-  mockQueueMessage.mockClear();
+  mockSendMessage.mockClear();
+  mockSetupComplete = true;
 });
 
 describe('AgentActionCard', () => {
@@ -86,16 +87,27 @@ describe('AgentActionCard', () => {
     expect(screen.getByRole('tab', { name: 'CLI' })).toBeInTheDocument();
   });
 
-  it('clicking "Open assistant" calls openPanel and queueMessage with the assistant prompt', async () => {
+  it('clicking "Open assistant" with setup complete calls openPanel and sendMessage with the assistant prompt', async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     renderCard();
 
-    // Switch to the assistant tab so the button is in the DOM.
     await user.click(screen.getByRole('tab', { name: /MLflow assistant/ }));
     await user.click(screen.getByRole('button', { name: /Open assistant/ }));
 
     expect(mockOpenPanel).toHaveBeenCalledTimes(1);
-    expect(mockQueueMessage).toHaveBeenCalledTimes(1);
-    expect(mockQueueMessage).toHaveBeenCalledWith('ASSISTANT_PROMPT_BODY');
+    expect(mockSendMessage).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).toHaveBeenCalledWith('ASSISTANT_PROMPT_BODY');
+  });
+
+  it('clicking "Open assistant" with setup NOT complete opens the panel but drops the prompt (known follow-up)', async () => {
+    mockSetupComplete = false;
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    renderCard();
+
+    await user.click(screen.getByRole('tab', { name: /MLflow assistant/ }));
+    await user.click(screen.getByRole('button', { name: /Open assistant/ }));
+
+    expect(mockOpenPanel).toHaveBeenCalledTimes(1);
+    expect(mockSendMessage).not.toHaveBeenCalled();
   });
 });

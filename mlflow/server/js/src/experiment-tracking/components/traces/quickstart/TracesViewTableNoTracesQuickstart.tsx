@@ -124,7 +124,6 @@ export const TracesViewTableNoTracesQuickstart = ({
         </div>
       )}
 
-      {/* Agent CTA */}
       <AgentActionCard
         componentId="mlflow.traces.onboarding.instrument_with_agent"
         showAgentSetupTab

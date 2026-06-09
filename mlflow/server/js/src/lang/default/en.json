@@ -587,10 +587,6 @@
     "defaultMessage": "Alerts",
     "description": "Tab label for budget alerts"
   },
-  "0vWAJY": {
-    "defaultMessage": "Open assistant",
-    "description": "Button label for opening the MLflow assistant from the eval-runs empty state"
-  },
   "0wxgDJ": {
     "defaultMessage": "Add tags",
     "description": "Add new prompt version tags button"
@@ -1719,10 +1715,6 @@
     "defaultMessage": "A unique name to identify this API key for reuse across endpoints",
     "description": "Hint text explaining API key name field"
   },
-  "7BkVQ9": {
-    "defaultMessage": "Run the following code to start an evaluation.",
-    "description": "Instructions for running the evaluation code in OSS"
-  },
   "7Dhfxy": {
     "defaultMessage": "Fail",
     "description": "The label for a failing asseessment above a bar-chart in the summary stats."
@@ -2370,10 +2362,6 @@
   "AFI74W": {
     "defaultMessage": "Group by: {value}",
     "description": "Experiment page > group by runs control > trigger button label > with value"
-  },
-  "AFpDrN": {
-    "defaultMessage": "MLflow assistant",
-    "description": "Tab label for the in-UI MLflow assistant path in the eval-runs empty state"
   },
   "AFrm2A": {
     "defaultMessage": "Created {date}",
@@ -4843,6 +4831,10 @@
     "defaultMessage": "For local development, MLflow uses a default passphrase. For production deployments, server administrators must set a secure encryption passphrase on the tracking server before starting it:",
     "description": "AI Gateway setup guide > Step 3 description"
   },
+  "O+djDa": {
+    "defaultMessage": "Copy this snippet into your project, set your API key, and run it.",
+    "description": "Description above the runnable code snippet in the agent action card"
+  },
   "O+hq1Q": {
     "defaultMessage": "Create Workspace",
     "description": "Title for create workspace modal"
@@ -4914,10 +4906,6 @@
   "ONIiUE": {
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
-  },
-  "ONnuab": {
-    "defaultMessage": "View code snippet",
-    "description": "Label for a button that opens a modal containing a runnable evaluation code snippet"
   },
   "OQOckC": {
     "defaultMessage": "Review queues let your team evaluate trace quality with structured questions. Add traces to a queue from the Traces tab, or create a new queue to get started.",
@@ -5026,10 +5014,6 @@
   "OxQK9l": {
     "defaultMessage": "Key name is required",
     "description": "Error message when key name is empty"
-  },
-  "OxqeMn": {
-    "defaultMessage": "Copy this prompt into Claude Code, Codex, Cursor, or any coding agent already running in your project.",
-    "description": "Description above the agent prompt in the eval-runs empty state"
   },
   "OzFBcd": {
     "defaultMessage": "Choose which questions reviewers answer for traces in this queue.",
@@ -6103,10 +6087,6 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button in unified trace tag assignment modal"
   },
-  "UfbGGt": {
-    "defaultMessage": "Opens the MLflow assistant in this browser and starts the conversation.",
-    "description": "Description above the open-assistant button in the eval-runs empty state"
-  },
   "UgF7ax": {
     "defaultMessage": "Status",
     "description": "Label for the status of a logged model on the logged model details page"
@@ -6622,10 +6602,6 @@
   "X6P8tX": {
     "defaultMessage": "No models found",
     "description": "Empty state title displayed when all models are filtered out in the logged models list page"
-  },
-  "X7EIlJ": {
-    "defaultMessage": "Your coding agent",
-    "description": "Tab label for the copy-prompt-to-local-agent path in the eval-runs empty state"
   },
   "X7HKpv": {
     "defaultMessage": "Custom LLM-as-a-judge ({llmCount})",
@@ -7182,10 +7158,6 @@
   "a02Pn6": {
     "defaultMessage": "Step",
     "description": "Run page > Charts tab > Chart tooltip > Step label"
-  },
-  "a0Bl/3": {
-    "defaultMessage": "Copy this snippet into your project, set your API key, and run it.",
-    "description": "Description above the Python evaluation snippet in the eval-runs empty state"
   },
   "a0NgR8": {
     "defaultMessage": "Type",
@@ -10586,10 +10558,6 @@
   "qan3yq": {
     "defaultMessage": "Add tag",
     "description": "Aria label for the add-tag button in the V2 dataset records table"
-  },
-  "qanCf5": {
-    "defaultMessage": "Evaluation code snippet",
-    "description": "Title for the evaluation code snippet modal dialog"
   },
   "qbtNJS": {
     "defaultMessage": "Block",

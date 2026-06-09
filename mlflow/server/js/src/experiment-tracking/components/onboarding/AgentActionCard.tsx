@@ -4,32 +4,53 @@ import { FormattedMessage } from 'react-intl';
 
 import { AssistantSparkleIcon, useAssistant } from '../../../assistant';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
+import { CodeSnippet, type CodeSnippetLanguage } from '@mlflow/mlflow/src/shared/web-shared/snippet';
 
 const AGENT_SETUP_COMMAND = 'mlflow agent setup';
 
-type TabKey = 'agent-setup' | 'assistant' | 'coding-agent';
+type TabKey = 'agent-setup' | 'coding-agent' | 'code-snippet' | 'assistant';
+
+export type AgentActionCardCodeSnippet = {
+  content: string;
+  language: CodeSnippetLanguage;
+  label: ReactNode;
+};
 
 export const AgentActionCard = ({
   title,
+  header,
   codingAgentPrompt,
   assistantPrompt,
   componentId,
   showAgentSetupTab = false,
+  codeSnippet,
 }: {
-  title: ReactNode;
+  /** Card title — rendered as Typography.Title level 4 above the tabs. Ignored if `header` is set. */
+  title?: ReactNode;
+  /** Replaces the title slot with custom content (e.g. a primary CTA + divider). */
+  header?: ReactNode;
   codingAgentPrompt: string;
   assistantPrompt: string;
   componentId: string;
   showAgentSetupTab?: boolean;
+  /** When provided, renders an additional tab with a syntax-highlighted code block between
+   *  coding-agent and assistant. */
+  codeSnippet?: AgentActionCardCodeSnippet;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { openPanel, queueMessage } = useAssistant();
+  const { openPanel, sendMessage, setupComplete } = useAssistant();
   const defaultTab: TabKey = showAgentSetupTab ? 'agent-setup' : 'coding-agent';
   const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
 
   const handleAssistantClick = () => {
     openPanel();
-    queueMessage(assistantPrompt);
+    // TODO(ML-66316 follow-up): if setup isn't complete, the prompt is silently dropped.
+    // Once the setup wizard finishes the user has to retype it. Plumb a queueMessage()
+    // through AssistantContext to defer the send until setupComplete flips true, and
+    // fix the stale-sessionId closure inside startChat at the same time.
+    if (setupComplete) {
+      sendMessage(assistantPrompt);
+    }
   };
 
   return (
@@ -46,9 +67,12 @@ export const AgentActionCard = ({
         backgroundColor: theme.colors.backgroundSecondary,
       }}
     >
-      <Typography.Title level={4} css={{ margin: 0 }}>
-        {title}
-      </Typography.Title>
+      {header ??
+        (title ? (
+          <Typography.Title level={4} css={{ margin: 0 }}>
+            {title}
+          </Typography.Title>
+        ) : null)}
 
       <Tabs.Root
         componentId={`${componentId}.tabs`}
@@ -80,6 +104,7 @@ export const AgentActionCard = ({
               description="Tab label for the copy-prompt-to-local-agent path in the agent action card"
             />
           </Tabs.Trigger>
+          {codeSnippet && <Tabs.Trigger value="code-snippet">{codeSnippet.label}</Tabs.Trigger>}
           <Tabs.Trigger value="assistant">
             <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
               <AssistantSparkleIcon isHovered={false} iconSize={14} />
@@ -136,7 +161,7 @@ export const AgentActionCard = ({
               borderRadius: theme.borders.borderRadiusMd,
               overflow: 'hidden',
               border: `1px solid ${theme.colors.border}`,
-              backgroundColor: theme.isDarkMode ? '#1f2937' : '#eef2f6',
+              backgroundColor: theme.colors.backgroundPrimary,
             }}
           >
             <CopyButton
@@ -154,7 +179,7 @@ export const AgentActionCard = ({
                 fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
                 fontSize: 12,
                 lineHeight: 1.55,
-                color: theme.isDarkMode ? '#d4d8de' : '#2b3441',
+                color: theme.colors.textPrimary,
                 maxHeight: 160,
                 overflow: 'auto',
                 whiteSpace: 'pre-wrap',
@@ -165,6 +190,48 @@ export const AgentActionCard = ({
             </pre>
           </div>
         </Tabs.Content>
+
+        {codeSnippet && (
+          <Tabs.Content value="code-snippet" css={{ paddingTop: 0 }}>
+            <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>
+              <FormattedMessage
+                defaultMessage="Copy this snippet into your project, set your API key, and run it."
+                description="Description above the runnable code snippet in the agent action card"
+              />
+            </Typography.Text>
+            <div
+              css={{
+                position: 'relative',
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: theme.borders.borderRadiusSm,
+                backgroundColor: theme.colors.backgroundPrimary,
+                maxHeight: 160,
+                overflow: 'auto',
+              }}
+            >
+              <CopyButton
+                componentId={`${componentId}.copy_snippet`}
+                css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
+                showLabel={false}
+                copyText={codeSnippet.content}
+                icon={<CopyIcon />}
+              />
+              <CodeSnippet
+                theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
+                language={codeSnippet.language}
+                style={{
+                  backgroundColor: theme.colors.backgroundPrimary,
+                  padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+                  paddingRight: theme.spacing.lg * 1.5,
+                  fontSize: 12,
+                  lineHeight: 1.55,
+                }}
+              >
+                {codeSnippet.content}
+              </CodeSnippet>
+            </div>
+          </Tabs.Content>
+        )}
 
         <Tabs.Content value="assistant" css={{ paddingTop: 0 }}>
           <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>

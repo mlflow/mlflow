@@ -1,6 +1,8 @@
-export const buildInstrumentPrompt = (
-  experimentName: string,
-): string => `Add MLflow tracing to my LLM application. Target experiment: ${experimentName}.
+import { sanitizeForPrompt } from '../../onboarding/sanitizeForPrompt';
+
+export const buildInstrumentPrompt = (experimentName: string): string => {
+  const safeName = sanitizeForPrompt(experimentName);
+  return `Add MLflow tracing to my LLM application. Target experiment: ${safeName}.
 
 Steps:
 1. Add \`mlflow\` as a dependency.
@@ -12,11 +14,15 @@ Steps:
 Read the repo to infer the package manager, entry point, and LLM framework. Don't ask if you can figure it out.
 
 If you get stuck — missing API key, blocked permissions, missing deps — stop and tell the user in plain language what you need and how to fix it. Don't run the app expecting it to fail.`;
+};
 
-export const buildInstrumentAssistantPrompt = (
-  experimentName: string,
-): string => `Help me add MLflow tracing to my app. Target experiment: ${experimentName}.
+export const buildInstrumentAssistantPrompt = (experimentName: string): string => {
+  const safeName = sanitizeForPrompt(experimentName);
+  return `Help me add MLflow tracing to my app. Target experiment: ${safeName}.
 
-Ask me what language and framework I'm using (Python? LangChain, OpenAI SDK, Anthropic, LlamaIndex, etc.), and whether MLflow is running locally, hosted on a server, or on Databricks. Walk me through the minimal setup: adding \`mlflow\` as a dependency, wiring the tracking URI for my deployment, and the right \`autolog()\` or instrumentation call. If you need an API key or anything specific to my setup, ask.
+Ask me what language and framework I'm using (Python? LangChain, OpenAI SDK, Anthropic, LlamaIndex, etc.), and whether MLflow is running locally, hosted on a server, or on Databricks. 
+
+Walk me through the minimal setup: adding \`mlflow\` as a dependency, wiring the tracking URI for my deployment, and the right \`autolog()\` or instrumentation call.
 
 Use your built-in MLflow docs knowledge — don't guess at APIs.`;
+};

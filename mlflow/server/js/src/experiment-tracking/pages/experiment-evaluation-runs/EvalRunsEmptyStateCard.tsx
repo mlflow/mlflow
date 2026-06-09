@@ -1,142 +1,46 @@
-import { useState } from 'react';
-import { Button, CopyIcon, Tabs, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useDesignSystemTheme } from '@databricks/design-system';
+import { AggregationType, MetricViewType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage } from 'react-intl';
 
-import { AssistantSparkleIcon, useAssistant } from '@mlflow/mlflow/src/assistant';
-import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
-import { CodeSnippet } from '@mlflow/mlflow/src/shared/web-shared/snippet';
+import { AgentActionCard, type AgentActionCardCodeSnippet } from '../../components/onboarding/AgentActionCard';
+import { useTraceMetricsQuery } from '../experiment-overview/hooks/useTraceMetricsQuery';
 
 import { buildEvaluateAssistantPrompt, buildEvaluatePrompt } from './evalRunsAgentPrompt';
-import { getTraceCodeSnippet } from './EvaluationCodeSnippetButton';
+import { getDatasetCodeSnippet, getTraceCodeSnippet } from './evaluationCodeSnippets';
 import { RunEvaluationButton } from './RunEvaluationButton';
 
-type TabKey = 'coding-agent' | 'python' | 'assistant';
-
-const BACKGROUND_LIGHT = '#eef2f6';
-const BACKGROUND_DARK = '#1f2937';
-const TEXT_LIGHT = '#2b3441';
-const TEXT_DARK = '#d4d8de';
-
-const CopyableBlock = ({
-  content,
-  componentId,
-  maxHeight = 480,
-}: {
-  content: string;
-  componentId: string;
-  maxHeight?: number;
-}) => {
-  const { theme } = useDesignSystemTheme();
-  return (
-    <div
-      css={{
-        position: 'relative',
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: theme.borders.borderRadiusSm,
-        backgroundColor: theme.isDarkMode ? BACKGROUND_DARK : BACKGROUND_LIGHT,
-      }}
-    >
-      <CopyButton
-        componentId={componentId}
-        css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
-        showLabel={false}
-        copyText={content}
-        icon={<CopyIcon />}
-      />
-      <pre
-        css={{
-          margin: 0,
-          padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-          paddingRight: theme.spacing.lg * 1.5,
-          fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
-          fontSize: 12,
-          lineHeight: 1.55,
-          color: theme.isDarkMode ? TEXT_DARK : TEXT_LIGHT,
-          maxHeight,
-          overflow: 'auto',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-        }}
-      >
-        {content}
-      </pre>
-    </div>
-  );
-};
-
-const PythonCodeBlock = ({
-  content,
-  componentId,
-  maxHeight = 480,
-}: {
-  content: string;
-  componentId: string;
-  maxHeight?: number;
-}) => {
-  const { theme } = useDesignSystemTheme();
-  const backgroundColor = theme.isDarkMode ? BACKGROUND_DARK : BACKGROUND_LIGHT;
-  return (
-    <div
-      css={{
-        position: 'relative',
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: theme.borders.borderRadiusSm,
-        backgroundColor,
-        maxHeight,
-        overflow: 'auto',
-      }}
-    >
-      <CopyButton
-        componentId={componentId}
-        css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
-        showLabel={false}
-        copyText={content}
-        icon={<CopyIcon />}
-      />
-      <CodeSnippet
-        theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
-        language="python"
-        style={{
-          backgroundColor,
-          padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-          paddingRight: theme.spacing.lg * 1.5,
-          fontSize: 12,
-          lineHeight: 1.55,
-        }}
-      >
-        {content}
-      </CodeSnippet>
-    </div>
-  );
-};
+const PYTHON_TAB_LABEL = (
+  <FormattedMessage
+    defaultMessage="Python"
+    description="Tab label for the runnable Python code-snippet path in the eval-runs empty state"
+  />
+);
 
 export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
-  const { openPanel, queueMessage } = useAssistant();
-  const [activeTab, setActiveTab] = useState<TabKey>('coding-agent');
-  const codingAgentPrompt = buildEvaluatePrompt(experimentId);
-  const assistantPrompt = buildEvaluateAssistantPrompt(experimentId);
 
-  const handleAssistantClick = () => {
-    openPanel();
-    queueMessage(assistantPrompt);
-  };
+  // Pick between the trace-based and dataset-based snippet based on whether this experiment
+  // has any traces yet. Until the query resolves we don't render the Python tab to avoid
+  // briefly showing the wrong variant.
+  const { data: traceMetrics, isSuccess: isTraceMetricsLoaded } = useTraceMetricsQuery({
+    experimentIds: [experimentId],
+    viewType: MetricViewType.TRACES,
+    metricName: TraceMetricKey.TRACE_COUNT,
+    aggregations: [{ aggregation_type: AggregationType.COUNT }],
+  });
+  const traceCount = Number(traceMetrics?.data_points?.[0]?.values?.[AggregationType.COUNT] ?? 0);
+  const hasTraces = traceCount > 0;
 
-  return (
-    <div
-      css={{
-        width: '100%',
-        maxWidth: 720,
-        margin: '0 auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: theme.spacing.md,
-        padding: theme.spacing.lg,
-        borderRadius: theme.borders.borderRadiusMd,
-        border: `1px solid ${theme.colors.border}`,
-        backgroundColor: theme.colors.backgroundSecondary,
-      }}
-    >
+  const codeSnippet: AgentActionCardCodeSnippet | undefined = isTraceMetricsLoaded
+    ? {
+        content: hasTraces ? getTraceCodeSnippet(experimentId) : getDatasetCodeSnippet(experimentId),
+        language: 'python',
+        label: PYTHON_TAB_LABEL,
+      }
+    : undefined;
+
+  const header = (
+    <>
       <div css={{ display: 'flex', justifyContent: 'center' }}>
         <RunEvaluationButton
           experimentId={experimentId}
@@ -149,7 +53,6 @@ export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string 
           }
         />
       </div>
-
       <div
         css={{
           display: 'flex',
@@ -166,87 +69,18 @@ export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string 
         />
         <div css={{ flex: 1, height: 1, backgroundColor: theme.colors.border }} />
       </div>
+    </>
+  );
 
-      <Tabs.Root
-        componentId="mlflow.eval-runs.empty-state.unified.tabs"
-        valueHasNoPii
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as TabKey)}
-      >
-        <Tabs.List
-          shadowScrollStylesBackgroundColor={theme.colors.backgroundSecondary}
-          css={{ width: '100%', borderBottom: `1px solid ${theme.colors.border}` }}
-        >
-          <Tabs.Trigger value="coding-agent">
-            <FormattedMessage
-              defaultMessage="Your coding agent"
-              description="Tab label for the copy-prompt-to-local-agent path in the eval-runs empty state"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="python">
-            <FormattedMessage
-              defaultMessage="Python"
-              description="Tab label for the runnable Python code-snippet path in the eval-runs empty state"
-            />
-          </Tabs.Trigger>
-          <Tabs.Trigger value="assistant">
-            <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
-              <AssistantSparkleIcon isHovered={false} iconSize={14} />
-              <FormattedMessage
-                defaultMessage="MLflow assistant"
-                description="Tab label for the in-UI MLflow assistant path in the eval-runs empty state"
-              />
-            </span>
-          </Tabs.Trigger>
-        </Tabs.List>
-
-        <Tabs.Content value="coding-agent" css={{ paddingTop: 0 }}>
-          <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>
-            <FormattedMessage
-              defaultMessage="Copy this prompt into Claude Code, Codex, Cursor, or any coding agent already running in your project."
-              description="Description above the agent prompt in the eval-runs empty state"
-            />
-          </Typography.Text>
-          <CopyableBlock
-            content={codingAgentPrompt}
-            componentId="mlflow.eval-runs.empty-state.unified.copy_prompt"
-            maxHeight={160}
-          />
-        </Tabs.Content>
-
-        <Tabs.Content value="python" css={{ paddingTop: 0 }}>
-          <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>
-            <FormattedMessage
-              defaultMessage="Copy this snippet into your project, set your API key, and run it."
-              description="Description above the Python evaluation snippet in the eval-runs empty state"
-            />
-          </Typography.Text>
-          <PythonCodeBlock
-            content={getTraceCodeSnippet(experimentId)}
-            componentId="mlflow.eval-runs.empty-state.unified.copy_snippet"
-            maxHeight={160}
-          />
-        </Tabs.Content>
-
-        <Tabs.Content value="assistant" css={{ paddingTop: 0 }}>
-          <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>
-            <FormattedMessage
-              defaultMessage="Opens the MLflow assistant in this browser and starts the conversation."
-              description="Description above the open-assistant button in the eval-runs empty state"
-            />
-          </Typography.Text>
-          <Button
-            componentId="mlflow.eval-runs.empty-state.unified.ask_assistant"
-            type="primary"
-            onClick={handleAssistantClick}
-          >
-            <FormattedMessage
-              defaultMessage="Open assistant"
-              description="Button label for opening the MLflow assistant from the eval-runs empty state"
-            />
-          </Button>
-        </Tabs.Content>
-      </Tabs.Root>
+  return (
+    <div css={{ width: '100%', maxWidth: 720, margin: '0 auto' }}>
+      <AgentActionCard
+        header={header}
+        codingAgentPrompt={buildEvaluatePrompt(experimentId)}
+        assistantPrompt={buildEvaluateAssistantPrompt(experimentId)}
+        componentId="mlflow.eval-runs.empty-state.unified"
+        codeSnippet={codeSnippet}
+      />
     </div>
   );
 };

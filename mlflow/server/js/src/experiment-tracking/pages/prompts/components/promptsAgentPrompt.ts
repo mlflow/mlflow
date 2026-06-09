@@ -5,8 +5,8 @@ One step at a time — don't dump everything at once:
 2. Ask if it should be global or attached to an experiment.
 3. Suggest a kebab-case name and confirm.
 4. Draft a \`{{variable}}\` template and let me iterate before saving.
-5. Register it via MLflow's Prompt Registry API. Report the name, version, and UI URL.
-6. Help me test it — either swap \`mlflow.genai.load_prompt(name, version)\` into my existing app, or give me a copy-runnable Python snippet (default to OpenAI; check I have the API key first).
+5. Register the prompt. Report the name, version, and UI URL.
+6. Help me test it — either swap \`mlflow.genai.load_prompt(name, version)\` into my existing app, or give me a copy-runnable Python snippet.
 
 Read the repo to infer the package manager, entry point, and LLM framework. Don't ask if you can figure it out. For MLflow API/usage questions, use the \`searching-mlflow-docs\` skill rather than guessing.
 
@@ -22,7 +22,7 @@ One step at a time — don't dump everything at once:
 2. Ask if it should be global or attached to an experiment.
 3. Suggest a kebab-case name and confirm with me.
 4. Draft a \`{{variable}}\` template and let me iterate before saving.
-5. Register it via the Prompt Registry API and report the prompt name, version, and a URL.
-6. Give me a copy-runnable Python snippet to load the prompt and run it against an LLM (default to OpenAI; ask me to confirm I have the API key).
+5. Register the prompt, either via code for remote servers or via API for local servers, and report the prompt name, version, and a URL.
+6. Give me a copy-runnable Python snippet to load the prompt and run it against an LLM.
 
 Use your built-in MLflow docs knowledge — don't guess at APIs.`;
