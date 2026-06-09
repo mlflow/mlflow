@@ -83,13 +83,16 @@ def build_prompt(
             tracking_uri=tracking_uri,
             port=str(local_server_port),
         )
-    elif tracking_uri == "databricks":
+    elif tracking_uri == "databricks" or tracking_uri.startswith("databricks://"):
         if not experiment_id:
             raise ValueError("experiment_id is required when tracking_uri is 'databricks'.")
+        profile = tracking_uri.removeprefix("databricks://") if "://" in tracking_uri else ""
+        workspace_client_args = f'profile="{profile}"' if profile else ""
         server_setup = _render(
             _read_template("databricks.md"),
             tracking_uri=tracking_uri,
             experiment_id=experiment_id,
+            workspace_client_args=workspace_client_args,
         )
     else:
         server_setup = ""

@@ -98,36 +98,35 @@ def _run_setup(
     else:
         click.secho("Skipping skill installation.", fg="yellow", err=True)
 
-    backend_options = [
-        "Start a new local server",
-        "Databricks workspace",
-        "Existing server URL (e.g. http://localhost:5000)",
-    ]
-    click.secho("Tracking backend:", bold=True, err=True)
-    for i, label in enumerate(backend_options, 1):
-        click.echo(f"  {click.style(str(i), fg='cyan')}. {label}", err=True)
-    backend_choice = click.prompt(
-        click.style("Select backend", fg="cyan", bold=True),
-        type=click.IntRange(1, len(backend_options)),
-        default=1,
-        err=True,
+    backend_choice = arrow_select(
+        "Tracking backend:",
+        [
+            "Start a new local server",
+            "Databricks workspace",
+            "Existing server URL (e.g. http://localhost:5000)",
+        ],
     )
     experiment_id: str | None = None
     local_server_port: int | None = None
     match backend_choice:
-        case 1:
+        case 0:
             local_server_port = _find_available_port()
             tracking_uri = f"http://127.0.0.1:{local_server_port}"
             click.secho(f"Picked local tracking URI: {tracking_uri}", fg="green", err=True)
-        case 2:
-            tracking_uri = "databricks"
-            experiment_id = click.prompt(
+        case 1:
+            profile = click.prompt(
                 click.style(
-                    "Workspace experiment ID (find it in the experiment's URL or "
-                    "metadata panel in the workspace UI)",
+                    "Databricks configuration profile, or empty for default",
                     fg="cyan",
                     bold=True,
                 ),
+                default="",
+                show_default=False,
+                err=True,
+            ).strip()
+            tracking_uri = f"databricks://{profile}" if profile else "databricks"
+            experiment_id = click.prompt(
+                click.style("Workspace experiment ID", fg="cyan", bold=True),
                 err=True,
             ).strip()
         case _:

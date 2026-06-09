@@ -10,7 +10,7 @@ var: just confirm the SDK can authenticate.
 ```python
 from databricks.sdk import WorkspaceClient
 
-WorkspaceClient().current_user.me()
+WorkspaceClient({{workspace_client_args}}).current_user.me()
 ```
 
 If that call raises, stop and ask the user to configure auth (for example via `databricks auth login`, a `~/.databrickscfg` profile, or by exporting `DATABRICKS_HOST` and `DATABRICKS_TOKEN`). Never write secrets into files in the repo.

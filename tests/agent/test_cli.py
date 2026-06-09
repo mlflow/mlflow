@@ -215,7 +215,7 @@ def test_setup_databricks_prompts_for_experiment_id(tmp_git_repo: Path):
         result = CliRunner().invoke(
             setup,
             ["--agent", "claude", "--print"],
-            input="1\n2\n1234567890\n",
+            input="1\n2\n\n1234567890\n",
         )
     assert result.exit_code == 0, result.stderr
     assert "Workspace experiment ID" in result.stderr
@@ -225,3 +225,15 @@ def test_setup_databricks_prompts_for_experiment_id(tmp_git_repo: Path):
     assert 'mlflow.set_experiment(experiment_id="1234567890")' in result.stdout
     assert "Start a local MLflow tracking server" not in result.stdout
     mock_which.assert_called()
+
+
+def test_setup_databricks_threads_profile_into_tracking_uri(tmp_git_repo: Path):
+    with mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"):
+        result = CliRunner().invoke(
+            setup,
+            ["--agent", "claude", "--print"],
+            input="1\n2\nmy-profile\n1234567890\n",
+        )
+    assert result.exit_code == 0, result.stderr
+    assert "MLFLOW_TRACKING_URI=databricks://my-profile" in result.stdout
+    assert 'WorkspaceClient(profile="my-profile").current_user.me()' in result.stdout
