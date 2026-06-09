@@ -25,6 +25,12 @@ export interface ReviewQueue {
   users?: string[];
   /** Attached label-schema ids; empty for a USER queue (resolves to all). */
   schema_ids?: string[];
+  /**
+   * The experiment's single default queue: a CUSTOM queue that inherits all of
+   * the experiment's questions (like a USER queue), whose questions cannot be
+   * edited and which cannot be deleted (members stay editable).
+   */
+  is_default?: boolean;
 }
 
 export interface ReviewQueueItem {

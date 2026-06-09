@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Empty, SearchIcon, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { ModelTraceExplorerResizablePane } from '@databricks/web-shared/model-trace-explorer';
@@ -9,12 +9,14 @@ import type { LabelSchema } from '../../components/label-schemas';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
+import { EditReviewQueueModal } from './EditReviewQueueModal';
 import { FocusedReview } from './FocusedReview';
 import { ManageQuestionsModal } from './ManageQuestionsModal';
 import { ReviewQueueList } from './ReviewQueueList';
 import { ReviewQueueSidebar } from './ReviewQueueSidebar';
 import { useCanManageReviews } from './hooks/useCanManageReviews';
 import { useDeleteReviewQueueMutation } from './hooks/useDeleteReviewQueueMutation';
+import { useGetOrCreateDefaultQueueMutation } from './hooks/useGetOrCreateDefaultQueueMutation';
 import { useListReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { useRemoveTracesFromReviewQueueMutation } from './hooks/useRemoveTracesFromReviewQueueMutation';
@@ -50,6 +52,8 @@ const ExperimentReviewQueuePage = () => {
   const [createOpen, setCreateOpen] = useState(false);
   // A question (label schema) being edited from the sidebar's questions list.
   const [editingQuestion, setEditingQuestion] = useState<LabelSchema | null>(null);
+  // A queue being edited (members / delete) from the sidebar gear.
+  const [editingQueueId, setEditingQueueId] = useState<string>();
   const [paneWidth, setPaneWidth] = useState(320);
 
   const { reviewQueues, isLoading: queuesLoading } = useListReviewQueuesQuery({
@@ -61,6 +65,23 @@ const ExperimentReviewQueuePage = () => {
   const { setReviewQueueTraceStatusAsync, isSettingStatus } = useSetReviewQueueTraceStatusMutation();
   const { removeTracesFromReviewQueue, isRemovingTraces } = useRemoveTracesFromReviewQueueMutation();
   const { deleteReviewQueue } = useDeleteReviewQueueMutation();
+  const { getOrCreateDefaultQueueAsync, isResolvingDefaultQueue } = useGetOrCreateDefaultQueueMutation();
+
+  // Ensure the experiment's default queue exists when the Review tab loads. It
+  // starts with no members but is listed for everyone, so once created it shows
+  // in the sidebar; the endpoint is idempotent, so a repeat call is a no-op.
+  useEffect(() => {
+    if (queuesLoading || isResolvingDefaultQueue || !experimentId) {
+      return;
+    }
+    if (!reviewQueues.some((q) => q.is_default)) {
+      getOrCreateDefaultQueueAsync({ experiment_id: experimentId, created_by: reviewer }).catch(() => {
+        // Non-fatal: the tab still works without it; the next load retries.
+      });
+    }
+    // Relies on the backend listing is_default queues for everyone, so once
+    // created the default appears in this list and the guard above stops firing.
+  }, [queuesLoading, isResolvingDefaultQueue, experimentId, reviewer, reviewQueues, getOrCreateDefaultQueueAsync]);
 
   // No queue is selected until the reviewer picks one (the right panel prompts
   // them to). Auto-selecting the first queue would land on a no-work queue and
@@ -69,6 +90,10 @@ const ExperimentReviewQueuePage = () => {
   const selectedQueue = useMemo(
     () => reviewQueues.find((q) => q.queue_id === selectedQueueId) ?? null,
     [reviewQueues, selectedQueueId],
+  );
+  const editingQueue = useMemo(
+    () => (editingQueueId ? (reviewQueues.find((q) => q.queue_id === editingQueueId) ?? null) : null),
+    [reviewQueues, editingQueueId],
   );
   // Whether the reviewer may manage the selected queue (remove traces) — a
   // CUSTOM queue they created, or any on a no-auth server.
@@ -95,13 +120,13 @@ const ExperimentReviewQueuePage = () => {
     enabled: Boolean(selectedQueueId),
   });
 
-  // A user queue inherits all of the experiment's schemas; a custom queue uses
-  // its explicit subset.
+  // A user queue (and the default queue) inherits all of the experiment's
+  // schemas; any other custom queue uses its explicit subset.
   const questionSchemas = useMemo(() => {
     if (!selectedQueue) {
       return [];
     }
-    if (selectedQueue.queue_type === 'USER') {
+    if (selectedQueue.queue_type === 'USER' || selectedQueue.is_default) {
       return labelSchemas;
     }
     const ids = new Set(selectedQueue.schema_ids ?? []);
@@ -225,6 +250,7 @@ const ExperimentReviewQueuePage = () => {
                   setOpenTargetId(null);
                 }}
                 onDeleteQueue={handleDeleteQueue}
+                onEditQueue={setEditingQueueId}
                 onEditQuestion={canManage ? setEditingQuestion : undefined}
                 onNewQueue={() => setCreateOpen(true)}
                 onManageQuestions={() => setManageOpen(true)}
@@ -256,6 +282,19 @@ const ExperimentReviewQueuePage = () => {
 
       {createOpen && experimentId && (
         <CreateReviewQueueModal experimentId={experimentId} onClose={() => setCreateOpen(false)} />
+      )}
+
+      {editingQueue && (
+        <EditReviewQueueModal
+          queue={editingQueue}
+          onClose={() => setEditingQueueId(undefined)}
+          onDeleted={() => {
+            if (selectedQueueId === editingQueue.queue_id) {
+              setSelectedQueueIdState(undefined);
+              setOpenTargetId(null);
+            }
+          }}
+        />
       )}
 
       {editingQuestion && experimentId && (

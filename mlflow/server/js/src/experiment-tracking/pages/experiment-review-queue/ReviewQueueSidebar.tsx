@@ -18,7 +18,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import type { LabelSchema } from '../../components/label-schemas';
 import { displayUser } from './hooks/useReviewer';
 import { buildReviewQueueTracesQuery } from './hooks/useListReviewQueueTracesQuery';
-import { canManageQueue, sameUser } from './queuePermissions';
+import { canDeleteQueue, canManageQueue, sameUser } from './queuePermissions';
 import type { ReviewQueueItem, ReviewQueue } from './types';
 
 const CID = 'mlflow.experiment-review-queue.sidebar';
@@ -33,22 +33,34 @@ const QUESTION_TAG_COL_WIDTH = 96;
 const QueueRow = ({
   queue,
   selected,
+  canEdit,
   canDelete,
   pending,
   onSelect,
+  onEdit,
   onDelete,
 }: {
   queue: ReviewQueue;
   selected: boolean;
+  /** Show the gear (edit members / delete via the modal); auth servers only. */
+  canEdit: boolean;
   canDelete: boolean;
   /** Count of still-to-review traces; `undefined` while the count loads. */
   pending: number | undefined;
   onSelect: () => void;
+  onEdit: () => void;
   onDelete: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const label = queue.queue_type === 'USER' ? displayUser(queue.name, intl) : queue.name;
+  const label = queue.is_default
+    ? intl.formatMessage({
+        defaultMessage: 'Default queue',
+        description: 'Review queue sidebar: label for the experiment default queue',
+      })
+    : queue.queue_type === 'USER'
+      ? displayUser(queue.name, intl)
+      : queue.name;
 
   return (
     <div
@@ -85,7 +97,20 @@ const QueueRow = ({
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
-        {canDelete && (
+        {/* Auth: gear opens the edit-members modal (which owns delete). No-auth:
+            there are no members to assign, so fall back to the delete popover. */}
+        {canEdit ? (
+          <Button
+            componentId={`${CID}.edit-trigger`}
+            size="small"
+            icon={<GearIcon />}
+            onClick={onEdit}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Edit queue',
+              description: 'Review queue sidebar: edit-queue gear button aria label',
+            })}
+          />
+        ) : canDelete ? (
           <Popover.Root componentId={`${CID}.delete-popover`}>
             <Popover.Trigger asChild>
               <Button
@@ -108,7 +133,7 @@ const QueueRow = ({
               </Button>
             </Popover.Content>
           </Popover.Root>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -190,6 +215,7 @@ export const ReviewQueueSidebar = ({
   onSelect,
   onDeselectQueue,
   onDeleteQueue,
+  onEditQueue,
   onEditQuestion,
   onNewQueue,
   onManageQuestions,
@@ -204,6 +230,8 @@ export const ReviewQueueSidebar = ({
   onSelect: (queueId: string) => void;
   onDeselectQueue: () => void;
   onDeleteQueue: (queueId: string) => void;
+  /** Open the edit-members modal for a queue (sidebar gear). */
+  onEditQueue: (queueId: string) => void;
   /** When provided, a question row is clickable to open its edit modal. */
   onEditQuestion?: (schema: LabelSchema) => void;
   onNewQueue: () => void;
@@ -228,10 +256,14 @@ export const ReviewQueueSidebar = ({
     }
   });
 
+  // The default queue is pinned at the top (always visible) and kept out of the
+  // grouped lists below.
+  const defaultQueue = queues.find((q) => q.is_default);
+  const grouped = queues.filter((q) => !q.is_default);
   // No-work == loaded with zero pending. Loading queues stay in the active list.
   const isNoWork = (q: ReviewQueue) => pendingByQueueId.get(q.queue_id) === 0;
-  const active = queues.filter((q) => !isNoWork(q));
-  const noWork = queues.filter(isNoWork);
+  const active = grouped.filter((q) => !isNoWork(q));
+  const noWork = grouped.filter(isNoWork);
   // Keep the selected queue visible even if it has no work — selecting a no-work
   // queue force-expands the group.
   const selectedInNoWork = noWork.some((q) => q.queue_id === selectedQueueId);
@@ -254,9 +286,11 @@ export const ReviewQueueSidebar = ({
       key={queue.queue_id}
       queue={queue}
       selected={queue.queue_id === selectedQueueId}
-      canDelete={canManageQueue(queue, reviewer, authAvailable, canManage)}
+      canEdit={authAvailable && canManageQueue(queue, reviewer, authAvailable, canManage)}
+      canDelete={canDeleteQueue(queue, reviewer, authAvailable, canManage)}
       pending={pendingByQueueId.get(queue.queue_id)}
       onSelect={() => onSelect(queue.queue_id)}
+      onEdit={() => onEditQueue(queue.queue_id)}
       onDelete={() => onDeleteQueue(queue.queue_id)}
     />
   );
@@ -324,6 +358,9 @@ export const ReviewQueueSidebar = ({
           <div css={{ width: ACTION_COL_WIDTH, flexShrink: 0 }} />
         </div>
       )}
+
+      {/* The default queue is everyone's; pin it at the top, always visible. */}
+      {defaultQueue && renderRow(defaultQueue)}
 
       {authAvailable ? (
         <>
