@@ -17,6 +17,7 @@ import { PlaygroundTopBar } from './components/PlaygroundTopBar';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
 import type { PromptLoadPayload } from './components/PromptRegistryPicker';
+import { SavePromptVersionDrawer } from './components/SavePromptVersionDrawer';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
 import type { ConversationMessage, PlaygroundParams, ResponseFormat, ResponseFormatType, ToolChoice } from './types';
 import { getEmptyVariables, isToolsValueEmpty, substituteVariables } from './utils';
@@ -35,11 +36,16 @@ const PlaygroundPage = () => {
   const [responseFormatType, setResponseFormatType] = useState<ResponseFormatType>('text');
   const [responseFormatSchemaText, setResponseFormatSchemaText] = useState<string>('');
   const [showRegistryPicker, setShowRegistryPicker] = useState(false);
+  const [showSaveDrawer, setShowSaveDrawer] = useState(false);
+  // The registry prompt currently loaded into the playground, if any. Lets the
+  // save drawer default to appending a new version of that prompt.
+  const [loadedPrompt, setLoadedPrompt] = useState<{ name: string; version: string } | null>(null);
   const [loadedToast, setLoadedToast] = useState<{
     name: string;
     version: string;
     withSettings: boolean;
   } | null>(null);
+  const [savedToast, setSavedToast] = useState<{ name: string; version: string } | null>(null);
 
   const { mutate, error, isLoading, reset } = useChatCompletionMutation();
 
@@ -49,6 +55,12 @@ const PlaygroundPage = () => {
     return () => window.clearTimeout(t);
   }, [loadedToast]);
 
+  useEffect(() => {
+    if (!savedToast) return;
+    const t = window.setTimeout(() => setSavedToast(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [savedToast]);
+
   const handleRegistryLoad = (payload: PromptLoadPayload) => {
     setMessages(payload.messages.length > 0 ? payload.messages : [{ ...EMPTY_USER_MESSAGE }]);
     if (payload.settings !== null) {
@@ -57,11 +69,19 @@ const PlaygroundPage = () => {
       setResponseFormatSchemaText(payload.settings.responseFormatSchemaText);
     }
     setShowRegistryPicker(false);
+    setLoadedPrompt({ name: payload.promptName, version: payload.versionLabel });
     setLoadedToast({
       name: payload.promptName,
       version: payload.versionLabel,
       withSettings: payload.settings !== null,
     });
+  };
+
+  const handleSaved = ({ name, version }: { name: string; version: string }) => {
+    setShowSaveDrawer(false);
+    // Chain subsequent saves onto the freshly created version.
+    setLoadedPrompt({ name, version });
+    setSavedToast({ name, version });
   };
 
   const toolsError = useMemo(() => {
@@ -243,6 +263,8 @@ const PlaygroundPage = () => {
         variables={variables}
         onVariablesChange={setVariables}
         onOpenRegistry={() => setShowRegistryPicker(true)}
+        onOpenSave={() => setShowSaveDrawer(true)}
+        saveDisabled={conversationIsEmpty}
       />
       <Spacer size="sm" shrinks={false} />
       <div css={{ borderTop: `1px solid ${theme.colors.border}`, flexShrink: 0 }} role="separator" aria-hidden="true" />
@@ -368,6 +390,16 @@ const PlaygroundPage = () => {
         onCancel={() => setShowRegistryPicker(false)}
         onLoad={handleRegistryLoad}
       />
+      <SavePromptVersionDrawer
+        visible={showSaveDrawer}
+        onCancel={() => setShowSaveDrawer(false)}
+        messages={messages}
+        params={params}
+        responseFormatType={responseFormatType}
+        responseFormatSchemaText={responseFormatSchemaText}
+        loadedPromptName={loadedPrompt?.name}
+        onSaved={handleSaved}
+      />
       {loadedToast && (
         <Notification.Provider>
           <Notification.Root severity="success" componentId="mlflow.playground.prompt_registry_picker.loaded">
@@ -387,6 +419,21 @@ const PlaygroundPage = () => {
               )}
             </Notification.Title>
             <Notification.Close componentId="mlflow.playground.prompt_registry_picker.loaded.close" />
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
+      {savedToast && (
+        <Notification.Provider>
+          <Notification.Root severity="success" componentId="mlflow.playground.save_prompt_version.saved">
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Saved {name} v{version} to the registry"
+                description="Success toast shown on the playground after saving the current messages as a new prompt version"
+                values={{ name: savedToast.name, version: savedToast.version }}
+              />
+            </Notification.Title>
+            <Notification.Close componentId="mlflow.playground.save_prompt_version.saved.close" />
           </Notification.Root>
           <Notification.Viewport />
         </Notification.Provider>

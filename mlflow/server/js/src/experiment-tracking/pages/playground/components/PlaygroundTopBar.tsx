@@ -3,6 +3,7 @@ import { EndpointSelector } from '../../../components/EndpointSelector';
 import type { ChatMessage, PlaygroundParams, ResponseFormatType, ToolChoice } from '../types';
 import { ParametersButton } from './ParametersButton';
 import { RegistryButton } from './RegistryButton';
+import { SaveToRegistryButton } from './SaveToRegistryButton';
 import { VariablesButton } from './VariablesButton';
 
 interface Props {
@@ -24,6 +25,8 @@ interface Props {
   variables: Record<string, string>;
   onVariablesChange: (next: Record<string, string>) => void;
   onOpenRegistry: () => void;
+  onOpenSave: () => void;
+  saveDisabled?: boolean;
 }
 
 export const PlaygroundTopBar = ({
@@ -45,6 +48,8 @@ export const PlaygroundTopBar = ({
   variables,
   onVariablesChange,
   onOpenRegistry,
+  onOpenSave,
+  saveDisabled,
 }: Props) => {
   const { theme } = useDesignSystemTheme();
 
@@ -80,6 +85,7 @@ export const PlaygroundTopBar = ({
       />
       <VariablesButton messages={messages} value={variables} onChange={onVariablesChange} />
       <RegistryButton onOpen={onOpenRegistry} />
+      <SaveToRegistryButton onOpen={onOpenSave} disabled={saveDisabled} />
     </div>
   );
 };

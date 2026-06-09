@@ -28,6 +28,7 @@ import { PlaygroundTopBar } from './PlaygroundTopBar';
 const renderTopBar = () => {
   const onEndpointSelect = jest.fn();
   const onOpenRegistry = jest.fn();
+  const onOpenSave = jest.fn();
   const noop = jest.fn();
   render(
     <IntlProvider locale="en">
@@ -51,11 +52,12 @@ const renderTopBar = () => {
           variables={{}}
           onVariablesChange={noop}
           onOpenRegistry={onOpenRegistry}
+          onOpenSave={onOpenSave}
         />
       </DesignSystemProvider>
     </IntlProvider>,
   );
-  return { onEndpointSelect, onOpenRegistry };
+  return { onEndpointSelect, onOpenRegistry, onOpenSave };
 };
 
 describe('PlaygroundTopBar', () => {
