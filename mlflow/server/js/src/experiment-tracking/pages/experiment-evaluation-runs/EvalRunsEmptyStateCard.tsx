@@ -42,16 +42,7 @@ export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string 
   const header = (
     <>
       <div css={{ display: 'flex', justifyContent: 'center' }}>
-        <RunEvaluationButton
-          experimentId={experimentId}
-          type="primary"
-          label={
-            <FormattedMessage
-              defaultMessage="Evaluate traces"
-              description="Primary CTA in the eval-runs empty state — opens the trace selection + scorer picker modal"
-            />
-          }
-        />
+        <RunEvaluationButton experimentId={experimentId} />
       </div>
       <div
         css={{

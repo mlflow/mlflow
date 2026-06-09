@@ -111,7 +111,7 @@ describe('RunEvaluationButton', () => {
 
   it('opens straight into the trace eval flow (no tabs, no code-snippet content)', async () => {
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
 
     // After the tab refactor, the modal is single-purpose: no tablist, no snippet content.
     expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
@@ -133,7 +133,7 @@ describe('RunEvaluationButton', () => {
     });
 
     renderButton('exp-7');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: '3 traces selected' })).toBeInTheDocument();
@@ -142,7 +142,7 @@ describe('RunEvaluationButton', () => {
 
   it('shows the judges section with empty-state when the experiment has no custom scorers', async () => {
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
 
     expect(screen.getByPlaceholderText('Search judges')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /Custom LLM-as-a-judge \(0\)/ })).toBeInTheDocument();
@@ -165,7 +165,7 @@ describe('RunEvaluationButton', () => {
     });
 
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
 
     expect(screen.getByRole('radio', { name: /Custom LLM-as-a-judge \(2\)/ })).toBeInTheDocument();
     expect(screen.getByText('My Custom Judge')).toBeInTheDocument();
@@ -176,7 +176,7 @@ describe('RunEvaluationButton', () => {
 
   it('switches to the pre-built tab and renders pre-built LLM-as-a-judge templates', async () => {
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
     await user.click(screen.getByRole('radio', { name: /Pre-built LLM-as-a-judge/ }));
 
     // The "Custom" and "Guidelines" templates are intentionally hidden from this picker.
@@ -198,7 +198,7 @@ describe('RunEvaluationButton', () => {
     });
 
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
     await user.type(screen.getByPlaceholderText('Search judges'), 'alpha');
 
     await waitFor(() => {
@@ -218,7 +218,7 @@ describe('RunEvaluationButton', () => {
     });
 
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
 
     const checkbox = getJudgeCheckboxByName('My Custom Judge');
     expect(checkbox).not.toBeChecked();
@@ -240,21 +240,21 @@ describe('RunEvaluationButton', () => {
     });
 
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
 
     expect(screen.getAllByRole('checkbox', { name: /My Custom Judge/ })).toHaveLength(1);
   });
 
   it('does not show the endpoint section until a pre-built template is selected', async () => {
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
 
     expect(screen.queryByText('Endpoint')).not.toBeInTheDocument();
   });
 
   it('closes the modal when the Cancel button is clicked', async () => {
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
     expect(screen.getByRole('dialog', { name: 'Run evaluation' })).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -315,7 +315,7 @@ describe('RunEvaluationButton', () => {
 
     // First session: pick a custom judge, switch to pre-built and pick Safety, the
     // endpoint section auto-selects an endpoint → Run judge is enabled.
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
     await user.click(getJudgeCheckboxByName('My Custom Judge'));
     await user.click(screen.getByRole('radio', { name: /Pre-built LLM-as-a-judge/ }));
     await user.click(getJudgeCheckboxByName('Safety'));
@@ -333,7 +333,7 @@ describe('RunEvaluationButton', () => {
     // Second session: re-open. The button is back to "Run judge" (singular, disabled),
     // the Endpoint section is hidden (no template selected), and once we visit each
     // pill the previously-checked rows are unchecked.
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
     expect(screen.queryByText('Endpoint')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Run judge' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Run judges' })).not.toBeInTheDocument();
@@ -349,7 +349,7 @@ describe('RunEvaluationButton', () => {
 
   it('disables the Run judge button when no judges are selected', async () => {
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
 
     expect(screen.getByRole('button', { name: 'Run judge' })).toBeDisabled();
   });
@@ -365,7 +365,7 @@ describe('RunEvaluationButton', () => {
     });
 
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
     await user.click(getJudgeCheckboxByName('My Custom Judge'));
 
     expect(screen.getByRole('button', { name: 'Run judge' })).toBeDisabled();
@@ -387,7 +387,7 @@ describe('RunEvaluationButton', () => {
     });
 
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
     await user.click(getJudgeCheckboxByName('My Custom Judge'));
 
     expect(screen.getByRole('button', { name: 'Run judge' })).toBeEnabled();
@@ -406,7 +406,7 @@ describe('RunEvaluationButton', () => {
     });
 
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
     await user.click(getJudgeCheckboxByName('Alpha Judge'));
     await user.click(getJudgeCheckboxByName('Beta Judge'));
 
@@ -424,7 +424,7 @@ describe('RunEvaluationButton', () => {
     });
 
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
     await user.click(screen.getByRole('radio', { name: /Pre-built LLM-as-a-judge/ }));
     await user.click(getJudgeCheckboxByName('Safety'));
 
@@ -472,7 +472,7 @@ describe('RunEvaluationButton', () => {
     });
 
     renderButton('exp-1');
-    await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+    await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
     await user.click(screen.getByRole('radio', { name: /Pre-built LLM-as-a-judge/ }));
 
     await user.click(getJudgeCheckboxByName('Safety'));

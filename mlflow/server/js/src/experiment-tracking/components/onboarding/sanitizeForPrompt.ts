@@ -9,7 +9,7 @@
  * to a single line), neutralize backticks and double-quotes (the delimiters our
  * prompts use), and cap length to bound the injection payload size.
  */
-export const sanitizeForPrompt = (value: string, maxLength = 200): string => {
+export const sanitizeForPrompt = (value: string, maxLength = 500): string => {
   // eslint-disable-next-line no-control-regex -- intentionally matching control chars
   const oneLine = value.replace(/[\x00-\x1F\x7F]/g, ' ');
   const safeQuotes = oneLine.replace(/[`"]/g, "'");

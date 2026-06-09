@@ -52,9 +52,9 @@ jest.mock('@mlflow/mlflow/src/assistant', () => ({
 // have to set up the trace-search + scorer-fetch hooks just to test the empty-state shell.
 jest.mock('./RunEvaluationButton', () => ({
   __esModule: true,
-  RunEvaluationButton: ({ label, type }: { label?: React.ReactNode; type?: string }) => (
-    <button data-testid="run-evaluation-button" data-button-type={type}>
-      {label}
+  RunEvaluationButton: () => (
+    <button data-testid="run-evaluation-button" data-button-type="primary">
+      Evaluate traces
     </button>
   ),
 }));

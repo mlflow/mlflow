@@ -89,8 +89,7 @@ test('should render when experiments are empty', () => {
     experiments: [],
   });
 
-  // Get the sidebar header as proof that the component rendered
-  expect(screen.getByText('Create your first experiment')).toBeInTheDocument();
+  expect(screen.getByText('Start tracking your ML workflows with Experiments')).toBeInTheDocument();
 });
 
 test('paginated list should not render everything when there are many experiments', () => {
