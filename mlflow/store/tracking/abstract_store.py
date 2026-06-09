@@ -1960,8 +1960,10 @@ class AbstractStore(GatewayStoreMixin):
 
         Args:
             experiment_id: Parent experiment ID.
-            user: If set, return only queues this user is assigned to (their
-                user queue plus any custom queue they belong to).
+            user: If set, restrict to queues this user is assigned to (their
+                user queue plus any custom queue they belong to). The
+                experiment's default queue, when present, is always included
+                (it is everyone's queue).
             max_results: Page size.
             page_token: Opaque continuation token from a previous call.
             ensure_default: No-auth only. When true, seed the experiment's
