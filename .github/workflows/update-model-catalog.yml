@@ -87,12 +87,11 @@ jobs:
             echo "number=$existing_pr" >> "$GITHUB_OUTPUT"
             echo "is_new_pr=false" >> "$GITHUB_OUTPUT"
           else
-            pr_number=$(gh pr create \
+            pr_url=$(gh pr create \
               --title "Update model catalog from upstream sources" \
               --body "Daily refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
-              --reviewer "TomeHirata" \
-              --json number --jq '.number')
-            echo "number=$pr_number" >> "$GITHUB_OUTPUT"
+              --reviewer "TomeHirata")
+            echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
             echo "is_new_pr=true" >> "$GITHUB_OUTPUT"
           fi
 
