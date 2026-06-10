@@ -536,8 +536,11 @@ export const AddToReviewQueueModal = ({
               componentId={`${CID}.error`}
               type="error"
               closable={false}
+              // Neutral title: the failure can come from the destination
+              // resolution step or the attach step; the specific cause is in
+              // `submitError` (the description).
               message={intl.formatMessage({
-                defaultMessage: 'Failed to add traces to the review queue.',
+                defaultMessage: 'Something went wrong',
                 description: 'Add to review queue: error alert title',
               })}
               description={submitError}

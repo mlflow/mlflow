@@ -3499,10 +3499,6 @@
     "defaultMessage": "Select a Provider",
     "description": "Modal title for provider selection"
   },
-  "H1F4hJ": {
-    "defaultMessage": "Failed to add traces to the review queue.",
-    "description": "Add to review queue: error alert title"
-  },
   "H2UIIZ": {
     "defaultMessage": "null",
     "description": "Null value in the evaluations table."
@@ -5242,6 +5238,10 @@
   "QJEOCL": {
     "defaultMessage": "Select review queues",
     "description": "Add to review queue: destination dropdown placeholder"
+  },
+  "QJyy17": {
+    "defaultMessage": "Something went wrong",
+    "description": "Add to review queue: error alert title"
   },
   "QK/Qyx": {
     "defaultMessage": "Total",
