@@ -15,7 +15,12 @@ jest.mock('../../../account/hooks', () => ({
   useCurrentUserIsAdmin: () => false,
   useCurrentUserIsWorkspaceAdmin: () => false,
 }));
-jest.mock('./hooks/useReviewer', () => ({ useReviewer: () => 'default', DEFAULT_REVIEWER: 'default' }));
+let mockReviewerResolved = true;
+jest.mock('./hooks/useReviewer', () => ({
+  useReviewer: () => 'default',
+  DEFAULT_REVIEWER: 'default',
+  useIsReviewerResolved: () => mockReviewerResolved,
+}));
 jest.mock('./hooks/useCanManageReviews', () => ({ useCanManageReviews: () => false }));
 jest.mock('./CreateReviewQueueModal', () => ({ CreateReviewQueueModal: () => null }));
 
@@ -42,8 +47,16 @@ jest.mock('./hooks/useGetOrCreateUserQueueMutation', () => ({
 jest.mock('./hooks/useAssignableUsersQuery', () => ({
   useAssignableUsersQuery: () => ({ users: [], isLoading: false }),
 }));
+// One assignable CUSTOM queue (its schema_id resolves against the experiment
+// schema below), so tests can route to it alongside the no-auth default queue.
 jest.mock('./hooks/useListReviewQueuesQuery', () => ({
-  useListReviewQueuesQuery: () => ({ reviewQueues: [], isLoading: false, error: null }),
+  useListReviewQueuesQuery: () => ({
+    reviewQueues: [
+      { queue_id: 'rq-custom', queue_type: 'CUSTOM', name: 'Relevance', created_by: 'default', schema_ids: ['s1'] },
+    ],
+    isLoading: false,
+    error: null,
+  }),
 }));
 // One experiment question, so the (no-auth) default queue is assignable.
 jest.mock('../../components/label-schemas', () => ({
@@ -70,11 +83,15 @@ const renderModal = () =>
 
 describe('AddToReviewQueueModal', () => {
   beforeEach(() => {
+    mockReviewerResolved = true;
     mockAddItems.mockReset();
     mockAddItems.mockResolvedValue({});
     mockGetOrCreateUserQueue.mockReset();
     mockGetOrCreateUserQueue.mockResolvedValue({ review_queue: { queue_id: 'rq-default' } });
-    jest.spyOn(Utils, 'displayGlobalInfoNotification').mockImplementation(() => {});
+    jest
+      .spyOn(Utils, 'displayGlobalInfoNotification')
+      .mockReset()
+      .mockImplementation(() => {});
   });
 
   it('routes the traces and shows a confirmation toast when a destination is selected', async () => {
@@ -106,5 +123,88 @@ describe('AddToReviewQueueModal', () => {
     expect(findLinkTarget(toastNode)).toBe(
       generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId: 'exp-1' }),
     );
+  });
+
+  it('surfaces a failed destination resolution instead of swallowing it', async () => {
+    mockGetOrCreateUserQueue.mockRejectedValue(new Error('Queue resolution failed'));
+    renderModal();
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    // The batch failure surfaces in the modal; traces are not added and no
+    // success toast fires.
+    expect(await screen.findByText('Queue resolution failed')).toBeInTheDocument();
+    expect(mockAddItems).not.toHaveBeenCalled();
+    expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a failed trace attach instead of swallowing it', async () => {
+    // Resolution succeeds; the attach step is the one that rejects.
+    mockAddItems.mockRejectedValue(new Error('Attach failed'));
+    renderModal();
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(await screen.findByText('Attach failed')).toBeInTheDocument();
+    expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
+    // The modal stays open and Add is re-enabled (isSubmitting cleared in
+    // `finally`), so the reviewer can retry without reopening.
+    expect(screen.getByRole('button', { name: 'Add' })).toBeEnabled();
+  });
+
+  it('surfaces a partial attach failure while still issuing the successful attach', async () => {
+    // Two destinations: the default queue succeeds, the custom queue rejects.
+    mockAddItems.mockImplementation((arg: any) =>
+      arg.queue_id === 'rq-custom' ? Promise.reject(new Error('Attach failed for rq-custom')) : Promise.resolve({}),
+    );
+    renderModal();
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Relevance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    // The failing destination surfaces an error...
+    expect(await screen.findByText('Attach failed for rq-custom')).toBeInTheDocument();
+    // ...both attaches were still issued in the same batch (allSettled doesn't
+    // abort the successful one when a sibling rejects)...
+    expect(mockAddItems).toHaveBeenCalledTimes(2);
+    expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-default', item_ids: ['tr-1'] });
+    expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-custom', item_ids: ['tr-1'] });
+    // ...and no success toast fires while any destination failed.
+    expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
+  });
+
+  it('aborts the whole add (including selected CUSTOM queues) when a destination resolution fails', async () => {
+    // A user-queue resolution failure aborts before any attach, so the
+    // independently-selected CUSTOM queue is intentionally NOT attached either.
+    mockGetOrCreateUserQueue.mockRejectedValue(new Error('Queue resolution failed'));
+    renderModal();
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Relevance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(await screen.findByText('Queue resolution failed')).toBeInTheDocument();
+    // No attach is issued at all — not even for the CUSTOM queue that resolved fine.
+    expect(mockAddItems).not.toHaveBeenCalled();
+    expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
+  });
+
+  it('keeps Add disabled until the reviewer identity is resolved', () => {
+    mockReviewerResolved = false;
+    renderModal();
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
+
+    // A destination is selected, but the reviewer is still loading, so the write
+    // (which stamps created_by) must not be allowed yet.
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
   });
 });

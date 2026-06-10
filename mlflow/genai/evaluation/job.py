@@ -46,6 +46,7 @@ def invoke_genai_evaluate_job(
         traces = client._tracing_client.batch_get_traces(trace_ids)
         scorers = [Scorer.model_validate_json(s) for s in serialized_scorers]
     except Exception:
+        _logger.exception("genai evaluate job failed during setup for run %s", run_id)
         client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
         raise
 

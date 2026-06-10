@@ -21,9 +21,9 @@ import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQue
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { useUpdateReviewQueueMutation } from './hooks/useUpdateReviewQueueMutation';
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
-import { DEFAULT_REVIEWER, displayUser, useReviewer } from './hooks/useReviewer';
+import { DEFAULT_REVIEWER, displayUser, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
-import { canDeleteQueue, canManageQueue, sameUser } from './queuePermissions';
+import { canManageQueue, sameUser } from './queuePermissions';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 /**
@@ -41,6 +41,9 @@ const ExperimentReviewQueuePage = () => {
   const intl = useIntl();
   const { experimentId } = useParams<{ experimentId: string }>();
   const reviewer = useReviewer();
+  // Completion stamps `completed_by` with the reviewer, so block it until the
+  // identity is settled (an in-flight /users/current load reads as `default`).
+  const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
   // Gate management controls (create / edit / delete queue, edit questions) on
   // EDIT+; reviewing stays available to everyone assigned. See useCanManageReviews.
@@ -101,12 +104,10 @@ const ExperimentReviewQueuePage = () => {
     () => (confirmDeleteQueueId ? (reviewQueues.find((q) => q.queue_id === confirmDeleteQueueId) ?? null) : null),
     [reviewQueues, confirmDeleteQueueId],
   );
-  // Whether the reviewer may manage the selected queue (settings / remove traces)
-  // — any CUSTOM queue when they can manage reviews (MANAGE).
+  // Whether the reviewer may manage the selected queue — any CUSTOM queue when
+  // they can manage reviews (MANAGE). Removing traces and the right-pane gear
+  // (manage settings / delete) share this one permission.
   const canManageSelectedQueue = selectedQueue ? canManageQueue(selectedQueue, canManage) : false;
-  // Whether the right-pane gear (manage settings / delete) shows — editable
-  // custom queues only (never USER queues).
-  const canEditSelectedQueue = selectedQueue ? canDeleteQueue(selectedQueue, canManage) : false;
   // Whether the reviewer may submit reviews in the selected queue: always on a
   // no-auth server; otherwise only if they're in the queue's assigned-user pool
   // (the server enforces this on set-status). A manager viewing a queue they're
@@ -278,7 +279,9 @@ const ExperimentReviewQueuePage = () => {
         items={orderedTraces}
         schemas={questionSchemas}
         completedBy={reviewer}
-        isSettingStatus={isSettingStatus}
+        // Treat an unresolved reviewer like an in-flight write so the complete /
+        // decline controls stay disabled until `completed_by` is trustworthy.
+        isSettingStatus={isSettingStatus || !reviewerResolved}
         canReview={canReviewSelectedQueue}
         onAssignSelf={handleAssignSelf}
         isAssigningSelf={isUpdatingQueue}
@@ -308,8 +311,8 @@ const ExperimentReviewQueuePage = () => {
         }
         isRemovingItems={isRemovingItems}
         // Gear menu (manage / delete) only for editable custom queues.
-        onManageQueue={canEditSelectedQueue ? () => setEditingQueueId(selectedQueue.queue_id) : undefined}
-        onDeleteQueue={canEditSelectedQueue ? () => setConfirmDeleteQueueId(selectedQueue.queue_id) : undefined}
+        onManageQueue={canManageSelectedQueue ? () => setEditingQueueId(selectedQueue.queue_id) : undefined}
+        onDeleteQueue={canManageSelectedQueue ? () => setConfirmDeleteQueueId(selectedQueue.queue_id) : undefined}
       />
     );
   }

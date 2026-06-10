@@ -13,9 +13,3 @@ export const sameUser = (a: string | undefined, b: string): boolean =>
  */
 export const canManageQueue = (queue: ReviewQueue, canManage: boolean): boolean =>
   canManage && queue.queue_type === 'CUSTOM';
-
-/**
- * Whether the current reviewer may delete a queue. Currently the same as
- * managing it (a distinct action, kept separate so the two can diverge).
- */
-export const canDeleteQueue = (queue: ReviewQueue, canManage: boolean): boolean => canManageQueue(queue, canManage);

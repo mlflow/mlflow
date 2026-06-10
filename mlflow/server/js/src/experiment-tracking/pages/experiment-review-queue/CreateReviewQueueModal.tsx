@@ -22,7 +22,7 @@ import { LabelSchemaInputRenderer, useListLabelSchemasQuery } from '../../compon
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { useCreateReviewQueueMutation } from './hooks/useCreateReviewQueueMutation';
-import { useReviewer } from './hooks/useReviewer';
+import { useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import type { ReviewQueue } from './types';
 
 const CID = 'mlflow.experiment-review-queue.create-queue';
@@ -47,6 +47,8 @@ export const CreateReviewQueueModal = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const createdBy = useReviewer();
+  // Don't let the create stamp `created_by` until the reviewer identity is settled.
+  const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
   const { labelSchemas, isLoading } = useListLabelSchemasQuery({ experimentId });
   const { createReviewQueueAsync, isCreatingQueue, error } = useCreateReviewQueueMutation();
@@ -109,7 +111,7 @@ export const CreateReviewQueueModal = ({
   const removeReviewerAt = (index: number) => setReviewers((prev) => prev.filter((_, i) => i !== index));
 
   const trimmedName = name.trim();
-  const canSubmit = trimmedName.length > 0 && checkedIds.size > 0 && !isCreatingQueue;
+  const canSubmit = trimmedName.length > 0 && checkedIds.size > 0 && !isCreatingQueue && reviewerResolved;
 
   // Keep the questions dropdown above this modal — otherwise it opens behind the
   // modal when launched over a trace-detail drawer. `zIndexBase` is the drawer's
