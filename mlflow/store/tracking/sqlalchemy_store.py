@@ -5310,29 +5310,35 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # precedence over resource attributes on key collision.
                 resource = next(
                     (
-                        getattr(span._span, "resource", None)
+                        r
                         for span in spans_by_trace[trace_id]
-                        if getattr(span._span, "resource", None) is not None
-                        and getattr(span._span, "resource", None).attributes
+                        if (r := getattr(span._span, "resource", None)) is not None
+                        and r.attributes
                     ),
                     None,
                 )
                 if resource is not None:
                     for key, value in resource.attributes.items():
-                        # Skip OTel SDK internal metadata attributes — these are
-                        # auto-added by the SDK and not user-meaningful resource info.
-                        if key.startswith("telemetry.sdk."):
+                        # Skip OTel SDK internal metadata and the reserved mlflow.*
+                        # namespace so a client cannot clobber bookkeeping tags
+                        # (e.g. SPANS_LOCATION) via resource attributes.
+                        if key.startswith(("telemetry.sdk.", "mlflow.")):
                             continue
                         str_value = str(value) if not isinstance(value, str) else value
                         # SqlTraceTag column limits: key=String(250), value=String(8000)
-                        if len(key) <= 250 and len(str_value) <= 8000:
-                            session.merge(
-                                SqlTraceTag(
-                                    request_id=trace_id,
-                                    key=key,
-                                    value=str_value,
-                                )
+                        if len(key) > 250 or len(str_value) > 8000:
+                            _logger.debug(
+                                "Dropping resource attribute %r: exceeds trace tag column limits",
+                                key,
                             )
+                            continue
+                        session.merge(
+                            SqlTraceTag(
+                                request_id=trace_id,
+                                key=key,
+                                value=str_value,
+                            )
+                        )
 
                 # Restore user-defined tags carried via mlflow.traceTag.* attributes on the root
                 # span (set by OtelSpanProcessor when the trace was exported over OTLP).

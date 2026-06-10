@@ -3413,6 +3413,8 @@ def test_log_spans_persists_resource_attributes_as_tags(store: SqlAlchemyStore):
         # telemetry.sdk.* should be filtered out
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "opentelemetry",
+        # mlflow.* namespace should be filtered out to prevent clobbering reserved tags
+        "mlflow.evil": "should-be-dropped",
         # non-string value should be converted to str
         "process.pid": 12345,
     })
@@ -3457,6 +3459,8 @@ def test_log_spans_persists_resource_attributes_as_tags(store: SqlAlchemyStore):
     # telemetry.sdk.* should be filtered out
     assert "telemetry.sdk.language" not in tags
     assert "telemetry.sdk.name" not in tags
+    # mlflow.* namespace should be filtered out
+    assert "mlflow.evil" not in tags
 
 
 def test_log_spans_resource_tags_do_not_overwrite_user_tags(store: SqlAlchemyStore):
