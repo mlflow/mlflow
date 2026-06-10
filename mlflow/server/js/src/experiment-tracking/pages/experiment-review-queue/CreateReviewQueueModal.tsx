@@ -150,7 +150,7 @@ export const CreateReviewQueueModal = ({
       title={<FormattedMessage defaultMessage="New review queue" description="Create review queue modal title" />}
       okText={<FormattedMessage defaultMessage="Create" description="Create review queue: confirm button" />}
       okButtonProps={{ disabled: !canSubmit, loading: isCreatingQueue }}
-      cancelText={<FormattedMessage defaultMessage="Cancel" description="Create review queue: cancel button" />}
+      cancelText={null}
       onOk={handleCreate}
       onCancel={onClose}
     >
@@ -208,83 +208,92 @@ export const CreateReviewQueueModal = ({
                   dropdownZIndex={dropdownZIndex}
                 />
 
-                {/* Live preview of the selected questions, as a reviewer will see them. */}
-                {selectedSchemas.length > 0 && (
-                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                    <FormUI.Label>
-                      <FormattedMessage
-                        defaultMessage="Question preview"
-                        description="Create review queue: question preview section label"
-                      />
-                    </FormUI.Label>
-                    <FormUI.Hint css={{ marginBottom: theme.spacing.xs }}>
-                      <FormattedMessage
-                        defaultMessage="Preview how the questions will appear for the human reviewer."
-                        description="Create review queue: question preview section hint"
-                      />
-                    </FormUI.Hint>
-                    <div
-                      css={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: theme.spacing.sm,
-                        // Fixed height (~4 collapsed question rows), reserved up front
-                        // so the modal never resizes: more questions or an expanded
-                        // preview scroll within this section instead of growing it.
-                        height: 200,
-                        flexShrink: 0,
-                        overflowY: 'auto',
-                      }}
-                    >
-                      {selectedSchemas.map((schema) => {
-                        const open = expandedPreview.has(schema.schema_id);
-                        return (
-                          <div
-                            key={schema.schema_id}
-                            css={{
-                              display: 'flex',
-                              flexDirection: 'column',
-                              gap: theme.spacing.xs,
-                              padding: theme.spacing.sm,
-                              border: `1px solid ${theme.colors.border}`,
-                              borderRadius: theme.borders.borderRadiusMd,
-                            }}
-                          >
+                {/* Live preview of the selected questions, as a reviewer will see them.
+                   Always mounted so the grid-row transition can animate height. */}
+                <div
+                  css={{
+                    display: 'grid',
+                    gridTemplateRows: selectedSchemas.length > 0 ? '1fr' : '0fr',
+                    transition: 'grid-template-rows 200ms ease-out',
+                  }}
+                >
+                  <div css={{ overflow: 'hidden' }}>
+                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                      <FormUI.Label>
+                        <FormattedMessage
+                          defaultMessage="Question preview"
+                          description="Create review queue: question preview section label"
+                        />
+                      </FormUI.Label>
+                      <FormUI.Hint css={{ marginBottom: theme.spacing.xs }}>
+                        <FormattedMessage
+                          defaultMessage="Preview how the questions will appear for the human reviewer."
+                          description="Create review queue: question preview section hint"
+                        />
+                      </FormUI.Hint>
+                      <div
+                        css={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: theme.spacing.sm,
+                          // Fixed height (~4 collapsed question rows), reserved up front
+                          // so the modal never resizes: more questions or an expanded
+                          // preview scroll within this section instead of growing it.
+                          height: 200,
+                          flexShrink: 0,
+                          overflowY: 'auto',
+                        }}
+                      >
+                        {selectedSchemas.map((schema) => {
+                          const open = expandedPreview.has(schema.schema_id);
+                          return (
                             <div
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => togglePreview(schema.schema_id)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  togglePreview(schema.schema_id);
-                                }
+                              key={schema.schema_id}
+                              css={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: theme.spacing.xs,
+                                padding: theme.spacing.sm,
+                                border: `1px solid ${theme.colors.border}`,
+                                borderRadius: theme.borders.borderRadiusMd,
                               }}
-                              css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, cursor: 'pointer' }}
                             >
-                              {open ? <ChevronDownIcon /> : <ChevronRightIcon />}
-                              <Typography.Text bold>{schema.name}</Typography.Text>
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => togglePreview(schema.schema_id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    togglePreview(schema.schema_id);
+                                  }
+                                }}
+                                css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, cursor: 'pointer' }}
+                              >
+                                {open ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                                <Typography.Text bold>{schema.name}</Typography.Text>
+                              </div>
+                              {open && (
+                                <>
+                                  {schema.instruction && <Typography.Hint>{schema.instruction}</Typography.Hint>}
+                                  <LabelSchemaInputRenderer
+                                    input={schema.input}
+                                    value={null}
+                                    onChange={() => {}}
+                                    disabled
+                                    componentId={`${CID}.preview`}
+                                    label={schema.name}
+                                    instruction={schema.instruction}
+                                  />
+                                </>
+                              )}
                             </div>
-                            {open && (
-                              <>
-                                {schema.instruction && <Typography.Hint>{schema.instruction}</Typography.Hint>}
-                                <LabelSchemaInputRenderer
-                                  input={schema.input}
-                                  value={null}
-                                  onChange={() => {}}
-                                  disabled
-                                  componentId={`${CID}.preview`}
-                                  label={schema.name}
-                                  instruction={schema.instruction}
-                                />
-                              </>
-                            )}
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
             )}
             {trimmedName.length > 0 && checkedIds.size === 0 && (
@@ -364,6 +373,7 @@ export const CreateReviewQueueModal = ({
       editingSchema={null}
       visible={createQuestionOpen}
       onClose={() => setCreateQuestionOpen(false)}
+      onCreated={(schema) => setSelectedIds((prev) => new Set(prev).add(schema.schema_id))}
     />
     </>
   );
