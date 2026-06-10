@@ -3,11 +3,14 @@ import { useMemo, useState } from 'react';
 import {
   DialogCombobox,
   DialogComboboxContent,
-  DialogComboboxHintRow,
+  DialogComboboxEmpty,
   DialogComboboxOptionList,
   DialogComboboxOptionListCheckboxItem,
   DialogComboboxOptionListSearch,
   DialogComboboxTrigger,
+  PlusIcon,
+  Typography,
+  useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -25,6 +28,7 @@ export const QuestionChecklistCombobox = ({
   schemas,
   checkedIds,
   onToggle,
+  onCreateQuestion,
   triggerValue,
   disabled,
   dropdownZIndex,
@@ -33,11 +37,14 @@ export const QuestionChecklistCombobox = ({
   schemas: LabelSchema[];
   checkedIds: Set<string>;
   onToggle: (schemaId: string) => void;
+  /** When provided, a "New question" entry point is shown in the dropdown. */
+  onCreateQuestion?: () => void;
   /** Summary string(s) shown in the closed trigger (e.g. "3 questions selected"). */
   triggerValue: string[];
   disabled?: boolean;
   dropdownZIndex?: number;
 }) => {
+  const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [search, setSearch] = useState('');
   const visibleSchemas = useMemo(() => {
@@ -49,7 +56,7 @@ export const QuestionChecklistCombobox = ({
     <DialogCombobox
       componentId={componentId}
       label={intl.formatMessage({
-        defaultMessage: 'Questions',
+        defaultMessage: 'Select or create questions',
         description: 'Review queue: questions dropdown label',
       })}
       multiSelect
@@ -66,13 +73,33 @@ export const QuestionChecklistCombobox = ({
       <DialogComboboxContent maxHeight={240} matchTriggerWidth style={{ zIndex: dropdownZIndex }}>
         <DialogComboboxOptionList>
           <DialogComboboxOptionListSearch controlledValue={search} setControlledValue={setSearch}>
-            {visibleSchemas.length === 0 ? (
-              <DialogComboboxHintRow>
+            {onCreateQuestion && !search.trim() && (
+              <Typography.Link
+                componentId={`${componentId}.new-question`}
+                css={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: theme.spacing.xs,
+                  padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+                }}
+                onClick={onCreateQuestion}
+              >
+                <PlusIcon css={{ paddingLeft: theme.spacing.xs, paddingRight: theme.spacing.xs }} />
                 <FormattedMessage
-                  defaultMessage="No matching questions"
-                  description="Review queue: no questions match the search"
+                  defaultMessage="New question"
+                  description="Review queue: create new question link in dropdown"
                 />
-              </DialogComboboxHintRow>
+              </Typography.Link>
+            )}
+            {visibleSchemas.length === 0 ? (
+              <DialogComboboxEmpty
+                emptyText={
+                  <FormattedMessage
+                    defaultMessage="No matching questions"
+                    description="Review queue: no questions match the search"
+                  />
+                }
+              />
             ) : (
               visibleSchemas.map((schema) => (
                 <DialogComboboxOptionListCheckboxItem

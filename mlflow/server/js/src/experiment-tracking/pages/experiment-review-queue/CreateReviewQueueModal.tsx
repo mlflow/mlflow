@@ -18,7 +18,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { LabelSchemaInputRenderer, useListLabelSchemasQuery } from '../../components/label-schemas';
+import { LabelSchemaInputRenderer, LabelSchemaFormModal, useListLabelSchemasQuery } from '../../components/label-schemas';
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { useCreateReviewQueueMutation } from './hooks/useCreateReviewQueueMutation';
@@ -56,6 +56,8 @@ export const CreateReviewQueueModal = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   // Reviewer identifiers (usernames / emails) to assign; auth servers only.
   const [reviewers, setReviewers] = useState<string[]>(['']);
+  // Whether the inline "New question" form is open; hides this modal while open.
+  const [createQuestionOpen, setCreateQuestionOpen] = useState(false);
   // Which question previews are expanded (collapsed by default).
   const [expandedPreview, setExpandedPreview] = useState<Set<string>>(new Set());
   const togglePreview = (schemaId: string) =>
@@ -138,9 +140,10 @@ export const CreateReviewQueueModal = ({
   };
 
   return (
+    <>
     <Modal
       componentId={`${CID}.modal`}
-      visible
+      visible={!createQuestionOpen}
       // Relative to the (drawer-doubled) base so it clears a trace-detail drawer
       // when launched from the flag-for-review picker, like ExportTracesToDatasetModal.
       zIndex={theme.options.zIndexBase + 10}
@@ -200,6 +203,7 @@ export const CreateReviewQueueModal = ({
                   schemas={labelSchemas}
                   checkedIds={checkedIds}
                   onToggle={(schemaId) => toggle(schemaId, !checkedIds.has(schemaId))}
+                  onCreateQuestion={() => setCreateQuestionOpen(true)}
                   triggerValue={questionsTriggerValue}
                   dropdownZIndex={dropdownZIndex}
                 />
@@ -354,5 +358,13 @@ export const CreateReviewQueueModal = ({
         </div>
       </ApplyDesignSystemContextOverrides>
     </Modal>
+
+    <LabelSchemaFormModal
+      experimentId={experimentId}
+      editingSchema={null}
+      visible={createQuestionOpen}
+      onClose={() => setCreateQuestionOpen(false)}
+    />
+    </>
   );
 };

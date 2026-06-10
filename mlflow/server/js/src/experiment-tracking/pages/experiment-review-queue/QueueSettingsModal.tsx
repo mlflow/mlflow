@@ -20,7 +20,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { LabelSchemaInputRenderer, useListLabelSchemasQuery } from '../../components/label-schemas';
+import { LabelSchemaInputRenderer, LabelSchemaFormModal, useListLabelSchemasQuery } from '../../components/label-schemas';
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
 import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useIsAuthAvailable } from '../../../account/hooks';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
@@ -60,6 +60,7 @@ export const QueueSettingsModal = ({ queue, onClose }: { queue: ReviewQueue; onC
 
   const [selectedSchemaIds, setSelectedSchemaIds] = useState<Set<string>>(new Set(queue.schema_ids ?? []));
   const [members, setMembers] = useState<string[]>(queue.users ?? []);
+  const [createQuestionOpen, setCreateQuestionOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
 
@@ -161,9 +162,10 @@ export const QueueSettingsModal = ({ queue, onClose }: { queue: ReviewQueue; onC
   const dropdownZIndex = theme.options.zIndexBase + 100;
 
   return (
+    <>
     <Modal
       componentId={`${CID}.modal`}
-      visible
+      visible={!createQuestionOpen}
       title={intl.formatMessage(
         { defaultMessage: 'Queue settings — “{name}”', description: 'Queue settings modal title' },
         { name: queue.name },
@@ -209,6 +211,7 @@ export const QueueSettingsModal = ({ queue, onClose }: { queue: ReviewQueue; onC
                 schemas={labelSchemas}
                 checkedIds={selectedSchemaIds}
                 onToggle={toggleSchema}
+                onCreateQuestion={canEditQuestions ? () => setCreateQuestionOpen(true) : undefined}
                 triggerValue={questionsTriggerValue}
                 disabled={!canEditQuestions}
                 dropdownZIndex={dropdownZIndex}
@@ -364,5 +367,13 @@ export const QueueSettingsModal = ({ queue, onClose }: { queue: ReviewQueue; onC
         </div>
       </ApplyDesignSystemContextOverrides>
     </Modal>
+
+    <LabelSchemaFormModal
+      experimentId={queue.experiment_id}
+      editingSchema={null}
+      visible={createQuestionOpen}
+      onClose={() => setCreateQuestionOpen(false)}
+    />
+    </>
   );
 };
