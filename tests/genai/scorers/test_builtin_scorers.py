@@ -2536,10 +2536,11 @@ def test_regex_match_invalid_pattern_raises_at_construction():
         RegexMatch(pattern=r"[unclosed")
 
 
-def test_regex_match_requires_outputs():
+def test_regex_match_missing_outputs():
     scorer = RegexMatch(pattern=r".*")
-    with pytest.raises(MlflowException, match="requires `outputs`"):
-        scorer(outputs=None, trace=None)
+    feedback = scorer(outputs=None, trace=None)
+    assert feedback.value == CategoricalRating.NO
+    assert "No outputs" in feedback.rationale
 
 
 def test_regex_match_get_input_fields():
@@ -2584,7 +2585,7 @@ def test_pii_detection_filters_to_specific_types():
 
 
 def test_pii_detection_unsupported_type_raises_at_construction():
-    with pytest.raises(pydantic.ValidationError, match="unsupported PII type"):
+    with pytest.raises(pydantic.ValidationError, match="literal_error"):
         PIIDetection(pii_types=["nonsense"])
 
 
