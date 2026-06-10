@@ -6,14 +6,68 @@ which points to the https://github.com/mlflow/skills repository.
 """
 
 import shutil
+from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
+
+import yaml
 
 SKILL_MANIFEST_FILE = "SKILL.md"
 
 
+@dataclass
+class BundledSkill:
+    name: str
+    description: str
+    path: Path
+
+
 def _find_skill_directories(path: Path) -> list[Path]:
     return [item.parent for item in path.rglob(SKILL_MANIFEST_FILE)]
+
+
+def _parse_skill_manifest(text: str) -> dict[str, str]:
+    """Parse the YAML frontmatter of a ``SKILL.md`` file.
+
+    Returns an empty dict when no frontmatter block is present.
+    """
+    match text.split("---", 2):
+        case ["", frontmatter, _]:
+            data = yaml.safe_load(frontmatter)
+            return data if isinstance(data, dict) else {}
+        case _:
+            return {}
+
+
+def list_bundled_skills() -> list[BundledSkill]:
+    """List the MLflow skills bundled with this installation.
+
+    Skills live in the ``mlflow.assistant.skills`` package, populated from the
+    https://github.com/mlflow/skills submodule at build time. Reading from the
+    installed package means this works offline and never touches the network.
+
+    Returns:
+        Skills sorted by name. Empty when the submodule is not checked out
+        (e.g. a development clone without ``git submodule update --init``).
+    """
+    skills_pkg = resources.files("mlflow.assistant.skills")
+    skills = []
+    for item in skills_pkg.iterdir():
+        if not item.is_dir():
+            continue
+        skill_manifest = item.joinpath(SKILL_MANIFEST_FILE)
+        if not skill_manifest.is_file():
+            continue
+        with resources.as_file(skill_manifest) as manifest_path:
+            metadata = _parse_skill_manifest(manifest_path.read_text(encoding="utf-8"))
+            skills.append(
+                BundledSkill(
+                    name=metadata.get("name") or manifest_path.parent.name,
+                    description=metadata.get("description", ""),
+                    path=manifest_path.parent,
+                )
+            )
+    return sorted(skills, key=lambda skill: skill.name)
 
 
 def install_skills(destination_path: Path) -> list[str]:

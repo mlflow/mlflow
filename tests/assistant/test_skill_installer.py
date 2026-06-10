@@ -1,4 +1,11 @@
-from mlflow.assistant.skill_installer import install_skills, list_installed_skills
+import pytest
+
+from mlflow.assistant.skill_installer import (
+    _parse_skill_manifest,
+    install_skills,
+    list_bundled_skills,
+    list_installed_skills,
+)
 
 
 def test_install_skills_copies_to_destination(tmp_path):
@@ -42,3 +49,26 @@ def test_list_installed_skills_nonexistent_path(tmp_path):
     nonexistent = tmp_path / "does-not-exist"
     skills = list_installed_skills(nonexistent)
     assert skills == []
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("---\nname: foo\ndescription: bar\n---\nbody", {"name": "foo", "description": "bar"}),
+        ("# No frontmatter\nbody", {}),
+        ("---\n---\nbody", {}),
+        ("---\nnot a mapping\n---\nbody", {}),
+    ],
+)
+def test_parse_skill_manifest(text, expected):
+    assert _parse_skill_manifest(text) == expected
+
+
+def test_list_bundled_skills():
+    skills = list_bundled_skills()
+
+    by_name = {skill.name: skill for skill in skills}
+    assert "agent-evaluation" in by_name
+    assert by_name["agent-evaluation"].description
+    assert (by_name["agent-evaluation"].path / "SKILL.md").is_file()
+    assert [skill.name for skill in skills] == sorted(skill.name for skill in skills)
