@@ -60,12 +60,10 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
         onCancel={onClose}
         title={<FormattedMessage defaultMessage="Review questions" description="Manage review questions modal title" />}
         footer={
-          <div css={{ display: 'flex', justifyContent: 'space-between' }}>
+          <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+            {/* No explicit Close button — the modal's top-right "X" (onCancel) closes it. */}
             <Button componentId={`${CID}.add`} icon={<PlusIcon />} onClick={openCreate}>
               <FormattedMessage defaultMessage="Add question" description="Manage review questions: add button" />
-            </Button>
-            <Button componentId={`${CID}.close`} onClick={onClose}>
-              <FormattedMessage defaultMessage="Close" description="Manage review questions: close button" />
             </Button>
           </div>
         }
