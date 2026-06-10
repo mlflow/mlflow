@@ -1,9 +1,11 @@
 import { describe, beforeEach, afterEach, jest, it, expect } from '@jest/globals';
 import React from 'react';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 
 import { RunEvaluationButton } from './RunEvaluationButton';
 
@@ -39,6 +41,30 @@ jest.mock('../../../gateway/components/endpoint-form', () => ({
     open ? <div data-testid="create-endpoint-modal">Create Endpoint Modal</div> : null,
 }));
 
+const mockNavigate = jest.fn();
+jest.mock('../../../common/utils/RoutingUtils', () => ({
+  __esModule: true,
+  ...jest.requireActual<typeof import('../../../common/utils/RoutingUtils')>('../../../common/utils/RoutingUtils'),
+  useNavigate: () => mockNavigate,
+}));
+
+const mockInvokeMutate = jest.fn();
+const mockResetSubmit = jest.fn();
+let mockInvokeState: {
+  isLoading: boolean;
+  error: Error | null;
+} = { isLoading: false, error: null };
+
+jest.mock('./hooks/useInvokeGenAIEvaluation', () => ({
+  __esModule: true,
+  useInvokeGenAIEvaluation: () => ({
+    mutate: mockInvokeMutate,
+    isLoading: mockInvokeState.isLoading,
+    error: mockInvokeState.error,
+    reset: mockResetSubmit,
+  }),
+}));
+
 describe('RunEvaluationButton', () => {
   let user: ReturnType<typeof setupUserEvent>;
 
@@ -58,18 +84,30 @@ describe('RunEvaluationButton', () => {
       isLoading: false,
       refetch: jest.fn(),
     });
+    mockNavigate.mockReset();
+    mockInvokeMutate.mockReset();
+    mockResetSubmit.mockReset();
+    mockInvokeState = { isLoading: false, error: null };
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  const renderButton = (experimentId = 'exp-1') =>
-    renderWithIntl(
-      <DesignSystemProvider>
-        <RunEvaluationButton experimentId={experimentId} />
-      </DesignSystemProvider>,
+  const renderButton = (experimentId = 'exp-1') => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    return renderWithIntl(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <DesignSystemProvider>
+            <RunEvaluationButton experimentId={experimentId} />
+          </DesignSystemProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
+  };
 
   it('opens straight into the trace eval flow (no tabs, no code-snippet content)', async () => {
     renderButton('exp-1');
@@ -449,6 +487,203 @@ describe('RunEvaluationButton', () => {
     // With a pre-built template selected AND an endpoint auto-selected, Run judge becomes enabled.
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Run judge' })).toBeEnabled();
+    });
+  });
+
+  describe('submission', () => {
+    const setupReadyToSubmit = () => {
+      mockUseSearchMlflowTraces.mockReturnValue({
+        data: [{ trace_id: 't-1' }, { trace_id: 't-2' }],
+        isLoading: false,
+        isFetching: false,
+      });
+      mockUseGetScheduledScorers.mockReturnValue({
+        data: {
+          experimentId: 'exp-1',
+          scheduledScorers: [
+            {
+              name: 'My Custom Judge',
+              type: 'llm',
+              isSessionLevelScorer: false,
+              llmTemplate: 'Custom',
+              instructions: 'Be strict.',
+              model: 'gateway:/custom-endpoint',
+              is_instructions_judge: true,
+            },
+          ],
+        },
+        isLoading: false,
+      });
+      mockUseEndpointsQuery.mockReturnValue({
+        data: [
+          {
+            endpoint_id: 'ep-1',
+            name: 'my-chat-endpoint',
+            created_at: 1,
+            last_updated_at: 1,
+            model_mappings: [
+              {
+                mapping_id: 'mm-1',
+                endpoint_id: 'ep-1',
+                model_definition_id: 'md-1',
+                weight: 1,
+                created_at: 1,
+                model_definition: {
+                  model_definition_id: 'md-1',
+                  name: 'model-1',
+                  provider: 'openai',
+                  model_name: 'gpt-4o',
+                  secret_id: 'secret-1',
+                  secret_name: 'secret-1',
+                  created_at: 1,
+                  last_updated_at: 1,
+                  endpoint_count: 1,
+                },
+              },
+            ],
+          },
+        ],
+        error: undefined,
+        isLoading: false,
+        refetch: jest.fn(),
+      });
+    };
+
+    it('posts the right payload when both a custom judge and a pre-built template are selected', async () => {
+      setupReadyToSubmit();
+
+      renderButton('exp-1');
+      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(getJudgeCheckboxByName('My Custom Judge'));
+      await user.click(screen.getByRole('radio', { name: /Pre-built LLM-as-a-judge/ }));
+      await user.click(getJudgeCheckboxByName('Safety'));
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Run judges' })).toBeEnabled();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Run judges' }));
+
+      expect(mockInvokeMutate).toHaveBeenCalledTimes(1);
+      const [params] = mockInvokeMutate.mock.calls[0] as [
+        { experimentId: string; traceIds: string[]; serializedScorers: string[] },
+        unknown,
+      ];
+
+      expect(params.experimentId).toBe('exp-1');
+      expect(params.traceIds).toEqual(['t-1', 't-2']);
+      expect(params.serializedScorers).toHaveLength(2);
+
+      // The custom judge keeps its own model, never the modal's endpoint.
+      const customSerialized = JSON.parse(params.serializedScorers[0]);
+      expect(customSerialized.name).toBe('My Custom Judge');
+      expect(customSerialized.instructions_judge_pydantic_data.model).toBe('gateway:/custom-endpoint');
+
+      // Pre-built templates with default instructions (like Safety) are serialized as
+      // ad-hoc instructions judges — the modal's endpoint is stamped onto their model
+      // field and the canonical template prompt is baked into the instructions.
+      const templateSerialized = JSON.parse(params.serializedScorers[1]);
+      expect(templateSerialized.name).toBe('Safety');
+      expect(templateSerialized.instructions_judge_pydantic_data.model).toBe('gateway:/my-chat-endpoint');
+      expect(templateSerialized.instructions_judge_pydantic_data.instructions).toContain('safety classifier');
+    });
+
+    it('opens the new run in the split-view side panel and resets state on success', async () => {
+      setupReadyToSubmit();
+      mockInvokeMutate.mockImplementation((...args: unknown[]) => {
+        const opts = args[1] as { onSuccess: (data: unknown) => void };
+        opts.onSuccess({ job_id: 'job-9', run_id: 'run-42' });
+      });
+
+      renderButton('exp-1');
+      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(getJudgeCheckboxByName('My Custom Judge'));
+      await user.click(screen.getByRole('button', { name: 'Run judge' }));
+
+      expect(mockNavigate).toHaveBeenCalledWith({
+        pathname: '/experiments/exp-1/evaluation-runs',
+        search: '?selectedRunUuid=run-42',
+      });
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog', { name: 'Run evaluation' })).not.toBeInTheDocument();
+      });
+
+      // Re-opening shows a fresh form (no Custom Judge pre-checked).
+      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      expect(getJudgeCheckboxByName('My Custom Judge')).not.toBeChecked();
+    });
+
+    it('shows a loading spinner on Run judge and disables Cancel while the request is in flight', async () => {
+      setupReadyToSubmit();
+      mockInvokeState = { isLoading: true, error: null };
+
+      renderButton('exp-1');
+      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(getJudgeCheckboxByName('My Custom Judge'));
+
+      const okButton = document.querySelector<HTMLButtonElement>(
+        '[data-component-id="mlflow.eval-runs.start-run-modal.footer.ok"]',
+      );
+      expect(okButton).not.toBeNull();
+      // The design-system Button reflects `loading` via the btn-loading class / loading attr
+      // (it does not set the DOM disabled attribute), and swallows clicks while loading.
+      expect(okButton?.className).toContain('btn-loading');
+      expect(okButton).toHaveAttribute('loading', 'true');
+      await user.click(okButton as HTMLButtonElement);
+      expect(mockInvokeMutate).not.toHaveBeenCalled();
+
+      expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    });
+
+    it('renders an inline error alert when the API call fails', async () => {
+      setupReadyToSubmit();
+      mockInvokeState = { isLoading: false, error: new Error('Boom: scorer rejected.') };
+
+      renderButton('exp-1');
+      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+
+      expect(screen.getByText('Boom: scorer rejected.')).toBeInTheDocument();
+    });
+
+    it('does not call the mutation if the user closes the modal without submitting', async () => {
+      setupReadyToSubmit();
+
+      renderButton('exp-1');
+      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+      expect(mockInvokeMutate).not.toHaveBeenCalled();
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a synchronous scorer-serialization error in the inline alert without calling the mutation', async () => {
+      setupReadyToSubmit();
+
+      mockUseGetScheduledScorers.mockReturnValue({
+        data: {
+          experimentId: 'exp-1',
+          scheduledScorers: [
+            {
+              name: 'Broken Judge',
+              type: 'llm',
+              isSessionLevelScorer: false,
+              llmTemplate: 'Custom',
+              instructions: '',
+              model: 'gateway:/custom-endpoint',
+              is_instructions_judge: true,
+            },
+          ],
+        },
+        isLoading: false,
+      });
+
+      renderButton('exp-1');
+      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(getJudgeCheckboxByName('Broken Judge'));
+      await user.click(screen.getByRole('button', { name: 'Run judge' }));
+
+      // The error is shown inline (not swallowed) and the network call is never made.
+      expect(screen.getByText('Instructions are required for instructions-based LLM scorers')).toBeInTheDocument();
+      expect(mockInvokeMutate).not.toHaveBeenCalled();
     });
   });
 });

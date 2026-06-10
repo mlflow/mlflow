@@ -22,7 +22,7 @@ import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
 import { DEFAULT_REVIEWER, displayUser, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
-import { canDeleteQueue, canManageQueue } from './queuePermissions';
+import { canManageQueue } from './queuePermissions';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 /**
@@ -98,15 +98,11 @@ const ExperimentReviewQueuePage = () => {
     () => (confirmDeleteQueueId ? (reviewQueues.find((q) => q.queue_id === confirmDeleteQueueId) ?? null) : null),
     [reviewQueues, confirmDeleteQueueId],
   );
-  // Whether the reviewer may manage the selected queue (remove traces) — a
-  // CUSTOM queue they created, or any on a no-auth server.
+  // Whether the reviewer may manage the selected queue — removing traces and
+  // the right-pane gear (manage settings / delete) share one permission: a
+  // CUSTOM queue they created, or any on a no-auth server (never USER queues).
   const canManageSelectedQueue = selectedQueue
     ? canManageQueue(selectedQueue, reviewer, authAvailable, canManage)
-    : false;
-  // Whether the right-pane gear (manage settings / delete) shows — editable
-  // custom queues only (never USER queues).
-  const canEditSelectedQueue = selectedQueue
-    ? canDeleteQueue(selectedQueue, reviewer, authAvailable, canManage)
     : false;
 
   const handleDeleteQueue = (queueId: string) =>
@@ -291,8 +287,8 @@ const ExperimentReviewQueuePage = () => {
         }
         isRemovingItems={isRemovingItems}
         // Gear menu (manage / delete) only for editable non-default custom queues.
-        onManageQueue={canEditSelectedQueue ? () => setEditingQueueId(selectedQueue.queue_id) : undefined}
-        onDeleteQueue={canEditSelectedQueue ? () => setConfirmDeleteQueueId(selectedQueue.queue_id) : undefined}
+        onManageQueue={canManageSelectedQueue ? () => setEditingQueueId(selectedQueue.queue_id) : undefined}
+        onDeleteQueue={canManageSelectedQueue ? () => setConfirmDeleteQueueId(selectedQueue.queue_id) : undefined}
       />
     );
   }
