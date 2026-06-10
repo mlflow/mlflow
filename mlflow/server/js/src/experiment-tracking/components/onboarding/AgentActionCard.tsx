@@ -6,7 +6,7 @@ import { AssistantSparkleIcon, useAssistant } from '../../../assistant';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet, type CodeSnippetLanguage } from '@mlflow/mlflow/src/shared/web-shared/snippet';
 
-const AGENT_SETUP_COMMAND = 'mlflow agent setup';
+const AGENT_SETUP_COMMAND = 'uvx mlflow agent setup';
 
 type TabKey = 'agent-setup' | 'copy-prompt' | 'code-snippet' | 'assistant';
 
@@ -14,6 +14,15 @@ export type AgentActionCardCodeSnippet = {
   content: string;
   language: CodeSnippetLanguage;
   label: ReactNode;
+};
+
+export type AgentActionCardExtraTab = {
+  /** Unique tab value — must not collide with the built-in tab keys. */
+  value: string;
+  label: ReactNode;
+  /** Optional secondary line rendered above the content, matching the built-in tabs. */
+  description?: ReactNode;
+  content: ReactNode;
 };
 
 export const AgentActionCard = ({
@@ -24,6 +33,7 @@ export const AgentActionCard = ({
   componentId,
   showAgentSetupTab = false,
   codeSnippet,
+  extraTabs,
   onActiveTabChange,
 }: {
   /** Card title — rendered as Typography.Title level 4 above the tabs. Ignored if `header` is set. */
@@ -37,13 +47,15 @@ export const AgentActionCard = ({
   /** When provided, renders an additional tab with a syntax-highlighted code block between
    *  copy-prompt and assistant. */
   codeSnippet?: AgentActionCardCodeSnippet;
+  /** Additional caller-defined tabs rendered after the built-in ones (e.g. a manual setup flow). */
+  extraTabs?: AgentActionCardExtraTab[];
   /** Fires whenever the user selects a tab — lets the parent lazy-load tab-specific data. */
   onActiveTabChange?: (tab: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const { openPanel, sendMessage, setupComplete } = useAssistant();
   const defaultTab: TabKey = showAgentSetupTab ? 'agent-setup' : 'copy-prompt';
-  const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
+  const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
   const handleAssistantClick = () => {
     openPanel();
@@ -82,7 +94,7 @@ export const AgentActionCard = ({
         valueHasNoPii
         value={activeTab}
         onValueChange={(value) => {
-          setActiveTab(value as TabKey);
+          setActiveTab(value);
           onActiveTabChange?.(value);
         }}
       >
@@ -120,6 +132,11 @@ export const AgentActionCard = ({
               />
             </span>
           </Tabs.Trigger>
+          {extraTabs?.map((tab) => (
+            <Tabs.Trigger key={tab.value} value={tab.value}>
+              {tab.label}
+            </Tabs.Trigger>
+          ))}
         </Tabs.List>
 
         {showAgentSetupTab && (
@@ -253,6 +270,20 @@ export const AgentActionCard = ({
             />
           </Button>
         </Tabs.Content>
+
+        {extraTabs?.map((tab) => (
+          <Tabs.Content key={tab.value} value={tab.value} css={{ paddingTop: 0 }}>
+            {tab.description && (
+              <Typography.Text
+                color="secondary"
+                css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}
+              >
+                {tab.description}
+              </Typography.Text>
+            )}
+            {tab.content}
+          </Tabs.Content>
+        ))}
       </Tabs.Root>
     </div>
   );

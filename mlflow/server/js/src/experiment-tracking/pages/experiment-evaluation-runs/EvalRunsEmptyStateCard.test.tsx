@@ -82,10 +82,10 @@ describe('EvalRunsEmptyStateCard', () => {
     expect(btn).toHaveTextContent('Evaluate traces');
   });
 
-  it('renders the three tabs in order: Your coding agent → Python → MLflow assistant', () => {
+  it('renders the three tabs in order: Copy-paste prompt → Python → MLflow assistant', () => {
     renderCard();
     const tabs = screen.getAllByRole('tab').map((t) => t.textContent?.trim() ?? '');
-    expect(tabs).toEqual(['Your coding agent', 'Python', 'MLflow assistant']);
+    expect(tabs).toEqual(['Copy-paste prompt', 'Python', 'MLflow assistant']);
   });
 
   it('renders the sparkle icon on the MLflow assistant tab', () => {

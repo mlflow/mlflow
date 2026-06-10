@@ -1111,6 +1111,10 @@
     "defaultMessage": "Set up MLflow AI Gateway",
     "description": "AI Gateway setup guide > Main title"
   },
+  "3hpe6y": {
+    "defaultMessage": "Watch a short clip of what tracing looks like",
+    "description": "Sublabel on the click-to-play video preview in the traces empty state"
+  },
   "3n8Eue": {
     "defaultMessage": "Enter a model name not listed above. Capabilities may not be detected.",
     "description": "Help text for custom model input"
@@ -1142,10 +1146,6 @@
   "3zU3+M": {
     "defaultMessage": "Version",
     "description": "Header for version column in linked prompts table on logged model details page"
-  },
-  "3zmuuv": {
-    "defaultMessage": "Or pick your language manually",
-    "description": "Language selector heading for traces onboarding (alternative to the agent path)"
   },
   "4+RPaz": {
     "defaultMessage": "Delete",
@@ -4159,10 +4159,6 @@
     "defaultMessage": "Endpoints ({count})",
     "description": "Gateway > Endpoints using key drawer > Title"
   },
-  "KQqJzj": {
-    "defaultMessage": "Watch a 30-second tour of what tracing looks like",
-    "description": "Sublabel on the click-to-play video preview in the traces empty state"
-  },
   "KRzwkL": {
     "defaultMessage": "Type {itemName} to confirm deletion:",
     "description": "Type to confirm instruction"
@@ -5687,6 +5683,10 @@
     "defaultMessage": "Description",
     "description": "Header for the description column in the experiments table"
   },
+  "SUtPqy": {
+    "defaultMessage": "Choose any of the following options to set up tracing",
+    "description": "Headline for the agent CTA card in the traces empty state"
+  },
   "SVNXvf": {
     "defaultMessage": "Create LLM judge",
     "description": "Title for new LLM judge modal"
@@ -6611,6 +6611,10 @@
     "defaultMessage": "Scheduled",
     "description": "Run page > Overview > Run status cell > Value for scheduled state"
   },
+  "XB7wGu": {
+    "defaultMessage": "Manual setup",
+    "description": "Tab label for the step-by-step manual instrumentation path in the traces empty state"
+  },
   "XBPcbA": {
     "defaultMessage": "Show less",
     "description": "Button text to show less description text for the entity"
@@ -7198,10 +7202,6 @@
   "aCzpU3": {
     "defaultMessage": "Off",
     "description": "Telemetry disabled label"
-  },
-  "aD0nhf": {
-    "defaultMessage": "Set up tracing with LLM",
-    "description": "Headline for the agent CTA card in the traces empty state"
   },
   "aE6zVg": {
     "defaultMessage": "Configure predefined judges, create guidelines-based LLM judges, or build custom judge functions to track your unique metrics. {link}",
@@ -8770,6 +8770,10 @@
   "hcDB9U": {
     "defaultMessage": "+∞",
     "description": "Label displaying positive infinity symbol displayed on a plot UI element"
+  },
+  "he7/4n": {
+    "defaultMessage": "Pick your language and follow the steps.",
+    "description": "Description above the manual setup steps in the traces empty state"
   },
   "hg+bcy": {
     "defaultMessage": "Enable telemetry",

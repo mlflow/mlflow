@@ -67,6 +67,31 @@ export const TracesViewTableNoTracesQuickstart = ({
     }
   };
 
+  const manualSetupContent = (
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+      <LanguageTab language={language} setLanguage={setLanguage} />
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg * 1.5 }}>
+        <ConnectStep
+          theme={theme}
+          language={language}
+          pythonConnectCode={pythonConnectCode}
+          tsConnectCode={tsConnectCode}
+          otelEnvCode={otelEnvCode}
+        />
+        <InstrumentStep
+          theme={theme}
+          language={language}
+          frameworkOptions={frameworkOptions}
+          selectedFramework={selectedFramework}
+          onSelectFramework={handleFrameworkSelect}
+          pythonCode={pythonCode}
+          tsFramework={tsFramework}
+        />
+        <VerifyStep theme={theme} />
+      </div>
+    </div>
+  );
+
   return (
     <div
       css={{
@@ -107,6 +132,24 @@ export const TracesViewTableNoTracesQuickstart = ({
         }
         codingAgentPrompt={buildInstrumentPrompt(experimentName || 'my-experiment')}
         assistantPrompt={buildInstrumentAssistantPrompt(experimentName || 'my-experiment')}
+        extraTabs={[
+          {
+            value: 'manual',
+            label: (
+              <FormattedMessage
+                defaultMessage="Manual setup"
+                description="Tab label for the step-by-step manual instrumentation path in the traces empty state"
+              />
+            ),
+            description: (
+              <FormattedMessage
+                defaultMessage="Pick your language and follow the steps."
+                description="Description above the manual setup steps in the traces empty state"
+              />
+            ),
+            content: manualSetupContent,
+          },
+        ]}
       />
 
       {/* Click-to-play video preview, demoted below the CTA so it never pushes the primary action
@@ -216,38 +259,6 @@ export const TracesViewTableNoTracesQuickstart = ({
             </span>
           </button>
         ))}
-
-      {/* Language selector */}
-      <div css={{ width: '100%', marginBottom: theme.spacing.lg }}>
-        <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
-          <FormattedMessage
-            defaultMessage="Or pick your language manually"
-            description="Language selector heading for traces onboarding (alternative to the agent path)"
-          />
-        </Typography.Title>
-        <LanguageTab language={language} setLanguage={setLanguage} />
-      </div>
-
-      {/* Steps */}
-      <div css={{ width: '100%', display: 'flex', flexDirection: 'column', gap: theme.spacing.lg * 1.5 }}>
-        <ConnectStep
-          theme={theme}
-          language={language}
-          pythonConnectCode={pythonConnectCode}
-          tsConnectCode={tsConnectCode}
-          otelEnvCode={otelEnvCode}
-        />
-        <InstrumentStep
-          theme={theme}
-          language={language}
-          frameworkOptions={frameworkOptions}
-          selectedFramework={selectedFramework}
-          onSelectFramework={handleFrameworkSelect}
-          pythonCode={pythonCode}
-          tsFramework={tsFramework}
-        />
-        <VerifyStep theme={theme} />
-      </div>
     </div>
   );
 };

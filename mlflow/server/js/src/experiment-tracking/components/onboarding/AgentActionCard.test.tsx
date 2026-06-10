@@ -69,9 +69,9 @@ describe('AgentActionCard', () => {
     expect(screen.getByTestId('assistant-sparkle-icon')).toBeInTheDocument();
   });
 
-  it('hides the CLI tab by default and shows it when showAgentSetupTab is true', () => {
+  it('hides the one-line setup tab by default and shows it when showAgentSetupTab is true', () => {
     const { rerender } = renderCard();
-    expect(screen.queryByRole('tab', { name: 'CLI' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /One-line setup/ })).not.toBeInTheDocument();
 
     rerender(
       <DesignSystemProvider>
@@ -84,7 +84,7 @@ describe('AgentActionCard', () => {
         />
       </DesignSystemProvider>,
     );
-    expect(screen.getByRole('tab', { name: 'CLI' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /One-line setup/ })).toBeInTheDocument();
   });
 
   it('clicking "Open assistant" with setup complete calls openPanel and sendMessage with the assistant prompt', async () => {
@@ -109,5 +109,20 @@ describe('AgentActionCard', () => {
 
     expect(mockOpenPanel).toHaveBeenCalledTimes(1);
     expect(mockSendMessage).not.toHaveBeenCalled();
+  });
+
+  it('renders extraTabs after the built-in tabs and shows their content when selected', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    renderCard({
+      extraTabs: [{ value: 'manual', label: 'Manual setup', content: <div>MANUAL_TAB_BODY</div> }],
+    });
+
+    const tabs = screen.getAllByRole('tab').map((t) => t.textContent?.trim() ?? '');
+    expect(tabs).toEqual(['Copy-paste prompt', 'MLflow assistant', 'Manual setup']);
+
+    // Content is revealed only once the tab is selected.
+    expect(screen.queryByText('MANUAL_TAB_BODY')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: /Manual setup/ }));
+    expect(screen.getByText('MANUAL_TAB_BODY')).toBeInTheDocument();
   });
 });
