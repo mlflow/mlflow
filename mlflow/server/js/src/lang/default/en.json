@@ -2767,6 +2767,10 @@
     "defaultMessage": "Create and manage judges",
     "description": "Title for the empty state of the judges page"
   },
+  "CSee+U": {
+    "defaultMessage": "Please try again.",
+    "description": "Add to review queue: fallback error detail when a failure carries no message"
+  },
   "CTEh+b": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > new run modal > \"cancel\" button label"
@@ -4415,10 +4419,6 @@
     "defaultMessage": "You cannot delete your own account.",
     "description": "Tooltip explaining why the row checkbox is disabled for the current user"
   },
-  "M9u8y0": {
-    "defaultMessage": "Something went wrong. Please try again.",
-    "description": "Add to review queue: fallback error when a failure carries no message"
-  },
   "MB3kda": {
     "defaultMessage": "{pendingCount} pending {pendingCount, plural, =1 {change} other {changes}}",
     "description": "Evaluation review > assessments > pending entries counter"
@@ -5238,10 +5238,6 @@
   "QJEOCL": {
     "defaultMessage": "Select review queues",
     "description": "Add to review queue: destination dropdown placeholder"
-  },
-  "QJyy17": {
-    "defaultMessage": "Something went wrong",
-    "description": "Add to review queue: error alert title"
   },
   "QK/Qyx": {
     "defaultMessage": "Total",
@@ -6910,6 +6906,10 @@
   "Z+tEhr": {
     "defaultMessage": "Compare selected runs",
     "description": "Tooltip for the compare button when enabled"
+  },
+  "Z/7Ru5": {
+    "defaultMessage": "Something went wrong.",
+    "description": "Add to review queue: error alert title"
   },
   "Z/CtWD": {
     "defaultMessage": "Safety",

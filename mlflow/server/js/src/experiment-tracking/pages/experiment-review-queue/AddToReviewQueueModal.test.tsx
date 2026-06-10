@@ -151,6 +151,9 @@ describe('AddToReviewQueueModal', () => {
 
     expect(await screen.findByText('Attach failed')).toBeInTheDocument();
     expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
+    // The modal stays open and Add is re-enabled (isSubmitting cleared in
+    // `finally`), so the reviewer can retry without reopening.
+    expect(screen.getByRole('button', { name: 'Add' })).toBeEnabled();
   });
 
   it('surfaces a partial attach failure while still issuing the successful attach', async () => {
@@ -167,9 +170,29 @@ describe('AddToReviewQueueModal', () => {
 
     // The failing destination surfaces an error...
     expect(await screen.findByText('Attach failed for rq-custom')).toBeInTheDocument();
-    // ...the successful attach was still issued (allSettled doesn't abort it)...
+    // ...both attaches were still issued in the same batch (allSettled doesn't
+    // abort the successful one when a sibling rejects)...
+    expect(mockAddItems).toHaveBeenCalledTimes(2);
     expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-default', item_ids: ['tr-1'] });
+    expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-custom', item_ids: ['tr-1'] });
     // ...and no success toast fires while any destination failed.
+    expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
+  });
+
+  it('aborts the whole add (including selected CUSTOM queues) when a destination resolution fails', async () => {
+    // A user-queue resolution failure aborts before any attach, so the
+    // independently-selected CUSTOM queue is intentionally NOT attached either.
+    mockGetOrCreateUserQueue.mockRejectedValue(new Error('Queue resolution failed'));
+    renderModal();
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Relevance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(await screen.findByText('Queue resolution failed')).toBeInTheDocument();
+    // No attach is issued at all — not even for the CUSTOM queue that resolved fine.
+    expect(mockAddItems).not.toHaveBeenCalled();
     expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
   });
 

@@ -112,6 +112,11 @@ export const AddToReviewQueueModal = ({
   // `error` slot only retains the last-settled call and a mid-batch failure
   // would be lost. `handleAdd` collects every failure from the batch instead.
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Tracks the whole add operation locally. The mutation hooks' `isLoading`
+  // reflects only their last-settled call (same shared-instance issue as their
+  // `error` slot), so it can flip false mid-batch and momentarily re-enable
+  // Add; this flag stays true for the entire batch to block a double-submit.
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const itemIds = useMemo(
     () => selectedTraceInfos.map((info) => info.trace_id).filter((id): id is string => Boolean(id)),
@@ -164,7 +169,7 @@ export const AddToReviewQueueModal = ({
   const defaultQueueChecked = !authAvailable && defaultQueueSelected && inheritAllAssignable;
   const selectedCount = (defaultQueueChecked ? 1 : 0) + selectedQueueIds.size + selectedUsers.size;
 
-  const isWorking = isAddingItems || isResolvingUserQueue;
+  const isWorking = isAddingItems || isResolvingUserQueue || isSubmitting;
   const canAdd = selectedCount > 0 && itemIds.length > 0 && !isWorking && reviewerResolved;
 
   const triggerValue = useMemo(
@@ -213,6 +218,7 @@ export const AddToReviewQueueModal = ({
     setCreateOpen(false);
     setAddQuestionOpen(false);
     setSubmitError(null);
+    setIsSubmitting(false);
     resetAdd();
     resetResolve();
     setVisible(false);
@@ -226,75 +232,85 @@ export const AddToReviewQueueModal = ({
     if (!canAdd) {
       return;
     }
+    // Block re-entry for the whole batch (the mutation hooks' isLoading can't —
+    // see the `isSubmitting` declaration); cleared in `finally` on every path.
+    setIsSubmitting(true);
     setSubmitError(null);
-    // Fallback so a failure whose message is blank still surfaces something.
-    const genericError = intl.formatMessage({
-      defaultMessage: 'Something went wrong. Please try again.',
-      description: 'Add to review queue: fallback error when a failure carries no message',
-    });
-    // Resolve every USER-queue destination to a queue id: the no-auth catch-all
-    // (the reserved `default` user queue) and each selected user's personal
-    // queue, all via get-or-create. `allSettled` so one failure doesn't hide the
-    // others; we collect every rejection rather than relying on the mutation's
-    // single shared `error` slot, which only keeps the last-settled call.
-    const usersToResolve = [...(defaultQueueChecked ? [DEFAULT_REVIEWER] : []), ...selectedUsers];
-    const resolved = await Promise.allSettled(
-      usersToResolve.map((user) =>
-        getOrCreateUserQueueAsync({ experiment_id: experimentId, user, created_by: reviewer }).then(
-          (res) => res.review_queue.queue_id,
+    try {
+      // Fallback so a failure whose message is blank still surfaces something.
+      const genericError = intl.formatMessage({
+        defaultMessage: 'Please try again.',
+        description: 'Add to review queue: fallback error detail when a failure carries no message',
+      });
+      // Resolve every USER-queue destination to a queue id: the no-auth catch-all
+      // (the reserved `default` user queue) and each selected user's personal
+      // queue, all via get-or-create. `allSettled` so one failure doesn't hide the
+      // others; we collect every rejection rather than relying on the mutation's
+      // single shared `error` slot, which only keeps the last-settled call.
+      const usersToResolve = [...(defaultQueueChecked ? [DEFAULT_REVIEWER] : []), ...selectedUsers];
+      const resolved = await Promise.allSettled(
+        usersToResolve.map((user) =>
+          getOrCreateUserQueueAsync({ experiment_id: experimentId, user, created_by: reviewer }).then(
+            (res) => res.review_queue.queue_id,
+          ),
         ),
-      ),
-    );
-    // Gate on the rejection count (not the joined message, which can be empty),
-    // and narrow the fulfilled results by status rather than casting.
-    const resolveRejections = resolved.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
-    if (resolveRejections.length > 0) {
-      setSubmitError(collectRejectionMessages(resolveRejections) || genericError);
-      return;
+      );
+      // Gate on the rejection count (not the joined message, which can be empty),
+      // and narrow the fulfilled results by status rather than casting. A failed
+      // resolution aborts the whole add (including selected CUSTOM queues): a
+      // requested destination we can't even resolve fails the operation visibly,
+      // and the idempotent attach makes a corrected retry safe.
+      const resolveRejections = resolved.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (resolveRejections.length > 0) {
+        setSubmitError(collectRejectionMessages(resolveRejections) || genericError);
+        return;
+      }
+      const resolvedQueueIds = resolved
+        .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+        .map((r) => r.value);
+      // Attach the traces to every distinct destination, again accumulating every
+      // failure. Re-attaching is idempotent server-side (an already-attached item
+      // is a no-op that keeps its status), so retrying after a partial failure
+      // safely re-sends to the destinations that already succeeded.
+      const queueIds = Array.from(new Set([...selectedQueueIds, ...resolvedQueueIds]));
+      const added = await Promise.allSettled(
+        queueIds.map((queue_id) => addItemsToReviewQueueAsync({ queue_id, item_ids: itemIds })),
+      );
+      const addRejections = added.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (addRejections.length > 0) {
+        setSubmitError(collectRejectionMessages(addRejections) || genericError);
+        return;
+      }
+      // Confirm the add with a global toast — it must be global to survive this
+      // modal unmounting on close. The notification holder renders inside the
+      // router, so a <Link> resolves correctly for any deployment. The message
+      // text is pre-built via `intl`. `white-space: nowrap` + the notification's
+      // `width: 'auto'` keep it on one line (widening past the default fixed
+      // width) instead of wrapping.
+      const reviewQueuePath = generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId });
+      Utils.displayGlobalInfoNotification(
+        <span css={{ whiteSpace: 'nowrap' }}>
+          {intl.formatMessage(
+            {
+              defaultMessage: 'Added {count, plural, one {# trace} other {# traces}} to review.',
+              description: 'Add to review queue: success toast after traces are added',
+            },
+            { count: itemIds.length },
+          )}{' '}
+          <Link componentId={`${CID}.toast-view-queue`} to={reviewQueuePath}>
+            {intl.formatMessage({
+              defaultMessage: 'View review queue',
+              description: 'Add to review queue: success toast link to the review queue page',
+            })}
+          </Link>
+        </span>,
+        undefined,
+        { width: 'auto' },
+      );
+      handleClose();
+    } finally {
+      setIsSubmitting(false);
     }
-    const resolvedQueueIds = resolved
-      .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
-      .map((r) => r.value);
-    // Attach the traces to every distinct destination, again accumulating every
-    // failure. Re-attaching is idempotent server-side (an already-attached item
-    // is a no-op that keeps its status), so retrying after a partial failure
-    // safely re-sends to the destinations that already succeeded.
-    const queueIds = Array.from(new Set([...selectedQueueIds, ...resolvedQueueIds]));
-    const added = await Promise.allSettled(
-      queueIds.map((queue_id) => addItemsToReviewQueueAsync({ queue_id, item_ids: itemIds })),
-    );
-    const addRejections = added.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
-    if (addRejections.length > 0) {
-      setSubmitError(collectRejectionMessages(addRejections) || genericError);
-      return;
-    }
-    // Confirm the add with a global toast — it must be global to survive this
-    // modal unmounting on close. The notification holder renders inside the
-    // router, so a <Link> resolves correctly for any deployment. The message
-    // text is pre-built via `intl`. `white-space: nowrap` + the notification's
-    // `width: 'auto'` keep it on one line (widening past the default fixed
-    // width) instead of wrapping.
-    const reviewQueuePath = generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId });
-    Utils.displayGlobalInfoNotification(
-      <span css={{ whiteSpace: 'nowrap' }}>
-        {intl.formatMessage(
-          {
-            defaultMessage: 'Added {count, plural, one {# trace} other {# traces}} to review.',
-            description: 'Add to review queue: success toast after traces are added',
-          },
-          { count: itemIds.length },
-        )}{' '}
-        <Link componentId={`${CID}.toast-view-queue`} to={reviewQueuePath}>
-          {intl.formatMessage({
-            defaultMessage: 'View review queue',
-            description: 'Add to review queue: success toast link to the review queue page',
-          })}
-        </Link>
-      </span>,
-      undefined,
-      { width: 'auto' },
-    );
-    handleClose();
   };
 
   const reasonText = (reason: ReturnType<typeof getQueueAssignability>['reason']) => {
@@ -540,7 +556,7 @@ export const AddToReviewQueueModal = ({
               // resolution step or the attach step; the specific cause is in
               // `submitError` (the description).
               message={intl.formatMessage({
-                defaultMessage: 'Something went wrong',
+                defaultMessage: 'Something went wrong.',
                 description: 'Add to review queue: error alert title',
               })}
               description={submitError}
