@@ -299,7 +299,7 @@ const ExperimentReviewQueuePage = () => {
   }
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, padding: `0 ${theme.spacing.md}px ${theme.spacing.md}px` }}>
+    <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, paddingRight: theme.spacing.md, paddingBottom: theme.spacing.md }}>
       <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {inFocusMode ? (
           <div
