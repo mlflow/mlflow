@@ -20,6 +20,8 @@ import { useEndpointsQuery } from '../../gateway/hooks/useEndpointsQuery';
 import { CreateEndpointModal } from '../../gateway/components/endpoint-form';
 import { getEndpointDisplayInfo } from '../../gateway/utils/gatewayUtils';
 import type { Endpoint } from '../../gateway/types';
+import { Link } from '../../common/utils/RoutingUtils';
+import GatewayRoutes from '../../gateway/routes';
 
 interface EndpointOption {
   value: string;
@@ -208,23 +210,54 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
         />
         {!disabled && (
           <DialogComboboxContent maxHeight={350}>
-            <DialogComboboxOptionList>
-              {endpointOptions.map((option) => (
-                <DialogComboboxOptionListSelectItem
-                  key={option.value}
-                  value={option.value}
-                  onChange={() => onEndpointSelect(option.value)}
-                  checked={currentEndpointName === option.value}
+            {endpointOptions.length === 0 ? (
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: theme.spacing.sm,
+                  // The popover content sets no horizontal padding on raw children and has a 320px min width,
+                  // so pad/cap here to match the option items and keep the text from forcing the popover wider.
+                  boxSizing: 'border-box',
+                  maxWidth: 320,
+                  padding: `${theme.spacing.sm}px ${theme.spacing.lg}px`,
+                }}
+              >
+                <Typography.Text color="secondary">
+                  <FormattedMessage
+                    defaultMessage="No endpoints available. Set up an endpoint in the AI Gateway to get started."
+                    description="Empty state message shown in the endpoint selector when no endpoints are configured"
+                  />
+                </Typography.Text>
+                <Link
+                  componentId="mlflow.endpoint-selector.no-endpoints-gateway-link"
+                  to={GatewayRoutes.gatewayPageRoute}
                 >
-                  {option.label}
-                  {option.provider && option.modelName && (
-                    <DialogComboboxHintRow>
-                      {option.provider} / {option.modelName}
-                    </DialogComboboxHintRow>
-                  )}
-                </DialogComboboxOptionListSelectItem>
-              ))}
-            </DialogComboboxOptionList>
+                  <FormattedMessage
+                    defaultMessage="Go to AI Gateway"
+                    description="Link in the endpoint selector empty state that navigates to the AI Gateway page"
+                  />
+                </Link>
+              </div>
+            ) : (
+              <DialogComboboxOptionList>
+                {endpointOptions.map((option) => (
+                  <DialogComboboxOptionListSelectItem
+                    key={option.value}
+                    value={option.value}
+                    onChange={() => onEndpointSelect(option.value)}
+                    checked={currentEndpointName === option.value}
+                  >
+                    {option.label}
+                    {option.provider && option.modelName && (
+                      <DialogComboboxHintRow>
+                        {option.provider} / {option.modelName}
+                      </DialogComboboxHintRow>
+                    )}
+                  </DialogComboboxOptionListSelectItem>
+                ))}
+              </DialogComboboxOptionList>
+            )}
             {showCreateButton && (
               <DialogComboboxFooter>
                 <DialogComboboxAddButton onClick={handleOpenCreateModal}>

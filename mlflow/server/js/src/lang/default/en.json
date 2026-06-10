@@ -3703,6 +3703,10 @@
     "defaultMessage": "Search registered models",
     "description": "Placeholder text inside model search bar"
   },
+  "I3bLaC": {
+    "defaultMessage": "No endpoints available. Set up an endpoint in the AI Gateway to get started.",
+    "description": "Empty state message shown in the endpoint selector when no endpoints are configured"
+  },
   "I9bJ/T": {
     "defaultMessage": "Select All",
     "description": "Option to select all items in the item selector"
@@ -9466,6 +9470,10 @@
   "mHAue4": {
     "defaultMessage": "Detect Issues in Your Traces",
     "description": "Detect issues guidance popover title"
+  },
+  "mIDjbf": {
+    "defaultMessage": "Go to AI Gateway",
+    "description": "Link in the endpoint selector empty state that navigates to the AI Gateway page"
   },
   "mIFcgu": {
     "defaultMessage": "Cancel",

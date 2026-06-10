@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { EndpointSelector } from './EndpointSelector';
 import { useEndpointsQuery } from '../../gateway/hooks/useEndpointsQuery';
 import type { Endpoint } from '../../gateway/types';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 
 jest.mock('../../gateway/hooks/useEndpointsQuery');
 jest.mock('../../gateway/components/endpoint-form', () => ({
@@ -178,6 +179,31 @@ describe('EndpointSelector', () => {
 
     // Should show the endpoint name even though it's not in the list
     expect(screen.getByText('deleted-endpoint')).toBeInTheDocument();
+  });
+
+  test('shows AI Gateway call to action when no endpoints are available', async () => {
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: undefined,
+      refetch: mockRefetch,
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <EndpointSelector onEndpointSelect={mockOnEndpointSelect} showCreateButton={false} />
+      </MemoryRouter>,
+    );
+
+    // Open dropdown
+    await userEvent.click(screen.getByRole('combobox'));
+
+    expect(
+      screen.getByText('No endpoints available. Set up an endpoint in the AI Gateway to get started.'),
+    ).toBeInTheDocument();
+
+    const link = screen.getByRole('link', { name: 'Go to AI Gateway' });
+    expect(link).toHaveAttribute('href', '/gateway');
   });
 
   test('dropdown does not open when disabled', () => {

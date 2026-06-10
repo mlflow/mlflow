@@ -972,6 +972,7 @@ module.exports = {
   // -- mlflow.endpoint-selector --
   "mlflow.endpoint-selector.deleted-endpoint-tooltip": "",
   "mlflow.endpoint-selector.endpoints-error": "",
+  "mlflow.endpoint-selector.no-endpoints-gateway-link": "",
   "mlflow.endpoint-selector.select": "",
 
   // -- mlflow.eval-dataset-records --
