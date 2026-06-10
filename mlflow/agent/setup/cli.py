@@ -187,9 +187,9 @@ def _run_setup(
     is_flag=True,
     default=False,
     help=(
-        "Print the composed task prompt to stdout and skip launching the agent. "
-        "Lets you pipe into a custom invocation, e.g. "
-        "`mlflow agent setup --print | claude --permission-mode auto`."
+        "Print the composed task prompt to stdout and exit without launching the agent. "
+        "Useful for passing the prompt into a custom invocation, e.g. "
+        '`claude --permission-mode auto "$(mlflow agent setup --agent claude --print)"`.'
     ),
 )
 def setup(

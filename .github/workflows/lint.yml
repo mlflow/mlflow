@@ -34,11 +34,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        is-pull-request:
-          - ${{ github.event_name == 'pull_request' }}
+        run-macos:
+          - ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
         exclude:
           - os: macos-latest
-            is-pull-request: false
+            run-macos: false
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     permissions:
