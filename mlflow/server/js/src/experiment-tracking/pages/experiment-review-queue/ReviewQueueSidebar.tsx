@@ -227,7 +227,6 @@ export const ReviewQueueSidebar = ({
     >
       {canManage && (
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          <div css={{ flex: 1 }} />
           <Button componentId={`${CID}.manage-questions`} icon={<GearIcon />} onClick={onManageQuestions}>
             <FormattedMessage
               defaultMessage="Manage questions"
