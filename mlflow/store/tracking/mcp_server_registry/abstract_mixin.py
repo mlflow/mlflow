@@ -97,10 +97,11 @@ class MCPServerRegistryMixin:
 
         Args:
             name: Server name.
-            description: New description (if not None).
-            display_name: New display name (if not None).
-            icons: New icon variants (if not None).
-            latest_version: Pin the latest version pointer (if not None).
+            description: New description. Omit to leave unchanged; pass None to set null.
+            display_name: New display name. Omit to leave unchanged; pass None to set null.
+            icons: New icon variants. Omit to leave unchanged; pass None to set null.
+            latest_version: New pinned latest version. Omit to leave unchanged; pass None to
+                set null.
 
         Returns:
             The updated MCPServer entity.
@@ -215,9 +216,10 @@ class MCPServerRegistryMixin:
         Args:
             name: Server name.
             version: Version string.
-            display_name: New display name (if not None).
-            status: New status (if not None); validated against transition rules.
-            tools: New tool definitions (if not None).
+            display_name: New display name. Omit to leave unchanged; pass None to set null.
+            status: New status. Omit to leave unchanged; non-null values update the status.
+                Non-null values are validated against transition rules.
+            tools: New tool definitions. Omit to leave unchanged; pass None to set null.
 
         Returns:
             The updated MCPServerVersion entity.
@@ -311,10 +313,13 @@ class MCPServerRegistryMixin:
         Args:
             server_name: Server name.
             binding_id: Binding ID.
-            server_version: New version target (if not None).
-            server_alias: New alias target (if not None).
-            endpoint_url: New endpoint URL (if not None).
-            transport_type: New transport type (if not None).
+            server_version: New version target. Omit to leave unchanged; non-null values update
+                the version target.
+            server_alias: New alias target. Omit to leave unchanged; non-null values update the
+                alias target.
+            endpoint_url: New endpoint URL. Omit to leave unchanged; null is invalid.
+            transport_type: New transport type. Omit to leave unchanged; non-null values update
+                the transport type.
 
         Returns:
             The updated MCPAccessBinding entity.

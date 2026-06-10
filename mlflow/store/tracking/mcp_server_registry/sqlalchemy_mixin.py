@@ -13,6 +13,7 @@ from mlflow.entities.mcp_server import (
     MCPServer,
     MCPStatus,
     MCPTool,
+    validate_mcp_server_name,
 )
 from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.exceptions import MlflowException
@@ -64,11 +65,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         description: str | None = None,
         icons: list[MCPIcon] | None = None,
     ) -> MCPServer:
-        if not name:
-            raise MlflowException(
-                "MCP server name must not be empty",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        validate_mcp_server_name(name)
         now = get_current_time_millis()
         with self.ManagedSessionMaker(read_only=False) as session:
             try:
@@ -223,6 +220,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                 "server_json must contain 'name' and 'version' keys",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        validate_mcp_server_name(name)
 
         now = get_current_time_millis()
         status = status or MCPStatus.DRAFT
@@ -403,7 +401,11 @@ class SqlAlchemyMCPServerRegistryMixin:
         with self.ManagedSessionMaker(read_only=False) as session:
             sv = self._get_live_mcp_server_version_or_raise(session, name, version)
 
-            if status is not NOT_SET and status is not None:
+            if status is None:
+                raise MlflowException.invalid_parameter_value(
+                    "status cannot be null; omit the field to leave it unchanged"
+                )
+            if status is not NOT_SET:
                 _validate_status_transition(MCPStatus(sv.status), status)
                 sv.status = status.value
                 if status == MCPStatus.DRAFT and sv.server.latest_version == version:
