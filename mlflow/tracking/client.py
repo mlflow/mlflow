@@ -46,6 +46,10 @@ from mlflow.entities import (
     Workspace,
     WorkspaceDeletionMode,
 )
+from mlflow.entities.mcp_access_binding import MCPAccessBinding
+from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
+from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.prompt_version import PromptModelConfig
@@ -6748,3 +6752,205 @@ class MlflowClient:
             WebhookTestResult indicating success/failure and response details.
         """
         return self._get_registry_client().test_webhook(webhook_id, event)
+
+    # ---------------------------------------------------------------------------
+    # MCP Server Registry
+    # ---------------------------------------------------------------------------
+
+    def create_mcp_server(
+        self,
+        name: str,
+        description: str | None = None,
+        icons: list[MCPIcon] | None = None,
+    ) -> MCPServer:
+        return self._tracking_client.store.create_mcp_server(
+            name=name,
+            description=description,
+            icons=icons,
+        )
+
+    def get_mcp_server(self, name: str) -> MCPServer:
+        return self._tracking_client.store.get_mcp_server(name=name)
+
+    def search_mcp_servers(
+        self,
+        filter_string: str | None = None,
+        max_results: int = 100,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[MCPServer]:
+        return self._tracking_client.store.search_mcp_servers(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_mcp_server(
+        self,
+        name: str,
+        display_name: str | None = None,
+        description: str | None = None,
+        icons: list[MCPIcon] | None = None,
+        latest_version: str | None = None,
+    ) -> MCPServer:
+        return self._tracking_client.store.update_mcp_server(
+            name=name,
+            display_name=display_name,
+            description=description,
+            icons=icons,
+            latest_version=latest_version,
+        )
+
+    def delete_mcp_server(self, name: str) -> None:
+        self._tracking_client.store.delete_mcp_server(name=name)
+
+    def create_mcp_server_version(
+        self,
+        server_json: dict[str, Any],
+        display_name: str | None = None,
+        source: str | None = None,
+        status: MCPStatus | None = None,
+        tools: list[MCPTool] | None = None,
+    ) -> MCPServerVersion:
+        return self._tracking_client.store.create_mcp_server_version(
+            server_json=server_json,
+            display_name=display_name,
+            source=source,
+            status=status,
+            tools=tools,
+        )
+
+    def get_mcp_server_version(self, name: str, version: str) -> MCPServerVersion:
+        return self._tracking_client.store.get_mcp_server_version(name=name, version=version)
+
+    def get_mcp_server_version_by_alias(self, name: str, alias: str) -> MCPServerVersion:
+        return self._tracking_client.store.get_mcp_server_version_by_alias(
+            name=name, alias=alias
+        )
+
+    def get_latest_mcp_server_version(self, name: str) -> MCPServerVersion:
+        return self._tracking_client.store.get_latest_mcp_server_version(name=name)
+
+    def search_mcp_server_versions(
+        self,
+        name: str,
+        filter_string: str | None = None,
+        max_results: int = 100,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[MCPServerVersion]:
+        return self._tracking_client.store.search_mcp_server_versions(
+            name=name,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_mcp_server_version(
+        self,
+        name: str,
+        version: str,
+        display_name: str | None = None,
+        status: MCPStatus | None = None,
+        tools: list[MCPTool] | None = None,
+    ) -> MCPServerVersion:
+        return self._tracking_client.store.update_mcp_server_version(
+            name=name,
+            version=version,
+            display_name=display_name,
+            status=status,
+            tools=tools,
+        )
+
+    def delete_mcp_server_version(self, name: str, version: str) -> None:
+        self._tracking_client.store.delete_mcp_server_version(name=name, version=version)
+
+    def create_mcp_access_binding(
+        self,
+        server_name: str,
+        endpoint_url: str,
+        transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
+        server_version: str | None = None,
+        server_alias: str | None = None,
+    ) -> MCPAccessBinding:
+        return self._tracking_client.store.create_mcp_access_binding(
+            server_name=server_name,
+            endpoint_url=endpoint_url,
+            transport_type=transport_type,
+            server_version=server_version,
+            server_alias=server_alias,
+        )
+
+    def get_mcp_access_binding(self, server_name: str, binding_id: int) -> MCPAccessBinding:
+        return self._tracking_client.store.get_mcp_access_binding(
+            server_name=server_name, binding_id=binding_id
+        )
+
+    def search_mcp_access_bindings(
+        self,
+        server_name: str | None = None,
+        server_version: str | None = None,
+        server_alias: str | None = None,
+        filter_string: str | None = None,
+        max_results: int = 100,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[MCPAccessBinding]:
+        return self._tracking_client.store.search_mcp_access_bindings(
+            server_name=server_name,
+            server_version=server_version,
+            server_alias=server_alias,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def update_mcp_access_binding(
+        self,
+        server_name: str,
+        binding_id: int,
+        endpoint_url: str | None = None,
+        transport_type: MCPRemoteTransportType | None = None,
+        server_version: str | None = None,
+        server_alias: str | None = None,
+    ) -> MCPAccessBinding:
+        return self._tracking_client.store.update_mcp_access_binding(
+            server_name=server_name,
+            binding_id=binding_id,
+            endpoint_url=endpoint_url,
+            transport_type=transport_type,
+            server_version=server_version,
+            server_alias=server_alias,
+        )
+
+    def delete_mcp_access_binding(self, server_name: str, binding_id: int) -> None:
+        self._tracking_client.store.delete_mcp_access_binding(
+            server_name=server_name, binding_id=binding_id
+        )
+
+    def set_mcp_server_tag(self, name: str, key: str, value: str) -> None:
+        self._tracking_client.store.set_mcp_server_tag(name=name, key=key, value=value)
+
+    def delete_mcp_server_tag(self, name: str, key: str) -> None:
+        self._tracking_client.store.delete_mcp_server_tag(name=name, key=key)
+
+    def set_mcp_server_version_tag(
+        self, name: str, version: str, key: str, value: str
+    ) -> None:
+        self._tracking_client.store.set_mcp_server_version_tag(
+            name=name, version=version, key=key, value=value
+        )
+
+    def delete_mcp_server_version_tag(self, name: str, version: str, key: str) -> None:
+        self._tracking_client.store.delete_mcp_server_version_tag(
+            name=name, version=version, key=key
+        )
+
+    def set_mcp_server_alias(self, name: str, alias: str, version: str) -> None:
+        self._tracking_client.store.set_mcp_server_alias(name=name, alias=alias, version=version)
+
+    def delete_mcp_server_alias(self, name: str, alias: str) -> None:
+        self._tracking_client.store.delete_mcp_server_alias(name=name, alias=alias)
