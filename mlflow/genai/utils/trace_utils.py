@@ -21,7 +21,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.constants import DEFAULT_TOP_N_SLOWEST_SPANS
-from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
+from mlflow.genai.judges.utils import get_chat_completions_with_structured_output, get_default_model
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.genai.utils.prompts.available_tools_extraction import (
     get_available_tools_extraction_prompts,
@@ -1168,8 +1168,6 @@ def _try_extract_available_tools_with_llm(
         List of ChatTool objects extracted by the LLM, or empty list if extraction fails.
     """
     if model is None:
-        from mlflow.genai.judges.utils import get_default_model
-
         model = get_default_model()
 
     try:
