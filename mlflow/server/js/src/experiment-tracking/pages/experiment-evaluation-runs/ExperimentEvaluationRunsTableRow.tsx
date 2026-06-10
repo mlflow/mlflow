@@ -19,7 +19,7 @@ import { RunGroupingMode } from '../../components/experiment-page/utils/experime
 import { FormattedMessage } from 'react-intl';
 import { useNavigate } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
-import { RunPageTabName } from '../../constants';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_REGRESSION_TEST, RunPageTabName } from '../../constants';
 
 type TracesViewTableRowProps = {
   row: Row<RunEntityOrGroupData>;
@@ -74,16 +74,32 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
     const { theme } = useDesignSystemTheme();
     const navigate = useNavigate();
 
-    // Row click navigation - only enabled when feature flag is on
+    // Whether this row represents a regression-test run (tagged with
+    // ``mlflow.runType=regression_test``). Those rows always navigate to the
+    // dedicated regression-test page, regardless of the improved-comparison
+    // flag, because there is no useful "open side panel" behavior for them.
+    const isRegressionTestRow =
+      'info' in row.original &&
+      (row.original.data?.tags ?? []).some(
+        (tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_REGRESSION_TEST,
+      );
+
+    // Row click navigation - always enabled for regression-test rows, and
+    // enabled for other rows only when the feature flag is on.
     const handleRowClick = useCallback(() => {
+      if (!('info' in row.original)) {
+        return;
+      }
+      const { experimentId, runUuid } = row.original.info;
+      if (isRegressionTestRow) {
+        navigate(Routes.getRegressionTestRunDetailsRoute(experimentId, runUuid));
+        return;
+      }
       if (!enableImprovedComparison) {
         return;
       }
-      if ('info' in row.original) {
-        const { experimentId, runUuid } = row.original.info;
-        navigate(Routes.getRunPageTabRoute(experimentId, runUuid, RunPageTabName.EVALUATIONS));
-      }
-    }, [enableImprovedComparison, navigate, row.original]);
+      navigate(Routes.getRunPageTabRoute(experimentId, runUuid, RunPageTabName.EVALUATIONS));
+    }, [enableImprovedComparison, isRegressionTestRow, navigate, row.original]);
 
     if ('groupValues' in row.original) {
       return (
@@ -117,9 +133,9 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
       <TableRow
         key={row.id}
         className="eval-runs-table-row"
-        onClick={enableImprovedComparison ? handleRowClick : undefined}
+        onClick={enableImprovedComparison || isRegressionTestRow ? handleRowClick : undefined}
         css={{
-          cursor: enableImprovedComparison ? 'pointer' : undefined,
+          cursor: enableImprovedComparison || isRegressionTestRow ? 'pointer' : undefined,
           marginLeft: enableImprovedComparison && isGrouped && row.depth > 0 ? theme.spacing.lg : undefined,
         }}
       >

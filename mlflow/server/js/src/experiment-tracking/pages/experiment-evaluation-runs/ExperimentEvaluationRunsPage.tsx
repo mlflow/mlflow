@@ -23,6 +23,7 @@ import {
 import { invalidateMlflowSearchTracesCache } from '@databricks/web-shared/genai-traces-table';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { FormattedMessage } from 'react-intl';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_REGRESSION_TEST } from '../../constants';
 import {
   useSelectedRunUuid,
   SELECTED_RUN_UUID_QUERY_PARAM,
@@ -69,6 +70,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedDatasetWithRun, setSelectedDatasetWithRun] = useState<DatasetWithRunType>();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<'all' | 'eval' | 'test'>('all');
   const [selectedColumns, setSelectedColumns] = useState<{ [key: string]: boolean }>(
     EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
   );
@@ -282,7 +284,21 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
   const isEmpty = runUuids.length === 0 && !searchFilter && !isLoading;
 
-  const runsAndGroupValues = getGroupByRunsData(runs ?? [], groupBy);
+  // Client-side Type filter (All / Eval / Test). Tag-based: runs tagged
+  // `mlflow.runType=regression_test` are "Test"; everything else is "Eval".
+  const filteredRuns = useMemo(() => {
+    if (typeFilter === 'all' || !runs) {
+      return runs ?? [];
+    }
+    return runs.filter((run) => {
+      const isTest = (run.data?.tags ?? []).some(
+        (tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_REGRESSION_TEST,
+      );
+      return typeFilter === 'test' ? isTest : !isTest;
+    });
+  }, [runs, typeFilter]);
+
+  const runsAndGroupValues = getGroupByRunsData(filteredRuns, groupBy);
 
   const handleCompare = useCallback(
     (runUuid1: string, runUuid2: string) => {
@@ -352,6 +368,8 @@ const ExperimentEvaluationRunsPageImpl = () => {
       setSelectedColumns={setSelectedColumns}
       groupByConfig={groupBy}
       setGroupByConfig={setGroupBy}
+      typeFilter={typeFilter}
+      setTypeFilter={setTypeFilter}
       viewMode={viewMode}
       setViewMode={setViewMode}
       onCompare={handleCompare}

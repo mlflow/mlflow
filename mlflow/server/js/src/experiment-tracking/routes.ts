@@ -83,6 +83,9 @@ export class RoutePaths {
   static get experimentPageTabIssueDetectionRunDetailsWithTab() {
     return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid/*');
   }
+  static get regressionTestRunDetails() {
+    return createMLflowRoutePath('/experiments/:experimentId/runs/:runUuid/regression-tests');
+  }
   static get experimentPageTabDatasets() {
     return createMLflowRoutePath('/experiments/:experimentId/datasets');
   }
@@ -263,6 +266,10 @@ class Routes {
 
   static getIssueDetectionRunDetailsTabRoute(experimentId: string, runUuid: string, tabName: string) {
     return `${generatePath(RoutePaths.experimentPageTabIssueDetectionRunDetails, { experimentId, runUuid })}/${tabName}`;
+  }
+
+  static getRegressionTestRunDetailsRoute(experimentId: string, runUuid: string) {
+    return generatePath(RoutePaths.regressionTestRunDetails, { experimentId, runUuid });
   }
 
   /**
