@@ -299,7 +299,16 @@ const ExperimentReviewQueuePage = () => {
   }
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, padding: theme.spacing.md }}>
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
+        paddingRight: theme.spacing.md,
+        paddingBottom: theme.spacing.md,
+      }}
+    >
       <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {inFocusMode ? (
           <div
@@ -322,7 +331,7 @@ const ExperimentReviewQueuePage = () => {
             leftMinWidth={260}
             rightMinWidth={480}
             leftChild={
-              <div css={{ width: '100%', height: '100%', minHeight: 0 }}>
+              <div css={{ width: '100%', height: '100%', minHeight: 0, overflow: 'hidden' }}>
                 <ReviewQueueSidebar
                   queues={reviewQueues}
                   selectedQueueId={selectedQueueId}
