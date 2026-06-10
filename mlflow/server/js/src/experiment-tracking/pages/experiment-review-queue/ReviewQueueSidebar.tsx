@@ -63,7 +63,9 @@ const QueueRow = ({
         {label}
       </Typography.Text>
       <Typography.Text color="secondary" css={{ width: COUNT_COL_WIDTH, flexShrink: 0, textAlign: 'right' }}>
-        {pending ?? ''}
+        {/* Blank for a zero count (queues with no work sit under "No work to do",
+            where a "0" is just noise) and while the count is still loading. */}
+        {pending ? pending : ''}
       </Typography.Text>
     </div>
   );

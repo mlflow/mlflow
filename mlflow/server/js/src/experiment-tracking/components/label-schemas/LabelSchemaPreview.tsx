@@ -52,12 +52,12 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
       }}
     >
       <Typography.Text bold>
-        <FormattedMessage defaultMessage="Preview" description="Label schema preview panel header" />
+        <FormattedMessage defaultMessage="Preview" description="Review question preview panel header" />
       </Typography.Text>
       <Typography.Hint>
         <FormattedMessage
-          defaultMessage="How a reviewer sees the schema"
-          description="Label schema preview panel header subtitle"
+          defaultMessage="How a reviewer sees the question"
+          description="Review question preview panel header subtitle"
         />
       </Typography.Hint>
     </div>
@@ -108,13 +108,13 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
             title={
               <FormattedMessage
                 defaultMessage="Preview unavailable"
-                description="Label schema preview render-error empty title"
+                description="Review question preview render-error empty title"
               />
             }
             description={
               <FormattedMessage
-                defaultMessage="Continue editing the schema to see a preview."
-                description="Label schema preview render-error empty description"
+                defaultMessage="Continue editing the question to see a preview."
+                description="Review question preview render-error empty description"
               />
             }
           />
@@ -159,7 +159,7 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
             <Typography.Text color="secondary" css={{ fontStyle: 'italic' }}>
               <FormattedMessage
                 defaultMessage="(no name yet)"
-                description="Label schema preview placeholder for blank name"
+                description="Review question preview placeholder for blank name"
               />
             </Typography.Text>
           )}
@@ -190,7 +190,7 @@ export const LabelSchemaPreview = ({ formData }: LabelSchemaPreviewProps) => {
               css={{ marginTop: theme.spacing.sm }}
               placeholder={intl.formatMessage({
                 defaultMessage: 'Rationale (optional)',
-                description: 'Label schema preview free-form rationale placeholder',
+                description: 'Review question preview free-form rationale placeholder',
               })}
             />
           )}
