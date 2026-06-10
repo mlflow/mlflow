@@ -388,7 +388,15 @@ class Scorer(BaseModel):
             # Import here to avoid circular imports
             from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 
-            return BuiltInScorer.model_validate(obj)
+            try:
+                return BuiltInScorer.model_validate(obj)
+            except MlflowException as e:
+                if "Unknown builtin scorer class" not in str(e):
+                    raise
+                # Fall back to code scorers if not found in LLM-based scorers
+                from mlflow.genai.scorers.builtin_code_scorers import BuiltInCodeScorer
+
+                return BuiltInCodeScorer.model_validate(obj)
 
         # Handle decorator scorers
         elif serialized.call_source and serialized.call_signature and serialized.original_func_name:
