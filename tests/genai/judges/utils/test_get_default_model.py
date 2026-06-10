@@ -20,8 +20,4 @@ def test_get_default_model(monkeypatch, env_value, tracking_uri, expected):
     else:
         monkeypatch.delenv("MLFLOW_GENAI_JUDGE_DEFAULT_MODEL", raising=False)
     monkeypatch.setattr("mlflow.genai.judges.utils.mlflow.get_tracking_uri", lambda: tracking_uri)
-    monkeypatch.setattr(
-        "mlflow.genai.judges.utils.is_databricks_uri",
-        lambda uri: uri == "databricks",
-    )
     assert get_default_model() == expected

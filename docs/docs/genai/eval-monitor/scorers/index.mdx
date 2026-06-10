@@ -76,7 +76,7 @@ For a list of supported models, see [selecting judge models](/genai/eval-monitor
 
 :::tip Set a default judge model globally
 
-To avoid passing `model` to every scorer, set the `MLFLOW_GENAI_JUDGE_DEFAULT_MODEL` environment variable. All built-in judges and scorers will use that model when no explicit `model` argument is provided.
+Set the `MLFLOW_GENAI_JUDGE_DEFAULT_MODEL` environment variable to change the default judge model, instead of specifying `model` on each scorer individually. All built-in judges and scorers fall back to this model when no explicit `model` argument is provided.
 
 ```bash
 export MLFLOW_GENAI_JUDGE_DEFAULT_MODEL="openai:/gpt-5-mini"

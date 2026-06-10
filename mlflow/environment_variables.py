@@ -841,7 +841,7 @@ MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS = _EnvironmentVariable(
 #: ``Guidelines``, ``Safety``) when no ``model`` is passed explicitly. When unset,
 #: MLflow falls back to the Databricks managed judge on Databricks tracking URIs
 #: and ``openai:/gpt-4.1-mini`` otherwise. Set this to point every default judge
-#: at a single model URI, e.g. ``openai:/databricks-gpt-5``. (default: unset)
+#: at a single model URI, e.g. ``openai:/gpt-5-mini``. (default: unset)
 MLFLOW_GENAI_JUDGE_DEFAULT_MODEL = _EnvironmentVariable(
     "MLFLOW_GENAI_JUDGE_DEFAULT_MODEL", str, None
 )
