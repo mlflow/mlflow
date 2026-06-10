@@ -3176,6 +3176,8 @@ class Summarization(BuiltInScorer):
 # Regex patterns for PII detection. These prioritize recall (catching PII) over
 # precision (not flagging false positives). For serious privacy workflows,
 # pair this with a dedicated library like Guardrails AI or Presidio.
+PIIType = Literal["email", "phone", "ssn", "credit_card", "ip_address"]
+
 _PII_PATTERNS: dict[str, str] = {
     "email": r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
     "phone": r"(?:(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\+[1-9]\d{1,14})",
@@ -3193,16 +3195,18 @@ _PII_PATTERNS: dict[str, str] = {
 def _resolve_output_text(
     outputs: Any | None,
     trace: Trace | None,
-    scorer_name: str,
-) -> str:
-    """Resolve outputs from trace if needed and coerce to a string."""
+) -> str | None:
+    """Resolve outputs from trace if needed and coerce to a string.
+
+    Returns None when no outputs are available so the caller can
+    produce a scorer-specific Feedback instead of crashing the
+    evaluation run.
+    """
     if outputs is None and trace is not None:
         outputs = resolve_outputs_from_trace(outputs, trace)
 
     if outputs is None:
-        raise MlflowException.invalid_parameter_value(
-            f"{scorer_name} requires `outputs` to be provided or a trace containing outputs."
-        )
+        return None
 
     if isinstance(outputs, str):
         return outputs
@@ -3296,7 +3300,13 @@ class RegexMatch(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        outputs_str = _resolve_output_text(outputs, trace, "RegexMatch")
+        outputs_str = _resolve_output_text(outputs, trace)
+        if outputs_str is None:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale="No outputs provided to evaluate.",
+            )
 
         if self.match_type == "fullmatch":
             matched = self._compiled.fullmatch(outputs_str) is not None
@@ -3362,20 +3372,9 @@ class PIIDetection(BuiltInScorer):
     """
 
     name: str = "pii_detection"
-    pii_types: list[str] | None = None
+    pii_types: list[PIIType] | None = None
     required_columns: set[str] = {"outputs"}
     description: str = "Detect common PII (email, phone, SSN, credit card, IP) in the output."
-
-    @pydantic.model_validator(mode="after")
-    def _validate_pii_types(self):
-        if self.pii_types is None:
-            return self
-        if unsupported := [t for t in self.pii_types if t not in _PII_PATTERNS]:
-            raise ValueError(
-                f"unsupported PII type(s) {unsupported}. "
-                f"Supported types: {list(_PII_PATTERNS.keys())}"
-            )
-        return self
 
     @property
     def feedback_value_type(self) -> Any:
@@ -3400,7 +3399,14 @@ class PIIDetection(BuiltInScorer):
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        outputs_str = _resolve_output_text(outputs, trace, "PIIDetection")
+        outputs_str = _resolve_output_text(outputs, trace)
+        if outputs_str is None:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale="No outputs provided to evaluate.",
+            )
+
         types_to_check = (
             self.pii_types if self.pii_types is not None else list(_PII_PATTERNS.keys())
         )
@@ -3514,19 +3520,21 @@ class ResponseLength(BuiltInScorer):
             ),
         ]
 
-    def _measure(self, text: str) -> int:
-        if self.unit == "words":
-            return len(text.split())
-        return len(text)
-
     def __call__(
         self,
         *,
         outputs: Any | None = None,
         trace: Trace | None = None,
     ) -> Feedback:
-        outputs_str = _resolve_output_text(outputs, trace, "ResponseLength")
-        length = self._measure(outputs_str)
+        outputs_str = _resolve_output_text(outputs, trace)
+        if outputs_str is None:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale="No outputs provided to evaluate.",
+            )
+
+        length = len(outputs_str.split()) if self.unit == "words" else len(outputs_str)
 
         if self.min_length is not None and length < self.min_length:
             return Feedback(
