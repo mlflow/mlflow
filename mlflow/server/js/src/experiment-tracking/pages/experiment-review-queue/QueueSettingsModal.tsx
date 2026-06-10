@@ -22,7 +22,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import { LabelSchemaInputRenderer, useListLabelSchemasQuery } from '../../components/label-schemas';
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
-import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useIsAuthAvailable } from '../../../account/hooks';
+import { useIsAuthAvailable } from '../../../account/hooks';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { useUpdateReviewQueueMutation } from './hooks/useUpdateReviewQueueMutation';
@@ -38,15 +38,22 @@ const CID = 'mlflow.experiment-review-queue.queue-settings';
  * it editable needs an UpdateReviewQueue proto change. Deletion lives on the gear
  * menu, not here. Personal USER queues aren't managed here.
  */
-export const QueueSettingsModal = ({ queue, onClose }: { queue: ReviewQueue; onClose: () => void }) => {
+export const QueueSettingsModal = ({
+  queue,
+  canManage,
+  onClose,
+}: {
+  queue: ReviewQueue;
+  canManage: boolean;
+  onClose: () => void;
+}) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const authAvailable = useIsAuthAvailable();
-  const isAdmin = useCurrentUserIsAdmin();
-  const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
-  // User listing is workspace-admin gated server-side; gate the query so a
-  // non-admin doesn't 403. Free-text member entry still works without it.
-  const canListUsers = authAvailable && (isAdmin || isWorkspaceAdmin);
+  // Listing users is allowed for any authenticated user server-side; gate it on
+  // queue management so it matches the "Flag for review" modal and stays off on
+  // a no-auth server. Free-text member entry still works without the roster.
+  const canListUsers = authAvailable && canManage;
 
   const { labelSchemas, isLoading: schemasLoading } = useListLabelSchemasQuery({ experimentId: queue.experiment_id });
   const { items: traces, isLoading: itemsLoading } = useListReviewQueueItemsQuery({ queueId: queue.queue_id });

@@ -381,7 +381,9 @@ const ExperimentReviewQueuePage = () => {
         <CreateReviewQueueModal experimentId={experimentId} onClose={() => setCreateOpen(false)} />
       )}
 
-      {editingQueue && <QueueSettingsModal queue={editingQueue} onClose={() => setEditingQueueId(undefined)} />}
+      {editingQueue && (
+        <QueueSettingsModal queue={editingQueue} canManage={canManage} onClose={() => setEditingQueueId(undefined)} />
+      )}
 
       {confirmDeleteQueue && (
         <Modal
