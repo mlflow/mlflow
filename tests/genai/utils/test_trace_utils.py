@@ -23,6 +23,7 @@ from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     _extract_tool_name_from_span,
+    _parse_chunk,
     _should_keep_trace,
     _try_extract_available_tools_with_llm,
     clean_up_extra_traces,
@@ -1616,3 +1617,54 @@ def test_evaluate_with_trace_column_preserves_traces():
     remaining_traces = get_traces()
     remaining_trace_ids = {t.info.trace_id for t in remaining_traces}
     assert original_trace_id in remaining_trace_ids
+
+
+# -- _parse_chunk --------------------------------------------------------------
+
+def test_parse_chunk_page_content():
+    chunk = {"page_content": "VPN instructions", "metadata": {"doc_uri": "http://example.com"}}
+    result = _parse_chunk(chunk)
+    assert result == {"content": "VPN instructions", "doc_uri": "http://example.com"}
+
+
+def test_parse_chunk_content_field():
+    chunk = {"content": "Install Cisco AnyConnect"}
+    result = _parse_chunk(chunk)
+    assert result == {"content": "Install Cisco AnyConnect"}
+
+
+def test_parse_chunk_text_field():
+    chunk = {"text": "Reset your password"}
+    result = _parse_chunk(chunk)
+    assert result == {"content": "Reset your password"}
+
+
+def test_parse_chunk_page_content_takes_priority_over_content():
+    chunk = {"page_content": "primary", "content": "secondary"}
+    result = _parse_chunk(chunk)
+    assert result == {"content": "primary"}
+
+
+def test_parse_chunk_no_recognized_field_warns():
+    from unittest.mock import patch
+
+    from mlflow.genai.utils import trace_utils
+
+    chunk = {"body": "some text"}
+    with patch.object(trace_utils._logger, "warning") as mock_warn:
+        result = _parse_chunk(chunk)
+    assert result == {"content": None}
+    mock_warn.assert_called_once()
+    assert "no recognized text field" in mock_warn.call_args[0][0].lower()
+
+
+def test_parse_chunk_non_dict_returns_none():
+    assert _parse_chunk("plain string") is None
+    assert _parse_chunk(["a", "b"]) is None
+    assert _parse_chunk(None) is None
+
+
+def test_parse_chunk_preserves_doc_uri_with_content_field():
+    chunk = {"content": "some doc", "metadata": {"doc_uri": "s3://bucket/file"}}
+    result = _parse_chunk(chunk)
+    assert result == {"content": "some doc", "doc_uri": "s3://bucket/file"}

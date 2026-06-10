@@ -814,11 +814,21 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
     return top_level_retrieval_spans
 
 
+_CHUNK_TEXT_FIELDS = ("page_content", "content", "text")
+
+
 def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
     if not isinstance(chunk, dict):
         return None
 
-    doc = {"content": chunk.get("page_content")}
+    text = next((chunk[f] for f in _CHUNK_TEXT_FIELDS if f in chunk), None)
+    if text is None:
+        _logger.warning(
+            "Retriever documents contain no recognized text field "
+            f"({', '.join(_CHUNK_TEXT_FIELDS)}). The document will be treated as having no "
+            "content. Consider using one of the supported field names."
+        )
+    doc = {"content": text}
     if doc_uri := chunk.get("metadata", {}).get("doc_uri"):
         doc["doc_uri"] = doc_uri
     return doc
