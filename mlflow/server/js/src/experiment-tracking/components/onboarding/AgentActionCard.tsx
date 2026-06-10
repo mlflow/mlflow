@@ -146,7 +146,7 @@ export const AgentActionCard = ({
           <Tabs.Content value="agent-setup" css={{ paddingTop: 0 }}>
             <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>
               <FormattedMessage
-                defaultMessage="Experimental — run this in your terminal to install MLflow skills into your project and launch your coding agent (Claude Code, Codex, or OpenCode) with instructions to instrument your app."
+                defaultMessage="Run this in your terminal to install MLflow skills into your project and launch your coding agent (Claude Code, Codex, or OpenCode) with instructions to instrument your app."
                 description="Description above the mlflow agent setup terminal command in the agent action card"
               />
             </Typography.Text>
