@@ -51,14 +51,27 @@ _LAZY_IMPORTS = {
     "get_all_scorers",
 }
 
+# Deterministic string scorers live in a separate module so they're not
+# entangled with the LLM-judge inheritance chain.
+_STRING_SCORER_IMPORTS = {
+    "Contains",
+    "Excludes",
+    "Matches",
+    "Equals",
+}
+
 
 def __getattr__(name):
     """Lazily import builtin scorers to avoid circular dependency."""
     if name in _LAZY_IMPORTS:
-        # Import the module when first accessed
         from mlflow.genai.scorers import builtin_scorers
 
         return getattr(builtin_scorers, name)
+
+    if name in _STRING_SCORER_IMPORTS:
+        from mlflow.genai.scorers import string_scorers
+
+        return getattr(string_scorers, name)
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -72,7 +85,7 @@ def __dir__():
     # Get the default module attributes
     module_attrs = list(globals().keys())
     # Add the lazy imports
-    return sorted(set(module_attrs) | _LAZY_IMPORTS)
+    return sorted(set(module_attrs) | _LAZY_IMPORTS | _STRING_SCORER_IMPORTS)
 
 
 # The TYPE_CHECKING block below is for static analysis tools only.
@@ -103,6 +116,12 @@ if TYPE_CHECKING:
         UserFrustration,
         get_all_scorers,
     )
+    from mlflow.genai.scorers.string_scorers import (
+        Contains,
+        Equals,
+        Excludes,
+        Matches,
+    )
 
 __all__ = [
     "Completeness",
@@ -111,12 +130,16 @@ __all__ = [
     "ConversationalSafety",
     "ConversationalToolCallEfficiency",
     "ConversationCompleteness",
+    "Contains",
     "Correctness",
+    "Equals",
+    "Excludes",
     "ExpectationsGuidelines",
     "Fluency",
     "Guidelines",
     "Equivalence",
     "KnowledgeRetention",
+    "Matches",
     "RelevanceToQuery",
     "RetrievalGroundedness",
     "RetrievalRelevance",
