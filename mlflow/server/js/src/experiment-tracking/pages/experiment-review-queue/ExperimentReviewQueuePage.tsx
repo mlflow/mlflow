@@ -109,29 +109,6 @@ const ExperimentReviewQueuePage = () => {
         padding: theme.spacing.md,
       }}
     >
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-        <Typography.Title level={2} withoutMargins>
-          <FormattedMessage defaultMessage="Review" description="Review queue tab title" />
-        </Typography.Title>
-        <Tooltip
-          componentId={`${CID}.edit-questions-tooltip`}
-          content={intl.formatMessage({
-            defaultMessage: 'Edit review questions for this experiment',
-            description: 'Review queue: edit-questions gear tooltip',
-          })}
-        >
-          <Button
-            componentId={`${CID}.edit-questions`}
-            icon={<GearIcon />}
-            aria-label={intl.formatMessage({
-              defaultMessage: 'Edit review questions',
-              description: 'Review queue: edit-questions gear aria label',
-            })}
-            onClick={() => setManageOpen(true)}
-          />
-        </Tooltip>
-      </div>
-
       {queuesLoading ? (
         <TableSkeleton lines={5} />
       ) : reviewQueues.length === 0 ? (
@@ -177,6 +154,24 @@ const ExperimentReviewQueuePage = () => {
                   {q.name}
                 </Button>
               ))}
+              <div css={{ flex: 1 }} />
+              <Tooltip
+                componentId={`${CID}.edit-questions-tooltip`}
+                content={intl.formatMessage({
+                  defaultMessage: 'Edit review questions for this experiment',
+                  description: 'Review queue: edit-questions gear tooltip',
+                })}
+              >
+                <Button
+                  componentId={`${CID}.edit-questions`}
+                  icon={<GearIcon />}
+                  aria-label={intl.formatMessage({
+                    defaultMessage: 'Edit review questions',
+                    description: 'Review queue: edit-questions gear aria label',
+                  })}
+                  onClick={() => setManageOpen(true)}
+                />
+              </Tooltip>
             </div>
           )}
 
