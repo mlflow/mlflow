@@ -618,8 +618,6 @@ describe('RunEvaluationButton', () => {
 
       renderButton('exp-1');
       await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
-      // Select a judge so the OK button isn't disabled by runJudgeDisabled; this isolates
-      // the loading: isSubmitting branch as the only thing affecting the button.
       await user.click(getJudgeCheckboxByName('My Custom Judge'));
 
       const okButton = document.querySelector<HTMLButtonElement>(
@@ -655,6 +653,37 @@ describe('RunEvaluationButton', () => {
 
       expect(mockInvokeMutate).not.toHaveBeenCalled();
       expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a synchronous scorer-serialization error in the inline alert without calling the mutation', async () => {
+      setupReadyToSubmit();
+
+      mockUseGetScheduledScorers.mockReturnValue({
+        data: {
+          experimentId: 'exp-1',
+          scheduledScorers: [
+            {
+              name: 'Broken Judge',
+              type: 'llm',
+              isSessionLevelScorer: false,
+              llmTemplate: 'Custom',
+              instructions: '',
+              model: 'gateway:/custom-endpoint',
+              is_instructions_judge: true,
+            },
+          ],
+        },
+        isLoading: false,
+      });
+
+      renderButton('exp-1');
+      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(getJudgeCheckboxByName('Broken Judge'));
+      await user.click(screen.getByRole('button', { name: 'Run judge' }));
+
+      // The error is shown inline (not swallowed) and the network call is never made.
+      expect(screen.getByText('Instructions are required for instructions-based LLM scorers')).toBeInTheDocument();
+      expect(mockInvokeMutate).not.toHaveBeenCalled();
     });
   });
 });

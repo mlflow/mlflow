@@ -62,6 +62,14 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
     reset: resetSubmit,
   } = useInvokeGenAIEvaluation();
 
+  const [buildError, setBuildError] = useState<Error | null>(null);
+  const submissionError = submitError ?? buildError;
+
+  const clearSubmissionError = () => {
+    resetSubmit();
+    setBuildError(null);
+  };
+
   const toggleScorer = (scorer: LLMScorer) => {
     setSelectedScorers((prev) => {
       const isSelected = prev.some((s) => s.name === scorer.name);
@@ -102,10 +110,10 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
     setSelectedScorers([]);
     setSelectedTemplates([]);
     setCurrentEndpointModel(undefined);
+    setBuildError(null);
     resetSubmit();
   };
 
-  // Build one self-contained serialized scorer per selected judge.
   const buildSerializedScorers = (): string[] => {
     const fromCustom = selectedScorers.map((scorer) => transformScheduledScorer(scorer).serialized_scorer);
 
@@ -136,11 +144,20 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
   };
 
   const handleSubmit = () => {
+    let serializedScorers: string[];
+    try {
+      serializedScorers = buildSerializedScorers();
+    } catch (error) {
+      setBuildError(error instanceof Error ? error : new Error(String(error)));
+      return;
+    }
+    setBuildError(null);
+
     invokeGenAIEvaluation(
       {
         experimentId,
         traceIds: selectedTraceIds,
-        serializedScorers: buildSerializedScorers(),
+        serializedScorers,
       },
       {
         onSuccess: (response) => {
@@ -190,13 +207,13 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
         onCancel={isSubmitting ? undefined : closeAndResetSelections}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-          {submitError && (
+          {submissionError && (
             <Alert
               componentId="mlflow.eval-runs.start-run-modal.error"
               type="error"
-              message={submitError.message}
+              message={submissionError.message}
               closable
-              onClose={resetSubmit}
+              onClose={clearSubmissionError}
             />
           )}
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
