@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -34,6 +35,48 @@ class MCPRemoteTransportType(str, Enum):
 
     def __str__(self):
         return self.value
+
+
+_MCP_SERVER_NAME_NAMESPACE_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$")
+_MCP_SERVER_NAME_SLUG_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$")
+_MCP_SERVER_RESERVED_SLUGS = {"aliases", "bindings", "tags", "versions"}
+
+
+def validate_mcp_server_name(name: str) -> None:
+    if not name:
+        raise MlflowException.invalid_parameter_value("MCP server name must not be empty")
+
+    try:
+        namespace, slug = name.split("/")
+    except ValueError:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid MCP server name. Expected '<reverse-dns namespace>/<server slug>' "
+            "such as 'com.example/server-name'."
+        ) from None
+
+    if not namespace or not slug:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid MCP server name. Expected '<reverse-dns namespace>/<server slug>' "
+            "such as 'com.example/server-name'."
+        )
+
+    if slug in _MCP_SERVER_RESERVED_SLUGS:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid MCP server name. Expected '<reverse-dns namespace>/<server slug>' "
+            "such as 'com.example/server-name'."
+        )
+
+    if _MCP_SERVER_NAME_NAMESPACE_RE.fullmatch(namespace) is None:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid MCP server name. Expected '<reverse-dns namespace>/<server slug>' "
+            "such as 'com.example/server-name'."
+        )
+
+    if _MCP_SERVER_NAME_SLUG_RE.fullmatch(slug) is None:
+        raise MlflowException.invalid_parameter_value(
+            "Invalid MCP server name. Expected '<reverse-dns namespace>/<server slug>' "
+            "such as 'com.example/server-name'."
+        )
 
 
 @dataclass(frozen=True)
