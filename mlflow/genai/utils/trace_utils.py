@@ -816,6 +816,7 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
 
 _RETRIEVER_DOCUMENT_CONTENT_KEYS = ("page_content", "content", "text")
 _RETRIEVER_DOCUMENT_METADATA_KEYS = ("metadata",)
+_WARNED_RETRIEVER_DOCUMENT_KEY_SETS: set[frozenset[str]] = set()
 
 
 def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
@@ -834,15 +835,20 @@ def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
         # present because they may contain text under an unsupported key.
         non_metadata_keys = set(chunk) - set(_RETRIEVER_DOCUMENT_METADATA_KEYS)
         if non_metadata_keys:
-            _logger.warning(
-                "RETRIEVER span document does not contain any recognized text field. "
-                "Expected one of %s. Found fields: %s",
-                list(_RETRIEVER_DOCUMENT_CONTENT_KEYS),
-                sorted(chunk.keys()),
-            )
+            key_set = frozenset(chunk.keys())
+            if key_set not in _WARNED_RETRIEVER_DOCUMENT_KEY_SETS:
+                _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.add(key_set)
+                _logger.warning(
+                    "RETRIEVER span document does not contain any recognized text field. "
+                    "Expected one of %s. Found fields: %s",
+                    list(_RETRIEVER_DOCUMENT_CONTENT_KEYS),
+                    sorted(map(str, chunk.keys())),
+                )
 
+    metadata = chunk.get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
     doc = {"content": content}
-    if doc_uri := chunk.get("metadata", {}).get("doc_uri"):
+    if doc_uri := metadata.get("doc_uri"):
         doc["doc_uri"] = doc_uri
     return doc
 

@@ -21,6 +21,7 @@ from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.utils import is_none_or_nan
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
+    _WARNED_RETRIEVER_DOCUMENT_KEY_SETS,
     _does_store_support_trace_linking,
     _extract_tool_name_from_span,
     _parse_chunk,
@@ -648,6 +649,41 @@ def test_is_none_or_nan(input_value, expected):
     assert is_none_or_nan(input_value) == expected
 
 
+def test_parse_chunk_preserves_empty_page_content():
+    assert _parse_chunk({"page_content": ""}) == {"content": ""}
+
+
+def test_parse_chunk_non_dict_metadata_does_not_drop_valid_content():
+    assert _parse_chunk({"page_content": "text", "metadata": "bad metadata"}) == {"content": "text"}
+
+
+def test_parse_chunk_page_content_none_beats_populated_aliases():
+    chunk = {
+        "page_content": None,
+        "content": "Fallback content",
+        "text": "Fallback text",
+    }
+
+    assert _parse_chunk(chunk) == {"content": None}
+
+
+def test_parse_chunk_warns_once_per_unrecognized_key_set(monkeypatch):
+    _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.clear()
+    logged_messages = []
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._logger.warning",
+        lambda message, *args: logged_messages.append(message % args),
+    )
+
+    _parse_chunk({"body": "Body text", "metadata": {"doc_uri": "doc-1"}})
+    _parse_chunk({"body": "Another body text", "metadata": {"doc_uri": "doc-2"}})
+
+    assert len(logged_messages) == 1
+    assert "does not contain any recognized text field" in logged_messages[0]
+    assert "body" in logged_messages[0]
+
+
 def test_parse_chunk_uses_page_content_by_default():
     chunk = {
         "page_content": "Page content text",
@@ -695,6 +731,7 @@ def test_parse_chunk_prefers_page_content_over_aliases():
 
 
 def test_parse_chunk_warns_for_unrecognized_text_field(monkeypatch):
+    _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.clear()
     logged_messages = []
 
     monkeypatch.setattr(
@@ -716,6 +753,7 @@ def test_parse_chunk_warns_for_unrecognized_text_field(monkeypatch):
 
 
 def test_parse_chunk_does_not_warn_for_metadata_only_chunk(monkeypatch):
+    _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.clear()
     logged_messages = []
 
     monkeypatch.setattr(
