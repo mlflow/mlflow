@@ -1392,6 +1392,204 @@ def test_search_mcp_server_versions_order_by(store):
     assert versions == ["gamma", "beta", "alpha"]
 
 
+def test_create_mcp_access_binding_with_latest_alias(store):
+    # Create server with an active version
+    store.create_mcp_server_version(
+        _server_json("io.github.test/s", "1.0"), status=MCPStatus.ACTIVE
+    )
+
+    # Should be able to create a binding with server_alias="latest"
+    binding = store.create_mcp_access_binding(
+        "io.github.test/s",
+        "https://latest.example.com",
+        server_alias="latest",
+    )
+
+    # Verify the binding was created and resolves to the latest version
+    assert binding.server_alias == "latest"
+    assert binding.server_version is None
+    assert binding.resolved_version is not None
+    assert binding.resolved_version.version == "1.0"
+
+    # Create a newer version and verify "latest" now resolves to it
+    store.create_mcp_server_version(
+        _server_json("io.github.test/s", "2.0"), status=MCPStatus.ACTIVE
+    )
+
+    # Retrieve the binding again to check resolution
+    retrieved_binding = store.get_mcp_access_binding("io.github.test/s", binding.binding_id)
+    assert retrieved_binding.resolved_version.version == "2.0"
+
+
+def test_search_mcp_access_bindings_with_latest_alias(store):
+    store.create_mcp_server_version(
+        _server_json("io.github.test/s", "1.0"), status=MCPStatus.ACTIVE
+    )
+    store.create_mcp_access_binding(
+        "io.github.test/s",
+        "https://latest.example.com",
+        server_alias="latest",
+    )
+
+    # Search should find the binding and resolve its version
+    bindings = store.search_mcp_access_bindings(
+        server_name="io.github.test/s",
+        server_alias="latest",
+    )
+    assert len(bindings) == 1
+    assert bindings[0].server_alias == "latest"
+    assert bindings[0].resolved_version.version == "1.0"
+
+
+def test_get_latest_version_stale_pin_raises(store):
+    store.create_mcp_server_version(
+        _server_json("io.github.test/s", "1.0"), status=MCPStatus.ACTIVE
+    )
+    store.update_mcp_server("io.github.test/s", latest_version="1.0")
+
+    # Simulate stale pin by directly setting latest_version to a nonexistent version
+    from mlflow.store.tracking.dbmodels.models import SqlMCPServer
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        server = session.query(SqlMCPServer).filter(SqlMCPServer.name == "io.github.test/s").one()
+        server.latest_version = "gone"
+        session.flush()
+
+    with pytest.raises(MlflowException, match="Pinned latest_version 'gone' not found"):
+        store.get_latest_mcp_server_version("io.github.test/s")
+
+
+def test_create_binding_latest_alias_stale_pin_raises(store):
+    store.create_mcp_server_version(
+        _server_json("io.github.test/s", "1.0"), status=MCPStatus.ACTIVE
+    )
+
+    from mlflow.store.tracking.dbmodels.models import SqlMCPServer
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        server = session.query(SqlMCPServer).filter(SqlMCPServer.name == "io.github.test/s").one()
+        server.latest_version = "gone"
+        session.flush()
+
+    with pytest.raises(MlflowException, match="Pinned latest_version 'gone' not found"):
+        store.create_mcp_access_binding(
+            "io.github.test/s",
+            "https://latest.example.com",
+            server_alias="latest",
+        )
+
+
+def test_search_binding_latest_alias_stale_pin_omitted(store):
+    # Stale-pin bindings are silently omitted from search (SQL JOIN produces no
+    # rows); get_mcp_access_binding surfaces the error instead.
+    store.create_mcp_server_version(
+        _server_json("io.github.test/s", "1.0"), status=MCPStatus.ACTIVE
+    )
+    binding = store.create_mcp_access_binding(
+        "io.github.test/s",
+        "https://latest.example.com",
+        server_alias="latest",
+    )
+    assert binding.resolved_version.version == "1.0"
+
+    from mlflow.store.tracking.dbmodels.models import SqlMCPServer
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        server = session.query(SqlMCPServer).filter(SqlMCPServer.name == "io.github.test/s").one()
+        server.latest_version = "gone"
+        session.flush()
+
+    # Search silently omits unresolvable bindings
+    bindings = store.search_mcp_access_bindings(server_name="io.github.test/s")
+    assert len(bindings) == 0
+
+    # get_mcp_access_binding surfaces the error
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_mcp_access_binding("io.github.test/s", binding.binding_id)
+
+
+def test_search_unfiltered_returns_all_binding_types(store):
+    store.create_mcp_server_version(
+        _server_json("io.github.test/s", "1.0"), status=MCPStatus.ACTIVE
+    )
+    store.set_mcp_server_alias("io.github.test/s", "prod", "1.0")
+
+    store.create_mcp_access_binding(
+        "io.github.test/s", "https://direct.example.com", server_version="1.0"
+    )
+    store.create_mcp_access_binding(
+        "io.github.test/s", "https://alias.example.com", server_alias="prod"
+    )
+    store.create_mcp_access_binding(
+        "io.github.test/s", "https://latest.example.com", server_alias="latest"
+    )
+
+    bindings = store.search_mcp_access_bindings(server_name="io.github.test/s")
+    assert len(bindings) == 3
+    urls = {b.endpoint_url for b in bindings}
+    assert urls == {
+        "https://direct.example.com",
+        "https://alias.example.com",
+        "https://latest.example.com",
+    }
+    for b in bindings:
+        assert b.resolved_version is not None
+        assert b.resolved_version.version == "1.0"
+
+
+def test_update_binding_to_latest_alias(store):
+    store.create_mcp_server_version(
+        _server_json("io.github.test/s", "1.0"), status=MCPStatus.ACTIVE
+    )
+    binding = store.create_mcp_access_binding(
+        "io.github.test/s", "https://example.com", server_version="1.0"
+    )
+    assert binding.server_version == "1.0"
+
+    updated = store.update_mcp_access_binding(
+        "io.github.test/s",
+        binding.binding_id,
+        server_alias="latest",
+    )
+    assert updated.server_alias == "latest"
+    assert updated.server_version is None
+    assert updated.resolved_version is not None
+    assert updated.resolved_version.version == "1.0"
+
+
+def test_get_mcp_server_includes_latest_alias_binding(store):
+    store.create_mcp_server_version(
+        _server_json("io.github.test/s", "1.0"), status=MCPStatus.ACTIVE
+    )
+    store.create_mcp_access_binding(
+        "io.github.test/s", "https://latest.example.com", server_alias="latest"
+    )
+    server = store.get_mcp_server("io.github.test/s")
+    assert len(server.access_bindings) == 1
+    b = server.access_bindings[0]
+    assert b.server_alias == "latest"
+    assert b.resolved_version is not None
+    assert b.resolved_version.version == "1.0"
+
+
+def test_search_mcp_servers_has_access_bindings_with_latest_alias(store):
+    store.create_mcp_server_version(
+        _server_json("io.github.test/s1", "1.0"), status=MCPStatus.ACTIVE
+    )
+    store.create_mcp_access_binding(
+        "io.github.test/s1", "https://latest.example.com", server_alias="latest"
+    )
+    store.create_mcp_server_version(
+        _server_json("io.github.test/s2", "1.0"), status=MCPStatus.ACTIVE
+    )
+
+    result = store.search_mcp_servers(filter_string="has_access_bindings = 'true'")
+    assert len(result) == 1
+    assert result[0].name == "io.github.test/s1"
+    assert len(result[0].access_bindings) == 1
+    assert result[0].access_bindings[0].resolved_version.version == "1.0"
+
+
 def test_deleted_versions_excluded_from_get(store):
     store.create_mcp_server_version(_server_json("io.github.test/s", "1.0"))
     store.delete_mcp_server_version("io.github.test/s", "1.0")
