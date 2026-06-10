@@ -102,10 +102,10 @@ export const AgentActionCard = ({
         }}
       >
         <Tabs.List
-          // Tabs.List paints scroll-shadow gradients on an inner viewport using
-          // theme.colors.backgroundPrimary (white) by default — the slivers show even with no
-          // overflow. Passing the card's background color blends them out.
-          shadowScrollStylesBackgroundColor={theme.colors.backgroundSecondary}
+          // Tabs.List paints horizontal scroll-shadow gradients on its inner viewport that show as
+          // faint slivers at the left/right edges even with no overflow. These tab strips are short
+          // and never need a scroll affordance, so clear the viewport background to remove them.
+          scrollAreaViewportCss={{ background: 'none' }}
           css={{
             width: '100%',
             borderBottom: `1px solid ${theme.colors.border}`,

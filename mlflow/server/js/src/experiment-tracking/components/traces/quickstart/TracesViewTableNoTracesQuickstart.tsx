@@ -182,7 +182,7 @@ export const TracesViewTableNoTracesQuickstart = ({
               borderRadius: theme.borders.borderRadiusMd,
               overflow: 'hidden',
               border: `1px solid ${theme.colors.border}`,
-              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
+              boxShadow: theme.shadows.md,
               ...videoButtonFocusCss,
             }}
           >
@@ -227,8 +227,8 @@ export const TracesViewTableNoTracesQuickstart = ({
               css={{
                 position: 'relative',
                 flex: '0 0 auto',
-                width: 132,
-                height: 74,
+                width: theme.spacing.lg * 5,
+                aspectRatio: '16 / 9',
                 borderRadius: theme.borders.borderRadiusSm,
                 overflow: 'hidden',
                 backgroundColor: theme.colors.backgroundPrimary,
@@ -257,7 +257,7 @@ export const TracesViewTableNoTracesQuickstart = ({
                 <PlayIcon />
               </span>
             </span>
-            <span css={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs / 2 }}>
               <Typography.Text bold>
                 <FormattedMessage
                   defaultMessage="See it in action"
