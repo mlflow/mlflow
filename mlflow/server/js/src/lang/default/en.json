@@ -6151,10 +6151,6 @@
     "defaultMessage": "Aliased versions",
     "description": "Column title for aliased versions in the registered model page"
   },
-  "WScPFv": {
-    "defaultMessage": "Review",
-    "description": "Review queue tab title"
-  },
   "WVUF2N": {
     "defaultMessage": "Are you sure you want to delete the prompt?",
     "description": "A content for the delete prompt confirmation modal"
