@@ -25,6 +25,9 @@
  * 2. Bearer Token (MLFLOW_TRACKING_TOKEN)
  * 3. No authentication
  *
+ * Workspace isolation (RHOAI / multi-tenant):
+ * - MLFLOW_WORKSPACE: sets the `x-mlflow-workspace` header for namespace-scoped requests
+ *
  * @module auth
  */
 
@@ -270,12 +273,17 @@ function createOssAuth(options: AuthOptions): AuthProvider {
     authHeader = `Bearer ${token}`;
   }
 
+  const workspace = process.env.MLFLOW_WORKSPACE;
+
   // Headers provider for OSS MLflow
   // eslint-disable-next-line require-await, @typescript-eslint/require-await
   const headersProvider: HeadersProvider = async () => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (authHeader) {
       headers['Authorization'] = authHeader;
+    }
+    if (workspace) {
+      headers['x-mlflow-workspace'] = workspace;
     }
     return headers;
   };
