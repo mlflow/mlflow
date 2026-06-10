@@ -19,8 +19,6 @@ jest.mock('../../components/label-schemas', () => ({
   LabelSchemaInputRenderer: () => null,
 }));
 jest.mock('../../../account/hooks', () => ({
-  useCurrentUserIsAdmin: () => false,
-  useCurrentUserIsWorkspaceAdmin: () => false,
   useIsAuthAvailable: () => false,
 }));
 // Stable reference across renders, like the real react-query hook — a fresh
@@ -68,7 +66,7 @@ const renderModal = () =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
-        <QueueSettingsModal queue={queue} onClose={jest.fn()} />
+        <QueueSettingsModal queue={queue} canManage onClose={jest.fn()} />
       </DesignSystemProvider>
     </IntlProvider>,
   );
