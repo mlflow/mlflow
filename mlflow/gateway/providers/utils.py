@@ -28,9 +28,7 @@ async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, paylo
     url = append_to_uri_path(base_url, path)
     # Raise the aiohttp stream read buffer to tolerate large SSE `data:` lines
     # emitted by some providers during streaming responses.
-    async with aiohttp.ClientSession(
-        headers=request_headers, read_bufsize=2**20
-    ) as session:
+    async with aiohttp.ClientSession(headers=request_headers, read_bufsize=2**20) as session:
         timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get())
         async with session.post(url, json=payload, timeout=timeout) as response:
             yield response
