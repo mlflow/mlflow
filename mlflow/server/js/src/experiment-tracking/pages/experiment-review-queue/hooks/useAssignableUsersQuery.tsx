@@ -5,6 +5,12 @@ import type { ListUsersResponse } from '../../../../admin/types';
 
 export const ASSIGNABLE_USERS_QUERY_KEY = 'REVIEW_QUEUE_ASSIGNABLE_USERS';
 
+// Stable fallback so a disabled/loading query (e.g. a non-admin who can't list
+// users) returns the same array identity every render. A fresh `[]` here would
+// give consumers a new reference each render, looping any `useMemo`/`useEffect`
+// keyed on the list (see QueueSettingsModal's members typeahead).
+const EMPTY_USERS: ListUsersResponse['users'] = [];
+
 /**
  * Usernames assignable as review-queue targets, for the "Flag for review" user
  * search. Backed by the admin `users/list` endpoint, which is workspace-admin
@@ -21,5 +27,5 @@ export const useAssignableUsersQuery = ({ enabled }: { enabled: boolean }) => {
     refetchOnWindowFocus: false,
   });
 
-  return { users: data?.users ?? [], isLoading, error };
+  return { users: data?.users ?? EMPTY_USERS, isLoading, error };
 };

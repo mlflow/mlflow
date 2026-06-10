@@ -23,7 +23,12 @@ jest.mock('../../../account/hooks', () => ({
   useCurrentUserIsWorkspaceAdmin: () => false,
   useIsAuthAvailable: () => false,
 }));
-jest.mock('./hooks/useAssignableUsersQuery', () => ({ useAssignableUsersQuery: () => ({ users: [] }) }));
+// Stable reference across renders, like the real react-query hook — a fresh
+// object each call would churn the members typeahead's derived state.
+jest.mock('./hooks/useAssignableUsersQuery', () => {
+  const result = { users: [] };
+  return { useAssignableUsersQuery: () => result };
+});
 
 let mockTraces: ReviewQueueItem[] = [];
 jest.mock('./hooks/useListReviewQueueItemsQuery', () => ({
