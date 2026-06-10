@@ -1110,7 +1110,7 @@ async def test_passthrough_gemini_generate_content():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1161,7 +1161,7 @@ async def test_passthrough_gemini_stream_generate_content():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
