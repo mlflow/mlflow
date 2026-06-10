@@ -4,6 +4,8 @@ import inspect
 import json
 import logging
 import math
+import threading
+from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Callable
 
 from cachetools.func import cached
@@ -816,7 +818,22 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
 
 _RETRIEVER_DOCUMENT_CONTENT_KEYS = ("page_content", "content", "text")
 _RETRIEVER_DOCUMENT_METADATA_KEYS = ("metadata",)
-_WARNED_RETRIEVER_DOCUMENT_KEY_SETS: set[frozenset[str]] = set()
+_MAX_RETRIEVER_DOCUMENT_WARNING_KEY_SETS = 128
+_WARNED_RETRIEVER_DOCUMENT_KEY_SETS: OrderedDict[frozenset[str], None] = OrderedDict()
+_WARNED_RETRIEVER_DOCUMENT_KEY_SETS_LOCK = threading.Lock()
+
+
+def _should_warn_for_retriever_document_key_set(key_set: frozenset[str]) -> bool:
+    with _WARNED_RETRIEVER_DOCUMENT_KEY_SETS_LOCK:
+        if key_set in _WARNED_RETRIEVER_DOCUMENT_KEY_SETS:
+            _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.move_to_end(key_set)
+            return False
+
+        _WARNED_RETRIEVER_DOCUMENT_KEY_SETS[key_set] = None
+        if len(_WARNED_RETRIEVER_DOCUMENT_KEY_SETS) > _MAX_RETRIEVER_DOCUMENT_WARNING_KEY_SETS:
+            _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.popitem(last=False)
+
+        return True
 
 
 def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
@@ -835,14 +852,13 @@ def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
         # present because they may contain text under an unsupported key.
         non_metadata_keys = set(chunk) - set(_RETRIEVER_DOCUMENT_METADATA_KEYS)
         if non_metadata_keys:
-            key_set = frozenset(chunk.keys())
-            if key_set not in _WARNED_RETRIEVER_DOCUMENT_KEY_SETS:
-                _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.add(key_set)
+            key_set = frozenset(map(str, chunk.keys()))
+            if _should_warn_for_retriever_document_key_set(key_set):
                 _logger.warning(
                     "RETRIEVER span document does not contain any recognized text field. "
                     "Expected one of %s. Found fields: %s",
                     list(_RETRIEVER_DOCUMENT_CONTENT_KEYS),
-                    sorted(map(str, chunk.keys())),
+                    sorted(key_set),
                 )
 
     metadata = chunk.get("metadata")

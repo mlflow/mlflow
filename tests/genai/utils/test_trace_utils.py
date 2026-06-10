@@ -1,5 +1,6 @@
 import asyncio
 import json
+from collections import OrderedDict
 from typing import Any
 from unittest import mock
 
@@ -21,7 +22,6 @@ from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.utils import is_none_or_nan
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
-    _WARNED_RETRIEVER_DOCUMENT_KEY_SETS,
     _does_store_support_trace_linking,
     _extract_tool_name_from_span,
     _parse_chunk,
@@ -667,8 +667,15 @@ def test_parse_chunk_page_content_none_beats_populated_aliases():
     assert _parse_chunk(chunk) == {"content": None}
 
 
+def _reset_retriever_document_warning_cache(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._WARNED_RETRIEVER_DOCUMENT_KEY_SETS",
+        OrderedDict(),
+    )
+
+
 def test_parse_chunk_warns_once_per_unrecognized_key_set(monkeypatch):
-    _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.clear()
+    _reset_retriever_document_warning_cache(monkeypatch)
     logged_messages = []
 
     monkeypatch.setattr(
@@ -731,7 +738,7 @@ def test_parse_chunk_prefers_page_content_over_aliases():
 
 
 def test_parse_chunk_warns_for_unrecognized_text_field(monkeypatch):
-    _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.clear()
+    _reset_retriever_document_warning_cache(monkeypatch)
     logged_messages = []
 
     monkeypatch.setattr(
@@ -753,7 +760,7 @@ def test_parse_chunk_warns_for_unrecognized_text_field(monkeypatch):
 
 
 def test_parse_chunk_does_not_warn_for_metadata_only_chunk(monkeypatch):
-    _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.clear()
+    _reset_retriever_document_warning_cache(monkeypatch)
     logged_messages = []
 
     monkeypatch.setattr(
