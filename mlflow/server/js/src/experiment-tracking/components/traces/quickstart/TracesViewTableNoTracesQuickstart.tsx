@@ -125,11 +125,11 @@ export const TracesViewTableNoTracesQuickstart = ({
       )}
 
       <AgentActionCard
-        componentId="mlflow.traces.onboarding.instrument_with_agent"
+        componentId="mlflow.traces.onboarding.trace_with_agent"
         showAgentSetupTab
         title={
           <FormattedMessage
-            defaultMessage="Get help instrumenting your app"
+            defaultMessage="Set up tracing with LLM"
             description="Headline for the agent CTA card in the traces empty state"
           />
         }

@@ -575,6 +575,10 @@
     "defaultMessage": "Overview",
     "description": "Label for the overview tab in the MLflow experiment navbar"
   },
+  "0sVtor": {
+    "defaultMessage": "Copy-paste prompt",
+    "description": "Tab label for the copy-prompt-to-local-agent path in the agent action card"
+  },
   "0skVwM": {
     "defaultMessage": "No endpoints found",
     "description": "Empty state title when filter returns no results"
@@ -2611,6 +2615,10 @@
     "defaultMessage": "Inputs",
     "description": "Header for the dataset record inputs column"
   },
+  "BUdrAE": {
+    "defaultMessage": "One-line setup",
+    "description": "Tab label for the mlflow agent setup CLI path in the agent action card"
+  },
   "BWH8UR": {
     "defaultMessage": "API key name:",
     "description": "Label for API key name input"
@@ -2754,10 +2762,6 @@
   "C6aBjm": {
     "defaultMessage": "New question",
     "description": "Review queue: create new question link in dropdown"
-  },
-  "C6blcO": {
-    "defaultMessage": "Get help creating your first experiment",
-    "description": "Headline for the agent CTA card on the experiments list empty state"
   },
   "C83vFj": {
     "defaultMessage": "Latency",
@@ -2998,10 +3002,6 @@
   "DQ3XQT": {
     "defaultMessage": "Diff highlighting is not supported in Markdown view. Switch to Text view to see differences.",
     "description": "Warning message shown in prompt comparison view when markdown rendering is enabled"
-  },
-  "DR5rI6": {
-    "defaultMessage": "CLI",
-    "description": "Tab label for the mlflow agent setup CLI path in the agent action card"
   },
   "DUnrWL": {
     "defaultMessage": "Run Name:",
@@ -4515,10 +4515,6 @@
     "defaultMessage": "Created at",
     "description": "Label for the creation timestamp of a logged model on the logged model details page"
   },
-  "MX091Z": {
-    "defaultMessage": "Your coding agent",
-    "description": "Tab label for the copy-prompt-to-local-agent path in the agent action card"
-  },
   "MX4ypf": {
     "defaultMessage": "Save",
     "description": "Save button for the edit model config modal"
@@ -5774,10 +5770,6 @@
   "SwvkMI": {
     "defaultMessage": "Is the summary faithful, complete, and concise?",
     "description": "Hint for Summarization template"
-  },
-  "Sz/6u1": {
-    "defaultMessage": "Get help instrumenting your app",
-    "description": "Headline for the agent CTA card in the traces empty state"
   },
   "SzapEm": {
     "defaultMessage": "Your models will appear here once you log them using newest version of MLflow. <link>Learn more</link>.",
@@ -7202,6 +7194,10 @@
   "aCzpU3": {
     "defaultMessage": "Off",
     "description": "Telemetry disabled label"
+  },
+  "aD0nhf": {
+    "defaultMessage": "Set up tracing with LLM",
+    "description": "Headline for the agent CTA card in the traces empty state"
   },
   "aE6zVg": {
     "defaultMessage": "Configure predefined judges, create guidelines-based LLM judges, or build custom judge functions to track your unique metrics. {link}",
@@ -9639,10 +9635,6 @@
     "defaultMessage": "Percentage of traces evaluated by this judge.",
     "description": "Hint text for sample rate slider"
   },
-  "lxm4ge": {
-    "defaultMessage": "Or create an experiment manually",
-    "description": "CTA on the experiments empty state to create an experiment as an alternative to the agent path"
-  },
   "lyNyOH": {
     "defaultMessage": "Default queue",
     "description": "Add to review queue: the experiment default queue option"
@@ -11267,10 +11259,6 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
   },
-  "uBlUdn": {
-    "defaultMessage": "Experiments organize your runs, traces, and evaluation results. Let MLflow's AI assistant set everything up, or create an experiment manually.",
-    "description": "Subtitle for the empty state on the experiments list page"
-  },
   "uFM4rv": {
     "defaultMessage": "Digest",
     "description": "Label for the digest field in the V2 evaluation dataset metadata modal"
@@ -11406,10 +11394,6 @@
   "utyagz": {
     "defaultMessage": "Feedback",
     "description": "Label for the feedback section in the assessments pane"
-  },
-  "uwT+78": {
-    "defaultMessage": "Start tracking your ML workflows with Experiments",
-    "description": "Title for the empty state on the experiments list page"
   },
   "uyx2Bd": {
     "defaultMessage": "search_traces syntax",

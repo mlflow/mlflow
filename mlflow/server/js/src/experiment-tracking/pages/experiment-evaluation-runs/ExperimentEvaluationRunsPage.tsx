@@ -413,6 +413,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
         marginTop: theme.spacing.lg,
         paddingLeft: theme.spacing.md,
         maxWidth: '100%',
+        overflow: 'auto',
       }}
     >
       <Typography.Title level={3} color="secondary">

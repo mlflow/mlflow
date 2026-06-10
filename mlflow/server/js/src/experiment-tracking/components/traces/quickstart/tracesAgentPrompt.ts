@@ -3,7 +3,7 @@ export const buildInstrumentPrompt = (
 ): string => `Add MLflow tracing to my app. Target experiment: ${experimentName}.
 
 1. Add \`mlflow\` as a dependency.
-2. Set the tracking URI to match the project: read \`MLFLOW_TRACKING_URI\`, check \`~/.databrickscfg\` for a Databricks profile, or ask me. Apply via env or \`mlflow.set_tracking_uri()\`.
+2. Set the tracking URI to match the project: read \`MLFLOW_TRACKING_URI\` or ask me. Apply via env or \`mlflow.set_tracking_uri()\`.
 3. Add \`mlflow.autolog()\` or the matching per-framework call at the entry point. Use the \`instrumenting-with-mlflow-tracing\` skill for framework specifics and \`searching-mlflow-docs\` for API questions (fallback: https://github.com/mlflow/skills).
 4. Run the app and confirm a trace appears.
 

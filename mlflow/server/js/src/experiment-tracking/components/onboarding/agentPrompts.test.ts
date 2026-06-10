@@ -4,7 +4,6 @@ import {
   buildEvaluatePrompt,
   buildEvaluateAssistantPrompt,
 } from '../../pages/experiment-evaluation-runs/evalRunsAgentPrompt';
-import { buildCreateExperimentPrompt, buildCreateExperimentAssistantPrompt } from '../experimentListAgentPrompt';
 import {
   buildCreatePromptPrompt,
   buildCreatePromptAssistantPrompt,
@@ -17,6 +16,7 @@ describe('coding-agent prompt builders', () => {
     expect(out).toContain('instrumenting-with-mlflow-tracing');
     expect(out).toContain('searching-mlflow-docs');
     expect(out).toContain('github.com/mlflow/skills');
+    expect(out).not.toContain('.databrickscfg');
   });
 
   it('build_evaluate_prompt interpolates experiment ID into both the prose and the Python call', () => {
@@ -25,12 +25,7 @@ describe('coding-agent prompt builders', () => {
     expect(out).toContain('experiment_id="42"');
     expect(out).toContain('searching-mlflow-docs');
     expect(out).toContain('mlflow.genai.evaluate');
-  });
-
-  it('build_create_experiment_prompt references the docs skill', () => {
-    const out = buildCreateExperimentPrompt();
-    expect(out).toContain('mlflow.set_experiment');
-    expect(out).toContain('searching-mlflow-docs');
+    expect(out).not.toContain('.databrickscfg');
   });
 
   it('build_create_prompt_prompt walks all 6 conversational steps and references the docs skill', () => {
@@ -48,20 +43,14 @@ describe('assistant prompt builders', () => {
     expect(out).toContain('Target experiment: my-exp.');
     expect(out).not.toContain('searching-mlflow-docs');
     expect(out).not.toContain('instrumenting-with-mlflow-tracing');
-    expect(out).toContain('Ask me');
+    expect(out).toContain('Ask');
   });
 
   it('build_evaluate_assistant_prompt does NOT reference local skills', () => {
     const out = buildEvaluateAssistantPrompt('42');
     expect(out).toContain('Target experiment ID: 42.');
     expect(out).not.toContain('searching-mlflow-docs');
-    expect(out).toContain('Ask me');
-  });
-
-  it('build_create_experiment_assistant_prompt does NOT reference local skills', () => {
-    const out = buildCreateExperimentAssistantPrompt();
-    expect(out).not.toContain('searching-mlflow-docs');
-    expect(out).toContain('Ask me');
+    expect(out).toContain('Ask');
   });
 
   it('build_create_prompt_assistant_prompt walks the 6 steps and does NOT reference local skills', () => {

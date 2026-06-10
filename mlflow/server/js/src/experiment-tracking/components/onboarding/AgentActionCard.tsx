@@ -99,14 +99,14 @@ export const AgentActionCard = ({
           {showAgentSetupTab && (
             <Tabs.Trigger value="agent-setup">
               <FormattedMessage
-                defaultMessage="CLI"
+                defaultMessage="One-line setup"
                 description="Tab label for the mlflow agent setup CLI path in the agent action card"
               />
             </Tabs.Trigger>
           )}
-          <Tabs.Trigger value="coding-agent">
+          <Tabs.Trigger value="copy-prompt">
             <FormattedMessage
-              defaultMessage="Your coding agent"
+              defaultMessage="Copy-paste prompt"
               description="Tab label for the copy-prompt-to-local-agent path in the agent action card"
             />
           </Tabs.Trigger>
@@ -154,7 +154,7 @@ export const AgentActionCard = ({
           </Tabs.Content>
         )}
 
-        <Tabs.Content value="coding-agent" css={{ paddingTop: 0 }}>
+        <Tabs.Content value="copy-prompt" css={{ paddingTop: 0 }}>
           <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>
             <FormattedMessage
               defaultMessage="Copy this prompt and paste into Claude Code, Codex, Cursor, or any coding agent already running in your project."

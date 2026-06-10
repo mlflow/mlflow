@@ -2,10 +2,13 @@ import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databrick
 import { useMemo } from 'react';
 import type { CursorPaginationProps } from '@databricks/design-system';
 import {
+  BeakerIcon,
+  Button,
   Checkbox,
   useDesignSystemTheme,
   Empty,
   NoIcon,
+  PlusIcon,
   Table,
   CursorPagination,
   TableRow,
@@ -26,7 +29,6 @@ import Utils from '../../common/utils/Utils';
 import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { ExperimentListTableTagsCell } from './ExperimentListTableTagsCell';
-import { ExperimentListEmptyState } from './ExperimentListEmptyState';
 import { isDemoExperiment } from '../utils/isDemoExperiment';
 
 export type ExperimentTableColumnDef = ColumnDef<ExperimentEntity>;
@@ -169,7 +171,48 @@ export const ExperimentListTable = ({
       );
     }
     if (isEmptyList) {
-      return <ExperimentListEmptyState onCreateExperiment={onCreateExperiment} />;
+      return (
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 400,
+          }}
+        >
+          <Empty
+            image={<BeakerIcon />}
+            title={
+              <FormattedMessage
+                defaultMessage="Create your first experiment"
+                description="Home page experiments empty state title"
+              />
+            }
+            description={
+              <FormattedMessage
+                defaultMessage="Create your first experiment to start tracking ML workflows."
+                description="Home page experiments empty state description"
+              />
+            }
+            button={
+              onCreateExperiment ? (
+                <Button
+                  componentId="mlflow.experiment_list_table.create_experiment"
+                  data-testid="create-experiment-table-empty-state-button"
+                  onClick={onCreateExperiment}
+                  type="primary"
+                  icon={<PlusIcon />}
+                >
+                  <FormattedMessage
+                    defaultMessage="Create experiment"
+                    description="Home page experiments empty state CTA"
+                  />
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
+      );
     }
 
     return null;
