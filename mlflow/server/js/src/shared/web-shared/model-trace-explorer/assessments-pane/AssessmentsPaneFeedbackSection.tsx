@@ -1,6 +1,8 @@
 import {
   Alert,
   Button,
+  ChevronDownIcon,
+  ChevronRightIcon,
   DropdownMenu,
   PlusIcon,
   Spacer,
@@ -201,6 +203,8 @@ export const AssessmentsPaneFeedbackSection = ({
   const isSectionEmpty =
     isEmpty(groupedFeedbacks) && isEmpty(currentTraceEvaluationErrors) && isEmpty(newTracePendingEvaluations);
 
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   const { theme } = useDesignSystemTheme();
   return (
     <>
@@ -214,124 +218,150 @@ export const AssessmentsPaneFeedbackSection = ({
           flexShrink: 0,
         }}
       >
-        <Typography.Text bold>
-          <FormattedMessage
-            defaultMessage="Feedback"
-            description="Label for the feedback section in the assessments pane"
-          />{' '}
-          {!isEmpty(groupedFeedbacks) && <>({visibleFeedbacks.length})</>}
-        </Typography.Text>
-        {!isSectionEmpty && (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => setIsCollapsed((v) => !v)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setIsCollapsed((v) => !v);
+            }
+          }}
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.xs,
+            cursor: 'pointer',
+            userSelect: 'none',
+          }}
+        >
+          {isCollapsed ? <ChevronRightIcon /> : <ChevronDownIcon />}
+          <Typography.Text bold>
+            <FormattedMessage
+              defaultMessage="Feedback"
+              description="Label for the feedback section in the assessments pane"
+            />{' '}
+            {!isEmpty(groupedFeedbacks) && <>({visibleFeedbacks.length})</>}
+          </Typography.Text>
+        </div>
+        {!isSectionEmpty && !isCollapsed && (
           <AddFeedbackButton traceId={traceId} sessionId={sessionId} onClick={() => setCreateFormVisible(true)} />
         )}
       </div>
-
-      {currentTraceEvaluationErrors.map((evaluation) => (
-        <div key={evaluation.requestKey} css={{ marginBottom: theme.spacing.sm }}>
-          <Alert
-            closable={false}
-            type="error"
-            message={
-              <FormattedMessage
-                defaultMessage='Error evaluating "{label}"'
-                description="Error evaluating label"
-                values={{ label: evaluation.label }}
+      {!isCollapsed && (
+        <>
+          {currentTraceEvaluationErrors.map((evaluation) => (
+            <div key={evaluation.requestKey} css={{ marginBottom: theme.spacing.sm }}>
+              <Alert
+                closable={false}
+                type="error"
+                message={
+                  <FormattedMessage
+                    defaultMessage='Error evaluating "{label}"'
+                    description="Error evaluating label"
+                    values={{ label: evaluation.label }}
+                  />
+                }
+                description={evaluation.error?.message}
+                componentId="shared.model-trace-explorer.feedback-error-item"
               />
-            }
-            description={evaluation.error?.message}
-            componentId="shared.model-trace-explorer.feedback-error-item"
-          />
-        </div>
-      ))}
-      {newTracePendingEvaluations.map((evaluation) => (
-        <div
-          key={evaluation.requestKey}
-          css={{
-            borderRadius: theme.spacing.sm,
-            border: `1px solid ${theme.colors.border}`,
-            padding: theme.spacing.sm + theme.spacing.xs,
-            paddingTop: theme.spacing.sm,
-            marginBottom: theme.spacing.sm,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: theme.spacing.sm,
-          }}
-        >
-          {/* <AssessmentSourceTypeTag sourceType="LLM_JUDGE" /> */}
-          <Typography.Text bold>{evaluation.label}</Typography.Text>
-          <TableSkeleton lines={3} />
-          {reset && (
-            <Button
-              componentId="shared.model-trace-explorer.cancel-evaluation"
-              size="small"
-              icon={<StopCircleFillIcon />}
-              onClick={() => reset(evaluation.requestKey)}
+            </div>
+          ))}
+          {newTracePendingEvaluations.map((evaluation) => (
+            <div
+              key={evaluation.requestKey}
+              css={{
+                borderRadius: theme.spacing.sm,
+                border: `1px solid ${theme.colors.border}`,
+                padding: theme.spacing.sm + theme.spacing.xs,
+                paddingTop: theme.spacing.sm,
+                marginBottom: theme.spacing.sm,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: theme.spacing.sm,
+              }}
             >
-              <FormattedMessage
-                defaultMessage="Cancel judge"
-                description="Button text for canceling judge evaluation"
+              {/* <AssessmentSourceTypeTag sourceType="LLM_JUDGE" /> */}
+              <Typography.Text bold>{evaluation.label}</Typography.Text>
+              <TableSkeleton lines={3} />
+              {reset && (
+                <Button
+                  componentId="shared.model-trace-explorer.cancel-evaluation"
+                  size="small"
+                  icon={<StopCircleFillIcon />}
+                  onClick={() => reset(evaluation.requestKey)}
+                >
+                  <FormattedMessage
+                    defaultMessage="Cancel judge"
+                    description="Button text for canceling judge evaluation"
+                  />
+                </Button>
+              )}
+            </div>
+          ))}
+
+          {groupedFeedbacks.map(([name, valuesMap]) => {
+            const loadingEvaluation = loadingEvaluations.find((evaluation) => evaluation.label === name);
+            return (
+              <FeedbackGroup
+                key={name}
+                name={name}
+                valuesMap={valuesMap}
+                traceId={traceId}
+                activeSpanId={activeSpanId}
+                loading={Boolean(loadingEvaluation)}
+                onCancelLoading={loadingEvaluation && reset ? () => reset(loadingEvaluation.requestKey) : undefined}
               />
-            </Button>
+            );
+          })}
+          {isSectionEmpty && !createFormVisible && (
+            <div
+              css={{
+                textAlign: 'center',
+                borderRadius: theme.spacing.xs,
+                border: `1px dashed ${theme.colors.border}`,
+                padding: `${theme.spacing.md}px ${theme.spacing.md}px`,
+              }}
+            >
+              <Typography.Hint>
+                {sessionId ? (
+                  <FormattedMessage
+                    defaultMessage="Add custom feedback to this session."
+                    description="Hint message prompting user to add new feedback to a session"
+                  />
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="Add custom feedback to this trace."
+                    description="Hint message prompting user to add new feedback to a trace"
+                  />
+                )}{' '}
+                <Typography.Link
+                  componentId="shared.model-trace-explorer.feedback-learn-more-link"
+                  openInNewTab
+                  href="https://www.mlflow.org/docs/latest/genai/assessments/feedback/"
+                >
+                  <FormattedMessage
+                    defaultMessage="Learn more."
+                    description="Link text for learning more about feedback"
+                  />
+                </Typography.Link>
+              </Typography.Hint>
+              <Spacer size="sm" />
+              <div css={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
+                <AddFeedbackButton traceId={traceId} sessionId={sessionId} onClick={() => setCreateFormVisible(true)} />
+              </div>
+            </div>
           )}
-        </div>
-      ))}
-
-      {groupedFeedbacks.map(([name, valuesMap]) => {
-        const loadingEvaluation = loadingEvaluations.find((evaluation) => evaluation.label === name);
-        return (
-          <FeedbackGroup
-            key={name}
-            name={name}
-            valuesMap={valuesMap}
-            traceId={traceId}
-            activeSpanId={activeSpanId}
-            loading={Boolean(loadingEvaluation)}
-            onCancelLoading={loadingEvaluation && reset ? () => reset(loadingEvaluation.requestKey) : undefined}
-          />
-        );
-      })}
-      {isSectionEmpty && !createFormVisible && (
-        <div
-          css={{
-            textAlign: 'center',
-            borderRadius: theme.spacing.xs,
-            border: `1px dashed ${theme.colors.border}`,
-            padding: `${theme.spacing.md}px ${theme.spacing.md}px`,
-          }}
-        >
-          <Typography.Hint>
-            {sessionId ? (
-              <FormattedMessage
-                defaultMessage="Add custom feedback to this session."
-                description="Hint message prompting user to add new feedback to a session"
-              />
-            ) : (
-              <FormattedMessage
-                defaultMessage="Add custom feedback to this trace."
-                description="Hint message prompting user to add new feedback to a trace"
-              />
-            )}{' '}
-            <Typography.Link
-              componentId="shared.model-trace-explorer.feedback-learn-more-link"
-              openInNewTab
-              href="https://www.mlflow.org/docs/latest/genai/assessments/feedback/"
-            >
-              <FormattedMessage defaultMessage="Learn more." description="Link text for learning more about feedback" />
-            </Typography.Link>
-          </Typography.Hint>
-          <Spacer size="sm" />
-          <div css={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-            <AddFeedbackButton traceId={traceId} sessionId={sessionId} onClick={() => setCreateFormVisible(true)} />
-          </div>
-        </div>
-      )}
-      {createFormVisible && (
-        <AssessmentCreateForm
-          spanId={activeSpanId}
-          traceId={traceId}
-          assessmentType="feedback"
-          setExpanded={() => setCreateFormVisible(false)}
-        />
+          {createFormVisible && (
+            <AssessmentCreateForm
+              spanId={activeSpanId}
+              traceId={traceId}
+              assessmentType="feedback"
+              setExpanded={() => setCreateFormVisible(false)}
+            />
+          )}
+        </>
       )}
     </>
   );

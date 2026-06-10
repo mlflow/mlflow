@@ -143,10 +143,6 @@
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
   },
-  "+lNppY": {
-    "defaultMessage": "Notes",
-    "description": "Header for the notes section in the assessments pane"
-  },
   "+mAXPc": {
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
     "description": "Text displayed when no traces are found in the trace review page"
@@ -618,6 +614,10 @@
   "1JiZwB": {
     "defaultMessage": "Did the conversation fully address the user's request?",
     "description": "Hint for ConversationCompleteness template"
+  },
+  "1JubO9": {
+    "defaultMessage": "Show more",
+    "description": "Button to expand a long comment"
   },
   "1NeHsz": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
@@ -1123,6 +1123,10 @@
     "defaultMessage": "API key name",
     "description": "Label for API key name input"
   },
+  "4D06Yc": {
+    "defaultMessage": "Add a comment... (⌘/Ctrl+Enter to post)",
+    "description": "Placeholder text in the comments section input"
+  },
   "4GPLHq": {
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular prompt version.",
     "description": "Description for the edit aliases modal on the registered prompt details page"
@@ -1382,6 +1386,10 @@
   "5qRFq/": {
     "defaultMessage": "Delete",
     "description": "Delete button text"
+  },
+  "5rEn4S": {
+    "defaultMessage": "Cancel",
+    "description": "Button to cancel editing a comment"
   },
   "5umyLP": {
     "defaultMessage": "Edit endpoint name",
@@ -2251,6 +2259,10 @@
     "defaultMessage": "Created {date}",
     "description": "Gateway > Endpoint bindings drawer > Created date"
   },
+  "AG71QS": {
+    "defaultMessage": "Save",
+    "description": "Button to save an edited comment"
+  },
   "AGLzB5": {
     "defaultMessage": "my-api-key",
     "description": "Placeholder for secret name input"
@@ -3027,6 +3039,10 @@
     "defaultMessage": "Version {version}",
     "description": "Version display for judge"
   },
+  "Ecgvng": {
+    "defaultMessage": "Edit comment",
+    "description": "Tooltip for editing a comment"
+  },
   "EcjcgN": {
     "defaultMessage": "Metrics",
     "description": "Label for the ungrouped metrics column group in the logged model column selector"
@@ -3334,6 +3350,10 @@
   "Gk9Z7W": {
     "defaultMessage": "Created by",
     "description": "Header for the dataset created-by column"
+  },
+  "Gkk5Jf": {
+    "defaultMessage": "Edit comment... (⌘/Ctrl+Enter to save)",
+    "description": "Placeholder text in the comments section edit input"
   },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
@@ -4683,6 +4703,10 @@
     "defaultMessage": "Value",
     "description": "Add new key-value tag modal > Value input label"
   },
+  "OSFrMe": {
+    "defaultMessage": "Add comments about this trace. Each post is saved as a separate comment.",
+    "description": "Tooltip describing the comments section in the assessments pane"
+  },
   "OUPWd8": {
     "defaultMessage": "View chat session",
     "description": "Tooltip for the session id tag"
@@ -4750,6 +4774,10 @@
   "OjWQ39": {
     "defaultMessage": "Human feedback",
     "description": "Tooltip content for human feedback"
+  },
+  "OksZcP": {
+    "defaultMessage": "Show less",
+    "description": "Button to collapse a long comment"
   },
   "OlI8fe": {
     "defaultMessage": "On Exceeded",
@@ -5275,10 +5303,6 @@
     "defaultMessage": "Ready",
     "description": "Label for ready state of a experiment logged model"
   },
-  "RsTIRk": {
-    "defaultMessage": "Add personal notes about this trace.",
-    "description": "Tooltip describing the notes section in the assessments pane"
-  },
   "RtKhwd": {
     "defaultMessage": "Dataset",
     "description": "Experiment page > group by runs control > group by dataset"
@@ -5410,6 +5434,10 @@
   "SVNXvf": {
     "defaultMessage": "Create LLM judge",
     "description": "Title for new LLM judge modal"
+  },
+  "SVRXzn": {
+    "defaultMessage": "Comments",
+    "description": "Header for the comments section in the assessments pane"
   },
   "Sb+wLa": {
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
@@ -5738,6 +5766,10 @@
   "URGtLz": {
     "defaultMessage": "Tool Performance Summary",
     "description": "Title for the tool performance summary section"
+  },
+  "URkleb": {
+    "defaultMessage": "Post",
+    "description": "Button to post a new comment"
   },
   "USJvtX": {
     "defaultMessage": "Automatic evaluation is only available for judges that use gateway endpoints.",
@@ -9891,6 +9923,10 @@
     "defaultMessage": "Pass",
     "description": "Passing assessment label"
   },
+  "pqf6GD": {
+    "defaultMessage": "Delete comment",
+    "description": "Tooltip for deleting a comment"
+  },
   "prRya4": {
     "defaultMessage": "Model",
     "description": "Gateway > Endpoint details > Section title for model configuration card"
@@ -10835,6 +10871,10 @@
     "defaultMessage": "No profile available",
     "description": "Text for no profile available in the experiment run dataset drawer"
   },
+  "uqNaJ4": {
+    "defaultMessage": "Comments",
+    "description": "Column label for the number of comments on a trace"
+  },
   "urvfNd": {
     "defaultMessage": "Cancel",
     "description": "Add new key-value tag modal > Cancel button text"
@@ -11486,10 +11526,6 @@
   "yltiK8": {
     "defaultMessage": "No prompts match your search",
     "description": "No search results message for linked prompts table on logged model details page"
-  },
-  "ymnL+t": {
-    "defaultMessage": "Save",
-    "description": "Button to save notes assessment"
   },
   "ynkoR7": {
     "defaultMessage": "No models versions are registered yet. <link>Learn more</link> about how to register a model version.",

@@ -21,6 +21,7 @@ import { useModelTraceExplorerRunJudgesContext } from '../../model-trace-explore
 
 import { GenAITracesTableContext } from '../GenAITracesTableContext';
 
+import { CommentsCell } from './CommentsCell';
 import { ExecutionDurationTag } from './ExecutionDurationTag';
 import { IssuesCell } from './IssuesCell';
 import { LoggedModelCell } from './LoggedModelCell';
@@ -44,6 +45,7 @@ import {
 } from '../components/GenAiEvaluationTracesReview.utils';
 import { RunColorCircle } from '../components/RunColorCircle';
 import {
+  COMMENTS_COLUMN_ID,
   CUSTOM_METADATA_COLUMN_ID,
   EXECUTION_DURATION_COLUMN_ID,
   ISSUES_COLUMN_ID,
@@ -926,6 +928,14 @@ export const traceInfoCellRenderer = (
     const issues = comparisonEntry.currentRunValue?.issues;
     const otherIssues = comparisonEntry.otherRunValue?.issues;
     return <IssuesCell issues={issues} otherIssues={otherIssues} isComparing={isComparing} />;
+  } else if (colId === COMMENTS_COLUMN_ID) {
+    return (
+      <CommentsCell
+        currentResponseAssessmentsByName={comparisonEntry.currentRunValue?.responseAssessmentsByName}
+        otherResponseAssessmentsByName={comparisonEntry.otherRunValue?.responseAssessmentsByName}
+        isComparing={isComparing}
+      />
+    );
   } else if (colId.startsWith(CUSTOM_METADATA_COLUMN_ID)) {
     const metadataKey = getCustomMetadataKeyFromColumnId(colId);
     if (!metadataKey) {
