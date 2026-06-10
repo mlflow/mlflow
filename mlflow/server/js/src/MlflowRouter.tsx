@@ -16,6 +16,7 @@ import {
   useSearchParams,
 } from './common/utils/RoutingUtils';
 import { useWorkflowType, WorkflowType, WorkflowTypeProvider } from './common/contexts/WorkflowTypeContext';
+import { MlflowSidebarContext } from './common/contexts/MlflowSidebarContext';
 import { shouldEnableWorkflowBasedNavigation } from './common/utils/FeatureUtils';
 import { useWorkspacesEnabled } from './experiment-tracking/hooks/useServerInfo';
 
@@ -72,46 +73,53 @@ const MlflowRootLayout = ({
   const { theme } = useDesignSystemTheme();
   const { workflowType } = useWorkflowType();
 
+  // Expose the app-shell sidebar toggle so deep pages (e.g. the review-queue
+  // focused view) can collapse it and restore the prior state. See
+  // MlflowSidebarContext.
+  const sidebarContextValue = useMemo(() => ({ showSidebar, setShowSidebar }), [showSidebar, setShowSidebar]);
+
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <ErrorModal />
-      <AppErrorBoundary>
-        <RootAssistantLayout>
-          <div
-            css={{
-              display: 'flex',
-              flexDirection: 'row',
-              width: '100%',
-              background:
-                workflowType === WorkflowType.GENAI
-                  ? `linear-gradient(163deg, rgba(66, 153, 224, 0.06) 20%, rgba(202, 66, 224, 0.06) 35%, rgba(255, 95, 70, 0.06) 50%, transparent 80%), ${theme.colors.backgroundSecondary}`
-                  : theme.colors.backgroundSecondary,
-            }}
-          >
-            <MlflowSidebar showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
-            <main
+    <MlflowSidebarContext.Provider value={sidebarContextValue}>
+      <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <ErrorModal />
+        <AppErrorBoundary>
+          <RootAssistantLayout>
+            <div
               css={{
+                display: 'flex',
+                flexDirection: 'row',
                 width: '100%',
-                backgroundColor: theme.colors.backgroundPrimary,
-                margin: theme.spacing.sm,
-                borderRadius: theme.borders.borderRadiusMd,
-                boxShadow: theme.shadows.md,
-                overflowX: 'auto',
+                background:
+                  workflowType === WorkflowType.GENAI
+                    ? `linear-gradient(163deg, rgba(66, 153, 224, 0.06) 20%, rgba(202, 66, 224, 0.06) 35%, rgba(255, 95, 70, 0.06) 50%, transparent 80%), ${theme.colors.backgroundSecondary}`
+                    : theme.colors.backgroundSecondary,
               }}
             >
-              <React.Suspense fallback={<LegacySkeleton />}>
-                <Outlet />
-              </React.Suspense>
-              {DEV_USER_SWITCHER_ENABLED && (
-                <React.Suspense fallback={null}>
-                  <LazyDevUserSwitcher />
+              <MlflowSidebar showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
+              <main
+                css={{
+                  width: '100%',
+                  backgroundColor: theme.colors.backgroundPrimary,
+                  margin: theme.spacing.sm,
+                  borderRadius: theme.borders.borderRadiusMd,
+                  boxShadow: theme.shadows.md,
+                  overflowX: 'auto',
+                }}
+              >
+                <React.Suspense fallback={<LegacySkeleton />}>
+                  <Outlet />
                 </React.Suspense>
-              )}
-            </main>
-          </div>
-        </RootAssistantLayout>
-      </AppErrorBoundary>
-    </div>
+                {DEV_USER_SWITCHER_ENABLED && (
+                  <React.Suspense fallback={null}>
+                    <LazyDevUserSwitcher />
+                  </React.Suspense>
+                )}
+              </main>
+            </div>
+          </RootAssistantLayout>
+        </AppErrorBoundary>
+      </div>
+    </MlflowSidebarContext.Provider>
   );
 };
 

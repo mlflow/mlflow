@@ -36,6 +36,7 @@
   "scripts": {
     "build": "tsc && npm run build:bundle",
     "build:bundle": "node esbuild.config.mjs",
+    "prepublishOnly": "npm run build",
     "test": "jest --config jest.config.cjs",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
