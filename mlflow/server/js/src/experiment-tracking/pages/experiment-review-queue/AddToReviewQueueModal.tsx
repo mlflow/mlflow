@@ -22,6 +22,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { LabelSchemaFormModal, useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useIsAuthAvailable } from '../../../account/hooks';
 import Utils from '../../../common/utils/Utils';
+import { generatePath, Link } from '../../../common/utils/RoutingUtils';
+import { RoutePaths } from '../../routes';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { getQueueAssignability } from './queueAssignability';
 import { sameUser } from './queuePermissions';
@@ -242,15 +244,30 @@ export const AddToReviewQueueModal = ({
     const queueIds = Array.from(new Set([...selectedQueueIds, ...resolvedDefaultQueueIds, ...resolvedUserQueueIds]));
     await Promise.all(queueIds.map((queue_id) => addItemsToReviewQueueAsync({ queue_id, item_ids: itemIds })));
     // Confirm the add with a global toast — it must be global to survive this
-    // modal unmounting on close.
+    // modal unmounting on close. The notification holder renders inside the
+    // router, so a <Link> resolves correctly for any deployment. The message
+    // text is pre-built via `intl`. `white-space: nowrap` + the notification's
+    // `width: 'auto'` keep it on one line (widening past the default fixed
+    // width) instead of wrapping.
+    const reviewQueuePath = generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId });
     Utils.displayGlobalInfoNotification(
-      intl.formatMessage(
-        {
-          defaultMessage: 'Added {count, plural, one {# trace} other {# traces}} to review',
-          description: 'Add to review queue: success toast after traces are added',
-        },
-        { count: itemIds.length },
-      ),
+      <span css={{ whiteSpace: 'nowrap' }}>
+        {intl.formatMessage(
+          {
+            defaultMessage: 'Added {count, plural, one {# trace} other {# traces}} to review.',
+            description: 'Add to review queue: success toast after traces are added',
+          },
+          { count: itemIds.length },
+        )}{' '}
+        <Link componentId={`${CID}.toast-view-queue`} to={reviewQueuePath}>
+          {intl.formatMessage({
+            defaultMessage: 'View review queue',
+            description: 'Add to review queue: success toast link to the review queue page',
+          })}
+        </Link>
+      </span>,
+      undefined,
+      { width: 'auto' },
     );
     handleClose();
   };

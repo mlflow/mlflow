@@ -4275,6 +4275,10 @@
     "defaultMessage": "Artifact evaluation",
     "description": "A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view"
   },
+  "LWkwgO": {
+    "defaultMessage": "Added {count, plural, one {# trace} other {# traces}} to review.",
+    "description": "Add to review queue: success toast after traces are added"
+  },
   "LXz6c5": {
     "defaultMessage": "This setting enables UI telemetry data collection. Learn more about what types of data are collected in our {documentation}.",
     "description": "Enable telemetry settings description"
@@ -4426,10 +4430,6 @@
   "MP+H1B": {
     "defaultMessage": "No webhooks configured. Create one to get started. <link>Learn more about webhooks.</link>",
     "description": "Empty state for webhooks list"
-  },
-  "MP8Hv3": {
-    "defaultMessage": "Added {count, plural, one {# trace} other {# traces}} to review",
-    "description": "Add to review queue: success toast after traces are added"
   },
   "MQ4Voz": {
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
@@ -10342,6 +10342,10 @@
   "pzL5+U": {
     "defaultMessage": "Tracing",
     "description": "Feature card title for tracing"
+  },
+  "q/lZfS": {
+    "defaultMessage": "View review queue",
+    "description": "Add to review queue: success toast link to the review queue page"
   },
   "q/zoT3": {
     "defaultMessage": "Tokens",
