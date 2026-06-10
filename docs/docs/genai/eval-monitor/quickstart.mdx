@@ -22,7 +22,7 @@ Prefer to let a coding agent do it? Expand the prompt below and paste it into yo
 Run an evaluation on my GenAI app in MLflow. If unsure, ask which experiment this is for.
 
 1. Add `mlflow` as a dependency if needed.
-2. Set the tracking URI to match the project (read `MLFLOW_TRACKING_URI`, check `~/.databrickscfg`, or ask me), then call `mlflow.set_experiment(experiment_id="<your-experiment-id>")`.
+2. Set the tracking URI to match the project (read `MLFLOW_TRACKING_URI` or ask me), then call `mlflow.set_experiment(experiment_id="<your-experiment-id>")`.
 3. Choose an approach: if traces already exist here, evaluate them with `mlflow.search_traces(...)`; otherwise build a small `eval_dataset` with a `predict_fn`. Use built-in scorers (Safety, RelevanceToQuery, Guidelines) unless custom logic is needed. Use `searching-mlflow-docs` for API questions (fallback: https://github.com/mlflow/skills).
 4. Run `mlflow.genai.evaluate(...)` and confirm an evaluation run appears.
 
