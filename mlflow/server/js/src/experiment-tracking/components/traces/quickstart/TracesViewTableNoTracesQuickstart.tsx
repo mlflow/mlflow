@@ -6,7 +6,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 
 import {
   QUICKSTART_CONTENT,
@@ -41,6 +41,7 @@ export const TracesViewTableNoTracesQuickstart = ({
   experimentId?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const [language, setLanguage] = useState<Language>('python');
   const [selectedPythonFramework, setSelectedPythonFramework] = useState<QUICKSTART_FLAVOR>('openai');
   const [selectedTsFramework, setSelectedTsFramework] = useState<string>('openai');
@@ -91,6 +92,14 @@ export const TracesViewTableNoTracesQuickstart = ({
       </div>
     </div>
   );
+
+  // all: 'unset' strips the focus ring, so restore a visible one for keyboard users.
+  const videoButtonFocusCss = {
+    '&:focus-visible': {
+      outline: `2px solid ${theme.colors.actionPrimaryBackgroundDefault}`,
+      outlineOffset: 2,
+    },
+  } as const;
 
   return (
     <div
@@ -159,7 +168,10 @@ export const TracesViewTableNoTracesQuickstart = ({
           <button
             type="button"
             onClick={() => setVideoOpen(false)}
-            title="Click to minimize"
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Minimize tracing demo',
+              description: 'Accessible label for the button that collapses the expanded tracing demo video',
+            })}
             css={{
               all: 'unset',
               boxSizing: 'border-box',
@@ -171,6 +183,7 @@ export const TracesViewTableNoTracesQuickstart = ({
               overflow: 'hidden',
               border: `1px solid ${theme.colors.border}`,
               boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
+              ...videoButtonFocusCss,
             }}
           >
             <video
@@ -207,6 +220,7 @@ export const TracesViewTableNoTracesQuickstart = ({
               border: `1px solid ${theme.colors.border}`,
               backgroundColor: theme.colors.backgroundSecondary,
               '&:hover': { borderColor: theme.colors.actionDefaultBorderHover },
+              ...videoButtonFocusCss,
             }}
           >
             <span

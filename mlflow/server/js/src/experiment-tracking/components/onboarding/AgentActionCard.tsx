@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Button, CopyIcon, Tabs, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, CopyIcon, ParagraphSkeleton, Tabs, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
 import { AssistantSparkleIcon, useAssistant } from '../../../assistant';
@@ -14,6 +14,9 @@ export type AgentActionCardCodeSnippet = {
   content: string;
   language: CodeSnippetLanguage;
   label: ReactNode;
+  /** When true, render a skeleton instead of the snippet — e.g. while the content is still being
+   *  resolved — so the user can't copy a value that's about to change under them. */
+  isLoading?: boolean;
 };
 
 export type AgentActionCardExtraTab = {
@@ -143,7 +146,7 @@ export const AgentActionCard = ({
           <Tabs.Content value="agent-setup" css={{ paddingTop: 0 }}>
             <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>
               <FormattedMessage
-                defaultMessage="Experimental — run this in your terminal to install MLflow skills into your project and launch your coding agent (Claude Code, Codex, or opencode) with instructions to instrument your app."
+                defaultMessage="Experimental — run this in your terminal to install MLflow skills into your project and launch your coding agent (Claude Code, Codex, or OpenCode) with instructions to instrument your app."
                 description="Description above the mlflow agent setup terminal command in the agent action card"
               />
             </Typography.Text>
@@ -232,26 +235,34 @@ export const AgentActionCard = ({
                 overflow: 'auto',
               }}
             >
-              <CopyButton
-                componentId={`${componentId}.copy_snippet`}
-                css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
-                showLabel={false}
-                copyText={codeSnippet.content}
-                icon={<CopyIcon />}
-              />
-              <CodeSnippet
-                theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
-                language={codeSnippet.language}
-                style={{
-                  backgroundColor: theme.colors.backgroundPrimary,
-                  padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-                  paddingRight: theme.spacing.lg * 1.5,
-                  fontSize: 12,
-                  lineHeight: 1.55,
-                }}
-              >
-                {codeSnippet.content}
-              </CodeSnippet>
+              {codeSnippet.isLoading ? (
+                <div css={{ padding: `${theme.spacing.sm}px ${theme.spacing.md}px` }}>
+                  <ParagraphSkeleton seed={`${componentId}.snippet`} label="Loading code snippet" />
+                </div>
+              ) : (
+                <>
+                  <CopyButton
+                    componentId={`${componentId}.copy_snippet`}
+                    css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
+                    showLabel={false}
+                    copyText={codeSnippet.content}
+                    icon={<CopyIcon />}
+                  />
+                  <CodeSnippet
+                    theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
+                    language={codeSnippet.language}
+                    style={{
+                      backgroundColor: theme.colors.backgroundPrimary,
+                      padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+                      paddingRight: theme.spacing.lg * 1.5,
+                      fontSize: 12,
+                      lineHeight: 1.55,
+                    }}
+                  >
+                    {codeSnippet.content}
+                  </CodeSnippet>
+                </>
+              )}
             </div>
           </Tabs.Content>
         )}

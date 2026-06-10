@@ -42,6 +42,9 @@ export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string 
     content: hasTraces ? getTraceCodeSnippet(experimentId) : getDatasetCodeSnippet(experimentId),
     language: 'python' as const,
     label: PYTHON_TAB_LABEL,
+    // Until the trace-count query resolves we don't know which snippet variant to show, so render a
+    // skeleton rather than the dataset default that could flip to the trace variant under a fast copier.
+    isLoading: hasOpenedPythonTab && traceMetrics === undefined,
   };
 
   const header = (

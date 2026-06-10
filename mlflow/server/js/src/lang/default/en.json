@@ -7003,6 +7003,10 @@
     "defaultMessage": "Perform inference via model.transform()",
     "description": "Code comment which states how we can perform SparkML inference"
   },
+  "ZGtIEV": {
+    "defaultMessage": "Minimize tracing demo",
+    "description": "Accessible label for the button that collapses the expanded tracing demo video"
+  },
   "ZKtBkW": {
     "defaultMessage": "Edit the request body below and click Send request to call the provider API.",
     "description": "Try it description for passthrough"
