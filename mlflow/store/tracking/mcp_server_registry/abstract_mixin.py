@@ -91,16 +91,14 @@ class MCPServerRegistryMixin:
         description: str | None = NOT_SET,
         display_name: str | None = NOT_SET,
         icons: list[MCPIcon] | None = NOT_SET,
-        latest_version: str | None = NOT_SET,
     ) -> MCPServer:
         """Update an existing MCP server's metadata.
 
         Args:
             name: Server name.
-            description: New description (if not None).
-            display_name: New display name (if not None).
-            icons: New icon variants (if not None).
-            latest_version: Pin the latest version pointer (if not None).
+            description: New description. Omit to leave unchanged; pass None to set null.
+            display_name: New display name. Omit to leave unchanged; pass None to set null.
+            icons: New icon variants. Omit to leave unchanged; pass None to set null.
 
         Returns:
             The updated MCPServer entity.
@@ -169,12 +167,10 @@ class MCPServerRegistryMixin:
     def get_latest_mcp_server_version(self, name: str) -> MCPServerVersion:
         """Retrieve the latest version of an MCP server.
 
-        If latest_version is explicitly pinned, resolves to that version only.
-        A stale pin (version no longer exists or is deleted) raises
-        RESOURCE_DOES_NOT_EXIST rather than silently falling back.
-
-        If latest_version is unset, falls back to the most recently created
-        non-draft, non-deleted version.
+        Resolves using the shared latest-resolution rule: highest semantic
+        version among ACTIVE versions if one exists, otherwise highest semantic
+        version among non-DELETED non-ACTIVE versions. If no version resolves,
+        implementations should raise RESOURCE_DOES_NOT_EXIST.
 
         Args:
             name: Server name.
@@ -183,8 +179,7 @@ class MCPServerRegistryMixin:
             The latest MCPServerVersion entity.
 
         Raises:
-            MlflowException: If the pinned version is stale or no eligible
-                version exists.
+            MlflowException: If no version resolves.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -223,9 +218,10 @@ class MCPServerRegistryMixin:
         Args:
             name: Server name.
             version: Version string.
-            display_name: New display name (if not None).
-            status: New status (if not None); validated against transition rules.
-            tools: New tool definitions (if not None).
+            display_name: New display name. Omit to leave unchanged; pass None to set null.
+            status: New status. Omit to leave unchanged; non-null values update the status.
+                Non-null values are validated against transition rules.
+            tools: New tool definitions. Omit to leave unchanged; pass None to set null.
 
         Returns:
             The updated MCPServerVersion entity.
@@ -319,10 +315,13 @@ class MCPServerRegistryMixin:
         Args:
             server_name: Server name.
             binding_id: Binding ID.
-            server_version: New version target (if not None).
-            server_alias: New alias target (if not None).
-            endpoint_url: New endpoint URL (if not None).
-            transport_type: New transport type (if not None).
+            server_version: New version target. Omit to leave unchanged; non-null values update
+                the version target.
+            server_alias: New alias target. Omit to leave unchanged; non-null values update the
+                alias target.
+            endpoint_url: New endpoint URL. Omit to leave unchanged; null is invalid.
+            transport_type: New transport type. Omit to leave unchanged; non-null values update
+                the transport type.
 
         Returns:
             The updated MCPAccessBinding entity.
