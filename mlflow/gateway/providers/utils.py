@@ -26,6 +26,8 @@ async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, paylo
     request_headers = {k: v for k, v in headers.items() if k.lower() != "accept-encoding"}
     request_headers["Accept-Encoding"] = SUPPORTED_ACCEPT_ENCODING
     url = append_to_uri_path(base_url, path)
+    # Raise the aiohttp stream read buffer to tolerate large SSE `data:` lines
+    # emitted by some providers during streaming responses.
     async with aiohttp.ClientSession(
         headers=request_headers, read_bufsize=2**20
     ) as session:
