@@ -1,4 +1,3 @@
-from mlflow._assertions.api import assert_behavior
 from mlflow.genai import (
     datasets,
     judges,
@@ -52,7 +51,6 @@ __all__ = [
     "test_agent",
     "evaluate",
     "to_predict_fn",
-    "assert_behavior",
     "Scorer",
     "scorer",
     "get_scorer",
