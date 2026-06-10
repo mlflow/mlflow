@@ -61,6 +61,17 @@ const ExperimentPageSideNavGenAIConfig = {
     {
       label: (
         <FormattedMessage
+          defaultMessage="Review"
+          description="Label for the review tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <UserGroupIcon />,
+      tabName: ExperimentPageTabName.ReviewQueue,
+      componentId: 'mlflow.experiment-side-nav.genai.review-queue',
+    },
+    {
+      label: (
+        <FormattedMessage
           defaultMessage="Datasets"
           description="Label for the datasets tab in the MLflow experiment navbar"
         />

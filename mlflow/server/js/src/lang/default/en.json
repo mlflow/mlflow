@@ -71,6 +71,10 @@
     "defaultMessage": "No sessions found",
     "description": "Title for the empty sessions list in the select sessions modal"
   },
+  "+NuJjO": {
+    "defaultMessage": "Deleting \"{name}\" removes it from every review queue in this experiment. This cannot be undone.",
+    "description": "Manage review questions: delete confirmation body"
+  },
   "+Pzzlu": {
     "defaultMessage": "Last updated",
     "description": "Header for the dataset last-updated column"
@@ -402,6 +406,10 @@
   "054/rv": {
     "defaultMessage": "Close guidance",
     "description": "Aria label for closing the detect issues guidance popover"
+  },
+  "06OoGn": {
+    "defaultMessage": "Questions are the experiment's label schemas. Create new ones from the Label Schemas tab.",
+    "description": "Manage review questions: explanatory hint"
   },
   "07nYAU": {
     "defaultMessage": "Compared IDs:",
@@ -1198,6 +1206,10 @@
   "4aoazH": {
     "defaultMessage": "Close",
     "description": "Close button for tag details modal"
+  },
+  "4e1JWO": {
+    "defaultMessage": "Delete question?",
+    "description": "Manage review questions: delete confirmation title"
   },
   "4g2H7S": {
     "defaultMessage": "Prompt content is required",
@@ -2407,6 +2419,10 @@
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the experiments table"
   },
+  "BBfa66": {
+    "defaultMessage": "Decline",
+    "description": "Review focused view: decline action"
+  },
   "BCpX6U": {
     "defaultMessage": "Registered models",
     "description": "Run page > Overview > Run models section label"
@@ -2731,6 +2747,10 @@
     "defaultMessage": "Select traces",
     "description": "Button to open trace selection modal"
   },
+  "Cq/qwH": {
+    "defaultMessage": "Trace",
+    "description": "Review focused view: trace panel title"
+  },
   "Cq6NMs": {
     "defaultMessage": "Issue detection failed",
     "description": "Issue detection progress > Step label when failed"
@@ -3019,6 +3039,10 @@
     "defaultMessage": "Workspace Manager",
     "description": "Roles table column header for the workspace-admin marker (multi-tenant)"
   },
+  "Ek+kWF": {
+    "defaultMessage": "Reopen",
+    "description": "Review focused view: reopen action"
+  },
   "EkUD0b": {
     "defaultMessage": "No results",
     "description": "Experiment page > sort selector > no results after filtering by search query"
@@ -3163,6 +3187,10 @@
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the registered prompts table"
   },
+  "Fk4w6k": {
+    "defaultMessage": "Status",
+    "description": "Review queue table: status column"
+  },
   "FmKAee": {
     "defaultMessage": "Observability",
     "description": "Label for the observability section in the MLflow experiment navbar"
@@ -3282,6 +3310,10 @@
   "GdtTc/": {
     "defaultMessage": "Run evaluation",
     "description": "Home page quick action title for running evaluations"
+  },
+  "GfFwBD": {
+    "defaultMessage": "Declined",
+    "description": "Review queue status: declined"
   },
   "Gg/vLZ": {
     "defaultMessage": "Delete Model",
@@ -3426,6 +3458,10 @@
   "HZgS8a": {
     "defaultMessage": "Add tag",
     "description": "Aria label for the add-tag button in the V2 dataset record side panel (create mode)"
+  },
+  "HZkTlQ": {
+    "defaultMessage": "Submit & mark complete",
+    "description": "Review focused view: submit answers and mark the trace complete"
   },
   "Hay/ss": {
     "defaultMessage": "Select up to 2 runs to compare",
@@ -4051,6 +4087,10 @@
     "defaultMessage": "Provider",
     "description": "Dimension toggle option for provider"
   },
+  "L7jjpX": {
+    "defaultMessage": "Queue:",
+    "description": "Review queue: queue selector label"
+  },
   "L8czct": {
     "defaultMessage": "Latency Comparison",
     "description": "Title for the tool latency comparison chart"
@@ -4450,6 +4490,10 @@
   "NUjE6C": {
     "defaultMessage": "Machine learning",
     "description": "Label for custom experiments automatically identified as being focused on machine learning"
+  },
+  "NV0G2k": {
+    "defaultMessage": "Delete question",
+    "description": "Manage review questions: delete button aria label"
   },
   "NV7Fz+": {
     "defaultMessage": "Created {date}",
@@ -5323,6 +5367,10 @@
     "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
     "description": "Label for pre-built LLM judge type filter option"
   },
+  "SKxS0C": {
+    "defaultMessage": "No questions configured for this queue.",
+    "description": "Review focused view: empty questions state"
+  },
   "SLHSXV": {
     "defaultMessage": "Search parameters",
     "description": "Run page > Overview > Parameters table > Filter input placeholder"
@@ -5483,6 +5531,10 @@
     "defaultMessage": "Save",
     "description": "Save webhook button"
   },
+  "TEV3GJ": {
+    "defaultMessage": "Edit review questions",
+    "description": "Review queue: edit-questions gear aria label"
+  },
   "TKtJIK": {
     "defaultMessage": "Page not found",
     "description": "Error message shown to the user when they arrive at a non existent URL"
@@ -5538,6 +5590,10 @@
   "TXwmoT": {
     "defaultMessage": "Git branch",
     "description": "Usage overview > metrics filter > git branch column option label"
+  },
+  "TaMZFZ": {
+    "defaultMessage": "Review",
+    "description": "Review focused view: questions panel title"
   },
   "TannO5": {
     "defaultMessage": "Retrieved {sampledCount} out of {totalCount} total logs ({percentage}%)",
@@ -5686,6 +5742,10 @@
   "USJvtX": {
     "defaultMessage": "Automatic evaluation is only available for judges that use gateway endpoints.",
     "description": "Hint text explaining why automatic evaluation is disabled for non-gateway models"
+  },
+  "UScoKM": {
+    "defaultMessage": "No questions defined for this experiment yet.",
+    "description": "Manage review questions: empty state"
   },
   "UWHfmZ": {
     "defaultMessage": "Group:",
@@ -5907,6 +5967,10 @@
     "defaultMessage": "Structured output (JSON schema)",
     "description": "Label for the structured output JSON schema field in the prompt creation modal"
   },
+  "VWIO8j": {
+    "defaultMessage": "Could not save your review: {error}",
+    "description": "Review focused view: submit error alert"
+  },
   "VWngGA": {
     "defaultMessage": "e.g., PII Detection & Redaction",
     "description": "Guardrail name placeholder"
@@ -6087,6 +6151,10 @@
     "defaultMessage": "Aliased versions",
     "description": "Column title for aliased versions in the registered model page"
   },
+  "WScPFv": {
+    "defaultMessage": "Review",
+    "description": "Review queue tab title"
+  },
   "WVUF2N": {
     "defaultMessage": "Are you sure you want to delete the prompt?",
     "description": "A content for the delete prompt confirmation modal"
@@ -6178,6 +6246,10 @@
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
+  },
+  "WybkD9": {
+    "defaultMessage": "Review",
+    "description": "Label for the review tab in the MLflow experiment navbar"
   },
   "X+boXI": {
     "defaultMessage": "Copied",
@@ -6979,6 +7051,10 @@
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
   },
+  "bLBdqH": {
+    "defaultMessage": "Completed by",
+    "description": "Review queue table: completed-by column"
+  },
   "bO0wxq": {
     "defaultMessage": "Advanced settings",
     "description": "Collapsible section for advanced settings"
@@ -7034,6 +7110,10 @@
   "ba7/ni": {
     "defaultMessage": "A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings.",
     "description": "Tooltip explaining the demo experiment in the experiments list"
+  },
+  "baFXAM": {
+    "defaultMessage": "No traces in this queue yet.",
+    "description": "Review queue empty state"
   },
   "bcFuUb": {
     "defaultMessage": "Are you sure you want to remove {count, plural, one {this guardrail} other {these # guardrails}}?",
@@ -7215,6 +7295,14 @@
     "defaultMessage": "Schema",
     "description": "Table title text for schema table in the model comparison page"
   },
+  "cLpY3q": {
+    "defaultMessage": "Review questions",
+    "description": "Manage review questions modal title"
+  },
+  "cLxJC6": {
+    "defaultMessage": "Complete",
+    "description": "Review queue status: complete"
+  },
   "cMRvTA": {
     "defaultMessage": "Delete dataset",
     "description": "Delete evaluation dataset menu item"
@@ -7222,6 +7310,10 @@
   "cMa3hp": {
     "defaultMessage": "Run evaluation",
     "description": "Label for a button that displays instructions for starting a new evaluation run"
+  },
+  "cN+CQo": {
+    "defaultMessage": "Trace",
+    "description": "Review queue table: trace id column"
   },
   "cNkqxA": {
     "defaultMessage": "API key",
@@ -7639,6 +7731,10 @@
     "defaultMessage": "Usage",
     "description": "Label for the usage tab in the experiment overview page"
   },
+  "ecj2Xt": {
+    "defaultMessage": "Feedback",
+    "description": "Label schema type: feedback"
+  },
   "eeLqSn": {
     "defaultMessage": "Submit",
     "description": "Experiment page > artifact compare view > \"add new row\" modal submit button label"
@@ -7923,6 +8019,10 @@
     "defaultMessage": "View starter code",
     "description": "Title for starter code card on endpoint overview"
   },
+  "gCQwvN": {
+    "defaultMessage": "Delete",
+    "description": "Manage review questions: confirm delete"
+  },
   "gFYM0j": {
     "defaultMessage": "Cancel",
     "description": "Delete assessment modal cancel button text"
@@ -8186,6 +8286,10 @@
   "hR27A2": {
     "defaultMessage": "View full dashboard",
     "description": "Link to view full usage dashboard"
+  },
+  "hSdJgM": {
+    "defaultMessage": "Edit review questions for this experiment",
+    "description": "Review queue: edit-questions gear tooltip"
   },
   "hT5ZGW": {
     "defaultMessage": "Remove message",
@@ -8887,6 +8991,10 @@
     "defaultMessage": "The conversational guidelines LLM judge evaluates whether the assistant's responses throughout a conversation comply with the provided guidelines.",
     "description": "Evaluation results > known type of evaluation result assessment > conversational guidelines judge."
   },
+  "lDYP1d": {
+    "defaultMessage": "Needs review",
+    "description": "Review queue status: pending"
+  },
   "lFnpMi": {
     "defaultMessage": "AutoML",
     "description": "A short label for generic AutoML experiments"
@@ -9151,9 +9259,17 @@
     "defaultMessage": "Linked prompts",
     "description": "Label for the linked prompts view tab in the model trace explorer"
   },
+  "mab+cP": {
+    "defaultMessage": "Expectation",
+    "description": "Label schema type: expectation"
+  },
   "mba0x8": {
     "defaultMessage": "Step 1: Define your judge function",
     "description": "Step 1 title for custom code judge creation"
+  },
+  "mbdary": {
+    "defaultMessage": "Queue ({count})",
+    "description": "Review focused view: queue rail header with trace count"
   },
   "md81Lo": {
     "defaultMessage": "Error",
@@ -9322,6 +9438,10 @@
   "nLfm/t": {
     "defaultMessage": "At least one event must be selected",
     "description": "Form validation error message informing the user that at least one event must be selected"
+  },
+  "nMM0yz": {
+    "defaultMessage": "Attached",
+    "description": "Review queue table: attached-time column"
   },
   "nMttkN": {
     "defaultMessage": "Enter trace archival location URI",
@@ -9642,6 +9762,10 @@
   "p/wUKB": {
     "defaultMessage": "MLflow Assistant",
     "description": "Title for the global Assistant chat panel"
+  },
+  "p01GHj": {
+    "defaultMessage": "No review queues yet. Flag traces for review to create one.",
+    "description": "Review queue: empty state when no queues exist"
   },
   "p1H1KR": {
     "defaultMessage": "Last 30 days",
@@ -10951,6 +11075,10 @@
     "defaultMessage": "Toggle visibility of evaluation runs",
     "description": "Evaluation runs table > toggle visibility of runs > accessible label"
   },
+  "wKYkfj": {
+    "defaultMessage": "Close",
+    "description": "Manage review questions: close button"
+  },
   "wLoYcw": {
     "defaultMessage": "Duplicate ({count})",
     "description": "Gateway > Endpoints list > Duplicate button with count"
@@ -11170,6 +11298,10 @@
   "xZ/PkV": {
     "defaultMessage": "Search prompts",
     "description": "Placeholder text for the search input in the prompts table on the logged model details page"
+  },
+  "xZALB+": {
+    "defaultMessage": "Cancel",
+    "description": "Manage review questions: cancel delete"
   },
   "xbfKJS": {
     "defaultMessage": "JSON body for the OpenAI-compatible Chat Completions API. Include \"model\" (endpoint name) and \"messages\".",
@@ -11578,6 +11710,10 @@
   "znEC5M": {
     "defaultMessage": "Adherence",
     "description": "Issue category title for adherence"
+  },
+  "zp2ygu": {
+    "defaultMessage": "Back to queue",
+    "description": "Review focused view: back button"
   },
   "zp4MBw": {
     "defaultMessage": "Token count",
