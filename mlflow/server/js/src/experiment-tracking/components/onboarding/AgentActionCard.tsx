@@ -8,7 +8,7 @@ import { CodeSnippet, type CodeSnippetLanguage } from '@mlflow/mlflow/src/shared
 
 const AGENT_SETUP_COMMAND = 'mlflow agent setup';
 
-type TabKey = 'agent-setup' | 'coding-agent' | 'code-snippet' | 'assistant';
+type TabKey = 'agent-setup' | 'copy-prompt' | 'code-snippet' | 'assistant';
 
 export type AgentActionCardCodeSnippet = {
   content: string;
@@ -35,14 +35,14 @@ export const AgentActionCard = ({
   componentId: string;
   showAgentSetupTab?: boolean;
   /** When provided, renders an additional tab with a syntax-highlighted code block between
-   *  coding-agent and assistant. */
+   *  copy-prompt and assistant. */
   codeSnippet?: AgentActionCardCodeSnippet;
   /** Fires whenever the user selects a tab — lets the parent lazy-load tab-specific data. */
   onActiveTabChange?: (tab: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const { openPanel, sendMessage, setupComplete } = useAssistant();
-  const defaultTab: TabKey = showAgentSetupTab ? 'agent-setup' : 'coding-agent';
+  const defaultTab: TabKey = showAgentSetupTab ? 'agent-setup' : 'copy-prompt';
   const [activeTab, setActiveTab] = useState<TabKey>(defaultTab);
 
   const handleAssistantClick = () => {

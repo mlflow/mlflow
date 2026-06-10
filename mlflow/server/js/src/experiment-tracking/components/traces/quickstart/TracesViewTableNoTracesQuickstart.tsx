@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import {
+  PlayIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
   Typography,
@@ -44,6 +45,7 @@ export const TracesViewTableNoTracesQuickstart = ({
   const [selectedPythonFramework, setSelectedPythonFramework] = useState<QUICKSTART_FLAVOR>('openai');
   const [selectedTsFramework, setSelectedTsFramework] = useState<string>('openai');
   const [videoFailed, setVideoFailed] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
 
   const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
   const trackingUri = `http://${hostname}:<port>`;
@@ -94,48 +96,126 @@ export const TracesViewTableNoTracesQuickstart = ({
         />
       </Typography.Paragraph>
 
-      {/* Video preview (hidden if the remote video fails to load, e.g. offline) */}
-      {!videoFailed && (
-        <div
-          css={{
-            width: '100%',
-            marginBottom: theme.spacing.lg * 2,
-            borderRadius: theme.borders.borderRadiusMd,
-            overflow: 'hidden',
-            border: `1px solid ${theme.colors.border}`,
-            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
-          }}
-        >
-          <video
-            src={TRACING_VIDEO_URL}
-            autoPlay
-            muted
-            playsInline
-            onError={() => setVideoFailed(true)}
-            onEnded={(event) => {
-              const video = event.currentTarget;
-              video.currentTime = TRACING_VIDEO_START_SEC;
-              video.play().catch(() => {
-                // Autoplay restrictions can reject; ignore since the video is muted.
-              });
-            }}
-            css={{ width: '100%', display: 'block' }}
-          />
-        </div>
-      )}
-
       <AgentActionCard
         componentId="mlflow.traces.onboarding.trace_with_agent"
         showAgentSetupTab
         title={
           <FormattedMessage
-            defaultMessage="Set up tracing with LLM"
+            defaultMessage="Choose any of the following options to set up tracing"
             description="Headline for the agent CTA card in the traces empty state"
           />
         }
         codingAgentPrompt={buildInstrumentPrompt(experimentName || 'my-experiment')}
         assistantPrompt={buildInstrumentAssistantPrompt(experimentName || 'my-experiment')}
       />
+
+      {/* Click-to-play video preview, demoted below the CTA so it never pushes the primary action
+          below the fold. Hidden if the remote video fails to load (e.g. offline). */}
+      {!videoFailed &&
+        (videoOpen ? (
+          <button
+            type="button"
+            onClick={() => setVideoOpen(false)}
+            title="Click to minimize"
+            css={{
+              all: 'unset',
+              boxSizing: 'border-box',
+              cursor: 'pointer',
+              display: 'block',
+              width: '100%',
+              marginBottom: theme.spacing.lg * 2,
+              borderRadius: theme.borders.borderRadiusMd,
+              overflow: 'hidden',
+              border: `1px solid ${theme.colors.border}`,
+              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
+            }}
+          >
+            <video
+              src={TRACING_VIDEO_URL}
+              autoPlay
+              muted
+              playsInline
+              onError={() => setVideoFailed(true)}
+              onEnded={(event) => {
+                const video = event.currentTarget;
+                video.currentTime = TRACING_VIDEO_START_SEC;
+                video.play().catch(() => {
+                  // Autoplay restrictions can reject; ignore since the video is muted.
+                });
+              }}
+              css={{ width: '100%', display: 'block' }}
+            />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setVideoOpen(true)}
+            css={{
+              all: 'unset',
+              boxSizing: 'border-box',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.md,
+              width: '100%',
+              marginBottom: theme.spacing.lg * 2,
+              padding: theme.spacing.md,
+              borderRadius: theme.borders.borderRadiusMd,
+              border: `1px solid ${theme.colors.border}`,
+              backgroundColor: theme.colors.backgroundSecondary,
+              '&:hover': { borderColor: theme.colors.actionDefaultBorderHover },
+            }}
+          >
+            <span
+              css={{
+                position: 'relative',
+                flex: '0 0 auto',
+                width: 132,
+                height: 74,
+                borderRadius: theme.borders.borderRadiusSm,
+                overflow: 'hidden',
+                backgroundColor: theme.colors.backgroundPrimary,
+                border: `1px solid ${theme.colors.border}`,
+              }}
+            >
+              <video
+                src={TRACING_VIDEO_URL}
+                muted
+                playsInline
+                preload="metadata"
+                onError={() => setVideoFailed(true)}
+                css={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+              <span
+                css={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: 'rgba(0, 0, 0, 0.35)',
+                  color: '#fff',
+                }}
+              >
+                <PlayIcon />
+              </span>
+            </span>
+            <span css={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Typography.Text bold>
+                <FormattedMessage
+                  defaultMessage="See it in action"
+                  description="Label on the click-to-play video preview in the traces empty state"
+                />
+              </Typography.Text>
+              <Typography.Text color="secondary" size="sm">
+                <FormattedMessage
+                  defaultMessage="Watch a short clip of what tracing looks like"
+                  description="Sublabel on the click-to-play video preview in the traces empty state"
+                />
+              </Typography.Text>
+            </span>
+          </button>
+        ))}
 
       {/* Language selector */}
       <div css={{ width: '100%', marginBottom: theme.spacing.lg }}>

@@ -4159,6 +4159,10 @@
     "defaultMessage": "Endpoints ({count})",
     "description": "Gateway > Endpoints using key drawer > Title"
   },
+  "KQqJzj": {
+    "defaultMessage": "Watch a 30-second tour of what tracing looks like",
+    "description": "Sublabel on the click-to-play video preview in the traces empty state"
+  },
   "KRzwkL": {
     "defaultMessage": "Type {itemName} to confirm deletion:",
     "description": "Type to confirm instruction"
@@ -7218,6 +7222,10 @@
   "aJoAu+": {
     "defaultMessage": "Add record",
     "description": "Primary button text for adding a new dataset record from the empty state"
+  },
+  "aKW54p": {
+    "defaultMessage": "See it in action",
+    "description": "Label on the click-to-play video preview in the traces empty state"
   },
   "aLRRam": {
     "defaultMessage": "Prompts",
