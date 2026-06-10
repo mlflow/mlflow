@@ -20,7 +20,7 @@ import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueue
 import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
-import { DEFAULT_REVIEWER, displayUser, useReviewer } from './hooks/useReviewer';
+import { DEFAULT_REVIEWER, displayUser, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
 import { canDeleteQueue, canManageQueue } from './queuePermissions';
 import type { ReviewQueueItem, ReviewStatus } from './types';
@@ -40,6 +40,9 @@ const ExperimentReviewQueuePage = () => {
   const intl = useIntl();
   const { experimentId } = useParams<{ experimentId: string }>();
   const reviewer = useReviewer();
+  // Completion stamps `completed_by` with the reviewer, so block it until the
+  // identity is settled (an in-flight /users/current load reads as `default`).
+  const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
   // Gate management controls (create / edit / delete queue, edit questions) on
   // EDIT+; reviewing stays available to everyone assigned. See useCanManageReviews.
@@ -264,7 +267,9 @@ const ExperimentReviewQueuePage = () => {
         items={orderedTraces}
         schemas={questionSchemas}
         completedBy={reviewer}
-        isSettingStatus={isSettingStatus}
+        // Treat an unresolved reviewer like an in-flight write so the complete /
+        // decline controls stay disabled until `completed_by` is trustworthy.
+        isSettingStatus={isSettingStatus || !reviewerResolved}
         onBack={() => setOpenItemId(null)}
         onSelect={(itemId) => setOpenItemId(itemId)}
         onSetStatus={setOpenStatus}

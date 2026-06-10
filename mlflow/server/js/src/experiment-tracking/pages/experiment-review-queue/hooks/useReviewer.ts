@@ -28,3 +28,17 @@ export const useReviewer = (): string => {
   const { data: currentUser } = useCurrentUserQuery();
   return currentUser?.user?.username || DEFAULT_REVIEWER;
 };
+
+/**
+ * Whether the reviewer identity returned by `useReviewer` is settled. While
+ * `/users/current` is still loading on an authenticated server, `useReviewer`
+ * falls back to the reserved `default` user — indistinguishable from a genuine
+ * no-auth server. Stamping a write (`created_by` / `completed_by`) in that
+ * window would mis-attribute it to `default`, so callers gate those actions on
+ * this. Once the query settles the reviewer is correct on both auth (real
+ * username) and no-auth (`default`) servers.
+ */
+export const useIsReviewerResolved = (): boolean => {
+  const { isLoading } = useCurrentUserQuery();
+  return !isLoading;
+};
