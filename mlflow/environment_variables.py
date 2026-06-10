@@ -837,6 +837,15 @@ MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS", int, 8
 )
 
+#: Default LLM judge model URI used by built-in judges and scorers (e.g.
+#: ``Guidelines``, ``Safety``) when no ``model`` is passed explicitly. When unset,
+#: MLflow falls back to the Databricks managed judge on Databricks tracking URIs
+#: and ``openai:/gpt-4.1-mini`` otherwise. Set this to point every default judge
+#: at a single model URI, e.g. ``openai:/databricks-gpt-5``. (default: unset)
+MLFLOW_GENAI_JUDGE_DEFAULT_MODEL = _EnvironmentVariable(
+    "MLFLOW_GENAI_JUDGE_DEFAULT_MODEL", str, None
+)
+
 
 #: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
 #: the given predict function generates a valid trace, and otherwise wraps it with @mlflow.trace
