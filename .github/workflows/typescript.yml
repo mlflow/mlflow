@@ -83,3 +83,21 @@ jobs:
 
       - name: Run tests for integrations
         run: npm run test:integrations
+
+      - name: Verify @mlflow/vercel pack contents
+        working-directory: libs/typescript/integrations/vercel
+        run: |
+          if [ ! -f dist/index.js ]; then
+            echo "dist/index.js is missing after build" && exit 1
+          fi
+          if [ ! -f dist/index.d.ts ]; then
+            echo "dist/index.d.ts is missing after build" && exit 1
+          fi
+          TARBALL=$(npm pack --silent)
+          if ! tar -tf "$TARBALL" | grep -q "package/dist/index.js"; then
+            echo "dist/index.js not found in packed tarball" && exit 1
+          fi
+          if ! tar -tf "$TARBALL" | grep -q "package/dist/index.d.ts"; then
+            echo "dist/index.d.ts not found in packed tarball" && exit 1
+          fi
+          echo "Pack acceptance check passed: dist/index.js and dist/index.d.ts are present in the tarball."
