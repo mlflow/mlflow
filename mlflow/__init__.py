@@ -170,6 +170,7 @@ if MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)
 
 # Core modules required for mlflow-tracing
+from mlflow._assertions import test
 from mlflow.tracing.assessment import (
     delete_assessment,
     get_assessment,
@@ -208,6 +209,7 @@ from mlflow.tracking.fluent import active_run, flush_trace_async_logging, set_ex
 # APIs listed here must not depend on dependencies that are not part of `mlflow-tracing` package.
 __all__ = [
     "MlflowException",
+    "test",
     # Minimal tracking APIs required for tracing core functionality
     "set_experiment",
     "set_tracking_uri",

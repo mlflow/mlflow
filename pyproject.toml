@@ -139,6 +139,9 @@ http = "mlflow.deployments.mlflow"
 https = "mlflow.deployments.mlflow"
 openai = "mlflow.deployments.openai"
 
+[project.entry-points."pytest11"]
+mlflow_assertions = "mlflow._assertions.pytest_plugin"
+
 [tool.setuptools.package-data]
 mlflow = [
   "store/db_migrations/alembic.ini",

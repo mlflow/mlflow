@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import threading
 from collections import defaultdict
@@ -29,6 +30,18 @@ from mlflow.utils.databricks_utils import is_in_databricks_notebook
 from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
+
+_force_sync_export = False
+
+
+@contextlib.contextmanager
+def disable_async_trace_export():
+    global _force_sync_export
+    _force_sync_export = True
+    try:
+        yield
+    finally:
+        _force_sync_export = False
 
 
 class MlflowV3SpanExporter(SpanExporter):
@@ -307,9 +320,12 @@ class MlflowV3SpanExporter(SpanExporter):
         return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
 
     def _should_log_async(self) -> bool:
-        # During evaluate, the eval harness relies on the generated trace objects,
-        # so we should not log traces asynchronously.
+        # During evaluate or assertion tests, the harness relies on the generated
+        # trace objects being immediately available, so log synchronously.
         if maybe_get_request_id(is_evaluate=True):
+            return False
+
+        if _force_sync_export:
             return False
 
         return self._is_async_enabled
