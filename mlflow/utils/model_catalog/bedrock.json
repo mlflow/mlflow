@@ -4021,6 +4021,36 @@
       },
       "last_updated_at": "2026-06-01"
     },
+    "jp.anthropic.claude-opus-4-7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.5,
+        "output_per_million_tokens": 27.5,
+        "cache_read_per_million_tokens": 0.55,
+        "cache_write_per_million_tokens": 6.875,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          },
+          "tool_use_system_prompt_tokens": 346
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-09"
+    },
     "jp.anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -6086,10 +6116,10 @@
         "max_tokens": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33,
-        "cache_write_per_million_tokens": 4.125
+        "input_per_million_tokens": 3.6,
+        "output_per_million_tokens": 18.0,
+        "cache_read_per_million_tokens": 0.36,
+        "cache_write_per_million_tokens": 4.5
       },
       "capabilities": {
         "function_calling": true,
@@ -6098,7 +6128,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "us-gov-east-1/claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -6108,10 +6138,10 @@
         "max_tokens": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33,
-        "cache_write_per_million_tokens": 4.125
+        "input_per_million_tokens": 3.6,
+        "output_per_million_tokens": 18.0,
+        "cache_read_per_million_tokens": 0.36,
+        "cache_write_per_million_tokens": 4.5
       },
       "capabilities": {
         "function_calling": true,
@@ -6120,7 +6150,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "us-gov-east-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -6376,10 +6406,10 @@
         "max_tokens": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33,
-        "cache_write_per_million_tokens": 4.125
+        "input_per_million_tokens": 3.6,
+        "output_per_million_tokens": 18.0,
+        "cache_read_per_million_tokens": 0.36,
+        "cache_write_per_million_tokens": 4.5
       },
       "capabilities": {
         "function_calling": true,
@@ -6388,7 +6418,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "us-gov-west-1/claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -6398,10 +6428,10 @@
         "max_tokens": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33,
-        "cache_write_per_million_tokens": 4.125
+        "input_per_million_tokens": 3.6,
+        "output_per_million_tokens": 18.0,
+        "cache_read_per_million_tokens": 0.36,
+        "cache_write_per_million_tokens": 4.5
       },
       "capabilities": {
         "function_calling": true,
@@ -6410,7 +6440,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "us-gov-west-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -6460,17 +6490,17 @@
         "max_tokens": 64000
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33,
-        "cache_write_per_million_tokens": 4.125,
+        "input_per_million_tokens": 3.6,
+        "output_per_million_tokens": 18.0,
+        "cache_read_per_million_tokens": 0.36,
+        "cache_write_per_million_tokens": 4.5,
         "long_context": [
           {
             "threshold_tokens": 200000,
-            "input_per_million_tokens": 6.6,
-            "output_per_million_tokens": 24.75,
-            "cache_write_per_million_tokens": 8.25,
-            "cache_read_per_million_tokens": 0.66
+            "input_per_million_tokens": 7.2,
+            "output_per_million_tokens": 27.0,
+            "cache_write_per_million_tokens": 9.0,
+            "cache_read_per_million_tokens": 0.72
           }
         ]
       },
@@ -6481,7 +6511,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-01"
+      "last_updated_at": "2026-06-09"
     },
     "us-west-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",

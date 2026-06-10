@@ -210,7 +210,7 @@ Many LLM applications and AI agents maintain multi-turn conversations with users
         )
 
         # Your chat logic here
-        return generate_response(message)
+        return f"Echo: {message[-1]['content'] if message else ''}"
     ```
 
   </TabItem>

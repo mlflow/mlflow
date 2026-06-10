@@ -3,6 +3,13 @@
   "models": {
     "gen3a_turbo": {
       "mode": "video_generation",
+      "pricing": {
+        "modality": {
+          "video": {
+            "output_per_second": 0.05
+          }
+        }
+      },
       "capabilities": {
         "function_calling": false,
         "vision": false,
@@ -10,10 +17,17 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-06-09"
     },
     "gen4_aleph": {
       "mode": "video_generation",
+      "pricing": {
+        "modality": {
+          "video": {
+            "output_per_second": 0.15
+          }
+        }
+      },
       "capabilities": {
         "function_calling": false,
         "vision": false,
@@ -21,7 +35,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-06-09"
     },
     "gen4_image": {
       "mode": "image_generation",
@@ -47,6 +61,13 @@
     },
     "gen4_turbo": {
       "mode": "video_generation",
+      "pricing": {
+        "modality": {
+          "video": {
+            "output_per_second": 0.05
+          }
+        }
+      },
       "capabilities": {
         "function_calling": false,
         "vision": false,
@@ -54,7 +75,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-06-09"
     }
   }
 }

@@ -96,7 +96,11 @@ class CatalogLongContextTier(CatalogPricingTier, total=False):
 
 class CatalogPricingModality(TypedDict, total=False):
     input_per_million_tokens: float
+    output_per_million_tokens: float
+    cache_read_per_million_tokens: float
+    cache_write_per_million_tokens: float
     input_per_second: float
+    output_per_second: float
 
 
 class ModelInfo(TypedDict, total=False):

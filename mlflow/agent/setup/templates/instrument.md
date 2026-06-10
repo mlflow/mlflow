@@ -20,13 +20,12 @@ Before writing any code:
 
 1. Create a **checklist** from the steps below.
 2. Execute each step in order.
-3. Do not skip steps.
 
 ## Steps
 
 {{ language_steps }}
 
-### 4. Verify installation (MANDATORY)
+### 4. Verify installation
 
 - Run the application end-to-end via its normal entry point.
 - Confirm at least one trace is emitted to {{ tracking_uri }}.
@@ -40,11 +39,11 @@ default retries.
 If you don't know how to run the app, ask the user and wait for a response
 before proceeding.
 
-### 5. Report the trace URL (CRITICAL)
+### 5. Report the trace URL
 
 After the app run, capture the experiment / trace URL printed by MLflow or
-constructable from the tracking URI + experiment ID. This URL must appear in
-the final summary so the user can open it in the MLflow UI.
+constructable from the tracking URI + experiment ID. Include this URL in the
+Final Summary below so the user can open the trace.
 
 ### 6. Final Summary
 
@@ -52,4 +51,4 @@ Summarize:
 
 - MLflow version installed
 - Files modified
-- Trace URL (required)
+- Trace URL
