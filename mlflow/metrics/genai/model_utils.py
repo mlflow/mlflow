@@ -352,7 +352,13 @@ def _get_provider_instance(
             )
         config = OpenAIConfig(
             openai_api_key=os.environ["OPENAI_API_KEY"],
-            openai_api_base=os.environ.get("OPENAI_API_BASE"),
+            # Honor the OpenAI SDK's standard ``OPENAI_BASE_URL`` in addition to
+            # MLflow's historical ``OPENAI_API_BASE``. Without this, pointing the
+            # openai provider at an OpenAI-compatible endpoint (e.g. Databricks
+            # FMAPI) the SDK way is silently ignored and requests fall back to
+            # api.openai.com.
+            openai_api_base=os.environ.get("OPENAI_API_BASE")
+            or os.environ.get("OPENAI_BASE_URL"),
         )
         return OpenAIProvider(_get_route_config(config))
 

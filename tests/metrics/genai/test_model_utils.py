@@ -146,6 +146,36 @@ def test_score_model_openai_with_custom_header_and_proxy_url(set_envs):
         )
 
 
+def test_score_model_openai_honors_openai_base_url(set_envs, monkeypatch):
+    # OPENAI_BASE_URL is the OpenAI SDK's standard env var. The openai provider
+    # must honor it (not silently fall back to api.openai.com) so that
+    # OpenAI-compatible endpoints (e.g. Databricks FMAPI) can be used as judges.
+    monkeypatch.delenv("OPENAI_API_BASE", raising=False)
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://my-host/serving-endpoints/v1")
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
+    ) as mock_post:
+        score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
+
+        assert (
+            mock_post.call_args.kwargs["endpoint"]
+            == "https://my-host/serving-endpoints/v1/chat/completions"
+        )
+
+
+def test_score_model_openai_api_base_takes_precedence_over_base_url(set_envs, monkeypatch):
+    monkeypatch.setenv("OPENAI_API_BASE", "https://api-base/v1")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://base-url/v1")
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
+    ) as mock_post:
+        score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
+
+        assert (
+            mock_post.call_args.kwargs["endpoint"] == "https://api-base/v1/chat/completions"
+        )
+
+
 def test_openai_other_error(set_envs):
     with mock.patch(
         "mlflow.metrics.genai.model_utils._send_request",
