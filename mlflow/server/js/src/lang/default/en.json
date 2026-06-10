@@ -2767,6 +2767,10 @@
     "defaultMessage": "Create and manage judges",
     "description": "Title for the empty state of the judges page"
   },
+  "CSee+U": {
+    "defaultMessage": "Please try again.",
+    "description": "Add to review queue: fallback error detail when a failure carries no message"
+  },
   "CTEh+b": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > new run modal > \"cancel\" button label"
@@ -3498,10 +3502,6 @@
   "H0gTxe": {
     "defaultMessage": "Select a Provider",
     "description": "Modal title for provider selection"
-  },
-  "H1F4hJ": {
-    "defaultMessage": "Failed to add traces to the review queue.",
-    "description": "Add to review queue: error alert title"
   },
   "H2UIIZ": {
     "defaultMessage": "null",
@@ -6906,6 +6906,10 @@
   "Z+tEhr": {
     "defaultMessage": "Compare selected runs",
     "description": "Tooltip for the compare button when enabled"
+  },
+  "Z/7Ru5": {
+    "defaultMessage": "Something went wrong.",
+    "description": "Add to review queue: error alert title"
   },
   "Z/CtWD": {
     "defaultMessage": "Safety",
