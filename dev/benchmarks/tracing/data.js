@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781094792139,
+  "lastUpdate": 1781097030139,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -8369,6 +8369,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 41.1580076000007,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "feynman.liang@gmail.com",
+            "name": "Feynman Liang",
+            "username": "feynmanliang"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8fa246e543311c1e7d5b25b61ee6fa589e31ca5f",
+          "message": "Return 404 for missing Azure blob artifacts (#23832)\n\nSigned-off-by: Feynman Liang <990069+feynmanliang@users.noreply.github.com>\nSigned-off-by: WeichenXu <weichen.xu@databricks.com>\nSigned-off-by: Weichen Xu <weichen.xu@databricks.com>\nCo-authored-by: WeichenXu <weichen.xu@databricks.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-06-10T21:09:08+08:00",
+          "tree_id": "80444ace4888cc843f5f0a65e265dd6cb20c4ad1",
+          "url": "https://github.com/mlflow/mlflow/commit/8fa246e543311c1e7d5b25b61ee6fa589e31ca5f"
+        },
+        "date": 1781097029015,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 49.52784805000192,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 23.219340971428842,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 23.112727571427985,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 23.23878154545479,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.75821857142825,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 8.846430599996324,
             "unit": "ms"
           }
         ]
