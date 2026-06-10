@@ -14,6 +14,8 @@ export interface CreateReviewAssessmentParams {
   value: AssessmentValue;
   /** Reviewer identifier; `default` on the no-auth surface. */
   sourceId: string;
+  /** Optional free-form rationale, when the schema enables a comment. */
+  rationale?: string;
 }
 
 /**
@@ -34,11 +36,12 @@ export const useCreateReviewAssessmentMutation = () => {
       // newly-written assessment (scoped by traceId, not all traces).
       queryClient.invalidateQueries([REVIEW_QUEUE_TRACE_ASSESSMENTS_QUERY_KEY, variables.traceId]);
     },
-    mutationFn: async ({ traceId, name, assessmentKind, value, sourceId }) => {
+    mutationFn: async ({ traceId, name, assessmentKind, value, sourceId, rationale }) => {
       const assessment = {
         assessment_name: name,
         trace_id: traceId,
         source: { source_type: 'HUMAN', source_id: sourceId },
+        ...(rationale ? { rationale } : {}),
         ...(assessmentKind === 'feedback' ? { feedback: { value } } : { expectation: { value } }),
       };
       return fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${traceId}/assessments`), {

@@ -11,6 +11,41 @@ interface ListReviewQueueItemsResponse {
   next_page_token?: string;
 }
 
+interface ReviewQueueItemsQueryArgs {
+  queueId: string;
+  status?: ReviewStatus;
+  maxResults?: number;
+  pageToken?: string;
+}
+
+/**
+ * Shared react-query config for a queue's attached items, so a single fetch is
+ * reused whether subscribed via `useQuery` (one queue) or `useQueries` (many
+ * queues at once, e.g. the sidebar's per-queue pending counts).
+ */
+export const buildReviewQueueItemsQuery = ({ queueId, status, maxResults, pageToken }: ReviewQueueItemsQueryArgs) => ({
+  queryKey: [LIST_REVIEW_QUEUE_ITEMS_QUERY_KEY, queueId, status, maxResults, pageToken],
+  queryFn: async () => {
+    const params = new URLSearchParams({ queue_id: queueId });
+    if (status) {
+      params.set('status', status);
+    }
+    if (maxResults != null && maxResults > 0) {
+      params.set('max_results', String(maxResults));
+    }
+    if (pageToken) {
+      params.set('page_token', pageToken);
+    }
+    return (await fetchAPI(getAjaxUrl(`${REVIEW_QUEUES_API_BASE}/items/list?${params.toString()}`), {
+      method: 'GET',
+    })) as ListReviewQueueItemsResponse;
+  },
+  cacheTime: 0,
+  refetchOnWindowFocus: false,
+  retry: false,
+  enabled: Boolean(queueId),
+});
+
 /**
  * Paginated list of a queue's attached items, newest-attached first,
  * optionally filtered by shared-pool status.
@@ -21,33 +56,9 @@ export const useListReviewQueueItemsQuery = ({
   maxResults,
   pageToken,
   enabled = true,
-}: {
-  queueId: string;
-  status?: ReviewStatus;
-  maxResults?: number;
-  pageToken?: string;
-  enabled?: boolean;
-}) => {
+}: ReviewQueueItemsQueryArgs & { enabled?: boolean }) => {
   const { data, isLoading, isFetching, refetch, error } = useQuery<ListReviewQueueItemsResponse, Error>({
-    queryKey: [LIST_REVIEW_QUEUE_ITEMS_QUERY_KEY, queueId, status, maxResults, pageToken],
-    queryFn: async () => {
-      const params = new URLSearchParams({ queue_id: queueId });
-      if (status) {
-        params.set('status', status);
-      }
-      if (maxResults != null && maxResults > 0) {
-        params.set('max_results', String(maxResults));
-      }
-      if (pageToken) {
-        params.set('page_token', pageToken);
-      }
-      return (await fetchAPI(getAjaxUrl(`${REVIEW_QUEUES_API_BASE}/items/list?${params.toString()}`), {
-        method: 'GET',
-      })) as ListReviewQueueItemsResponse;
-    },
-    cacheTime: 0,
-    refetchOnWindowFocus: false,
-    retry: false,
+    ...buildReviewQueueItemsQuery({ queueId, status, maxResults, pageToken }),
     enabled: enabled && Boolean(queueId),
   });
 
