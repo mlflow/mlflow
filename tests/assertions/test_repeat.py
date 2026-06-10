@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+
 import pytest
 
 import mlflow
@@ -10,6 +12,8 @@ from mlflow._assertions.decorator import (
     MLFLOW_TEST_REPEAT_ATTR,
 )
 from mlflow._assertions.runner import AssertionResult
+from mlflow.genai.scorers import scorer
+
 # --------------------------------------------------------------------------- #
 # Decorator: attribute recording + validation                                 #
 # --------------------------------------------------------------------------- #
@@ -155,3 +159,85 @@ def test_record_suppressed_inside_a_repeated_run():
     before = len(session.snapshot())
     session.record("t", [result])
     assert len(session.snapshot()) == before + 1
+
+
+# --------------------------------------------------------------------------- #
+# End-to-end: real bundled @mlflow.test(repeat=...) cases                      #
+# --------------------------------------------------------------------------- #
+
+
+@scorer
+def always_pass(outputs) -> bool:
+    return True
+
+
+_calls: dict[str, int] = {}
+_calls_lock = threading.Lock()
+_seen_indices: list[int | None] = []
+
+
+def _record_call(key: str) -> int:
+    with _calls_lock:
+        n = _calls.get(key, 0)
+        _calls[key] = n + 1
+        return n
+
+
+@mlflow.test(repeat=3, pass_threshold=2)
+def test_e2e_clear_pass_early_exits():
+    _record_call("clear_pass")
+    mlflow.genai.assert_batch("auto", outputs="x", assertions=[always_pass])
+
+
+@mlflow.test(repeat=3, pass_threshold=2)
+def test_e2e_flaky_passes_on_majority():
+    n = _record_call("flaky")
+    mlflow.genai.assert_batch("auto", outputs="x", assertions=[always_pass])
+    if n == 0:
+        raise AssertionError("simulated flaky failure on the first run")
+
+
+@mlflow.test(repeat=3)  # default threshold -> 2 of 3
+def test_e2e_default_threshold_majority():
+    n = _record_call("default")
+    mlflow.genai.assert_batch("auto", outputs="x", assertions=[always_pass])
+    if n == 0:
+        raise AssertionError("simulated flaky failure on the first run")
+
+
+@mlflow.test(repeat=3, pass_threshold=3)  # force all 3 runs
+def test_e2e_repeat_index_visible_in_body():
+    _seen_indices.append(session.repeat_index())
+    mlflow.genai.assert_batch("auto", outputs="x", assertions=[always_pass])
+
+
+@mlflow.test  # single-shot: must keep today's behavior even bundled with repeat cases
+def test_e2e_single_shot_unchanged():
+    mlflow.genai.assert_batch("auto", outputs="x", assertions=[always_pass])
+
+
+def test_zzz_repeat_outcomes_recorded():
+    cases = {c.test_name: c for c in session.repeat_cases()}
+
+    clear = cases["test_e2e_clear_pass_early_exits"]
+    assert clear.passed
+    assert (clear.passes, clear.runs) == (2, 2)
+    assert _calls["clear_pass"] == 2
+
+    flaky = cases["test_e2e_flaky_passes_on_majority"]
+    assert flaky.passed
+    assert (flaky.passes, flaky.runs) == (2, 3)
+    assert _calls["flaky"] == 3
+
+    default = cases["test_e2e_default_threshold_majority"]
+    assert default.passed
+    assert default.threshold == 2
+
+    forced = cases["test_e2e_repeat_index_visible_in_body"]
+    assert forced.passed
+    assert forced.runs == 3
+    assert _seen_indices == [0, 1, 2]
+
+    assert "test_e2e_single_shot_unchanged" not in cases
+    scorer_tests = {name for name, _ in session.snapshot()}
+    assert "test_e2e_single_shot_unchanged" in scorer_tests

@@ -1,3 +1,4 @@
+from mlflow._assertions.api import assert_batch
 from mlflow.genai import (
     datasets,
     judges,
@@ -51,6 +52,7 @@ __all__ = [
     "test_agent",
     "evaluate",
     "to_predict_fn",
+    "assert_batch",
     "Scorer",
     "scorer",
     "get_scorer",
