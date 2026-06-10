@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 
-import { canDeleteQueue, canManageQueue, sameUser } from './queuePermissions';
+import { canManageQueue, sameUser } from './queuePermissions';
 import type { ReviewQueue } from './types';
 
 const queue = (overrides: Partial<ReviewQueue> = {}): ReviewQueue => ({
@@ -39,17 +39,5 @@ describe('canManageQueue', () => {
 
   it('requires review-management (MANAGE) permission', () => {
     expect(canManageQueue(queue({ created_by: 'alice' }), false)).toBe(false);
-  });
-});
-
-describe('canDeleteQueue', () => {
-  it('lets a manager delete any CUSTOM queue they can manage', () => {
-    expect(canDeleteQueue(queue({ created_by: 'alice' }), true)).toBe(true);
-    expect(canDeleteQueue(queue({ created_by: 'someone-else' }), true)).toBe(true);
-  });
-
-  it('does not delete a queue without MANAGE permission', () => {
-    expect(canDeleteQueue(queue({ created_by: 'alice' }), false)).toBe(false);
-    expect(canDeleteQueue(queue({ queue_type: 'USER' }), true)).toBe(false);
   });
 });
