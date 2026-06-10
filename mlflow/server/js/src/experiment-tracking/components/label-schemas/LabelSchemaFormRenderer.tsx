@@ -11,7 +11,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, type Control } from 'react-hook-form';
 import { useDrag, useDrop } from 'react-dnd';
 
@@ -45,6 +45,7 @@ const COMPONENT_PREFIX = 'mlflow.experiment-label-schemas.form';
 
 export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues }: LabelSchemaFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const { inputKind } = watchedValues;
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -52,7 +53,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
         <Typography.Text color="error" css={{ marginBottom: -theme.spacing.sm }}>
           <FormattedMessage
             defaultMessage="Disabled fields are fixed after creation."
-            description="Label schema edit-mode notice explaining why some fields are disabled"
+            description="Review question edit-mode notice explaining why some fields are disabled"
           />
         </Typography.Text>
       )}
@@ -62,12 +63,12 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
           required
           infoPopoverContents={
             <FormattedMessage
-              defaultMessage="The prompt shown to the reviewer for this label."
-              description="Label schema name hint"
+              defaultMessage="The question shown to the reviewer."
+              description="Review question name hint"
             />
           }
         >
-          <FormattedMessage defaultMessage="Prompt to reviewer" description="Label schema name input" />
+          <FormattedMessage defaultMessage="Question for reviewer" description="Review question name input" />
         </FormUI.Label>
         <Controller
           name="name"
@@ -78,7 +79,10 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
               id={`${COMPONENT_PREFIX}.name`}
               {...field}
               disabled={isEdit}
-              placeholder="Is the answer correct?"
+              placeholder={intl.formatMessage({
+                defaultMessage: 'Is the answer correct?',
+                description: 'Review question name input placeholder',
+              })}
             />
           )}
         />
@@ -87,7 +91,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
 
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.instruction`}>
-          <FormattedMessage defaultMessage="Instructions (optional)" description="Label schema instruction input" />
+          <FormattedMessage defaultMessage="Instructions (optional)" description="Review question instruction input" />
         </FormUI.Label>
         <Controller
           name="instruction"
@@ -98,7 +102,10 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
               id={`${COMPONENT_PREFIX}.instruction`}
               {...field}
               rows={3}
-              placeholder="Instructions for reviewers on how to complete this label"
+              placeholder={intl.formatMessage({
+                defaultMessage: 'Instructions for reviewers on how to answer this question',
+                description: 'Review question instruction input placeholder',
+              })}
             />
           )}
         />
@@ -109,8 +116,8 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.type`} required>
           <FormattedMessage
-            defaultMessage="Label type"
-            description="Label schema feedback-vs-expectation selector label"
+            defaultMessage="Answer type"
+            description="Review question feedback-vs-expectation selector label"
           />
         </FormUI.Label>
         <Controller
@@ -125,8 +132,15 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
               onChange={(e) => field.onChange(e.target.value as LabelSchemaType)}
               disabled={isEdit}
             >
-              <Radio value="FEEDBACK">Feedback</Radio>
-              <Radio value="EXPECTATION">Expectation (ground truth)</Radio>
+              <Radio value="FEEDBACK">
+                <FormattedMessage defaultMessage="Feedback" description="Review question answer type: feedback" />
+              </Radio>
+              <Radio value="EXPECTATION">
+                <FormattedMessage
+                  defaultMessage="Expectation (ground truth)"
+                  description="Review question answer type: expectation"
+                />
+              </Radio>
             </Radio.Group>
           )}
         />
@@ -134,7 +148,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
 
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.input-kind`} required>
-          <FormattedMessage defaultMessage="Input type" description="Label schema input variant selector" />
+          <FormattedMessage defaultMessage="Input type" description="Review question input variant selector" />
         </FormUI.Label>
         <Controller
           name="inputKind"
@@ -148,10 +162,18 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
               onChange={(e) => field.onChange(e.target.value as LabelSchemaInputKind)}
               disabled={isEdit}
             >
-              <Radio value="pass_fail">Pass / Fail</Radio>
-              <Radio value="categorical">Categorical</Radio>
-              <Radio value="numeric">Numeric</Radio>
-              <Radio value="text">Text</Radio>
+              <Radio value="pass_fail">
+                <FormattedMessage defaultMessage="Pass / Fail" description="Review question input type: pass/fail" />
+              </Radio>
+              <Radio value="categorical">
+                <FormattedMessage defaultMessage="Categorical" description="Review question input type: categorical" />
+              </Radio>
+              <Radio value="numeric">
+                <FormattedMessage defaultMessage="Numeric" description="Review question input type: numeric" />
+              </Radio>
+              <Radio value="text">
+                <FormattedMessage defaultMessage="Text" description="Review question input type: text" />
+              </Radio>
             </Radio.Group>
           )}
         />
@@ -186,7 +208,7 @@ export const LabelSchemaFormRenderer = ({ control, isEdit, errors, watchedValues
 
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         <FormUI.Label htmlFor={`${COMPONENT_PREFIX}.enable-comment`}>
-          <FormattedMessage defaultMessage="Allow rationale" description="Label schema rationale section title" />
+          <FormattedMessage defaultMessage="Allow rationale" description="Review question rationale section title" />
         </FormUI.Label>
         <Controller
           name="enable_comment"
@@ -279,6 +301,7 @@ const DraggableOptionChip = ({
   onRemove: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const ref = useRef<HTMLDivElement>(null);
   // Latest hovered edge, read at drop time (drop's closure mustn't go stale).
   const edgeRef = useRef<'before' | 'after'>('before');
@@ -360,7 +383,13 @@ const DraggableOptionChip = ({
       >
         <span
           ref={drag}
-          aria-label={`Drag to reorder ${option}`}
+          aria-label={intl.formatMessage(
+            {
+              defaultMessage: 'Drag to reorder {option}',
+              description: 'Categorical option chip: drag-handle accessibility label',
+            },
+            { option },
+          )}
           css={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -390,6 +419,7 @@ const DraggableOptionChip = ({
  */
 const CategoricalOptionsEditor = ({ value, onChange }: { value: string[]; onChange: (next: string[]) => void }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const [draft, setDraft] = useState('');
   const atMax = value.length >= MAX_CATEGORICAL_OPTIONS;
 
@@ -435,7 +465,20 @@ const CategoricalOptionsEditor = ({ value, onChange }: { value: string[]; onChan
               addDraft();
             }
           }}
-          placeholder={atMax ? `Max ${MAX_CATEGORICAL_OPTIONS} options` : 'Add an option'}
+          placeholder={
+            atMax
+              ? intl.formatMessage(
+                  {
+                    defaultMessage: 'Max {max} options',
+                    description: 'Categorical options: placeholder when the option limit is reached',
+                  },
+                  { max: MAX_CATEGORICAL_OPTIONS },
+                )
+              : intl.formatMessage({
+                  defaultMessage: 'Add an option',
+                  description: 'Categorical options: add-option input placeholder',
+                })
+          }
           disabled={atMax}
           css={{ flex: 1 }}
         />
@@ -507,6 +550,7 @@ const CategoricalFields = ({ control, errors }: { control: Control<LabelSchemaFo
 
 const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   // Min / max sit side-by-side (item 9) to save vertical space.
   return (
     <div css={{ display: 'flex', gap: theme.spacing.md }}>
@@ -531,7 +575,10 @@ const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormDa
               id={`${COMPONENT_PREFIX}.numeric.min`}
               type="number"
               {...field}
-              placeholder="No minimum"
+              placeholder={intl.formatMessage({
+                defaultMessage: 'No minimum',
+                description: 'Numeric question: min-value input placeholder when unbounded',
+              })}
             />
           )}
         />
@@ -550,7 +597,10 @@ const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormDa
               id={`${COMPONENT_PREFIX}.numeric.max`}
               type="number"
               {...field}
-              placeholder="No maximum"
+              placeholder={intl.formatMessage({
+                defaultMessage: 'No maximum',
+                description: 'Numeric question: max-value input placeholder when unbounded',
+              })}
             />
           )}
         />
@@ -562,6 +612,7 @@ const NumericFields = ({ control, errors }: { control: Control<LabelSchemaFormDa
 
 const TextFields = ({ control, errors }: { control: Control<LabelSchemaFormData>; errors: FormErrors }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
@@ -583,7 +634,10 @@ const TextFields = ({ control, errors }: { control: Control<LabelSchemaFormData>
               id={`${COMPONENT_PREFIX}.text.max-length`}
               type="number"
               {...field}
-              placeholder="No limit"
+              placeholder={intl.formatMessage({
+                defaultMessage: 'No limit',
+                description: 'Text question: max-length input placeholder when unbounded',
+              })}
             />
           )}
         />
