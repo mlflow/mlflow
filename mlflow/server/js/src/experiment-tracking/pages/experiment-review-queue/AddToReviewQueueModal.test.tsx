@@ -15,7 +15,12 @@ jest.mock('../../../account/hooks', () => ({
   useCurrentUserIsAdmin: () => false,
   useCurrentUserIsWorkspaceAdmin: () => false,
 }));
-jest.mock('./hooks/useReviewer', () => ({ useReviewer: () => 'default', DEFAULT_REVIEWER: 'default' }));
+let mockReviewerResolved = true;
+jest.mock('./hooks/useReviewer', () => ({
+  useReviewer: () => 'default',
+  DEFAULT_REVIEWER: 'default',
+  useIsReviewerResolved: () => mockReviewerResolved,
+}));
 jest.mock('./hooks/useCanManageReviews', () => ({ useCanManageReviews: () => false }));
 jest.mock('./CreateReviewQueueModal', () => ({ CreateReviewQueueModal: () => null }));
 
@@ -78,6 +83,7 @@ const renderModal = () =>
 
 describe('AddToReviewQueueModal', () => {
   beforeEach(() => {
+    mockReviewerResolved = true;
     mockAddItems.mockReset();
     mockAddItems.mockResolvedValue({});
     mockGetOrCreateUserQueue.mockReset();
@@ -165,5 +171,17 @@ describe('AddToReviewQueueModal', () => {
     expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-default', item_ids: ['tr-1'] });
     // ...and no success toast fires while any destination failed.
     expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
+  });
+
+  it('keeps Add disabled until the reviewer identity is resolved', () => {
+    mockReviewerResolved = false;
+    renderModal();
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
+
+    // A destination is selected, but the reviewer is still loading, so the write
+    // (which stamps created_by) must not be allowed yet.
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
   });
 });

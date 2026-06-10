@@ -17,14 +17,3 @@ export const canManageQueue = (
   authAvailable: boolean,
   canManage: boolean,
 ): boolean => canManage && queue.queue_type === 'CUSTOM' && (!authAvailable || sameUser(queue.created_by, reviewer));
-
-/**
- * Whether the current reviewer may delete a queue. Currently the same as
- * managing it (a distinct action, kept separate so the two can diverge).
- */
-export const canDeleteQueue = (
-  queue: ReviewQueue,
-  reviewer: string,
-  authAvailable: boolean,
-  canManage: boolean,
-): boolean => canManageQueue(queue, reviewer, authAvailable, canManage);

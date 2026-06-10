@@ -31,7 +31,7 @@ import { useAddItemsToReviewQueueMutation } from './hooks/useAddItemsToReviewQue
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
-import { DEFAULT_REVIEWER, useReviewer } from './hooks/useReviewer';
+import { DEFAULT_REVIEWER, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import type { ReviewQueue } from './types';
 
 const CID = 'mlflow.experiment-review-queue.add-to-queue';
@@ -80,6 +80,8 @@ export const AddToReviewQueueModal = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const reviewer = useReviewer();
+  // Don't let a write stamp `created_by` until the reviewer identity is settled.
+  const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
   const isAdmin = useCurrentUserIsAdmin();
   const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
@@ -163,7 +165,7 @@ export const AddToReviewQueueModal = ({
   const selectedCount = (defaultQueueChecked ? 1 : 0) + selectedQueueIds.size + selectedUsers.size;
 
   const isWorking = isAddingItems || isResolvingUserQueue;
-  const canAdd = selectedCount > 0 && itemIds.length > 0 && !isWorking;
+  const canAdd = selectedCount > 0 && itemIds.length > 0 && !isWorking && reviewerResolved;
 
   const triggerValue = useMemo(
     () =>
