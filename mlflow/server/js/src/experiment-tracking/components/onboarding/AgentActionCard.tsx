@@ -47,7 +47,7 @@ export const AgentActionCard = ({
 
   const handleAssistantClick = () => {
     openPanel();
-    // TODO(ML-66316 follow-up): if setup isn't complete, the prompt is silently dropped.
+    // TODO(joshuawong-db follow-up): if setup isn't complete, the prompt is silently dropped.
     // Once the setup wizard finishes the user has to retype it. Plumb a queueMessage()
     // through AssistantContext to defer the send until setupComplete flips true, and
     // fix the stale-sessionId closure inside startChat at the same time.
