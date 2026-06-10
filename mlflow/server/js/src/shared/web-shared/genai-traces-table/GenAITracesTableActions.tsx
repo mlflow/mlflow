@@ -98,6 +98,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   // prettier-ignore
   const {
     showAddToEvaluationDatasetModal,
+    showAddToReviewQueueModal,
   } = useContext(GenAITracesTableContext);
 
   const handleEditTags = useCallback(() => {
@@ -127,12 +128,17 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   );
 
   const hasExportAction = Boolean(traceActions?.exportToEvals);
+  const hasAddToReviewQueueAction = Boolean(traceActions?.addToReviewQueue);
   const hasRunJudgesAction = Boolean(traceActions?.runJudgesAction);
   const hasEditTagsAction = shouldEnableTagGrouping() && Boolean(traceActions?.editTags);
   const hasDeleteAction = Boolean(traceActions?.deleteTracesAction);
 
   const handleExportToDatasets = () => {
     showAddToEvaluationDatasetModal?.(selectedTraces);
+  };
+
+  const handleAddToReviewQueue = () => {
+    showAddToReviewQueueModal?.(selectedTraces);
   };
 
   const handleRunJudges = useCallback(() => {
@@ -156,7 +162,8 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
 
   const isEditTagsDisabled = selectedTraces.length > 1;
   const noTracesSelected = selectedTraces.length === 0;
-  const noActionsAvailable = !hasExportAction && !hasRunJudgesAction && !hasEditTagsAction && !hasDeleteAction;
+  const noActionsAvailable =
+    !hasExportAction && !hasAddToReviewQueueAction && !hasRunJudgesAction && !hasEditTagsAction && !hasDeleteAction;
   const canCompare = selectedTraces.length >= 2 && selectedTraces.length < 4;
 
   const groupLabelStyles = {
@@ -255,7 +262,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                   <DropdownMenu.Separator />
                 </>
               )}
-              {(hasExportAction || hasRunJudgesAction) && (
+              {(hasExportAction || hasAddToReviewQueueAction || hasRunJudgesAction) && (
                 <>
                   <DropdownMenu.Group>
                     <DropdownMenu.Label css={groupLabelStyles}>
@@ -288,12 +295,24 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                         })}
                       </DropdownMenu.Item>
                     )}
+                    {hasAddToReviewQueueAction && (
+                      <DropdownMenu.Item
+                        componentId="mlflow.genai-traces-table.add-to-review-queue"
+                        css={groupItemStyles}
+                        onClick={handleAddToReviewQueue}
+                      >
+                        {intl.formatMessage({
+                          defaultMessage: 'Add to review queue',
+                          description: 'Add traces to review queue action',
+                        })}
+                      </DropdownMenu.Item>
+                    )}
                   </DropdownMenu.Group>
                 </>
               )}
               {(hasEditTagsAction || hasDeleteAction) && (
                 <>
-                  {(hasExportAction || hasRunJudgesAction) && <DropdownMenu.Separator />}
+                  {(hasExportAction || hasAddToReviewQueueAction || hasRunJudgesAction) && <DropdownMenu.Separator />}
                   <DropdownMenu.Group>
                     <DropdownMenu.Label css={groupLabelStyles}>
                       {intl.formatMessage({

@@ -65,6 +65,50 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "50-steps/bedrock/amazon.nova-canvas-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 2600
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "50-steps/stability.stable-diffusion-xl-v0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "50-steps/stability.stable-diffusion-xl-v1": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "ai21.j2-mid-v1": {
       "mode": "chat",
       "context_window": {
@@ -242,6 +286,20 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "amazon.nova-canvas-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 2600
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "amazon.nova-lite-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -358,6 +416,39 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "amazon.titan-image-generator-v1": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "amazon.titan-image-generator-v2": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "amazon.titan-image-generator-v2:0": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
     },
     "amazon.titan-text-express-v1": {
       "mode": "chat",
@@ -613,6 +704,35 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "anthropic.claude-fable-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "cache_read_per_million_tokens": 1.0,
+        "cache_write_per_million_tokens": 12.5,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-10"
+    },
     "anthropic.claude-haiku-4-5-20251001-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -624,10 +744,7 @@
         "input_per_million_tokens": 1.0,
         "output_per_million_tokens": 5.0,
         "cache_read_per_million_tokens": 0.1,
-        "cache_write_per_million_tokens": 1.25,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        "cache_write_per_million_tokens": 1.25
       },
       "capabilities": {
         "function_calling": true,
@@ -636,7 +753,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic.claude-haiku-4-5@20251001": {
       "mode": "chat",
@@ -649,10 +766,7 @@
         "input_per_million_tokens": 1.0,
         "output_per_million_tokens": 5.0,
         "cache_read_per_million_tokens": 0.1,
-        "cache_write_per_million_tokens": 1.25,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        "cache_write_per_million_tokens": 1.25
       },
       "capabilities": {
         "function_calling": true,
@@ -661,7 +775,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic.claude-instant-v1": {
       "mode": "chat",
@@ -720,8 +834,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -731,7 +844,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic.claude-opus-4-20250514-v1:0": {
       "mode": "chat",
@@ -750,8 +863,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -761,7 +873,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic.claude-opus-4-5-20251101-v1:0": {
       "mode": "chat",
@@ -780,8 +892,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -791,7 +902,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
@@ -810,8 +921,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -821,7 +931,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic.claude-opus-4-7": {
       "mode": "chat",
@@ -840,8 +950,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -851,7 +960,36 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
+    },
+    "anthropic.claude-opus-4-8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "cache_read_per_million_tokens": 0.5,
+        "cache_write_per_million_tokens": 6.25,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-01"
     },
     "anthropic.claude-sonnet-4-20250514-v1:0": {
       "mode": "chat",
@@ -879,8 +1017,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -890,7 +1027,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -918,8 +1055,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -929,7 +1065,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -948,8 +1084,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -959,7 +1094,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "anthropic.claude-v1": {
       "mode": "chat",
@@ -1766,10 +1901,7 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        "cache_write_per_million_tokens": 1.375
       },
       "capabilities": {
         "function_calling": true,
@@ -1778,7 +1910,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "apac.anthropic.claude-sonnet-4-20250514-v1:0": {
       "mode": "chat",
@@ -1806,8 +1938,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -1817,7 +1948,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "au.anthropic.claude-haiku-4-5-20251001-v1:0": {
       "mode": "chat",
@@ -1830,10 +1961,7 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        "cache_write_per_million_tokens": 1.375
       },
       "capabilities": {
         "function_calling": true,
@@ -1842,7 +1970,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "au.anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
@@ -1861,8 +1989,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -1872,7 +1999,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "au.anthropic.claude-opus-4-7": {
       "mode": "chat",
@@ -1891,8 +2018,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -1902,7 +2028,36 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
+    },
+    "au.anthropic.claude-opus-4-8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.5,
+        "output_per_million_tokens": 27.5,
+        "cache_read_per_million_tokens": 0.55,
+        "cache_write_per_million_tokens": 6.875,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-01"
     },
     "au.anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -1930,8 +2085,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -1941,7 +2095,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "au.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -1960,8 +2114,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -1971,7 +2124,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "ca-central-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -2033,10 +2186,7 @@
             "cache_write_per_million_tokens": 7.5,
             "cache_read_per_million_tokens": 0.6
           }
-        ],
-        "tooling": {
-          "tool_use_system_prompt_tokens": 159
-        }
+        ]
       },
       "capabilities": {
         "function_calling": true,
@@ -2045,7 +2195,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "cohere.command-light-text-v14": {
       "mode": "chat",
@@ -3104,6 +3254,35 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "eu.anthropic.claude-fable-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 11.0,
+        "output_per_million_tokens": 55.0,
+        "cache_read_per_million_tokens": 1.1,
+        "cache_write_per_million_tokens": 13.75,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-10"
+    },
     "eu.anthropic.claude-haiku-4-5-20251001-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -3115,10 +3294,7 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        "cache_write_per_million_tokens": 1.375
       },
       "capabilities": {
         "function_calling": true,
@@ -3128,7 +3304,7 @@
         "response_schema": true
       },
       "deprecation_date": "2026-10-15",
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "eu.anthropic.claude-opus-4-1-20250805-v1:0": {
       "mode": "chat",
@@ -3147,8 +3323,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -3158,7 +3333,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "eu.anthropic.claude-opus-4-20250514-v1:0": {
       "mode": "chat",
@@ -3177,8 +3352,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -3188,7 +3362,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "eu.anthropic.claude-opus-4-5-20251101-v1:0": {
       "mode": "chat",
@@ -3207,8 +3381,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -3218,7 +3391,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "eu.anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
@@ -3237,8 +3410,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -3248,7 +3420,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "eu.anthropic.claude-opus-4-7": {
       "mode": "chat",
@@ -3267,8 +3439,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -3278,7 +3449,36 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
+    },
+    "eu.anthropic.claude-opus-4-8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.5,
+        "output_per_million_tokens": 27.5,
+        "cache_read_per_million_tokens": 0.55,
+        "cache_write_per_million_tokens": 6.875,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-01"
     },
     "eu.anthropic.claude-sonnet-4-20250514-v1:0": {
       "mode": "chat",
@@ -3306,8 +3506,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -3317,7 +3516,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "eu.anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -3345,8 +3544,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -3356,7 +3554,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "eu.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -3375,8 +3573,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -3386,7 +3583,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "eu.deepseek.v3.2": {
       "mode": "chat",
@@ -3535,6 +3732,35 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "global.anthropic.claude-fable-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 50.0,
+        "cache_read_per_million_tokens": 1.0,
+        "cache_write_per_million_tokens": 12.5,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-10"
+    },
     "global.anthropic.claude-haiku-4-5-20251001-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -3546,10 +3772,7 @@
         "input_per_million_tokens": 1.0,
         "output_per_million_tokens": 5.0,
         "cache_read_per_million_tokens": 0.1,
-        "cache_write_per_million_tokens": 1.25,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        "cache_write_per_million_tokens": 1.25
       },
       "capabilities": {
         "function_calling": true,
@@ -3558,7 +3781,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "global.anthropic.claude-opus-4-5-20251101-v1:0": {
       "mode": "chat",
@@ -3577,8 +3800,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -3588,7 +3810,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "global.anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
@@ -3607,8 +3829,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -3618,7 +3839,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "global.anthropic.claude-opus-4-7": {
       "mode": "chat",
@@ -3637,8 +3858,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -3648,7 +3868,36 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
+    },
+    "global.anthropic.claude-opus-4-8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "cache_read_per_million_tokens": 0.5,
+        "cache_write_per_million_tokens": 6.25,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-01"
     },
     "global.anthropic.claude-sonnet-4-20250514-v1:0": {
       "mode": "chat",
@@ -3676,8 +3925,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -3687,7 +3935,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "global.anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -3715,8 +3963,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -3726,7 +3973,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "global.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -3745,8 +3992,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -3756,7 +4002,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "google.gemma-3-12b-it": {
       "mode": "chat",
@@ -3851,8 +4097,35 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375,
+        "cache_write_per_million_tokens": 1.375
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-01"
+    },
+    "jp.anthropic.claude-opus-4-7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.5,
+        "output_per_million_tokens": 27.5,
+        "cache_read_per_million_tokens": 0.55,
+        "cache_write_per_million_tokens": 6.875,
         "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          },
           "tool_use_system_prompt_tokens": 346
         }
       },
@@ -3863,7 +4136,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "jp.anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -3891,8 +4164,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -3902,7 +4174,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "jp.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -3921,8 +4193,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -3932,7 +4203,37 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-05-18"
+      "last_updated_at": "2026-06-01"
+    },
+    "max-steps/stability.stable-diffusion-xl-v0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "max-steps/stability.stable-diffusion-xl-v1": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
     },
     "meta.llama2-13b-chat-v1": {
       "mode": "chat",
@@ -5066,6 +5367,96 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "stability.sd3-5-large-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "stability.sd3-large-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "stability.stable-image-core-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "stability.stable-image-core-v1:1": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "stability.stable-image-ultra-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "stability.stable-image-ultra-v1:1": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 77,
+        "max_tokens": 77
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "twelvelabs.marengo-embed-2-7-v1:0": {
       "mode": "embedding",
       "context_window": {
@@ -5793,10 +6184,7 @@
         "input_per_million_tokens": 1.2,
         "output_per_million_tokens": 6.0,
         "cache_read_per_million_tokens": 0.12,
-        "cache_write_per_million_tokens": 1.5,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        "cache_write_per_million_tokens": 1.5
       },
       "capabilities": {
         "function_calling": true,
@@ -5805,7 +6193,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "us-gov-east-1/anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -5815,10 +6203,10 @@
         "max_tokens": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33,
-        "cache_write_per_million_tokens": 4.125
+        "input_per_million_tokens": 3.6,
+        "output_per_million_tokens": 18.0,
+        "cache_read_per_million_tokens": 0.36,
+        "cache_write_per_million_tokens": 4.5
       },
       "capabilities": {
         "function_calling": true,
@@ -5827,7 +6215,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "us-gov-east-1/claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -5837,10 +6225,10 @@
         "max_tokens": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33,
-        "cache_write_per_million_tokens": 4.125
+        "input_per_million_tokens": 3.6,
+        "output_per_million_tokens": 18.0,
+        "cache_read_per_million_tokens": 0.36,
+        "cache_write_per_million_tokens": 4.5
       },
       "capabilities": {
         "function_calling": true,
@@ -5849,7 +6237,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "us-gov-east-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -6086,10 +6474,7 @@
         "input_per_million_tokens": 1.2,
         "output_per_million_tokens": 6.0,
         "cache_read_per_million_tokens": 0.12,
-        "cache_write_per_million_tokens": 1.5,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        "cache_write_per_million_tokens": 1.5
       },
       "capabilities": {
         "function_calling": true,
@@ -6098,7 +6483,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "us-gov-west-1/anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -6108,10 +6493,10 @@
         "max_tokens": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33,
-        "cache_write_per_million_tokens": 4.125
+        "input_per_million_tokens": 3.6,
+        "output_per_million_tokens": 18.0,
+        "cache_read_per_million_tokens": 0.36,
+        "cache_write_per_million_tokens": 4.5
       },
       "capabilities": {
         "function_calling": true,
@@ -6120,7 +6505,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "us-gov-west-1/claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -6130,10 +6515,10 @@
         "max_tokens": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33,
-        "cache_write_per_million_tokens": 4.125
+        "input_per_million_tokens": 3.6,
+        "output_per_million_tokens": 18.0,
+        "cache_read_per_million_tokens": 0.36,
+        "cache_write_per_million_tokens": 4.5
       },
       "capabilities": {
         "function_calling": true,
@@ -6142,7 +6527,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "us-gov-west-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -6192,22 +6577,19 @@
         "max_tokens": 64000
       },
       "pricing": {
-        "input_per_million_tokens": 3.3,
-        "output_per_million_tokens": 16.5,
-        "cache_read_per_million_tokens": 0.33,
-        "cache_write_per_million_tokens": 4.125,
+        "input_per_million_tokens": 3.6,
+        "output_per_million_tokens": 18.0,
+        "cache_read_per_million_tokens": 0.36,
+        "cache_write_per_million_tokens": 4.5,
         "long_context": [
           {
             "threshold_tokens": 200000,
-            "input_per_million_tokens": 6.6,
-            "output_per_million_tokens": 24.75,
-            "cache_write_per_million_tokens": 8.25,
-            "cache_read_per_million_tokens": 0.66
+            "input_per_million_tokens": 7.2,
+            "output_per_million_tokens": 27.0,
+            "cache_write_per_million_tokens": 9.0,
+            "cache_read_per_million_tokens": 0.72
           }
-        ],
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        ]
       },
       "capabilities": {
         "function_calling": true,
@@ -6216,7 +6598,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-09"
     },
     "us-west-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -6664,6 +7046,20 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "us.amazon.nova-canvas-v1:0": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 2600
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "us.amazon.nova-lite-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -6898,6 +7294,35 @@
       },
       "last_updated_at": "2026-04-24"
     },
+    "us.anthropic.claude-fable-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 11.0,
+        "output_per_million_tokens": 55.0,
+        "cache_read_per_million_tokens": 1.1,
+        "cache_write_per_million_tokens": 13.75,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-10"
+    },
     "us.anthropic.claude-haiku-4-5-20251001-v1:0": {
       "mode": "chat",
       "context_window": {
@@ -6909,10 +7334,7 @@
         "input_per_million_tokens": 1.1,
         "output_per_million_tokens": 5.5,
         "cache_read_per_million_tokens": 0.11,
-        "cache_write_per_million_tokens": 1.375,
-        "tooling": {
-          "tool_use_system_prompt_tokens": 346
-        }
+        "cache_write_per_million_tokens": 1.375
       },
       "capabilities": {
         "function_calling": true,
@@ -6921,7 +7343,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "us.anthropic.claude-opus-4-1-20250805-v1:0": {
       "mode": "chat",
@@ -6940,8 +7362,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -6951,7 +7372,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "us.anthropic.claude-opus-4-20250514-v1:0": {
       "mode": "chat",
@@ -6970,8 +7391,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -6981,7 +7401,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "us.anthropic.claude-opus-4-5-20251101-v1:0": {
       "mode": "chat",
@@ -7000,8 +7420,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -7011,7 +7430,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "us.anthropic.claude-opus-4-6-v1": {
       "mode": "chat",
@@ -7030,8 +7449,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -7041,7 +7459,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "us.anthropic.claude-opus-4-7": {
       "mode": "chat",
@@ -7060,8 +7478,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -7071,7 +7488,36 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
+    },
+    "us.anthropic.claude-opus-4-8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.5,
+        "output_per_million_tokens": 27.5,
+        "cache_read_per_million_tokens": 0.55,
+        "cache_write_per_million_tokens": 6.875,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-01"
     },
     "us.anthropic.claude-sonnet-4-20250514-v1:0": {
       "mode": "chat",
@@ -7099,8 +7545,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -7110,7 +7555,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "us.anthropic.claude-sonnet-4-5-20250929-v1:0": {
       "mode": "chat",
@@ -7138,8 +7583,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -7149,7 +7593,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "us.anthropic.claude-sonnet-4-6": {
       "mode": "chat",
@@ -7168,8 +7612,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -7179,7 +7622,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "us.deepseek.r1-v1:0": {
       "mode": "chat",

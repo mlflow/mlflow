@@ -189,7 +189,8 @@ mlflow.models.evaluate(
 
 ### Environment Variables
 
-`MLFLOW_GCS_DEFAULT_TIMEOUT` removed ([#15365](https://github.com/mlflow/mlflow/pull/15365)). Configure timeouts using standard GCS client library approaches.
+- `MLFLOW_GCS_DEFAULT_TIMEOUT` removed ([#15365](https://github.com/mlflow/mlflow/pull/15365)). Configure timeouts using standard GCS client library approaches.
+- **Static Prefix Behavior Change**: Since MLflow 3.12, the `--static-prefix` command-line option and `MLFLOW_STATIC_PREFIX` environment variable are consistently applied to both UI (AJAX API) routes and REST API (`/api/`) URLs ([#22159](https://github.com/mlflow/mlflow/pull/22159)). Previously, the static prefix only applied to UI/AJAX routes and static files. Setups using a reverse proxy or REST clients may need to adjust their routing rules to handle the prefix on REST API endpoints.
 
 ## Migration FAQs
 

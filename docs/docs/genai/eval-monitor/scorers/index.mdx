@@ -74,6 +74,16 @@ Correctness(model="openai:/gpt-5-mini")
 
 For a list of supported models, see [selecting judge models](/genai/eval-monitor/scorers/llm-judge/custom-judges/#selecting-judge-models).
 
+:::tip Set a default judge model globally
+
+Set the `MLFLOW_GENAI_JUDGE_DEFAULT_MODEL` environment variable to change the default judge model, instead of specifying `model` on each scorer individually. All built-in judges and scorers fall back to this model when no explicit `model` argument is provided.
+
+```bash
+export MLFLOW_GENAI_JUDGE_DEFAULT_MODEL="openai:/gpt-5-mini"
+```
+
+:::
+
 ## What Judges you should use?
 
 MLflow provides different types of judges to address different evaluation needs:
@@ -143,7 +153,7 @@ In practice, out-of-the-box judges such as 'Groundedness' or 'Safety' struggle t
   ]}
 />
 
-:::tip Pro tip: Version Control Judges
+:::tip[Pro tip: Version Control Judges]
 
 As you iterate on the judge, version control becomes important. MLflow can track <ins>[Judge Versions](/genai/eval-monitor/scorers/versioning)</ins> to help you maintain changes and share the improved judges with your team.
 

@@ -144,6 +144,9 @@ def test_experiments_are_workspace_scoped(workspace_tracking_store):
         exp_a = workspace_tracking_store.get_experiment(exp_a_id)
         assert exp_a.name == "exp-in-a"
         assert exp_a.workspace == "team-a"
+        exp_a_proto = exp_a.to_proto()
+        assert exp_a_proto.HasField("workspace")
+        assert exp_a_proto.workspace == "team-a"
 
         experiments = workspace_tracking_store.search_experiments(ViewType.ACTIVE_ONLY)
         assert {exp.name for exp in experiments} == {"exp-in-a", "shared-name"}
@@ -2398,3 +2401,154 @@ def test_guardrails_reject_missing_scorer_version_in_same_workspace(gateway_work
                 stage=GuardrailStage.BEFORE,
                 action=GuardrailAction.VALIDATION,
             )
+
+
+def test_label_schemas_are_workspace_scoped(workspace_tracking_store):
+    from mlflow.genai.label_schemas.label_schemas import InputPassFail
+
+    with WorkspaceContext("team-a"):
+        exp_a_id = workspace_tracking_store.create_experiment("exp-a")
+        schema_a = workspace_tracking_store.create_label_schema(
+            experiment_id=exp_a_id,
+            name="correctness",
+            type="feedback",
+            input=InputPassFail(positive_label="Yes", negative_label="No"),
+        )
+
+    with WorkspaceContext("team-b"):
+        exp_b_id = workspace_tracking_store.create_experiment("exp-b")
+        schema_b = workspace_tracking_store.create_label_schema(
+            experiment_id=exp_b_id,
+            name="correctness",
+            type="feedback",
+            input=InputPassFail(positive_label="Yes", negative_label="No"),
+        )
+
+        # Cross-workspace get-by-id: workspace-b cannot resolve workspace-a's schema.
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.get_label_schema(schema_a.schema_id)
+
+        # Cross-workspace get-by-name: get_label_schema_by_name validates the
+        # parent experiment first, and workspace-a's experiment is invisible to
+        # workspace-b, so the lookup fails at experiment validation rather than
+        # at the schema query.
+        with pytest.raises(MlflowException, match="No Experiment with id"):
+            workspace_tracking_store.get_label_schema_by_name(exp_a_id, "correctness")
+
+        # Cross-workspace update: workspace-b cannot patch workspace-a's schema
+        # (the join to workspace-a's experiment yields no row to update).
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.update_label_schema(schema_a.schema_id, instruction="hijacked")
+
+        # Cross-workspace list: workspace-b cannot list schemas under
+        # workspace-a's experiment, which is itself invisible to workspace-b.
+        with pytest.raises(MlflowException, match="No Experiment with id"):
+            workspace_tracking_store.list_label_schemas(exp_a_id)
+
+        # Cross-workspace delete: silently no-ops (schema is invisible).
+        workspace_tracking_store.delete_label_schema(schema_a.schema_id)
+
+    with WorkspaceContext("team-a"):
+        # Schema A is still intact in its own workspace (the cross-workspace
+        # update and delete above were no-ops against it).
+        intact = workspace_tracking_store.get_label_schema(schema_a.schema_id)
+        assert intact.schema_id == schema_a.schema_id
+        assert intact.instruction != "hijacked"
+
+        # Within-workspace list resolves schema A via the experiment join
+        # (filtering out the auto-seeded default question).
+        listed = [
+            s for s in workspace_tracking_store.list_label_schemas(exp_a_id) if not s.is_default
+        ]
+        assert [s.schema_id for s in listed] == [schema_a.schema_id]
+
+        # The protected default question is seeded within team-a's own workspace.
+        assert sum(s.is_default for s in workspace_tracking_store.list_label_schemas(exp_a_id)) == 1
+
+        # Cross-workspace get-by-id from workspace-a → workspace-b.
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.get_label_schema(schema_b.schema_id)
+
+
+def test_review_queues_are_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-a"):
+        exp_a_id = workspace_tracking_store.create_experiment("exp-a")
+        queue_a = workspace_tracking_store.create_review_queue(
+            exp_a_id, name="triage", queue_type="custom", users=["alice"]
+        )
+        workspace_tracking_store.add_items_to_review_queue(queue_a.queue_id, item_ids=["tr-a"])
+
+    with WorkspaceContext("team-b"):
+        exp_b_id = workspace_tracking_store.create_experiment("exp-b")
+        queue_b = workspace_tracking_store.create_review_queue(
+            exp_b_id, name="triage", queue_type="custom"
+        )
+
+        # Cross-workspace get-by-id: workspace-b cannot resolve workspace-a's queue.
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.get_review_queue(queue_a.queue_id)
+
+        # Cross-workspace get-by-name validates the parent experiment first, and
+        # workspace-a's experiment is invisible to workspace-b.
+        with pytest.raises(MlflowException, match="No Experiment with id"):
+            workspace_tracking_store.get_review_queue_by_name(exp_a_id, name="triage")
+
+        # Cross-workspace update / attach / status all fail to resolve the queue.
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.update_review_queue(queue_a.queue_id, users=["mallory"])
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.add_items_to_review_queue(queue_a.queue_id, item_ids=["tr-x"])
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.list_review_queue_items(queue_a.queue_id)
+
+        # Cross-workspace delete silently no-ops (the queue is invisible).
+        workspace_tracking_store.delete_review_queue(queue_a.queue_id)
+
+    with WorkspaceContext("team-a"):
+        # Queue A is intact: the cross-workspace mutations above were no-ops.
+        intact = workspace_tracking_store.get_review_queue(queue_a.queue_id)
+        assert intact.queue_id == queue_a.queue_id
+        assert intact.users == ["alice"]
+        assert {
+            i.item_id for i in workspace_tracking_store.list_review_queue_items(queue_a.queue_id)
+        } == {"tr-a"}
+
+        # Within-workspace list resolves queue A via the experiment join only.
+        listed = workspace_tracking_store.list_review_queues(exp_a_id)
+        assert [q.queue_id for q in listed] == [queue_a.queue_id]
+
+        # Cross-workspace get-by-id from workspace-a → workspace-b.
+        with pytest.raises(MlflowException, match="not found"):
+            workspace_tracking_store.get_review_queue(queue_b.queue_id)
+
+
+def test_review_queue_question_lock_holds_in_workspace_store(workspace_tracking_store):
+    from mlflow.genai.label_schemas.label_schemas import InputPassFail
+
+    with WorkspaceContext("team-a"):
+        exp_id = workspace_tracking_store.create_experiment("exp-lock")
+        ls1 = workspace_tracking_store.create_label_schema(
+            experiment_id=exp_id,
+            name="quality",
+            type="feedback",
+            input=InputPassFail(positive_label="Yes", negative_label="No"),
+        )
+        ls2 = workspace_tracking_store.create_label_schema(
+            experiment_id=exp_id,
+            name="safety",
+            type="feedback",
+            input=InputPassFail(positive_label="Yes", negative_label="No"),
+        )
+        queue = workspace_tracking_store.create_review_queue(
+            exp_id, name="triage", queue_type="custom", schema_ids=[ls1.schema_id]
+        )
+        # Questions are editable while the queue is empty.
+        workspace_tracking_store.update_review_queue(
+            queue.queue_id, schema_ids=[ls1.schema_id, ls2.schema_id]
+        )
+        # Once an item is attached, questions lock but users stay editable.
+        workspace_tracking_store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
+        with pytest.raises(MlflowException, match="locked once items are assigned"):
+            workspace_tracking_store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id])
+        updated = workspace_tracking_store.update_review_queue(queue.queue_id, users=["alice"])
+        assert updated.users == ["alice"]

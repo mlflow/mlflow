@@ -96,7 +96,11 @@ class CatalogLongContextTier(CatalogPricingTier, total=False):
 
 class CatalogPricingModality(TypedDict, total=False):
     input_per_million_tokens: float
+    output_per_million_tokens: float
+    cache_read_per_million_tokens: float
+    cache_write_per_million_tokens: float
     input_per_second: float
+    output_per_second: float
 
 
 class ModelInfo(TypedDict, total=False):
@@ -1004,7 +1008,10 @@ AZURE_API_VERSION_ENV_VAR = "AZURE_API_VERSION"
 
 # Mapping of core providers to their environment variable names for credentials/config fields
 _CORE_PROVIDER_ENV_VARS = {
-    "openai": "OPENAI_API_KEY",
+    "openai": {
+        "api_key": "OPENAI_API_KEY",
+        "api_base": "OPENAI_API_BASE",
+    },
     "azure": {
         "api_key": AZURE_API_KEY_ENV_VAR,
         "api_base": AZURE_API_BASE_ENV_VAR,
