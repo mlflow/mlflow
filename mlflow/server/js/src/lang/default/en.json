@@ -11539,10 +11539,6 @@
     "defaultMessage": "Toggle visibility of evaluation runs",
     "description": "Evaluation runs table > toggle visibility of runs > accessible label"
   },
-  "wKYkfj": {
-    "defaultMessage": "Close",
-    "description": "Manage review questions: close button"
-  },
   "wLoYcw": {
     "defaultMessage": "Duplicate ({count})",
     "description": "Gateway > Endpoints list > Duplicate button with count"
