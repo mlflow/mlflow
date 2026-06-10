@@ -41,7 +41,13 @@ export interface LabelSchemaFormModalProps {
  * while this is open); the form itself is the schema authoring UI shared with
  * the rest of the app.
  */
-export const LabelSchemaFormModal = ({ experimentId, editingSchema, visible, onClose, onCreated }: LabelSchemaFormModalProps) => {
+export const LabelSchemaFormModal = ({
+  experimentId,
+  editingSchema,
+  visible,
+  onClose,
+  onCreated,
+}: LabelSchemaFormModalProps) => {
   const { theme } = useDesignSystemTheme();
   const isEdit = editingSchema != null;
   const defaultValues = editingSchema ? getFormValuesFromSchema(editingSchema) : DEFAULT_FORM_VALUES;

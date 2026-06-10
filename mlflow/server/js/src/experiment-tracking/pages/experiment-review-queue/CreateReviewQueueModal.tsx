@@ -18,7 +18,11 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { LabelSchemaInputRenderer, LabelSchemaFormModal, useListLabelSchemasQuery } from '../../components/label-schemas';
+import {
+  LabelSchemaInputRenderer,
+  LabelSchemaFormModal,
+  useListLabelSchemasQuery,
+} from '../../components/label-schemas';
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { useCreateReviewQueueMutation } from './hooks/useCreateReviewQueueMutation';
@@ -141,240 +145,248 @@ export const CreateReviewQueueModal = ({
 
   return (
     <>
-    <Modal
-      componentId={`${CID}.modal`}
-      visible={!createQuestionOpen}
-      // Relative to the (drawer-doubled) base so it clears a trace-detail drawer
-      // when launched from the flag-for-review picker, like ExportTracesToDatasetModal.
-      zIndex={theme.options.zIndexBase + 10}
-      title={<FormattedMessage defaultMessage="New review queue" description="Create review queue modal title" />}
-      okText={<FormattedMessage defaultMessage="Create" description="Create review queue: confirm button" />}
-      okButtonProps={{ disabled: !canSubmit, loading: isCreatingQueue }}
-      cancelText={null}
-      onOk={handleCreate}
-      onCancel={onClose}
-    >
-      {/* Portal the questions dropdown into document.body, not the trace-detail
+      <Modal
+        componentId={`${CID}.modal`}
+        visible={!createQuestionOpen}
+        // Relative to the (drawer-doubled) base so it clears a trace-detail drawer
+        // when launched from the flag-for-review picker, like ExportTracesToDatasetModal.
+        zIndex={theme.options.zIndexBase + 10}
+        title={<FormattedMessage defaultMessage="New review queue" description="Create review queue modal title" />}
+        okText={<FormattedMessage defaultMessage="Create" description="Create review queue: confirm button" />}
+        okButtonProps={{ disabled: !canSubmit, loading: isCreatingQueue }}
+        cancelText={null}
+        onOk={handleCreate}
+        onCancel={onClose}
+      >
+        {/* Portal the questions dropdown into document.body, not the trace-detail
           drawer that can host this modal — the drawer's stacking context would
           otherwise trap it below the modal regardless of z-index. */}
-      <ApplyDesignSystemContextOverrides getPopupContainer={() => document.body}>
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-          <div>
-            <FormUI.Label htmlFor={`${CID}.name-input`}>
-              <FormattedMessage defaultMessage="Name" description="Create review queue: name field label" />
-            </FormUI.Label>
-            <Input
-              componentId={`${CID}.name`}
-              id={`${CID}.name-input`}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={intl.formatMessage({
-                defaultMessage: 'e.g. Hallucination review',
-                description: 'Create review queue: name field placeholder',
-              })}
-            />
-          </div>
+        <ApplyDesignSystemContextOverrides getPopupContainer={() => document.body}>
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+            <div>
+              <FormUI.Label htmlFor={`${CID}.name-input`}>
+                <FormattedMessage defaultMessage="Name" description="Create review queue: name field label" />
+              </FormUI.Label>
+              <Input
+                componentId={`${CID}.name`}
+                id={`${CID}.name-input`}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'e.g. Hallucination review',
+                  description: 'Create review queue: name field placeholder',
+                })}
+              />
+            </div>
 
-          <div>
-            <FormUI.Label>
-              <FormattedMessage defaultMessage="Questions" description="Create review queue: questions field label" />
-            </FormUI.Label>
-            <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
-              <FormattedMessage
-                defaultMessage="Choose which questions reviewers answer for traces in this queue."
-                description="Create review queue: questions field hint"
-              />
-            </FormUI.Hint>
-            {isLoading ? (
-              <TableSkeleton lines={3} />
-            ) : labelSchemas.length === 0 ? (
-              <Empty
-                description={
-                  <FormattedMessage
-                    defaultMessage="No questions defined for this experiment yet. Create label schemas first."
-                    description="Create review queue: empty questions state"
-                  />
-                }
-              />
-            ) : (
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                <QuestionChecklistCombobox
-                  componentId={`${CID}.questions`}
-                  schemas={labelSchemas}
-                  checkedIds={checkedIds}
-                  onToggle={(schemaId) => toggle(schemaId, !checkedIds.has(schemaId))}
-                  onCreateQuestion={() => setCreateQuestionOpen(true)}
-                  triggerValue={questionsTriggerValue}
-                  dropdownZIndex={dropdownZIndex}
+            <div>
+              <FormUI.Label>
+                <FormattedMessage defaultMessage="Questions" description="Create review queue: questions field label" />
+              </FormUI.Label>
+              <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
+                <FormattedMessage
+                  defaultMessage="Choose which questions reviewers answer for traces in this queue."
+                  description="Create review queue: questions field hint"
                 />
+              </FormUI.Hint>
+              {isLoading ? (
+                <TableSkeleton lines={3} />
+              ) : labelSchemas.length === 0 ? (
+                <Empty
+                  description={
+                    <FormattedMessage
+                      defaultMessage="No questions defined for this experiment yet. Create label schemas first."
+                      description="Create review queue: empty questions state"
+                    />
+                  }
+                />
+              ) : (
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                  <QuestionChecklistCombobox
+                    componentId={`${CID}.questions`}
+                    schemas={labelSchemas}
+                    checkedIds={checkedIds}
+                    onToggle={(schemaId) => toggle(schemaId, !checkedIds.has(schemaId))}
+                    onCreateQuestion={() => setCreateQuestionOpen(true)}
+                    triggerValue={questionsTriggerValue}
+                    dropdownZIndex={dropdownZIndex}
+                  />
 
-                {/* Live preview of the selected questions, as a reviewer will see them.
+                  {/* Live preview of the selected questions, as a reviewer will see them.
                    Always mounted so the grid-row transition can animate height. */}
-                <div
-                  css={{
-                    display: 'grid',
-                    gridTemplateRows: selectedSchemas.length > 0 ? '1fr' : '0fr',
-                    transition: 'grid-template-rows 200ms ease-out',
-                  }}
-                >
-                  <div css={{ overflow: 'hidden' }}>
-                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                      <FormUI.Label>
-                        <FormattedMessage
-                          defaultMessage="Question preview"
-                          description="Create review queue: question preview section label"
-                        />
-                      </FormUI.Label>
-                      <FormUI.Hint css={{ marginBottom: theme.spacing.xs }}>
-                        <FormattedMessage
-                          defaultMessage="Preview how the questions will appear for the human reviewer."
-                          description="Create review queue: question preview section hint"
-                        />
-                      </FormUI.Hint>
-                      <div
-                        css={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: theme.spacing.sm,
-                          // Fixed height (~4 collapsed question rows), reserved up front
-                          // so the modal never resizes: more questions or an expanded
-                          // preview scroll within this section instead of growing it.
-                          height: 200,
-                          flexShrink: 0,
-                          overflowY: 'auto',
-                        }}
-                      >
-                        {selectedSchemas.map((schema) => {
-                          const open = expandedPreview.has(schema.schema_id);
-                          return (
-                            <div
-                              key={schema.schema_id}
-                              css={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: theme.spacing.xs,
-                                padding: theme.spacing.sm,
-                                border: `1px solid ${theme.colors.border}`,
-                                borderRadius: theme.borders.borderRadiusMd,
-                              }}
-                            >
+                  <div
+                    css={{
+                      display: 'grid',
+                      gridTemplateRows: selectedSchemas.length > 0 ? '1fr' : '0fr',
+                      transition: 'grid-template-rows 200ms ease-out',
+                    }}
+                  >
+                    <div css={{ overflow: 'hidden' }}>
+                      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                        <FormUI.Label>
+                          <FormattedMessage
+                            defaultMessage="Question preview"
+                            description="Create review queue: question preview section label"
+                          />
+                        </FormUI.Label>
+                        <FormUI.Hint css={{ marginBottom: theme.spacing.xs }}>
+                          <FormattedMessage
+                            defaultMessage="Preview how the questions will appear for the human reviewer."
+                            description="Create review queue: question preview section hint"
+                          />
+                        </FormUI.Hint>
+                        <div
+                          css={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: theme.spacing.sm,
+                            // Fixed height (~4 collapsed question rows), reserved up front
+                            // so the modal never resizes: more questions or an expanded
+                            // preview scroll within this section instead of growing it.
+                            height: 200,
+                            flexShrink: 0,
+                            overflowY: 'auto',
+                          }}
+                        >
+                          {selectedSchemas.map((schema) => {
+                            const open = expandedPreview.has(schema.schema_id);
+                            return (
                               <div
-                                role="button"
-                                tabIndex={0}
-                                onClick={() => togglePreview(schema.schema_id)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    togglePreview(schema.schema_id);
-                                  }
+                                key={schema.schema_id}
+                                css={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: theme.spacing.xs,
+                                  padding: theme.spacing.sm,
+                                  border: `1px solid ${theme.colors.border}`,
+                                  borderRadius: theme.borders.borderRadiusMd,
                                 }}
-                                css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, cursor: 'pointer' }}
                               >
-                                {open ? <ChevronDownIcon /> : <ChevronRightIcon />}
-                                <Typography.Text bold>{schema.name}</Typography.Text>
+                                <div
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => togglePreview(schema.schema_id)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      togglePreview(schema.schema_id);
+                                    }
+                                  }}
+                                  css={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: theme.spacing.xs,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  {open ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                                  <Typography.Text bold>{schema.name}</Typography.Text>
+                                </div>
+                                {open && (
+                                  <>
+                                    {schema.instruction && <Typography.Hint>{schema.instruction}</Typography.Hint>}
+                                    <LabelSchemaInputRenderer
+                                      input={schema.input}
+                                      value={null}
+                                      onChange={() => {}}
+                                      disabled
+                                      componentId={`${CID}.preview`}
+                                      label={schema.name}
+                                      instruction={schema.instruction}
+                                    />
+                                  </>
+                                )}
                               </div>
-                              {open && (
-                                <>
-                                  {schema.instruction && <Typography.Hint>{schema.instruction}</Typography.Hint>}
-                                  <LabelSchemaInputRenderer
-                                    input={schema.input}
-                                    value={null}
-                                    onChange={() => {}}
-                                    disabled
-                                    componentId={`${CID}.preview`}
-                                    label={schema.name}
-                                    instruction={schema.instruction}
-                                  />
-                                </>
-                              )}
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
+              )}
+              {trimmedName.length > 0 && checkedIds.size === 0 && (
+                <Typography.Hint css={{ marginTop: theme.spacing.xs }}>
+                  <FormattedMessage
+                    defaultMessage="Select at least one question so reviewers have something to answer."
+                    description="Create review queue: no-questions-selected warning"
+                  />
+                </Typography.Hint>
+              )}
+            </div>
+
+            {authAvailable && (
+              <div>
+                <FormUI.Label>
+                  <FormattedMessage
+                    defaultMessage="Reviewers"
+                    description="Create review queue: reviewers field label"
+                  />
+                </FormUI.Label>
+                <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
+                  <FormattedMessage
+                    defaultMessage="Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”."
+                    description="Create review queue: reviewers field hint"
+                  />
+                </FormUI.Hint>
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  {reviewers.map((reviewer, index) => (
+                    // eslint-disable-next-line react/no-array-index-key
+                    <div key={index} css={{ display: 'flex', gap: theme.spacing.sm }}>
+                      <Input
+                        componentId={`${CID}.reviewer`}
+                        css={{ flex: 1 }}
+                        value={reviewer}
+                        onChange={(e) => setReviewerAt(index, e.target.value)}
+                        placeholder={intl.formatMessage({
+                          defaultMessage: 'username or email',
+                          description: 'Create review queue: reviewer input placeholder',
+                        })}
+                      />
+                      <Button
+                        componentId={`${CID}.remove-reviewer`}
+                        icon={<TrashIcon />}
+                        aria-label={intl.formatMessage({
+                          defaultMessage: 'Remove reviewer',
+                          description: 'Create review queue: remove-reviewer button',
+                        })}
+                        onClick={() => removeReviewerAt(index)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <Button componentId={`${CID}.add-reviewer`} icon={<PlusIcon />} onClick={addReviewer}>
+                  <FormattedMessage
+                    defaultMessage="Add reviewer"
+                    description="Create review queue: add-reviewer button"
+                  />
+                </Button>
               </div>
             )}
-            {trimmedName.length > 0 && checkedIds.size === 0 && (
-              <Typography.Hint css={{ marginTop: theme.spacing.xs }}>
-                <FormattedMessage
-                  defaultMessage="Select at least one question so reviewers have something to answer."
-                  description="Create review queue: no-questions-selected warning"
-                />
-              </Typography.Hint>
+
+            {error && (
+              <Alert
+                componentId={`${CID}.error`}
+                type="error"
+                closable={false}
+                message={intl.formatMessage({
+                  defaultMessage: 'Failed to create the review queue.',
+                  description: 'Create review queue: error alert title',
+                })}
+                description={error.message}
+              />
             )}
           </div>
+        </ApplyDesignSystemContextOverrides>
+      </Modal>
 
-          {authAvailable && (
-            <div>
-              <FormUI.Label>
-                <FormattedMessage defaultMessage="Reviewers" description="Create review queue: reviewers field label" />
-              </FormUI.Label>
-              <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
-                <FormattedMessage
-                  defaultMessage="Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”."
-                  description="Create review queue: reviewers field hint"
-                />
-              </FormUI.Hint>
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                {reviewers.map((reviewer, index) => (
-                  // eslint-disable-next-line react/no-array-index-key
-                  <div key={index} css={{ display: 'flex', gap: theme.spacing.sm }}>
-                    <Input
-                      componentId={`${CID}.reviewer`}
-                      css={{ flex: 1 }}
-                      value={reviewer}
-                      onChange={(e) => setReviewerAt(index, e.target.value)}
-                      placeholder={intl.formatMessage({
-                        defaultMessage: 'username or email',
-                        description: 'Create review queue: reviewer input placeholder',
-                      })}
-                    />
-                    <Button
-                      componentId={`${CID}.remove-reviewer`}
-                      icon={<TrashIcon />}
-                      aria-label={intl.formatMessage({
-                        defaultMessage: 'Remove reviewer',
-                        description: 'Create review queue: remove-reviewer button',
-                      })}
-                      onClick={() => removeReviewerAt(index)}
-                    />
-                  </div>
-                ))}
-              </div>
-              <Button componentId={`${CID}.add-reviewer`} icon={<PlusIcon />} onClick={addReviewer}>
-                <FormattedMessage
-                  defaultMessage="Add reviewer"
-                  description="Create review queue: add-reviewer button"
-                />
-              </Button>
-            </div>
-          )}
-
-          {error && (
-            <Alert
-              componentId={`${CID}.error`}
-              type="error"
-              closable={false}
-              message={intl.formatMessage({
-                defaultMessage: 'Failed to create the review queue.',
-                description: 'Create review queue: error alert title',
-              })}
-              description={error.message}
-            />
-          )}
-        </div>
-      </ApplyDesignSystemContextOverrides>
-    </Modal>
-
-    <LabelSchemaFormModal
-      experimentId={experimentId}
-      editingSchema={null}
-      visible={createQuestionOpen}
-      onClose={() => setCreateQuestionOpen(false)}
-      onCreated={(schema) => setSelectedIds((prev) => new Set(prev).add(schema.schema_id))}
-    />
+      <LabelSchemaFormModal
+        experimentId={experimentId}
+        editingSchema={null}
+        visible={createQuestionOpen}
+        onClose={() => setCreateQuestionOpen(false)}
+        onCreated={(schema) => setSelectedIds((prev) => new Set(prev).add(schema.schema_id))}
+      />
     </>
   );
 };

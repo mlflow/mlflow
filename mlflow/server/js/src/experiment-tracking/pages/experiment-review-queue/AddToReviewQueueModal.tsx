@@ -504,7 +504,6 @@ export const AddToReviewQueueModal = ({
           onCreated={handleCreated}
         />
       )}
-
     </>
   );
 };
