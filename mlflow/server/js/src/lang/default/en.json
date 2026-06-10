@@ -5691,10 +5691,6 @@
     "defaultMessage": "Select a workspace to start experiments",
     "description": "Home page workspaces section subtitle"
   },
-  "SSxRdM": {
-    "defaultMessage": "Opens the MLflow assistant in this browser and starts the conversation.",
-    "description": "Description above the MLflow assistant button in the agent action card"
-  },
   "STEhnv": {
     "defaultMessage": "Description",
     "description": "Header for the description column in the experiments table"
@@ -12126,6 +12122,10 @@
   "yjerKR": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Link to model version in the model version table"
+  },
+  "ylLjh0": {
+    "defaultMessage": "Opens the MLflow assistant in the browser with a suggested prompt.",
+    "description": "Description above the MLflow assistant button in the agent action card"
   },
   "yltiK8": {
     "defaultMessage": "No prompts match your search",

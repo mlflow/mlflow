@@ -47,6 +47,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [setupComplete, setSetupComplete] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
 
+  // A prompt queued by an onboarding card to seed the chat input the next time it's visible.
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+
   // Use ref to track current streaming message
   const streamingMessageRef = useRef<string>('');
 
@@ -191,13 +194,30 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const closePanel = useCallback(() => {
     setIsPanelOpen(false);
+    // Drop any queued prompt — closing the panel is an abandon, so a stale seed shouldn't
+    // inject into an unrelated chat opened later.
+    setPendingPrompt(null);
   }, [setIsPanelOpen]);
 
+  const prefillPrompt = useCallback((prompt: string) => setPendingPrompt(prompt), []);
+  const clearPendingPrompt = useCallback(() => setPendingPrompt(null), []);
+
   const reset = useCallback(() => {
+    // Tear down any active stream so its callbacks can't leak into the reset state
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    if (rafPendingRef.current !== null) {
+      cancelAnimationFrame(rafPendingRef.current);
+      rafPendingRef.current = null;
+    }
     setSessionId(null);
     setMessages([]);
     setIsStreaming(false);
     setError(null);
+    setCurrentStatus(null);
+    setActiveTools([]);
     streamingMessageRef.current = '';
   }, []);
 
@@ -457,10 +477,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setupComplete,
     isLoadingConfig,
     isLocalServer,
+    pendingPrompt,
     // Actions
     openPanel,
     closePanel,
     sendMessage: handleSendMessage,
+    prefillPrompt,
+    clearPendingPrompt,
     regenerateLastMessage,
     reset,
     cancelSession: handleCancelSession,
@@ -483,9 +506,12 @@ const disabledAssistantContext: AssistantAgentContextType = {
   setupComplete: false,
   isLoadingConfig: false,
   isLocalServer: false,
+  pendingPrompt: null,
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},
+  prefillPrompt: () => {},
+  clearPendingPrompt: () => {},
   regenerateLastMessage: () => {},
   reset: () => {},
   cancelSession: () => {},
