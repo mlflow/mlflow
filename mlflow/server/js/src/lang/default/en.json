@@ -1927,6 +1927,10 @@
     "defaultMessage": "Prompt type:",
     "description": "A label for selecting prompt type in the prompt creation modal"
   },
+  "83An6X": {
+    "defaultMessage": "Experimental — run this in your terminal to install MLflow skills into your project and launch your coding agent (Claude Code, Codex, or opencode) with instructions to instrument your app.",
+    "description": "Description above the mlflow agent setup terminal command in the agent action card"
+  },
   "83wDn8": {
     "defaultMessage": "Total",
     "description": "Label for the total tokensin the tooltip for the tokens cell."
@@ -9314,10 +9318,6 @@
   "kHN/4I": {
     "defaultMessage": "Edited {timeSince} by {source}. Original value: {value}",
     "description": "Evaluation review > assessments > tooltip > edited by human"
-  },
-  "kHUTqR": {
-    "defaultMessage": "Run this in your terminal — it installs MLflow skills into your project and launches your coding agent (Claude Code, Codex, or opencode) with instructions to instrument your app.",
-    "description": "Description above the mlflow agent setup terminal command in the agent action card"
   },
   "kICSro": {
     "defaultMessage": "JSON body for the {providerName} API. This payload is sent directly to the provider in its native format.",

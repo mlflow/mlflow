@@ -1,14 +1,12 @@
 export const buildCreateExperimentPrompt = (): string => `Create a new MLflow experiment.
 
-Ask me what to name the experiment, then create it with \`mlflow.set_experiment(name)\` (which creates it if it doesn't exist and sets it as active).
+Ask me what to name it, then create it with \`mlflow.set_experiment(name)\` and report the experiment ID and URL.
 
-Report the experiment ID and URL once it's created. For MLflow API/usage questions, use the \`searching-mlflow-docs\` skill rather than guessing.
-
-If the skills aren't installed locally, refer to https://github.com/mlflow/skills/blob/main/searching-mlflow-docs/SKILL.md
+Use the \`searching-mlflow-docs\` skill for API questions rather than guessing (fallback: https://github.com/mlflow/skills).
 `;
 
 export const buildCreateExperimentAssistantPrompt = (): string => `Help me create my first MLflow experiment.
 
-Ask me what I want to name the experiment, then create it via the MLflow API and report the experiment ID and URL once it's created.
+Ask what to name it, create it via the MLflow API, and report the experiment ID and URL.
 
-Use your built-in MLflow docs knowledge — don't guess at APIs.`;
+Use your built-in MLflow docs knowledge rather than guessing at APIs.`;

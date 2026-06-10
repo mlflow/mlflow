@@ -1,28 +1,23 @@
-export const buildCreatePromptPrompt = (): string => `Help me create my first MLflow registered prompt and test it.
+export const buildCreatePromptPrompt =
+  (): string => `Help me create and test my first MLflow registered prompt. Take it one step at a time:
 
-One step at a time — don't dump everything at once:
-1. Ask what the prompt is for (e.g. "summarize an article", "extract action items from a meeting").
-2. Ask if it should be global or attached to an experiment.
+1. Ask what the prompt is for (e.g. summarizing an article, extracting action items).
+2. Ask whether it should be global or attached to an experiment.
 3. Suggest a kebab-case name and confirm.
 4. Draft a \`{{variable}}\` template and let me iterate before saving.
-5. Register the prompt. Report the name, version, and UI URL.
-6. Help me test it — either swap \`mlflow.genai.load_prompt(name, version)\` into my existing app, or give me a copy-runnable Python snippet.
+5. Register it and report the name, version, and UI URL.
+6. Help me test it: swap \`mlflow.genai.load_prompt(name, version)\` into my app, or give me a runnable Python snippet.
 
-Read the repo to infer the package manager, entry point, and LLM framework. Don't ask if you can figure it out. For MLflow API/usage questions, use the \`searching-mlflow-docs\` skill rather than guessing.
-
-If the skills aren't installed locally, refer to https://github.com/mlflow/skills/blob/main/searching-mlflow-docs/SKILL.md.
-
-If you get stuck — missing API key, blocked permissions, missing deps — stop and tell the user in plain language what you need and how to fix it.`;
+Infer the package manager, entry point, and framework from the repo. Use \`searching-mlflow-docs\` for API questions (fallback: https://github.com/mlflow/skills). If you hit a blocker you can't resolve (missing API key, permissions, dependencies), stop and tell me what you need.`;
 
 export const buildCreatePromptAssistantPrompt =
-  (): string => `Help me create my first MLflow registered prompt and test it.
+  (): string => `Help me create and test my first MLflow registered prompt. Take it one step at a time:
 
-One step at a time — don't dump everything at once:
-1. Ask what the prompt is for (e.g. "summarize an article", "extract action items from a meeting").
-2. Ask if it should be global or attached to an experiment.
-3. Suggest a kebab-case name and confirm with me.
+1. Ask what the prompt is for (e.g. summarizing an article, extracting action items).
+2. Ask whether it should be global or attached to an experiment.
+3. Suggest a kebab-case name and confirm.
 4. Draft a \`{{variable}}\` template and let me iterate before saving.
-5. Register the prompt, either via code for remote servers or via API for local servers, and report the prompt name, version, and a URL.
-6. Give me a copy-runnable Python snippet to load the prompt and run it against an LLM.
+5. Register it and report the name, version, and UI URL.
+6. Give me a runnable Python snippet to load the prompt and run it against an LLM.
 
-Use your built-in MLflow docs knowledge — don't guess at APIs.`;
+Use your built-in MLflow docs knowledge rather than guessing at APIs.`;
