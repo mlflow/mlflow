@@ -618,14 +618,21 @@ describe('RunEvaluationButton', () => {
 
       renderButton('exp-1');
       await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      // Select a judge so the OK button isn't disabled by runJudgeDisabled; this isolates
+      // the loading: isSubmitting branch as the only thing affecting the button.
       await user.click(getJudgeCheckboxByName('My Custom Judge'));
 
       const okButton = document.querySelector<HTMLButtonElement>(
         '[data-component-id="mlflow.eval-runs.start-run-modal.footer.ok"]',
       );
       expect(okButton).not.toBeNull();
-      expect(okButton).toBeDisabled();
+      // The design-system Button reflects `loading` via the btn-loading class / loading attr
+      // (it does not set the DOM disabled attribute), and swallows clicks while loading.
       expect(okButton?.className).toContain('btn-loading');
+      expect(okButton).toHaveAttribute('loading', 'true');
+      await user.click(okButton as HTMLButtonElement);
+      expect(mockInvokeMutate).not.toHaveBeenCalled();
+
       expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     });
 
