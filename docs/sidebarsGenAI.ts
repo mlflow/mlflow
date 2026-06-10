@@ -114,6 +114,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/observe-with-traces/archive-traces',
+                  label: 'Archive Traces',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/observe-with-traces/delete-traces',
                   label: 'Delete Traces',
                 },
@@ -213,6 +218,16 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/claude_agent_sdk_python',
+                  label: 'Claude Agent SDK (Python)',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/claude_agent_sdk_typescript',
+                  label: 'Claude Agent SDK (TS)',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/crewai',
                   label: 'CrewAI',
                 },
@@ -283,6 +298,16 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/n8n',
+                  label: 'n8n',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/open-webui',
+                  label: 'Open WebUI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/openai-agent',
                   label: 'OpenAI Agent',
                 },
@@ -345,7 +370,7 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'category',
-              label: 'Coding Agents',
+              label: 'Coding Agents & Long-Running Agents',
               items: [
                 {
                   type: 'doc',
@@ -361,6 +386,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/gemini_cli',
                   label: 'Gemini CLI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/hermes_agent',
+                  label: 'Hermes Agent',
                 },
                 {
                   type: 'doc',
@@ -768,6 +798,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       id: 'eval-monitor/scorers/third-party/guardrails',
                       label: 'Guardrails AI',
                     },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/google-adk',
+                      label: 'Google ADK',
+                    },
                   ],
                   collapsed: false,
                   link: {
@@ -1068,7 +1103,7 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Coding Agents',
+          label: 'Coding Agents & Long-Running Agents',
           items: [
             {
               type: 'doc',
@@ -1084,6 +1119,11 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'governance/ai-gateway/coding-agents/gemini-cli',
               label: 'Gemini CLI',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/coding-agents/hermes-agent',
+              label: 'Hermes Agent',
             },
           ],
           link: {

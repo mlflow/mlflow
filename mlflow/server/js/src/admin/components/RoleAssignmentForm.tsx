@@ -11,8 +11,10 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
-import { useRolesQuery } from '../hooks';
-import type { Role } from '../types';
+import { useCurrentUserIsAdmin, useRolesQuery } from '../hooks';
+import { useActiveWorkspace } from '../../workspaces/utils/WorkspaceUtils';
+import { useWorkspaces } from '../../workspaces/hooks/useWorkspaces';
+import { DEFAULT_WORKSPACE_NAME, isSyntheticUserRole, type Role } from '../types';
 
 export interface RoleAssignmentValue {
   roleIds: number[];
@@ -28,8 +30,20 @@ export const ROLE_ASSIGNMENT_DEFAULT: RoleAssignmentValue = {
   roleIds: [],
 };
 
-const formatRoleLabel = (role: Role): string =>
-  role.description ? `${role.workspace}/${role.name} — ${role.description}` : `${role.workspace}/${role.name}`;
+// Cap the per-option label length so a long ``description`` doesn't blow
+// out the dropdown's intrinsic width. The ``workspace/name`` prefix stays
+// full; only the descriptive tail gets ellipsized.
+const ROLE_DESCRIPTION_MAX_CHARS = 60;
+
+const formatRoleLabel = (role: Role): string => {
+  const prefix = `${role.workspace}/${role.name}`;
+  if (!role.description) return prefix;
+  const desc =
+    role.description.length > ROLE_DESCRIPTION_MAX_CHARS
+      ? `${role.description.slice(0, ROLE_DESCRIPTION_MAX_CHARS - 1)}…`
+      : role.description;
+  return `${prefix} — ${desc}`;
+};
 
 /**
  * Multi-select picker for assigning one or more roles to a user. Roles
@@ -40,9 +54,42 @@ const formatRoleLabel = (role: Role): string =>
 export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignmentFormProps) => {
   const { theme } = useDesignSystemTheme();
   const [search, setSearch] = useState('');
-  // Pass undefined to fetch roles across every workspace.
-  const { data: rolesData, isLoading } = useRolesQuery(undefined);
-  const roles = useMemo(() => rolesData?.roles ?? [], [rolesData]);
+  // Per-workspace scope: platform admins fetch unscoped; workspace
+  // managers pass the active workspace. Suppress when none is active.
+  const isAdmin = useCurrentUserIsAdmin();
+  const activeWorkspace = useActiveWorkspace();
+  const queryWorkspace = isAdmin ? undefined : (activeWorkspace ?? undefined);
+  const queryEnabled = isAdmin || Boolean(activeWorkspace);
+  const { data: rolesData, isLoading, error } = useRolesQuery(queryWorkspace, { enabled: queryEnabled });
+  // Fetch the workspace list only when admin (the cross-workspace listing
+  // case). Used below to hide roles attached to deleted workspaces — the
+  // backend currently leaves orphan roles in place when a workspace is
+  // deleted (``_cleanup_workspace_permissions`` only removes per-user
+  // grants, not user-authored roles). A server-side cascade is the proper
+  // fix; this client-side filter is a stopgap so the picker doesn't show
+  // unselectable roles.
+  const { workspaces, isLoading: workspacesLoading } = useWorkspaces(isAdmin);
+  const knownWorkspaceNames = useMemo(() => {
+    const names = new Set<string>([DEFAULT_WORKSPACE_NAME]);
+    for (const w of workspaces) names.add(w.name);
+    return names;
+  }, [workspaces]);
+  // Synthetic ``__user_N__`` roles back per-user direct grants. They
+  // shouldn't appear in the role picker — picking them would assign a
+  // role tied to another user's direct grants.
+  const roles = useMemo(
+    () =>
+      (rolesData?.roles ?? [])
+        .filter((r) => !isSyntheticUserRole(r.name))
+        // Workspace managers see only their active workspace's roles, which
+        // the server already scoped; skip the orphan filter to avoid an
+        // unnecessary ``useWorkspaces`` dependency. Platform admins see the
+        // cross-workspace listing and need the orphan check. Skip the filter
+        // while the workspace list is still loading to avoid a transient flash
+        // where cross-workspace roles disappear until the query resolves.
+        .filter((r) => !isAdmin || workspacesLoading || knownWorkspaceNames.has(r.workspace)),
+    [rolesData, isAdmin, workspacesLoading, knownWorkspaceNames],
+  );
 
   // Pin "default" workspace's roles first; sort the rest alphabetically
   // by workspace then by role name, so the dropdown order is stable.
@@ -71,6 +118,13 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
     return `${selectedRoles.length} roles selected`;
   }, [selectedRoles]);
 
+  // ``DialogCombobox`` calls ``renderDisplayedValue`` once per entry in
+  // ``value`` (joined by ``,``); collapse to a single summary label so the
+  // count text renders once. Items' checked state is driven by each
+  // ``DialogComboboxOptionListCheckboxItem``'s explicit ``checked`` prop —
+  // pinned by ``RoleAssignmentForm.test.tsx``.
+  const triggerValue = useMemo(() => (triggerText ? [triggerText] : []), [triggerText]);
+
   const toggleRole = (roleId: number) => {
     const next = value.roleIds.includes(roleId)
       ? value.roleIds.filter((id) => id !== roleId)
@@ -82,23 +136,23 @@ export const RoleAssignmentForm = ({ value, onChange, disabled }: RoleAssignment
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div>
         <FieldLabel>Roles</FieldLabel>
-        {isLoading ? (
+        {!queryEnabled ? (
+          <Typography.Text color="secondary">
+            Select a workspace from the workspace selector to choose roles.
+          </Typography.Text>
+        ) : isLoading ? (
           <div css={{ padding: theme.spacing.sm }}>
             <Spinner size="small" />
           </div>
+        ) : error ? (
+          <Typography.Text color="error">Failed to load roles for this workspace.</Typography.Text>
         ) : roles.length === 0 ? (
           <Typography.Text color="secondary">No roles available. Create a role first.</Typography.Text>
         ) : (
-          <DialogCombobox
-            componentId="admin.role_assignment.roles"
-            label="Roles"
-            multiSelect
-            value={selectedRoles.map(formatRoleLabel)}
-          >
+          <DialogCombobox componentId="admin.role_assignment.roles" label="Roles" multiSelect value={triggerValue}>
             <DialogComboboxTrigger
               withInlineLabel={false}
               placeholder="Select one or more roles"
-              renderDisplayedValue={() => triggerText}
               onClear={() => onChange({ roleIds: [] })}
               width="100%"
               disabled={disabled}

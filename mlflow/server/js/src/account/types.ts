@@ -2,6 +2,13 @@ export interface User {
   id: number;
   username: string;
   is_admin: boolean;
+  /**
+   * Roles the requester is authorized to see for this user. The backend
+   * scopes the list per-requester (admin sees every role; workspace
+   * managers see only roles in workspaces they administer). Optional so
+   * older callers / fixtures that don't populate it stay valid.
+   */
+  roles?: Role[];
 }
 
 export interface RolePermission {
@@ -36,22 +43,33 @@ export interface ListUserRolesResponse {
 }
 
 /**
- * Direct (non-role-derived) per-resource grant. Shape matches
- * ``RolePermission`` (without role-table joins) so the frontend can
- * union both into one view. ``workspace`` is ``null`` when the
- * resource has been deleted or could not be resolved; the field is
- * always present on the wire (mirrors the backend's
- * ``_UserDirectPermission`` dataclass).
+ * One row of ``GET /users/permissions/list``: a single permission grant on
+ * one of the user's roles, carrying enough role identity that the frontend
+ * can split the "Direct permissions" view (rows whose ``role_name`` matches
+ * the synthetic ``__user_<id>__`` pattern) from the "Role permissions"
+ * view. ``workspace`` is the role's workspace.
  */
-export interface DirectPermission {
+export interface UserRolePermissionRow {
+  role_id: number;
+  role_name: string;
+  workspace: string;
   resource_type: string;
   resource_pattern: string;
   permission: string;
-  workspace: string | null;
 }
 
+/**
+ * Synthetic per-user role created by the auth backend's ``grant_user_permission``
+ * API. Rows on this role surface as "Direct permissions" in the UI; rows on
+ * every other role belong to the Roles view.
+ */
+export const SYNTHETIC_USER_ROLE_NAME_RE = /^__user_\d+__$/;
+
+export const isSyntheticUserRole = (roleName: string): boolean => SYNTHETIC_USER_ROLE_NAME_RE.test(roleName);
+
 export interface ListMyPermissionsResponse {
-  permissions: DirectPermission[];
+  is_admin: boolean;
+  permissions: UserRolePermissionRow[];
 }
 
 export interface UpdatePasswordRequest {

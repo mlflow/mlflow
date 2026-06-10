@@ -14,6 +14,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   upload:
     runs-on: ubuntu-slim

@@ -39,7 +39,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.utils.time import get_current_time_millis
 
-from tests.store.tracking.sqlalchemy_store.test_sqlalchemy_store import create_test_span
+from tests.store.tracking.sqlalchemy_store.conftest import create_test_span
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -812,6 +812,108 @@ def test_query_trace_metrics_with_source_run_filter(store: SqlAlchemyStore):
         "metric_name": TraceMetricKey.TRACE_COUNT,
         "dimensions": {},
         "values": {"COUNT": 2},
+    }
+
+
+def test_query_trace_metrics_source_run_filter_includes_linked_otlp_traces(
+    store: SqlAlchemyStore,
+):
+    """OTLP traces have no mlflow.sourceRun metadata; they are linked post-hoc via
+    link_traces_to_run(). Q2/Q3 on the Traces tab filter by mlflow.sourceRun — this test
+    verifies that the filter also matches entity-association-linked traces (issue #23530).
+    """
+    exp_id = store.create_experiment("test_linked_otlp_traces")
+
+    run = store.create_run(
+        experiment_id=exp_id,
+        user_id="test",
+        start_time=get_current_time_millis(),
+        tags=[],
+        run_name="eval-run",
+    )
+    run_id = run.info.run_id
+
+    # Native trace: has mlflow.sourceRun in metadata (pre-existing path)
+    native_trace = TraceInfo(
+        trace_id="native-trace-1",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=100,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "native"},
+        trace_metadata={TraceMetadataKey.SOURCE_RUN: run_id},
+    )
+    store.start_trace(native_trace)
+
+    # OTLP traces: no mlflow.sourceRun metadata, linked post-hoc via link_traces_to_run
+    for i in range(2):
+        otlp_trace = TraceInfo(
+            trace_id=f"otlp-trace-{i}",
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=50,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: "otlp"},
+            trace_metadata={},
+        )
+        store.start_trace(otlp_trace)
+
+    store.link_traces_to_run(trace_ids=["otlp-trace-0", "otlp-trace-1"], run_id=run_id)
+
+    # Add an assessment on the linked OTLP trace to cover Q3 (assessment score distribution)
+    store.create_assessment(
+        Feedback(
+            trace_id="otlp-trace-0",
+            name="correctness",
+            value=True,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="user@test.com"
+            ),
+        )
+    )
+
+    # Unrelated trace — must not appear in results
+    unrelated = TraceInfo(
+        trace_id="unrelated-trace",
+        trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+        request_time=get_current_time_millis(),
+        execution_duration=50,
+        state=TraceStatus.OK,
+        tags={TraceTagKey.TRACE_NAME: "other"},
+        trace_metadata={},
+    )
+    store.start_trace(unrelated)
+
+    # Q2: trace count badge — 1 native (metadata path) + 2 OTLP (entity association path)
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.TRACE_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=[f"trace.metadata.`{TraceMetadataKey.SOURCE_RUN}` = '{run_id}'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": TraceMetricKey.TRACE_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 3},
+    }
+
+    # Q3: assessment score distribution — assessment on the linked OTLP trace must be found
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.ASSESSMENTS,
+        metric_name=AssessmentMetricKey.ASSESSMENT_COUNT,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.COUNT)],
+        filters=[f"trace.metadata.`{TraceMetadataKey.SOURCE_RUN}` = '{run_id}'"],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": AssessmentMetricKey.ASSESSMENT_COUNT,
+        "dimensions": {},
+        "values": {"COUNT": 1},
     }
 
 

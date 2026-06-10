@@ -32,6 +32,8 @@ import {
   INPUTS_COLUMN_ID,
   RESPONSE_COLUMN_ID,
   ISSUE_ID_COLUMN_ID,
+  GIT_BRANCH_COLUMN_ID,
+  GIT_COMMIT_COLUMN_ID,
 } from './useTableColumns';
 import { TracesServiceV4, fetchTraceInfoV3 } from '../../model-trace-explorer/api';
 import type { ModelTraceInfoV3, ModelTraceSearchLocation } from '../../model-trace-explorer/ModelTrace.types';
@@ -446,6 +448,7 @@ export const useSearchMlflowTraces = ({
   sqlWarehouseId,
   filterByAssessmentSourceRun = false,
   enablePagination = true,
+  refetchInterval,
 }: {
   locations: ModelTraceSearchLocation[];
   runUuid?: string | null;
@@ -483,6 +486,11 @@ export const useSearchMlflowTraces = ({
    * to join on inputs.
    */
   enablePagination?: boolean;
+  /**
+   * Optional React Query refetch interval (ms). When set, the underlying query
+   * is polled at this interval. Pass `false` to disable polling.
+   */
+  refetchInterval?: number | false;
 }): {
   data: ModelTraceInfoV3[] | undefined;
   isLoading: boolean;
@@ -538,6 +546,7 @@ export const useSearchMlflowTraces = ({
     loggedModelId,
     sqlWarehouseId,
     enablePagination,
+    refetchInterval,
   });
 
   // Merge the trace ID lookup result with the search results. If the lookup found a trace,
@@ -717,6 +726,7 @@ interface UseSearchMlflowTracesInnerParams {
   sqlWarehouseId?: string;
   enabled?: boolean;
   enablePagination?: boolean;
+  refetchInterval?: number | false;
 }
 
 interface UseSearchMlflowTracesInnerResult {
@@ -764,6 +774,7 @@ const useSearchMlflowTracesInfinite = ({
   loggedModelId,
   sqlWarehouseId,
   enabled = true,
+  refetchInterval,
 }: Omit<UseSearchMlflowTracesInnerParams, 'limit' | 'pageSize'>): UseSearchMlflowTracesInnerResult => {
   const { data, isLoading, isFetching, isFetchingNextPage, fetchNextPage, hasNextPage, refetch, error } =
     useInfiniteQuery<SearchMlflowTracesResponse, NetworkRequestError>({
@@ -772,6 +783,7 @@ const useSearchMlflowTracesInfinite = ({
       staleTime: Infinity,
       cacheTime: Infinity,
       enabled,
+      refetchInterval,
       queryKey: [
         SEARCH_MLFLOW_TRACES_QUERY_KEY,
         'infinite',
@@ -841,6 +853,7 @@ const useSearchMlflowTracesInner = ({
   sqlWarehouseId,
   enabled = true,
   enablePagination = true,
+  refetchInterval,
 }: UseSearchMlflowTracesInnerParams): UseSearchMlflowTracesInnerResult => {
   const usingV4APIs = locations?.some(isV4TraceLocation) && shouldUseTracesV4API();
   const usingLongRunningAPI = usingV4APIs && shouldUseLongRunningTracesAPI();
@@ -858,12 +871,14 @@ const useSearchMlflowTracesInner = ({
     loggedModelId,
     sqlWarehouseId,
     enabled: enabled && usingInfinitePagination,
+    refetchInterval,
   });
 
   // Standard synchronous search (only active when not using long-running API or infinite pagination)
   const syncResult = useQuery<ModelTraceInfoV3[], NetworkRequestError>({
     ...queryCacheConfig,
     enabled: enabled && !usingLongRunningAPI && !usingInfinitePagination,
+    refetchInterval,
     queryKey: [
       SEARCH_MLFLOW_TRACES_QUERY_KEY,
       {
@@ -982,6 +997,12 @@ export const createMlflowSearchFilter = (
           break;
         case SOURCE_COLUMN_ID:
           filter.push(`request_metadata."mlflow.source.name" ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
+        case GIT_BRANCH_COLUMN_ID:
+          filter.push(`request_metadata."mlflow.source.git.branch" ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
+        case GIT_COMMIT_COLUMN_ID:
+          filter.push(`request_metadata."mlflow.source.git.commit" ${networkFilter.operator} '${networkFilter.value}'`);
           break;
         case TracesTableColumnGroup.ASSESSMENT:
           // Handle IS NULL / IS NOT NULL operators for assessments

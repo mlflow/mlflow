@@ -18,7 +18,7 @@ import TileCard from "@site/src/components/TileCard";
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for [Goose](https://github.com/block/goose), an open-source AI agent by Block that automates engineering tasks on your local machine. MLflow supports tracing for Goose through the [OpenTelemetry](/genai/tracing/opentelemetry) integration.
 
-:::tip What is Goose?
+:::tip[What is Goose?]
 [Goose](https://block.github.io/goose/) is an open-source, on-device AI agent built by Block. It goes beyond code suggestions — Goose can autonomously write and execute code, manage files, run shell commands, interact with APIs, browse the web, and orchestrate pipelines. It works with any LLM provider and is extensible through [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) servers.
 :::
 
@@ -46,7 +46,7 @@ mlflow server --port 5000
 
 This example uses SQLite as the backend store. To use other types of SQL databases such as PostgreSQL, MySQL, and MSSQL, change the store URI as described in the [backend store documentation](/self-hosting/architecture/backend-store).
 
-:::tip Managed MLflow
+:::tip[Managed MLflow]
 For a fully managed experience with built-in authentication, scalable storage, and team collaboration, [try Managed MLflow for free](/genai/getting-started/databricks-trial/).
 :::
 
@@ -59,7 +59,7 @@ export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:5000
 export OTEL_EXPORTER_OTLP_HEADERS=x-mlflow-experiment-id=0
 ```
 
-:::note About `x-mlflow-experiment-id`
+:::note[About `x-mlflow-experiment-id`]
 The `x-mlflow-experiment-id` header tells MLflow which experiment to associate the traces with. You can use `0` for the default experiment, or specify a custom experiment ID. To create a new experiment and get its ID, run:
 
 ```bash

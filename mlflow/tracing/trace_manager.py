@@ -167,6 +167,16 @@ class InMemoryTraceManager:
         """
         return self._otel_id_to_mlflow_trace_id.get(otel_trace_id)
 
+    def has_open_spans(self, otel_trace_id: int) -> bool:
+        """Return True if any span in the trace has not yet ended."""
+        mlflow_trace_id = self.get_mlflow_trace_id_from_otel_id(otel_trace_id)
+        if mlflow_trace_id is None:
+            return False
+        with self.get_trace(mlflow_trace_id) as trace:
+            if trace is None:
+                return False
+            return any(span.end_time_ns is None for span in trace.span_dict.values())
+
     def set_trace_metadata(self, trace_id: str, key: str, value: str):
         """
         Set the trace metadata for the given request ID.

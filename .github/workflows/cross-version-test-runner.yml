@@ -7,26 +7,47 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   run:
     runs-on: ubuntu-slim
     timeout-minutes: 10
-    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/cvt')
+    if: >
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/cvt') &&
+      contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) &&
+      contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
     permissions:
       pull-requests: write
       actions: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-          sparse-checkout: |
-            .github
-      - uses: ./.github/actions/validate-author
-      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
-        id: get-ref
-        with:
-          retries: 3
-          result-encoding: string
-          script: |
-            const runner = require('./.github/workflows/cross-version-test-runner.js');
-            await runner.main({ context, github });
+      - name: Dispatch cross-version tests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          flavors=$(printf '%s' "$COMMENT_BODY" | sed -nE '1 s|^/cvt[[:space:]]+(.+)$|\1|p')
+          if [ -z "$flavors" ]; then
+            echo "No flavors specified; skipping."
+            exit 0
+          fi
+
+          pr_json=$(gh api "repos/$GH_REPO/pulls/$PR_NUMBER")
+          base_ref=$(jq -r .base.ref <<< "$pr_json")
+          merge_sha=$(jq -r .merge_commit_sha <<< "$pr_json")
+
+          payload=$(jq -n \
+            --arg ref "$base_ref" \
+            --arg merge_sha "$merge_sha" \
+            --arg flavors "$flavors" \
+            --arg repo_full "$GH_REPO" \
+            '{ref: $ref, return_run_details: true, inputs: {repository: $repo_full, ref: $merge_sha, flavors: $flavors}}')
+
+          run_url=$(printf '%s' "$payload" | gh api -X POST \
+            "repos/$GH_REPO/actions/workflows/cross-version-tests.yml/dispatches" \
+            --input - --jq .html_url)
+
+          gh pr comment "$PR_NUMBER" --body "Cross-version test run started: $run_url"

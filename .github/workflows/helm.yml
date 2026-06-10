@@ -21,6 +21,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -47,6 +49,7 @@ jobs:
     permissions:
       contents: read
     strategy:
+      fail-fast: false
       matrix:
         tls: [false, true]
     name: e2e (tls=${{ matrix.tls }})

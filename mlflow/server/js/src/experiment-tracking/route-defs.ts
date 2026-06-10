@@ -188,15 +188,38 @@ const getExperimentPageRouteDefs = () => {
           } satisfies RouteHandle,
         },
         {
+          path: RoutePaths.experimentPageTabReviewQueue,
+          pageId: PageId.experimentPageTabReviewQueue,
+          element: createLazyRouteElement(() => import('./pages/experiment-review-queue/ExperimentReviewQueuePage')),
+          handle: {
+            getPageTitle: (params) => `Review - Experiment ${params['experimentId']}`,
+          } satisfies RouteHandle,
+        },
+        {
           path: RoutePaths.experimentPageTabDatasets,
           pageId: PageId.experimentPageTabDatasets,
           element: createLazyRouteElement(() => {
-            return import('./pages/experiment-evaluation-datasets/ExperimentEvaluationDatasetsPage');
+            return import('./pages/experiment-evaluation-datasets-v2/ExperimentEvaluationDatasetsRouter');
           }),
           handle: {
             getPageTitle: (params) => `Datasets - Experiment ${params['experimentId']}`,
             getAssistantPrompts: () => [
               'How to add a new record to a dataset?',
+              'How do I use this dataset for evaluation?',
+              'What format should my dataset be in?',
+            ],
+          } satisfies RouteHandle,
+        },
+        {
+          path: RoutePaths.experimentPageTabDatasetDetail,
+          pageId: PageId.experimentPageTabDatasetDetail,
+          element: createLazyRouteElement(() => {
+            return import('./pages/experiment-evaluation-datasets-v2/ExperimentEvaluationDatasetDetailPage');
+          }),
+          handle: {
+            getPageTitle: (params) => `Dataset ${params['datasetId']} - Experiment ${params['experimentId']}`,
+            getAssistantPrompts: () => [
+              'How to add a new record to this dataset?',
               'How do I use this dataset for evaluation?',
               'What format should my dataset be in?',
             ],

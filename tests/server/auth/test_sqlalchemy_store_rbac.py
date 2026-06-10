@@ -57,6 +57,43 @@ def test_create_role_same_name_different_workspace(store):
     assert r1.id != r2.id
 
 
+# Sample names matching the reserved ``__user_`` prefix. Includes both the
+# strict synthetic pattern (``__user_<digits>__``) and looser variants
+# (admin-author-able lookalikes) so the broader prefix guard is exercised.
+_RESERVED_USER_PREFIX_NAMES = [
+    "__user_1__",
+    "__user_42__",
+    "__user_999999__",
+    "__user_admin",
+    "__user_alice",
+    "__user_foo_bar",
+    "__user_",
+]
+
+
+@pytest.mark.parametrize("name", _RESERVED_USER_PREFIX_NAMES)
+def test_create_role_rejects_reserved_user_prefix(store, name):
+    # The ``__user_`` prefix is reserved for synthetic per-user roles created
+    # internally by ``grant_user_permission``. Allowing an operator to author
+    # a role with that prefix lets them collide with (or shadow) a real
+    # user's synthetic role and silently attach grants to that user — a
+    # privilege-escalation footgun. The guard covers the whole prefix, not
+    # just the strict ``__user_<digits>__`` pattern, so future changes to the
+    # synthetic naming scheme can't be hijacked by an existing collision.
+    with pytest.raises(MlflowException, match="reserved '__user_' prefix"):
+        store.create_role(name=name, workspace="ws1")
+
+
+@pytest.mark.parametrize("name", _RESERVED_USER_PREFIX_NAMES)
+def test_update_role_rejects_reserved_user_prefix(store, name):
+    # The same reservation must apply when *renaming* an existing role —
+    # otherwise the create-time guard could be bypassed by creating with a
+    # normal name and then renaming into the reserved prefix.
+    role = store.create_role(name="viewer", workspace="ws1")
+    with pytest.raises(MlflowException, match="reserved '__user_' prefix"):
+        store.update_role(role.id, name=name)
+
+
 def test_get_role(store):
     created = store.create_role(name="editor", workspace="ws1")
     fetched = store.get_role(created.id)
@@ -85,20 +122,68 @@ def test_list_roles(store):
     store.create_role(name="viewer", workspace="ws1")
     store.create_role(name="editor", workspace="ws1")
     store.create_role(name="viewer", workspace="ws2")
+    store.create_role(name="other", workspace="ws3")
 
-    ws1_roles = store.list_roles("ws1")
-    assert len(ws1_roles) == 2
+    # Single workspace.
+    ws1_roles = store.list_roles(["ws1"])
     assert {r.name for r in ws1_roles} == {"viewer", "editor"}
 
-    ws2_roles = store.list_roles("ws2")
-    assert len(ws2_roles) == 1
+    # Subset across two workspaces.
+    roles = store.list_roles(["ws1", "ws2"])
+    assert {(r.workspace, r.name) for r in roles} == {
+        ("ws1", "viewer"),
+        ("ws1", "editor"),
+        ("ws2", "viewer"),
+    }
+
+    # Empty iterable is interpreted literally — no roles.
+    assert store.list_roles([]) == []
+
+    # ``None`` (default) lists across the whole system — the admin path.
+    all_roles = store.list_roles()
+    assert {(r.workspace, r.name) for r in all_roles} == {
+        ("ws1", "viewer"),
+        ("ws1", "editor"),
+        ("ws2", "viewer"),
+        ("ws3", "other"),
+    }
 
 
-def test_list_all_roles(store):
-    store.create_role(name="viewer", workspace="ws1")
-    store.create_role(name="editor", workspace="ws2")
-    all_roles = store.list_all_roles()
-    assert len(all_roles) == 2
+def test_list_users_with_roles_eager_loads_in_one_batch(store, user, user2):
+    # Two roles for the first user, one for the second; one extra unassigned
+    # role just to confirm we only return roles tied to a user.
+    r1 = store.create_role(name="viewer", workspace="ws1")
+    r2 = store.create_role(name="editor", workspace="ws2")
+    r3 = store.create_role(name="other", workspace="ws3")
+    store.create_role(name="unassigned", workspace="ws1")
+
+    store.assign_role_to_user(user.id, r1.id)
+    store.assign_role_to_user(user.id, r2.id)
+    store.assign_role_to_user(user2.id, r3.id)
+
+    users_with_roles = store.list_users_with_roles()
+    by_username = {u.username: roles for u, roles in users_with_roles}
+
+    assert {(r.workspace, r.name) for r in by_username[user.username]} == {
+        ("ws1", "viewer"),
+        ("ws2", "editor"),
+    }
+    assert {(r.workspace, r.name) for r in by_username[user2.username]} == {("ws3", "other")}
+
+
+def test_list_user_present_workspaces(store, user):
+    # No assignments → empty set.
+    assert store.list_user_present_workspaces(user.id) == set()
+
+    r1 = store.create_role(name="viewer", workspace="ws1")
+    r2 = store.create_role(name="editor", workspace="ws2")
+    r3 = store.create_role(name="other", workspace="ws2")
+
+    store.assign_role_to_user(user.id, r1.id)
+    store.assign_role_to_user(user.id, r2.id)
+    store.assign_role_to_user(user.id, r3.id)
+
+    assert store.list_user_present_workspaces(user.id) == {"ws1", "ws2"}
 
 
 def test_update_role(store):
@@ -143,8 +228,8 @@ def test_delete_roles_for_workspace(store):
     store.create_role(name="r3", workspace="ws2")
 
     store.delete_roles_for_workspace("ws1")
-    assert store.list_roles("ws1") == []
-    assert len(store.list_roles("ws2")) == 1
+    assert store.list_roles(["ws1"]) == []
+    assert len(store.list_roles(["ws2"])) == 1
 
 
 def test_delete_roles_for_workspace_cascades(store, user):
@@ -154,7 +239,7 @@ def test_delete_roles_for_workspace_cascades(store, user):
 
     store.delete_roles_for_workspace("ws1")
 
-    assert store.list_roles("ws1") == []
+    assert store.list_roles(["ws1"]) == []
     assert store.list_user_roles(user.id) == []
 
 
@@ -396,27 +481,43 @@ def test_get_role_permission_workspace_admin(store, user):
     assert result == MANAGE
 
 
-def test_workspace_permission_applies_across_resource_types(store, user):
+def test_workspace_use_does_not_fold_into_resource_lookups(store, user):
+    # USE is the "member" tier: confers create + workspace-tier access only.
     role = store.create_role(name="user", workspace="ws1")
     store.add_role_permission(role.id, "workspace", "*", "USE")
     store.assign_role_to_user(user.id, role.id)
 
-    # USE on the workspace-wide grant form propagates to every resource type.
-    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == USE
-    assert store.get_role_permission_for_resource(user.id, "registered_model", "m1", "ws1") == USE
-    assert store.get_role_permission_for_resource(user.id, "gateway_endpoint", "e1", "ws1") == USE
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") is None
+    assert store.get_role_permission_for_resource(user.id, "registered_model", "m1", "ws1") is None
+    assert store.get_role_permission_for_resource(user.id, "gateway_endpoint", "e1", "ws1") is None
+    # Workspace-tier query still finds it (used by _user_can_create_in_workspace).
+    assert store.get_role_permission_for_resource(user.id, "workspace", "*", "ws1") == USE
 
 
-def test_workspace_permission_respects_union_with_specific(store, user):
+def test_workspace_manage_folds_across_resource_types(store, user):
+    # MANAGE still folds — workspace admins see and manage every resource.
+    role = store.create_role(name="ws-admin", workspace="ws1")
+    store.add_role_permission(role.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == MANAGE
+    assert (
+        store.get_role_permission_for_resource(user.id, "registered_model", "m1", "ws1") == MANAGE
+    )
+    assert (
+        store.get_role_permission_for_resource(user.id, "gateway_endpoint", "e1", "ws1") == MANAGE
+    )
+
+
+def test_workspace_use_plus_specific_grant_returns_specific(store, user):
+    # USE doesn't fold; the specific EDIT grant stands alone.
     role = store.create_role(name="mixed", workspace="ws1")
     store.add_role_permission(role.id, "workspace", "*", "USE")
     store.add_role_permission(role.id, "experiment", "42", "EDIT")
     store.assign_role_to_user(user.id, role.id)
 
-    # Experiment 42: max(workspace USE, specific EDIT) = EDIT
     assert store.get_role_permission_for_resource(user.id, "experiment", "42", "ws1") == EDIT
-    # Other experiments: just workspace USE
-    assert store.get_role_permission_for_resource(user.id, "experiment", "99", "ws1") == USE
+    assert store.get_role_permission_for_resource(user.id, "experiment", "99", "ws1") is None
 
 
 def test_is_workspace_admin(store, user):
@@ -650,16 +751,11 @@ def test_resolver_workspace_grant_promotes_to_every_resource_type(store, user, r
 @pytest.mark.parametrize(
     ("granted", "expected"),
     [
-        ("USE", USE),
+        ("USE", None),
         ("MANAGE", MANAGE),
     ],
 )
-def test_resolver_workspace_grant_propagates_at_every_level(store, user, granted, expected):
-    """``(*, *, X)`` where X ∈ {USE, MANAGE} (the workspace-grantable tiers in
-    the simplified model) promotes X to every concrete resource type. This is
-    the blanket-baseline form the seeded ``user`` role uses for read+create
-    access across the workspace.
-    """
+def test_resolver_workspace_grant_folds_for_manage_only(store, user, granted, expected):
     role = store.create_role(name=f"ws-{granted}", workspace="ws1")
     store.add_role_permission(role.id, "workspace", "*", granted)
     store.assign_role_to_user(user.id, role.id)
@@ -749,11 +845,8 @@ def test_resolver_union_picks_max_across_roles(store, user):
     assert store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1") == MANAGE
 
 
-def test_resolver_union_mixes_workspace_and_resource_grants(store, user):
-    """A workspace-wide USE + a specific experiment READ → resolver still
-    surfaces USE for that experiment, because the workspace grant already
-    covers it. Specific grants only promote, never downgrade.
-    """
+def test_resolver_union_mixes_workspace_use_and_resource_grants(store, user):
+    # USE doesn't fold; specific READ wins.
     r_ws = store.create_role(name="ws-user", workspace="ws1")
     store.add_role_permission(r_ws.id, "workspace", "*", "USE")
     store.assign_role_to_user(user.id, r_ws.id)
@@ -762,7 +855,20 @@ def test_resolver_union_mixes_workspace_and_resource_grants(store, user):
     store.add_role_permission(r_specific.id, "experiment", "42", "READ")
     store.assign_role_to_user(user.id, r_specific.id)
 
-    assert store.get_role_permission_for_resource(user.id, "experiment", "42", "ws1") == USE
+    assert store.get_role_permission_for_resource(user.id, "experiment", "42", "ws1") == READ
+
+
+def test_resolver_union_mixes_workspace_manage_and_resource_grants(store, user):
+    # MANAGE folds and wins against any lesser specific grant.
+    r_ws = store.create_role(name="ws-admin", workspace="ws1")
+    store.add_role_permission(r_ws.id, "workspace", "*", "MANAGE")
+    store.assign_role_to_user(user.id, r_ws.id)
+
+    r_specific = store.create_role(name="one-reader", workspace="ws1")
+    store.add_role_permission(r_specific.id, "experiment", "42", "READ")
+    store.assign_role_to_user(user.id, r_specific.id)
+
+    assert store.get_role_permission_for_resource(user.id, "experiment", "42", "ws1") == MANAGE
 
 
 # ---- Legacy workspace_permissions as workspace admin source ----
@@ -847,6 +953,22 @@ def test_get_role_permission_different_resource_types(store, user):
     # Should match experiment
     result = store.get_role_permission_for_resource(user.id, "experiment", "1", "ws1")
     assert result == READ
+
+
+def test_prompt_and_registered_model_grants_do_not_cross_resolve(store, user):
+    """A grant on `(registered_model, foo)` must NOT satisfy a request for
+    `(prompt, foo)` and vice versa — the resource_type discriminant has to
+    isolate the two namespaces post-promotion.
+    """
+    role = store.create_role(name="grants", workspace="ws1")
+    store.add_role_permission(role.id, "registered_model", "foo", "READ")
+    store.add_role_permission(role.id, "prompt", "bar", "MANAGE")
+    store.assign_role_to_user(user.id, role.id)
+
+    assert store.get_role_permission_for_resource(user.id, "prompt", "foo", "ws1") is None
+    assert store.get_role_permission_for_resource(user.id, "registered_model", "bar", "ws1") is None
+    assert store.get_role_permission_for_resource(user.id, "registered_model", "foo", "ws1") == READ
+    assert store.get_role_permission_for_resource(user.id, "prompt", "bar", "ws1") == MANAGE
 
 
 @pytest.mark.parametrize(

@@ -3,7 +3,7 @@
  * Guides users through the setup process.
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { Typography, useDesignSystemTheme, CheckCircleIcon } from '@databricks/design-system';
 
@@ -12,6 +12,8 @@ import { SetupStepProvider } from './SetupStepProvider';
 import { SetupStepAuth } from './SetupStepAuth';
 import { SetupStepProject } from './SetupStepProject';
 import { SetupComplete } from './SetupComplete';
+import { useAssistantConfigQuery } from '../hooks/useAssistantConfigQuery';
+import { updateConfig } from '../AssistantService';
 
 interface StepIndicatorProps {
   currentStep: SetupStep;
@@ -108,14 +110,21 @@ export const AssistantSetupWizard = ({
   onBack: onBackFromSettings,
 }: AssistantSetupWizardProps) => {
   const { theme } = useDesignSystemTheme();
+  const { config } = useAssistantConfigQuery();
 
-  // Settings mode: when we start at a specific step (not 'provider')
-  const isSettingsMode = initialStep && initialStep !== 'provider';
+  // Settings mode: when navigated to from settings (onBack is provided)
+  const isSettingsMode = !!onBackFromSettings;
 
   const [currentStep, setCurrentStep] = useState<SetupStep>(initialStep || 'provider');
   const [completedSteps, setCompletedSteps] = useState<Set<SetupStep>>(new Set());
   const [selectedProvider, setSelectedProvider] = useState<string>('claude_code');
   const [cachedAuthStatus, setCachedAuthStatus] = useState<Record<string, AuthState>>({});
+
+  useEffect(() => {
+    if (!config?.providers) return;
+    const current = Object.entries(config.providers).find(([, p]) => p.selected)?.[0];
+    if (current) setSelectedProvider(current);
+  }, [config]);
 
   const markStepComplete = useCallback((step: SetupStep) => {
     setCompletedSteps((prev) => new Set([...prev, step]));
@@ -130,10 +139,11 @@ export const AssistantSetupWizard = ({
     [markStepComplete],
   );
 
-  const handleConnectionContinue = useCallback(() => {
+  const handleConnectionContinue = useCallback(async () => {
+    await updateConfig({ providers: { [selectedProvider]: { selected: true } } });
     markStepComplete('connection');
     setCurrentStep('project');
-  }, [markStepComplete]);
+  }, [markStepComplete, selectedProvider]);
 
   const handleConnectionStatusChange = useCallback((provider: string, status: AuthState) => {
     setCachedAuthStatus((prev) => ({ ...prev, [provider]: status }));
@@ -180,7 +190,8 @@ export const AssistantSetupWizard = ({
         return (
           <SetupStepProject
             experimentId={experimentId}
-            onBack={isSettingsMode && onBackFromSettings ? onBackFromSettings : handleBack}
+            provider={selectedProvider}
+            onBack={isSettingsMode ? onBackFromSettings : handleBack}
             onComplete={handleProjectComplete}
             nextLabel={isSettingsMode ? 'Save' : 'Finish'}
             backLabel={isSettingsMode ? 'Cancel' : 'Back'}

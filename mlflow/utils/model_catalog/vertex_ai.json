@@ -288,8 +288,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -299,7 +298,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "claude-opus-4-1": {
       "mode": "chat",
@@ -374,8 +373,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -385,7 +383,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "claude-opus-4-5@20251101": {
       "mode": "chat",
@@ -404,8 +402,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -415,7 +412,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "claude-opus-4-6": {
       "mode": "chat",
@@ -434,8 +431,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -445,7 +441,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "claude-opus-4-6@default": {
       "mode": "chat",
@@ -464,8 +460,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -475,7 +470,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "claude-opus-4-7": {
       "mode": "chat",
@@ -494,8 +489,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -505,7 +499,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "claude-opus-4-7@default": {
       "mode": "chat",
@@ -524,8 +518,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -535,7 +528,65 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
+    },
+    "claude-opus-4-8": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "cache_read_per_million_tokens": 0.5,
+        "cache_write_per_million_tokens": 6.25,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-01"
+    },
+    "claude-opus-4-8@default": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 25.0,
+        "cache_read_per_million_tokens": 0.5,
+        "cache_write_per_million_tokens": 6.25,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-01"
     },
     "claude-opus-4@20250514": {
       "mode": "chat",
@@ -554,8 +605,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -565,7 +615,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "claude-sonnet-4": {
       "mode": "chat",
@@ -593,8 +643,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -604,7 +653,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "claude-sonnet-4-5": {
       "mode": "chat",
@@ -697,8 +746,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -708,7 +756,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "claude-sonnet-4-6@default": {
       "mode": "chat",
@@ -727,8 +775,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 346
+          }
         }
       },
       "capabilities": {
@@ -738,7 +785,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "claude-sonnet-4@20250514": {
       "mode": "chat",
@@ -766,8 +813,7 @@
             "search_context_size_high": 0.01,
             "search_context_size_low": 0.01,
             "search_context_size_medium": 0.01
-          },
-          "tool_use_system_prompt_tokens": 159
+          }
         }
       },
       "capabilities": {
@@ -777,7 +823,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-01"
     },
     "codestral-2": {
       "mode": "chat",
@@ -878,6 +924,37 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "deep-research-pro-preview-12-2025": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 6.0
+          }
+        },
+        "modality": {
+          "image": {
+            "output_per_million_tokens": 120.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-28"
     },
     "deepseek-ai/deepseek-r1-0528-maas": {
       "mode": "chat",
@@ -1139,6 +1216,35 @@
       },
       "last_updated_at": "2026-04-27"
     },
+    "gemini-2.5-flash-image": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 32768,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 2.5,
+        "cache_read_per_million_tokens": 0.03,
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          },
+          "image": {
+            "output_per_million_tokens": 30.0
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "gemini-2.5-flash-lite": {
       "mode": "chat",
       "context_window": {
@@ -1378,6 +1484,44 @@
       },
       "last_updated_at": "2026-04-27"
     },
+    "gemini-3-pro-image-preview": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 6.0
+          }
+        },
+        "modality": {
+          "image": {
+            "output_per_million_tokens": 120.0
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-28"
+    },
     "gemini-3-pro-preview": {
       "mode": "chat",
       "context_window": {
@@ -1419,6 +1563,89 @@
       },
       "deprecation_date": "2026-03-26",
       "last_updated_at": "2026-04-24"
+    },
+    "gemini-3.1-flash-image-preview": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.5,
+        "output_per_million_tokens": 3.0,
+        "modality": {
+          "image": {
+            "output_per_million_tokens": 60.0
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "gemini-3.1-flash-lite": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 1.5,
+        "cache_read_per_million_tokens": 0.025,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 0.125,
+            "output_per_million_tokens": 0.75,
+            "cache_read_per_million_tokens": 0.0125
+          },
+          "flex": {
+            "input_per_million_tokens": 0.125,
+            "output_per_million_tokens": 0.75,
+            "cache_read_per_million_tokens": 0.0125
+          },
+          "priority": {
+            "input_per_million_tokens": 0.45,
+            "output_per_million_tokens": 2.7,
+            "cache_read_per_million_tokens": 0.045
+          }
+        },
+        "modality": {
+          "audio": {
+            "cache_read_per_million_tokens": 0.05,
+            "input_per_million_tokens": 0.5
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-27"
     },
     "gemini-3.1-flash-lite-preview": {
       "mode": "chat",
@@ -1545,6 +1772,46 @@
       },
       "last_updated_at": "2026-04-27"
     },
+    "gemini-3.5-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.5,
+        "output_per_million_tokens": 9.0,
+        "cache_read_per_million_tokens": 0.15,
+        "service_tiers": {
+          "priority": {
+            "input_per_million_tokens": 2.7,
+            "output_per_million_tokens": 16.2,
+            "cache_read_per_million_tokens": 0.27
+          }
+        },
+        "modality": {
+          "audio": {
+            "input_per_million_tokens": 1.0
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-20"
+    },
     "gemini-embedding-001": {
       "mode": "embedding",
       "context_window": {
@@ -1572,7 +1839,15 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "modality": {
+          "audio": {
+            "input_per_second": 0.00016
+          },
+          "video": {
+            "input_per_second": 0.00079
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -1581,7 +1856,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-27"
+      "last_updated_at": "2026-05-11"
     },
     "gemini-embedding-2-preview": {
       "mode": "embedding",
@@ -1591,7 +1866,15 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.2,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "modality": {
+          "audio": {
+            "input_per_second": 0.00016
+          },
+          "video": {
+            "input_per_second": 0.00079
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -1600,7 +1883,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "gemini-flash-experimental": {
       "mode": "embedding",
@@ -1647,6 +1930,103 @@
         "response_schema": true
       },
       "last_updated_at": "2026-04-24"
+    },
+    "google/gemma-4-26b-a4b-it-maas": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15,
+        "output_per_million_tokens": 0.6
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-06-09"
+    },
+    "imagegeneration@006": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "imagen-3.0-capability-001": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "imagen-3.0-fast-generate-001": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "imagen-3.0-generate-001": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "imagen-4.0-fast-generate-001": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "imagen-4.0-generate-001": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "imagen-4.0-ultra-generate-001": {
+      "mode": "image_generation",
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
     },
     "jamba-1.5": {
       "mode": "chat",
@@ -2328,7 +2708,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.8,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "modality": {
+          "video": {
+            "input_per_second": 0.0005
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -2337,7 +2722,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "multimodalembedding@001": {
       "mode": "embedding",
@@ -2347,7 +2732,12 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.8,
-        "output_per_million_tokens": 0
+        "output_per_million_tokens": 0,
+        "modality": {
+          "video": {
+            "input_per_second": 0.0005
+          }
+        }
       },
       "capabilities": {
         "function_calling": false,
@@ -2356,7 +2746,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-05-11"
     },
     "openai/gpt-oss-120b-maas": {
       "mode": "chat",
@@ -2618,6 +3008,195 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "veo-2.0-generate-001": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "veo-3.0-fast-generate-001": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "veo-3.0-generate-001": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "veo-3.1-fast-generate-001": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "veo-3.1-fast-generate-preview": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "veo-3.1-generate-001": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "veo-3.1-generate-preview": {
+      "mode": "video_generation",
+      "context_window": {
+        "max_input": 1024,
+        "max_tokens": 1024
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-28"
+    },
+    "xai/grok-4.1-fast-non-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 2000000,
+        "max_output": 2000000,
+        "max_tokens": 2000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-06"
+    },
+    "xai/grok-4.1-fast-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 2000000,
+        "max_output": 2000000,
+        "max_tokens": 2000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.2,
+        "output_per_million_tokens": 0.5,
+        "cache_read_per_million_tokens": 0.05
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-06"
+    },
+    "xai/grok-4.20-non-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 2000000,
+        "max_output": 2000000,
+        "max_tokens": 2000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-06"
+    },
+    "xai/grok-4.20-reasoning": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 2000000,
+        "max_output": 2000000,
+        "max_tokens": 2000000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 6.0,
+        "cache_read_per_million_tokens": 0.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-05-06"
     },
     "zai-org/glm-4.7-maas": {
       "mode": "chat",

@@ -601,6 +601,7 @@ class GatewayInvocationType(str, Enum):
     ANTHROPIC_PASSTHROUGH_MESSAGES = "anthropic_passthrough_messages"
     GEMINI_PASSTHROUGH_GENERATE_CONTENT = "gemini_passthrough_generate_content"
     GEMINI_PASSTHROUGH_STREAM_GENERATE_CONTENT = "gemini_passthrough_stream_generate_content"
+    RAW_PROXY = "raw_proxy"
 
 
 class GatewayInvocationEvent(Event):
@@ -609,6 +610,10 @@ class GatewayInvocationEvent(Event):
 
 class AiCommandRunEvent(Event):
     name: str = "ai_command_run"
+
+
+class AgentSetupEvent(Event):
+    name: str = "agent_setup"
 
 
 class TracingContextPropagation(Event):

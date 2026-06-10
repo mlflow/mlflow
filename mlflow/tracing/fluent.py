@@ -516,6 +516,7 @@ def start_span(
     attributes: dict[str, Any] | None = None,
     trace_destination: TraceLocationBase | None = None,
     log_level: SpanLogLevel | str | None = None,
+    run_id: str | None = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -576,6 +577,11 @@ def start_span(
             :py:class:`SpanLogLevel <mlflow.entities.SpanLogLevel>` or its name
             (e.g. ``"INFO"``, ``"DEBUG"``). If not provided, the span level is
             resolved from the span type at end time.
+        run_id: The ID of the MLflow run to associate with the trace. This parameter is
+            only applied when creating a root span. If provided without an explicit
+            `trace_destination`, the trace will be logged to the run's experiment. If an
+            active MLflow run is already set via `mlflow.start_run()`, this parameter takes
+            precedence over the active run.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
@@ -587,8 +593,11 @@ def start_span(
         return
 
     try:
+        experiment_id = getattr(trace_destination, "experiment_id", None)
+
         otel_span = provider.start_span_in_context(
-            name, experiment_id=trace_destination.experiment_id if trace_destination else None
+            name,
+            experiment_id=experiment_id,
         )
 
         # If the span was dropped by the sampler (e.g., due to sampling ratio),
@@ -612,6 +621,17 @@ def start_span(
             mlflow_span.set_attributes(attributes)
             if log_level is not None:
                 mlflow_span.set_log_level(log_level)
+
+            if run_id is not None:
+                if mlflow_span.parent_id is not None:
+                    _logger.warning(
+                        "The `run_id` parameter can only be used for root spans, but the span "
+                        f"`{name}` is not a root span. The specified value `{run_id}` "
+                        "will be ignored."
+                    )
+                else:
+                    with trace_manager.get_trace(request_id) as trace:
+                        trace.info.trace_metadata[TraceMetadataKey.SOURCE_RUN] = run_id
 
     except Exception:
         _logger.debug(f"Failed to start span {name}.", exc_info=True)
@@ -1071,6 +1091,19 @@ def search_traces(
     if not experiment_ids and not locations:
         _logger.debug("Searching traces in the current active experiment")
         locations = _get_search_locations(locations)
+
+    if (
+        locations
+        and any("." in loc for loc in locations)
+        and (not filter_string or "trace.timestamp_ms" not in filter_string.lower())
+    ):
+        warnings.warn(
+            "Searching traces without a time range constraint on UC table locations can be slow "
+            "and expensive. Consider adding a `trace.timestamp_ms` filter to your `filter_string` "
+            "to limit the scan, e.g. filter_string=\"trace.timestamp_ms > '2024-01-01'\".",
+            category=UserWarning,
+            stacklevel=2,
+        )
 
     def pagination_wrapper_func(number_to_get, next_page_token):
         return TracingClient().search_traces(
