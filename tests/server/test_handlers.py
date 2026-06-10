@@ -4064,9 +4064,7 @@ def test_download_artifact_returns_404_for_missing_azure_blob(enable_serve_artif
     artifact_repo.thread_pool.shutdown()
 
     assert response.status_code == 404
-    assert json.loads(response.get_data())["error_code"] == ErrorCode.Name(
-        RESOURCE_DOES_NOT_EXIST
-    )
+    assert json.loads(response.get_data())["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
 @pytest.mark.parametrize(
