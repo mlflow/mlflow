@@ -4042,7 +4042,7 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
 
 
 def test_download_artifact_returns_404_for_missing_azure_blob(enable_serve_artifacts):
-ResourceNotFoundError = pytest.importorskip("azure.core.exceptions").ResourceNotFoundError
+    ResourceNotFoundError = pytest.importorskip("azure.core.exceptions").ResourceNotFoundError
 
     artifact_repo = AzureBlobArtifactRepository(
         "wasbs://container@account.blob.core.windows.net/root",
