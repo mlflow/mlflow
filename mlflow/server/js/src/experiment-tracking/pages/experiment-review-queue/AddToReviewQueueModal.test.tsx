@@ -42,8 +42,16 @@ jest.mock('./hooks/useGetOrCreateUserQueueMutation', () => ({
 jest.mock('./hooks/useAssignableUsersQuery', () => ({
   useAssignableUsersQuery: () => ({ users: [], isLoading: false }),
 }));
+// One assignable CUSTOM queue (its schema_id resolves against the experiment
+// schema below), so tests can route to it alongside the no-auth default queue.
 jest.mock('./hooks/useListReviewQueuesQuery', () => ({
-  useListReviewQueuesQuery: () => ({ reviewQueues: [], isLoading: false, error: null }),
+  useListReviewQueuesQuery: () => ({
+    reviewQueues: [
+      { queue_id: 'rq-custom', queue_type: 'CUSTOM', name: 'Relevance', created_by: 'default', schema_ids: ['s1'] },
+    ],
+    isLoading: false,
+    error: null,
+  }),
 }));
 // One experiment question, so the (no-auth) default queue is assignable.
 jest.mock('../../components/label-schemas', () => ({
@@ -74,7 +82,10 @@ describe('AddToReviewQueueModal', () => {
     mockAddItems.mockResolvedValue({});
     mockGetOrCreateUserQueue.mockReset();
     mockGetOrCreateUserQueue.mockResolvedValue({ review_queue: { queue_id: 'rq-default' } });
-    jest.spyOn(Utils, 'displayGlobalInfoNotification').mockImplementation(() => {});
+    jest
+      .spyOn(Utils, 'displayGlobalInfoNotification')
+      .mockReset()
+      .mockImplementation(() => {});
   });
 
   it('routes the traces and shows a confirmation toast when a destination is selected', async () => {
@@ -106,5 +117,53 @@ describe('AddToReviewQueueModal', () => {
     expect(findLinkTarget(toastNode)).toBe(
       generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId: 'exp-1' }),
     );
+  });
+
+  it('surfaces a failed destination resolution instead of swallowing it', async () => {
+    mockGetOrCreateUserQueue.mockRejectedValue(new Error('Queue resolution failed'));
+    renderModal();
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    // The batch failure surfaces in the modal; traces are not added and no
+    // success toast fires.
+    expect(await screen.findByText('Queue resolution failed')).toBeInTheDocument();
+    expect(mockAddItems).not.toHaveBeenCalled();
+    expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a failed trace attach instead of swallowing it', async () => {
+    // Resolution succeeds; the attach step is the one that rejects.
+    mockAddItems.mockRejectedValue(new Error('Attach failed'));
+    renderModal();
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(await screen.findByText('Attach failed')).toBeInTheDocument();
+    expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a partial attach failure while still issuing the successful attach', async () => {
+    // Two destinations: the default queue succeeds, the custom queue rejects.
+    mockAddItems.mockImplementation((arg: any) =>
+      arg.queue_id === 'rq-custom' ? Promise.reject(new Error('Attach failed for rq-custom')) : Promise.resolve({}),
+    );
+    renderModal();
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Relevance' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    // The failing destination surfaces an error...
+    expect(await screen.findByText('Attach failed for rq-custom')).toBeInTheDocument();
+    // ...the successful attach was still issued (allSettled doesn't abort it)...
+    expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-default', item_ids: ['tr-1'] });
+    // ...and no success toast fires while any destination failed.
+    expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
   });
 });
