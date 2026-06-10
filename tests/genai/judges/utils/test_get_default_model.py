@@ -8,6 +8,8 @@ from mlflow.genai.judges.utils import get_default_model
     [
         ("openai:/gpt-5", "databricks", "openai:/gpt-5"),
         ("anthropic:/claude-4", "http://localhost:5000", "anthropic:/claude-4"),
+        ("", "databricks", "databricks"),
+        ("", "http://localhost:5000", "openai:/gpt-4.1-mini"),
         (None, "databricks", "databricks"),
         (None, "http://localhost:5000", "openai:/gpt-4.1-mini"),
     ],
