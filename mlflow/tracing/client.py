@@ -17,6 +17,13 @@ if TYPE_CHECKING:
         LabelSchema,
         LabelSchemaType,
     )
+    from mlflow.genai.review_queues import (
+        ReviewItemType,
+        ReviewQueue,
+        ReviewQueueItem,
+        ReviewQueueType,
+        ReviewStatus,
+    )
 from mlflow.entities.assessment import Assessment
 from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.entities.model_registry import PromptVersion
@@ -973,3 +980,97 @@ class TracingClient:
     def _delete_label_schema(self, schema_id: str) -> None:
         """Delete a label schema. No-op when the schema doesn't exist."""
         return self.store.delete_label_schema(schema_id)
+
+    # ----- Review queues (tracking-store CRUD) -----
+
+    def _create_review_queue(
+        self,
+        experiment_id: str,
+        *,
+        name: str,
+        queue_type: "ReviewQueueType | str",
+        created_by: str | None = None,
+        users: list[str] | None = None,
+        schema_ids: list[str] | None = None,
+    ) -> "ReviewQueue":
+        return self.store.create_review_queue(
+            experiment_id,
+            name=name,
+            queue_type=queue_type,
+            created_by=created_by,
+            users=users,
+            schema_ids=schema_ids,
+        )
+
+    def _get_or_create_user_queue(
+        self, experiment_id: str, *, user: str, created_by: str | None = None
+    ) -> "ReviewQueue":
+        return self.store.get_or_create_user_queue(experiment_id, user=user, created_by=created_by)
+
+    def _get_review_queue(self, queue_id: str) -> "ReviewQueue":
+        return self.store.get_review_queue(queue_id)
+
+    def _get_review_queue_by_name(self, experiment_id: str, name: str) -> "ReviewQueue":
+        return self.store.get_review_queue_by_name(experiment_id, name=name)
+
+    def _list_review_queues(
+        self,
+        experiment_id: str,
+        *,
+        user: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> "PagedList[ReviewQueue]":
+        return self.store.list_review_queues(
+            experiment_id, user=user, max_results=max_results, page_token=page_token
+        )
+
+    def _update_review_queue(
+        self,
+        queue_id: str,
+        *,
+        users: list[str] | None = None,
+        schema_ids: list[str] | None = None,
+    ) -> "ReviewQueue":
+        return self.store.update_review_queue(queue_id, users=users, schema_ids=schema_ids)
+
+    def _delete_review_queue(self, queue_id: str) -> None:
+        return self.store.delete_review_queue(queue_id)
+
+    def _add_items_to_review_queue(
+        self,
+        queue_id: str,
+        *,
+        item_ids: list[str],
+        item_type: "ReviewItemType | str" = "trace",
+    ) -> "list[ReviewQueueItem]":
+        return self.store.add_items_to_review_queue(
+            queue_id, item_ids=item_ids, item_type=item_type
+        )
+
+    def _remove_items_from_review_queue(self, queue_id: str, *, item_ids: list[str]) -> None:
+        return self.store.remove_items_from_review_queue(queue_id, item_ids=item_ids)
+
+    def _list_review_queue_items(
+        self,
+        queue_id: str,
+        *,
+        status: "ReviewStatus | str | None" = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> "PagedList[ReviewQueueItem]":
+        return self.store.list_review_queue_items(
+            queue_id, status=status, max_results=max_results, page_token=page_token
+        )
+
+    def _set_review_queue_item_status(
+        self,
+        queue_id: str,
+        *,
+        item_id: str,
+        status: "ReviewStatus | str",
+        completed_by: str | None = None,
+    ) -> "ReviewQueueItem":
+        return self.store.set_review_queue_item_status(
+            queue_id, item_id=item_id, status=status, completed_by=completed_by
+        )
