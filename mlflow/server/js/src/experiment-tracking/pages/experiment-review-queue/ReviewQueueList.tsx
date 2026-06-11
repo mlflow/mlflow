@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 import {
   Button,
   Checkbox,
-  ChecklistIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   DropdownMenu,
@@ -23,6 +22,7 @@ import { useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { displayUser } from './hooks/useReviewer';
+import { ReviewQueueEmptyState } from './ReviewQueueEmptyState';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 const CID = 'mlflow.experiment-review-queue.list';
@@ -296,49 +296,33 @@ export const ReviewQueueList = ({
       )}
 
       {items.length === 0 ? (
-        <div
-          css={{
-            display: 'flex',
-            flex: 1,
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100%',
-            minHeight: 400,
-            padding: theme.spacing.md,
-          }}
-        >
-          <ChecklistIcon css={{ fontSize: 48, color: theme.colors.textSecondary, marginBottom: theme.spacing.md }} />
-          <Typography.Title level={3} color="secondary">
-            <FormattedMessage
-              defaultMessage="No traces in this queue yet"
-              description="Review queue: empty queue title"
-            />
-          </Typography.Title>
-          <Typography.Paragraph
-            color="secondary"
-            css={{ maxWidth: 520, textAlign: 'center', marginBottom: theme.spacing.md }}
-          >
+        <ReviewQueueEmptyState
+          title={
+            <FormattedMessage defaultMessage="No traces in this queue yet" description="Review queue: empty queue title" />
+          }
+          description={
             <FormattedMessage
               defaultMessage="Add traces from the Traces tab to start reviewing them with your team."
               description="Review queue: empty queue description"
             />
-          </Typography.Paragraph>
-          {onGoToTraces && (
-            <Button
-              componentId={`${CID}.go-to-traces`}
-              type="primary"
-              icon={<PlusIcon />}
-              endIcon={<NewWindowIcon />}
-              onClick={onGoToTraces}
-            >
-              <FormattedMessage
-                defaultMessage="Add traces"
-                description="Review queue: button to navigate to Traces tab"
-              />
-            </Button>
-          )}
-        </div>
+          }
+          button={
+            onGoToTraces && (
+              <Button
+                componentId={`${CID}.go-to-traces`}
+                type="primary"
+                icon={<PlusIcon />}
+                endIcon={<NewWindowIcon />}
+                onClick={onGoToTraces}
+              >
+                <FormattedMessage
+                  defaultMessage="Add traces"
+                  description="Review queue: button to navigate to Traces tab"
+                />
+              </Button>
+            )
+          }
+        />
       ) : (
         <div css={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           <Table>

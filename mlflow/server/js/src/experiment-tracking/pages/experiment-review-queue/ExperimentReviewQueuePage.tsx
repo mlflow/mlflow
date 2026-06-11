@@ -1,14 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  Button,
-  ChecklistIcon,
-  Modal,
-  PlusIcon,
-  TableSkeleton,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Button, Modal, PlusIcon, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { ModelTraceExplorerResizablePane, useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -21,6 +13,7 @@ import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { FocusedReview } from './FocusedReview';
 import { ManageQuestionsModal } from './ManageQuestionsModal';
 import { QueueSettingsModal } from './QueueSettingsModal';
+import { ReviewQueueEmptyState } from './ReviewQueueEmptyState';
 import { ReviewQueueList } from './ReviewQueueList';
 import { ReviewQueueSidebar } from './ReviewQueueSidebar';
 import { useCanManageReviews } from './hooks/useCanManageReviews';
@@ -235,75 +228,50 @@ const ExperimentReviewQueuePage = () => {
     rightContent = <TableSkeleton lines={6} />;
   } else if (reviewQueues.length === 0) {
     rightContent = (
-      <div
-        css={{
-          display: 'flex',
-          flex: 1,
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100%',
-          minHeight: 400,
-          padding: theme.spacing.md,
-        }}
-      >
-        <ChecklistIcon css={{ fontSize: 48, color: theme.colors.textSecondary, marginBottom: theme.spacing.md }} />
-        <Typography.Title level={3} color="secondary">
+      <ReviewQueueEmptyState
+        title={
           <FormattedMessage
             defaultMessage="Set up human review for your traces"
             description="Review queue: empty state title when no queues exist"
           />
-        </Typography.Title>
-        <Typography.Paragraph
-          color="secondary"
-          css={{ maxWidth: 600, textAlign: 'center', marginBottom: theme.spacing.md }}
-        >
+        }
+        description={
           <FormattedMessage
             defaultMessage="Review queues let your team evaluate trace quality with structured questions. Add traces to a queue from the Traces tab, or create a new queue to get started."
             description="Review queue: empty state description when no queues exist"
           />
-        </Typography.Paragraph>
-        <Button
-          componentId="mlflow.experiment-review-queue.empty-state-new-queue"
-          type="primary"
-          icon={<PlusIcon />}
-          onClick={() => setCreateOpen(true)}
-        >
-          <FormattedMessage
-            defaultMessage="New queue"
-            description="Review queue: empty state button to create a new queue"
-          />
-        </Button>
-      </div>
+        }
+        button={
+          <Button
+            componentId="mlflow.experiment-review-queue.empty-state-new-queue"
+            type="primary"
+            icon={<PlusIcon />}
+            onClick={() => setCreateOpen(true)}
+          >
+            <FormattedMessage
+              defaultMessage="New queue"
+              description="Review queue: empty state button to create a new queue"
+            />
+          </Button>
+        }
+      />
     );
   } else if (!selectedQueue) {
     rightContent = (
-      <div
-        css={{
-          display: 'flex',
-          flex: 1,
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100%',
-          minHeight: 400,
-          padding: theme.spacing.md,
-        }}
-      >
-        <ChecklistIcon css={{ fontSize: 48, color: theme.colors.textSecondary, marginBottom: theme.spacing.md }} />
-        <Typography.Title level={3} color="secondary">
+      <ReviewQueueEmptyState
+        title={
           <FormattedMessage
             defaultMessage="Select a queue to get started"
             description="Review queue: empty state title when no queue selected"
           />
-        </Typography.Title>
-        <Typography.Paragraph color="secondary" css={{ maxWidth: 600, textAlign: 'center' }}>
+        }
+        description={
           <FormattedMessage
             defaultMessage="Review queues let you organize traces for human evaluation. Select a queue from the sidebar, or create a new one to start reviewing traces."
             description="Review queue: empty state description when no queue selected"
           />
-        </Typography.Paragraph>
-      </div>
+        }
+      />
     );
   } else if (openItemId && openItem) {
     rightContent = (
@@ -347,7 +315,7 @@ const ExperimentReviewQueuePage = () => {
         onDeleteQueue={canManageSelectedQueue ? () => setConfirmDeleteQueueId(selectedQueue.queue_id) : undefined}
         onGoToTraces={
           experimentId
-            ? () => window.open(`#${Routes.getExperimentPageTracesTabRoute(experimentId)}`, '_blank')
+            ? () => window.open(`/#${Routes.getExperimentPageTracesTabRoute(experimentId)}`, '_blank', 'noopener,noreferrer')
             : undefined
         }
       />

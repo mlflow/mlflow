@@ -62,6 +62,20 @@ describe('ReviewQueueList', () => {
     expect(screen.getByText('No traces in this queue yet')).toBeInTheDocument();
   });
 
+  it('shows an "Add traces" CTA in the empty state that calls onGoToTraces', () => {
+    const onGoToTraces = jest.fn();
+    renderWithProviders(
+      <ReviewQueueList items={[]} onOpen={jest.fn()} nowMs={NOW} onGoToTraces={onGoToTraces} />,
+    );
+    fireEvent.click(screen.getByText('Add traces'));
+    expect(onGoToTraces).toHaveBeenCalledTimes(1);
+  });
+
+  it('omits the "Add traces" CTA when onGoToTraces is not provided', () => {
+    renderWithProviders(<ReviewQueueList items={[]} onOpen={jest.fn()} nowMs={NOW} />);
+    expect(screen.queryByText('Add traces')).not.toBeInTheDocument();
+  });
+
   it('calls onOpen with the clicked trace', () => {
     const onOpen = jest.fn();
     renderWithProviders(<ReviewQueueList items={[item('tr-1', 'PENDING')]} onOpen={onOpen} nowMs={NOW} />);
