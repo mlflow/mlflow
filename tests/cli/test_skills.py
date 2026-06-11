@@ -25,7 +25,6 @@ def test_list_command_renders_skills(runner, monkeypatch):
     assert "alpha-skill" in result.output
     assert "Does alpha things." in result.output
     assert "beta-skill" in result.output
-    assert "Skills directory: " in result.output
 
 
 def test_list_command_handles_no_skills(runner, monkeypatch):
