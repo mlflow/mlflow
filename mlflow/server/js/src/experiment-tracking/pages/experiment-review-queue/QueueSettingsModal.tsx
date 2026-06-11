@@ -167,10 +167,10 @@ export const QueueSettingsModal = ({ queue, onClose }: { queue: ReviewQueue; onC
 
   return (
     <>
-    <Modal
-      componentId={`${CID}.modal`}
-      visible={!createQuestionOpen}
-      destroyOnClose
+      <Modal
+        componentId={`${CID}.modal`}
+        visible={!createQuestionOpen}
+        destroyOnClose
         title={intl.formatMessage(
           { defaultMessage: 'Queue settings — “{name}”', description: 'Queue settings modal title' },
           { name: queue.name },

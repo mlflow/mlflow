@@ -147,10 +147,10 @@ export const CreateReviewQueueModal = ({
 
   return (
     <>
-    <Modal
-      componentId={`${CID}.modal`}
-      visible={!createQuestionOpen}
-      destroyOnClose
+      <Modal
+        componentId={`${CID}.modal`}
+        visible={!createQuestionOpen}
+        destroyOnClose
         // Relative to the (drawer-doubled) base so it clears a trace-detail drawer
         // when launched from the flag-for-review picker, like ExportTracesToDatasetModal.
         zIndex={theme.options.zIndexBase + 10}
