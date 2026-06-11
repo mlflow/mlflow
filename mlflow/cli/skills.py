@@ -5,9 +5,10 @@ import click
 from mlflow.assistant.skill_installer import BundledSkill, list_bundled_skills
 
 
-def _list_skill_details(skill: BundledSkill):
-    click.secho(skill.name, fg="cyan", bold=True)
-    click.secho(f"  {skill.path}", fg="cyan", dim=True)
+def _echo_skill_details(skill: BundledSkill):
+    skill_name_styled = click.style(skill.name, fg="cyan", bold=True)
+    skill_path_styled = click.style(f" ({skill.path})", fg="cyan")
+    click.echo(skill_name_styled + skill_path_styled)
     if skill.description:
         click.echo(f"  {skill.description}")
 
@@ -31,7 +32,7 @@ def list_command():
         return
 
     for skill in skills:
-        _list_skill_details(skill)
+        _echo_skill_details(skill)
 
 
 @commands.command("view")
@@ -42,4 +43,4 @@ def view_command(skill_name: str):
     target_skill = next((s for s in skills if s.name == skill_name), None)
     if not target_skill:
         raise click.ClickException(f"Skill {skill_name} not found.")
-    _list_skill_details(target_skill)
+    _echo_skill_details(target_skill)
