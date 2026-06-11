@@ -157,7 +157,7 @@ class ListReviewQueues(_message.Message):
     def __init__(self, experiment_id: _Optional[str] = ..., user: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
 
 class UpdateReviewQueue(_message.Message):
-    __slots__ = ("queue_id", "update_users", "users", "update_schema_ids", "schema_ids", "update_name", "name")
+    __slots__ = ("queue_id", "update_users", "users", "update_schema_ids", "schema_ids", "name", "new_owner")
     class Response(_message.Message):
         __slots__ = ("review_queue",)
         REVIEW_QUEUE_FIELD_NUMBER: _ClassVar[int]
@@ -168,29 +168,16 @@ class UpdateReviewQueue(_message.Message):
     USERS_FIELD_NUMBER: _ClassVar[int]
     UPDATE_SCHEMA_IDS_FIELD_NUMBER: _ClassVar[int]
     SCHEMA_IDS_FIELD_NUMBER: _ClassVar[int]
-    UPDATE_NAME_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
+    NEW_OWNER_FIELD_NUMBER: _ClassVar[int]
     queue_id: str
     update_users: bool
     users: _containers.RepeatedScalarFieldContainer[str]
     update_schema_ids: bool
     schema_ids: _containers.RepeatedScalarFieldContainer[str]
-    update_name: bool
     name: str
-    def __init__(self, queue_id: _Optional[str] = ..., update_users: bool = ..., users: _Optional[_Iterable[str]] = ..., update_schema_ids: bool = ..., schema_ids: _Optional[_Iterable[str]] = ..., update_name: bool = ..., name: _Optional[str] = ...) -> None: ...
-
-class ChangeReviewQueueOwner(_message.Message):
-    __slots__ = ("queue_id", "new_owner")
-    class Response(_message.Message):
-        __slots__ = ("review_queue",)
-        REVIEW_QUEUE_FIELD_NUMBER: _ClassVar[int]
-        review_queue: ReviewQueue
-        def __init__(self, review_queue: _Optional[_Union[ReviewQueue, _Mapping]] = ...) -> None: ...
-    QUEUE_ID_FIELD_NUMBER: _ClassVar[int]
-    NEW_OWNER_FIELD_NUMBER: _ClassVar[int]
-    queue_id: str
     new_owner: str
-    def __init__(self, queue_id: _Optional[str] = ..., new_owner: _Optional[str] = ...) -> None: ...
+    def __init__(self, queue_id: _Optional[str] = ..., update_users: bool = ..., users: _Optional[_Iterable[str]] = ..., update_schema_ids: bool = ..., schema_ids: _Optional[_Iterable[str]] = ..., name: _Optional[str] = ..., new_owner: _Optional[str] = ...) -> None: ...
 
 class DeleteReviewQueue(_message.Message):
     __slots__ = ("queue_id",)

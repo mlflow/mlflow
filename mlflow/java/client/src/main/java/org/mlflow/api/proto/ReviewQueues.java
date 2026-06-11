@@ -458,9 +458,9 @@ public final class ReviewQueues {
      * <pre>
      * The queue's owner. On an authenticated server this is server-stamped to the
      * creating user and is the basis for owner-level authorization (an EDIT user
-     * may manage the queues they own); it can be reassigned via
-     * ChangeReviewQueueOwner. On a no-auth server it is meaningless and may be
-     * unset. For a USER queue it is the assigned user (attribution only).
+     * may manage the queues they own); it can be reassigned (MANAGE-only) via
+     * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+     * may be unset. For a USER queue it is the assigned user (attribution only).
      * </pre>
      *
      * <code>optional string created_by = 5;</code>
@@ -471,9 +471,9 @@ public final class ReviewQueues {
      * <pre>
      * The queue's owner. On an authenticated server this is server-stamped to the
      * creating user and is the basis for owner-level authorization (an EDIT user
-     * may manage the queues they own); it can be reassigned via
-     * ChangeReviewQueueOwner. On a no-auth server it is meaningless and may be
-     * unset. For a USER queue it is the assigned user (attribution only).
+     * may manage the queues they own); it can be reassigned (MANAGE-only) via
+     * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+     * may be unset. For a USER queue it is the assigned user (attribution only).
      * </pre>
      *
      * <code>optional string created_by = 5;</code>
@@ -484,9 +484,9 @@ public final class ReviewQueues {
      * <pre>
      * The queue's owner. On an authenticated server this is server-stamped to the
      * creating user and is the basis for owner-level authorization (an EDIT user
-     * may manage the queues they own); it can be reassigned via
-     * ChangeReviewQueueOwner. On a no-auth server it is meaningless and may be
-     * unset. For a USER queue it is the assigned user (attribution only).
+     * may manage the queues they own); it can be reassigned (MANAGE-only) via
+     * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+     * may be unset. For a USER queue it is the assigned user (attribution only).
      * </pre>
      *
      * <code>optional string created_by = 5;</code>
@@ -971,9 +971,9 @@ public final class ReviewQueues {
      * <pre>
      * The queue's owner. On an authenticated server this is server-stamped to the
      * creating user and is the basis for owner-level authorization (an EDIT user
-     * may manage the queues they own); it can be reassigned via
-     * ChangeReviewQueueOwner. On a no-auth server it is meaningless and may be
-     * unset. For a USER queue it is the assigned user (attribution only).
+     * may manage the queues they own); it can be reassigned (MANAGE-only) via
+     * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+     * may be unset. For a USER queue it is the assigned user (attribution only).
      * </pre>
      *
      * <code>optional string created_by = 5;</code>
@@ -987,9 +987,9 @@ public final class ReviewQueues {
      * <pre>
      * The queue's owner. On an authenticated server this is server-stamped to the
      * creating user and is the basis for owner-level authorization (an EDIT user
-     * may manage the queues they own); it can be reassigned via
-     * ChangeReviewQueueOwner. On a no-auth server it is meaningless and may be
-     * unset. For a USER queue it is the assigned user (attribution only).
+     * may manage the queues they own); it can be reassigned (MANAGE-only) via
+     * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+     * may be unset. For a USER queue it is the assigned user (attribution only).
      * </pre>
      *
      * <code>optional string created_by = 5;</code>
@@ -1014,9 +1014,9 @@ public final class ReviewQueues {
      * <pre>
      * The queue's owner. On an authenticated server this is server-stamped to the
      * creating user and is the basis for owner-level authorization (an EDIT user
-     * may manage the queues they own); it can be reassigned via
-     * ChangeReviewQueueOwner. On a no-auth server it is meaningless and may be
-     * unset. For a USER queue it is the assigned user (attribution only).
+     * may manage the queues they own); it can be reassigned (MANAGE-only) via
+     * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+     * may be unset. For a USER queue it is the assigned user (attribution only).
      * </pre>
      *
      * <code>optional string created_by = 5;</code>
@@ -2097,9 +2097,9 @@ public final class ReviewQueues {
        * <pre>
        * The queue's owner. On an authenticated server this is server-stamped to the
        * creating user and is the basis for owner-level authorization (an EDIT user
-       * may manage the queues they own); it can be reassigned via
-       * ChangeReviewQueueOwner. On a no-auth server it is meaningless and may be
-       * unset. For a USER queue it is the assigned user (attribution only).
+       * may manage the queues they own); it can be reassigned (MANAGE-only) via
+       * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+       * may be unset. For a USER queue it is the assigned user (attribution only).
        * </pre>
        *
        * <code>optional string created_by = 5;</code>
@@ -2112,9 +2112,9 @@ public final class ReviewQueues {
        * <pre>
        * The queue's owner. On an authenticated server this is server-stamped to the
        * creating user and is the basis for owner-level authorization (an EDIT user
-       * may manage the queues they own); it can be reassigned via
-       * ChangeReviewQueueOwner. On a no-auth server it is meaningless and may be
-       * unset. For a USER queue it is the assigned user (attribution only).
+       * may manage the queues they own); it can be reassigned (MANAGE-only) via
+       * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+       * may be unset. For a USER queue it is the assigned user (attribution only).
        * </pre>
        *
        * <code>optional string created_by = 5;</code>
@@ -2138,9 +2138,9 @@ public final class ReviewQueues {
        * <pre>
        * The queue's owner. On an authenticated server this is server-stamped to the
        * creating user and is the basis for owner-level authorization (an EDIT user
-       * may manage the queues they own); it can be reassigned via
-       * ChangeReviewQueueOwner. On a no-auth server it is meaningless and may be
-       * unset. For a USER queue it is the assigned user (attribution only).
+       * may manage the queues they own); it can be reassigned (MANAGE-only) via
+       * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+       * may be unset. For a USER queue it is the assigned user (attribution only).
        * </pre>
        *
        * <code>optional string created_by = 5;</code>
@@ -2163,9 +2163,9 @@ public final class ReviewQueues {
        * <pre>
        * The queue's owner. On an authenticated server this is server-stamped to the
        * creating user and is the basis for owner-level authorization (an EDIT user
-       * may manage the queues they own); it can be reassigned via
-       * ChangeReviewQueueOwner. On a no-auth server it is meaningless and may be
-       * unset. For a USER queue it is the assigned user (attribution only).
+       * may manage the queues they own); it can be reassigned (MANAGE-only) via
+       * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+       * may be unset. For a USER queue it is the assigned user (attribution only).
        * </pre>
        *
        * <code>optional string created_by = 5;</code>
@@ -2186,9 +2186,9 @@ public final class ReviewQueues {
        * <pre>
        * The queue's owner. On an authenticated server this is server-stamped to the
        * creating user and is the basis for owner-level authorization (an EDIT user
-       * may manage the queues they own); it can be reassigned via
-       * ChangeReviewQueueOwner. On a no-auth server it is meaningless and may be
-       * unset. For a USER queue it is the assigned user (attribution only).
+       * may manage the queues they own); it can be reassigned (MANAGE-only) via
+       * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+       * may be unset. For a USER queue it is the assigned user (attribution only).
        * </pre>
        *
        * <code>optional string created_by = 5;</code>
@@ -2204,9 +2204,9 @@ public final class ReviewQueues {
        * <pre>
        * The queue's owner. On an authenticated server this is server-stamped to the
        * creating user and is the basis for owner-level authorization (an EDIT user
-       * may manage the queues they own); it can be reassigned via
-       * ChangeReviewQueueOwner. On a no-auth server it is meaningless and may be
-       * unset. For a USER queue it is the assigned user (attribution only).
+       * may manage the queues they own); it can be reassigned (MANAGE-only) via
+       * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+       * may be unset. For a USER queue it is the assigned user (attribution only).
        * </pre>
        *
        * <code>optional string created_by = 5;</code>
@@ -12846,42 +12846,49 @@ public final class ReviewQueues {
         getSchemaIdsBytes(int index);
 
     /**
-     * <code>optional bool update_name = 6;</code>
-     * @return Whether the updateName field is set.
-     */
-    boolean hasUpdateName();
-    /**
-     * <code>optional bool update_name = 6;</code>
-     * @return The updateName.
-     */
-    boolean getUpdateName();
-
-    /**
-     * <code>optional string name = 7;</code>
+     * <code>optional string name = 6;</code>
      * @return Whether the name field is set.
      */
     boolean hasName();
     /**
-     * <code>optional string name = 7;</code>
+     * <code>optional string name = 6;</code>
      * @return The name.
      */
     java.lang.String getName();
     /**
-     * <code>optional string name = 7;</code>
+     * <code>optional string name = 6;</code>
      * @return The bytes for name.
      */
     com.google.protobuf.ByteString
         getNameBytes();
+
+    /**
+     * <code>optional string new_owner = 7;</code>
+     * @return Whether the newOwner field is set.
+     */
+    boolean hasNewOwner();
+    /**
+     * <code>optional string new_owner = 7;</code>
+     * @return The newOwner.
+     */
+    java.lang.String getNewOwner();
+    /**
+     * <code>optional string new_owner = 7;</code>
+     * @return The bytes for newOwner.
+     */
+    com.google.protobuf.ByteString
+        getNewOwnerBytes();
   }
   /**
    * <pre>
-   * Edit a CUSTOM queue's name, assigned users, and/or attached schemas.
-   * `queue_type` and the owner are immutable here (owner changes go through
-   * ChangeReviewQueueOwner), and USER queues reject this RPC. Because a repeated
-   * field can't distinguish "absent" from "empty" on the wire, each mutable set
-   * is gated by an explicit `update_*` flag: when the flag is true the
-   * corresponding value (possibly empty) replaces the current one; when false it
-   * is left untouched.
+   * Edit a CUSTOM queue's name, assigned users, attached schemas, and/or owner.
+   * `queue_type` is immutable and USER queues reject this RPC. Singular fields use
+   * proto2 presence (HasField); only the repeated sets need explicit `update_*`
+   * flags, since a repeated field can't tell "absent" from "empty" on the wire
+   * (when the flag is true the list, possibly empty, replaces the set). `name`
+   * renames the queue. `new_owner` reassigns ownership (`created_by`) and is
+   * MANAGE-gated — owners can't transfer their own queue — whereas an owning EDIT
+   * user may perform the other edits.
    * </pre>
    *
    * Protobuf type {@code mlflow.review_queues.UpdateReviewQueue}
@@ -12900,6 +12907,7 @@ public final class ReviewQueues {
       users_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       schemaIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       name_ = "";
+      newOwner_ = "";
     }
 
     @java.lang.Override
@@ -12967,15 +12975,16 @@ public final class ReviewQueues {
               schemaIds_.add(bs);
               break;
             }
-            case 48: {
+            case 50: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000008;
-              updateName_ = input.readBool();
+              name_ = bs;
               break;
             }
             case 58: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000010;
-              name_ = bs;
+              newOwner_ = bs;
               break;
             }
             default: {
@@ -13805,37 +13814,18 @@ public final class ReviewQueues {
       return schemaIds_.getByteString(index);
     }
 
-    public static final int UPDATE_NAME_FIELD_NUMBER = 6;
-    private boolean updateName_;
-    /**
-     * <code>optional bool update_name = 6;</code>
-     * @return Whether the updateName field is set.
-     */
-    @java.lang.Override
-    public boolean hasUpdateName() {
-      return ((bitField0_ & 0x00000008) != 0);
-    }
-    /**
-     * <code>optional bool update_name = 6;</code>
-     * @return The updateName.
-     */
-    @java.lang.Override
-    public boolean getUpdateName() {
-      return updateName_;
-    }
-
-    public static final int NAME_FIELD_NUMBER = 7;
+    public static final int NAME_FIELD_NUMBER = 6;
     private volatile java.lang.Object name_;
     /**
-     * <code>optional string name = 7;</code>
+     * <code>optional string name = 6;</code>
      * @return Whether the name field is set.
      */
     @java.lang.Override
     public boolean hasName() {
-      return ((bitField0_ & 0x00000010) != 0);
+      return ((bitField0_ & 0x00000008) != 0);
     }
     /**
-     * <code>optional string name = 7;</code>
+     * <code>optional string name = 6;</code>
      * @return The name.
      */
     @java.lang.Override
@@ -13854,7 +13844,7 @@ public final class ReviewQueues {
       }
     }
     /**
-     * <code>optional string name = 7;</code>
+     * <code>optional string name = 6;</code>
      * @return The bytes for name.
      */
     @java.lang.Override
@@ -13866,6 +13856,54 @@ public final class ReviewQueues {
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         name_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int NEW_OWNER_FIELD_NUMBER = 7;
+    private volatile java.lang.Object newOwner_;
+    /**
+     * <code>optional string new_owner = 7;</code>
+     * @return Whether the newOwner field is set.
+     */
+    @java.lang.Override
+    public boolean hasNewOwner() {
+      return ((bitField0_ & 0x00000010) != 0);
+    }
+    /**
+     * <code>optional string new_owner = 7;</code>
+     * @return The newOwner.
+     */
+    @java.lang.Override
+    public java.lang.String getNewOwner() {
+      java.lang.Object ref = newOwner_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          newOwner_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string new_owner = 7;</code>
+     * @return The bytes for newOwner.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getNewOwnerBytes() {
+      java.lang.Object ref = newOwner_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        newOwner_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -13902,10 +13940,10 @@ public final class ReviewQueues {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 5, schemaIds_.getRaw(i));
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        output.writeBool(6, updateName_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, name_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, name_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, newOwner_);
       }
       unknownFields.writeTo(output);
     }
@@ -13944,11 +13982,10 @@ public final class ReviewQueues {
         size += 1 * getSchemaIdsList().size();
       }
       if (((bitField0_ & 0x00000008) != 0)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeBoolSize(6, updateName_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, name_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, name_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, newOwner_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -13984,15 +14021,15 @@ public final class ReviewQueues {
       }
       if (!getSchemaIdsList()
           .equals(other.getSchemaIdsList())) return false;
-      if (hasUpdateName() != other.hasUpdateName()) return false;
-      if (hasUpdateName()) {
-        if (getUpdateName()
-            != other.getUpdateName()) return false;
-      }
       if (hasName() != other.hasName()) return false;
       if (hasName()) {
         if (!getName()
             .equals(other.getName())) return false;
+      }
+      if (hasNewOwner() != other.hasNewOwner()) return false;
+      if (hasNewOwner()) {
+        if (!getNewOwner()
+            .equals(other.getNewOwner())) return false;
       }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
@@ -14027,14 +14064,13 @@ public final class ReviewQueues {
         hash = (37 * hash) + SCHEMA_IDS_FIELD_NUMBER;
         hash = (53 * hash) + getSchemaIdsList().hashCode();
       }
-      if (hasUpdateName()) {
-        hash = (37 * hash) + UPDATE_NAME_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashBoolean(
-            getUpdateName());
-      }
       if (hasName()) {
         hash = (37 * hash) + NAME_FIELD_NUMBER;
         hash = (53 * hash) + getName().hashCode();
+      }
+      if (hasNewOwner()) {
+        hash = (37 * hash) + NEW_OWNER_FIELD_NUMBER;
+        hash = (53 * hash) + getNewOwner().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -14133,13 +14169,14 @@ public final class ReviewQueues {
     }
     /**
      * <pre>
-     * Edit a CUSTOM queue's name, assigned users, and/or attached schemas.
-     * `queue_type` and the owner are immutable here (owner changes go through
-     * ChangeReviewQueueOwner), and USER queues reject this RPC. Because a repeated
-     * field can't distinguish "absent" from "empty" on the wire, each mutable set
-     * is gated by an explicit `update_*` flag: when the flag is true the
-     * corresponding value (possibly empty) replaces the current one; when false it
-     * is left untouched.
+     * Edit a CUSTOM queue's name, assigned users, attached schemas, and/or owner.
+     * `queue_type` is immutable and USER queues reject this RPC. Singular fields use
+     * proto2 presence (HasField); only the repeated sets need explicit `update_*`
+     * flags, since a repeated field can't tell "absent" from "empty" on the wire
+     * (when the flag is true the list, possibly empty, replaces the set). `name`
+     * renames the queue. `new_owner` reassigns ownership (`created_by`) and is
+     * MANAGE-gated — owners can't transfer their own queue — whereas an owning EDIT
+     * user may perform the other edits.
      * </pre>
      *
      * Protobuf type {@code mlflow.review_queues.UpdateReviewQueue}
@@ -14189,9 +14226,9 @@ public final class ReviewQueues {
         bitField0_ = (bitField0_ & ~0x00000008);
         schemaIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000010);
-        updateName_ = false;
-        bitField0_ = (bitField0_ & ~0x00000020);
         name_ = "";
+        bitField0_ = (bitField0_ & ~0x00000020);
+        newOwner_ = "";
         bitField0_ = (bitField0_ & ~0x00000040);
         return this;
       }
@@ -14244,13 +14281,13 @@ public final class ReviewQueues {
         }
         result.schemaIds_ = schemaIds_;
         if (((from_bitField0_ & 0x00000020) != 0)) {
-          result.updateName_ = updateName_;
           to_bitField0_ |= 0x00000008;
         }
+        result.name_ = name_;
         if (((from_bitField0_ & 0x00000040) != 0)) {
           to_bitField0_ |= 0x00000010;
         }
-        result.name_ = name_;
+        result.newOwner_ = newOwner_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -14331,12 +14368,14 @@ public final class ReviewQueues {
           }
           onChanged();
         }
-        if (other.hasUpdateName()) {
-          setUpdateName(other.getUpdateName());
-        }
         if (other.hasName()) {
-          bitField0_ |= 0x00000040;
+          bitField0_ |= 0x00000020;
           name_ = other.name_;
+          onChanged();
+        }
+        if (other.hasNewOwner()) {
+          bitField0_ |= 0x00000040;
+          newOwner_ = other.newOwner_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -14749,55 +14788,16 @@ public final class ReviewQueues {
         return this;
       }
 
-      private boolean updateName_ ;
-      /**
-       * <code>optional bool update_name = 6;</code>
-       * @return Whether the updateName field is set.
-       */
-      @java.lang.Override
-      public boolean hasUpdateName() {
-        return ((bitField0_ & 0x00000020) != 0);
-      }
-      /**
-       * <code>optional bool update_name = 6;</code>
-       * @return The updateName.
-       */
-      @java.lang.Override
-      public boolean getUpdateName() {
-        return updateName_;
-      }
-      /**
-       * <code>optional bool update_name = 6;</code>
-       * @param value The updateName to set.
-       * @return This builder for chaining.
-       */
-      public Builder setUpdateName(boolean value) {
-        bitField0_ |= 0x00000020;
-        updateName_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional bool update_name = 6;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearUpdateName() {
-        bitField0_ = (bitField0_ & ~0x00000020);
-        updateName_ = false;
-        onChanged();
-        return this;
-      }
-
       private java.lang.Object name_ = "";
       /**
-       * <code>optional string name = 7;</code>
+       * <code>optional string name = 6;</code>
        * @return Whether the name field is set.
        */
       public boolean hasName() {
-        return ((bitField0_ & 0x00000040) != 0);
+        return ((bitField0_ & 0x00000020) != 0);
       }
       /**
-       * <code>optional string name = 7;</code>
+       * <code>optional string name = 6;</code>
        * @return The name.
        */
       public java.lang.String getName() {
@@ -14815,7 +14815,7 @@ public final class ReviewQueues {
         }
       }
       /**
-       * <code>optional string name = 7;</code>
+       * <code>optional string name = 6;</code>
        * @return The bytes for name.
        */
       public com.google.protobuf.ByteString
@@ -14832,7 +14832,7 @@ public final class ReviewQueues {
         }
       }
       /**
-       * <code>optional string name = 7;</code>
+       * <code>optional string name = 6;</code>
        * @param value The name to set.
        * @return This builder for chaining.
        */
@@ -14841,23 +14841,23 @@ public final class ReviewQueues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000040;
+  bitField0_ |= 0x00000020;
         name_ = value;
         onChanged();
         return this;
       }
       /**
-       * <code>optional string name = 7;</code>
+       * <code>optional string name = 6;</code>
        * @return This builder for chaining.
        */
       public Builder clearName() {
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000020);
         name_ = getDefaultInstance().getName();
         onChanged();
         return this;
       }
       /**
-       * <code>optional string name = 7;</code>
+       * <code>optional string name = 6;</code>
        * @param value The bytes for name to set.
        * @return This builder for chaining.
        */
@@ -14866,8 +14866,92 @@ public final class ReviewQueues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000040;
+  bitField0_ |= 0x00000020;
         name_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object newOwner_ = "";
+      /**
+       * <code>optional string new_owner = 7;</code>
+       * @return Whether the newOwner field is set.
+       */
+      public boolean hasNewOwner() {
+        return ((bitField0_ & 0x00000040) != 0);
+      }
+      /**
+       * <code>optional string new_owner = 7;</code>
+       * @return The newOwner.
+       */
+      public java.lang.String getNewOwner() {
+        java.lang.Object ref = newOwner_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            newOwner_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string new_owner = 7;</code>
+       * @return The bytes for newOwner.
+       */
+      public com.google.protobuf.ByteString
+          getNewOwnerBytes() {
+        java.lang.Object ref = newOwner_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          newOwner_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string new_owner = 7;</code>
+       * @param value The newOwner to set.
+       * @return This builder for chaining.
+       */
+      public Builder setNewOwner(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000040;
+        newOwner_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string new_owner = 7;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearNewOwner() {
+        bitField0_ = (bitField0_ & ~0x00000040);
+        newOwner_ = getDefaultInstance().getNewOwner();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string new_owner = 7;</code>
+       * @param value The bytes for newOwner to set.
+       * @return This builder for chaining.
+       */
+      public Builder setNewOwnerBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000040;
+        newOwner_ = value;
         onChanged();
         return this;
       }
@@ -14919,1438 +15003,6 @@ public final class ReviewQueues {
 
     @java.lang.Override
     public org.mlflow.api.proto.ReviewQueues.UpdateReviewQueue getDefaultInstanceForType() {
-      return DEFAULT_INSTANCE;
-    }
-
-  }
-
-  public interface ChangeReviewQueueOwnerOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.review_queues.ChangeReviewQueueOwner)
-      com.google.protobuf.MessageOrBuilder {
-
-    /**
-     * <code>optional string queue_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the queueId field is set.
-     */
-    boolean hasQueueId();
-    /**
-     * <code>optional string queue_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The queueId.
-     */
-    java.lang.String getQueueId();
-    /**
-     * <code>optional string queue_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for queueId.
-     */
-    com.google.protobuf.ByteString
-        getQueueIdBytes();
-
-    /**
-     * <code>optional string new_owner = 2 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the newOwner field is set.
-     */
-    boolean hasNewOwner();
-    /**
-     * <code>optional string new_owner = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The newOwner.
-     */
-    java.lang.String getNewOwner();
-    /**
-     * <code>optional string new_owner = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for newOwner.
-     */
-    com.google.protobuf.ByteString
-        getNewOwnerBytes();
-  }
-  /**
-   * <pre>
-   * Reassign a CUSTOM queue's owner (`created_by`). MANAGE-gated; USER queues
-   * reject this RPC (their owner is the fixed assigned user). The new owner gains
-   * owner-level privileges only if they also hold experiment EDIT.
-   * </pre>
-   *
-   * Protobuf type {@code mlflow.review_queues.ChangeReviewQueueOwner}
-   */
-  public static final class ChangeReviewQueueOwner extends
-      com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.review_queues.ChangeReviewQueueOwner)
-      ChangeReviewQueueOwnerOrBuilder {
-  private static final long serialVersionUID = 0L;
-    // Use ChangeReviewQueueOwner.newBuilder() to construct.
-    private ChangeReviewQueueOwner(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
-      super(builder);
-    }
-    private ChangeReviewQueueOwner() {
-      queueId_ = "";
-      newOwner_ = "";
-    }
-
-    @java.lang.Override
-    @SuppressWarnings({"unused"})
-    protected java.lang.Object newInstance(
-        UnusedPrivateParameter unused) {
-      return new ChangeReviewQueueOwner();
-    }
-
-    @java.lang.Override
-    public final com.google.protobuf.UnknownFieldSet
-    getUnknownFields() {
-      return this.unknownFields;
-    }
-    private ChangeReviewQueueOwner(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      this();
-      if (extensionRegistry == null) {
-        throw new java.lang.NullPointerException();
-      }
-      int mutable_bitField0_ = 0;
-      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-          com.google.protobuf.UnknownFieldSet.newBuilder();
-      try {
-        boolean done = false;
-        while (!done) {
-          int tag = input.readTag();
-          switch (tag) {
-            case 0:
-              done = true;
-              break;
-            case 10: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
-              queueId_ = bs;
-              break;
-            }
-            case 18: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
-              newOwner_ = bs;
-              break;
-            }
-            default: {
-              if (!parseUnknownField(
-                  input, unknownFields, extensionRegistry, tag)) {
-                done = true;
-              }
-              break;
-            }
-          }
-        }
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(this);
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(
-            e).setUnfinishedMessage(this);
-      } finally {
-        this.unknownFields = unknownFields.build();
-        makeExtensionsImmutable();
-      }
-    }
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ChangeReviewQueueOwner_descriptor;
-    }
-
-    @java.lang.Override
-    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-        internalGetFieldAccessorTable() {
-      return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ChangeReviewQueueOwner_fieldAccessorTable
-          .ensureFieldAccessorsInitialized(
-              org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.class, org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Builder.class);
-    }
-
-    public interface ResponseOrBuilder extends
-        // @@protoc_insertion_point(interface_extends:mlflow.review_queues.ChangeReviewQueueOwner.Response)
-        com.google.protobuf.MessageOrBuilder {
-
-      /**
-       * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-       * @return Whether the reviewQueue field is set.
-       */
-      boolean hasReviewQueue();
-      /**
-       * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-       * @return The reviewQueue.
-       */
-      org.mlflow.api.proto.ReviewQueues.ReviewQueue getReviewQueue();
-      /**
-       * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-       */
-      org.mlflow.api.proto.ReviewQueues.ReviewQueueOrBuilder getReviewQueueOrBuilder();
-    }
-    /**
-     * Protobuf type {@code mlflow.review_queues.ChangeReviewQueueOwner.Response}
-     */
-    public static final class Response extends
-        com.google.protobuf.GeneratedMessageV3 implements
-        // @@protoc_insertion_point(message_implements:mlflow.review_queues.ChangeReviewQueueOwner.Response)
-        ResponseOrBuilder {
-    private static final long serialVersionUID = 0L;
-      // Use Response.newBuilder() to construct.
-      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
-        super(builder);
-      }
-      private Response() {
-      }
-
-      @java.lang.Override
-      @SuppressWarnings({"unused"})
-      protected java.lang.Object newInstance(
-          UnusedPrivateParameter unused) {
-        return new Response();
-      }
-
-      @java.lang.Override
-      public final com.google.protobuf.UnknownFieldSet
-      getUnknownFields() {
-        return this.unknownFields;
-      }
-      private Response(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        this();
-        if (extensionRegistry == null) {
-          throw new java.lang.NullPointerException();
-        }
-        int mutable_bitField0_ = 0;
-        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-            com.google.protobuf.UnknownFieldSet.newBuilder();
-        try {
-          boolean done = false;
-          while (!done) {
-            int tag = input.readTag();
-            switch (tag) {
-              case 0:
-                done = true;
-                break;
-              case 10: {
-                org.mlflow.api.proto.ReviewQueues.ReviewQueue.Builder subBuilder = null;
-                if (((bitField0_ & 0x00000001) != 0)) {
-                  subBuilder = reviewQueue_.toBuilder();
-                }
-                reviewQueue_ = input.readMessage(org.mlflow.api.proto.ReviewQueues.ReviewQueue.PARSER, extensionRegistry);
-                if (subBuilder != null) {
-                  subBuilder.mergeFrom(reviewQueue_);
-                  reviewQueue_ = subBuilder.buildPartial();
-                }
-                bitField0_ |= 0x00000001;
-                break;
-              }
-              default: {
-                if (!parseUnknownField(
-                    input, unknownFields, extensionRegistry, tag)) {
-                  done = true;
-                }
-                break;
-              }
-            }
-          }
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          throw e.setUnfinishedMessage(this);
-        } catch (java.io.IOException e) {
-          throw new com.google.protobuf.InvalidProtocolBufferException(
-              e).setUnfinishedMessage(this);
-        } finally {
-          this.unknownFields = unknownFields.build();
-          makeExtensionsImmutable();
-        }
-      }
-      public static final com.google.protobuf.Descriptors.Descriptor
-          getDescriptor() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ChangeReviewQueueOwner_Response_descriptor;
-      }
-
-      @java.lang.Override
-      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-          internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ChangeReviewQueueOwner_Response_fieldAccessorTable
-            .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response.class, org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response.Builder.class);
-      }
-
-      private int bitField0_;
-      public static final int REVIEW_QUEUE_FIELD_NUMBER = 1;
-      private org.mlflow.api.proto.ReviewQueues.ReviewQueue reviewQueue_;
-      /**
-       * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-       * @return Whether the reviewQueue field is set.
-       */
-      @java.lang.Override
-      public boolean hasReviewQueue() {
-        return ((bitField0_ & 0x00000001) != 0);
-      }
-      /**
-       * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-       * @return The reviewQueue.
-       */
-      @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.ReviewQueue getReviewQueue() {
-        return reviewQueue_ == null ? org.mlflow.api.proto.ReviewQueues.ReviewQueue.getDefaultInstance() : reviewQueue_;
-      }
-      /**
-       * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-       */
-      @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.ReviewQueueOrBuilder getReviewQueueOrBuilder() {
-        return reviewQueue_ == null ? org.mlflow.api.proto.ReviewQueues.ReviewQueue.getDefaultInstance() : reviewQueue_;
-      }
-
-      private byte memoizedIsInitialized = -1;
-      @java.lang.Override
-      public final boolean isInitialized() {
-        byte isInitialized = memoizedIsInitialized;
-        if (isInitialized == 1) return true;
-        if (isInitialized == 0) return false;
-
-        memoizedIsInitialized = 1;
-        return true;
-      }
-
-      @java.lang.Override
-      public void writeTo(com.google.protobuf.CodedOutputStream output)
-                          throws java.io.IOException {
-        if (((bitField0_ & 0x00000001) != 0)) {
-          output.writeMessage(1, getReviewQueue());
-        }
-        unknownFields.writeTo(output);
-      }
-
-      @java.lang.Override
-      public int getSerializedSize() {
-        int size = memoizedSize;
-        if (size != -1) return size;
-
-        size = 0;
-        if (((bitField0_ & 0x00000001) != 0)) {
-          size += com.google.protobuf.CodedOutputStream
-            .computeMessageSize(1, getReviewQueue());
-        }
-        size += unknownFields.getSerializedSize();
-        memoizedSize = size;
-        return size;
-      }
-
-      @java.lang.Override
-      public boolean equals(final java.lang.Object obj) {
-        if (obj == this) {
-         return true;
-        }
-        if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response)) {
-          return super.equals(obj);
-        }
-        org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response other = (org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response) obj;
-
-        if (hasReviewQueue() != other.hasReviewQueue()) return false;
-        if (hasReviewQueue()) {
-          if (!getReviewQueue()
-              .equals(other.getReviewQueue())) return false;
-        }
-        if (!unknownFields.equals(other.unknownFields)) return false;
-        return true;
-      }
-
-      @java.lang.Override
-      public int hashCode() {
-        if (memoizedHashCode != 0) {
-          return memoizedHashCode;
-        }
-        int hash = 41;
-        hash = (19 * hash) + getDescriptor().hashCode();
-        if (hasReviewQueue()) {
-          hash = (37 * hash) + REVIEW_QUEUE_FIELD_NUMBER;
-          hash = (53 * hash) + getReviewQueue().hashCode();
-        }
-        hash = (29 * hash) + unknownFields.hashCode();
-        memoizedHashCode = hash;
-        return hash;
-      }
-
-      public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response parseFrom(
-          java.nio.ByteBuffer data)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return PARSER.parseFrom(data);
-      }
-      public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response parseFrom(
-          java.nio.ByteBuffer data,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return PARSER.parseFrom(data, extensionRegistry);
-      }
-      public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response parseFrom(
-          com.google.protobuf.ByteString data)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return PARSER.parseFrom(data);
-      }
-      public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response parseFrom(
-          com.google.protobuf.ByteString data,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return PARSER.parseFrom(data, extensionRegistry);
-      }
-      public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response parseFrom(byte[] data)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return PARSER.parseFrom(data);
-      }
-      public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response parseFrom(
-          byte[] data,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return PARSER.parseFrom(data, extensionRegistry);
-      }
-      public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response parseFrom(java.io.InputStream input)
-          throws java.io.IOException {
-        return com.google.protobuf.GeneratedMessageV3
-            .parseWithIOException(PARSER, input);
-      }
-      public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response parseFrom(
-          java.io.InputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        return com.google.protobuf.GeneratedMessageV3
-            .parseWithIOException(PARSER, input, extensionRegistry);
-      }
-      public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response parseDelimitedFrom(java.io.InputStream input)
-          throws java.io.IOException {
-        return com.google.protobuf.GeneratedMessageV3
-            .parseDelimitedWithIOException(PARSER, input);
-      }
-      public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response parseDelimitedFrom(
-          java.io.InputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        return com.google.protobuf.GeneratedMessageV3
-            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-      }
-      public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response parseFrom(
-          com.google.protobuf.CodedInputStream input)
-          throws java.io.IOException {
-        return com.google.protobuf.GeneratedMessageV3
-            .parseWithIOException(PARSER, input);
-      }
-      public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response parseFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        return com.google.protobuf.GeneratedMessageV3
-            .parseWithIOException(PARSER, input, extensionRegistry);
-      }
-
-      @java.lang.Override
-      public Builder newBuilderForType() { return newBuilder(); }
-      public static Builder newBuilder() {
-        return DEFAULT_INSTANCE.toBuilder();
-      }
-      public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response prototype) {
-        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-      }
-      @java.lang.Override
-      public Builder toBuilder() {
-        return this == DEFAULT_INSTANCE
-            ? new Builder() : new Builder().mergeFrom(this);
-      }
-
-      @java.lang.Override
-      protected Builder newBuilderForType(
-          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        Builder builder = new Builder(parent);
-        return builder;
-      }
-      /**
-       * Protobuf type {@code mlflow.review_queues.ChangeReviewQueueOwner.Response}
-       */
-      public static final class Builder extends
-          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-          // @@protoc_insertion_point(builder_implements:mlflow.review_queues.ChangeReviewQueueOwner.Response)
-          org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.ResponseOrBuilder {
-        public static final com.google.protobuf.Descriptors.Descriptor
-            getDescriptor() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ChangeReviewQueueOwner_Response_descriptor;
-        }
-
-        @java.lang.Override
-        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-            internalGetFieldAccessorTable() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ChangeReviewQueueOwner_Response_fieldAccessorTable
-              .ensureFieldAccessorsInitialized(
-                  org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response.class, org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response.Builder.class);
-        }
-
-        // Construct using org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response.newBuilder()
-        private Builder() {
-          maybeForceBuilderInitialization();
-        }
-
-        private Builder(
-            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-          super(parent);
-          maybeForceBuilderInitialization();
-        }
-        private void maybeForceBuilderInitialization() {
-          if (com.google.protobuf.GeneratedMessageV3
-                  .alwaysUseFieldBuilders) {
-            getReviewQueueFieldBuilder();
-          }
-        }
-        @java.lang.Override
-        public Builder clear() {
-          super.clear();
-          if (reviewQueueBuilder_ == null) {
-            reviewQueue_ = null;
-          } else {
-            reviewQueueBuilder_.clear();
-          }
-          bitField0_ = (bitField0_ & ~0x00000001);
-          return this;
-        }
-
-        @java.lang.Override
-        public com.google.protobuf.Descriptors.Descriptor
-            getDescriptorForType() {
-          return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ChangeReviewQueueOwner_Response_descriptor;
-        }
-
-        @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response getDefaultInstanceForType() {
-          return org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response.getDefaultInstance();
-        }
-
-        @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response build() {
-          org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response result = buildPartial();
-          if (!result.isInitialized()) {
-            throw newUninitializedMessageException(result);
-          }
-          return result;
-        }
-
-        @java.lang.Override
-        public org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response buildPartial() {
-          org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response result = new org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response(this);
-          int from_bitField0_ = bitField0_;
-          int to_bitField0_ = 0;
-          if (((from_bitField0_ & 0x00000001) != 0)) {
-            if (reviewQueueBuilder_ == null) {
-              result.reviewQueue_ = reviewQueue_;
-            } else {
-              result.reviewQueue_ = reviewQueueBuilder_.build();
-            }
-            to_bitField0_ |= 0x00000001;
-          }
-          result.bitField0_ = to_bitField0_;
-          onBuilt();
-          return result;
-        }
-
-        @java.lang.Override
-        public Builder clone() {
-          return super.clone();
-        }
-        @java.lang.Override
-        public Builder setField(
-            com.google.protobuf.Descriptors.FieldDescriptor field,
-            java.lang.Object value) {
-          return super.setField(field, value);
-        }
-        @java.lang.Override
-        public Builder clearField(
-            com.google.protobuf.Descriptors.FieldDescriptor field) {
-          return super.clearField(field);
-        }
-        @java.lang.Override
-        public Builder clearOneof(
-            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-          return super.clearOneof(oneof);
-        }
-        @java.lang.Override
-        public Builder setRepeatedField(
-            com.google.protobuf.Descriptors.FieldDescriptor field,
-            int index, java.lang.Object value) {
-          return super.setRepeatedField(field, index, value);
-        }
-        @java.lang.Override
-        public Builder addRepeatedField(
-            com.google.protobuf.Descriptors.FieldDescriptor field,
-            java.lang.Object value) {
-          return super.addRepeatedField(field, value);
-        }
-        @java.lang.Override
-        public Builder mergeFrom(com.google.protobuf.Message other) {
-          if (other instanceof org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response) {
-            return mergeFrom((org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response)other);
-          } else {
-            super.mergeFrom(other);
-            return this;
-          }
-        }
-
-        public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response other) {
-          if (other == org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response.getDefaultInstance()) return this;
-          if (other.hasReviewQueue()) {
-            mergeReviewQueue(other.getReviewQueue());
-          }
-          this.mergeUnknownFields(other.unknownFields);
-          onChanged();
-          return this;
-        }
-
-        @java.lang.Override
-        public final boolean isInitialized() {
-          return true;
-        }
-
-        @java.lang.Override
-        public Builder mergeFrom(
-            com.google.protobuf.CodedInputStream input,
-            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-            throws java.io.IOException {
-          org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response parsedMessage = null;
-          try {
-            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-            parsedMessage = (org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response) e.getUnfinishedMessage();
-            throw e.unwrapIOException();
-          } finally {
-            if (parsedMessage != null) {
-              mergeFrom(parsedMessage);
-            }
-          }
-          return this;
-        }
-        private int bitField0_;
-
-        private org.mlflow.api.proto.ReviewQueues.ReviewQueue reviewQueue_;
-        private com.google.protobuf.SingleFieldBuilderV3<
-            org.mlflow.api.proto.ReviewQueues.ReviewQueue, org.mlflow.api.proto.ReviewQueues.ReviewQueue.Builder, org.mlflow.api.proto.ReviewQueues.ReviewQueueOrBuilder> reviewQueueBuilder_;
-        /**
-         * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-         * @return Whether the reviewQueue field is set.
-         */
-        public boolean hasReviewQueue() {
-          return ((bitField0_ & 0x00000001) != 0);
-        }
-        /**
-         * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-         * @return The reviewQueue.
-         */
-        public org.mlflow.api.proto.ReviewQueues.ReviewQueue getReviewQueue() {
-          if (reviewQueueBuilder_ == null) {
-            return reviewQueue_ == null ? org.mlflow.api.proto.ReviewQueues.ReviewQueue.getDefaultInstance() : reviewQueue_;
-          } else {
-            return reviewQueueBuilder_.getMessage();
-          }
-        }
-        /**
-         * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-         */
-        public Builder setReviewQueue(org.mlflow.api.proto.ReviewQueues.ReviewQueue value) {
-          if (reviewQueueBuilder_ == null) {
-            if (value == null) {
-              throw new NullPointerException();
-            }
-            reviewQueue_ = value;
-            onChanged();
-          } else {
-            reviewQueueBuilder_.setMessage(value);
-          }
-          bitField0_ |= 0x00000001;
-          return this;
-        }
-        /**
-         * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-         */
-        public Builder setReviewQueue(
-            org.mlflow.api.proto.ReviewQueues.ReviewQueue.Builder builderForValue) {
-          if (reviewQueueBuilder_ == null) {
-            reviewQueue_ = builderForValue.build();
-            onChanged();
-          } else {
-            reviewQueueBuilder_.setMessage(builderForValue.build());
-          }
-          bitField0_ |= 0x00000001;
-          return this;
-        }
-        /**
-         * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-         */
-        public Builder mergeReviewQueue(org.mlflow.api.proto.ReviewQueues.ReviewQueue value) {
-          if (reviewQueueBuilder_ == null) {
-            if (((bitField0_ & 0x00000001) != 0) &&
-                reviewQueue_ != null &&
-                reviewQueue_ != org.mlflow.api.proto.ReviewQueues.ReviewQueue.getDefaultInstance()) {
-              reviewQueue_ =
-                org.mlflow.api.proto.ReviewQueues.ReviewQueue.newBuilder(reviewQueue_).mergeFrom(value).buildPartial();
-            } else {
-              reviewQueue_ = value;
-            }
-            onChanged();
-          } else {
-            reviewQueueBuilder_.mergeFrom(value);
-          }
-          bitField0_ |= 0x00000001;
-          return this;
-        }
-        /**
-         * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-         */
-        public Builder clearReviewQueue() {
-          if (reviewQueueBuilder_ == null) {
-            reviewQueue_ = null;
-            onChanged();
-          } else {
-            reviewQueueBuilder_.clear();
-          }
-          bitField0_ = (bitField0_ & ~0x00000001);
-          return this;
-        }
-        /**
-         * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-         */
-        public org.mlflow.api.proto.ReviewQueues.ReviewQueue.Builder getReviewQueueBuilder() {
-          bitField0_ |= 0x00000001;
-          onChanged();
-          return getReviewQueueFieldBuilder().getBuilder();
-        }
-        /**
-         * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-         */
-        public org.mlflow.api.proto.ReviewQueues.ReviewQueueOrBuilder getReviewQueueOrBuilder() {
-          if (reviewQueueBuilder_ != null) {
-            return reviewQueueBuilder_.getMessageOrBuilder();
-          } else {
-            return reviewQueue_ == null ?
-                org.mlflow.api.proto.ReviewQueues.ReviewQueue.getDefaultInstance() : reviewQueue_;
-          }
-        }
-        /**
-         * <code>optional .mlflow.review_queues.ReviewQueue review_queue = 1;</code>
-         */
-        private com.google.protobuf.SingleFieldBuilderV3<
-            org.mlflow.api.proto.ReviewQueues.ReviewQueue, org.mlflow.api.proto.ReviewQueues.ReviewQueue.Builder, org.mlflow.api.proto.ReviewQueues.ReviewQueueOrBuilder> 
-            getReviewQueueFieldBuilder() {
-          if (reviewQueueBuilder_ == null) {
-            reviewQueueBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-                org.mlflow.api.proto.ReviewQueues.ReviewQueue, org.mlflow.api.proto.ReviewQueues.ReviewQueue.Builder, org.mlflow.api.proto.ReviewQueues.ReviewQueueOrBuilder>(
-                    getReviewQueue(),
-                    getParentForChildren(),
-                    isClean());
-            reviewQueue_ = null;
-          }
-          return reviewQueueBuilder_;
-        }
-        @java.lang.Override
-        public final Builder setUnknownFields(
-            final com.google.protobuf.UnknownFieldSet unknownFields) {
-          return super.setUnknownFields(unknownFields);
-        }
-
-        @java.lang.Override
-        public final Builder mergeUnknownFields(
-            final com.google.protobuf.UnknownFieldSet unknownFields) {
-          return super.mergeUnknownFields(unknownFields);
-        }
-
-
-        // @@protoc_insertion_point(builder_scope:mlflow.review_queues.ChangeReviewQueueOwner.Response)
-      }
-
-      // @@protoc_insertion_point(class_scope:mlflow.review_queues.ChangeReviewQueueOwner.Response)
-      private static final org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response DEFAULT_INSTANCE;
-      static {
-        DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response();
-      }
-
-      public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response getDefaultInstance() {
-        return DEFAULT_INSTANCE;
-      }
-
-      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
-          PARSER = new com.google.protobuf.AbstractParser<Response>() {
-        @java.lang.Override
-        public Response parsePartialFrom(
-            com.google.protobuf.CodedInputStream input,
-            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-            throws com.google.protobuf.InvalidProtocolBufferException {
-          return new Response(input, extensionRegistry);
-        }
-      };
-
-      public static com.google.protobuf.Parser<Response> parser() {
-        return PARSER;
-      }
-
-      @java.lang.Override
-      public com.google.protobuf.Parser<Response> getParserForType() {
-        return PARSER;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Response getDefaultInstanceForType() {
-        return DEFAULT_INSTANCE;
-      }
-
-    }
-
-    private int bitField0_;
-    public static final int QUEUE_ID_FIELD_NUMBER = 1;
-    private volatile java.lang.Object queueId_;
-    /**
-     * <code>optional string queue_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the queueId field is set.
-     */
-    @java.lang.Override
-    public boolean hasQueueId() {
-      return ((bitField0_ & 0x00000001) != 0);
-    }
-    /**
-     * <code>optional string queue_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The queueId.
-     */
-    @java.lang.Override
-    public java.lang.String getQueueId() {
-      java.lang.Object ref = queueId_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          queueId_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <code>optional string queue_id = 1 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for queueId.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getQueueIdBytes() {
-      java.lang.Object ref = queueId_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        queueId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int NEW_OWNER_FIELD_NUMBER = 2;
-    private volatile java.lang.Object newOwner_;
-    /**
-     * <code>optional string new_owner = 2 [(.mlflow.validate_required) = true];</code>
-     * @return Whether the newOwner field is set.
-     */
-    @java.lang.Override
-    public boolean hasNewOwner() {
-      return ((bitField0_ & 0x00000002) != 0);
-    }
-    /**
-     * <code>optional string new_owner = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The newOwner.
-     */
-    @java.lang.Override
-    public java.lang.String getNewOwner() {
-      java.lang.Object ref = newOwner_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          newOwner_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <code>optional string new_owner = 2 [(.mlflow.validate_required) = true];</code>
-     * @return The bytes for newOwner.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getNewOwnerBytes() {
-      java.lang.Object ref = newOwner_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        newOwner_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    private byte memoizedIsInitialized = -1;
-    @java.lang.Override
-    public final boolean isInitialized() {
-      byte isInitialized = memoizedIsInitialized;
-      if (isInitialized == 1) return true;
-      if (isInitialized == 0) return false;
-
-      memoizedIsInitialized = 1;
-      return true;
-    }
-
-    @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output)
-                        throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, queueId_);
-      }
-      if (((bitField0_ & 0x00000002) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, newOwner_);
-      }
-      unknownFields.writeTo(output);
-    }
-
-    @java.lang.Override
-    public int getSerializedSize() {
-      int size = memoizedSize;
-      if (size != -1) return size;
-
-      size = 0;
-      if (((bitField0_ & 0x00000001) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, queueId_);
-      }
-      if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, newOwner_);
-      }
-      size += unknownFields.getSerializedSize();
-      memoizedSize = size;
-      return size;
-    }
-
-    @java.lang.Override
-    public boolean equals(final java.lang.Object obj) {
-      if (obj == this) {
-       return true;
-      }
-      if (!(obj instanceof org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner)) {
-        return super.equals(obj);
-      }
-      org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner other = (org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner) obj;
-
-      if (hasQueueId() != other.hasQueueId()) return false;
-      if (hasQueueId()) {
-        if (!getQueueId()
-            .equals(other.getQueueId())) return false;
-      }
-      if (hasNewOwner() != other.hasNewOwner()) return false;
-      if (hasNewOwner()) {
-        if (!getNewOwner()
-            .equals(other.getNewOwner())) return false;
-      }
-      if (!unknownFields.equals(other.unknownFields)) return false;
-      return true;
-    }
-
-    @java.lang.Override
-    public int hashCode() {
-      if (memoizedHashCode != 0) {
-        return memoizedHashCode;
-      }
-      int hash = 41;
-      hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasQueueId()) {
-        hash = (37 * hash) + QUEUE_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getQueueId().hashCode();
-      }
-      if (hasNewOwner()) {
-        hash = (37 * hash) + NEW_OWNER_FIELD_NUMBER;
-        hash = (53 * hash) + getNewOwner().hashCode();
-      }
-      hash = (29 * hash) + unknownFields.hashCode();
-      memoizedHashCode = hash;
-      return hash;
-    }
-
-    public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner parseFrom(
-        java.nio.ByteBuffer data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner parseFrom(
-        java.nio.ByteBuffer data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner parseFrom(
-        com.google.protobuf.ByteString data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner parseFrom(
-        com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner parseFrom(byte[] data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner parseFrom(
-        byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner parseFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner parseFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner parseDelimitedFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner parseDelimitedFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner parseFrom(
-        com.google.protobuf.CodedInputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner parseFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-
-    @java.lang.Override
-    public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder() {
-      return DEFAULT_INSTANCE.toBuilder();
-    }
-    public static Builder newBuilder(org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner prototype) {
-      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-    }
-    @java.lang.Override
-    public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE
-          ? new Builder() : new Builder().mergeFrom(this);
-    }
-
-    @java.lang.Override
-    protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-      Builder builder = new Builder(parent);
-      return builder;
-    }
-    /**
-     * <pre>
-     * Reassign a CUSTOM queue's owner (`created_by`). MANAGE-gated; USER queues
-     * reject this RPC (their owner is the fixed assigned user). The new owner gains
-     * owner-level privileges only if they also hold experiment EDIT.
-     * </pre>
-     *
-     * Protobuf type {@code mlflow.review_queues.ChangeReviewQueueOwner}
-     */
-    public static final class Builder extends
-        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.review_queues.ChangeReviewQueueOwner)
-        org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwnerOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor
-          getDescriptor() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ChangeReviewQueueOwner_descriptor;
-      }
-
-      @java.lang.Override
-      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-          internalGetFieldAccessorTable() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ChangeReviewQueueOwner_fieldAccessorTable
-            .ensureFieldAccessorsInitialized(
-                org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.class, org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.Builder.class);
-      }
-
-      // Construct using org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.newBuilder()
-      private Builder() {
-        maybeForceBuilderInitialization();
-      }
-
-      private Builder(
-          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
-        maybeForceBuilderInitialization();
-      }
-      private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessageV3
-                .alwaysUseFieldBuilders) {
-        }
-      }
-      @java.lang.Override
-      public Builder clear() {
-        super.clear();
-        queueId_ = "";
-        bitField0_ = (bitField0_ & ~0x00000001);
-        newOwner_ = "";
-        bitField0_ = (bitField0_ & ~0x00000002);
-        return this;
-      }
-
-      @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor
-          getDescriptorForType() {
-        return org.mlflow.api.proto.ReviewQueues.internal_static_mlflow_review_queues_ChangeReviewQueueOwner_descriptor;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner getDefaultInstanceForType() {
-        return org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.getDefaultInstance();
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner build() {
-        org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner result = buildPartial();
-        if (!result.isInitialized()) {
-          throw newUninitializedMessageException(result);
-        }
-        return result;
-      }
-
-      @java.lang.Override
-      public org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner buildPartial() {
-        org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner result = new org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner(this);
-        int from_bitField0_ = bitField0_;
-        int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) != 0)) {
-          to_bitField0_ |= 0x00000001;
-        }
-        result.queueId_ = queueId_;
-        if (((from_bitField0_ & 0x00000002) != 0)) {
-          to_bitField0_ |= 0x00000002;
-        }
-        result.newOwner_ = newOwner_;
-        result.bitField0_ = to_bitField0_;
-        onBuilt();
-        return result;
-      }
-
-      @java.lang.Override
-      public Builder clone() {
-        return super.clone();
-      }
-      @java.lang.Override
-      public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return super.setField(field, value);
-      }
-      @java.lang.Override
-      public Builder clearField(
-          com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return super.clearField(field);
-      }
-      @java.lang.Override
-      public Builder clearOneof(
-          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return super.clearOneof(oneof);
-      }
-      @java.lang.Override
-      public Builder setRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index, java.lang.Object value) {
-        return super.setRepeatedField(field, index, value);
-      }
-      @java.lang.Override
-      public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return super.addRepeatedField(field, value);
-      }
-      @java.lang.Override
-      public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner) {
-          return mergeFrom((org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner)other);
-        } else {
-          super.mergeFrom(other);
-          return this;
-        }
-      }
-
-      public Builder mergeFrom(org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner other) {
-        if (other == org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner.getDefaultInstance()) return this;
-        if (other.hasQueueId()) {
-          bitField0_ |= 0x00000001;
-          queueId_ = other.queueId_;
-          onChanged();
-        }
-        if (other.hasNewOwner()) {
-          bitField0_ |= 0x00000002;
-          newOwner_ = other.newOwner_;
-          onChanged();
-        }
-        this.mergeUnknownFields(other.unknownFields);
-        onChanged();
-        return this;
-      }
-
-      @java.lang.Override
-      public final boolean isInitialized() {
-        return true;
-      }
-
-      @java.lang.Override
-      public Builder mergeFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner parsedMessage = null;
-        try {
-          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner) e.getUnfinishedMessage();
-          throw e.unwrapIOException();
-        } finally {
-          if (parsedMessage != null) {
-            mergeFrom(parsedMessage);
-          }
-        }
-        return this;
-      }
-      private int bitField0_;
-
-      private java.lang.Object queueId_ = "";
-      /**
-       * <code>optional string queue_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @return Whether the queueId field is set.
-       */
-      public boolean hasQueueId() {
-        return ((bitField0_ & 0x00000001) != 0);
-      }
-      /**
-       * <code>optional string queue_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @return The queueId.
-       */
-      public java.lang.String getQueueId() {
-        java.lang.Object ref = queueId_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            queueId_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <code>optional string queue_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @return The bytes for queueId.
-       */
-      public com.google.protobuf.ByteString
-          getQueueIdBytes() {
-        java.lang.Object ref = queueId_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          queueId_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <code>optional string queue_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @param value The queueId to set.
-       * @return This builder for chaining.
-       */
-      public Builder setQueueId(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        queueId_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string queue_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearQueueId() {
-        bitField0_ = (bitField0_ & ~0x00000001);
-        queueId_ = getDefaultInstance().getQueueId();
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string queue_id = 1 [(.mlflow.validate_required) = true];</code>
-       * @param value The bytes for queueId to set.
-       * @return This builder for chaining.
-       */
-      public Builder setQueueIdBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000001;
-        queueId_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object newOwner_ = "";
-      /**
-       * <code>optional string new_owner = 2 [(.mlflow.validate_required) = true];</code>
-       * @return Whether the newOwner field is set.
-       */
-      public boolean hasNewOwner() {
-        return ((bitField0_ & 0x00000002) != 0);
-      }
-      /**
-       * <code>optional string new_owner = 2 [(.mlflow.validate_required) = true];</code>
-       * @return The newOwner.
-       */
-      public java.lang.String getNewOwner() {
-        java.lang.Object ref = newOwner_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            newOwner_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <code>optional string new_owner = 2 [(.mlflow.validate_required) = true];</code>
-       * @return The bytes for newOwner.
-       */
-      public com.google.protobuf.ByteString
-          getNewOwnerBytes() {
-        java.lang.Object ref = newOwner_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          newOwner_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <code>optional string new_owner = 2 [(.mlflow.validate_required) = true];</code>
-       * @param value The newOwner to set.
-       * @return This builder for chaining.
-       */
-      public Builder setNewOwner(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        newOwner_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string new_owner = 2 [(.mlflow.validate_required) = true];</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearNewOwner() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        newOwner_ = getDefaultInstance().getNewOwner();
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string new_owner = 2 [(.mlflow.validate_required) = true];</code>
-       * @param value The bytes for newOwner to set.
-       * @return This builder for chaining.
-       */
-      public Builder setNewOwnerBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        newOwner_ = value;
-        onChanged();
-        return this;
-      }
-      @java.lang.Override
-      public final Builder setUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.setUnknownFields(unknownFields);
-      }
-
-      @java.lang.Override
-      public final Builder mergeUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.mergeUnknownFields(unknownFields);
-      }
-
-
-      // @@protoc_insertion_point(builder_scope:mlflow.review_queues.ChangeReviewQueueOwner)
-    }
-
-    // @@protoc_insertion_point(class_scope:mlflow.review_queues.ChangeReviewQueueOwner)
-    private static final org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner DEFAULT_INSTANCE;
-    static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner();
-    }
-
-    public static org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner getDefaultInstance() {
-      return DEFAULT_INSTANCE;
-    }
-
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<ChangeReviewQueueOwner>
-        PARSER = new com.google.protobuf.AbstractParser<ChangeReviewQueueOwner>() {
-      @java.lang.Override
-      public ChangeReviewQueueOwner parsePartialFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return new ChangeReviewQueueOwner(input, extensionRegistry);
-      }
-    };
-
-    public static com.google.protobuf.Parser<ChangeReviewQueueOwner> parser() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public com.google.protobuf.Parser<ChangeReviewQueueOwner> getParserForType() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public org.mlflow.api.proto.ReviewQueues.ChangeReviewQueueOwner getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
@@ -24195,16 +22847,6 @@ public final class ReviewQueues {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_review_queues_UpdateReviewQueue_Response_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_review_queues_ChangeReviewQueueOwner_descriptor;
-  private static final 
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_review_queues_ChangeReviewQueueOwner_fieldAccessorTable;
-  private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_review_queues_ChangeReviewQueueOwner_Response_descriptor;
-  private static final 
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_review_queues_ChangeReviewQueueOwner_Response_fieldAccessorTable;
-  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_review_queues_DeleteReviewQueue_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -24306,50 +22948,45 @@ public final class ReviewQueues {
       "es\030\001 \003(\0132!.mlflow.review_queues.ReviewQu" +
       "eue\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.d" +
       "atabricks.rpc.RPC[$this.Response]J\004\010\005\020\006R" +
-      "\016ensure_default\"\224\002\n\021UpdateReviewQueue\022\026\n" +
+      "\016ensure_default\"\222\002\n\021UpdateReviewQueue\022\026\n" +
       "\010queue_id\030\001 \001(\tB\004\370\206\031\001\022\024\n\014update_users\030\002 " +
       "\001(\010\022\r\n\005users\030\003 \003(\t\022\031\n\021update_schema_ids\030" +
-      "\004 \001(\010\022\022\n\nschema_ids\030\005 \003(\t\022\023\n\013update_name" +
-      "\030\006 \001(\010\022\014\n\004name\030\007 \001(\t\032C\n\010Response\0227\n\014revi" +
-      "ew_queue\030\001 \001(\0132!.mlflow.review_queues.Re" +
-      "viewQueue:+\342?(\n&com.databricks.rpc.RPC[$" +
-      "this.Response]\"\273\001\n\026ChangeReviewQueueOwne" +
-      "r\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\022\027\n\tnew_owner\030\002" +
-      " \001(\tB\004\370\206\031\001\032C\n\010Response\0227\n\014review_queue\030\001" +
-      " \001(\0132!.mlflow.review_queues.ReviewQueue:" +
-      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
-      "nse]\"d\n\021DeleteReviewQueue\022\026\n\010queue_id\030\001 " +
-      "\001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databric" +
-      "ks.rpc.RPC[$this.Response]\"\351\001\n\025AddItemsT" +
-      "oReviewQueue\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\0227\n\t" +
-      "item_type\030\002 \001(\0162$.mlflow.review_queues.R" +
-      "eviewItemType\022\020\n\010item_ids\030\003 \003(\t\032@\n\010Respo" +
-      "nse\0224\n\005items\030\001 \003(\0132%.mlflow.review_queue" +
-      "s.ReviewQueueItem:+\342?(\n&com.databricks.r" +
-      "pc.RPC[$this.Response]\"\177\n\032RemoveItemsFro" +
-      "mReviewQueue\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\022\020\n\010" +
-      "item_ids\030\002 \003(\t\032\n\n\010Response:+\342?(\n&com.dat" +
-      "abricks.rpc.RPC[$this.Response]\"\223\002\n\024List" +
-      "ReviewQueueItems\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001" +
-      "\0222\n\006status\030\002 \001(\0162\".mlflow.review_queues." +
-      "ReviewStatus\022\023\n\013max_results\030\003 \001(\005\022\022\n\npag" +
-      "e_token\030\004 \001(\t\032Y\n\010Response\0224\n\005items\030\001 \003(\013" +
-      "2%.mlflow.review_queues.ReviewQueueItem\022" +
-      "\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.datab" +
-      "ricks.rpc.RPC[$this.Response]\"\207\002\n\030SetRev" +
-      "iewQueueItemStatus\022\026\n\010queue_id\030\001 \001(\tB\004\370\206" +
-      "\031\001\022\025\n\007item_id\030\002 \001(\tB\004\370\206\031\001\0228\n\006status\030\003 \001(" +
-      "\0162\".mlflow.review_queues.ReviewStatusB\004\370" +
-      "\206\031\001\022\024\n\014completed_by\030\004 \001(\t\032?\n\010Response\0223\n" +
-      "\004item\030\001 \001(\0132%.mlflow.review_queues.Revie" +
-      "wQueueItem:+\342?(\n&com.databricks.rpc.RPC[" +
-      "$this.Response]*=\n\016ReviewItemType\022 \n\034REV" +
-      "IEW_ITEM_TYPE_UNSPECIFIED\020\000\022\t\n\005TRACE\020\001*J" +
-      "\n\017ReviewQueueType\022!\n\035REVIEW_QUEUE_TYPE_U" +
-      "NSPECIFIED\020\000\022\010\n\004USER\020\001\022\n\n\006CUSTOM\020\002*V\n\014Re" +
-      "viewStatus\022\035\n\031REVIEW_STATUS_UNSPECIFIED\020" +
-      "\000\022\013\n\007PENDING\020\001\022\014\n\010COMPLETE\020\002\022\014\n\010DECLINED" +
-      "\020\003B\031\n\024org.mlflow.api.proto\220\001\001"
+      "\004 \001(\010\022\022\n\nschema_ids\030\005 \003(\t\022\014\n\004name\030\006 \001(\t\022" +
+      "\021\n\tnew_owner\030\007 \001(\t\032C\n\010Response\0227\n\014review" +
+      "_queue\030\001 \001(\0132!.mlflow.review_queues.Revi" +
+      "ewQueue:+\342?(\n&com.databricks.rpc.RPC[$th" +
+      "is.Response]\"d\n\021DeleteReviewQueue\022\026\n\010que" +
+      "ue_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]\"\351\001\n\025A" +
+      "ddItemsToReviewQueue\022\026\n\010queue_id\030\001 \001(\tB\004" +
+      "\370\206\031\001\0227\n\titem_type\030\002 \001(\0162$.mlflow.review_" +
+      "queues.ReviewItemType\022\020\n\010item_ids\030\003 \003(\t\032" +
+      "@\n\010Response\0224\n\005items\030\001 \003(\0132%.mlflow.revi" +
+      "ew_queues.ReviewQueueItem:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\"\177\n\032Remove" +
+      "ItemsFromReviewQueue\022\026\n\010queue_id\030\001 \001(\tB\004" +
+      "\370\206\031\001\022\020\n\010item_ids\030\002 \003(\t\032\n\n\010Response:+\342?(\n" +
+      "&com.databricks.rpc.RPC[$this.Response]\"" +
+      "\223\002\n\024ListReviewQueueItems\022\026\n\010queue_id\030\001 \001" +
+      "(\tB\004\370\206\031\001\0222\n\006status\030\002 \001(\0162\".mlflow.review" +
+      "_queues.ReviewStatus\022\023\n\013max_results\030\003 \001(" +
+      "\005\022\022\n\npage_token\030\004 \001(\t\032Y\n\010Response\0224\n\005ite" +
+      "ms\030\001 \003(\0132%.mlflow.review_queues.ReviewQu" +
+      "eueItem\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"\207\002" +
+      "\n\030SetReviewQueueItemStatus\022\026\n\010queue_id\030\001" +
+      " \001(\tB\004\370\206\031\001\022\025\n\007item_id\030\002 \001(\tB\004\370\206\031\001\0228\n\006sta" +
+      "tus\030\003 \001(\0162\".mlflow.review_queues.ReviewS" +
+      "tatusB\004\370\206\031\001\022\024\n\014completed_by\030\004 \001(\t\032?\n\010Res" +
+      "ponse\0223\n\004item\030\001 \001(\0132%.mlflow.review_queu" +
+      "es.ReviewQueueItem:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]*=\n\016ReviewItemTyp" +
+      "e\022 \n\034REVIEW_ITEM_TYPE_UNSPECIFIED\020\000\022\t\n\005T" +
+      "RACE\020\001*J\n\017ReviewQueueType\022!\n\035REVIEW_QUEU" +
+      "E_TYPE_UNSPECIFIED\020\000\022\010\n\004USER\020\001\022\n\n\006CUSTOM" +
+      "\020\002*V\n\014ReviewStatus\022\035\n\031REVIEW_STATUS_UNSP" +
+      "ECIFIED\020\000\022\013\n\007PENDING\020\001\022\014\n\010COMPLETE\020\002\022\014\n\010" +
+      "DECLINED\020\003B\031\n\024org.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -24434,27 +23071,15 @@ public final class ReviewQueues {
     internal_static_mlflow_review_queues_UpdateReviewQueue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_review_queues_UpdateReviewQueue_descriptor,
-        new java.lang.String[] { "QueueId", "UpdateUsers", "Users", "UpdateSchemaIds", "SchemaIds", "UpdateName", "Name", });
+        new java.lang.String[] { "QueueId", "UpdateUsers", "Users", "UpdateSchemaIds", "SchemaIds", "Name", "NewOwner", });
     internal_static_mlflow_review_queues_UpdateReviewQueue_Response_descriptor =
       internal_static_mlflow_review_queues_UpdateReviewQueue_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_review_queues_UpdateReviewQueue_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_review_queues_UpdateReviewQueue_Response_descriptor,
         new java.lang.String[] { "ReviewQueue", });
-    internal_static_mlflow_review_queues_ChangeReviewQueueOwner_descriptor =
-      getDescriptor().getMessageTypes().get(8);
-    internal_static_mlflow_review_queues_ChangeReviewQueueOwner_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_review_queues_ChangeReviewQueueOwner_descriptor,
-        new java.lang.String[] { "QueueId", "NewOwner", });
-    internal_static_mlflow_review_queues_ChangeReviewQueueOwner_Response_descriptor =
-      internal_static_mlflow_review_queues_ChangeReviewQueueOwner_descriptor.getNestedTypes().get(0);
-    internal_static_mlflow_review_queues_ChangeReviewQueueOwner_Response_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_review_queues_ChangeReviewQueueOwner_Response_descriptor,
-        new java.lang.String[] { "ReviewQueue", });
     internal_static_mlflow_review_queues_DeleteReviewQueue_descriptor =
-      getDescriptor().getMessageTypes().get(9);
+      getDescriptor().getMessageTypes().get(8);
     internal_static_mlflow_review_queues_DeleteReviewQueue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_review_queues_DeleteReviewQueue_descriptor,
@@ -24466,7 +23091,7 @@ public final class ReviewQueues {
         internal_static_mlflow_review_queues_DeleteReviewQueue_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_review_queues_AddItemsToReviewQueue_descriptor =
-      getDescriptor().getMessageTypes().get(10);
+      getDescriptor().getMessageTypes().get(9);
     internal_static_mlflow_review_queues_AddItemsToReviewQueue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_review_queues_AddItemsToReviewQueue_descriptor,
@@ -24478,7 +23103,7 @@ public final class ReviewQueues {
         internal_static_mlflow_review_queues_AddItemsToReviewQueue_Response_descriptor,
         new java.lang.String[] { "Items", });
     internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_descriptor =
-      getDescriptor().getMessageTypes().get(11);
+      getDescriptor().getMessageTypes().get(10);
     internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_descriptor,
@@ -24490,7 +23115,7 @@ public final class ReviewQueues {
         internal_static_mlflow_review_queues_RemoveItemsFromReviewQueue_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_review_queues_ListReviewQueueItems_descriptor =
-      getDescriptor().getMessageTypes().get(12);
+      getDescriptor().getMessageTypes().get(11);
     internal_static_mlflow_review_queues_ListReviewQueueItems_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_review_queues_ListReviewQueueItems_descriptor,
@@ -24502,7 +23127,7 @@ public final class ReviewQueues {
         internal_static_mlflow_review_queues_ListReviewQueueItems_Response_descriptor,
         new java.lang.String[] { "Items", "NextPageToken", });
     internal_static_mlflow_review_queues_SetReviewQueueItemStatus_descriptor =
-      getDescriptor().getMessageTypes().get(13);
+      getDescriptor().getMessageTypes().get(12);
     internal_static_mlflow_review_queues_SetReviewQueueItemStatus_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_review_queues_SetReviewQueueItemStatus_descriptor,
