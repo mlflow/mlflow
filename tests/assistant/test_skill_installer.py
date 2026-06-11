@@ -1,3 +1,5 @@
+from unittest import mock
+
 from mlflow.assistant.skill_installer import (
     install_skills,
     list_bundled_skills,
@@ -46,6 +48,15 @@ def test_list_installed_skills_nonexistent_path(tmp_path):
     nonexistent = tmp_path / "does-not-exist"
     skills = list_installed_skills(nonexistent)
     assert skills == []
+
+
+def test_list_bundled_skills_returns_empty_when_package_missing():
+    with mock.patch(
+        "mlflow.assistant.skill_installer.resources.files",
+        side_effect=ModuleNotFoundError,
+    ) as mock_files:
+        assert list_bundled_skills() == []
+    mock_files.assert_called_once()
 
 
 def test_list_bundled_skills():

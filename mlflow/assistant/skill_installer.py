@@ -33,10 +33,14 @@ def list_bundled_skills() -> list[BundledSkill]:
     Skills live in the ``mlflow.assistant.skills`` package.
 
     Returns:
-        Skills sorted by name. Empty when the submodule is not checked out
-        (e.g. a development clone without ``git submodule update --init``).
+        Skills sorted by name. Empty when the package is not importable or the
+        submodule is not checked out (e.g. a development clone without
+        ``git submodule update --init``).
     """
-    skills_pkg = resources.files(SKILLS_PACKAGE)
+    try:
+        skills_pkg = resources.files(SKILLS_PACKAGE)
+    except ModuleNotFoundError:
+        return []
     skills = []
     for item in skills_pkg.iterdir():
         if not item.is_dir():

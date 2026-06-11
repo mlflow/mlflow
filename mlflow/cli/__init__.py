@@ -1353,9 +1353,12 @@ from mlflow.cli.demo import demo
 cli.add_command(demo)
 
 # Add skills CLI command
-from mlflow.cli import skills
+try:
+    from mlflow.cli import skills
 
-cli.add_command(skills.commands)
+    cli.add_command(skills.commands)
+except ImportError:
+    pass
 
 # Add AI commands CLI
 cli.add_command(ai_commands.commands)
