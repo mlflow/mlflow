@@ -64,9 +64,7 @@ describe('ReviewQueueList', () => {
 
   it('shows an "Add traces" CTA in the empty state that calls onGoToTraces', () => {
     const onGoToTraces = jest.fn();
-    renderWithProviders(
-      <ReviewQueueList items={[]} onOpen={jest.fn()} nowMs={NOW} onGoToTraces={onGoToTraces} />,
-    );
+    renderWithProviders(<ReviewQueueList items={[]} onOpen={jest.fn()} nowMs={NOW} onGoToTraces={onGoToTraces} />);
     fireEvent.click(screen.getByText('Add traces'));
     expect(onGoToTraces).toHaveBeenCalledTimes(1);
   });

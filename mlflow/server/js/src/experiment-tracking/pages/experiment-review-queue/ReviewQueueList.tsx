@@ -302,7 +302,10 @@ export const ReviewQueueList = ({
       {items.length === 0 ? (
         <ReviewQueueEmptyState
           title={
-            <FormattedMessage defaultMessage="No traces in this queue yet" description="Review queue: empty queue title" />
+            <FormattedMessage
+              defaultMessage="No traces in this queue yet"
+              description="Review queue: empty queue title"
+            />
           }
           description={
             <FormattedMessage

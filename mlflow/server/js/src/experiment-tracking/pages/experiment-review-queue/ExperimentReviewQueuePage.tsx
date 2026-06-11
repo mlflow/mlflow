@@ -353,7 +353,11 @@ const ExperimentReviewQueuePage = () => {
         onGoToTraces={
           experimentId
             ? () =>
-                window.open(`/#${Routes.getExperimentPageTracesTabRoute(experimentId)}`, '_blank', 'noopener,noreferrer')
+                window.open(
+                  `/#${Routes.getExperimentPageTracesTabRoute(experimentId)}`,
+                  '_blank',
+                  'noopener,noreferrer',
+                )
             : undefined
         }
       />
