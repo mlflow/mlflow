@@ -57,10 +57,12 @@ def _setup(
     )
 
 
-def test_review_queue_has_member_is_case_insensitive():
-    queue = SimpleNamespace(users=["Alice", " Bob "])
-    assert auth._review_queue_has_member(queue, "alice")
-    assert auth._review_queue_has_member(queue, "BOB")
+def test_review_queue_has_member_normalizes_incoming_username():
+    # Assigned users are normalized (lowercased + stripped) at write time, so the
+    # helper normalizes only the incoming username and matches it directly.
+    queue = SimpleNamespace(users=["alice", "bob"])
+    assert auth._review_queue_has_member(queue, "Alice")
+    assert auth._review_queue_has_member(queue, " BOB ")
     assert not auth._review_queue_has_member(queue, "carol")
     assert not auth._review_queue_has_member(SimpleNamespace(users=[]), "alice")
 
