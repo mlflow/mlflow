@@ -90,6 +90,7 @@ from mlflow.genai.judges.instructions_judge import (
     EXPECTATIONS_FIELD,
     InstructionsJudge,
 )
+from mlflow.genai.review_queues import ReviewItemType
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.entities import (
     CompletedSession,
@@ -4277,8 +4278,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         its queue and any review submitted for it fails on the assessments
         foreign key (surfacing the raw SQL error to the reviewer).
         """
-        from mlflow.genai.review_queues import ReviewItemType
-
         if not trace_ids:
             return
         (
