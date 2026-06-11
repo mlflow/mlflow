@@ -466,14 +466,14 @@ def test_update_rename_user_queue_raises(store):
 
 
 # --------------------------------------------------------------------------
-# Change owner
+# Owner reassignment (via update_review_queue new_owner)
 # --------------------------------------------------------------------------
 
 
 def test_change_owner_reassigns_custom_queue(store):
     exp_id = _create_experiments(store, "chown")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom", created_by="alice")
-    updated = store.change_review_queue_owner(queue.queue_id, new_owner="bob")
+    updated = store.update_review_queue(queue.queue_id, new_owner="bob")
     assert updated.created_by == "bob"
     assert store.get_review_queue(queue.queue_id).created_by == "bob"
 
@@ -481,22 +481,35 @@ def test_change_owner_reassigns_custom_queue(store):
 def test_change_owner_preserves_case(store):
     exp_id = _create_experiments(store, "chown_case")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
-    updated = store.change_review_queue_owner(queue.queue_id, new_owner="  Bob  ")
+    updated = store.update_review_queue(queue.queue_id, new_owner="  Bob  ")
     # Stripped but case-preserved (owner matching is case-insensitive elsewhere).
     assert updated.created_by == "Bob"
+
+
+def test_change_owner_leaves_associations_untouched(store):
+    exp_id = _create_experiments(store, "chown_partial")
+    ls = _pass_fail(store, exp_id, "quality")
+    queue = store.create_review_queue(
+        exp_id, name="q", queue_type="custom", users=["bob"], schema_ids=[ls.schema_id]
+    )
+    updated = store.update_review_queue(queue.queue_id, new_owner="carol")
+    assert updated.created_by == "carol"
+    assert updated.name == "q"
+    assert updated.users == ["bob"]
+    assert updated.schema_ids == [ls.schema_id]
 
 
 def test_change_owner_user_queue_raises(store):
     exp_id = _create_experiments(store, "chown_user")
     queue = store.create_review_queue(exp_id, name="alice", queue_type="user")
-    with pytest.raises(MlflowException, match="owner is its assigned user") as exc:
-        store.change_review_queue_owner(queue.queue_id, new_owner="bob")
+    with pytest.raises(MlflowException, match="fixed and cannot be updated") as exc:
+        store.update_review_queue(queue.queue_id, new_owner="bob")
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
 
 
 def test_change_owner_missing_queue_raises(store):
     with pytest.raises(MlflowException, match="not found") as exc:
-        store.change_review_queue_owner("rq-missing", new_owner="bob")
+        store.update_review_queue("rq-missing", new_owner="bob")
     _assert_error_code(exc, RESOURCE_DOES_NOT_EXIST)
 
 
@@ -504,7 +517,7 @@ def test_change_owner_rejects_empty(store):
     exp_id = _create_experiments(store, "chown_empty")
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
     with pytest.raises(MlflowException, match="non-empty string") as exc:
-        store.change_review_queue_owner(queue.queue_id, new_owner="   ")
+        store.update_review_queue(queue.queue_id, new_owner="   ")
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
 
 
