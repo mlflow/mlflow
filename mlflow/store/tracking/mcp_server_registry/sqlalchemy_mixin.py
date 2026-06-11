@@ -359,7 +359,20 @@ class SqlAlchemyMCPServerRegistryMixin:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
 
-        sv = (
+        sv = self._latest_eligible_version_query(session, server_name).first()
+        if not sv:
+            raise MlflowException(
+                f"No eligible latest version found for MCP server '{server_name}'",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return sv
+
+    def get_latest_mcp_server_version(self, name: str) -> MCPServerVersion:
+        with self.ManagedSessionMaker() as session:
+            return self._resolve_latest_version_orm(session, name).to_mlflow_entity()
+
+    def _latest_eligible_version_query(self, session, server_name: str):
+        return (
             self
             ._mcp_server_version_query(session)
             .filter(
@@ -373,33 +386,11 @@ class SqlAlchemyMCPServerRegistryMixin:
                 SqlMCPServerVersion.created_at.desc(),
                 SqlMCPServerVersion.version.desc(),
             )
-            .first()
         )
-        if not sv:
-            raise MlflowException(
-                f"No eligible latest version found for MCP server '{server_name}'",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
-        return sv
-
-    def get_latest_mcp_server_version(self, name: str) -> MCPServerVersion:
-        with self.ManagedSessionMaker() as session:
-            return self._resolve_latest_version_orm(session, name).to_mlflow_entity()
 
     def _delete_latest_alias_bindings_if_unresolvable(self, session, server_name: str) -> None:
         """Delete "latest" bindings when no eligible target version remains."""
-        remaining_versions = (
-            self
-            ._get_query(session, SqlMCPServerVersion)
-            .filter(
-                SqlMCPServerVersion.name == server_name,
-                SqlMCPServerVersion.status.notin_([
-                    MCPStatus.DRAFT.value,
-                    MCPStatus.DELETED.value,
-                ]),
-            )
-            .first()
-        )
+        remaining_versions = self._latest_eligible_version_query(session, server_name).first()
         if not remaining_versions:
             (
                 self
