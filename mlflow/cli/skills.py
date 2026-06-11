@@ -7,7 +7,7 @@ from mlflow.assistant.skill_installer import list_bundled_skills
 
 @click.group("skills")
 def commands():
-    """Inspect the MLflow Assistant skills bundled with this installation."""
+    """Inspect the MLflow skills bundled with this installation."""
 
 
 @commands.command("list")
