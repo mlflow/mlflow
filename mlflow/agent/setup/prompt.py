@@ -34,6 +34,7 @@ def build_prompt(
     tracking_uri: str,
     *,
     local_server_port: int | None = None,
+    experiment_id: str | None = None,
     skills_installed: bool = True,
 ) -> str:
     """Compose the first user message handed to the agent.
@@ -46,6 +47,9 @@ def build_prompt(
     When ``local_server_port`` is not ``None``, the CLI picked it and built
     ``tracking_uri = http://127.0.0.1:<port>``; the agent is instructed to
     start a local MLflow server on that port.
+
+    When ``tracking_uri == "databricks"``, ``experiment_id`` is the workspace
+    experiment ID and the Databricks-specific setup block is injected.
 
     When ``skills_installed`` is ``False``, ``{{ skills_dir }}`` is
     redirected to the bundled skill location inside the MLflow install so
@@ -78,6 +82,17 @@ def build_prompt(
             _read_template("local-server.md"),
             tracking_uri=tracking_uri,
             port=str(local_server_port),
+        )
+    elif tracking_uri == "databricks" or tracking_uri.startswith("databricks://"):
+        if not experiment_id:
+            raise ValueError("experiment_id is required when tracking_uri is 'databricks'.")
+        profile = tracking_uri.removeprefix("databricks://") if "://" in tracking_uri else ""
+        workspace_client_args = f'profile="{profile}"' if profile else ""
+        server_setup = _render(
+            _read_template("databricks.md"),
+            tracking_uri=tracking_uri,
+            experiment_id=experiment_id,
+            workspace_client_args=workspace_client_args,
         )
     else:
         server_setup = ""

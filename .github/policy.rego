@@ -446,7 +446,9 @@ has_explicit_fail_fast(strategy) if {
 deny_mutable_install contains msg if {
 	some job_id, job in input.jobs
 	some step in job.steps
-	regex.match(`\bnpm install\b`, step.run)
+	some line in split(step.run, "\n")
+	regex.match(`\bnpm install\b`, line)
+	not regex.match(`--package-lock-only\b`, line)
 	msg := sprintf(
 		"'npm install' in job '%s' modifies the lockfile. Use 'npm ci' for reproducible builds.",
 		[job_id],

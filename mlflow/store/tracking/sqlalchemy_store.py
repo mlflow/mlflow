@@ -152,6 +152,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMetric,
     SqlOnlineScoringConfig,
     SqlParam,
+    SqlReviewQueue,
+    SqlReviewQueueItem,
+    SqlReviewQueueLabelSchema,
+    SqlReviewQueueUser,
     SqlRun,
     SqlScorer,
     SqlScorerVersion,
@@ -5293,6 +5297,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # span writes, including span-only changes that did not update trace_info, commit
             # atomically with the new DB-backed payload generation.
             for trace_id in all_trace_ids:
+                agg = trace_aggregates[trace_id]
                 session.merge(
                     SqlTraceTag(
                         request_id=trace_id,
@@ -5300,8 +5305,45 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         value=SpansLocation.TRACKING_STORE.value,
                     )
                 )
+
+                # Persist OTel resource attributes (e.g., service.name) as trace tags so
+                # they are visible in the UI and available for filtering. Resource is attached
+                # to every span produced from the same OTLP ResourceSpans block; use any span
+                # in this trace so multi-trace batches are handled correctly.
+                # These are written first so that user-defined trace tags (below) take
+                # precedence over resource attributes on key collision.
+                resource = next(
+                    (
+                        r
+                        for span in spans_by_trace[trace_id]
+                        if (r := getattr(span._span, "resource", None)) is not None and r.attributes
+                    ),
+                    None,
+                )
+                if resource is not None:
+                    for key, value in resource.attributes.items():
+                        # Skip OTel SDK internal metadata and the reserved mlflow.*
+                        # namespace so a client cannot clobber bookkeeping tags
+                        # (e.g. SPANS_LOCATION) via resource attributes.
+                        if key.startswith(("telemetry.sdk.", "mlflow.")):
+                            continue
+                        str_value = value if isinstance(value, str) else json.dumps(value)
+                        try:
+                            key, str_value = _validate_trace_tag(key, str_value)
+                        except Exception:
+                            _logger.debug("Skipping invalid resource attribute %r", key)
+                            continue
+                        session.merge(
+                            SqlTraceTag(
+                                request_id=trace_id,
+                                key=key,
+                                value=str_value,
+                            )
+                        )
+
                 # Restore user-defined tags carried via mlflow.traceTag.* attributes on the root
                 # span (set by OtelSpanProcessor when the trace was exported over OTLP).
+                # Written after resource attributes so user tags take precedence on collision.
                 for tag_key, tag_value in agg.trace_tags.items():
                     session.merge(SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value))
 
@@ -8081,8 +8123,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def list_label_schemas(self, experiment_id, max_results=100, page_token=None):
         self._validate_max_results_param(max_results)
         offset = SearchUtils.parse_start_offset_from_page_token(page_token) if page_token else 0
-        with self.ManagedSessionMaker() as session:
+        # Writable session: the protected default question is seeded lazily on
+        # first access (see `_ensure_default_label_schema`), so a list may create
+        # it. This is the SDK + REST chokepoint, so every experiment always has
+        # at least one question regardless of how it's first reached.
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_experiment_exists(session, experiment_id)
+            self._ensure_default_label_schema(session, experiment_id)
 
             results = (
                 self
@@ -8193,7 +8240,600 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if sql_schema is None:
                 _logger.debug(f"Label schema with id '{schema_id}' not found; delete is a no-op.")
                 return
+            if sql_schema.is_default:
+                raise MlflowException(
+                    "The experiment's default question cannot be deleted.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             session.delete(sql_schema)
+
+    def _ensure_default_label_schema(self, session, experiment_id):
+        """Seed the experiment's protected default question if it's absent.
+
+        The default question is a FEEDBACK free-text schema named
+        ``DEFAULT_LABEL_SCHEMA_NAME``, marked ``is_default`` so it is undeletable
+        and uneditable. It's created lazily from ``list_label_schemas`` (the SDK +
+        REST chokepoint) so every experiment always presents at least one question
+        on first access, without a dedicated endpoint. Idempotent: at most one row
+        per experiment carries the reserved name.
+        """
+        from mlflow.genai.label_schemas.label_schemas import (
+            InputText,
+            LabelSchema,
+            LabelSchemaType,
+        )
+        from mlflow.genai.label_schemas.validation import (
+            DEFAULT_LABEL_SCHEMA_INSTRUCTION,
+            DEFAULT_LABEL_SCHEMA_NAME,
+        )
+
+        # Key the idempotency check on the is_default flag (dialect-agnostic): a
+        # name `==` is case-sensitive on some backends. A pre-existing user schema
+        # literally named "Feedback" (only creatable before the reserved-name
+        # rule) collides on the (experiment_id, name) unique constraint below, is
+        # caught, and that experiment keeps its own "Feedback" with no separate
+        # protected default — an accepted edge for already-created data.
+        existing = (
+            self
+            ._label_schema_query(session)
+            .filter(
+                SqlLabelSchema.experiment_id == int(experiment_id),
+                SqlLabelSchema.is_default.is_(True),
+            )
+            .first()
+        )
+        if existing is not None:
+            return
+
+        entity = LabelSchema(
+            schema_id=f"{SqlLabelSchema.LABEL_SCHEMA_ID_PREFIX}{uuid.uuid4().hex}",
+            experiment_id=str(experiment_id),
+            name=DEFAULT_LABEL_SCHEMA_NAME,
+            type=LabelSchemaType.FEEDBACK,
+            input=InputText(),
+            instruction=DEFAULT_LABEL_SCHEMA_INSTRUCTION,
+            enable_comment=False,
+            is_default=True,
+        )
+        try:
+            # SAVEPOINT isolates this insert so a benign IntegrityError drops only
+            # it, not the caller's transaction (same pattern as
+            # add_items_to_review_queue). Two cases are safe to swallow: a
+            # concurrent ensure won the (experiment_id, name) unique race (the
+            # existing row is the default), or the experiment vanished concurrently
+            # (a FK error, which the list's experiment validation then surfaces).
+            with session.begin_nested():
+                session.add(SqlLabelSchema.from_mlflow_entity(entity))
+                session.flush()
+        except IntegrityError:
+            pass
+
+    # ------------------------------------------------------------------
+    # Review queues: see mlflow/genai/review_queues/ for the entity
+    # dataclasses and validation rules. The parent `review_queues` table is
+    # workspace-scoped via a join to `experiments` (`_review_queue_query`);
+    # the three child tables are always reached through an already
+    # workspace-validated `queue_id`, so they inherit that scope.
+    # ------------------------------------------------------------------
+
+    def _review_queue_query(self, session):
+        return self._get_query(session, SqlReviewQueue)
+
+    def _get_sql_review_queue(self, session, queue_id):
+        """Fetch the workspace-scoped queue row or raise RESOURCE_DOES_NOT_EXIST."""
+        sql_queue = (
+            self
+            ._review_queue_query(session)
+            .filter(SqlReviewQueue.queue_id == queue_id)
+            .one_or_none()
+        )
+        if sql_queue is None:
+            raise MlflowException(
+                f"Review queue with id '{queue_id}' not found.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return sql_queue
+
+    def _load_users_by_queue(self, session, queue_ids):
+        """Map queue_id -> ordered list of assigned users for the given queues."""
+        users_by_queue = {queue_id: [] for queue_id in queue_ids}
+        if not queue_ids:
+            return users_by_queue
+        rows = (
+            session
+            .query(SqlReviewQueueUser)
+            .filter(SqlReviewQueueUser.queue_id.in_(queue_ids))
+            .order_by(SqlReviewQueueUser.user_id.asc())
+            .all()
+        )
+        for row in rows:
+            users_by_queue[row.queue_id].append(row.user_id)
+        return users_by_queue
+
+    def _load_schema_ids_by_queue(self, session, queue_ids):
+        """Map queue_id -> ordered list of attached schema ids for the queues."""
+        schemas_by_queue = {queue_id: [] for queue_id in queue_ids}
+        if not queue_ids:
+            return schemas_by_queue
+        rows = (
+            session
+            .query(SqlReviewQueueLabelSchema)
+            .filter(SqlReviewQueueLabelSchema.queue_id.in_(queue_ids))
+            .order_by(SqlReviewQueueLabelSchema.schema_id.asc())
+            .all()
+        )
+        for row in rows:
+            schemas_by_queue[row.queue_id].append(row.schema_id)
+        return schemas_by_queue
+
+    def _hydrate_review_queues(self, session, sql_queues):
+        """Convert queue rows to entities, batch-loading their association sets."""
+        queue_ids = [q.queue_id for q in sql_queues]
+        users_by_queue = self._load_users_by_queue(session, queue_ids)
+        schemas_by_queue = self._load_schema_ids_by_queue(session, queue_ids)
+        return [
+            q.to_mlflow_entity(
+                users=users_by_queue[q.queue_id],
+                schema_ids=schemas_by_queue[q.queue_id],
+            )
+            for q in sql_queues
+        ]
+
+    def _validate_schema_ids_exist(self, session, experiment_id, schema_ids):
+        """Raise INVALID_PARAMETER_VALUE if any schema id isn't in the experiment.
+
+        ``review_queue_label_schemas.schema_id`` is a soft reference (no foreign
+        key), so the store validates both existence and same-experiment
+        membership here, yielding a clear error rather than leaving a bad id to
+        surface (or silently persist) at write time.
+        """
+        if not schema_ids:
+            return
+        found = (
+            self
+            ._label_schema_query(session)
+            .filter(
+                SqlLabelSchema.experiment_id == int(experiment_id),
+                SqlLabelSchema.schema_id.in_(schema_ids),
+            )
+            .with_entities(SqlLabelSchema.schema_id)
+            .all()
+        )
+        found_ids = {row[0] for row in found}
+        if missing := [schema_id for schema_id in schema_ids if schema_id not in found_ids]:
+            raise MlflowException(
+                f"Label schema id(s) {missing} not found for experiment '{experiment_id}'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    def create_review_queue(
+        self,
+        experiment_id,
+        *,
+        name,
+        queue_type,
+        created_by=None,
+        users=None,
+        schema_ids=None,
+    ):
+        from mlflow.genai.review_queues.validation import validate_queue_for_create
+
+        validated = validate_queue_for_create(
+            name=name,
+            queue_type=queue_type,
+            users=users,
+            schema_ids=schema_ids,
+        )
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            self._validate_experiment_exists(session, experiment_id)
+            self._validate_schema_ids_exist(session, experiment_id, validated.schema_ids)
+
+            existing = (
+                self
+                ._review_queue_query(session)
+                .filter(
+                    SqlReviewQueue.experiment_id == int(experiment_id),
+                    SqlReviewQueue.name == validated.name,
+                )
+                .one_or_none()
+            )
+            if existing is not None:
+                raise MlflowException(
+                    f"Review queue with name '{validated.name}' already exists for experiment "
+                    f"'{experiment_id}'.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                )
+
+            now_ms = get_current_time_millis()
+            sql_queue = SqlReviewQueue(
+                queue_id=f"{SqlReviewQueue.QUEUE_ID_PREFIX}{uuid.uuid4().hex}",
+                experiment_id=int(experiment_id),
+                name=validated.name,
+                queue_type=str(validated.queue_type),
+                created_by=created_by,
+                creation_time_ms=now_ms,
+                last_update_time_ms=now_ms,
+            )
+            session.add(sql_queue)
+            try:
+                session.flush()
+            except IntegrityError as e:
+                # Race: a parallel transaction inserted (experiment_id, name)
+                # between the pre-check and the flush.
+                raise MlflowException(
+                    f"Review queue with name '{validated.name}' already exists for experiment "
+                    f"'{experiment_id}'.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+            for user in validated.users:
+                session.add(SqlReviewQueueUser(queue_id=sql_queue.queue_id, user_id=user))
+            for schema_id in validated.schema_ids:
+                session.add(
+                    SqlReviewQueueLabelSchema(queue_id=sql_queue.queue_id, schema_id=schema_id)
+                )
+            session.flush()
+            return self._hydrate_review_queues(session, [sql_queue])[0]
+
+    def get_or_create_user_queue(self, experiment_id, *, user):
+        from mlflow.genai.review_queues import ReviewQueueType
+        from mlflow.genai.review_queues.validation import normalize_user
+
+        name = normalize_user(user)
+        try:
+            return self.create_review_queue(
+                experiment_id,
+                name=name,
+                queue_type="user",
+                # A user queue is owned by its user (attribution only).
+                created_by=name,
+            )
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                raise
+            # Lost the create race (or the queue already existed): return the
+            # single existing user queue, keeping the call idempotent.
+            existing = self.get_review_queue_by_name(experiment_id, name=name)
+            if ReviewQueueType(existing.queue_type) != ReviewQueueType.USER:
+                # A custom queue squatting on this user's name — don't hand it
+                # back as if it were the user's personal queue.
+                raise MlflowException(
+                    f"A non-user queue named '{name}' already exists for experiment "
+                    f"'{experiment_id}'; cannot get-or-create a user queue with that name.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                ) from e
+            return existing
+
+    def get_review_queue(self, queue_id):
+        with self.ManagedSessionMaker() as session:
+            sql_queue = self._get_sql_review_queue(session, queue_id)
+            return self._hydrate_review_queues(session, [sql_queue])[0]
+
+    def get_review_queue_by_name(self, experiment_id, *, name):
+        with self.ManagedSessionMaker() as session:
+            self._validate_experiment_exists(session, experiment_id)
+            sql_queue = (
+                self
+                ._review_queue_query(session)
+                .filter(
+                    SqlReviewQueue.experiment_id == int(experiment_id),
+                    SqlReviewQueue.name == name,
+                )
+                .one_or_none()
+            )
+            if sql_queue is None:
+                raise MlflowException(
+                    f"Review queue with name '{name}' not found for experiment '{experiment_id}'.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            return self._hydrate_review_queues(session, [sql_queue])[0]
+
+    def list_review_queues(self, experiment_id, *, user=None, max_results=None, page_token=None):
+        from mlflow.genai.review_queues.validation import normalize_user
+
+        if max_results is None:
+            max_results = SEARCH_MAX_RESULTS_DEFAULT
+        else:
+            self._validate_max_results_param(max_results)
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token) if page_token else 0
+
+        with self.ManagedSessionMaker() as session:
+            self._validate_experiment_exists(session, experiment_id)
+            query = self._review_queue_query(session).filter(
+                SqlReviewQueue.experiment_id == int(experiment_id)
+            )
+            if user is not None:
+                # Scope to queues the user is assigned to (their own user queue
+                # plus any custom queue they belong to).
+                assigned_queue_ids = session.query(SqlReviewQueueUser.queue_id).filter(
+                    SqlReviewQueueUser.user_id == normalize_user(user)
+                )
+                query = query.filter(SqlReviewQueue.queue_id.in_(assigned_queue_ids))
+
+            results = (
+                query
+                .order_by(
+                    SqlReviewQueue.creation_time_ms.desc(),
+                    SqlReviewQueue.queue_id.asc(),
+                )
+                .offset(offset)
+                .limit(max_results + 1)
+                .all()
+            )
+
+            next_token = None
+            if len(results) > max_results:
+                results = results[:max_results]
+                next_token = SearchUtils.create_page_token(offset + max_results)
+            return PagedList(self._hydrate_review_queues(session, results), next_token)
+
+    def update_review_queue(self, queue_id, *, users=None, schema_ids=None):
+        from mlflow.genai.review_queues import ReviewQueueType
+        from mlflow.genai.review_queues.validation import normalize_schema_ids, normalize_users
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_queue = self._get_sql_review_queue(session, queue_id)
+            if ReviewQueueType(sql_queue.queue_type) == ReviewQueueType.USER:
+                raise MlflowException(
+                    "A user queue's assigned user and schemas are fixed and cannot be updated.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            if users is None and schema_ids is None:
+                return self._hydrate_review_queues(session, [sql_queue])[0]
+
+            if users is not None:
+                normalized_users = normalize_users(users)
+                session.query(SqlReviewQueueUser).filter(
+                    SqlReviewQueueUser.queue_id == sql_queue.queue_id
+                ).delete(synchronize_session=False)
+                for user in normalized_users:
+                    session.add(SqlReviewQueueUser(queue_id=sql_queue.queue_id, user_id=user))
+
+            if schema_ids is not None:
+                # A queue's questions are frozen once it has items to review:
+                # changing the schema set after reviewers have started would
+                # strand their answers or leave completed items with
+                # never-seen questions. Editing is allowed only while the queue
+                # is still empty (in setup). Assigned users stay editable.
+                attached_item_count = (
+                    session
+                    .query(SqlReviewQueueItem)
+                    .filter(SqlReviewQueueItem.queue_id == sql_queue.queue_id)
+                    .count()
+                )
+                if attached_item_count > 0:
+                    raise MlflowException(
+                        "A review queue's questions are locked once items are assigned to it. "
+                        "Remove the items before changing its questions.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                normalized_schema_ids = normalize_schema_ids(schema_ids)
+                self._validate_schema_ids_exist(
+                    session, str(sql_queue.experiment_id), normalized_schema_ids
+                )
+                session.query(SqlReviewQueueLabelSchema).filter(
+                    SqlReviewQueueLabelSchema.queue_id == sql_queue.queue_id
+                ).delete(synchronize_session=False)
+                for schema_id in normalized_schema_ids:
+                    session.add(
+                        SqlReviewQueueLabelSchema(queue_id=sql_queue.queue_id, schema_id=schema_id)
+                    )
+
+            sql_queue.last_update_time_ms = get_current_time_millis()
+            session.flush()
+            return self._hydrate_review_queues(session, [sql_queue])[0]
+
+    def delete_review_queue(self, queue_id):
+        # No-op when the queue doesn't exist. Child rows (users, items,
+        # schemas) are deleted explicitly so the behaviour doesn't depend on
+        # DB-level ON DELETE CASCADE being honoured by the active dialect.
+        # Reviewer assessments on the queue's items are untouched.
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_queue = (
+                self
+                ._review_queue_query(session)
+                .filter(SqlReviewQueue.queue_id == queue_id)
+                .one_or_none()
+            )
+            if sql_queue is None:
+                _logger.debug(f"Review queue with id '{queue_id}' not found; delete is a no-op.")
+                return
+            for child_model in (
+                SqlReviewQueueUser,
+                SqlReviewQueueItem,
+                SqlReviewQueueLabelSchema,
+            ):
+                session.query(child_model).filter(
+                    child_model.queue_id == sql_queue.queue_id
+                ).delete(synchronize_session=False)
+            session.delete(sql_queue)
+
+    def add_items_to_review_queue(self, queue_id, *, item_ids, item_type="trace"):
+        from mlflow.genai.review_queues import ReviewStatus
+        from mlflow.genai.review_queues.validation import (
+            coerce_item_type,
+            validate_item_ids_for_attach,
+        )
+
+        coerced_item_type = coerce_item_type(item_type)
+        normalized_item_ids = validate_item_ids_for_attach(item_ids)
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_queue = self._get_sql_review_queue(session, queue_id)
+
+            existing_item_ids = {
+                row.item_id
+                for row in session
+                .query(SqlReviewQueueItem.item_id)
+                .filter(
+                    SqlReviewQueueItem.queue_id == sql_queue.queue_id,
+                    SqlReviewQueueItem.item_id.in_(normalized_item_ids),
+                )
+                .all()
+            }
+
+            now_ms = get_current_time_millis()
+            for item_id in normalized_item_ids:
+                if item_id in existing_item_ids:
+                    # Idempotent: keep the existing row and its status.
+                    continue
+                try:
+                    # SAVEPOINT around the add+flush so a concurrent attach of
+                    # the same item (the only possible IntegrityError here —
+                    # the queue FK is validated and item_id has no FK) drops
+                    # just that row rather than the whole batch. The row is
+                    # then picked up by the re-read below. The add lives inside
+                    # the savepoint so its pending state is rolled back cleanly.
+                    with session.begin_nested():
+                        session.add(
+                            SqlReviewQueueItem(
+                                queue_id=sql_queue.queue_id,
+                                item_type=str(coerced_item_type),
+                                item_id=item_id,
+                                status=str(ReviewStatus.PENDING),
+                                creation_time_ms=now_ms,
+                                last_update_time_ms=now_ms,
+                            )
+                        )
+                        session.flush()
+                except IntegrityError:
+                    pass
+
+            final_rows = (
+                session
+                .query(SqlReviewQueueItem)
+                .filter(
+                    SqlReviewQueueItem.queue_id == sql_queue.queue_id,
+                    SqlReviewQueueItem.item_id.in_(normalized_item_ids),
+                )
+                .all()
+            )
+            # Every requested id is present now (pre-existing, just-inserted, or
+            # inserted by a racing writer), so the response covers them all.
+            rows_by_item = {row.item_id: row for row in final_rows}
+            return [rows_by_item[item_id].to_mlflow_entity() for item_id in normalized_item_ids]
+
+    def remove_items_from_review_queue(self, queue_id, *, item_ids):
+        from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
+
+        normalized_item_ids = validate_item_ids_for_attach(item_ids)
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_queue = self._get_sql_review_queue(session, queue_id)
+            session.query(SqlReviewQueueItem).filter(
+                SqlReviewQueueItem.queue_id == sql_queue.queue_id,
+                SqlReviewQueueItem.item_id.in_(normalized_item_ids),
+            ).delete(synchronize_session=False)
+
+    def list_review_queue_items(self, queue_id, *, status=None, max_results=None, page_token=None):
+        from mlflow.genai.review_queues.validation import coerce_status
+
+        if max_results is None:
+            max_results = SEARCH_MAX_RESULTS_DEFAULT
+        else:
+            self._validate_max_results_param(max_results)
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token) if page_token else 0
+        coerced_status = coerce_status(status) if status is not None else None
+
+        with self.ManagedSessionMaker() as session:
+            sql_queue = self._get_sql_review_queue(session, queue_id)
+            query = session.query(SqlReviewQueueItem).filter(
+                SqlReviewQueueItem.queue_id == sql_queue.queue_id
+            )
+            if coerced_status is not None:
+                query = query.filter(SqlReviewQueueItem.status == str(coerced_status))
+
+            results = (
+                query
+                .order_by(
+                    SqlReviewQueueItem.creation_time_ms.desc(),
+                    SqlReviewQueueItem.item_id.asc(),
+                )
+                .offset(offset)
+                .limit(max_results + 1)
+                .all()
+            )
+
+            next_token = None
+            if len(results) > max_results:
+                results = results[:max_results]
+                next_token = SearchUtils.create_page_token(offset + max_results)
+            return PagedList([row.to_mlflow_entity() for row in results], next_token)
+
+    def set_review_queue_item_status(self, queue_id, *, item_id, status, completed_by=None):
+        from mlflow.genai.review_queues import ReviewStatus
+        from mlflow.genai.review_queues.validation import (
+            USER_MAX_LENGTH,
+            coerce_status,
+            normalize_item_id,
+            normalize_user,
+        )
+
+        new_status = coerce_status(status)
+        item_id = normalize_item_id(item_id)
+        normalized_completed_by = normalize_user(completed_by) if completed_by is not None else None
+
+        if new_status == ReviewStatus.PENDING:
+            if normalized_completed_by is not None:
+                raise MlflowException(
+                    "`completed_by` must not be set when reopening an item to `pending`.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif not normalized_completed_by:
+            raise MlflowException(
+                f"`completed_by` is required when setting status to `{new_status}`.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if normalized_completed_by is not None and len(normalized_completed_by) > USER_MAX_LENGTH:
+            # Match the cap the assigned-user list enforces, so an over-long value
+            # raises a clear error rather than failing at the VARCHAR write.
+            raise MlflowException(
+                f"`completed_by` must be at most {USER_MAX_LENGTH} characters; "
+                f"got {len(normalized_completed_by)}.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_queue = self._get_sql_review_queue(session, queue_id)
+            row = (
+                session
+                .query(SqlReviewQueueItem)
+                .filter(
+                    SqlReviewQueueItem.queue_id == sql_queue.queue_id,
+                    SqlReviewQueueItem.item_id == item_id,
+                )
+                .one_or_none()
+            )
+            if row is None:
+                raise MlflowException(
+                    f"Item '{item_id}' is not attached to review queue '{queue_id}'.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # No-op (no timestamp churn) when the status doesn't change. Making a
+            # same-status write idempotent regardless of `completed_by` is what
+            # protects attribution: a repeat or concurrent re-completion by a
+            # different reviewer can no longer overwrite the original completer
+            # (the prior `status AND completed_by` guard let it through). A genuine
+            # status transition (e.g. complete -> declined, or a reopen) is a real
+            # change and still re-records the actor below.
+            if row.status == str(new_status):
+                return row.to_mlflow_entity()
+
+            now_ms = get_current_time_millis()
+            row.status = str(new_status)
+            row.last_update_time_ms = now_ms
+            if new_status == ReviewStatus.PENDING:
+                # Reopening clears attribution; the next completion re-records it.
+                row.completed_by = None
+                row.completed_time_ms = None
+            else:
+                # The reviewer who set the current terminal status owns attribution.
+                row.completed_by = normalized_completed_by
+                row.completed_time_ms = now_ms
+            session.flush()
+            return row.to_mlflow_entity()
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

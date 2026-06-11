@@ -10,9 +10,24 @@ import click
 
 from mlflow.agent.agents import AGENTS, AgentName, AgentTool, detect_installed, get_agent
 from mlflow.agent.setup.prompt import build_prompt
+from mlflow.agent.setup.select import arrow_select
 from mlflow.assistant.skill_installer import install_skills
 from mlflow.telemetry.events import AgentSetupEvent
 from mlflow.telemetry.track import _record_event
+from mlflow.tracking import MlflowClient
+
+
+def _resolve_experiment_id(tracking_uri: str, ref: str) -> str:
+    """Return an experiment ID. Path inputs are looked up (or created) via the workspace."""
+    if not ref.startswith("/"):
+        return ref
+    client = MlflowClient(tracking_uri=tracking_uri)
+    exp = client.get_experiment_by_name(ref)
+    if exp is not None:
+        return exp.experiment_id
+    experiment_id = client.create_experiment(ref)
+    click.secho(f"Created experiment {ref!r} (ID {experiment_id}).", fg="green", err=True)
+    return experiment_id
 
 
 def _find_available_port(start: int = 5000, end: int = 5100) -> int:
@@ -60,16 +75,11 @@ def _choose_agent(preferred: AgentName | None) -> AgentTool:
             click.echo(f"Using {only.display_name} (only installed agent detected).", err=True)
             return only
         case _:
-            click.secho("Multiple agents detected:", bold=True, err=True)
-            for i, a in enumerate(installed, 1):
-                click.echo(f"  {click.style(str(i), fg='cyan')}. {a.display_name}", err=True)
-            choice = click.prompt(
-                click.style("Select agent", fg="cyan", bold=True),
-                type=click.IntRange(1, len(installed)),
-                default=1,
-                err=True,
+            idx = arrow_select(
+                "Multiple agents detected. Select one:",
+                [a.display_name for a in installed],
             )
-            return installed[choice - 1]
+            return installed[idx]
 
 
 def _run_setup(
@@ -86,15 +96,11 @@ def _run_setup(
     payload["agent"] = agent.name
 
     skills_dest = repo_root / agent.skills_dir
-    skills_installed = click.confirm(
-        click.style(
-            f"Install MLflow skills at {agent.skills_dir}/ (this project)?",
-            fg="cyan",
-            bold=True,
-        ),
-        default=True,
-        err=True,
+    skills_choice = arrow_select(
+        f"Install MLflow skills at {agent.skills_dir}/ (this project)?",
+        ["Install", "Skip"],
     )
+    skills_installed = skills_choice == 0
     payload["skills_install_confirmed"] = skills_installed
     if skills_installed:
         installed = install_skills(skills_dest)
@@ -106,29 +112,54 @@ def _run_setup(
     else:
         click.secho("Skipping skill installation.", fg="yellow", err=True)
 
-    tracking_uri_input = click.prompt(
-        click.style(
-            "Tracking URI (leave empty to let the agent start a local server)",
-            fg="cyan",
-            bold=True,
-        ),
-        default="",
-        show_default=False,
-        err=True,
-    ).strip()
-    if tracking_uri_input:
-        tracking_uri = tracking_uri_input
-        local_server_port: int | None = None
-    else:
-        local_server_port = _find_available_port()
-        tracking_uri = f"http://127.0.0.1:{local_server_port}"
-        click.secho(f"Picked local tracking URI: {tracking_uri}", fg="green", err=True)
+    backend_choice = arrow_select(
+        "Tracking backend:",
+        [
+            "Start a new local server",
+            "Databricks workspace",
+            "Existing server URL (e.g. http://localhost:5000)",
+        ],
+    )
+    experiment_id: str | None = None
+    local_server_port: int | None = None
+    match backend_choice:
+        case 0:
+            local_server_port = _find_available_port()
+            tracking_uri = f"http://127.0.0.1:{local_server_port}"
+            click.secho(f"Picked local tracking URI: {tracking_uri}", fg="green", err=True)
+        case 1:
+            profile = click.prompt(
+                click.style(
+                    "Databricks configuration profile, or empty for default",
+                    fg="cyan",
+                    bold=True,
+                ),
+                default="",
+                show_default=False,
+                err=True,
+            ).strip()
+            tracking_uri = f"databricks://{profile}" if profile else "databricks"
+            experiment_ref = click.prompt(
+                click.style(
+                    "Experiment ID, or path (auto-created if it doesn't exist)",
+                    fg="cyan",
+                    bold=True,
+                ),
+                err=True,
+            ).strip()
+            experiment_id = _resolve_experiment_id(tracking_uri, experiment_ref)
+        case _:
+            tracking_uri = click.prompt(
+                click.style("Tracking server URL", fg="cyan", bold=True),
+                err=True,
+            ).strip()
 
     prompt = build_prompt(
         repo_root,
         agent,
         tracking_uri,
         local_server_port=local_server_port,
+        experiment_id=experiment_id,
         skills_installed=skills_installed,
     )
 
@@ -156,9 +187,9 @@ def _run_setup(
     is_flag=True,
     default=False,
     help=(
-        "Print the composed task prompt to stdout and skip launching the agent. "
-        "Lets you pipe into a custom invocation, e.g. "
-        "`mlflow agent setup --print | claude --permission-mode auto`."
+        "Print the composed task prompt to stdout and exit without launching the agent. "
+        "Useful for passing the prompt into a custom invocation, e.g. "
+        '`claude --permission-mode auto "$(mlflow agent setup --agent claude --print)"`.'
     ),
 )
 def setup(

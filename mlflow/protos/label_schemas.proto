@@ -108,6 +108,9 @@ message LabelSchema {
   optional int64 created_at = 10;
   // Last update timestamp in milliseconds since epoch.
   optional int64 last_updated_at = 11;
+  // Whether this is the experiment's protected default question: server-seeded,
+  // undeletable, and uneditable. Read-only to clients.
+  optional bool is_default = 12;
 
   // Tag 5 previously held the now-removed `title` field.
   reserved 5;

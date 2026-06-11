@@ -3321,6 +3321,12 @@ class SqlLabelSchema(Base):
     Last update time in milliseconds.
     """
 
+    is_default = Column(Boolean, nullable=False, default=False, server_default="0")
+    """
+    Whether this is the experiment's protected default question: server-seeded,
+    undeletable, and uneditable. At most one row per experiment is ``True``.
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("schema_id", name="label_schemas_pk"),
         UniqueConstraint("experiment_id", "name", name="uq_label_schemas_exp_name"),
@@ -3349,6 +3355,7 @@ class SqlLabelSchema(Base):
             created_by=self.created_by,
             created_at=self.created_time,
             updated_at=self.last_update_time,
+            is_default=self.is_default,
         )
 
     @classmethod
@@ -3375,7 +3382,299 @@ class SqlLabelSchema(Base):
             created_by=schema.created_by,
             created_time=schema.created_at or now,
             last_update_time=schema.updated_at or now,
+            is_default=schema.is_default,
         )
+
+
+class SqlReviewQueue(Base):
+    """
+    DB model for review queues.
+
+    A review queue is a named bundle of attached items, questions
+    (label schemas), and assigned users, scoped to an experiment and
+    keyed on ``(experiment_id, name)``. See
+    ``mlflow/genai/review_queues/review_queues.py`` for the entity
+    dataclasses and ``validation.py`` for the validation rules.
+
+    The queue inherits its workspace from the parent experiment (the
+    workspace-aware store filters via a join to ``experiments``, exactly
+    like ``label_schemas``), so there is no denormalized ``workspace``
+    column. The three child tables (``review_queue_users``,
+    ``review_queue_items``, ``review_queue_label_schemas``) inherit it
+    transitively through this table.
+    """
+
+    __tablename__ = "review_queues"
+
+    QUEUE_ID_PREFIX = "rq-"
+
+    queue_id = Column(String(36), primary_key=True)
+    """
+    Queue ID: ``String`` (limit 36 characters). *Primary Key* for
+    ``review_queues`` table.
+    """
+
+    experiment_id = Column(
+        Integer,
+        ForeignKey("experiments.experiment_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Experiment the queue belongs to. *Foreign Key* into ``experiments``.
+    Cascade-deletes when the parent experiment is hard-deleted.
+    """
+
+    name = Column(String(250), nullable=False)
+    """
+    Queue name: ``String`` (limit 250, matching ``label_schemas.name``).
+    For a user queue this equals the (normalized) user identifier; for a
+    custom queue it is an arbitrary display name. Unique within
+    ``experiment_id``. ``'default'`` (the no-auth default user queue) is
+    reserved case-insensitively (any casing of ``'default'``) and rejected
+    for custom queues.
+    """
+
+    queue_type = Column(String(16), nullable=False)
+    """
+    Queue flavor: ``'user'`` or ``'custom'``. ``String`` (limit 16).
+    """
+
+    created_by = Column(String(255), nullable=True)
+    """
+    User who created the queue.
+    """
+
+    creation_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
+    """
+    Queue creation time in milliseconds since epoch.
+    """
+
+    last_update_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
+    """
+    Time of the most recent change to the queue's own configuration (its
+    assigned users / attached schemas) in milliseconds since epoch. It does
+    NOT track attach/detach or per-item status churn in
+    ``review_queue_items`` — those carry their own timestamps — so a "last
+    activity" view must consult the child rows, not just this field.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("queue_id", name="review_queues_pk"),
+        UniqueConstraint("experiment_id", "name", name="uq_review_queues_experiment_name"),
+        Index("index_review_queues_experiment_id", "experiment_id"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlReviewQueue (id={self.queue_id}, experiment_id={self.experiment_id}, "
+            f"name={self.name}, type={self.queue_type})>"
+        )
+
+    def to_mlflow_entity(self, *, users=None, schema_ids=None):
+        """Convert DB model to corresponding MLflow entity.
+
+        ``users`` / ``schema_ids`` are the queue's association sets,
+        loaded separately by the store and passed in (there are no ORM
+        relationships, so lazy-loading them here is impossible by design).
+
+        Returns:
+            :py:class:`mlflow.genai.review_queues.ReviewQueue`.
+        """
+        # Lazy import: importing `mlflow.genai.review_queues` triggers the
+        # `mlflow.genai` package init, which can pull this module back in;
+        # deferring the import avoids that cycle at module load time.
+        from mlflow.genai.review_queues import ReviewQueue, ReviewQueueType
+
+        return ReviewQueue(
+            queue_id=self.queue_id,
+            experiment_id=str(self.experiment_id),
+            name=self.name,
+            queue_type=ReviewQueueType(self.queue_type),
+            created_by=self.created_by,
+            creation_time_ms=self.creation_time_ms,
+            last_update_time_ms=self.last_update_time_ms,
+            users=list(users) if users is not None else [],
+            schema_ids=list(schema_ids) if schema_ids is not None else [],
+        )
+
+
+class SqlReviewQueueUser(Base):
+    """
+    DB model for the assigned-user set of a review queue.
+
+    One row per ``(queue_id, user)``. The assigned users are a *pool*:
+    any one of them may work the queue's items. A user queue has exactly
+    one row (``user == queue.name``); a custom queue has 0..N.
+    """
+
+    __tablename__ = "review_queue_users"
+
+    queue_id = Column(
+        String(36),
+        ForeignKey("review_queues.queue_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Queue this assignment belongs to. *Foreign Key* into ``review_queues``.
+    """
+
+    user_id = Column(String(250), nullable=False)
+    """
+    Assigned user identifier (normalized lowercase). ``VARCHAR(250)`` to
+    mirror ``SqlAssessments.source_id`` so an assigned user can never be
+    too long to also appear as an assessment ``source_id``. Named
+    ``user_id`` (not ``user``) because ``user`` is a reserved word in
+    several SQL dialects.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("queue_id", "user_id", name="review_queue_users_pk"),
+        Index("index_review_queue_users_user_id", "user_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlReviewQueueUser (queue_id={self.queue_id}, user_id={self.user_id})>"
+
+
+class SqlReviewQueueItem(Base):
+    """
+    DB model for an item attached to a review queue + its shared-pool
+    workflow status.
+
+    One row per ``(queue_id, item_id)``. ``status`` is per-``(queue,
+    item)`` (NOT per-user): an item is addressed when **any** assigned
+    user completes/declines it, and ``completed_by`` records who. There is
+    no ``in_progress`` state; status only changes on an explicit reviewer
+    action, never as a side effect of writing an assessment.
+    """
+
+    __tablename__ = "review_queue_items"
+
+    queue_id = Column(
+        String(36),
+        ForeignKey("review_queues.queue_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Queue this item is attached to. *Foreign Key* into ``review_queues``.
+    """
+
+    item_type = Column(String(16), nullable=False)
+    """
+    What kind of object is attached: ``String`` (limit 16). v1 ships
+    ``'trace'`` only; ``'session'`` / ``'span'`` are reserved.
+    """
+
+    item_id = Column(String(50), nullable=False)
+    """
+    The attached object's id — a trace id today. ``String`` (limit 50).
+    """
+
+    status = Column(String(16), nullable=False)
+    """
+    Shared-pool workflow status: ``'pending'``, ``'complete'``, or
+    ``'declined'``. ``String`` (limit 16).
+    """
+
+    completed_by = Column(String(250), nullable=True)
+    """
+    Who completed or declined this item; ``NULL`` while ``pending``.
+    Same shape as ``review_queue_users.user_id``. Cleared on reopen.
+    """
+
+    completed_time_ms = Column(BigInteger, nullable=True)
+    """
+    Time the item reached a terminal status in milliseconds since epoch;
+    ``NULL`` while ``pending``. Cleared on reopen.
+    """
+
+    creation_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
+    """
+    Time the item was attached to the queue in milliseconds since epoch.
+    """
+
+    last_update_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
+    """
+    Time of the most recent status change in milliseconds since epoch.
+    Equals ``creation_time_ms`` for an item that is still ``pending``.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("queue_id", "item_id", name="review_queue_items_pk"),
+        # "Show me this queue's <status> items" — the queue view's status tabs.
+        Index("index_review_queue_items_queue_id_status", "queue_id", "status"),
+        # "Which queues is this item in?" — the per-item review widget.
+        Index("index_review_queue_items_item_id", "item_id"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlReviewQueueItem (queue_id={self.queue_id}, item_id={self.item_id}, "
+            f"status={self.status})>"
+        )
+
+    def to_mlflow_entity(self):
+        """Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.genai.review_queues.ReviewQueueItem`.
+        """
+        from mlflow.genai.review_queues import ReviewItemType, ReviewQueueItem, ReviewStatus
+
+        return ReviewQueueItem(
+            queue_id=self.queue_id,
+            item_type=ReviewItemType(self.item_type),
+            item_id=self.item_id,
+            status=ReviewStatus(self.status),
+            creation_time_ms=self.creation_time_ms,
+            last_update_time_ms=self.last_update_time_ms,
+            completed_by=self.completed_by,
+            completed_time_ms=self.completed_time_ms,
+        )
+
+
+class SqlReviewQueueLabelSchema(Base):
+    """
+    DB model for the questions (label schemas) attached to a *custom*
+    review queue.
+
+    One row per ``(queue_id, schema_id)``. **User queues store no rows
+    here** — they resolve to all of the experiment's label schemas at read
+    time.
+    """
+
+    __tablename__ = "review_queue_label_schemas"
+
+    queue_id = Column(
+        String(36),
+        ForeignKey("review_queues.queue_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Queue this question belongs to. *Foreign Key* into ``review_queues``.
+    """
+
+    schema_id = Column(String(36), nullable=False)
+    """
+    The attached label schema's id. Validated against ``label_schemas`` at
+    write time but intentionally NOT a DB foreign key: a second cascading FK
+    here (to ``label_schemas``) would converge with the ``queue_id`` ->
+    ``review_queues`` -> ``experiments`` cascade on a single experiment
+    delete, which MSSQL rejects as a multiple-cascade-path. The reference is
+    therefore soft (like an assessment's ``name`` -> schema link): a row may
+    point at a since-deleted schema. The store read path returns the stored ids
+    as-is (no pruning); orphans are harmless because callers resolve a queue's
+    schema ids against the experiment's live label schemas, so a missing one is
+    simply not surfaced. A periodic sweep to physically prune orphans is deferred.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("queue_id", "schema_id", name="review_queue_label_schemas_pk"),
+        Index("index_review_queue_label_schemas_schema_id", "schema_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlReviewQueueLabelSchema (queue_id={self.queue_id}, schema_id={self.schema_id})>"
 
 
 def _input_to_dict(input_obj) -> tuple[str, str]:

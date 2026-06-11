@@ -229,6 +229,18 @@ class ArtifactRepository:
             os.makedirs(local_dir_path, exist_ok=True)
         return local_file_path
 
+    def get_local_path(self, artifact_path: str) -> str | None:
+        """
+        Return a safe absolute filesystem path for the specified artifact when it is already
+        directly accessible by the server.
+
+        Backends that cannot safely expose a local filesystem path should return ``None`` and rely
+        on ``download_artifacts()`` to materialize the artifact locally. Backends that support
+        local paths should raise their usual exceptions for missing or invalid artifacts rather than
+        silently returning ``None``.
+        """
+        return None
+
     def _iter_artifacts_recursive(self, path):
         dir_content = [
             file_info

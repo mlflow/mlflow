@@ -16,11 +16,13 @@ from typing import Any, Callable
 
 import requests
 from cachetools import TTLCache
-from flask import Request, Response, current_app, jsonify, request, send_file
+from flask import Request, Response, current_app, g, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
+from werkzeug.http import quote_header_value
 
 import mlflow
+from mlflow.client import MlflowClient
 from mlflow.entities import (
     Assessment,
     DatasetInput,
@@ -87,6 +89,7 @@ from mlflow.gateway.budget import maybe_refresh_budget_policies
 from mlflow.gateway.budget_tracker import _policy_applies, get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
+from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
 from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
@@ -153,6 +156,21 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.prompt_optimization_pb2 import (
     PromptOptimizationJob as PromptOptimizationJobProto,
+)
+from mlflow.protos.review_queues_pb2 import (
+    REVIEW_ITEM_TYPE_UNSPECIFIED,
+    REVIEW_STATUS_UNSPECIFIED,
+    AddItemsToReviewQueue,
+    CreateReviewQueue,
+    DeleteReviewQueue,
+    GetOrCreateUserQueue,
+    GetReviewQueue,
+    GetReviewQueueByName,
+    ListReviewQueueItems,
+    ListReviewQueues,
+    RemoveItemsFromReviewQueue,
+    SetReviewQueueItemStatus,
+    UpdateReviewQueue,
 )
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
@@ -340,8 +358,10 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_GENAI_EVALUATE_JOB_ID,
     MLFLOW_ISSUE_DETECTION_JOB_ID,
     MLFLOW_RUN_TYPE,
+    MLFLOW_RUN_TYPE_GENAI_EVALUATE,
     MLFLOW_RUN_TYPE_ISSUE_DETECTION,
     MLFLOW_TRACE_ARCHIVAL_FAILURE,
     MLFLOW_TRACE_ARCHIVE_LOCATION,
@@ -1090,8 +1110,10 @@ def _content_disposition_attachment(filename: str) -> str:
         )
         # safe = RFC 5987 attr-char
         quoted = urllib.parse.quote(filename, safe="!#$&+-.^_`|~")
-        return f"attachment; filename={ascii_fallback}; filename*=UTF-8''{quoted}"
-    return f"attachment; filename={filename}"
+        quoted_ascii_fallback = quote_header_value(ascii_fallback, allow_token=True)
+        return f"attachment; filename={quoted_ascii_fallback}; filename*=UTF-8''{quoted}"
+    quoted_filename = quote_header_value(filename, allow_token=True)
+    return f"attachment; filename={quoted_filename}"
 
 
 def _response_with_file_attachment_headers(file_path, response):
@@ -1108,13 +1130,36 @@ def _response_with_file_attachment_headers(file_path, response):
     return response
 
 
+def _create_artifact_file_response(file_path: str, artifact_name: str) -> Response:
+    """Serve a local file while preserving the logical artifact name for downloads."""
+    if os.path.isdir(file_path):
+        raise MlflowException.invalid_parameter_value(
+            f"Artifact path refers to a directory, not a file: '{artifact_name}'"
+        )
+    file_sender_response = send_file(file_path, mimetype=_guess_mime_type(file_path))
+    file_sender_response.headers["Content-Disposition"] = _content_disposition_attachment(
+        pathlib.Path(artifact_name).name
+    )
+    return _response_with_file_attachment_headers(file_path, file_sender_response)
+
+
 def _send_artifact(artifact_repository, path):
-    file_path = os.path.abspath(artifact_repository.download_artifacts(path))
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
-    mime_type = _guess_mime_type(file_path)
-    file_sender_response = send_file(file_path, mimetype=mime_type, as_attachment=True)
-    return _response_with_file_attachment_headers(file_path, file_sender_response)
+    if (local_path := artifact_repository.get_local_path(path)) is not None:
+        return _create_artifact_file_response(os.path.abspath(local_path), path)
+
+    tmp_dir = tempfile.TemporaryDirectory()
+    try:
+        file_path = os.path.abspath(
+            artifact_repository.download_artifacts(path, dst_path=tmp_dir.name)
+        )
+        response = _create_artifact_file_response(file_path, path)
+        response.call_on_close(tmp_dir.cleanup)
+        return response
+    except Exception:
+        tmp_dir.cleanup()
+        raise
 
 
 def catch_mlflow_exception(func):
@@ -3484,12 +3529,20 @@ def _download_artifact(artifact_path):
     """
     artifact_path = validate_path_is_safe(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
-    tmp_dir = tempfile.TemporaryDirectory()
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
-    dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
 
-    # Ref: https://stackoverflow.com/a/24613980/6943581
-    file_handle = open(dst, "rb")  # noqa: SIM115
+    if (local_path := artifact_repo.get_local_path(artifact_path)) is not None:
+        return _create_artifact_file_response(os.path.abspath(local_path), artifact_path)
+
+    tmp_dir = tempfile.TemporaryDirectory()
+    try:
+        dst = os.path.abspath(artifact_repo.download_artifacts(artifact_path, tmp_dir.name))
+
+        # Ref: https://stackoverflow.com/a/24613980/6943581
+        file_handle = open(dst, "rb")  # noqa: SIM115
+    except Exception:
+        tmp_dir.cleanup()
+        raise
 
     def stream_and_remove_file():
         while chunk := file_handle.read(ARTIFACT_STREAM_CHUNK_SIZE):
@@ -4582,6 +4635,240 @@ def _delete_label_schema():
     return _wrap_response(DeleteLabelSchema.Response())
 
 
+# =============================================================================
+# Review Queue Handlers (tracking-store CRUD; see mlflow/genai/review_queues/)
+# =============================================================================
+
+
+def _review_queue_max_results_validator(x):
+    return _assert_intlike_within_range(
+        int(x),
+        1,
+        SEARCH_MAX_RESULTS_THRESHOLD,
+        message=f"max_results must be between 1 and {SEARCH_MAX_RESULTS_THRESHOLD}.",
+    )
+
+
+def _get_request_username():
+    """The authenticated request user, stamped on ``flask.g`` by the auth
+    plugin's before-request hook. ``None`` when no auth plugin is active (a
+    no-auth server), where queue ownership is meaningless.
+    """
+    return getattr(g, "mlflow_authenticated_user", None)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_review_queue():
+    request_message = _get_request_message(
+        CreateReviewQueue(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+        },
+    )
+    # `from_proto` rejects the proto2 zero-value (UNSPECIFIED); don't replace
+    # it with an `_assert_required` schema entry — that only checks HasField,
+    # not enum-value validity, and would change the rejection's error shape.
+    kwargs: dict[str, object] = {
+        "experiment_id": request_message.experiment_id,
+        "name": request_message.name,
+        "queue_type": ReviewQueueType.from_proto(request_message.queue_type),
+        "users": list(request_message.users),
+        "schema_ids": list(request_message.schema_ids),
+    }
+    # `created_by` is the queue owner and must be trustworthy — never honor the
+    # client's value. On an auth server it is the authenticated user (stamped on
+    # `flask.g` by the auth plugin); on a no-auth server it stays unset (owner is
+    # meaningless there).
+    username = _get_request_username()
+    if username is not None:
+        kwargs["created_by"] = username
+    created = _get_tracking_store().create_review_queue(**kwargs)
+    return _wrap_response(CreateReviewQueue.Response(review_queue=created.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_or_create_user_queue():
+    request_message = _get_request_message(
+        GetOrCreateUserQueue(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "user": [_assert_required, _assert_string],
+        },
+    )
+    # A user queue is owned by its user (set in the store); the client-supplied
+    # `created_by` is ignored.
+    queue = _get_tracking_store().get_or_create_user_queue(
+        request_message.experiment_id, user=request_message.user
+    )
+    return _wrap_response(GetOrCreateUserQueue.Response(review_queue=queue.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_review_queue():
+    request_message = _get_request_message(
+        GetReviewQueue(),
+        schema={"queue_id": [_assert_required, _assert_string]},
+    )
+    queue = _get_tracking_store().get_review_queue(request_message.queue_id)
+    return _wrap_response(GetReviewQueue.Response(review_queue=queue.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_review_queue_by_name():
+    request_message = _get_request_message(
+        GetReviewQueueByName(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+        },
+    )
+    queue = _get_tracking_store().get_review_queue_by_name(
+        request_message.experiment_id, name=request_message.name
+    )
+    return _wrap_response(GetReviewQueueByName.Response(review_queue=queue.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_review_queues():
+    request_message = _get_request_message(
+        ListReviewQueues(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "max_results": [_assert_intlike, _review_queue_max_results_validator],
+        },
+    )
+    max_results = request_message.max_results if request_message.HasField("max_results") else None
+    page_token = request_message.page_token if request_message.HasField("page_token") else None
+    user = request_message.user if request_message.HasField("user") else None
+    queues = _get_tracking_store().list_review_queues(
+        request_message.experiment_id,
+        user=user,
+        max_results=max_results,
+        page_token=page_token,
+    )
+    response = ListReviewQueues.Response(
+        review_queues=[q.to_proto() for q in queues],
+        next_page_token=queues.token or "",
+    )
+    return _wrap_response(response)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_review_queue():
+    request_message = _get_request_message(
+        UpdateReviewQueue(),
+        schema={"queue_id": [_assert_required, _assert_string]},
+    )
+    users = list(request_message.users) if request_message.update_users else None
+    schema_ids = list(request_message.schema_ids) if request_message.update_schema_ids else None
+    updated = _get_tracking_store().update_review_queue(
+        request_message.queue_id, users=users, schema_ids=schema_ids
+    )
+    return _wrap_response(UpdateReviewQueue.Response(review_queue=updated.to_proto()))
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_review_queue():
+    request_message = _get_request_message(
+        DeleteReviewQueue(),
+        schema={"queue_id": [_assert_required, _assert_string]},
+    )
+    _get_tracking_store().delete_review_queue(request_message.queue_id)
+    return _wrap_response(DeleteReviewQueue.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _add_items_to_review_queue():
+    request_message = _get_request_message(
+        AddItemsToReviewQueue(),
+        schema={"queue_id": [_assert_required, _assert_string]},
+    )
+    kwargs: dict[str, object] = {"item_ids": list(request_message.item_ids)}
+    if (
+        request_message.HasField("item_type")
+        and request_message.item_type != REVIEW_ITEM_TYPE_UNSPECIFIED
+    ):
+        kwargs["item_type"] = ReviewItemType.from_proto(request_message.item_type)
+    items = _get_tracking_store().add_items_to_review_queue(request_message.queue_id, **kwargs)
+    response = AddItemsToReviewQueue.Response(items=[i.to_proto() for i in items])
+    return _wrap_response(response)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _remove_items_from_review_queue():
+    request_message = _get_request_message(
+        RemoveItemsFromReviewQueue(),
+        schema={"queue_id": [_assert_required, _assert_string]},
+    )
+    _get_tracking_store().remove_items_from_review_queue(
+        request_message.queue_id, item_ids=list(request_message.item_ids)
+    )
+    return _wrap_response(RemoveItemsFromReviewQueue.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_review_queue_items():
+    request_message = _get_request_message(
+        ListReviewQueueItems(),
+        schema={
+            "queue_id": [_assert_required, _assert_string],
+            "max_results": [_assert_intlike, _review_queue_max_results_validator],
+        },
+    )
+    max_results = request_message.max_results if request_message.HasField("max_results") else None
+    page_token = request_message.page_token if request_message.HasField("page_token") else None
+    status = None
+    if request_message.HasField("status") and request_message.status != REVIEW_STATUS_UNSPECIFIED:
+        status = ReviewStatus.from_proto(request_message.status)
+    items = _get_tracking_store().list_review_queue_items(
+        request_message.queue_id,
+        status=status,
+        max_results=max_results,
+        page_token=page_token,
+    )
+    response = ListReviewQueueItems.Response(
+        items=[i.to_proto() for i in items],
+        next_page_token=items.token or "",
+    )
+    return _wrap_response(response)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _set_review_queue_item_status():
+    request_message = _get_request_message(
+        SetReviewQueueItemStatus(),
+        schema={
+            "queue_id": [_assert_required, _assert_string],
+            "item_id": [_assert_required, _assert_string],
+        },
+    )
+    completed_by = (
+        request_message.completed_by if request_message.HasField("completed_by") else None
+    )
+    # `status` is intentionally not in the input schema above: rejection of an
+    # absent/UNSPECIFIED status is delegated to `ReviewStatus.from_proto` (a
+    # required-field schema entry would only check HasField, not enum value).
+    item = _get_tracking_store().set_review_queue_item_status(
+        request_message.queue_id,
+        item_id=request_message.item_id,
+        status=ReviewStatus.from_proto(request_message.status),
+        completed_by=completed_by,
+    )
+    return _wrap_response(SetReviewQueueItemStatus.Response(item=item.to_proto()))
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _invoke_issue_detection_handler():
@@ -4657,6 +4944,71 @@ def _invoke_issue_detection_handler():
     # Tag the run with job ID for later retrieval
     mlflow.set_tag(MLFLOW_ISSUE_DETECTION_JOB_ID, job.job_id)
     mlflow.end_run(RunStatus.to_string(RunStatus.RUNNING))
+
+    return jsonify({"job_id": job.job_id, "run_id": run_id})
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _invoke_genai_evaluate_handler():
+    """
+    Run mlflow.genai.evaluate(...) against the chosen traces + scorers as an
+    async job, attached to a brand-new MLflow eval run.
+
+    This is a UI-only AJAX endpoint that backs the "Run evaluation" feature on
+    the Evaluation Runs page.
+    """
+    from mlflow.genai.evaluation.job import invoke_genai_evaluate_job
+    from mlflow.server.jobs import submit_job
+
+    _validate_content_type(request, ["application/json"])
+
+    request_json = _get_validated_flask_request_json(
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "trace_ids": [_assert_required, _assert_array],
+            "serialized_scorers": [_assert_required, _assert_array],
+        }
+    )
+
+    experiment_id = request_json["experiment_id"]
+    trace_ids = request_json["trace_ids"]
+    serialized_scorers = request_json["serialized_scorers"]
+
+    if not trace_ids:
+        raise MlflowException(
+            "Please select at least one trace to evaluate.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if not serialized_scorers:
+        raise MlflowException(
+            "Please select at least one judge.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # Create the run upfront so we can return run_id immediately, so the run
+    # shows up on /evaluation-runs even before the job has produced artifacts.
+    tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_GENAI_EVALUATE}
+    client = MlflowClient()
+    run = client.create_run(experiment_id=experiment_id, tags=tags)
+    run_id = run.info.run_id
+
+    username = request.authorization.username if request.authorization else None
+
+    try:
+        job = submit_job(
+            function=invoke_genai_evaluate_job,
+            params={
+                "trace_ids": trace_ids,
+                "serialized_scorers": serialized_scorers,
+                "run_id": run_id,
+                "username": username,
+            },
+        )
+        client.set_tag(run_id, MLFLOW_GENAI_EVALUATE_JOB_ID, job.job_id)
+    except Exception:
+        client.set_terminated(run_id, RunStatus.to_string(RunStatus.FAILED))
+        raise
 
     return jsonify({"job_id": job.job_id, "run_id": run_id})
 
@@ -6400,6 +6752,7 @@ def get_endpoints(get_handler=get_handler):
         + get_gateway_endpoints()
         + get_demo_endpoints()
         + get_issues_detection_endpoints()
+        + get_genai_evaluate_endpoints()
         + get_job_endpoints()
     )
 
@@ -6440,6 +6793,16 @@ def get_issues_detection_endpoints():
         (
             _get_ajax_path("/mlflow/issues/invoke", version=3),
             _invoke_issue_detection_handler,
+            ["POST"],
+        ),
+    ]
+
+
+def get_genai_evaluate_endpoints():
+    return [
+        (
+            _get_ajax_path("/mlflow/genai/evaluate/invoke", version=3),
+            _invoke_genai_evaluate_handler,
             ["POST"],
         ),
     ]
@@ -7357,6 +7720,17 @@ HANDLERS = {
     ListLabelSchemas: _list_label_schemas,
     UpdateLabelSchema: _update_label_schema,
     DeleteLabelSchema: _delete_label_schema,
+    CreateReviewQueue: _create_review_queue,
+    GetOrCreateUserQueue: _get_or_create_user_queue,
+    GetReviewQueue: _get_review_queue,
+    GetReviewQueueByName: _get_review_queue_by_name,
+    ListReviewQueues: _list_review_queues,
+    UpdateReviewQueue: _update_review_queue,
+    DeleteReviewQueue: _delete_review_queue,
+    AddItemsToReviewQueue: _add_items_to_review_queue,
+    RemoveItemsFromReviewQueue: _remove_items_from_review_queue,
+    ListReviewQueueItems: _list_review_queue_items,
+    SetReviewQueueItemStatus: _set_review_queue_item_status,
     # Legacy MLflow Tracing V2 APIs. Kept for backward compatibility but do not use.
     StartTrace: _deprecated_start_trace_v2,
     EndTrace: _deprecated_end_trace_v2,

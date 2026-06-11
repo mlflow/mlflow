@@ -20,7 +20,7 @@ if Version(google.protobuf.__version__).major >= 5:
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13label_schemas.proto\x12\x14mlflow.label_schemas\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"?\n\rInputPassFail\x12\x16\n\x0epositive_label\x18\x01 \x01(\t\x12\x16\n\x0enegative_label\x18\x02 \x01(\t\"R\n\x10InputCategorical\x12\x0f\n\x07options\x18\x01 \x03(\t\x12\x14\n\x0cmulti_select\x18\x03 \x01(\x08J\x04\x08\x02\x10\x03R\x11semantic_polarity\"4\n\x0cInputNumeric\x12\x11\n\tmin_value\x18\x01 \x01(\x01\x12\x11\n\tmax_value\x18\x02 \x01(\x01\"\x1f\n\tInputText\x12\x12\n\nmax_length\x18\x01 \x01(\x03\"\xa5\x02\n\x10LabelSchemaInput\x12\x38\n\tpass_fail\x18\x01 \x01(\x0b\x32#.mlflow.label_schemas.InputPassFailH\x00\x12=\n\x0b\x63\x61tegorical\x18\x02 \x01(\x0b\x32&.mlflow.label_schemas.InputCategoricalH\x00\x12\x35\n\x07numeric\x18\x03 \x01(\x0b\x32\".mlflow.label_schemas.InputNumericH\x00\x12/\n\x04text\x18\x05 \x01(\x0b\x32\x1f.mlflow.label_schemas.InputTextH\x00\x42\x07\n\x05inputJ\x04\x08\x04\x10\x05J\x04\x08\x06\x10\x07R\x10\x63\x61tegorical_listR\ttext_list\"\xac\x02\n\x0bLabelSchema\x12\x11\n\tschema_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x33\n\x04type\x18\x04 \x01(\x0e\x32%.mlflow.label_schemas.LabelSchemaType\x12\x13\n\x0binstruction\x18\x06 \x01(\t\x12\x16\n\x0e\x65nable_comment\x18\x07 \x01(\x08\x12\x35\n\x05input\x18\x08 \x01(\x0b\x32&.mlflow.label_schemas.LabelSchemaInput\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\n \x01(\x03\x12\x17\n\x0flast_updated_at\x18\x0b \x01(\x03J\x04\x08\x05\x10\x06R\x05title\"\xe8\x02\n\x11\x43reateLabelSchema\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x39\n\x04type\x18\x03 \x01(\x0e\x32%.mlflow.label_schemas.LabelSchemaTypeB\x04\xf8\x86\x19\x01\x12;\n\x05input\x18\x05 \x01(\x0b\x32&.mlflow.label_schemas.LabelSchemaInputB\x04\xf8\x86\x19\x01\x12\x13\n\x0binstruction\x18\x06 \x01(\t\x12\x16\n\x0e\x65nable_comment\x18\x07 \x01(\x08\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]J\x04\x08\x04\x10\x05R\x05title\"\x9b\x01\n\x0eGetLabelSchema\x12\x17\n\tschema_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb9\x01\n\x14GetLabelSchemaByName\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe4\x01\n\x10ListLabelSchemas\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0bmax_results\x18\x02 \x01(\x05\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a]\n\x08Response\x12\x38\n\rlabel_schemas\x18\x01 \x03(\x0b\x32!.mlflow.label_schemas.LabelSchema\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9d\x02\n\x11UpdateLabelSchema\x12\x17\n\tschema_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0binstruction\x18\x04 \x01(\t\x12\x16\n\x0e\x65nable_comment\x18\x05 \x01(\x08\x12\x35\n\x05input\x18\x06 \x01(\x0b\x32&.mlflow.label_schemas.LabelSchemaInput\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]J\x04\x08\x03\x10\x04R\x05title\"e\n\x11\x44\x65leteLabelSchema\x12\x17\n\tschema_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*S\n\x0fLabelSchemaType\x12!\n\x1dLABEL_SCHEMA_TYPE_UNSPECIFIED\x10\x00\x12\x0c\n\x08\x46\x45\x45\x44\x42\x41\x43K\x10\x01\x12\x0f\n\x0b\x45XPECTATION\x10\x02\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13label_schemas.proto\x12\x14mlflow.label_schemas\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"?\n\rInputPassFail\x12\x16\n\x0epositive_label\x18\x01 \x01(\t\x12\x16\n\x0enegative_label\x18\x02 \x01(\t\"R\n\x10InputCategorical\x12\x0f\n\x07options\x18\x01 \x03(\t\x12\x14\n\x0cmulti_select\x18\x03 \x01(\x08J\x04\x08\x02\x10\x03R\x11semantic_polarity\"4\n\x0cInputNumeric\x12\x11\n\tmin_value\x18\x01 \x01(\x01\x12\x11\n\tmax_value\x18\x02 \x01(\x01\"\x1f\n\tInputText\x12\x12\n\nmax_length\x18\x01 \x01(\x03\"\xa5\x02\n\x10LabelSchemaInput\x12\x38\n\tpass_fail\x18\x01 \x01(\x0b\x32#.mlflow.label_schemas.InputPassFailH\x00\x12=\n\x0b\x63\x61tegorical\x18\x02 \x01(\x0b\x32&.mlflow.label_schemas.InputCategoricalH\x00\x12\x35\n\x07numeric\x18\x03 \x01(\x0b\x32\".mlflow.label_schemas.InputNumericH\x00\x12/\n\x04text\x18\x05 \x01(\x0b\x32\x1f.mlflow.label_schemas.InputTextH\x00\x42\x07\n\x05inputJ\x04\x08\x04\x10\x05J\x04\x08\x06\x10\x07R\x10\x63\x61tegorical_listR\ttext_list\"\xc0\x02\n\x0bLabelSchema\x12\x11\n\tschema_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x33\n\x04type\x18\x04 \x01(\x0e\x32%.mlflow.label_schemas.LabelSchemaType\x12\x13\n\x0binstruction\x18\x06 \x01(\t\x12\x16\n\x0e\x65nable_comment\x18\x07 \x01(\x08\x12\x35\n\x05input\x18\x08 \x01(\x0b\x32&.mlflow.label_schemas.LabelSchemaInput\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\n \x01(\x03\x12\x17\n\x0flast_updated_at\x18\x0b \x01(\x03\x12\x12\n\nis_default\x18\x0c \x01(\x08J\x04\x08\x05\x10\x06R\x05title\"\xe8\x02\n\x11\x43reateLabelSchema\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x39\n\x04type\x18\x03 \x01(\x0e\x32%.mlflow.label_schemas.LabelSchemaTypeB\x04\xf8\x86\x19\x01\x12;\n\x05input\x18\x05 \x01(\x0b\x32&.mlflow.label_schemas.LabelSchemaInputB\x04\xf8\x86\x19\x01\x12\x13\n\x0binstruction\x18\x06 \x01(\t\x12\x16\n\x0e\x65nable_comment\x18\x07 \x01(\x08\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]J\x04\x08\x04\x10\x05R\x05title\"\x9b\x01\n\x0eGetLabelSchema\x12\x17\n\tschema_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb9\x01\n\x14GetLabelSchemaByName\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe4\x01\n\x10ListLabelSchemas\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0bmax_results\x18\x02 \x01(\x05\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a]\n\x08Response\x12\x38\n\rlabel_schemas\x18\x01 \x03(\x0b\x32!.mlflow.label_schemas.LabelSchema\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9d\x02\n\x11UpdateLabelSchema\x12\x17\n\tschema_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0binstruction\x18\x04 \x01(\t\x12\x16\n\x0e\x65nable_comment\x18\x05 \x01(\x08\x12\x35\n\x05input\x18\x06 \x01(\x0b\x32&.mlflow.label_schemas.LabelSchemaInput\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]J\x04\x08\x03\x10\x04R\x05title\"e\n\x11\x44\x65leteLabelSchema\x12\x17\n\tschema_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*S\n\x0fLabelSchemaType\x12!\n\x1dLABEL_SCHEMA_TYPE_UNSPECIFIED\x10\x00\x12\x0c\n\x08\x46\x45\x45\x44\x42\x41\x43K\x10\x01\x12\x0f\n\x0b\x45XPECTATION\x10\x02\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -60,8 +60,8 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_DELETELABELSCHEMA'].fields_by_name['schema_id']._serialized_options = b'\370\206\031\001'
     _globals['_DELETELABELSCHEMA']._loaded_options = None
     _globals['_DELETELABELSCHEMA']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
-    _globals['_LABELSCHEMATYPE']._serialized_start=2252
-    _globals['_LABELSCHEMATYPE']._serialized_end=2335
+    _globals['_LABELSCHEMATYPE']._serialized_start=2272
+    _globals['_LABELSCHEMATYPE']._serialized_end=2355
     _globals['_INPUTPASSFAIL']._serialized_start=86
     _globals['_INPUTPASSFAIL']._serialized_end=149
     _globals['_INPUTCATEGORICAL']._serialized_start=151
@@ -73,31 +73,31 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_LABELSCHEMAINPUT']._serialized_start=323
     _globals['_LABELSCHEMAINPUT']._serialized_end=616
     _globals['_LABELSCHEMA']._serialized_start=619
-    _globals['_LABELSCHEMA']._serialized_end=919
-    _globals['_CREATELABELSCHEMA']._serialized_start=922
-    _globals['_CREATELABELSCHEMA']._serialized_end=1282
-    _globals['_CREATELABELSCHEMA_RESPONSE']._serialized_start=1157
-    _globals['_CREATELABELSCHEMA_RESPONSE']._serialized_end=1224
-    _globals['_GETLABELSCHEMA']._serialized_start=1285
-    _globals['_GETLABELSCHEMA']._serialized_end=1440
-    _globals['_GETLABELSCHEMA_RESPONSE']._serialized_start=1157
-    _globals['_GETLABELSCHEMA_RESPONSE']._serialized_end=1224
-    _globals['_GETLABELSCHEMABYNAME']._serialized_start=1443
-    _globals['_GETLABELSCHEMABYNAME']._serialized_end=1628
-    _globals['_GETLABELSCHEMABYNAME_RESPONSE']._serialized_start=1157
-    _globals['_GETLABELSCHEMABYNAME_RESPONSE']._serialized_end=1224
-    _globals['_LISTLABELSCHEMAS']._serialized_start=1631
-    _globals['_LISTLABELSCHEMAS']._serialized_end=1859
-    _globals['_LISTLABELSCHEMAS_RESPONSE']._serialized_start=1721
-    _globals['_LISTLABELSCHEMAS_RESPONSE']._serialized_end=1814
-    _globals['_UPDATELABELSCHEMA']._serialized_start=1862
-    _globals['_UPDATELABELSCHEMA']._serialized_end=2147
-    _globals['_UPDATELABELSCHEMA_RESPONSE']._serialized_start=1157
-    _globals['_UPDATELABELSCHEMA_RESPONSE']._serialized_end=1224
-    _globals['_DELETELABELSCHEMA']._serialized_start=2149
-    _globals['_DELETELABELSCHEMA']._serialized_end=2250
-    _globals['_DELETELABELSCHEMA_RESPONSE']._serialized_start=1157
-    _globals['_DELETELABELSCHEMA_RESPONSE']._serialized_end=1167
+    _globals['_LABELSCHEMA']._serialized_end=939
+    _globals['_CREATELABELSCHEMA']._serialized_start=942
+    _globals['_CREATELABELSCHEMA']._serialized_end=1302
+    _globals['_CREATELABELSCHEMA_RESPONSE']._serialized_start=1177
+    _globals['_CREATELABELSCHEMA_RESPONSE']._serialized_end=1244
+    _globals['_GETLABELSCHEMA']._serialized_start=1305
+    _globals['_GETLABELSCHEMA']._serialized_end=1460
+    _globals['_GETLABELSCHEMA_RESPONSE']._serialized_start=1177
+    _globals['_GETLABELSCHEMA_RESPONSE']._serialized_end=1244
+    _globals['_GETLABELSCHEMABYNAME']._serialized_start=1463
+    _globals['_GETLABELSCHEMABYNAME']._serialized_end=1648
+    _globals['_GETLABELSCHEMABYNAME_RESPONSE']._serialized_start=1177
+    _globals['_GETLABELSCHEMABYNAME_RESPONSE']._serialized_end=1244
+    _globals['_LISTLABELSCHEMAS']._serialized_start=1651
+    _globals['_LISTLABELSCHEMAS']._serialized_end=1879
+    _globals['_LISTLABELSCHEMAS_RESPONSE']._serialized_start=1741
+    _globals['_LISTLABELSCHEMAS_RESPONSE']._serialized_end=1834
+    _globals['_UPDATELABELSCHEMA']._serialized_start=1882
+    _globals['_UPDATELABELSCHEMA']._serialized_end=2167
+    _globals['_UPDATELABELSCHEMA_RESPONSE']._serialized_start=1177
+    _globals['_UPDATELABELSCHEMA_RESPONSE']._serialized_end=1244
+    _globals['_DELETELABELSCHEMA']._serialized_start=2169
+    _globals['_DELETELABELSCHEMA']._serialized_end=2270
+    _globals['_DELETELABELSCHEMA_RESPONSE']._serialized_start=1177
+    _globals['_DELETELABELSCHEMA_RESPONSE']._serialized_end=1187
   # @@protoc_insertion_point(module_scope)
 
 else:
@@ -120,7 +120,7 @@ else:
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13label_schemas.proto\x12\x14mlflow.label_schemas\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"?\n\rInputPassFail\x12\x16\n\x0epositive_label\x18\x01 \x01(\t\x12\x16\n\x0enegative_label\x18\x02 \x01(\t\"R\n\x10InputCategorical\x12\x0f\n\x07options\x18\x01 \x03(\t\x12\x14\n\x0cmulti_select\x18\x03 \x01(\x08J\x04\x08\x02\x10\x03R\x11semantic_polarity\"4\n\x0cInputNumeric\x12\x11\n\tmin_value\x18\x01 \x01(\x01\x12\x11\n\tmax_value\x18\x02 \x01(\x01\"\x1f\n\tInputText\x12\x12\n\nmax_length\x18\x01 \x01(\x03\"\xa5\x02\n\x10LabelSchemaInput\x12\x38\n\tpass_fail\x18\x01 \x01(\x0b\x32#.mlflow.label_schemas.InputPassFailH\x00\x12=\n\x0b\x63\x61tegorical\x18\x02 \x01(\x0b\x32&.mlflow.label_schemas.InputCategoricalH\x00\x12\x35\n\x07numeric\x18\x03 \x01(\x0b\x32\".mlflow.label_schemas.InputNumericH\x00\x12/\n\x04text\x18\x05 \x01(\x0b\x32\x1f.mlflow.label_schemas.InputTextH\x00\x42\x07\n\x05inputJ\x04\x08\x04\x10\x05J\x04\x08\x06\x10\x07R\x10\x63\x61tegorical_listR\ttext_list\"\xac\x02\n\x0bLabelSchema\x12\x11\n\tschema_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x33\n\x04type\x18\x04 \x01(\x0e\x32%.mlflow.label_schemas.LabelSchemaType\x12\x13\n\x0binstruction\x18\x06 \x01(\t\x12\x16\n\x0e\x65nable_comment\x18\x07 \x01(\x08\x12\x35\n\x05input\x18\x08 \x01(\x0b\x32&.mlflow.label_schemas.LabelSchemaInput\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\n \x01(\x03\x12\x17\n\x0flast_updated_at\x18\x0b \x01(\x03J\x04\x08\x05\x10\x06R\x05title\"\xe8\x02\n\x11\x43reateLabelSchema\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x39\n\x04type\x18\x03 \x01(\x0e\x32%.mlflow.label_schemas.LabelSchemaTypeB\x04\xf8\x86\x19\x01\x12;\n\x05input\x18\x05 \x01(\x0b\x32&.mlflow.label_schemas.LabelSchemaInputB\x04\xf8\x86\x19\x01\x12\x13\n\x0binstruction\x18\x06 \x01(\t\x12\x16\n\x0e\x65nable_comment\x18\x07 \x01(\x08\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]J\x04\x08\x04\x10\x05R\x05title\"\x9b\x01\n\x0eGetLabelSchema\x12\x17\n\tschema_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb9\x01\n\x14GetLabelSchemaByName\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe4\x01\n\x10ListLabelSchemas\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0bmax_results\x18\x02 \x01(\x05\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a]\n\x08Response\x12\x38\n\rlabel_schemas\x18\x01 \x03(\x0b\x32!.mlflow.label_schemas.LabelSchema\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9d\x02\n\x11UpdateLabelSchema\x12\x17\n\tschema_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0binstruction\x18\x04 \x01(\t\x12\x16\n\x0e\x65nable_comment\x18\x05 \x01(\x08\x12\x35\n\x05input\x18\x06 \x01(\x0b\x32&.mlflow.label_schemas.LabelSchemaInput\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]J\x04\x08\x03\x10\x04R\x05title\"e\n\x11\x44\x65leteLabelSchema\x12\x17\n\tschema_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*S\n\x0fLabelSchemaType\x12!\n\x1dLABEL_SCHEMA_TYPE_UNSPECIFIED\x10\x00\x12\x0c\n\x08\x46\x45\x45\x44\x42\x41\x43K\x10\x01\x12\x0f\n\x0b\x45XPECTATION\x10\x02\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x13label_schemas.proto\x12\x14mlflow.label_schemas\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"?\n\rInputPassFail\x12\x16\n\x0epositive_label\x18\x01 \x01(\t\x12\x16\n\x0enegative_label\x18\x02 \x01(\t\"R\n\x10InputCategorical\x12\x0f\n\x07options\x18\x01 \x03(\t\x12\x14\n\x0cmulti_select\x18\x03 \x01(\x08J\x04\x08\x02\x10\x03R\x11semantic_polarity\"4\n\x0cInputNumeric\x12\x11\n\tmin_value\x18\x01 \x01(\x01\x12\x11\n\tmax_value\x18\x02 \x01(\x01\"\x1f\n\tInputText\x12\x12\n\nmax_length\x18\x01 \x01(\x03\"\xa5\x02\n\x10LabelSchemaInput\x12\x38\n\tpass_fail\x18\x01 \x01(\x0b\x32#.mlflow.label_schemas.InputPassFailH\x00\x12=\n\x0b\x63\x61tegorical\x18\x02 \x01(\x0b\x32&.mlflow.label_schemas.InputCategoricalH\x00\x12\x35\n\x07numeric\x18\x03 \x01(\x0b\x32\".mlflow.label_schemas.InputNumericH\x00\x12/\n\x04text\x18\x05 \x01(\x0b\x32\x1f.mlflow.label_schemas.InputTextH\x00\x42\x07\n\x05inputJ\x04\x08\x04\x10\x05J\x04\x08\x06\x10\x07R\x10\x63\x61tegorical_listR\ttext_list\"\xc0\x02\n\x0bLabelSchema\x12\x11\n\tschema_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x33\n\x04type\x18\x04 \x01(\x0e\x32%.mlflow.label_schemas.LabelSchemaType\x12\x13\n\x0binstruction\x18\x06 \x01(\t\x12\x16\n\x0e\x65nable_comment\x18\x07 \x01(\x08\x12\x35\n\x05input\x18\x08 \x01(\x0b\x32&.mlflow.label_schemas.LabelSchemaInput\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\n \x01(\x03\x12\x17\n\x0flast_updated_at\x18\x0b \x01(\x03\x12\x12\n\nis_default\x18\x0c \x01(\x08J\x04\x08\x05\x10\x06R\x05title\"\xe8\x02\n\x11\x43reateLabelSchema\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x39\n\x04type\x18\x03 \x01(\x0e\x32%.mlflow.label_schemas.LabelSchemaTypeB\x04\xf8\x86\x19\x01\x12;\n\x05input\x18\x05 \x01(\x0b\x32&.mlflow.label_schemas.LabelSchemaInputB\x04\xf8\x86\x19\x01\x12\x13\n\x0binstruction\x18\x06 \x01(\t\x12\x16\n\x0e\x65nable_comment\x18\x07 \x01(\x08\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]J\x04\x08\x04\x10\x05R\x05title\"\x9b\x01\n\x0eGetLabelSchema\x12\x17\n\tschema_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb9\x01\n\x14GetLabelSchemaByName\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe4\x01\n\x10ListLabelSchemas\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0bmax_results\x18\x02 \x01(\x05\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a]\n\x08Response\x12\x38\n\rlabel_schemas\x18\x01 \x03(\x0b\x32!.mlflow.label_schemas.LabelSchema\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9d\x02\n\x11UpdateLabelSchema\x12\x17\n\tschema_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x13\n\x0binstruction\x18\x04 \x01(\t\x12\x16\n\x0e\x65nable_comment\x18\x05 \x01(\x08\x12\x35\n\x05input\x18\x06 \x01(\x0b\x32&.mlflow.label_schemas.LabelSchemaInput\x1a\x43\n\x08Response\x12\x37\n\x0clabel_schema\x18\x01 \x01(\x0b\x32!.mlflow.label_schemas.LabelSchema:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]J\x04\x08\x03\x10\x04R\x05title\"e\n\x11\x44\x65leteLabelSchema\x12\x17\n\tschema_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*S\n\x0fLabelSchemaType\x12!\n\x1dLABEL_SCHEMA_TYPE_UNSPECIFIED\x10\x00\x12\x0c\n\x08\x46\x45\x45\x44\x42\x41\x43K\x10\x01\x12\x0f\n\x0b\x45XPECTATION\x10\x02\x42\x19\n\x14org.mlflow.api.proto\x90\x01\x01')
 
   _LABELSCHEMATYPE = DESCRIPTOR.enum_types_by_name['LabelSchemaType']
   LabelSchemaType = enum_type_wrapper.EnumTypeWrapper(_LABELSCHEMATYPE)
@@ -315,8 +315,8 @@ else:
     _DELETELABELSCHEMA.fields_by_name['schema_id']._serialized_options = b'\370\206\031\001'
     _DELETELABELSCHEMA._options = None
     _DELETELABELSCHEMA._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
-    _LABELSCHEMATYPE._serialized_start=2252
-    _LABELSCHEMATYPE._serialized_end=2335
+    _LABELSCHEMATYPE._serialized_start=2272
+    _LABELSCHEMATYPE._serialized_end=2355
     _INPUTPASSFAIL._serialized_start=86
     _INPUTPASSFAIL._serialized_end=149
     _INPUTCATEGORICAL._serialized_start=151
@@ -328,30 +328,30 @@ else:
     _LABELSCHEMAINPUT._serialized_start=323
     _LABELSCHEMAINPUT._serialized_end=616
     _LABELSCHEMA._serialized_start=619
-    _LABELSCHEMA._serialized_end=919
-    _CREATELABELSCHEMA._serialized_start=922
-    _CREATELABELSCHEMA._serialized_end=1282
-    _CREATELABELSCHEMA_RESPONSE._serialized_start=1157
-    _CREATELABELSCHEMA_RESPONSE._serialized_end=1224
-    _GETLABELSCHEMA._serialized_start=1285
-    _GETLABELSCHEMA._serialized_end=1440
-    _GETLABELSCHEMA_RESPONSE._serialized_start=1157
-    _GETLABELSCHEMA_RESPONSE._serialized_end=1224
-    _GETLABELSCHEMABYNAME._serialized_start=1443
-    _GETLABELSCHEMABYNAME._serialized_end=1628
-    _GETLABELSCHEMABYNAME_RESPONSE._serialized_start=1157
-    _GETLABELSCHEMABYNAME_RESPONSE._serialized_end=1224
-    _LISTLABELSCHEMAS._serialized_start=1631
-    _LISTLABELSCHEMAS._serialized_end=1859
-    _LISTLABELSCHEMAS_RESPONSE._serialized_start=1721
-    _LISTLABELSCHEMAS_RESPONSE._serialized_end=1814
-    _UPDATELABELSCHEMA._serialized_start=1862
-    _UPDATELABELSCHEMA._serialized_end=2147
-    _UPDATELABELSCHEMA_RESPONSE._serialized_start=1157
-    _UPDATELABELSCHEMA_RESPONSE._serialized_end=1224
-    _DELETELABELSCHEMA._serialized_start=2149
-    _DELETELABELSCHEMA._serialized_end=2250
-    _DELETELABELSCHEMA_RESPONSE._serialized_start=1157
-    _DELETELABELSCHEMA_RESPONSE._serialized_end=1167
+    _LABELSCHEMA._serialized_end=939
+    _CREATELABELSCHEMA._serialized_start=942
+    _CREATELABELSCHEMA._serialized_end=1302
+    _CREATELABELSCHEMA_RESPONSE._serialized_start=1177
+    _CREATELABELSCHEMA_RESPONSE._serialized_end=1244
+    _GETLABELSCHEMA._serialized_start=1305
+    _GETLABELSCHEMA._serialized_end=1460
+    _GETLABELSCHEMA_RESPONSE._serialized_start=1177
+    _GETLABELSCHEMA_RESPONSE._serialized_end=1244
+    _GETLABELSCHEMABYNAME._serialized_start=1463
+    _GETLABELSCHEMABYNAME._serialized_end=1648
+    _GETLABELSCHEMABYNAME_RESPONSE._serialized_start=1177
+    _GETLABELSCHEMABYNAME_RESPONSE._serialized_end=1244
+    _LISTLABELSCHEMAS._serialized_start=1651
+    _LISTLABELSCHEMAS._serialized_end=1879
+    _LISTLABELSCHEMAS_RESPONSE._serialized_start=1741
+    _LISTLABELSCHEMAS_RESPONSE._serialized_end=1834
+    _UPDATELABELSCHEMA._serialized_start=1882
+    _UPDATELABELSCHEMA._serialized_end=2167
+    _UPDATELABELSCHEMA_RESPONSE._serialized_start=1177
+    _UPDATELABELSCHEMA_RESPONSE._serialized_end=1244
+    _DELETELABELSCHEMA._serialized_start=2169
+    _DELETELABELSCHEMA._serialized_end=2270
+    _DELETELABELSCHEMA_RESPONSE._serialized_start=1177
+    _DELETELABELSCHEMA_RESPONSE._serialized_end=1187
   # @@protoc_insertion_point(module_scope)
 

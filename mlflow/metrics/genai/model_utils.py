@@ -352,7 +352,9 @@ def _get_provider_instance(
             )
         config = OpenAIConfig(
             openai_api_key=os.environ["OPENAI_API_KEY"],
-            openai_api_base=os.environ.get("OPENAI_API_BASE"),
+            openai_api_base=v
+            if (v := os.environ.get("OPENAI_API_BASE")) is not None
+            else os.environ.get("OPENAI_BASE_URL"),
         )
         return OpenAIProvider(_get_route_config(config))
 

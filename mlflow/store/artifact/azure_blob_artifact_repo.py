@@ -13,6 +13,7 @@ from mlflow.entities.multipart_upload import (
 )
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, MultipartUploadMixin
 from mlflow.utils.credentials import get_default_host_creds
 
@@ -197,12 +198,20 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         return sorted(infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path, local_path):
+        from azure.core.exceptions import ResourceNotFoundError
+
         (container, _, remote_root_path, _) = self.parse_wasbs_uri(self.artifact_uri)
         container_client = self.client.get_container_client(container)
         remote_full_path = posixpath.join(remote_root_path, remote_file_path)
-        blob = container_client.download_blob(remote_full_path)
-        with open(local_path, "wb") as file:
-            blob.readinto(file)
+        try:
+            blob = container_client.download_blob(remote_full_path)
+            with open(local_path, "wb") as file:
+                blob.readinto(file)
+        except ResourceNotFoundError as e:
+            raise MlflowException(
+                f"No such file or directory: '{remote_full_path}'",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            ) from e
 
     def delete_artifacts(self, artifact_path=None):
         from azure.core.exceptions import ResourceNotFoundError

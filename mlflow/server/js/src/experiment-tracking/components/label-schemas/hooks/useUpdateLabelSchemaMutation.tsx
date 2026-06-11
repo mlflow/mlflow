@@ -29,7 +29,7 @@ interface UpdateLabelSchemaResponse {
 export const useUpdateLabelSchemaMutation = () => {
   const queryClient = useQueryClient();
 
-  const { mutate, mutateAsync, isLoading, error } = useMutation<
+  const { mutate, mutateAsync, isLoading, error, reset } = useMutation<
     UpdateLabelSchemaResponse,
     Error,
     UpdateLabelSchemaParams
@@ -67,5 +67,6 @@ export const useUpdateLabelSchemaMutation = () => {
     updateLabelSchemaAsync: mutateAsync,
     isUpdating: isLoading,
     error,
+    reset,
   };
 };
