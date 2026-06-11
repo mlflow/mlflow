@@ -27,6 +27,3 @@ def list_command():
         click.secho(skill.name, fg="cyan", bold=True)
         if skill.description:
             click.echo(f"  {skill.description}")
-
-    click.echo()
-    click.secho(f"Skills directory: {skills[0].path.parent}", dim=True)
