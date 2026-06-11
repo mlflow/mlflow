@@ -306,6 +306,87 @@ def test_evaluate_with_static_dataset(server_config):
     assert run.inputs.dataset_inputs[0].dataset.source_type == "code"
 
 
+def test_evaluate_with_empty_scorers_logs_expectations(server_config):
+    """Regression test for #23746.
+
+    When scorers=[] (no scorers), dataset expectations must still be persisted to the
+    trace as Expectation assessments. Before the fix, the no-scorers branch in
+    harness._run_pipeline set EvalResult(assessments=[]) without calling
+    _get_new_expectations / _log_assessments, so expectations were silently dropped.
+    """
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a tool for ML",
+            "expectations": {
+                "expected_response": "MLflow is a tool for ML",
+                "max_length": 100,
+            },
+        },
+        {
+            "inputs": {"question": "What is Spark?"},
+            "outputs": "Spark is a fast data processing engine",
+            "expectations": {
+                "expected_response": "Spark is a fast data processing engine",
+                "max_length": 1,
+            },
+        },
+    ]
+
+    # Empty scorers list: this is the regressed code path.
+    result = mlflow.genai.evaluate(data=data, scorers=[])
+
+    traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
+    assert len(traces) == len(data)
+    traces = sorted(traces, key=lambda t: t.data.spans[0].inputs["question"])
+
+    for i in range(len(traces)):
+        trace = traces[i]
+        assessments = {a.name: a for a in trace.info.assessments}
+
+        # No scorers ran, so exactly the 2 dataset expectations must be present
+        # (and no Feedback assessments).
+        assert len(trace.info.assessments) == 2
+        assert set(assessments) == {"expected_response", "max_length"}, (
+            f"Expected only dataset expectations, got {list(assessments)}"
+        )
+
+        a_expected_response = assessments["expected_response"]
+        assert isinstance(a_expected_response, Expectation)
+        assert a_expected_response.trace_id == trace.info.trace_id
+        assert a_expected_response.value == data[i]["expectations"]["expected_response"]
+        assert a_expected_response.source.source_type == AssessmentSourceType.HUMAN
+
+        a_max_length = assessments["max_length"]
+        assert isinstance(a_max_length, Expectation)
+        assert a_max_length.value == data[i]["expectations"]["max_length"]
+        assert a_max_length.source.source_type == AssessmentSourceType.HUMAN
+
+
+def test_evaluate_with_empty_scorers_logs_dataset_tags(server_config):
+    """Regression test for #23746 (tags part).
+
+    The no-scorers short-circuit in harness._run_pipeline also skipped the
+    eval_item.tags -> set_trace_tag step that _run_score performs, so with
+    scorers=[] dataset tags were silently dropped from the traces.
+    """
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is a tool for ML",
+            "tags": {"dataset_split": "validation", "case_id": "case-1"},
+        }
+    ]
+
+    result = mlflow.genai.evaluate(data=data, scorers=[])
+
+    traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
+    assert len(traces) == 1
+    tags = traces[0].info.tags
+    assert tags["dataset_split"] == "validation"
+    assert tags["case_id"] == "case-1"
+
+
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
 def test_evaluate_with_predict_fn(is_predict_fn_traced, server_config):
     model_id = mlflow.set_active_model(name="test-model-id").model_id
