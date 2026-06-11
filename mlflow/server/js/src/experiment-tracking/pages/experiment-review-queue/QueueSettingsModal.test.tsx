@@ -19,10 +19,9 @@ jest.mock('../../components/label-schemas', () => ({
   LabelSchemaInputRenderer: () => null,
   LabelSchemaFormModal: () => null,
 }));
+let mockAuthAvailable = true;
 jest.mock('../../../account/hooks', () => ({
-  useCurrentUserIsAdmin: () => false,
-  useCurrentUserIsWorkspaceAdmin: () => false,
-  useIsAuthAvailable: () => false,
+  useIsAuthAvailable: () => mockAuthAvailable,
 }));
 // Stable reference across renders, like the real react-query hook — a fresh
 // object each call would churn the members typeahead's derived state.
@@ -65,17 +64,19 @@ const trace = (itemId: string): ReviewQueueItem => ({
   last_update_time_ms: 0,
 });
 
-const renderModal = () =>
+const renderModal = ({ canManage = true }: { canManage?: boolean } = {}) =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
-        <QueueSettingsModal queue={queue} onClose={jest.fn()} />
+        <QueueSettingsModal queue={queue} canManage={canManage} onClose={jest.fn()} />
       </DesignSystemProvider>
     </IntlProvider>,
   );
 
 describe('QueueSettingsModal save', () => {
   beforeEach(() => {
+    mockAuthAvailable = true;
+    mockTraces = [];
     mockUpdate.mockReset();
     mockUpdate.mockImplementation(() => Promise.resolve());
   });
@@ -96,5 +97,25 @@ describe('QueueSettingsModal save', () => {
     const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
     expect('schema_ids' in arg).toBe(false);
     expect(arg).toMatchObject({ queue_id: 'rq-1' });
+  });
+
+  it('freezes questions for a non-manager editor (schema_ids omitted on save)', async () => {
+    renderModal({ canManage: false });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    expect('schema_ids' in arg).toBe(false);
+    expect(arg).toMatchObject({ queue_id: 'rq-1' });
+  });
+
+  it('omits unchanged fields entirely on a no-op save', async () => {
+    renderModal();
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    // No member change => no `users` write that could clobber a concurrent edit.
+    expect('users' in arg).toBe(false);
+    expect('name' in arg).toBe(false);
+    expect('new_owner' in arg).toBe(false);
   });
 });
