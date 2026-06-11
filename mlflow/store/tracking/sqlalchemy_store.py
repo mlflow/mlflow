@@ -8619,7 +8619,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     )
 
             sql_queue.last_update_time_ms = get_current_time_millis()
-            session.flush()
+            try:
+                session.flush()
+            except IntegrityError as e:
+                # Race on rename: a parallel transaction inserted (experiment_id,
+                # name) between the pre-check above and this flush. Mirror
+                # create_review_queue and surface a clean RESOURCE_ALREADY_EXISTS.
+                raise MlflowException(
+                    f"Review queue with name '{sql_queue.name}' already exists for "
+                    f"experiment '{sql_queue.experiment_id}'.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                ) from e
             return self._hydrate_review_queues(session, [sql_queue])[0]
 
     def delete_review_queue(self, queue_id):

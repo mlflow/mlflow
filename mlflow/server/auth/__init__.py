@@ -2214,14 +2214,18 @@ def _can_own_or_manage_review_queue(queue, username: str) -> bool:
     return perm.can_update and _is_review_queue_owner(queue, username)
 
 
-def _request_has_param(param: str) -> bool:
-    """Whether a request param is present, without raising when it's absent."""
-    if request.method == "GET":
-        args = request.args
-    else:
-        body = request.get_json(silent=True)
-        args = body if isinstance(body, dict) else {}
-    return param in (args | (request.view_args or {}))
+def _update_review_queue_reassigns_owner() -> bool:
+    """Whether an ``UpdateReviewQueue`` request reassigns the owner.
+
+    Detected by parsing the proto and checking field presence — matching how the
+    handler reads it — rather than scanning raw JSON keys. Protobuf JSON accepts
+    both ``new_owner`` and its camelCase ``newOwner``, so a raw-key check would
+    miss the latter and under-gate the MANAGE-only owner reassignment.
+    """
+    body = request.get_json(silent=True)
+    message = UpdateReviewQueue()
+    parse_dict(body if isinstance(body, dict) else {}, message)
+    return message.HasField("new_owner")
 
 
 def validate_can_create_review_queue():
@@ -2235,7 +2239,7 @@ def validate_can_update_review_queue():
     # an owner cannot transfer their own queue.
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    if _request_has_param("new_owner"):
+    if _update_review_queue_reassigns_owner():
         return _get_experiment_permission(queue.experiment_id, username).can_manage
     return _can_own_or_manage_review_queue(queue, username)
 

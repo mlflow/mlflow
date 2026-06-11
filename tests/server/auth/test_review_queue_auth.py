@@ -26,7 +26,7 @@ def _setup(
     username="alice",
     created_by=None,
     queue_type=ReviewQueueType.CUSTOM,
-    has_new_owner=False,
+    update_body=None,
 ):
     """Patch the request / store / permission boundary the validators read."""
     perm = get_permission(permission)
@@ -50,9 +50,11 @@ def _setup(
     )
     monkeypatch.setattr(auth, "_get_experiment_permission", lambda _exp, _user: perm)
     monkeypatch.setattr(auth, "_get_tracking_store", lambda: store)
-    # `_request_has_param` reads the live flask request, absent in these unit
-    # tests; stub the only field the validators probe (UpdateReviewQueue owner).
-    monkeypatch.setattr(auth, "_request_has_param", lambda p: has_new_owner and p == "new_owner")
+    # The owner-reassignment gate parses the live request body; stub it so the
+    # real `_update_review_queue_reassigns_owner` detection runs against it.
+    monkeypatch.setattr(
+        auth, "request", SimpleNamespace(get_json=lambda silent=False: dict(update_body or {}))
+    )
 
 
 def test_review_queue_has_member_is_case_insensitive():
@@ -119,12 +121,38 @@ def test_update_and_remove_items_allow_owner_or_manager(monkeypatch):
 
 def test_owner_reassignment_requires_manage(monkeypatch):
     # An owning EDIT user may edit shape but NOT reassign the owner.
-    _setup(monkeypatch, permission="EDIT", created_by="alice", username="alice", has_new_owner=True)
+    _setup(
+        monkeypatch,
+        permission="EDIT",
+        created_by="alice",
+        username="alice",
+        update_body={"queue_id": "q1", "new_owner": "victim"},
+    )
     assert auth.validate_can_update_review_queue() is False
 
     # A manager may reassign the owner.
-    _setup(monkeypatch, permission="MANAGE", created_by="bob", username="alice", has_new_owner=True)
+    _setup(
+        monkeypatch,
+        permission="MANAGE",
+        created_by="bob",
+        username="alice",
+        update_body={"queue_id": "q1", "new_owner": "victim"},
+    )
     assert auth.validate_can_update_review_queue() is True
+
+
+def test_owner_reassignment_via_camelcase_still_requires_manage(monkeypatch):
+    # Regression: protobuf JSON also accepts the camelCase `newOwner`. The gate
+    # must detect it by parsing the proto (not scanning raw JSON keys), so an
+    # owning EDIT user can't dodge the MANAGE-only owner reassignment.
+    _setup(
+        monkeypatch,
+        permission="EDIT",
+        created_by="alice",
+        username="alice",
+        update_body={"queue_id": "q1", "newOwner": "victim"},
+    )
+    assert auth.validate_can_update_review_queue() is False
 
 
 def test_delete_owner_can_delete_own_custom_but_not_user(monkeypatch):

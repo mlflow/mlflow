@@ -6294,6 +6294,29 @@ def test_update_review_queue_passes_name_and_new_owner():
         assert call_kwargs["schema_ids"] is None
 
 
+def test_update_review_queue_unset_name_and_owner_pass_none():
+    # Only users changed; name / new_owner are unset, so HasField is False and
+    # the store must receive None (guards against a truthiness-vs-HasField
+    # regression that could, e.g., wipe the owner with an empty string).
+    request_message = UpdateReviewQueue()
+    request_message.queue_id = "rq-1"
+    request_message.update_users = True
+    request_message.users.append("bob")
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.update_review_queue.return_value = _review_queue_entity(
+            users=["bob"]
+        )
+        _update_review_queue()
+        call_kwargs = mock_store.return_value.update_review_queue.call_args[1]
+        assert call_kwargs["name"] is None
+        assert call_kwargs["new_owner"] is None
+        assert call_kwargs["users"] == ["bob"]
+
+
 def test_get_or_create_user_queue_ignores_client_created_by():
     request_message = GetOrCreateUserQueue()
     request_message.experiment_id = "exp-1"
