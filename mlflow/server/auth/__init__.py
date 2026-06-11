@@ -2196,12 +2196,73 @@ def _review_queue_has_member(queue, username: str) -> bool:
     return any((u or "").strip().lower() == target for u in queue.users)
 
 
+def _is_review_queue_owner(queue, username: str) -> bool:
+    # Owner identity (``created_by``) is stored case-preserved; compare
+    # case-insensitively, matching how the assigned-user pool is matched.
+    owner = (queue.created_by or "").strip().lower()
+    return bool(owner) and owner == (username or "").strip().lower()
+
+
+def _can_own_or_manage_review_queue(queue, username: str) -> bool:
+    """Owner-level access to a queue: experiment MANAGE, or experiment EDIT and
+    you own the queue (``created_by``). Ownership amplifies EDIT — it is never a
+    substitute for it.
+    """
+    perm = _get_experiment_permission(queue.experiment_id, username)
+    if perm.can_manage:
+        return True
+    return perm.can_update and _is_review_queue_owner(queue, username)
+
+
+def _request_has_param(param: str) -> bool:
+    """Whether a request param is present, without raising when it's absent."""
+    if request.method == "GET":
+        args = request.args
+    else:
+        body = request.get_json(silent=True)
+        args = body if isinstance(body, dict) else {}
+    return param in (args | (request.view_args or {}))
+
+
 def validate_can_create_review_queue():
-    return _get_permission_from_experiment_id().can_manage
+    # Creating (and thereby owning) a queue requires experiment EDIT.
+    return _get_permission_from_experiment_id().can_update
 
 
-def validate_can_manage_review_queue():
-    return _get_permission_from_review_queue_id().can_manage
+def validate_can_update_review_queue():
+    # Editing a queue's shape (name / users / schemas) is allowed to a manager or
+    # the owning EDIT user. Reassigning the owner (``new_owner``) is MANAGE-only —
+    # an owner cannot transfer their own queue.
+    username = authenticate_request().username
+    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+    if _request_has_param("new_owner"):
+        return _get_experiment_permission(queue.experiment_id, username).can_manage
+    return _can_own_or_manage_review_queue(queue, username)
+
+
+def validate_can_remove_items_from_review_queue():
+    # Removing items (un-assigning work) is an owner/manager action, unlike
+    # adding items, which any experiment EDITor may do to any visible queue.
+    username = authenticate_request().username
+    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+    return _can_own_or_manage_review_queue(queue, username)
+
+
+def validate_can_delete_review_queue():
+    # A manager deletes any queue; an owning EDIT user deletes only their own
+    # CUSTOM queue (a USER queue's deletion is MANAGE-only).
+    from mlflow.genai.review_queues import ReviewQueueType
+
+    username = authenticate_request().username
+    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+    perm = _get_experiment_permission(queue.experiment_id, username)
+    if perm.can_manage:
+        return True
+    return (
+        perm.can_update
+        and _is_review_queue_owner(queue, username)
+        and queue.queue_type == ReviewQueueType.CUSTOM
+    )
 
 
 def validate_can_add_items_to_review_queue():
@@ -2215,15 +2276,16 @@ def validate_can_get_or_create_user_queue():
 
 
 def validate_can_view_review_queue():
-    # Per-queue read: experiment READ plus (MANAGE or membership). Mirrors the
-    # row predicate in ``filter_list_review_queues``. Fetch the queue once and
-    # resolve the experiment permission from it.
+    # Per-queue read (detail tier): experiment READ plus (MANAGE, owner, or
+    # membership). Mirrors the row predicate in ``filter_list_review_queues``.
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
     perm = _get_experiment_permission(queue.experiment_id, username)
     if not perm.can_read:
         return False
-    return perm.can_manage or _review_queue_has_member(queue, username)
+    if perm.can_manage or _review_queue_has_member(queue, username):
+        return True
+    return perm.can_update and _is_review_queue_owner(queue, username)
 
 
 def validate_can_view_review_queue_by_name():
@@ -2237,7 +2299,9 @@ def validate_can_view_review_queue_by_name():
     queue = _get_tracking_store().get_review_queue_by_name(
         experiment_id, name=_get_request_param("name")
     )
-    return _review_queue_has_member(queue, username)
+    return _review_queue_has_member(queue, username) or (
+        perm.can_update and _is_review_queue_owner(queue, username)
+    )
 
 
 def validate_can_review_queue_item():
@@ -2265,9 +2329,11 @@ def validate_can_manage_label_schema():
 def filter_list_review_queues(resp: Response) -> None:
     """Narrow a ``ListReviewQueues`` response to queues the caller may see.
 
-    A server admin or a user who can MANAGE the experiment sees every queue;
-    everyone else sees only queues they are assigned to (their personal queue
-    plus any custom queue whose assigned-user pool contains them).
+    A server admin or any user with experiment EDIT (or MANAGE) sees every
+    queue (the list tier is intentionally broad — clicking into a queue is
+    separately gated by ``validate_can_view_review_queue``). A READ-only user
+    sees only queues they are assigned to (their personal queue plus any custom
+    queue whose assigned-user pool contains them).
     """
     if sender_is_admin():
         return
@@ -2276,10 +2342,11 @@ def filter_list_review_queues(resp: Response) -> None:
     parse_dict(resp.json, response_message)
 
     username = authenticate_request().username
-    # Every queue in the response shares one experiment, so resolve the manage
-    # grant once.
+    # Every queue in the response shares one experiment, so resolve the grant
+    # once. EDIT and MANAGE both see all rows; only READ-only users are filtered.
     experiment_id = _get_request_param("experiment_id")
-    if _get_experiment_permission(experiment_id, username).can_manage:
+    perm = _get_experiment_permission(experiment_id, username)
+    if perm.can_update:
         return
 
     visible = [q for q in response_message.review_queues if _review_queue_has_member(q, username)]
@@ -2404,10 +2471,10 @@ BEFORE_REQUEST_HANDLERS = {
     GetReviewQueueByName: validate_can_view_review_queue_by_name,
     GetOrCreateUserQueue: validate_can_get_or_create_user_queue,
     ListReviewQueues: validate_can_read_experiment,
-    UpdateReviewQueue: validate_can_manage_review_queue,
-    DeleteReviewQueue: validate_can_manage_review_queue,
+    UpdateReviewQueue: validate_can_update_review_queue,
+    DeleteReviewQueue: validate_can_delete_review_queue,
     AddItemsToReviewQueue: validate_can_add_items_to_review_queue,
-    RemoveItemsFromReviewQueue: validate_can_manage_review_queue,
+    RemoveItemsFromReviewQueue: validate_can_remove_items_from_review_queue,
     ListReviewQueueItems: validate_can_view_review_queue,
     SetReviewQueueItemStatus: validate_can_review_queue_item,
     # Routes for label schemas (review questions)
