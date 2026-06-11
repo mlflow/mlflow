@@ -4,6 +4,7 @@ import {
   canDeleteQueue,
   canInspectQueue,
   canManageQueue,
+  canRemoveQueueItems,
   isQueueMember,
   isQueueOwner,
   sameUser,
@@ -71,6 +72,24 @@ describe('canManageQueue', () => {
 
   it('never manages USER (personal) queues, even for a manager', () => {
     expect(canManageQueue(queue({ queue_type: 'USER' }), 'alice', manager.canManage, manager.canEdit)).toBe(false);
+  });
+});
+
+describe('canRemoveQueueItems', () => {
+  it('lets a manager prune any queue type, including a USER queue', () => {
+    expect(canRemoveQueueItems(queue({ queue_type: 'USER', created_by: 'bob' }), 'alice', true, true)).toBe(true);
+    expect(canRemoveQueueItems(queue({ queue_type: 'CUSTOM', created_by: 'bob' }), 'alice', true, true)).toBe(true);
+  });
+
+  it('lets an EDIT owner prune their own CUSTOM queue but not their own USER queue', () => {
+    expect(canRemoveQueueItems(queue({ queue_type: 'CUSTOM', created_by: 'alice' }), 'alice', false, true)).toBe(true);
+    // A reviewer can't un-assign work from their personal USER queue.
+    expect(canRemoveQueueItems(queue({ queue_type: 'USER', created_by: 'alice' }), 'alice', false, true)).toBe(false);
+  });
+
+  it('does not let an EDIT non-owner or a READ owner', () => {
+    expect(canRemoveQueueItems(queue({ created_by: 'bob' }), 'alice', false, true)).toBe(false);
+    expect(canRemoveQueueItems(queue({ created_by: 'alice' }), 'alice', false, false)).toBe(false);
   });
 });
 

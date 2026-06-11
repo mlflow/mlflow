@@ -121,6 +121,29 @@ def test_update_and_remove_items_allow_owner_or_manager(monkeypatch):
     assert auth.validate_can_update_review_queue() is False
 
 
+def test_remove_items_on_user_queue_is_manage_only(monkeypatch):
+    # A manager may prune (remove items from) a personal USER queue...
+    _setup(
+        monkeypatch,
+        permission="MANAGE",
+        created_by="alice",
+        username="alice",
+        queue_type=ReviewQueueType.USER,
+    )
+    assert auth.validate_can_remove_items_from_review_queue() is True
+
+    # ...but an EDIT user can't un-assign work from their own USER queue (its
+    # contents are a manager's call, matching the USER-queue delete rule).
+    _setup(
+        monkeypatch,
+        permission="EDIT",
+        created_by="alice",
+        username="alice",
+        queue_type=ReviewQueueType.USER,
+    )
+    assert auth.validate_can_remove_items_from_review_queue() is False
+
+
 def test_owner_reassignment_requires_manage(monkeypatch):
     # An owning EDIT user may edit shape but NOT reassign the owner.
     _setup(

@@ -23,7 +23,7 @@ import { useUpdateReviewQueueMutation } from './hooks/useUpdateReviewQueueMutati
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
 import { DEFAULT_REVIEWER, displayUser, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
-import { canDeleteQueue, canManageQueue, sameUser } from './queuePermissions';
+import { canDeleteQueue, canManageQueue, canRemoveQueueItems, sameUser } from './queuePermissions';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 /**
@@ -113,6 +113,13 @@ const ExperimentReviewQueuePage = () => {
   // Delete is broader than manage: a manager may delete a personal USER queue
   // (which has no editable settings), so it gets its own gate.
   const canDeleteSelectedQueue = selectedQueue ? canDeleteQueue(selectedQueue, reviewer, canManage, canEdit) : false;
+  // Removing traces (un-assigning work) follows the same rule as deleting the
+  // queue: a manager may prune any queue (including a personal USER queue), but
+  // an EDIT owner only their own CUSTOM queue — a reviewer can't un-assign work
+  // from their own USER queue.
+  const canRemoveItemsFromSelectedQueue = selectedQueue
+    ? canRemoveQueueItems(selectedQueue, reviewer, canManage, canEdit)
+    : false;
   // Whether the reviewer may submit reviews in the selected queue: always on a
   // no-auth server; otherwise experiment EDIT plus membership in the queue's
   // assigned-user pool (the server enforces both on set-status). A manager/owner
@@ -315,7 +322,7 @@ const ExperimentReviewQueuePage = () => {
         nowMs={nowMs}
         latestQuestionCreatedAtMs={latestQuestionCreatedAtMs}
         onRemoveItems={
-          canManageSelectedQueue
+          canRemoveItemsFromSelectedQueue
             ? (itemIds) => removeItemsFromReviewQueue({ queue_id: selectedQueue.queue_id, item_ids: itemIds })
             : undefined
         }
