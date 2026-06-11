@@ -216,8 +216,6 @@ export const AddToReviewQueueDropdown = ({
         </Link>
       </span>,
       3,
-      { width: 'auto' },
-      CID,
     );
   }, [experimentId, itemIds.length, intl]);
 

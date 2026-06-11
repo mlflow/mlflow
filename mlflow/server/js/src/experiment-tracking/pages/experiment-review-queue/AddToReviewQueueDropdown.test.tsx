@@ -136,8 +136,8 @@ describe('AddToReviewQueueDropdown', () => {
     await waitFor(() => expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-default', item_ids: ['tr-1'] }));
     expect(Utils.displayGlobalInfoNotification).toHaveBeenCalledTimes(1);
 
-    const [toastNode, , style] = jest.mocked(Utils.displayGlobalInfoNotification).mock.calls[0];
-    expect(style).toEqual({ width: 'auto' });
+    const [toastNode, duration] = jest.mocked(Utils.displayGlobalInfoNotification).mock.calls[0];
+    expect(duration).toBe(3);
     const findLinkTarget = (node: any): string | undefined => {
       if (!node || typeof node !== 'object') return undefined;
       if (node.props?.to) return node.props.to;
