@@ -192,6 +192,13 @@ export const ReviewQueueList = ({
       setSelected(new Set());
     }
   };
+  // Changing the filter drops any row selection: a row checked under one filter
+  // would otherwise stay in `selected` after being filtered out of view, leaving
+  // the delete action targeting rows the user can no longer see.
+  const handleStatusFilterChange = (value: StatusFilter) => {
+    setStatusFilter(value);
+    setSelected(new Set());
+  };
 
   const colFlex = useMemo(() => {
     const map = new Map<ColumnKey, number>();
@@ -341,22 +348,23 @@ export const ReviewQueueList = ({
             name={`${CID}.status-filter`}
             componentId={`${CID}.status-filter`}
             value={statusFilter}
+            onChange={(event) => handleStatusFilterChange(event.target.value as StatusFilter)}
           >
-            <SegmentedControlButton value="all" onClick={() => setStatusFilter('all')}>
+            <SegmentedControlButton value="all">
               <FormattedMessage
                 defaultMessage="All ({count})"
                 description="Review queue status filter: all"
                 values={{ count: items.length }}
               />
             </SegmentedControlButton>
-            <SegmentedControlButton value="PENDING" onClick={() => setStatusFilter('PENDING')}>
+            <SegmentedControlButton value="PENDING">
               <FormattedMessage
                 defaultMessage="Needs review ({count})"
                 description="Review queue status filter: needs review"
                 values={{ count: toDo.length }}
               />
             </SegmentedControlButton>
-            <SegmentedControlButton value="completed" onClick={() => setStatusFilter('completed')}>
+            <SegmentedControlButton value="completed">
               <FormattedMessage
                 defaultMessage="Completed ({count})"
                 description="Review queue status filter: completed"
@@ -390,7 +398,20 @@ export const ReviewQueueList = ({
                 ))}
               </TableRow>
 
-              {filteredItems.map(renderRow)}
+              {filteredItems.length === 0 ? (
+                <TableRow>
+                  <TableCell css={{ flex: 1 }}>
+                    <Typography.Text color="secondary">
+                      <FormattedMessage
+                        defaultMessage="No traces match this filter."
+                        description="Review queue table: empty state when the active status filter matches no traces"
+                      />
+                    </Typography.Text>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredItems.map(renderRow)
+              )}
             </Table>
           </div>
         </>

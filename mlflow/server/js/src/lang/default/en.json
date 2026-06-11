@@ -6535,6 +6535,10 @@
     "defaultMessage": "Copied",
     "description": "Tooltip text shown when copy operation completes"
   },
+  "X/At0U": {
+    "defaultMessage": "No traces match this filter.",
+    "description": "Review queue table: empty state when the active status filter matches no traces"
+  },
   "X/TTxm": {
     "defaultMessage": "Previous trace",
     "description": "Review focused view: previous-trace button"
