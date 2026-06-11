@@ -85,9 +85,16 @@ const ExperimentReviewQueuePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authAvailable, experimentId]);
 
-  // No queue is selected until the reviewer picks one (the right panel prompts
-  // them to). Auto-selecting the first queue would land on a no-work queue and
-  // force the "No work to do" group open.
+  useEffect(() => {
+    if (selectedQueueIdState !== undefined || queuesLoading) {
+      return;
+    }
+    const userQueue = reviewQueues.find((q) => q.queue_type === 'USER' && q.name === reviewer);
+    if (userQueue) {
+      setSelectedQueueIdState(userQueue.queue_id);
+    }
+  }, [selectedQueueIdState, queuesLoading, reviewQueues, reviewer]);
+
   const selectedQueueId = selectedQueueIdState;
   const selectedQueue = useMemo(
     () => reviewQueues.find((q) => q.queue_id === selectedQueueId) ?? null,
