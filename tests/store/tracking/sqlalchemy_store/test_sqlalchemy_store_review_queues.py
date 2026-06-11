@@ -192,7 +192,7 @@ def test_update_custom_queue_rejects_users_over_cap(store):
 
 def test_get_or_create_user_queue_is_idempotent(store):
     exp_id = _create_experiments(store, "goc")
-    first = store.get_or_create_user_queue(exp_id, user="Alice", created_by="kris")
+    first = store.get_or_create_user_queue(exp_id, user="Alice")
     second = store.get_or_create_user_queue(exp_id, user="alice")
     assert first.queue_id == second.queue_id
     assert first.queue_type == ReviewQueueType.USER
@@ -523,8 +523,8 @@ def test_change_owner_rejects_empty(store):
 
 def test_get_or_create_user_queue_owner_is_the_user(store):
     exp_id = _create_experiments(store, "user_queue_owner")
-    # The caller-supplied created_by is ignored; a user queue is owned by its user.
-    queue = store.get_or_create_user_queue(exp_id, user="Alice", created_by="someone-else")
+    # A user queue is owned by its user — there is no caller-supplied owner.
+    queue = store.get_or_create_user_queue(exp_id, user="Alice")
     assert queue.created_by == "alice"
 
 

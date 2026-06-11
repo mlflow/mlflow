@@ -17,6 +17,7 @@ jest.mock('../../components/label-schemas', () => ({
     isLoading: false,
   }),
   LabelSchemaInputRenderer: () => null,
+  LabelSchemaFormModal: () => null,
 }));
 let mockAuthAvailable = true;
 jest.mock('../../../account/hooks', () => ({

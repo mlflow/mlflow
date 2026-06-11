@@ -70,7 +70,6 @@ def create_review_queue(
     queue_type: Literal["user", "custom"],
     users: list[str] | None = None,
     schema_ids: list[str] | None = None,
-    created_by: str | None = None,
     experiment_id: str | None = None,
 ) -> ReviewQueue:
     """Create a review queue scoped to an experiment.
@@ -88,11 +87,11 @@ def create_review_queue(
         schema_ids: Attached label-schema ids. Must be empty for a user
             queue (it resolves to all of the experiment's schemas); the chosen
             subset for a custom queue.
-        created_by: Audit identifier of the creator.
         experiment_id: Parent experiment; defaults to the current experiment.
 
     Returns:
-        The created :py:class:`ReviewQueue`.
+        The created :py:class:`ReviewQueue`. Its owner (``created_by``) is set
+        by the server from the authenticated user, not by the caller.
     """
     return TracingClient()._create_review_queue(
         _resolve_experiment_id(experiment_id),
@@ -100,7 +99,6 @@ def create_review_queue(
         queue_type=queue_type,
         users=users,
         schema_ids=schema_ids,
-        created_by=created_by,
     )
 
 
@@ -108,7 +106,6 @@ def create_review_queue(
 def get_or_create_user_queue(
     user: str,
     *,
-    created_by: str | None = None,
     experiment_id: str | None = None,
 ) -> ReviewQueue:
     """Return a user's personal review queue, creating it if absent.
@@ -118,14 +115,13 @@ def get_or_create_user_queue(
 
     Args:
         user: The reviewer identifier (also the queue name).
-        created_by: Audit identifier of the creator (used only on create).
         experiment_id: Parent experiment; defaults to the current experiment.
 
     Returns:
-        The user's :py:class:`ReviewQueue`.
+        The user's :py:class:`ReviewQueue` (owned by that user).
     """
     return TracingClient()._get_or_create_user_queue(
-        _resolve_experiment_id(experiment_id), user=user, created_by=created_by
+        _resolve_experiment_id(experiment_id), user=user
     )
 
 
