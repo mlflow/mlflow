@@ -9,15 +9,20 @@ jest.mock('../../../components/EndpointSelector', () => ({
   EndpointSelector: ({
     currentEndpointName,
     onEndpointSelect,
+    showCreateButton,
   }: {
     currentEndpointName?: string;
     onEndpointSelect: (name: string) => void;
+    showCreateButton?: boolean;
   }) => (
-    <input
-      data-testid="endpoint-selector-test-input"
-      value={currentEndpointName ?? ''}
-      onChange={(event) => onEndpointSelect(event.target.value)}
-    />
+    <>
+      <input
+        data-testid="endpoint-selector-test-input"
+        value={currentEndpointName ?? ''}
+        onChange={(event) => onEndpointSelect(event.target.value)}
+      />
+      {showCreateButton && <div data-testid="endpoint-selector-create-button-enabled" />}
+    </>
   ),
 }));
 
@@ -71,5 +76,10 @@ describe('PlaygroundTopBar', () => {
     const { onOpenRegistry } = renderTopBar();
     await userEvent.click(screen.getByRole('button', { name: /load prompt from registry/i }));
     expect(onOpenRegistry).toHaveBeenCalledTimes(1);
+  });
+
+  it('enables the create-endpoint button on the endpoint selector', () => {
+    renderTopBar();
+    expect(screen.getByTestId('endpoint-selector-create-button-enabled')).toBeInTheDocument();
   });
 });
