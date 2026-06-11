@@ -37,10 +37,9 @@ def list_command():
 @commands.command("view")
 @click.argument("skill_name", type=str)
 def view_command(skill_name: str):
-    """View the details of a MLflow skill."""
+    """View the details of an MLflow skill."""
     skills = list_bundled_skills()
     target_skill = next((s for s in skills if s.name == skill_name), None)
     if not target_skill:
-        click.secho(f"Skill {skill_name} not found.", fg="red")
-        return
+        raise click.ClickException(f"Skill {skill_name} not found.")
     _list_skill_details(target_skill)
