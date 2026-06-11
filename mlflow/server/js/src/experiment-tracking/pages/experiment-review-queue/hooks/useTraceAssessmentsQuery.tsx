@@ -26,7 +26,7 @@ export const useTraceAssessmentsQuery = ({
   sourceId?: string;
   enabled?: boolean;
 }) => {
-  const { data, isLoading } = useQuery<PriorAnswer[], Error>({
+  const { data, isLoading, isFetching } = useQuery<PriorAnswer[], Error>({
     queryKey: [REVIEW_QUEUE_TRACE_ASSESSMENTS_QUERY_KEY, traceId, sourceId],
     queryFn: async () => {
       const response = (await getExperimentTraceV3({ traceId })) as TraceGetResponse;
@@ -39,5 +39,5 @@ export const useTraceAssessmentsQuery = ({
     enabled: enabled && Boolean(traceId),
   });
 
-  return { priorAnswers: data ?? [], isLoading };
+  return { priorAnswers: data ?? [], isLoading, isFetching };
 };

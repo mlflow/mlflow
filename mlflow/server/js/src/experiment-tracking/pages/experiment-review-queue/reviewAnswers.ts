@@ -64,7 +64,14 @@ export const extractPriorAnswers = (assessments: RawTraceAssessment[], reviewerS
     if (!assessment.assessment_name) {
       continue;
     }
-    if (reviewerSourceId !== undefined && !sameUser(assessment.source?.source_id, reviewerSourceId)) {
+    // Only the reviewer's own *human* answers prefill and supersede. Review
+    // answers are always written `source_type: 'HUMAN'`, so an LLM-judge or
+    // SDK-written assessment that happens to share the reviewer's source_id
+    // (e.g. both `default` on a no-auth server) must not be adopted as theirs.
+    if (
+      reviewerSourceId !== undefined &&
+      (assessment.source?.source_type !== 'HUMAN' || !sameUser(assessment.source?.source_id, reviewerSourceId))
+    ) {
       continue;
     }
     let kind: AssessmentKind;

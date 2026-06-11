@@ -115,6 +115,27 @@ describe('extractPriorAnswers', () => {
       expect(extractPriorAnswers([{ assessment_name: 'x', feedback: { value: true } }], 'alice')).toEqual([]);
     });
 
+    it('drops a non-HUMAN assessment that shares the reviewer source_id when scoped', () => {
+      // An LLM judge or SDK-written feedback can collide on source_id (both
+      // `default` on a no-auth server); only the reviewer's own HUMAN answer
+      // should be adopted, never superseded as if it were theirs.
+      const collide: RawTraceAssessment[] = [
+        {
+          assessment_id: 'judge',
+          assessment_name: 'correctness',
+          feedback: { value: true },
+          source: { source_id: 'default', source_type: 'LLM_JUDGE' },
+        },
+        {
+          assessment_id: 'mine',
+          assessment_name: 'correctness',
+          feedback: { value: false },
+          source: { source_id: 'default', source_type: 'HUMAN' },
+        },
+      ];
+      expect(extractPriorAnswers(collide, 'default').map((p) => p.assessmentId)).toEqual(['mine']);
+    });
+
     it('prefills nothing for an empty source id rather than matching source-less answers', () => {
       // `''` can't identify a reviewer; guard against `sameUser('', undefined)` matching.
       expect(extractPriorAnswers(raw, '')).toEqual([]);

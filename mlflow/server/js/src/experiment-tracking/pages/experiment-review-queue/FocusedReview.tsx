@@ -97,7 +97,10 @@ export const FocusedReview = ({
   // the prefill so the query result never clobbers what the reviewer typed.
   // Scope prior answers to this reviewer's own source so the prefill and the
   // supersede target are never another reviewer's answer.
-  const { priorAnswers } = useTraceAssessmentsQuery({ traceId: item.item_id, sourceId: completedBy });
+  const { priorAnswers, isFetching: priorAnswersFetching } = useTraceAssessmentsQuery({
+    traceId: item.item_id,
+    sourceId: completedBy,
+  });
   const prefilled = useMemo(() => buildPrefilledAnswers(priorAnswers, schemas), [priorAnswers, schemas]);
   const prefilledRationales = useMemo(() => buildPrefilledRationales(priorAnswers, schemas), [priorAnswers, schemas]);
   // Each question's prior assessment id (this reviewer's), so a re-submit
@@ -154,10 +157,19 @@ export const FocusedReview = ({
 
   const submitAnswersAndComplete = async (answerOverrides?: Record<string, LabelSchemaValue>) => {
     setSubmitError(null);
+    // The supersede ids are derived from the prior-answers query, so submitting
+    // against a still-refetching snapshot (e.g. reopen-and-resubmit before the
+    // post-write refetch lands) could miss the prior and leave two live
+    // assessments for one question. Wait for the query to settle first.
+    if (priorAnswersFetching) {
+      return;
+    }
     // Auto-submit passes the just-picked value directly, since the answer state
     // set in the same click hasn't flushed yet.
     const effectiveValue = (name: string): LabelSchemaValue =>
       answerOverrides && name in answerOverrides ? answerOverrides[name] : valueFor(name);
+    // Every answered question is (re)written here; an unchanged answer
+    // re-supersedes its prior rather than being skipped.
     const answered = schemas.filter((s) => {
       const v = effectiveValue(s.name);
       return v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
@@ -501,7 +513,7 @@ export const FocusedReview = ({
                 <Button
                   componentId={`${CID}.complete`}
                   type="primary"
-                  disabled={isTerminal || isCreatingAssessment || isSettingStatus || !canReview}
+                  disabled={isTerminal || isCreatingAssessment || isSettingStatus || !canReview || priorAnswersFetching}
                   loading={isCreatingAssessment || isSettingStatus}
                   onClick={() => submitAnswersAndComplete()}
                 >
