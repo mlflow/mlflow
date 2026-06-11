@@ -606,9 +606,11 @@ mlflow.entities.TraceState.from_proto
 mlflow.entities.TraceState.to_proto
 mlflow.entities.UCSchemaLocation
 mlflow.entities.UCSchemaLocation.from_dict
+mlflow.entities.UCSchemaLocation.from_proto
 mlflow.entities.UCSchemaLocation.to_dict
 mlflow.entities.UnityCatalog
 mlflow.entities.UnityCatalog.from_dict
+mlflow.entities.UnityCatalog.from_proto
 mlflow.entities.UnityCatalog.to_dict
 mlflow.entities.ViewType
 mlflow.entities.ViewType.from_proto
