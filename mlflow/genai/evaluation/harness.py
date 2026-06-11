@@ -589,12 +589,11 @@ def _run_pipeline(
                 if predictor.owns(future):
                     idx = predictor.on_complete(future)
                     items_predicted += 1
-                    if single_turn_scorers:
-                        pending.add(scorer_submitter.submit(idx))
-                    else:
-                        predictor.release_slot()
-                        eval_results[idx] = EvalResult(eval_item=eval_items[idx], assessments=[])
-                        items_done += 1
+                    # Submit even when there are no single-turn scorers: scoring is a
+                    # no-op then, but _run_score also persists dataset expectations
+                    # and tags on the trace, which a short-circuit here would skip
+                    # (#23746).
+                    pending.add(scorer_submitter.submit(idx))
                 else:
                     idx, result = scorer_submitter.on_complete(future)
                     _logger.debug(f"Score completed for item {idx}")
@@ -641,7 +640,10 @@ def run(
 
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
     session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
-    total_tasks = (len(eval_items) if single_turn_scorers else 0) + len(session_groups)
+    # Every eval item goes through the score pool (even with no single-turn
+    # scorers, _run_score still logs expectations and tags), so each item
+    # contributes one progress update.
+    total_tasks = len(eval_items) + len(session_groups)
 
     progress_bar = (
         tqdm(
