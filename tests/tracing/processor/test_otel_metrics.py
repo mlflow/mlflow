@@ -105,3 +105,36 @@ def test_no_metrics_when_disabled(
                 metric_names.extend(metric.name for metric in scope_metric.metrics)
 
     assert "mlflow.trace.span.duration" not in metric_names
+
+def test_otel_metrics_import_error_graceful_fallback(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    import sys
+    from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
+
+    # 1. Force the OTLP metrics endpoint environment variable to be present
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_METRICS_ENDPOINT", "http://localhost:4317")
+    
+    # 2. Mock out the protocol to trigger the gRPC code path
+    monkeypatch.setattr(
+        "mlflow.tracing.processor.otel_metrics_mixin._get_otlp_metrics_protocol",
+        lambda: "grpc",
+    )
+
+    # 3. Simulate a completely missing opentelemetry exporter dependency module
+    # We alter sys.modules to raise an ImportError upon accessing it
+    monkeypatch.setitem(sys.modules, "opentelemetry.exporter.otlp.proto.grpc.metric_exporter", None)
+
+    # 4. Instantiate a dummy mixin processor instance to exercise the path
+    mixin_instance = OtelMetricsMixin()
+
+    # 5. Clear previous logs captured and fire the critical metrics setup method
+    caplog.clear()
+    mixin_instance._setup_metrics_if_necessary()
+
+    # 6. Assert that the process didn't crash, returns cleanly, and logged an actionable warning
+    assert mixin_instance._duration_histogram is None
+    assert any(
+        "gRPC OTLP metric exporter is not available" in record.message
+        for record in caplog.records
+    )
