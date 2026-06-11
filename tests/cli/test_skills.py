@@ -15,8 +15,7 @@ def runner():
 
 @pytest.fixture
 def mock_bundled_skills():
-    with mock.patch("mlflow.cli.skills.list_bundled_skills") as m:
-        m.return_value = []
+    with mock.patch("mlflow.cli.skills.list_bundled_skills", return_value=[]) as m:
         yield m
 
 
