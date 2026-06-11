@@ -154,17 +154,24 @@ def test_invoke_with_trace_string_prompt(mock_trace):
 # --- invoke without trace tests ---
 
 
-def test_invoke_without_trace_uses_gateway():
+def test_invoke_without_trace_uses_tool_calling_loop():
+    # Non-endpoints providers always go through _invoke_with_tools (even without a trace)
+    # so that token usage is captured for JUDGE_COST tracking.
     adapter = GatewayAdapter()
+    mock_output = InvokeOutput(
+        response=json.dumps({"result": "yes", "rationale": "ok"}),
+        request_id=None,
+        num_prompt_tokens=None,
+        num_completion_tokens=None,
+    )
     input_params = AdapterInvocationInput(
         model_uri="openai:/gpt-4",
         prompt=[ChatMessage(role="user", content="test")],
         assessment_name="test_metric",
     )
 
-    with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
-        return_value=json.dumps({"result": "yes", "rationale": "ok"}),
+    with mock.patch.object(
+        adapter, "_invoke_and_handle_tools", return_value=mock_output
     ) as mock_invoke:
         result = adapter.invoke(input_params)
 
@@ -174,12 +181,6 @@ def test_invoke_without_trace_uses_gateway():
 
 def test_invoke_parses_response_with_newlines_in_json_strings():
     adapter = GatewayAdapter()
-    input_params = AdapterInvocationInput(
-        model_uri="ollama:/llama3.2:3b",
-        prompt=[ChatMessage(role="user", content="test")],
-        assessment_name="test_metric",
-    )
-
     # Simulate LLM response with literal newlines inside JSON string values
     response_with_newlines = (
         '{\n  "rationale": "Let\'s think step by step.\n'
@@ -190,9 +191,20 @@ def test_invoke_parses_response_with_newlines_in_json_strings():
     with pytest.raises(json.JSONDecodeError, match="Invalid control character"):
         json.loads(response_with_newlines)
 
-    with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
-        return_value=response_with_newlines,
+    mock_output = InvokeOutput(
+        response=response_with_newlines,
+        request_id=None,
+        num_prompt_tokens=None,
+        num_completion_tokens=None,
+    )
+    input_params = AdapterInvocationInput(
+        model_uri="ollama:/llama3.2:3b",
+        prompt=[ChatMessage(role="user", content="test")],
+        assessment_name="test_metric",
+    )
+
+    with mock.patch.object(
+        adapter, "_invoke_and_handle_tools", return_value=mock_output
     ) as mock_invoke:
         result = adapter.invoke(input_params)
 
@@ -587,6 +599,13 @@ def test_get_provider_delegates_to_get_provider_instance(monkeypatch):
     assert "authorization" in header_keys_lower or "api-key" in header_keys_lower
 
 
+def test_get_provider_openai_honors_custom_api_base(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("OPENAI_API_BASE", "http://127.0.0.1:9876/v1")
+    provider = _get_provider_instance("openai", "gpt-4")
+    assert provider.get_endpoint_url("llm/v1/chat").startswith("http://127.0.0.1:9876/v1")
+
+
 def test_get_provider_anthropic(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     provider = _get_provider_instance("anthropic", "claude-3-5-sonnet")
@@ -711,6 +730,53 @@ def test_tool_calling_loop(mock_trace):
     assert mock_send.call_count == 2
     mock_process.assert_called_once()
     assert json.loads(output.response) == {"result": "yes", "rationale": "Trace looks good"}
+
+
+def test_token_counts_accumulated_across_iterations(mock_trace):
+    # Tokens from all iterations (including tool-call rounds) should be summed,
+    # matching LiteLLM adapter behavior which accumulates cost across iterations.
+    tool_call_response = _chat_response(
+        None,
+        tool_calls=[
+            {
+                "id": "c1",
+                "type": "function",
+                "function": {"name": "get_trace_info", "arguments": "{}"},
+            }
+        ],
+        usage={"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120},
+    )
+    final_response = _chat_response(
+        json.dumps({"result": "yes", "rationale": "ok"}),
+        usage={"prompt_tokens": 150, "completion_tokens": 30, "total_tokens": 180},
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider_instance",
+            return_value=_mock_provider(),
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+            side_effect=[tool_call_response, final_response],
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
+            return_value=[
+                ChatMessage(role="tool", content="{}", tool_call_id="c1", name="get_trace_info")
+            ],
+        ),
+    ):
+        output = GatewayAdapter()._invoke_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4",
+            messages=[ChatMessage(role="user", content="evaluate this")],
+            trace=mock_trace,
+            num_retries=3,
+        )
+
+    assert output.num_prompt_tokens == 250  # 100 + 150
+    assert output.num_completion_tokens == 50  # 20 + 30
 
 
 def test_context_window_error_triggers_pruning(mock_trace):
@@ -1075,6 +1141,105 @@ def test_invoke_with_tools_populates_output_fields(mock_trace):
 
     assert result.request_id == "req-123"
     assert result.num_prompt_tokens == 10
+
+
+def test_invoke_with_tools_sets_judge_cost_in_metadata(mock_trace):
+    from mlflow.tracing.constant import AssessmentMetadataKey
+
+    adapter = GatewayAdapter()
+    mock_output = InvokeOutput(
+        response=json.dumps({"result": "yes", "rationale": "Looks good"}),
+        request_id="req-123",
+        num_prompt_tokens=100,
+        num_completion_tokens=50,
+    )
+
+    input_params = AdapterInvocationInput(
+        model_uri="openai:/gpt-4",
+        prompt=[ChatMessage(role="user", content="evaluate this")],
+        assessment_name="test_metric",
+        trace=mock_trace,
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+            return_value=mock_output,
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._lookup_model_cost",
+            return_value=0.003,
+        ) as mock_cost,
+    ):
+        result = adapter.invoke(input_params)
+
+    mock_cost.assert_called_once_with("openai:/gpt-4", 100, 50)
+    assert result.cost == 0.003
+    assert result.feedback.metadata[AssessmentMetadataKey.JUDGE_COST] == 0.003
+    assert result.feedback.metadata[AssessmentMetadataKey.JUDGE_INPUT_TOKENS] == 100
+    assert result.feedback.metadata[AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS] == 50
+
+
+def test_invoke_with_tools_no_judge_cost_when_tokens_unavailable(mock_trace):
+    adapter = GatewayAdapter()
+    mock_output = InvokeOutput(
+        response=json.dumps({"result": "yes", "rationale": "Looks good"}),
+        request_id="req-123",
+        num_prompt_tokens=None,
+        num_completion_tokens=None,
+    )
+
+    input_params = AdapterInvocationInput(
+        model_uri="openai:/gpt-4",
+        prompt=[ChatMessage(role="user", content="evaluate this")],
+        assessment_name="test_metric",
+        trace=mock_trace,
+    )
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=mock_output,
+    ):
+        result = adapter.invoke(input_params)
+
+    assert result.cost is None
+    assert result.feedback.metadata is None
+
+
+def test_invoke_with_tools_no_judge_cost_when_model_pricing_unavailable(mock_trace):
+    from mlflow.tracing.constant import AssessmentMetadataKey
+
+    adapter = GatewayAdapter()
+    mock_output = InvokeOutput(
+        response=json.dumps({"result": "yes", "rationale": "Looks good"}),
+        request_id="req-123",
+        num_prompt_tokens=100,
+        num_completion_tokens=50,
+    )
+
+    input_params = AdapterInvocationInput(
+        model_uri="openai:/gpt-4",
+        prompt=[ChatMessage(role="user", content="evaluate this")],
+        assessment_name="test_metric",
+        trace=mock_trace,
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+            return_value=mock_output,
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._lookup_model_cost",
+            return_value=None,
+        ),
+    ):
+        result = adapter.invoke(input_params)
+
+    assert result.cost is None
+    assert AssessmentMetadataKey.JUDGE_COST not in (result.feedback.metadata or {})
+    assert result.feedback.metadata[AssessmentMetadataKey.JUDGE_INPUT_TOKENS] == 100
+    assert result.feedback.metadata[AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS] == 50
 
 
 # --- Workspace header forwarding tests ---

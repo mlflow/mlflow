@@ -42,6 +42,8 @@ env:
   _MLFLOW_TESTING_TELEMETRY: "true"
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
+permissions: {}
+
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
@@ -95,6 +97,7 @@ jobs:
             -r requirements/test-requirements.txt \
             -r requirements/extra-ml-requirements.txt
       - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/cache-hf
       - name: Import check
         run: |
           # `-I` is used to avoid importing modules from user-specific site-packages
@@ -321,15 +324,17 @@ jobs:
           uv sync --extra genai
           # TODO: migrate mlflow/genai/scorers/phoenix to arize-phoenix-evals 3.x API
           # (removed HallucinationEvaluator/RelevanceEvaluator/etc. and LiteLLMModel)
-          # `guardrails-ai` is temporarily unavailable on PyPI; skip both the
-          # install and the corresponding tests until it is republished.
+          # TODO: drop the langchain-community<0.4.2 pin once ragas releases a
+          # fix for the removed `langchain_community.chat_models.vertexai`
+          # import (0.4.2 dropped the shim).
+          # https://github.com/vibrantlabsai/ragas/issues/2745
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas 'arize-phoenix-evals<3.0.0' trulens trulens-providers-litellm google-adk
+            deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm 'google-adk[gcp]' guardrails-ai
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests (OSS)
         run: |
-          uv run --no-sync pytest tests/genai --ignore tests/genai/scorers/guardrails
+          uv run --no-sync pytest tests/genai
 
       - name: Run GenAI Tests (Databricks)
         run: |
@@ -412,6 +417,7 @@ jobs:
             pyspark datasets tensorflow torch transformers openai \
             tests/resources/mlflow-test-plugin
       - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/cache-hf
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils /tmp/winutils

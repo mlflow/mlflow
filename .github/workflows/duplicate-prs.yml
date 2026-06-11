@@ -9,6 +9,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   duplicate-prs:
     if: github.repository == 'mlflow/mlflow'

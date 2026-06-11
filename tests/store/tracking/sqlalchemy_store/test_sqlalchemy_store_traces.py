@@ -56,6 +56,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSpanMetrics,
     SqlTraceInfo,
     SqlTraceMetrics,
+    SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _TraceArchiveCandidate
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
@@ -3402,6 +3403,112 @@ def test_log_spans_multiple_traces(store: SqlAlchemyStore):
         assert span_row2.name == "span_trace2"
 
 
+def test_log_spans_persists_resource_attributes_as_tags(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_resource_attrs")
+
+    resource = _OTelResource({
+        "service.name": "my-service",
+        "deployment.environment": "staging",
+        "host.arch": "amd64",
+        # telemetry.sdk.* should be filtered out
+        "telemetry.sdk.language": "python",
+        "telemetry.sdk.name": "opentelemetry",
+        # mlflow.* namespace should be filtered out to prevent clobbering reserved tags
+        "mlflow.evil": "should-be-dropped",
+        # non-string values should be serialized via json.dumps
+        "process.pid": 12345,
+        "k8s.pod.ready": True,
+        "host.cpu.count": 4.0,
+    })
+
+    span = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_with_resource",
+            context=trace_api.SpanContext(
+                trace_id=99999,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps("tr-resource-test"),
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=resource,
+        ),
+        "tr-resource-test",
+    )
+
+    store.log_spans(experiment_id, [span])
+
+    with store.ManagedSessionMaker() as session:
+        tags = {
+            row.key: row.value
+            for row in session
+            .query(SqlTraceTag)
+            .filter(SqlTraceTag.request_id == "tr-resource-test")
+            .all()
+        }
+
+    # Resource attributes should be persisted
+    assert tags["service.name"] == "my-service"
+    assert tags["deployment.environment"] == "staging"
+    assert tags["host.arch"] == "amd64"
+    # Non-string values should be serialized via json.dumps
+    assert tags["process.pid"] == "12345"
+    assert tags["k8s.pod.ready"] == "true"  # json.dumps lowercases booleans
+    assert tags["host.cpu.count"] == "4.0"
+    # telemetry.sdk.* should be filtered out
+    assert "telemetry.sdk.language" not in tags
+    assert "telemetry.sdk.name" not in tags
+    # mlflow.* namespace should be filtered out
+    assert "mlflow.evil" not in tags
+
+
+def test_log_spans_resource_tags_do_not_overwrite_user_tags(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_resource_tag_priority")
+
+    resource = _OTelResource({"service.name": "from-resource"})
+
+    span = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_tag_priority",
+            context=trace_api.SpanContext(
+                trace_id=88888,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps("tr-tag-priority"),
+                # User-defined trace tag via mlflow.traceTag.* attribute
+                f"{SpanAttributeKey.TRACE_TAG_PREFIX}service.name": json.dumps("from-user"),
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=resource,
+        ),
+        "tr-tag-priority",
+    )
+
+    store.log_spans(experiment_id, [span])
+
+    with store.ManagedSessionMaker() as session:
+        tags = {
+            row.key: row.value
+            for row in session
+            .query(SqlTraceTag)
+            .filter(SqlTraceTag.request_id == "tr-tag-priority")
+            .all()
+        }
+
+    # User-defined tag should take precedence over resource attribute
+    assert tags["service.name"] == "from-user"
+
+
 def test_log_spans_persists_links(store: SqlAlchemyStore):
     trace_id = "tr-links-test"
     experiment_id = store.create_experiment("test_links_experiment")
@@ -4337,7 +4444,7 @@ def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStor
     )
     otel_span._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        "session.id": "session-from-log-spans",
+        "session.id": json.dumps("session-from-log-spans"),
         SpanAttributeKey.CHAT_USAGE: json.dumps({
             "input_tokens": 999,
             "output_tokens": 999,
@@ -5171,13 +5278,41 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
     otel_span1 = create_test_otel_span(trace_id=trace_id1)
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id1, cls=TraceJSONEncoder),
-        "session.id": "session-123",
+        "session.id": json.dumps("session-123"),
     }
     span1 = create_mlflow_span(otel_span1, trace_id1, "LLM")
     store.log_spans(experiment_id, [span1])
 
     trace_info1 = store.get_trace_info(trace_id1)
     assert trace_info1.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "session-123"
+
+    # Session ID gets stored from gen_ai.conversation.id attribute
+    trace_id1_gen_ai = f"tr-{uuid.uuid4().hex}"
+    otel_span1_gen_ai = create_test_otel_span(trace_id=trace_id1_gen_ai)
+    otel_span1_gen_ai._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id1_gen_ai, cls=TraceJSONEncoder),
+        "gen_ai.conversation.id": "conv-123",
+    }
+    span1_gen_ai = create_mlflow_span(otel_span1_gen_ai, trace_id1_gen_ai, "LLM")
+    store.log_spans(experiment_id, [span1_gen_ai])
+
+    trace_info1_gen_ai = store.get_trace_info(trace_id1_gen_ai)
+    assert trace_info1_gen_ai.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "conv-123"
+
+    trace_id1_precedence = f"tr-{uuid.uuid4().hex}"
+    otel_span1_precedence = create_test_otel_span(trace_id=trace_id1_precedence)
+    otel_span1_precedence._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id1_precedence, cls=TraceJSONEncoder),
+        "session.id": "session-456",
+        "gen_ai.conversation.id": "conv-456",
+    }
+    span1_precedence = create_mlflow_span(otel_span1_precedence, trace_id1_precedence, "LLM")
+    store.log_spans(experiment_id, [span1_precedence])
+
+    trace_info1_precedence = store.get_trace_info(trace_id1_precedence)
+    assert (
+        trace_info1_precedence.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "session-456"
+    )
 
     # Existing session ID is preserved
     trace_id2 = f"tr-{uuid.uuid4().hex}"
@@ -5194,7 +5329,7 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
     otel_span2 = create_test_otel_span(trace_id=trace_id2)
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id2, cls=TraceJSONEncoder),
-        "session.id": "different-session",
+        "session.id": json.dumps("different-session"),
     }
     span2 = create_mlflow_span(otel_span2, trace_id2, "LLM")
     store.log_spans(experiment_id, [span2])
@@ -5220,7 +5355,7 @@ def test_log_spans_user_id_handling(store: SqlAlchemyStore) -> None:
     otel_span1 = create_test_otel_span(trace_id=trace_id1)
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id1, cls=TraceJSONEncoder),
-        "user.id": "alice",
+        "user.id": json.dumps("alice"),
     }
     span1 = create_mlflow_span(otel_span1, trace_id1, "LLM")
     store.log_spans(experiment_id, [span1])
@@ -5243,7 +5378,7 @@ def test_log_spans_user_id_handling(store: SqlAlchemyStore) -> None:
     otel_span2 = create_test_otel_span(trace_id=trace_id2)
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id2, cls=TraceJSONEncoder),
-        "user.id": "different-user",
+        "user.id": json.dumps("different-user"),
     }
     span2 = create_mlflow_span(otel_span2, trace_id2, "LLM")
     store.log_spans(experiment_id, [span2])
@@ -5265,8 +5400,8 @@ def test_log_spans_user_id_handling(store: SqlAlchemyStore) -> None:
     otel_span4 = create_test_otel_span(trace_id=trace_id4)
     otel_span4._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id4, cls=TraceJSONEncoder),
-        "session.id": "session-456",
-        "user.id": "bob",
+        "session.id": json.dumps("session-456"),
+        "user.id": json.dumps("bob"),
     }
     span4 = create_mlflow_span(otel_span4, trace_id4, "LLM")
     store.log_spans(experiment_id, [span4])
@@ -5274,6 +5409,42 @@ def test_log_spans_user_id_handling(store: SqlAlchemyStore) -> None:
     trace_info4 = store.get_trace_info(trace_id4)
     assert trace_info4.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "session-456"
     assert trace_info4.trace_metadata.get(TraceMetadataKey.TRACE_USER) == "bob"
+
+
+@pytest.mark.parametrize(
+    ("attribute_value", "expected"),
+    [
+        pytest.param("session-123", "session-123", id="raw_string"),
+        pytest.param(json.dumps("session-123"), "session-123", id="json_encoded_string"),
+        pytest.param("12345", "12345", id="numeric_looking_raw_string"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("span_attr_key", "metadata_key"),
+    [
+        ("session.id", TraceMetadataKey.TRACE_SESSION),
+        ("user.id", TraceMetadataKey.TRACE_USER),
+    ],
+)
+def test_log_spans_normalizes_session_and_user_id_attributes(
+    store: SqlAlchemyStore,
+    span_attr_key: str,
+    metadata_key: str,
+    attribute_value: str,
+    expected: str,
+) -> None:
+    experiment_id = store.create_experiment(f"normalize_{uuid.uuid4().hex[:8]}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    otel_span = create_test_otel_span(trace_id=trace_id)
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        span_attr_key: attribute_value,
+    }
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+    store.log_spans(experiment_id, [span])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.trace_metadata.get(metadata_key) == expected
 
 
 def test_find_completed_sessions(store: SqlAlchemyStore):
@@ -7403,7 +7574,7 @@ def test_archive_traces_marks_serializer_failures_as_malformed_and_excludes_retr
     assert TraceExperimentTagKey.ARCHIVE_NOW not in store.get_experiment(exp_id).tags
 
 
-def test_archive_traces_keeps_archive_now_when_only_unmarked_non_archivable_traces_remain(
+def test_archive_traces_clears_archive_now_when_only_unmarked_non_archivable_traces_remain(
     store: SqlAlchemyStore,
 ):
     exp_id = store.create_experiment("archive-now-terminal-non-archivable")
@@ -7418,18 +7589,26 @@ def test_archive_traces_keeps_archive_now_when_only_unmarked_non_archivable_trac
     with TempDir() as tmp:
         archive_root = Path(tmp.path("archive"))
         archive_root.mkdir()
-        archived = _archive_traces(
-            store,
-            default_trace_archival_location=archive_root.as_uri(),
-            default_retention="365d",
-            now_millis=now_millis,
-        )
+        with mock.patch.object(sqlalchemy_store_module._logger, "warning") as mock_warning:
+            archived = _archive_traces(
+                store,
+                default_trace_archival_location=archive_root.as_uri(),
+                default_retention="365d",
+                now_millis=now_millis,
+            )
 
     assert archived == 0
     trace_info = store.get_trace_info(trace_id)
     assert trace_info.tags.get(TraceTagKey.SPANS_LOCATION) is None
     assert TraceTagKey.ARCHIVAL_FAILURE not in trace_info.tags
-    assert TraceExperimentTagKey.ARCHIVE_NOW in store.get_experiment(exp_id).tags
+    assert TraceExperimentTagKey.ARCHIVE_NOW not in store.get_experiment(exp_id).tags
+    mock_warning.assert_called_once_with(
+        "Clearing archive-now request %r on experiment %s. Some matching traces "
+        "still remain in the tracking store but are not currently archivable "
+        "and are not marked with an archival failure.",
+        "{}",
+        exp_id,
+    )
 
 
 def test_archive_traces_raises_unexpected_deserialization_errors(

@@ -24,9 +24,11 @@ export enum PageId {
   experimentPageTabTraceDetail = 'mlflow.experiment.tab.trace-detail',
   experimentPageTabEvaluationRuns = 'mlflow.experiment.tab.evaluation-runs',
   experimentPageTabDatasets = 'mlflow.experiment.tab.datasets',
+  experimentPageTabDatasetDetail = 'mlflow.experiment.tab.dataset-detail',
   experimentPageTabChatSessions = 'mlflow.experiment.tab.chat-sessions',
   experimentPageTabSingleChatSession = 'mlflow.experiment.tab.single-chat-session',
   experimentPageTabScorers = 'mlflow.experiment.tab.scorers',
+  experimentPageTabReviewQueue = 'mlflow.experiment.tab.review-queue',
   experimentPageTabPrompts = 'mlflow.experiment.prompts.list',
   experimentPageTabPromptDetails = 'mlflow.experiment.prompt.details',
   // Child routes for experiment page - end
@@ -85,8 +87,14 @@ export class RoutePaths {
   static get experimentPageTabDatasets() {
     return createMLflowRoutePath('/experiments/:experimentId/datasets');
   }
+  static get experimentPageTabDatasetDetail() {
+    return createMLflowRoutePath('/experiments/:experimentId/datasets/:datasetId');
+  }
   static get experimentPageTabScorers() {
     return createMLflowRoutePath('/experiments/:experimentId/judges');
+  }
+  static get experimentPageTabReviewQueue() {
+    return createMLflowRoutePath('/experiments/:experimentId/review-queue');
   }
   // Child routes for experiment page - end
   static get experimentLoggedModelDetailsPageTab() {
@@ -206,6 +214,10 @@ class Routes {
 
   static getExperimentPageTabSingleChatSessionRoute(experimentId: string, sessionId: string) {
     return generatePath(RoutePaths.experimentPageTabSingleChatSession, { experimentId, sessionId });
+  }
+
+  static getExperimentPageDatasetDetailRoute(experimentId: string, datasetId: string) {
+    return generatePath(RoutePaths.experimentPageTabDatasetDetail, { experimentId, datasetId });
   }
 
   static getExperimentLoggedModelDetailsPage(experimentId: string, loggedModelId: string) {

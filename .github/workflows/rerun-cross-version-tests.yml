@@ -14,6 +14,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   set-matrix:
     runs-on: ubuntu-slim

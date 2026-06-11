@@ -10,6 +10,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   copilot-setup-steps:
     runs-on: ubuntu-latest

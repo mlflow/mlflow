@@ -12,6 +12,13 @@ export interface RenderExportTracesToDatasetsModalParams {
   setVisible: (visible: boolean) => void;
 }
 
+export interface RenderAddToReviewQueueModalParams {
+  selectedTraceInfos: ModelTraceInfoV3[];
+  experimentId: string;
+  visible: boolean;
+  setVisible: (visible: boolean) => void;
+}
+
 export type DrawerComponentType = {
   Root: (props: {
     open: boolean;
@@ -28,6 +35,7 @@ export interface AddToDatasetAction {
 
 export interface ModelTraceExplorerContextValue {
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => React.ReactNode;
+  renderAddToReviewQueueModal?: (params: RenderAddToReviewQueueModalParams) => React.ReactNode;
   DrawerComponent: DrawerComponentType;
   /** When set (e.g. by the evaluation review drawer), content can show "Add to dataset" that calls openModal */
   addToDatasetAction?: AddToDatasetAction;
@@ -36,6 +44,7 @@ export interface ModelTraceExplorerContextValue {
 
 const ModelTraceExplorerContext = createContext<ModelTraceExplorerContextValue>({
   renderExportTracesToDatasetsModal: () => null,
+  renderAddToReviewQueueModal: () => null,
   DrawerComponent: Drawer,
   addToDatasetAction: undefined,
 });
@@ -43,6 +52,7 @@ const ModelTraceExplorerContext = createContext<ModelTraceExplorerContextValue>(
 interface ModelTraceExplorerContextProviderProps {
   children: React.ReactNode;
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => React.ReactNode;
+  renderAddToReviewQueueModal?: (params: RenderAddToReviewQueueModalParams) => React.ReactNode;
   DrawerComponent?: DrawerComponentType;
   drawerWidth?: string | number;
 }
@@ -50,16 +60,18 @@ interface ModelTraceExplorerContextProviderProps {
 export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerContextProviderProps> = ({
   children,
   renderExportTracesToDatasetsModal,
+  renderAddToReviewQueueModal,
   DrawerComponent = Drawer,
   drawerWidth,
 }) => {
   const value = useMemo(
     () => ({
       renderExportTracesToDatasetsModal,
+      renderAddToReviewQueueModal,
       DrawerComponent,
       drawerWidth,
     }),
-    [renderExportTracesToDatasetsModal, DrawerComponent, drawerWidth],
+    [renderExportTracesToDatasetsModal, renderAddToReviewQueueModal, DrawerComponent, drawerWidth],
   );
 
   return <ModelTraceExplorerContext.Provider value={value}>{children}</ModelTraceExplorerContext.Provider>;

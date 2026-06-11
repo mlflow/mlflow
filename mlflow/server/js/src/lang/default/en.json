@@ -7,6 +7,10 @@
     "defaultMessage": "Temperature",
     "description": "Label for temperature input"
   },
+  "+15Rcp": {
+    "defaultMessage": "Schema",
+    "description": "Label for the schema field in the V2 evaluation dataset metadata modal"
+  },
   "+1i81u": {
     "defaultMessage": "Registered At",
     "description": "Label name for registered timestamp metadata in model version page"
@@ -22,6 +26,10 @@
   "+4+wQY": {
     "defaultMessage": "Store it securely and restrict access to server administrators only.",
     "description": "AI Gateway setup guide > Passphrase warning security note"
+  },
+  "+634bT": {
+    "defaultMessage": "Feedback",
+    "description": "Review question type: feedback"
   },
   "+6406R": {
     "defaultMessage": "Name",
@@ -55,6 +63,10 @@
     "defaultMessage": "Rename Run",
     "description": "Modal title to rename the experiment run name"
   },
+  "+GVDd2": {
+    "defaultMessage": "Assign reviewers by name. They'll find this queue under “Feedback requested”.",
+    "description": "Queue settings: members field hint"
+  },
   "+HgSTK": {
     "defaultMessage": "Use these code examples to call your endpoint. Choose between unified APIs for seamless model switching or passthrough APIs for provider-specific features.",
     "description": "Endpoint usage modal description"
@@ -66,6 +78,14 @@
   "+Njd07": {
     "defaultMessage": "No sessions found",
     "description": "Title for the empty sessions list in the select sessions modal"
+  },
+  "+NuJjO": {
+    "defaultMessage": "Deleting \"{name}\" removes it from every review queue in this experiment. This cannot be undone.",
+    "description": "Manage review questions: delete confirmation body"
+  },
+  "+Pzzlu": {
+    "defaultMessage": "Last updated",
+    "description": "Header for the dataset last-updated column"
   },
   "+T+iqa": {
     "defaultMessage": "Select baseline run",
@@ -90,6 +110,10 @@
   "+Wj0Js": {
     "defaultMessage": "Persona",
     "description": "Label for the simulation persona metadata in chat session metrics"
+  },
+  "+a87Om": {
+    "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
+    "description": "Queue settings: questions dropdown selected-count summary"
   },
   "+d9nXK": {
     "defaultMessage": "Output cost",
@@ -127,6 +151,10 @@
     "defaultMessage": "Max",
     "description": "Column title for the column displaying the maximum metric values for a metric"
   },
+  "+kOR9h": {
+    "defaultMessage": "Save",
+    "description": "Queue settings: save button"
+  },
   "+khKtf": {
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
@@ -159,6 +187,10 @@
     "defaultMessage": "Expand graph",
     "description": "Tooltip for the button that expands the graph view"
   },
+  "//EoiB": {
+    "defaultMessage": "Search records by inputs or expectations",
+    "description": "Aria label for the search input on the V2 dataset records page (placeholder is not a label per WCAG 1.3.1)"
+  },
   "/2InJv": {
     "defaultMessage": "Grounded",
     "description": "Evaluation results > grounded assessment > positive value label. Displayed if evaluation result is considered as grounded."
@@ -182,6 +214,10 @@
   "/8oFM7": {
     "defaultMessage": "Does the app's response avoid harmful or toxic content?",
     "description": "Hint for Safety template"
+  },
+  "/8w8Ea": {
+    "defaultMessage": "Pass / Fail",
+    "description": "Review question input type: pass/fail"
   },
   "/Aup8Q": {
     "defaultMessage": "Request time",
@@ -339,6 +375,10 @@
     "defaultMessage": "Experiment not found",
     "description": "A title shown on the experiment page if the experiment is not found"
   },
+  "/tENRM": {
+    "defaultMessage": "Metadata",
+    "description": "Section title for metadata in the V2 dataset record side panel"
+  },
   "/v6KuF": {
     "defaultMessage": "Automatically log traces for LlamaIndex queries by calling the {code} function. For example:",
     "description": "Description of how to log traces for the LlamaIndex package using MLflow autologging. This message is followed by a code example."
@@ -359,6 +399,10 @@
     "defaultMessage": "{formattedAverage} (AVG)",
     "description": "Label showing the average value of numeric assessments"
   },
+  "/zbm8T": {
+    "defaultMessage": "Continue editing the question to see a preview.",
+    "description": "Review question preview render-error empty description"
+  },
   "0+djpP": {
     "defaultMessage": "or",
     "description": "Divider between model list and custom input"
@@ -370,6 +414,10 @@
   "02+DX/": {
     "defaultMessage": "Provider cannot be changed.",
     "description": "Tooltip explaining why provider field is disabled"
+  },
+  "02ceqc": {
+    "defaultMessage": "Last updated by",
+    "description": "Header for the dataset record last-updated-by column"
   },
   "033qfw": {
     "defaultMessage": "Select a framework and follow the instructions to log traces with MLflow.",
@@ -427,6 +475,14 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "0P5Ooz": {
+    "defaultMessage": "+{count} more",
+    "description": "Suffix on the dataset record tags column indicating how many additional tags are hidden in the preview"
+  },
+  "0PXsSn": {
+    "defaultMessage": "Add a reviewer by username or email",
+    "description": "Queue settings: member typeahead placeholder"
+  },
   "0QTEQi": {
     "defaultMessage": "Usage",
     "description": "Tab label for usage charts"
@@ -446,6 +502,10 @@
   "0T1I+b": {
     "defaultMessage": "MLflow documentation",
     "description": "Link to tracing documentation"
+  },
+  "0W7Pi4": {
+    "defaultMessage": "Tag{count, plural, =0 {} other { · #}}",
+    "description": "Button to open the tags filter popover in the experiments page. Shows an interpunct (·) followed by the count of active tag filters when any are applied."
   },
   "0WzWvy": {
     "defaultMessage": "Issues detected on the trace by automatic issue detection",
@@ -490,6 +550,10 @@
   "0phUi0": {
     "defaultMessage": "Copy link to trace",
     "description": "Tooltip for the share trace button"
+  },
+  "0qzcFj": {
+    "defaultMessage": "Loading users…",
+    "description": "Add to review queue: users loading hint"
   },
   "0r2ub6": {
     "defaultMessage": "Overview",
@@ -571,6 +635,14 @@
     "defaultMessage": "When the trace was created",
     "description": "Tooltip description for the Request Time column in the traces table"
   },
+  "1FCO3Y": {
+    "defaultMessage": "Questions are locked once the queue has traces attached.",
+    "description": "Queue settings: questions frozen hint"
+  },
+  "1IExHV": {
+    "defaultMessage": "Delete",
+    "description": "Confirm-button text for the V2 dataset records bulk-delete modal"
+  },
   "1Iq+NW": {
     "defaultMessage": "Copy",
     "description": "Button text for copy button"
@@ -619,6 +691,10 @@
     "defaultMessage": "Conversational safety",
     "description": "LLM template option"
   },
+  "1a/oGA": {
+    "defaultMessage": "Edit Tag",
+    "description": "Modal title for editing an existing tag"
+  },
   "1a1+j5": {
     "defaultMessage": "Unfortunately, the trace could not be rendered due to an unknown error. You can reload the page to try again. If the problem persists, please contact support.",
     "description": "Description for the error state in the model trace explorer"
@@ -639,9 +715,17 @@
     "defaultMessage": "Showing only visible runs",
     "description": "Experiment page > compare runs > parallel chart > header > indicator for only visible runs shown"
   },
+  "1htGxF": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel-button text for the V2 dataset records bulk-delete modal"
+  },
   "1i/Bac": {
     "defaultMessage": "Edit",
     "description": "Edit button for judge"
+  },
+  "1iGE3B": {
+    "defaultMessage": "Created by",
+    "description": "Header for the dataset record created-by column"
   },
   "1iNSKM": {
     "defaultMessage": "Advanced settings",
@@ -650,6 +734,14 @@
   "1jPG5D": {
     "defaultMessage": "Creator",
     "description": "Lable name for the creator under details tab on the model view page"
+  },
+  "1kXqgv": {
+    "defaultMessage": "Cancel",
+    "description": "Delete review queue: cancel button"
+  },
+  "1khEE+": {
+    "defaultMessage": "Name",
+    "description": "Header for the dataset name column"
   },
   "1l/c+M": {
     "defaultMessage": "User frustration",
@@ -755,6 +847,10 @@
     "defaultMessage": "Load the model",
     "description": "Heading text for stating how to load the model from the experiment run"
   },
+  "2OifbU": {
+    "defaultMessage": "Inputs cannot be empty",
+    "description": "Status text shown in the dataset record drawer footer when the inputs editor is empty (would otherwise wipe the field server-side)"
+  },
   "2OiwW4": {
     "defaultMessage": "Secret",
     "description": "Webhook secret field label"
@@ -763,9 +859,21 @@
     "defaultMessage": "Created at",
     "description": "Column header for created timestamp in the evaluation runs table"
   },
+  "2P5bVn": {
+    "defaultMessage": "Failed to create the review queue.",
+    "description": "Create review queue: error alert title"
+  },
+  "2ROAqe": {
+    "defaultMessage": "Record {id}",
+    "description": "Heading at the top of the V2 dataset record side panel showing the record id"
+  },
   "2RgAyy": {
     "defaultMessage": "Search",
     "description": "Search placeholder"
+  },
+  "2Rybee": {
+    "defaultMessage": "Reviewers",
+    "description": "Create review queue: reviewers field label"
   },
   "2Us2jl": {
     "defaultMessage": "X axis",
@@ -863,6 +971,10 @@
     "defaultMessage": "Source",
     "description": "Permissions table column header for the source (role name or 'Direct')"
   },
+  "2rfZ/+": {
+    "defaultMessage": "Endpoint",
+    "description": "Label for the endpoint-selection section in the run evaluation modal"
+  },
   "2tQXw0": {
     "defaultMessage": "Key name cannot be changed.",
     "description": "Tooltip explaining why key name field is disabled"
@@ -906,6 +1018,10 @@
   "3D2Znf": {
     "defaultMessage": "Filter by {columnNames}",
     "description": "Experiment page > artifact compare view > search input placeholder"
+  },
+  "3FH3mQ": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button text in the run evaluation modal"
   },
   "3JAJtl": {
     "defaultMessage": "Current password",
@@ -954,6 +1070,14 @@
   "3cn8ue": {
     "defaultMessage": "Sending...",
     "description": "Send request button loading state"
+  },
+  "3db93e": {
+    "defaultMessage": "Failed to save the queue settings.",
+    "description": "Queue settings: error alert title"
+  },
+  "3dtjfI": {
+    "defaultMessage": "No minimum",
+    "description": "Numeric question: min-value input placeholder when unbounded"
   },
   "3geT+I": {
     "defaultMessage": "Use the log artifact APIs to store file outputs from MLflow runs.",
@@ -1027,6 +1151,10 @@
     "defaultMessage": "New to MLflow?",
     "description": "Demo banner title"
   },
+  "460gm9": {
+    "defaultMessage": "Choose which questions reviewers answer for traces in this queue.",
+    "description": "Queue settings: questions field hint"
+  },
   "46xd2Z": {
     "defaultMessage": "Compare",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Compare config section"
@@ -1099,6 +1227,10 @@
     "defaultMessage": "This version",
     "description": "Model registry > model version alias select > Indicator for alias of selected version"
   },
+  "4OrIsb": {
+    "defaultMessage": "Expectations",
+    "description": "Section title for expectations in the V2 dataset record side panel"
+  },
   "4Qft47": {
     "defaultMessage": "{nodeCount, plural, =0 {} one {# node} other {# nodes}}",
     "description": "Count of selected nodes displayed in the node level metric charts node selector"
@@ -1127,6 +1259,14 @@
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding judge trace"
   },
+  "4aoazH": {
+    "defaultMessage": "Close",
+    "description": "Close button for tag details modal"
+  },
+  "4e1JWO": {
+    "defaultMessage": "Delete question?",
+    "description": "Manage review questions: delete confirmation title"
+  },
   "4g2H7S": {
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the chat prompt content in the prompt creation modal"
@@ -1142,6 +1282,10 @@
   "4kSYNV": {
     "defaultMessage": "No issues found",
     "description": "Issue detection run details > Issues tab > Empty state title"
+  },
+  "4n2n7G": {
+    "defaultMessage": "Loading records",
+    "description": "Aria label for the full-area loading placeholder on the V2 dataset records area"
   },
   "4ntR9o": {
     "defaultMessage": "Prompt tag set",
@@ -1171,6 +1315,10 @@
     "defaultMessage": "Unique identifier for the trace",
     "description": "Tooltip description for the Trace ID column in the traces table"
   },
+  "502XWr": {
+    "defaultMessage": "Search inputs, expectations…",
+    "description": "Placeholder for the search input on the V2 dataset records page"
+  },
   "53b+wP": {
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
@@ -1182,6 +1330,10 @@
   "54bvuq": {
     "defaultMessage": "Once you have endpoints with usage tracking enabled, usage metrics will appear here.",
     "description": "Empty state description for usage tab"
+  },
+  "57daBb": {
+    "defaultMessage": "Questions",
+    "description": "Create review queue: questions field label"
   },
   "58/xE7": {
     "defaultMessage": "Output /1M",
@@ -1238,6 +1390,10 @@
   "5UrahG": {
     "defaultMessage": "Viewing version {version}",
     "description": "Title of the prompt details page for a given version"
+  },
+  "5WxRTO": {
+    "defaultMessage": "Define the acceptable range for numeric input values. Leave either bound blank for no limit.",
+    "description": "Numeric range hint"
   },
   "5YOBk/": {
     "defaultMessage": "Export as CSV",
@@ -1379,6 +1535,10 @@
     "defaultMessage": "Model definition",
     "description": "Label for model definition selector"
   },
+  "6T5Q0d": {
+    "defaultMessage": "Open dataset record {recordId} — expectations",
+    "description": "Aria label for the expectations JSON-preview cell that opens the record drawer"
+  },
   "6TuRTf": {
     "defaultMessage": "LLM-as-a-judge",
     "description": "Label for LLM scorer type"
@@ -1443,6 +1603,10 @@
     "defaultMessage": "Total: {total}%",
     "description": "Total weight display"
   },
+  "6hZXzG": {
+    "defaultMessage": "Search judges",
+    "description": "Placeholder for the judge search input in the run evaluation modal"
+  },
   "6i/EoY": {
     "defaultMessage": "Save",
     "description": "Save button text for edit workspace modal"
@@ -1490,6 +1654,10 @@
   "6yxGSV": {
     "defaultMessage": "Failed to load attachment",
     "description": "Error message when trace attachment fails to load"
+  },
+  "6zZT8f": {
+    "defaultMessage": "Created by me",
+    "description": "Review queue sidebar: group of queues the reviewer owns"
   },
   "7+XQ3q": {
     "defaultMessage": "Correctness",
@@ -1615,6 +1783,10 @@
     "defaultMessage": "Edit webhook",
     "description": "Edit webhook modal title"
   },
+  "7ZcrHA": {
+    "defaultMessage": "Source",
+    "description": "Metadata label for the dataset record source (origin: trace, document, or human)"
+  },
   "7ZzboF": {
     "defaultMessage": "Link prompts to your traces by loading your registered prompts inside the traced function.",
     "description": "Helper text describing how to link prompts when no prompt records are available"
@@ -1727,6 +1899,10 @@
     "defaultMessage": "Total",
     "description": "Label for the total tokensin the tooltip for the tokens cell."
   },
+  "88bRGB": {
+    "defaultMessage": "Select record {recordId}",
+    "description": "Aria label for the per-row select checkbox in the V2 dataset records table"
+  },
   "88l+j9": {
     "defaultMessage": "Are you sure you want to delete model version {versionNum}? This cannot be undone.",
     "description": "Comment text for model version deletion modal in model versions view\n                 page"
@@ -1746,6 +1922,10 @@
   "8EQFzg": {
     "defaultMessage": "None",
     "description": "Cell value when there's no content"
+  },
+  "8GmtjT": {
+    "defaultMessage": "Clear the search",
+    "description": "Link text to clear the search filter on the V2 dataset records list"
   },
   "8Gz0OE": {
     "defaultMessage": "Unhide group",
@@ -1794,6 +1974,10 @@
   "8f4/Zi": {
     "defaultMessage": "Search logged models using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search logged models from the listing page"
+  },
+  "8fZd54": {
+    "defaultMessage": "Clear the search",
+    "description": "Link text to clear the search filter on the V2 evaluation datasets list page"
   },
   "8flziy": {
     "defaultMessage": "Time (Wall)",
@@ -1879,6 +2063,10 @@
     "defaultMessage": "Delete Model Version",
     "description": "Title text for model version deletion modal in model versions view page"
   },
+  "98al2/": {
+    "defaultMessage": "Instructions (optional)",
+    "description": "Review question instruction input"
+  },
   "98v9a0": {
     "defaultMessage": "The guidelines LLM judge determines whether the response adheres to the guidelines provided. All responses must adhere to guidelines.",
     "description": "Evaluation results > known type of evaluation result assessment > guidelines judge."
@@ -1951,9 +2139,17 @@
     "defaultMessage": "Overview",
     "description": "Tab label for endpoint overview"
   },
+  "9Sxo9h": {
+    "defaultMessage": "Max length",
+    "description": "Text max length input"
+  },
   "9TOU1G": {
     "defaultMessage": "No charts in this section",
     "description": "Runs compare page > Charts tab > No charts placeholder title"
+  },
+  "9Uh3c0": {
+    "defaultMessage": "Trace",
+    "description": "Source-type label for dataset records originating from a trace"
   },
   "9UmYIH": {
     "defaultMessage": "Month",
@@ -1962,6 +2158,10 @@
   "9W3kev": {
     "defaultMessage": "Register",
     "description": "Confirmation text to register the model"
+  },
+  "9X+gjj": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button on the dataset record side-panel footer — discards in-progress changes"
   },
   "9YgUED": {
     "defaultMessage": "Experiment name",
@@ -1978,6 +2178,10 @@
   "9dX4XQ": {
     "defaultMessage": "Select parameter or metric",
     "description": "Placeholder text for parameter/metric selector in box plot comparison in MLflow"
+  },
+  "9eJuAr": {
+    "defaultMessage": "{filtered, number} of {total, plural, one {# record} other {# records}}",
+    "description": "Record count shown in the V2 dataset records toolbar when a search filter is active. {filtered} is the count matching the search; {total} is the dataset's full record count."
   },
   "9fVZg8": {
     "defaultMessage": "Delete",
@@ -2055,6 +2259,10 @@
     "defaultMessage": "Reset period",
     "description": "Budget reset period label"
   },
+  "9zZeT2": {
+    "defaultMessage": "Delete records",
+    "description": "Title for the V2 dataset records bulk-delete confirmation modal"
+  },
   "A+5KMV": {
     "defaultMessage": "Model ID",
     "description": "Label for the model ID of a logged model on the logged model details page"
@@ -2090,6 +2298,10 @@
   "AB6/gE": {
     "defaultMessage": "Endpoints",
     "description": "Gateway side nav > Endpoints tab"
+  },
+  "AB6aF0": {
+    "defaultMessage": "Open dataset record {recordId} — inputs",
+    "description": "Aria label for the inputs JSON-preview cell that opens the record drawer"
   },
   "ABM9Yz": {
     "defaultMessage": "Create User",
@@ -2151,6 +2363,10 @@
     "defaultMessage": "Enter default artifact root URI",
     "description": "Placeholder for workspace artifact root input"
   },
+  "AWK6h0": {
+    "defaultMessage": "Delete",
+    "description": "Delete button for tag modal"
+  },
   "AX7L9r": {
     "defaultMessage": "Error",
     "description": "Error assessment status in the evaluations table."
@@ -2171,6 +2387,10 @@
     "defaultMessage": "Conversational guidelines",
     "description": "Evaluation results > known type of evaluation result assessment > conversational guidelines assessment. Used to indicate if the assistant adheres to the guidelines throughout a conversation."
   },
+  "AeSuAy": {
+    "defaultMessage": "Resize side panel",
+    "description": "Aria label for the drag handle on the V2 dataset record side panel"
+  },
   "AgjhWE": {
     "defaultMessage": "See less",
     "description": "Model trace explorer > selected span > code snippet > see less button"
@@ -2187,9 +2407,17 @@
     "defaultMessage": "Apply filters",
     "description": "Usage overview > apply filters button"
   },
+  "AqmDon": {
+    "defaultMessage": "No custom LLM-as-a-judge scorers found",
+    "description": "Empty-state label when the experiment has no custom LLM-as-a-judge scorers"
+  },
   "Aqq08o": {
     "defaultMessage": "HTTP",
     "description": "Experiment dataset drawer > source type > HTTP source type label"
+  },
+  "Art7Ii": {
+    "defaultMessage": "Traces",
+    "description": "Section header for trace selection in the run evaluation modal"
   },
   "Arvaod": {
     "defaultMessage": "Showing data up to {date}.",
@@ -2267,6 +2495,10 @@
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the experiments table"
   },
+  "BBfa66": {
+    "defaultMessage": "Decline",
+    "description": "Review focused view: decline action"
+  },
   "BCpX6U": {
     "defaultMessage": "Registered models",
     "description": "Run page > Overview > Run models section label"
@@ -2283,6 +2515,14 @@
     "defaultMessage": "We support multiple experiment types, each with its own set of features. Please select the type you'd like to use. You can change this later if needed.",
     "description": "Popover message displayed when the experiment type could not not inferred"
   },
+  "BEG0mS": {
+    "defaultMessage": "(no name yet)",
+    "description": "Review question preview placeholder for blank name"
+  },
+  "BEXAt0": {
+    "defaultMessage": "(empty)",
+    "description": "Placeholder for an empty JSON cell"
+  },
   "BF9qQD": {
     "defaultMessage": "Use \"Create API key\" button to create a new API key",
     "description": "Empty state message for API keys list explaining how to create"
@@ -2290,6 +2530,10 @@
   "BFzsMn": {
     "defaultMessage": "No runs selected",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > title"
+  },
+  "BK81F7": {
+    "defaultMessage": "Trace",
+    "description": "Review queue table: trace column"
   },
   "BMUd0e": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
@@ -2303,6 +2547,10 @@
     "defaultMessage": "Select metric",
     "description": "Placeholder text for a metric selector when configuring a line chart"
   },
+  "BPz0N5": {
+    "defaultMessage": "Done",
+    "description": "Confirm-button text for the V2 evaluation dataset metadata modal"
+  },
   "BQt0TQ": {
     "defaultMessage": "This model is also registered to the <link>model registry</link>.",
     "description": "Sub text to tell the users where the registered models are located "
@@ -2314,6 +2562,10 @@
   "BU8Jni": {
     "defaultMessage": "Response",
     "description": "Column label for response"
+  },
+  "BUJfbQ": {
+    "defaultMessage": "Inputs",
+    "description": "Header for the dataset record inputs column"
   },
   "BWH8UR": {
     "defaultMessage": "API key name:",
@@ -2395,6 +2647,10 @@
     "defaultMessage": "Traces",
     "description": "Section header for trace selection"
   },
+  "BrMzik": {
+    "defaultMessage": "Add Tag",
+    "description": "Save button text for adding a new tag"
+  },
   "BrQez2": {
     "defaultMessage": "Provider",
     "description": "Label for provider select field"
@@ -2419,9 +2675,17 @@
     "defaultMessage": "Delete",
     "description": "Label for the delete prompt action on the registered prompt details page"
   },
+  "BxZsWD": {
+    "defaultMessage": "Preview unavailable",
+    "description": "Review question preview render-error empty title"
+  },
   "By4hRe": {
     "defaultMessage": "Are retrieved documents relevant to the user's request?",
     "description": "Hint for RetrievalRelevance template"
+  },
+  "BynfX2": {
+    "defaultMessage": "No matching queues",
+    "description": "Add to review queue: no custom queues match the search"
   },
   "C+nay+": {
     "defaultMessage": "Evaluation",
@@ -2442,6 +2706,10 @@
   "C6ReUY": {
     "defaultMessage": "Save",
     "description": "Tag assignment modal > Save button"
+  },
+  "C6aBjm": {
+    "defaultMessage": "New question",
+    "description": "Review queue: create new question link in dropdown"
   },
   "C83vFj": {
     "defaultMessage": "Latency",
@@ -2490,6 +2758,10 @@
   "CRr6Tx": {
     "defaultMessage": "Create and manage judges",
     "description": "Title for the empty state of the judges page"
+  },
+  "CSee+U": {
+    "defaultMessage": "Please try again.",
+    "description": "Add to review queue: fallback error detail when a failure carries no message"
   },
   "CTEh+b": {
     "defaultMessage": "Cancel",
@@ -2574,6 +2846,10 @@
   "CpUD2P": {
     "defaultMessage": "Select traces",
     "description": "Button to open trace selection modal"
+  },
+  "Cq/qwH": {
+    "defaultMessage": "Trace",
+    "description": "Review focused view: trace panel title"
   },
   "Cq6NMs": {
     "defaultMessage": "Issue detection failed",
@@ -2723,6 +2999,10 @@
     "defaultMessage": "Download attachment ({contentType})",
     "description": "Download link for trace attachment with unknown content type"
   },
+  "DutAb5": {
+    "defaultMessage": "Search to find more queues",
+    "description": "Add to review queue: hint that more custom queues are searchable"
+  },
   "Dw+Z8L": {
     "defaultMessage": "Budget exceeded",
     "description": "Warning icon label for exceeded budget"
@@ -2791,6 +3071,10 @@
     "defaultMessage": "Compare",
     "description": "Compare button on run detail page"
   },
+  "EE/OnY": {
+    "defaultMessage": "How a reviewer sees the question",
+    "description": "Review question preview panel header subtitle"
+  },
   "EE7SQ0": {
     "defaultMessage": "Edit budget policy",
     "description": "Gateway > Budgets list > Edit budget policy button aria label"
@@ -2807,6 +3091,10 @@
     "defaultMessage": "Metrics:",
     "description": "Label text for metrics in parallel coordinates plot in MLflow"
   },
+  "ELI1bm": {
+    "defaultMessage": "{reviewed} of {total} reviewed ({percentage}%)",
+    "description": "Review focused view: queue progress summary"
+  },
   "EN0lUA": {
     "defaultMessage": "Columns",
     "description": "Label for the column selector button in the logged model list page"
@@ -2822,6 +3110,10 @@
   "ERWI9o": {
     "defaultMessage": "Text",
     "description": "Label for text prompt type in the prompt creation modal"
+  },
+  "ES/pmW": {
+    "defaultMessage": "Select the traces to evaluate.",
+    "description": "Description for the trace selection section in the run evaluation modal"
   },
   "ES952j": {
     "defaultMessage": "Not a number ({metricKey})",
@@ -2859,6 +3151,10 @@
     "defaultMessage": "Workspace Manager",
     "description": "Roles table column header for the workspace-admin marker (multi-tenant)"
   },
+  "Ek+kWF": {
+    "defaultMessage": "Reopen",
+    "description": "Review focused view: reopen action"
+  },
   "EkUD0b": {
     "defaultMessage": "No results",
     "description": "Experiment page > sort selector > no results after filtering by search query"
@@ -2874,6 +3170,14 @@
   "Epo8/i": {
     "defaultMessage": "Delete {count, plural, one {# Experiment} other {# Experiments}}",
     "description": "Experiments page list, delete bulk experiments modal title"
+  },
+  "EskEv7": {
+    "defaultMessage": "Question preview",
+    "description": "Create review queue: question preview section label"
+  },
+  "EtPSl6": {
+    "defaultMessage": "Discard unsaved changes?",
+    "description": "Title of the prompt shown when leaving the dataset record side panel with unsaved edits"
   },
   "Eu0gxa": {
     "defaultMessage": "Capture and debug LLM interactions and agent workflows.",
@@ -2931,6 +3235,10 @@
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
   },
+  "FMi127": {
+    "defaultMessage": "No datasets match \"{query}\"",
+    "description": "Title for the empty state when a search returns no datasets in the V2 evaluation datasets list"
+  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
@@ -2983,6 +3291,10 @@
     "defaultMessage": "GenAI apps & agents",
     "description": "A short label for custom experiments focused on generative AI app and agent development"
   },
+  "Fggk2Q": {
+    "defaultMessage": "Key:",
+    "description": "Label for tag key in modal"
+  },
   "FhnIR9": {
     "defaultMessage": "Exporting to multi-turn datasets is not yet supported.",
     "description": "Error message when trying to export traces to a multiturn dataset"
@@ -2990,6 +3302,10 @@
   "FiKsFK": {
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the registered prompts table"
+  },
+  "Fk4w6k": {
+    "defaultMessage": "Status",
+    "description": "Review queue table: status column"
   },
   "FmKAee": {
     "defaultMessage": "Observability",
@@ -3067,6 +3383,10 @@
     "defaultMessage": "Input and output schema for your model. <link>Learn more</link>",
     "description": "Input and output params of the model that is registered from the experiment run"
   },
+  "GBjD/m": {
+    "defaultMessage": "Cancel",
+    "description": "Review question modal cancel button"
+  },
   "GDenB3": {
     "defaultMessage": "Metrics",
     "description": "Field name text for metrics table in the model comparison page"
@@ -3091,6 +3411,10 @@
     "defaultMessage": "Start Time:",
     "description": "Text for start time row header in the main table in the model comparison\n                page"
   },
+  "GO4YVQ": {
+    "defaultMessage": "Add reviewer",
+    "description": "Create review queue: add-reviewer button"
+  },
   "GRaplV": {
     "defaultMessage": "Context sufficiency",
     "description": "Evaluation results > known type of evaluation result assessment > context sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. \"Context Sufficiency: mostly sufficient\""
@@ -3111,6 +3435,10 @@
     "defaultMessage": "Run evaluation",
     "description": "Home page quick action title for running evaluations"
   },
+  "GfFwBD": {
+    "defaultMessage": "Declined",
+    "description": "Review queue status: declined"
+  },
   "Gg/vLZ": {
     "defaultMessage": "Delete Model",
     "description": "Title text for delete model modal on model view page"
@@ -3126,6 +3454,10 @@
   "GifD0J": {
     "defaultMessage": "Explore GenAI features with pre-populated sample data including traces, evaluations, and prompts.",
     "description": "Demo banner description"
+  },
+  "Gk9Z7W": {
+    "defaultMessage": "Created by",
+    "description": "Header for the dataset created-by column"
   },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
@@ -3211,6 +3543,10 @@
     "defaultMessage": "Status",
     "description": "Label for the status section"
   },
+  "HQXWk2": {
+    "defaultMessage": "Select the LLM-as-a-judge scorers to run on the selected traces.",
+    "description": "Description for the judge selection section in the run evaluation modal"
+  },
   "HSMagB": {
     "defaultMessage": "Error evaluating \"{label}\"",
     "description": "Error evaluating label"
@@ -3242,6 +3578,14 @@
   "HZdpLU": {
     "defaultMessage": "Only alphanumeric characters, underscores, hyphens, and dots are allowed",
     "description": "A validation state for the prompt name format in the prompt creation modal"
+  },
+  "HZeRxN": {
+    "defaultMessage": "Save",
+    "description": "Save review question button"
+  },
+  "HZgS8a": {
+    "defaultMessage": "Add tag",
+    "description": "Aria label for the add-tag button in the V2 dataset record side panel (create mode)"
   },
   "Hay/ss": {
     "defaultMessage": "Select up to 2 runs to compare",
@@ -3302,6 +3646,10 @@
   "HnGOwk": {
     "defaultMessage": "Registered models",
     "description": "Title for the registered models section on the run details page"
+  },
+  "HnSLPT": {
+    "defaultMessage": "Add record",
+    "description": "Primary button text for adding a new dataset record on the V2 dataset records page"
   },
   "Hq/PKm": {
     "defaultMessage": "Enter a model identifier (e.g., openai:/gpt-4.1-mini). Scorers using direct models must configure API keys in your local environment.",
@@ -3371,6 +3719,14 @@
     "defaultMessage": "Comparing {numRuns} Runs from {numExperiments} Experiments",
     "description": "Breadcrumb title for compare runs page with multiple experiments"
   },
+  "IF3wII": {
+    "defaultMessage": "Feedback requested",
+    "description": "Review queue sidebar: group of queues assigned to the reviewer by others"
+  },
+  "IFJQom": {
+    "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
+    "description": "Create review queue: questions dropdown selected-count summary"
+  },
   "IHyeUr": {
     "defaultMessage": "Stage",
     "description": "Label name for stage metadata in model version page"
@@ -3391,9 +3747,17 @@
     "defaultMessage": "Predict on a Pandas DataFrame.",
     "description": "Code comment which states on how we can predict using pandas DataFrame"
   },
+  "IMAf09": {
+    "defaultMessage": "No limit",
+    "description": "Text question: max-length input placeholder when unbounded"
+  },
   "IMEGsC": {
     "defaultMessage": "Associated MLflow Run if the trace was generated within an MLflow run context",
     "description": "Tooltip description for the Run Name column in the traces table"
+  },
+  "IMk/9c": {
+    "defaultMessage": "{count, plural, one {# queue} other {# queues}} selected",
+    "description": "Add to review queue: destination dropdown selected-count summary"
   },
   "IMkDgM": {
     "defaultMessage": "Experiments",
@@ -3402,6 +3766,10 @@
   "INrdWe": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label showing number of traces selected"
+  },
+  "ISy30V": {
+    "defaultMessage": "Are you sure you want to delete the dataset \"{name}\"? This action cannot be undone.",
+    "description": "Body for the V2 evaluation dataset delete confirmation modal"
   },
   "IUAmWX": {
     "defaultMessage": "No common artifacts to display.",
@@ -3422,6 +3790,10 @@
   "IXPpwQ": {
     "defaultMessage": "404: Resource not found",
     "description": "Generic 404 user-friendly error for the MLflow UI"
+  },
+  "IYeKVP": {
+    "defaultMessage": "Dataset record expectations",
+    "description": "Aria label for the dataset record expectations JSON editor"
   },
   "IZ95jb": {
     "defaultMessage": "Datasets",
@@ -3471,6 +3843,10 @@
     "defaultMessage": "Error loading shared view state: share key is invalid",
     "description": "Experiment page > share viewstate > error > share key is invalid"
   },
+  "J+Mfua": {
+    "defaultMessage": "Delete",
+    "description": "Confirm-button text for the V2 evaluation dataset delete modal"
+  },
   "J+Q9dW": {
     "defaultMessage": "Trace Archival Location",
     "description": "Label for workspace trace archival location field"
@@ -3478,6 +3854,10 @@
   "J/srtP": {
     "defaultMessage": "{count} {count, plural, one {value} other {values}}",
     "description": "Tag showing the number of unique string values in session assessment"
+  },
+  "J1DBbP": {
+    "defaultMessage": "Created",
+    "description": "Header for the dataset record create-time column"
   },
   "J2IXIT": {
     "defaultMessage": "Create Guardrail",
@@ -3535,6 +3915,10 @@
     "defaultMessage": "Fetching trace data...",
     "description": "MLflow trace notebook output > loading state"
   },
+  "JKjqGC": {
+    "defaultMessage": "Record ID",
+    "description": "Header for the dataset record id column"
+  },
   "JNS471": {
     "defaultMessage": "No results. Try using a different keyword or adjusting your filters.",
     "description": "Models table > no results after filtering"
@@ -3562,6 +3946,10 @@
   "JW4EB/": {
     "defaultMessage": "On exceeded",
     "description": "Budget on exceeded label"
+  },
+  "JWxMHS": {
+    "defaultMessage": "Created",
+    "description": "Metadata label for the dataset record creation time"
   },
   "JYVQuV": {
     "defaultMessage": "Run ID",
@@ -3663,6 +4051,10 @@
     "defaultMessage": "Automatically log traces for CrewAI executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the CrewAI package using MLflow autologging. This message is followed by a code example."
   },
+  "K8ynGW": {
+    "defaultMessage": "Search datasets",
+    "description": "Placeholder for the search input on the V2 evaluation datasets list page"
+  },
   "KADUUT": {
     "defaultMessage": "Model parameters",
     "description": "Experiment page > new run modal > served LLM model parameters label"
@@ -3719,6 +4111,10 @@
     "defaultMessage": "Name",
     "description": "Endpoint name column header"
   },
+  "KT0fFe": {
+    "defaultMessage": "Add tag",
+    "description": "Button text for adding a tag when no tags exist on a dataset record"
+  },
   "KV3BXl": {
     "defaultMessage": "Select as baseline version",
     "description": "Label for selecting baseline prompt version in the comparison view"
@@ -3739,10 +4135,6 @@
     "defaultMessage": "Endpoint:",
     "description": "Endpoint selector label"
   },
-  "KcnW3U": {
-    "defaultMessage": "Tag",
-    "description": "Button to open the tags filter popover in the experiments page"
-  },
   "KdsrPi": {
     "defaultMessage": "Assessments",
     "description": "Label for the read-only assessments tab of the model trace explorer."
@@ -3750,6 +4142,10 @@
   "Kg1HbP": {
     "defaultMessage": "Delete",
     "description": "Confirm delete button"
+  },
+  "KgbuTF": {
+    "defaultMessage": "The dataset may have been deleted, or you may not have access to it.",
+    "description": "Body shown when the V2 evaluation dataset detail page fails to fetch its dataset"
   },
   "Kkr/RI": {
     "defaultMessage": "Configure charts",
@@ -3759,9 +4155,21 @@
     "defaultMessage": "Assessment",
     "description": "Evaluation review > evaluations list > assessment sort option label prefix"
   },
+  "KoMa6+": {
+    "defaultMessage": "Select visible columns",
+    "description": "Aria label for the column-selector dropdown trigger on the V2 dataset records page"
+  },
+  "KoiZrr": {
+    "defaultMessage": "This queue has no questions attached.",
+    "description": "Add to review queue: custom queue disabled reason"
+  },
   "KqReh3": {
     "defaultMessage": "Error stack trace",
     "description": "Title of the assessment error stack trace modal"
+  },
+  "KqjuRt": {
+    "defaultMessage": "No questions defined for this experiment yet.",
+    "description": "Add to review queue: user queue disabled reason"
   },
   "KsYAUn": {
     "defaultMessage": "{count, plural, one {Session} other {{count} sessions}} deleted successfully",
@@ -3871,6 +4279,10 @@
     "defaultMessage": "Prompt",
     "description": "Column label for linked prompts"
   },
+  "LPYSU+": {
+    "defaultMessage": "Showing the first {count} matches — refine your search to narrow them.",
+    "description": "Add to review queue: hint that the user search results are capped"
+  },
   "LQVkoY": {
     "defaultMessage": "Select the type of guardrail you want to create.",
     "description": "Step 1 subtitle"
@@ -3878,6 +4290,10 @@
   "LTbwXS": {
     "defaultMessage": "Artifact evaluation",
     "description": "A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view"
+  },
+  "LWkwgO": {
+    "defaultMessage": "Added {count, plural, one {# trace} other {# traces}} to review.",
+    "description": "Add to review queue: success toast after traces are added"
   },
   "LXz6c5": {
     "defaultMessage": "This setting enables UI telemetry data collection. Learn more about what types of data are collected in our {documentation}.",
@@ -3923,6 +4339,10 @@
     "defaultMessage": "Mark as reviewed",
     "description": "Evaluation review > assessments > mark as reviewed button"
   },
+  "LuOEnE": {
+    "defaultMessage": "Add",
+    "description": "Categorical add-option button"
+  },
   "Lvcsl4": {
     "defaultMessage": "Review and edit the guardrail details, choose placement and action.",
     "description": "Detail modal subtitle"
@@ -3934,6 +4354,10 @@
   "LxUEVH": {
     "defaultMessage": "No resources connected to this endpoint",
     "description": "Gateway > Endpoint bindings drawer > Empty state"
+  },
+  "LxYgXq": {
+    "defaultMessage": "{count, plural, one {# question} other {# questions}}",
+    "description": "Review queue header: number of questions the queue asks"
   },
   "M+HfWb": {
     "defaultMessage": "Irrelevant",
@@ -4023,6 +4447,10 @@
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
     "description": "Evaluation review > input section > title"
   },
+  "MQlFT0": {
+    "defaultMessage": "Inputs",
+    "description": "Section title for inputs in the V2 dataset record side panel"
+  },
   "MS5PhU": {
     "defaultMessage": "Model training",
     "description": "Label for model training workflow type option"
@@ -4075,6 +4503,10 @@
     "defaultMessage": "Budget amount (USD)",
     "description": "Budget amount label"
   },
+  "MhF3mL": {
+    "defaultMessage": "Create",
+    "description": "Create review question button"
+  },
   "MhOmZG": {
     "defaultMessage": "Yes",
     "description": "Label for an assessment with a 'yes' value"
@@ -4106,6 +4538,10 @@
   "Mp01o5": {
     "defaultMessage": "View all integrations",
     "description": "Link text directing users to additional tracing integrations"
+  },
+  "Mr3+R5": {
+    "defaultMessage": "Expectation (ground truth)",
+    "description": "Review question answer type: expectation"
   },
   "Mtj9Ay": {
     "defaultMessage": "Edit description",
@@ -4139,6 +4575,10 @@
     "defaultMessage": "Clear all demo data generated from the home page. This removes demo experiments, traces, evaluations, and prompts.",
     "description": "Demo data settings description"
   },
+  "N2F0dw": {
+    "defaultMessage": "Delete dataset",
+    "description": "Title for the V2 evaluation dataset delete confirmation modal on the detail page"
+  },
   "N53jAt": {
     "defaultMessage": "Create custom code judge",
     "description": "Title for new custom code judge modal"
@@ -4154,6 +4594,10 @@
   "N7BCue": {
     "defaultMessage": "Create dataset",
     "description": "Create evaluation dataset button"
+  },
+  "N8/kmr": {
+    "defaultMessage": "Invalid JSON",
+    "description": "Inline error shown under a dataset record JSON editor when the contents do not parse as a JSON object"
   },
   "N8YuIr": {
     "defaultMessage": "Error while loading metric page",
@@ -4214,6 +4658,10 @@
   "NUjE6C": {
     "defaultMessage": "Machine learning",
     "description": "Label for custom experiments automatically identified as being focused on machine learning"
+  },
+  "NV0G2k": {
+    "defaultMessage": "Delete question",
+    "description": "Manage review questions: delete button aria label"
   },
   "NV7Fz+": {
     "defaultMessage": "Created {date}",
@@ -4279,6 +4727,10 @@
     "defaultMessage": "Registered at",
     "description": "Column title text for created at timestamp in model version table"
   },
+  "NmWSTV": {
+    "defaultMessage": "Failed to load permissions",
+    "description": "Alert title shown when the roles query fails on the permissions section"
+  },
   "NnO0Lz": {
     "defaultMessage": "MLflow allows you to evaluate your GenAI applications using scorers. Scorers compute quality metrics like relevance, correctness, and custom assessments. Copy the code snippet below to run an evaluation, or visit the documentation for a more in-depth example.",
     "description": "Empty state description for the quality tab in overview page"
@@ -4326,6 +4778,10 @@
   "O+hq1Q": {
     "defaultMessage": "Create Workspace",
     "description": "Title for create workspace modal"
+  },
+  "O1K7/e": {
+    "defaultMessage": "Feedback",
+    "description": "Review question answer type: feedback"
   },
   "O1rYVN": {
     "defaultMessage": "Load model as a Spark UDF. Override result_type if the model does not return double values.",
@@ -4375,9 +4831,9 @@
     "defaultMessage": "Value",
     "description": "Tag filter input for value field in the tags filter popover for experiments page search by tags"
   },
-  "OJBFVt": {
-    "defaultMessage": "Showing role-derived permissions only - direct grants are unavailable.",
-    "description": "Alert description shown when only role-derived permissions are available because direct grants failed to load"
+  "OH7mDs": {
+    "defaultMessage": "Expectations",
+    "description": "Column selector label for the expectations column"
   },
   "OLZyxe": {
     "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
@@ -4390,6 +4846,10 @@
   "ONIiUE": {
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
+  },
+  "ONnuab": {
+    "defaultMessage": "View code snippet",
+    "description": "Label for a button that opens a modal containing a runnable evaluation code snippet"
   },
   "OQsEJv": {
     "defaultMessage": "Value",
@@ -4415,6 +4875,10 @@
     "defaultMessage": "Regression",
     "description": "Label for experiments focused on regression modeling"
   },
+  "OXcY79": {
+    "defaultMessage": "Profile",
+    "description": "Label for the profile field in the V2 evaluation dataset metadata modal"
+  },
   "OZXWas": {
     "defaultMessage": "False",
     "description": "False value in the evaluations table."
@@ -4438,6 +4902,10 @@
   "OfLABN": {
     "defaultMessage": "Close",
     "description": "Error modal close button text"
+  },
+  "OhVnQ5": {
+    "defaultMessage": "Record saved",
+    "description": "Success toast after saving an edited dataset record"
   },
   "OiNC9u": {
     "defaultMessage": "No budget policies created",
@@ -4475,9 +4943,21 @@
     "defaultMessage": "Add expectation",
     "description": "Label for the button to add a new expectation"
   },
+  "OubPZd": {
+    "defaultMessage": "Input",
+    "description": "Review focused view: trace input label"
+  },
+  "OvkqyX": {
+    "defaultMessage": "Add Tag",
+    "description": "Modal title for adding a new tag"
+  },
   "OxQK9l": {
     "defaultMessage": "Key name is required",
     "description": "Error message when key name is empty"
+  },
+  "OzFBcd": {
+    "defaultMessage": "Choose which questions reviewers answer for traces in this queue.",
+    "description": "Create review queue: questions field hint"
   },
   "OzyPl3": {
     "defaultMessage": "Please select parameters",
@@ -4523,6 +5003,10 @@
     "defaultMessage": "Production",
     "description": "Column title for production phase version in the registered model page"
   },
+  "PH94oZ": {
+    "defaultMessage": "Deleted dataset \"{name}\" (may take a moment to refresh)",
+    "description": "Success toast after deleting a V2 evaluation dataset when UC propagation has not been observed within the polling window"
+  },
   "PIPzZY": {
     "defaultMessage": "General",
     "description": "Sidebar link: Settings > General"
@@ -4546,6 +5030,10 @@
   "PKwacx": {
     "defaultMessage": "No assessments available",
     "description": "Message shown when there are no assessments to display in simplified view"
+  },
+  "PKzIZn": {
+    "defaultMessage": "Dataset records",
+    "description": "Region label for the V2 dataset records table — wraps the table and pagination"
   },
   "PMaJHI": {
     "defaultMessage": "Used by ({count})",
@@ -4594,6 +5082,10 @@
   "PZGZHV": {
     "defaultMessage": "Experiment ID",
     "description": "Label for displaying the current experiment in view"
+  },
+  "PbYtjz": {
+    "defaultMessage": "Select a queue to review its traces.",
+    "description": "Review queue: prompt to pick a queue"
   },
   "PbhoUk": {
     "defaultMessage": "Track every version of your model to understand how quality changes over time. {learnMoreLink}",
@@ -4659,6 +5151,10 @@
     "defaultMessage": "Close",
     "description": "Close button"
   },
+  "Q+V7G3": {
+    "defaultMessage": "Add to {count, plural, one {# queue} other {# queues}}",
+    "description": "Add to review queue: confirm button with queue count"
+  },
   "Q/QcTS": {
     "defaultMessage": "Save",
     "description": "Save guardrail changes button"
@@ -4674,6 +5170,10 @@
   "Q0tqO9": {
     "defaultMessage": "Not an issue",
     "description": "Issue severity tag label for not an issue"
+  },
+  "Q1t+2P": {
+    "defaultMessage": "Run judge",
+    "description": "Button text for running a single judge from the run evaluation modal"
   },
   "Q5CR/y": {
     "defaultMessage": "Create a new key if a different name is needed.",
@@ -4699,6 +5199,10 @@
     "defaultMessage": "Prompts",
     "description": "Sidebar link for prompts tab"
   },
+  "QBk7Op": {
+    "defaultMessage": "Completed",
+    "description": "Review queue table: completed group label"
+  },
   "QC5Vjq": {
     "defaultMessage": "Y-axis:",
     "description": "Label where the users can choose the metric of the experiment run to be plotted on the Y-axis"
@@ -4723,17 +5227,33 @@
     "defaultMessage": "Input for the trace",
     "description": "Description for inputs variable"
   },
+  "QJEOCL": {
+    "defaultMessage": "Select review queues",
+    "description": "Add to review queue: destination dropdown placeholder"
+  },
   "QK/Qyx": {
     "defaultMessage": "Total",
     "description": "Label for total token usage"
+  },
+  "QLRaAz": {
+    "defaultMessage": "Select all rows on this page",
+    "description": "Aria label for the select-all checkbox in the V2 dataset records table header"
   },
   "QMCliz": {
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
     "description": "Feature card summary for evaluation"
   },
+  "QOtpyI": {
+    "defaultMessage": "Delete {count, plural, one {# trace} other {# traces}}",
+    "description": "Review queue: delete selected traces button"
+  },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
     "description": "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
+  },
+  "QR5jwv": {
+    "defaultMessage": "Add an option",
+    "description": "Categorical options: add-option input placeholder"
   },
   "QRnRh3": {
     "defaultMessage": "No experiments found",
@@ -4875,9 +5395,17 @@
     "defaultMessage": "Time",
     "description": "Label for the time select dropdown for experiment runs view"
   },
+  "REfKpP": {
+    "defaultMessage": "Question for reviewer",
+    "description": "Review question name input"
+  },
   "RGKRP9": {
     "defaultMessage": "Feedback",
     "description": "Label for the value of an feedback assessment"
+  },
+  "RHoQ7a": {
+    "defaultMessage": "Users",
+    "description": "Add to review queue: per-user personal-queue section header"
   },
   "RJenO+": {
     "defaultMessage": "Create prompt version",
@@ -4898,6 +5426,14 @@
   "RXL0a5": {
     "defaultMessage": "All {groupLabel}",
     "description": "Evaluation review > evaluations list > select all columns in group"
+  },
+  "RXpnec": {
+    "defaultMessage": "Queue settings",
+    "description": "Review queue header: queue settings gear button aria label"
+  },
+  "RZvsu5": {
+    "defaultMessage": "No pre-built LLM-as-a-judge scorers found",
+    "description": "Empty-state label when no pre-built LLM-as-a-judge templates match the search"
   },
   "RaGnOQ": {
     "defaultMessage": "Compare",
@@ -4943,6 +5479,10 @@
     "defaultMessage": "Top P",
     "description": "Label for top P input"
   },
+  "RoO7UF": {
+    "defaultMessage": "Create",
+    "description": "Create review queue: confirm button"
+  },
   "RpxR8e": {
     "defaultMessage": "Custom LLM-as-a-judge ({llmCount})",
     "description": "Label for custom LLM judge type filter option"
@@ -4975,6 +5515,10 @@
     "defaultMessage": "Runs",
     "description": "Breadcrumb nav item to link to the runs tab on the parent experiment"
   },
+  "RxR6Sn": {
+    "defaultMessage": "Close",
+    "description": "Aria label for the close button on the V2 dataset record side panel"
+  },
   "RyNXc+": {
     "defaultMessage": "Loading endpoint...",
     "description": "Loading message for endpoint"
@@ -4990,6 +5534,10 @@
   "S+cwv0": {
     "defaultMessage": "Select sessions",
     "description": "Title for the select sessions modal"
+  },
+  "S2Hz/O": {
+    "defaultMessage": "New questions",
+    "description": "Review queue: badge when a question was added after the trace was completed"
   },
   "S3YY1P": {
     "defaultMessage": "Span: {spanName}",
@@ -5043,6 +5591,10 @@
     "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
     "description": "Label for pre-built LLM judge type filter option"
   },
+  "SKxS0C": {
+    "defaultMessage": "No questions configured for this queue.",
+    "description": "Review focused view: empty questions state"
+  },
   "SLHSXV": {
     "defaultMessage": "Search parameters",
     "description": "Run page > Overview > Parameters table > Filter input placeholder"
@@ -5083,6 +5635,14 @@
     "defaultMessage": "Create LLM judge",
     "description": "Title for new LLM judge modal"
   },
+  "SVXXp4": {
+    "defaultMessage": "Input type",
+    "description": "Review question input variant selector"
+  },
+  "SZIwwQ": {
+    "defaultMessage": "Flag for review",
+    "description": "Button text for adding a trace to a review queue"
+  },
   "Sb+wLa": {
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
     "description": "Help text explaining model configuration purpose"
@@ -5098,6 +5658,10 @@
   "Sd7sQi": {
     "defaultMessage": "Traces are only available for experiment-scoped prompts.",
     "description": "Message when prompt is not experiment-scoped"
+  },
+  "SdwhGR": {
+    "defaultMessage": "No maximum",
+    "description": "Numeric question: max-value input placeholder when unbounded"
   },
   "Shv28w": {
     "defaultMessage": "Save",
@@ -5119,9 +5683,17 @@
     "defaultMessage": "Delete sessions",
     "description": "Delete sessions action"
   },
+  "SnoVcZ": {
+    "defaultMessage": "Select the model endpoint that the pre-built LLM-as-a-judge scorers will run against.",
+    "description": "Description for the endpoint-selection section in the run evaluation modal"
+  },
   "SojbzO": {
     "defaultMessage": "Evaluate entire sessions for conversation quality and outcomes.",
     "description": "Hint for the scorer evaluation scope selection for sessions"
+  },
+  "SqV8Km": {
+    "defaultMessage": "Human",
+    "description": "Source-type label for dataset records authored by a human"
   },
   "SqmrRR": {
     "defaultMessage": "Guardrail Details",
@@ -5154,6 +5726,10 @@
   "SzvvXl": {
     "defaultMessage": "Failed to submit",
     "description": "Message text for failing to save changes in editable note in MLflow"
+  },
+  "T+dwu8": {
+    "defaultMessage": "Pre-built LLM-as-a-judge",
+    "description": "Sub-label for a pre-built LLM-as-a-judge row in the run evaluation modal"
   },
   "T/46y0": {
     "defaultMessage": "Machine learning",
@@ -5191,9 +5767,9 @@
     "defaultMessage": "Save",
     "description": "Save webhook button"
   },
-  "TI/9fP": {
-    "defaultMessage": "Showing direct grants only - role-derived permissions are unavailable.",
-    "description": "Alert description shown when only direct grants are available because role-derived permissions failed to load"
+  "TCkOxn": {
+    "defaultMessage": "Positive label",
+    "description": "Pass/Fail positive label input"
   },
   "TKtJIK": {
     "defaultMessage": "Page not found",
@@ -5211,6 +5787,10 @@
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
     "description": "Experiment page > compare runs > chart section > delete section warning message"
   },
+  "TPxLiV": {
+    "defaultMessage": "Last updated",
+    "description": "Column selector label for the last-updated column"
+  },
   "TQ3N+4": {
     "defaultMessage": "Select",
     "description": "Label for the checkbox column in the evaluation runs table"
@@ -5226,6 +5806,10 @@
   "TSXmaB": {
     "defaultMessage": "Create",
     "description": "A label for the confirm button in the create prompt modal in the prompt management UI"
+  },
+  "TTQoG9": {
+    "defaultMessage": "Source",
+    "description": "Header for the dataset record source column"
   },
   "TWnsnV": {
     "defaultMessage": "Run Name",
@@ -5243,9 +5827,21 @@
     "defaultMessage": "Git branch",
     "description": "Usage overview > metrics filter > git branch column option label"
   },
+  "TaMZFZ": {
+    "defaultMessage": "Review",
+    "description": "Review focused view: questions panel title"
+  },
   "TannO5": {
     "defaultMessage": "Retrieved {sampledCount} out of {totalCount} total logs ({percentage}%)",
     "description": "Evaluation review > evaluations list > sample info tooltip"
+  },
+  "TbI+lg": {
+    "defaultMessage": "Dataset record inputs",
+    "description": "Aria label for the dataset record inputs JSON editor"
+  },
+  "TcNbWT": {
+    "defaultMessage": "View dataset metadata",
+    "description": "Overflow-menu item that opens the V2 evaluation dataset metadata modal"
   },
   "TeN9hs": {
     "defaultMessage": "Traces",
@@ -5279,6 +5875,10 @@
     "defaultMessage": "No records found",
     "description": "Empty state for the evaluation dataset records table"
   },
+  "TnGl3E": {
+    "defaultMessage": "Name",
+    "description": "Create review queue: name field label"
+  },
   "Tpj2su": {
     "defaultMessage": "Attributes",
     "description": "Label for the attributes column group in the logged model column selector"
@@ -5290,6 +5890,14 @@
   "TqkZmy": {
     "defaultMessage": "Default Artifact Root",
     "description": "Label for workspace artifact root field"
+  },
+  "TrYfRN": {
+    "defaultMessage": "Dataset actions",
+    "description": "Aria label for the V2 evaluation dataset detail page overflow-menu trigger"
+  },
+  "Tune9y": {
+    "defaultMessage": "Created dataset \"{name}\"",
+    "description": "Success toast after creating a V2 evaluation dataset"
   },
   "TvjS47": {
     "defaultMessage": "This trace is very large, and may cause UI slowness when attempting to render. You can click the button below to attempt to display it anyway.",
@@ -5363,6 +5971,10 @@
     "defaultMessage": "Filter: {filterString}",
     "description": "Filter display for scorer"
   },
+  "UP/Atk": {
+    "defaultMessage": "Preview how the questions will appear for the human reviewer.",
+    "description": "Queue settings: question preview section hint"
+  },
   "UQhorr": {
     "defaultMessage": "Edit",
     "description": "Edit assessment menu item"
@@ -5375,9 +5987,17 @@
     "defaultMessage": "Automatic evaluation is only available for judges that use gateway endpoints.",
     "description": "Hint text explaining why automatic evaluation is disabled for non-gateway models"
   },
+  "UScoKM": {
+    "defaultMessage": "No questions defined for this experiment yet.",
+    "description": "Manage review questions: empty state"
+  },
   "UWHfmZ": {
     "defaultMessage": "Group:",
     "description": "Label for a group of runs in the evaluation runs table"
+  },
+  "UXCsxN": {
+    "defaultMessage": "Unsaved changes",
+    "description": "Status text shown when the dataset record drawer has unsaved edits"
   },
   "UXdH8W": {
     "defaultMessage": "Create API Key",
@@ -5403,6 +6023,10 @@
     "defaultMessage": "Choose your framework and add one line to enable automatic tracing, or use the {code} decorator for custom functions.",
     "description": "Step 2 description for Python traces onboarding"
   },
+  "UcXao0": {
+    "defaultMessage": "Deleted dataset \"{name}\"",
+    "description": "Success toast after deleting a V2 evaluation dataset"
+  },
   "Uf0z53": {
     "defaultMessage": "Cancel",
     "description": "Cancel button in unified trace tag assignment modal"
@@ -5419,6 +6043,10 @@
     "defaultMessage": "Create endpoint",
     "description": "Page title for create endpoint"
   },
+  "Ul/T3v": {
+    "defaultMessage": "To do",
+    "description": "Review queue sidebar: still-to-review count column header"
+  },
   "UlkINy": {
     "defaultMessage": "Admin",
     "description": "Roles table column flagging admin roles when workspaces are disabled"
@@ -5431,6 +6059,10 @@
     "defaultMessage": "Created: {date}",
     "description": "Issue creation date label"
   },
+  "UpVskF": {
+    "defaultMessage": "Expectations",
+    "description": "Header for the dataset record expectations column"
+  },
   "Uq6/bl": {
     "defaultMessage": "Create prompt",
     "description": "A header for the empty state in the prompts table"
@@ -5442,6 +6074,10 @@
   "Uqhamv": {
     "defaultMessage": "Ground truth values annotated to the trace",
     "description": "Tooltip description for the Expectation column group in the traces table"
+  },
+  "UrjOfF": {
+    "defaultMessage": "To do",
+    "description": "Review queue table: to-do group label"
   },
   "UsvDLH": {
     "defaultMessage": "Select a workspace",
@@ -5487,9 +6123,17 @@
     "defaultMessage": "Budget policy exceeded",
     "description": "Webhook event label"
   },
+  "V5Z0u3": {
+    "defaultMessage": "Actions for dataset {name}",
+    "description": "Aria label for the per-row actions dropdown trigger on the V2 evaluation datasets list"
+  },
   "V5cjvM": {
     "defaultMessage": "Copy your MLflow models to another registered model for simple model promotion across environments. For more mature production-grade setups, we recommend setting up automated model training workflows to produce models in controlled environments. <link>Learn more</link>",
     "description": "Model registry > OSS Promote model modal > description paragraph body"
+  },
+  "V6AwxC": {
+    "defaultMessage": "Run judges",
+    "description": "Button text for running multiple judges from the run evaluation modal"
   },
   "V9FtFz": {
     "defaultMessage": "Use the parallel coordinates chart to compare how various parameters in model affect your model metrics.",
@@ -5510,6 +6154,10 @@
   "VDkXRG": {
     "defaultMessage": "View model",
     "description": "Label for a button that opens a new tab to view the details of a logged ML model while registering a model version"
+  },
+  "VEuVfv": {
+    "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
+    "description": "Label showing number of traces selected in the run evaluation modal"
   },
   "VF2V6v": {
     "defaultMessage": "Issues identified from traces will appear here.",
@@ -5570,6 +6218,10 @@
   "VVoQ5V": {
     "defaultMessage": "Structured output (JSON schema)",
     "description": "Label for the structured output JSON schema field in the prompt creation modal"
+  },
+  "VWIO8j": {
+    "defaultMessage": "Could not save your review: {error}",
+    "description": "Review focused view: submit error alert"
   },
   "VWngGA": {
     "defaultMessage": "e.g., PII Detection & Redaction",
@@ -5687,6 +6339,14 @@
     "defaultMessage": "Model Name",
     "description": "Label for model name input in model config form"
   },
+  "WA9JZI": {
+    "defaultMessage": "Value:",
+    "description": "Label for tag value in modal"
+  },
+  "WCG4Z9": {
+    "defaultMessage": "Inputs",
+    "description": "Column selector label for the inputs column"
+  },
   "WDmiPW": {
     "defaultMessage": "You need another endpoint to use guardrails.",
     "description": "Tooltip shown when no alternate endpoint exists for guardrail model selection"
@@ -5702,6 +6362,10 @@
   "WEQoNb": {
     "defaultMessage": "Page {page}",
     "description": "Current page indicator"
+  },
+  "WEbu//": {
+    "defaultMessage": "The question shown to the reviewer.",
+    "description": "Review question name hint"
   },
   "WFEeyZ": {
     "defaultMessage": "Cost: {input} in / {output} out",
@@ -5727,6 +6391,10 @@
     "defaultMessage": "Z-axis:",
     "description": "Label text for z-axis in contour plot comparison in MLflow"
   },
+  "WJgUr7": {
+    "defaultMessage": "Select or create questions",
+    "description": "Review queue: questions dropdown label"
+  },
   "WJuNcs": {
     "defaultMessage": "Failed to update workspace. Please try again.",
     "description": "Generic error message for edit workspace modal"
@@ -5750,6 +6418,14 @@
   "WWv3EQ": {
     "defaultMessage": "Options",
     "description": "Label for categorical options input"
+  },
+  "WXbDNv": {
+    "defaultMessage": "Tags",
+    "description": "Header for the dataset record tags column"
+  },
+  "WZHixa": {
+    "defaultMessage": "Back",
+    "description": "Review focused view: back button"
   },
   "Wbpp7P": {
     "defaultMessage": "Create a role to assign permissions to users.",
@@ -5811,6 +6487,10 @@
     "defaultMessage": "No results",
     "description": "Experiment page > sort selector > no results after filtering"
   },
+  "Wpwofy": {
+    "defaultMessage": "Max {max} options",
+    "description": "Categorical options: placeholder when the option limit is reached"
+  },
   "Ws58cc": {
     "defaultMessage": "Groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Groundedness: moderately grounded\""
@@ -5831,9 +6511,21 @@
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
   },
+  "WwFre9": {
+    "defaultMessage": "New queue",
+    "description": "Add to review queue: create new queue link"
+  },
+  "WybkD9": {
+    "defaultMessage": "Review",
+    "description": "Label for the review tab in the MLflow experiment navbar"
+  },
   "X+boXI": {
     "defaultMessage": "Copied",
     "description": "Tooltip text shown when copy operation completes"
+  },
+  "X/TTxm": {
+    "defaultMessage": "Previous trace",
+    "description": "Review focused view: previous-trace button"
   },
   "X11caV": {
     "defaultMessage": "Failed to override assessment. Error: {error}",
@@ -5851,6 +6543,10 @@
     "defaultMessage": "No Artifacts Recorded",
     "description": "Empty state string when there are no artifacts record for the experiment"
   },
+  "X3TpSa": {
+    "defaultMessage": "Couldn't load this dataset",
+    "description": "Heading shown when the V2 evaluation dataset detail page fails to fetch its dataset"
+  },
   "X3Uuiw": {
     "defaultMessage": "Off",
     "description": "Usage tracking disabled state"
@@ -5858,6 +6554,10 @@
   "X6P8tX": {
     "defaultMessage": "No models found",
     "description": "Empty state title displayed when all models are filtered out in the logged models list page"
+  },
+  "X7HKpv": {
+    "defaultMessage": "Custom LLM-as-a-judge ({llmCount})",
+    "description": "Label for the custom LLM-as-a-judge filter pill in the run evaluation modal"
   },
   "X8OaXU": {
     "defaultMessage": "Scheduled",
@@ -5983,6 +6683,10 @@
     "defaultMessage": "Prompt version created",
     "description": "Webhook event label"
   },
+  "XxfvgS": {
+    "defaultMessage": "Min value",
+    "description": "Numeric min value input"
+  },
   "Y++w0Q": {
     "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
     "description": "Add new key-value tag modal > Invalid characters or path error"
@@ -6051,6 +6755,10 @@
     "defaultMessage": "Select a provider to configure API key",
     "description": "Message when no provider selected for API key form"
   },
+  "YGtA3F": {
+    "defaultMessage": "Collect a free-form rationale alongside the input",
+    "description": "Enable rationale checkbox"
+  },
   "YIKNtj": {
     "defaultMessage": "An error occurred while creating the budget policy. Please try again.",
     "description": "Generic error message for budget policy creation"
@@ -6066,6 +6774,10 @@
   "YLMjFk": {
     "defaultMessage": "Reasoning",
     "description": "Filter option for reasoning support"
+  },
+  "YMOiLx": {
+    "defaultMessage": "Save",
+    "description": "Save-changes button on the dataset record drawer footer"
   },
   "YOp3/x": {
     "defaultMessage": "Unavailable when runs are grouped",
@@ -6087,9 +6799,17 @@
     "defaultMessage": "Sample rate",
     "description": "Aria label for sample rate slider"
   },
+  "YRxatk": {
+    "defaultMessage": "Create dataset",
+    "description": "Primary button text for creating a new evaluation dataset on the V2 list page"
+  },
   "YV6xFB": {
     "defaultMessage": "Start:",
     "description": "Label for the start time of a span"
+  },
+  "YYqxG3": {
+    "defaultMessage": "No matching users",
+    "description": "Add to review queue: no users match the search"
   },
   "YZDyOo": {
     "defaultMessage": "Path:",
@@ -6123,6 +6843,10 @@
     "defaultMessage": "Maximum of {max} traces can be selected",
     "description": "Tooltip shown when too many traces are selected"
   },
+  "YlQ1sB": {
+    "defaultMessage": "Record ID",
+    "description": "Column selector label for the dataset record id column"
+  },
   "YlavFP": {
     "defaultMessage": "Add section",
     "description": "Experiment page > compare runs > chart section > add section bar"
@@ -6130,6 +6854,10 @@
   "YnHiZ6": {
     "defaultMessage": "Relative Time (hours)",
     "description": "Label for the relative axis on the runs compare chart in hours"
+  },
+  "YpZh9l": {
+    "defaultMessage": "Rationale (optional)",
+    "description": "Review focused view: free-form rationale placeholder"
   },
   "YqW83+": {
     "defaultMessage": "Choose experiment type",
@@ -6151,6 +6879,10 @@
     "defaultMessage": "No responses or targets logged",
     "description": "Evaluation review > Response section > no values"
   },
+  "Ywtqwx": {
+    "defaultMessage": "Delete queue",
+    "description": "Review queue header: delete-queue menu item"
+  },
   "Yx79Vd": {
     "defaultMessage": "Confirm",
     "description": "A label for the confirmation button in the modal displayed when the experiment type could not be inferred"
@@ -6166,6 +6898,10 @@
   "Z+tEhr": {
     "defaultMessage": "Compare selected runs",
     "description": "Tooltip for the compare button when enabled"
+  },
+  "Z/7Ru5": {
+    "defaultMessage": "Something went wrong.",
+    "description": "Add to review queue: error alert title"
   },
   "Z/CtWD": {
     "defaultMessage": "Safety",
@@ -6243,6 +6979,10 @@
     "defaultMessage": "Install MLflow 3:",
     "description": "Instruction for installing MLflow from mlflow-3 branch in log MLflow 3 models"
   },
+  "ZXKIdt": {
+    "defaultMessage": "Dataset record details",
+    "description": "Aria label for the dataset record edit side panel"
+  },
   "ZXUtU8": {
     "defaultMessage": "Click to see more",
     "description": "Run page > Overview > Tags cell > Tag"
@@ -6254,6 +6994,10 @@
   "Za9+Cg": {
     "defaultMessage": "Pass",
     "description": "Evaluation results > overall assessment > pass value label. Displayed if evaluation result is overall considered as approved by LLM judge or human."
+  },
+  "ZaEvv/": {
+    "defaultMessage": "Delete",
+    "description": "Dropdown item label to delete a V2 evaluation dataset row"
   },
   "Zb1znQ": {
     "defaultMessage": "Clear demo data",
@@ -6367,6 +7111,10 @@
     "defaultMessage": "Provider",
     "description": "Summary provider label"
   },
+  "a6aAez": {
+    "defaultMessage": "Cleaning up workspace metadata…",
+    "description": "Status line shown in the dataset delete modal while the post-delete propagation poll is running"
+  },
   "a6bpXQ": {
     "defaultMessage": "{numRootCause}/{numEvals} ({percentage}%) runs failed due to the {assessment} judge failing for the current run \"{currentRun}\".",
     "description": "Tooltip for the root cause metrics bar on the LLM evaluation page."
@@ -6407,9 +7155,17 @@
     "defaultMessage": "Cancel",
     "description": "Cancel button text for confirmation pop-up to delete a tag from\n                     table in MLflow"
   },
+  "aJoAu+": {
+    "defaultMessage": "Add record",
+    "description": "Primary button text for adding a new dataset record from the empty state"
+  },
   "aLRRam": {
     "defaultMessage": "Prompts",
     "description": "Header title for the registered prompts page"
+  },
+  "aLyy52": {
+    "defaultMessage": "Failed to save: {message}",
+    "description": "Review question save error"
   },
   "aMOq4p": {
     "defaultMessage": "See {mlflowLink} for more details.",
@@ -6430,6 +7186,10 @@
   "aQxQIF": {
     "defaultMessage": "(empty)",
     "description": "Experiment page > artifact compare view > results table > no result (empty cell)"
+  },
+  "aS7m1u": {
+    "defaultMessage": "Learn more",
+    "description": "Link text to learn more about evaluation datasets"
   },
   "aSnHN9": {
     "defaultMessage": "Tool Call Efficiency",
@@ -6454,6 +7214,10 @@
   "aW3CeS": {
     "defaultMessage": "Bound {date}",
     "description": "Gateway > Bindings using key drawer > Binding created date"
+  },
+  "aWH7UT": {
+    "defaultMessage": "Default",
+    "description": "Display name shown for the reserved no-auth default review user"
   },
   "aXw0NO": {
     "defaultMessage": "Please select metric",
@@ -6491,6 +7255,10 @@
     "defaultMessage": "Outputs",
     "description": "Section title for the outputs of a single chat turn"
   },
+  "aebLkf": {
+    "defaultMessage": "Keep editing",
+    "description": "Cancel-button text for the discard-unsaved-changes prompt"
+  },
   "aecpPo": {
     "defaultMessage": "Track experiments with parameters, metrics, and artifacts.",
     "description": "Feature card summary for experiments"
@@ -6506,6 +7274,14 @@
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
+  },
+  "an4yfn": {
+    "defaultMessage": "Your changes will be lost if you leave this panel without saving.",
+    "description": "Body text for the discard-unsaved-changes prompt on the dataset record side panel"
+  },
+  "ap/pp3": {
+    "defaultMessage": "Up to {max} options.",
+    "description": "Categorical options hint"
   },
   "aqMseN": {
     "defaultMessage": "Manage prompt updates and collaborate across teams.",
@@ -6567,6 +7343,10 @@
     "defaultMessage": "Add \"{label}\"",
     "description": "Evaluation review > assessments > add new custom value element"
   },
+  "bGHzui": {
+    "defaultMessage": "Custom judge",
+    "description": "Sub-label for a custom LLM-as-a-judge row in the run evaluation modal"
+  },
   "bHuphj": {
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
     "description": "Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
@@ -6578,6 +7358,10 @@
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
+  },
+  "bLBdqH": {
+    "defaultMessage": "Completed by",
+    "description": "Review queue table: completed-by column"
   },
   "bO0wxq": {
     "defaultMessage": "Advanced settings",
@@ -6599,6 +7383,10 @@
     "defaultMessage": "Enter aliases (champion, challenger, etc)",
     "description": "Model registry > model version alias select > Alias input placeholder"
   },
+  "bRTk/6": {
+    "defaultMessage": "No questions defined for this experiment yet. Create label schemas first.",
+    "description": "Create review queue: empty questions state"
+  },
   "bS/iHC": {
     "defaultMessage": "Cancel pending request",
     "description": "Title for a model version stage transition modal when cancelling a pending request"
@@ -6610,6 +7398,10 @@
   "bSx/er": {
     "defaultMessage": "Parameters",
     "description": "Table title text for parameters table in the model comparison page"
+  },
+  "bTU+PV": {
+    "defaultMessage": "Selected records",
+    "description": "Aria label for the inline bulk-selection group on the V2 dataset records toolbar"
   },
   "bUdkau": {
     "defaultMessage": "Try selecting a longer time range.",
@@ -6631,9 +7423,17 @@
     "defaultMessage": "A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings.",
     "description": "Tooltip explaining the demo experiment in the experiments list"
   },
+  "baFXAM": {
+    "defaultMessage": "No traces in this queue yet.",
+    "description": "Review queue empty state"
+  },
   "bcFuUb": {
     "defaultMessage": "Are you sure you want to remove {count, plural, one {this guardrail} other {these # guardrails}}?",
     "description": "Bulk remove guardrails confirmation message"
+  },
+  "bcWao0": {
+    "defaultMessage": "Delete",
+    "description": "Delete review queue: confirm button"
   },
   "bcw06n": {
     "defaultMessage": "Is the output semantically equivalent to the expected output?",
@@ -6650,6 +7450,10 @@
   "bjoGjg": {
     "defaultMessage": "Last hour",
     "description": "Option for the start select dropdown to filter runs from the last hour"
+  },
+  "bjrZ9j": {
+    "defaultMessage": "Document",
+    "description": "Source-type label for dataset records extracted from a document"
   },
   "bkWot5": {
     "defaultMessage": "The context sufficiency LLM judge determines whether the retrieved context is sufficient to generate the expected response.",
@@ -6715,6 +7519,10 @@
     "defaultMessage": "Click into an individual run to see all models associated with it",
     "description": "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
   },
+  "c0wdTy": {
+    "defaultMessage": "Delete dataset",
+    "description": "Overflow-menu item to delete the current V2 evaluation dataset from its detail page"
+  },
   "c1it6D": {
     "defaultMessage": "Select your theme preference between light and dark.",
     "description": "Description for the theme setting in the settings page"
@@ -6759,6 +7567,10 @@
     "defaultMessage": "Status",
     "description": "Column header for run status in the evaluation runs table"
   },
+  "cC4HC1": {
+    "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
+    "description": "Label for the pre-built LLM-as-a-judge filter pill in the run evaluation modal"
+  },
   "cEj56l": {
     "defaultMessage": "Step",
     "description": "Label for the step axis on the runs compare chart"
@@ -6799,6 +7611,14 @@
     "defaultMessage": "Schema",
     "description": "Table title text for schema table in the model comparison page"
   },
+  "cLpY3q": {
+    "defaultMessage": "Review questions",
+    "description": "Manage review questions modal title"
+  },
+  "cLxJC6": {
+    "defaultMessage": "Complete",
+    "description": "Review queue status: complete"
+  },
   "cMRvTA": {
     "defaultMessage": "Delete dataset",
     "description": "Delete evaluation dataset menu item"
@@ -6819,6 +7639,10 @@
     "defaultMessage": "Hide assessments",
     "description": "Tooltip for a button that closes the assessments pane"
   },
+  "cRN9pa": {
+    "defaultMessage": "Delete ({count})",
+    "description": "Delete button in the V2 dataset records inline bulk-selection group"
+  },
   "cSQJ9N": {
     "defaultMessage": "Select sessions",
     "description": "Button to select sessions"
@@ -6831,6 +7655,10 @@
     "defaultMessage": "Delete",
     "description": "Gateway > API keys list > Delete button"
   },
+  "cTozIb": {
+    "defaultMessage": "Something went wrong",
+    "description": "Generic title used when a dataset action surfaces an unexpected error"
+  },
   "cXhWaG": {
     "defaultMessage": "Select Model",
     "description": "Header for the model selection step in issue detection modal"
@@ -6838,6 +7666,10 @@
   "cYlLx9": {
     "defaultMessage": "Usage",
     "description": "Sidebar link for gateway usage"
+  },
+  "cb9LLM": {
+    "defaultMessage": "Last updated",
+    "description": "Header for the dataset record last-updated column"
   },
   "cfzQMh": {
     "defaultMessage": "baseline run",
@@ -7015,6 +7847,14 @@
     "defaultMessage": "Run name",
     "description": "Column label for run name"
   },
+  "dY0HOA": {
+    "defaultMessage": "No reviewers assigned yet.",
+    "description": "Queue settings: empty members state"
+  },
+  "dY1g+4": {
+    "defaultMessage": "Optional character limit for the free-form text. Leave blank for no limit.",
+    "description": "Text max length hint"
+  },
   "dYbJha": {
     "defaultMessage": "Please provide run name",
     "description": "Experiment page > new run modal > invalid state - no run name provided"
@@ -7027,6 +7867,10 @@
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
   },
+  "dft8gv": {
+    "defaultMessage": "Permanently delete \"{name}\" and remove its traces from review? This cannot be undone.",
+    "description": "Delete review queue: confirm body"
+  },
   "dl0TeT": {
     "defaultMessage": "Save",
     "description": "Experiment tracking > experiment page > runs > save tags button"
@@ -7034,6 +7878,10 @@
   "dl3Yfr": {
     "defaultMessage": "No results match this search.",
     "description": "No results message in datasets drawer table"
+  },
+  "dmN/nA": {
+    "defaultMessage": "Name",
+    "description": "Queue settings: name field label"
   },
   "dq8MJd": {
     "defaultMessage": "Contour Plot",
@@ -7070,6 +7918,10 @@
   "e2AObB": {
     "defaultMessage": "Value",
     "description": "Field label for assessment value in an edit form"
+  },
+  "e2ls2b": {
+    "defaultMessage": "Edit question",
+    "description": "Edit review question modal title"
   },
   "e515YD": {
     "defaultMessage": "Grounded",
@@ -7118,6 +7970,10 @@
   "eE5VIF": {
     "defaultMessage": "Click to hide the run",
     "description": "A tooltip for the \"hide\" icon button in the runs chart tooltip"
+  },
+  "eIM9PU": {
+    "defaultMessage": "Open dataset record {recordId} — tags",
+    "description": "Aria label for the tags-preview cell that opens the record drawer"
   },
   "eIWfRN": {
     "defaultMessage": "Discard",
@@ -7174,6 +8030,10 @@
   "eUUNCv": {
     "defaultMessage": "Error during metric page load: invalid URL",
     "description": "Error message when loading metric page fails"
+  },
+  "eUaj8r": {
+    "defaultMessage": "All changes saved",
+    "description": "Status text shown in the dataset record drawer after a successful save"
   },
   "eWm+AG": {
     "defaultMessage": "Remove model",
@@ -7287,6 +8147,10 @@
     "defaultMessage": "(edited)",
     "description": "Link text in an edited assessment that allows the user to click to see the previous value"
   },
+  "f6B8LJ": {
+    "defaultMessage": "Numeric",
+    "description": "Review question input type: numeric"
+  },
   "fBB0xR": {
     "defaultMessage": "Assistant Not Available",
     "description": "Title shown when Assistant is not available for remote servers"
@@ -7314,6 +8178,10 @@
   "fMxD0i": {
     "defaultMessage": "Admin",
     "description": "Tag content marking an admin role (single-tenant)"
+  },
+  "fSm3ue": {
+    "defaultMessage": "Category choices",
+    "description": "Categorical options list label"
   },
   "fUB5d7": {
     "defaultMessage": "Session ID",
@@ -7355,6 +8223,10 @@
     "defaultMessage": "Create judge",
     "description": "Button to create a new judge"
   },
+  "ffHGW/": {
+    "defaultMessage": "Permissions for this user are temporarily unavailable.",
+    "description": "Alert description shown when role-derived permissions failed to load"
+  },
   "ffIouW": {
     "defaultMessage": "Retrieval sufficiency assessment is missing. This is likely because your agent is not returning retrieved_context.",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. \"Retrieval sufficiency: mostly sufficient\""
@@ -7386,6 +8258,10 @@
   "fk8ASa": {
     "defaultMessage": "Workspace",
     "description": "Roles table column header for the workspace"
+  },
+  "fkBmdC": {
+    "defaultMessage": "New queue",
+    "description": "Review queue: create-queue button"
   },
   "flJNTA": {
     "defaultMessage": "You need to provide values for all defined inputs",
@@ -7431,6 +8307,10 @@
     "defaultMessage": "Examples:",
     "description": "Text header for examples of logged models search syntax"
   },
+  "fygCDU": {
+    "defaultMessage": "Cancel",
+    "description": "Queue settings: cancel button"
+  },
   "g++0mY": {
     "defaultMessage": "Does the response follow the provided guidelines?",
     "description": "Hint for Guidelines template"
@@ -7447,6 +8327,10 @@
     "defaultMessage": "Name",
     "description": "Column title for model name in the registered model page"
   },
+  "g1HlIL": {
+    "defaultMessage": "View in Unity Catalog",
+    "description": "Overflow-menu item linking to the V2 evaluation dataset's table page in Unity Catalog"
+  },
   "g2tInh": {
     "defaultMessage": "Source type: {typeLabel}",
     "description": "Experiment dataset drawer > source type > label"
@@ -7454,6 +8338,10 @@
   "g3CQwd": {
     "defaultMessage": "In order to register model in Unity Catalog, copy and run the following code in the notebook:",
     "description": "Instruction to register model in Unity Catalog on the logged model details page"
+  },
+  "g4HK6b": {
+    "defaultMessage": "Failed to load review queues.",
+    "description": "Add to review queue: queue list load error"
   },
   "g4hHzO": {
     "defaultMessage": "Copied",
@@ -7479,6 +8367,10 @@
     "defaultMessage": "View starter code",
     "description": "Title for starter code card on endpoint overview"
   },
+  "gCQwvN": {
+    "defaultMessage": "Delete",
+    "description": "Manage review questions: confirm delete"
+  },
   "gFYM0j": {
     "defaultMessage": "Cancel",
     "description": "Delete assessment modal cancel button text"
@@ -7495,6 +8387,10 @@
     "defaultMessage": "<strong>{length}</strong> matching {length, plural, =0 {runs} =1 {run} other {runs}}",
     "description": "Message for displaying how many runs match search criteria on experiment page"
   },
+  "gOH/XL": {
+    "defaultMessage": "No additional metadata is available for this dataset.",
+    "description": "Body shown in the V2 evaluation dataset metadata modal when digest/schema/profile are all empty"
+  },
   "gOUJ0f": {
     "defaultMessage": "No assessment for this evaluation",
     "description": "Text displayed when there is no assessment for a given evaluation"
@@ -7510,6 +8406,14 @@
   "gQB+Vs": {
     "defaultMessage": "{count, plural, =1 {1 second} other {# seconds}} ago",
     "description": "Time duration in seconds"
+  },
+  "gRWU+A": {
+    "defaultMessage": "Failed to copy to clipboard",
+    "description": "Error message when clipboard copy fails"
+  },
+  "gRYO/6": {
+    "defaultMessage": "Add records to start evaluating your app. {sdkLink}",
+    "description": "Description text for the V2 dataset records empty state"
   },
   "gRz1nB": {
     "defaultMessage": "{count, plural, one {Delete Trace} other {Delete Traces}}",
@@ -7543,6 +8447,10 @@
     "defaultMessage": "Create new workspace",
     "description": "Create workspace button"
   },
+  "gY9VVl": {
+    "defaultMessage": "Instructions for reviewers on how to answer this question",
+    "description": "Review question instruction input placeholder"
+  },
   "gYOuKs": {
     "defaultMessage": "Rationale",
     "description": "Label for the rationale of an expectation assessment"
@@ -7571,9 +8479,21 @@
     "defaultMessage": "Cancel",
     "description": "Key-value tag editor modal > Unsaved tag message > cancel button"
   },
+  "geqWda": {
+    "defaultMessage": "Add tag",
+    "description": "Button text for adding a tag in the V2 dataset record side panel (create mode) when no tags exist"
+  },
   "gerwuf": {
     "defaultMessage": "Edit",
     "description": "Trace actions dropdown group label"
+  },
+  "ghgW69": {
+    "defaultMessage": "Select traces",
+    "description": "Button to open the trace selection modal from the run evaluation modal"
+  },
+  "ghvKpB": {
+    "defaultMessage": "View full trace",
+    "description": "Review focused view: open the full trace explorer"
   },
   "giZdtW": {
     "defaultMessage": "Model",
@@ -7583,6 +8503,10 @@
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "Traces empty state > SQL warehouse timeout error description with CTA to select larger warehouse"
   },
+  "gkGvc6": {
+    "defaultMessage": "Add a new question, or click a question to edit it.",
+    "description": "Manage review questions: explanatory hint"
+  },
   "glxGz2": {
     "defaultMessage": "Parallel coordinates chart does not support aggregated string values.",
     "description": "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > title"
@@ -7590,6 +8514,10 @@
   "gn1eO9": {
     "defaultMessage": "Assessment added by LLM-as-a-judge",
     "description": "Evaluation review > assessments > tooltip > assessment added by LLM-as-a-judge"
+  },
+  "gq5QX+": {
+    "defaultMessage": "New record",
+    "description": "Heading at the top of the V2 dataset record side panel when composing a new record"
   },
   "gqFQc3": {
     "defaultMessage": "API Key",
@@ -7603,6 +8531,10 @@
     "defaultMessage": "Failed to delete some endpoints. Please try again.",
     "description": "Gateway > Bulk delete endpoints modal > Error message"
   },
+  "grhPkj": {
+    "defaultMessage": "New dataset record",
+    "description": "Aria label for the dataset record create side panel"
+  },
   "gsF5IQ": {
     "defaultMessage": "{agentName} uses its own credentials, so no API key is required. The provider and model are pre-configured.",
     "description": "Info message shown on coding agent endpoint creation form"
@@ -7615,6 +8547,14 @@
     "defaultMessage": "Instructions",
     "description": "Guardrail instructions label"
   },
+  "gy4ziK": {
+    "defaultMessage": "Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”.",
+    "description": "Create review queue: reviewers field hint"
+  },
+  "h0XfC3": {
+    "defaultMessage": "Tags",
+    "description": "Section title for the editable tags section in the V2 dataset record side panel"
+  },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
@@ -7622,6 +8562,10 @@
   "h1VO0z": {
     "defaultMessage": "Failed to remove one or more guardrails. Please try again.",
     "description": "Error when bulk guardrail removal fails"
+  },
+  "h2+hGy": {
+    "defaultMessage": "Add",
+    "description": "Add to review queue: confirm button"
   },
   "h2398a": {
     "defaultMessage": "documentation",
@@ -7651,6 +8595,10 @@
     "defaultMessage": "Resource",
     "description": "Permissions table column header for the resource"
   },
+  "h5PsUd": {
+    "defaultMessage": "Remove reviewer",
+    "description": "Create review queue: remove-reviewer button"
+  },
   "hBAhI8": {
     "defaultMessage": "Copy",
     "description": "Tooltip message displayed on copy action"
@@ -7658,6 +8606,10 @@
   "hBl2eF": {
     "defaultMessage": "Enter experiment name",
     "description": "experiment page > edit experiment modal > experiment name placeholder"
+  },
+  "hCqhOX": {
+    "defaultMessage": "Are you sure you want to delete {count, plural, one {# record} other {# records}}? This action cannot be undone.",
+    "description": "Body for the V2 dataset records bulk-delete confirmation modal"
   },
   "hDExYR": {
     "defaultMessage": "Fallback Model {order}",
@@ -7731,6 +8683,10 @@
     "defaultMessage": "True",
     "description": "Label for an assessment with a 'true' boolean value"
   },
+  "hWSpwE": {
+    "defaultMessage": "Manage queue",
+    "description": "Review queue header: manage-queue menu item"
+  },
   "hX4/P0": {
     "defaultMessage": "User:",
     "description": "User selector label"
@@ -7787,6 +8743,10 @@
     "defaultMessage": "To use other providers, create an AI Gateway endpoint and select it.",
     "description": "Hint explaining how to use other providers via Gateway"
   },
+  "hv0wlb": {
+    "defaultMessage": "Select or create review queues",
+    "description": "Add to review queue: destination dropdown label"
+  },
   "hvImg5": {
     "defaultMessage": "No resources are using this key",
     "description": "Gateway > Bindings using key drawer > Empty state"
@@ -7822,6 +8782,10 @@
   "i1Hj20": {
     "defaultMessage": "{count, plural, =1 {1 hour} other {# hours}} ago",
     "description": "Time duration in hours"
+  },
+  "i2cP1l": {
+    "defaultMessage": "Questions",
+    "description": "Queue settings: questions field label"
   },
   "i3T+JQ": {
     "defaultMessage": "Retry",
@@ -7866,6 +8830,14 @@
   "iF1UfU": {
     "defaultMessage": "New run using notebook",
     "description": "Experiment page > new notebook run modal > modal title"
+  },
+  "iF6r1S": {
+    "defaultMessage": "Judges",
+    "description": "Section header for judge selection in the run evaluation modal"
+  },
+  "iHstr7": {
+    "defaultMessage": "Output",
+    "description": "Review focused view: trace output label"
   },
   "iLFoPb": {
     "defaultMessage": "State",
@@ -7975,13 +8947,25 @@
     "defaultMessage": "Dark",
     "description": "Dark theme label"
   },
+  "iq1aqV": {
+    "defaultMessage": "Create dataset",
+    "description": "Button label that opens the create-dataset modal on the v2 datasets list"
+  },
   "iqlzHb": {
     "defaultMessage": "Loading API keys...",
     "description": "Loading message for API keys list"
   },
+  "iqxOaj": {
+    "defaultMessage": "Preview how the questions will appear for the human reviewer.",
+    "description": "Create review queue: question preview section hint"
+  },
   "iqy4oh": {
     "defaultMessage": "Could not determine the current user. Please log in again.",
     "description": "Alert description prompting the user to log in again"
+  },
+  "irTwlj": {
+    "defaultMessage": "Delete queue?",
+    "description": "Delete review queue: confirm title"
   },
   "iruFlr": {
     "defaultMessage": "Running the judge from the UI is only supported with {supportedProvider} endpoints, but the current model uses the {currentProvider} provider",
@@ -8003,6 +8987,10 @@
     "defaultMessage": "Learn more",
     "description": "Learn more link text"
   },
+  "izt2q6": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel-button text for the V2 evaluation dataset delete modal on the detail page"
+  },
   "j/BF11": {
     "defaultMessage": "Connect to the tracking server",
     "description": "Step 1 title for Python traces onboarding"
@@ -8010,6 +8998,10 @@
   "j/pJM6": {
     "defaultMessage": "Last Modified",
     "description": "Label name for the last modified time under details tab on the model view page"
+  },
+  "j1ddWI": {
+    "defaultMessage": "Categorical",
+    "description": "Review question input type: categorical"
   },
   "j25Ttg": {
     "defaultMessage": "Model metrics",
@@ -8026,6 +9018,14 @@
   "j77+aP": {
     "defaultMessage": "Fail",
     "description": "Evaluation results > overall assessment > fail value label. Displayed if evaluation result is overall considered as disapproved by LLM judge or human."
+  },
+  "j78ek+": {
+    "defaultMessage": "Fix invalid JSON to save",
+    "description": "Status text shown in the dataset record drawer footer when at least one editor has malformed JSON"
+  },
+  "j7QQfS": {
+    "defaultMessage": "Add dataset records",
+    "description": "Title for the V2 dataset records empty state"
   },
   "j7cj5r": {
     "defaultMessage": "Please log at least one table artifact containing evaluation data. <link>Learn more</link>.",
@@ -8046,6 +9046,10 @@
   "jG99hF": {
     "defaultMessage": "Clear any optional field and save to remove the workspace override.",
     "description": "Hint for clearing optional values in edit workspace modal"
+  },
+  "jGK68y": {
+    "defaultMessage": "Create an evaluation dataset",
+    "description": "Title for the V2 evaluation datasets empty state"
   },
   "jH0+gA": {
     "defaultMessage": "Metrics",
@@ -8163,6 +9167,10 @@
     "defaultMessage": "Cancel",
     "description": "Experiment page > artifact compare view > \"add new row\" modal cancel button label"
   },
+  "jyD5wg": {
+    "defaultMessage": "Is the answer correct?",
+    "description": "Review question name input placeholder"
+  },
   "jzNMBH": {
     "defaultMessage": "This key is currently in use. After deleting, you will need to attach a different API key to continue using the endpoints currently using this key.",
     "description": "Gateway > Delete API key modal > Warning about endpoints using this key"
@@ -8199,6 +9207,10 @@
     "defaultMessage": "Copy issue ID",
     "description": "Tooltip to copy issue ID"
   },
+  "k4ulqN": {
+    "defaultMessage": "Drag to reorder {option}",
+    "description": "Categorical option chip: drag-handle accessibility label"
+  },
   "k5kAB3": {
     "defaultMessage": "Rejected ({count})",
     "description": "Issue status filter > Rejected button label"
@@ -8218,6 +9230,10 @@
   "kAVQ2/": {
     "defaultMessage": "Range",
     "description": "Label for the range in the tooltip for the numeric aggregate chart."
+  },
+  "kBDjOX": {
+    "defaultMessage": "Queue settings — “{name}”",
+    "description": "Queue settings modal title"
   },
   "kBXHTA": {
     "defaultMessage": "Edit chart",
@@ -8246,6 +9262,10 @@
   "kIESP/": {
     "defaultMessage": "Filter applies to the first trace in each session. Only run on sessions where the first trace matches this filter; leave blank to run on all. Uses MLflow {link}.",
     "description": "Hint text for filter string input for session-level scorers"
+  },
+  "kIVTeR": {
+    "defaultMessage": "Add question",
+    "description": "Manage review questions: add button"
   },
   "kIlkgf": {
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
@@ -8307,6 +9327,10 @@
     "defaultMessage": "Disable run grouping in order to access the evaluation view",
     "description": "Experiment page > artifact compare view > disabled due to run grouping > description"
   },
+  "kdvMSk": {
+    "defaultMessage": "Add to review queue",
+    "description": "Add traces to review queue action"
+  },
   "keSIQ4": {
     "defaultMessage": "null",
     "description": "null assessment label"
@@ -8359,6 +9383,10 @@
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the experiments table"
   },
+  "l119W9": {
+    "defaultMessage": "No matching questions",
+    "description": "Review queue: no questions match the search"
+  },
   "l8Z2nP": {
     "defaultMessage": "Remove filter",
     "description": "Button to remove a filter in the tags filter popover for experiments page search by tags"
@@ -8382,6 +9410,10 @@
   "lDQtCN": {
     "defaultMessage": "The conversational guidelines LLM judge evaluates whether the assistant's responses throughout a conversation comply with the provided guidelines.",
     "description": "Evaluation results > known type of evaluation result assessment > conversational guidelines judge."
+  },
+  "lDYP1d": {
+    "defaultMessage": "Needs review",
+    "description": "Review queue status: pending"
   },
   "lFnpMi": {
     "defaultMessage": "AutoML",
@@ -8539,6 +9571,10 @@
     "defaultMessage": "Percentage of traces evaluated by this judge.",
     "description": "Hint text for sample rate slider"
   },
+  "lyNyOH": {
+    "defaultMessage": "Default queue",
+    "description": "Add to review queue: the experiment default queue option"
+  },
   "m1Nb7W": {
     "defaultMessage": "Save",
     "description": "Evaluation review > assessments > save button"
@@ -8558,6 +9594,10 @@
   "mBhoMH": {
     "defaultMessage": "Last modified",
     "description": "Last modified column header"
+  },
+  "mGUpJv": {
+    "defaultMessage": "Failed to create record",
+    "description": "Generic fallback save-error text for the dataset record side panel (create mode)"
   },
   "mHAue4": {
     "defaultMessage": "Detect Issues in Your Traces",
@@ -8603,6 +9643,14 @@
     "defaultMessage": "Use existing model definition",
     "description": "Option to use existing model definition"
   },
+  "mOjR5S": {
+    "defaultMessage": "Save Changes",
+    "description": "Save button text for editing an existing tag"
+  },
+  "mOrkdv": {
+    "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
+    "description": "Description for the V2 evaluation datasets empty state"
+  },
   "mPqBZK": {
     "defaultMessage": "Agent successfully completes actions (tool calls, API steps)",
     "description": "Issue category description for execution"
@@ -8614,6 +9662,10 @@
   "mRshzt": {
     "defaultMessage": "Models",
     "description": "Run page > Overview > Metrics table > Models column header"
+  },
+  "mW3Ql9": {
+    "defaultMessage": "Clear selection",
+    "description": "Clear-selection button in the V2 dataset records inline bulk-selection group"
   },
   "mWl3Qv": {
     "defaultMessage": "{toolName} was called in {toolCallId}",
@@ -8735,9 +9787,21 @@
     "defaultMessage": "Reset filters",
     "description": "Reset filters button in list"
   },
+  "n0i7kI": {
+    "defaultMessage": "Created by",
+    "description": "Column selector label for the created-by column"
+  },
   "n24ICT": {
     "defaultMessage": "Close",
     "description": "Button for closing modal with the logged models quickstart example code"
+  },
+  "n3Oic0": {
+    "defaultMessage": "Columns ({visible}/{total})",
+    "description": "Column-selector trigger label on the V2 dataset records page, showing the count of currently visible columns out of the total available"
+  },
+  "n4LXjk": {
+    "defaultMessage": "Search by name to add a user's queue",
+    "description": "Add to review queue: prompt to search users"
   },
   "n4on5x": {
     "defaultMessage": "Create",
@@ -8815,6 +9879,10 @@
     "defaultMessage": "Disabled",
     "description": "Webhook disabled status"
   },
+  "nQLDXc": {
+    "defaultMessage": "No records match \"{query}\"",
+    "description": "Title for the empty state when a search returns no records in the V2 dataset detail page"
+  },
   "nQoUED": {
     "defaultMessage": "Step",
     "description": "Radio button option to choose the step control option for the X-axis for metric graph on the experiment runs"
@@ -8822,6 +9890,10 @@
   "nRsCQz": {
     "defaultMessage": "Agents-as-a-judge",
     "description": "Home page news card title three"
+  },
+  "nSbbT5": {
+    "defaultMessage": "Submit",
+    "description": "Review focused view: submit answers and mark the trace complete"
   },
   "nVndit": {
     "defaultMessage": "Registered on {registeredDate}",
@@ -8855,6 +9927,10 @@
     "defaultMessage": "of",
     "description": "Connector between list and element type"
   },
+  "nbI0of": {
+    "defaultMessage": "Add {count, plural, one {# trace} other {# traces}} to review queues",
+    "description": "Add to review queue modal title"
+  },
   "nddV+2": {
     "defaultMessage": "Show less",
     "description": "Models table > tags column > show less toggle button"
@@ -8866,6 +9942,10 @@
   "nhqO2Z": {
     "defaultMessage": "Save",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > cancel button label"
+  },
+  "nkh1zr": {
+    "defaultMessage": "Negative label",
+    "description": "Pass/Fail negative label input"
   },
   "nlXn2G": {
     "defaultMessage": "Absolute date and time",
@@ -8935,6 +10015,14 @@
     "defaultMessage": "Custom code judge",
     "description": "Menu item text to create a new custom code judge"
   },
+  "o6uTLu": {
+    "defaultMessage": "Created",
+    "description": "Column selector label for the create-time column"
+  },
+  "o6vu2C": {
+    "defaultMessage": "username or email",
+    "description": "Create review queue: reviewer input placeholder"
+  },
   "o7dzKo": {
     "defaultMessage": "Last Modified",
     "description": "Label name for last modified timestamp metadata in model version page"
@@ -8955,6 +10043,10 @@
     "defaultMessage": "The relevance_to_query LLM judge determines whether the response is relevant to the input request.",
     "description": "Evaluation results > known type of evaluation result assessment > description of relevance judge."
   },
+  "oGW1Sc": {
+    "defaultMessage": "Queue",
+    "description": "Review queue sidebar: queue-name column header"
+  },
   "oH2nPk": {
     "defaultMessage": "Please ensure you have a webhook configured to receive budget alert events. You can create one in the 'Budget alert webhooks' section on this page.",
     "description": "Info message when alert action is selected for budget policy"
@@ -8971,6 +10063,10 @@
     "defaultMessage": "No models found in experiment or all models are hidden. Select at least one model to view charts.",
     "description": "Label displayed in logged models chart view when no models are visible or selected"
   },
+  "oKi6ty": {
+    "defaultMessage": "Manage questions",
+    "description": "Review queue sidebar: manage-questions button"
+  },
   "oLHs0C": {
     "defaultMessage": "Add to dataset",
     "description": "Button text for adding a trace to a dataset"
@@ -8986,6 +10082,10 @@
   "oQO1tC": {
     "defaultMessage": "Enter workspace name",
     "description": "Input placeholder for workspace name in create workspace modal"
+  },
+  "oSSri0": {
+    "defaultMessage": "Reset to defaults",
+    "description": "Menu item that resets the dataset records column visibility to defaults"
   },
   "oShuJS": {
     "defaultMessage": "Logged from",
@@ -9051,6 +10151,10 @@
     "defaultMessage": "Please input a new name for the new experiment.",
     "description": "Error message for name requirement in create experiment for MLflow"
   },
+  "olY499": {
+    "defaultMessage": "Search datasets",
+    "description": "Aria label for the search input on the V2 evaluation datasets list page (placeholder is not a label per WCAG 1.3.1)"
+  },
   "olpQcl": {
     "defaultMessage": "Model",
     "description": "Section title for model configuration"
@@ -9071,9 +10175,17 @@
     "defaultMessage": "Delete",
     "description": "A label for the confirm button in the delete prompt version modal"
   },
+  "orW9zb": {
+    "defaultMessage": "No input or output recorded for this trace.",
+    "description": "Review focused view: trace panel empty state when there's no input/output"
+  },
   "ot8KVZ": {
     "defaultMessage": "MLflow Demo Experiment",
     "description": "Badge label for the demo experiment in the experiments list"
+  },
+  "otRalM": {
+    "defaultMessage": "Datasets",
+    "description": "Region label for the V2 evaluation datasets table — wraps the table and pagination"
   },
   "ov1whU": {
     "defaultMessage": "AI Judge",
@@ -9095,6 +10207,10 @@
     "defaultMessage": "MLflow Assistant",
     "description": "Title for the global Assistant chat panel"
   },
+  "p01GHj": {
+    "defaultMessage": "No review queues yet. Flag traces for review to create one.",
+    "description": "Review queue: empty state when no queues exist"
+  },
   "p1H1KR": {
     "defaultMessage": "Last 30 days",
     "description": "Option for the start select dropdown to filter runs from the last 30 days"
@@ -9102,6 +10218,14 @@
   "p2po2x": {
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
+  },
+  "p9ZErC": {
+    "defaultMessage": "Start review",
+    "description": "Review queue: start-review button"
+  },
+  "pAiHNY": {
+    "defaultMessage": "New review queue",
+    "description": "Create review queue modal title"
   },
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
@@ -9118,6 +10242,10 @@
   "pDCDkJ": {
     "defaultMessage": "Showing {visibleCount} out of {totalCount} {groupName}. Select columns to view more.",
     "description": "Tooltip for the group column header"
+  },
+  "pDI7x4": {
+    "defaultMessage": "Delete",
+    "description": "Confirm-button text for the V2 evaluation dataset delete modal on the detail page"
   },
   "pDK3Ha": {
     "defaultMessage": "Run example code:",
@@ -9142,6 +10270,10 @@
   "pOqgMC": {
     "defaultMessage": "Weight",
     "description": "Label for traffic split weight input"
+  },
+  "pPo8Le": {
+    "defaultMessage": "Preview",
+    "description": "Review question preview panel header"
   },
   "pT8+E7": {
     "defaultMessage": "Delete budget policy",
@@ -9231,13 +10363,25 @@
     "defaultMessage": "e.g., gpt-5.2, claude-4.5-opus",
     "description": "Placeholder for model name input"
   },
+  "pvvUpM": {
+    "defaultMessage": "Are you sure you want to delete the dataset \"{name}\"? This action cannot be undone.",
+    "description": "Body for the V2 evaluation dataset delete confirmation modal on the detail page"
+  },
   "pye4NE": {
     "defaultMessage": "Select an endpoint",
     "description": "Placeholder for endpoint selection dropdown"
   },
+  "pysVeT": {
+    "defaultMessage": "Copy failed. Clipboard unavailable.",
+    "description": "Tooltip text shown when copy operation fails"
+  },
   "pzL5+U": {
     "defaultMessage": "Tracing",
     "description": "Feature card title for tracing"
+  },
+  "q/lZfS": {
+    "defaultMessage": "View review queue",
+    "description": "Add to review queue: success toast link to the review queue page"
   },
   "q/zoT3": {
     "defaultMessage": "Tokens",
@@ -9351,6 +10495,14 @@
     "defaultMessage": "Entry point or script that generated the trace",
     "description": "Tooltip description for the Source column in the traces table"
   },
+  "qan3yq": {
+    "defaultMessage": "Add tag",
+    "description": "Aria label for the add-tag button in the V2 dataset records table"
+  },
+  "qanCf5": {
+    "defaultMessage": "Evaluation code snippet",
+    "description": "Title for the evaluation code snippet modal dialog"
+  },
   "qbtNJS": {
     "defaultMessage": "Block",
     "description": "Block action title"
@@ -9399,6 +10551,10 @@
     "defaultMessage": "MLflow collects usage data to improve the product. To confirm your preferences, please visit the settings page in the navigation sidebar. To learn more about what data is collected, please visit the <documentation>documentation</documentation>.",
     "description": "Telemetry alert description"
   },
+  "qwSqlQ": {
+    "defaultMessage": "Rationale (optional)",
+    "description": "Review question preview free-form rationale placeholder"
+  },
   "qz9XeG": {
     "defaultMessage": "Cancel",
     "description": "Cancel button"
@@ -9410,6 +10566,10 @@
   "r+KCRg": {
     "defaultMessage": "Parameter",
     "description": "Run page > Overview > Parameters table > Key column header"
+  },
+  "r+nuZO": {
+    "defaultMessage": "See SDK docs to add records programmatically",
+    "description": "Link text to SDK docs for programmatic dataset record creation"
   },
   "r/mP0/": {
     "defaultMessage": "Add rationale (optional)",
@@ -9434,6 +10594,10 @@
   "r2dcrJ": {
     "defaultMessage": "Try in Browser",
     "description": "Button to open try-it dialog for endpoint"
+  },
+  "r2sQnb": {
+    "defaultMessage": "Date added",
+    "description": "Review queue table: date-added column"
   },
   "r3/K3V": {
     "defaultMessage": "Make Predictions",
@@ -9462,6 +10626,10 @@
   "r91Gz/": {
     "defaultMessage": "Duplicate",
     "description": "Gateway > Endpoints list > Duplicate button"
+  },
+  "rAAy4b": {
+    "defaultMessage": "Open dataset record {recordId}",
+    "description": "Aria label for the record-id activator in the V2 dataset records table"
   },
   "rAJDzz": {
     "defaultMessage": "Transition existing {currentStage} model version to {archivedStage}",
@@ -9502,6 +10670,10 @@
   "rJitqj": {
     "defaultMessage": "Permission denied for {modelName}. Error: \"{errorMsg}\"",
     "description": "Permission denied error message on registered model detail page"
+  },
+  "rJzt9L": {
+    "defaultMessage": "Updated {time}",
+    "description": "Tooltip for the V2 dataset refresh button showing how long ago the data was last fetched"
   },
   "rMIdMr": {
     "defaultMessage": "New LLM judge",
@@ -9567,9 +10739,17 @@
     "defaultMessage": "Span type",
     "description": "Section label for span type filters in the trace explorer."
   },
+  "rjZ8Tw": {
+    "defaultMessage": "Save failed",
+    "description": "Fallback status text shown when a dataset record save fails"
+  },
   "rjhiii": {
     "defaultMessage": "Trace failed to render",
     "description": "Title for the error state in the model trace explorer"
+  },
+  "rksffW": {
+    "defaultMessage": "Saving…",
+    "description": "Status text shown in the dataset record drawer while a save is in flight"
   },
   "rmAWZX": {
     "defaultMessage": "just now",
@@ -9610,10 +10790,6 @@
   "rzIPYc": {
     "defaultMessage": "You are exceeding a limit of {limit} aliases assigned to the single model version",
     "description": "Alias editor > Warning about exceeding aliases limit"
-  },
-  "s+Flkm": {
-    "defaultMessage": "Failed to load direct permissions",
-    "description": "Alert title shown when the direct-permissions query fails"
   },
   "s29iQg": {
     "defaultMessage": "Session",
@@ -9667,9 +10843,9 @@
     "defaultMessage": "Failed to save webhook",
     "description": "Generic error message informing the user that webhook saving failed"
   },
-  "sDAqfh": {
-    "defaultMessage": "Failed to load role-derived permissions",
-    "description": "Alert title shown when the roles query fails on the permissions section"
+  "sDgkOh": {
+    "defaultMessage": "{count, plural, one {# record} other {# records}}",
+    "description": "Total record count shown in the V2 dataset records toolbar when no search filter is active"
   },
   "sDqD2S": {
     "defaultMessage": "The dataset is an array. To see a preview of the dataset, view the dataset in the training notebook.",
@@ -9710,6 +10886,10 @@
   "sM0MBJ": {
     "defaultMessage": "Version {version}",
     "description": "Label for the version of a registered prompt in the registered prompts table"
+  },
+  "sNSyZl": {
+    "defaultMessage": "Disabled fields are fixed after creation.",
+    "description": "Review question edit-mode notice explaining why some fields are disabled"
   },
   "sOQcFW": {
     "defaultMessage": "None",
@@ -9771,6 +10951,14 @@
     "defaultMessage": "Capabilities",
     "description": "Filter section label for capabilities"
   },
+  "sle/ER": {
+    "defaultMessage": "Back to datasets",
+    "description": "Link returning the user to the V2 evaluation datasets list page after a fetch error"
+  },
+  "sm+YOj": {
+    "defaultMessage": "Created at",
+    "description": "Header for the dataset created-at column"
+  },
   "smtq2M": {
     "defaultMessage": "Automatically log traces for OpenAI API calls by calling the {code} function. For example:",
     "description": "Description of how to log traces for the OpenAI package using MLflow autologging. This message is followed by a code example."
@@ -9807,6 +10995,10 @@
     "defaultMessage": "Table",
     "description": "Experiment page > artifact compare view > table select dropdown label"
   },
+  "t+CNTj": {
+    "defaultMessage": "Dataset metadata",
+    "description": "Title for the V2 evaluation dataset metadata modal"
+  },
   "t+aG6y": {
     "defaultMessage": "User",
     "description": "Display text for the 'user' role in a GenAI chat message."
@@ -9815,9 +11007,17 @@
     "defaultMessage": "Logs",
     "description": "Tab label for endpoint logs"
   },
+  "t/acBz": {
+    "defaultMessage": "Allow rationale",
+    "description": "Review question rationale section title"
+  },
   "t0Qkuc": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Metrics table > Value column header"
+  },
+  "t0oYFv": {
+    "defaultMessage": "Last updated by",
+    "description": "Column selector label for the last-updated-by column"
   },
   "t3mHNt": {
     "defaultMessage": "Errors",
@@ -9826,6 +11026,10 @@
   "t4yUI0": {
     "defaultMessage": "Conversational role adherence",
     "description": "LLM template option"
+  },
+  "t7XeYe": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel-button text for the V2 evaluation dataset delete modal"
   },
   "tBHYWH": {
     "defaultMessage": "Action",
@@ -9842,6 +11046,18 @@
   "tD0/e2": {
     "defaultMessage": "Model {modelName} does not exist",
     "description": "Sub-message text for error message on overall model page"
+  },
+  "tD0f2z": {
+    "defaultMessage": "Add record",
+    "description": "Primary-button label on the dataset record side panel in create mode"
+  },
+  "tDIQ/h": {
+    "defaultMessage": "Trace",
+    "description": "Title shown in the v2 dataset record side-panel trace modal before a trace id is known"
+  },
+  "tE/dvG": {
+    "defaultMessage": "Failed to save record",
+    "description": "Generic fallback save-error text for the dataset record side panel (edit mode)"
   },
   "tEX/Gk": {
     "defaultMessage": "Select a Guardrail Model endpoint to create this guardrail.",
@@ -9939,6 +11155,10 @@
     "defaultMessage": "Okay",
     "description": "Experiment page > new notebook run modal > okay button label"
   },
+  "tuC1c0": {
+    "defaultMessage": "Next trace",
+    "description": "Review focused view: next-trace button"
+  },
   "tv0qk9": {
     "defaultMessage": "Native MLflow API for model invocations. Supports seamless model switching and advanced routing.",
     "description": "MLflow invocations API description"
@@ -9958,6 +11178,10 @@
   "u13xKF": {
     "defaultMessage": "Custom judge",
     "description": "LLM judge option for creating a custom judge"
+  },
+  "u1UjvS": {
+    "defaultMessage": "e.g. Hallucination review",
+    "description": "Create review queue: name field placeholder"
   },
   "u9ZeuA": {
     "defaultMessage": "State",
@@ -9979,6 +11203,10 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
   },
+  "uFM4rv": {
+    "defaultMessage": "Digest",
+    "description": "Label for the digest field in the V2 evaluation dataset metadata modal"
+  },
   "uGfscW": {
     "defaultMessage": "The SQL query timed out. Please retry, and if the problem persists, try selecting a larger SQL warehouse.",
     "description": "Evaluation review > evaluations list > SQL warehouse timeout error description with CTA to select larger warehouse"
@@ -9986,6 +11214,10 @@
   "uGgedl": {
     "defaultMessage": "Copy S3 URI to clipboard",
     "description": "Text for the S3 URI copy button in the experiment run dataset drawer"
+  },
+  "uGmTGN": {
+    "defaultMessage": "Max value",
+    "description": "Numeric max value input"
   },
   "uHzRht": {
     "defaultMessage": "Total aggregate scores",
@@ -10003,9 +11235,17 @@
     "defaultMessage": "Not grounded",
     "description": "Evaluation results > retrieval grounded assessment > negative value label. Displayed if evaluation result is considered as not grounded."
   },
+  "uSj3Ta": {
+    "defaultMessage": "Breadcrumb",
+    "description": "Aria label for the V2 evaluation datasets breadcrumb navigation landmark"
+  },
   "uW5+ph": {
     "defaultMessage": "Pass the function directly to {evaluate}, just like other predefined or LLM-based judges.",
     "description": "Step 2 description for running the judge"
+  },
+  "uWtgjJ": {
+    "defaultMessage": "Record added",
+    "description": "Success toast after adding a new V2 dataset record"
   },
   "uX2XCM": {
     "defaultMessage": "Edit Model Configuration",
@@ -10014,6 +11254,10 @@
   "uXW7SK": {
     "defaultMessage": "Iterate on quality with offline evaluations and comparisons.",
     "description": "Home page quick action description for running evaluations"
+  },
+  "uXeiMF": {
+    "defaultMessage": "Source",
+    "description": "Column selector label for the source column"
   },
   "uXtIPX": {
     "defaultMessage": "Next, you can log traces to this logged model depending on your framework:",
@@ -10087,6 +11331,10 @@
     "defaultMessage": "Prompt alias created",
     "description": "Webhook event label"
   },
+  "usjDde": {
+    "defaultMessage": "Reviewers",
+    "description": "Queue settings: members field label"
+  },
   "utyagz": {
     "defaultMessage": "Feedback",
     "description": "Label for the feedback section in the assessments pane"
@@ -10099,9 +11347,17 @@
     "defaultMessage": "Artifact loading",
     "description": "Run page > artifact view > loading skeleton label"
   },
+  "v+uGcN": {
+    "defaultMessage": "Allow multiple selections (multi-select)",
+    "description": "Categorical multi-select checkbox"
+  },
   "v/njcq": {
     "defaultMessage": "Comparing",
     "description": "Comparing"
+  },
+  "v43Dpk": {
+    "defaultMessage": "Deleted {count, plural, one {# record} other {# records}}",
+    "description": "Success toast after bulk-deleting V2 dataset records"
   },
   "v8UFxB": {
     "defaultMessage": "No datasets were recorded for this experiment's runs.",
@@ -10155,6 +11411,10 @@
     "defaultMessage": "Loading guardrails...",
     "description": "Loading guardrails"
   },
+  "vO6fuZ": {
+    "defaultMessage": "Question preview",
+    "description": "Queue settings: question preview section label"
+  },
   "vPnoNk": {
     "defaultMessage": "Save changes",
     "description": "Confirm button label within a modal when editing a runs comparison chart"
@@ -10182,6 +11442,10 @@
   "vaeS94": {
     "defaultMessage": "Platform Admin",
     "description": "Admin page title shown when the URL has no ?workspace=… (cross-workspace platform-admin view)"
+  },
+  "vbRrqF": {
+    "defaultMessage": "Add question",
+    "description": "Add review question modal title"
   },
   "vedifc": {
     "defaultMessage": "Enter API key or select saved key",
@@ -10271,6 +11535,10 @@
     "defaultMessage": "Register",
     "description": "Register button text to register the model"
   },
+  "wCaDws": {
+    "defaultMessage": "Default",
+    "description": "Manage review questions: tag marking the protected default question"
+  },
   "wDFPtr": {
     "defaultMessage": "AVG",
     "description": "Header label for numeric assessment type for the average value"
@@ -10286,6 +11554,10 @@
   "wDyvFZ": {
     "defaultMessage": "Next",
     "description": "Next page button"
+  },
+  "wEZrdF": {
+    "defaultMessage": "Text",
+    "description": "Review question input type: text"
   },
   "wElRV+": {
     "defaultMessage": "Collapse graph",
@@ -10338,6 +11610,10 @@
   "wY8GPK": {
     "defaultMessage": "Get started with AI Gateway",
     "description": "Gateway > Endpoints > Quick start title"
+  },
+  "wZBta0": {
+    "defaultMessage": "Tags",
+    "description": "Column selector label for the tags column"
   },
   "wZtuCR": {
     "defaultMessage": "AutoML",
@@ -10455,6 +11731,10 @@
     "defaultMessage": "Reasoning",
     "description": "Label for the collapsible reasoning section in chat message"
   },
+  "xBIlD4": {
+    "defaultMessage": "Expectation",
+    "description": "Review question type: expectation"
+  },
   "xBVMQz": {
     "defaultMessage": "LLM",
     "description": "Example text snippet for LLM"
@@ -10531,6 +11811,10 @@
     "defaultMessage": "Search prompts",
     "description": "Placeholder text for the search input in the prompts table on the logged model details page"
   },
+  "xZALB+": {
+    "defaultMessage": "Cancel",
+    "description": "Manage review questions: cancel delete"
+  },
   "xbfKJS": {
     "defaultMessage": "JSON body for the OpenAI-compatible Chat Completions API. Include \"model\" (endpoint name) and \"messages\".",
     "description": "Request body tooltip for unified Chat Completions API"
@@ -10546,6 +11830,14 @@
   "xgbeVS": {
     "defaultMessage": "Large",
     "description": "Large row size"
+  },
+  "xgh7nX": {
+    "defaultMessage": "Answer type",
+    "description": "Review question feedback-vs-expectation selector label"
+  },
+  "xgy7fN": {
+    "defaultMessage": "Close notification",
+    "description": "Aria label for the close button on V2 evaluation dataset notifications"
   },
   "xgypqc": {
     "defaultMessage": "Copied to clipboard",
@@ -10591,6 +11883,10 @@
     "defaultMessage": "Logs",
     "description": "Tab label for trace logs"
   },
+  "xxWBKh": {
+    "defaultMessage": "Created by",
+    "description": "Metadata label for the dataset record author"
+  },
   "xyEaut": {
     "defaultMessage": "Add tags",
     "description": "Title for unified trace tag assignment modal"
@@ -10602,6 +11898,10 @@
   "y2oQyU": {
     "defaultMessage": "Model name",
     "description": "Header title for the model name column in the logged model list table"
+  },
+  "y2rjoF": {
+    "defaultMessage": "No trace data recorded",
+    "description": "Empty state in the v2 dataset record side-panel trace modal when the trace has no spans"
   },
   "y52/L4": {
     "defaultMessage": "Use AI to automatically analyze your traces and identify potential issues",
@@ -10626,6 +11926,10 @@
   "yAuDRt": {
     "defaultMessage": "Evaluation is not possible because values for the following inputs cannot be determined: {missingParamList}. Add input columns to the \"group by\" settings or use \"Add row\" button to define new parameter set.",
     "description": "Experiment page > artifact compare view > text cell > missing evaluation parameter values tooltip"
+  },
+  "yBMz3u": {
+    "defaultMessage": "Datasets",
+    "description": "Breadcrumb label for the V2 evaluation datasets list page"
   },
   "yCncIr": {
     "defaultMessage": "Metric",
@@ -10691,6 +11995,10 @@
     "defaultMessage": "Output",
     "description": "Experiment page > new run modal > evaluation output field label"
   },
+  "yeA16i": {
+    "defaultMessage": "No work to do",
+    "description": "Review queue sidebar: collapsed group of queues with nothing left to review"
+  },
   "yjerKR": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Link to model version in the model version table"
@@ -10723,6 +12031,10 @@
     "defaultMessage": "Add custom feedback to this session.",
     "description": "Hint message prompting user to add new feedback to a session"
   },
+  "yvtWjM": {
+    "defaultMessage": "Last updated",
+    "description": "Metadata label for the dataset record last-update time"
+  },
   "yyjAgE": {
     "defaultMessage": "Output for the trace",
     "description": "Description for outputs variable"
@@ -10754,6 +12066,10 @@
   "z42Rsj": {
     "defaultMessage": "Source run",
     "description": "Label for the column indicating a run being the source of the logged model's metric (i.e. source run). Displayed in the logged model details metrics table."
+  },
+  "z4aclU": {
+    "defaultMessage": "Discard",
+    "description": "Confirm-button text for the discard-unsaved-changes prompt"
   },
   "z6K3IC": {
     "defaultMessage": "Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here",
@@ -10803,6 +12119,10 @@
     "defaultMessage": "Detect Issues",
     "description": "Title of the issue detection configuration modal"
   },
+  "zDdLvE": {
+    "defaultMessage": "Select questions",
+    "description": "Review queue: questions dropdown placeholder"
+  },
   "zE5aGj": {
     "defaultMessage": "Guidelines",
     "description": "Section header for scorer guidelines"
@@ -10815,9 +12135,17 @@
     "defaultMessage": "Workspace: {workspace}",
     "description": "Subtitle on the admin page identifying the active workspace when the URL is per-workspace scoped"
   },
+  "zK6IRq": {
+    "defaultMessage": "Delete dataset",
+    "description": "Title for the V2 evaluation dataset delete confirmation modal"
+  },
   "zLTdCZ": {
     "defaultMessage": "Reviewed",
     "description": "Evaluation review > assessments > already reviewed indicator"
+  },
+  "zLpu4g": {
+    "defaultMessage": "Nothing left to review.",
+    "description": "Review queue table: empty to-do group"
   },
   "zMhOr3": {
     "defaultMessage": "Cancel",

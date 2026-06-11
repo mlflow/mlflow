@@ -31,6 +31,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   skinny:
     runs-on: ubuntu-latest
@@ -94,6 +96,7 @@ jobs:
           source ./dev/install-common-deps.sh --ml
           uv pip install --system '.[gateway]'
       - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/cache-hf
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}

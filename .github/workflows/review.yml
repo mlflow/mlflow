@@ -16,6 +16,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   # Auth gate: only users with admin or maintain role on the repo can trigger
   # the review (plus the Copilot bot). For issue_comment, BOTH the PR author
@@ -105,8 +107,28 @@ jobs:
         with:
           client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-actions: read
           permission-contents: read
           permission-pull-requests: write
+      - name: Resolve job URL
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ steps.app-token-write.outputs.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # first(...) // empty: pick exactly one id, or output nothing if no match.
+          JOB_ID=$(gh api "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs" \
+            --jq 'first(.jobs[] | select(.name == "review") | .id) // empty')
+          # Fall back to the workflow-run URL so downstream links are never malformed.
+          if [ -n "$JOB_ID" ]; then
+            JOB_RUN_URL="https://github.com/$REPO/actions/runs/$RUN_ID/job/$JOB_ID?pr=$PR_NUMBER"
+          else
+            JOB_RUN_URL="https://github.com/$REPO/actions/runs/$RUN_ID?pr=$PR_NUMBER"
+          fi
+          echo "JOB_RUN_URL=$JOB_RUN_URL" >> "$GITHUB_ENV"
       - name: React to comment
         if: github.event_name == 'issue_comment'
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
@@ -115,8 +137,7 @@ jobs:
           retries: 3
           script: |
             const { comment } = context.payload;
-            const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
-            const message = `🚀 [Review running...](${workflowUrl})`;
+            const message = `🚀 [Review running...](${process.env.JOB_RUN_URL})`;
             const updatedBody = `${comment.body}\n\n---\n\n${message}`;
 
             await github.rest.issues.updateComment({
@@ -153,13 +174,14 @@ jobs:
           import argparse
           import json
           import os
-          import secrets
           import sys
 
           MODEL_CHOICES = [
+              "fable",
               "opus",
               "sonnet",
               "haiku",
+              "claude-fable-5",
               "claude-opus-4-7",
               "claude-sonnet-4-6",
               "claude-haiku-4-5",
@@ -171,19 +193,13 @@ jobs:
           default_model = "claude-opus-4-7" if big else "claude-sonnet-4-6"
 
           body = sys.stdin.read().removeprefix("/review")
-          head, sep, tail = body.partition("\n")
 
           parser = argparse.ArgumentParser(add_help=False)
           parser.add_argument("-m", "--model", choices=MODEL_CHOICES, default=default_model)
           parser.add_argument("-e", "--effort", choices=EFFORT_CHOICES, default="high")
-          args, leftover = parser.parse_known_args(head.split())
+          args = parser.parse_args(body.split())
 
-          prompt = (" ".join(leftover) + sep + tail).strip()
-          # Random delimiter so user input can't terminate the heredoc.
-          delim = f"PROMPT_EOF_{secrets.token_hex(8)}"
-          sys.stdout.write(
-              f"prompt<<{delim}\n{prompt}\n{delim}\nmodel={args.model}\neffort={args.effort}\n"
-          )
+          sys.stdout.write(f"model={args.model}\neffort={args.effort}\n")
           EOF
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
@@ -196,30 +212,22 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
-          PROMPT: ${{ steps.prompt.outputs.prompt }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
-          EVENT_NAME: ${{ github.event_name }}
         run: |
           OUTPUT_FILE="/tmp/output.jsonl"
 
-          # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection.
           # Both event paths run /pr-review end-to-end against the PR; on
           # pull_request (smoke), Post is gated off so no review is submitted.
-          ARGS=("/pr-review" "$REPO" "$PR_NUMBER")
-          if [ "$EVENT_NAME" = "issue_comment" ] && [ -n "$PROMPT" ]; then
-            ARGS+=("$PROMPT")
-          fi
-
           EXIT_CODE=0
-          # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
           timeout 20m claude \
             --model "$MODEL" \
             --effort "$EFFORT" \
+            --max-budget-usd 5 \
             --print \
             --verbose \
             --output-format stream-json \
-            "${ARGS[*]}" \
+            "/pr-review $REPO $PR_NUMBER" \
             | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
@@ -318,11 +326,11 @@ jobs:
               }
             }
 
-            const workflowUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
+            const jobRunUrl = process.env.JOB_RUN_URL;
             const failed = jobStatus !== 'success' || resultEvent?.is_error;
             const icon = failed ? '❌' : '✅';
             const verb = failed ? 'failed' : 'completed';
-            let resultLine = `${icon} [Review](${workflowUrl}) ${verb}`;
+            let resultLine = `${icon} [Review](${jobRunUrl}) ${verb}`;
 
             if (resultEvent) {
               const seconds = (resultEvent.duration_ms / 1000).toFixed(1);
@@ -332,8 +340,11 @@ jobs:
               const summary = resultEvent.is_error ? 'Error' : 'Result';
               const formatted = JSON.stringify(resultEvent, null, 2);
               resultLine += `\n<details><summary>${summary}</summary>\n\n\`\`\`json\n${formatted}\n\`\`\`\n\n</details>`;
+              if (resultEvent.is_error && /529|Overloaded/i.test(resultEvent.result || '')) {
+                resultLine += `\n\nThe Claude API is overloaded. Check [status.claude.com](https://status.claude.com/) and retry.`;
+              }
             } else if (failed) {
-              resultLine += `\n\nSee [workflow logs](${workflowUrl}) for details.`;
+              resultLine += `\n\nSee [workflow logs](${jobRunUrl}) for details.`;
             }
 
             console.log('Result line to post:', resultLine);

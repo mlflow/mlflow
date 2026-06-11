@@ -17,6 +17,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   xtest-viz:
     runs-on: ubuntu-slim

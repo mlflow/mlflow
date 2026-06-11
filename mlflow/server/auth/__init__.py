@@ -201,6 +201,7 @@ from mlflow.protos.webhooks_pb2 import (
     WebhookService,
 )
 from mlflow.server import app
+from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
 from mlflow.server.auth.entities import GetUserPermissionResult, User
 from mlflow.server.auth.logo import MLFLOW_LOGO
@@ -268,6 +269,7 @@ from mlflow.server.auth.routes import (
     GET_MODEL_VERSION_ARTIFACT,
     GET_ROLE,
     GET_TRACE_ARTIFACT,
+    GET_TRACE_ARTIFACT_V3,
     GET_USER,
     GET_USER_PERMISSION,
     GRANT_USER_PERMISSION,
@@ -985,6 +987,18 @@ def _get_permission_from_gateway_model_definition_id() -> Permission:
 
 
 def validate_can_read_experiment():
+    return _get_permission_from_experiment_id().can_read
+
+
+def validate_can_read_scorer_list():
+    # ``ListScorers`` accepts an optional ``experiment_id``. When set, gate
+    # on the experiment read permission as usual; when empty, the request is
+    # a cross-experiment listing and ``AFTER_REQUEST_PATH_HANDLERS`` does the
+    # per-row RBAC filtering, so the route itself is open to any authenticated
+    # caller.
+    args = request.args if request.method == "GET" else (request.get_json(silent=True) or {})
+    if not args.get("experiment_id"):
+        return True
     return _get_permission_from_experiment_id().can_read
 
 
@@ -2179,7 +2193,7 @@ BEFORE_REQUEST_HANDLERS = {
     GetModelVersionByAlias: _validate_can_read_registered_model_or_prompt,
     # Routes for scorers
     RegisterScorer: validate_can_update_experiment,
-    ListScorers: validate_can_read_experiment,
+    ListScorers: validate_can_read_scorer_list,
     GetScorer: validate_can_read_scorer,
     DeleteScorer: validate_can_delete_scorer,
     ListScorerVersions: validate_can_read_scorer,
@@ -2346,6 +2360,7 @@ BEFORE_REQUEST_VALIDATORS.update({
     (UPLOAD_ARTIFACT, "POST"): validate_can_update_run_artifact,
     (GET_MODEL_VERSION_ARTIFACT, "GET"): validate_can_read_model_version_artifact,
     (GET_TRACE_ARTIFACT, "GET"): validate_can_read_trace_artifact,
+    (GET_TRACE_ARTIFACT_V3, "GET"): validate_can_read_trace_artifact,
     (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
     (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
     (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
@@ -3182,6 +3197,34 @@ def delete_gateway_model_definition_permissions_cascade(resp: Response):
         store.delete_grants_for_resource("gateway_model_definition", model_definition_id)
 
 
+def filter_list_scorers(resp: Response) -> None:
+    """Filter cross-experiment ``ListScorers`` responses to rows the caller can read.
+
+    Single-experiment requests are already gated by ``validate_can_read_scorer_list``
+    (which delegates to ``validate_can_read_experiment``); cross-experiment requests
+    (empty ``experiment_id``) skip that gate so the response can carry scorers from
+    multiple experiments. This filter applies the experiment + scorer read
+    predicates per row so the picker doesn't leak names the caller has no grant on.
+    """
+    if sender_is_admin():
+        return
+
+    response_message = ListScorers.Response()
+    parse_dict(resp.json, response_message)
+
+    username = authenticate_request().username
+    can_read_experiment = _role_based_read_predicate(username, "experiment")
+    can_read_scorer = _role_based_read_predicate(username, "scorer")
+    for scorer in list(response_message.scorers):
+        exp_id = str(scorer.experiment_id)
+        if not can_read_experiment(exp_id):
+            response_message.scorers.remove(scorer)
+            continue
+        if not can_read_scorer(store._scorer_pattern(exp_id, scorer.scorer_name)):
+            response_message.scorers.remove(scorer)
+    resp.data = message_to_json(response_message)
+
+
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
@@ -3192,6 +3235,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     SearchRegisteredModels: filter_search_registered_models,
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
+    ListScorers: filter_list_scorers,
     DeleteScorer: delete_scorer_permissions_cascade,
     CreateGatewaySecret: set_can_manage_gateway_secret_permission,
     DeleteGatewaySecret: delete_gateway_secret_permissions_cascade,
@@ -3891,6 +3935,7 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     if "Authorization" not in request.headers:
         return None
 
+    request_path = get_routed_asgi_path(request)
     auth = request.headers["Authorization"]
     try:
         scheme, credentials = auth.split()
@@ -3908,7 +3953,7 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
         if (
             internal_token
-            and request.url.path.startswith("/gateway/")
+            and request_path.startswith("/gateway/")
             and secrets.compare_digest(password, internal_token)
         ):
             return store.get_user(username)
@@ -4083,7 +4128,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
 
     @app.middleware("http")
     async def fastapi_permission_middleware(request, call_next):
-        path = request.url.path
+        path = get_routed_asgi_path(request)
 
         # Skip unprotected routes
         if is_unprotected_route(path):

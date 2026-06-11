@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow-skinny"
-version = "3.12.1.dev0"
+version = "3.13.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README_SKINNY.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -89,7 +89,7 @@ genai = [
   "uvicorn[standard]<1",
   "watchfiles<2",
 ]
-mcp = ["fastmcp<4,>=2.0.0", "click!=8.3.0"]
+mcp = ["fastmcp<4,>=2.7.0", "click!=8.3.0"]
 azure = ["azure-storage-blob>=12", "azure-identity>=1.6.1"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
@@ -130,6 +130,7 @@ mlflow = [
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
   "assistant/skills/**/*",
+  "agent/setup/templates/**/*.md",
 ]
 
 [tool.setuptools.packages.find]
