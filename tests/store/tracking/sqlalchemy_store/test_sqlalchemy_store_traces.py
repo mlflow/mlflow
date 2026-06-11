@@ -3415,8 +3415,10 @@ def test_log_spans_persists_resource_attributes_as_tags(store: SqlAlchemyStore):
         "telemetry.sdk.name": "opentelemetry",
         # mlflow.* namespace should be filtered out to prevent clobbering reserved tags
         "mlflow.evil": "should-be-dropped",
-        # non-string value should be converted to str
+        # non-string values should be serialized via json.dumps
         "process.pid": 12345,
+        "k8s.pod.ready": True,
+        "host.cpu.count": 4.0,
     })
 
     span = create_mlflow_span(
@@ -3454,8 +3456,10 @@ def test_log_spans_persists_resource_attributes_as_tags(store: SqlAlchemyStore):
     assert tags["service.name"] == "my-service"
     assert tags["deployment.environment"] == "staging"
     assert tags["host.arch"] == "amd64"
-    # Non-string values should be converted
+    # Non-string values should be serialized via json.dumps
     assert tags["process.pid"] == "12345"
+    assert tags["k8s.pod.ready"] == "true"  # json.dumps lowercases booleans
+    assert tags["host.cpu.count"] == "4.0"
     # telemetry.sdk.* should be filtered out
     assert "telemetry.sdk.language" not in tags
     assert "telemetry.sdk.name" not in tags

@@ -5312,8 +5312,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     (
                         r
                         for span in spans_by_trace[trace_id]
-                        if (r := getattr(span._span, "resource", None)) is not None
-                        and r.attributes
+                        if (r := getattr(span._span, "resource", None)) is not None and r.attributes
                     ),
                     None,
                 )
@@ -5324,13 +5323,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         # (e.g. SPANS_LOCATION) via resource attributes.
                         if key.startswith(("telemetry.sdk.", "mlflow.")):
                             continue
-                        str_value = str(value) if not isinstance(value, str) else value
-                        # SqlTraceTag column limits: key=String(250), value=String(8000)
-                        if len(key) > 250 or len(str_value) > 8000:
-                            _logger.debug(
-                                "Dropping resource attribute %r: exceeds trace tag column limits",
-                                key,
-                            )
+                        str_value = value if isinstance(value, str) else json.dumps(value)
+                        try:
+                            key, str_value = _validate_trace_tag(key, str_value)
+                        except Exception:
+                            _logger.debug("Skipping invalid resource attribute %r", key)
                             continue
                         session.merge(
                             SqlTraceTag(
