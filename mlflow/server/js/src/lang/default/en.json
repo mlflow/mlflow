@@ -279,6 +279,10 @@
     "defaultMessage": "Time (wall)",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use wall time axis in all charts"
   },
+  "/SGMOh": {
+    "defaultMessage": "Only an experiment manager can change a queue's questions.",
+    "description": "Queue settings: questions manager-only hint"
+  },
   "/Sa51w": {
     "defaultMessage": "Query endpoint",
     "description": "Endpoint usage modal title"
@@ -1655,10 +1659,6 @@
     "defaultMessage": "Failed to load attachment",
     "description": "Error message when trace attachment fails to load"
   },
-  "6zZT8f": {
-    "defaultMessage": "Created by me",
-    "description": "Review queue sidebar: group of queues the reviewer owns"
-  },
   "7+XQ3q": {
     "defaultMessage": "Correctness",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
@@ -3007,6 +3007,10 @@
     "defaultMessage": "Usage tracking",
     "description": "Label for usage tracking toggle in sidebar"
   },
+  "E+bByS": {
+    "defaultMessage": "My queues",
+    "description": "Review queue sidebar: show-only-owned-queues filter"
+  },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
     "description": "Error message displayed on logged models page when experiment data fails to load"
@@ -3126,6 +3130,10 @@
   "EWf8NH": {
     "defaultMessage": "Learn more",
     "description": "Documentation link text"
+  },
+  "EYqwy2": {
+    "defaultMessage": "Assign myself",
+    "description": "Review focused view: self-assign to the queue to start reviewing"
   },
   "EZfSbs": {
     "defaultMessage": "No trace data available",
@@ -3615,6 +3623,10 @@
     "defaultMessage": "Compare this run with other evaluation runs",
     "description": "Tooltip for the compare button on the run detail page"
   },
+  "Hf9XNb": {
+    "defaultMessage": "All queues",
+    "description": "Review queue sidebar: show-all-queues filter"
+  },
   "HfHGT4": {
     "defaultMessage": "Start tracing your LLM application",
     "description": "Title for the empty state when no traces are recorded"
@@ -3714,10 +3726,6 @@
   "IEORCP": {
     "defaultMessage": "Comparing {numRuns} Runs from {numExperiments} Experiments",
     "description": "Breadcrumb title for compare runs page with multiple experiments"
-  },
-  "IF3wII": {
-    "defaultMessage": "Feedback requested",
-    "description": "Review queue sidebar: group of queues assigned to the reviewer by others"
   },
   "IFJQom": {
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
@@ -5211,6 +5219,10 @@
     "defaultMessage": "Hide all runs",
     "description": "Menu option for hiding all runs in the evaluation runs table"
   },
+  "QHDNHn": {
+    "defaultMessage": "You don't have access to this queue.",
+    "description": "Review queue sidebar: tooltip for a queue the reviewer cannot open"
+  },
   "QJ5wvd": {
     "defaultMessage": "Input for the trace",
     "description": "Description for inputs variable"
@@ -5226,10 +5238,6 @@
   "QMCliz": {
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
     "description": "Feature card summary for evaluation"
-  },
-  "QOtpyI": {
-    "defaultMessage": "Delete {count, plural, one {# trace} other {# traces}}",
-    "description": "Review queue: delete selected traces button"
   },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
@@ -5394,6 +5402,10 @@
   "RJenO+": {
     "defaultMessage": "Create prompt version",
     "description": "Label for the create prompt action on the registered prompt details page"
+  },
+  "RQ80MZ": {
+    "defaultMessage": "You're not assigned to this queue, so you can't submit reviews here.",
+    "description": "Review focused view: viewing a queue the reviewer is not assigned to"
   },
   "RRvtnM": {
     "defaultMessage": "Did the conversation avoid causing user frustration?",
@@ -5654,6 +5666,10 @@
   "SihD1a": {
     "defaultMessage": "LLM judge feedback",
     "description": "Tooltip content for LLM judge feedback"
+  },
+  "SlI2G2": {
+    "defaultMessage": "Remove {count, plural, one {# trace} other {# traces}}",
+    "description": "Review queue: remove selected traces button"
   },
   "Sm0bXt": {
     "defaultMessage": "None",
@@ -6026,10 +6042,6 @@
   "UkVgwL": {
     "defaultMessage": "Create endpoint",
     "description": "Page title for create endpoint"
-  },
-  "Ul/T3v": {
-    "defaultMessage": "To do",
-    "description": "Review queue sidebar: still-to-review count column header"
   },
   "UlkINy": {
     "defaultMessage": "Admin",
@@ -7763,6 +7775,10 @@
     "defaultMessage": "Don't see your framework? <a>Browse all integrations</a>.",
     "description": "Link to MLflow tracing integrations doc page above the framework selector"
   },
+  "d9tAYA": {
+    "defaultMessage": "You don't own any queues yet.",
+    "description": "Review queue sidebar: empty state for the My-queues filter"
+  },
   "dDbfnY": {
     "defaultMessage": "{count} {count, plural, one {hour} other {hours}}",
     "description": "Formatted trace archival retention in hours"
@@ -9087,6 +9103,10 @@
     "defaultMessage": "All runs are hidden. Select at least one run to view charts.",
     "description": "Experiment tracking > runs charts > indication displayed when no runs are selected for comparison"
   },
+  "jcGdSy": {
+    "defaultMessage": "Queue",
+    "description": "Review queue sidebar: queue-name column"
+  },
   "jcJXyE": {
     "defaultMessage": "Summarization",
     "description": "LLM template option"
@@ -10018,10 +10038,6 @@
   "oDwj2g": {
     "defaultMessage": "The relevance_to_query LLM judge determines whether the response is relevant to the input request.",
     "description": "Evaluation results > known type of evaluation result assessment > description of relevance judge."
-  },
-  "oGW1Sc": {
-    "defaultMessage": "Queue",
-    "description": "Review queue sidebar: queue-name column header"
   },
   "oH2nPk": {
     "defaultMessage": "Please ensure you have a webhook configured to receive budget alert events. You can create one in the 'Budget alert webhooks' section on this page.",
@@ -11579,6 +11595,10 @@
     "defaultMessage": "Budget exceeded: {spend} of {limit} spent",
     "description": "Tooltip shown when current spend exceeds the budget limit"
   },
+  "wT28RL": {
+    "defaultMessage": "Owner",
+    "description": "Review queue sidebar: queue-owner column"
+  },
   "wY58OE": {
     "defaultMessage": "Retrieval groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval groundedness: moderately grounded\""
@@ -11971,10 +11991,6 @@
     "defaultMessage": "Output",
     "description": "Experiment page > new run modal > evaluation output field label"
   },
-  "yeA16i": {
-    "defaultMessage": "No work to do",
-    "description": "Review queue sidebar: collapsed group of queues with nothing left to review"
-  },
   "yjerKR": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Link to model version in the model version table"
@@ -11986,6 +12002,10 @@
   "ymnL+t": {
     "defaultMessage": "Save",
     "description": "Button to save notes assessment"
+  },
+  "ynec8t": {
+    "defaultMessage": "To do",
+    "description": "Review queue sidebar: still-to-review count column"
   },
   "ynkoR7": {
     "defaultMessage": "No models versions are registered yet. <link>Learn more</link> about how to register a model version.",

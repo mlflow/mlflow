@@ -21,7 +21,14 @@ jest.mock('./hooks/useReviewer', () => ({
   DEFAULT_REVIEWER: 'default',
   useIsReviewerResolved: () => mockReviewerResolved,
 }));
-jest.mock('./hooks/useCanManageReviews', () => ({ useCanManageReviews: () => false }));
+// No MANAGE; `useCanEditReviews` defaults permissive (matching the real hook on
+// a no-auth server) so flagging stays enabled, but is overridable to model a
+// READ-only user who can't flag.
+let mockCanEdit = true;
+jest.mock('./hooks/useCanManageReviews', () => ({
+  useCanManageReviews: () => false,
+  useCanEditReviews: () => mockCanEdit,
+}));
 jest.mock('./CreateReviewQueueModal', () => ({ CreateReviewQueueModal: () => null }));
 
 const mockAddItems = jest.fn<(...args: any[]) => Promise<any>>();
@@ -96,6 +103,7 @@ const renderDropdown = (props?: { open?: boolean; onOpenChange?: (open: boolean)
 describe('AddToReviewQueueDropdown', () => {
   beforeEach(() => {
     mockReviewerResolved = true;
+    mockCanEdit = true;
     mockAddItems.mockReset();
     mockAddItems.mockResolvedValue({});
     mockRemoveItems.mockReset();
@@ -191,5 +199,18 @@ describe('AddToReviewQueueDropdown', () => {
     await waitFor(() => expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-default', item_ids: ['tr-1'] }));
 
     expect(Utils.displayGlobalInfoNotification).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps Add disabled and hides the New-queue link for a READ-only user', () => {
+    mockCanEdit = false;
+    renderModal();
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
+
+    // Flagging traces requires EDIT, so a destination can be picked but not committed.
+    expect(screen.getByRole('button', { name: 'Add to 1 queue' })).toBeDisabled();
+    // ...and the create-a-queue affordance (also EDIT) is gone from the dropdown.
+    expect(screen.queryByText('New queue')).toBeNull();
   });
 });

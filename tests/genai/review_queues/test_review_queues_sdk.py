@@ -63,18 +63,17 @@ def test_create_review_queue_delegates():
             queue_type="custom",
             users=["bob"],
             schema_ids=["ls-1"],
-            created_by="kris",
             experiment_id="1",
         )
     assert result.queue_id == "rq-1"
     args, kwargs = m.call_args
     assert args == ("1",)
+    # No `created_by`: the owner is stamped server-side, not passed by the caller.
     assert kwargs == {
         "name": "Q3",
         "queue_type": "custom",
         "users": ["bob"],
         "schema_ids": ["ls-1"],
-        "created_by": "kris",
     }
 
 
@@ -89,9 +88,9 @@ def test_create_review_queue_defaults_experiment_id_to_current():
 
 def test_get_or_create_user_queue_delegates():
     with patch(f"{_BASE}._get_or_create_user_queue", return_value=_queue()) as m:
-        get_or_create_user_queue("alice", created_by="kris", experiment_id="1")
+        get_or_create_user_queue("alice", experiment_id="1")
     assert m.call_args[0] == ("1",)
-    assert m.call_args[1] == {"user": "alice", "created_by": "kris"}
+    assert m.call_args[1] == {"user": "alice"}
 
 
 def test_get_review_queue_by_id_delegates():
