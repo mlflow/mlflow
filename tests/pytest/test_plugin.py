@@ -9,8 +9,8 @@ import textwrap
 from pathlib import Path
 
 import mlflow
-from mlflow._assertions import session as _session
-from mlflow._assertions.decorator import MLFLOW_TEST_ATTR
+from mlflow.pytest import session as _session
+from mlflow.pytest.decorator import MLFLOW_TEST_ATTR
 from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_TEST
 

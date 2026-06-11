@@ -170,7 +170,7 @@ if MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)
 
 # Core modules required for mlflow-tracing
-from mlflow._assertions import test
+from mlflow.pytest import test
 from mlflow.tracing.assessment import (
     delete_assessment,
     get_assessment,

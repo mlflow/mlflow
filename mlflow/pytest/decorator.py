@@ -1,7 +1,7 @@
 """``@mlflow.test`` marker.
 
 A near no-op decorator whose only job is to be visible at collection time so
-the pytest plugin can set up the regression-test run and enable tracing for
+the pytest plugin can set up the test run and enable tracing for
 the marked test.
 
     @mlflow.test

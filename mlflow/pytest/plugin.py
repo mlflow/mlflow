@@ -3,7 +3,7 @@
 Auto-registered via the ``pytest11`` entry point in ``pyproject.toml``.
 
 What it does:
-- Creates one **regression-test run** per pytest session. ``evaluate()``
+- Creates one **test run** per pytest session. ``evaluate()``
   inside the test body inherits this active run, so traces and feedback
   attach to it naturally.
 - Enables tracing autologging for ``@mlflow.test``-marked tests, the same
@@ -19,8 +19,8 @@ import re
 
 import pytest
 
-from mlflow._assertions import session as _session
-from mlflow._assertions.decorator import MLFLOW_TEST_ATTR
+from mlflow.pytest import session as _session
+from mlflow.pytest.decorator import MLFLOW_TEST_ATTR
 
 _logger = logging.getLogger(__name__)
 

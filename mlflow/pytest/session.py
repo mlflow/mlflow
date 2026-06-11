@@ -1,6 +1,6 @@
 """Session state for the ``@mlflow.test`` pytest plugin.
 
-Manages the single regression-test run per pytest session and tracks which
+Manages the single test run per pytest session and tracks which
 test is currently executing (for trace tagging). No ``pytest`` import so it
 can be used from notebooks/scripts too.
 """
