@@ -41,7 +41,8 @@ def _find_available_port(start: int = 5000, end: int = 5100) -> int:
     raise click.ClickException(f"No available port found in {start}-{end - 1}.")
 
 
-def _git_root(start: Path) -> Path | None:
+def _git_root(start: Path) -> tuple[Path | None, str | None]:
+    """Return (repo_root, reason); the reason explains why repo_root is None."""
     try:
         out = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
@@ -50,9 +51,11 @@ def _git_root(start: Path) -> Path | None:
             capture_output=True,
             text=True,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-    return Path(out.stdout.strip())
+    except FileNotFoundError:
+        return None, "Git is not installed."
+    except subprocess.CalledProcessError:
+        return None, "Not inside a git repository."
+    return Path(out.stdout.strip()), None
 
 
 def _choose_agent(preferred: AgentName | None) -> AgentTool:
@@ -88,9 +91,14 @@ def _run_setup(
     payload: dict[str, Any],
 ) -> tuple[list[str], Path] | None:
     """Run the interactive setup flow and return the agent launch command, or None for --print."""
-    repo_root = _git_root(Path.cwd())
+    repo_root, reason = _git_root(Path.cwd())
     if repo_root is None:
-        raise click.ClickException("`mlflow agent setup` must be run inside a git working tree.")
+        click.secho(
+            f"{reason} The agent's edits cannot be reviewed or reverted with git.",
+            fg="yellow",
+            err=True,
+        )
+        repo_root = Path.cwd()
 
     agent = _choose_agent(agent_name)
     payload["agent"] = agent.name

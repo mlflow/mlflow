@@ -970,7 +970,7 @@ async def test_passthrough_anthropic_messages():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1027,7 +1027,7 @@ async def test_passthrough_anthropic_messages_streaming():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1084,7 +1084,7 @@ async def test_proxy_anthropic_non_streaming():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1122,7 +1122,7 @@ async def test_proxy_anthropic_streaming():
         MockAsyncStreamingResponse(resp, headers={"Content-Type": "text/event-stream"})
     )
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1202,7 +1202,7 @@ async def test_chat_with_structured_output():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 

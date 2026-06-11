@@ -5297,6 +5297,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # span writes, including span-only changes that did not update trace_info, commit
             # atomically with the new DB-backed payload generation.
             for trace_id in all_trace_ids:
+                agg = trace_aggregates[trace_id]
                 session.merge(
                     SqlTraceTag(
                         request_id=trace_id,
@@ -5304,8 +5305,45 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         value=SpansLocation.TRACKING_STORE.value,
                     )
                 )
+
+                # Persist OTel resource attributes (e.g., service.name) as trace tags so
+                # they are visible in the UI and available for filtering. Resource is attached
+                # to every span produced from the same OTLP ResourceSpans block; use any span
+                # in this trace so multi-trace batches are handled correctly.
+                # These are written first so that user-defined trace tags (below) take
+                # precedence over resource attributes on key collision.
+                resource = next(
+                    (
+                        r
+                        for span in spans_by_trace[trace_id]
+                        if (r := getattr(span._span, "resource", None)) is not None and r.attributes
+                    ),
+                    None,
+                )
+                if resource is not None:
+                    for key, value in resource.attributes.items():
+                        # Skip OTel SDK internal metadata and the reserved mlflow.*
+                        # namespace so a client cannot clobber bookkeeping tags
+                        # (e.g. SPANS_LOCATION) via resource attributes.
+                        if key.startswith(("telemetry.sdk.", "mlflow.")):
+                            continue
+                        str_value = value if isinstance(value, str) else json.dumps(value)
+                        try:
+                            key, str_value = _validate_trace_tag(key, str_value)
+                        except Exception:
+                            _logger.debug("Skipping invalid resource attribute %r", key)
+                            continue
+                        session.merge(
+                            SqlTraceTag(
+                                request_id=trace_id,
+                                key=key,
+                                value=str_value,
+                            )
+                        )
+
                 # Restore user-defined tags carried via mlflow.traceTag.* attributes on the root
                 # span (set by OtelSpanProcessor when the trace was exported over OTLP).
+                # Written after resource attributes so user tags take precedence on collision.
                 for tag_key, tag_value in agg.trace_tags.items():
                     session.merge(SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value))
 
@@ -8438,7 +8476,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.flush()
             return self._hydrate_review_queues(session, [sql_queue])[0]
 
-    def get_or_create_user_queue(self, experiment_id, *, user, created_by=None):
+    def get_or_create_user_queue(self, experiment_id, *, user):
         from mlflow.genai.review_queues import ReviewQueueType
         from mlflow.genai.review_queues.validation import normalize_user
 
@@ -8448,7 +8486,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 experiment_id,
                 name=name,
                 queue_type="user",
-                created_by=created_by,
+                # A user queue is owned by its user (attribution only).
+                created_by=name,
             )
         except MlflowException as e:
             if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
