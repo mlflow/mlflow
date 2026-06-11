@@ -22,7 +22,7 @@ import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
 import { DEFAULT_REVIEWER, displayUser, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
-import { canManageQueue } from './queuePermissions';
+import { canManageQueue, sameUser } from './queuePermissions';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 /**
@@ -85,15 +85,24 @@ const ExperimentReviewQueuePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authAvailable, experimentId]);
 
+  // Pre-select the reviewer's own USER queue once on load, so the right pane
+  // opens on their queue instead of the "Select a queue" prompt. Fire-once (a
+  // ref) rather than reacting to `selectedQueueId === undefined`: explicit
+  // deselection (collapsing the sidebar's no-work group, or deleting the open
+  // queue) must stick, not snap back to the USER queue. Gate on
+  // `reviewerResolved` so a selection isn't committed against the `default`
+  // fallback while `/users/current` is still in flight.
+  const didAutoSelectQueue = useRef(false);
   useEffect(() => {
-    if (selectedQueueIdState !== undefined || queuesLoading) {
+    if (didAutoSelectQueue.current || selectedQueueIdState !== undefined || queuesLoading || !reviewerResolved) {
       return;
     }
-    const userQueue = reviewQueues.find((q) => q.queue_type === 'USER' && q.name === reviewer);
+    const userQueue = reviewQueues.find((q) => q.queue_type === 'USER' && sameUser(q.name, reviewer));
     if (userQueue) {
+      didAutoSelectQueue.current = true;
       setSelectedQueueIdState(userQueue.queue_id);
     }
-  }, [selectedQueueIdState, queuesLoading, reviewQueues, reviewer]);
+  }, [selectedQueueIdState, queuesLoading, reviewerResolved, reviewQueues, reviewer]);
 
   const selectedQueueId = selectedQueueIdState;
   const selectedQueue = useMemo(
