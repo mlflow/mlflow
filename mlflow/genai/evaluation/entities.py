@@ -258,22 +258,40 @@ class EvaluationResult:
             ")"
         )
 
-    def assert_passed(self) -> None:
-        """Raise ``AssertionError`` if any scorer reported a failing value.
+    @property
+    def passed(self) -> bool:
+        """``True`` when every scorer passed for every row.
 
-        Checks every row in ``result_df`` for scorer columns (``<name>/value``).
-        A value passes when it is ``True``, ``"yes"``/``"pass"``/``"true"``
+        A value is *passing* when it is ``True``, ``"yes"``/``"pass"``/``"true"``
         (case-insensitive), or a number ``>= 0.5``.
 
-        Raises:
-            AssertionError: if any scorer reports a failing value.
+        Usage::
+
+            result = mlflow.genai.evaluate(...)
+            assert result.passed, result.reason
         """
+        return not self._failures()
+
+    @property
+    def reason(self) -> str:
+        """Human-readable explanation of which scorers failed and why.
+
+        Empty string when all scorers passed.
+        """
+        failures = self._failures()
+        if not failures:
+            return ""
+        if len(failures) == 1:
+            return failures[0]
+        return f"{len(failures)} assertions failed:\n" + "\n".join(f"  - {f}" for f in failures)
+
+    def _failures(self) -> list[str]:
         if self.result_df is None:
-            return
+            return []
 
         value_cols = [c for c in self.result_df.columns if c.endswith("/value")]
         if not value_cols:
-            return
+            return []
 
         failures: list[str] = []
         for _, row in self.result_df.iterrows():
@@ -293,15 +311,7 @@ class EvaluationResult:
                     failures.append(
                         f"{scorer_name}: {detail}" if detail else f"{scorer_name}: value={value!r}"
                     )
-
-        if not failures:
-            return
-
-        if len(failures) == 1:
-            raise AssertionError(failures[0])
-        raise AssertionError(
-            f"{len(failures)} assertions failed:\n" + "\n".join(f"  - {f}" for f in failures)
-        )
+        return failures
 
     # For backwards compatibility
     @property
