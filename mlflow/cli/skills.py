@@ -7,9 +7,9 @@ from mlflow.assistant.skill_installer import BundledSkill, list_bundled_skills
 
 def _list_skill_details(skill: BundledSkill):
     click.secho(skill.name, fg="cyan", bold=True)
+    click.secho(f"  {skill.path}", fg="cyan", dim=True)
     if skill.description:
         click.echo(f"  {skill.description}")
-    click.secho(f"  {skill.path}", dim=True)
 
 
 @click.group("skills")
