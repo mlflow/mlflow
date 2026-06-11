@@ -2,8 +2,7 @@
 
 A near no-op decorator whose only job is to be visible at collection time so
 the pytest plugin can set up the regression-test run and enable tracing for
-the marked test. The test body calls ``mlflow.genai.evaluate()`` to run
-scorers and ``result.assert_passed()`` to check the results.
+the marked test.
 
     @mlflow.test
     def test_recommendations(agent):
@@ -12,7 +11,7 @@ scorers and ``result.assert_passed()`` to check the results.
             data=[{"inputs": {"prompt": "What tracing tool?"}}],
             scorers=[Guidelines(guidelines="Recommends MLflow"), Safety()],
         )
-        result.assert_passed()
+        assert result.passed, result.reason
 """
 
 from __future__ import annotations
