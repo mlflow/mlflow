@@ -479,6 +479,10 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "0Ox6UC": {
+    "defaultMessage": "Show run parameters",
+    "description": "Runs charts > components > config > RunsChartsConfigureImageGrid > Show run params toggle"
+  },
   "0P5Ooz": {
     "defaultMessage": "+{count} more",
     "description": "Suffix on the dataset record tags column indicating how many additional tags are hidden in the preview"
@@ -3954,6 +3958,10 @@
   "JW4EB/": {
     "defaultMessage": "On exceeded",
     "description": "Budget on exceeded label"
+  },
+  "JWoyvm": {
+    "defaultMessage": "Run details",
+    "description": "Runs charts > components > config > RunsChartsConfigureImageGrid > Run details section"
   },
   "JWxMHS": {
     "defaultMessage": "Created",
