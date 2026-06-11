@@ -136,4 +136,52 @@ describe('ReviewQueueList', () => {
     expect(rowsDesc[1].textContent).toBe('req-early');
     mockTraces.mockReturnValue({ data: [] });
   });
+
+  it('clears the sort on the third Date added click (asc -> desc -> none)', () => {
+    mockTraces.mockReturnValue({
+      data: [
+        { info: { trace_id: 'early', request_preview: 'req-early' } },
+        { info: { trace_id: 'late', request_preview: 'req-late' } },
+      ],
+    });
+    // Provided late-first; with no sort the rows keep this input order.
+    const items = [
+      item('late', 'PENDING', undefined, 1_780_000_090_000),
+      item('early', 'PENDING', undefined, 1_780_000_000_000),
+    ];
+    renderWithProviders(<ReviewQueueList items={items} onOpen={jest.fn()} nowMs={NOW + 100_000} />);
+    const dateHeader = screen.getByText('Date added');
+    fireEvent.click(dateHeader); // asc
+    fireEvent.click(dateHeader); // desc
+    fireEvent.click(dateHeader); // none -> back to input order
+    const rows = screen.getAllByText(/req-early|req-late/);
+    expect(rows[0].textContent).toBe('req-late');
+    expect(rows[1].textContent).toBe('req-early');
+    mockTraces.mockReturnValue({ data: [] });
+  });
+
+  it('shows an empty state when the active filter matches no traces', () => {
+    renderWithProviders(<ReviewQueueList items={[item('tr-1', 'PENDING')]} onOpen={jest.fn()} nowMs={NOW} />);
+    // No completed items, so the "Completed (0)" bucket renders the empty message.
+    fireEvent.click(screen.getByText('Completed (0)'));
+    expect(screen.getByText('No traces match this filter.')).toBeInTheDocument();
+  });
+
+  it('clears row selection when the status filter changes', () => {
+    renderWithProviders(
+      <ReviewQueueList
+        items={[item('tr-1', 'PENDING'), item('tr-2', 'COMPLETE', 'bob')]}
+        onOpen={jest.fn()}
+        nowMs={NOW}
+        onRemoveItems={jest.fn()}
+      />,
+    );
+    // checkboxes[0] is select-all; [1] is the first row.
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[1]);
+    expect(screen.getByRole('button', { name: /1 trace/ })).toBeInTheDocument();
+    // Switching filters resets the selection so hidden rows can't be deleted.
+    fireEvent.click(screen.getByText('Completed (1)'));
+    expect(screen.queryByRole('button', { name: /trace/ })).not.toBeInTheDocument();
+  });
 });
