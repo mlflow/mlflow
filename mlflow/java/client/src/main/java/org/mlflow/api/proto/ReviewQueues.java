@@ -456,11 +456,7 @@ public final class ReviewQueues {
 
     /**
      * <pre>
-     * The queue's owner. On an authenticated server this is server-stamped to the
-     * creating user and is the basis for owner-level authorization (an EDIT user
-     * may manage the queues they own); it can be reassigned (MANAGE-only) via
-     * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
-     * may be unset. For a USER queue it is the assigned user (attribution only).
+     * Audit-only identifier of the user who created the queue.
      * </pre>
      *
      * <code>optional string created_by = 5;</code>
@@ -469,11 +465,7 @@ public final class ReviewQueues {
     boolean hasCreatedBy();
     /**
      * <pre>
-     * The queue's owner. On an authenticated server this is server-stamped to the
-     * creating user and is the basis for owner-level authorization (an EDIT user
-     * may manage the queues they own); it can be reassigned (MANAGE-only) via
-     * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
-     * may be unset. For a USER queue it is the assigned user (attribution only).
+     * Audit-only identifier of the user who created the queue.
      * </pre>
      *
      * <code>optional string created_by = 5;</code>
@@ -482,11 +474,7 @@ public final class ReviewQueues {
     java.lang.String getCreatedBy();
     /**
      * <pre>
-     * The queue's owner. On an authenticated server this is server-stamped to the
-     * creating user and is the basis for owner-level authorization (an EDIT user
-     * may manage the queues they own); it can be reassigned (MANAGE-only) via
-     * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
-     * may be unset. For a USER queue it is the assigned user (attribution only).
+     * Audit-only identifier of the user who created the queue.
      * </pre>
      *
      * <code>optional string created_by = 5;</code>
@@ -969,11 +957,7 @@ public final class ReviewQueues {
     private volatile java.lang.Object createdBy_;
     /**
      * <pre>
-     * The queue's owner. On an authenticated server this is server-stamped to the
-     * creating user and is the basis for owner-level authorization (an EDIT user
-     * may manage the queues they own); it can be reassigned (MANAGE-only) via
-     * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
-     * may be unset. For a USER queue it is the assigned user (attribution only).
+     * Audit-only identifier of the user who created the queue.
      * </pre>
      *
      * <code>optional string created_by = 5;</code>
@@ -985,11 +969,7 @@ public final class ReviewQueues {
     }
     /**
      * <pre>
-     * The queue's owner. On an authenticated server this is server-stamped to the
-     * creating user and is the basis for owner-level authorization (an EDIT user
-     * may manage the queues they own); it can be reassigned (MANAGE-only) via
-     * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
-     * may be unset. For a USER queue it is the assigned user (attribution only).
+     * Audit-only identifier of the user who created the queue.
      * </pre>
      *
      * <code>optional string created_by = 5;</code>
@@ -1012,11 +992,7 @@ public final class ReviewQueues {
     }
     /**
      * <pre>
-     * The queue's owner. On an authenticated server this is server-stamped to the
-     * creating user and is the basis for owner-level authorization (an EDIT user
-     * may manage the queues they own); it can be reassigned (MANAGE-only) via
-     * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
-     * may be unset. For a USER queue it is the assigned user (attribution only).
+     * Audit-only identifier of the user who created the queue.
      * </pre>
      *
      * <code>optional string created_by = 5;</code>
@@ -2095,11 +2071,7 @@ public final class ReviewQueues {
       private java.lang.Object createdBy_ = "";
       /**
        * <pre>
-       * The queue's owner. On an authenticated server this is server-stamped to the
-       * creating user and is the basis for owner-level authorization (an EDIT user
-       * may manage the queues they own); it can be reassigned (MANAGE-only) via
-       * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
-       * may be unset. For a USER queue it is the assigned user (attribution only).
+       * Audit-only identifier of the user who created the queue.
        * </pre>
        *
        * <code>optional string created_by = 5;</code>
@@ -2110,11 +2082,7 @@ public final class ReviewQueues {
       }
       /**
        * <pre>
-       * The queue's owner. On an authenticated server this is server-stamped to the
-       * creating user and is the basis for owner-level authorization (an EDIT user
-       * may manage the queues they own); it can be reassigned (MANAGE-only) via
-       * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
-       * may be unset. For a USER queue it is the assigned user (attribution only).
+       * Audit-only identifier of the user who created the queue.
        * </pre>
        *
        * <code>optional string created_by = 5;</code>
@@ -2136,11 +2104,7 @@ public final class ReviewQueues {
       }
       /**
        * <pre>
-       * The queue's owner. On an authenticated server this is server-stamped to the
-       * creating user and is the basis for owner-level authorization (an EDIT user
-       * may manage the queues they own); it can be reassigned (MANAGE-only) via
-       * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
-       * may be unset. For a USER queue it is the assigned user (attribution only).
+       * Audit-only identifier of the user who created the queue.
        * </pre>
        *
        * <code>optional string created_by = 5;</code>
@@ -2161,11 +2125,7 @@ public final class ReviewQueues {
       }
       /**
        * <pre>
-       * The queue's owner. On an authenticated server this is server-stamped to the
-       * creating user and is the basis for owner-level authorization (an EDIT user
-       * may manage the queues they own); it can be reassigned (MANAGE-only) via
-       * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
-       * may be unset. For a USER queue it is the assigned user (attribution only).
+       * Audit-only identifier of the user who created the queue.
        * </pre>
        *
        * <code>optional string created_by = 5;</code>
@@ -2184,11 +2144,7 @@ public final class ReviewQueues {
       }
       /**
        * <pre>
-       * The queue's owner. On an authenticated server this is server-stamped to the
-       * creating user and is the basis for owner-level authorization (an EDIT user
-       * may manage the queues they own); it can be reassigned (MANAGE-only) via
-       * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
-       * may be unset. For a USER queue it is the assigned user (attribution only).
+       * Audit-only identifier of the user who created the queue.
        * </pre>
        *
        * <code>optional string created_by = 5;</code>
@@ -2202,11 +2158,7 @@ public final class ReviewQueues {
       }
       /**
        * <pre>
-       * The queue's owner. On an authenticated server this is server-stamped to the
-       * creating user and is the basis for owner-level authorization (an EDIT user
-       * may manage the queues they own); it can be reassigned (MANAGE-only) via
-       * UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
-       * may be unset. For a USER queue it is the assigned user (attribution only).
+       * Audit-only identifier of the user who created the queue.
        * </pre>
        *
        * <code>optional string created_by = 5;</code>
@@ -12844,51 +12796,16 @@ public final class ReviewQueues {
      */
     com.google.protobuf.ByteString
         getSchemaIdsBytes(int index);
-
-    /**
-     * <code>optional string name = 6;</code>
-     * @return Whether the name field is set.
-     */
-    boolean hasName();
-    /**
-     * <code>optional string name = 6;</code>
-     * @return The name.
-     */
-    java.lang.String getName();
-    /**
-     * <code>optional string name = 6;</code>
-     * @return The bytes for name.
-     */
-    com.google.protobuf.ByteString
-        getNameBytes();
-
-    /**
-     * <code>optional string new_owner = 7;</code>
-     * @return Whether the newOwner field is set.
-     */
-    boolean hasNewOwner();
-    /**
-     * <code>optional string new_owner = 7;</code>
-     * @return The newOwner.
-     */
-    java.lang.String getNewOwner();
-    /**
-     * <code>optional string new_owner = 7;</code>
-     * @return The bytes for newOwner.
-     */
-    com.google.protobuf.ByteString
-        getNewOwnerBytes();
   }
   /**
    * <pre>
-   * Edit a CUSTOM queue's name, assigned users, attached schemas, and/or owner.
-   * `queue_type` is immutable and USER queues reject this RPC. Singular fields use
-   * proto2 presence (HasField); only the repeated sets need explicit `update_*`
-   * flags, since a repeated field can't tell "absent" from "empty" on the wire
-   * (when the flag is true the list, possibly empty, replaces the set). `name`
-   * renames the queue. `new_owner` reassigns ownership (`created_by`) and is
-   * MANAGE-gated — owners can't transfer their own queue — whereas an owning EDIT
-   * user may perform the other edits.
+   * Replace a CUSTOM queue's assigned users and/or attached schemas.
+   * `name` and `queue_type` are immutable, and USER queues reject this
+   * RPC. Because a repeated field can't distinguish "absent" from "empty"
+   * on the wire, each association set is gated by an explicit
+   * `update_*` flag: when the flag is true the corresponding list
+   * (possibly empty) replaces the set; when false the set is left
+   * untouched.
    * </pre>
    *
    * Protobuf type {@code mlflow.review_queues.UpdateReviewQueue}
@@ -12906,8 +12823,6 @@ public final class ReviewQueues {
       queueId_ = "";
       users_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       schemaIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      name_ = "";
-      newOwner_ = "";
     }
 
     @java.lang.Override
@@ -12973,18 +12888,6 @@ public final class ReviewQueues {
                 mutable_bitField0_ |= 0x00000010;
               }
               schemaIds_.add(bs);
-              break;
-            }
-            case 50: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000008;
-              name_ = bs;
-              break;
-            }
-            case 58: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000010;
-              newOwner_ = bs;
               break;
             }
             default: {
@@ -13814,102 +13717,6 @@ public final class ReviewQueues {
       return schemaIds_.getByteString(index);
     }
 
-    public static final int NAME_FIELD_NUMBER = 6;
-    private volatile java.lang.Object name_;
-    /**
-     * <code>optional string name = 6;</code>
-     * @return Whether the name field is set.
-     */
-    @java.lang.Override
-    public boolean hasName() {
-      return ((bitField0_ & 0x00000008) != 0);
-    }
-    /**
-     * <code>optional string name = 6;</code>
-     * @return The name.
-     */
-    @java.lang.Override
-    public java.lang.String getName() {
-      java.lang.Object ref = name_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          name_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <code>optional string name = 6;</code>
-     * @return The bytes for name.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getNameBytes() {
-      java.lang.Object ref = name_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        name_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int NEW_OWNER_FIELD_NUMBER = 7;
-    private volatile java.lang.Object newOwner_;
-    /**
-     * <code>optional string new_owner = 7;</code>
-     * @return Whether the newOwner field is set.
-     */
-    @java.lang.Override
-    public boolean hasNewOwner() {
-      return ((bitField0_ & 0x00000010) != 0);
-    }
-    /**
-     * <code>optional string new_owner = 7;</code>
-     * @return The newOwner.
-     */
-    @java.lang.Override
-    public java.lang.String getNewOwner() {
-      java.lang.Object ref = newOwner_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          newOwner_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <code>optional string new_owner = 7;</code>
-     * @return The bytes for newOwner.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getNewOwnerBytes() {
-      java.lang.Object ref = newOwner_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        newOwner_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -13938,12 +13745,6 @@ public final class ReviewQueues {
       }
       for (int i = 0; i < schemaIds_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 5, schemaIds_.getRaw(i));
-      }
-      if (((bitField0_ & 0x00000008) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, name_);
-      }
-      if (((bitField0_ & 0x00000010) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, newOwner_);
       }
       unknownFields.writeTo(output);
     }
@@ -13981,12 +13782,6 @@ public final class ReviewQueues {
         size += dataSize;
         size += 1 * getSchemaIdsList().size();
       }
-      if (((bitField0_ & 0x00000008) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, name_);
-      }
-      if (((bitField0_ & 0x00000010) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, newOwner_);
-      }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
       return size;
@@ -14021,16 +13816,6 @@ public final class ReviewQueues {
       }
       if (!getSchemaIdsList()
           .equals(other.getSchemaIdsList())) return false;
-      if (hasName() != other.hasName()) return false;
-      if (hasName()) {
-        if (!getName()
-            .equals(other.getName())) return false;
-      }
-      if (hasNewOwner() != other.hasNewOwner()) return false;
-      if (hasNewOwner()) {
-        if (!getNewOwner()
-            .equals(other.getNewOwner())) return false;
-      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -14063,14 +13848,6 @@ public final class ReviewQueues {
       if (getSchemaIdsCount() > 0) {
         hash = (37 * hash) + SCHEMA_IDS_FIELD_NUMBER;
         hash = (53 * hash) + getSchemaIdsList().hashCode();
-      }
-      if (hasName()) {
-        hash = (37 * hash) + NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getName().hashCode();
-      }
-      if (hasNewOwner()) {
-        hash = (37 * hash) + NEW_OWNER_FIELD_NUMBER;
-        hash = (53 * hash) + getNewOwner().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -14169,14 +13946,13 @@ public final class ReviewQueues {
     }
     /**
      * <pre>
-     * Edit a CUSTOM queue's name, assigned users, attached schemas, and/or owner.
-     * `queue_type` is immutable and USER queues reject this RPC. Singular fields use
-     * proto2 presence (HasField); only the repeated sets need explicit `update_*`
-     * flags, since a repeated field can't tell "absent" from "empty" on the wire
-     * (when the flag is true the list, possibly empty, replaces the set). `name`
-     * renames the queue. `new_owner` reassigns ownership (`created_by`) and is
-     * MANAGE-gated — owners can't transfer their own queue — whereas an owning EDIT
-     * user may perform the other edits.
+     * Replace a CUSTOM queue's assigned users and/or attached schemas.
+     * `name` and `queue_type` are immutable, and USER queues reject this
+     * RPC. Because a repeated field can't distinguish "absent" from "empty"
+     * on the wire, each association set is gated by an explicit
+     * `update_*` flag: when the flag is true the corresponding list
+     * (possibly empty) replaces the set; when false the set is left
+     * untouched.
      * </pre>
      *
      * Protobuf type {@code mlflow.review_queues.UpdateReviewQueue}
@@ -14226,10 +14002,6 @@ public final class ReviewQueues {
         bitField0_ = (bitField0_ & ~0x00000008);
         schemaIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000010);
-        name_ = "";
-        bitField0_ = (bitField0_ & ~0x00000020);
-        newOwner_ = "";
-        bitField0_ = (bitField0_ & ~0x00000040);
         return this;
       }
 
@@ -14280,14 +14052,6 @@ public final class ReviewQueues {
           bitField0_ = (bitField0_ & ~0x00000010);
         }
         result.schemaIds_ = schemaIds_;
-        if (((from_bitField0_ & 0x00000020) != 0)) {
-          to_bitField0_ |= 0x00000008;
-        }
-        result.name_ = name_;
-        if (((from_bitField0_ & 0x00000040) != 0)) {
-          to_bitField0_ |= 0x00000010;
-        }
-        result.newOwner_ = newOwner_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -14366,16 +14130,6 @@ public final class ReviewQueues {
             ensureSchemaIdsIsMutable();
             schemaIds_.addAll(other.schemaIds_);
           }
-          onChanged();
-        }
-        if (other.hasName()) {
-          bitField0_ |= 0x00000020;
-          name_ = other.name_;
-          onChanged();
-        }
-        if (other.hasNewOwner()) {
-          bitField0_ |= 0x00000040;
-          newOwner_ = other.newOwner_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -14784,174 +14538,6 @@ public final class ReviewQueues {
   }
   ensureSchemaIdsIsMutable();
         schemaIds_.add(value);
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object name_ = "";
-      /**
-       * <code>optional string name = 6;</code>
-       * @return Whether the name field is set.
-       */
-      public boolean hasName() {
-        return ((bitField0_ & 0x00000020) != 0);
-      }
-      /**
-       * <code>optional string name = 6;</code>
-       * @return The name.
-       */
-      public java.lang.String getName() {
-        java.lang.Object ref = name_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            name_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <code>optional string name = 6;</code>
-       * @return The bytes for name.
-       */
-      public com.google.protobuf.ByteString
-          getNameBytes() {
-        java.lang.Object ref = name_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          name_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <code>optional string name = 6;</code>
-       * @param value The name to set.
-       * @return This builder for chaining.
-       */
-      public Builder setName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000020;
-        name_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string name = 6;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearName() {
-        bitField0_ = (bitField0_ & ~0x00000020);
-        name_ = getDefaultInstance().getName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string name = 6;</code>
-       * @param value The bytes for name to set.
-       * @return This builder for chaining.
-       */
-      public Builder setNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000020;
-        name_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object newOwner_ = "";
-      /**
-       * <code>optional string new_owner = 7;</code>
-       * @return Whether the newOwner field is set.
-       */
-      public boolean hasNewOwner() {
-        return ((bitField0_ & 0x00000040) != 0);
-      }
-      /**
-       * <code>optional string new_owner = 7;</code>
-       * @return The newOwner.
-       */
-      public java.lang.String getNewOwner() {
-        java.lang.Object ref = newOwner_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            newOwner_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <code>optional string new_owner = 7;</code>
-       * @return The bytes for newOwner.
-       */
-      public com.google.protobuf.ByteString
-          getNewOwnerBytes() {
-        java.lang.Object ref = newOwner_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          newOwner_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <code>optional string new_owner = 7;</code>
-       * @param value The newOwner to set.
-       * @return This builder for chaining.
-       */
-      public Builder setNewOwner(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000040;
-        newOwner_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string new_owner = 7;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearNewOwner() {
-        bitField0_ = (bitField0_ & ~0x00000040);
-        newOwner_ = getDefaultInstance().getNewOwner();
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string new_owner = 7;</code>
-       * @param value The bytes for newOwner to set.
-       * @return This builder for chaining.
-       */
-      public Builder setNewOwnerBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000040;
-        newOwner_ = value;
         onChanged();
         return this;
       }
@@ -22948,45 +22534,45 @@ public final class ReviewQueues {
       "es\030\001 \003(\0132!.mlflow.review_queues.ReviewQu" +
       "eue\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.d" +
       "atabricks.rpc.RPC[$this.Response]J\004\010\005\020\006R" +
-      "\016ensure_default\"\222\002\n\021UpdateReviewQueue\022\026\n" +
+      "\016ensure_default\"\361\001\n\021UpdateReviewQueue\022\026\n" +
       "\010queue_id\030\001 \001(\tB\004\370\206\031\001\022\024\n\014update_users\030\002 " +
       "\001(\010\022\r\n\005users\030\003 \003(\t\022\031\n\021update_schema_ids\030" +
-      "\004 \001(\010\022\022\n\nschema_ids\030\005 \003(\t\022\014\n\004name\030\006 \001(\t\022" +
-      "\021\n\tnew_owner\030\007 \001(\t\032C\n\010Response\0227\n\014review" +
-      "_queue\030\001 \001(\0132!.mlflow.review_queues.Revi" +
-      "ewQueue:+\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]\"d\n\021DeleteReviewQueue\022\026\n\010que" +
-      "ue_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"\351\001\n\025A" +
-      "ddItemsToReviewQueue\022\026\n\010queue_id\030\001 \001(\tB\004" +
-      "\370\206\031\001\0227\n\titem_type\030\002 \001(\0162$.mlflow.review_" +
-      "queues.ReviewItemType\022\020\n\010item_ids\030\003 \003(\t\032" +
-      "@\n\010Response\0224\n\005items\030\001 \003(\0132%.mlflow.revi" +
+      "\004 \001(\010\022\022\n\nschema_ids\030\005 \003(\t\032C\n\010Response\0227\n" +
+      "\014review_queue\030\001 \001(\0132!.mlflow.review_queu" +
+      "es.ReviewQueue:+\342?(\n&com.databricks.rpc." +
+      "RPC[$this.Response]\"d\n\021DeleteReviewQueue" +
+      "\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?" +
+      "(\n&com.databricks.rpc.RPC[$this.Response" +
+      "]\"\351\001\n\025AddItemsToReviewQueue\022\026\n\010queue_id\030" +
+      "\001 \001(\tB\004\370\206\031\001\0227\n\titem_type\030\002 \001(\0162$.mlflow." +
+      "review_queues.ReviewItemType\022\020\n\010item_ids" +
+      "\030\003 \003(\t\032@\n\010Response\0224\n\005items\030\001 \003(\0132%.mlfl" +
+      "ow.review_queues.ReviewQueueItem:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"\177\n" +
+      "\032RemoveItemsFromReviewQueue\022\026\n\010queue_id\030" +
+      "\001 \001(\tB\004\370\206\031\001\022\020\n\010item_ids\030\002 \003(\t\032\n\n\010Respons" +
+      "e:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
+      "ponse]\"\223\002\n\024ListReviewQueueItems\022\026\n\010queue" +
+      "_id\030\001 \001(\tB\004\370\206\031\001\0222\n\006status\030\002 \001(\0162\".mlflow" +
+      ".review_queues.ReviewStatus\022\023\n\013max_resul" +
+      "ts\030\003 \001(\005\022\022\n\npage_token\030\004 \001(\t\032Y\n\010Response" +
+      "\0224\n\005items\030\001 \003(\0132%.mlflow.review_queues.R" +
+      "eviewQueueItem\022\027\n\017next_page_token\030\002 \001(\t:" +
+      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
+      "nse]\"\207\002\n\030SetReviewQueueItemStatus\022\026\n\010que" +
+      "ue_id\030\001 \001(\tB\004\370\206\031\001\022\025\n\007item_id\030\002 \001(\tB\004\370\206\031\001" +
+      "\0228\n\006status\030\003 \001(\0162\".mlflow.review_queues." +
+      "ReviewStatusB\004\370\206\031\001\022\024\n\014completed_by\030\004 \001(\t" +
+      "\032?\n\010Response\0223\n\004item\030\001 \001(\0132%.mlflow.revi" +
       "ew_queues.ReviewQueueItem:+\342?(\n&com.data" +
-      "bricks.rpc.RPC[$this.Response]\"\177\n\032Remove" +
-      "ItemsFromReviewQueue\022\026\n\010queue_id\030\001 \001(\tB\004" +
-      "\370\206\031\001\022\020\n\010item_ids\030\002 \003(\t\032\n\n\010Response:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "\223\002\n\024ListReviewQueueItems\022\026\n\010queue_id\030\001 \001" +
-      "(\tB\004\370\206\031\001\0222\n\006status\030\002 \001(\0162\".mlflow.review" +
-      "_queues.ReviewStatus\022\023\n\013max_results\030\003 \001(" +
-      "\005\022\022\n\npage_token\030\004 \001(\t\032Y\n\010Response\0224\n\005ite" +
-      "ms\030\001 \003(\0132%.mlflow.review_queues.ReviewQu" +
-      "eueItem\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&c" +
-      "om.databricks.rpc.RPC[$this.Response]\"\207\002" +
-      "\n\030SetReviewQueueItemStatus\022\026\n\010queue_id\030\001" +
-      " \001(\tB\004\370\206\031\001\022\025\n\007item_id\030\002 \001(\tB\004\370\206\031\001\0228\n\006sta" +
-      "tus\030\003 \001(\0162\".mlflow.review_queues.ReviewS" +
-      "tatusB\004\370\206\031\001\022\024\n\014completed_by\030\004 \001(\t\032?\n\010Res" +
-      "ponse\0223\n\004item\030\001 \001(\0132%.mlflow.review_queu" +
-      "es.ReviewQueueItem:+\342?(\n&com.databricks." +
-      "rpc.RPC[$this.Response]*=\n\016ReviewItemTyp" +
-      "e\022 \n\034REVIEW_ITEM_TYPE_UNSPECIFIED\020\000\022\t\n\005T" +
-      "RACE\020\001*J\n\017ReviewQueueType\022!\n\035REVIEW_QUEU" +
-      "E_TYPE_UNSPECIFIED\020\000\022\010\n\004USER\020\001\022\n\n\006CUSTOM" +
-      "\020\002*V\n\014ReviewStatus\022\035\n\031REVIEW_STATUS_UNSP" +
-      "ECIFIED\020\000\022\013\n\007PENDING\020\001\022\014\n\010COMPLETE\020\002\022\014\n\010" +
-      "DECLINED\020\003B\031\n\024org.mlflow.api.proto\220\001\001"
+      "bricks.rpc.RPC[$this.Response]*=\n\016Review" +
+      "ItemType\022 \n\034REVIEW_ITEM_TYPE_UNSPECIFIED" +
+      "\020\000\022\t\n\005TRACE\020\001*J\n\017ReviewQueueType\022!\n\035REVI" +
+      "EW_QUEUE_TYPE_UNSPECIFIED\020\000\022\010\n\004USER\020\001\022\n\n" +
+      "\006CUSTOM\020\002*V\n\014ReviewStatus\022\035\n\031REVIEW_STAT" +
+      "US_UNSPECIFIED\020\000\022\013\n\007PENDING\020\001\022\014\n\010COMPLET" +
+      "E\020\002\022\014\n\010DECLINED\020\003B\031\n\024org.mlflow.api.prot" +
+      "o\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -23071,7 +22657,7 @@ public final class ReviewQueues {
     internal_static_mlflow_review_queues_UpdateReviewQueue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_review_queues_UpdateReviewQueue_descriptor,
-        new java.lang.String[] { "QueueId", "UpdateUsers", "Users", "UpdateSchemaIds", "SchemaIds", "Name", "NewOwner", });
+        new java.lang.String[] { "QueueId", "UpdateUsers", "Users", "UpdateSchemaIds", "SchemaIds", });
     internal_static_mlflow_review_queues_UpdateReviewQueue_Response_descriptor =
       internal_static_mlflow_review_queues_UpdateReviewQueue_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_review_queues_UpdateReviewQueue_Response_fieldAccessorTable = new

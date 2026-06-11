@@ -57,10 +57,7 @@ message ReviewQueue {
   // Queue name. For a USER queue this is the (normalized) user identifier.
   optional string name = 3;
   optional ReviewQueueType queue_type = 4;
-  // The queue's owner. On an authenticated server this is server-stamped to the
-  // creating user and is the basis for owner-level authorization (an EDIT user
-  // may manage the queues they own). On a no-auth server it is meaningless and
-  // may be unset. For a USER queue it is the assigned user (attribution only).
+  // Audit-only identifier of the user who created the queue.
   optional string created_by = 5;
   optional int64 creation_time_ms = 6;
   optional int64 last_update_time_ms = 7;
