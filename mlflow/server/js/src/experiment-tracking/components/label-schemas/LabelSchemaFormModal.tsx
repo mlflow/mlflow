@@ -30,6 +30,8 @@ export interface LabelSchemaFormModalProps {
   editingSchema: LabelSchema | null;
   visible: boolean;
   onClose: () => void;
+  /** Called after a new schema is successfully created (not on edit). */
+  onCreated?: (schema: LabelSchema) => void;
 }
 
 /**
@@ -39,7 +41,13 @@ export interface LabelSchemaFormModalProps {
  * while this is open); the form itself is the schema authoring UI shared with
  * the rest of the app.
  */
-export const LabelSchemaFormModal = ({ experimentId, editingSchema, visible, onClose }: LabelSchemaFormModalProps) => {
+export const LabelSchemaFormModal = ({
+  experimentId,
+  editingSchema,
+  visible,
+  onClose,
+  onCreated,
+}: LabelSchemaFormModalProps) => {
   const { theme } = useDesignSystemTheme();
   const isEdit = editingSchema != null;
   const defaultValues = editingSchema ? getFormValuesFromSchema(editingSchema) : DEFAULT_FORM_VALUES;
@@ -89,7 +97,7 @@ export const LabelSchemaFormModal = ({ experimentId, editingSchema, visible, onC
           input,
         });
       } else {
-        await createMutation.createLabelSchemaAsync({
+        const { label_schema } = await createMutation.createLabelSchemaAsync({
           experiment_id: experimentId,
           name: form.name,
           type: form.type,
@@ -97,6 +105,7 @@ export const LabelSchemaFormModal = ({ experimentId, editingSchema, visible, onC
           instruction: form.instruction === '' ? undefined : form.instruction,
           enable_comment: form.enable_comment,
         });
+        onCreated?.(label_schema);
       }
     } catch {
       // Errors surface via `submitError`; keep the modal open.

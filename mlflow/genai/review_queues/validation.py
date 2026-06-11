@@ -3,9 +3,9 @@
 Called from the store layer's create / update / attach / status paths.
 Length caps on the validated identity fields (queue name, user, schema id,
 item id) are aligned with their SQL column widths so a value that passes
-validation also fits its column. Audit-only fields populated by the server
-(e.g. ``created_by``) are not part of the validated payload and follow the
-same convention as the sibling ``label_schemas`` store (unvalidated).
+validation also fits its column. The queue owner (``created_by``) is
+server-controlled — stamped from the authenticated user on create — so it is
+not part of the create payload validated here.
 
 This module is store-layer-internal; callers should not import it
 directly.
@@ -159,6 +159,21 @@ class ValidatedQueue(NamedTuple):
     schema_ids: list[str]
 
 
+def validate_custom_queue_name(name: object) -> str:
+    """Validate + normalize a CUSTOM queue name: a stripped, case-preserved,
+    non-empty, non-reserved string. Used by the queue-create path.
+    """
+    if not isinstance(name, str):
+        raise _invalid(f"`name` must be a string; got {name!r}.")
+    normalized_name = name.strip()
+    _validate_non_empty_string(normalized_name, "name", QUEUE_NAME_MAX_LENGTH)
+    if normalized_name.lower() == RESERVED_QUEUE_NAME:
+        raise _invalid(
+            f"`{normalized_name}` is a reserved queue name and cannot be used for a custom queue."
+        )
+    return normalized_name
+
+
 def validate_queue_for_create(
     *,
     name: object,
@@ -199,15 +214,7 @@ def validate_queue_for_create(
                 "of the experiment's label schemas."
             )
     else:
-        if not isinstance(name, str):
-            raise _invalid(f"`name` must be a string; got {name!r}.")
-        normalized_name = name.strip()
-        _validate_non_empty_string(normalized_name, "name", QUEUE_NAME_MAX_LENGTH)
-        if normalized_name.lower() == RESERVED_QUEUE_NAME:
-            raise _invalid(
-                f"`{normalized_name}` is a reserved queue name and cannot be used for a "
-                "custom queue."
-            )
+        normalized_name = validate_custom_queue_name(name)
 
     return ValidatedQueue(
         queue_type=coerced_type,

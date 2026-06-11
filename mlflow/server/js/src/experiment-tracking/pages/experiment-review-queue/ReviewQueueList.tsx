@@ -102,7 +102,7 @@ export const ReviewQueueList = ({
    *  so the queue's manager can remove traces from this view. */
   onRemoveItems?: (itemIds: string[]) => void;
   isRemovingItems?: boolean;
-  /** When provided (editable non-default custom queues only), a gear menu offers
+  /** When provided (editable custom queues only), a gear menu offers
    *  "Manage queue"; `onDeleteQueue`, when also provided, adds "Delete queue". */
   onManageQueue?: () => void;
   onDeleteQueue?: () => void;
@@ -222,14 +222,14 @@ export const ReviewQueueList = ({
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: theme.spacing.sm }}>
-      {(title || selectable || onManageQueue) && (
+      {(title || selectable || onManageQueue || onDeleteQueue) && (
         <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm }}>
           <div css={{ minWidth: 0 }}>
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs / 2, minWidth: 0 }}>
               <Typography.Title level={3} withoutMargins ellipsis css={{ minWidth: 0 }}>
                 {title}
               </Typography.Title>
-              {onManageQueue && (
+              {(onManageQueue || onDeleteQueue) && (
                 <DropdownMenu.Root modal={false}>
                   <DropdownMenu.Trigger asChild>
                     <Button
@@ -242,12 +242,16 @@ export const ReviewQueueList = ({
                     />
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="start">
-                    <DropdownMenu.Item componentId={`${CID}.manage-queue`} onClick={onManageQueue}>
-                      <FormattedMessage
-                        defaultMessage="Manage queue"
-                        description="Review queue header: manage-queue menu item"
-                      />
-                    </DropdownMenu.Item>
+                    {/* A USER queue has no editable settings, so a manager sees
+                        only "Delete queue"; CUSTOM queues show both. */}
+                    {onManageQueue && (
+                      <DropdownMenu.Item componentId={`${CID}.manage-queue`} onClick={onManageQueue}>
+                        <FormattedMessage
+                          defaultMessage="Manage queue"
+                          description="Review queue header: manage-queue menu item"
+                        />
+                      </DropdownMenu.Item>
+                    )}
                     {onDeleteQueue && (
                       <DropdownMenu.Item danger componentId={`${CID}.delete-queue`} onClick={onDeleteQueue}>
                         <FormattedMessage
@@ -286,8 +290,8 @@ export const ReviewQueueList = ({
               onClick={handleDelete}
             >
               <FormattedMessage
-                defaultMessage="Delete {count, plural, one {# trace} other {# traces}}"
-                description="Review queue: delete selected traces button"
+                defaultMessage="Remove {count, plural, one {# trace} other {# traces}}"
+                description="Review queue: remove selected traces button"
                 values={{ count: selected.size }}
               />
             </Button>
