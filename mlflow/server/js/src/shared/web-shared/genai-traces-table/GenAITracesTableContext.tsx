@@ -41,10 +41,16 @@ export interface GenAITracesTableContextValue<T> {
   showAddToEvaluationDatasetModal?: (traces?: RunEvaluationTracesDataEntry[]) => void;
 
   /**
-   * Function to show the "Add to review queue" modal.
-   * Provide traces to be added to the queue. If `undefined` is passed, the modal is closed.
+   * Render function for the "Add to review queue" dropdown.
+   * Returns a Popover-wrapped trigger element that lets the user pick queues.
    */
-  showAddToReviewQueueModal?: (traces?: RunEvaluationTracesDataEntry[]) => void;
+  renderAddToReviewQueueDropdown?: (params: {
+    selectedTraceInfos: import('../model-trace-explorer/ModelTrace.types').ModelTraceInfoV3[];
+    experimentId: string;
+    children: React.ReactNode;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+  }) => React.ReactNode;
 }
 export const GenAITracesTableContext = createContext<GenAITracesTableContextValue<TraceRow>>({
   table: undefined,
@@ -74,21 +80,12 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [showDatasetModal, setShowDatasetModal] = useState(false);
   const [selectedTraces, setSelectedTraces] = useState<RunEvaluationTracesDataEntry[] | undefined>(undefined);
-  const [showReviewQueueModal, setShowReviewQueueModal] = useState(false);
-  const [selectedReviewQueueTraces, setSelectedReviewQueueTraces] = useState<
-    RunEvaluationTracesDataEntry[] | undefined
-  >(undefined);
 
-  const { renderExportTracesToDatasetsModal, renderAddToReviewQueueModal } = useModelTraceExplorerContext();
+  const { renderExportTracesToDatasetsModal, renderAddToReviewQueueDropdown } = useModelTraceExplorerContext();
 
   const showAddToEvaluationDatasetModal = useCallback((traces?: RunEvaluationTracesDataEntry[]) => {
     setSelectedTraces(traces);
     setShowDatasetModal(!isUndefined(traces));
-  }, []);
-
-  const showAddToReviewQueueModal = useCallback((traces?: RunEvaluationTracesDataEntry[]) => {
-    setSelectedReviewQueueTraces(traces);
-    setShowReviewQueueModal(!isUndefined(traces));
   }, []);
 
   const value = useMemo(
@@ -100,7 +97,7 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
       setSelectedRowIds,
       isGroupedBySession,
       showAddToEvaluationDatasetModal,
-      showAddToReviewQueueModal,
+      renderAddToReviewQueueDropdown: renderAddToReviewQueueDropdown,
       DrawerComponent,
     }),
     // prettier-ignore
@@ -110,7 +107,7 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
       selectedRowIds,
       isGroupedBySession,
       showAddToEvaluationDatasetModal,
-      showAddToReviewQueueModal,
+      renderAddToReviewQueueDropdown,
       DrawerComponent,
     ],
   );
@@ -125,17 +122,6 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
             getExperimentIdFromTraceLocation(selectedTraces?.[0]?.traceInfo?.trace_location) ?? experimentId ?? '',
           visible: showDatasetModal,
           setVisible: setShowDatasetModal,
-        })}
-        {renderAddToReviewQueueModal?.({
-          selectedTraceInfos: selectedReviewQueueTraces
-            ? compact(selectedReviewQueueTraces.map((trace) => trace.traceInfo))
-            : [],
-          experimentId:
-            getExperimentIdFromTraceLocation(selectedReviewQueueTraces?.[0]?.traceInfo?.trace_location) ??
-            experimentId ??
-            '',
-          visible: showReviewQueueModal,
-          setVisible: setShowReviewQueueModal,
         })}
       </GenAITracesTableContext.Provider>
     </ModelTraceExplorerPreferencesProvider>

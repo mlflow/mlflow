@@ -71,11 +71,11 @@ class Utils {
    * underlying notification (e.g. to widen it past the default fixed width so
    * single-line content doesn't wrap).
    */
-  static displayGlobalInfoNotification(content: any, duration?: any, style?: any) {
+  static displayGlobalInfoNotification(content: any, duration?: any, style?: any, key?: string) {
     if (!Utils.#notificationsApi) {
       return;
     }
-    (Utils.#notificationsApi as any).info({ message: content, duration: duration, style: style });
+    (Utils.#notificationsApi as any).info({ message: content, duration: duration, style: style, key: key });
   }
 
   static runNameTag = 'mlflow.runName';

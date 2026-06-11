@@ -2759,10 +2759,6 @@
     "defaultMessage": "Create and manage judges",
     "description": "Title for the empty state of the judges page"
   },
-  "CSee+U": {
-    "defaultMessage": "Please try again.",
-    "description": "Add to review queue: fallback error detail when a failure carries no message"
-  },
   "CTEh+b": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > new run modal > \"cancel\" button label"
@@ -3754,10 +3750,6 @@
   "IMEGsC": {
     "defaultMessage": "Associated MLflow Run if the trace was generated within an MLflow run context",
     "description": "Tooltip description for the Run Name column in the traces table"
-  },
-  "IMk/9c": {
-    "defaultMessage": "{count, plural, one {# queue} other {# queues}} selected",
-    "description": "Add to review queue: destination dropdown selected-count summary"
   },
   "IMkDgM": {
     "defaultMessage": "Experiments",
@@ -5151,10 +5143,6 @@
     "defaultMessage": "Close",
     "description": "Close button"
   },
-  "Q+V7G3": {
-    "defaultMessage": "Add to {count, plural, one {# queue} other {# queues}}",
-    "description": "Add to review queue: confirm button with queue count"
-  },
   "Q/QcTS": {
     "defaultMessage": "Save",
     "description": "Save guardrail changes button"
@@ -5226,10 +5214,6 @@
   "QJ5wvd": {
     "defaultMessage": "Input for the trace",
     "description": "Description for inputs variable"
-  },
-  "QJEOCL": {
-    "defaultMessage": "Select review queues",
-    "description": "Add to review queue: destination dropdown placeholder"
   },
   "QK/Qyx": {
     "defaultMessage": "Total",
@@ -8563,10 +8547,6 @@
     "defaultMessage": "Failed to remove one or more guardrails. Please try again.",
     "description": "Error when bulk guardrail removal fails"
   },
-  "h2+hGy": {
-    "defaultMessage": "Add",
-    "description": "Add to review queue: confirm button"
-  },
   "h2398a": {
     "defaultMessage": "documentation",
     "description": "Documentation link text"
@@ -9926,10 +9906,6 @@
   "naivho": {
     "defaultMessage": "of",
     "description": "Connector between list and element type"
-  },
-  "nbI0of": {
-    "defaultMessage": "Add {count, plural, one {# trace} other {# traces}} to review queues",
-    "description": "Add to review queue modal title"
   },
   "nddV+2": {
     "defaultMessage": "Show less",
