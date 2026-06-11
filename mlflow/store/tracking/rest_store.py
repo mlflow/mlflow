@@ -1135,12 +1135,10 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
         return ReviewQueue.from_proto(response_proto.review_queue)
 
-    def get_or_create_user_queue(self, experiment_id, *, user, created_by=None):
+    def get_or_create_user_queue(self, experiment_id, *, user):
         from mlflow.genai.review_queues import ReviewQueue
 
         req = GetOrCreateUserQueue(experiment_id=str(experiment_id), user=user)
-        if created_by is not None:
-            req.created_by = created_by
         response_proto = self._call_endpoint(
             GetOrCreateUserQueue,
             message_to_json(req),

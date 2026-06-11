@@ -87,6 +87,10 @@ def _run_handler(handler, request_message, store_attr, return_value):
     with (
         mock.patch(f"{_BASE_PATCH}._get_tracking_store") as mock_store,
         mock.patch(f"{_BASE_PATCH}._get_request_message", return_value=request_message),
+        # `_create_review_queue` stamps the owner from the authenticated user
+        # (read off `flask.g`); these are routing tests, so default to no auth.
+        # Owner-stamping behavior itself is covered in `test_handlers.py`.
+        mock.patch(f"{_BASE_PATCH}._get_request_username", return_value=None),
     ):
         getattr(mock_store.return_value, store_attr).return_value = return_value
         response = handler()
@@ -98,7 +102,6 @@ def test_create_review_queue_routes_custom_with_users_and_schemas():
         experiment_id="1",
         name="Q3",
         queue_type=CUSTOM,
-        created_by="kris",
         users=["bob", "carol"],
         schema_ids=["ls-1"],
     )
@@ -118,7 +121,6 @@ def test_create_review_queue_routes_custom_with_users_and_schemas():
     assert kwargs["queue_type"] == ReviewQueueType.CUSTOM
     assert kwargs["users"] == ["bob", "carol"]
     assert kwargs["schema_ids"] == ["ls-1"]
-    assert kwargs["created_by"] == "kris"
 
     body = json.loads(response.get_data())
     assert body["review_queue"]["queue_id"] == "rq-2"
@@ -156,20 +158,10 @@ def test_get_or_create_user_queue_routes():
         "get_or_create_user_queue",
         _queue_entity(),
     )
-    kwargs = store.get_or_create_user_queue.call_args[1]
-    assert kwargs == {"experiment_id": "1", "user": "Alice"}
+    args, kwargs = store.get_or_create_user_queue.call_args
+    assert args == ("1",)
+    assert kwargs == {"user": "Alice"}
     assert json.loads(response.get_data())["review_queue"]["queue_id"] == "rq-1"
-
-
-def test_get_or_create_user_queue_forwards_created_by():
-    request_message = GetOrCreateUserQueue(experiment_id="1", user="alice", created_by="kris")
-    store, _ = _run_handler(
-        _get_or_create_user_queue,
-        request_message,
-        "get_or_create_user_queue",
-        _queue_entity(),
-    )
-    assert store.get_or_create_user_queue.call_args[1]["created_by"] == "kris"
 
 
 def test_get_review_queue_routes():

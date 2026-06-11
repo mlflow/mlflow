@@ -43,7 +43,11 @@ const pendingItem: ReviewQueueItem = {
   last_update_time_ms: 1_780_000_000_000,
 };
 
-const renderFocused = (schemas: LabelSchema[], onSetStatus: (status: string) => Promise<void>) =>
+const renderFocused = (
+  schemas: LabelSchema[],
+  onSetStatus: (status: string) => Promise<void>,
+  opts: { canReview?: boolean; onAssignSelf?: () => void } = {},
+) =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
@@ -54,6 +58,8 @@ const renderFocused = (schemas: LabelSchema[], onSetStatus: (status: string) => 
           queueName="Test Queue"
           completedBy="tester"
           isSettingStatus={false}
+          canReview={opts.canReview ?? true}
+          onAssignSelf={opts.onAssignSelf}
           onBack={jest.fn()}
           onSelect={jest.fn()}
           onSetStatus={onSetStatus}
@@ -100,5 +106,36 @@ describe('FocusedReview single Pass/Fail auto-submit', () => {
     expect(screen.getByText('Submit')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Pass'));
     expect(onSetStatus).not.toHaveBeenCalled();
+  });
+});
+
+describe('FocusedReview view-only when not assigned', () => {
+  beforeEach(() => {
+    mockCreateAssessment.mockReset();
+    mockCreateAssessment.mockImplementation(() => Promise.resolve());
+  });
+
+  it('shows a not-assigned notice and disables submitting when canReview is false', () => {
+    const onSetStatus = jest.fn((_status: string) => Promise.resolve());
+    // Two questions so the Submit button renders (not the auto-submit case).
+    renderFocused([passFailSchema(), passFailSchema('s2', 'Also good?')], onSetStatus, { canReview: false });
+
+    expect(screen.getByText(/not assigned to this queue/i)).toBeInTheDocument();
+    expect(screen.getByText('Submit').closest('button')).toBeDisabled();
+    fireEvent.click(screen.getAllByText('Pass')[0]);
+    expect(mockCreateAssessment).not.toHaveBeenCalled();
+    expect(onSetStatus).not.toHaveBeenCalled();
+  });
+
+  it('offers an Assign myself action when provided', () => {
+    const onAssignSelf = jest.fn();
+    renderFocused(
+      [passFailSchema()],
+      jest.fn(() => Promise.resolve()),
+      { canReview: false, onAssignSelf },
+    );
+
+    fireEvent.click(screen.getByText('Assign myself'));
+    expect(onAssignSelf).toHaveBeenCalled();
   });
 });

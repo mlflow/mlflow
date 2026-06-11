@@ -20,7 +20,8 @@ import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explor
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { useListLabelSchemasQuery } from '../../components/label-schemas';
-import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useIsAuthAvailable } from '../../../account/hooks';
+import { useIsAuthAvailable } from '../../../account/hooks';
+import { useCanEditReviews } from './hooks/useCanManageReviews';
 import Utils from '../../../common/utils/Utils';
 import { generatePath, Link } from '../../../common/utils/RoutingUtils';
 import { RoutePaths } from '../../routes';
@@ -83,11 +84,11 @@ export const AddToReviewQueueModal = ({
   // Don't let a write stamp `created_by` until the reviewer identity is settled.
   const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
-  const isAdmin = useCurrentUserIsAdmin();
-  const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
-  // The user roster is workspace-admin gated server-side; only fetch it when the
-  // caller can actually list users (and the modal is open).
-  const canListUsers = authAvailable && (isAdmin || isWorkspaceAdmin);
+  // Routing traces (flagging items into any queue, including a user's personal
+  // queue) is an EDIT capability. We fetch the user roster for the per-user queue
+  // picker whenever an editor opens the modal.
+  const canEdit = useCanEditReviews(experimentId);
+  const canListUsers = authAvailable && canEdit;
 
   const [search, setSearch] = useState('');
   // The experiment's default queue. Nothing is selected by default; the caller
@@ -169,7 +170,9 @@ export const AddToReviewQueueModal = ({
   const selectedCount = (defaultQueueChecked ? 1 : 0) + selectedQueueIds.size + selectedUsers.size;
 
   const isWorking = isAddingItems || isResolvingUserQueue || isSubmitting;
-  const canAdd = selectedCount > 0 && itemIds.length > 0 && !isWorking && reviewerResolved;
+  // Flagging traces is an EDIT capability (true on a no-auth server); a READ-only
+  // viewer can open the modal but can't commit the add.
+  const canAdd = canEdit && selectedCount > 0 && itemIds.length > 0 && !isWorking && reviewerResolved;
 
   const triggerValue = useMemo(
     () =>
@@ -402,7 +405,8 @@ export const AddToReviewQueueModal = ({
               >
                 <DialogComboboxOptionList>
                   <DialogComboboxOptionListSearch controlledValue={search} setControlledValue={setSearch}>
-                    {!query && (
+                    {/* Creating a queue (which you then own) requires EDIT. */}
+                    {!query && canEdit && (
                       <Typography.Link
                         componentId={`${CID}.new-queue`}
                         css={{

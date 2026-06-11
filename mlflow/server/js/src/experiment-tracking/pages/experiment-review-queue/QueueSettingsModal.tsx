@@ -26,7 +26,7 @@ import {
   useListLabelSchemasQuery,
 } from '../../components/label-schemas';
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
-import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useIsAuthAvailable } from '../../../account/hooks';
+import { useIsAuthAvailable } from '../../../account/hooks';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { useUpdateReviewQueueMutation } from './hooks/useUpdateReviewQueueMutation';
@@ -35,32 +35,40 @@ import type { ReviewQueue } from './types';
 const CID = 'mlflow.experiment-review-queue.queue-settings';
 
 /**
- * "Manage queue" modal for a non-default CUSTOM queue (opened from the right-pane
- * gear). Edits the queue's questions (the experiment's label schemas it asks,
- * frozen once the queue has traces) and its assigned members (free-text input
- * autocompleting assignable users). The name is shown read-only for now — making
- * it editable needs an UpdateReviewQueue proto change. Deletion lives on the gear
- * menu, not here. Personal USER queues and the default queue aren't managed here.
+ * "Manage queue" modal for a CUSTOM queue (opened from the right-pane gear). The
+ * modal only opens for someone who can manage the queue — an experiment manager
+ * or the owning EDITor — and edits the assigned members (either) and the
+ * questions (manager-only, also frozen once the queue has traces). The name is
+ * read-only here. Deletion lives on the gear menu, not here. Personal USER
+ * queues aren't managed here.
  */
-export const QueueSettingsModal = ({ queue, onClose }: { queue: ReviewQueue; onClose: () => void }) => {
+export const QueueSettingsModal = ({
+  queue,
+  canManage,
+  onClose,
+}: {
+  queue: ReviewQueue;
+  canManage: boolean;
+  onClose: () => void;
+}) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const authAvailable = useIsAuthAvailable();
-  const isAdmin = useCurrentUserIsAdmin();
-  const isWorkspaceAdmin = useCurrentUserIsWorkspaceAdmin();
-  // User listing is workspace-admin gated server-side; gate the query so a
-  // non-admin doesn't 403. Free-text member entry still works without it.
-  const canListUsers = authAvailable && (isAdmin || isWorkspaceAdmin);
+  // Any authenticated user may list users server-side, and the modal only opens
+  // for someone who can edit this queue's members, so the roster is fetched
+  // whenever auth is on. Free-text member entry still works without it.
+  const canListUsers = authAvailable;
 
   const { labelSchemas, isLoading: schemasLoading } = useListLabelSchemasQuery({ experimentId: queue.experiment_id });
   const { items: traces, isLoading: itemsLoading } = useListReviewQueueItemsQuery({ queueId: queue.queue_id });
   const { users: assignableUsers } = useAssignableUsersQuery({ enabled: canListUsers });
   const { updateReviewQueueAsync, isUpdatingQueue, error: updateError } = useUpdateReviewQueueMutation();
 
-  // Questions freeze once the queue has traces (the backend rejects schema
-  // changes then), so the picker is read-only in that case. Default to frozen
-  // until the count loads, so it doesn't flash editable for a queue with traces.
-  const canEditQuestions = !itemsLoading && traces.length === 0;
+  // Questions are an experiment-manager concern (`canManage`) and additionally
+  // freeze once the queue has traces (the backend rejects schema changes then),
+  // so the picker is read-only in either case. Default to frozen until the count
+  // loads, so it doesn't flash editable for a queue with traces.
+  const canEditQuestions = canManage && !itemsLoading && traces.length === 0;
 
   const [selectedSchemaIds, setSelectedSchemaIds] = useState<Set<string>>(new Set(queue.schema_ids ?? []));
   const [members, setMembers] = useState<string[]>(queue.users ?? []);
@@ -152,12 +160,17 @@ export const QueueSettingsModal = ({ queue, onClose }: { queue: ReviewQueue; onC
   });
   const removeMember = (name: string) => setMembers((prev) => prev.filter((m) => m !== name));
 
+  const originalMembers = queue.users ?? [];
+  const membersChanged = members.length !== originalMembers.length || members.some((m) => !originalMembers.includes(m));
+
   const handleSave = async () => {
     await updateReviewQueueAsync({
       queue_id: queue.queue_id,
-      users: members,
+      // Only send `users` when membership changed: a repeated write is an
+      // `update_users` that would otherwise clobber a concurrent edit.
+      ...(membersChanged ? { users: members } : {}),
       // Only send schema_ids when they're still editable; once the queue has
-      // traces the backend freezes them.
+      // traces (or the user lacks MANAGE) the backend freezes them.
       ...(canEditQuestions ? { schema_ids: [...selectedSchemaIds] } : {}),
     });
     onClose();
@@ -187,7 +200,7 @@ export const QueueSettingsModal = ({ queue, onClose }: { queue: ReviewQueue; onC
               <FormUI.Label htmlFor={`${CID}.name-input`}>
                 <FormattedMessage defaultMessage="Name" description="Queue settings: name field label" />
               </FormUI.Label>
-              {/* Renaming a queue needs an UpdateReviewQueue proto change; read-only for now. */}
+              {/* Renaming is handled in a separate stack; read-only here for now. */}
               <Input componentId={`${CID}.name`} id={`${CID}.name-input`} value={queue.name} disabled />
             </div>
 
@@ -200,6 +213,11 @@ export const QueueSettingsModal = ({ queue, onClose }: { queue: ReviewQueue; onC
                   <FormattedMessage
                     defaultMessage="Choose which questions reviewers answer for traces in this queue."
                     description="Queue settings: questions field hint"
+                  />
+                ) : !canManage ? (
+                  <FormattedMessage
+                    defaultMessage="Only an experiment manager can change a queue's questions."
+                    description="Queue settings: questions manager-only hint"
                   />
                 ) : (
                   <FormattedMessage
