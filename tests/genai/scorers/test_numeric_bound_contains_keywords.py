@@ -183,6 +183,21 @@ class TestNumericBound:
         fb = scorer(outputs=2.0)
         assert "maximum" in fb.rationale or "1.0" in fb.rationale
 
+    def test_instructions_normalize_inf_bound(self):
+        from mlflow.genai.scorers import NumericBound
+
+        # An explicit math.inf bound should render as "+inf", matching the
+        # None-bound case, rather than the bare "inf" that str(math.inf) yields.
+        instr = NumericBound(min_value=0.0, max_value=math.inf).instructions
+        assert "+inf" in instr
+        assert "inf," not in instr  # no bare "inf" leaked through
+
+    def test_instructions_normalize_neg_inf_bound(self):
+        from mlflow.genai.scorers import NumericBound
+
+        instr = NumericBound(min_value=-math.inf, max_value=1.0).instructions
+        assert "-inf" in instr
+
 
 # ---------------------------------------------------------------------------
 # ContainsKeywords
@@ -254,14 +269,30 @@ class TestContainsKeywords:
     def test_validation_empty_keywords_raises(self):
         from mlflow.genai.scorers import ContainsKeywords
 
-        with pytest.raises(Exception, match="non-empty"):
+        with pytest.raises(ValueError, match="non-empty"):
             ContainsKeywords(keywords=[])
 
     def test_validation_empty_string_keyword_raises(self):
         from mlflow.genai.scorers import ContainsKeywords
 
-        with pytest.raises(Exception, match="empty strings"):
+        with pytest.raises(ValueError, match="empty strings"):
             ContainsKeywords(keywords=["valid", ""])
+
+    def test_validation_duplicate_keywords_raises(self):
+        from mlflow.genai.scorers import ContainsKeywords
+
+        with pytest.raises(ValueError, match="unique"):
+            ContainsKeywords(keywords=["dup", "other", "dup"])
+
+    def test_mutating_keywords_after_construction_stays_correct(self):
+        from mlflow.genai.scorers import ContainsKeywords
+
+        # Patterns are compiled on demand, so appending to keywords is reflected
+        # immediately rather than matching against a stale compiled cache.
+        scorer = ContainsKeywords(keywords=["alpha"])
+        scorer.keywords.append("beta")
+        _no(scorer(outputs="only alpha here"))
+        _yes(scorer(outputs="alpha and beta here"))
 
     def test_rationale_lists_missing_on_failure(self, scorer):
         fb = scorer(outputs="disclaimer only")

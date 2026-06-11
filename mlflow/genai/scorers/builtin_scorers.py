@@ -3652,10 +3652,19 @@ class NumericBound(BuiltInScorer):
     def feedback_value_type(self) -> Any:
         return Literal["yes", "no"]
 
+    @staticmethod
+    def _format_bound(value: float | None, *, default: str) -> str:
+        """Render a bound for display, normalizing infinities to ``+inf`` / ``-inf``."""
+        if value is None:
+            return default
+        if math.isinf(value):
+            return "+inf" if value > 0 else "-inf"
+        return str(value)
+
     @property
     def instructions(self) -> str:
-        lo = self.min_value if self.min_value is not None else "-inf"
-        hi = self.max_value if self.max_value is not None else "+inf"
+        lo = self._format_bound(self.min_value, default="-inf")
+        hi = self._format_bound(self.max_value, default="+inf")
         bracket = "[]" if self.inclusive else "()"
         field_info = f" (field={self.field!r})" if self.field else ""
         return (
@@ -3689,8 +3698,8 @@ class NumericBound(BuiltInScorer):
             too_low = lo is not None and value <= lo
             too_high = hi is not None and value >= hi
 
-        lo_str = str(lo) if lo is not None else "-inf"
-        hi_str = str(hi) if hi is not None else "+inf"
+        lo_str = self._format_bound(lo, default="-inf")
+        hi_str = self._format_bound(hi, default="+inf")
         bound_type = "inclusive" if self.inclusive else "exclusive"
         bracket = "[]" if self.inclusive else "()"
 
@@ -3856,23 +3865,33 @@ class ContainsKeywords(BuiltInScorer):
     whole_word: bool = False
     required_columns: set[str] = {"outputs"}
     description: str = "Check whether the output contains required keywords or phrases."
-    _compiled: list[re.Pattern[str]] = pydantic.PrivateAttr(default_factory=list)
 
     @pydantic.model_validator(mode="after")
-    def _compile_keywords(self) -> "ContainsKeywords":
+    def _validate_keywords(self) -> "ContainsKeywords":
         if not self.keywords:
             raise ValueError("`keywords` must be a non-empty list.")
-        flags = 0 if self.case_sensitive else re.IGNORECASE
-        compiled = []
+        if any(not kw for kw in self.keywords):
+            raise ValueError("Keywords must not contain empty strings.")
+        if len(set(self.keywords)) != len(self.keywords):
+            raise ValueError("Keywords must be unique (duplicates are not allowed).")
+        # Validate that every keyword compiles to a usable pattern up front so a bad
+        # `whole_word` interaction surfaces at construction, not mid-evaluation.
         for kw in self.keywords:
-            if not kw:
-                raise ValueError("Keywords must not contain empty strings.")
-            pattern = re.escape(kw)
-            if self.whole_word:
-                pattern = r"\b" + pattern + r"\b"
-            compiled.append(re.compile(pattern, flags))
-        self._compiled = compiled
+            self._compile_keyword(kw)
         return self
+
+    def _compile_keyword(self, keyword: str) -> re.Pattern[str]:
+        """Compile a single keyword into a regex pattern.
+
+        Patterns are compiled on demand (and cached by ``re`` internally) rather than
+        stored on the instance, so mutating ``keywords`` after construction can never
+        leave a stale compiled cache behind.
+        """
+        flags = 0 if self.case_sensitive else re.IGNORECASE
+        pattern = re.escape(keyword)
+        if self.whole_word:
+            pattern = r"\b" + pattern + r"\b"
+        return re.compile(pattern, flags)
 
     @property
     def feedback_value_type(self) -> Any:
@@ -3909,8 +3928,9 @@ class ContainsKeywords(BuiltInScorer):
                 rationale="No outputs provided to evaluate.",
             )
 
-        found = [kw for kw, pat in zip(self.keywords, self._compiled) if pat.search(outputs_str)]
-        missing = [kw for kw in self.keywords if kw not in found]
+        found = [kw for kw in self.keywords if self._compile_keyword(kw).search(outputs_str)]
+        found_set = set(found)
+        missing = [kw for kw in self.keywords if kw not in found_set]
 
         if self.mode == "all":
             if missing:
