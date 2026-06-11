@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781167247221,
+  "lastUpdate": 1781168865701,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -8801,6 +8801,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.395542400000068,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sanatbhargava18@gmail.com",
+            "name": "Sanat Bhargava",
+            "username": "sanatb187"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0232258a5d71be0998d4e45d0596d96325cc4d02",
+          "message": "Support common RETRIEVER chunk content fields (#23867)\n\nSigned-off-by: sanatb187 <sanatbhargava18@gmail.com>",
+          "timestamp": "2026-06-11T09:03:49Z",
+          "tree_id": "d446be0f221737a84fd3bcded56d36119d2b9a3d",
+          "url": "https://github.com/mlflow/mlflow/commit/0232258a5d71be0998d4e45d0596d96325cc4d02"
+        },
+        "date": 1781168864203,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 46.28588749999665,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 21.92304361764741,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.190001246153237,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 21.048293526315607,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 20.271526725806662,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 26.062324999998054,
             "unit": "ms"
           }
         ]
