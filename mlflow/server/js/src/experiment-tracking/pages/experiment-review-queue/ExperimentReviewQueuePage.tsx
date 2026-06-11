@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button, ChecklistIcon, Modal, PlusIcon, TableSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  ChecklistIcon,
+  Modal,
+  PlusIcon,
+  TableSkeleton,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { ModelTraceExplorerResizablePane, useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
