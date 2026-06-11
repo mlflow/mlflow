@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
 
-import yaml
+from mlflow.ai_commands.ai_command_utils import parse_frontmatter
 
 SKILL_MANIFEST_FILE = "SKILL.md"
 
@@ -24,19 +24,6 @@ class BundledSkill:
 
 def _find_skill_directories(path: Path) -> list[Path]:
     return [item.parent for item in path.rglob(SKILL_MANIFEST_FILE)]
-
-
-def _parse_skill_manifest(text: str) -> dict[str, str]:
-    """Parse the YAML frontmatter of a ``SKILL.md`` file.
-
-    Returns an empty dict when no frontmatter block is present.
-    """
-    match text.split("---", 2):
-        case ["", frontmatter, _]:
-            data = yaml.safe_load(frontmatter)
-            return data if isinstance(data, dict) else {}
-        case _:
-            return {}
 
 
 def list_bundled_skills() -> list[BundledSkill]:
@@ -59,7 +46,7 @@ def list_bundled_skills() -> list[BundledSkill]:
         if not skill_manifest.is_file():
             continue
         with resources.as_file(skill_manifest) as manifest_path:
-            metadata = _parse_skill_manifest(manifest_path.read_text(encoding="utf-8"))
+            metadata, _ = parse_frontmatter(manifest_path.read_text(encoding="utf-8"))
             skills.append(
                 BundledSkill(
                     name=metadata.get("name") or manifest_path.parent.name,

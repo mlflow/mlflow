@@ -22,7 +22,7 @@ def list_command():
         click.secho(
             "No MLflow skills found in this installation.\n"
             "If you are working from a source checkout, fetch the skills submodule with:\n"
-            "    git submodule update --init mlflow/assistant/skills",
+            "    git submodule update --init --recursive",
             fg="yellow",
         )
         return
