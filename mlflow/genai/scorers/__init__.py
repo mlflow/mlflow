@@ -86,6 +86,7 @@ def __dir__():
 if TYPE_CHECKING:
     from mlflow.genai.scorers.builtin_scorers import (
         Completeness,
+        ContainsKeywords,
         ConversationalGuidelines,
         ConversationalRoleAdherence,
         ConversationalSafety,
@@ -97,6 +98,7 @@ if TYPE_CHECKING:
         Fluency,
         Guidelines,
         KnowledgeRetention,
+        NumericBound,
         PIIDetection,
         RegexMatch,
         RelevanceToQuery,
@@ -108,8 +110,6 @@ if TYPE_CHECKING:
         Summarization,
         ToolCallCorrectness,
         ToolCallEfficiency,
-        ContainsKeywords,
-        NumericBound,
         UserFrustration,
         get_all_scorers,
     )
