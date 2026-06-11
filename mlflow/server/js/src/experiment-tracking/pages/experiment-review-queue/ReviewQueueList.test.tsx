@@ -39,9 +39,7 @@ const NOW = 1_780_000_010_000;
 
 describe('ReviewQueueList', () => {
   it('renders all column headers', () => {
-    renderWithProviders(
-      <ReviewQueueList items={[item('tr-1', 'PENDING')]} onOpen={jest.fn()} nowMs={NOW} />,
-    );
+    renderWithProviders(<ReviewQueueList items={[item('tr-1', 'PENDING')]} onOpen={jest.fn()} nowMs={NOW} />);
     expect(screen.getByText('Request')).toBeInTheDocument();
     expect(screen.getByText('Response')).toBeInTheDocument();
     expect(screen.getByText('Status')).toBeInTheDocument();
@@ -64,9 +62,7 @@ describe('ReviewQueueList', () => {
     mockTraces.mockReturnValueOnce({
       data: [{ info: { trace_id: 'tr-1', request_preview: 'Hello world', response_preview: 'Hi there' } }],
     });
-    renderWithProviders(
-      <ReviewQueueList items={[item('tr-1', 'PENDING')]} onOpen={jest.fn()} nowMs={NOW} />,
-    );
+    renderWithProviders(<ReviewQueueList items={[item('tr-1', 'PENDING')]} onOpen={jest.fn()} nowMs={NOW} />);
     expect(screen.getByText('Hello world')).toBeInTheDocument();
     expect(screen.getByText('Hi there')).toBeInTheDocument();
   });

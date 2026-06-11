@@ -242,9 +242,7 @@ export const ReviewQueueList = ({
             </Tag>
           )}
         </TableCell>
-        <TableCell css={{ flex: colFlex.get('creation_time_ms') }}>
-          {formatAgo(item.creation_time_ms, nowMs)}
-        </TableCell>
+        <TableCell css={{ flex: colFlex.get('creation_time_ms') }}>{formatAgo(item.creation_time_ms, nowMs)}</TableCell>
       </TableRow>
     );
   };
