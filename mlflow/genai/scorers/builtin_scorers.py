@@ -3571,8 +3571,9 @@ class NumericBound(BuiltInScorer):
     This is a deterministic rule-based scorer that runs without an LLM call.
     String outputs are automatically coerced via ``float()``. If the output is
     a list, every element must satisfy the bounds (all-must-pass semantics).
-    ``NaN`` and ``±inf`` always fail unless the corresponding bound is
-    ``±math.inf``.
+    A ``NaN`` or ``±inf`` *output* always fails, since these are degenerate
+    values rather than valid scores. The *bounds* themselves may be ``±inf``
+    to leave one side effectively unbounded, but must not be ``NaN``.
 
     Args:
         name: The name of the scorer. Defaults to ``"numeric_bound"``.
@@ -3630,11 +3631,16 @@ class NumericBound(BuiltInScorer):
     def _validate_bounds(self) -> "NumericBound":
         if self.min_value is None and self.max_value is None:
             raise ValueError("NumericBound requires at least one of `min_value` or `max_value`.")
+        # NaN bounds break all comparisons (every < / > against NaN is False), which would
+        # silently treat any value as in-bounds. Reject them at construction. ±inf is allowed
+        # as a sentinel for an unbounded side.
+        if self.min_value is not None and math.isnan(self.min_value):
+            raise ValueError("`min_value` must not be NaN.")
+        if self.max_value is not None and math.isnan(self.max_value):
+            raise ValueError("`max_value` must not be NaN.")
         if (
             self.min_value is not None
             and self.max_value is not None
-            and not math.isnan(self.min_value)
-            and not math.isnan(self.max_value)
             and self.min_value > self.max_value
         ):
             raise ValueError(
@@ -3874,9 +3880,11 @@ class ContainsKeywords(BuiltInScorer):
 
     @property
     def instructions(self) -> str:
+        match_mode = "whole-word" if self.whole_word else "substring"
         return (
             f"Check whether the output contains {self.mode} of the following keywords: "
-            f"{self.keywords!r}. Case-sensitive: {self.case_sensitive}."
+            f"{self.keywords!r}. Case-sensitive: {self.case_sensitive}. "
+            f"Matching: {match_mode}."
         )
 
     def get_input_fields(self) -> list[JudgeField]:

@@ -145,14 +145,35 @@ class TestNumericBound:
     def test_validation_no_bounds_raises(self):
         from mlflow.genai.scorers import NumericBound
 
-        with pytest.raises(Exception, match="at least one"):
+        with pytest.raises(ValueError, match="at least one"):
             NumericBound()
 
     def test_validation_min_gt_max_raises(self):
         from mlflow.genai.scorers import NumericBound
 
-        with pytest.raises(Exception, match="must be <="):
+        with pytest.raises(ValueError, match="must be <="):
             NumericBound(min_value=10.0, max_value=5.0)
+
+    def test_validation_nan_min_raises(self):
+        from mlflow.genai.scorers import NumericBound
+
+        with pytest.raises(ValueError, match="must not be NaN"):
+            NumericBound(min_value=float("nan"), max_value=1.0)
+
+    def test_validation_nan_max_raises(self):
+        from mlflow.genai.scorers import NumericBound
+
+        with pytest.raises(ValueError, match="must not be NaN"):
+            NumericBound(min_value=0.0, max_value=float("nan"))
+
+    def test_inf_bound_leaves_side_unbounded(self):
+        from mlflow.genai.scorers import NumericBound
+
+        # +inf max bound is allowed and leaves the upper side effectively unbounded,
+        # but a +inf *output* still fails as a degenerate value.
+        scorer = NumericBound(min_value=0.0, max_value=math.inf)
+        _yes(scorer(outputs=1e308))
+        _no(scorer(outputs=math.inf))
 
     def test_rationale_contains_value(self, scorer):
         fb = scorer(outputs=0.5)
@@ -263,3 +284,9 @@ class TestContainsKeywords:
         scorer = ContainsKeywords(keywords=["hello"])
         _yes(scorer(outputs="hello world"))
         _no(scorer(outputs="goodbye world"))
+
+    def test_instructions_reflect_whole_word_setting(self):
+        from mlflow.genai.scorers import ContainsKeywords
+
+        assert "substring" in ContainsKeywords(keywords=["x"]).instructions
+        assert "whole-word" in ContainsKeywords(keywords=["x"], whole_word=True).instructions
