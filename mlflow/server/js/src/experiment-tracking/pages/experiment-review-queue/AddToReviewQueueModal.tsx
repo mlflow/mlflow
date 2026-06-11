@@ -282,6 +282,7 @@ export const AddToReviewQueueModal = ({
         // stacking modals; it reopens when the child form closes (with the new
         // queue selected, in the create-queue case).
         visible={visible && !createOpen}
+        destroyOnClose
         title={
           <FormattedMessage
             defaultMessage="Add {count, plural, one {# trace} other {# traces}} to review queues"
