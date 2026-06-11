@@ -12,14 +12,36 @@ export const isQueueMember = (queue: ReviewQueue, reviewer: string): boolean =>
   (queue.users ?? []).some((u) => sameUser(u, reviewer));
 
 /**
- * Whether the current reviewer may manage a CUSTOM queue — edit its name /
- * members / questions, remove items, and delete it. Allowed to an experiment
- * manager (`canManage`) or the owning experiment EDITor (`canEdit` and they
- * created it). Personal USER queues are never managed here. Ownership amplifies
- * EDIT and never substitutes for it, mirroring the server-side gate.
+ * Whether the current reviewer may manage a CUSTOM queue's settings — edit its
+ * name / members / questions. Allowed to an experiment manager (`canManage`) or
+ * the owning experiment EDITor (`canEdit` and they created it). Personal USER
+ * queues have no editable settings, so they're never managed here. Ownership
+ * amplifies EDIT and never substitutes for it, mirroring the server-side gate.
  */
 export const canManageQueue = (queue: ReviewQueue, reviewer: string, canManage: boolean, canEdit: boolean): boolean =>
   queue.queue_type === 'CUSTOM' && (canManage || (canEdit && isQueueOwner(queue, reviewer)));
+
+/**
+ * Shared rule for the destructive owner/manager queue actions — deleting the
+ * queue and removing its items (un-assigning traces). A manager may act on any
+ * queue; an EDIT owner only on their own CUSTOM queue. A personal USER queue's
+ * lifecycle and contents are a manager's responsibility, never its assignee's,
+ * so an EDIT user can neither delete their USER queue nor prune its traces.
+ * Mirrors the server's `validate_can_delete_review_queue` /
+ * `validate_can_remove_items_from_review_queue`.
+ */
+const canDeleteOrPruneQueue = (queue: ReviewQueue, reviewer: string, canManage: boolean, canEdit: boolean): boolean =>
+  canManage || (canEdit && isQueueOwner(queue, reviewer) && queue.queue_type === 'CUSTOM');
+
+/** Whether the reviewer may delete a queue. See {@link canDeleteOrPruneQueue}. */
+export const canDeleteQueue = canDeleteOrPruneQueue;
+
+/**
+ * Whether the reviewer may remove items (un-assign traces) from a queue. Same
+ * rule as deleting it: a manager may prune any queue, but an EDIT owner only
+ * their own CUSTOM queue. See {@link canDeleteOrPruneQueue}.
+ */
+export const canRemoveQueueItems = canDeleteOrPruneQueue;
 
 /**
  * Whether the current reviewer may open a queue and read its items / answers: a

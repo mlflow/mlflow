@@ -2220,6 +2220,26 @@ def _can_own_or_manage_review_queue(queue, username: str) -> bool:
     return perm.can_update and _is_review_queue_owner(queue, username)
 
 
+def _can_delete_or_prune_review_queue(queue, username: str) -> bool:
+    """Whether the user may delete the queue or remove its items (un-assign work).
+
+    A manager may act on any queue; an EDIT owner only on their own CUSTOM queue.
+    A personal USER queue's lifecycle and contents are a manager's responsibility,
+    not its assignee's, so an EDIT user can neither delete their USER queue nor
+    prune its traces. Ownership amplifies EDIT and never substitutes for it.
+    """
+    from mlflow.genai.review_queues import ReviewQueueType
+
+    perm = _get_experiment_permission(queue.experiment_id, username)
+    if perm.can_manage:
+        return True
+    return (
+        perm.can_update
+        and _is_review_queue_owner(queue, username)
+        and queue.queue_type == ReviewQueueType.CUSTOM
+    )
+
+
 def _update_review_queue_reassigns_owner() -> bool:
     """Whether an ``UpdateReviewQueue`` request reassigns the owner.
 
@@ -2251,28 +2271,20 @@ def validate_can_update_review_queue():
 
 
 def validate_can_remove_items_from_review_queue():
-    # Removing items (un-assigning work) is an owner/manager action, unlike
-    # adding items, which any experiment EDITor may do to any visible queue.
+    # Removing items (un-assigning work) follows the same rule as deleting the
+    # queue: a manager prunes any queue, an EDIT owner only their own CUSTOM
+    # queue. Adding items, by contrast, is open to any EDITor on any visible queue.
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    return _can_own_or_manage_review_queue(queue, username)
+    return _can_delete_or_prune_review_queue(queue, username)
 
 
 def validate_can_delete_review_queue():
     # A manager deletes any queue; an owning EDIT user deletes only their own
     # CUSTOM queue (a USER queue's deletion is MANAGE-only).
-    from mlflow.genai.review_queues import ReviewQueueType
-
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
-    perm = _get_experiment_permission(queue.experiment_id, username)
-    if perm.can_manage:
-        return True
-    return (
-        perm.can_update
-        and _is_review_queue_owner(queue, username)
-        and queue.queue_type == ReviewQueueType.CUSTOM
-    )
+    return _can_delete_or_prune_review_queue(queue, username)
 
 
 def validate_can_add_items_to_review_queue():
