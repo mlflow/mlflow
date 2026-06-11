@@ -3563,8 +3563,6 @@ class ResponseLength(BuiltInScorer):
         )
 
 
-
-
 @experimental(version="3.14.0")
 class NumericBound(BuiltInScorer):
     """
@@ -3631,9 +3629,7 @@ class NumericBound(BuiltInScorer):
     @pydantic.model_validator(mode="after")
     def _validate_bounds(self) -> "NumericBound":
         if self.min_value is None and self.max_value is None:
-            raise ValueError(
-                "NumericBound requires at least one of `min_value` or `max_value`."
-            )
+            raise ValueError("NumericBound requires at least one of `min_value` or `max_value`.")
         if (
             self.min_value is not None
             and self.max_value is not None
@@ -3905,9 +3901,7 @@ class ContainsKeywords(BuiltInScorer):
                 rationale="No outputs provided to evaluate.",
             )
 
-        found = [
-            kw for kw, pat in zip(self.keywords, self._compiled) if pat.search(outputs_str)
-        ]
+        found = [kw for kw, pat in zip(self.keywords, self._compiled) if pat.search(outputs_str)]
         missing = [kw for kw in self.keywords if kw not in found]
 
         if self.mode == "all":
