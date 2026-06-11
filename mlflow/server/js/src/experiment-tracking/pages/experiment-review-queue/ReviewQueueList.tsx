@@ -118,13 +118,10 @@ export const ReviewQueueList = ({
   const [sortKey, setSortKey] = useState<ColumnKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>('none');
   const [statusFilter, setStatusFilterRaw] = useState<StatusFilter>('all');
-  const setStatusFilter = useCallback(
-    (filter: StatusFilter) => {
-      setStatusFilterRaw(filter);
-      setSelected(new Set());
-    },
-    [],
-  );
+  const setStatusFilter = useCallback((filter: StatusFilter) => {
+    setStatusFilterRaw(filter);
+    setSelected(new Set());
+  }, []);
 
   const toggleSort = useCallback(
     (key: ColumnKey) => {
