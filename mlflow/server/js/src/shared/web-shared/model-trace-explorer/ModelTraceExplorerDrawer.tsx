@@ -146,7 +146,7 @@ export const ModelTraceExplorerDrawer = ({
                 children: (
                   <Button componentId="mlflow.evaluations_review.modal.flag_for_review" icon={<PlusIcon />}>
                     <FormattedMessage
-                      defaultMessage="Flag for review"
+                      defaultMessage="Add to review queue"
                       description="Button text for adding a trace to a review queue"
                     />
                   </Button>
