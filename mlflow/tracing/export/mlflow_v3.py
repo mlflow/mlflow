@@ -30,14 +30,6 @@ from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
-_FORCE_SYNC_EXPORT_ENV = "MLFLOW_TESTING_FORCE_SYNC_TRACE_EXPORT"
-
-
-def is_sync_trace_export_forced() -> bool:
-    import os
-
-    return os.environ.get(_FORCE_SYNC_EXPORT_ENV, "").lower() in ("true", "1")
-
 
 class MlflowV3SpanExporter(SpanExporter):
     """
@@ -318,9 +310,6 @@ class MlflowV3SpanExporter(SpanExporter):
         # During evaluate or assertion tests, the harness relies on the generated
         # trace objects being immediately available, so log synchronously.
         if maybe_get_request_id(is_evaluate=True):
-            return False
-
-        if is_sync_trace_export_forced():
             return False
 
         return self._is_async_enabled
