@@ -6,7 +6,7 @@ import { AssistantSparkleIcon, useAssistant } from '../../../assistant';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet, type CodeSnippetLanguage } from '@mlflow/mlflow/src/shared/web-shared/snippet';
 
-const AGENT_SETUP_COMMAND = 'uvx mlflow agent setup';
+const AGENT_SETUP_COMMAND = 'uvx mlflow@latest agent setup';
 
 type TabKey = 'agent-setup' | 'copy-prompt' | 'code-snippet' | 'assistant';
 
