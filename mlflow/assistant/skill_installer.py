@@ -53,7 +53,7 @@ def list_bundled_skills() -> list[BundledSkill]:
             skills.append(
                 BundledSkill(
                     name=metadata.get("name") or manifest_path.parent.name,
-                    description=metadata.get("description", ""),
+                    description=metadata.get("description") or "",
                     path=manifest_path.parent,
                 )
             )
