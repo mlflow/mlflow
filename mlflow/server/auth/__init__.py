@@ -31,6 +31,7 @@ from flask import (
     Request,
     Response,
     flash,
+    g,
     jsonify,
     make_response,
     render_template_string,
@@ -2724,6 +2725,10 @@ def _before_request():
             f"'{type(authorization).__name__}'",
             INTERNAL_ERROR,
         )
+
+    # Expose the authenticated user to request handlers (e.g. to stamp a
+    # trustworthy review-queue owner) via the shared request context.
+    g.mlflow_authenticated_user = authorization.username
 
     # admins don't need to be authorized
     if sender_is_admin():
