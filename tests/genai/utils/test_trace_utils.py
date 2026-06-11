@@ -1,5 +1,6 @@
 import asyncio
 import json
+from collections import OrderedDict
 from typing import Any
 from unittest import mock
 
@@ -23,6 +24,7 @@ from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     _extract_tool_name_from_span,
+    _parse_chunk,
     _should_keep_trace,
     _try_extract_available_tools_with_llm,
     clean_up_extra_traces,
@@ -645,6 +647,139 @@ def test_parse_outputs_to_str(output_data, expected):
 )
 def test_is_none_or_nan(input_value, expected):
     assert is_none_or_nan(input_value) == expected
+
+
+def test_parse_chunk_preserves_empty_page_content():
+    assert _parse_chunk({"page_content": ""}) == {"content": ""}
+
+
+def test_parse_chunk_non_dict_metadata_does_not_drop_valid_content():
+    assert _parse_chunk({"page_content": "text", "metadata": "bad metadata"}) == {"content": "text"}
+
+
+def test_parse_chunk_page_content_none_beats_populated_aliases():
+    chunk = {
+        "page_content": None,
+        "content": "Fallback content",
+        "text": "Fallback text",
+    }
+
+    assert _parse_chunk(chunk) == {"content": None}
+
+
+def _reset_retriever_document_warning_cache(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._WARNED_RETRIEVER_DOCUMENT_KEY_SETS",
+        OrderedDict(),
+    )
+
+
+def test_parse_chunk_warns_once_per_unrecognized_key_set(monkeypatch):
+    _reset_retriever_document_warning_cache(monkeypatch)
+    logged_messages = []
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._logger.warning",
+        lambda message, *args: logged_messages.append(message % args),
+    )
+
+    _parse_chunk({"body": "Body text", "metadata": {"doc_uri": "doc-1"}})
+    _parse_chunk({"body": "Another body text", "metadata": {"doc_uri": "doc-2"}})
+
+    assert len(logged_messages) == 1
+    assert "does not contain any recognized text field" in logged_messages[0]
+    assert "body" in logged_messages[0]
+
+
+def test_parse_chunk_uses_page_content_by_default():
+    chunk = {
+        "page_content": "Page content text",
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    assert _parse_chunk(chunk) == {
+        "content": "Page content text",
+        "doc_uri": "doc-1",
+    }
+
+
+def test_parse_chunk_falls_back_to_content_field():
+    chunk = {
+        "content": "Content text",
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    assert _parse_chunk(chunk) == {
+        "content": "Content text",
+        "doc_uri": "doc-1",
+    }
+
+
+def test_parse_chunk_falls_back_to_text_field():
+    chunk = {
+        "text": "Text field content",
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    assert _parse_chunk(chunk) == {
+        "content": "Text field content",
+        "doc_uri": "doc-1",
+    }
+
+
+def test_parse_chunk_prefers_page_content_over_aliases():
+    chunk = {
+        "page_content": "Preferred text",
+        "content": "Fallback content",
+        "text": "Fallback text",
+    }
+
+    assert _parse_chunk(chunk) == {"content": "Preferred text"}
+
+
+def test_parse_chunk_warns_for_unrecognized_text_field(monkeypatch):
+    _reset_retriever_document_warning_cache(monkeypatch)
+    logged_messages = []
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._logger.warning",
+        lambda message, *args: logged_messages.append(message % args),
+    )
+
+    chunk = {
+        "body": "Body text",
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    parsed_chunk = _parse_chunk(chunk)
+
+    assert parsed_chunk == {"content": None, "doc_uri": "doc-1"}
+    assert len(logged_messages) == 1
+    assert "does not contain any recognized text field" in logged_messages[0]
+    assert "body" in logged_messages[0]
+
+
+def test_parse_chunk_does_not_warn_for_metadata_only_chunk(monkeypatch):
+    _reset_retriever_document_warning_cache(monkeypatch)
+    logged_messages = []
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._logger.warning",
+        lambda message, *args: logged_messages.append(message % args),
+    )
+
+    chunk = {
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    parsed_chunk = _parse_chunk(chunk)
+
+    assert parsed_chunk == {"content": None, "doc_uri": "doc-1"}
+    assert logged_messages == []
+
+
+def test_parse_chunk_returns_none_for_non_dict_chunk():
+    assert _parse_chunk("not a chunk") is None
 
 
 def test_extract_expectations_from_trace_with_source_filter():
