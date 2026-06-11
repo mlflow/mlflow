@@ -276,6 +276,8 @@ def test_add_items_defaults_item_type_to_trace():
     assert kwargs["item_ids"] == ["tr-1", "tr-2"]
     # Unset item_type is not forwarded; the store applies its TRACE default.
     assert "item_type" not in kwargs
+    # The existence check ran against exactly the requested ids.
+    store.batch_get_trace_infos.assert_called_once_with(["tr-1", "tr-2"])
     body = json.loads(response.get_data())
     assert [i["item_id"] for i in body["items"]] == ["tr-1", "tr-2"]
 
@@ -288,6 +290,7 @@ def test_add_items_forwards_explicit_item_type():
         add_return=[_item_entity("tr-1")],
     )
     assert store.add_items_to_review_queue.call_args[1]["item_type"] == ReviewItemType.TRACE
+    store.batch_get_trace_infos.assert_called_once_with(["tr-1"])
 
 
 def test_add_items_rejects_traces_not_in_queue_experiment():
