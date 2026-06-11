@@ -4,6 +4,8 @@ import inspect
 import json
 import logging
 import math
+import threading
+from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Callable
 
 from cachetools.func import cached
@@ -813,12 +815,55 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
     return top_level_retrieval_spans
 
 
+_RETRIEVER_DOCUMENT_CONTENT_KEYS = ("page_content", "content", "text")
+_RETRIEVER_DOCUMENT_METADATA_KEYS = ("metadata",)
+_MAX_RETRIEVER_DOCUMENT_WARNING_KEY_SETS = 128
+_WARNED_RETRIEVER_DOCUMENT_KEY_SETS: OrderedDict[frozenset[str], None] = OrderedDict()
+_WARNED_RETRIEVER_DOCUMENT_KEY_SETS_LOCK = threading.Lock()
+
+
+def _should_warn_for_retriever_document_key_set(key_set: frozenset[str]) -> bool:
+    with _WARNED_RETRIEVER_DOCUMENT_KEY_SETS_LOCK:
+        if key_set in _WARNED_RETRIEVER_DOCUMENT_KEY_SETS:
+            _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.move_to_end(key_set)
+            return False
+
+        _WARNED_RETRIEVER_DOCUMENT_KEY_SETS[key_set] = None
+        if len(_WARNED_RETRIEVER_DOCUMENT_KEY_SETS) > _MAX_RETRIEVER_DOCUMENT_WARNING_KEY_SETS:
+            _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.popitem(last=False)
+
+        return True
+
+
 def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
     if not isinstance(chunk, dict):
         return None
 
-    doc = {"content": chunk.get("page_content")}
-    if doc_uri := chunk.get("metadata", {}).get("doc_uri"):
+    content_key = next(
+        (key for key in _RETRIEVER_DOCUMENT_CONTENT_KEYS if key in chunk),
+        None,
+    )
+    content = chunk.get(content_key) if content_key is not None else None
+
+    if content_key is None:
+        # Many retriever libraries store source/citation details under metadata.
+        # Avoid warning for metadata-only chunks, but warn when other fields are
+        # present because they may contain text under an unsupported key.
+        non_metadata_keys = set(chunk) - set(_RETRIEVER_DOCUMENT_METADATA_KEYS)
+        if non_metadata_keys:
+            key_set = frozenset(map(str, chunk.keys()))
+            if _should_warn_for_retriever_document_key_set(key_set):
+                _logger.warning(
+                    "RETRIEVER span document does not contain any recognized text field. "
+                    "Expected one of %s. Found fields: %s",
+                    list(_RETRIEVER_DOCUMENT_CONTENT_KEYS),
+                    sorted(key_set),
+                )
+
+    metadata = chunk.get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    doc = {"content": content}
+    if doc_uri := metadata.get("doc_uri"):
         doc["doc_uri"] = doc_uri
     return doc
 
