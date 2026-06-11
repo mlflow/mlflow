@@ -59,7 +59,7 @@ describe('ReviewQueueList', () => {
 
   it('renders an empty state when there are no traces', () => {
     renderWithProviders(<ReviewQueueList items={[]} onOpen={jest.fn()} nowMs={NOW} />);
-    expect(screen.getByText('No traces in this queue yet.')).toBeInTheDocument();
+    expect(screen.getByText('No traces in this queue yet')).toBeInTheDocument();
   });
 
   it('calls onOpen with the clicked trace', () => {
