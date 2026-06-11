@@ -12,11 +12,7 @@ def commands():
 
 @commands.command("list")
 def list_command():
-    """List the MLflow skills bundled with this installation.
-
-    Skills are read from the installed package, so this works offline without
-    cloning https://github.com/mlflow/skills.
-    """
+    """List the MLflow skills bundled with this installation."""
     skills = list_bundled_skills()
     if not skills:
         click.secho(

@@ -13,6 +13,7 @@ from pathlib import Path
 from mlflow.ai_commands.ai_command_utils import parse_frontmatter
 
 SKILL_MANIFEST_FILE = "SKILL.md"
+SKILLS_PACKAGE = "mlflow.assistant.skills"
 
 
 @dataclass
@@ -29,15 +30,13 @@ def _find_skill_directories(path: Path) -> list[Path]:
 def list_bundled_skills() -> list[BundledSkill]:
     """List the MLflow skills bundled with this installation.
 
-    Skills live in the ``mlflow.assistant.skills`` package, populated from the
-    https://github.com/mlflow/skills submodule at build time. Reading from the
-    installed package means this works offline and never touches the network.
+    Skills live in the ``mlflow.assistant.skills`` package.
 
     Returns:
         Skills sorted by name. Empty when the submodule is not checked out
         (e.g. a development clone without ``git submodule update --init``).
     """
-    skills_pkg = resources.files("mlflow.assistant.skills")
+    skills_pkg = resources.files(SKILLS_PACKAGE)
     skills = []
     for item in skills_pkg.iterdir():
         if not item.is_dir():
@@ -68,7 +67,7 @@ def install_skills(destination_path: Path) -> list[str]:
         A list of installed skill names.
     """
     destination_dir = destination_path.expanduser()
-    skills_pkg = resources.files("mlflow.assistant.skills")
+    skills_pkg = resources.files(SKILLS_PACKAGE)
     installed_skills = []
 
     for item in skills_pkg.iterdir():
