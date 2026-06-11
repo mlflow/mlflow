@@ -5,7 +5,8 @@ import { ModelTraceExplorerResizablePane, useGetTracesById } from '@databricks/w
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { useListLabelSchemasQuery } from '../../components/label-schemas';
-import { useParams } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
+import Routes from '../../routes';
 import { useMlflowSidebar } from '../../../common/contexts/MlflowSidebarContext';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
@@ -38,6 +39,7 @@ import type { ReviewQueueItem, ReviewStatus } from './types';
 const ExperimentReviewQueuePage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const navigate = useNavigate();
   const { experimentId } = useParams<{ experimentId: string }>();
   const reviewer = useReviewer();
   // Completion stamps `completed_by` with the reviewer, so block it until the
@@ -336,6 +338,9 @@ const ExperimentReviewQueuePage = () => {
         // Gear menu (manage / delete) only for editable non-default custom queues.
         onManageQueue={canManageSelectedQueue ? () => setEditingQueueId(selectedQueue.queue_id) : undefined}
         onDeleteQueue={canManageSelectedQueue ? () => setConfirmDeleteQueueId(selectedQueue.queue_id) : undefined}
+        onGoToTraces={
+          experimentId ? () => navigate(Routes.getExperimentPageTracesTabRoute(experimentId)) : undefined
+        }
       />
     );
   }

@@ -1727,6 +1727,10 @@
     "defaultMessage": "Ignore outliers",
     "description": "Runs charts > line chart > ignore outliers > label"
   },
+  "7GU2wd": {
+    "defaultMessage": "Add traces from the Traces tab to start reviewing them with your team.",
+    "description": "Review queue: empty queue description"
+  },
   "7KKvmS": {
     "defaultMessage": "Created by",
     "description": "Run page > Overview > Run author section label"
@@ -1890,10 +1894,6 @@
   "80LQWB": {
     "defaultMessage": "Run example training code:",
     "description": "Instruction for running example training code in order to log MLflow 3 models"
-  },
-  "80neA7": {
-    "defaultMessage": "Request",
-    "description": "Review queue table: request column"
   },
   "81+fJx": {
     "defaultMessage": "Couldn't load model information due to an error.",
@@ -2551,9 +2551,9 @@
     "defaultMessage": "No runs selected",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > title"
   },
-  "BIJkW8": {
-    "defaultMessage": "Completed ({count})",
-    "description": "Review queue status filter: completed"
+  "BK81F7": {
+    "defaultMessage": "Trace",
+    "description": "Review queue table: trace column"
   },
   "BMUd0e": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
@@ -5215,6 +5215,10 @@
     "defaultMessage": "Prompts",
     "description": "Sidebar link for prompts tab"
   },
+  "QBk7Op": {
+    "defaultMessage": "Completed",
+    "description": "Review queue table: completed group label"
+  },
   "QC5Vjq": {
     "defaultMessage": "Y-axis:",
     "description": "Label where the users can choose the metric of the experiment run to be plotted on the Y-axis"
@@ -5342,10 +5346,6 @@
   "QravWY": {
     "defaultMessage": "Optimize Prompt",
     "description": "Title of the optimize prompt modal"
-  },
-  "Qs1m5L": {
-    "defaultMessage": "All ({count})",
-    "description": "Review queue status filter: all"
   },
   "QsVaFr": {
     "defaultMessage": "{count, plural, one {# endpoint is} other {# endpoints are}} currently in use. Deleting will break connections to resources using them.",
@@ -6090,6 +6090,10 @@
   "Uqhamv": {
     "defaultMessage": "Ground truth values annotated to the trace",
     "description": "Tooltip description for the Expectation column group in the traces table"
+  },
+  "UrjOfF": {
+    "defaultMessage": "To do",
+    "description": "Review queue table: to-do group label"
   },
   "UsvDLH": {
     "defaultMessage": "Select a workspace",
@@ -6955,6 +6959,10 @@
     "defaultMessage": "Operator",
     "description": "Usage overview > filter row > operator dropdown aria label"
   },
+  "ZGhYvh": {
+    "defaultMessage": "No traces in this queue yet",
+    "description": "Review queue: empty queue title"
+  },
   "ZGrkWk": {
     "defaultMessage": "Perform inference via model.transform()",
     "description": "Code comment which states how we can perform SparkML inference"
@@ -7375,6 +7383,10 @@
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
   },
+  "bLBdqH": {
+    "defaultMessage": "Completed by",
+    "description": "Review queue table: completed-by column"
+  },
   "bO0wxq": {
     "defaultMessage": "Advanced settings",
     "description": "Collapsible section for advanced settings"
@@ -7434,10 +7446,6 @@
   "ba7/ni": {
     "defaultMessage": "A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings.",
     "description": "Tooltip explaining the demo experiment in the experiments list"
-  },
-  "baFXAM": {
-    "defaultMessage": "No traces in this queue yet.",
-    "description": "Review queue empty state"
   },
   "bcFuUb": {
     "defaultMessage": "Are you sure you want to remove {count, plural, one {this guardrail} other {these # guardrails}}?",
@@ -8146,6 +8154,10 @@
   "f/An1W": {
     "defaultMessage": "Ready.",
     "description": "Default status message for model versions that are ready"
+  },
+  "f/Oiy3": {
+    "defaultMessage": "Add traces",
+    "description": "Review queue: button to navigate to Traces tab"
   },
   "f3LAjV": {
     "defaultMessage": "Select ({count})",
@@ -10667,10 +10679,6 @@
     "defaultMessage": "This passphrase protects encryption keys and should never be shared. {securityNote}",
     "description": "AI Gateway setup guide > Passphrase warning"
   },
-  "rDxqAu": {
-    "defaultMessage": "Response",
-    "description": "Review queue table: response column"
-  },
   "rFJSWc": {
     "defaultMessage": "Attempt to display",
     "description": "Button label for forcing the display of a large trace"
@@ -11791,10 +11799,6 @@
     "defaultMessage": "Recent Experiments",
     "description": "Home page experiments preview title"
   },
-  "xPNtk7": {
-    "defaultMessage": "Needs review ({count})",
-    "description": "Review queue status filter: needs review"
-  },
   "xPkIEE": {
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                                on the model view page"
@@ -12178,6 +12182,10 @@
   "zLTdCZ": {
     "defaultMessage": "Reviewed",
     "description": "Evaluation review > assessments > already reviewed indicator"
+  },
+  "zLpu4g": {
+    "defaultMessage": "Nothing left to review.",
+    "description": "Review queue table: empty to-do group"
   },
   "zMhOr3": {
     "defaultMessage": "Cancel",

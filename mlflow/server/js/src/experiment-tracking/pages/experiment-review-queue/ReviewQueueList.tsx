@@ -3,12 +3,12 @@ import { useMemo, useState } from 'react';
 import {
   Button,
   Checkbox,
+  ChecklistIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   DropdownMenu,
-  Empty,
   GearIcon,
-  SearchIcon,
+  PlusIcon,
   Table,
   TableCell,
   TableHeader,
@@ -86,6 +86,7 @@ export const ReviewQueueList = ({
   isRemovingItems,
   onManageQueue,
   onDeleteQueue,
+  onGoToTraces,
 }: {
   items: ReviewQueueItem[];
   /** Queue name shown in the header, next to the question count + gear menu. */
@@ -104,6 +105,7 @@ export const ReviewQueueList = ({
    *  "Manage queue"; `onDeleteQueue`, when also provided, adds "Delete queue". */
   onManageQueue?: () => void;
   onDeleteQueue?: () => void;
+  onGoToTraces?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -293,13 +295,47 @@ export const ReviewQueueList = ({
       )}
 
       {items.length === 0 ? (
-        <div css={{ display: 'flex', justifyContent: 'center', width: '100%', padding: theme.spacing.lg }}>
-          <Empty
-            description={
-              <FormattedMessage defaultMessage="No traces in this queue yet." description="Review queue empty state" />
-            }
-            image={<SearchIcon />}
-          />
+        <div
+          css={{
+            display: 'flex',
+            flex: 1,
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100%',
+            minHeight: 400,
+            padding: theme.spacing.md,
+          }}
+        >
+          <ChecklistIcon css={{ fontSize: 48, color: theme.colors.textSecondary, marginBottom: theme.spacing.md }} />
+          <Typography.Title level={3} color="secondary">
+            <FormattedMessage
+              defaultMessage="No traces in this queue yet"
+              description="Review queue: empty queue title"
+            />
+          </Typography.Title>
+          <Typography.Paragraph
+            color="secondary"
+            css={{ maxWidth: 520, textAlign: 'center', marginBottom: theme.spacing.md }}
+          >
+            <FormattedMessage
+              defaultMessage="Add traces from the Traces tab to start reviewing them with your team."
+              description="Review queue: empty queue description"
+            />
+          </Typography.Paragraph>
+          {onGoToTraces && (
+            <Button
+              componentId={`${CID}.go-to-traces`}
+              type="primary"
+              icon={<PlusIcon />}
+              onClick={onGoToTraces}
+            >
+              <FormattedMessage
+                defaultMessage="Add traces"
+                description="Review queue: button to navigate to Traces tab"
+              />
+            </Button>
+          )}
         </div>
       ) : (
         <div css={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
