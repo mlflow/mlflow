@@ -8,6 +8,7 @@ import {
   ChevronRightIcon,
   DropdownMenu,
   GearIcon,
+  NewWindowIcon,
   PlusIcon,
   Table,
   TableCell,
@@ -328,6 +329,7 @@ export const ReviewQueueList = ({
               componentId={`${CID}.go-to-traces`}
               type="primary"
               icon={<PlusIcon />}
+              endIcon={<NewWindowIcon />}
               onClick={onGoToTraces}
             >
               <FormattedMessage
