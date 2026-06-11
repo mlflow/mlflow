@@ -16,7 +16,6 @@ import threading
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any
 
 from mlflow._assertions.runner import AssertionResult
 
@@ -116,7 +115,8 @@ def record(test_name: str, results: list[AssertionResult]) -> None:
     if repeat_index() is not None:
         return
     with _lock:
-        _results.extend((test_name, r) for r in results)
+        for r in results:
+            _results.append((test_name, r))
 
 
 def record_repeat_case(
@@ -136,8 +136,8 @@ def snapshot() -> list[tuple[str, AssertionResult]]:
         return list(_results)
 
 
-def aggregate_by_scorer(snap: list[tuple[str, AssertionResult]]) -> dict[str, dict[str, Any]]:
-    by_scorer: dict[str, dict[str, Any]] = defaultdict(lambda: {"pass": 0, "fail": 0, "fails": []})
+def aggregate_by_scorer(snap: list[tuple[str, AssertionResult]]) -> dict[str, dict]:
+    by_scorer: dict[str, dict] = defaultdict(lambda: {"pass": 0, "fail": 0, "fails": []})
     for test_name, result in snap:
         bucket = by_scorer[result.scorer_name]
         if result.passed:
@@ -154,7 +154,8 @@ def build_trace_tags(
     tags: dict[str, str] = {}
     if test_name:
         tags[TAG_TEST_NAME] = test_name
-    if sid := session_id():
+    sid = session_id()
+    if sid:
         tags[TAG_SESSION_ID] = sid
     if case_id:
         tags[TAG_CASE_ID] = case_id
@@ -216,8 +217,8 @@ def finalize(exitstatus: int) -> None:
     Per-scorer pass rates land as ``pass_rate.<scorer>``; per-case feedback
     already lives on the linked traces, so it isn't re-logged at run level.
     """
-    run_id_local = _run_id
-    if run_id_local is None:
+    global _run_id, _run_owned
+    if _run_id is None:
         return
 
     import mlflow
@@ -228,9 +229,10 @@ def finalize(exitstatus: int) -> None:
         client = MlflowClient()
         total_pass = total_fail = 0
         for scorer_name, bucket in aggregate_by_scorer(snap).items():
-            if n := bucket["pass"] + bucket["fail"]:
+            n = bucket["pass"] + bucket["fail"]
+            if n:
                 try:
-                    client.log_metric(run_id_local, f"pass_rate.{scorer_name}", bucket["pass"] / n)
+                    client.log_metric(_run_id, f"pass_rate.{scorer_name}", bucket["pass"] / n)
                 except Exception as e:
                     _logger.warning("Failed to log pass_rate.%s: %s", scorer_name, e)
             total_pass += bucket["pass"]
@@ -241,16 +243,14 @@ def finalize(exitstatus: int) -> None:
             ("total_count", total_pass + total_fail),
         ):
             try:
-                client.log_metric(run_id_local, key, value)
+                client.log_metric(_run_id, key, value)
             except Exception as e:
                 _logger.warning("Failed to log %s: %s", key, e)
         for case in repeat_cases():
             label = case.test_name + (f".{case.case_id}" if case.case_id else "")
             if case.runs:
                 try:
-                    client.log_metric(
-                        run_id_local, f"repeat_pass_rate.{label}", case.passes / case.runs
-                    )
+                    client.log_metric(_run_id, f"repeat_pass_rate.{label}", case.passes / case.runs)
                 except Exception as e:
                     _logger.warning("Failed to log repeat_pass_rate.%s: %s", label, e)
     finally:
@@ -259,4 +259,4 @@ def finalize(exitstatus: int) -> None:
             try:
                 mlflow.end_run(status=status)
             except Exception as e:
-                _logger.warning("Failed to end run %s: %s", run_id_local, e)
+                _logger.warning("Failed to end run %s: %s", _run_id, e)

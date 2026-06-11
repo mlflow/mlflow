@@ -30,7 +30,6 @@ from __future__ import annotations
 import inspect
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
 
 import pytest
 
@@ -180,13 +179,11 @@ def _make_bundle_callable(bundled_items: list[pytest.Function]):
         )
         from mlflow.tracing.export.mlflow_v3 import disable_async_trace_export
 
-        with (
-            configure_autologging_for_evaluation(enable_tracing=True),
-            disable_async_trace_export(),
-        ):
+        with configure_autologging_for_evaluation(enable_tracing=True), disable_async_trace_export():
             _session.ensure_run()
             if workers == 1:
-                results.extend((item, _execute_one(item, fixtures)) for item in bundled_items)
+                for item in bundled_items:
+                    results.append((item, _execute_one(item, fixtures)))
             else:
                 pool_size = min(workers, len(bundled_items))
                 with ThreadPoolExecutor(
@@ -198,9 +195,8 @@ def _make_bundle_callable(bundled_items: list[pytest.Function]):
                     }
                     future_lookup = {future_to_item[f]: f for f in future_to_item}
                     try:
-                        results.extend(
-                            (item, future_lookup[item].result()) for item in bundled_items
-                        )
+                        for item in bundled_items:
+                            results.append((item, future_lookup[item].result()))
                     except KeyboardInterrupt:
                         executor.shutdown(cancel_futures=True)
                         raise
@@ -218,7 +214,7 @@ def _make_bundle_callable(bundled_items: list[pytest.Function]):
     return bundle_body
 
 
-def _build_item_args(item: pytest.Function, fixtures: dict[str, Any]) -> dict[str, Any]:
+def _build_item_args(item: pytest.Function, fixtures: dict) -> dict:
     """Pick the fixture/param subset this item's body actually accepts."""
     # Use the function's signature, not item.fixturenames - the latter can include
     # plugin-injected extras (e.g. pytest-asyncio's event_loop_policy).
@@ -229,9 +225,9 @@ def _build_item_args(item: pytest.Function, fixtures: dict[str, Any]) -> dict[st
     accepted = set(signature.parameters) if signature else set(item.fixturenames)
 
     callspec = getattr(item, "callspec", None)
-    param_values: dict[str, Any] = dict(callspec.params) if callspec is not None else {}
+    param_values = dict(callspec.params) if callspec is not None else {}
 
-    item_args: dict[str, Any] = {}
+    item_args: dict = {}
     for name in accepted:
         if name in param_values:
             item_args[name] = param_values[name]
@@ -240,7 +236,7 @@ def _build_item_args(item: pytest.Function, fixtures: dict[str, Any]) -> dict[st
     return item_args
 
 
-def _execute_one(item: pytest.Function, fixtures: dict[str, Any]) -> BaseException | None:
+def _execute_one(item: pytest.Function, fixtures: dict) -> BaseException | None:
     """Run one bundled test's body with the appropriate fixture subset.
 
     Returns the raised exception (or None). The caller re-raises inside the
@@ -273,7 +269,7 @@ def _execute_one(item: pytest.Function, fixtures: dict[str, Any]) -> BaseExcepti
 
 def _run_repeated(
     item: pytest.Function,
-    item_args: dict[str, Any],
+    item_args: dict,
     test_name: str,
     case_id: str | None,
     repeat: int,
@@ -330,7 +326,7 @@ def pytest_collection_modifyitems(session: pytest.Session, items: list[pytest.It
     in ``_execute_one`` only sees when the test runs through the bundle runner.
     Non-marked tests are left alone.
     """
-    by_module: dict[Any, list[pytest.Item]] = {}
+    by_module: dict = {}
     for item in items:
         if _is_mlflow_test(item):
             by_module.setdefault(item.module, []).append(item)
