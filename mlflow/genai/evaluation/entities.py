@@ -17,6 +17,20 @@ from mlflow.genai.evaluation.context import get_context
 from mlflow.genai.evaluation.utils import is_none_or_nan
 
 
+def _is_passing_value(value) -> bool:
+    match value:
+        case bool():
+            return value
+        case str():
+            return value.lower().strip() in {"yes", "pass", "true"}
+        case int() | float():
+            return value >= 0.5
+        case list():
+            return all(_is_passing_value(v) for v in value)
+        case _:
+            return False
+
+
 @dataclass
 class ScorerStat:
     """Statistics for a single scorer's invocations during evaluation.
@@ -242,6 +256,51 @@ class EvaluationResult:
             f"    {metrics_str}\n"
             f"  result_df: {result_df_str}\n"
             ")"
+        )
+
+    def assert_passed(self) -> None:
+        """Raise ``AssertionError`` if any scorer reported a failing value.
+
+        Checks every row in ``result_df`` for scorer columns (``<name>/value``).
+        A value passes when it is ``True``, ``"yes"``/``"pass"``/``"true"``
+        (case-insensitive), or a number ``>= 0.5``.
+
+        Raises:
+            AssertionError: if any scorer reports a failing value.
+        """
+        if self.result_df is None:
+            return
+
+        value_cols = [c for c in self.result_df.columns if c.endswith("/value")]
+        if not value_cols:
+            return
+
+        failures: list[str] = []
+        for _, row in self.result_df.iterrows():
+            for col in value_cols:
+                scorer_name = col.removesuffix("/value")
+                value = row.get(col)
+                if is_none_or_nan(value) or not _is_passing_value(value):
+                    rationale_col = f"{scorer_name}/rationale"
+                    rationale = row.get(rationale_col) if rationale_col in row.index else None
+                    if is_none_or_nan(rationale):
+                        rationale = None
+                    error_col = f"{scorer_name}/error_message"
+                    error_msg = row.get(error_col) if error_col in row.index else None
+                    if is_none_or_nan(error_msg):
+                        error_msg = None
+                    detail = rationale or error_msg
+                    failures.append(
+                        f"{scorer_name}: {detail}" if detail else f"{scorer_name}: value={value!r}"
+                    )
+
+        if not failures:
+            return
+
+        if len(failures) == 1:
+            raise AssertionError(failures[0])
+        raise AssertionError(
+            f"{len(failures)} assertions failed:\n" + "\n".join(f"  - {f}" for f in failures)
         )
 
     # For backwards compatibility
