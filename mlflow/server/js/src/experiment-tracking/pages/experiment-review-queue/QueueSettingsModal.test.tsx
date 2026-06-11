@@ -99,36 +99,13 @@ describe('QueueSettingsModal save', () => {
     expect(arg).toMatchObject({ queue_id: 'rq-1' });
   });
 
-  it('sends the new name when renamed and omits an unchanged owner', async () => {
-    renderModal();
-    fireEvent.change(screen.getByDisplayValue('My Queue'), { target: { value: 'Renamed' } });
-    fireEvent.click(screen.getByText('Save'));
-    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
-    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
-    expect(arg).toMatchObject({ name: 'Renamed' });
-    expect('new_owner' in arg).toBe(false);
-  });
-
-  it('sends new_owner when a manager changes the owner', async () => {
-    renderModal();
-    fireEvent.change(screen.getByPlaceholderText('Owner username or email'), { target: { value: 'bob' } });
-    fireEvent.click(screen.getByText('Save'));
-    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
-    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ new_owner: 'bob' }));
-  });
-
-  it('hides the owner field and freezes questions for a non-manager editor', async () => {
+  it('freezes questions for a non-manager editor (schema_ids omitted on save)', async () => {
     renderModal({ canManage: false });
-    expect(screen.queryByPlaceholderText('Owner username or email')).toBeNull();
-    // A non-manager editor can still rename the queue they own.
-    fireEvent.change(screen.getByDisplayValue('My Queue'), { target: { value: 'Renamed' } });
     fireEvent.click(screen.getByText('Save'));
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
     const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
-    // ...but never the questions or owner.
-    expect(arg).toMatchObject({ queue_id: 'rq-1', name: 'Renamed' });
     expect('schema_ids' in arg).toBe(false);
-    expect('new_owner' in arg).toBe(false);
+    expect(arg).toMatchObject({ queue_id: 'rq-1' });
   });
 
   it('omits unchanged fields entirely on a no-op save', async () => {

@@ -144,42 +144,6 @@ def test_remove_items_on_user_queue_is_manage_only(monkeypatch):
     assert auth.validate_can_remove_items_from_review_queue() is False
 
 
-def test_owner_reassignment_requires_manage(monkeypatch):
-    # An owning EDIT user may edit shape but NOT reassign the owner.
-    _setup(
-        monkeypatch,
-        permission="EDIT",
-        created_by="alice",
-        username="alice",
-        update_body={"queue_id": "q1", "new_owner": "victim"},
-    )
-    assert auth.validate_can_update_review_queue() is False
-
-    # A manager may reassign the owner.
-    _setup(
-        monkeypatch,
-        permission="MANAGE",
-        created_by="bob",
-        username="alice",
-        update_body={"queue_id": "q1", "new_owner": "victim"},
-    )
-    assert auth.validate_can_update_review_queue() is True
-
-
-def test_owner_reassignment_via_camelcase_still_requires_manage(monkeypatch):
-    # Regression: protobuf JSON also accepts the camelCase `newOwner`. The gate
-    # must detect it by parsing the proto (not scanning raw JSON keys), so an
-    # owning EDIT user can't dodge the MANAGE-only owner reassignment.
-    _setup(
-        monkeypatch,
-        permission="EDIT",
-        created_by="alice",
-        username="alice",
-        update_body={"queue_id": "q1", "newOwner": "victim"},
-    )
-    assert auth.validate_can_update_review_queue() is False
-
-
 def test_delete_owner_can_delete_own_custom_but_not_user(monkeypatch):
     # Manager deletes any queue.
     _setup(monkeypatch, permission="MANAGE", created_by="bob", username="alice")

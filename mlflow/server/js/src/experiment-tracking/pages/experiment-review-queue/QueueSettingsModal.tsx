@@ -37,11 +37,10 @@ const CID = 'mlflow.experiment-review-queue.queue-settings';
 /**
  * "Manage queue" modal for a CUSTOM queue (opened from the right-pane gear). The
  * modal only opens for someone who can manage the queue — an experiment manager
- * or the owning EDITor. The name and assigned members are editable by either;
- * the questions (also frozen once the queue has traces) and a new
- * owner-reassignment field can only be changed by an experiment manager
- * (`canManage`). Deletion lives on the gear menu, not here. Personal USER queues
- * aren't managed here.
+ * or the owning EDITor — and edits the assigned members (either) and the
+ * questions (manager-only, also frozen once the queue has traces). The name is
+ * read-only here. Deletion lives on the gear menu, not here. Personal USER
+ * queues aren't managed here.
  */
 export const QueueSettingsModal = ({
   queue,
@@ -71,9 +70,6 @@ export const QueueSettingsModal = ({
   // loads, so it doesn't flash editable for a queue with traces.
   const canEditQuestions = canManage && !itemsLoading && traces.length === 0;
 
-  const [name, setName] = useState(queue.name);
-  // Owner reassignment is manager-only; pre-fill with the current owner.
-  const [owner, setOwner] = useState(queue.created_by ?? '');
   const [selectedSchemaIds, setSelectedSchemaIds] = useState<Set<string>>(new Set(queue.schema_ids ?? []));
   const [members, setMembers] = useState<string[]>(queue.users ?? []);
   const [createQuestionOpen, setCreateQuestionOpen] = useState(false);
@@ -164,25 +160,15 @@ export const QueueSettingsModal = ({
   });
   const removeMember = (name: string) => setMembers((prev) => prev.filter((m) => m !== name));
 
-  const trimmedName = name.trim();
-  const trimmedOwner = owner.trim();
-  const nameChanged = trimmedName !== queue.name;
-  // Owner can only change for a manager; ignore a cleared field (the backend
-  // requires a non-empty owner) so blanking it is a no-op rather than an error.
-  const ownerChanged = canManage && trimmedOwner !== '' && trimmedOwner !== (queue.created_by ?? '');
   const originalMembers = queue.users ?? [];
   const membersChanged = members.length !== originalMembers.length || members.some((m) => !originalMembers.includes(m));
-  const canSave = trimmedName !== '';
 
   const handleSave = async () => {
     await updateReviewQueueAsync({
       queue_id: queue.queue_id,
-      // Send each field only when it actually changed: a repeated `users` write
-      // is an `update_users` that would otherwise clobber a concurrent edit, and
-      // name / owner skip the backend's rename collision and owner re-validation.
+      // Only send `users` when membership changed: a repeated write is an
+      // `update_users` that would otherwise clobber a concurrent edit.
       ...(membersChanged ? { users: members } : {}),
-      ...(nameChanged ? { name: trimmedName } : {}),
-      ...(ownerChanged ? { new_owner: trimmedOwner } : {}),
       // Only send schema_ids when they're still editable; once the queue has
       // traces (or the user lacks MANAGE) the backend freezes them.
       ...(canEditQuestions ? { schema_ids: [...selectedSchemaIds] } : {}),
@@ -203,7 +189,7 @@ export const QueueSettingsModal = ({
           { name: queue.name },
         )}
         okText={<FormattedMessage defaultMessage="Save" description="Queue settings: save button" />}
-        okButtonProps={{ loading: isUpdatingQueue, disabled: isUpdatingQueue || !canSave }}
+        okButtonProps={{ loading: isUpdatingQueue, disabled: isUpdatingQueue }}
         cancelText={<FormattedMessage defaultMessage="Cancel" description="Queue settings: cancel button" />}
         onOk={handleSave}
         onCancel={onClose}
@@ -214,39 +200,9 @@ export const QueueSettingsModal = ({
               <FormUI.Label htmlFor={`${CID}.name-input`}>
                 <FormattedMessage defaultMessage="Name" description="Queue settings: name field label" />
               </FormUI.Label>
-              <Input
-                componentId={`${CID}.name`}
-                id={`${CID}.name-input`}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
+              {/* Renaming is handled in a separate stack; read-only here for now. */}
+              <Input componentId={`${CID}.name`} id={`${CID}.name-input`} value={queue.name} disabled />
             </div>
-
-            {/* Owner reassignment is an experiment-manager action; an editor who
-                owns the queue manages its name and members but not who owns it. */}
-            {canManage && authAvailable && (
-              <div>
-                <FormUI.Label htmlFor={`${CID}.owner-input`}>
-                  <FormattedMessage defaultMessage="Owner" description="Queue settings: owner field label" />
-                </FormUI.Label>
-                <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
-                  <FormattedMessage
-                    defaultMessage="The owner can manage this queue with experiment EDIT access."
-                    description="Queue settings: owner field hint"
-                  />
-                </FormUI.Hint>
-                <Input
-                  componentId={`${CID}.owner`}
-                  id={`${CID}.owner-input`}
-                  value={owner}
-                  onChange={(e) => setOwner(e.target.value)}
-                  placeholder={intl.formatMessage({
-                    defaultMessage: 'Owner username or email',
-                    description: 'Queue settings: owner field placeholder',
-                  })}
-                />
-              </div>
-            )}
 
             <div>
               <FormUI.Label>
