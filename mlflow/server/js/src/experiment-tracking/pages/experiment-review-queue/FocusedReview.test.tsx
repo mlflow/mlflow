@@ -51,6 +51,7 @@ const renderFocused = (schemas: LabelSchema[], onSetStatus: (status: string) => 
           item={pendingItem}
           items={[pendingItem]}
           schemas={schemas}
+          queueName="Test Queue"
           completedBy="tester"
           isSettingStatus={false}
           onBack={jest.fn()}

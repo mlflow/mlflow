@@ -53,7 +53,7 @@ describe('ReviewQueueList', () => {
     expect(screen.queryByText('tr-2')).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Completed'));
     expect(screen.getByText('tr-2')).toBeInTheDocument();
-    expect(screen.getByText('Complete')).toBeInTheDocument();
+    expect(screen.getByText('Reviewed')).toBeInTheDocument();
     expect(screen.getByText('bob')).toBeInTheDocument();
   });
 

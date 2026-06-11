@@ -39,6 +39,7 @@ import { useGetExperimentPageActiveTabByRoute } from '../../hooks/useGetExperime
 import { useWorkflowType } from '@mlflow/mlflow/src/common/contexts/WorkflowTypeContext';
 import { getTabDisplayIcon, getTabDisplayName } from './ExperimentViewHeader.utils';
 import { formatTraceArchivalRetentionForDisplay } from '../../../../../common/utils/traceArchival';
+import { useReviewQueueTitle } from '../../../../pages/experiment-review-queue/ReviewQueueTitleContext';
 
 const getDocLinkHref = (experimentKind: ExperimentKind) => {
   if (isGenAIExperimentKind(experimentKind)) {
@@ -111,8 +112,10 @@ export const ExperimentViewHeader = React.memo(
       activeTabByRoute === ExperimentPageTabName.Traces ||
       activeTabByRoute === ExperimentPageTabName.ChatSessions ||
       activeTabByRoute === ExperimentPageTabName.SingleChatSession;
+    const { title: reviewQueueTitleOverride } = useReviewQueueTitle();
     const experimentTitle =
-      shouldEnableWorkflowBasedNavigation() && tabDisplayName ? tabDisplayName : normalizedExperimentName;
+      reviewQueueTitleOverride ??
+      (shouldEnableWorkflowBasedNavigation() && tabDisplayName ? tabDisplayName : normalizedExperimentName);
 
     const breadcrumbs: React.ReactNode[] = useMemo(
       () => [

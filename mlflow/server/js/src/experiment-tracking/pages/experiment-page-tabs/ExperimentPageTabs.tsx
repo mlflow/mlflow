@@ -29,6 +29,7 @@ import { useGetExperimentPageActiveTabByRoute } from '../../components/experimen
 import { useNavigateToExperimentPageTab } from '../../components/experiment-page/hooks/useNavigateToExperimentPageTab';
 
 import { ExperimentPageSideNav, ExperimentPageSideNavSkeleton } from './side-nav/ExperimentPageSideNav';
+import { ReviewQueueTitleProvider } from '../experiment-review-queue/ReviewQueueTitleContext';
 
 const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
@@ -185,7 +186,7 @@ const ExperimentPageTabsImpl = () => {
   };
 
   return (
-    <>
+    <ReviewQueueTitleProvider>
       <ExperimentPageHeaderWithDescription
         experiment={experiment}
         loading={loadingExperiment || inferringExperimentType}
@@ -220,7 +221,7 @@ const ExperimentPageTabsImpl = () => {
       ) : (
         <div css={contentWrapperCss}>{outletComponent}</div>
       )}
-    </>
+    </ReviewQueueTitleProvider>
   );
 };
 

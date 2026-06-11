@@ -23,6 +23,7 @@ import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFro
 import { DEFAULT_REVIEWER, displayUser, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
 import { canManageQueue } from './queuePermissions';
+import { useReviewQueueTitle } from './ReviewQueueTitleContext';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 /**
@@ -203,6 +204,17 @@ const ExperimentReviewQueuePage = () => {
     };
   }, [inFocusMode]);
 
+  const { setTitle: setHeaderTitle } = useReviewQueueTitle();
+  const queueDisplayName = selectedQueue
+    ? selectedQueue.queue_type === 'USER'
+      ? displayUser(selectedQueue.name, intl)
+      : selectedQueue.name
+    : null;
+  useEffect(() => {
+    setHeaderTitle(inFocusMode ? queueDisplayName : null);
+    return () => setHeaderTitle(null);
+  }, [inFocusMode, queueDisplayName, setHeaderTitle]);
+
   const selectQueue = (queueId: string) => {
     setSelectedQueueIdState(queueId);
     setOpenItemId(null);
@@ -262,6 +274,7 @@ const ExperimentReviewQueuePage = () => {
         item={openItem}
         items={orderedTraces}
         schemas={questionSchemas}
+        queueName={selectedQueue.queue_type === 'USER' ? displayUser(selectedQueue.name, intl) : selectedQueue.name}
         completedBy={reviewer}
         // Treat an unresolved reviewer like an in-flight write so the complete /
         // decline controls stay disabled until `completed_by` is trustworthy.
