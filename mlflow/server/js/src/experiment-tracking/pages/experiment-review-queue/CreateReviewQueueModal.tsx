@@ -305,14 +305,6 @@ export const CreateReviewQueueModal = ({
                   </div>
                 </div>
               )}
-              {trimmedName.length > 0 && checkedIds.size === 0 && (
-                <Typography.Hint css={{ marginTop: theme.spacing.xs }}>
-                  <FormattedMessage
-                    defaultMessage="Select at least one question so reviewers have something to answer."
-                    description="Create review queue: no-questions-selected warning"
-                  />
-                </Typography.Hint>
-              )}
             </div>
 
             {authAvailable && (
