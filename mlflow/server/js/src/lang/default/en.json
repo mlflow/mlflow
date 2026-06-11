@@ -1891,6 +1891,10 @@
     "defaultMessage": "Run example training code:",
     "description": "Instruction for running example training code in order to log MLflow 3 models"
   },
+  "80neA7": {
+    "defaultMessage": "Request",
+    "description": "Review queue table: request column"
+  },
   "81+fJx": {
     "defaultMessage": "Couldn't load model information due to an error.",
     "description": "Error state text when the model artifact was unable to load"
@@ -2014,6 +2018,10 @@
   "8qJt7/": {
     "defaultMessage": "Experimental",
     "description": "Experimental badge shown for features which are experimental"
+  },
+  "8reQyH": {
+    "defaultMessage": "Set up human review for your traces",
+    "description": "Review queue: empty state title when no queues exist"
   },
   "8sCMmZ": {
     "defaultMessage": "3. Access the MLflow UI",
@@ -2543,9 +2551,9 @@
     "defaultMessage": "No runs selected",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > title"
   },
-  "BK81F7": {
-    "defaultMessage": "Trace",
-    "description": "Review queue table: trace column"
+  "BIJkW8": {
+    "defaultMessage": "Completed ({count})",
+    "description": "Review queue status filter: completed"
   },
   "BMUd0e": {
     "defaultMessage": "Create evaluation datasets in order to iteratively evaluate and improve your app. For example, build a dataset from production traces with negative feedback. {learnMoreLink}",
@@ -4863,6 +4871,10 @@
     "defaultMessage": "View code snippet",
     "description": "Label for a button that opens a modal containing a runnable evaluation code snippet"
   },
+  "OQOckC": {
+    "defaultMessage": "Review queues let your team evaluate trace quality with structured questions. Add traces to a queue from the Traces tab, or create a new queue to get started.",
+    "description": "Review queue: empty state description when no queues exist"
+  },
   "OQsEJv": {
     "defaultMessage": "Value",
     "description": "Add new key-value tag modal > Value input label"
@@ -5095,10 +5107,6 @@
     "defaultMessage": "Experiment ID",
     "description": "Label for displaying the current experiment in view"
   },
-  "PbYtjz": {
-    "defaultMessage": "Select a queue to review its traces.",
-    "description": "Review queue: prompt to pick a queue"
-  },
   "PbhoUk": {
     "defaultMessage": "Track every version of your model to understand how quality changes over time. {learnMoreLink}",
     "description": "Empty state description displayed when no models are logged in the machine learning logged models list page"
@@ -5206,10 +5214,6 @@
   "QBYbF3": {
     "defaultMessage": "Prompts",
     "description": "Sidebar link for prompts tab"
-  },
-  "QBk7Op": {
-    "defaultMessage": "Completed",
-    "description": "Review queue table: completed group label"
   },
   "QC5Vjq": {
     "defaultMessage": "Y-axis:",
@@ -5338,6 +5342,10 @@
   "QravWY": {
     "defaultMessage": "Optimize Prompt",
     "description": "Title of the optimize prompt modal"
+  },
+  "Qs1m5L": {
+    "defaultMessage": "All ({count})",
+    "description": "Review queue status filter: all"
   },
   "QsVaFr": {
     "defaultMessage": "{count, plural, one {# endpoint is} other {# endpoints are}} currently in use. Deleting will break connections to resources using them.",
@@ -6083,10 +6091,6 @@
     "defaultMessage": "Ground truth values annotated to the trace",
     "description": "Tooltip description for the Expectation column group in the traces table"
   },
-  "UrjOfF": {
-    "defaultMessage": "To do",
-    "description": "Review queue table: to-do group label"
-  },
   "UsvDLH": {
     "defaultMessage": "Select a workspace",
     "description": "Roles tab empty state shown to workspace admins without an active workspace"
@@ -6662,6 +6666,10 @@
   "Xn0LxG": {
     "defaultMessage": "Direct access to Anthropic's Messages API with Claude-specific features.",
     "description": "Anthropic passthrough description"
+  },
+  "XpiGwc": {
+    "defaultMessage": "Select a queue to get started",
+    "description": "Review queue: empty state title when no queue selected"
   },
   "Xs1oJm": {
     "defaultMessage": "Search metric charts",
@@ -7366,10 +7374,6 @@
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
-  },
-  "bLBdqH": {
-    "defaultMessage": "Completed by",
-    "description": "Review queue table: completed-by column"
   },
   "bO0wxq": {
     "defaultMessage": "Advanced settings",
@@ -8202,6 +8206,10 @@
   "fWPlO9": {
     "defaultMessage": "About this logged model",
     "description": "Title for the details sidebar of a logged model on the logged model details page"
+  },
+  "fWSvgp": {
+    "defaultMessage": "New queue",
+    "description": "Review queue: empty state button to create a new queue"
   },
   "fWm1UC": {
     "defaultMessage": "Group by",
@@ -10215,10 +10223,6 @@
     "defaultMessage": "MLflow Assistant",
     "description": "Title for the global Assistant chat panel"
   },
-  "p01GHj": {
-    "defaultMessage": "No review queues yet. Flag traces for review to create one.",
-    "description": "Review queue: empty state when no queues exist"
-  },
   "p1H1KR": {
     "defaultMessage": "Last 30 days",
     "description": "Option for the start select dropdown to filter runs from the last 30 days"
@@ -10662,6 +10666,10 @@
   "rDIzM4": {
     "defaultMessage": "This passphrase protects encryption keys and should never be shared. {securityNote}",
     "description": "AI Gateway setup guide > Passphrase warning"
+  },
+  "rDxqAu": {
+    "defaultMessage": "Response",
+    "description": "Review queue table: response column"
   },
   "rFJSWc": {
     "defaultMessage": "Attempt to display",
@@ -11118,6 +11126,10 @@
   "tUDgmf": {
     "defaultMessage": "Select one or more sessions to perform actions.",
     "description": "Tooltip shown when actions button is disabled due to no session selection"
+  },
+  "tUESQQ": {
+    "defaultMessage": "Review queues let you organize traces for human evaluation. Select a queue from the sidebar, or create a new one to start reviewing traces.",
+    "description": "Review queue: empty state description when no queue selected"
   },
   "ta42Qe": {
     "defaultMessage": "Active",
@@ -11779,6 +11791,10 @@
     "defaultMessage": "Recent Experiments",
     "description": "Home page experiments preview title"
   },
+  "xPNtk7": {
+    "defaultMessage": "Needs review ({count})",
+    "description": "Review queue status filter: needs review"
+  },
   "xPkIEE": {
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                                on the model view page"
@@ -12162,10 +12178,6 @@
   "zLTdCZ": {
     "defaultMessage": "Reviewed",
     "description": "Evaluation review > assessments > already reviewed indicator"
-  },
-  "zLpu4g": {
-    "defaultMessage": "Nothing left to review.",
-    "description": "Review queue table: empty to-do group"
   },
   "zMhOr3": {
     "defaultMessage": "Cancel",
