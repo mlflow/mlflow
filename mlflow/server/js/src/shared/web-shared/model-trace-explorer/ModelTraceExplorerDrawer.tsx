@@ -15,6 +15,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
 import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
+import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 
 export interface ModelTraceExplorerDrawerProps {
   children: React.ReactNode;
@@ -43,13 +44,25 @@ export const ModelTraceExplorerDrawer = ({
 }: ModelTraceExplorerDrawerProps) => {
   const { theme } = useDesignSystemTheme();
   const [showDatasetModal, setShowDatasetModal] = useState(false);
+  const [showReviewQueueModal, setShowReviewQueueModal] = useState(false);
   const [showCopiedNotification, setShowCopiedNotification] = useState(false);
-  const { renderExportTracesToDatasetsModal, DrawerComponent, drawerWidth = '60vw' } = useModelTraceExplorerContext();
+  const [showCopyError, setShowCopyError] = useState(false);
+  const {
+    renderExportTracesToDatasetsModal,
+    renderAddToReviewQueueModal,
+    DrawerComponent,
+    drawerWidth = '60vw',
+  } = useModelTraceExplorerContext();
 
-  const handleShareClick = useCallback(() => {
-    navigator.clipboard.writeText(window.location.href);
-    setShowCopiedNotification(true);
-    setTimeout(() => setShowCopiedNotification(false), 2000);
+  const handleShareClick = useCallback(async () => {
+    const success = await copyToClipboard(window.location.href);
+    if (success) {
+      setShowCopiedNotification(true);
+      setTimeout(() => setShowCopiedNotification(false), 2000);
+    } else {
+      setShowCopyError(true);
+      setTimeout(() => setShowCopyError(false), 2000);
+    }
   }, []);
 
   const handleKeyDown = useCallback(
@@ -83,6 +96,9 @@ export const ModelTraceExplorerDrawer = ({
 
   const showAddToDatasetButton = Boolean(renderExportTracesToDatasetsModal && experimentId && traceInfo);
   const handleAddToDatasetClick = useCallback(() => setShowDatasetModal(true), []);
+
+  const showFlagForReviewButton = Boolean(renderAddToReviewQueueModal && experimentId && traceInfo);
+  const handleFlagForReviewClick = useCallback(() => setShowReviewQueueModal(true), []);
 
   return (
     <DrawerComponent.Root
@@ -122,6 +138,18 @@ export const ModelTraceExplorerDrawer = ({
                 <FormattedMessage
                   defaultMessage="Add to dataset"
                   description="Button text for adding a trace to a dataset"
+                />
+              </Button>
+            )}
+            {showFlagForReviewButton && (
+              <Button
+                componentId="mlflow.evaluations_review.modal.flag_for_review"
+                onClick={handleFlagForReviewClick}
+                icon={<PlusIcon />}
+              >
+                <FormattedMessage
+                  defaultMessage="Flag for review"
+                  description="Button text for adding a trace to a review queue"
                 />
               </Button>
             )}
@@ -166,6 +194,12 @@ export const ModelTraceExplorerDrawer = ({
           visible: showDatasetModal,
           setVisible: setShowDatasetModal,
         })}
+        {renderAddToReviewQueueModal?.({
+          selectedTraceInfos: traceInfo ? [traceInfo] : [],
+          experimentId: experimentId ?? '',
+          visible: showReviewQueueModal,
+          setVisible: setShowReviewQueueModal,
+        })}
       </DrawerComponent.Content>
       {showCopiedNotification && (
         <Notification.Provider>
@@ -174,6 +208,19 @@ export const ModelTraceExplorerDrawer = ({
               <FormattedMessage
                 defaultMessage="Copied to clipboard"
                 description="Success message after copying trace link"
+              />
+            </Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
+      {showCopyError && (
+        <Notification.Provider>
+          <Notification.Root severity="error" componentId="mlflow.evaluations_review.modal.share-error-notification">
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Failed to copy to clipboard"
+                description="Error message when clipboard copy fails"
               />
             </Notification.Title>
           </Notification.Root>

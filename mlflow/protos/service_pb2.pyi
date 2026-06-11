@@ -8,6 +8,7 @@ import issues_pb2 as _issues_pb2
 import label_schemas_pb2 as _label_schemas_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
 import prompt_optimization_pb2 as _prompt_optimization_pb2
+import review_queues_pb2 as _review_queues_pb2
 from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -285,7 +286,7 @@ class RunInfo(_message.Message):
     def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ..., run_name: _Optional[str] = ..., experiment_id: _Optional[str] = ..., user_id: _Optional[str] = ..., status: _Optional[_Union[RunStatus, str]] = ..., start_time: _Optional[int] = ..., end_time: _Optional[int] = ..., artifact_uri: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ...) -> None: ...
 
 class Experiment(_message.Message):
-    __slots__ = ("experiment_id", "name", "artifact_location", "lifecycle_stage", "last_update_time", "creation_time", "tags", "effective_trace_archival_retention")
+    __slots__ = ("experiment_id", "name", "artifact_location", "lifecycle_stage", "last_update_time", "creation_time", "tags", "effective_trace_archival_retention", "workspace")
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     ARTIFACT_LOCATION_FIELD_NUMBER: _ClassVar[int]
@@ -294,6 +295,7 @@ class Experiment(_message.Message):
     CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
     EFFECTIVE_TRACE_ARCHIVAL_RETENTION_FIELD_NUMBER: _ClassVar[int]
+    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
     name: str
     artifact_location: str
@@ -302,7 +304,8 @@ class Experiment(_message.Message):
     creation_time: int
     tags: _containers.RepeatedCompositeFieldContainer[ExperimentTag]
     effective_trace_archival_retention: str
-    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., artifact_location: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ..., last_update_time: _Optional[int] = ..., creation_time: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[ExperimentTag, _Mapping]]] = ..., effective_trace_archival_retention: _Optional[str] = ...) -> None: ...
+    workspace: str
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., artifact_location: _Optional[str] = ..., lifecycle_stage: _Optional[str] = ..., last_update_time: _Optional[int] = ..., creation_time: _Optional[int] = ..., tags: _Optional[_Iterable[_Union[ExperimentTag, _Mapping]]] = ..., effective_trace_archival_retention: _Optional[str] = ..., workspace: _Optional[str] = ...) -> None: ...
 
 class DatasetInput(_message.Message):
     __slots__ = ("tags", "dataset")

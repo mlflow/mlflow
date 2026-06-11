@@ -1,0 +1,11 @@
+name: "cache-hf"
+description: "Cache HuggingFace Hub artifacts to avoid 429s in CI"
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      with:
+        path: ~/.cache/huggingface/hub/datasets--*
+        key: ${{ runner.os }}-hf-datasets-${{ hashFiles('tests/data/test_huggingface_dataset_and_source.py') }}
+        restore-keys: |
+          ${{ runner.os }}-hf-datasets

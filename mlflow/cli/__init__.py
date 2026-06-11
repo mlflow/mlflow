@@ -1378,6 +1378,14 @@ try:
 except ImportError:
     pass
 
+# Add Agent CLI commands
+try:
+    import mlflow.agent.cli
+
+    cli.add_command(mlflow.agent.cli.commands)
+except ImportError:
+    pass
+
 # We are conditional loading these commands since the skinny client does
 # not support them due to the pandas and numpy dependencies of MLflow Models
 try:

@@ -12,6 +12,7 @@ import "issues.proto";
 import "label_schemas.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
 import "prompt_optimization.proto";
+import "review_queues.proto";
 import "scalapb/scalapb.proto";
 
 option java_package = "org.mlflow.api.proto";
@@ -2755,6 +2756,265 @@ service MlflowService {
       rpc_doc_title: "Delete Prompt Optimization Job"
     };
   }
+
+  // =============================================================================
+  // Review Queue RPCs
+  // =============================================================================
+
+  // Create a review queue (user or custom).
+  rpc createReviewQueue(mlflow.review_queues.CreateReviewQueue) returns (mlflow.review_queues.CreateReviewQueue.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/review-queues/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        RESOURCE_ALREADY_EXISTS,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create a review queue"
+    };
+  }
+
+  // Get-or-create a user's personal queue for an experiment.
+  rpc getOrCreateUserQueue(mlflow.review_queues.GetOrCreateUserQueue) returns (mlflow.review_queues.GetOrCreateUserQueue.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/review-queues/get-or-create-user"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        RESOURCE_ALREADY_EXISTS,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get or create a user review queue"
+    };
+  }
+
+  // Get a single queue by id.
+  rpc getReviewQueue(mlflow.review_queues.GetReviewQueue) returns (mlflow.review_queues.GetReviewQueue.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/review-queues/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get a review queue"
+    };
+  }
+
+  // Get a single queue by (experiment_id, name).
+  rpc getReviewQueueByName(mlflow.review_queues.GetReviewQueueByName) returns (mlflow.review_queues.GetReviewQueueByName.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/review-queues/get-by-name"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get a review queue by name"
+    };
+  }
+
+  // List an experiment's queues, optionally filtered to a user.
+  rpc listReviewQueues(mlflow.review_queues.ListReviewQueues) returns (mlflow.review_queues.ListReviewQueues.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/review-queues/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "List review queues"
+    };
+  }
+
+  // Replace a custom queue's users and/or schemas.
+  rpc updateReviewQueue(mlflow.review_queues.UpdateReviewQueue) returns (mlflow.review_queues.UpdateReviewQueue.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/review-queues/update"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Update a review queue"
+    };
+  }
+
+  // Delete a queue and its associations.
+  rpc deleteReviewQueue(mlflow.review_queues.DeleteReviewQueue) returns (mlflow.review_queues.DeleteReviewQueue.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/review-queues/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete a review queue"
+    };
+  }
+
+  // Attach items to a queue.
+  rpc addItemsToReviewQueue(mlflow.review_queues.AddItemsToReviewQueue) returns (mlflow.review_queues.AddItemsToReviewQueue.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/review-queues/items/add"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Add items to a review queue"
+    };
+  }
+
+  // Detach items from a queue.
+  rpc removeItemsFromReviewQueue(mlflow.review_queues.RemoveItemsFromReviewQueue) returns (mlflow.review_queues.RemoveItemsFromReviewQueue.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/review-queues/items/remove"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Remove items from a review queue"
+    };
+  }
+
+  // List a queue's attached items.
+  rpc listReviewQueueItems(mlflow.review_queues.ListReviewQueueItems) returns (mlflow.review_queues.ListReviewQueueItems.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/review-queues/items/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "List review queue items"
+    };
+  }
+
+  // Set the shared-pool status of an attached item.
+  rpc setReviewQueueItemStatus(mlflow.review_queues.SetReviewQueueItemStatus) returns (mlflow.review_queues.SetReviewQueueItemStatus.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/review-queues/items/set-status"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Set review queue item status"
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -2963,6 +3223,9 @@ message Experiment {
 
   // Effective trace archival retention after broader-scope and experiment overrides are applied.
   optional string effective_trace_archival_retention = 8;
+
+  // Workspace name of the experiment (Always `default` if workspace is not enabled).
+  optional string workspace = 9;
 }
 
 // DatasetInput. Represents a dataset and input tags.

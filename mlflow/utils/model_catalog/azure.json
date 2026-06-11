@@ -2804,6 +2804,13 @@
     },
     "sora-2": {
       "mode": "video_generation",
+      "pricing": {
+        "modality": {
+          "video": {
+            "output_per_second": 0.1
+          }
+        }
+      },
       "capabilities": {
         "function_calling": false,
         "vision": false,
@@ -2811,10 +2818,17 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-06-09"
     },
     "sora-2-pro": {
       "mode": "video_generation",
+      "pricing": {
+        "modality": {
+          "video": {
+            "output_per_second": 0.3
+          }
+        }
+      },
       "capabilities": {
         "function_calling": false,
         "vision": false,
@@ -2822,10 +2836,17 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-06-09"
     },
     "sora-2-pro-high-res": {
       "mode": "video_generation",
+      "pricing": {
+        "modality": {
+          "video": {
+            "output_per_second": 0.5
+          }
+        }
+      },
       "capabilities": {
         "function_calling": false,
         "vision": false,
@@ -2833,7 +2854,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-06-09"
     },
     "standard/1024-x-1024/dall-e-2": {
       "mode": "image_generation",

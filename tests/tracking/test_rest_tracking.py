@@ -1,8 +1,3 @@
-"""
-Integration test which starts a local Tracking Server on an ephemeral port,
-and ensures we can use the tracking API to communicate with it.
-"""
-
 import json
 import logging
 import math

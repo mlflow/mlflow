@@ -193,7 +193,7 @@ def test_something():
     assert "rarely provide meaningful context" in violations[0].rule.message
 
 
-def test_module_multiline_docstrings_are_allowed(index: SymbolIndex) -> None:
+def test_module_multiline_docstrings_are_flagged(index: SymbolIndex) -> None:
     code = '''"""
 This is a test module.
 It has multiple lines.
@@ -204,7 +204,8 @@ def test_something():
 
     config = Config(select={RedundantTestDocstring.name})
     violations = lint_file(Path("test_module.py"), code, config, index)
-    assert len(violations) == 0
+    assert len(violations) == 1
+    assert isinstance(violations[0].rule, RedundantTestDocstring)
 
 
 def test_module_without_docstring_is_not_flagged(index: SymbolIndex) -> None:
