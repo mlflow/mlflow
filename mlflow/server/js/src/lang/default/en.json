@@ -5267,10 +5267,6 @@
     "defaultMessage": "Measure and compare LLM quality with built-in and custom scorers.",
     "description": "Feature card summary for evaluation"
   },
-  "QOtpyI": {
-    "defaultMessage": "Delete {count, plural, one {# trace} other {# traces}}",
-    "description": "Review queue: delete selected traces button"
-  },
   "QPC4hV": {
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
     "description": "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
@@ -5698,6 +5694,10 @@
   "SihD1a": {
     "defaultMessage": "LLM judge feedback",
     "description": "Tooltip content for LLM judge feedback"
+  },
+  "SlI2G2": {
+    "defaultMessage": "Remove {count, plural, one {# trace} other {# traces}}",
+    "description": "Review queue: remove selected traces button"
   },
   "Sm0bXt": {
     "defaultMessage": "None",
