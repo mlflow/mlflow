@@ -1186,10 +1186,16 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         queues = [ReviewQueue.from_proto(q) for q in response_proto.review_queues]
         return PagedList(queues, response_proto.next_page_token or None)
 
-    def update_review_queue(self, queue_id, *, users=None, schema_ids=None):
+    def update_review_queue(
+        self, queue_id, *, name=None, new_owner=None, users=None, schema_ids=None
+    ):
         from mlflow.genai.review_queues import ReviewQueue
 
         req = UpdateReviewQueue(queue_id=queue_id)
+        if name is not None:
+            req.name = name
+        if new_owner is not None:
+            req.new_owner = new_owner
         if users is not None:
             req.update_users = True
             req.users.extend(users)

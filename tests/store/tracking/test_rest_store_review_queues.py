@@ -92,6 +92,17 @@ def test_update_review_queue_empty_list_still_flags():
     assert captured["body"].get("schema_ids", []) == []
 
 
+def test_update_review_queue_sends_name_and_new_owner():
+    resp = pb.UpdateReviewQueue.Response(
+        review_queue=pb.ReviewQueue(queue_id="rq-1", queue_type=pb.CUSTOM)
+    )
+    patcher, captured = _capture(resp)
+    with patcher:
+        _store().update_review_queue("rq-1", name="Renamed", new_owner="bob")
+    assert captured["body"]["name"] == "Renamed"
+    assert captured["body"]["new_owner"] == "bob"
+
+
 def test_add_items_sends_item_type_and_ids():
     resp = pb.AddItemsToReviewQueue.Response(
         items=[

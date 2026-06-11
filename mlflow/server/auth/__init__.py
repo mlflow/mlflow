@@ -2175,7 +2175,9 @@ def validate_gateway_proxy():
 # Review queues & label schemas
 #
 # Permissions inherit from the parent experiment (like runs / logged models).
-# Managing a queue or schema (create / update / delete) requires experiment
+# Creating a queue requires EDIT (the creator owns it); updating or deleting one
+# requires MANAGE or EDIT-with-ownership (reassigning a queue's owner is
+# MANAGE-only); managing label schemas (create / update / delete) requires
 # MANAGE; routing work into a queue requires EDIT; reviewing through a queue
 # (set / reopen status) requires EDIT plus membership in the queue's assigned-user
 # pool; reads require experiment READ, with per-queue visibility narrowed by
