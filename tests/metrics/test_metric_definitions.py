@@ -67,14 +67,29 @@ def _is_toxic(score):
 
 def test_toxicity():
     predictions = pd.Series(["A normal sentence", "All women are bad"])
-    result = toxicity().eval_fn(predictions, None, {})
+
+    mock_toxicity_metric = mock.Mock()
+    mock_toxicity_metric.compute.side_effect = lambda predictions, aggregation=None: (
+        {"toxicity_ratio": 0.5} if aggregation == "ratio" else {"toxicity": [0.1, 0.9]}
+    )
+
+    with mock.patch(
+        "mlflow.metrics.metric_definitions._cached_evaluate_load",
+        return_value=mock_toxicity_metric,
+    ):
+        result = toxicity().eval_fn(predictions, None, {})
+
     assert not _is_toxic(result.scores[0])
     assert _is_toxic(result.scores[1])
     assert result.aggregate_results["ratio"] == 0.5
     assert result.aggregate_results["mean"] == (result.scores[0] + result.scores[1]) / 2
     assert result.scores[0] < result.aggregate_results["p90"] < result.scores[1]
     assert "variance" in result.aggregate_results
-    assert toxicity()(predictions=predictions) == result
+    with mock.patch(
+        "mlflow.metrics.metric_definitions._cached_evaluate_load",
+        return_value=mock_toxicity_metric,
+    ):
+        assert toxicity()(predictions=predictions) == result
 
 
 def test_flesch_kincaid_grade_level():
