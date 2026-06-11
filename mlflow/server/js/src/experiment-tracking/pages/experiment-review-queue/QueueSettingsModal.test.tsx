@@ -17,6 +17,7 @@ jest.mock('../../components/label-schemas', () => ({
     isLoading: false,
   }),
   LabelSchemaInputRenderer: () => null,
+  LabelSchemaFormModal: () => null,
 }));
 jest.mock('../../../account/hooks', () => ({
   useCurrentUserIsAdmin: () => false,

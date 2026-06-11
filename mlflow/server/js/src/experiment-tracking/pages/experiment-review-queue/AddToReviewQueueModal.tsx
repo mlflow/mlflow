@@ -4,7 +4,7 @@ import {
   Alert,
   DialogCombobox,
   DialogComboboxContent,
-  DialogComboboxHintRow,
+  DialogComboboxEmpty,
   DialogComboboxOptionList,
   DialogComboboxOptionListCheckboxItem,
   DialogComboboxOptionListSearch,
@@ -19,7 +19,7 @@ import {
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-import { LabelSchemaFormModal, useListLabelSchemasQuery } from '../../components/label-schemas';
+import { useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useCurrentUserIsAdmin, useCurrentUserIsWorkspaceAdmin, useIsAuthAvailable } from '../../../account/hooks';
 import Utils from '../../../common/utils/Utils';
 import { generatePath, Link } from '../../../common/utils/RoutingUtils';
@@ -96,7 +96,6 @@ export const AddToReviewQueueModal = ({
   const [selectedQueueIds, setSelectedQueueIds] = useState<Set<string>>(new Set());
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [createOpen, setCreateOpen] = useState(false);
-  const [addQuestionOpen, setAddQuestionOpen] = useState(false);
 
   const {
     reviewQueues,
@@ -216,7 +215,6 @@ export const AddToReviewQueueModal = ({
     setSelectedQueueIds(new Set());
     setSelectedUsers(new Set());
     setCreateOpen(false);
-    setAddQuestionOpen(false);
     setSubmitError(null);
     setIsSubmitting(false);
     resetAdd();
@@ -341,7 +339,8 @@ export const AddToReviewQueueModal = ({
         // Hide while a child form (new queue / add question) is open rather than
         // stacking modals; it reopens when the child form closes (with the new
         // queue selected, in the create-queue case).
-        visible={visible && !createOpen && !addQuestionOpen}
+        visible={visible && !createOpen}
+        destroyOnClose
         title={
           <FormattedMessage
             defaultMessage="Add {count, plural, one {# trace} other {# traces}} to review queues"
@@ -349,9 +348,19 @@ export const AddToReviewQueueModal = ({
             values={{ count: itemIds.length }}
           />
         }
-        okText={<FormattedMessage defaultMessage="Add" description="Add to review queue: confirm button" />}
+        okText={
+          selectedCount > 0 ? (
+            <FormattedMessage
+              defaultMessage="Add to {count, plural, one {# queue} other {# queues}}"
+              description="Add to review queue: confirm button with queue count"
+              values={{ count: selectedCount }}
+            />
+          ) : (
+            <FormattedMessage defaultMessage="Add" description="Add to review queue: confirm button" />
+          )
+        }
         okButtonProps={{ disabled: !canAdd, loading: isWorking }}
-        cancelText={<FormattedMessage defaultMessage="Cancel" description="Add to review queue: cancel button" />}
+        cancelText={null}
         onOk={handleAdd}
         onCancel={handleClose}
       >
@@ -373,7 +382,7 @@ export const AddToReviewQueueModal = ({
             <DialogCombobox
               componentId={`${CID}.queue-picker`}
               label={intl.formatMessage({
-                defaultMessage: 'Review queues',
+                defaultMessage: 'Select or create review queues',
                 description: 'Add to review queue: destination dropdown label',
               })}
               multiSelect
@@ -393,8 +402,27 @@ export const AddToReviewQueueModal = ({
               >
                 <DialogComboboxOptionList>
                   <DialogComboboxOptionListSearch controlledValue={search} setControlledValue={setSearch}>
+                    {!query && (
+                      <Typography.Link
+                        componentId={`${CID}.new-queue`}
+                        css={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: theme.spacing.xs,
+                          padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+                        }}
+                        onClick={() => setCreateOpen(true)}
+                      >
+                        <PlusIcon css={{ paddingLeft: theme.spacing.xs, paddingRight: theme.spacing.xs }} />
+                        <FormattedMessage
+                          defaultMessage="New queue"
+                          description="Add to review queue: create new queue link"
+                        />
+                      </Typography.Link>
+                    )}
+
                     {/* Pinned default queue (no-auth only; the reserved `default` user queue). */}
-                    {!authAvailable && (
+                    {!authAvailable && !query && (
                       <DialogComboboxOptionListCheckboxItem
                         value={defaultQueueLabel}
                         checked={defaultQueueChecked}
@@ -406,53 +434,41 @@ export const AddToReviewQueueModal = ({
                       </DialogComboboxOptionListCheckboxItem>
                     )}
 
-                    <DialogComboboxSectionHeader>
-                      <FormattedMessage
-                        defaultMessage="Queues"
-                        description="Add to review queue: shared custom-queues section header"
-                      />
-                    </DialogComboboxSectionHeader>
-                    {visibleQueues.length === 0 ? (
-                      <DialogComboboxHintRow>
-                        {query ? (
+                    {visibleQueues.length === 0 && query && (
+                      <DialogComboboxEmpty
+                        emptyText={
                           <FormattedMessage
                             defaultMessage="No matching queues"
                             description="Add to review queue: no custom queues match the search"
                           />
-                        ) : (
-                          <FormattedMessage
-                            defaultMessage="No shared queues yet"
-                            description="Add to review queue: no custom queues exist"
-                          />
-                        )}
-                      </DialogComboboxHintRow>
-                    ) : (
-                      visibleQueues.map((q) => {
-                        const assignability = assignabilityById.get(q.queue_id);
-                        const disabled = !assignability?.assignable;
-                        return (
-                          <DialogComboboxOptionListCheckboxItem
-                            key={q.queue_id}
-                            value={q.name}
-                            checked={selectedQueueIds.has(q.queue_id)}
-                            disabled={disabled}
-                            disabledReason={disabled ? reasonText(assignability?.reason) : undefined}
-                            onChange={() => toggleQueue(q.queue_id)}
-                          >
-                            {q.name}
-                          </DialogComboboxOptionListCheckboxItem>
-                        );
-                      })
+                        }
+                      />
                     )}
+                    {visibleQueues.map((q) => {
+                      const assignability = assignabilityById.get(q.queue_id);
+                      const disabled = !assignability?.assignable;
+                      return (
+                        <DialogComboboxOptionListCheckboxItem
+                          key={q.queue_id}
+                          value={q.name}
+                          checked={selectedQueueIds.has(q.queue_id)}
+                          disabled={disabled}
+                          disabledReason={disabled ? reasonText(assignability?.reason) : undefined}
+                          onChange={() => toggleQueue(q.queue_id)}
+                        >
+                          {q.name}
+                        </DialogComboboxOptionListCheckboxItem>
+                      );
+                    })}
                     {hasMoreQueues && (
-                      <DialogComboboxHintRow>
-                        <span css={{ paddingLeft: theme.spacing.sm, paddingRight: theme.spacing.sm }}>
+                      <DialogComboboxEmpty
+                        emptyText={
                           <FormattedMessage
                             defaultMessage="Search to find more queues"
                             description="Add to review queue: hint that more custom queues are searchable"
                           />
-                        </span>
-                      </DialogComboboxHintRow>
+                        }
+                      />
                     )}
 
                     {canListUsers && (
@@ -464,26 +480,32 @@ export const AddToReviewQueueModal = ({
                           />
                         </DialogComboboxSectionHeader>
                         {!query ? (
-                          <DialogComboboxHintRow>
-                            <FormattedMessage
-                              defaultMessage="Search by name to add a user's queue"
-                              description="Add to review queue: prompt to search users"
-                            />
-                          </DialogComboboxHintRow>
+                          <DialogComboboxEmpty
+                            emptyText={
+                              <FormattedMessage
+                                defaultMessage="Search by name to add a user's queue"
+                                description="Add to review queue: prompt to search users"
+                              />
+                            }
+                          />
                         ) : usersLoading ? (
-                          <DialogComboboxHintRow>
-                            <FormattedMessage
-                              defaultMessage="Loading users…"
-                              description="Add to review queue: users loading hint"
-                            />
-                          </DialogComboboxHintRow>
+                          <DialogComboboxEmpty
+                            emptyText={
+                              <FormattedMessage
+                                defaultMessage="Loading users…"
+                                description="Add to review queue: users loading hint"
+                              />
+                            }
+                          />
                         ) : visibleUsers.length === 0 ? (
-                          <DialogComboboxHintRow>
-                            <FormattedMessage
-                              defaultMessage="No matching users"
-                              description="Add to review queue: no users match the search"
-                            />
-                          </DialogComboboxHintRow>
+                          <DialogComboboxEmpty
+                            emptyText={
+                              <FormattedMessage
+                                defaultMessage="No matching users"
+                                description="Add to review queue: no users match the search"
+                              />
+                            }
+                          />
                         ) : (
                           <>
                             {visibleUsers.map((u) => (
@@ -499,13 +521,15 @@ export const AddToReviewQueueModal = ({
                               </DialogComboboxOptionListCheckboxItem>
                             ))}
                             {visibleUsers.length === MAX_USER_MATCHES && (
-                              <DialogComboboxHintRow>
-                                <FormattedMessage
-                                  defaultMessage="Showing the first {count} matches — refine your search to narrow them."
-                                  description="Add to review queue: hint that the user search results are capped"
-                                  values={{ count: MAX_USER_MATCHES }}
-                                />
-                              </DialogComboboxHintRow>
+                              <DialogComboboxEmpty
+                                emptyText={
+                                  <FormattedMessage
+                                    defaultMessage="Showing the first {count} matches — refine your search to narrow them."
+                                    description="Add to review queue: hint that the user search results are capped"
+                                    values={{ count: MAX_USER_MATCHES }}
+                                  />
+                                }
+                              />
                             )}
                           </>
                         )}
@@ -516,36 +540,6 @@ export const AddToReviewQueueModal = ({
               </DialogComboboxContent>
             </DialogCombobox>
           )}
-
-          <div
-            css={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-start',
-              gap: theme.spacing.sm,
-              alignSelf: 'flex-start',
-            }}
-          >
-            <Typography.Link
-              componentId={`${CID}.new-queue`}
-              css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}
-              onClick={() => setCreateOpen(true)}
-            >
-              <PlusIcon />
-              <FormattedMessage defaultMessage="New queue" description="Add to review queue: create new queue link" />
-            </Typography.Link>
-            <Typography.Link
-              componentId={`${CID}.add-question`}
-              css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}
-              onClick={() => setAddQuestionOpen(true)}
-            >
-              <PlusIcon />
-              <FormattedMessage
-                defaultMessage="Add question"
-                description="Add to review queue: create new question link"
-              />
-            </Typography.Link>
-          </div>
 
           {submitError && (
             <Alert
@@ -572,15 +566,6 @@ export const AddToReviewQueueModal = ({
           onCreated={handleCreated}
         />
       )}
-
-      {/* Inline question authoring; reuses the label-schema form, which
-          invalidates the schema list so the new question is picked up here. */}
-      <LabelSchemaFormModal
-        experimentId={experimentId}
-        editingSchema={null}
-        visible={addQuestionOpen}
-        onClose={() => setAddQuestionOpen(false)}
-      />
     </>
   );
 };

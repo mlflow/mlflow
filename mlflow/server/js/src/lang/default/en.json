@@ -507,10 +507,6 @@
     "defaultMessage": "Tag{count, plural, =0 {} other { · #}}",
     "description": "Button to open the tags filter popover in the experiments page. Shows an interpunct (·) followed by the count of active tag filters when any are applied."
   },
-  "0WRZjy": {
-    "defaultMessage": "Questions",
-    "description": "Review queue: questions dropdown label"
-  },
   "0WzWvy": {
     "defaultMessage": "Issues detected on the trace by automatic issue detection",
     "description": "Tooltip description for the Issues column in the traces table"
@@ -1014,10 +1010,6 @@
   "37ReeZ": {
     "defaultMessage": "On",
     "description": "Usage tracking enabled state"
-  },
-  "3AEUpe": {
-    "defaultMessage": "Select at least one question so reviewers have something to answer.",
-    "description": "Create review queue: no-questions-selected warning"
   },
   "3CWJEU": {
     "defaultMessage": "Issues",
@@ -2363,10 +2355,6 @@
     "defaultMessage": "Identifying issues from traces...",
     "description": "Issue detection progress > Step label (fallback)"
   },
-  "AQVu8i": {
-    "defaultMessage": "Review queues",
-    "description": "Add to review queue: destination dropdown label"
-  },
   "AQh8lf": {
     "defaultMessage": "Model",
     "description": "Dimension toggle option for model"
@@ -2718,6 +2706,10 @@
   "C6ReUY": {
     "defaultMessage": "Save",
     "description": "Tag assignment modal > Save button"
+  },
+  "C6aBjm": {
+    "defaultMessage": "New question",
+    "description": "Review queue: create new question link in dropdown"
   },
   "C83vFj": {
     "defaultMessage": "Latency",
@@ -4587,10 +4579,6 @@
     "defaultMessage": "Delete dataset",
     "description": "Title for the V2 evaluation dataset delete confirmation modal on the detail page"
   },
-  "N2xn0p": {
-    "defaultMessage": "Add question",
-    "description": "Add to review queue: create new question link"
-  },
   "N53jAt": {
     "defaultMessage": "Create custom code judge",
     "description": "Title for new custom code judge modal"
@@ -5162,6 +5150,10 @@
   "Px7S/2": {
     "defaultMessage": "Close",
     "description": "Close button"
+  },
+  "Q+V7G3": {
+    "defaultMessage": "Add to {count, plural, one {# queue} other {# queues}}",
+    "description": "Add to review queue: confirm button with queue count"
   },
   "Q/QcTS": {
     "defaultMessage": "Save",
@@ -6398,6 +6390,10 @@
   "WJF+wY": {
     "defaultMessage": "Z-axis:",
     "description": "Label text for z-axis in contour plot comparison in MLflow"
+  },
+  "WJgUr7": {
+    "defaultMessage": "Select or create questions",
+    "description": "Review queue: questions dropdown label"
   },
   "WJuNcs": {
     "defaultMessage": "Failed to update workspace. Please try again.",
@@ -8747,6 +8743,10 @@
     "defaultMessage": "To use other providers, create an AI Gateway endpoint and select it.",
     "description": "Hint explaining how to use other providers via Gateway"
   },
+  "hv0wlb": {
+    "defaultMessage": "Select or create review queues",
+    "description": "Add to review queue: destination dropdown label"
+  },
   "hvImg5": {
     "defaultMessage": "No resources are using this key",
     "description": "Gateway > Bindings using key drawer > Empty state"
@@ -9774,10 +9774,6 @@
   "mv6CY3": {
     "defaultMessage": "Yes, save and close",
     "description": "Key-value tag editor modal > Unsaved tag message > Yes, save and close button"
-  },
-  "mwPrTZ": {
-    "defaultMessage": "No shared queues yet",
-    "description": "Add to review queue: no custom queues exist"
   },
   "mzmlq2": {
     "defaultMessage": "Detects personally identifiable information such as names, emails, and phone numbers.",
@@ -11523,10 +11519,6 @@
     "defaultMessage": "Show first 10",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
   },
-  "w3A21z": {
-    "defaultMessage": "Cancel",
-    "description": "Add to review queue: cancel button"
-  },
   "w48V74": {
     "defaultMessage": "Trace breakdown",
     "description": "Header for the span tree within the MLflow trace UI"
@@ -11887,10 +11879,6 @@
     "defaultMessage": "Cancel",
     "description": "Button text for canceling a judge run"
   },
-  "xsDZO2": {
-    "defaultMessage": "Queues",
-    "description": "Add to review queue: shared custom-queues section header"
-  },
   "xvd8So": {
     "defaultMessage": "Logs",
     "description": "Tab label for trace logs"
@@ -12046,10 +12034,6 @@
   "yvtWjM": {
     "defaultMessage": "Last updated",
     "description": "Metadata label for the dataset record last-update time"
-  },
-  "ywUJiO": {
-    "defaultMessage": "Cancel",
-    "description": "Create review queue: cancel button"
   },
   "yyjAgE": {
     "defaultMessage": "Output for the trace",
