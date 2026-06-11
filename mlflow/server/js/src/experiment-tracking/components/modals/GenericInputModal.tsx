@@ -6,9 +6,10 @@
  */
 
 import React, { Component } from 'react';
-import { Modal } from '@databricks/design-system';
+import { Alert, Modal, Spacer } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
 
-import Utils from '../../../common/utils/Utils';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 
 type Props = {
   okText?: string;
@@ -25,6 +26,7 @@ type Props = {
 
 type State = {
   isSubmitting: boolean;
+  submissionError?: React.ReactNode;
 };
 
 /**
@@ -32,14 +34,15 @@ type State = {
  * As of now, it is used to display the 'Rename Run' and 'Rename Experiment' modals.
  */
 export class GenericInputModal extends Component<Props, State> {
-  state = {
+  state: State = {
     isSubmitting: false,
+    submissionError: undefined,
   };
 
   formRef = React.createRef();
 
   onSubmit = async () => {
-    this.setState({ isSubmitting: true });
+    this.setState({ isSubmitting: true, submissionError: undefined });
     try {
       const values = await (this as any).formRef.current.validateFields();
       await this.props.handleSubmit(values);
@@ -51,13 +54,29 @@ export class GenericInputModal extends Component<Props, State> {
   };
 
   resetAndClearModalForm = () => {
-    this.setState({ isSubmitting: false });
+    this.setState({ isSubmitting: false, submissionError: undefined });
     (this as any).formRef.current.resetFields();
   };
 
   handleSubmitFailure = (e: any) => {
-    this.setState({ isSubmitting: false });
-    Utils.logErrorAndNotifyUser(e);
+    // Form validation failures are already displayed inline on the fields
+    // themselves, so no modal-level error is needed for them
+    if (e?.errorFields) {
+      this.setState({ isSubmitting: false });
+      return;
+    }
+    // Keep submission failures in modal context (instead of a transient global
+    // toast) so the user can read the error and correct their input
+    const message = typeof e === 'string' ? e : e instanceof ErrorWrapper ? e.getMessageField() : e?.message;
+    this.setState({
+      isSubmitting: false,
+      submissionError: message || (
+        <FormattedMessage
+          defaultMessage="The request failed. Please try again."
+          description="Fallback error message shown inside an input modal when submission fails without details"
+        />
+      ),
+    });
   };
 
   onRequestCloseHandler = () => {
@@ -71,7 +90,7 @@ export class GenericInputModal extends Component<Props, State> {
   };
 
   render() {
-    const { isSubmitting } = this.state;
+    const { isSubmitting, submissionError } = this.state;
     const { okText, cancelText, isOpen, footer, children, okButtonProps } = this.props;
 
     // add props (ref) to passed component
@@ -101,6 +120,17 @@ export class GenericInputModal extends Component<Props, State> {
         footer={footer}
         centered
       >
+        {submissionError && (
+          <>
+            <Alert
+              componentId="mlflow.generic_input_modal.submission_error"
+              closable={false}
+              message={submissionError}
+              type="error"
+            />
+            <Spacer />
+          </>
+        )}
         {displayForm}
       </Modal>
     );

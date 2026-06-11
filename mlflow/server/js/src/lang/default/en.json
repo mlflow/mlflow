@@ -3011,6 +3011,10 @@
     "defaultMessage": "Usage tracking",
     "description": "Label for usage tracking toggle in sidebar"
   },
+  "Dz6oRN": {
+    "defaultMessage": "The request failed. Please try again.",
+    "description": "Fallback error message shown inside an input modal when submission fails without details"
+  },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
     "description": "Error message displayed on logged models page when experiment data fails to load"
