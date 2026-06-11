@@ -24,7 +24,7 @@ export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string 
   // empty-state visitors click "Evaluate traces" or the coding-agent path and never need it.
   const [hasOpenedPythonTab, setHasOpenedPythonTab] = useState(false);
 
-  const { data: traceMetrics } = useTraceMetricsQuery({
+  const { data: traceMetrics, isLoading: isTraceMetricsLoading } = useTraceMetricsQuery({
     experimentIds: [experimentId],
     viewType: MetricViewType.TRACES,
     metricName: TraceMetricKey.TRACE_COUNT,
@@ -44,7 +44,7 @@ export const EvalRunsEmptyStateCard = ({ experimentId }: { experimentId: string 
     label: PYTHON_TAB_LABEL,
     // Until the trace-count query resolves we don't know which snippet variant to show, so render a
     // skeleton rather than the dataset default that could flip to the trace variant under a fast copier.
-    isLoading: hasOpenedPythonTab && traceMetrics === undefined,
+    isLoading: hasOpenedPythonTab && isTraceMetricsLoading,
   };
 
   const header = (
