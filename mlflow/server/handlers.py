@@ -16,7 +16,7 @@ from typing import Any, Callable
 
 import requests
 from cachetools import TTLCache
-from flask import Request, Response, current_app, jsonify, request, send_file
+from flask import Request, Response, current_app, g, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 from werkzeug.http import quote_header_value
@@ -4649,6 +4649,14 @@ def _review_queue_max_results_validator(x):
     )
 
 
+def _get_request_username():
+    """The authenticated request user, stamped on ``flask.g`` by the auth
+    plugin's before-request hook. ``None`` when no auth plugin is active (a
+    no-auth server), where queue ownership is meaningless.
+    """
+    return getattr(g, "mlflow_authenticated_user", None)
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_review_queue():
@@ -4669,8 +4677,13 @@ def _create_review_queue():
         "users": list(request_message.users),
         "schema_ids": list(request_message.schema_ids),
     }
-    if request_message.HasField("created_by"):
-        kwargs["created_by"] = request_message.created_by
+    # `created_by` is the queue owner and must be trustworthy — never honor the
+    # client's value. On an auth server it is the authenticated user (stamped on
+    # `flask.g` by the auth plugin); on a no-auth server it stays unset (owner is
+    # meaningless there).
+    username = _get_request_username()
+    if username is not None:
+        kwargs["created_by"] = username
     created = _get_tracking_store().create_review_queue(**kwargs)
     return _wrap_response(CreateReviewQueue.Response(review_queue=created.to_proto()))
 
@@ -4685,13 +4698,11 @@ def _get_or_create_user_queue():
             "user": [_assert_required, _assert_string],
         },
     )
-    kwargs: dict[str, object] = {
-        "experiment_id": request_message.experiment_id,
-        "user": request_message.user,
-    }
-    if request_message.HasField("created_by"):
-        kwargs["created_by"] = request_message.created_by
-    queue = _get_tracking_store().get_or_create_user_queue(**kwargs)
+    # A user queue is owned by its user (set in the store); the client-supplied
+    # `created_by` is ignored.
+    queue = _get_tracking_store().get_or_create_user_queue(
+        request_message.experiment_id, user=request_message.user
+    )
     return _wrap_response(GetOrCreateUserQueue.Response(review_queue=queue.to_proto()))
 
 
@@ -4757,8 +4768,15 @@ def _update_review_queue():
     )
     users = list(request_message.users) if request_message.update_users else None
     schema_ids = list(request_message.schema_ids) if request_message.update_schema_ids else None
+    # Singular fields use proto2 presence (no update_* flag).
+    name = request_message.name if request_message.HasField("name") else None
+    new_owner = request_message.new_owner if request_message.HasField("new_owner") else None
     updated = _get_tracking_store().update_review_queue(
-        request_message.queue_id, users=users, schema_ids=schema_ids
+        request_message.queue_id,
+        users=users,
+        schema_ids=schema_ids,
+        name=name,
+        new_owner=new_owner,
     )
     return _wrap_response(UpdateReviewQueue.Response(review_queue=updated.to_proto()))
 

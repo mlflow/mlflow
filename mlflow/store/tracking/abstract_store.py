@@ -1952,21 +1952,32 @@ class AbstractStore(GatewayStoreMixin):
         *,
         users: list[str] | None = None,
         schema_ids: list[str] | None = None,
+        name: str | None = None,
+        new_owner: str | None = None,
     ) -> "ReviewQueue":
-        """Replace a custom queue's assigned users and/or attached schemas.
+        """Edit a custom queue's name, assigned users, attached schemas, and/or owner.
 
-        ``None`` leaves that association set untouched; a list (possibly
-        empty) replaces it wholesale. ``name`` and ``queue_type`` are
-        immutable. User queues reject both arguments (their user is fixed
-        and their schemas resolve to all of the experiment's).
+        ``None`` leaves that field untouched; a value (a list, possibly empty,
+        for the association sets; a string for ``name`` / ``new_owner``) replaces
+        it wholesale. ``queue_type`` is immutable and user queues reject this
+        call (their name, user, schemas, and owner are fixed). ``name`` is
+        validated as a custom queue name (non-empty, non-reserved) and must be
+        unique within the experiment. ``new_owner`` reassigns ownership
+        (``created_by``); it is stored case-preserved (matching is
+        case-insensitive). Authorization differs per field — owner reassignment
+        is MANAGE-only while the other edits are allowed to an owning EDIT user —
+        but that gate lives at the handler layer, not here.
 
         ``schema_ids`` (the questions) are frozen once the queue has any
         attached items: changing them after reviewers start would strand
         answers or leave completed items with never-seen questions. Detach
-        the items first to edit questions. Assigned users stay editable.
+        the items first to edit questions. Assigned users, name, and owner stay
+        editable.
 
         Raises:
             MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+            MlflowException(RESOURCE_ALREADY_EXISTS): if ``name`` collides with
+                another queue in the experiment.
             MlflowException(INVALID_PARAMETER_VALUE): on validation failure,
                 when called against a user queue, or when changing
                 ``schema_ids`` on a queue that already has items.

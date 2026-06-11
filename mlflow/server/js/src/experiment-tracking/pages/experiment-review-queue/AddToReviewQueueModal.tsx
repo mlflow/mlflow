@@ -31,7 +31,7 @@ import { useAddItemsToReviewQueueMutation } from './hooks/useAddItemsToReviewQue
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
-import { useCanManageReviews } from './hooks/useCanManageReviews';
+import { useCanEditReviews, useCanManageReviews } from './hooks/useCanManageReviews';
 import { DEFAULT_REVIEWER, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import type { ReviewQueue } from './types';
 
@@ -85,10 +85,12 @@ export const AddToReviewQueueModal = ({
   const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
   const canManage = useCanManageReviews(experimentId);
-  // Any authenticated user may list users server-side; we fetch the roster only
-  // for managers (who can assign reviewers — assignment needs experiment MANAGE)
-  // when the modal is open.
-  const canListUsers = authAvailable && canManage;
+  // Routing traces (flagging items into any queue, including a user's personal
+  // queue) is an EDIT capability; only question authoring needs MANAGE. We fetch
+  // the user roster for the per-user queue picker whenever an editor opens the
+  // modal.
+  const canEdit = useCanEditReviews(experimentId);
+  const canListUsers = authAvailable && canEdit;
 
   const [search, setSearch] = useState('');
   // The no-auth default user queue. Nothing is selected by default; the caller
@@ -171,7 +173,10 @@ export const AddToReviewQueueModal = ({
   const selectedCount = (defaultQueueChecked ? 1 : 0) + selectedQueueIds.size + selectedUsers.size;
 
   const isWorking = isAddingItems || isResolvingUserQueue || isSubmitting;
-  const canAdd = selectedCount > 0 && itemIds.length > 0 && !isWorking && reviewerResolved;
+  // Flagging traces into a queue is an EDIT capability (true on a no-auth server,
+  // where `canEdit` is permissive); a READ-only viewer can open the modal but
+  // can't commit the add.
+  const canAdd = canEdit && selectedCount > 0 && itemIds.length > 0 && !isWorking && reviewerResolved;
 
   const triggerValue = useMemo(
     () =>
@@ -518,9 +523,9 @@ export const AddToReviewQueueModal = ({
             </DialogCombobox>
           )}
 
-          {/* Creating a queue or question is experiment management (MANAGE);
-              reviewers who can only route work (EDIT) don't see these. */}
-          {canManage && (
+          {/* Creating a queue (which you then own) only needs EDIT; authoring an
+              experiment question is MANAGE. An editor sees just "New queue". */}
+          {canEdit && (
             <div
               css={{
                 display: 'flex',
@@ -538,17 +543,19 @@ export const AddToReviewQueueModal = ({
                 <PlusIcon />
                 <FormattedMessage defaultMessage="New queue" description="Add to review queue: create new queue link" />
               </Typography.Link>
-              <Typography.Link
-                componentId={`${CID}.add-question`}
-                css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}
-                onClick={() => setAddQuestionOpen(true)}
-              >
-                <PlusIcon />
-                <FormattedMessage
-                  defaultMessage="Add question"
-                  description="Add to review queue: create new question link"
-                />
-              </Typography.Link>
+              {canManage && (
+                <Typography.Link
+                  componentId={`${CID}.add-question`}
+                  css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}
+                  onClick={() => setAddQuestionOpen(true)}
+                >
+                  <PlusIcon />
+                  <FormattedMessage
+                    defaultMessage="Add question"
+                    description="Add to review queue: create new question link"
+                  />
+                </Typography.Link>
+              )}
             </div>
           )}
 

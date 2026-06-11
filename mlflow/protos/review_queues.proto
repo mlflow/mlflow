@@ -57,7 +57,11 @@ message ReviewQueue {
   // Queue name. For a USER queue this is the (normalized) user identifier.
   optional string name = 3;
   optional ReviewQueueType queue_type = 4;
-  // Audit-only identifier of the user who created the queue.
+  // The queue's owner. On an authenticated server this is server-stamped to the
+  // creating user and is the basis for owner-level authorization (an EDIT user
+  // may manage the queues they own); it can be reassigned (MANAGE-only) via
+  // UpdateReviewQueue's `new_owner`. On a no-auth server it is meaningless and
+  // may be unset. For a USER queue it is the assigned user (attribution only).
   optional string created_by = 5;
   optional int64 creation_time_ms = 6;
   optional int64 last_update_time_ms = 7;
@@ -167,13 +171,14 @@ message ListReviewQueues {
   }
 }
 
-// Replace a CUSTOM queue's assigned users and/or attached schemas.
-// `name` and `queue_type` are immutable, and USER queues reject this
-// RPC. Because a repeated field can't distinguish "absent" from "empty"
-// on the wire, each association set is gated by an explicit
-// `update_*` flag: when the flag is true the corresponding list
-// (possibly empty) replaces the set; when false the set is left
-// untouched.
+// Edit a CUSTOM queue's name, assigned users, attached schemas, and/or owner.
+// `queue_type` is immutable and USER queues reject this RPC. Singular fields use
+// proto2 presence (HasField); only the repeated sets need explicit `update_*`
+// flags, since a repeated field can't tell "absent" from "empty" on the wire
+// (when the flag is true the list, possibly empty, replaces the set). `name`
+// renames the queue. `new_owner` reassigns ownership (`created_by`) and is
+// MANAGE-gated — owners can't transfer their own queue — whereas an owning EDIT
+// user may perform the other edits.
 message UpdateReviewQueue {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -182,6 +187,8 @@ message UpdateReviewQueue {
   repeated string users = 3;
   optional bool update_schema_ids = 4;
   repeated string schema_ids = 5;
+  optional string name = 6;
+  optional string new_owner = 7;
 
   message Response {
     optional ReviewQueue review_queue = 1;

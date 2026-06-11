@@ -14,7 +14,7 @@ import { ManageQuestionsModal } from './ManageQuestionsModal';
 import { QueueSettingsModal } from './QueueSettingsModal';
 import { ReviewQueueList } from './ReviewQueueList';
 import { ReviewQueueSidebar } from './ReviewQueueSidebar';
-import { useCanManageReviews } from './hooks/useCanManageReviews';
+import { useCanEditReviews, useCanManageReviews } from './hooks/useCanManageReviews';
 import { useDeleteReviewQueueMutation } from './hooks/useDeleteReviewQueueMutation';
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
 import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
@@ -32,9 +32,9 @@ import type { ReviewQueueItem, ReviewStatus } from './types';
  * Clicking a trace opens the full-page focused question-answering view (the
  * queue list collapses), with a "Back" control to return to the list.
  *
- * The left list is grouped on authenticated servers (queues others assigned to
- * me vs. queues I created); a no-auth server shows one list. See
- * `ReviewQueueSidebar`.
+ * The left list is a flat, sortable list of the reviewer's visible queues
+ * (name / owner / to-do count); on an auth server an editor sees every queue,
+ * with ones they can't open greyed out. See `ReviewQueueSidebar`.
  */
 const ExperimentReviewQueuePage = () => {
   const { theme } = useDesignSystemTheme();
@@ -45,9 +45,11 @@ const ExperimentReviewQueuePage = () => {
   // identity is settled (an in-flight /users/current load reads as `default`).
   const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
-  // Gate management controls (create / edit / delete queue, edit questions) on
-  // EDIT+; reviewing stays available to everyone assigned. See useCanManageReviews.
+  // Question management (create / edit / delete label schemas) and owner
+  // reassignment require MANAGE; creating + owner-managing queues and reviewing
+  // require EDIT. Owner-level per-queue access combines `canEdit` with ownership.
   const canManage = useCanManageReviews(experimentId ?? '');
+  const canEdit = useCanEditReviews(experimentId ?? '');
 
   const [selectedQueueIdState, setSelectedQueueIdState] = useState<string>();
   // The trace open in focused review (null = show the queue's trace table).
@@ -89,8 +91,8 @@ const ExperimentReviewQueuePage = () => {
   }, [authAvailable, experimentId]);
 
   // No queue is selected until the reviewer picks one (the right panel prompts
-  // them to). Auto-selecting the first queue would land on a no-work queue and
-  // force the "No work to do" group open.
+  // them to). Auto-selecting the first queue could land on a queue with no work
+  // left, or one the reviewer can't open.
   const selectedQueueId = selectedQueueIdState;
   const selectedQueue = useMemo(
     () => reviewQueues.find((q) => q.queue_id === selectedQueueId) ?? null,
@@ -104,18 +106,20 @@ const ExperimentReviewQueuePage = () => {
     () => (confirmDeleteQueueId ? (reviewQueues.find((q) => q.queue_id === confirmDeleteQueueId) ?? null) : null),
     [reviewQueues, confirmDeleteQueueId],
   );
-  // Whether the reviewer may manage the selected queue — any CUSTOM queue when
-  // they can manage reviews (MANAGE). Removing traces and the right-pane gear
-  // (manage settings / delete) share this one permission.
-  const canManageSelectedQueue = selectedQueue ? canManageQueue(selectedQueue, canManage) : false;
+  // Whether the reviewer may manage the selected queue — a CUSTOM queue they can
+  // manage (MANAGE) or own (EDIT + owner). Removing traces and the right-pane
+  // gear (manage settings / delete) share this one permission.
+  const canManageSelectedQueue = selectedQueue ? canManageQueue(selectedQueue, reviewer, canManage, canEdit) : false;
   // Whether the reviewer may submit reviews in the selected queue: always on a
-  // no-auth server; otherwise only if they're in the queue's assigned-user pool
-  // (the server enforces this on set-status). A manager viewing a queue they're
-  // not assigned to gets a view-only pane with a self-assign affordance.
+  // no-auth server; otherwise experiment EDIT plus membership in the queue's
+  // assigned-user pool (the server enforces both on set-status). A manager/owner
+  // viewing a queue they're not assigned to gets a view-only pane with a
+  // self-assign affordance.
   const canReviewSelectedQueue =
-    !authAvailable || (selectedQueue ? (selectedQueue.users ?? []).some((u) => sameUser(u, reviewer)) : false);
+    !authAvailable ||
+    (canEdit && selectedQueue ? (selectedQueue.users ?? []).some((u) => sameUser(u, reviewer)) : false);
   const handleAssignSelf =
-    authAvailable && canManage && !canReviewSelectedQueue && selectedQueue && selectedQueue.queue_type === 'CUSTOM'
+    authAvailable && canManageSelectedQueue && !canReviewSelectedQueue && selectedQueue
       ? () => {
           void updateReviewQueueAsync({
             queue_id: selectedQueue.queue_id,
@@ -318,7 +322,16 @@ const ExperimentReviewQueuePage = () => {
   }
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, padding: theme.spacing.md }}>
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
+        paddingRight: theme.spacing.md,
+        paddingBottom: theme.spacing.md,
+      }}
+    >
       <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {inFocusMode ? (
           <div
@@ -341,16 +354,15 @@ const ExperimentReviewQueuePage = () => {
             leftMinWidth={260}
             rightMinWidth={480}
             leftChild={
-              <div css={{ width: '100%', height: '100%', minHeight: 0 }}>
+              <div css={{ width: '100%', height: '100%', minHeight: 0, overflow: 'hidden' }}>
                 <ReviewQueueSidebar
                   queues={reviewQueues}
                   selectedQueueId={selectedQueueId}
                   canManage={canManage}
+                  canEdit={canEdit}
+                  canCreateQueue={canEdit}
+                  reviewer={reviewer}
                   onSelect={selectQueue}
-                  onDeselectQueue={() => {
-                    setSelectedQueueIdState(undefined);
-                    setOpenItemId(null);
-                  }}
                   onNewQueue={() => setCreateOpen(true)}
                   onManageQuestions={() => setManageOpen(true)}
                 />
@@ -385,7 +397,14 @@ const ExperimentReviewQueuePage = () => {
       )}
 
       {editingQueue && (
-        <QueueSettingsModal queue={editingQueue} canManage={canManage} onClose={() => setEditingQueueId(undefined)} />
+        <QueueSettingsModal
+          // Remount per queue so the name / owner inputs re-seed from the new
+          // queue rather than keeping the previous queue's values.
+          key={editingQueue.queue_id}
+          queue={editingQueue}
+          canManage={canManage}
+          onClose={() => setEditingQueueId(undefined)}
+        />
       )}
 
       {confirmDeleteQueue && (
