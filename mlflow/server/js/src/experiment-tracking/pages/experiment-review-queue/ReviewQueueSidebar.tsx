@@ -142,6 +142,7 @@ export const ReviewQueueSidebar = ({
   queues,
   selectedQueueId,
   canManage,
+  canCreateQueue,
   onSelect,
   onDeselectQueue,
   onNewQueue,
@@ -150,6 +151,7 @@ export const ReviewQueueSidebar = ({
   queues: ReviewQueue[];
   selectedQueueId: string | undefined;
   canManage: boolean;
+  canCreateQueue: boolean;
   onSelect: (queueId: string) => void;
   onDeselectQueue: () => void;
   onNewQueue: () => void;
@@ -216,17 +218,23 @@ export const ReviewQueueSidebar = ({
         overflow: 'auto',
       }}
     >
-      {canManage && (
+      {(canManage || canCreateQueue) && (
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, flexWrap: 'wrap' }}>
-          <Button componentId={`${CID}.manage-questions`} icon={<GearIcon />} onClick={onManageQuestions}>
-            <FormattedMessage
-              defaultMessage="Manage questions"
-              description="Review queue sidebar: manage-questions button"
-            />
-          </Button>
-          <Button componentId={`${CID}.new-queue`} icon={<PlusIcon />} onClick={onNewQueue}>
-            <FormattedMessage defaultMessage="New queue" description="Review queue: create-queue button" />
-          </Button>
+          {/* Editing the experiment's questions is MANAGE; creating a queue (which
+              you then own) only needs EDIT. */}
+          {canManage && (
+            <Button componentId={`${CID}.manage-questions`} icon={<GearIcon />} onClick={onManageQuestions}>
+              <FormattedMessage
+                defaultMessage="Manage questions"
+                description="Review queue sidebar: manage-questions button"
+              />
+            </Button>
+          )}
+          {canCreateQueue && (
+            <Button componentId={`${CID}.new-queue`} icon={<PlusIcon />} onClick={onNewQueue}>
+              <FormattedMessage defaultMessage="New queue" description="Review queue: create-queue button" />
+            </Button>
+          )}
         </div>
       )}
 

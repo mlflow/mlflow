@@ -14,7 +14,7 @@ import { ManageQuestionsModal } from './ManageQuestionsModal';
 import { QueueSettingsModal } from './QueueSettingsModal';
 import { ReviewQueueList } from './ReviewQueueList';
 import { ReviewQueueSidebar } from './ReviewQueueSidebar';
-import { useCanManageReviews } from './hooks/useCanManageReviews';
+import { useCanEditReviews, useCanManageReviews } from './hooks/useCanManageReviews';
 import { useDeleteReviewQueueMutation } from './hooks/useDeleteReviewQueueMutation';
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
 import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
@@ -45,9 +45,11 @@ const ExperimentReviewQueuePage = () => {
   // identity is settled (an in-flight /users/current load reads as `default`).
   const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
-  // Gate management controls (create / edit / delete queue, edit questions) on
-  // EDIT+; reviewing stays available to everyone assigned. See useCanManageReviews.
+  // Question management (create / edit / delete label schemas) and owner
+  // reassignment require MANAGE; creating + owner-managing queues and reviewing
+  // require EDIT. Owner-level per-queue access combines `canEdit` with ownership.
   const canManage = useCanManageReviews(experimentId ?? '');
+  const canEdit = useCanEditReviews(experimentId ?? '');
 
   const [selectedQueueIdState, setSelectedQueueIdState] = useState<string>();
   // The trace open in focused review (null = show the queue's trace table).
@@ -104,18 +106,22 @@ const ExperimentReviewQueuePage = () => {
     () => (confirmDeleteQueueId ? (reviewQueues.find((q) => q.queue_id === confirmDeleteQueueId) ?? null) : null),
     [reviewQueues, confirmDeleteQueueId],
   );
-  // Whether the reviewer may manage the selected queue — any CUSTOM queue when
-  // they can manage reviews (MANAGE). Removing traces and the right-pane gear
-  // (manage settings / delete) share this one permission.
-  const canManageSelectedQueue = selectedQueue ? canManageQueue(selectedQueue, canManage) : false;
+  // Whether the reviewer may manage the selected queue — a CUSTOM queue they can
+  // manage (MANAGE) or own (EDIT + owner). Removing traces and the right-pane
+  // gear (manage settings / delete) share this one permission.
+  const canManageSelectedQueue = selectedQueue
+    ? canManageQueue(selectedQueue, reviewer, canManage, canEdit)
+    : false;
   // Whether the reviewer may submit reviews in the selected queue: always on a
-  // no-auth server; otherwise only if they're in the queue's assigned-user pool
-  // (the server enforces this on set-status). A manager viewing a queue they're
-  // not assigned to gets a view-only pane with a self-assign affordance.
+  // no-auth server; otherwise experiment EDIT plus membership in the queue's
+  // assigned-user pool (the server enforces both on set-status). A manager/owner
+  // viewing a queue they're not assigned to gets a view-only pane with a
+  // self-assign affordance.
   const canReviewSelectedQueue =
-    !authAvailable || (selectedQueue ? (selectedQueue.users ?? []).some((u) => sameUser(u, reviewer)) : false);
+    !authAvailable ||
+    (canEdit && selectedQueue ? (selectedQueue.users ?? []).some((u) => sameUser(u, reviewer)) : false);
   const handleAssignSelf =
-    authAvailable && canManage && !canReviewSelectedQueue && selectedQueue && selectedQueue.queue_type === 'CUSTOM'
+    authAvailable && canManageSelectedQueue && !canReviewSelectedQueue && selectedQueue
       ? () => {
           void updateReviewQueueAsync({
             queue_id: selectedQueue.queue_id,
@@ -355,6 +361,7 @@ const ExperimentReviewQueuePage = () => {
                   queues={reviewQueues}
                   selectedQueueId={selectedQueueId}
                   canManage={canManage}
+                  canCreateQueue={canEdit}
                   onSelect={selectQueue}
                   onDeselectQueue={() => {
                     setSelectedQueueIdState(undefined);
