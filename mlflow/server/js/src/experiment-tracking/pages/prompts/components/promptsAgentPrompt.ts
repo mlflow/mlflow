@@ -8,7 +8,7 @@ export const buildCreatePromptPrompt =
 5. Register it and report the name, version, and UI URL.
 6. Help me test it: swap \`mlflow.genai.load_prompt(name, version)\` into my app, or give me a runnable Python snippet.
 
-Infer the package manager, entry point, and framework from the repo. Use \`searching-mlflow-docs\` for API questions (fallback: https://github.com/mlflow/skills). If you hit a blocker you can't resolve (missing API key, permissions, dependencies), stop and tell me what you need.`;
+Infer the package manager, entry point, and framework from the repo. Use the \`searching-mlflow-docs\` skill for API questions (fallback: https://github.com/mlflow/skills). If you hit a blocker you can't resolve (missing API key, permissions, dependencies), stop and tell me what you need.`;
 
 export const buildCreatePromptAssistantPrompt =
   (): string => `Help me create and test my first MLflow registered prompt. Take it one step at a time:
