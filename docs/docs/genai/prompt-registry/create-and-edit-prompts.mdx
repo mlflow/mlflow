@@ -84,25 +84,6 @@ You can initiate a new prompt in the MLflow Prompt Registry in two primary ways:
     </div>
 
   </TabItem>
-  <TabItem value="agent" label="Coding agent">
-    <div class="flex-column">
-      Prefer to let a coding agent do it? Paste this prompt into your coding agent of choice and it will create and test your first prompt for you.
-
-      ```text
-      Help me create and test my first MLflow registered prompt. Take it one step at a time:
-
-      1. Ask what the prompt is for (e.g. summarizing an article, extracting action items).
-      2. Ask whether it should be global or attached to an experiment.
-      3. Suggest a kebab-case name and confirm.
-      4. Draft a `{{variable}}` template and let me iterate before saving.
-      5. Register it and report the name, version, and UI URL.
-      6. Help me test it: swap `mlflow.genai.load_prompt(name, version)` into my app, or give me a runnable Python snippet.
-
-      Infer the package manager, entry point, and framework from the repo. Use `searching-mlflow-docs` for API questions (fallback: https://github.com/mlflow/skills). If you hit a blocker you can't resolve (missing API key, permissions, dependencies), stop and tell me what you need.
-      ```
-    </div>
-
-  </TabItem>
 </Tabs>
 </TabsWrapper>
 

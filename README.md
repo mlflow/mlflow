@@ -45,7 +45,7 @@ Learn more at [MLflow for LLMs and Agents](https://mlflow.org/docs/latest/genai)
 
 From zero to full-stack LLMOps in minutes. No complex setup or major code changes required. [Get Started →](https://mlflow.org/docs/latest/genai/tracing/quickstart/)
 
-> **Fastest start — setup tracing with our CLI** _(experimental)_
+> **Fastest start — setup tracing with our CLI**
 >
 > ```bash
 > uvx mlflow agent setup

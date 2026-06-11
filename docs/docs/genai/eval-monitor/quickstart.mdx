@@ -12,26 +12,6 @@ import TabsWrapper from '@site/src/components/TabsWrapper';
 Need help setting up evaluation? Try <ins>[MLflow Assistant](/genai/getting-started/try-assistant)</ins> - a powerful AI assistant that can help you set up evaluation for your project.
 :::
 
-:::tip[Set it up with a coding agent]
-Prefer to let a coding agent do it? Expand the prompt below and paste it into your coding agent of choice.
-
-<details>
-<summary>Show the coding-agent prompt</summary>
-
-```text
-Run an evaluation on my GenAI app in MLflow. If unsure, ask which experiment this is for.
-
-1. Add `mlflow` as a dependency if needed.
-2. Set the tracking URI to match the project (read `MLFLOW_TRACKING_URI` or ask me), then call `mlflow.set_experiment(experiment_id="<your-experiment-id>")`.
-3. Choose an approach: if traces already exist here, evaluate them with `mlflow.search_traces(...)`; otherwise build a small `eval_dataset` with a `predict_fn`. Use built-in scorers (Safety, RelevanceToQuery, Guidelines) unless custom logic is needed. Use `searching-mlflow-docs` for API questions (fallback: https://github.com/mlflow/skills).
-4. Run `mlflow.genai.evaluate(...)` and confirm an evaluation run appears.
-
-Infer the framework, entry point, and whether traces exist from the repo. If you hit a blocker you can't resolve (missing API key, permissions, dependencies), stop and tell me what you need.
-```
-
-</details>
-:::
-
 This quickstart guide will walk you through evaluating your LLM applications and AI agents with MLflow's comprehensive evaluation framework.
 In less than 5 minutes, you'll learn how to evaluate LLM outputs, use built-in and custom evaluation criteria, and analyze results in the MLflow UI.
 
