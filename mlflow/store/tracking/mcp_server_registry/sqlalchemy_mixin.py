@@ -491,6 +491,31 @@ class SqlAlchemyMCPServerRegistryMixin:
             sv.last_updated_at = get_current_time_millis()
             session.flush()
 
+            # If no eligible versions remain for "latest" resolution, clean up
+            # bindings that use server_alias="latest"
+            remaining_versions = (
+                self
+                ._get_query(session, SqlMCPServerVersion)
+                .filter(
+                    SqlMCPServerVersion.name == name,
+                    SqlMCPServerVersion.status.notin_([
+                        MCPStatus.DRAFT.value,
+                        MCPStatus.DELETED.value,
+                    ]),
+                )
+                .first()
+            )
+            if not remaining_versions:
+                (
+                    self
+                    ._get_query(session, SqlMCPAccessBinding)
+                    .filter(
+                        SqlMCPAccessBinding.server_name == name,
+                        SqlMCPAccessBinding.server_alias == "latest",
+                    )
+                    .delete(synchronize_session=False)
+                )
+
     # --- MCPAccessBinding operations ---
 
     def _get_alias_target_version_or_raise(
@@ -1003,139 +1028,161 @@ def _resolved_binding_targets_subquery(
     # appear here (delete_mcp_server_version cascade-deletes affected bindings
     # and clears latest_version pins), but the filter keeps the branches
     # consistent and guards against data-integrity edge cases.
-    direct_stmt = _apply_common_filters(
-        sa
-        .select(
-            SqlMCPAccessBinding.binding_id.label("binding_id"),
-            SqlMCPAccessBinding.workspace.label("binding_workspace"),
-            SqlMCPAccessBinding.server_name.label("binding_server_name"),
-            SqlMCPServerVersion.workspace.label("resolved_workspace"),
-            SqlMCPServerVersion.name.label("resolved_name"),
-            SqlMCPServerVersion.version.label("resolved_version"),
-        )
-        .select_from(SqlMCPAccessBinding)
-        .join(
-            SqlMCPServerVersion,
-            sa.and_(
-                SqlMCPAccessBinding.workspace == SqlMCPServerVersion.workspace,
-                SqlMCPAccessBinding.server_name == SqlMCPServerVersion.name,
-                SqlMCPAccessBinding.server_version == SqlMCPServerVersion.version,
-                SqlMCPServerVersion.status != MCPStatus.DELETED.value,
-            ),
-        )
-        .where(SqlMCPAccessBinding.server_version.is_not(None))
-    )
-    if server_version is not None:
-        direct_stmt = direct_stmt.where(SqlMCPAccessBinding.server_version == server_version)
-
-    # Stored aliases (non-"latest")
-    stored_alias_stmt = _apply_common_filters(
-        sa
-        .select(
-            SqlMCPAccessBinding.binding_id.label("binding_id"),
-            SqlMCPAccessBinding.workspace.label("binding_workspace"),
-            SqlMCPAccessBinding.server_name.label("binding_server_name"),
-            SqlMCPServerVersion.workspace.label("resolved_workspace"),
-            SqlMCPServerVersion.name.label("resolved_name"),
-            SqlMCPServerVersion.version.label("resolved_version"),
-        )
-        .select_from(SqlMCPAccessBinding)
-        .join(
-            alias_row,
-            sa.and_(
-                SqlMCPAccessBinding.workspace == alias_row.workspace,
-                SqlMCPAccessBinding.server_name == alias_row.name,
-                SqlMCPAccessBinding.server_alias == alias_row.alias,
-            ),
-        )
-        .join(
-            SqlMCPServerVersion,
-            sa.and_(
-                alias_row.workspace == SqlMCPServerVersion.workspace,
-                alias_row.name == SqlMCPServerVersion.name,
-                alias_row.version == SqlMCPServerVersion.version,
-                SqlMCPServerVersion.status != MCPStatus.DELETED.value,
-            ),
-        )
-        .where(
-            SqlMCPAccessBinding.server_alias.is_not(None),
-            SqlMCPAccessBinding.server_alias != "latest",
-        )
-    )
-    if server_alias is not None and server_alias != "latest":
-        stored_alias_stmt = stored_alias_stmt.where(
-            SqlMCPAccessBinding.server_alias == server_alias
-        )
-
-    # "latest" alias resolution
-    pinned_version = sa.orm.aliased(SqlMCPServerVersion, name="pinned_latest")
-    latest_candidates = SqlMCPServer._latest_candidates_query().subquery("latest_candidates")
-    latest_alias_stmt = _apply_common_filters(
-        sa
-        .select(
-            SqlMCPAccessBinding.binding_id.label("binding_id"),
-            SqlMCPAccessBinding.workspace.label("binding_workspace"),
-            SqlMCPAccessBinding.server_name.label("binding_server_name"),
-            SqlMCPServerVersion.workspace.label("resolved_workspace"),
-            SqlMCPServerVersion.name.label("resolved_name"),
-            SqlMCPServerVersion.version.label("resolved_version"),
-        )
-        .select_from(SqlMCPAccessBinding)
-        .join(
-            SqlMCPServer,
-            sa.and_(
-                SqlMCPAccessBinding.workspace == SqlMCPServer.workspace,
-                SqlMCPAccessBinding.server_name == SqlMCPServer.name,
-            ),
-        )
-        .outerjoin(
-            pinned_version,
-            sa.and_(
-                pinned_version.workspace == SqlMCPServer.workspace,
-                pinned_version.name == SqlMCPServer.name,
-                pinned_version.version == SqlMCPServer.latest_version,
-            ),
-        )
-        .outerjoin(
-            latest_candidates,
-            sa.and_(
-                latest_candidates.c.workspace == SqlMCPServer.workspace,
-                latest_candidates.c.name == SqlMCPServer.name,
-                latest_candidates.c.row_num == 1,
-            ),
-        )
-        .join(
-            SqlMCPServerVersion,
-            sa.and_(
-                SqlMCPServerVersion.workspace == SqlMCPAccessBinding.workspace,
-                SqlMCPServerVersion.name == SqlMCPAccessBinding.server_name,
-                SqlMCPServerVersion.version
-                == sa.case(
-                    (SqlMCPServer.latest_version.is_not(None), pinned_version.version),
-                    else_=latest_candidates.c.version,
-                ),
-                SqlMCPServerVersion.status != MCPStatus.DELETED.value,
-            ),
-        )
-        .where(SqlMCPAccessBinding.server_alias == "latest")
-    )
 
     branches = []
 
+    # Build only the query branches we'll actually need based on filter parameters
     if server_alias is None:
+        # Direct version bindings
+        direct_stmt = _apply_common_filters(
+            sa
+            .select(
+                SqlMCPAccessBinding.binding_id.label("binding_id"),
+                SqlMCPAccessBinding.workspace.label("binding_workspace"),
+                SqlMCPAccessBinding.server_name.label("binding_server_name"),
+                SqlMCPServerVersion.workspace.label("resolved_workspace"),
+                SqlMCPServerVersion.name.label("resolved_name"),
+                SqlMCPServerVersion.version.label("resolved_version"),
+            )
+            .select_from(SqlMCPAccessBinding)
+            .join(
+                SqlMCPServerVersion,
+                sa.and_(
+                    SqlMCPAccessBinding.workspace == SqlMCPServerVersion.workspace,
+                    SqlMCPAccessBinding.server_name == SqlMCPServerVersion.name,
+                    SqlMCPAccessBinding.server_version == SqlMCPServerVersion.version,
+                    SqlMCPServerVersion.status != MCPStatus.DELETED.value,
+                ),
+            )
+            .where(SqlMCPAccessBinding.server_version.is_not(None))
+        )
+        if server_version is not None:
+            direct_stmt = direct_stmt.where(SqlMCPAccessBinding.server_version == server_version)
         branches.append(direct_stmt)
 
     if server_version is None:
-        if server_alias is None:
-            branches.append(stored_alias_stmt)
-            branches.append(latest_alias_stmt)
-        elif server_alias == "latest":
-            branches.append(latest_alias_stmt)
-        else:
+        if server_alias is None or (server_alias is not None and server_alias != "latest"):
+            # Stored aliases (non-"latest")
+            stored_alias_stmt = _apply_common_filters(
+                sa
+                .select(
+                    SqlMCPAccessBinding.binding_id.label("binding_id"),
+                    SqlMCPAccessBinding.workspace.label("binding_workspace"),
+                    SqlMCPAccessBinding.server_name.label("binding_server_name"),
+                    SqlMCPServerVersion.workspace.label("resolved_workspace"),
+                    SqlMCPServerVersion.name.label("resolved_name"),
+                    SqlMCPServerVersion.version.label("resolved_version"),
+                )
+                .select_from(SqlMCPAccessBinding)
+                .join(
+                    alias_row,
+                    sa.and_(
+                        SqlMCPAccessBinding.workspace == alias_row.workspace,
+                        SqlMCPAccessBinding.server_name == alias_row.name,
+                        SqlMCPAccessBinding.server_alias == alias_row.alias,
+                    ),
+                )
+                .join(
+                    SqlMCPServerVersion,
+                    sa.and_(
+                        alias_row.workspace == SqlMCPServerVersion.workspace,
+                        alias_row.name == SqlMCPServerVersion.name,
+                        alias_row.version == SqlMCPServerVersion.version,
+                        SqlMCPServerVersion.status != MCPStatus.DELETED.value,
+                    ),
+                )
+                .where(
+                    SqlMCPAccessBinding.server_alias.is_not(None),
+                    SqlMCPAccessBinding.server_alias != "latest",
+                )
+            )
+            if server_alias is not None and server_alias != "latest":
+                stored_alias_stmt = stored_alias_stmt.where(
+                    SqlMCPAccessBinding.server_alias == server_alias
+                )
             branches.append(stored_alias_stmt)
 
+        if server_alias is None or server_alias == "latest":
+            # "latest" alias resolution - only construct when needed
+            pinned_version = sa.orm.aliased(SqlMCPServerVersion, name="pinned_latest")
+            latest_candidates = SqlMCPServer._latest_candidates_query().subquery(
+                "latest_candidates"
+            )
+            latest_alias_stmt = _apply_common_filters(
+                sa
+                .select(
+                    SqlMCPAccessBinding.binding_id.label("binding_id"),
+                    SqlMCPAccessBinding.workspace.label("binding_workspace"),
+                    SqlMCPAccessBinding.server_name.label("binding_server_name"),
+                    SqlMCPServerVersion.workspace.label("resolved_workspace"),
+                    SqlMCPServerVersion.name.label("resolved_name"),
+                    SqlMCPServerVersion.version.label("resolved_version"),
+                )
+                .select_from(SqlMCPAccessBinding)
+                .join(
+                    SqlMCPServer,
+                    sa.and_(
+                        SqlMCPAccessBinding.workspace == SqlMCPServer.workspace,
+                        SqlMCPAccessBinding.server_name == SqlMCPServer.name,
+                    ),
+                )
+                .outerjoin(
+                    pinned_version,
+                    sa.and_(
+                        pinned_version.workspace == SqlMCPServer.workspace,
+                        pinned_version.name == SqlMCPServer.name,
+                        pinned_version.version == SqlMCPServer.latest_version,
+                    ),
+                )
+                .outerjoin(
+                    latest_candidates,
+                    sa.and_(
+                        latest_candidates.c.workspace == SqlMCPServer.workspace,
+                        latest_candidates.c.name == SqlMCPServer.name,
+                        latest_candidates.c.row_num == 1,
+                    ),
+                )
+                .join(
+                    SqlMCPServerVersion,
+                    sa.and_(
+                        SqlMCPServerVersion.workspace == SqlMCPAccessBinding.workspace,
+                        SqlMCPServerVersion.name == SqlMCPAccessBinding.server_name,
+                        SqlMCPServerVersion.version
+                        == sa.case(
+                            (SqlMCPServer.latest_version.is_not(None), pinned_version.version),
+                            else_=latest_candidates.c.version,
+                        ),
+                        SqlMCPServerVersion.status != MCPStatus.DELETED.value,
+                    ),
+                )
+                .where(SqlMCPAccessBinding.server_alias == "latest")
+            )
+            branches.append(latest_alias_stmt)
+
     if not branches:
-        return direct_stmt.where(sa.false()).subquery("resolved_binding_targets")
+        # No valid query - return empty result set
+        empty_stmt = _apply_common_filters(
+            sa
+            .select(
+                SqlMCPAccessBinding.binding_id.label("binding_id"),
+                SqlMCPAccessBinding.workspace.label("binding_workspace"),
+                SqlMCPAccessBinding.server_name.label("binding_server_name"),
+                SqlMCPServerVersion.workspace.label("resolved_workspace"),
+                SqlMCPServerVersion.name.label("resolved_name"),
+                SqlMCPServerVersion.version.label("resolved_version"),
+            )
+            .select_from(SqlMCPAccessBinding)
+            .join(
+                SqlMCPServerVersion,
+                sa.and_(
+                    SqlMCPAccessBinding.workspace == SqlMCPServerVersion.workspace,
+                    SqlMCPAccessBinding.server_name == SqlMCPServerVersion.name,
+                    SqlMCPAccessBinding.server_version == SqlMCPServerVersion.version,
+                ),
+            )
+            .where(sa.false())
+        )
+        return empty_stmt.subquery("resolved_binding_targets")
 
     # Use sa.union_all to combine multiple branches
     stmt = branches[0] if len(branches) == 1 else sa.union_all(*branches)
