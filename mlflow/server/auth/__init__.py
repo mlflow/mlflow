@@ -1627,12 +1627,15 @@ def validate_can_read_user():
 
 
 def validate_can_list_users():
-    # Any authenticated user may list users. The payload carries no per-workspace
-    # data, and the review-queue assignment UI needs the roster so a (non-admin)
-    # experiment manager can pick reviewers to assign. Listing grants no access on
-    # its own: assigning a user to a queue still requires experiment MANAGE.
-    # (Super admins short-circuit in ``_before_request`` and never reach this validator.)
-    return True
+    # Any workspace member may list users: the review-queue assignment UI needs the
+    # roster so a (non-admin) experiment manager can pick reviewers to assign.
+    # Listing grants no access on its own — assigning a user to a queue still
+    # requires experiment MANAGE. Scope it to the request workspace so the roster
+    # isn't leaked across workspaces: ``_user_can_create_in_workspace`` requires a
+    # workspace-wide grant when workspaces are enabled, and allows any authenticated
+    # user when they're disabled (single-tenant). (Super admins short-circuit in
+    # ``_before_request`` and never reach this validator.)
+    return _user_can_create_in_workspace()
 
 
 def validate_can_create_user():
@@ -2190,10 +2193,13 @@ def _get_permission_from_label_schema_id() -> Permission:
 
 
 def _review_queue_has_member(queue, username: str) -> bool:
-    # Case-insensitive membership in the queue's assigned-user pool (a USER queue's
-    # pool is its single owner), matching how usernames are normalized on storage.
+    # Membership in the queue's assigned-user pool (a USER queue's pool is its
+    # single owner). Assigned users are already normalized (lowercased + stripped)
+    # at write time, so we only normalize the incoming username and test directly
+    # rather than re-sanitizing every stored entry — this runs per-queue in
+    # ``filter_list_review_queues``, so the membership scan stays O(1) per user.
     target = (username or "").strip().lower()
-    return any((u or "").strip().lower() == target for u in queue.users)
+    return target in queue.users
 
 
 def _is_review_queue_owner(queue, username: str) -> bool:

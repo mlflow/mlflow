@@ -115,12 +115,15 @@ const ExperimentReviewQueuePage = () => {
   // assigned-user pool (the server enforces both on set-status). A manager/owner
   // viewing a queue they're not assigned to gets a view-only pane with a
   // self-assign affordance.
-  const canReviewSelectedQueue =
-    !authAvailable ||
-    (canEdit && selectedQueue ? (selectedQueue.users ?? []).some((u) => sameUser(u, reviewer)) : false);
+  const isAssignedToSelectedQueue = !!selectedQueue && (selectedQueue.users ?? []).some((u) => sameUser(u, reviewer));
+  const canReviewSelectedQueue = !authAvailable || (canEdit && isAssignedToSelectedQueue);
   const handleAssignSelf =
     authAvailable && canManageSelectedQueue && !canReviewSelectedQueue && selectedQueue
       ? () => {
+          // KNOWN LIMITATION (V1): this read-modify-writes the assignee list from a
+          // possibly-stale client snapshot, so a concurrent edit by another manager
+          // between load and save is clobbered. A dedicated server-side
+          // add-user-to-queue RPC (append, not replace) would remove the race.
           void updateReviewQueueAsync({
             queue_id: selectedQueue.queue_id,
             users: [...(selectedQueue.users ?? []), reviewer],
