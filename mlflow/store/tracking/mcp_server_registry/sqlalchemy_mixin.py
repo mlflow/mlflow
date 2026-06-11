@@ -386,6 +386,31 @@ class SqlAlchemyMCPServerRegistryMixin:
         with self.ManagedSessionMaker() as session:
             return self._resolve_latest_version_orm(session, name).to_mlflow_entity()
 
+    def _delete_latest_alias_bindings_if_unresolvable(self, session, server_name: str) -> None:
+        """Delete "latest" bindings when no eligible target version remains."""
+        remaining_versions = (
+            self
+            ._get_query(session, SqlMCPServerVersion)
+            .filter(
+                SqlMCPServerVersion.name == server_name,
+                SqlMCPServerVersion.status.notin_([
+                    MCPStatus.DRAFT.value,
+                    MCPStatus.DELETED.value,
+                ]),
+            )
+            .first()
+        )
+        if not remaining_versions:
+            (
+                self
+                ._get_query(session, SqlMCPAccessBinding)
+                .filter(
+                    SqlMCPAccessBinding.server_name == server_name,
+                    SqlMCPAccessBinding.server_alias == "latest",
+                )
+                .delete(synchronize_session=False)
+            )
+
     def search_mcp_server_versions(
         self,
         name: str,
@@ -436,6 +461,8 @@ class SqlAlchemyMCPServerRegistryMixin:
             sv.last_updated_at = get_current_time_millis()
             session.add(sv)
             session.flush()
+            if status == MCPStatus.DRAFT:
+                self._delete_latest_alias_bindings_if_unresolvable(session, name)
             return sv.to_mlflow_entity()
 
     def delete_mcp_server_version(self, name: str, version: str) -> None:
@@ -490,31 +517,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             sv.status = MCPStatus.DELETED.value
             sv.last_updated_at = get_current_time_millis()
             session.flush()
-
-            # If no eligible versions remain for "latest" resolution, clean up
-            # bindings that use server_alias="latest"
-            remaining_versions = (
-                self
-                ._get_query(session, SqlMCPServerVersion)
-                .filter(
-                    SqlMCPServerVersion.name == name,
-                    SqlMCPServerVersion.status.notin_([
-                        MCPStatus.DRAFT.value,
-                        MCPStatus.DELETED.value,
-                    ]),
-                )
-                .first()
-            )
-            if not remaining_versions:
-                (
-                    self
-                    ._get_query(session, SqlMCPAccessBinding)
-                    .filter(
-                        SqlMCPAccessBinding.server_name == name,
-                        SqlMCPAccessBinding.server_alias == "latest",
-                    )
-                    .delete(synchronize_session=False)
-                )
+            self._delete_latest_alias_bindings_if_unresolvable(session, name)
 
     # --- MCPAccessBinding operations ---
 

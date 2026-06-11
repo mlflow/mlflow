@@ -1508,6 +1508,45 @@ def test_search_binding_latest_alias_stale_pin_omitted(store):
         store.get_mcp_access_binding("io.github.test/s", binding.binding_id)
 
 
+def test_update_last_eligible_version_to_draft_cleans_up_latest_alias_bindings(store):
+    store.create_mcp_server_version(
+        _server_json("io.github.test/s", "1.0"), status=MCPStatus.ACTIVE
+    )
+    binding = store.create_mcp_access_binding(
+        "io.github.test/s",
+        "https://latest.example.com",
+        server_alias="latest",
+    )
+
+    store.update_mcp_server_version("io.github.test/s", "1.0", status=MCPStatus.DRAFT)
+
+    assert store.search_mcp_access_bindings(server_name="io.github.test/s") == []
+    server = store.get_mcp_server("io.github.test/s")
+    assert server.access_bindings == []
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_mcp_access_binding("io.github.test/s", binding.binding_id)
+
+
+def test_delete_last_eligible_version_cleans_up_latest_alias_bindings(store):
+    store.create_mcp_server_version(
+        _server_json("io.github.test/s", "1.0"), status=MCPStatus.ACTIVE
+    )
+    binding = store.create_mcp_access_binding(
+        "io.github.test/s",
+        "https://latest.example.com",
+        server_alias="latest",
+    )
+    store.update_mcp_server_version("io.github.test/s", "1.0", status=MCPStatus.DEPRECATED)
+
+    store.delete_mcp_server_version("io.github.test/s", "1.0")
+
+    assert store.search_mcp_access_bindings(server_name="io.github.test/s") == []
+    server = store.get_mcp_server("io.github.test/s")
+    assert server.access_bindings == []
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_mcp_access_binding("io.github.test/s", binding.binding_id)
+
+
 def test_search_unfiltered_returns_all_binding_types(store):
     store.create_mcp_server_version(
         _server_json("io.github.test/s", "1.0"), status=MCPStatus.ACTIVE
