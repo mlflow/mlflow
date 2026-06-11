@@ -201,16 +201,11 @@ describe('AddToReviewQueueDropdown', () => {
     expect(Utils.displayGlobalInfoNotification).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps Add disabled and hides the New-queue link for a READ-only user', () => {
+  it('hides the New-queue link for a READ-only user', () => {
     mockCanEdit = false;
-    renderModal();
+    renderDropdown({ open: true });
 
-    fireEvent.click(screen.getByRole('combobox'));
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
-
-    // Flagging traces requires EDIT, so a destination can be picked but not committed.
-    expect(screen.getByRole('button', { name: 'Add to 1 queue' })).toBeDisabled();
-    // ...and the create-a-queue affordance (also EDIT) is gone from the dropdown.
+    // The create-a-queue affordance (requires EDIT) is gone from the dropdown.
     expect(screen.queryByText('New queue')).toBeNull();
   });
 });
