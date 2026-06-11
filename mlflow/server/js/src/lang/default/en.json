@@ -1171,6 +1171,10 @@
     "defaultMessage": "{fieldName} are empty",
     "description": "Default text in data table where items are empty in the model\n                  comparison page"
   },
+  "48M+kw": {
+    "defaultMessage": "Owner",
+    "description": "Queue settings: owner field label"
+  },
   "4AkzyD": {
     "defaultMessage": "Confirm",
     "description": "Button label to confirm the inferred experiment kind"
@@ -7043,6 +7047,10 @@
     "defaultMessage": "Evaluating traces: OFF",
     "description": "Status label for stopped scorer"
   },
+  "ZhMWAY": {
+    "defaultMessage": "The owner can manage this queue with experiment EDIT access.",
+    "description": "Queue settings: owner field hint"
+  },
   "Zj5ugd": {
     "defaultMessage": "Permission",
     "description": "Permissions table column header for the permission level"
@@ -7258,6 +7266,10 @@
   "abIH3b": {
     "defaultMessage": "All providers",
     "description": "Label for selector when all providers are selected"
+  },
+  "abiikz": {
+    "defaultMessage": "Owner username or email",
+    "description": "Queue settings: owner field placeholder"
   },
   "acbe7K": {
     "defaultMessage": "Select the traces to analyze for issues",

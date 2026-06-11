@@ -4,8 +4,9 @@ Called from the store layer's create / update / attach / status paths.
 Length caps on the validated identity fields (queue name, user, schema id,
 item id) are aligned with their SQL column widths so a value that passes
 validation also fits its column. The queue owner (``created_by``) is
-server-controlled — stamped from the authenticated user on create — so it is
-not part of the create payload validated here.
+server-controlled — stamped from the authenticated user on create and
+validated via ``validate_queue_owner`` when reassigned — so it is not part of
+the create payload validated here.
 
 This module is store-layer-internal; callers should not import it
 directly.
@@ -161,7 +162,7 @@ class ValidatedQueue(NamedTuple):
 
 def validate_custom_queue_name(name: object) -> str:
     """Validate + normalize a CUSTOM queue name: a stripped, case-preserved,
-    non-empty, non-reserved string. Used by the queue-create path.
+    non-empty, non-reserved string. Shared by create and rename.
     """
     if not isinstance(name, str):
         raise _invalid(f"`name` must be a string; got {name!r}.")
@@ -172,6 +173,18 @@ def validate_custom_queue_name(name: object) -> str:
             f"`{normalized_name}` is a reserved queue name and cannot be used for a custom queue."
         )
     return normalized_name
+
+
+def validate_queue_owner(new_owner: object) -> str:
+    """Validate + strip a queue owner identifier. Case is preserved (owner
+    matching is case-insensitive); distinct from ``normalize_user``, which
+    lowercases assigned-user identities for assessment-source matching.
+    """
+    if not isinstance(new_owner, str):
+        raise _invalid(f"`new_owner` must be a string; got {new_owner!r}.")
+    stripped = new_owner.strip()
+    _validate_non_empty_string(stripped, "new_owner", USER_MAX_LENGTH)
+    return stripped
 
 
 def validate_queue_for_create(
