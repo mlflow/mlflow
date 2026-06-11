@@ -277,6 +277,9 @@ function createOssAuth(options: AuthOptions): AuthProvider {
     if (authHeader) {
       headers['Authorization'] = authHeader;
     }
+    if (process.env.MLFLOW_WORKSPACE) {
+      headers['x-mlflow-workspace'] = process.env.MLFLOW_WORKSPACE;
+    }
     return headers;
   };
 
