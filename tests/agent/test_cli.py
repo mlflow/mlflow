@@ -9,7 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 from mlflow.agent.agents import AGENTS
-from mlflow.agent.setup.cli import setup
+from mlflow.agent.setup.cli import _git_root, setup
 from mlflow.telemetry.events import AgentSetupEvent
 
 
@@ -83,7 +83,7 @@ def test_setup_launches_agent_with_correct_argv(
 ):
     with (
         mock.patch("mlflow.agent.agents.shutil.which", return_value=f"/usr/local/bin/{agent}"),
-        mock.patch("mlflow.agent.setup.cli._git_root", return_value=tmp_git_repo),
+        mock.patch("mlflow.agent.setup.cli._git_root", return_value=(tmp_git_repo, None)),
         mock.patch(
             "mlflow.agent.setup.cli.subprocess.run",
             return_value=subprocess.CompletedProcess([], 0),
@@ -94,6 +94,45 @@ def test_setup_launches_agent_with_correct_argv(
     cmd = mock_run.call_args.args[0]
     assert cmd[:-1] == expected_args_before_prompt
     assert cmd[-1].startswith("# MLflow Tracing Setup")
+
+
+def test_git_root_outside_repo(tmp_path: Path):
+    root, reason = _git_root(tmp_path)
+    assert root is None
+    assert reason == "Not inside a git repository."
+
+
+def test_git_root_when_git_not_installed(tmp_path: Path):
+    with mock.patch(
+        "mlflow.agent.setup.cli.subprocess.run", side_effect=FileNotFoundError
+    ) as mock_run:
+        root, reason = _git_root(tmp_path)
+    assert root is None
+    assert reason == "Git is not installed."
+    mock_run.assert_called_once()
+
+
+@pytest.mark.parametrize("reason", ["Not inside a git repository.", "Git is not installed."])
+def test_setup_outside_git_falls_back_to_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, reason: str
+):
+    monkeypatch.chdir(tmp_path)
+    with (
+        mock.patch(
+            "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
+        ) as mock_which,
+        mock.patch(
+            "mlflow.agent.setup.cli._git_root", return_value=(None, reason)
+        ) as mock_git_root,
+    ):
+        result = CliRunner().invoke(
+            setup, ["--agent", "claude", "--print"], input="1\n3\nhttp://localhost:5001\n"
+        )
+    assert result.exit_code == 0, result.stderr
+    assert f"{reason} The agent's edits cannot be reviewed or reverted with git." in result.stderr
+    assert (tmp_path / ".claude" / "skills").is_dir()
+    mock_which.assert_called()
+    mock_git_root.assert_called_once()
 
 
 def test_setup_declined_skills_uses_bundled_path(tmp_git_repo: Path):
