@@ -96,6 +96,24 @@ def test_setup_launches_agent_with_correct_argv(
     assert cmd[-1].startswith("# MLflow Tracing Setup")
 
 
+def test_setup_outside_git_falls_back_to_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.chdir(tmp_path)
+    with (
+        mock.patch(
+            "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
+        ) as mock_which,
+        mock.patch("mlflow.agent.setup.cli._git_root", return_value=None) as mock_git_root,
+    ):
+        result = CliRunner().invoke(
+            setup, ["--agent", "claude", "--print"], input="1\n3\nhttp://localhost:5001\n"
+        )
+    assert result.exit_code == 0, result.stderr
+    assert "Not inside a git repository" in result.stderr
+    assert (tmp_path / ".claude" / "skills").is_dir()
+    mock_which.assert_called()
+    mock_git_root.assert_called_once()
+
+
 def test_setup_declined_skills_uses_bundled_path(tmp_git_repo: Path):
     with mock.patch(
         "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"

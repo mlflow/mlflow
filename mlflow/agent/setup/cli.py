@@ -90,7 +90,13 @@ def _run_setup(
     """Run the interactive setup flow and return the agent launch command, or None for --print."""
     repo_root = _git_root(Path.cwd())
     if repo_root is None:
-        raise click.ClickException("`mlflow agent setup` must be run inside a git working tree.")
+        click.secho(
+            "Not inside a git repository. The agent's edits cannot be reviewed or reverted "
+            "with git.",
+            fg="yellow",
+            err=True,
+        )
+        repo_root = Path.cwd()
 
     agent = _choose_agent(agent_name)
     payload["agent"] = agent.name
