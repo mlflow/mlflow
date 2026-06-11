@@ -938,25 +938,23 @@ def clean_up_leaked_runs():
     debug. Accordingly, this fixture attempts to end any active runs it encounters and
     throws an exception (which reported as an additional error in the pytest execution output).
     """
-    from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_REGRESSION_TEST
+    from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_TEST
 
-    def _is_session_scoped_assertion_run(run):
-        # The @mlflow.assertions pytest plugin opens one run for the whole
+    def _is_session_scoped_test_run(run):
+        # The @mlflow.test pytest plugin opens one run for the whole
         # pytest invocation; it's intentionally live across every test.
-        return run is not None and (
-            run.data.tags.get(MLFLOW_RUN_TYPE) == MLFLOW_RUN_TYPE_REGRESSION_TEST
-        )
+        return run is not None and run.data.tags.get(MLFLOW_RUN_TYPE) == MLFLOW_RUN_TYPE_TEST
 
     try:
         yield
         active = mlflow.active_run()
-        if _is_session_scoped_assertion_run(active):
+        if _is_session_scoped_test_run(active):
             return
         assert not active, "test case unexpectedly leaked a run. Run info: {}. Run data: {}".format(
             active.info, active.data
         )
     finally:
-        while (active := mlflow.active_run()) and not _is_session_scoped_assertion_run(active):
+        while (active := mlflow.active_run()) and not _is_session_scoped_test_run(active):
             mlflow.end_run()
 
 

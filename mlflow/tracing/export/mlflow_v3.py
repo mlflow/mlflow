@@ -1,4 +1,3 @@
-import contextlib
 import logging
 import threading
 from collections import defaultdict
@@ -31,17 +30,13 @@ from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
-_force_sync_export = False
+_FORCE_SYNC_EXPORT_ENV = "MLFLOW_TESTING_FORCE_SYNC_TRACE_EXPORT"
 
 
-@contextlib.contextmanager
-def disable_async_trace_export():
-    global _force_sync_export
-    _force_sync_export = True
-    try:
-        yield
-    finally:
-        _force_sync_export = False
+def is_sync_trace_export_forced() -> bool:
+    import os
+
+    return os.environ.get(_FORCE_SYNC_EXPORT_ENV, "").lower() in ("true", "1")
 
 
 class MlflowV3SpanExporter(SpanExporter):
@@ -325,7 +320,7 @@ class MlflowV3SpanExporter(SpanExporter):
         if maybe_get_request_id(is_evaluate=True):
             return False
 
-        if _force_sync_export:
+        if is_sync_trace_export_forced():
             return False
 
         return self._is_async_enabled

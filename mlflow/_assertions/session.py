@@ -58,47 +58,44 @@ def run_id() -> str | None:
 
 
 def ensure_run() -> str | None:
-    """Open (or adopt) the regression-test run, once per session.
-
-    If the user already has an active run, adopt and tag it. Otherwise start a
-    new one. Any failure is non-fatal.
-    """
+    """Open (or adopt) the test run, once per session. Thread-safe."""
     global _run_id, _run_owned
-    if _run_id is not None:
-        return _run_id
+    with _lock:
+        if _run_id is not None:
+            return _run_id
 
-    import mlflow
-    from mlflow.tracking import MlflowClient
-    from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_REGRESSION_TEST
+        import mlflow
+        from mlflow.tracking import MlflowClient
+        from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_TEST
 
-    tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_REGRESSION_TEST, TAG_SESSION_ID: session_id()}
+        tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_TEST, TAG_SESSION_ID: session_id()}
 
-    try:
-        active = mlflow.active_run()
-    except Exception as e:
-        _logger.warning("mlflow.test: could not check active run: %s", e)
-        return None
-
-    if active is not None:
         try:
-            client = MlflowClient()
-            for k, v in tags.items():
-                client.set_tag(active.info.run_id, k, v)
+            active = mlflow.active_run()
         except Exception as e:
-            _logger.warning("mlflow.test: could not tag active run: %s", e)
+            _logger.warning("mlflow.test: could not check active run: %s", e)
             return None
-        _run_id = active.info.run_id
-        _run_owned = False
-        return _run_id
 
-    try:
-        run = mlflow.start_run(tags=tags)
-    except Exception as e:
-        _logger.warning("mlflow.test: could not start regression-test run: %s", e)
-        return None
-    _run_id = run.info.run_id
-    _run_owned = True
-    return _run_id
+        if active is not None:
+            try:
+                client = MlflowClient()
+                for k, v in tags.items():
+                    client.set_tag(active.info.run_id, k, v)
+            except Exception as e:
+                _logger.warning("mlflow.test: could not tag active run: %s", e)
+                return None
+            _run_id = active.info.run_id
+            _run_owned = False
+            return _run_id
+
+        try:
+            run = mlflow.start_run(tags=tags)
+        except Exception as e:
+            _logger.warning("mlflow.test: could not start test run: %s", e)
+            return None
+        _run_id = run.info.run_id
+        _run_owned = True
+        return _run_id
 
 
 def finalize(exitstatus: int) -> None:
