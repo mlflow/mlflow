@@ -168,7 +168,7 @@ def test_invoke_genai_evaluate_job_propagates_username_via_env(monkeypatch):
         mock.patch("mlflow.genai.evaluation.job.MlflowClient", return_value=mock_client),
         mock.patch("mlflow.genai.evaluation.job.Scorer.model_validate_json"),
         mock.patch("mlflow.start_run"),
-        mock.patch("mlflow.genai.evaluate", side_effect=_capture_env),
+        mock.patch("mlflow.genai.evaluate", side_effect=_capture_env) as mock_evaluate,
     ):
         invoke_genai_evaluate_job(
             trace_ids=["trace-1"],
@@ -177,6 +177,7 @@ def test_invoke_genai_evaluate_job_propagates_username_via_env(monkeypatch):
             username="alice",
         )
 
+        mock_evaluate.assert_called_once()
         assert captured_env["MLFLOW_TRACKING_USERNAME"] == "alice"
 
 
@@ -190,7 +191,7 @@ def test_invoke_genai_evaluate_job_skips_username_propagation_when_none(monkeypa
         mock.patch("mlflow.genai.evaluation.job.MlflowClient", return_value=mock_client),
         mock.patch("mlflow.genai.evaluation.job.Scorer.model_validate_json"),
         mock.patch("mlflow.start_run"),
-        mock.patch("mlflow.genai.evaluate"),
+        mock.patch("mlflow.genai.evaluate") as mock_evaluate,
     ):
         invoke_genai_evaluate_job(
             trace_ids=["trace-1"],
@@ -199,4 +200,5 @@ def test_invoke_genai_evaluate_job_skips_username_propagation_when_none(monkeypa
             username=None,
         )
 
+        mock_evaluate.assert_called_once()
         assert os.environ["MLFLOW_TRACKING_USERNAME"] == "unchanged"

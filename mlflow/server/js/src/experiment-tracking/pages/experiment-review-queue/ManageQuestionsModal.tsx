@@ -60,19 +60,17 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
         onCancel={onClose}
         title={<FormattedMessage defaultMessage="Review questions" description="Manage review questions modal title" />}
         footer={
-          <div css={{ display: 'flex', justifyContent: 'space-between' }}>
+          <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+            {/* No explicit Close button — the modal's top-right "X" (onCancel) closes it. */}
             <Button componentId={`${CID}.add`} icon={<PlusIcon />} onClick={openCreate}>
               <FormattedMessage defaultMessage="Add question" description="Manage review questions: add button" />
-            </Button>
-            <Button componentId={`${CID}.close`} onClick={onClose}>
-              <FormattedMessage defaultMessage="Close" description="Manage review questions: close button" />
             </Button>
           </div>
         }
       >
         <Typography.Hint css={{ marginBottom: theme.spacing.md }}>
           <FormattedMessage
-            defaultMessage="Questions are the experiment's label schemas. Add a new one or click a question to edit it."
+            defaultMessage="Add a new question, or click a question to edit it."
             description="Manage review questions: explanatory hint"
           />
         </Typography.Hint>
@@ -157,9 +155,9 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
                   )}
                   <Tag componentId={`${CID}.type-tag`} color={schema.type === 'EXPECTATION' ? 'turquoise' : 'lime'}>
                     {schema.type === 'EXPECTATION' ? (
-                      <FormattedMessage defaultMessage="Expectation" description="Label schema type: expectation" />
+                      <FormattedMessage defaultMessage="Expectation" description="Review question type: expectation" />
                     ) : (
-                      <FormattedMessage defaultMessage="Feedback" description="Label schema type: feedback" />
+                      <FormattedMessage defaultMessage="Feedback" description="Review question type: feedback" />
                     )}
                   </Tag>
                   <Button

@@ -20,9 +20,9 @@ import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueue
 import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
-import { DEFAULT_REVIEWER, displayUser, useReviewer } from './hooks/useReviewer';
+import { DEFAULT_REVIEWER, displayUser, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
-import { canDeleteQueue, canManageQueue } from './queuePermissions';
+import { canManageQueue } from './queuePermissions';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 /**
@@ -40,6 +40,9 @@ const ExperimentReviewQueuePage = () => {
   const intl = useIntl();
   const { experimentId } = useParams<{ experimentId: string }>();
   const reviewer = useReviewer();
+  // Completion stamps `completed_by` with the reviewer, so block it until the
+  // identity is settled (an in-flight /users/current load reads as `default`).
+  const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
   // Gate management controls (create / edit / delete queue, edit questions) on
   // EDIT+; reviewing stays available to everyone assigned. See useCanManageReviews.
@@ -98,15 +101,11 @@ const ExperimentReviewQueuePage = () => {
     () => (confirmDeleteQueueId ? (reviewQueues.find((q) => q.queue_id === confirmDeleteQueueId) ?? null) : null),
     [reviewQueues, confirmDeleteQueueId],
   );
-  // Whether the reviewer may manage the selected queue (remove traces) — a
-  // CUSTOM queue they created, or any on a no-auth server.
+  // Whether the reviewer may manage the selected queue — removing traces and
+  // the right-pane gear (manage settings / delete) share one permission: a
+  // CUSTOM queue they created, or any on a no-auth server (never USER queues).
   const canManageSelectedQueue = selectedQueue
     ? canManageQueue(selectedQueue, reviewer, authAvailable, canManage)
-    : false;
-  // Whether the right-pane gear (manage settings / delete) shows — editable
-  // custom queues only (never USER queues).
-  const canEditSelectedQueue = selectedQueue
-    ? canDeleteQueue(selectedQueue, reviewer, authAvailable, canManage)
     : false;
 
   const handleDeleteQueue = (queueId: string) =>
@@ -264,7 +263,9 @@ const ExperimentReviewQueuePage = () => {
         items={orderedTraces}
         schemas={questionSchemas}
         completedBy={reviewer}
-        isSettingStatus={isSettingStatus}
+        // Treat an unresolved reviewer like an in-flight write so the complete /
+        // decline controls stay disabled until `completed_by` is trustworthy.
+        isSettingStatus={isSettingStatus || !reviewerResolved}
         onBack={() => setOpenItemId(null)}
         onSelect={(itemId) => setOpenItemId(itemId)}
         onSetStatus={setOpenStatus}
@@ -291,14 +292,23 @@ const ExperimentReviewQueuePage = () => {
         }
         isRemovingItems={isRemovingItems}
         // Gear menu (manage / delete) only for editable non-default custom queues.
-        onManageQueue={canEditSelectedQueue ? () => setEditingQueueId(selectedQueue.queue_id) : undefined}
-        onDeleteQueue={canEditSelectedQueue ? () => setConfirmDeleteQueueId(selectedQueue.queue_id) : undefined}
+        onManageQueue={canManageSelectedQueue ? () => setEditingQueueId(selectedQueue.queue_id) : undefined}
+        onDeleteQueue={canManageSelectedQueue ? () => setConfirmDeleteQueueId(selectedQueue.queue_id) : undefined}
       />
     );
   }
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, padding: theme.spacing.md }}>
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
+        paddingRight: theme.spacing.md,
+        paddingBottom: theme.spacing.md,
+      }}
+    >
       <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {inFocusMode ? (
           <div
@@ -321,7 +331,7 @@ const ExperimentReviewQueuePage = () => {
             leftMinWidth={260}
             rightMinWidth={480}
             leftChild={
-              <div css={{ width: '100%', height: '100%', minHeight: 0 }}>
+              <div css={{ width: '100%', height: '100%', minHeight: 0, overflow: 'hidden' }}>
                 <ReviewQueueSidebar
                   queues={reviewQueues}
                   selectedQueueId={selectedQueueId}

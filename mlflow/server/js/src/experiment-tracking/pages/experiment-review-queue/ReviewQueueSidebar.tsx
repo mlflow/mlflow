@@ -64,7 +64,9 @@ const QueueRow = ({
         {label}
       </Typography.Text>
       <Typography.Text color="secondary" css={{ width: COUNT_COL_WIDTH, flexShrink: 0, textAlign: 'right' }}>
-        {pending ?? ''}
+        {/* Blank for a zero count (queues with no work sit under "No work to do",
+            where a "0" is just noise) and while the count is still loading. */}
+        {pending ? pending : ''}
       </Typography.Text>
     </div>
   );
@@ -223,24 +225,19 @@ export const ReviewQueueSidebar = ({
         overflow: 'auto',
       }}
     >
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-        <Typography.Title level={3} withoutMargins css={{ flex: 1 }}>
-          <FormattedMessage defaultMessage="Review" description="Review queue tab title" />
-        </Typography.Title>
-        {canManage && (
+      {canManage && (
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, flexWrap: 'wrap' }}>
           <Button componentId={`${CID}.manage-questions`} icon={<GearIcon />} onClick={onManageQuestions}>
             <FormattedMessage
               defaultMessage="Manage questions"
               description="Review queue sidebar: manage-questions button"
             />
           </Button>
-        )}
-        {canManage && (
           <Button componentId={`${CID}.new-queue`} icon={<PlusIcon />} onClick={onNewQueue}>
             <FormattedMessage defaultMessage="New queue" description="Review queue: create-queue button" />
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {queues.length > 0 && (
         <div
