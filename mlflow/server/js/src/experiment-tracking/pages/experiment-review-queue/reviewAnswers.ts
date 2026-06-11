@@ -51,6 +51,14 @@ export interface RawTraceAssessment {
  * one reviewer never sees or supersedes another reviewer's answers.
  */
 export const extractPriorAnswers = (assessments: RawTraceAssessment[], reviewerSourceId?: string): PriorAnswer[] => {
+  // A provided-but-empty source id can't identify a reviewer, so prefill nothing
+  // rather than matching source-less assessments (`sameUser('', undefined)` is
+  // true). `undefined` means "no source filter"; a non-empty id filters to that
+  // reviewer. In practice the reviewer source is always `undefined` or a real
+  // username (never ''), so this is a defensive guard.
+  if (reviewerSourceId === '') {
+    return [];
+  }
   const priors: PriorAnswer[] = [];
   for (const assessment of assessments) {
     if (!assessment.assessment_name) {

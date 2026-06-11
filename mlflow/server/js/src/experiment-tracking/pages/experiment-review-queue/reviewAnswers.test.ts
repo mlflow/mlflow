@@ -114,6 +114,12 @@ describe('extractPriorAnswers', () => {
     it('drops answers without a matching source when scoped', () => {
       expect(extractPriorAnswers([{ assessment_name: 'x', feedback: { value: true } }], 'alice')).toEqual([]);
     });
+
+    it('prefills nothing for an empty source id rather than matching source-less answers', () => {
+      // `''` can't identify a reviewer; guard against `sameUser('', undefined)` matching.
+      expect(extractPriorAnswers(raw, '')).toEqual([]);
+      expect(extractPriorAnswers([{ assessment_name: 'x', feedback: { value: true } }], '')).toEqual([]);
+    });
   });
 });
 
