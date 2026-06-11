@@ -3563,6 +3563,379 @@ class ResponseLength(BuiltInScorer):
         )
 
 
+
+
+@experimental(version="3.14.0")
+class NumericBound(BuiltInScorer):
+    """
+    NumericBound checks whether a numeric output falls within a specified range.
+
+    This is a deterministic rule-based scorer that runs without an LLM call.
+    String outputs are automatically coerced via ``float()``. If the output is
+    a list, every element must satisfy the bounds (all-must-pass semantics).
+    ``NaN`` and ``±inf`` always fail unless the corresponding bound is
+    ``±math.inf``.
+
+    Args:
+        name: The name of the scorer. Defaults to ``"numeric_bound"``.
+        min_value: Minimum allowed value (inclusive). Optional.
+        max_value: Maximum allowed value (inclusive). Optional.
+        inclusive: If ``True`` (default), bounds are inclusive ``[min, max]``.
+            If ``False``, bounds are exclusive ``(min, max)``.
+        field: Optional key to extract from a dict output (e.g.
+            ``field="confidence"`` pulls ``outputs["confidence"]``).
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import NumericBound
+
+        scorer = NumericBound(min_value=0.0, max_value=1.0, field="confidence")
+        feedback = scorer(outputs={"confidence": 0.87})
+        print(feedback.value)  # CategoricalRating.YES
+
+    Example (string coercion):
+
+    .. code-block:: python
+
+        feedback = NumericBound(min_value=0, max_value=100)(outputs="42")
+        print(feedback.value)  # CategoricalRating.YES
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import NumericBound
+
+        data = [
+            {"outputs": {"score": 0.95}},
+            {"outputs": {"score": 1.5}},
+        ]
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[NumericBound(min_value=0.0, max_value=1.0, field="score")],
+        )
+    """
+
+    name: str = "numeric_bound"
+    min_value: float | None = None
+    max_value: float | None = None
+    inclusive: bool = True
+    field: str | None = None
+    required_columns: set[str] = {"outputs"}
+    description: str = "Check whether a numeric output falls within a specified range."
+
+    @pydantic.model_validator(mode="after")
+    def _validate_bounds(self) -> "NumericBound":
+        if self.min_value is None and self.max_value is None:
+            raise ValueError(
+                "NumericBound requires at least one of `min_value` or `max_value`."
+            )
+        if (
+            self.min_value is not None
+            and self.max_value is not None
+            and not math.isnan(self.min_value)
+            and not math.isnan(self.max_value)
+            and self.min_value > self.max_value
+        ):
+            raise ValueError(
+                f"`min_value` ({self.min_value}) must be <= `max_value` ({self.max_value})."
+            )
+        return self
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    @property
+    def instructions(self) -> str:
+        lo = self.min_value if self.min_value is not None else "-inf"
+        hi = self.max_value if self.max_value is not None else "+inf"
+        bracket = "[]" if self.inclusive else "()"
+        field_info = f" (field={self.field!r})" if self.field else ""
+        return (
+            f"Check whether the numeric output{field_info} is in the range "
+            f"{bracket[0]}{lo}, {hi}{bracket[1]}."
+        )
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="outputs",
+                description="The numeric value (or dict/list of values) to validate.",
+            ),
+        ]
+
+    def _check_single(self, value: float) -> tuple[bool, str]:
+        """Return (passed, rationale) for a single float."""
+        if math.isnan(value):
+            return False, "Value is NaN"
+        if math.isinf(value):
+            sign = "+" if value > 0 else "-"
+            return False, f"Value is {sign}inf"
+
+        lo = self.min_value
+        hi = self.max_value
+
+        if self.inclusive:
+            too_low = lo is not None and value < lo
+            too_high = hi is not None and value > hi
+        else:
+            too_low = lo is not None and value <= lo
+            too_high = hi is not None and value >= hi
+
+        lo_str = str(lo) if lo is not None else "-inf"
+        hi_str = str(hi) if hi is not None else "+inf"
+        bound_type = "inclusive" if self.inclusive else "exclusive"
+        bracket = "[]" if self.inclusive else "()"
+
+        if too_low:
+            return (
+                False,
+                f"Value {value} is below the {bound_type} minimum {lo_str}",
+            )
+        if too_high:
+            return (
+                False,
+                f"Value {value} exceeds the {bound_type} maximum {hi_str}",
+            )
+        return True, f"Value {value} is within {bracket[0]}{lo_str}, {hi_str}{bracket[1]}"
+
+    def _extract_value(self, outputs: Any) -> tuple[Any, str | None]:
+        """Pull the target value out of outputs, applying field extraction if set."""
+        if self.field is not None:
+            if not isinstance(outputs, dict):
+                return None, (
+                    f"Cannot extract field {self.field!r}: outputs is "
+                    f"{type(outputs).__name__}, not a dict"
+                )
+            if self.field not in outputs:
+                return None, f"Field {self.field!r} not found in outputs"
+            return outputs[self.field], None
+        return outputs, None
+
+    def _coerce_float(self, raw: Any) -> tuple[float | None, str | None]:
+        """Coerce raw value to float, returning (value, error_reason)."""
+        if isinstance(raw, bool):
+            return None, f"Expected a number, got bool ({raw!r})"
+        if isinstance(raw, (int, float)):
+            return float(raw), None
+        if isinstance(raw, str):
+            try:
+                return float(raw), None
+            except ValueError:
+                return None, f"Cannot coerce string {raw!r} to float"
+        return None, f"Expected a number, got {type(raw).__name__} ({raw!r})"
+
+    def __call__(
+        self,
+        *,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        if outputs is None and trace is not None:
+            outputs = resolve_outputs_from_trace(outputs, trace)
+
+        if outputs is None:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale="No outputs provided to evaluate.",
+            )
+
+        target, extract_err = self._extract_value(outputs)
+        if extract_err is not None:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale=extract_err,
+            )
+
+        # List: all elements must pass
+        if isinstance(target, list):
+            failures = []
+            for i, item in enumerate(target):
+                fval, coerce_err = self._coerce_float(item)
+                if coerce_err is not None:
+                    failures.append(f"[{i}] {coerce_err}")
+                    continue
+                passed, reason = self._check_single(fval)
+                if not passed:
+                    failures.append(f"[{i}] {reason}")
+            if failures:
+                return Feedback(
+                    name=self.name,
+                    value=CategoricalRating.NO,
+                    rationale="; ".join(failures),
+                )
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.YES,
+                rationale=f"All {len(target)} values are within bounds",
+            )
+
+        fval, coerce_err = self._coerce_float(target)
+        if coerce_err is not None:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale=coerce_err,
+            )
+
+        passed, rationale = self._check_single(fval)
+        return Feedback(
+            name=self.name,
+            value=CategoricalRating.YES if passed else CategoricalRating.NO,
+            rationale=rationale,
+        )
+
+
+@experimental(version="3.14.0")
+class ContainsKeywords(BuiltInScorer):
+    """
+    ContainsKeywords checks whether an output contains required keywords or phrases.
+
+    This is a deterministic rule-based scorer that runs without an LLM call.
+    Matching is case-insensitive by default. Use ``mode="all"`` (default) to
+    require every keyword to be present, or ``mode="any"`` to require at least
+    one. Enable ``whole_word=True`` for word-boundary (``\\b``) matching to
+    avoid substring false-positives (e.g. "not" matching "nothing").
+
+    Args:
+        name: The name of the scorer. Defaults to ``"contains_keywords"``.
+        keywords: List of required keywords or phrases. Must be non-empty.
+        mode: ``"all"`` (default) — every keyword must appear;
+            ``"any"`` — at least one keyword must appear.
+        case_sensitive: If ``True``, matching is case-sensitive.
+            Defaults to ``False``.
+        whole_word: If ``True``, wraps each keyword in ``\\b`` word-boundary
+            anchors. Defaults to ``False`` (substring match).
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ContainsKeywords
+
+        scorer = ContainsKeywords(keywords=["disclaimer", "not financial advice"])
+        feedback = scorer(outputs="This is not financial advice. Please add a disclaimer.")
+        print(feedback.value)  # CategoricalRating.YES
+
+    Example (any-mode):
+
+    .. code-block:: python
+
+        scorer = ContainsKeywords(keywords=["yes", "confirmed", "approved"], mode="any")
+        feedback = scorer(outputs="Your request has been approved.")
+        print(feedback.value)  # CategoricalRating.YES
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ContainsKeywords
+
+        data = [{"outputs": "This is not financial advice."}]
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[ContainsKeywords(keywords=["not financial advice"])],
+        )
+    """
+
+    name: str = "contains_keywords"
+    keywords: list[str]
+    mode: Literal["all", "any"] = "all"
+    case_sensitive: bool = False
+    whole_word: bool = False
+    required_columns: set[str] = {"outputs"}
+    description: str = "Check whether the output contains required keywords or phrases."
+    _compiled: list[re.Pattern[str]] = pydantic.PrivateAttr(default_factory=list)
+
+    @pydantic.model_validator(mode="after")
+    def _compile_keywords(self) -> "ContainsKeywords":
+        if not self.keywords:
+            raise ValueError("`keywords` must be a non-empty list.")
+        flags = 0 if self.case_sensitive else re.IGNORECASE
+        compiled = []
+        for kw in self.keywords:
+            if not kw:
+                raise ValueError("Keywords must not contain empty strings.")
+            pattern = re.escape(kw)
+            if self.whole_word:
+                pattern = r"\b" + pattern + r"\b"
+            compiled.append(re.compile(pattern, flags))
+        self._compiled = compiled
+        return self
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    @property
+    def instructions(self) -> str:
+        return (
+            f"Check whether the output contains {self.mode} of the following keywords: "
+            f"{self.keywords!r}. Case-sensitive: {self.case_sensitive}."
+        )
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="outputs",
+                description="The output text to search for required keywords.",
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        outputs_str = _resolve_output_text(outputs, trace)
+        if outputs_str is None:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale="No outputs provided to evaluate.",
+            )
+
+        found = [
+            kw for kw, pat in zip(self.keywords, self._compiled) if pat.search(outputs_str)
+        ]
+        missing = [kw for kw in self.keywords if kw not in found]
+
+        if self.mode == "all":
+            if missing:
+                return Feedback(
+                    name=self.name,
+                    value=CategoricalRating.NO,
+                    rationale=f"Missing required keyword(s): {missing!r}",
+                )
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.YES,
+                rationale=f"All {len(self.keywords)} required keyword(s) found",
+            )
+        else:  # mode == "any"
+            if not found:
+                return Feedback(
+                    name=self.name,
+                    value=CategoricalRating.NO,
+                    rationale=f"None of the required keyword(s) found: {self.keywords!r}",
+                )
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.YES,
+                rationale=f"Found keyword(s): {found!r}",
+            )
+
+
 def _get_all_concrete_builtin_scorers() -> list[type[BuiltInScorer]]:
     """
     Recursively discover all concrete (non-abstract) BuiltInScorer subclasses.

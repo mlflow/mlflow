@@ -52,6 +52,8 @@ _LAZY_IMPORTS = {
     "ToolCallEfficiency",
     "UserFrustration",
     "get_all_scorers",
+    "ContainsKeywords",
+    "NumericBound",
 }
 
 
@@ -106,6 +108,8 @@ if TYPE_CHECKING:
         Summarization,
         ToolCallCorrectness,
         ToolCallEfficiency,
+        ContainsKeywords,
+        NumericBound,
         UserFrustration,
         get_all_scorers,
     )
@@ -134,6 +138,8 @@ __all__ = [
     "Summarization",
     "ToolCallCorrectness",
     "ToolCallEfficiency",
+    "ContainsKeywords",
+    "NumericBound",
     "UserFrustration",
     "Scorer",
     "scorer",
