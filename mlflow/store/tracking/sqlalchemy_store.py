@@ -8455,16 +8455,37 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 creation_time_ms=now_ms,
                 last_update_time_ms=now_ms,
             )
-            session.add(sql_queue)
             try:
-                session.flush()
+                # SAVEPOINT around the add+flush so an IntegrityError rolls back
+                # just this insert (not the whole transaction) and leaves the
+                # session usable for the disambiguating re-query below.
+                with session.begin_nested():
+                    session.add(sql_queue)
+                    session.flush()
             except IntegrityError as e:
-                # Race: a parallel transaction inserted (experiment_id, name)
+                # The flush violated a constraint. Disambiguate rather than
+                # assuming a duplicate name: a now-present (experiment_id, name)
+                # row means a parallel transaction won the create race; otherwise
+                # the experiment FK failed because the experiment was deleted
                 # between the pre-check and the flush.
+                duplicate = (
+                    self
+                    ._review_queue_query(session)
+                    .filter(
+                        SqlReviewQueue.experiment_id == int(experiment_id),
+                        SqlReviewQueue.name == validated.name,
+                    )
+                    .one_or_none()
+                )
+                if duplicate is not None:
+                    raise MlflowException(
+                        f"Review queue with name '{validated.name}' already exists for experiment "
+                        f"'{experiment_id}'.",
+                        error_code=RESOURCE_ALREADY_EXISTS,
+                    ) from e
                 raise MlflowException(
-                    f"Review queue with name '{validated.name}' already exists for experiment "
-                    f"'{experiment_id}'.",
-                    error_code=RESOURCE_ALREADY_EXISTS,
+                    f"Experiment '{experiment_id}' does not exist.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
                 ) from e
 
             for user in validated.users:
@@ -8710,10 +8731,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 .all()
             )
-            # Every requested id is present now (pre-existing, just-inserted, or
-            # inserted by a racing writer), so the response covers them all.
+            # Usually every requested id is present now (pre-existing,
+            # just-inserted, or inserted by a racing writer), but a concurrent
+            # remove/delete can drop a row between the inserts above and this
+            # read, so skip any id that is no longer present rather than raising
+            # a KeyError.
             rows_by_item = {row.item_id: row for row in final_rows}
-            return [rows_by_item[item_id].to_mlflow_entity() for item_id in normalized_item_ids]
+            return [
+                rows_by_item[item_id].to_mlflow_entity()
+                for item_id in normalized_item_ids
+                if item_id in rows_by_item
+            ]
 
     def remove_items_from_review_queue(self, queue_id, *, item_ids):
         from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
