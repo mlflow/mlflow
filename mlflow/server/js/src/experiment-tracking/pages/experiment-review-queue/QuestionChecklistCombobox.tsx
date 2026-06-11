@@ -91,7 +91,7 @@ export const QuestionChecklistCombobox = ({
                 />
               </Typography.Link>
             )}
-            {visibleSchemas.length === 0 ? (
+            {visibleSchemas.length === 0 && search.trim() ? (
               <DialogComboboxEmpty
                 emptyText={
                   <FormattedMessage
