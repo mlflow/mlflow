@@ -2901,6 +2901,29 @@ service MlflowService {
     };
   }
 
+  // Reassign a CUSTOM queue's owner.
+  rpc changeReviewQueueOwner(mlflow.review_queues.ChangeReviewQueueOwner) returns (mlflow.review_queues.ChangeReviewQueueOwner.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/review-queues/change-owner"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Change a review queue's owner"
+    };
+  }
+
   // Delete a queue and its associations.
   rpc deleteReviewQueue(mlflow.review_queues.DeleteReviewQueue) returns (mlflow.review_queues.DeleteReviewQueue.Response) {
     option (rpc) = {

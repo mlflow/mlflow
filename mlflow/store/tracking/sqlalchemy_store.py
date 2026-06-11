@@ -8448,7 +8448,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 experiment_id,
                 name=name,
                 queue_type="user",
-                created_by=created_by,
+                # A user queue is owned by its user; the caller-supplied
+                # `created_by` is irrelevant (owner-of-USER is attribution only).
+                created_by=name,
             )
         except MlflowException as e:
             if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
@@ -8529,20 +8531,45 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 next_token = SearchUtils.create_page_token(offset + max_results)
             return PagedList(self._hydrate_review_queues(session, results), next_token)
 
-    def update_review_queue(self, queue_id, *, users=None, schema_ids=None):
+    def update_review_queue(self, queue_id, *, users=None, schema_ids=None, name=None):
         from mlflow.genai.review_queues import ReviewQueueType
-        from mlflow.genai.review_queues.validation import normalize_schema_ids, normalize_users
+        from mlflow.genai.review_queues.validation import (
+            normalize_schema_ids,
+            normalize_users,
+            validate_custom_queue_name,
+        )
 
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_queue = self._get_sql_review_queue(session, queue_id)
             if ReviewQueueType(sql_queue.queue_type) == ReviewQueueType.USER:
                 raise MlflowException(
-                    "A user queue's assigned user and schemas are fixed and cannot be updated.",
+                    "A user queue's name, assigned user, and schemas are fixed and "
+                    "cannot be updated.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            if users is None and schema_ids is None:
+            if users is None and schema_ids is None and name is None:
                 return self._hydrate_review_queues(session, [sql_queue])[0]
+
+            if name is not None:
+                new_name = validate_custom_queue_name(name)
+                if new_name != sql_queue.name:
+                    name_clash = (
+                        self
+                        ._review_queue_query(session)
+                        .filter(
+                            SqlReviewQueue.experiment_id == sql_queue.experiment_id,
+                            SqlReviewQueue.name == new_name,
+                        )
+                        .one_or_none()
+                    )
+                    if name_clash is not None:
+                        raise MlflowException(
+                            f"Review queue with name '{new_name}' already exists for "
+                            f"experiment '{sql_queue.experiment_id}'.",
+                            error_code=RESOURCE_ALREADY_EXISTS,
+                        )
+                    sql_queue.name = new_name
 
             if users is not None:
                 normalized_users = normalize_users(users)
@@ -8582,6 +8609,23 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         SqlReviewQueueLabelSchema(queue_id=sql_queue.queue_id, schema_id=schema_id)
                     )
 
+            sql_queue.last_update_time_ms = get_current_time_millis()
+            session.flush()
+            return self._hydrate_review_queues(session, [sql_queue])[0]
+
+    def change_review_queue_owner(self, queue_id, *, new_owner):
+        from mlflow.genai.review_queues import ReviewQueueType
+        from mlflow.genai.review_queues.validation import validate_queue_owner
+
+        owner = validate_queue_owner(new_owner)
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_queue = self._get_sql_review_queue(session, queue_id)
+            if ReviewQueueType(sql_queue.queue_type) == ReviewQueueType.USER:
+                raise MlflowException(
+                    "A user queue's owner is its assigned user and cannot be changed.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            sql_queue.created_by = owner
             sql_queue.last_update_time_ms = get_current_time_millis()
             session.flush()
             return self._hydrate_review_queues(session, [sql_queue])[0]

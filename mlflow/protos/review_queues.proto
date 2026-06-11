@@ -57,7 +57,11 @@ message ReviewQueue {
   // Queue name. For a USER queue this is the (normalized) user identifier.
   optional string name = 3;
   optional ReviewQueueType queue_type = 4;
-  // Audit-only identifier of the user who created the queue.
+  // The queue's owner. On an authenticated server this is server-stamped to the
+  // creating user and is the basis for owner-level authorization (an EDIT user
+  // may manage the queues they own); it can be reassigned via
+  // ChangeReviewQueueOwner. On a no-auth server it is meaningless and may be
+  // unset. For a USER queue it is the assigned user (attribution only).
   optional string created_by = 5;
   optional int64 creation_time_ms = 6;
   optional int64 last_update_time_ms = 7;
@@ -167,13 +171,13 @@ message ListReviewQueues {
   }
 }
 
-// Replace a CUSTOM queue's assigned users and/or attached schemas.
-// `name` and `queue_type` are immutable, and USER queues reject this
-// RPC. Because a repeated field can't distinguish "absent" from "empty"
-// on the wire, each association set is gated by an explicit
-// `update_*` flag: when the flag is true the corresponding list
-// (possibly empty) replaces the set; when false the set is left
-// untouched.
+// Edit a CUSTOM queue's name, assigned users, and/or attached schemas.
+// `queue_type` and the owner are immutable here (owner changes go through
+// ChangeReviewQueueOwner), and USER queues reject this RPC. Because a repeated
+// field can't distinguish "absent" from "empty" on the wire, each mutable set
+// is gated by an explicit `update_*` flag: when the flag is true the
+// corresponding value (possibly empty) replaces the current one; when false it
+// is left untouched.
 message UpdateReviewQueue {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -182,6 +186,22 @@ message UpdateReviewQueue {
   repeated string users = 3;
   optional bool update_schema_ids = 4;
   repeated string schema_ids = 5;
+  optional bool update_name = 6;
+  optional string name = 7;
+
+  message Response {
+    optional ReviewQueue review_queue = 1;
+  }
+}
+
+// Reassign a CUSTOM queue's owner (`created_by`). MANAGE-gated; USER queues
+// reject this RPC (their owner is the fixed assigned user). The new owner gains
+// owner-level privileges only if they also hold experiment EDIT.
+message ChangeReviewQueueOwner {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string queue_id = 1 [(validate_required) = true];
+  optional string new_owner = 2 [(validate_required) = true];
 
   message Response {
     optional ReviewQueue review_queue = 1;
