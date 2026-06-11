@@ -11,6 +11,15 @@ export const schemaAssessmentKind = (schema: LabelSchema): AssessmentKind =>
   schema.type === 'EXPECTATION' ? 'expectation' : 'feedback';
 
 /**
+ * Whether a label-schema widget holds a real answer (not empty / unset). The
+ * single source of truth for "answered": the focused-review submit path uses it
+ * to gate completion, and prefill uses it to drop empties that could never be
+ * re-submitted.
+ */
+export const isAnswered = (value: LabelSchemaValue): boolean =>
+  value !== undefined && value !== null && value !== '' && !(Array.isArray(value) && value.length === 0);
+
+/**
  * A prior answer already recorded on a trace, normalized from a trace
  * assessment into the minimal shape the prefill logic needs.
  */
@@ -64,9 +73,9 @@ export const extractPriorAnswers = (assessments: RawTraceAssessment[]): PriorAns
       // Neither feedback nor expectation (e.g. an issue reference) — not an answer.
       continue;
     }
-    // Mirror the focused-review submit's "answered" predicate so a prior that
-    // could never be re-submitted (empty) doesn't render as a phantom prefill.
-    if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) {
+    // Drop empties that could never be re-submitted, so a prior doesn't render
+    // as a phantom prefill.
+    if (!isAnswered(value)) {
       continue;
     }
     priors.push({

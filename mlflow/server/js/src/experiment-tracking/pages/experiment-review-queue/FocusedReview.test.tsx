@@ -108,6 +108,29 @@ describe('FocusedReview single Pass/Fail auto-submit', () => {
   });
 });
 
+describe('FocusedReview submit requires at least one answer', () => {
+  beforeEach(() => {
+    mockCreateAssessment.mockReset();
+    mockCreateAssessment.mockImplementation(() => Promise.resolve());
+  });
+
+  it('disables Submit until a question is answered, then completes', async () => {
+    const onSetStatus = jest.fn((_status: string) => Promise.resolve());
+    // Two questions so the explicit Submit button renders (not the auto-submit case).
+    renderFocused([passFailSchema(), passFailSchema('s2', 'Also good?')], onSetStatus);
+
+    // Nothing answered yet — completing now would record no assessments.
+    expect(screen.getByText('Submit').closest('button')).toBeDisabled();
+
+    fireEvent.click(screen.getAllByText('Pass')[0]);
+    expect(screen.getByText('Submit').closest('button')).not.toBeDisabled();
+
+    fireEvent.click(screen.getByText('Submit'));
+    await waitFor(() => expect(onSetStatus).toHaveBeenCalledWith('COMPLETE'));
+    expect(mockCreateAssessment).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('FocusedReview view-only when not assigned', () => {
   beforeEach(() => {
     mockCreateAssessment.mockReset();
