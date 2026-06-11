@@ -13,7 +13,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.tracking.dbmodels.models import SqlReviewQueue
 
-from tests.store.tracking.sqlalchemy_store.conftest import _create_experiments
+from tests.store.tracking.sqlalchemy_store.conftest import _create_experiments, _create_trace
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -700,3 +700,35 @@ def test_create_custom_queue_rejects_default_name_case_insensitive(store, name):
     with pytest.raises(MlflowException, match="reserved queue name") as exc:
         store.create_review_queue(exp_id, name=name, queue_type="custom")
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+
+
+# --------------------------------------------------------------------------
+# Trace deletion cleans up attached items
+# --------------------------------------------------------------------------
+
+
+def test_delete_trace_removes_its_review_queue_items(store):
+    exp_id = _create_experiments(store, "delete_trace_items")
+    _create_trace(store, "tr-keep", experiment_id=exp_id)
+    _create_trace(store, "tr-del", experiment_id=exp_id)
+    queue = store.create_review_queue(exp_id, name="Q", queue_type="custom")
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-keep", "tr-del"])
+
+    store.delete_traces(exp_id, trace_ids=["tr-del"])
+
+    remaining = {i.item_id for i in store.list_review_queue_items(queue.queue_id)}
+    assert remaining == {"tr-keep"}
+
+
+def test_delete_trace_removes_items_from_every_queue(store):
+    exp_id = _create_experiments(store, "delete_trace_items_multi")
+    _create_trace(store, "tr-del", experiment_id=exp_id)
+    q1 = store.create_review_queue(exp_id, name="Q1", queue_type="custom")
+    q2 = store.create_review_queue(exp_id, name="Q2", queue_type="custom")
+    store.add_items_to_review_queue(q1.queue_id, item_ids=["tr-del"])
+    store.add_items_to_review_queue(q2.queue_id, item_ids=["tr-del"])
+
+    store.delete_traces(exp_id, trace_ids=["tr-del"])
+
+    assert list(store.list_review_queue_items(q1.queue_id)) == []
+    assert list(store.list_review_queue_items(q2.queue_id)) == []

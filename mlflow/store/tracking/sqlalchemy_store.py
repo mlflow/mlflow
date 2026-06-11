@@ -4246,6 +4246,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     .filter(SqlTraceInfo.request_id.in_(db_backed_trace_ids))
                     .delete(synchronize_session=False)
                 )
+                self._delete_review_queue_items_for_traces(session, db_backed_trace_ids)
 
         if not selected_archived_traces:
             return deleted_db_backed_count
@@ -4264,7 +4265,31 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .filter(SqlTraceInfo.request_id.in_(deleted_archived_trace_ids))
                 .delete(synchronize_session=False)
             )
+            self._delete_review_queue_items_for_traces(session, deleted_archived_trace_ids)
         return deleted_db_backed_count + deleted_archived_count
+
+    def _delete_review_queue_items_for_traces(self, session: Session, trace_ids: list[str]) -> None:
+        """Remove review-queue items pointing at traces that are being deleted.
+
+        ``review_queue_items.item_id`` has no foreign key into ``trace_info`` (an
+        item can reference a trace, session, or span), so deleting a trace does
+        not cascade to its queue items. Without this cleanup the item lingers in
+        its queue and any review submitted for it fails on the assessments
+        foreign key (surfacing the raw SQL error to the reviewer).
+        """
+        from mlflow.genai.review_queues import ReviewItemType
+
+        if not trace_ids:
+            return
+        (
+            session
+            .query(SqlReviewQueueItem)
+            .filter(
+                SqlReviewQueueItem.item_type == ReviewItemType.TRACE.value,
+                SqlReviewQueueItem.item_id.in_(trace_ids),
+            )
+            .delete(synchronize_session=False)
+        )
 
     def _select_trace_ids_for_delete(
         self,
@@ -4407,6 +4432,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     )
 
             session.add(sql_assessment)
+            # The only foreign key on ``assessments`` is ``trace_id`` -> ``trace_info``,
+            # so an IntegrityError here means the trace no longer exists (e.g. it was
+            # deleted while still attached to a review queue). Translate the raw SQL
+            # error into a clean "not found" instead of leaking it to the caller.
+            try:
+                session.flush()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Trace with ID '{assessment.trace_id}' not found. It may have been deleted.",
+                    RESOURCE_DOES_NOT_EXIST,
+                ) from e
             return sql_assessment.to_mlflow_entity()
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:

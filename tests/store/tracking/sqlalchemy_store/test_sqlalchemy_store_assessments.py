@@ -14,6 +14,7 @@ from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.utils.time import get_current_time_millis
 
 pytestmark = pytest.mark.notrackingurimock
@@ -544,3 +545,21 @@ def test_start_trace_with_assessments_missing_trace_id(store):
     assert len(result.assessments) == 1
     assert result.assessments[0].trace_id == trace_id
     assert result.assessments[0].name == "test_feedback"
+
+
+def test_create_assessment_for_missing_trace_returns_not_found(store):
+    # A trace can be deleted while still referenced elsewhere (e.g. a review
+    # queue item). The assessment insert then fails the trace_id foreign key;
+    # the store must surface a clean "not found" rather than the raw SQL error.
+    feedback = Feedback(
+        trace_id="tr-does-not-exist",
+        name="quality",
+        value="looks good",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="reviewer"),
+    )
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.create_assessment(feedback)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+    message = str(exc.value)
+    assert "IntegrityError" not in message
+    assert "INSERT INTO" not in message
