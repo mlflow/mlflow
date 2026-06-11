@@ -2847,10 +2847,6 @@
     "defaultMessage": "Select traces",
     "description": "Button to open trace selection modal"
   },
-  "Cq/qwH": {
-    "defaultMessage": "Trace",
-    "description": "Review focused view: trace panel title"
-  },
   "Cq6NMs": {
     "defaultMessage": "Issue detection failed",
     "description": "Issue detection progress > Step label when failed"
@@ -4951,10 +4947,6 @@
     "defaultMessage": "Add expectation",
     "description": "Label for the button to add a new expectation"
   },
-  "OubPZd": {
-    "defaultMessage": "Input",
-    "description": "Review focused view: trace input label"
-  },
   "OvkqyX": {
     "defaultMessage": "Add Tag",
     "description": "Modal title for adding a new tag"
@@ -5359,6 +5351,10 @@
     "defaultMessage": "Promote model",
     "description": "Button text to promote the model to a different registered model"
   },
+  "QybNk9": {
+    "defaultMessage": "Next unreviewed",
+    "description": "Review focused view: jump to the next pending trace"
+  },
   "R/4/8G": {
     "defaultMessage": "Metric",
     "description": "Label for the metric column in the logged model details metrics table"
@@ -5683,6 +5679,10 @@
     "defaultMessage": "LLM judge feedback",
     "description": "Tooltip content for LLM judge feedback"
   },
+  "SlD6nO": {
+    "defaultMessage": "Reviewed",
+    "description": "Review queue status: complete"
+  },
   "SlI2G2": {
     "defaultMessage": "Remove {count, plural, one {# trace} other {# traces}}",
     "description": "Review queue: remove selected traces button"
@@ -5842,10 +5842,6 @@
   "TXwmoT": {
     "defaultMessage": "Git branch",
     "description": "Usage overview > metrics filter > git branch column option label"
-  },
-  "TaMZFZ": {
-    "defaultMessage": "Review",
-    "description": "Review focused view: questions panel title"
   },
   "TannO5": {
     "defaultMessage": "Retrieved {sampledCount} out of {totalCount} total logs ({percentage}%)",
@@ -6435,10 +6431,6 @@
     "defaultMessage": "Tags",
     "description": "Header for the dataset record tags column"
   },
-  "WZHixa": {
-    "defaultMessage": "Back",
-    "description": "Review focused view: back button"
-  },
   "Wbpp7P": {
     "defaultMessage": "Create a role to assign permissions to users.",
     "description": "Empty state description for roles table"
@@ -6918,6 +6910,10 @@
   "Z/CtWD": {
     "defaultMessage": "Safety",
     "description": "Issue category title for safety"
+  },
+  "Z/lxEb": {
+    "defaultMessage": "Exit review",
+    "description": "Review focused view: exit review button"
   },
   "Z4cZMo": {
     "defaultMessage": "by {user}",
@@ -7626,10 +7622,6 @@
   "cLpY3q": {
     "defaultMessage": "Review questions",
     "description": "Manage review questions modal title"
-  },
-  "cLxJC6": {
-    "defaultMessage": "Complete",
-    "description": "Review queue status: complete"
   },
   "cMRvTA": {
     "defaultMessage": "Delete dataset",
@@ -8850,10 +8842,6 @@
   "iF6r1S": {
     "defaultMessage": "Judges",
     "description": "Section header for judge selection in the run evaluation modal"
-  },
-  "iHstr7": {
-    "defaultMessage": "Output",
-    "description": "Review focused view: trace output label"
   },
   "iLFoPb": {
     "defaultMessage": "State",

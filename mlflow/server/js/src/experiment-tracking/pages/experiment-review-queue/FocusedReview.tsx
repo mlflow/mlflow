@@ -383,58 +383,60 @@ export const FocusedReview = ({
                 const v = valueFor(schema.name);
                 const answered = v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
                 return (
-                <div key={schema.schema_id} css={{ display: 'flex', gap: theme.spacing.sm }}>
-                  <span
-                    css={{
-                      display: 'inline-block',
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      backgroundColor: answered ? theme.colors.green600 : theme.colors.yellow600,
-                      flexShrink: 0,
-                      marginTop: 6,
-                    }}
-                  />
-                  <div css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                    <Typography.Text bold>{schema.name}</Typography.Text>
-                    {schema.instruction && !schema.input.text && (
-                      <Typography.Hint css={{ marginBottom: theme.spacing.xs }}>{schema.instruction}</Typography.Hint>
-                    )}
-                    <LabelSchemaInputRenderer
-                      input={schema.input}
-                      value={valueFor(schema.name)}
-                      onChange={(value) => {
-                        setAnswer(schema.name, value);
-                        if (
-                          canReview &&
-                          autoSubmitSchema?.schema_id === schema.schema_id &&
-                          !isTerminal &&
-                          !isCreatingAssessment &&
-                          !isSettingStatus
-                        ) {
-                          submitAnswersAndComplete({ [schema.name]: value });
-                        }
+                  <div key={schema.schema_id} css={{ display: 'flex', gap: theme.spacing.sm }}>
+                    <span
+                      css={{
+                        display: 'inline-block',
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        backgroundColor: answered ? theme.colors.green600 : theme.colors.yellow600,
+                        flexShrink: 0,
+                        marginTop: 6,
                       }}
-                      disabled={isTerminal || !canReview}
-                      componentId={`${CID}.question`}
-                      label={schema.name}
-                      instruction={schema.instruction}
                     />
-                    {schema.enable_comment && (
-                      <Input.TextArea
-                        componentId={`${CID}.rationale`}
-                        rows={2}
-                        value={rationaleFor(schema.name)}
-                        onChange={(e) => setRationale(schema.name, e.target.value)}
+                    <div
+                      css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}
+                    >
+                      <Typography.Text bold>{schema.name}</Typography.Text>
+                      {schema.instruction && !schema.input.text && (
+                        <Typography.Hint css={{ marginBottom: theme.spacing.xs }}>{schema.instruction}</Typography.Hint>
+                      )}
+                      <LabelSchemaInputRenderer
+                        input={schema.input}
+                        value={valueFor(schema.name)}
+                        onChange={(value) => {
+                          setAnswer(schema.name, value);
+                          if (
+                            canReview &&
+                            autoSubmitSchema?.schema_id === schema.schema_id &&
+                            !isTerminal &&
+                            !isCreatingAssessment &&
+                            !isSettingStatus
+                          ) {
+                            submitAnswersAndComplete({ [schema.name]: value });
+                          }
+                        }}
                         disabled={isTerminal || !canReview}
-                        placeholder={intl.formatMessage({
-                          defaultMessage: 'Rationale (optional)',
-                          description: 'Review focused view: free-form rationale placeholder',
-                        })}
+                        componentId={`${CID}.question`}
+                        label={schema.name}
+                        instruction={schema.instruction}
                       />
-                    )}
+                      {schema.enable_comment && (
+                        <Input.TextArea
+                          componentId={`${CID}.rationale`}
+                          rows={2}
+                          value={rationaleFor(schema.name)}
+                          onChange={(e) => setRationale(schema.name, e.target.value)}
+                          disabled={isTerminal || !canReview}
+                          placeholder={intl.formatMessage({
+                            defaultMessage: 'Rationale (optional)',
+                            description: 'Review focused view: free-form rationale placeholder',
+                          })}
+                        />
+                      )}
+                    </div>
                   </div>
-                </div>
                 );
               })
             )}
