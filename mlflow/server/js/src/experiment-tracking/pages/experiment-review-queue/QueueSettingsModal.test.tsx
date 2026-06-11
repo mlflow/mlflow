@@ -18,8 +18,9 @@ jest.mock('../../components/label-schemas', () => ({
   }),
   LabelSchemaInputRenderer: () => null,
 }));
+let mockAuthAvailable = true;
 jest.mock('../../../account/hooks', () => ({
-  useIsAuthAvailable: () => false,
+  useIsAuthAvailable: () => mockAuthAvailable,
 }));
 // Stable reference across renders, like the real react-query hook — a fresh
 // object each call would churn the members typeahead's derived state.
@@ -62,17 +63,19 @@ const trace = (itemId: string): ReviewQueueItem => ({
   last_update_time_ms: 0,
 });
 
-const renderModal = () =>
+const renderModal = ({ canManage = true }: { canManage?: boolean } = {}) =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
-        <QueueSettingsModal queue={queue} canManage onClose={jest.fn()} />
+        <QueueSettingsModal queue={queue} canManage={canManage} onClose={jest.fn()} />
       </DesignSystemProvider>
     </IntlProvider>,
   );
 
 describe('QueueSettingsModal save', () => {
   beforeEach(() => {
+    mockAuthAvailable = true;
+    mockTraces = [];
     mockUpdate.mockReset();
     mockUpdate.mockImplementation(() => Promise.resolve());
   });
@@ -93,5 +96,48 @@ describe('QueueSettingsModal save', () => {
     const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
     expect('schema_ids' in arg).toBe(false);
     expect(arg).toMatchObject({ queue_id: 'rq-1' });
+  });
+
+  it('sends the new name when renamed and omits an unchanged owner', async () => {
+    renderModal();
+    fireEvent.change(screen.getByDisplayValue('My Queue'), { target: { value: 'Renamed' } });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    expect(arg).toMatchObject({ name: 'Renamed' });
+    expect('new_owner' in arg).toBe(false);
+  });
+
+  it('sends new_owner when a manager changes the owner', async () => {
+    renderModal();
+    fireEvent.change(screen.getByPlaceholderText('Owner username or email'), { target: { value: 'bob' } });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ new_owner: 'bob' }));
+  });
+
+  it('hides the owner field and freezes questions for a non-manager editor', async () => {
+    renderModal({ canManage: false });
+    expect(screen.queryByPlaceholderText('Owner username or email')).toBeNull();
+    // A non-manager editor can still rename the queue they own.
+    fireEvent.change(screen.getByDisplayValue('My Queue'), { target: { value: 'Renamed' } });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    // ...but never the questions or owner.
+    expect(arg).toMatchObject({ queue_id: 'rq-1', name: 'Renamed' });
+    expect('schema_ids' in arg).toBe(false);
+    expect('new_owner' in arg).toBe(false);
+  });
+
+  it('omits unchanged fields entirely on a no-op save', async () => {
+    renderModal();
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    // No member change => no `users` write that could clobber a concurrent edit.
+    expect('users' in arg).toBe(false);
+    expect('name' in arg).toBe(false);
+    expect('new_owner' in arg).toBe(false);
   });
 });

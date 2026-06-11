@@ -1,12 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 
-import {
-  canInspectQueue,
-  canManageQueue,
-  isQueueMember,
-  isQueueOwner,
-  sameUser,
-} from './queuePermissions';
+import { canInspectQueue, canManageQueue, isQueueMember, isQueueOwner, sameUser } from './queuePermissions';
 import type { ReviewQueue } from './types';
 
 const queue = (overrides: Partial<ReviewQueue> = {}): ReviewQueue => ({

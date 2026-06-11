@@ -32,9 +32,9 @@ import type { ReviewQueueItem, ReviewStatus } from './types';
  * Clicking a trace opens the full-page focused question-answering view (the
  * queue list collapses), with a "Back" control to return to the list.
  *
- * The left list is grouped on authenticated servers (queues others assigned to
- * me vs. queues I created); a no-auth server shows one list. See
- * `ReviewQueueSidebar`.
+ * The left list is a flat, sortable list of the reviewer's visible queues
+ * (name / owner / to-do count); on an auth server an editor sees every queue,
+ * with ones they can't open greyed out. See `ReviewQueueSidebar`.
  */
 const ExperimentReviewQueuePage = () => {
   const { theme } = useDesignSystemTheme();
@@ -91,8 +91,8 @@ const ExperimentReviewQueuePage = () => {
   }, [authAvailable, experimentId]);
 
   // No queue is selected until the reviewer picks one (the right panel prompts
-  // them to). Auto-selecting the first queue would land on a no-work queue and
-  // force the "No work to do" group open.
+  // them to). Auto-selecting the first queue could land on a queue with no work
+  // left, or one the reviewer can't open.
   const selectedQueueId = selectedQueueIdState;
   const selectedQueue = useMemo(
     () => reviewQueues.find((q) => q.queue_id === selectedQueueId) ?? null,
@@ -109,9 +109,7 @@ const ExperimentReviewQueuePage = () => {
   // Whether the reviewer may manage the selected queue — a CUSTOM queue they can
   // manage (MANAGE) or own (EDIT + owner). Removing traces and the right-pane
   // gear (manage settings / delete) share this one permission.
-  const canManageSelectedQueue = selectedQueue
-    ? canManageQueue(selectedQueue, reviewer, canManage, canEdit)
-    : false;
+  const canManageSelectedQueue = selectedQueue ? canManageQueue(selectedQueue, reviewer, canManage, canEdit) : false;
   // Whether the reviewer may submit reviews in the selected queue: always on a
   // no-auth server; otherwise experiment EDIT plus membership in the queue's
   // assigned-user pool (the server enforces both on set-status). A manager/owner
@@ -361,12 +359,10 @@ const ExperimentReviewQueuePage = () => {
                   queues={reviewQueues}
                   selectedQueueId={selectedQueueId}
                   canManage={canManage}
+                  canEdit={canEdit}
                   canCreateQueue={canEdit}
+                  reviewer={reviewer}
                   onSelect={selectQueue}
-                  onDeselectQueue={() => {
-                    setSelectedQueueIdState(undefined);
-                    setOpenItemId(null);
-                  }}
                   onNewQueue={() => setCreateOpen(true)}
                   onManageQuestions={() => setManageOpen(true)}
                 />
@@ -401,7 +397,14 @@ const ExperimentReviewQueuePage = () => {
       )}
 
       {editingQueue && (
-        <QueueSettingsModal queue={editingQueue} canManage={canManage} onClose={() => setEditingQueueId(undefined)} />
+        <QueueSettingsModal
+          // Remount per queue so the name / owner inputs re-seed from the new
+          // queue rather than keeping the previous queue's values.
+          key={editingQueue.queue_id}
+          queue={editingQueue}
+          canManage={canManage}
+          onClose={() => setEditingQueueId(undefined)}
+        />
       )}
 
       {confirmDeleteQueue && (

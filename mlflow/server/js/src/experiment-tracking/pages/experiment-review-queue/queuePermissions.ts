@@ -5,8 +5,7 @@ export const sameUser = (a: string | undefined, b: string): boolean =>
   (a ?? '').trim().toLowerCase() === b.trim().toLowerCase();
 
 /** Whether the reviewer owns the queue (its server-stamped `created_by`). */
-export const isQueueOwner = (queue: ReviewQueue, reviewer: string): boolean =>
-  sameUser(queue.created_by, reviewer);
+export const isQueueOwner = (queue: ReviewQueue, reviewer: string): boolean => sameUser(queue.created_by, reviewer);
 
 /** Whether the reviewer is in the queue's assigned-user pool. */
 export const isQueueMember = (queue: ReviewQueue, reviewer: string): boolean =>
@@ -19,12 +18,7 @@ export const isQueueMember = (queue: ReviewQueue, reviewer: string): boolean =>
  * created it). Personal USER queues are never managed here. Ownership amplifies
  * EDIT and never substitutes for it, mirroring the server-side gate.
  */
-export const canManageQueue = (
-  queue: ReviewQueue,
-  reviewer: string,
-  canManage: boolean,
-  canEdit: boolean,
-): boolean =>
+export const canManageQueue = (queue: ReviewQueue, reviewer: string, canManage: boolean, canEdit: boolean): boolean =>
   queue.queue_type === 'CUSTOM' && (canManage || (canEdit && isQueueOwner(queue, reviewer)));
 
 /**
@@ -32,10 +26,5 @@ export const canManageQueue = (
  * manager, the owning EDITor, or an assigned member. Mirrors the server's
  * detail-tier gate (`validate_can_view_review_queue`).
  */
-export const canInspectQueue = (
-  queue: ReviewQueue,
-  reviewer: string,
-  canManage: boolean,
-  canEdit: boolean,
-): boolean =>
+export const canInspectQueue = (queue: ReviewQueue, reviewer: string, canManage: boolean, canEdit: boolean): boolean =>
   canManage || (canEdit && isQueueOwner(queue, reviewer)) || isQueueMember(queue, reviewer);
