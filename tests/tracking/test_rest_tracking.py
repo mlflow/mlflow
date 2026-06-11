@@ -1318,6 +1318,26 @@ def test_get_metric_history_with_page_token(mlflow_client):
         else:
             assert metric["timestamp"] == 1000 + i
 
+
+def test_get_metric_history_without_max_results_returns_full_history(mlflow_client):
+    # Regression test: an unset proto2 `max_results` reads as 0, which previously became
+    # a `LIMIT 1` query that returned an empty page with a never-advancing next_page_token
+    experiment_id = mlflow_client.create_experiment("test no max_results")
+    run = mlflow_client.create_run(experiment_id)
+    run_id = run.info.run_id
+
+    for i in range(10):
+        mlflow_client.log_metric(run_id, key="test_metric", value=float(i), step=i)
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["metrics"]) == 10
+    assert data.get("next_page_token") is None
+
     # Test with invalid page_token
     response = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",

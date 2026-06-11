@@ -2075,7 +2075,10 @@ def _get_metric_history():
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
 
-    max_results = request_message.max_results if request_message.max_results is not None else None
+    # NB: An unset proto2 int field reads as 0 (never None), so checking `is not None` would
+    # turn requests without `max_results` into `LIMIT 0+1` queries that return an empty page
+    # with a never-advancing token. Use HasField to restore non-paginated behavior.
+    max_results = request_message.max_results if request_message.HasField("max_results") else None
 
     metric_entities = _get_tracking_store().get_metric_history(
         run_id,
