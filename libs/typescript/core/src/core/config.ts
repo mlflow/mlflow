@@ -86,8 +86,8 @@ export interface MLflowTracingConfig {
   trackingServerToken?: string;
 
   /**
-   * Workspace name for multi-tenant MLflow servers.
-   * Sets the X-MLFLOW-WORKSPACE header on all requests.
+   * Workspace name for MLflow servers with workspaces enabled (OSS/non-Databricks only).
+   * Sets the X-MLFLOW-WORKSPACE header on requests to self-hosted MLflow.
    * Can also be set via MLFLOW_WORKSPACE environment variable (takes precedence).
    */
   workspace?: string;
