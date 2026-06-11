@@ -12,7 +12,6 @@ import {
   SegmentedControlGroup,
   SimpleSelect,
   SimpleSelectOption,
-  Switch,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -20,13 +19,14 @@ import { useEndpointsQuery } from '@mlflow/mlflow/src/gateway/hooks/useEndpoints
 import {
   Catalog,
   MessageProcessor,
+  type A2uiClientAction,
   type A2uiMessage,
   type SurfaceModel,
 } from '@a2ui/web_core/v0_9';
 import { BASIC_FUNCTIONS } from '@a2ui/web_core/v0_9/basic_catalog';
 import { A2uiSurface, Column, Row, Text, type ReactComponentImplementation } from '@a2ui/react/v0_9';
 
-import type { Assessment, ModelTrace, ModelTraceInfo, ModelTraceSpanNode } from '../ModelTrace.types';
+import type { Assessment, Feedback, ModelTrace, ModelTraceInfo, ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
 import {
   getIconTypeForSpan,
@@ -36,18 +36,23 @@ import {
   isV3ModelTraceInfo,
 } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { getUser } from '../../global-settings/getUser';
+import { useCreateAssessment } from '../hooks/useCreateAssessment';
 import { spanTimeFormatter } from '../timeline-tree/TimelineTree.utils';
 import { AssessmentBoard } from './AssessmentBoard';
 import { AssessmentCard } from './AssessmentCard';
-import { Carousel } from './Carousel';
-import { ContentViewer } from './ContentViewer';
+import { Card } from './Card';
 import { DataTable } from './DataTable';
-import { FeedbackForm } from './FeedbackForm';
-import { NodeSelectionProvider } from './NodeSelectionContext';
-import { TreeCheckProvider } from './TreeCheckContext';
+import { DEFAULT_FEEDBACK_NAME, FEEDBACK_SUBMITTED, FeedbackButtons } from './FeedbackButtons';
+import { Icon } from './Icon';
+import { KeyValueViewer } from './KeyValueViewer';
+import { Markdown } from './Markdown';
+import { MediaRenderer } from './MediaRenderer';
 import { StatCard } from './StatCard';
 import { TimelineChart } from './TimelineChart';
-import { TreeView } from './TreeView';
+import { type PanelItem } from './TreeSelectionContext';
+import { TreeNode } from './TreeNode';
+import { TREE_NODE_SELECTED, TreeView } from './TreeView';
 import type { AgentAssessment, AgentNode } from './agent/buildAgentPrompt';
 import { useAgentDashboard } from './agent/useAgentDashboard';
 
@@ -88,9 +93,10 @@ type TableRow = { color?: string; cells: string[] };
 // in milliseconds (relative to the trace start), with an indentation depth.
 type TimelineRow = { label: string; start: number; end: number; depth: number };
 
-// A node for the generic TreeView. `attributes` is the opaque, filterable
-// metadata bag the TreeView's structured filter matches against.
-type TreeNode = {
+// A reference span-tree node handed to Agent Mode (in the data snapshot) so the
+// LLM can construct TreeNode components. `attributes` is an opaque metadata bag
+// (type/logLevel/duration) the model can use to select a subset of spans.
+type TreeNodeData = {
   id: string;
   label: string;
   icon: string;
@@ -102,17 +108,15 @@ type TreeNode = {
     hasException: boolean;
     logLevel: number;
     durationMs: number;
-    startOffsetMs: number;
-    endOffsetMs: number;
   };
-  children: TreeNode[];
+  children: TreeNodeData[];
 };
 
 // Everything a message set might need to render. Trace-level metrics come from
 // `modelTraceInfo`; per-tool rows, the timeline, and the tree are derived from
 // the parsed spans (nodeMap / topLevelNodes).
-// A single key/value entry for the ContentViewer. `value` is JSON-encoded so the
-// snippet renderer can show it as JSON (objects) or text/markdown (strings).
+// A single key/value entry (e.g. for a KeyValueViewer). `value` is JSON-encoded
+// so the snippet renderer can show it as JSON (objects) or text/markdown (strings).
 type ContentField = { label: string; value: string };
 
 type AssessmentSentiment = 'positive' | 'negative' | 'neutral' | 'error';
@@ -125,15 +129,27 @@ type AssessmentBoardItem = {
   sentiment: AssessmentSentiment;
 };
 
+// One attribute extracted from the first tool call: a key/value pair where
+// `value` is a JSON-encoded string (ready for KeyValueViewer).
+type FirstToolIO = {
+  toolName: string;
+  input?: ContentField;
+  output?: ContentField;
+};
+
 type CustomViewData = {
   metrics: TraceMetrics;
   toolRows: TableRow[];
   timelineRows: TimelineRow[];
-  treeNodes: TreeNode[];
+  treeNodes: TreeNodeData[];
+  // The span hierarchy (roots), used by the predefined tree/trajectory builders
+  // to emit TreeNode components with per-span side panels.
+  treeRoots: ModelTraceSpanNode[];
   assessmentItems: AssessmentBoardItem[];
+  firstToolIO?: FirstToolIO;
 };
 
-// Turns an arbitrary inputs/outputs payload into ContentViewer fields. Objects
+// Turns an arbitrary inputs/outputs payload into key/value fields. Objects
 // become one field per top-level key (mirroring the Details view's key/value
 // list); anything else becomes a single unlabeled field.
 const getContentFields = (payload: unknown): ContentField[] => {
@@ -221,8 +237,8 @@ const getTimelineRowsFromNodes = (topLevelNodes: ModelTraceSpanNode[]): Timeline
 // own icon mapping (getIconTypeForSpan) and log-level/exception helpers so the
 // tree matches the Details & Timeline view, and stash the filterable fields in
 // `attributes` for the TreeView's structured filter.
-const getTreeNodesFromNodes = (topLevelNodes: ModelTraceSpanNode[], traceStartUs: number): TreeNode[] => {
-  const toTreeNode = (node: ModelTraceSpanNode): TreeNode => {
+const getTreeNodesFromNodes = (topLevelNodes: ModelTraceSpanNode[]): TreeNodeData[] => {
+  const toTreeNode = (node: ModelTraceSpanNode): TreeNodeData => {
     const hasException = getSpanExceptionEvents(node).length > 0;
     const assessmentCount = node.assessments?.length ?? 0;
     return {
@@ -237,10 +253,6 @@ const getTreeNodesFromNodes = (topLevelNodes: ModelTraceSpanNode[], traceStartUs
         hasException,
         logLevel: getSpanLogLevel(node),
         durationMs: Math.max(node.end - node.start, 0) / 1000,
-        // Offsets from the trace start (ms), used by the TreeView's live time
-        // window filter and per-span tick marks.
-        startOffsetMs: Math.max(node.start - traceStartUs, 0) / 1000,
-        endOffsetMs: Math.max(node.end - traceStartUs, 0) / 1000,
       },
       children: (node.children ?? []).map(toTreeNode),
     };
@@ -348,49 +360,6 @@ const getAssessmentBoardItems = (assessments: AgentAssessment[]): AssessmentBoar
     };
   });
 
-// A span in scope for feedback: the info the FeedbackForm needs to create a
-// span-scoped assessment, plus its inputs/outputs for the optional I/O toggle.
-type FeedbackSpan = {
-  spanId: string;
-  spanName: string;
-  traceId: string;
-  inputs: ContentField[];
-  outputs: ContentField[];
-};
-
-// Builds a feedback carousel: one FeedbackForm slide per scoped span, stepped
-// through by a generic Carousel. Built on demand (not a dropdown message set)
-// since it depends on the scoped spans captured from a specific tree block.
-const buildFeedbackCarouselMessages = (surfaceId: string, spans: FeedbackSpan[]): A2uiMessage[] => {
-  const childIds = spans.map((_, index) => `feedback-slide-${index}`);
-  return [
-    createSurfaceMessage(surfaceId),
-    {
-      version: 'v0.9',
-      updateComponents: {
-        surfaceId,
-        components: [
-          {
-            id: 'root',
-            component: 'Carousel',
-            children: childIds,
-            emptyMessage: 'No spans in scope for feedback.',
-          },
-          ...spans.map((span, index) => ({
-            id: childIds[index],
-            component: 'FeedbackForm',
-            traceId: span.traceId,
-            spanId: span.spanId,
-            spanName: span.spanName,
-            inputs: span.inputs,
-            outputs: span.outputs,
-          })),
-        ],
-      },
-    },
-  ];
-};
-
 // A message set is a named, self-contained group of A2UI messages that renders
 // one block into its own surface. Add a new entry to MESSAGE_SETS to offer
 // another option in the dropdown. `build` receives the target surfaceId so the
@@ -470,6 +439,105 @@ const buildTraceSummaryMessages = (surfaceId: string, { metrics }: CustomViewDat
   },
 ];
 
+// Same trace-summary stats, but grouped inside a basic `Card`. Demonstrates the
+// Card primitive's single-child rule: the card's `child` is a Column, which in
+// turn holds a heading Text and a Row of StatCards. StatCard values are bound to
+// data-model paths populated by the trailing updateDataModel message.
+const buildTraceSummaryCardMessages = (surfaceId: string, { metrics }: CustomViewData): A2uiMessage[] => [
+  createSurfaceMessage(surfaceId),
+  {
+    version: 'v0.9',
+    updateComponents: {
+      surfaceId,
+      components: [
+        // Card wraps exactly one child — a Column that groups everything.
+        { id: 'root', component: 'Card', child: 'card-body' },
+        { id: 'card-body', component: 'Column', children: ['card-heading', 'card-stats'] },
+        { id: 'card-heading', component: 'Text', text: 'Trace Summary', variant: 'h4' },
+        {
+          id: 'card-stats',
+          component: 'Row',
+          children: ['card-stat-status', 'card-stat-latency', 'card-stat-tokens', 'card-stat-assessments'],
+          align: 'stretch',
+        },
+        {
+          id: 'card-stat-status',
+          component: 'StatCard',
+          value: { path: '/status' },
+          label: 'Status',
+          icon: 'checkCircle',
+          tone: 'success',
+        },
+        {
+          id: 'card-stat-latency',
+          component: 'StatCard',
+          value: { path: '/latency' },
+          label: 'Latency',
+          icon: 'clock',
+          tone: 'warning',
+        },
+        {
+          id: 'card-stat-tokens',
+          component: 'StatCard',
+          value: { path: '/totalTokens' },
+          label: 'Total Tokens',
+          icon: 'hash',
+          tone: 'info',
+        },
+        {
+          id: 'card-stat-assessments',
+          component: 'StatCard',
+          value: { path: '/assessments' },
+          label: 'Assessments',
+          icon: 'checklist',
+          tone: 'success',
+        },
+      ],
+    },
+  },
+  {
+    version: 'v0.9',
+    updateDataModel: {
+      surfaceId,
+      value: metrics,
+    },
+  },
+];
+
+// Demonstrates the custom MediaRenderer component: an image rendered from a
+// direct, public URL with a caption, grouped in a Card. Swap DEMO_IMAGE_URL for
+// any direct image link. NOTE: Google Drive *share* links are NOT direct image
+// URLs (they serve an HTML sign-in/preview page, not raw image bytes), so they
+// won't render here — use a link that ends in the image bytes (e.g. .png/.jpg).
+// The same component also accepts an `mlflow-attachment://` URI, which it
+// fetches from the trace artifact store and renders as an image/audio/PDF blob.
+const DEMO_IMAGE_URL = 'https://cdn.britannica.com/77/170477-050-1C747EE3/Laptop-computer.jpg';
+
+const buildMediaDemoMessages = (surfaceId: string): A2uiMessage[] => [
+  createSurfaceMessage(surfaceId),
+  {
+    version: 'v0.9',
+    updateComponents: {
+      surfaceId,
+      components: [
+        { id: 'root', component: 'Card', child: 'image-col' },
+        { id: 'image-col', component: 'Column', children: ['demo-image', 'image-caption'] },
+        {
+          id: 'demo-image',
+          component: 'MediaRenderer',
+          url: DEMO_IMAGE_URL,
+          alt: 'A2UI MediaRenderer component demo',
+        },
+        {
+          id: 'image-caption',
+          component: 'Text',
+          text: 'Rendered with the custom A2UI MediaRenderer component (URL or mlflow-attachment:// blob).',
+        },
+      ],
+    },
+  },
+];
+
 // Per-tool performance table derived from the trace's TOOL spans. Rows are
 // inlined directly (already computed in JS) rather than bound via the data model.
 const buildToolPerformanceMessages = (surfaceId: string, { toolRows }: CustomViewData): A2uiMessage[] => [
@@ -520,26 +588,203 @@ const buildTraceBreakdownMessages = (surfaceId: string, { timelineRows }: Custom
   },
 ];
 
-// Collapsible span tree (like Details & Timeline). Nodes are inlined; the
-// TreeView's own timeline slider scopes the visible spans.
-const buildTraceTreeMessages = (surfaceId: string, { treeNodes }: CustomViewData): A2uiMessage[] => [
-  createSurfaceMessage(surfaceId),
-  {
-    version: 'v0.9',
-    updateComponents: {
-      surfaceId,
-      components: [
-        {
-          id: 'root',
-          component: 'TreeView',
-          title: 'Trace Tree',
-          nodes: treeNodes,
-          emptyMessage: 'No spans to display.',
-        },
-      ],
+// Returns the span's "real" (non-`mlflow.`-prefixed) attributes, mirroring the
+// Details & Timeline Attributes tab.
+const getSpanAttributes = (span?: ModelTraceSpanNode): Record<string, unknown> => {
+  if (!span?.attributes) {
+    return {};
+  }
+  return Object.fromEntries(Object.entries(span.attributes).filter(([key]) => !key.startsWith('mlflow.')));
+};
+
+// Builds the side-panel subtree for a selected TreeNode from its lightweight
+// `panelItems` directives plus the span's real data (from `nodeMap`). The author
+// /LLM only emits the directives; the host materializes the heavy components
+// (KeyValueViewer / Markdown / FeedbackButtons) here, keyed off the deterministic
+// `${nodeId}__panel` id the TreeView renders. Runs in the action handler in
+// response to a TREE_NODE_SELECTED action.
+const buildSpanPanelComponents = (
+  nodeId: string,
+  spanId: string | undefined,
+  panelItems: PanelItem[],
+  nodeMap: Record<string, ModelTraceSpanNode>,
+): Record<string, unknown>[] => {
+  const panelRootId = `${nodeId}__panel`;
+  const span = spanId ? nodeMap[spanId] : undefined;
+  const childIds: string[] = [];
+  const components: Record<string, unknown>[] = [];
+
+  panelItems.forEach((item, index) => {
+    const itemId = `${panelRootId}-item-${index}`;
+    switch (item.type) {
+      case 'input':
+      case 'output':
+      case 'attributes': {
+        const value =
+          item.type === 'input' ? span?.inputs : item.type === 'output' ? span?.outputs : getSpanAttributes(span);
+        const defaultLabel = item.type === 'input' ? 'Inputs' : item.type === 'output' ? 'Outputs' : 'Attributes';
+        childIds.push(itemId);
+        components.push({
+          id: itemId,
+          component: 'KeyValueViewer',
+          label: item.title || defaultLabel,
+          value: JSON.stringify(value ?? null),
+          initialFormat: 'json',
+        });
+        break;
+      }
+      case 'markdown': {
+        childIds.push(itemId);
+        components.push({
+          id: itemId,
+          component: 'Markdown',
+          text: item.text ?? '',
+          ...(item.title ? { title: item.title } : {}),
+        });
+        break;
+      }
+      case 'feedback': {
+        childIds.push(itemId);
+        components.push({
+          id: itemId,
+          component: 'FeedbackButtons',
+          label: item.label || 'Was this span helpful?',
+          name: item.name || 'Span helpfulness',
+          ...(spanId ? { spanId } : {}),
+          value: { path: `/feedback/${nodeId}` },
+        });
+        break;
+      }
+      default:
+        break;
+    }
+  });
+
+  return [{ id: panelRootId, component: 'Column', children: childIds }, ...components];
+};
+
+// A span tree built from first-class TreeNode components. Each node maps 1:1 to
+// a span and carries `panelItems` directives (input / output / feedback). The
+// host builds the actual side panel from the span's data when the node is
+// selected. Demonstrates the host-built, author-directed side panel.
+const buildTraceTreeMessages = (surfaceId: string, { treeRoots }: CustomViewData): A2uiMessage[] => {
+  const components: Record<string, unknown>[] = [];
+  let counter = 0;
+
+  const toComponents = (span: ModelTraceSpanNode): string => {
+    counter += 1;
+    const nodeId = `tn-${counter}-node`;
+    const childIds = (span.children ?? []).map(toComponents);
+
+    const hasException = getSpanExceptionEvents(span).length > 0;
+    const assessmentCount = span.assessments?.length ?? 0;
+    components.push({
+      id: nodeId,
+      component: 'TreeNode',
+      label: typeof span.title === 'string' ? span.title : String(span.title ?? 'unknown'),
+      icon: getIconTypeForSpan(span.type ?? ModelSpanType.UNKNOWN),
+      hasException,
+      isRootSpan: !span.parentId,
+      ...(assessmentCount > 0 ? { badge: String(assessmentCount) } : {}),
+      spanId: String(span.key),
+      panelItems: [{ type: 'input' }, { type: 'output' }, { type: 'feedback' }],
+      ...(childIds.length > 0 ? { children: childIds } : {}),
+    });
+    return nodeId;
+  };
+
+  const rootChildIds = treeRoots.map(toComponents);
+
+  return [
+    createSurfaceMessage(surfaceId),
+    {
+      version: 'v0.9',
+      updateComponents: {
+        surfaceId,
+        components: [
+          {
+            id: 'root',
+            component: 'TreeView',
+            title: 'Trace Tree',
+            children: rootChildIds,
+            emptyMessage: 'No spans to display.',
+          },
+          ...components,
+        ],
+      },
     },
-  },
-];
+  ];
+};
+
+// Demonstrates the milestone/trajectory use case: each TreeNode is a high-level
+// step whose side panel is a markdown summary that deeplinks to its span via
+// [text](#span:<id>), plus span-scoped feedback. Selecting a milestone (or
+// following its deeplink) asks the host to build that panel. Built from the real
+// top-level spans (no fabricated narrative).
+const buildTrajectoryDemoMessages = (surfaceId: string, { treeRoots }: CustomViewData): A2uiMessage[] => {
+  const milestones = treeRoots.slice(0, 6);
+  if (milestones.length === 0) {
+    return [
+      createSurfaceMessage(surfaceId),
+      {
+        version: 'v0.9',
+        updateComponents: {
+          surfaceId,
+          components: [{ id: 'root', component: 'Text', text: 'No spans to summarize in this trace.' }],
+        },
+      },
+    ];
+  }
+
+  const components: Record<string, unknown>[] = [];
+  const milestoneIds: string[] = [];
+
+  milestones.forEach((span, index) => {
+    const nodeId = `ms-${index + 1}-node`;
+    milestoneIds.push(nodeId);
+
+    const spanName = typeof span.title === 'string' ? span.title : String(span.title ?? 'span');
+    const spanType = String(span.type ?? ModelSpanType.UNKNOWN);
+    const spanKey = String(span.key);
+
+    components.push({
+      id: nodeId,
+      component: 'TreeNode',
+      title: `Step ${index + 1}: ${spanName}`,
+      icon: getIconTypeForSpan(span.type ?? ModelSpanType.UNKNOWN),
+      isRootSpan: !span.parentId,
+      spanId: spanKey,
+      panelItems: [
+        {
+          type: 'markdown',
+          title: `Step ${index + 1}`,
+          text: `Milestone covering the \`${spanType}\` span **${spanName}**. Jump to the span [here](#span:${spanKey}).`,
+        },
+        { type: 'feedback' },
+      ],
+    });
+  });
+
+  return [
+    createSurfaceMessage(surfaceId),
+    {
+      version: 'v0.9',
+      updateComponents: {
+        surfaceId,
+        components: [
+          {
+            id: 'root',
+            component: 'TreeView',
+            title: 'Agent Trajectory',
+            children: milestoneIds,
+            emptyMessage: 'No spans to summarize.',
+          },
+          ...components,
+        ],
+      },
+    },
+  ];
+};
 
 // One AssessmentCard per LLM-as-a-judge / human assessment, laid out in a
 // wrapping AssessmentBoard. Each card is a reusable catalog primitive, so more
@@ -576,37 +821,77 @@ const buildAssessmentsMessages = (surfaceId: string, { assessmentItems }: Custom
   ];
 };
 
-// A ContentViewer surface for one specific span's inputs & outputs, rendered
-// beside the tree when "open span details on select" is on. Built on demand
-// (depends on the clicked span), like the feedback carousel.
-const buildSpanDetailsMessages = (
-  surfaceId: string,
-  spanName: string,
-  inputs: ContentField[],
-  outputs: ContentField[],
-): A2uiMessage[] => [
+// Two KeyValueViewers side by side (in a Row): one input attribute and one
+// output attribute from the first tool call. Demonstrates the single-value
+// primitive and side-by-side layout. Each value is a JSON-encoded string.
+const buildFirstToolIOMessages = (surfaceId: string, { firstToolIO }: CustomViewData): A2uiMessage[] => {
+  if (!firstToolIO || (!firstToolIO.input && !firstToolIO.output)) {
+    return [
+      createSurfaceMessage(surfaceId),
+      {
+        version: 'v0.9',
+        updateComponents: {
+          surfaceId,
+          components: [{ id: 'root', component: 'Text', text: 'No tool calls with inputs/outputs in this trace.' }],
+        },
+      },
+    ];
+  }
+
+  const components: Record<string, unknown>[] = [];
+  const children: string[] = [];
+  if (firstToolIO.input) {
+    children.push('tool-input');
+    components.push({
+      id: 'tool-input',
+      component: 'KeyValueViewer',
+      label: `Input · ${firstToolIO.input.label || 'value'}`,
+      value: firstToolIO.input.value,
+    });
+  }
+  if (firstToolIO.output) {
+    children.push('tool-output');
+    components.push({
+      id: 'tool-output',
+      component: 'KeyValueViewer',
+      label: `Output · ${firstToolIO.output.label || 'value'}`,
+      value: firstToolIO.output.value,
+    });
+  }
+
+  return [
+    createSurfaceMessage(surfaceId),
+    {
+      version: 'v0.9',
+      updateComponents: {
+        surfaceId,
+        components: [{ id: 'root', component: 'Row', children, align: 'start' }, ...components],
+      },
+    },
+  ];
+};
+
+// Demonstrates the interactive FeedbackButtons primitive: a labeled thumbs
+// up/down control bound to `/feedback`. Clicking highlights the choice and logs
+// an MLflow feedback assessment (handled by the host's action handler).
+const buildFeedbackDemoMessages = (surfaceId: string): A2uiMessage[] => [
   createSurfaceMessage(surfaceId),
+  {
+    version: 'v0.9',
+    updateDataModel: { surfaceId, path: '/feedback', value: null },
+  },
   {
     version: 'v0.9',
     updateComponents: {
       surfaceId,
       components: [
-        { id: 'root', component: 'Column', children: ['inputs', 'outputs'] },
+        { id: 'root', component: 'Card', child: 'feedback-buttons' },
         {
-          id: 'inputs',
-          component: 'ContentViewer',
-          title: 'Inputs',
-          icon: 'list',
-          fields: inputs,
-          emptyMessage: `No inputs on ${spanName}.`,
-        },
-        {
-          id: 'outputs',
-          component: 'ContentViewer',
-          title: 'Outputs',
-          icon: 'checklist',
-          fields: outputs,
-          emptyMessage: `No outputs on ${spanName}.`,
+          id: 'feedback-buttons',
+          component: 'FeedbackButtons',
+          label: 'Was this trace helpful?',
+          name: 'Trace helpfulness',
+          value: { path: '/feedback' },
         },
       ],
     },
@@ -615,31 +900,28 @@ const buildSpanDetailsMessages = (
 
 const MESSAGE_SETS: MessageSet[] = [
   { id: 'trace-summary', label: 'Show me the high level summary of this trace', build: buildTraceSummaryMessages },
+  { id: 'trace-summary-card', label: 'Show the trace summary grouped in a card', build: buildTraceSummaryCardMessages },
+  { id: 'image-demo', label: 'Show an image (MediaRenderer component demo)', build: buildMediaDemoMessages },
+  { id: 'feedback-demo', label: 'Collect thumbs up/down feedback', build: buildFeedbackDemoMessages },
   { id: 'tool-performance', label: 'List performance summary for all tools', build: buildToolPerformanceMessages },
   { id: 'trace-breakdown', label: 'Give me a timeline of all spans calls', build: buildTraceBreakdownMessages },
   { id: 'trace-tree', label: 'Show me the span calls in a tree view', build: buildTraceTreeMessages },
+  { id: 'trajectory-demo', label: 'Summarize the agent trajectory as milestones', build: buildTrajectoryDemoMessages },
   { id: 'assessments', label: 'Show the LLM-as-a-judge assessments', build: buildAssessmentsMessages },
+  {
+    id: 'first-tool-io',
+    label: "Compare the first tool call's input and output",
+    build: buildFirstToolIOMessages,
+  },
 ];
 
 // An appended dashboard block, each backed by its own A2UI surface. `setId`
-// identifies which message set produced it. `feedbackSurfaceId` is the optional
-// companion surface rendered side by side inside the same block (the feedback
-// review carousel).
+// identifies which message set produced it. (Span detail / side panels are now
+// owned by the TreeView component itself, in-surface.)
 type DashboardBlock = {
   surfaceId: string;
   label: string;
   setId: string;
-  feedbackSurfaceId?: string;
-  feedbackSpanCount?: number;
-  // The span ids checked (via per-row checkboxes) in this Trace tree; "Add
-  // feedback" is scoped to exactly these spans.
-  checkedSpanIds?: string[];
-  // Per-block toggle: when on, clicking a span in this Trace tree opens its
-  // inputs/outputs in a companion ContentViewer surface, rendered side by side.
-  openDetailsOnSelect?: boolean;
-  detailsSurfaceId?: string;
-  detailsSpanId?: string;
-  detailsSpanName?: string;
 };
 
 export const ModelTraceExplorerCustomView = ({ modelTraceInfo }: { modelTraceInfo: ModelTrace['info'] }) => {
@@ -651,8 +933,8 @@ export const ModelTraceExplorerCustomView = ({ modelTraceInfo }: { modelTraceInf
   const { nodeMap, topLevelNodes } = useModelTraceExplorerViewState();
 
   // The catalog is the React equivalent of `catalog.json`: it maps component
-  // type names to their implementations (basic Text/Row + our custom
-  // StatCard/DataTable/TimelineChart/TreeView/Carousel/FeedbackForm).
+  // type names to their implementations (basic Text/Row/Column + our custom
+  // MediaRenderer/Card/Icon/StatCard/DataTable/TimelineChart/TreeView/TreeNode/Markdown/KeyValueViewer/FeedbackButtons/...).
   const catalog = useMemo(
     () =>
       new Catalog<ReactComponentImplementation>(
@@ -661,23 +943,87 @@ export const ModelTraceExplorerCustomView = ({ modelTraceInfo }: { modelTraceInf
           Text,
           Row,
           Column,
+          MediaRenderer,
+          Card,
+          Icon,
           StatCard,
           DataTable,
           TimelineChart,
           TreeView,
-          Carousel,
-          FeedbackForm,
-          ContentViewer,
+          TreeNode,
+          Markdown,
           AssessmentBoard,
           AssessmentCard,
+          KeyValueViewer,
+          FeedbackButtons,
         ],
         BASIC_FUNCTIONS,
       ),
     [],
   );
 
+  // Persist thumbs up/down clicks as real MLflow feedback assessments. The
+  // processor's action handler is created once, so we route through a ref that
+  // always points at the latest mutation/traceId.
+  const traceId = useMemo(
+    () => (isV3ModelTraceInfo(modelTraceInfo) ? modelTraceInfo.trace_id : (modelTraceInfo.request_id ?? '')),
+    [modelTraceInfo],
+  );
+  const { createAssessmentMutation } = useCreateAssessment({ traceId });
+
+  // The processor's action handler is created once, so we route through a ref
+  // that always points at the latest mutation / traceId / nodeMap.
+  const actionHandlerRef = useRef<(action: A2uiClientAction) => void>(() => {});
+
+  const handleFeedbackAction = (action: A2uiClientAction) => {
+    const context = action.context ?? {};
+    const value = context.value;
+    if (typeof value !== 'boolean') {
+      return;
+    }
+    const name = typeof context.name === 'string' && context.name ? context.name : DEFAULT_FEEDBACK_NAME;
+    const spanId = typeof context.spanId === 'string' && context.spanId ? context.spanId : undefined;
+    // Spread a typed value object (matching AssessmentCreateForm) so the literal
+    // narrows to the FeedbackAssessment member of the Assessment union.
+    const feedbackValue: { feedback: Feedback } = { feedback: { value } };
+    createAssessmentMutation({
+      assessment: {
+        assessment_name: name,
+        trace_id: traceId,
+        source: { source_type: 'HUMAN', source_id: getUser() ?? '' },
+        ...(spanId ? { span_id: spanId } : {}),
+        ...feedbackValue,
+      },
+    });
+  };
+
+  // When a TreeNode is selected, build its side panel from the node's panelItems
+  // directives + the span's real data, and inject it into the same surface as a
+  // Column at the deterministic `${nodeId}__panel` id the TreeView renders.
+  const handleTreeNodeSelected = (action: A2uiClientAction) => {
+    const context = action.context ?? {};
+    const nodeId = typeof context.nodeId === 'string' && context.nodeId ? context.nodeId : undefined;
+    if (!nodeId) {
+      return;
+    }
+    const spanId = typeof context.spanId === 'string' && context.spanId ? context.spanId : undefined;
+    const panelItems = Array.isArray(context.panelItems) ? (context.panelItems as PanelItem[]) : [];
+    const components = buildSpanPanelComponents(nodeId, spanId, panelItems, nodeMap);
+    processor.processMessages([{ version: 'v0.9', updateComponents: { surfaceId: action.surfaceId, components } }]);
+  };
+
+  actionHandlerRef.current = (action: A2uiClientAction) => {
+    if (action.name === FEEDBACK_SUBMITTED) {
+      handleFeedbackAction(action);
+    } else if (action.name === TREE_NODE_SELECTED) {
+      handleTreeNodeSelected(action);
+    }
+  };
+
   // A single long-lived processor holds the state for every appended surface.
-  const [processor] = useState(() => new MessageProcessor<ReactComponentImplementation>([catalog]));
+  const [processor] = useState(
+    () => new MessageProcessor<ReactComponentImplementation>([catalog], (action) => actionHandlerRef.current(action)),
+  );
 
   // The tree starts one layer below the trace root (e.g. omit the top-level
   // `chat_agent` agent span), since that wrapper span is rarely useful. Falls
@@ -690,19 +1036,34 @@ export const ModelTraceExplorerCustomView = ({ modelTraceInfo }: { modelTraceInf
   const metrics = useMemo(() => getMetricsFromTraceInfo(modelTraceInfo), [modelTraceInfo]);
   const toolRows = useMemo(() => getToolRowsFromNodeMap(nodeMap), [nodeMap]);
   const timelineRows = useMemo(() => getTimelineRowsFromNodes(topLevelNodes), [topLevelNodes]);
-  const treeNodes = useMemo(() => {
-    const traceStartUs = topLevelNodes.length > 0 ? Math.min(...topLevelNodes.map((node) => node.start)) : 0;
-    return getTreeNodesFromNodes(treeRoots, traceStartUs);
-  }, [treeRoots, topLevelNodes]);
+  const treeNodes = useMemo(() => getTreeNodesFromNodes(treeRoots), [treeRoots]);
 
   // Real assessments (LLM-judge / human feedback), used by both the predefined
   // "LLM-as-a-judge" board and Agent Mode (so the model shows real results).
   const agentAssessments = useMemo(() => getAgentAssessments(modelTraceInfo, nodeMap), [modelTraceInfo, nodeMap]);
   const assessmentItems = useMemo(() => getAssessmentBoardItems(agentAssessments), [agentAssessments]);
 
+  // The first tool call's first input attribute + first output attribute, for
+  // the KeyValueViewer side-by-side demo. Values are JSON-encoded by
+  // getContentFields, ready for KeyValueViewer.
+  const firstToolIO = useMemo<FirstToolIO | undefined>(() => {
+    const toolNodes = Object.values(nodeMap)
+      .filter((node) => node.type === ModelSpanType.TOOL)
+      .sort((a, b) => a.start - b.start);
+    if (toolNodes.length === 0) {
+      return undefined;
+    }
+    const tool = toolNodes[0];
+    return {
+      toolName: typeof tool.title === 'string' ? tool.title : String(tool.title ?? 'tool'),
+      input: getContentFields(tool.inputs)[0],
+      output: getContentFields(tool.outputs)[0],
+    };
+  }, [nodeMap]);
+
   const viewData = useMemo<CustomViewData>(
-    () => ({ metrics, toolRows, timelineRows, treeNodes, assessmentItems }),
-    [metrics, toolRows, timelineRows, treeNodes, assessmentItems],
+    () => ({ metrics, toolRows, timelineRows, treeNodes, treeRoots, assessmentItems, firstToolIO }),
+    [metrics, toolRows, timelineRows, treeNodes, treeRoots, assessmentItems, firstToolIO],
   );
 
   // The trace's nodeMap as plain JSON (keyed by span id) for Agent Mode. The LLM
@@ -791,154 +1152,16 @@ export const ModelTraceExplorerCustomView = ({ modelTraceInfo }: { modelTraceInf
     }
   };
 
-  // Toggles a span's checkbox within a Trace tree block. The checked set scopes
-  // "Add feedback".
-  const handleToggleCheck = (sourceBlock: DashboardBlock, spanId: string, checked: boolean) => {
-    setBlocks((prev) =>
-      prev.map((block) => {
-        if (block.surfaceId !== sourceBlock.surfaceId) {
-          return block;
-        }
-        const current = new Set(block.checkedSpanIds ?? []);
-        if (checked) {
-          current.add(spanId);
-        } else {
-          current.delete(spanId);
-        }
-        return { ...block, checkedSpanIds: Array.from(current) };
-      }),
-    );
-  };
-
-  // Opens a feedback review carousel scoped to the spans checked in the source
-  // tree block, rendered side by side inside that same block. Reuses the real
-  // assessment-creation flow via FeedbackForm. Re-clicking refreshes the scoped
-  // set (the existing companion surface is replaced).
-  const handleAddFeedback = (sourceBlock: DashboardBlock) => {
-    const spans: FeedbackSpan[] = (sourceBlock.checkedSpanIds ?? [])
-      .map((spanId) => nodeMap[spanId])
-      .filter((node): node is ModelTraceSpanNode => Boolean(node))
-      .map((node) => ({
-        spanId: String(node.key),
-        spanName: typeof node.title === 'string' ? node.title : String(node.title ?? 'unknown'),
-        traceId: node.traceId,
-        inputs: getContentFields(node.inputs),
-        outputs: getContentFields(node.outputs),
-      }));
-    blockCounter.current += 1;
-    const feedbackSurfaceId = `custom-view-feedback-${blockCounter.current}`;
-
-    const messages: A2uiMessage[] = [];
-    if (sourceBlock.feedbackSurfaceId) {
-      messages.push({ version: 'v0.9', deleteSurface: { surfaceId: sourceBlock.feedbackSurfaceId } });
-    }
-    messages.push(...buildFeedbackCarouselMessages(feedbackSurfaceId, spans));
-    processor.processMessages(messages);
-
-    setBlocks((prev) =>
-      prev.map((block) =>
-        block.surfaceId === sourceBlock.surfaceId
-          ? { ...block, feedbackSurfaceId, feedbackSpanCount: spans.length }
-          : block,
-      ),
-    );
-  };
-
-  // Closes the companion feedback surface without removing the tree block.
-  const handleCloseFeedback = (block: DashboardBlock) => {
-    if (!block.feedbackSurfaceId) {
-      return;
-    }
-    processor.processMessages([{ version: 'v0.9', deleteSurface: { surfaceId: block.feedbackSurfaceId } }]);
-    setBlocks((prev) =>
-      prev.map((entry) =>
-        entry.surfaceId === block.surfaceId
-          ? { ...entry, feedbackSurfaceId: undefined, feedbackSpanCount: undefined }
-          : entry,
-      ),
-    );
-  };
-
-  // Opens (or refreshes) the selected span's inputs/outputs in a ContentViewer
-  // beside the source tree block. Driven by the TreeView's node-selection
-  // context when the "open span details on select" toggle is on.
-  const handleSelectSpan = (sourceBlock: DashboardBlock, spanId: string) => {
-    const span = nodeMap[spanId];
-    if (!span) {
-      return;
-    }
-    const spanName = span.title ? String(span.title) : spanId;
-    blockCounter.current += 1;
-    const detailsSurfaceId = `custom-view-details-${blockCounter.current}`;
-
-    const messages: A2uiMessage[] = [];
-    if (sourceBlock.detailsSurfaceId) {
-      messages.push({ version: 'v0.9', deleteSurface: { surfaceId: sourceBlock.detailsSurfaceId } });
-    }
-    messages.push(
-      ...buildSpanDetailsMessages(detailsSurfaceId, spanName, getContentFields(span.inputs), getContentFields(span.outputs)),
-    );
-    processor.processMessages(messages);
-
-    setBlocks((prev) =>
-      prev.map((block) =>
-        block.surfaceId === sourceBlock.surfaceId
-          ? { ...block, detailsSurfaceId, detailsSpanId: spanId, detailsSpanName: spanName }
-          : block,
-      ),
-    );
-  };
-
-  const handleCloseDetails = (block: DashboardBlock) => {
-    if (!block.detailsSurfaceId) {
-      return;
-    }
-    processor.processMessages([{ version: 'v0.9', deleteSurface: { surfaceId: block.detailsSurfaceId } }]);
-    setBlocks((prev) =>
-      prev.map((entry) =>
-        entry.surfaceId === block.surfaceId
-          ? { ...entry, detailsSurfaceId: undefined, detailsSpanId: undefined, detailsSpanName: undefined }
-          : entry,
-      ),
-    );
-  };
-
-  // Per-block toggle. Turning it off for a block tears down that block's open
-  // details surface.
-  const handleToggleOpenDetails = (sourceBlock: DashboardBlock, next: boolean) => {
-    if (!next && sourceBlock.detailsSurfaceId) {
-      processor.processMessages([{ version: 'v0.9', deleteSurface: { surfaceId: sourceBlock.detailsSurfaceId } }]);
-    }
-    setBlocks((prev) =>
-      prev.map((block) =>
-        block.surfaceId === sourceBlock.surfaceId
-          ? {
-              ...block,
-              openDetailsOnSelect: next,
-              ...(next
-                ? {}
-                : { detailsSurfaceId: undefined, detailsSpanId: undefined, detailsSpanName: undefined }),
-            }
-          : block,
-      ),
-    );
-  };
-
   const handleRemoveBlock = (block: DashboardBlock) => {
-    // Remove the block (and any companion feedback/details surface) via the
-    // A2UI renderer's deleteSurface message.
-    const surfaceIds = [block.surfaceId, block.feedbackSurfaceId, block.detailsSurfaceId].filter(
-      (id): id is string => Boolean(id),
-    );
-    processor.processMessages(surfaceIds.map((surfaceId) => ({ version: 'v0.9', deleteSurface: { surfaceId } })));
+    // Remove the block via the A2UI renderer's deleteSurface message.
+    processor.processMessages([{ version: 'v0.9', deleteSurface: { surfaceId: block.surfaceId } }]);
     setBlocks((prev) => prev.filter((entry) => entry.surfaceId !== block.surfaceId));
   };
 
   const handleClearAll = () => {
-    const surfaceIds = blocks.flatMap((block) =>
-      [block.surfaceId, block.feedbackSurfaceId, block.detailsSurfaceId].filter((id): id is string => Boolean(id)),
+    processor.processMessages(
+      blocks.map((block) => ({ version: 'v0.9', deleteSurface: { surfaceId: block.surfaceId } })),
     );
-    processor.processMessages(surfaceIds.map((surfaceId) => ({ version: 'v0.9', deleteSurface: { surfaceId } })));
     setBlocks([]);
   };
 
@@ -1095,14 +1318,6 @@ export const ModelTraceExplorerCustomView = ({ modelTraceInfo }: { modelTraceInf
         ) : (
           blocks.map((block, index) => {
             const surface = processor.model.getSurface(block.surfaceId);
-            const feedbackSurface = block.feedbackSurfaceId
-              ? processor.model.getSurface(block.feedbackSurfaceId)
-              : undefined;
-            const detailsSurface = block.detailsSurfaceId
-              ? processor.model.getSurface(block.detailsSurfaceId)
-              : undefined;
-            const isTraceTree = block.setId === 'trace-tree';
-            const selectionEnabled = Boolean(block.openDetailsOnSelect) && isTraceTree;
             return (
               <div
                 key={block.surfaceId}
@@ -1124,26 +1339,6 @@ export const ModelTraceExplorerCustomView = ({ modelTraceInfo }: { modelTraceInf
                 >
                   <Typography.Text bold>{block.label}</Typography.Text>
                   <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                    {isTraceTree && (
-                      <Switch
-                        componentId="shared.model-trace-explorer.custom-view.open-details-toggle"
-                        label="Open span details on select"
-                        checked={Boolean(block.openDetailsOnSelect)}
-                        onChange={(next) => handleToggleOpenDetails(block, next)}
-                      />
-                    )}
-                    {isTraceTree && (
-                      <Button
-                        componentId="shared.model-trace-explorer.custom-view.add-feedback"
-                        size="small"
-                        icon={<PlusIcon />}
-                        disabled={(block.checkedSpanIds?.length ?? 0) === 0}
-                        onClick={() => handleAddFeedback(block)}
-                      >
-                        {block.feedbackSurfaceId ? 'Refresh feedback' : 'Add feedback'}
-                        {(block.checkedSpanIds?.length ?? 0) > 0 ? ` (${block.checkedSpanIds?.length})` : ''}
-                      </Button>
-                    )}
                     <Button
                       componentId="shared.model-trace-explorer.custom-view.move-block-up"
                       size="small"
@@ -1169,94 +1364,7 @@ export const ModelTraceExplorerCustomView = ({ modelTraceInfo }: { modelTraceInf
                     />
                   </div>
                 </div>
-                <div
-                  css={{
-                    display: 'flex',
-                    alignItems: 'stretch',
-                    gap: theme.spacing.md,
-                    padding: theme.spacing.md,
-                  }}
-                >
-                  <div css={{ flex: 1, minWidth: 0 }}>
-                    {surface && (
-                      <TreeCheckProvider
-                        value={{
-                          enabled: isTraceTree,
-                          checkedIds: new Set(block.checkedSpanIds ?? []),
-                          onToggle: (spanId, checked) => handleToggleCheck(block, spanId, checked),
-                        }}
-                      >
-                        <NodeSelectionProvider
-                          value={{
-                            enabled: selectionEnabled,
-                            selectedId: block.detailsSpanId,
-                            onSelect: (spanId) => handleSelectSpan(block, spanId),
-                          }}
-                        >
-                          <A2uiSurface surface={surface} />
-                        </NodeSelectionProvider>
-                      </TreeCheckProvider>
-                    )}
-                  </div>
-                  {detailsSurface && (
-                    <div
-                      css={{
-                        flex: 1,
-                        minWidth: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: theme.spacing.sm,
-                        borderLeft: `1px solid ${theme.colors.border}`,
-                        paddingLeft: theme.spacing.md,
-                      }}
-                    >
-                      <div
-                        css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm }}
-                      >
-                        <Typography.Text bold css={{ fontFamily: 'monospace' }}>
-                          {block.detailsSpanName ?? 'Span details'}
-                        </Typography.Text>
-                        <Button
-                          componentId="shared.model-trace-explorer.custom-view.close-details"
-                          size="small"
-                          icon={<CloseIcon />}
-                          aria-label="Close span details"
-                          onClick={() => handleCloseDetails(block)}
-                        />
-                      </div>
-                      <A2uiSurface surface={detailsSurface} />
-                    </div>
-                  )}
-                  {feedbackSurface && (
-                    <div
-                      css={{
-                        flex: 1,
-                        minWidth: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: theme.spacing.sm,
-                        borderLeft: `1px solid ${theme.colors.border}`,
-                        paddingLeft: theme.spacing.md,
-                      }}
-                    >
-                      <div
-                        css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: theme.spacing.sm }}
-                      >
-                        <Typography.Text bold>
-                          Feedback{typeof block.feedbackSpanCount === 'number' ? ` (${block.feedbackSpanCount} spans)` : ''}
-                        </Typography.Text>
-                        <Button
-                          componentId="shared.model-trace-explorer.custom-view.close-feedback"
-                          size="small"
-                          icon={<CloseIcon />}
-                          aria-label="Close feedback"
-                          onClick={() => handleCloseFeedback(block)}
-                        />
-                      </div>
-                      <A2uiSurface surface={feedbackSurface} />
-                    </div>
-                  )}
-                </div>
+                <div css={{ padding: theme.spacing.md }}>{surface && <A2uiSurface surface={surface} />}</div>
               </div>
             );
           })

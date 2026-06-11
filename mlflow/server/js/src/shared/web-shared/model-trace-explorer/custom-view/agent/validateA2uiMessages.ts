@@ -8,12 +8,16 @@ import {
 
 import { AssessmentBoardApi } from '../AssessmentBoard';
 import { AssessmentCardApi } from '../AssessmentCard';
-import { CarouselApi } from '../Carousel';
-import { ContentViewerApi } from '../ContentViewer';
+import { CardApi } from '../Card';
 import { DataTableApi } from '../DataTable';
-import { FeedbackFormApi } from '../FeedbackForm';
+import { FeedbackButtonsApi } from '../FeedbackButtons';
+import { IconApi } from '../Icon';
+import { KeyValueViewerApi } from '../KeyValueViewer';
+import { MarkdownApi } from '../Markdown';
+import { MediaRendererApi } from '../MediaRenderer';
 import { StatCardApi } from '../StatCard';
 import { TimelineChartApi } from '../TimelineChart';
+import { TreeNodeApi } from '../TreeNode';
 import { TreeViewApi } from '../TreeView';
 
 // Per-component prop schemas for the custom catalog components. The basic
@@ -22,14 +26,18 @@ import { TreeViewApi } from '../TreeView';
 // the LLM can still lay out content with rows/columns.
 const COMPONENT_SCHEMAS: Record<string, ZodTypeAny> = {
   [StatCardApi.name]: StatCardApi.schema,
+  [IconApi.name]: IconApi.schema,
+  [MediaRendererApi.name]: MediaRendererApi.schema,
+  [CardApi.name]: CardApi.schema,
   [DataTableApi.name]: DataTableApi.schema,
   [TimelineChartApi.name]: TimelineChartApi.schema,
   [TreeViewApi.name]: TreeViewApi.schema,
-  [CarouselApi.name]: CarouselApi.schema,
-  [FeedbackFormApi.name]: FeedbackFormApi.schema,
-  [ContentViewerApi.name]: ContentViewerApi.schema,
+  [TreeNodeApi.name]: TreeNodeApi.schema,
+  [MarkdownApi.name]: MarkdownApi.schema,
   [AssessmentBoardApi.name]: AssessmentBoardApi.schema,
   [AssessmentCardApi.name]: AssessmentCardApi.schema,
+  [KeyValueViewerApi.name]: KeyValueViewerApi.schema,
+  [FeedbackButtonsApi.name]: FeedbackButtonsApi.schema,
 };
 
 export type ValidateResult =

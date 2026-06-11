@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://mlflow.org/model-trace-explorer/custom-view/catalog.json",
   "title": "MLflow Custom View Catalog",
-  "description": "Custom A2UI catalog for the model trace explorer custom view. Extends the basic catalog's Text, Row, and Column components with MLflow-specific StatCard, DataTable, TimelineChart, TreeView, Carousel, FeedbackForm, ContentViewer, and AssessmentBoard components.",
+  "description": "Custom A2UI catalog for the model trace explorer custom view. Extends the basic catalog's Text, Row, and Column components with MLflow-specific MediaRenderer, Card, Icon, StatCard, DataTable, TimelineChart, TreeView, TreeNode, Markdown, AssessmentBoard, AssessmentCard, KeyValueViewer, and FeedbackButtons components.",
   "catalogId": "https://mlflow.org/model-trace-explorer/custom-view/catalog.json",
   "components": {
     "allOf": [
@@ -14,6 +14,70 @@
       },
       {
         "$ref": "https://a2ui.org/specification/v0_10/catalogs/basic/catalog.json#/components/Column"
+      },
+      {
+        "MediaRenderer": {
+          "type": "object",
+          "description": "Renders trace media (image, audio, or PDF). Accepts a direct http(s):// URL, a data: URI, or an mlflow-attachment:// URI. For mlflow-attachment:// URIs the blob is fetched from the trace artifact store and rendered inline (image/audio/PDF are dispatched by content type, with a download fallback for large blobs and a click-to-expand preview for images). Audio and PDFs always arrive as mlflow-attachment:// URIs; only images can be a direct URL.",
+          "properties": {
+            "component": {
+              "const": "MediaRenderer"
+            },
+            "url": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "The media source: an http(s):// URL, a data: URI, or an mlflow-attachment:// URI."
+            },
+            "alt": {
+              "type": "string",
+              "description": "Alternative text describing the media."
+            },
+            "weight": {
+              "type": "number",
+              "description": "Relative flex weight when placed directly inside a Row/Column."
+            }
+          },
+          "required": ["component", "url"]
+        }
+      },
+      {
+        "Card": {
+          "type": "object",
+          "description": "A bordered container around a SINGLE child, themed with Databricks Design System tokens (a slightly-darker-than-white surface, border, and rounded corners) so it sits natively in the MLflow UI. To display multiple elements, wrap them in a Row/Column and pass that container's id as the child.",
+          "properties": {
+            "component": {
+              "const": "Card"
+            },
+            "child": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/ComponentId",
+              "description": "The id of the single child component to render inside the card."
+            },
+            "weight": {
+              "type": "number",
+              "description": "Relative flex weight when placed directly inside a Row/Column."
+            }
+          },
+          "required": ["component", "child"]
+        }
+      },
+      {
+        "Icon": {
+          "type": "object",
+          "description": "A single Databricks Design System icon, referenced by name. Accepts the basic catalog's Material-style names (e.g. \"check\", \"close\", \"download\", \"search\", \"settings\", \"warning\", \"error\", \"info\", \"person\", \"folder\", \"star\") which are mapped to the closest DS icon, plus DS-native aliases (e.g. \"trash\", \"gear\", \"pencil\", \"tag\"). Unknown names degrade gracefully to a neutral default icon. Use sparingly: most components (StatCard/DataTable/etc.) already carry their own icon.",
+          "properties": {
+            "component": {
+              "const": "Icon"
+            },
+            "name": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "The icon to display, e.g. \"check\" or \"warning\"."
+            },
+            "size": {
+              "type": "number",
+              "description": "Icon size in pixels. Defaults to the inherited font size."
+            }
+          },
+          "required": ["component", "name"]
+        }
       },
       {
         "StatCard": {
@@ -171,7 +235,7 @@
       {
         "TreeView": {
           "type": "object",
-          "description": "A collapsible, indented tree of nodes (mirroring the Details & Timeline span tree). Supports a structured filter over node attributes and a live execution-time-window slider. Works for any number of nodes and nesting depth.",
+          "description": "A collapsible tree container. It lays out its TreeNode children (referenced by id) on the left and, when a node with panelItems is selected, shows that node's side panel (built by the host from the span's data) on the right. Selection is also driven by markdown #span:<id> deeplinks inside any markdown. Compose TreeNodes to map 1:1 to spans (with an input/output side panel) or to represent higher-level milestones whose markdown links to spans.",
           "properties": {
             "component": {
               "const": "TreeView"
@@ -180,150 +244,140 @@
               "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
               "description": "Optional heading shown above the tree."
             },
-            "nodes": {
-              "type": "array",
-              "description": "The root nodes of the tree, in display order.",
-              "items": {
-                "$ref": "#/$defs/TreeNode"
-              }
-            },
-            "filter": {
-              "$ref": "#/$defs/TreeFilter",
-              "description": "Optional structured filter applied to node attributes."
-            },
-            "emptyMessage": {
-              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-              "description": "Text shown when no nodes match."
-            }
-          },
-          "required": ["component", "nodes"]
-        }
-      },
-      {
-        "Carousel": {
-          "type": "object",
-          "description": "Renders one child component at a time with previous/next controls and a position indicator. Domain-agnostic: supply a list of child component ids to step through.",
-          "properties": {
-            "component": {
-              "const": "Carousel"
-            },
             "children": {
               "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/ChildList",
-              "description": "The child component ids to step through, in order."
+              "description": "The root TreeNode component ids, in display order."
             },
             "emptyMessage": {
               "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-              "description": "Text shown when there are no children."
+              "description": "Text shown when there are no nodes."
             }
           },
           "required": ["component", "children"]
         }
       },
       {
-        "FeedbackForm": {
+        "TreeNode": {
           "type": "object",
-          "description": "Wraps the trace explorer's real AssessmentCreateForm so feedback submitted here is persisted to the backend as a span-scoped assessment. Each instance targets one span.",
+          "description": "A composable tree node. Renders a row (icon + label + optional badge) and an optional set of nested child TreeNodes. Attach panelItems directives describing what the host should build in the TreeView side panel when the node is selected (the span's input/output/attributes, a markdown summary, feedback buttons) — the host fills in the heavy span data, so the node stays tiny.",
           "properties": {
             "component": {
-              "const": "FeedbackForm"
+              "const": "TreeNode"
             },
-            "traceId": {
+            "label": {
               "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-              "description": "The id of the trace the span belongs to."
-            },
-            "spanId": {
-              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-              "description": "The id of the span the feedback is scoped to."
-            },
-            "spanName": {
-              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-              "description": "The display name of the span, shown in the header."
-            },
-            "inputs": {
-              "type": "array",
-              "description": "The span's input fields, revealed behind the 'Show span input / output' toggle.",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "label": {
-                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-                    "description": "The field key shown above its value."
-                  },
-                  "value": {
-                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-                    "description": "JSON-encoded field value (object -> JSON, string -> text)."
-                  }
-                },
-                "required": ["value"]
-              }
-            },
-            "outputs": {
-              "type": "array",
-              "description": "The span's output fields, revealed behind the 'Show span input / output' toggle.",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "label": {
-                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-                    "description": "The field key shown above its value."
-                  },
-                  "value": {
-                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-                    "description": "JSON-encoded field value (object -> JSON, string -> text)."
-                  }
-                },
-                "required": ["value"]
-              }
-            }
-          },
-          "required": ["component", "traceId", "spanId"]
-        }
-      },
-      {
-        "ContentViewer": {
-          "type": "object",
-          "description": "A single titled, optionally-collapsible content block that renders key/value fields with the same JSON/Text/Markdown/Table snippet renderer as the trace explorer's Details & Timeline view. Scoped to one payload (e.g. inputs OR outputs), so render it once per payload.",
-          "properties": {
-            "component": {
-              "const": "ContentViewer"
+              "description": "The node label (e.g. the span name). Used when title is absent."
             },
             "title": {
               "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-              "description": "Heading for the block, e.g. \"Inputs\" or \"Outputs\"."
+              "description": "Preferred node heading; falls back to label."
             },
             "icon": {
               "type": "string",
-              "enum": ["list", "wrench", "clock", "hash", "checklist"],
-              "description": "Optional icon shown next to the title."
+              "description": "The span icon type (matches the Details & Timeline icons)."
             },
-            "fields": {
+            "hasException": {
+              "type": "boolean",
+              "description": "Renders the icon in the danger tone with an exception marker."
+            },
+            "isRootSpan": {
+              "type": "boolean",
+              "description": "Renders the icon in the root/AI tone."
+            },
+            "badge": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Optional trailing tag text (e.g. an assessment count)."
+            },
+            "spanId": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Optional span id this node represents. Lets markdown #span:<id> deeplinks target this node and scopes the side panel + embedded feedback."
+            },
+            "panelItems": {
               "type": "array",
-              "description": "The key/value entries to display.",
+              "description": "Directives for the side panel shown when this node is selected. The host builds the actual components (KeyValueViewer / Markdown / FeedbackButtons) from the span data — do NOT emit the span data yourself.",
               "items": {
                 "type": "object",
                 "properties": {
-                  "label": {
-                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-                    "description": "The field key shown above its value."
+                  "type": {
+                    "type": "string",
+                    "description": "input/output/attributes -> the span field as a KeyValueViewer; markdown -> a Markdown block; feedback -> FeedbackButtons scoped to this node's span.",
+                    "enum": ["input", "output", "attributes", "markdown", "feedback"]
                   },
-                  "value": {
-                    "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-                    "description": "JSON-encoded field value (object -> JSON, string -> text)."
+                  "text": {
+                    "type": "string",
+                    "description": "Markdown body (type: markdown). Supports [text](#span:<spanId>) deeplinks."
+                  },
+                  "title": {
+                    "type": "string",
+                    "description": "Section heading (markdown) or value label override."
+                  },
+                  "label": {
+                    "type": "string",
+                    "description": "Feedback prompt text (type: feedback)."
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "Feedback assessment name (type: feedback)."
                   }
                 },
-                "required": ["value"]
+                "required": ["type"]
               }
             },
-            "collapsible": {
-              "type": "boolean",
-              "description": "Whether the block is wrapped in a collapsible section."
-            },
-            "emptyMessage": {
-              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-              "description": "Text shown when there are no fields."
+            "children": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/ChildList",
+              "description": "Nested TreeNode ids, rendered indented below this node."
             }
           },
           "required": ["component"]
+        }
+      },
+      {
+        "Markdown": {
+          "type": "object",
+          "description": "Renders a markdown text block (optionally under a title). Links of the form [text](#span:<spanId>) select the TreeView node representing that span instead of navigating, so a span summary can deeplink into the spans it references. Typically built by the host inside a TreeNode side panel, but usable anywhere.",
+          "properties": {
+            "component": {
+              "const": "Markdown"
+            },
+            "text": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "The markdown body. Supports [text](#span:<spanId>) deeplinks when inside a TreeView."
+            },
+            "title": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Optional heading shown above the markdown."
+            }
+          },
+          "required": ["component", "text"]
+        }
+      },
+      {
+        "KeyValueViewer": {
+          "type": "object",
+          "description": "Displays a SINGLE labeled value using the Details & Timeline snippet renderer, with a format toggle (text/json/markdown for strings; an interactive JSON tree for objects/arrays). Use it to show one span attribute/input/output field directly.",
+          "properties": {
+            "component": {
+              "const": "KeyValueViewer"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "The key/label shown above the value, e.g. the attribute name."
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "JSON-encoded value to display (object/array -> JSON tree, string -> text/markdown/json)."
+            },
+            "initialFormat": {
+              "type": "string",
+              "description": "Initial display format for string values.",
+              "enum": ["json", "text", "markdown"]
+            },
+            "hideFormatToggle": {
+              "type": "boolean",
+              "description": "When true, hides the per-value format dropdown."
+            }
+          },
+          "required": ["component", "value"]
         }
       },
       {
@@ -387,80 +441,39 @@
           },
           "required": ["component", "children"]
         }
+      },
+      {
+        "FeedbackButtons": {
+          "type": "object",
+          "description": "An interactive thumbs up / thumbs down control. Clicking a thumb logs an MLflow feedback assessment (boolean: thumbs up = true, thumbs down = false) for the current trace and reflects the choice via its bound value. A lightweight alternative to the full assessment input form.",
+          "properties": {
+            "component": {
+              "const": "FeedbackButtons"
+            },
+            "label": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Optional prompt shown next to the thumbs, e.g. \"Was this helpful?\"."
+            },
+            "name": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "The assessment name to log. Defaults to \"User feedback\"."
+            },
+            "value": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicBoolean",
+              "description": "Selected state: true = thumbs up, false = thumbs down. Bind to a /feedback/... data-model path to reflect and seed the choice."
+            },
+            "spanId": {
+              "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
+              "description": "Optional span id to scope the feedback to a specific span instead of the whole trace."
+            },
+            "weight": {
+              "type": "number",
+              "description": "Relative flex weight when placed directly inside a Row/Column."
+            }
+          },
+          "required": ["component"]
+        }
       }
     ]
-  },
-  "$defs": {
-    "TreeNode": {
-      "type": "object",
-      "description": "A single tree node. Children are nested recursively.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Opaque node id reported to the host on selection (e.g. the span id)."
-        },
-        "label": {
-          "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-          "description": "The node label (e.g. the span name)."
-        },
-        "icon": {
-          "type": "string",
-          "description": "The span icon type (matches the Details & Timeline icons)."
-        },
-        "hasException": {
-          "type": "boolean",
-          "description": "Renders the icon in the danger tone with an exception marker."
-        },
-        "isRootSpan": {
-          "type": "boolean",
-          "description": "Renders the icon in the root/AI tone."
-        },
-        "badge": {
-          "$ref": "https://a2ui.org/specification/v0_10/common_types.json#/$defs/DynamicString",
-          "description": "Optional trailing tag text (e.g. an assessment count)."
-        },
-        "attributes": {
-          "type": "object",
-          "description": "Opaque metadata used only for filtering (e.g. type, hasException, logLevel, durationMs, startOffsetMs, endOffsetMs).",
-          "additionalProperties": true
-        },
-        "children": {
-          "type": "array",
-          "description": "Child nodes.",
-          "items": {
-            "$ref": "#/$defs/TreeNode"
-          }
-        }
-      },
-      "required": ["label"]
-    },
-    "TreeFilter": {
-      "type": "object",
-      "description": "Structured predicate over node attributes. Mirrors the trace explorer's span-filter concepts so it can be produced by UI controls or hand-written JSON.",
-      "properties": {
-        "types": {
-          "type": "array",
-          "description": "Keep nodes whose attributes.type is in this list.",
-          "items": { "type": "string" }
-        },
-        "nameContains": {
-          "type": "string",
-          "description": "Keep nodes whose label contains this substring (case-insensitive)."
-        },
-        "hasException": {
-          "type": "boolean",
-          "description": "Keep only nodes whose attributes.hasException is true."
-        },
-        "minLogLevel": {
-          "type": "number",
-          "description": "Keep nodes whose attributes.logLevel is at least this value."
-        },
-        "minDurationMs": {
-          "type": "number",
-          "description": "Keep nodes whose attributes.durationMs is at least this value."
-        }
-      },
-      "additionalProperties": false
-    }
   }
 }
