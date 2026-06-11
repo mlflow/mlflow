@@ -110,7 +110,7 @@ describe('AddToReviewQueueModal', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
 
     // Confirm.
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to 1 queue' }));
 
     await waitFor(() => expect(mockAddItems).toHaveBeenCalledWith({ queue_id: 'rq-default', item_ids: ['tr-1'] }));
     expect(Utils.displayGlobalInfoNotification).toHaveBeenCalledTimes(1);
@@ -139,7 +139,7 @@ describe('AddToReviewQueueModal', () => {
 
     fireEvent.click(screen.getByRole('combobox'));
     fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to 1 queue' }));
 
     // The batch failure surfaces in the modal; traces are not added and no
     // success toast fires.
@@ -155,13 +155,13 @@ describe('AddToReviewQueueModal', () => {
 
     fireEvent.click(screen.getByRole('combobox'));
     fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to 1 queue' }));
 
     expect(await screen.findByText('Attach failed')).toBeInTheDocument();
     expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
     // The modal stays open and Add is re-enabled (isSubmitting cleared in
     // `finally`), so the reviewer can retry without reopening.
-    expect(screen.getByRole('button', { name: 'Add' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Add to 1 queue' })).toBeEnabled();
   });
 
   it('surfaces a partial attach failure while still issuing the successful attach', async () => {
@@ -174,7 +174,7 @@ describe('AddToReviewQueueModal', () => {
     fireEvent.click(screen.getByRole('combobox'));
     fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'Relevance' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to 2 queues' }));
 
     // The failing destination surfaces an error...
     expect(await screen.findByText('Attach failed for rq-custom')).toBeInTheDocument();
@@ -196,7 +196,7 @@ describe('AddToReviewQueueModal', () => {
     fireEvent.click(screen.getByRole('combobox'));
     fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'Relevance' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add to 2 queues' }));
 
     expect(await screen.findByText('Queue resolution failed')).toBeInTheDocument();
     // No attach is issued at all — not even for the CUSTOM queue that resolved fine.
@@ -213,7 +213,7 @@ describe('AddToReviewQueueModal', () => {
 
     // A destination is selected, but the reviewer is still loading, so the write
     // (which stamps created_by) must not be allowed yet.
-    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add to 1 queue' })).toBeDisabled();
   });
 
   it('keeps Add disabled and hides the New-queue link for a READ-only user', () => {
@@ -224,8 +224,8 @@ describe('AddToReviewQueueModal', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
 
     // Flagging traces requires EDIT, so a destination can be picked but not committed.
-    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
-    // ...and the create-a-queue affordance (also EDIT) is gone.
+    expect(screen.getByRole('button', { name: 'Add to 1 queue' })).toBeDisabled();
+    // ...and the create-a-queue affordance (also EDIT) is gone from the dropdown.
     expect(screen.queryByText('New queue')).toBeNull();
   });
 });

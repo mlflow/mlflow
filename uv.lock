@@ -4164,7 +4164,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = "<4" },
+    { name = "aiohttp", specifier = ">=3.7.0,<4" },
     { name = "alembic", specifier = "!=1.10.0,<2" },
     { name = "aliyunstoreplugin", marker = "extra == 'aliyun-oss'" },
     { name = "azure-identity", marker = "extra == 'azure'", specifier = ">=1.6.1" },
