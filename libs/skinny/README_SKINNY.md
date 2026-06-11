@@ -68,7 +68,7 @@ From zero to full-stack LLMOps in minutes. No complex setup or major code change
 > **Fastest start — set up tracing with our CLI**
 >
 > ```bash
-> uvx mlflow agent setup
+> uvx mlflow@latest agent setup
 > ```
 >
 > One command installs the MLflow skills and launches your coding agent of choice to add tracing to your app. Prefer to wire it up yourself? Follow the three steps below.
