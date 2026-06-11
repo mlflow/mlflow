@@ -8,6 +8,7 @@ which points to the https://github.com/mlflow/skills repository.
 import shutil
 from dataclasses import dataclass
 from importlib import resources
+from importlib.abc import Traversable
 from pathlib import Path
 
 from mlflow.ai_commands.ai_command_utils import parse_frontmatter
@@ -20,7 +21,7 @@ SKILLS_PACKAGE = "mlflow.assistant.skills"
 class BundledSkill:
     name: str
     description: str
-    path: Path
+    path: Traversable
 
 
 def _find_skill_directories(path: Path) -> list[Path]:
@@ -48,15 +49,14 @@ def list_bundled_skills() -> list[BundledSkill]:
         skill_manifest = item.joinpath(SKILL_MANIFEST_FILE)
         if not skill_manifest.is_file():
             continue
-        with resources.as_file(skill_manifest) as manifest_path:
-            metadata, _ = parse_frontmatter(manifest_path.read_text(encoding="utf-8"))
-            skills.append(
-                BundledSkill(
-                    name=metadata.get("name") or manifest_path.parent.name,
-                    description=metadata.get("description") or "",
-                    path=manifest_path.parent,
-                )
+        metadata, _ = parse_frontmatter(skill_manifest.read_text(encoding="utf-8"))
+        skills.append(
+            BundledSkill(
+                name=metadata.get("name") or item.name,
+                description=metadata.get("description") or "",
+                path=item,
             )
+        )
     return sorted(skills, key=lambda skill: skill.name)
 
 

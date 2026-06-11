@@ -2,7 +2,14 @@
 
 import click
 
-from mlflow.assistant.skill_installer import list_bundled_skills
+from mlflow.assistant.skill_installer import BundledSkill, list_bundled_skills
+
+
+def _list_skill_details(skill: BundledSkill):
+    click.secho(skill.name, fg="cyan", bold=True)
+    if skill.description:
+        click.echo(f"  {skill.description}")
+    click.secho(f"  {skill.path}", dim=True)
 
 
 @click.group("skills")
@@ -24,6 +31,16 @@ def list_command():
         return
 
     for skill in skills:
-        click.secho(skill.name, fg="cyan", bold=True)
-        if skill.description:
-            click.echo(f"  {skill.description}")
+        _list_skill_details(skill)
+
+
+@commands.command("view")
+@click.argument("skill_name", type=str)
+def view_command(skill_name: str):
+    """View the details of a MLflow skill."""
+    skills = list_bundled_skills()
+    target_skill = next((s for s in skills if s.name == skill_name), None)
+    if not target_skill:
+        click.secho(f"Skill {skill_name} not found.", fg="red")
+        return
+    _list_skill_details(target_skill)
