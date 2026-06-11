@@ -1,6 +1,13 @@
 import { describe, it, expect } from '@jest/globals';
 
-import { canInspectQueue, canManageQueue, isQueueMember, isQueueOwner, sameUser } from './queuePermissions';
+import {
+  canDeleteQueue,
+  canInspectQueue,
+  canManageQueue,
+  isQueueMember,
+  isQueueOwner,
+  sameUser,
+} from './queuePermissions';
 import type { ReviewQueue } from './types';
 
 const queue = (overrides: Partial<ReviewQueue> = {}): ReviewQueue => ({
@@ -64,6 +71,27 @@ describe('canManageQueue', () => {
 
   it('never manages USER (personal) queues, even for a manager', () => {
     expect(canManageQueue(queue({ queue_type: 'USER' }), 'alice', manager.canManage, manager.canEdit)).toBe(false);
+  });
+});
+
+describe('canDeleteQueue', () => {
+  const editor = { canManage: false, canEdit: true };
+  const reader = { canManage: false, canEdit: false };
+
+  it('lets a manager delete any queue, including a USER queue they do not own', () => {
+    expect(canDeleteQueue(queue({ queue_type: 'USER', created_by: 'bob' }), 'alice', true, true)).toBe(true);
+    expect(canDeleteQueue(queue({ queue_type: 'CUSTOM', created_by: 'bob' }), 'alice', true, true)).toBe(true);
+  });
+
+  it('lets an EDIT owner delete their own CUSTOM queue but not their own USER queue', () => {
+    expect(canDeleteQueue(queue({ queue_type: 'CUSTOM', created_by: 'alice' }), 'alice', false, true)).toBe(true);
+    // A USER queue is MANAGE-only to delete, even for its owner.
+    expect(canDeleteQueue(queue({ queue_type: 'USER', created_by: 'alice' }), 'alice', false, true)).toBe(false);
+  });
+
+  it('does not let an EDIT non-owner or a READ owner delete', () => {
+    expect(canDeleteQueue(queue({ created_by: 'bob' }), 'alice', editor.canManage, editor.canEdit)).toBe(false);
+    expect(canDeleteQueue(queue({ created_by: 'alice' }), 'alice', reader.canManage, reader.canEdit)).toBe(false);
   });
 });
 

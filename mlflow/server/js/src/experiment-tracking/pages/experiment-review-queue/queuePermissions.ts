@@ -22,6 +22,16 @@ export const canManageQueue = (queue: ReviewQueue, reviewer: string, canManage: 
   queue.queue_type === 'CUSTOM' && (canManage || (canEdit && isQueueOwner(queue, reviewer)));
 
 /**
+ * Whether the current reviewer may delete a queue: a manager deletes any queue
+ * (including a personal USER queue), while an owning EDITor deletes only their
+ * own CUSTOM queue. This is broader than {@link canManageQueue} — a USER queue
+ * has no editable settings but a manager can still delete it. Mirrors the
+ * server's `validate_can_delete_review_queue`.
+ */
+export const canDeleteQueue = (queue: ReviewQueue, reviewer: string, canManage: boolean, canEdit: boolean): boolean =>
+  canManage || (canEdit && isQueueOwner(queue, reviewer) && queue.queue_type === 'CUSTOM');
+
+/**
  * Whether the current reviewer may open a queue and read its items / answers: a
  * manager, the owning EDITor, or an assigned member. Mirrors the server's
  * detail-tier gate (`validate_can_view_review_queue`).
