@@ -8438,7 +8438,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.flush()
             return self._hydrate_review_queues(session, [sql_queue])[0]
 
-    def get_or_create_user_queue(self, experiment_id, *, user, created_by=None):
+    def get_or_create_user_queue(self, experiment_id, *, user):
         from mlflow.genai.review_queues import ReviewQueueType
         from mlflow.genai.review_queues.validation import normalize_user
 
@@ -8448,8 +8448,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 experiment_id,
                 name=name,
                 queue_type="user",
-                # A user queue is owned by its user; the caller-supplied
-                # `created_by` is irrelevant (owner-of-USER is attribution only).
+                # A user queue is owned by its user (attribution only).
                 created_by=name,
             )
         except MlflowException as e:

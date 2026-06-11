@@ -989,23 +989,21 @@ class TracingClient:
         *,
         name: str,
         queue_type: "ReviewQueueType | str",
-        created_by: str | None = None,
         users: list[str] | None = None,
         schema_ids: list[str] | None = None,
     ) -> "ReviewQueue":
+        # `created_by` (the owner) is set server-side from the authenticated
+        # user, never by the client.
         return self.store.create_review_queue(
             experiment_id,
             name=name,
             queue_type=queue_type,
-            created_by=created_by,
             users=users,
             schema_ids=schema_ids,
         )
 
-    def _get_or_create_user_queue(
-        self, experiment_id: str, *, user: str, created_by: str | None = None
-    ) -> "ReviewQueue":
-        return self.store.get_or_create_user_queue(experiment_id, user=user, created_by=created_by)
+    def _get_or_create_user_queue(self, experiment_id: str, *, user: str) -> "ReviewQueue":
+        return self.store.get_or_create_user_queue(experiment_id, user=user)
 
     def _get_review_queue(self, queue_id: str) -> "ReviewQueue":
         return self.store.get_review_queue(queue_id)

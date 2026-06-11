@@ -1891,14 +1891,15 @@ class AbstractStore(GatewayStoreMixin):
         experiment_id: str,
         *,
         user: str,
-        created_by: str | None = None,
     ) -> "ReviewQueue":
         """Return the user's personal queue for an experiment, creating it
         if absent.
 
-        Atomic and idempotent: concurrent callers converge on the single
-        ``(experiment_id, name=user)`` user queue. This is the backbone of
-        "assign these traces to this person" — get-or-create then attach.
+        The queue is owned by its user (``created_by`` is set to ``user``),
+        so there is no caller-supplied owner. Atomic and idempotent:
+        concurrent callers converge on the single ``(experiment_id, name=user)``
+        user queue. This is the backbone of "assign these traces to this
+        person" — get-or-create then attach.
 
         Raises:
             MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
