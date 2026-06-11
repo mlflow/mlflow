@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781153267261,
+  "lastUpdate": 1781167247221,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -8747,6 +8747,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.5577111999944,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "kishor.radhakrishnan@outlook.com",
+            "name": "kishor-rkrishnan",
+            "username": "kishor-rkrishnan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "469939287d617631896902f363555d84df2c2860",
+          "message": "Implement concrete `from_proto` on `UCSchemaLocation` and `UnityCatalog` (#23722)\n\nSigned-off-by: kishor-rkrishnan <286408206+kishor-rkrishnan@users.noreply.github.com>\nCo-authored-by: kishor-rkrishnan <286408206+kishor-rkrishnan@users.noreply.github.com>\nCo-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Kris Concepcion <84737625+kriscon-db@users.noreply.github.com>",
+          "timestamp": "2026-06-11T08:36:55Z",
+          "tree_id": "dee94ecdea9b51f2b33dc81c67f213f9a084dce7",
+          "url": "https://github.com/mlflow/mlflow/commit/469939287d617631896902f363555d84df2c2860"
+        },
+        "date": 1781167245567,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.942271599999174,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 22.35039897142964,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.616054287876246,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 21.38289986207014,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 21.17662374576198,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.395542400000068,
             "unit": "ms"
           }
         ]
