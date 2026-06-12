@@ -139,7 +139,7 @@ http = "mlflow.deployments.mlflow"
 https = "mlflow.deployments.mlflow"
 openai = "mlflow.deployments.openai"
 
-[project.entry-points."pytest11"]
+[project.entry-points.pytest11]
 mlflow = "mlflow.pytest.plugin"
 
 [tool.setuptools.package-data]

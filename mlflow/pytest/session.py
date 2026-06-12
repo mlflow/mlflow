@@ -12,6 +12,8 @@ import threading
 import uuid
 
 import mlflow
+from mlflow.telemetry.events import MlflowTestEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_TEST
 
 _logger = logging.getLogger(__name__)
@@ -59,10 +61,6 @@ def session_id() -> str:
     return _session_id
 
 
-def run_id() -> str | None:
-    return _run_id
-
-
 def record_test(*, failed: bool, duration_ms: int) -> None:
     """Record the outcome and duration of one ``@mlflow.test``-marked test."""
     global _any_test_failed, _num_tests, _total_duration_ms
@@ -71,14 +69,6 @@ def record_test(*, failed: bool, duration_ms: int) -> None:
         _total_duration_ms += duration_ms
         if failed:
             _any_test_failed = True
-
-
-def num_tests() -> int:
-    return _num_tests
-
-
-def total_duration_ms() -> int:
-    return _total_duration_ms
 
 
 def ensure_run() -> str | None:
@@ -95,6 +85,7 @@ def ensure_run() -> str | None:
 
         tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_TEST, TAG_SESSION_ID: session_id()}
         try:
+            # Nest under a user-opened run rather than reusing/retagging it.
             nested = mlflow.active_run() is not None
             run = mlflow.start_run(nested=nested, tags=tags)
         except Exception as e:
@@ -106,23 +97,26 @@ def ensure_run() -> str | None:
 
 
 def finalize() -> None:
-    """End the test run, marking it FAILED only if a ``@mlflow.test`` test failed.
+    """Emit the session telemetry event and end the test run.
 
-    The run status reflects only ``@mlflow.test``-marked tests, not other tests
-    that happen to run in the same pytest session.
+    Telemetry fires whenever a ``@mlflow.test`` ran (even if run creation
+    failed). The run status reflects only ``@mlflow.test`` outcomes, not other
+    tests that happen to run in the same pytest session. Runs once on the main
+    thread at ``pytest_sessionfinish``.
     """
     global _run_id, _run_owned
     with _lock:
-        if _run_id is None:
-            return
-        run_id_ = _run_id
-        run_owned = _run_owned
+        if _num_tests > 0:
+            _record_event(
+                MlflowTestEvent,
+                {"num_tests": _num_tests},
+                duration_ms=_total_duration_ms,
+            )
+        if _run_owned and _run_id is not None:
+            status = "FAILED" if _any_test_failed else "FINISHED"
+            try:
+                mlflow.end_run(status=status)
+            except Exception as e:
+                _logger.warning("Failed to end run %s: %s", _run_id, e)
         _run_id = None
         _run_owned = False
-
-    if run_owned:
-        status = "FAILED" if _any_test_failed else "FINISHED"
-        try:
-            mlflow.end_run(status=status)
-        except Exception as e:
-            _logger.warning("Failed to end run %s: %s", run_id_, e)

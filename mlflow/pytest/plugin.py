@@ -20,8 +20,6 @@ from _pytest.outcomes import Skipped, XFailed
 
 from mlflow.pytest import session as _session
 from mlflow.pytest.decorator import MLFLOW_TEST_ATTR
-from mlflow.telemetry.events import MlflowTestEvent
-from mlflow.telemetry.track import _record_event
 
 _logger = logging.getLogger(__name__)
 
@@ -38,16 +36,6 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
-    # One event per pytest session that ran at least one @mlflow.test, capturing
-    # how many marked tests ran and their total execution time. Gate on the test
-    # count, not run_id: marked tests can run even when run creation failed
-    # (e.g. tracking unavailable).
-    if _session.num_tests() > 0:
-        _record_event(
-            MlflowTestEvent,
-            {"num_tests": _session.num_tests()},
-            duration_ms=_session.total_duration_ms(),
-        )
     _session.finalize()
 
 
