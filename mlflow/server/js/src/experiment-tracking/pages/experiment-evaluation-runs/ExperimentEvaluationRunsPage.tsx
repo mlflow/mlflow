@@ -428,34 +428,38 @@ const ExperimentEvaluationRunsPageImpl = () => {
           padding: `${theme.spacing.lg * 2}px ${theme.spacing.md}px ${theme.spacing.lg * 4}px`,
         }}
       >
-        <Typography.Title level={3} color="secondary">
-          <FormattedMessage
-            defaultMessage="Evaluate and improve the quality, cost, latency of your GenAI app"
-            description="Title of the empty state for the evaluation runs page"
-          />
-        </Typography.Title>
-        <Typography.Paragraph color="secondary" css={{ maxWidth: 'min(100%, 600px)', textAlign: 'center' }}>
-          <FormattedMessage
-            defaultMessage="Create evaluation datasets in order to iteratively evaluate and improve your app. Run evaluations to check that your fixes are working, and compare quality between app / prompt versions. {learnMoreLink}"
-            description="Description of the empty state for the evaluation runs page"
-            values={{
-              learnMoreLink: (
-                <Typography.Link
-                  componentId="mlflow.eval-runs.empty-state.learn-more-link"
-                  href={getLearnMoreLink()}
-                  css={{ whiteSpace: 'nowrap' }}
-                  openInNewTab
-                >
-                  <FormattedMessage
-                    defaultMessage="Learn more"
-                    description="Link text to learn more about evaluation runs"
-                  />
-                </Typography.Link>
-              ),
-            }}
-          />
-        </Typography.Paragraph>
-        <img css={{ maxWidth: '100%', maxHeight: 200 }} src={evalRunsEmptyImg} alt="No runs found" />
+        <div
+          css={{ maxWidth: 520, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
+        >
+          <Typography.Title level={3} color="secondary" css={{ marginTop: 0, marginBottom: theme.spacing.xs }}>
+            <FormattedMessage
+              defaultMessage="Evaluate and improve the quality, cost, latency of your GenAI app"
+              description="Title of the empty state for the evaluation runs page"
+            />
+          </Typography.Title>
+          <Typography.Paragraph color="secondary" css={{ marginBottom: theme.spacing.md }}>
+            <FormattedMessage
+              defaultMessage="Create evaluation datasets in order to iteratively evaluate and improve your app. Run evaluations to check that your fixes are working, and compare quality between app / prompt versions. {learnMoreLink}"
+              description="Description of the empty state for the evaluation runs page"
+              values={{
+                learnMoreLink: (
+                  <Typography.Link
+                    componentId="mlflow.eval-runs.empty-state.learn-more-link"
+                    href={getLearnMoreLink()}
+                    css={{ whiteSpace: 'nowrap' }}
+                    openInNewTab
+                  >
+                    <FormattedMessage
+                      defaultMessage="Learn more"
+                      description="Link text to learn more about evaluation runs"
+                    />
+                  </Typography.Link>
+                ),
+              }}
+            />
+          </Typography.Paragraph>
+        </div>
+        <img css={{ maxWidth: '100%', maxHeight: 160 }} src={evalRunsEmptyImg} alt="No runs found" />
         <div css={{ width: '100%', marginTop: theme.spacing.lg }}>
           <EvalRunsEmptyStateCard experimentId={experimentId} />
         </div>

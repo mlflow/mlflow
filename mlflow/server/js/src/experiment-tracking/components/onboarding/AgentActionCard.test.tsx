@@ -118,7 +118,7 @@ describe('AgentActionCard', () => {
     });
 
     const tabs = screen.getAllByRole('tab').map((t) => t.textContent?.trim() ?? '');
-    expect(tabs).toEqual(['Copy-paste prompt', 'MLflow assistant', 'Manual setup']);
+    expect(tabs).toEqual(['Copy for coding agent', 'MLflow assistant', 'Manual setup']);
 
     // Content is revealed only once the tab is selected.
     expect(screen.queryByText('MANUAL_TAB_BODY')).not.toBeInTheDocument();

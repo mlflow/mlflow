@@ -121,8 +121,8 @@ export const AgentActionCard = ({
           )}
           <Tabs.Trigger value="copy-prompt">
             <FormattedMessage
-              defaultMessage="Copy-paste prompt"
-              description="Tab label for the copy-prompt-to-local-agent path in the agent action card"
+              defaultMessage="Copy for coding agent"
+              description="Tab label for the copy-prompt-to-coding-agent path in the agent action card"
             />
           </Tabs.Trigger>
           {codeSnippet && <Tabs.Trigger value="code-snippet">{codeSnippet.label}</Tabs.Trigger>}

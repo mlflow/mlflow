@@ -575,10 +575,6 @@
     "defaultMessage": "Overview",
     "description": "Label for the overview tab in the MLflow experiment navbar"
   },
-  "0sVtor": {
-    "defaultMessage": "Copy-paste prompt",
-    "description": "Tab label for the copy-prompt-to-local-agent path in the agent action card"
-  },
   "0skVwM": {
     "defaultMessage": "No endpoints found",
     "description": "Empty state title when filter returns no results"
@@ -1287,6 +1283,10 @@
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding judge trace"
   },
+  "4aEfUy": {
+    "defaultMessage": "Run this in your terminal to install MLflow skills into your project and launch your coding agent (Claude Code, Codex, or OpenCode) with instructions to instrument your app.",
+    "description": "Description above the mlflow agent setup terminal command in the agent action card"
+  },
   "4aoazH": {
     "defaultMessage": "Close",
     "description": "Close button for tag details modal"
@@ -1342,6 +1342,10 @@
   "4ylmh/": {
     "defaultMessage": "Unique identifier for the trace",
     "description": "Tooltip description for the Trace ID column in the traces table"
+  },
+  "4zJtO4": {
+    "defaultMessage": "Copy for coding agent",
+    "description": "Tab label for the copy-prompt-to-coding-agent path in the agent action card"
   },
   "502XWr": {
     "defaultMessage": "Search inputs, expectations…",
@@ -1930,10 +1934,6 @@
   "81PFb9": {
     "defaultMessage": "Prompt type:",
     "description": "A label for selecting prompt type in the prompt creation modal"
-  },
-  "83An6X": {
-    "defaultMessage": "Experimental — run this in your terminal to install MLflow skills into your project and launch your coding agent (Claude Code, Codex, or opencode) with instructions to instrument your app.",
-    "description": "Description above the mlflow agent setup terminal command in the agent action card"
   },
   "83wDn8": {
     "defaultMessage": "Total",
