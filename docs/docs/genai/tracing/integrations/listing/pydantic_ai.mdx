@@ -46,7 +46,9 @@ First, enable auto-tracing for PydanticAI, and optionally create an MLflow exper
 import mlflow
 
 # Turn on auto tracing by calling mlflow.pydantic_ai.autolog()
+```python
 mlflow.pydantic_ai.autolog()
+```
 
 :::note
 MLflow PydanticAI autologging requires `pydantic-ai>=1.63.0` for full support including streaming (`run_stream_sync`) and tool tracing.
