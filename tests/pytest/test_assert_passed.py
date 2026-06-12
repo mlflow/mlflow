@@ -97,4 +97,4 @@ def test_evaluate_traces_tagged_with_test_identity(tmp_path: Path):
     experiment_ids = [e.experiment_id for e in client.search_experiments()]
     traces = client.search_traces(experiment_ids=experiment_ids) if experiment_ids else []
     assert traces
-    assert all(t.info.tags.get(TAG_TEST_NAME) == "test_marked" for t in traces)
+    assert all(t.info.tags.get(TAG_TEST_NAME, "").endswith("::test_marked") for t in traces)
