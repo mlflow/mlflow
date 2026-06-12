@@ -299,9 +299,10 @@ export const ExperimentViewHeader = React.memo(
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
           >
-            {!ROUTES_WITHOUT_MANAGEMENT_MENU.some((route) => matchPath(route, location.pathname)) && (
-              <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
-            )}
+            {!reviewQueueTitleOverride &&
+              !ROUTES_WITHOUT_MANAGEMENT_MENU.some((route) => matchPath(route, location.pathname)) && (
+                <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
+              )}
             <ExperimentViewHeaderShareButton
               experimentIds={experimentIds}
               searchFacetsState={searchFacetsState}
