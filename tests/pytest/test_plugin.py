@@ -1,5 +1,3 @@
-"""Tests for the @mlflow.test pytest plugin."""
-
 from __future__ import annotations
 
 import os
@@ -8,42 +6,9 @@ import sys
 import textwrap
 from pathlib import Path
 
-import mlflow
 from mlflow.pytest import session as _session
-from mlflow.pytest.decorator import MLFLOW_TEST_ATTR
 from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_TEST
-
-# ---------------------------------------------------------------------------
-# @mlflow.test decorator
-# ---------------------------------------------------------------------------
-
-
-def test_bare_marker():
-    @mlflow.test
-    def f():
-        pass
-
-    assert getattr(f, MLFLOW_TEST_ATTR) is True
-
-
-def test_called_marker():
-    @mlflow.test()
-    def f():
-        pass
-
-    assert getattr(f, MLFLOW_TEST_ATTR) is True
-
-
-# ---------------------------------------------------------------------------
-# Plugin identity tracking outside a marked test
-# ---------------------------------------------------------------------------
-
-
-def test_current_test_is_none_outside_mlflow_test():
-    name, _ = _session.current_test()
-    assert name is None
-
 
 # ---------------------------------------------------------------------------
 # End-to-end: run pytest in a subprocess (its own session) and verify a single

@@ -43,7 +43,7 @@ def current_test() -> tuple[str | None, str | None]:
 def reset(session_id: str | None = None) -> None:
     global _session_id, _run_id, _run_owned, _any_test_failed
     if session_id is None:
-        session_id = os.environ.get("MLFLOW_TEST_SESSION_ID")
+        session_id = os.environ.get("_MLFLOW_TEST_SESSION_ID")
     if not session_id:
         stamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
         session_id = f"{stamp}-{uuid.uuid4().hex[:6]}"

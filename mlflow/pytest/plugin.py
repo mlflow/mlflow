@@ -8,7 +8,7 @@ What it does:
   attach to it naturally.
 - Enables tracing autologging for ``@mlflow.test``-marked tests, the same
   way ``mlflow.genai.evaluate`` does.
-- Set ``MLFLOW_TEST_SESSION_ID`` to override the auto-generated session id
+- Set ``_MLFLOW_TEST_SESSION_ID`` to override the auto-generated session id
   (useful in CI).
 """
 
