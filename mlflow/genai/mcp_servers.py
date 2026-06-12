@@ -60,16 +60,16 @@ def register_mcp_server(
         )
         assert version.status == MCPStatus.DRAFT
     """
-    version = create_mcp_server_version(
+    client = MlflowClient()
+    version = client.create_mcp_server_version(
         server_json=server_json,
         display_name=display_name,
         source=source,
-        status=status,
+        status=MCPStatus(status) if status is not None else None,
         tools=tools,
     )
 
     if create_access_bindings_from_remotes:
-        client = MlflowClient()
         for remote in server_json.get("remotes", []):
             url = remote.get("url")
             if not url:
