@@ -110,7 +110,6 @@ export const AddToReviewQueueDropdown = ({
   // Tracks queues/users that traces have already been added to in this session.
   const [addedQueueIds, setAddedQueueIds] = useState<Set<string>>(new Set());
   const [addedUsers, setAddedUsers] = useState<Set<string>>(new Set());
-  const [defaultQueueAdded, setDefaultQueueAdded] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
 
   const {
@@ -180,7 +179,6 @@ export const AddToReviewQueueDropdown = ({
     setSearch('');
     setAddedQueueIds(new Set());
     setAddedUsers(new Set());
-    setDefaultQueueAdded(false);
     setCreateOpen(false);
     setSubmitError(null);
     setBusyIds(new Set());
@@ -282,7 +280,7 @@ export const AddToReviewQueueDropdown = ({
     }
   };
 
-  const toggleDefaultQueue = () => toggleUserQueue(DEFAULT_REVIEWER).then(() => setDefaultQueueAdded((prev) => !prev));
+  const toggleDefaultQueue = () => toggleUserQueue(DEFAULT_REVIEWER);
 
   const reasonText = (reason: ReturnType<typeof getQueueAssignability>['reason']) => {
     switch (reason) {
@@ -397,7 +395,7 @@ export const AddToReviewQueueDropdown = ({
                     {!authAvailable && !query && (
                       <DialogComboboxOptionListCheckboxItem
                         value={defaultQueueLabel}
-                        checked={defaultQueueAdded}
+                        checked={addedUsers.has(DEFAULT_REVIEWER)}
                         disabled={!inheritAllAssignable || busyIds.has(DEFAULT_REVIEWER)}
                         disabledReason={inheritAllAssignable ? undefined : reasonText('no-experiment-schemas')}
                         onChange={() => toggleDefaultQueue()}
