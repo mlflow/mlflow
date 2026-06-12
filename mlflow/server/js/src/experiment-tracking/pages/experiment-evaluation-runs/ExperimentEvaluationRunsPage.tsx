@@ -424,7 +424,12 @@ const ExperimentEvaluationRunsPageImpl = () => {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          maxWidth: '100%',
+          // Pin to a definite width (the card's own maxWidth) instead of shrink-to-fit. With
+          // `margin: 0 auto` a flex column hugs its widest child, so switching to a wide tab
+          // (e.g. the non-wrapping Python snippet) would widen the whole block and resize the
+          // card. A fixed width keeps it stable; wide tab content scrolls within the card.
+          width: '100%',
+          maxWidth: 720,
           padding: `${theme.spacing.lg * 2}px ${theme.spacing.md}px ${theme.spacing.lg * 4}px`,
         }}
       >
