@@ -730,7 +730,6 @@ def test_delete_trace_removes_items_from_every_queue(store):
 
 
 def test_delete_traces_by_timestamp_removes_review_queue_items(store):
-    # The timestamp-based delete path shares the same cleanup helper as the id-based one.
     exp_id = _create_experiments(store, "delete_trace_items_ts")
     _create_trace(store, "tr-old", experiment_id=exp_id, request_time=1000)
     queue = store.create_review_queue(exp_id, name="Q", queue_type="custom")
