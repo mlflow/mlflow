@@ -553,7 +553,7 @@ describe('RunEvaluationButton', () => {
       setupReadyToSubmit();
 
       renderButton('exp-1');
-      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
       await user.click(getJudgeCheckboxByName('My Custom Judge'));
       await user.click(screen.getByRole('radio', { name: /Pre-built LLM-as-a-judge/ }));
       await user.click(getJudgeCheckboxByName('Safety'));
@@ -595,7 +595,7 @@ describe('RunEvaluationButton', () => {
       });
 
       renderButton('exp-1');
-      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
       await user.click(getJudgeCheckboxByName('My Custom Judge'));
       await user.click(screen.getByRole('button', { name: 'Run judge' }));
 
@@ -604,11 +604,11 @@ describe('RunEvaluationButton', () => {
         search: '?selectedRunUuid=run-42',
       });
       await waitFor(() => {
-        expect(screen.queryByRole('dialog', { name: 'Run evaluation' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('dialog', { name: 'Evaluate traces' })).not.toBeInTheDocument();
       });
 
       // Re-opening shows a fresh form (no Custom Judge pre-checked).
-      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
       expect(getJudgeCheckboxByName('My Custom Judge')).not.toBeChecked();
     });
 
@@ -617,7 +617,7 @@ describe('RunEvaluationButton', () => {
       mockInvokeState = { isLoading: true, error: null };
 
       renderButton('exp-1');
-      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
       await user.click(getJudgeCheckboxByName('My Custom Judge'));
 
       const okButton = document.querySelector<HTMLButtonElement>(
@@ -639,7 +639,7 @@ describe('RunEvaluationButton', () => {
       mockInvokeState = { isLoading: false, error: new Error('Boom: scorer rejected.') };
 
       renderButton('exp-1');
-      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
 
       expect(screen.getByText('Boom: scorer rejected.')).toBeInTheDocument();
     });
@@ -648,7 +648,7 @@ describe('RunEvaluationButton', () => {
       setupReadyToSubmit();
 
       renderButton('exp-1');
-      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
       await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
       expect(mockInvokeMutate).not.toHaveBeenCalled();
@@ -677,7 +677,7 @@ describe('RunEvaluationButton', () => {
       });
 
       renderButton('exp-1');
-      await user.click(screen.getByRole('button', { name: 'Run evaluation' }));
+      await user.click(screen.getByRole('button', { name: 'Evaluate traces' }));
       await user.click(getJudgeCheckboxByName('Broken Judge'));
       await user.click(screen.getByRole('button', { name: 'Run judge' }));
 
