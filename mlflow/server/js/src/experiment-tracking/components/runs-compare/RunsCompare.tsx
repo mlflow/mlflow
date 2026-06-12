@@ -51,6 +51,12 @@ import { RunsChartsGlobalChartSettingsDropdown } from '../runs-charts/components
 import { RunsChartsDraggableCardsGridContextProvider } from '../runs-charts/components/RunsChartsDraggableCardsGridContext';
 import { RunsChartsFilterInput } from '../runs-charts/components/RunsChartsFilterInput';
 import { RUNS_CHARTS_UI_Z_INDEX } from '../runs-charts/utils/runsCharts.const';
+import Utils from '../../../common/utils/Utils';
+
+// Above this many charts, the per-render `isEmptyChartCard` scan (which walks
+// every run's metric history for each card) dominates rendering. Past this
+// threshold we stop hiding empty charts so the page stays responsive.
+const HIDE_EMPTY_CHARTS_MAX_NUM_CHARTS_SUPPORTED = 512;
 
 export interface RunsCompareProps {
   comparedRuns: RunRowType[];
@@ -346,14 +352,41 @@ const RunsCompareImpl = ({
     [chartData, onHideRun, onTogglePin],
   );
 
+  const [hideEmptyChartsPerformanceOverrideShown, setHideEmptyChartsPerformanceOverrideShown] = useState(false);
+
+  // Hiding empty charts requires running the expensive `isEmptyChartCard` scan
+  // over every chart on each render. With a very high chart count this becomes a
+  // performance bottleneck, so above a threshold we override `hideEmptyCharts`
+  // off (and notify the user once, via the effect below).
+  const hideEmptyChartsPerformanceOverrideActive =
+    Boolean(hideEmptyCharts) && (compareRunCharts?.length || 0) > HIDE_EMPTY_CHARTS_MAX_NUM_CHARTS_SUPPORTED;
+
+  const hideEmptyChartsWithPerformanceOverride = Boolean(hideEmptyCharts) && !hideEmptyChartsPerformanceOverrideActive;
+
+  // Notify the user once when the override kicks in. This must run as an effect
+  // (not during render) because the global notification API reads context that
+  // is only available after commit — calling it mid-render throws.
+  useEffect(() => {
+    if (hideEmptyChartsPerformanceOverrideActive && !hideEmptyChartsPerformanceOverrideShown) {
+      Utils.displayGlobalInfoNotification(
+        formatMessage({
+          defaultMessage: 'High number of charts. For performance reasons, empty charts will not be hidden by default.',
+          description:
+            'Runs compare page > Charts tab > Notification shown when empty charts are not hidden due to a high chart count',
+        }),
+      );
+      setHideEmptyChartsPerformanceOverrideShown(true);
+    }
+  }, [hideEmptyChartsPerformanceOverrideActive, hideEmptyChartsPerformanceOverrideShown, formatMessage]);
+
   // If using draggable grid layout, already filter out charts that are empty or deleted
   const visibleChartCards = useMemo(() => {
-    if (hideEmptyCharts) {
+    if (hideEmptyChartsWithPerformanceOverride) {
       const isEmptyChartCard = createEmptyChartCardPredicate(chartData);
       return compareRunCharts?.filter((chartCard) => !chartCard.deleted && !isEmptyChartCard(chartCard));
     }
     return compareRunCharts?.filter((chartCard) => !chartCard.deleted);
-  }, [chartData, compareRunCharts, hideEmptyCharts]);
+  }, [chartData, compareRunCharts, hideEmptyChartsWithPerformanceOverride]);
 
   if (!initiallyLoaded) {
     return <RunsCompareSkeleton />;
@@ -424,7 +457,7 @@ const RunsCompareImpl = ({
             groupBy={groupByNormalized}
             setFullScreenChart={setFullScreenChart}
             autoRefreshEnabled={autoRefreshEnabled}
-            hideEmptyCharts={hideEmptyCharts}
+            hideEmptyCharts={hideEmptyChartsWithPerformanceOverride}
             globalLineChartConfig={globalLineChartConfig}
           />
         </RunsChartsDraggableCardsGridContextProvider>

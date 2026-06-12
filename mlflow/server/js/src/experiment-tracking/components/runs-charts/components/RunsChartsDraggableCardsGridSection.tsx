@@ -1,5 +1,5 @@
 import { Empty, useDesignSystemTheme } from '@databricks/design-system';
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useUpdateRunsChartsUIConfiguration } from '../hooks/useRunsChartsUIConfiguration';
 import type { RunsChartsCardConfig } from '../runs-charts.types';
 import type { RunsChartsRunData } from './RunsCharts.common';
@@ -168,6 +168,51 @@ export const RunsChartsDraggableCardsGridSection = memo(
       });
     }, [cardsConfig, chartRunData, hideEmptyCharts]);
 
+    // Grid virtualization: with a high chart count, mounting every card at once
+    // is the dominant rendering cost. Instead, we wrap the grid in a fixed-height
+    // scroll container and only mount the cards whose rows are within (or just
+    // ahead of) the visible window. Off-window cards collapse to `null`, while a
+    // spacer keeps the scrollbar sized to the full grid so scrolling is accurate.
+    const gridHeight = useMemo(() => {
+      const rowCount = Math.ceil(cardsToRender.length / columns);
+      return rowCount * (cardHeight + theme.spacing.sm);
+    }, [cardsToRender, columns, cardHeight, theme]);
+
+    // Cap each section's scroll viewport at three card rows. Sections taller than
+    // this scroll internally; shorter sections shrink to fit their content.
+    const scrollContainerHeight = useMemo(() => Math.min(gridHeight, cardHeight * 3), [gridHeight, cardHeight]);
+
+    const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+    const [scrollContainerOffset, setScrollContainerOffset] = useState<number>(0);
+
+    const updateScrollContainerOffset = useCallback(() => {
+      if (scrollContainerRef.current) {
+        setScrollContainerOffset(scrollContainerRef.current.scrollTop);
+      }
+    }, []);
+
+    useEffect(updateScrollContainerOffset, [updateScrollContainerOffset]);
+
+    const { firstVisibleRowOffset, firstVisibleCard, numVisibleCards } = useMemo(() => {
+      // Preload a buffer of rows below the fold so cards have a head start on
+      // mounting (and fetching) before they scroll into view.
+      const extraRowsToPreload = 8;
+      const gap = theme.spacing.sm;
+      const rowCount = Math.ceil(cardsToRender.length / columns);
+      const firstVisibleRow = Math.floor(scrollContainerOffset / (cardHeight + gap));
+      const lastVisibleRow = Math.min(
+        rowCount - 1,
+        Math.ceil((scrollContainerOffset + scrollContainerHeight) / (cardHeight + gap)) + extraRowsToPreload,
+      );
+      const numVisibleRows = lastVisibleRow - firstVisibleRow + 1;
+      const firstVisibleRowOffset = firstVisibleRow * (cardHeight + gap);
+      const firstVisibleCard = firstVisibleRow * columns;
+      const lastVisibleCard = Math.min(cardsToRender.length - 1, firstVisibleCard + numVisibleRows * columns - 1);
+      const numVisibleCards = lastVisibleCard - firstVisibleCard + 1;
+      return { firstVisibleCard, numVisibleCards, firstVisibleRowOffset };
+    }, [theme, cardsToRender, columns, scrollContainerOffset, cardHeight, scrollContainerHeight]);
+
     // Calculate the transforms for each card based on the dragged card and its position.
     const cardTransforms = useMemo(() => {
       if (!draggedCardUuid || position === null) {
@@ -311,82 +356,109 @@ export const RunsChartsDraggableCardsGridSection = memo(
 
     return (
       <div
-        ref={gridBoxRef}
-        css={[
-          { position: 'relative' },
-          cardsToRender.length > 0 && {
-            display: 'grid',
-            gap: theme.spacing.sm,
-          },
-        ]}
-        style={{
-          gridTemplateColumns: 'repeat(' + columns + ', 1fr)',
-          ...(draggedCardUuid && {
-            [DRAGGABLE_CARD_TRANSITION_NAME]: 'transform 0.1s',
-          }),
+        ref={scrollContainerRef}
+        css={{
+          height: `${scrollContainerHeight}px`,
+          position: 'relative',
+          overflowY: 'auto',
         }}
-        data-testid="draggable-chart-cards-grid"
-        onMouseMove={mouseMove}
-        onMouseLeave={() => {
-          setPositionInSection(null);
-        }}
+        onScroll={updateScrollContainerOffset}
       >
-        {(draggedCardUuid || resizePreview) && (
-          <Global
-            styles={{
-              'body, :host': {
-                userSelect: 'none',
+        <div
+          ref={gridBoxRef}
+          css={{
+            height: `${gridHeight}px`,
+            position: 'relative',
+          }}
+          onMouseMove={mouseMove}
+          onMouseLeave={() => {
+            setPositionInSection(null);
+          }}
+          data-testid="draggable-chart-cards-grid"
+        >
+          <div
+            css={[
+              {
+                position: 'relative',
+                top: `${firstVisibleRowOffset}px`,
               },
+              cardsToRender.length > 0 && {
+                display: 'grid',
+                gap: theme.spacing.sm,
+              },
+            ]}
+            style={{
+              gridTemplateColumns: 'repeat(' + columns + ', 1fr)',
+              ...(draggedCardUuid && {
+                [DRAGGABLE_CARD_TRANSITION_NAME]: 'transform 0.1s',
+              }),
             }}
-          />
-        )}
-        {cardsToRender.length === 0 && (
-          <div css={{ display: 'flex', justifyContent: 'center', minHeight: 160 }}>
-            <Empty
-              title={
-                <FormattedMessage
-                  defaultMessage="No charts in this section"
-                  description="Runs compare page > Charts tab > No charts placeholder title"
+          >
+            {(draggedCardUuid || resizePreview) && (
+              <Global
+                styles={{
+                  'body, :host': {
+                    userSelect: 'none',
+                  },
+                }}
+              />
+            )}
+            {cardsToRender.length === 0 && (
+              <div css={{ display: 'flex', justifyContent: 'center', minHeight: 160 }}>
+                <Empty
+                  title={
+                    <FormattedMessage
+                      defaultMessage="No charts in this section"
+                      description="Runs compare page > Charts tab > No charts placeholder title"
+                    />
+                  }
+                  description={
+                    <FormattedMessage
+                      defaultMessage="Click 'Add chart' or drag and drop to add charts here."
+                      description="Runs compare page > Charts tab > No charts placeholder description"
+                    />
+                  }
                 />
+              </div>
+            )}
+            {cardsToRender.map((cardConfig, index, array) => {
+              // Only the cards within the virtualization window are mounted; the
+              // rest collapse to `null`. We still iterate the full array so that
+              // each card keeps its absolute index and neighbor references, which
+              // drive reordering ("move up/down/to top/bottom") correctly.
+              if (index < firstVisibleCard || index >= firstVisibleCard + numVisibleCards) {
+                return null;
               }
-              description={
-                <FormattedMessage
-                  defaultMessage="Click 'Add chart' or drag and drop to add charts here."
-                  description="Runs compare page > Charts tab > No charts placeholder description"
+              return (
+                <RunsChartsDraggableCard
+                  key={cardConfig.uuid}
+                  uuid={cardConfig.uuid ?? ''}
+                  translateBy={cardTransforms[cardConfig.uuid ?? '']}
+                  onResizeStart={onResizeStart}
+                  onResizeStop={onResizeStop}
+                  onResize={onResize}
+                  cardConfig={cardConfig}
+                  chartRunData={chartRunData}
+                  onReorderWith={onSwapCards}
+                  index={index}
+                  height={cardHeight}
+                  canMoveDown={Boolean(array[index + 1])}
+                  canMoveUp={Boolean(array[index - 1])}
+                  canMoveToTop={index > 0}
+                  canMoveToBottom={index < array.length - 1}
+                  previousChartUuid={array[index - 1]?.uuid}
+                  nextChartUuid={array[index + 1]?.uuid}
+                  hideEmptyCharts={hideEmptyCharts}
+                  firstChartUuid={array[0]?.uuid}
+                  lastChartUuid={array[array.length - 1]?.uuid}
+                  {...cardProps}
                 />
-              }
-            />
+              );
+            })}
+            {dragPreview && <RunsChartsDraggablePreview {...dragPreview} />}
+            {resizePreview && <RunsChartsDraggablePreview {...resizePreview} />}
           </div>
-        )}
-        {cardsToRender.map((cardConfig, index, array) => {
-          return (
-            <RunsChartsDraggableCard
-              key={cardConfig.uuid}
-              uuid={cardConfig.uuid ?? ''}
-              translateBy={cardTransforms[cardConfig.uuid ?? '']}
-              onResizeStart={onResizeStart}
-              onResizeStop={onResizeStop}
-              onResize={onResize}
-              cardConfig={cardConfig}
-              chartRunData={chartRunData}
-              onReorderWith={onSwapCards}
-              index={index}
-              height={cardHeight}
-              canMoveDown={Boolean(array[index + 1])}
-              canMoveUp={Boolean(array[index - 1])}
-              canMoveToTop={index > 0}
-              canMoveToBottom={index < array.length - 1}
-              previousChartUuid={array[index - 1]?.uuid}
-              nextChartUuid={array[index + 1]?.uuid}
-              hideEmptyCharts={hideEmptyCharts}
-              firstChartUuid={array[0]?.uuid}
-              lastChartUuid={array[array.length - 1]?.uuid}
-              {...cardProps}
-            />
-          );
-        })}
-        {dragPreview && <RunsChartsDraggablePreview {...dragPreview} />}
-        {resizePreview && <RunsChartsDraggablePreview {...resizePreview} />}
+        </div>
       </div>
     );
   },

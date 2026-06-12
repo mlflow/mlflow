@@ -5155,6 +5155,10 @@
     "defaultMessage": "Actions{count}",
     "description": "Trace actions dropdown button"
   },
+  "PwoWal": {
+    "defaultMessage": "High number of charts. For performance reasons, empty charts will not be hidden by default.",
+    "description": "Runs compare page > Charts tab > Notification shown when empty charts are not hidden due to a high chart count"
+  },
   "Px7S/2": {
     "defaultMessage": "Close",
     "description": "Close button"

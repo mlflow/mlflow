@@ -30,6 +30,7 @@ import userEvent from '@testing-library/user-event';
 import { RunsChartsLineChartXAxisType } from '../runs-charts/components/RunsCharts.common';
 import { useState } from 'react';
 import { DesignSystemProvider } from '@databricks/design-system';
+import Utils from '../../../common/utils/Utils';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // Larger timeout for integration testing
@@ -1279,6 +1280,38 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
         // Runs difference view is visible even if hide empty charts is set
         expect(screen.getByText(/Runs difference view/)).toBeInTheDocument();
       });
+    });
+
+    test('overrides hiding empty charts and notifies the user when the chart count is too high for performance', async () => {
+      const notificationSpy = jest.spyOn(Utils, 'displayGlobalInfoNotification').mockImplementation(() => {});
+      currentUIState.hideEmptyCharts = true;
+      // More than HIDE_EMPTY_CHARTS_MAX_NUM_CHARTS_SUPPORTED (512) empty charts:
+      // past this threshold empty-chart hiding is disabled for performance.
+      currentUIState.compareRunCharts = Array.from(
+        { length: 513 },
+        (_, index) =>
+          ({
+            type: RunsChartType.BAR,
+            uuid: `chart-empty-${index}`,
+            runsCountToCompare: 10,
+            metricKey: 'metric-alpha',
+            metricSectionId: 'metric-section-1',
+            deleted: false,
+            isGenerated: true,
+          }) as RunsChartsBarCardConfig,
+      );
+      createComponentMock(componentProps);
+
+      await waitFor(() => {
+        // The empty chart is still rendered (hiding was overridden)...
+        expect(screen.getAllByText(/metric-alpha/).length).toBeGreaterThan(0);
+        // ...and the user was told why (the notification fires from an effect,
+        // so assert it inside waitFor rather than synchronously).
+        expect(notificationSpy).toHaveBeenCalledTimes(1);
+      });
+      expect(notificationSpy).toHaveBeenCalledWith(expect.stringContaining('empty charts will not be hidden'));
+
+      notificationSpy.mockRestore();
     });
 
     test('does not display parallel coords or runs difference chart when not configured and hiding empty charts is set', async () => {
