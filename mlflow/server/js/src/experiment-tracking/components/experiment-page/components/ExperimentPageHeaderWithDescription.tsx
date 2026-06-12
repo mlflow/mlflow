@@ -9,6 +9,7 @@ import { Alert, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentViewHeader, ExperimentViewHeaderSkeleton } from './header/ExperimentViewHeader';
 import type { ExperimentKind } from '../../../constants';
+import { useReviewQueueTitle } from '../../../pages/experiment-review-queue/ReviewQueueTitleContext';
 
 type GetExperimentReturnType = ReturnType<typeof useGetExperimentQuery>['data'];
 
@@ -31,6 +32,8 @@ export const ExperimentPageHeaderWithDescription = ({
   inferredExperimentKind?: ExperimentKind;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const { title: reviewQueueTitleOverride } = useReviewQueueTitle();
+  const inReviewFocusMode = reviewQueueTitleOverride !== null;
   const [editing, setEditing] = useState(false);
 
   const experimentEntity = useMemo(() => {
@@ -78,13 +81,15 @@ export const ExperimentPageHeaderWithDescription = ({
           setEditing={setEditing}
           experimentKindSelector={experimentKindSelector}
         />
-        <ExperimentViewMetadataEditor
-          experiment={experimentEntity}
-          editing={editing}
-          setEditing={setEditing}
-          onNoteUpdated={onNoteUpdated}
-          defaultValue={experimentDescription}
-        />
+        {!inReviewFocusMode && (
+          <ExperimentViewMetadataEditor
+            experiment={experimentEntity}
+            editing={editing}
+            setEditing={setEditing}
+            onNoteUpdated={onNoteUpdated}
+            defaultValue={experimentDescription}
+          />
+        )}
       </>
     );
   }
