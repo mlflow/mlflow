@@ -205,16 +205,6 @@ export const FocusedReview = ({
         <Button componentId={`${CID}.back`} icon={<ChevronLeftIcon />} onClick={onBack}>
           <FormattedMessage defaultMessage="Exit review" description="Review focused view: exit review button" />
         </Button>
-        <Typography.Text bold>
-          {traceTime
-            ? intl.formatDate(traceTime, {
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-              })
-            : item.item_id}
-        </Typography.Text>
         <Typography.Link
           componentId={`${CID}.view-full-trace`}
           disabled={!trace}
