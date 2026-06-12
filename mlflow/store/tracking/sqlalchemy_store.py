@@ -90,7 +90,6 @@ from mlflow.genai.judges.instructions_judge import (
     EXPECTATIONS_FIELD,
     InstructionsJudge,
 )
-from mlflow.genai.review_queues import ReviewItemType
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.scorers.online.entities import (
     CompletedSession,
@@ -4278,6 +4277,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         its queue and any review submitted for it fails on the assessments
         foreign key (surfacing the raw SQL error to the reviewer).
         """
+        # Lazy import: importing `mlflow.genai.review_queues` triggers the `mlflow.genai`
+        # package init, which can pull this module back in (see `dbmodels/models.py`).
+        from mlflow.genai.review_queues import ReviewItemType
+
         if not trace_ids:
             return
         (
@@ -4431,16 +4434,31 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     )
 
             session.add(sql_assessment)
-            # The only foreign key on ``assessments`` is ``trace_id`` -> ``trace_info``,
-            # so an IntegrityError here means the trace no longer exists (e.g. it was
-            # deleted while still attached to a review queue). Translate the raw SQL
-            # error into a clean "not found" instead of leaking it to the caller.
+            # A missing trace (e.g. deleted while still attached to a review queue) trips the
+            # ``trace_id`` -> ``trace_info`` foreign key on flush. Rather than leak the raw SQL
+            # error, roll back and check whether the trace is actually gone: report a clean
+            # "not found" if so, otherwise a generic error (the IntegrityError could also come
+            # from another constraint, e.g. a caller-supplied duplicate ``assessment_id``).
             try:
                 session.flush()
             except IntegrityError as e:
+                session.rollback()
+                trace_exists = (
+                    session
+                    .query(SqlTraceInfo.request_id)
+                    .filter(SqlTraceInfo.request_id == assessment.trace_id)
+                    .first()
+                ) is not None
+                if not trace_exists:
+                    raise MlflowException(
+                        f"Trace with ID '{assessment.trace_id}' not found. "
+                        "It may have been deleted.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    ) from e
                 raise MlflowException(
-                    f"Trace with ID '{assessment.trace_id}' not found. It may have been deleted.",
-                    RESOURCE_DOES_NOT_EXIST,
+                    f"Failed to create assessment for trace '{assessment.trace_id}' "
+                    "due to a constraint violation.",
+                    INTERNAL_ERROR,
                 ) from e
             return sql_assessment.to_mlflow_entity()
 
