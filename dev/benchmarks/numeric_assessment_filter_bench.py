@@ -361,7 +361,7 @@ def run_scale(n: int, reps: int) -> list[dict]:
             rows,
         ))
 
-        return [
+        main_results = [
             {
                 "scale": n,
                 "name": r[0],
@@ -372,8 +372,63 @@ def run_scale(n: int, reps: int) -> list[dict]:
             }
             for r in results
         ]
+
+        sweep_results = run_selectivity_sweep(session, exp_id, n, reps)
+        return main_results, sweep_results
     finally:
         os.unlink(tmpfile.name)
+
+
+def run_selectivity_sweep(session, exp_id: str, n: int, reps: int) -> list[dict]:
+    """Measure CAST =, >, >=, <, <= at MATCHED selectivity to isolate operator cost.
+
+    The original run conflated operator cost with result-set size (CAST ``=`` returned
+    ~882 rows @100k while CAST ``>`` returned 17,446). Here we hold the matched row set
+    constant so the *operator* is the only variable.
+
+    Scores are ``round(uniform(0, 10), 1)``, which produces 99 full-width interior buckets
+    plus two HALF-width edge buckets at 0.0 and 10.0 (each ~half the rows of an interior
+    value). We exploit that:
+
+      - ``= 10.0``, ``> 9.9``, ``>= 10.0``  all select EXACTLY the ``{10.0}`` bucket
+        (byte-identical row sets — the strongest possible selectivity control).
+      - ``< 0.1``, ``<= 0.0``               all select EXACTLY the ``{0.0}`` bucket.
+
+    ``{0.0}`` and ``{10.0}`` are both half-width edge buckets, so their counts match each
+    other within sampling noise. Every predicate therefore returns the same small row set
+    (~one half-bucket). Actual matched counts are measured and printed to prove this.
+    A string-equality ``= 10.0`` filter is included as the same-selectivity reference.
+    """
+    specs = [
+        ("string = 10.0 (ref)", "string_eq", 10.0, "feedback.score = 10.0"),
+        ("CAST = 10.0", "=", 10.0, "feedback.score = 10.0"),
+        ("CAST > 9.9", ">", 9.9, "feedback.score > 9.9"),
+        ("CAST >= 10.0", ">=", 10.0, "feedback.score >= 10.0"),
+        ("CAST < 0.1", "<", 0.1, "feedback.score < 0.1"),
+        ("CAST <= 0.0", "<=", 0.0, "feedback.score <= 0.0"),
+    ]
+
+    out = []
+    for label, comparator, threshold, filter_str in specs:
+        if comparator == "string_eq":
+            value_filter = build_string_eq_value_filter(str(threshold))
+        else:
+            value_filter = build_numeric_cast_value_filter(comparator, threshold)
+
+        def query(vf=value_filter):
+            return run_constructed_query(session, exp_id, vf, "score", "feedback")
+
+        med, p90, rows = timed(query, reps)
+        print(f"  sweep {label:<22} matched_rows={rows:>7,}  median={med:>9.2f}ms")
+        out.append({
+            "scale": n,
+            "name": label,
+            "filter": filter_str,
+            "median_ms": med,
+            "p90_ms": p90,
+            "rows": rows,
+        })
+    return out
 
 
 def fmt_table(all_results: list[dict]) -> str:
@@ -402,11 +457,15 @@ def main():
 
     scales = [int(s) for s in args.scales.split(",") if s.strip()]
     all_results: list[dict] = []
+    sweep_all: list[dict] = []
     for n in scales:
-        all_results.extend(run_scale(n, args.reps))
+        main_results, sweep_results = run_scale(n, args.reps)
+        all_results.extend(main_results)
+        sweep_all.extend(sweep_results)
 
     table = fmt_table(all_results)
     print("\n" + table)
+    print("\n" + fmt_table(sweep_all))
 
     # Verdict: CAST median vs the real string-equality baseline, per scale.
     md = [
@@ -440,6 +499,33 @@ def main():
         c = by_scale[n]["NUMERIC-CAST > (prototype)"]["median_ms"]
         a = by_scale[n]["ATTR-NUMERIC > (native column)"]["median_ms"]
         md.append(f"| {n:,} | {b:.2f} ms | {c:.2f} ms | {c / b:.2f}x | {a:.2f} ms |\n")
+
+    # Same-selectivity operator comparison: ratio of each CAST operator vs CAST = at
+    # matched row count, so the operator is the only variable.
+    sweep_by_scale: dict[int, dict] = {}
+    for r in sweep_all:
+        sweep_by_scale.setdefault(r["scale"], {})[r["name"]] = r
+
+    md.append(
+        "\n## Same-selectivity operator comparison\n"
+        "\nHolds the matched row set constant so the *operator* is the only variable. "
+        "Scores are `round(uniform(0,10), 1)`, giving half-width edge buckets at 0.0/10.0; "
+        "`= 10.0`, `> 9.9`, `>= 10.0` select the identical `{10.0}` bucket and "
+        "`< 0.1`, `<= 0.0` select the identical `{0.0}` bucket (both half-width, equal "
+        "count within noise). Matched-rows column proves selectivity is held constant.\n"
+    )
+    md.append(fmt_table(sweep_all))
+    md.append("\n\n### Per-operator ratio vs CAST `=` (same selectivity)\n")
+    md.append("\n| scale | operator | matched rows | median | ratio vs CAST = |\n")
+    md.append("|---|---|---|---|---|\n")
+    for n in scales:
+        base = sweep_by_scale[n]["CAST = 10.0"]["median_ms"]
+        for label in ["CAST = 10.0", "CAST > 9.9", "CAST >= 10.0", "CAST < 0.1", "CAST <= 0.0"]:
+            row = sweep_by_scale[n][label]
+            md.append(
+                f"| {n:,} | {label} | {row['rows']:,} | {row['median_ms']:.2f} ms | "
+                f"{row['median_ms'] / base:.2f}x |\n"
+            )
 
     with open(args.out, "w") as f:
         f.write("".join(md))
