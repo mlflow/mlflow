@@ -13,6 +13,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
 if TYPE_CHECKING:
+    from databricks.sdk import WorkspaceClient
     from databricks.sdk.service.files import FilesAPI
 
 
@@ -24,37 +25,42 @@ def _sdk_supports_large_file_uploads() -> bool:
 _logger = logging.getLogger(__name__)
 
 
+def _get_workspace_client() -> "WorkspaceClient":
+    """Builds a WorkspaceClient that uses multipart upload when the SDK supports it,
+    so files larger than the Files API single-request limit (5 GiB) can be uploaded.
+    """
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.config import Config
+
+    supports_large_file_uploads = _sdk_supports_large_file_uploads()
+    wc = WorkspaceClient(
+        config=(
+            Config(enable_experimental_files_api_client=True)
+            if supports_large_file_uploads
+            else None
+        )
+    )
+    if supports_large_file_uploads:
+        # `Config` has a `multipart_upload_min_stream_size` parameter but the constructor
+        # doesn't set it. This is a bug in databricks-sdk.
+        # >>> from databricks.sdk.config import Config
+        # >>> config = Config(multipart_upload_chunk_size=123)
+        # >>> assert config.multipart_upload_chunk_size != 123
+        try:
+            wc.files._config.multipart_upload_chunk_size = MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+        except AttributeError:
+            _logger.debug("Failed to set multipart_upload_chunk_size in Config", exc_info=True)
+    return wc
+
+
 # TODO: The following artifact repositories should use this class. Migrate them.
 #   - databricks_sdk_models_artifact_repo.py
 class DatabricksSdkArtifactRepository(ArtifactRepository):
     def __init__(
         self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
     ) -> None:
-        from databricks.sdk import WorkspaceClient
-        from databricks.sdk.config import Config
-
         super().__init__(artifact_uri, tracking_uri, registry_uri)
-        supports_large_file_uploads = _sdk_supports_large_file_uploads()
-        wc = WorkspaceClient(
-            config=(
-                Config(enable_experimental_files_api_client=True)
-                if supports_large_file_uploads
-                else None
-            )
-        )
-        if supports_large_file_uploads:
-            # `Config` has a `multipart_upload_min_stream_size` parameter but the constructor
-            # doesn't set it. This is a bug in databricks-sdk.
-            # >>> from databricks.sdk.config import Config
-            # >>> config = Config(multipart_upload_chunk_size=123)
-            # >>> assert config.multipart_upload_chunk_size != 123
-            try:
-                wc.files._config.multipart_upload_chunk_size = (
-                    MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-                )
-            except AttributeError:
-                _logger.debug("Failed to set multipart_upload_chunk_size in Config", exc_info=True)
-        self.wc = wc
+        self.wc = _get_workspace_client()
 
     @property
     def files_api(self) -> "FilesAPI":

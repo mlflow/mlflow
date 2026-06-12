@@ -8,9 +8,9 @@ from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 
 
 def _get_databricks_workspace_client():
-    from databricks.sdk import WorkspaceClient
+    from mlflow.store.artifact.databricks_sdk_artifact_repo import _get_workspace_client
 
-    return WorkspaceClient()
+    return _get_workspace_client()
 
 
 class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
