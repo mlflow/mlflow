@@ -702,11 +702,6 @@ def test_create_custom_queue_rejects_default_name_case_insensitive(store, name):
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
 
 
-# --------------------------------------------------------------------------
-# Trace deletion cleans up attached items
-# --------------------------------------------------------------------------
-
-
 def test_delete_trace_removes_its_review_queue_items(store):
     exp_id = _create_experiments(store, "delete_trace_items")
     _create_trace(store, "tr-keep", experiment_id=exp_id)
