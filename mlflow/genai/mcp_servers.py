@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.uri import get_uri_scheme
@@ -176,7 +177,7 @@ def get_mcp_server(*, name: str) -> MCPServer:
 def search_mcp_servers(
     *,
     filter_string: str | None = None,
-    max_results: int = 100,
+    max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
     order_by: list[str] | None = None,
     page_token: str | None = None,
 ) -> PagedList[MCPServer]:
@@ -184,7 +185,7 @@ def search_mcp_servers(
 
     Args:
         filter_string: SQL-like filter expression (e.g., ``"status = 'active'"``,
-            ``"tags.team = 'platform'"``, ``"has_access_bindings = true"``).
+            ``"tags.team = 'platform'"``, ``"has_access_bindings = 'true'"``).
         max_results: Maximum number of results to return.
         order_by: List of columns to order by.
         page_token: Token for retrieving the next page of results.
@@ -334,7 +335,7 @@ def search_mcp_server_versions(
     *,
     name: str,
     filter_string: str | None = None,
-    max_results: int = 100,
+    max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
     order_by: list[str] | None = None,
     page_token: str | None = None,
 ) -> PagedList[MCPServerVersion]:
@@ -469,7 +470,7 @@ def search_mcp_access_bindings(
     server_version: str | None = None,
     server_alias: str | None = None,
     filter_string: str | None = None,
-    max_results: int = 100,
+    max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
     order_by: list[str] | None = None,
     page_token: str | None = None,
 ) -> PagedList[MCPAccessBinding]:

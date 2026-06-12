@@ -49,7 +49,6 @@ from mlflow.entities import (
 from mlflow.entities.mcp_access_binding import MCPAccessBinding
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
 from mlflow.entities.mcp_server_version import MCPServerVersion
-from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.prompt_version import PromptModelConfig
@@ -111,6 +110,7 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
@@ -6775,7 +6775,7 @@ class MlflowClient:
     def search_mcp_servers(
         self,
         filter_string: str | None = None,
-        max_results: int = 100,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
     ) -> PagedList[MCPServer]:
@@ -6825,9 +6825,7 @@ class MlflowClient:
         return self._tracking_client.store.get_mcp_server_version(name=name, version=version)
 
     def get_mcp_server_version_by_alias(self, name: str, alias: str) -> MCPServerVersion:
-        return self._tracking_client.store.get_mcp_server_version_by_alias(
-            name=name, alias=alias
-        )
+        return self._tracking_client.store.get_mcp_server_version_by_alias(name=name, alias=alias)
 
     def get_latest_mcp_server_version(self, name: str) -> MCPServerVersion:
         return self._tracking_client.store.get_latest_mcp_server_version(name=name)
@@ -6836,7 +6834,7 @@ class MlflowClient:
         self,
         name: str,
         filter_string: str | None = None,
-        max_results: int = 100,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
     ) -> PagedList[MCPServerVersion]:
@@ -6894,7 +6892,7 @@ class MlflowClient:
         server_version: str | None = None,
         server_alias: str | None = None,
         filter_string: str | None = None,
-        max_results: int = 100,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
     ) -> PagedList[MCPAccessBinding]:
@@ -6937,9 +6935,7 @@ class MlflowClient:
     def delete_mcp_server_tag(self, name: str, key: str) -> None:
         self._tracking_client.store.delete_mcp_server_tag(name=name, key=key)
 
-    def set_mcp_server_version_tag(
-        self, name: str, version: str, key: str, value: str
-    ) -> None:
+    def set_mcp_server_version_tag(self, name: str, version: str, key: str, value: str) -> None:
         self._tracking_client.store.set_mcp_server_version_tag(
             name=name, version=version, key=key, value=value
         )
