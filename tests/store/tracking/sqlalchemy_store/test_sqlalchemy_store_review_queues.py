@@ -1,4 +1,5 @@
 import time
+from unittest import mock
 
 import pytest
 
@@ -13,7 +14,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.tracking.dbmodels.models import SqlReviewQueue
 
-from tests.store.tracking.sqlalchemy_store.conftest import _create_experiments
+from tests.store.tracking.sqlalchemy_store.conftest import _create_experiments, _create_trace
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -192,7 +193,7 @@ def test_update_custom_queue_rejects_users_over_cap(store):
 
 def test_get_or_create_user_queue_is_idempotent(store):
     exp_id = _create_experiments(store, "goc")
-    first = store.get_or_create_user_queue(exp_id, user="Alice", created_by="kris")
+    first = store.get_or_create_user_queue(exp_id, user="Alice")
     second = store.get_or_create_user_queue(exp_id, user="alice")
     assert first.queue_id == second.queue_id
     assert first.queue_type == ReviewQueueType.USER
@@ -411,6 +412,43 @@ def test_update_questions_allowed_after_traces_detached(store):
     # With the queue empty again, questions can be edited.
     updated = store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id, ls2.schema_id])
     assert sorted(updated.schema_ids) == sorted([ls1.schema_id, ls2.schema_id])
+
+
+def test_update_questions_locks_queue_row_for_update(store):
+    # The freeze check reads the item count then swaps the schema set; it must hold
+    # a row lock so a concurrent attach can't slip an item in between.
+    exp_id = _create_experiments(store, "update_row_lock")
+    ls = _pass_fail(store, exp_id, "quality")
+    queue = store.create_review_queue(
+        exp_id, name="q", queue_type="custom", schema_ids=[ls.schema_id]
+    )
+    original = type(store)._get_sql_review_queue
+    with mock.patch.object(
+        type(store), "_get_sql_review_queue", autospec=True, side_effect=original
+    ) as spy:
+        store.update_review_queue(queue.queue_id, schema_ids=[ls.schema_id])
+    assert spy.call_args.kwargs["for_update"] is True
+
+
+def test_add_items_locks_queue_row_for_update(store):
+    exp_id = _create_experiments(store, "add_row_lock")
+    ls = _pass_fail(store, exp_id, "quality")
+    queue = store.create_review_queue(
+        exp_id, name="q", queue_type="custom", schema_ids=[ls.schema_id]
+    )
+    original = type(store)._get_sql_review_queue
+    with mock.patch.object(
+        type(store), "_get_sql_review_queue", autospec=True, side_effect=original
+    ) as spy:
+        store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
+    assert spy.call_args.kwargs["for_update"] is True
+
+
+def test_get_or_create_user_queue_owner_is_the_user(store):
+    exp_id = _create_experiments(store, "user_queue_owner")
+    # A user queue is owned by its user — there is no caller-supplied owner.
+    queue = store.get_or_create_user_queue(exp_id, user="Alice")
+    assert queue.created_by == "alice"
 
 
 # --------------------------------------------------------------------------
@@ -693,3 +731,41 @@ def test_create_custom_queue_rejects_default_name_case_insensitive(store, name):
     with pytest.raises(MlflowException, match="reserved queue name") as exc:
         store.create_review_queue(exp_id, name=name, queue_type="custom")
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+
+
+def test_delete_trace_removes_its_review_queue_items(store):
+    exp_id = _create_experiments(store, "delete_trace_items")
+    _create_trace(store, "tr-keep", experiment_id=exp_id)
+    _create_trace(store, "tr-del", experiment_id=exp_id)
+    queue = store.create_review_queue(exp_id, name="Q", queue_type="custom")
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-keep", "tr-del"])
+
+    store.delete_traces(exp_id, trace_ids=["tr-del"])
+
+    remaining = {i.item_id for i in store.list_review_queue_items(queue.queue_id)}
+    assert remaining == {"tr-keep"}
+
+
+def test_delete_trace_removes_items_from_every_queue(store):
+    exp_id = _create_experiments(store, "delete_trace_items_multi")
+    _create_trace(store, "tr-del", experiment_id=exp_id)
+    q1 = store.create_review_queue(exp_id, name="Q1", queue_type="custom")
+    q2 = store.create_review_queue(exp_id, name="Q2", queue_type="custom")
+    store.add_items_to_review_queue(q1.queue_id, item_ids=["tr-del"])
+    store.add_items_to_review_queue(q2.queue_id, item_ids=["tr-del"])
+
+    store.delete_traces(exp_id, trace_ids=["tr-del"])
+
+    assert list(store.list_review_queue_items(q1.queue_id)) == []
+    assert list(store.list_review_queue_items(q2.queue_id)) == []
+
+
+def test_delete_traces_by_timestamp_removes_review_queue_items(store):
+    exp_id = _create_experiments(store, "delete_trace_items_ts")
+    _create_trace(store, "tr-old", experiment_id=exp_id, request_time=1000)
+    queue = store.create_review_queue(exp_id, name="Q", queue_type="custom")
+    store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-old"])
+
+    store.delete_traces(exp_id, max_timestamp_millis=5000)
+
+    assert list(store.list_review_queue_items(queue.queue_id)) == []

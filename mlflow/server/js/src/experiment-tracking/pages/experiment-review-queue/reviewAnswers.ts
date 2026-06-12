@@ -1,5 +1,6 @@
 import type { LabelSchema } from '../../components/label-schemas';
 import type { LabelSchemaValue } from '../../components/label-schemas';
+import { sameUser } from './queuePermissions';
 
 /**
  * Whether a label schema's answers are written as feedback or expectation
@@ -9,6 +10,15 @@ export type AssessmentKind = 'feedback' | 'expectation';
 
 export const schemaAssessmentKind = (schema: LabelSchema): AssessmentKind =>
   schema.type === 'EXPECTATION' ? 'expectation' : 'feedback';
+
+/**
+ * Whether a label-schema widget holds a real answer (not empty / unset). The
+ * single source of truth for "answered": the focused-review submit path uses it
+ * to gate completion, and prefill uses it to drop empties that could never be
+ * re-submitted.
+ */
+export const isAnswered = (value: LabelSchemaValue): boolean =>
+  value !== undefined && value !== null && value !== '' && !(Array.isArray(value) && value.length === 0);
 
 /**
  * A prior answer already recorded on a trace, normalized from a trace
@@ -22,6 +32,8 @@ export interface PriorAnswer {
   rationale?: string;
   /** A trace assessment is valid unless explicitly marked `valid: false`. */
   valid: boolean;
+  /** The source assessment's id, so a re-submit can supersede it. */
+  assessmentId?: string;
 }
 
 /**
@@ -30,9 +42,11 @@ export interface PriorAnswer {
  * the web-shared public surface) and intentionally permissive.
  */
 export interface RawTraceAssessment {
+  assessment_id?: string;
   assessment_name?: string;
   valid?: boolean;
   rationale?: string;
+  source?: { source_id?: string; source_type?: string };
   feedback?: { value?: LabelSchemaValue };
   expectation?: { value?: LabelSchemaValue; serialized_value?: { value?: string } };
 }
@@ -41,12 +55,32 @@ export interface RawTraceAssessment {
  * Normalize raw trace assessments into {@link PriorAnswer}s. Feedback and
  * expectation assessments carry their value in different places (and an
  * expectation may be serialized); this collapses them to a single `value`.
- * Assessments without a name or a resolvable value are dropped.
+ * Assessments without a name or a resolvable value are dropped. When
+ * `reviewerSourceId` is given, only that reviewer's own answers are kept, so
+ * one reviewer never sees or supersedes another reviewer's answers.
  */
-export const extractPriorAnswers = (assessments: RawTraceAssessment[]): PriorAnswer[] => {
+export const extractPriorAnswers = (assessments: RawTraceAssessment[], reviewerSourceId?: string): PriorAnswer[] => {
+  // A provided-but-empty source id can't identify a reviewer, so prefill nothing
+  // rather than matching source-less assessments (`sameUser('', undefined)` is
+  // true). `undefined` means "no source filter"; a non-empty id filters to that
+  // reviewer. In practice the reviewer source is always `undefined` or a real
+  // username (never ''), so this is a defensive guard.
+  if (reviewerSourceId === '') {
+    return [];
+  }
   const priors: PriorAnswer[] = [];
   for (const assessment of assessments) {
     if (!assessment.assessment_name) {
+      continue;
+    }
+    // Only the reviewer's own *human* answers prefill and supersede. Review
+    // answers are always written `source_type: 'HUMAN'`, so an LLM-judge or
+    // SDK-written assessment that happens to share the reviewer's source_id
+    // (e.g. both `default` on a no-auth server) must not be adopted as theirs.
+    if (
+      reviewerSourceId !== undefined &&
+      (assessment.source?.source_type !== 'HUMAN' || !sameUser(assessment.source?.source_id, reviewerSourceId))
+    ) {
       continue;
     }
     let kind: AssessmentKind;
@@ -64,9 +98,9 @@ export const extractPriorAnswers = (assessments: RawTraceAssessment[]): PriorAns
       // Neither feedback nor expectation (e.g. an issue reference) — not an answer.
       continue;
     }
-    // Mirror the focused-review submit's "answered" predicate so a prior that
-    // could never be re-submitted (empty) doesn't render as a phantom prefill.
-    if (value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0)) {
+    // Drop empties that could never be re-submitted, so a prior doesn't render
+    // as a phantom prefill.
+    if (!isAnswered(value)) {
       continue;
     }
     priors.push({
@@ -75,6 +109,7 @@ export const extractPriorAnswers = (assessments: RawTraceAssessment[]): PriorAns
       value,
       rationale: assessment.rationale,
       valid: assessment.valid !== false,
+      assessmentId: assessment.assessment_id,
     });
   }
   return priors;
@@ -119,4 +154,23 @@ export const buildPrefilledRationales = (priors: PriorAnswer[], schemas: LabelSc
     }
   }
   return prefilled;
+};
+
+/**
+ * Map each schema to the assessment id of the reviewer's most recent valid prior
+ * answer for it, so a re-submit can supersede that assessment (via `overrides`)
+ * instead of accumulating a duplicate. Same name/kind/last-wins matching as
+ * {@link buildPrefilledAnswers}; `priors` should already be scoped to the
+ * current reviewer (see {@link extractPriorAnswers}).
+ */
+export const buildPriorAssessmentIds = (priors: PriorAnswer[], schemas: LabelSchema[]): Record<string, string> => {
+  const ids: Record<string, string> = {};
+  for (const schema of schemas) {
+    const kind = schemaAssessmentKind(schema);
+    const match = priors.filter((p) => p.valid && p.name === schema.name && p.kind === kind).at(-1);
+    if (match?.assessmentId) {
+      ids[schema.name] = match.assessmentId;
+    }
+  }
+  return ids;
 };
