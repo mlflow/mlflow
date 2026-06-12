@@ -232,8 +232,8 @@ class AnthropicAdapter(ProviderAdapter):
                 # requires a schema), so steer the model to emit JSON via a system
                 # instruction. This is best-effort rather than a hard constraint.
                 json_instruction = (
-                    "Respond with only a single valid JSON value. Do not include any "
-                    "explanatory text, markdown, or code fences before or after the JSON."
+                    "Respond with only a single valid JSON object. Do not include any "
+                    "explanatory text, markdown, or code fences before or after the JSON object."
                 )
                 if existing_system := payload.get("system"):
                     payload["system"] = f"{existing_system}\n{json_instruction}"

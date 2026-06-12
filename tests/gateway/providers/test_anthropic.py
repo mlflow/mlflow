@@ -1332,7 +1332,7 @@ async def test_chat_with_json_object_response_format():
         body = call_kwargs["json"]
         assert "output_config" not in body
         assert body["system"].startswith("You are helpful.")
-        assert "valid JSON" in body["system"]
+        assert "valid JSON object" in body["system"]
 
 
 def test_enforce_strict_schema_sets_additional_properties_false():
