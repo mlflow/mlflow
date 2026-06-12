@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781243606480,
+  "lastUpdate": 1781250573183,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -9395,6 +9395,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.613422799994396,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "43557509+Vedant-Agarwal@users.noreply.github.com",
+            "name": "Vedant Agarwal",
+            "username": "Vedant-Agarwal"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "61afe4ba020fd511cda38599be2f4d9406fba4d1",
+          "message": "Fix `metrics/get-history` returning empty results when `max_results` is omitted (#23917)\n\nSigned-off-by: Vedant Agarwal <vedantagwl10@gmail.com>",
+          "timestamp": "2026-06-12T07:45:43Z",
+          "tree_id": "48de14c70914de0e450f57fe5876630c934ad3a4",
+          "url": "https://github.com/mlflow/mlflow/commit/61afe4ba020fd511cda38599be2f4d9406fba4d1"
+        },
+        "date": 1781250572289,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 47.163465199999166,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 24.31721064285631,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 19.845164631579593,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 19.734466058823543,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 20.64535209722172,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.613774999997645,
             "unit": "ms"
           }
         ]
