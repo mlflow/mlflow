@@ -1,4 +1,10 @@
-from mlflow.assistant.skill_installer import install_skills, list_installed_skills
+from unittest import mock
+
+from mlflow.assistant.skill_installer import (
+    install_skills,
+    list_bundled_skills,
+    list_installed_skills,
+)
 
 
 def test_install_skills_copies_to_destination(tmp_path):
@@ -42,3 +48,22 @@ def test_list_installed_skills_nonexistent_path(tmp_path):
     nonexistent = tmp_path / "does-not-exist"
     skills = list_installed_skills(nonexistent)
     assert skills == []
+
+
+def test_list_bundled_skills_returns_empty_when_package_missing():
+    with mock.patch(
+        "mlflow.assistant.skill_installer.resources.files",
+        side_effect=ModuleNotFoundError,
+    ) as mock_files:
+        assert list_bundled_skills() == []
+    mock_files.assert_called_once()
+
+
+def test_list_bundled_skills():
+    skills = list_bundled_skills()
+
+    by_name = {skill.name: skill for skill in skills}
+    assert "agent-evaluation" in by_name
+    assert by_name["agent-evaluation"].description
+    assert (by_name["agent-evaluation"].path / "SKILL.md").is_file()
+    assert [skill.name for skill in skills] == sorted(skill.name for skill in skills)

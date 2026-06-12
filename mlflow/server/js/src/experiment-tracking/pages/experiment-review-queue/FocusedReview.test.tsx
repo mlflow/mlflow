@@ -21,9 +21,10 @@ jest.mock('./hooks/useCreateReviewAssessmentMutation', () => ({
     isCreatingAssessment: false,
   }),
 }));
-let mockPriorAnswersResult: { priorAnswers: unknown[]; isLoading: boolean } = {
+let mockPriorAnswersResult: { priorAnswers: unknown[]; isLoading: boolean; isFetching: boolean } = {
   priorAnswers: [],
   isLoading: false,
+  isFetching: false,
 };
 jest.mock('./hooks/useTraceAssessmentsQuery', () => ({
   useTraceAssessmentsQuery: () => mockPriorAnswersResult,
@@ -118,7 +119,7 @@ describe('FocusedReview submit requires at least one answer', () => {
     mockCreateAssessment.mockImplementation(() => Promise.resolve());
   });
   afterEach(() => {
-    mockPriorAnswersResult = { priorAnswers: [], isLoading: false };
+    mockPriorAnswersResult = { priorAnswers: [], isLoading: false, isFetching: false };
   });
 
   it('disables Submit until a question is answered, then completes', async () => {
@@ -146,6 +147,7 @@ describe('FocusedReview submit requires at least one answer', () => {
     mockPriorAnswersResult = {
       priorAnswers: [{ name: 'Looks good?', kind: 'feedback', value: true, valid: true }],
       isLoading: false,
+      isFetching: false,
     };
     const onSetStatus = jest.fn((_status: string) => Promise.resolve());
     renderFocused([passFailSchema(), passFailSchema('s2', 'Also good?')], onSetStatus);
@@ -182,5 +184,36 @@ describe('FocusedReview view-only when not assigned', () => {
 
     fireEvent.click(screen.getByText('Assign myself'));
     expect(onAssignSelf).toHaveBeenCalled();
+  });
+});
+
+describe('FocusedReview waits for prior answers to settle before submitting', () => {
+  beforeEach(() => {
+    mockCreateAssessment.mockReset();
+    mockCreateAssessment.mockImplementation(() => Promise.resolve());
+  });
+  afterEach(() => {
+    mockPriorAnswersResult = { priorAnswers: [], isLoading: false, isFetching: false };
+  });
+
+  it('disables the Submit button while the prior-answers query is refetching', () => {
+    // Supersede ids come from this query; submitting against a stale snapshot
+    // could leave two live assessments for one question.
+    mockPriorAnswersResult = { priorAnswers: [], isLoading: false, isFetching: true };
+    const onSetStatus = jest.fn((_status: string) => Promise.resolve());
+    renderFocused([passFailSchema(), passFailSchema('s2', 'Also good?')], onSetStatus);
+
+    expect(screen.getByText('Submit').closest('button')).toBeDisabled();
+  });
+
+  it('does not auto-submit while the prior-answers query is refetching', () => {
+    mockPriorAnswersResult = { priorAnswers: [], isLoading: false, isFetching: true };
+    const onSetStatus = jest.fn((_status: string) => Promise.resolve());
+    // Single Pass/Fail -> auto-submit on pick; the fetch guard must suppress it.
+    renderFocused([passFailSchema()], onSetStatus);
+
+    fireEvent.click(screen.getByText('Pass'));
+    expect(mockCreateAssessment).not.toHaveBeenCalled();
+    expect(onSetStatus).not.toHaveBeenCalled();
   });
 });

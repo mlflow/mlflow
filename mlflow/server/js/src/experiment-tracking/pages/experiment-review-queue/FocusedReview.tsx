@@ -19,7 +19,7 @@ import { LabelSchemaInputRenderer } from '../../components/label-schemas';
 import type { LabelSchema, LabelSchemaValue } from '../../components/label-schemas';
 import { useCreateReviewAssessmentMutation } from './hooks/useCreateReviewAssessmentMutation';
 import { useTraceAssessmentsQuery } from './hooks/useTraceAssessmentsQuery';
-import { buildPrefilledAnswers, buildPrefilledRationales, isAnswered } from './reviewAnswers';
+import { buildPrefilledAnswers, buildPrefilledRationales, buildPriorAssessmentIds, isAnswered } from './reviewAnswers';
 import { StatusTag } from './ReviewQueueList';
 import { SegmentedProgressBar } from './SegmentedProgressBar';
 import type { ReviewQueueItem, ReviewStatus } from './types';
@@ -95,9 +95,17 @@ export const FocusedReview = ({
 
   // Prefill the widgets from the trace's existing assessments; edits overlay
   // the prefill so the query result never clobbers what the reviewer typed.
-  const { priorAnswers } = useTraceAssessmentsQuery({ traceId: item.item_id });
+  // Scope prior answers to this reviewer's own source so the prefill and the
+  // supersede target are never another reviewer's answer.
+  const { priorAnswers, isFetching: priorAnswersFetching } = useTraceAssessmentsQuery({
+    traceId: item.item_id,
+    sourceId: completedBy,
+  });
   const prefilled = useMemo(() => buildPrefilledAnswers(priorAnswers, schemas), [priorAnswers, schemas]);
   const prefilledRationales = useMemo(() => buildPrefilledRationales(priorAnswers, schemas), [priorAnswers, schemas]);
+  // Each question's prior assessment id (this reviewer's), so a re-submit
+  // supersedes it instead of writing a duplicate.
+  const priorAssessmentIds = useMemo(() => buildPriorAssessmentIds(priorAnswers, schemas), [priorAnswers, schemas]);
   const [edited, setEdited] = useState<Record<string, LabelSchemaValue>>({});
   const [editedRationales, setEditedRationales] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -157,10 +165,19 @@ export const FocusedReview = ({
 
   const submitAnswersAndComplete = async (answerOverrides?: Record<string, LabelSchemaValue>) => {
     setSubmitError(null);
+    // The supersede ids are derived from the prior-answers query, so submitting
+    // against a still-refetching snapshot (e.g. reopen-and-resubmit before the
+    // post-write refetch lands) could miss the prior and leave two live
+    // assessments for one question. Wait for the query to settle first.
+    if (priorAnswersFetching) {
+      return;
+    }
     // Auto-submit passes the just-picked value directly, since the answer state
     // set in the same click hasn't flushed yet.
     const effectiveValue = (name: string): LabelSchemaValue =>
       answerOverrides && name in answerOverrides ? answerOverrides[name] : valueFor(name);
+    // Every answered question is (re)written here; an unchanged answer
+    // re-supersedes its prior rather than being skipped.
     const answered = schemas.filter((s) => isAnswered(effectiveValue(s.name)));
     // Defensive: the Submit button is disabled with no answers, but never
     // record an empty completion if this is somehow reached.
@@ -179,6 +196,7 @@ export const FocusedReview = ({
             value: effectiveValue(s.name) as Exclude<LabelSchemaValue, null | undefined>,
             sourceId: completedBy,
             rationale: s.enable_comment ? rationaleFor(s.name).trim() || undefined : undefined,
+            overrides: priorAssessmentIds[s.name],
           }),
         ),
       );
@@ -505,7 +523,14 @@ export const FocusedReview = ({
                 <Button
                   componentId={`${CID}.complete`}
                   type="primary"
-                  disabled={isTerminal || isCreatingAssessment || isSettingStatus || !canReview || answeredCount === 0}
+                  disabled={
+                    isTerminal ||
+                    isCreatingAssessment ||
+                    isSettingStatus ||
+                    !canReview ||
+                    answeredCount === 0 ||
+                    priorAnswersFetching
+                  }
                   loading={isCreatingAssessment || isSettingStatus}
                   onClick={() => submitAnswersAndComplete()}
                 >
