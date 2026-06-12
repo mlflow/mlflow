@@ -5635,10 +5635,6 @@
     "defaultMessage": "Input type",
     "description": "Review question input variant selector"
   },
-  "SZIwwQ": {
-    "defaultMessage": "Flag for review",
-    "description": "Button text for adding a trace to a review queue"
-  },
   "Sb+wLa": {
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
     "description": "Help text explaining model configuration purpose"
@@ -10514,6 +10510,10 @@
   "qkRBUr": {
     "defaultMessage": "Line smoothing",
     "description": "Runs charts > line chart > configuration > label for line smoothing slider control. The control allows changing data trace line smoothness from 1 to 100, where 1 is the original data trace and 100 is the smoothest trace. Line smoothing helps eliminate noise in the data."
+  },
+  "qkt1r9": {
+    "defaultMessage": "Add to review queue",
+    "description": "Button text for adding a trace to a review queue"
   },
   "qmTNy1": {
     "defaultMessage": "Failed to delete sessions. Error: {error}",
