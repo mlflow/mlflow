@@ -20,7 +20,7 @@ import {
   useListLabelSchemasQuery,
 } from '../../components/label-schemas';
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
-import { ReviewerChecklistCombobox } from './ReviewerChecklistCombobox';
+import { MAX_ASSIGNED_USERS, ReviewerChecklistCombobox } from './ReviewerChecklistCombobox';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
@@ -56,7 +56,7 @@ export const QueueSettingsModal = ({
 
   const { labelSchemas, isLoading: schemasLoading } = useListLabelSchemasQuery({ experimentId: queue.experiment_id });
   const { items: traces, isLoading: itemsLoading } = useListReviewQueueItemsQuery({ queueId: queue.queue_id });
-  const { users: assignableUsers } = useAssignableUsersQuery({ enabled: canListUsers });
+  const { users: assignableUsers, isLoading: usersLoading } = useAssignableUsersQuery({ enabled: canListUsers });
   const { updateReviewQueueAsync, isUpdatingQueue, error: updateError } = useUpdateReviewQueueMutation();
 
   // Questions are an experiment-manager concern (`canManage`) and additionally
@@ -208,6 +208,8 @@ export const QueueSettingsModal = ({
                   onToggle={toggleReviewer}
                   triggerValue={reviewersTriggerValue}
                   dropdownZIndex={dropdownZIndex}
+                  isLoading={usersLoading}
+                  maxSelected={MAX_ASSIGNED_USERS}
                 />
               </div>
             )}

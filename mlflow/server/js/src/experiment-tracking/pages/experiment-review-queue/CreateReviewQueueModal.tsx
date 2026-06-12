@@ -21,7 +21,7 @@ import {
   useListLabelSchemasQuery,
 } from '../../components/label-schemas';
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
-import { ReviewerChecklistCombobox } from './ReviewerChecklistCombobox';
+import { MAX_ASSIGNED_USERS, ReviewerChecklistCombobox } from './ReviewerChecklistCombobox';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useCreateReviewQueueMutation } from './hooks/useCreateReviewQueueMutation';
@@ -59,7 +59,7 @@ export const CreateReviewQueueModal = ({
   // Any authenticated user may list users server-side, so fetch the roster
   // whenever auth is on; the Reviewers picker is hidden otherwise.
   const canListUsers = authAvailable;
-  const { users: assignableUsers } = useAssignableUsersQuery({ enabled: canListUsers });
+  const { users: assignableUsers, isLoading: usersLoading } = useAssignableUsersQuery({ enabled: canListUsers });
 
   const [name, setName] = useState('');
   // No questions are selected by default; the creator chooses them.
@@ -235,6 +235,9 @@ export const CreateReviewQueueModal = ({
                   onToggle={toggleReviewer}
                   triggerValue={reviewersTriggerValue}
                   dropdownZIndex={dropdownZIndex}
+                  isLoading={usersLoading}
+                  // The creator is auto-added as a member, so reserve one slot for them.
+                  maxSelected={MAX_ASSIGNED_USERS - 1}
                 />
               </div>
             )}

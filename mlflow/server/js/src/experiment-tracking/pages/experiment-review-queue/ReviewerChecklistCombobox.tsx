@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   DialogCombobox,
@@ -7,14 +7,19 @@ import {
   DialogComboboxOptionList,
   DialogComboboxOptionListCheckboxItem,
   DialogComboboxOptionListSearch,
-  DialogComboboxSectionHeader,
   DialogComboboxTrigger,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
-// Unselected reviewers shown before the user searches; the rest are reachable by
-// name through the search box (mirrors the queues picker's collapsed head).
-const COLLAPSED_REVIEWER_COUNT = 3;
+// Max reviewers a queue may have assigned. Keep in sync with `MAX_ASSIGNED_USERS`
+// in mlflow/genai/review_queues/validation.py — the server rejects more, so the
+// picker gates selection at the limit the caller passes (the create modal reserves
+// one slot for the creator).
+export const MAX_ASSIGNED_USERS = 10;
+
+// Unselected reviewers seeded into the list as defaults before the user searches;
+// the rest of the roster is reachable by name through the search box.
+const DEFAULT_REVIEWER_COUNT = 3;
 // Scroll cap on the option list (matches AddToReviewQueueDropdown's list height).
 const LIST_MAX_HEIGHT = 240;
 
@@ -26,16 +31,12 @@ const LIST_MAX_HEIGHT = 240;
  * count), not the joined names — checked state comes from each item's `checked`
  * prop, not from `value`.
  *
- * With no search text, only the first few unselected reviewers are shown (the
- * rest are found by search), and the current selection is grouped at the bottom
- * under a "Selected" header, newest pick first, so it's visible at a glance (an
- * already-selected user that isn't in the roster still shows). Newest-first works
- * because `checkedUsers` is a Set whose insertion order is the order the modal
- * adds picks; reversing it puts the latest on top. Capping the unselected head
- * also keeps unchecking a row from the "Selected" group calm: with more reviewers
- * than the cap, the freshly-unchecked user falls into the hidden (search-only)
- * tail rather than jumping up into a visible row, so the top of the list — and
- * the scroll position — stays put.
+ * The list is **stable while you read it** and recompacts when you return to it.
+ * Recompacting rebuilds it as the selected reviewers (keeping their order, with a
+ * reviewer just picked from search leading) followed by a fresh set of unselected
+ * defaults — dropping any rows that are no longer selected. It happens when the
+ * dropdown opens, when a search is cleared, and when the roster first loads.
+ * Between those moments, checking or unchecking a row never moves or removes it.
  */
 export const ReviewerChecklistCombobox = ({
   componentId,
@@ -45,6 +46,8 @@ export const ReviewerChecklistCombobox = ({
   triggerValue,
   disabled,
   dropdownZIndex,
+  isLoading,
+  maxSelected,
 }: {
   componentId: string;
   usernames: string[];
@@ -54,61 +57,93 @@ export const ReviewerChecklistCombobox = ({
   triggerValue: string[];
   disabled?: boolean;
   dropdownZIndex?: number;
+  /** Whether the assignable-user roster is still loading (gates the initial seed). */
+  isLoading?: boolean;
+  /** Max reviewers selectable; unchecked rows disable once this many are checked. */
+  maxSelected?: number;
 }) => {
   const intl = useIntl();
   const [search, setSearch] = useState('');
   const query = search.trim().toLowerCase();
 
-  // Toggling a row re-renders the list and unmounts the clicked checkbox, which
-  // drops focus and lets the list yank the scroll back to the top. Capture the
-  // scroll offset on toggle and restore it (keyed on the toggle, not every
-  // render) before paint, so the row disappears in place and the scroll holds.
-  const listRef = useRef<HTMLDivElement>(null);
-  const pendingScrollTop = useRef<number | null>(null);
-  const [toggleNonce, setToggleNonce] = useState(0);
+  // The display order, rebuilt by `recompact` whenever the list view is (re)entered.
+  const [order, setOrder] = useState<string[]>([]);
+  // Selected reviewers (keeping their current order, newest search-pick leading)
+  // followed by a fresh set of unselected defaults; rows no longer selected drop.
+  const recompact = () =>
+    setOrder((prev) => {
+      const selected = [
+        ...prev.filter((u) => checkedUsers.has(u)),
+        ...[...checkedUsers].filter((u) => !prev.includes(u)),
+      ];
+      const selectedSet = new Set(selected);
+      const defaults = usernames.filter((u) => !selectedSet.has(u)).slice(0, DEFAULT_REVIEWER_COUNT);
+      return [...selected, ...defaults];
+    });
+  useEffect(() => {
+    if (!isLoading) {
+      recompact();
+    }
+    // Recompact once the roster resolves; opens and search-clears recompact too.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
+
   const handleToggle = (username: string) => {
-    pendingScrollTop.current = listRef.current?.scrollTop ?? null;
-    setToggleNonce((n) => n + 1);
+    if (query && !checkedUsers.has(username)) {
+      // Selecting from search leads the selected group; the list recompacts (drops
+      // unselected rows, refreshes defaults) once the search is cleared.
+      setOrder((prev) => [username, ...prev.filter((u) => u !== username)]);
+    }
+    // With no search active, an in-place toggle never moves or removes a row.
     onToggle(username);
   };
-  useLayoutEffect(() => {
-    if (pendingScrollTop.current !== null && listRef.current) {
-      listRef.current.scrollTop = pendingScrollTop.current;
-      pendingScrollTop.current = null;
+
+  // Recompact when a search is cleared (returning to the list view).
+  const handleSearch = (value: string) => {
+    if (search.trim() && !value.trim()) {
+      recompact();
     }
-  }, [toggleNonce]);
+    setSearch(value);
+  };
 
-  // Live partition so the "Selected" group only ever holds currently-checked
-  // reviewers. The searchable universe is the roster ∪ current selection (an
-  // existing member may not be in the assignable roster).
-  const view = useMemo(() => {
-    const all = [...new Set([...usernames, ...checkedUsers])];
-    if (query) {
-      return { head: all.filter((u) => u.toLowerCase().includes(query)), hasMore: false, selected: [] as string[] };
+  // At the cap, keep selected rows toggleable (so you can swap) but block adding more.
+  const atLimit = maxSelected !== undefined && checkedUsers.size >= maxSelected;
+  const renderItem = (username: string) => {
+    const checked = checkedUsers.has(username);
+    return (
+      <DialogComboboxOptionListCheckboxItem
+        key={username}
+        value={username}
+        checked={checked}
+        disabled={!checked && atLimit}
+        disabledReason={intl.formatMessage(
+          {
+            defaultMessage: 'You can assign up to {max} reviewers.',
+            description: 'Review queue: reviewer-cap reason on a disabled row',
+          },
+          { max: maxSelected },
+        )}
+        onChange={() => handleToggle(username)}
+      >
+        {username}
+      </DialogComboboxOptionListCheckboxItem>
+    );
+  };
+
+  // While searching, surface roster matches (plus any selected user, who may be
+  // off-roster) in a stable roster order so selecting one doesn't reorder the
+  // results. With no search, show the stable list.
+  const matches = useMemo(() => {
+    if (!query) {
+      return order;
     }
-    // Newest pick first: `checkedUsers` keeps insertion order, so reversing it
-    // surfaces the most-recently-added reviewer at the top of the group.
-    const selected = [...checkedUsers].reverse();
-    const unselected = all.filter((u) => !checkedUsers.has(u));
-    return {
-      head: unselected.slice(0, COLLAPSED_REVIEWER_COUNT),
-      hasMore: unselected.length > COLLAPSED_REVIEWER_COUNT,
-      selected,
-    };
-  }, [usernames, checkedUsers, query]);
+    const universe = [...new Set([...usernames, ...checkedUsers])];
+    return universe.filter((u) => u.toLowerCase().includes(query));
+  }, [order, usernames, checkedUsers, query]);
 
-  const renderItem = (username: string) => (
-    <DialogComboboxOptionListCheckboxItem
-      key={username}
-      value={username}
-      checked={checkedUsers.has(username)}
-      onChange={() => handleToggle(username)}
-    >
-      {username}
-    </DialogComboboxOptionListCheckboxItem>
-  );
-
-  const isEmpty = view.head.length === 0 && view.selected.length === 0;
+  // More roster reviewers exist than the defaults shown, reachable by search.
+  const hasMore = !query && usernames.some((u) => !order.includes(u));
+  const isEmpty = matches.length === 0;
 
   return (
     <DialogCombobox
@@ -119,6 +154,13 @@ export const ReviewerChecklistCombobox = ({
       })}
       multiSelect
       value={triggerValue}
+      onOpenChange={(open) => {
+        if (open) {
+          recompact();
+        } else {
+          setSearch('');
+        }
+      }}
     >
       <DialogComboboxTrigger
         allowClear={false}
@@ -129,11 +171,8 @@ export const ReviewerChecklistCombobox = ({
         })}
       />
       <DialogComboboxContent matchTriggerWidth style={{ zIndex: dropdownZIndex }}>
-        <DialogComboboxOptionList
-          ref={listRef}
-          css={{ maxHeight: LIST_MAX_HEIGHT, overflowY: 'auto', overflowX: 'hidden' }}
-        >
-          <DialogComboboxOptionListSearch controlledValue={search} setControlledValue={setSearch}>
+        <DialogComboboxOptionList css={{ maxHeight: LIST_MAX_HEIGHT, overflowY: 'auto', overflowX: 'hidden' }}>
+          <DialogComboboxOptionListSearch controlledValue={search} setControlledValue={handleSearch}>
             {isEmpty
               ? // Wrapped in an array (not a bare element): DialogComboboxOptionListSearch
                 // keys off `children.length`, and a single child reads as length-less,
@@ -146,6 +185,11 @@ export const ReviewerChecklistCombobox = ({
                         <FormattedMessage
                           defaultMessage="No matching reviewers"
                           description="Review queue: no reviewers match the search"
+                        />
+                      ) : isLoading ? (
+                        <FormattedMessage
+                          defaultMessage="Loading reviewers…"
+                          description="Review queue: reviewers roster loading"
                         />
                       ) : (
                         <FormattedMessage
@@ -161,8 +205,8 @@ export const ReviewerChecklistCombobox = ({
                 // fail to render. (Filtering itself is ours — with `controlledValue`
                 // set, the search skips its built-in child filter.)
                 [
-                  ...view.head.map(renderItem),
-                  ...(view.hasMore
+                  ...matches.map(renderItem),
+                  ...(hasMore
                     ? [
                         <DialogComboboxEmpty
                           key="__more"
@@ -173,17 +217,6 @@ export const ReviewerChecklistCombobox = ({
                             />
                           }
                         />,
-                      ]
-                    : []),
-                  ...(view.selected.length > 0
-                    ? [
-                        <DialogComboboxSectionHeader key="__selected-header">
-                          <FormattedMessage
-                            defaultMessage="Selected"
-                            description="Review queue: header above the currently-selected reviewers"
-                          />
-                        </DialogComboboxSectionHeader>,
-                        ...view.selected.map(renderItem),
                       ]
                     : []),
                 ]}

@@ -2423,10 +2423,6 @@
     "defaultMessage": "Apply filters",
     "description": "Usage overview > apply filters button"
   },
-  "AqE9CF": {
-    "defaultMessage": "Selected",
-    "description": "Review queue: header above the currently-selected reviewers"
-  },
   "AqmDon": {
     "defaultMessage": "No custom LLM-as-a-judge scorers found",
     "description": "Empty-state label when the experiment has no custom LLM-as-a-judge scorers"
@@ -3307,6 +3303,10 @@
     "defaultMessage": "Zoom Out",
     "description": "Button to reset chart zoom"
   },
+  "Fd6/Yb": {
+    "defaultMessage": "Loading reviewers…",
+    "description": "Review queue: reviewers roster loading"
+  },
   "FdDWTo": {
     "defaultMessage": "Clear All",
     "description": "String for the clear button to clear any selected parameters and metrics"
@@ -3886,6 +3886,10 @@
   "J2XCE/": {
     "defaultMessage": "Specify sequences that signal the model to stop generating text.",
     "description": "Experiment page > prompt lab > stop parameter help text"
+  },
+  "J2vYsa": {
+    "defaultMessage": "You can assign up to {max} reviewers.",
+    "description": "Review queue: reviewer-cap reason on a disabled row"
   },
   "J3NI3e": {
     "defaultMessage": "Assistant",
