@@ -1,6 +1,9 @@
 import json
 from unittest import mock
 
+import pytest
+
+from mlflow.exceptions import MlflowException
 from mlflow.protos import review_queues_pb2 as pb
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -217,3 +220,27 @@ def test_remove_items_endpoint():
     assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/items/remove"
     assert captured["body"]["queue_id"] == "rq-1"
     assert captured["body"]["item_ids"] == ["tr-1", "tr-2"]
+
+
+# Unknown enum strings are rejected with a clear MlflowException before the RPC,
+# rather than the bare ValueError a direct enum constructor would raise.
+
+
+def test_create_review_queue_rejects_unknown_queue_type():
+    with pytest.raises(MlflowException, match="`queue_type` must be one of"):
+        _store().create_review_queue("1", name="Q", queue_type="nonsense")
+
+
+def test_add_items_rejects_unknown_item_type():
+    with pytest.raises(MlflowException, match="`item_type` must be one of"):
+        _store().add_items_to_review_queue("rq-1", item_ids=["tr-1"], item_type="nonsense")
+
+
+def test_list_items_rejects_unknown_status():
+    with pytest.raises(MlflowException, match="`status` must be one of"):
+        _store().list_review_queue_items("rq-1", status="nonsense")
+
+
+def test_set_item_status_rejects_unknown_status():
+    with pytest.raises(MlflowException, match="`status` must be one of"):
+        _store().set_review_queue_item_status("rq-1", item_id="tr-1", status="nonsense")

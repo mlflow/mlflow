@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -258,29 +259,67 @@ def test_delete_review_queue_routes():
     assert response.status_code == 200
 
 
+def _trace_info(trace_id, experiment_id="1"):
+    # The add-items handler only reads .trace_id / .experiment_id off the
+    # batch_get_trace_infos result, so a lightweight stand-in suffices.
+    return SimpleNamespace(trace_id=trace_id, experiment_id=experiment_id)
+
+
+def _run_add_items(request_message, *, queue_experiment_id="1", trace_infos, add_return):
+    with (
+        mock.patch(f"{_BASE_PATCH}._get_tracking_store") as mock_store,
+        mock.patch(f"{_BASE_PATCH}._get_request_message", return_value=request_message),
+    ):
+        store = mock_store.return_value
+        store.get_review_queue.return_value = _queue_entity(experiment_id=queue_experiment_id)
+        store.batch_get_trace_infos.return_value = trace_infos
+        store.add_items_to_review_queue.return_value = add_return
+        return store, _add_items_to_review_queue()
+
+
 def test_add_items_defaults_item_type_to_trace():
     request_message = AddItemsToReviewQueue(queue_id="rq-1", item_ids=["tr-1", "tr-2"])
-    items = [_item_entity("tr-1"), _item_entity("tr-2")]
-    store, response = _run_handler(
-        _add_items_to_review_queue, request_message, "add_items_to_review_queue", items
+    store, response = _run_add_items(
+        request_message,
+        trace_infos=[_trace_info("tr-1"), _trace_info("tr-2")],
+        add_return=[_item_entity("tr-1"), _item_entity("tr-2")],
     )
     kwargs = store.add_items_to_review_queue.call_args[1]
     assert kwargs["item_ids"] == ["tr-1", "tr-2"]
     # Unset item_type is not forwarded; the store applies its TRACE default.
     assert "item_type" not in kwargs
+    # The existence check ran against exactly the requested ids.
+    store.batch_get_trace_infos.assert_called_once_with(["tr-1", "tr-2"])
     body = json.loads(response.get_data())
     assert [i["item_id"] for i in body["items"]] == ["tr-1", "tr-2"]
 
 
 def test_add_items_forwards_explicit_item_type():
     request_message = AddItemsToReviewQueue(queue_id="rq-1", item_type=TRACE, item_ids=["tr-1"])
-    store, _ = _run_handler(
-        _add_items_to_review_queue,
+    store, _ = _run_add_items(
         request_message,
-        "add_items_to_review_queue",
-        [_item_entity("tr-1")],
+        trace_infos=[_trace_info("tr-1")],
+        add_return=[_item_entity("tr-1")],
     )
     assert store.add_items_to_review_queue.call_args[1]["item_type"] == ReviewItemType.TRACE
+    store.batch_get_trace_infos.assert_called_once_with(["tr-1"])
+
+
+def test_add_items_rejects_traces_not_in_queue_experiment():
+    # tr-2 doesn't exist anywhere; tr-3 exists but in a different experiment.
+    request_message = AddItemsToReviewQueue(queue_id="rq-1", item_ids=["tr-1", "tr-2", "tr-3"])
+    store, response = _run_add_items(
+        request_message,
+        queue_experiment_id="1",
+        trace_infos=[_trace_info("tr-1", "1"), _trace_info("tr-3", "2")],
+        add_return=[],
+    )
+    assert response.status_code == 404
+    body = json.loads(response.get_data())
+    assert body["error_code"] == "RESOURCE_DOES_NOT_EXIST"
+    assert "tr-2" in body["message"]
+    assert "tr-3" in body["message"]
+    store.add_items_to_review_queue.assert_not_called()
 
 
 def test_remove_items_routes():

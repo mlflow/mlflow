@@ -8319,14 +8319,20 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def _review_queue_query(self, session):
         return self._get_query(session, SqlReviewQueue)
 
-    def _get_sql_review_queue(self, session, queue_id):
-        """Fetch the workspace-scoped queue row or raise RESOURCE_DOES_NOT_EXIST."""
-        sql_queue = (
-            self
-            ._review_queue_query(session)
-            .filter(SqlReviewQueue.queue_id == queue_id)
-            .one_or_none()
-        )
+    def _get_sql_review_queue(self, session, queue_id, *, for_update=False):
+        """Fetch the workspace-scoped queue row or raise RESOURCE_DOES_NOT_EXIST.
+
+        Pass ``for_update=True`` from mutating paths (attaching items, editing
+        questions) to lock the queue row for the rest of the transaction. The
+        question-freeze check reads the item count and then swaps the schema set;
+        without the lock a concurrent attach could slip an item in between, leaving
+        reviewers answering questions that were swapped out from under them. Taking
+        the row lock serializes the editing and attaching paths against each other.
+        """
+        query = self._review_queue_query(session).filter(SqlReviewQueue.queue_id == queue_id)
+        if for_update:
+            query = query.with_for_update()
+        sql_queue = query.one_or_none()
         if sql_queue is None:
             raise MlflowException(
                 f"Review queue with id '{queue_id}' not found.",
@@ -8583,7 +8589,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         from mlflow.genai.review_queues.validation import normalize_schema_ids, normalize_users
 
         with self.ManagedSessionMaker(read_only=False) as session:
-            sql_queue = self._get_sql_review_queue(session, queue_id)
+            sql_queue = self._get_sql_review_queue(session, queue_id, for_update=True)
             if ReviewQueueType(sql_queue.queue_type) == ReviewQueueType.USER:
                 raise MlflowException(
                     "A user queue's assigned user and schemas are fixed and cannot be updated.",
@@ -8671,7 +8677,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         normalized_item_ids = validate_item_ids_for_attach(item_ids)
 
         with self.ManagedSessionMaker(read_only=False) as session:
-            sql_queue = self._get_sql_review_queue(session, queue_id)
+            sql_queue = self._get_sql_review_queue(session, queue_id, for_update=True)
 
             existing_item_ids = {
                 row.item_id

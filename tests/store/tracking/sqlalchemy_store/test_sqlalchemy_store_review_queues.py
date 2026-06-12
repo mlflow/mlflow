@@ -1,4 +1,5 @@
 import time
+from unittest import mock
 
 import pytest
 
@@ -430,6 +431,36 @@ def test_update_questions_allowed_after_traces_detached(store):
     # With the queue empty again, questions can be edited.
     updated = store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id, ls2.schema_id])
     assert sorted(updated.schema_ids) == sorted([ls1.schema_id, ls2.schema_id])
+
+
+def test_update_questions_locks_queue_row_for_update(store):
+    # The freeze check reads the item count then swaps the schema set; it must hold
+    # a row lock so a concurrent attach can't slip an item in between.
+    exp_id = _create_experiments(store, "update_row_lock")
+    ls = _pass_fail(store, exp_id, "quality")
+    queue = store.create_review_queue(
+        exp_id, name="q", queue_type="custom", schema_ids=[ls.schema_id]
+    )
+    original = type(store)._get_sql_review_queue
+    with mock.patch.object(
+        type(store), "_get_sql_review_queue", autospec=True, side_effect=original
+    ) as spy:
+        store.update_review_queue(queue.queue_id, schema_ids=[ls.schema_id])
+    assert spy.call_args.kwargs["for_update"] is True
+
+
+def test_add_items_locks_queue_row_for_update(store):
+    exp_id = _create_experiments(store, "add_row_lock")
+    ls = _pass_fail(store, exp_id, "quality")
+    queue = store.create_review_queue(
+        exp_id, name="q", queue_type="custom", schema_ids=[ls.schema_id]
+    )
+    original = type(store)._get_sql_review_queue
+    with mock.patch.object(
+        type(store), "_get_sql_review_queue", autospec=True, side_effect=original
+    ) as spy:
+        store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1"])
+    assert spy.call_args.kwargs["for_update"] is True
 
 
 def test_get_or_create_user_queue_owner_is_the_user(store):
