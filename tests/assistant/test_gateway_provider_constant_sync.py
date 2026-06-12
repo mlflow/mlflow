@@ -13,7 +13,9 @@ from mlflow.assistant.providers import GATEWAY_PROVIDER_NAME
 _CONSTANTS_TS = (
     Path(mlflow.__file__).parent / "server" / "js" / "src" / "assistant" / "constants.ts"
 )
-_GATEWAY_PROVIDER_ID_PATTERN = re.compile(r"""GATEWAY_PROVIDER_ID\s*=\s*['"]([^'"]+)['"]""")
+_GATEWAY_PROVIDER_ID_PATTERN = re.compile(
+    r"""export\s+const\s+GATEWAY_PROVIDER_ID\s*=\s*['"]([^'"]+)['"]"""
+)
 
 
 def test_gateway_provider_id_matches_frontend_constant():
