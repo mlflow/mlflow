@@ -63,6 +63,10 @@
     "defaultMessage": "Rename Run",
     "description": "Modal title to rename the experiment run name"
   },
+  "+EsyrU": {
+    "defaultMessage": "Python",
+    "description": "Tab label for the runnable Python code-snippet path in the eval-runs empty state"
+  },
   "+HgSTK": {
     "defaultMessage": "Use these code examples to call your endpoint. Choose between unified APIs for seamless model switching or passthrough APIs for provider-specific features.",
     "description": "Endpoint usage modal description"
@@ -182,6 +186,10 @@
   "+yb3Nl": {
     "defaultMessage": "Expand graph",
     "description": "Tooltip for the button that expands the graph view"
+  },
+  "+yyAGO": {
+    "defaultMessage": "Get help registering a prompt",
+    "description": "Headline for the agent CTA card on the prompts list empty state"
   },
   "//EoiB": {
     "defaultMessage": "Search records by inputs or expectations",
@@ -655,6 +663,10 @@
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label for the number of traces selected"
   },
+  "1OQt7+": {
+    "defaultMessage": "Evaluate traces",
+    "description": "Title for the run evaluation modal dialog"
+  },
   "1RAM3C": {
     "defaultMessage": "Failed to delete some API keys. Please try again.",
     "description": "Gateway > Bulk delete API keys modal > Error message"
@@ -1067,6 +1079,10 @@
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search models"
   },
+  "3c3l9v": {
+    "defaultMessage": "Assign to reviewers",
+    "description": "Button text for assigning a trace to reviewers via a review queue"
+  },
   "3cn8ue": {
     "defaultMessage": "Sending...",
     "description": "Send request button loading state"
@@ -1086,6 +1102,10 @@
   "3h/dM6": {
     "defaultMessage": "Set up MLflow AI Gateway",
     "description": "AI Gateway setup guide > Main title"
+  },
+  "3hpe6y": {
+    "defaultMessage": "Watch a short clip of what tracing looks like",
+    "description": "Sublabel on the click-to-play video preview in the traces empty state"
   },
   "3n8Eue": {
     "defaultMessage": "Enter a model name not listed above. Capabilities may not be detected.",
@@ -1259,6 +1279,10 @@
     "defaultMessage": "View trace",
     "description": "Link text for navigating to the corresponding judge trace"
   },
+  "4aEfUy": {
+    "defaultMessage": "Run this in your terminal to install MLflow skills into your project and launch your coding agent (Claude Code, Codex, or OpenCode) with instructions to instrument your app.",
+    "description": "Description above the mlflow agent setup terminal command in the agent action card"
+  },
   "4aoazH": {
     "defaultMessage": "Close",
     "description": "Close button for tag details modal"
@@ -1319,6 +1343,10 @@
     "defaultMessage": "Unique identifier for the trace",
     "description": "Tooltip description for the Trace ID column in the traces table"
   },
+  "4zJtO4": {
+    "defaultMessage": "Copy for coding agent",
+    "description": "Tab label for the copy-prompt-to-coding-agent path in the agent action card"
+  },
   "502XWr": {
     "defaultMessage": "Search inputs, expectations…",
     "description": "Placeholder for the search input on the V2 dataset records page"
@@ -1346,6 +1374,10 @@
   "58xhem": {
     "defaultMessage": "Click to pin the run",
     "description": "A tooltip for the pin icon button in the runs chart tooltip next to the not pinned run"
+  },
+  "5AiU0Q": {
+    "defaultMessage": "Create your first prompt",
+    "description": "Title for the empty state on the prompts list page"
   },
   "5B5dhT": {
     "defaultMessage": "Validate the model before deployment",
@@ -1695,10 +1727,6 @@
     "defaultMessage": "A unique name to identify this API key for reuse across endpoints",
     "description": "Hint text explaining API key name field"
   },
-  "7BkVQ9": {
-    "defaultMessage": "Run the following code to start an evaluation.",
-    "description": "Instructions for running the evaluation code in OSS"
-  },
   "7Dhfxy": {
     "defaultMessage": "Fail",
     "description": "The label for a failing asseessment above a bar-chart in the summary stats."
@@ -1802,6 +1830,10 @@
   "7hHw+R": {
     "defaultMessage": "Instructions",
     "description": "Section header for judge instructions"
+  },
+  "7hf/6q": {
+    "defaultMessage": "Or create a prompt manually",
+    "description": "CTA on the prompts empty state to create a prompt as an alternative to the agent path"
   },
   "7jsqqe": {
     "defaultMessage": "{timeSince, plural, =1 {1 minute} other {# minutes}} ago",
@@ -2207,6 +2239,10 @@
     "defaultMessage": "Show change from baseline",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Show change from baseline toggle"
   },
+  "9gQk+t": {
+    "defaultMessage": "Manage and version prompts using MLflow's Prompt Registry. <link>Learn more</link>",
+    "description": "Subtitle for the empty state on the prompts list page"
+  },
   "9icYIV": {
     "defaultMessage": "Select Categories",
     "description": "Header for the category selection step in issue detection modal"
@@ -2582,6 +2618,10 @@
   "BUJfbQ": {
     "defaultMessage": "Inputs",
     "description": "Header for the dataset record inputs column"
+  },
+  "BUdrAE": {
+    "defaultMessage": "One-line setup",
+    "description": "Tab label for the mlflow agent setup CLI path in the agent action card"
   },
   "BWH8UR": {
     "defaultMessage": "API key name:",
@@ -3258,6 +3298,10 @@
   "FHJ1NN": {
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
+  },
+  "FKnUSV": {
+    "defaultMessage": "Open assistant",
+    "description": "Canonical button label for opening the MLflow assistant from an agent action card"
   },
   "FMi127": {
     "defaultMessage": "No datasets match \"{query}\"",
@@ -4803,6 +4847,10 @@
     "defaultMessage": "For local development, MLflow uses a default passphrase. For production deployments, server administrators must set a secure encryption passphrase on the tracking server before starting it:",
     "description": "AI Gateway setup guide > Step 3 description"
   },
+  "O+djDa": {
+    "defaultMessage": "Copy this snippet into your project, set your API key, and run it.",
+    "description": "Description above the runnable code snippet in the agent action card"
+  },
   "O+hq1Q": {
     "defaultMessage": "Create Workspace",
     "description": "Title for create workspace modal"
@@ -4874,10 +4922,6 @@
   "ONIiUE": {
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
-  },
-  "ONnuab": {
-    "defaultMessage": "View code snippet",
-    "description": "Label for a button that opens a modal containing a runnable evaluation code snippet"
   },
   "OQOckC": {
     "defaultMessage": "Review queues let your team evaluate trace quality with structured questions. Add traces to a queue from the Traces tab, or create a new queue to get started.",
@@ -5206,10 +5250,6 @@
   "Q6oN2U": {
     "defaultMessage": "Chart view",
     "description": "Experiment page > control bar > chart view toggle button tooltip"
-  },
-  "Q7/S7b": {
-    "defaultMessage": "Create and manage prompts using MLflow. <link>Learn more</link>",
-    "description": "Guidelines for the user on how to create a new prompt in the prompts list page"
   },
   "Q73eXs": {
     "defaultMessage": "No params",
@@ -5651,9 +5691,17 @@
     "defaultMessage": "Select a workspace to start experiments",
     "description": "Home page workspaces section subtitle"
   },
+  "SSxRdM": {
+    "defaultMessage": "Opens the MLflow assistant in this browser and starts the conversation.",
+    "description": "Description above the MLflow assistant button in the agent action card"
+  },
   "STEhnv": {
     "defaultMessage": "Description",
     "description": "Header for the description column in the experiments table"
+  },
+  "SUtPqy": {
+    "defaultMessage": "Choose any of the following options to set up tracing",
+    "description": "Headline for the agent CTA card in the traces empty state"
   },
   "SVNXvf": {
     "defaultMessage": "Create LLM judge",
@@ -6086,10 +6134,6 @@
   "UpVskF": {
     "defaultMessage": "Expectations",
     "description": "Header for the dataset record expectations column"
-  },
-  "Uq6/bl": {
-    "defaultMessage": "Create prompt",
-    "description": "A header for the empty state in the prompts table"
   },
   "UqGOOx": {
     "defaultMessage": "No API keys created",
@@ -6587,6 +6631,10 @@
     "defaultMessage": "Scheduled",
     "description": "Run page > Overview > Run status cell > Value for scheduled state"
   },
+  "XB7wGu": {
+    "defaultMessage": "Manual setup",
+    "description": "Tab label for the step-by-step manual instrumentation path in the traces empty state"
+  },
   "XBPcbA": {
     "defaultMessage": "Show less",
     "description": "Button text to show less description text for the entity"
@@ -6975,6 +7023,10 @@
     "defaultMessage": "Perform inference via model.transform()",
     "description": "Code comment which states how we can perform SparkML inference"
   },
+  "ZGtIEV": {
+    "defaultMessage": "Minimize tracing demo",
+    "description": "Accessible label for the button that collapses the expanded tracing demo video"
+  },
   "ZKtBkW": {
     "defaultMessage": "Edit the request body below and click Send request to call the provider API.",
     "description": "Try it description for passthrough"
@@ -6982,6 +7034,10 @@
   "ZMPAq5": {
     "defaultMessage": "Edit experiment",
     "description": "Text for edit experiment button on experiment view page header"
+  },
+  "ZMaqXx": {
+    "defaultMessage": "Or use coding agents/code snippets",
+    "description": "Divider label separating the primary UI evaluation flow from the code-based alternatives"
   },
   "ZNYFUr": {
     "defaultMessage": "Adheres to guidelines",
@@ -7190,6 +7246,10 @@
   "aJoAu+": {
     "defaultMessage": "Add record",
     "description": "Primary button text for adding a new dataset record from the empty state"
+  },
+  "aKW54p": {
+    "defaultMessage": "See it in action",
+    "description": "Label on the click-to-play video preview in the traces empty state"
   },
   "aLRRam": {
     "defaultMessage": "Prompts",
@@ -7647,10 +7707,6 @@
     "defaultMessage": "Delete dataset",
     "description": "Delete evaluation dataset menu item"
   },
-  "cMa3hp": {
-    "defaultMessage": "Run evaluation",
-    "description": "Label for a button that displays instructions for starting a new evaluation run"
-  },
   "cNkqxA": {
     "defaultMessage": "API key",
     "description": "Label for API key selector"
@@ -8107,6 +8163,10 @@
     "defaultMessage": "Model version alias created",
     "description": "Webhook event label"
   },
+  "emRsOU": {
+    "defaultMessage": "Copy this prompt and paste into Claude Code, Codex, Cursor, or any coding agent already running in your project.",
+    "description": "Description above the copy-prompt block in the agent action card"
+  },
   "embiKN": {
     "defaultMessage": "JSON body sent to the endpoint. Edit the fields and click Send request.",
     "description": "Request body tooltip in starter code try-it modal"
@@ -8423,6 +8483,10 @@
     "defaultMessage": "<strong>{length}</strong> matching {length, plural, =0 {runs} =1 {run} other {runs}}",
     "description": "Message for displaying how many runs match search criteria on experiment page"
   },
+  "gMX8Zp": {
+    "defaultMessage": "MLflow assistant",
+    "description": "Tab label for the in-UI MLflow assistant path in the agent action card"
+  },
   "gOH/XL": {
     "defaultMessage": "No additional metadata is available for this dataset.",
     "description": "Body shown in the V2 evaluation dataset metadata modal when digest/schema/profile are all empty"
@@ -8643,10 +8707,6 @@
     "defaultMessage": "Fallback Model {order}",
     "description": "Label for fallback model"
   },
-  "hDSawl": {
-    "defaultMessage": "Run evaluation",
-    "description": "Title for the run evaluation modal dialog"
-  },
   "hHNj31": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text"
@@ -8730,6 +8790,10 @@
   "hcDB9U": {
     "defaultMessage": "+∞",
     "description": "Label displaying positive infinity symbol displayed on a plot UI element"
+  },
+  "he7/4n": {
+    "defaultMessage": "Pick your language and follow the steps.",
+    "description": "Description above the manual setup steps in the traces empty state"
   },
   "hg+bcy": {
     "defaultMessage": "Enable telemetry",
@@ -9123,10 +9187,6 @@
     "defaultMessage": "AI Gateway",
     "description": "Home page quick action title for AI Gateway"
   },
-  "jTQyFj": {
-    "defaultMessage": "Create prompt",
-    "description": "Prompts empty state CTA"
-  },
   "jTqRO+": {
     "defaultMessage": "None",
     "description": "A short label for experiments with no automatically inferred experiment type"
@@ -9307,6 +9367,10 @@
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search runs from the experiments table"
   },
+  "kMCvRi": {
+    "defaultMessage": "Evaluate traces",
+    "description": "Label for the primary button that opens the run-evaluation modal"
+  },
   "kNTkr+": {
     "defaultMessage": "Discard",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
@@ -9362,10 +9426,6 @@
   "kdTxC2": {
     "defaultMessage": "Disable run grouping in order to access the evaluation view",
     "description": "Experiment page > artifact compare view > disabled due to run grouping > description"
-  },
-  "kdvMSk": {
-    "defaultMessage": "Add to review queue",
-    "description": "Add traces to review queue action"
   },
   "keSIQ4": {
     "defaultMessage": "null",
@@ -10183,10 +10243,6 @@
     "defaultMessage": "Model",
     "description": "Section title for model configuration"
   },
-  "oooj//": {
-    "defaultMessage": "Select your development language",
-    "description": "Language selector heading for traces onboarding"
-  },
   "opUoF8": {
     "defaultMessage": "Retrieval relevance",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval relevance assessment. Used to indicate if the result is relevant to source data chunk in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval relevance: moderate\""
@@ -10519,10 +10575,6 @@
     "defaultMessage": "Add tag",
     "description": "Aria label for the add-tag button in the V2 dataset records table"
   },
-  "qanCf5": {
-    "defaultMessage": "Evaluation code snippet",
-    "description": "Title for the evaluation code snippet modal dialog"
-  },
   "qbtNJS": {
     "defaultMessage": "Block",
     "description": "Block action title"
@@ -10542,10 +10594,6 @@
   "qkRBUr": {
     "defaultMessage": "Line smoothing",
     "description": "Runs charts > line chart > configuration > label for line smoothing slider control. The control allows changing data trace line smoothness from 1 to 100, where 1 is the original data trace and 100 is the smoothest trace. Line smoothing helps eliminate noise in the data."
-  },
-  "qkt1r9": {
-    "defaultMessage": "Add to review queue",
-    "description": "Button text for adding a trace to a review queue"
   },
   "qmTNy1": {
     "defaultMessage": "Failed to delete sessions. Error: {error}",
@@ -11194,6 +11242,10 @@
   "tv0qk9": {
     "defaultMessage": "Native MLflow API for model invocations. Supports seamless model switching and advanced routing.",
     "description": "MLflow invocations API description"
+  },
+  "twsZUF": {
+    "defaultMessage": "Assign to reviewers",
+    "description": "Assign traces to reviewers via a review queue action"
   },
   "tx3aAM": {
     "defaultMessage": "Add tag",

@@ -5,6 +5,7 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
+  FlagPointerIcon,
   PlusIcon,
   Notification,
   Tooltip,
@@ -145,10 +146,10 @@ export const ModelTraceExplorerDrawer = ({
                 selectedTraceInfos: traceInfo ? [traceInfo] : [],
                 experimentId: experimentId ?? '',
                 children: (
-                  <Button componentId="mlflow.evaluations_review.modal.flag_for_review" icon={<PlusIcon />}>
+                  <Button componentId="mlflow.evaluations_review.modal.flag_for_review" icon={<FlagPointerIcon />}>
                     <FormattedMessage
-                      defaultMessage="Add to review queue"
-                      description="Button text for adding a trace to a review queue"
+                      defaultMessage="Assign to reviewers"
+                      description="Button text for assigning a trace to reviewers via a review queue"
                     />
                   </Button>
                 ),
