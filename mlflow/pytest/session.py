@@ -1,8 +1,7 @@
 """Session state for the ``@mlflow.test`` pytest plugin.
 
-Manages the single test run per pytest session and tracks which
-test is currently executing (for trace tagging). No ``pytest`` import so it
-can be used from notebooks/scripts too.
+Tracks the single test run per pytest session and which test is currently
+executing (for trace tagging).
 """
 
 from __future__ import annotations
@@ -28,7 +27,7 @@ _run_id: str | None = None
 _run_owned: bool = False
 _any_test_failed: bool = False
 _num_tests: int = 0
-_total_test_ms: int = 0
+_total_duration_ms: int = 0
 
 _current = threading.local()
 
@@ -42,7 +41,7 @@ def current_test() -> tuple[str | None, str | None]:
 
 
 def reset(session_id: str | None = None) -> None:
-    global _session_id, _run_id, _run_owned, _any_test_failed, _num_tests, _total_test_ms
+    global _session_id, _run_id, _run_owned, _any_test_failed, _num_tests, _total_duration_ms
     if not session_id:
         stamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
         session_id = f"{stamp}-{uuid.uuid4().hex[:6]}"
@@ -52,7 +51,7 @@ def reset(session_id: str | None = None) -> None:
         _run_owned = False
         _any_test_failed = False
         _num_tests = 0
-        _total_test_ms = 0
+        _total_duration_ms = 0
 
 
 def session_id() -> str:
@@ -67,10 +66,10 @@ def run_id() -> str | None:
 
 def record_test(*, failed: bool, duration_ms: int) -> None:
     """Record the outcome and duration of one ``@mlflow.test``-marked test."""
-    global _any_test_failed, _num_tests, _total_test_ms
+    global _any_test_failed, _num_tests, _total_duration_ms
     with _lock:
         _num_tests += 1
-        _total_test_ms += duration_ms
+        _total_duration_ms += duration_ms
         if failed:
             _any_test_failed = True
 
@@ -79,8 +78,8 @@ def num_tests() -> int:
     return _num_tests
 
 
-def total_test_ms() -> int:
-    return _total_test_ms
+def total_duration_ms() -> int:
+    return _total_duration_ms
 
 
 def ensure_run() -> str | None:
@@ -132,12 +131,11 @@ def finalize() -> None:
             return
         run_id_ = _run_id
         run_owned = _run_owned
-        failed = _any_test_failed
         _run_id = None
         _run_owned = False
 
     if run_owned:
-        status = "FAILED" if failed else "FINISHED"
+        status = "FAILED" if _any_test_failed else "FINISHED"
         try:
             mlflow.end_run(status=status)
         except Exception as e:

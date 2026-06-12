@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import textwrap
 from pathlib import Path
 
 from mlflow.pytest import session as _session
@@ -73,7 +72,7 @@ def _test_runs(tracking_uri: str):
 
 def test_pytest_run_creates_single_mlflow_run(tmp_path: Path):
     test_file = tmp_path / "test_generated.py"
-    test_file.write_text(textwrap.dedent(_GENERATED_TEST))
+    test_file.write_text(_GENERATED_TEST)
 
     result, tracking_uri = _run_pytest(tmp_path, test_file.name)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -94,3 +93,115 @@ def test_unmarked_pytest_run_creates_no_test_run(tmp_path: Path):
 
     # No @mlflow.test marker -> the plugin never opens a run.
     assert _test_runs(tracking_uri) == []
+
+
+# ---------------------------------------------------------------------------
+# Run status reflects only @mlflow.test outcomes.
+# ---------------------------------------------------------------------------
+
+_MARKED_FAILS = """
+import mlflow
+from mlflow.genai.scorers import scorer
+
+
+@scorer
+def always_pass(*, outputs):
+    return True
+
+
+@mlflow.test
+def test_marked_fails():
+    mlflow.genai.evaluate(
+        data=[{"inputs": {"text": "hi"}, "outputs": "hi"}],
+        scorers=[always_pass],
+    )
+    assert False
+"""
+
+_ONLY_UNMARKED_FAILS = """
+import mlflow
+from mlflow.genai.scorers import scorer
+
+
+@scorer
+def always_pass(*, outputs):
+    return True
+
+
+@mlflow.test
+def test_marked_passes():
+    mlflow.genai.evaluate(
+        data=[{"inputs": {"text": "hi"}, "outputs": "hi"}],
+        scorers=[always_pass],
+    )
+
+
+def test_unmarked_fails():
+    assert False
+"""
+
+
+def test_run_marked_failed_when_a_marked_test_fails(tmp_path: Path):
+    test_file = tmp_path / "test_marked_fails.py"
+    test_file.write_text(_MARKED_FAILS)
+
+    result, tracking_uri = _run_pytest(tmp_path, test_file.name)
+    assert result.returncode != 0
+
+    test_runs = _test_runs(tracking_uri)
+    assert len(test_runs) == 1
+    assert test_runs[0].info.status == "FAILED"
+
+
+def test_run_finished_when_only_unmarked_test_fails(tmp_path: Path):
+    test_file = tmp_path / "test_only_unmarked_fails.py"
+    test_file.write_text(_ONLY_UNMARKED_FAILS)
+
+    result, tracking_uri = _run_pytest(tmp_path, test_file.name)
+    assert result.returncode != 0  # the unmarked test failed
+
+    # Run status reflects only @mlflow.test outcomes -> the marked test passed.
+    test_runs = _test_runs(tracking_uri)
+    assert len(test_runs) == 1
+    assert test_runs[0].info.status == "FINISHED"
+
+
+# ---------------------------------------------------------------------------
+# Parametrized marked test: case_id comes from pytest's callspec id, even when
+# the param value contains brackets.
+# ---------------------------------------------------------------------------
+
+_PARAMETRIZED = """
+import mlflow
+import pytest
+from mlflow.pytest import session
+from mlflow.genai.scorers import scorer
+
+
+@scorer
+def always_pass(*, outputs):
+    return True
+
+
+@pytest.mark.parametrize("value", ["a", "[", "]"])
+@mlflow.test
+def test_param(value):
+    name, case_id = session.current_test()
+    assert name == "test_param"
+    assert case_id == value
+    mlflow.genai.evaluate(
+        data=[{"inputs": {"text": value}, "outputs": value}],
+        scorers=[always_pass],
+    )
+"""
+
+
+def test_parametrized_marked_test_captures_case_id(tmp_path: Path):
+    test_file = tmp_path / "test_param.py"
+    test_file.write_text(_PARAMETRIZED)
+
+    result, tracking_uri = _run_pytest(tmp_path, test_file.name)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    # All three cases share the one session run.
+    assert len(_test_runs(tracking_uri)) == 1

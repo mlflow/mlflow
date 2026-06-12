@@ -13,7 +13,6 @@ What it does:
 from __future__ import annotations
 
 import logging
-import re
 import time
 
 import pytest
@@ -27,9 +26,11 @@ from mlflow.telemetry.track import _record_event
 _logger = logging.getLogger(__name__)
 
 
-def _case_id_from_item_name(item_name: str) -> str | None:
-    m = re.search(r"\[(.+)\]$", item_name)
-    return m.group(1) if m else None
+def _case_id(item: pytest.Item) -> str | None:
+    # callspec.id is the parametrize id pytest itself assigns; parsing it out of
+    # item.name with a regex breaks when a param value contains "[" or "]".
+    callspec = getattr(item, "callspec", None)
+    return callspec.id if callspec is not None else None
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
@@ -45,7 +46,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
         _record_event(
             MlflowTestEvent,
             {"num_tests": _session.num_tests()},
-            duration_ms=_session.total_test_ms(),
+            duration_ms=_session.total_duration_ms(),
         )
     _session.finalize()
 
@@ -64,7 +65,7 @@ def pytest_runtest_call(item: pytest.Item):
         return
 
     test_name = item.function.__name__
-    case_id = _case_id_from_item_name(item.name)
+    case_id = _case_id(item)
 
     _session.set_current_test(test_name, case_id)
     _session.ensure_run()
