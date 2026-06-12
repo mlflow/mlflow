@@ -64,25 +64,21 @@ jest.mock('./hooks/useGetOrCreateUserQueueMutation', () => ({
 jest.mock('./hooks/useAssignableUsersQuery', () => ({
   useAssignableUsersQuery: () => ({ users: [], isLoading: false }),
 }));
-// One assignable CUSTOM queue (its schema_id resolves against the experiment
-// schema below), so tests can route to it alongside the no-auth default queue.
+// The experiment's queues (the unfiltered call). One assignable CUSTOM queue
+// (its schema_id resolves against the experiment schema below), so tests can
+// route to it alongside the no-auth default queue.
+let mockListQueues: any[] = [
+  { queue_id: 'rq-custom', queue_type: 'CUSTOM', name: 'Relevance', created_by: 'default', schema_ids: ['s1'] },
+];
 // Queues the single selected trace is already a member of (the `itemId`-scoped
-// call). Default: none. Tests override to exercise the membership pre-check.
+// call). Default: none. Tests override to exercise the membership behavior.
 let mockMemberQueues: any[] = [];
 jest.mock('./hooks/useListReviewQueuesQuery', () => ({
   useListReviewQueuesQuery: ({ itemId }: { itemId?: string }) =>
     itemId
       ? { reviewQueues: mockMemberQueues, isLoading: false, error: null }
       : {
-          reviewQueues: [
-            {
-              queue_id: 'rq-custom',
-              queue_type: 'CUSTOM',
-              name: 'Relevance',
-              created_by: 'default',
-              schema_ids: ['s1'],
-            },
-          ],
+          reviewQueues: mockListQueues,
           isLoading: false,
           error: null,
         },
@@ -117,6 +113,9 @@ describe('AddToReviewQueueDropdown', () => {
     mockReviewerResolved = true;
     mockCanEdit = true;
     mockMemberQueues = [];
+    mockListQueues = [
+      { queue_id: 'rq-custom', queue_type: 'CUSTOM', name: 'Relevance', created_by: 'default', schema_ids: ['s1'] },
+    ];
     mockAddItems.mockReset();
     mockAddItems.mockResolvedValue({});
     mockRemoveItems.mockReset();
@@ -222,19 +221,41 @@ describe('AddToReviewQueueDropdown', () => {
     expect(screen.queryByText('New queue')).toBeNull();
   });
 
-  it('shows the queues a single trace is already in as checked but locked', async () => {
-    // The trace already belongs to the custom queue, so its option is rendered
-    // checked and disabled — neither selectable nor unselectable here. Its
-    // accessible name carries the disabled reason, hence the regex match.
+  it('lets a permitted reviewer uncheck a queue the trace is in to remove it', async () => {
+    // reviewer 'default' owns rq-custom, so they may remove from it: the seeded
+    // membership renders checked + enabled, and unchecking removes the trace.
     mockMemberQueues = [
       { queue_id: 'rq-custom', queue_type: 'CUSTOM', name: 'Relevance', created_by: 'default', schema_ids: ['s1'] },
     ];
     renderDropdown({ open: true });
 
+    const option = await screen.findByRole('checkbox', { name: 'Relevance' });
+    await waitFor(() => expect(option).toBeChecked());
+    expect(option).not.toBeDisabled();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Relevance' }));
+    await waitFor(() => expect(mockRemoveItems).toHaveBeenCalledWith({ queue_id: 'rq-custom', item_ids: ['tr-1'] }));
+    expect(mockAddItems).not.toHaveBeenCalled();
+  });
+
+  it('locks a queue the trace is in when the reviewer cannot remove from it', async () => {
+    // The queue is owned by someone else and the reviewer is not a manager, so
+    // they can't remove from it: it renders checked but disabled (locked). Its
+    // accessible name carries the disabled reason, hence the regex match.
+    const queue = {
+      queue_id: 'rq-custom',
+      queue_type: 'CUSTOM',
+      name: 'Relevance',
+      created_by: 'someone-else',
+      schema_ids: ['s1'],
+    };
+    mockListQueues = [queue];
+    mockMemberQueues = [queue];
+    renderDropdown({ open: true });
+
     const option = await screen.findByRole('checkbox', { name: /Relevance/ });
     expect(option).toBeChecked();
     expect(option).toBeDisabled();
-    // It's a read-only indicator, not an add.
-    expect(mockAddItems).not.toHaveBeenCalled();
+    expect(mockRemoveItems).not.toHaveBeenCalled();
   });
 });

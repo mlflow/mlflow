@@ -11107,6 +11107,10 @@
     "defaultMessage": "Select one or more sessions to perform actions.",
     "description": "Tooltip shown when actions button is disabled due to no session selection"
   },
+  "tUEIfz": {
+    "defaultMessage": "This trace is already in this queue, and you don't have permission to remove it.",
+    "description": "Add to review queue: queue option locked because the trace is a member and the reviewer cannot remove it"
+  },
   "ta42Qe": {
     "defaultMessage": "Active",
     "description": "Webhook status field label"
@@ -11218,10 +11222,6 @@
   "uHzRht": {
     "defaultMessage": "Total aggregate scores",
     "description": "Label for assessment score distribution chart"
-  },
-  "uI8dVP": {
-    "defaultMessage": "This trace is already in this queue.",
-    "description": "Add to review queue: queue option locked because the trace is already a member"
   },
   "uIY1qq": {
     "defaultMessage": "Learn More",

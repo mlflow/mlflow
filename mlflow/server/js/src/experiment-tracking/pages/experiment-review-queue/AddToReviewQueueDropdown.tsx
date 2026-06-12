@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Alert,
@@ -19,13 +19,13 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import { useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useIsAuthAvailable } from '../../../account/hooks';
-import { useCanEditReviews } from './hooks/useCanManageReviews';
+import { useCanEditReviews, useCanManageReviews } from './hooks/useCanManageReviews';
 import Utils from '../../../common/utils/Utils';
 import { generatePath, Link } from '../../../common/utils/RoutingUtils';
 import { RoutePaths } from '../../routes';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { getQueueAssignability } from './queueAssignability';
-import { sameUser } from './queuePermissions';
+import { canRemoveQueueItems, sameUser } from './queuePermissions';
 import { useAddItemsToReviewQueueMutation } from './hooks/useAddItemsToReviewQueueMutation';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
@@ -88,6 +88,7 @@ export const AddToReviewQueueDropdown = ({
   // queue) is an EDIT capability. We fetch the user roster for the per-user queue
   // picker whenever an editor opens the dropdown.
   const canEdit = useCanEditReviews(experimentId);
+  const canManage = useCanManageReviews(experimentId);
   const canListUsers = authAvailable && canEdit;
 
   // -- open state (controlled or uncontrolled) --
@@ -134,12 +135,13 @@ export const AddToReviewQueueDropdown = ({
     [selectedTraceInfos],
   );
 
-  // For a single trace, surface the queues it is already a member of as checked
-  // but locked: this dropdown adds traces, it doesn't edit existing membership,
-  // so a member queue is neither selectable nor unselectable here. A bulk
+  // For a single trace, reflect the queues it is already a member of. The
+  // checked set is seeded from those memberships on open so a queue the reviewer
+  // is allowed to remove from can be unchecked through the normal toggle path;
+  // a queue they can't remove from is rendered checked-but-locked below. A bulk
   // selection has no single membership set, so this is skipped.
   const singleItemId = itemIds.length === 1 ? itemIds[0] : undefined;
-  const { reviewQueues: memberQueues } = useListReviewQueuesQuery({
+  const { reviewQueues: memberQueues, isLoading: membersLoading } = useListReviewQueuesQuery({
     experimentId,
     itemId: singleItemId,
     enabled: (isOpen || createOpen) && Boolean(singleItemId),
@@ -148,6 +150,16 @@ export const AddToReviewQueueDropdown = ({
     () => new Set(memberQueues.filter((q) => q.queue_type === 'CUSTOM').map((q) => q.queue_id)),
     [memberQueues],
   );
+  const seededItemRef = useRef<string | null>(null);
+  useEffect(() => {
+    // Seed once per open (the ref guards against re-seeding on refetch), then
+    // let toggles take over.
+    if (!isOpen || !singleItemId || membersLoading || seededItemRef.current === singleItemId) {
+      return;
+    }
+    seededItemRef.current = singleItemId;
+    setAddedQueueIds(new Set(memberQueueIds));
+  }, [isOpen, singleItemId, membersLoading, memberQueueIds]);
 
   // Shared queues anyone can route into. The no-auth catch-all (the reserved
   // `default` user queue) is surfaced through the pinned option instead of the
@@ -201,6 +213,8 @@ export const AddToReviewQueueDropdown = ({
     setCreateOpen(false);
     setSubmitError(null);
     setBusyIds(new Set());
+    // Allow the next open to re-seed membership from the server.
+    seededItemRef.current = null;
     resetAdd();
     resetResolve();
   }, [resetAdd, resetResolve]);
@@ -436,22 +450,25 @@ export const AddToReviewQueueDropdown = ({
                     )}
                     {visibleQueues.map((q) => {
                       const assignability = assignabilityById.get(q.queue_id);
-                      const alreadyMember = memberQueueIds.has(q.queue_id);
                       const notAssignable = !assignability?.assignable;
+                      // A queue the trace already belongs to is locked unless the
+                      // reviewer is allowed to remove from it (then unchecking
+                      // removes the trace via the toggle path).
+                      const lockedMember =
+                        memberQueueIds.has(q.queue_id) && !canRemoveQueueItems(q, reviewer, canManage, canEdit);
                       return (
                         <DialogComboboxOptionListCheckboxItem
                           key={q.queue_id}
                           value={q.name}
-                          // A queue the trace already belongs to is shown checked
-                          // but locked — not selectable or unselectable here.
-                          checked={alreadyMember || addedQueueIds.has(q.queue_id)}
-                          disabled={alreadyMember || notAssignable || busyIds.has(q.queue_id)}
+                          checked={addedQueueIds.has(q.queue_id)}
+                          disabled={lockedMember || notAssignable || busyIds.has(q.queue_id)}
                           disabledReason={
-                            alreadyMember
+                            lockedMember
                               ? intl.formatMessage({
-                                  defaultMessage: 'This trace is already in this queue.',
+                                  defaultMessage:
+                                    "This trace is already in this queue, and you don't have permission to remove it.",
                                   description:
-                                    'Add to review queue: queue option locked because the trace is already a member',
+                                    'Add to review queue: queue option locked because the trace is a member and the reviewer cannot remove it',
                                 })
                               : notAssignable
                                 ? reasonText(assignability?.reason)
