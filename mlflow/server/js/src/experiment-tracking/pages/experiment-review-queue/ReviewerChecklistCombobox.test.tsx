@@ -191,6 +191,32 @@ describe('ReviewerChecklistCombobox', () => {
     expect(screen.getByRole('checkbox', { name: 'a' })).not.toBeDisabled();
   });
 
+  it('shows a loading state until the roster resolves, then seeds the defaults', () => {
+    // While loading, the roster is still empty (mirrors useAssignableUsersQuery).
+    const renderWith = (isLoading: boolean) => (
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <ReviewerChecklistCombobox
+            componentId="test.reviewers"
+            usernames={isLoading ? [] : ['alice', 'bob']}
+            checkedUsers={new Set()}
+            onToggle={jest.fn()}
+            triggerValue={[]}
+            isLoading={isLoading}
+          />
+        </DesignSystemProvider>
+      </IntlProvider>
+    );
+    const { rerender } = render(renderWith(true));
+    fireEvent.click(screen.getByRole('combobox'));
+    expect(screen.getByText(/loading reviewers/i)).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'alice' })).not.toBeInTheDocument();
+    // Once the roster resolves, the defaults seed in.
+    rerender(renderWith(false));
+    expect(screen.getByRole('checkbox', { name: 'alice' })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'bob' })).toBeInTheDocument();
+  });
+
   it('shows an empty state with no assignable reviewers', () => {
     renderBox({ usernames: [], checkedUsers: new Set() });
     expect(screen.getByText(/no assignable reviewers/i)).toBeInTheDocument();

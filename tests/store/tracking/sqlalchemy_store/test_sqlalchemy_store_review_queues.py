@@ -169,12 +169,13 @@ def test_create_custom_queue_rejects_users_over_cap(store):
 
 def test_create_custom_queue_caps_after_dedup(store):
     exp_id = _create_experiments(store, "cap_dedup")
-    # Five raw users that de-duplicate to four are under the cap (the cap is
-    # checked on the de-duplicated set, not the raw input).
+    # 11 raw users that de-duplicate to 10 are accepted: the cap is checked on the
+    # de-duplicated set, not the raw input.
+    deduped = [f"u{i}" for i in range(10)]
     queue = store.create_review_queue(
-        exp_id, name="dupes", queue_type="custom", users=["a", "b", "c", "d", "a"]
+        exp_id, name="dupes", queue_type="custom", users=[*deduped, "u0"]
     )
-    assert queue.users == ["a", "b", "c", "d"]
+    assert queue.users == deduped
 
 
 def test_update_custom_queue_rejects_users_over_cap(store):

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   DialogCombobox,
@@ -80,11 +80,16 @@ export const ReviewerChecklistCombobox = ({
       const defaults = usernames.filter((u) => !selectedSet.has(u)).slice(0, DEFAULT_REVIEWER_COUNT);
       return [...selected, ...defaults];
     });
+  // Seed once, when the roster first resolves. `useQuery` commits `data` and
+  // `isLoading: false` together, so the roster is populated here. Guarding with a
+  // ref keeps a later background refetch (isLoading flipping again) from
+  // recompacting the list mid-interaction; reopening and search-clears recompact.
+  const seeded = useRef(false);
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && !seeded.current) {
+      seeded.current = true;
       recompact();
     }
-    // Recompact once the roster resolves; opens and search-clears recompact too.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]);
 
@@ -116,13 +121,17 @@ export const ReviewerChecklistCombobox = ({
         value={username}
         checked={checked}
         disabled={!checked && atLimit}
-        disabledReason={intl.formatMessage(
-          {
-            defaultMessage: 'You can assign up to {max} reviewers.',
-            description: 'Review queue: reviewer-cap reason on a disabled row',
-          },
-          { max: maxSelected },
-        )}
+        disabledReason={
+          !checked && atLimit
+            ? intl.formatMessage(
+                {
+                  defaultMessage: 'You can assign up to {max} reviewers.',
+                  description: 'Review queue: reviewer-cap reason on a disabled row',
+                },
+                { max: maxSelected },
+              )
+            : undefined
+        }
         onChange={() => handleToggle(username)}
       >
         {username}
