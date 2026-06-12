@@ -325,6 +325,7 @@ export const AddToReviewQueueDropdown = ({
         <Popover.Content
           side="bottom"
           align={popoverAlign}
+          collisionPadding={theme.spacing.sm}
           css={{
             width: DROPDOWN_WIDTH,
             minWidth: DROPDOWN_WIDTH,
