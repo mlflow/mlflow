@@ -129,7 +129,11 @@ export const FocusedReview = ({
 
   // Submit writes one assessment per answered question; completing with zero
   // answers would mark the trace done while recording nothing, so the button
-  // stays disabled until at least one question has a value.
+  // stays disabled until at least one question has a value. This reads the
+  // committed answer state (edited/prefilled) and intentionally ignores the
+  // auto-submit `answerOverrides`: those only flow through the auto-submit path
+  // (single Pass/Fail), which submits directly and hides this button, so the two
+  // never gate the same interaction.
   const answeredCount = useMemo(
     () => schemas.filter((s) => isAnswered(s.name in edited ? edited[s.name] : prefilled[s.name])).length,
     [schemas, edited, prefilled],
