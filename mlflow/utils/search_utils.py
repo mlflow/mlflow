@@ -2047,13 +2047,15 @@ class SearchTraceUtils(SearchUtils):
             return clause
 
         def json_numeric_comparison(column: "ColumnElement", value: str) -> "ClauseElement":
-            numeric_type = sa.Float
             if dialect == MYSQL:
-                numeric_type = sa.Numeric(65, 30)
+                col_ref = f"{column.class_.__tablename__}.{column.key}"
+                numeric_value = sa.literal_column(f"CAST({col_ref} AS DOUBLE)")
+            else:
+                numeric_value = sa.cast(column, sa.Float)
             numeric_column = sa.case(
                 (sa.func.lower(column).in_(["true", "false", "null"]), sa.null()),
                 (sa.func.substring(column, 1, 1).in_(['"', "[", "{"]), sa.null()),
-                else_=sa.cast(column, numeric_type),
+                else_=numeric_value,
             )
             return SearchUtils.get_comparison_func(comparator)(numeric_column, float(value))
 
