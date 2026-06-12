@@ -5,7 +5,7 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
-  CloseIcon,
+  CloseSmallIcon,
   Drawer,
   Empty,
   Input,
@@ -200,7 +200,7 @@ export const FocusedReview = ({
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, height: '100%' }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-        <Button componentId={`${CID}.back`} icon={<CloseIcon />} onClick={onBack}>
+        <Button componentId={`${CID}.back`} type="tertiary" icon={<CloseSmallIcon />} onClick={onBack}>
           <FormattedMessage defaultMessage="Exit review" description="Review focused view: exit review button" />
         </Button>
         <div css={{ flex: 1 }} />
