@@ -17,6 +17,7 @@ import { ModelTraceExplorer, useGetTracesById } from '@databricks/web-shared/mod
 import { GenAIMarkdownRenderer } from '../../../shared/web-shared/genai-markdown-renderer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
+import Utils from '../../../common/utils/Utils';
 import { LabelSchemaInputRenderer } from '../../components/label-schemas';
 import type { LabelSchema, LabelSchemaValue } from '../../components/label-schemas';
 import { useCreateReviewAssessmentMutation } from './hooks/useCreateReviewAssessmentMutation';
@@ -199,6 +200,12 @@ export const FocusedReview = ({
       if (nextPendingItemId) {
         onSelect(nextPendingItemId);
       } else {
+        Utils.displayGlobalInfoNotification(
+          intl.formatMessage({
+            defaultMessage: 'All items in this queue have been reviewed!',
+            description: 'Review focused view: toast shown when all queue items are reviewed',
+          }),
+        );
         onBack();
       }
     } catch (e) {
