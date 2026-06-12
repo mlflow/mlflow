@@ -74,6 +74,7 @@ include = [
   "mlflow.prompt*",
   "mlflow.protos*",
   "mlflow.pydantic_ai*",
+  "mlflow.pytest*",
   "mlflow.smolagents*",
   "mlflow.store*",
   "mlflow.telemetry*",
