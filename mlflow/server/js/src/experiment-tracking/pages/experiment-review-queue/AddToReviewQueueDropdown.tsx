@@ -21,14 +21,14 @@ import { useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { useCanEditReviews, useCanManageReviews } from './hooks/useCanManageReviews';
 import Utils from '../../../common/utils/Utils';
-import { generatePath, Link } from '../../../common/utils/RoutingUtils';
-import { RoutePaths } from '../../routes';
+import { Link } from '../../../common/utils/RoutingUtils';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { getQueueAssignability } from './queueAssignability';
 import { canRemoveQueueItems, sameUser } from './queuePermissions';
 import { useAddItemsToReviewQueueMutation } from './hooks/useAddItemsToReviewQueueMutation';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
+import { getReviewQueuePageRoute } from './hooks/useReviewQueueSearchParams';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
 import { DEFAULT_REVIEWER, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
@@ -255,27 +255,30 @@ export const AddToReviewQueueDropdown = ({
     toggleCustomQueue(queue.queue_id);
   };
 
-  const showSuccessToast = useCallback(() => {
-    const reviewQueuePath = generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId });
-    Utils.displayGlobalInfoNotification(
-      <span css={{ whiteSpace: 'nowrap' }}>
-        {intl.formatMessage(
-          {
-            defaultMessage: 'Added {count, plural, one {# trace} other {# traces}} to review.',
-            description: 'Add to review queue: success toast after traces are added',
-          },
-          { count: itemIds.length },
-        )}{' '}
-        <Link componentId={`${CID}.toast-view-queue`} to={reviewQueuePath}>
-          {intl.formatMessage({
-            defaultMessage: 'View review queue',
-            description: 'Add to review queue: success toast link to the review queue page',
-          })}
-        </Link>
-      </span>,
-      3,
-    );
-  }, [experimentId, itemIds.length, intl]);
+  const showSuccessToast = useCallback(
+    (queueId: string) => {
+      const reviewQueuePath = getReviewQueuePageRoute(experimentId, queueId);
+      Utils.displayGlobalInfoNotification(
+        <span css={{ whiteSpace: 'nowrap' }}>
+          {intl.formatMessage(
+            {
+              defaultMessage: 'Added {count, plural, one {# trace} other {# traces}} to review.',
+              description: 'Add to review queue: success toast after traces are added',
+            },
+            { count: itemIds.length },
+          )}{' '}
+          <Link componentId={`${CID}.toast-view-queue`} to={reviewQueuePath}>
+            {intl.formatMessage({
+              defaultMessage: 'View review queue',
+              description: 'Add to review queue: success toast link to the review queue page',
+            })}
+          </Link>
+        </span>,
+        3,
+      );
+    },
+    [experimentId, itemIds.length, intl],
+  );
 
   const markBusy = (id: string) => setBusyIds((prev) => new Set(prev).add(id));
   const clearBusy = (id: string) =>
@@ -301,7 +304,7 @@ export const AddToReviewQueueDropdown = ({
       } else {
         await addItemsToReviewQueueAsync({ queue_id: queueId, item_ids: itemIds });
         setAddedQueueIds((prev) => new Set(prev).add(queueId));
-        showSuccessToast();
+        showSuccessToast(queueId);
       }
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : String(e));
@@ -331,7 +334,7 @@ export const AddToReviewQueueDropdown = ({
       } else {
         await addItemsToReviewQueueAsync({ queue_id: review_queue.queue_id, item_ids: itemIds });
         setAddedUsers((prev) => new Set(prev).add(username));
-        showSuccessToast();
+        showSuccessToast(review_queue.queue_id);
       }
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : String(e));

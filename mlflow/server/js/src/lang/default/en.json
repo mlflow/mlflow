@@ -3851,6 +3851,10 @@
     "defaultMessage": "Description update failed",
     "description": "Partial save status message when experiment description update fails"
   },
+  "IWIjkw": {
+    "defaultMessage": "Copy link to queue",
+    "description": "Review queue header: copy shareable queue link menu item"
+  },
   "IWNUE0": {
     "defaultMessage": "Failed to load roles",
     "description": "Alert title shown when the roles query fails on the account page"
@@ -8587,6 +8591,10 @@
     "defaultMessage": "Edit",
     "description": "Trace actions dropdown group label"
   },
+  "gfCVGt": {
+    "defaultMessage": "Link copied to clipboard.",
+    "description": "Review queue: toast after copying a shareable queue link"
+  },
   "ghgW69": {
     "defaultMessage": "Select traces",
     "description": "Button to open the trace selection modal from the run evaluation modal"
@@ -12182,6 +12190,10 @@
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
     "description": "Tooltip for deleted endpoint"
+  },
+  "z8QLT1": {
+    "defaultMessage": "Copy start-review link",
+    "description": "Review queue header: copy link that opens the first to-do trace for review"
   },
   "z8srAp": {
     "defaultMessage": "Trace archival retention",
