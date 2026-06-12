@@ -992,8 +992,7 @@ class TracingClient:
         users: list[str] | None = None,
         schema_ids: list[str] | None = None,
     ) -> "ReviewQueue":
-        # `created_by` (the owner) is set server-side from the authenticated
-        # user, never by the client.
+        # `created_by` (the owner) is stamped server-side, never by the client.
         return self.store.create_review_queue(
             experiment_id,
             name=name,

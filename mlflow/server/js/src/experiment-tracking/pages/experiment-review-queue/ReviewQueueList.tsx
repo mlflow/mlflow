@@ -109,8 +109,7 @@ export const ReviewQueueList = ({
    *  so the queue's manager can remove traces from this view. */
   onRemoveItems?: (itemIds: string[]) => void;
   isRemovingItems?: boolean;
-  /** When provided (editable custom queues only), a gear menu offers
-   *  "Manage queue"; `onDeleteQueue`, when also provided, adds "Delete queue". */
+  /** When set, the gear menu shows "Manage queue" (and "Delete queue" if `onDeleteQueue` is set). */
   onManageQueue?: () => void;
   onDeleteQueue?: () => void;
   onGoToTraces?: () => void;
@@ -281,8 +280,7 @@ export const ReviewQueueList = ({
                     />
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="start">
-                    {/* A USER queue has no editable settings, so a manager sees
-                        only "Delete queue"; CUSTOM queues show both. */}
+                    {/* USER queues show only "Delete queue" (no settings); CUSTOM show both. */}
                     {onManageQueue && (
                       <DropdownMenu.Item componentId={`${CID}.manage-queue`} onClick={onManageQueue}>
                         <FormattedMessage

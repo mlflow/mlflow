@@ -4677,10 +4677,8 @@ def _create_review_queue():
         "users": list(request_message.users),
         "schema_ids": list(request_message.schema_ids),
     }
-    # `created_by` is the queue owner and must be trustworthy — never honor the
-    # client's value. On an auth server it is the authenticated user (stamped on
-    # `flask.g` by the auth plugin); on a no-auth server it stays unset (owner is
-    # meaningless there).
+    # `created_by` is the owner: stamp it from the authenticated user, never the
+    # client. Stays unset on a no-auth server (owner is meaningless there).
     username = _get_request_username()
     if username is not None:
         kwargs["created_by"] = username
@@ -4698,8 +4696,7 @@ def _get_or_create_user_queue():
             "user": [_assert_required, _assert_string],
         },
     )
-    # A user queue is owned by its user (set in the store); the client-supplied
-    # `created_by` is ignored.
+    # A user queue is owned by its user (set in the store), not by any client value.
     queue = _get_tracking_store().get_or_create_user_queue(
         request_message.experiment_id, user=request_message.user
     )
