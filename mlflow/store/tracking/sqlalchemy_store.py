@@ -8463,30 +8463,43 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     session.add(sql_queue)
                     session.flush()
             except IntegrityError as e:
-                # The flush violated a constraint. Disambiguate rather than
-                # assuming a duplicate name: a now-present (experiment_id, name)
-                # row means a parallel transaction won the create race; otherwise
-                # the experiment FK failed because the experiment was deleted
-                # between the pre-check and the flush.
+                # The flush violated a constraint. Disambiguate by checking which
+                # one now holds rather than assuming a cause. The duplicate check
+                # is intentionally unscoped: the unique constraint is global on
+                # (experiment_id, name), independent of any workspace scoping
+                # applied to reads.
                 duplicate = (
-                    self
-                    ._review_queue_query(session)
+                    session
+                    .query(SqlReviewQueue)
                     .filter(
                         SqlReviewQueue.experiment_id == int(experiment_id),
                         SqlReviewQueue.name == validated.name,
                     )
-                    .one_or_none()
+                    .first()
                 )
                 if duplicate is not None:
+                    # A parallel transaction won the create race.
                     raise MlflowException(
                         f"Review queue with name '{validated.name}' already exists for experiment "
                         f"'{experiment_id}'.",
                         error_code=RESOURCE_ALREADY_EXISTS,
                     ) from e
-                raise MlflowException(
-                    f"Experiment '{experiment_id}' does not exist.",
-                    error_code=RESOURCE_DOES_NOT_EXIST,
-                ) from e
+                experiment_present = (
+                    session
+                    .query(SqlExperiment.experiment_id)
+                    .filter(SqlExperiment.experiment_id == int(experiment_id))
+                    .first()
+                )
+                if experiment_present is None:
+                    # The experiment FK failed because the experiment was deleted
+                    # between the pre-check and the flush.
+                    raise MlflowException(
+                        f"Experiment '{experiment_id}' does not exist.",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    ) from e
+                # Neither known cause holds; surface the real error rather than
+                # mislabeling it.
+                raise
 
             for user in validated.users:
                 session.add(SqlReviewQueueUser(queue_id=sql_queue.queue_id, user_id=user))

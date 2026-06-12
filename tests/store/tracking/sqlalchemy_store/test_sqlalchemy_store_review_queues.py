@@ -12,7 +12,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
-from mlflow.store.tracking.dbmodels.models import SqlReviewQueue
+from mlflow.store.tracking.dbmodels.models import SqlReviewQueue, SqlReviewQueueItem
 
 from tests.store.tracking.sqlalchemy_store.conftest import _create_experiments
 
@@ -754,14 +754,14 @@ def test_add_items_skips_rows_removed_mid_attach(store):
     queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
 
     real_all = Query.all
-    calls = {"n": 0}
 
     def flaky_all(self):
         rows = real_all(self)
-        calls["n"] += 1
-        # add_items reads twice: existing-items (1st), then the final read-back
-        # (2nd). Drop a row on the final read to mimic a concurrent removal.
-        if calls["n"] == 2 and rows:
+        # Perturb only the final read-back, which selects full SqlReviewQueueItem
+        # entities; the existing-items pre-read selects item_id scalars, so keying
+        # on the row type targets the right query without counting calls. Drop a
+        # row to mimic a concurrent removal landing before the read-back.
+        if rows and isinstance(rows[0], SqlReviewQueueItem):
             return rows[:-1]
         return rows
 

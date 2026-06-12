@@ -2008,7 +2008,10 @@ class AbstractStore(GatewayStoreMixin):
         no-op that preserves its existing status. Newly-attached items
         start ``pending``. The returned list covers every requested
         ``item_id`` (newly-added and already-present), in the requested
-        order.
+        order, except that an item removed concurrently (between its insert
+        and the read-back) is omitted — callers should reconcile the
+        returned items against their requested ``item_ids`` rather than
+        assume a 1:1 result.
 
         ``item_ids`` are stored as soft references — this store method
         validates only their shape, NOT that each is a real trace in the
