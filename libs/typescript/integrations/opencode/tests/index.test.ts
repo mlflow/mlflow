@@ -160,6 +160,43 @@ describe('MLflowTracingPlugin', () => {
     ],
   });
 
+  // Helper to create an assistant message with reasoning and optional text
+  const createAssistantReasoningMessage = (
+    reasoningText: string,
+    text?: string,
+    options?: {
+      modelID?: string;
+      providerID?: string;
+      tokens?: {
+        input?: number;
+        output?: number;
+        reasoning?: number;
+        cache?: { read?: number; write?: number };
+      };
+      time?: { created?: number; completed?: number };
+    },
+  ) => ({
+    info: {
+      role: 'assistant',
+      modelID: options?.modelID || 'claude-3-opus',
+      providerID: options?.providerID || 'anthropic',
+      tokens: options?.tokens || { input: 100, output: 50, reasoning: 30 },
+      time: options?.time || { created: Date.now(), completed: Date.now() + 1000 },
+    },
+    parts: [
+      ...(reasoningText
+        ? [
+            {
+              type: 'reasoning',
+              text: reasoningText,
+              time: { start: Date.now(), end: Date.now() + 500 },
+            },
+          ]
+        : []),
+      ...(text ? [{ type: 'text', text }] : []),
+    ],
+  });
+
   // Helper to create an assistant message with both text and tool call
   const createAssistantMessageWithTextAndTool = (
     text: string,
@@ -396,6 +433,48 @@ describe('MLflowTracingPlugin', () => {
           }),
         }),
       );
+    });
+
+    it('should include reasoning content in LLM span outputs', async () => {
+      const messages = [
+        createUserMessage('Are you conscious?'),
+        createAssistantReasoningMessage(
+          'The user is asking a philosophical question about AI consciousness.',
+          "I don't know — that's the most honest answer I can give.",
+        ),
+      ];
+
+      const mockClient = createMockClient({}, messages);
+      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient));
+
+      await hooks.event!(createSessionIdleEvent('reasoning-session'));
+      const mockSpan = (mlflowTracing.startSpan as jest.Mock)();
+
+      expect(mockSpan.setOutputs).toHaveBeenCalledWith({
+        choices: [
+          {
+            message: expect.objectContaining({
+              role: 'assistant',
+              content: "I don't know — that's the most honest answer I can give.",
+              reasoning: 'The user is asking a philosophical question about AI consciousness.',
+            }),
+          },
+        ],
+      });
+    });
+
+    it('should not include reasoning field when no reasoning parts exist', async () => {
+      const messages = [createUserMessage('Hello'), createAssistantTextMessage('Hi there!')];
+
+      const mockClient = createMockClient({}, messages);
+      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient));
+
+      await hooks.event!(createSessionIdleEvent('no-reasoning-session'));
+
+      const mockSpan = (mlflowTracing.startSpan as jest.Mock)();
+      // first argument when setOutputs got called first time
+      const outputCall = mockSpan.setOutputs.mock.calls[0][0];
+      expect(outputCall.choices[0].message).not.toHaveProperty('reasoning');
     });
   });
 
@@ -978,6 +1057,214 @@ describe('MLflowTracingPlugin', () => {
       await hooks.event!(createSessionIdleEvent('tool-history-session'));
 
       expect(mlflowTracing.startSpan).toHaveBeenCalled();
+    });
+
+    it('should include reasoning from prior assistant messages in conversation history', async () => {
+      // The plugin only traces messages after the last user message.
+      // So messages[3] (assistant) is the only LLM span created,
+      // but input to this span (inputs.messages) should include the conversation history
+      // from messages [0]-[2], including reasoning part as well from message[1].
+      const messages = [
+        createUserMessage('Are you conscious?'),
+        createAssistantReasoningMessage(
+          'The user is asking a philosophical question.',
+          "I don't know.",
+        ),
+        createUserMessage('Tell me more'),
+        createAssistantTextMessage('Here is more detail.'),
+      ];
+
+      const mockClient = createMockClient({}, messages);
+      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient));
+
+      await hooks.event!(createSessionIdleEvent('reasoning-history-session'));
+
+      // Find the llm_call span — its inputs.messages should contain
+      // the prior assistant message's reasoning in the conversation history
+      const llmCalls = (mlflowTracing.startSpan as jest.Mock).mock.calls.filter(
+        (call: [{ name: string }]) => call[0].name === 'llm_call',
+      );
+      expect(llmCalls.length).toBe(1);
+
+      const inputMessages = llmCalls[0][0].inputs.messages;
+      const assistantHistoryMsg = inputMessages.find(
+        (m: { role: string }) => m.role === 'assistant',
+      );
+      expect(assistantHistoryMsg).toBeDefined();
+      expect(assistantHistoryMsg.reasoning).toBe('The user is asking a philosophical question.');
+      expect(assistantHistoryMsg.content).toBe("I don't know.");
+    });
+
+    it('should reconstruct full conversation history with reasoning, tools, and continuation messages', async () => {
+      // Modeled after a real OpenCode session where the assistant acts
+      // autonomously across multiple messages:
+      //   user asks → assistant reasons + calls tool → assistant continues
+      //   autonomously (analyzes tool output, calls more tools) → user
+      //   asks follow-up → assistant responds (traced span)
+      //
+      // Key pattern: messages [3] and [4] are both assistant with no user
+      // message between them — [3] calls a tool, [4] autonomously analyzes
+      // the result and calls another tool.
+      const messages = [
+        // [0] Turn 1: user asks a question
+        createUserMessage('Are you conscious?'),
+
+        // [1] Turn 1: assistant responds with reasoning + text
+        createAssistantReasoningMessage(
+          'The user is asking about consciousness, not a coding question.',
+          "I don't know. I process language but can't verify subjective experience.",
+        ),
+
+        // [2] Turn 2: user asks to find files
+        createUserMessage('Find all files in the parent directory'),
+
+        // [3] Turn 2: assistant reasons, explains, and calls read tool
+        {
+          info: {
+            role: 'assistant',
+            modelID: 'claude-opus',
+            providerID: 'anthropic',
+            tokens: { input: 200, output: 100, reasoning: 40 },
+            time: { created: 1000, completed: 2000 },
+          },
+          parts: [
+            {
+              type: 'reasoning',
+              text: 'The user wants to list files. I should use the read tool.',
+              time: { start: 1000, end: 1200 },
+            },
+            { type: 'text', text: "I'll read the parent directory for you." },
+            {
+              type: 'tool',
+              tool: 'read',
+              callID: 'call-read-1',
+              state: {
+                status: 'completed',
+                input: { path: '..' },
+                output: 'src/\npackage.json\nREADME.md',
+                title: 'Read directory',
+                time: { start: 1200, end: 1500 },
+              },
+            },
+          ],
+        },
+
+        // [4] Turn 2 continued: assistant autonomously analyzes the tool
+        // output and calls another tool — no user message in between
+        {
+          info: {
+            role: 'assistant',
+            modelID: 'claude-opus',
+            providerID: 'anthropic',
+            tokens: { input: 300, output: 80 },
+            time: { created: 2001, completed: 3000 },
+          },
+          parts: [
+            {
+              type: 'reasoning',
+              text: 'I see 3 entries. Let me also check the src/ directory contents.',
+              time: { start: 2001, end: 2200 },
+            },
+            { type: 'text', text: 'Found 3 entries. Let me also check what is inside src/.' },
+            {
+              type: 'tool',
+              tool: 'read',
+              callID: 'call-read-2',
+              state: {
+                status: 'completed',
+                input: { path: '../src' },
+                output: 'index.ts\nutils.ts\nconfig.ts',
+                title: 'Read src directory',
+                time: { start: 2200, end: 2500 },
+              },
+            },
+          ],
+        },
+
+        // [5] Turn 2 continued: assistant gives final summary
+        createAssistantTextMessage(
+          'The parent directory has 3 entries. The src/ folder contains index.ts, utils.ts, and config.ts.',
+        ),
+
+        // [6] Turn 3: user asks follow-up
+        createUserMessage('What does index.ts export?'),
+
+        // [7] Turn 3: assistant responds (this is the span we trace)
+        createAssistantTextMessage('index.ts exports the main plugin function.'),
+      ];
+
+      const mockClient = createMockClient({}, messages);
+      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient));
+
+      await hooks.event!(createSessionIdleEvent('full-history-session'));
+
+      // The plugin creates spans from lastUserIdx (6) + 1 = message[7].
+      // message[7]'s LLM span inputs.messages should contain the full
+      // conversation history from messages [0]-[6].
+      const llmCalls = (mlflowTracing.startSpan as jest.Mock).mock.calls.filter(
+        (call: [{ name: string }]) => call[0].name === 'llm_call',
+      );
+      expect(llmCalls.length).toBe(1);
+
+      const history = llmCalls[0][0].inputs.messages;
+
+      // Expected history structure:
+      //   user: "Are you conscious?"
+      //   assistant: text + reasoning (turn 1)
+      //   user: "Find all files..."
+      //   assistant: text + reasoning (turn 2 step 1, called read tool)
+      //   tool: read result "src/\npackage.json\nREADME.md"
+      //   assistant: text + reasoning (turn 2 step 2, autonomous continuation)
+      //   tool: read result "index.ts\nutils.ts\nconfig.ts"
+      //   assistant: text only (turn 2 final summary)
+      //   user: "What does index.ts export?"
+
+      // Check user messages
+      const userMsgs = history.filter((m: { role: string }) => m.role === 'user');
+      expect(userMsgs.length).toBe(3);
+      expect(userMsgs[0].content).toBe('Are you conscious?');
+      expect(userMsgs[1].content).toBe('Find all files in the parent directory');
+      expect(userMsgs[2].content).toBe('What does index.ts export?');
+
+      // Check assistant messages — should include reasoning where it existed
+      const assistantMsgs = history.filter((m: { role: string }) => m.role === 'assistant');
+      expect(assistantMsgs.length).toBe(4);
+
+      // Turn 1 assistant: had reasoning
+      expect(assistantMsgs[0].reasoning).toBe(
+        'The user is asking about consciousness, not a coding question.',
+      );
+      expect(assistantMsgs[0].content).toBe(
+        "I don't know. I process language but can't verify subjective experience.",
+      );
+
+      // Turn 2 step 1: had reasoning + tool call
+      expect(assistantMsgs[1].reasoning).toBe(
+        'The user wants to list files. I should use the read tool.',
+      );
+      expect(assistantMsgs[1].content).toBe("I'll read the parent directory for you.");
+
+      // Turn 2 step 2: autonomous continuation with reasoning
+      expect(assistantMsgs[2].reasoning).toBe(
+        'I see 3 entries. Let me also check the src/ directory contents.',
+      );
+      expect(assistantMsgs[2].content).toBe(
+        'Found 3 entries. Let me also check what is inside src/.',
+      );
+
+      // Turn 2 final: summary, no reasoning
+      expect(assistantMsgs[3].content).toBe(
+        'The parent directory has 3 entries. The src/ folder contains index.ts, utils.ts, and config.ts.',
+      );
+      expect(assistantMsgs[3].reasoning).toBeUndefined();
+
+      // Check tool results — both tool calls should be in history
+      const toolMsgs = history.filter((m: { role: string }) => m.role === 'tool');
+      expect(toolMsgs.length).toBe(2);
+      expect(toolMsgs[0].tool_call_id).toBe('call-read-1');
+      expect(toolMsgs[0].content).toBe('src/\npackage.json\nREADME.md');
+      expect(toolMsgs[1].tool_call_id).toBe('call-read-2');
+      expect(toolMsgs[1].content).toBe('index.ts\nutils.ts\nconfig.ts');
     });
   });
 });
