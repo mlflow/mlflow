@@ -36,15 +36,8 @@ def test_called_marker():
 
 
 # ---------------------------------------------------------------------------
-# Plugin sets current test identity only for @mlflow.test-marked tests
+# Plugin identity tracking outside a marked test
 # ---------------------------------------------------------------------------
-
-
-@mlflow.test
-def test_current_test_is_set_inside_mlflow_test():
-    name, case_id = _session.current_test()
-    assert name == "test_current_test_is_set_inside_mlflow_test"
-    assert case_id is None
 
 
 def test_current_test_is_none_outside_mlflow_test():
@@ -53,12 +46,14 @@ def test_current_test_is_none_outside_mlflow_test():
 
 
 # ---------------------------------------------------------------------------
-# End-to-end: run pytest in a subprocess and verify a single test run is
-# actually created in the tracking store with the right tags.
+# End-to-end: run pytest in a subprocess (its own session) and verify a single
+# test run is created in the tracking store with the right tags. Marked tests
+# run only here, never in this shared suite, so they don't leak an active run.
 # ---------------------------------------------------------------------------
 
 _GENERATED_TEST = """
 import mlflow
+from mlflow.pytest import session
 from mlflow.genai.scorers import scorer
 
 
@@ -69,6 +64,8 @@ def always_pass(*, outputs):
 
 @mlflow.test
 def test_marked_one():
+    # Identity is set for the running marked test.
+    assert session.current_test() == ("test_marked_one", None)
     mlflow.genai.evaluate(
         data=[{"inputs": {"text": "hi"}, "outputs": "hi"}],
         scorers=[always_pass],
