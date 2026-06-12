@@ -66,14 +66,26 @@ jest.mock('./hooks/useAssignableUsersQuery', () => ({
 }));
 // One assignable CUSTOM queue (its schema_id resolves against the experiment
 // schema below), so tests can route to it alongside the no-auth default queue.
+// Queues the single selected trace is already a member of (the `itemId`-scoped
+// call). Default: none. Tests override to exercise the membership pre-check.
+let mockMemberQueues: any[] = [];
 jest.mock('./hooks/useListReviewQueuesQuery', () => ({
-  useListReviewQueuesQuery: () => ({
-    reviewQueues: [
-      { queue_id: 'rq-custom', queue_type: 'CUSTOM', name: 'Relevance', created_by: 'default', schema_ids: ['s1'] },
-    ],
-    isLoading: false,
-    error: null,
-  }),
+  useListReviewQueuesQuery: ({ itemId }: { itemId?: string }) =>
+    itemId
+      ? { reviewQueues: mockMemberQueues, isLoading: false, error: null }
+      : {
+          reviewQueues: [
+            {
+              queue_id: 'rq-custom',
+              queue_type: 'CUSTOM',
+              name: 'Relevance',
+              created_by: 'default',
+              schema_ids: ['s1'],
+            },
+          ],
+          isLoading: false,
+          error: null,
+        },
 }));
 // One experiment question, so the (no-auth) default queue is assignable.
 jest.mock('../../components/label-schemas', () => ({
@@ -104,6 +116,7 @@ describe('AddToReviewQueueDropdown', () => {
   beforeEach(() => {
     mockReviewerResolved = true;
     mockCanEdit = true;
+    mockMemberQueues = [];
     mockAddItems.mockReset();
     mockAddItems.mockResolvedValue({});
     mockRemoveItems.mockReset();
@@ -207,5 +220,18 @@ describe('AddToReviewQueueDropdown', () => {
 
     // The create-a-queue affordance (requires EDIT) is gone from the dropdown.
     expect(screen.queryByText('New queue')).toBeNull();
+  });
+
+  it('pre-checks the queues a single trace is already a member of', async () => {
+    // The trace already belongs to the custom queue; opening the dropdown seeds
+    // its checked state from the membership query rather than from a fresh add.
+    mockMemberQueues = [
+      { queue_id: 'rq-custom', queue_type: 'CUSTOM', name: 'Relevance', created_by: 'default', schema_ids: ['s1'] },
+    ];
+    renderDropdown({ open: true });
+
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Relevance' })).toBeChecked());
+    // Seeding existing membership must not issue an add.
+    expect(mockAddItems).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Alert,
@@ -134,6 +134,27 @@ export const AddToReviewQueueDropdown = ({
     [selectedTraceInfos],
   );
 
+  // For a single trace, pre-check the queues it is already a member of so the
+  // dropdown reflects current membership on open (unchecking then removes it).
+  // A bulk selection has no single membership set, so this is skipped.
+  const singleItemId = itemIds.length === 1 ? itemIds[0] : undefined;
+  const { reviewQueues: memberQueues, isLoading: membersLoading } = useListReviewQueuesQuery({
+    experimentId,
+    itemId: singleItemId,
+    enabled: (isOpen || createOpen) && Boolean(singleItemId),
+  });
+  const seededItemRef = useRef<string | null>(null);
+  useEffect(() => {
+    // Sync the checked set with the server once per open: seed it from the
+    // trace's existing CUSTOM-queue memberships after the query settles, then
+    // let toggles take over (the ref guards against re-seeding on refetch).
+    if (!isOpen || !singleItemId || membersLoading || seededItemRef.current === singleItemId) {
+      return;
+    }
+    seededItemRef.current = singleItemId;
+    setAddedQueueIds(new Set(memberQueues.filter((q) => q.queue_type === 'CUSTOM').map((q) => q.queue_id)));
+  }, [isOpen, singleItemId, membersLoading, memberQueues]);
+
   // Shared queues anyone can route into. The no-auth catch-all (the reserved
   // `default` user queue) is surfaced through the pinned option instead of the
   // list; other users' personal queues are reached through the "Users" section.
@@ -182,6 +203,8 @@ export const AddToReviewQueueDropdown = ({
     setCreateOpen(false);
     setSubmitError(null);
     setBusyIds(new Set());
+    // Allow the next open to re-seed membership from the server.
+    seededItemRef.current = null;
     resetAdd();
     resetResolve();
   }, [resetAdd, resetResolve]);
