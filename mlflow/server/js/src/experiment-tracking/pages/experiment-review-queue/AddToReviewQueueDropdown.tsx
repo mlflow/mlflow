@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   Alert,
@@ -134,26 +134,20 @@ export const AddToReviewQueueDropdown = ({
     [selectedTraceInfos],
   );
 
-  // For a single trace, pre-check the queues it is already a member of so the
-  // dropdown reflects current membership on open (unchecking then removes it).
-  // A bulk selection has no single membership set, so this is skipped.
+  // For a single trace, surface the queues it is already a member of as checked
+  // but locked: this dropdown adds traces, it doesn't edit existing membership,
+  // so a member queue is neither selectable nor unselectable here. A bulk
+  // selection has no single membership set, so this is skipped.
   const singleItemId = itemIds.length === 1 ? itemIds[0] : undefined;
-  const { reviewQueues: memberQueues, isLoading: membersLoading } = useListReviewQueuesQuery({
+  const { reviewQueues: memberQueues } = useListReviewQueuesQuery({
     experimentId,
     itemId: singleItemId,
     enabled: (isOpen || createOpen) && Boolean(singleItemId),
   });
-  const seededItemRef = useRef<string | null>(null);
-  useEffect(() => {
-    // Sync the checked set with the server once per open: seed it from the
-    // trace's existing CUSTOM-queue memberships after the query settles, then
-    // let toggles take over (the ref guards against re-seeding on refetch).
-    if (!isOpen || !singleItemId || membersLoading || seededItemRef.current === singleItemId) {
-      return;
-    }
-    seededItemRef.current = singleItemId;
-    setAddedQueueIds(new Set(memberQueues.filter((q) => q.queue_type === 'CUSTOM').map((q) => q.queue_id)));
-  }, [isOpen, singleItemId, membersLoading, memberQueues]);
+  const memberQueueIds = useMemo(
+    () => new Set(memberQueues.filter((q) => q.queue_type === 'CUSTOM').map((q) => q.queue_id)),
+    [memberQueues],
+  );
 
   // Shared queues anyone can route into. The no-auth catch-all (the reserved
   // `default` user queue) is surfaced through the pinned option instead of the
@@ -181,9 +175,13 @@ export const AddToReviewQueueDropdown = ({
     }
     const head = customQueues.slice(0, COLLAPSED_QUEUE_COUNT);
     const headIds = new Set(head.map((q) => q.queue_id));
-    const addedExtras = customQueues.filter((q) => addedQueueIds.has(q.queue_id) && !headIds.has(q.queue_id));
-    return [...head, ...addedExtras];
-  }, [customQueues, query, addedQueueIds]);
+    // Keep added queues and existing memberships visible even if they'd fall
+    // outside the collapsed head, so a checked row is never hidden.
+    const extras = customQueues.filter(
+      (q) => (addedQueueIds.has(q.queue_id) || memberQueueIds.has(q.queue_id)) && !headIds.has(q.queue_id),
+    );
+    return [...head, ...extras];
+  }, [customQueues, query, addedQueueIds, memberQueueIds]);
   const hasMoreQueues = !query && customQueues.length > visibleQueues.length;
 
   // Users are search-driven; the experiment default queue is the pinned option.
@@ -203,8 +201,6 @@ export const AddToReviewQueueDropdown = ({
     setCreateOpen(false);
     setSubmitError(null);
     setBusyIds(new Set());
-    // Allow the next open to re-seed membership from the server.
-    seededItemRef.current = null;
     resetAdd();
     resetResolve();
   }, [resetAdd, resetResolve]);
@@ -440,14 +436,27 @@ export const AddToReviewQueueDropdown = ({
                     )}
                     {visibleQueues.map((q) => {
                       const assignability = assignabilityById.get(q.queue_id);
+                      const alreadyMember = memberQueueIds.has(q.queue_id);
                       const notAssignable = !assignability?.assignable;
                       return (
                         <DialogComboboxOptionListCheckboxItem
                           key={q.queue_id}
                           value={q.name}
-                          checked={addedQueueIds.has(q.queue_id)}
-                          disabled={notAssignable || busyIds.has(q.queue_id)}
-                          disabledReason={notAssignable ? reasonText(assignability?.reason) : undefined}
+                          // A queue the trace already belongs to is shown checked
+                          // but locked — not selectable or unselectable here.
+                          checked={alreadyMember || addedQueueIds.has(q.queue_id)}
+                          disabled={alreadyMember || notAssignable || busyIds.has(q.queue_id)}
+                          disabledReason={
+                            alreadyMember
+                              ? intl.formatMessage({
+                                  defaultMessage: 'This trace is already in this queue.',
+                                  description:
+                                    'Add to review queue: queue option locked because the trace is already a member',
+                                })
+                              : notAssignable
+                                ? reasonText(assignability?.reason)
+                                : undefined
+                          }
                           onChange={() => toggleCustomQueue(q.queue_id)}
                         >
                           {q.name}

@@ -11219,6 +11219,10 @@
     "defaultMessage": "Total aggregate scores",
     "description": "Label for assessment score distribution chart"
   },
+  "uI8dVP": {
+    "defaultMessage": "This trace is already in this queue.",
+    "description": "Add to review queue: queue option locked because the trace is already a member"
+  },
   "uIY1qq": {
     "defaultMessage": "Learn More",
     "description": "Link to MLflow documentation for more information on MLflow tracing"

@@ -222,16 +222,19 @@ describe('AddToReviewQueueDropdown', () => {
     expect(screen.queryByText('New queue')).toBeNull();
   });
 
-  it('pre-checks the queues a single trace is already a member of', async () => {
-    // The trace already belongs to the custom queue; opening the dropdown seeds
-    // its checked state from the membership query rather than from a fresh add.
+  it('shows the queues a single trace is already in as checked but locked', async () => {
+    // The trace already belongs to the custom queue, so its option is rendered
+    // checked and disabled — neither selectable nor unselectable here. Its
+    // accessible name carries the disabled reason, hence the regex match.
     mockMemberQueues = [
       { queue_id: 'rq-custom', queue_type: 'CUSTOM', name: 'Relevance', created_by: 'default', schema_ids: ['s1'] },
     ];
     renderDropdown({ open: true });
 
-    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Relevance' })).toBeChecked());
-    // Seeding existing membership must not issue an add.
+    const option = await screen.findByRole('checkbox', { name: /Relevance/ });
+    expect(option).toBeChecked();
+    expect(option).toBeDisabled();
+    // It's a read-only indicator, not an add.
     expect(mockAddItems).not.toHaveBeenCalled();
   });
 });
