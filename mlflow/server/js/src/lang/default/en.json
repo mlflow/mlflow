@@ -1087,6 +1087,10 @@
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search models"
   },
+  "3c3l9v": {
+    "defaultMessage": "Assign to reviewers",
+    "description": "Button text for assigning a trace to reviewers via a review queue"
+  },
   "3cn8ue": {
     "defaultMessage": "Sending...",
     "description": "Send request button loading state"
@@ -9407,10 +9411,6 @@
     "defaultMessage": "Disable run grouping in order to access the evaluation view",
     "description": "Experiment page > artifact compare view > disabled due to run grouping > description"
   },
-  "kdvMSk": {
-    "defaultMessage": "Add to review queue",
-    "description": "Add traces to review queue action"
-  },
   "keSIQ4": {
     "defaultMessage": "null",
     "description": "null assessment label"
@@ -10583,10 +10583,6 @@
     "defaultMessage": "Line smoothing",
     "description": "Runs charts > line chart > configuration > label for line smoothing slider control. The control allows changing data trace line smoothness from 1 to 100, where 1 is the original data trace and 100 is the smoothest trace. Line smoothing helps eliminate noise in the data."
   },
-  "qkt1r9": {
-    "defaultMessage": "Add to review queue",
-    "description": "Button text for adding a trace to a review queue"
-  },
   "qmTNy1": {
     "defaultMessage": "Failed to delete sessions. Error: {error}",
     "description": "Error message when deleting sessions fails"
@@ -11234,6 +11230,10 @@
   "tv0qk9": {
     "defaultMessage": "Native MLflow API for model invocations. Supports seamless model switching and advanced routing.",
     "description": "MLflow invocations API description"
+  },
+  "twsZUF": {
+    "defaultMessage": "Assign to reviewers",
+    "description": "Assign traces to reviewers via a review queue action"
   },
   "tx3aAM": {
     "defaultMessage": "Add tag",
