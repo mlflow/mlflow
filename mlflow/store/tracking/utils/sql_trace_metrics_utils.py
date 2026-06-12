@@ -107,10 +107,13 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
     ),
     SpanMetricKey.LATENCY: TraceMetricsConfig(
         aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
+        # No SPAN_SKILL_NAME: per-span latency averaged across a skill's spans
+        # blends fast tool spans with slow LLM spans, so it reflects span mix
+        # rather than skill speed. Skill wall-clock duration is a separate
+        # scope-level aggregation (needs a per-invocation id) — revisit then.
         dimensions={
             SpanMetricDimensionKey.SPAN_NAME,
             SpanMetricDimensionKey.SPAN_STATUS,
-            SpanMetricDimensionKey.SPAN_SKILL_NAME,
         },
     ),
     SpanMetricKey.INPUT_COST: TraceMetricsConfig(

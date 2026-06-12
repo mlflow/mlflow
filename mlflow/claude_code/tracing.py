@@ -770,7 +770,15 @@ def _is_real_sdk_user_prompt(messages: list[Any], idx: int) -> bool:
     # injecting the skill's prompt body — keep skill scope, don't reset it.
     if idx > 0:
         prev_tur = getattr(messages[idx - 1], "tool_use_result", None)
-        if isinstance(prev_tur, dict) and prev_tur.get("commandName"):
+        # The SDK types tool_use_result as a dict today, but tolerate a future
+        # typed object so a skill body injection is never misread as a real
+        # prompt (which would clear skill scope mid-skill).
+        command_name = (
+            prev_tur.get("commandName")
+            if isinstance(prev_tur, dict)
+            else getattr(prev_tur, "commandName", None)
+        )
+        if command_name:
             return False
 
     return True
@@ -901,11 +909,14 @@ def _create_sdk_child_spans(
 
                 # Stamp the Skill's own TOOL span with its own commandName for
                 # identification (failed Skills are still attributable).
+                # Gate on tool_block.name: commandName is message-level metadata,
+                # so if results are ever batched it must only mark the Skill
+                # block, not co-resident non-skill results.
                 # Propagation:
                 #   - success: active_skill_name = commandName (child spans inherit)
                 #   - failure: active_skill_name = None (prior skill must not
                 #     leak into recovery spans)
-                if tool_result and tool_result.command_name:
+                if tool_result and tool_result.command_name and tool_block.name == "Skill":
                     span_skill_name = tool_result.command_name
                     active_skill_name = (
                         tool_result.command_name if not tool_result.is_error else None
