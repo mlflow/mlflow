@@ -18,6 +18,7 @@ class AuthConfig(NamedTuple):
     workspace_cache_ttl_seconds: int
     auth_cache_max_size: int
     auth_cache_ttl_seconds: int
+    enforce_user_enumeration_capability: bool
     read_database_uri: str | None = None
 
 
@@ -48,9 +49,14 @@ def read_auth_config() -> AuthConfig:
         workspace_cache_ttl_seconds=config.getint(
             "mlflow", "workspace_cache_ttl_seconds", fallback=3600
         ),
-        auth_cache_max_size=config.getint("mlflow", "auth_cache_max_size", fallback=10000),
-        # Off by default — enabling the cache introduces a per-worker staleness window
-        # (see basic_auth.ini for details). Operators must explicitly opt in.
-        auth_cache_ttl_seconds=config.getint("mlflow", "auth_cache_ttl_seconds", fallback=0),
+        auth_cache_max_size=config.getint(
+            "mlflow", "auth_cache_max_size", fallback=10000
+        ),
+        auth_cache_ttl_seconds=config.getint(
+            "mlflow", "auth_cache_ttl_seconds", fallback=0
+        ),
+        enforce_user_enumeration_capability=config.getboolean(
+            "mlflow", "enforce_user_enumeration_capability", fallback=False
+        ),
         read_database_uri=config["mlflow"].get("read_database_uri", None),
     )

@@ -3848,3 +3848,30 @@ def test_validate_can_get_user_permission_unknown_resource_denied(
         },
     ):
         assert not auth_module.validate_can_get_user_permission()
+
+
+def test_validate_can_list_users_with_enumeration_capability_enforced(role_auth_setup, monkeypatch):
+    from mlflow.server.auth import auth_config
+    
+    # 1. Verify default fallback condition when capability enforcement toggle is False
+    monkeypatch.setattr(auth_config, "enforce_user_enumeration_capability", False)
+    role_auth_setup["login_as"]("ws_admin_foo")
+    token = workspace_context.set_server_request_workspace("foo")
+    try:
+        with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+            # Normal workspace members or workspace-creation entities pass through
+            assert auth_module.validate_can_list_users() is True
+    finally:
+        workspace_context._WORKSPACE.reset(token)
+
+    # 2. Verify strict capability boundary when capability enforcement toggle is True
+    monkeypatch.setattr(auth_config, "enforce_user_enumeration_capability", True)
+    
+    # An active workspace admin possesses explicit MANAGE rights -> Allowed
+    role_auth_setup["login_as"]("ws_admin_foo")
+    token = workspace_context.set_server_request_workspace("foo")
+    try:
+        with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+            assert auth_module.validate_can_list_users() is True
+    finally:
+        workspace_context._WORKSPACE.reset(token)
