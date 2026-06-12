@@ -5,6 +5,7 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
+  CloseIcon,
   Drawer,
   Empty,
   Input,
@@ -202,21 +203,11 @@ export const FocusedReview = ({
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, height: '100%' }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-        <Button componentId={`${CID}.back`} icon={<ChevronLeftIcon />} onClick={onBack}>
+        <Button componentId={`${CID}.back`} icon={<CloseIcon />} onClick={onBack}>
           <FormattedMessage defaultMessage="Exit review" description="Review focused view: exit review button" />
         </Button>
-        <Typography.Link
-          componentId={`${CID}.view-full-trace`}
-          disabled={!trace}
-          onClick={() => setShowFullTrace(true)}
-        >
-          <FormattedMessage
-            defaultMessage="View full trace"
-            description="Review focused view: open the full trace explorer"
-          />
-        </Typography.Link>
-        <StatusTag status={item.status} />
         <div css={{ flex: 1 }} />
+        <StatusTag status={item.status} />
         {/* Progress across the queue's traces: count/percentage + segmented bar. */}
         <Typography.Text bold css={{ flexShrink: 0 }}>
           <FormattedMessage
@@ -272,6 +263,18 @@ export const FocusedReview = ({
             flexDirection: 'column',
           }}
         >
+          <div css={{ padding: `${theme.spacing.sm}px ${theme.spacing.md}px`, flexShrink: 0 }}>
+            <Typography.Link
+              componentId={`${CID}.view-full-trace`}
+              disabled={!trace}
+              onClick={() => setShowFullTrace(true)}
+            >
+              <FormattedMessage
+                defaultMessage="View full trace"
+                description="Review focused view: open the full trace explorer"
+              />
+            </Typography.Link>
+          </div>
           <div
             css={{
               flex: 1,
