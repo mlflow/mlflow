@@ -100,6 +100,19 @@ def test_create_server_invalid_name_rejected(client, invalid_name):
     assert "Expected '<reverse-dns namespace>/<server slug>'" in r.json()["message"]
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "io.github.test/server_name",
+        "io.github.test/server.name",
+    ],
+)
+def test_create_server_accepts_upstream_slug_chars(client, name):
+    r = client.post(PREFIX, json={"name": name})
+    assert r.status_code == 200
+    assert r.json()["name"] == name
+
+
 def test_get_server(client):
     client.post(PREFIX, json={"name": "com.example/get-me"})
     r = client.get(f"{PREFIX}/{_encode_path_param('com.example/get-me')}")
@@ -276,6 +289,23 @@ def test_create_version_invalid_server_name_rejected(client):
     assert r.status_code == 400
     assert r.json()["error_code"] == "INVALID_PARAMETER_VALUE"
     assert "Expected '<reverse-dns namespace>/<server slug>'" in r.json()["message"]
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "io.github.test/server_name",
+        "io.github.test/server.name",
+    ],
+)
+def test_create_version_accepts_upstream_slug_chars(client, name):
+    encoded_name = _encode_path_param(name)
+    r = client.post(
+        f"{PREFIX}/{encoded_name}/versions",
+        json={"server_json": {"name": name, "version": "1.0"}},
+    )
+    assert r.status_code == 200
+    assert r.json()["name"] == name
 
 
 @pytest.mark.parametrize(
