@@ -62,9 +62,8 @@ async function resolveSetupComplete(config: AssistantConfig): Promise<boolean> {
   if (providerId !== GATEWAY_PROVIDER_ID) {
     return true;
   }
-  // If there are no endpoints on the model, setup is not complete
-  // Else, the endpoint must be the same as the model name
-  const { endpoints } = await GatewayApi.listEndpoints(providerConfig.model);
+  // The endpoint must be the same as the model name
+  const { endpoints } = await GatewayApi.listEndpoints();
   return endpoints.some((endpoint) => endpoint.name === providerConfig.model);
 }
 
