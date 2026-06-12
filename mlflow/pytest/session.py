@@ -12,7 +12,6 @@ import threading
 import uuid
 
 import mlflow
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_TEST
 
 _logger = logging.getLogger(__name__)
 
@@ -80,6 +79,11 @@ def ensure_run() -> str | None:
     with _lock:
         if _run_id is not None:
             return _run_id
+
+        # Imported lazily: the plugin loads in every pytest run, so a
+        # module-level import of a PR-new symbol breaks collection against a
+        # version-skewed mlflow.
+        from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_TEST
 
         tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_TEST, TAG_SESSION_ID: session_id()}
         try:
