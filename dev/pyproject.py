@@ -106,10 +106,6 @@ TRACING_INCLUDE_FILES = [
     "mlflow.prompt*",
     "mlflow.protos*",
     "mlflow.pydantic_ai*",
-    # mlflow.test is exposed at the top level, so mlflow.pytest must import even
-    # in the tracing-only package. The plugin is inert without a pytest11 entry
-    # point (not registered for the tracing package).
-    "mlflow.pytest*",
     "mlflow.smolagents*",
     "mlflow.store*",
     "mlflow.telemetry*",

@@ -170,7 +170,6 @@ if MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)
 
 # Core modules required for mlflow-tracing
-from mlflow.pytest import test
 from mlflow.tracing.assessment import (
     delete_assessment,
     get_assessment,
@@ -209,7 +208,6 @@ from mlflow.tracking.fluent import active_run, flush_trace_async_logging, set_ex
 # APIs listed here must not depend on dependencies that are not part of `mlflow-tracing` package.
 __all__ = [
     "MlflowException",
-    "test",
     # Minimal tracking APIs required for tracing core functionality
     "set_experiment",
     "set_tracking_uri",
@@ -265,6 +263,7 @@ if not IS_TRACING_SDK_ONLY:
     from mlflow.models.evaluation.deprecated import evaluate
     from mlflow.models.evaluation.validation import validate_evaluation_results
     from mlflow.projects import run
+    from mlflow.pytest import test
     from mlflow.tracking._model_registry.fluent import (
         # TODO: Prompt Registry APIs are moved to the `mlflow.genai` namespace and direct
         # imports from mlflow will be deprecated in the future.
@@ -422,6 +421,7 @@ if not IS_TRACING_SDK_ONLY:
         "set_tags",
         "set_workspace",
         "start_run",
+        "test",
         "validate_evaluation_results",
         "Image",
         # Prompt Registry APIs
