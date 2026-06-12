@@ -3,16 +3,13 @@ import { useMemo, useState } from 'react';
 import {
   Alert,
   ApplyDesignSystemContextOverrides,
-  Button,
   ChevronDownIcon,
   ChevronRightIcon,
   Empty,
   FormUI,
   Input,
   Modal,
-  PlusIcon,
   TableSkeleton,
-  TrashIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -24,7 +21,9 @@ import {
   useListLabelSchemasQuery,
 } from '../../components/label-schemas';
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
+import { ReviewerChecklistCombobox } from './ReviewerChecklistCombobox';
 import { useIsAuthAvailable } from '../../../account/hooks';
+import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useCreateReviewQueueMutation } from './hooks/useCreateReviewQueueMutation';
 import { useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import type { ReviewQueue } from './types';
@@ -57,11 +56,18 @@ export const CreateReviewQueueModal = ({
   const { labelSchemas, isLoading } = useListLabelSchemasQuery({ experimentId });
   const { createReviewQueueAsync, isCreatingQueue, error } = useCreateReviewQueueMutation();
 
+  // Any authenticated user may list users server-side, so fetch the roster
+  // whenever auth is on; the Reviewers picker is hidden otherwise.
+  const canListUsers = authAvailable;
+  const { users: assignableUsers } = useAssignableUsersQuery({ enabled: canListUsers });
+
   const [name, setName] = useState('');
   // No questions are selected by default; the creator chooses them.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  // Reviewer identifiers (usernames / emails) to assign; auth servers only.
-  const [reviewers, setReviewers] = useState<string[]>(['']);
+  // Reviewers (members) to assign; auth servers only. Picked from a searchable
+  // multi-select checkbox list of the assignable-user roster (same UX as the
+  // "Flag for review" picker), so only real users can be selected.
+  const [members, setMembers] = useState<Set<string>>(new Set());
   // Whether the inline "New question" form is open; hides this modal while open.
   const [createQuestionOpen, setCreateQuestionOpen] = useState(false);
   // Which question previews are expanded (collapsed by default).
@@ -111,10 +117,36 @@ export const CreateReviewQueueModal = ({
     setSelectedIds(next);
   };
 
-  const setReviewerAt = (index: number, value: string) =>
-    setReviewers((prev) => prev.map((r, i) => (i === index ? value : r)));
-  const addReviewer = () => setReviewers((prev) => [...prev, '']);
-  const removeReviewerAt = (index: number) => setReviewers((prev) => prev.filter((_, i) => i !== index));
+  const usernames = useMemo(
+    () => assignableUsers.map((u) => u.username).filter((u): u is string => Boolean(u)),
+    [assignableUsers],
+  );
+  const toggleReviewer = (username: string) =>
+    setMembers((prev) => {
+      const next = new Set(prev);
+      if (next.has(username)) {
+        next.delete(username);
+      } else {
+        next.add(username);
+      }
+      return next;
+    });
+  // The trigger shows a count, not the joined names (mirrors the questions field).
+  const reviewersTriggerValue = useMemo(
+    () =>
+      members.size > 0
+        ? [
+            intl.formatMessage(
+              {
+                defaultMessage: '{count, plural, one {# reviewer} other {# reviewers}} selected',
+                description: 'Create review queue: reviewers dropdown selected-count summary',
+              },
+              { count: members.size },
+            ),
+          ]
+        : [],
+    [members, intl],
+  );
 
   const trimmedName = name.trim();
   const canSubmit = trimmedName.length > 0 && checkedIds.size > 0 && !isCreatingQueue && reviewerResolved;
@@ -131,7 +163,7 @@ export const CreateReviewQueueModal = ({
     }
     // The creator is always a member so the queue shows under "Created by me";
     // assigned reviewers (auth only) get it under "Feedback requested".
-    const assigned = authAvailable ? reviewers.map((r) => r.trim()).filter(Boolean) : [];
+    const assigned = authAvailable ? [...members] : [];
     const users = Array.from(new Set([createdBy, ...assigned]));
     const { review_queue } = await createReviewQueueAsync({
       experiment_id: experimentId,
@@ -161,9 +193,9 @@ export const CreateReviewQueueModal = ({
         onOk={handleCreate}
         onCancel={onClose}
       >
-        {/* Portal the questions dropdown into document.body, not the trace-detail
+        {/* Portal the field dropdowns into document.body, not the trace-detail
           drawer that can host this modal — the drawer's stacking context would
-          otherwise trap it below the modal regardless of z-index. */}
+          otherwise trap them below the modal regardless of z-index. */}
         <ApplyDesignSystemContextOverrides getPopupContainer={() => document.body}>
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
             <div>
@@ -181,6 +213,31 @@ export const CreateReviewQueueModal = ({
                 })}
               />
             </div>
+
+            {authAvailable && (
+              <div>
+                <FormUI.Label>
+                  <FormattedMessage
+                    defaultMessage="Reviewers"
+                    description="Create review queue: reviewers field label"
+                  />
+                </FormUI.Label>
+                <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
+                  <FormattedMessage
+                    defaultMessage="Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”."
+                    description="Create review queue: reviewers field hint"
+                  />
+                </FormUI.Hint>
+                <ReviewerChecklistCombobox
+                  componentId={`${CID}.reviewers`}
+                  usernames={usernames}
+                  checkedUsers={members}
+                  onToggle={toggleReviewer}
+                  triggerValue={reviewersTriggerValue}
+                  dropdownZIndex={dropdownZIndex}
+                />
+              </div>
+            )}
 
             <div>
               <FormUI.Label>
@@ -309,55 +366,6 @@ export const CreateReviewQueueModal = ({
                 </div>
               )}
             </div>
-
-            {authAvailable && (
-              <div>
-                <FormUI.Label>
-                  <FormattedMessage
-                    defaultMessage="Reviewers"
-                    description="Create review queue: reviewers field label"
-                  />
-                </FormUI.Label>
-                <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
-                  <FormattedMessage
-                    defaultMessage="Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”."
-                    description="Create review queue: reviewers field hint"
-                  />
-                </FormUI.Hint>
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                  {reviewers.map((reviewer, index) => (
-                    // eslint-disable-next-line react/no-array-index-key
-                    <div key={index} css={{ display: 'flex', gap: theme.spacing.sm }}>
-                      <Input
-                        componentId={`${CID}.reviewer`}
-                        css={{ flex: 1 }}
-                        value={reviewer}
-                        onChange={(e) => setReviewerAt(index, e.target.value)}
-                        placeholder={intl.formatMessage({
-                          defaultMessage: 'username or email',
-                          description: 'Create review queue: reviewer input placeholder',
-                        })}
-                      />
-                      <Button
-                        componentId={`${CID}.remove-reviewer`}
-                        icon={<TrashIcon />}
-                        aria-label={intl.formatMessage({
-                          defaultMessage: 'Remove reviewer',
-                          description: 'Create review queue: remove-reviewer button',
-                        })}
-                        onClick={() => removeReviewerAt(index)}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <Button componentId={`${CID}.add-reviewer`} icon={<PlusIcon />} onClick={addReviewer}>
-                  <FormattedMessage
-                    defaultMessage="Add reviewer"
-                    description="Create review queue: add-reviewer button"
-                  />
-                </Button>
-              </div>
-            )}
 
             {error && (
               <Alert
