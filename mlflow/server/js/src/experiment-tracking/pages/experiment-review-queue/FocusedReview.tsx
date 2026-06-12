@@ -20,20 +20,12 @@ import type { LabelSchema, LabelSchemaValue } from '../../components/label-schem
 import { useCreateReviewAssessmentMutation } from './hooks/useCreateReviewAssessmentMutation';
 import { useTraceAssessmentsQuery } from './hooks/useTraceAssessmentsQuery';
 import { buildPrefilledAnswers, buildPrefilledRationales, buildPriorAssessmentIds, isAnswered } from './reviewAnswers';
+import { ReviewTraceInputOutput } from './ReviewTraceInputOutput';
 import { StatusTag } from './ReviewQueueList';
 import { SegmentedProgressBar } from './SegmentedProgressBar';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 const CID = 'mlflow.experiment-review-queue.focused-review';
-
-/** Pretty-print a request/response preview as JSON, falling back to the raw string. */
-const formatPreview = (raw: string): string => {
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
-};
 
 /**
  * Focused-review surface, three panels:
@@ -328,42 +320,7 @@ export const FocusedReview = ({
                 }
               />
             ) : (
-              [
-                requestPreview && {
-                  key: 'input',
-                  label: (
-                    <FormattedMessage defaultMessage="Input" description="Review focused view: trace input label" />
-                  ),
-                  value: formatPreview(requestPreview),
-                },
-                responsePreview && {
-                  key: 'output',
-                  label: (
-                    <FormattedMessage defaultMessage="Output" description="Review focused view: trace output label" />
-                  ),
-                  value: formatPreview(responsePreview),
-                },
-              ]
-                .filter((section): section is { key: string; label: JSX.Element; value: string } => Boolean(section))
-                .map((section) => (
-                  <div key={section.key} css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                    <Typography.Text bold>{section.label}</Typography.Text>
-                    <pre
-                      css={{
-                        margin: 0,
-                        padding: theme.spacing.sm,
-                        backgroundColor: theme.colors.backgroundSecondary,
-                        borderRadius: theme.borders.borderRadiusMd,
-                        fontFamily: 'monospace',
-                        fontSize: theme.typography.fontSizeSm,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {section.value}
-                    </pre>
-                  </div>
-                ))
+              <ReviewTraceInputOutput requestPreview={requestPreview} responsePreview={responsePreview} />
             )}
           </div>
         </div>
