@@ -1770,6 +1770,7 @@ mlflow.tensorflow.load_checkpoint
 mlflow.tensorflow.load_model
 mlflow.tensorflow.log_model
 mlflow.tensorflow.save_model
+mlflow.test
 mlflow.trace
 mlflow.tracing.attachments.Attachment
 mlflow.tracing.attachments.Attachment.from_file

@@ -12,8 +12,6 @@ import threading
 import uuid
 
 import mlflow
-from mlflow.telemetry.events import MlflowTestEvent
-from mlflow.telemetry.track import _record_event
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_TEST
 
 _logger = logging.getLogger(__name__)
@@ -107,11 +105,20 @@ def finalize() -> None:
     global _run_id, _run_owned
     with _lock:
         if _num_tests > 0:
-            _record_event(
-                MlflowTestEvent,
-                {"num_tests": _num_tests},
-                duration_ms=_total_duration_ms,
-            )
+            # Imported lazily and defensively: this plugin loads in every pytest
+            # run, so a module-level telemetry import would break collection if
+            # mlflow.telemetry is unavailable or version-skewed.
+            try:
+                from mlflow.telemetry.events import MlflowTestEvent
+                from mlflow.telemetry.track import _record_event
+
+                _record_event(
+                    MlflowTestEvent,
+                    {"num_tests": _num_tests},
+                    duration_ms=_total_duration_ms,
+                )
+            except Exception as e:
+                _logger.debug("mlflow.test: skipped telemetry: %s", e)
         if _run_owned and _run_id is not None:
             status = "FAILED" if _any_test_failed else "FINISHED"
             try:
