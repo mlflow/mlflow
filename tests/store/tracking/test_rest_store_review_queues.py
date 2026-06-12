@@ -164,6 +164,19 @@ def test_list_review_queues_parses_paged_response():
     assert page[0].queue_id == "rq-1"
 
 
+def test_list_review_queues_sends_item_filter():
+    resp = pb.ListReviewQueues.Response(
+        review_queues=[pb.ReviewQueue(queue_id="rq-1", name="q", queue_type=pb.CUSTOM)],
+        next_page_token="",
+    )
+    patcher, captured = _capture(resp)
+    with patcher:
+        page = _store().list_review_queues("1", item_id="tr-1")
+    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/list"
+    assert captured["body"]["item_id"] == "tr-1"
+    assert page[0].queue_id == "rq-1"
+
+
 def test_delete_review_queue_endpoint():
     patcher, captured = _capture(pb.DeleteReviewQueue.Response())
     with patcher:

@@ -1168,12 +1168,16 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
         return ReviewQueue.from_proto(response_proto.review_queue)
 
-    def list_review_queues(self, experiment_id, *, user=None, max_results=None, page_token=None):
+    def list_review_queues(
+        self, experiment_id, *, user=None, item_id=None, max_results=None, page_token=None
+    ):
         from mlflow.genai.review_queues import ReviewQueue
 
         req = ListReviewQueues(experiment_id=str(experiment_id))
         if user is not None:
             req.user = user
+        if item_id is not None:
+            req.item_id = item_id
         if max_results is not None:
             req.max_results = max_results
         if page_token is not None:

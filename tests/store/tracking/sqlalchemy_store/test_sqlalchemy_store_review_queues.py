@@ -278,6 +278,25 @@ def test_list_review_queues_filtered_by_user(store):
     assert custom.users == ["alice", "bob"]
 
 
+def test_list_review_queues_filtered_by_item(store):
+    exp_id = _create_experiments(store, "list_item")
+    has_trace = store.create_review_queue(exp_id, name="with-trace", queue_type="custom")
+    also_has = store.create_review_queue(exp_id, name="also-with-trace", queue_type="custom")
+    store.create_review_queue(exp_id, name="without-trace", queue_type="custom")
+    store.add_items_to_review_queue(has_trace.queue_id, item_ids=["tr-1"])
+    store.add_items_to_review_queue(also_has.queue_id, item_ids=["tr-1", "tr-2"])
+
+    # Only the queues containing tr-1 come back.
+    containing = {q.name for q in store.list_review_queues(exp_id, item_id="tr-1")}
+    assert containing == {"with-trace", "also-with-trace"}
+
+    # tr-2 is in only one of them.
+    assert {q.name for q in store.list_review_queues(exp_id, item_id="tr-2")} == {"also-with-trace"}
+
+    # An item in no queue yields nothing.
+    assert {q.name for q in store.list_review_queues(exp_id, item_id="tr-absent")} == set()
+
+
 def test_list_review_queues_scopes_to_assigned_user(store):
     exp_id = _create_experiments(store, "list_scoped")
     store.get_or_create_user_queue(exp_id, user="default")
