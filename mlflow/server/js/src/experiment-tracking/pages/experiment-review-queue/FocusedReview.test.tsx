@@ -113,6 +113,49 @@ describe('FocusedReview single Pass/Fail auto-submit', () => {
   });
 });
 
+describe('FocusedReview submit requires at least one answer', () => {
+  beforeEach(() => {
+    mockCreateAssessment.mockReset();
+    mockCreateAssessment.mockImplementation(() => Promise.resolve());
+  });
+  afterEach(() => {
+    mockPriorAnswersResult = { priorAnswers: [], isLoading: false, isFetching: false };
+  });
+
+  it('disables Submit until a question is answered, then completes', async () => {
+    const onSetStatus = jest.fn((_status: string) => Promise.resolve());
+    // Two questions so the explicit Submit button renders (not the auto-submit case).
+    renderFocused([passFailSchema(), passFailSchema('s2', 'Also good?')], onSetStatus);
+
+    // Nothing answered yet — completing now would record no assessments.
+    expect(screen.getByText('Submit').closest('button')).toBeDisabled();
+
+    fireEvent.click(screen.getAllByText('Pass')[0]);
+    expect(screen.getByText('Submit').closest('button')).not.toBeDisabled();
+
+    fireEvent.click(screen.getByText('Submit'));
+    await waitFor(() => expect(onSetStatus).toHaveBeenCalledWith('COMPLETE'));
+    expect(mockCreateAssessment).toHaveBeenCalledTimes(1);
+    expect(mockCreateAssessment).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Looks good?', value: true, assessmentKind: 'feedback' }),
+    );
+  });
+
+  it('enables Submit on load when a prior answer prefills a question', () => {
+    // A reopened trace whose answer comes from prefill (no edit) must still count
+    // toward answeredCount, exercising the `prefilled` branch of the memo.
+    mockPriorAnswersResult = {
+      priorAnswers: [{ name: 'Looks good?', kind: 'feedback', value: true, valid: true }],
+      isLoading: false,
+      isFetching: false,
+    };
+    const onSetStatus = jest.fn((_status: string) => Promise.resolve());
+    renderFocused([passFailSchema(), passFailSchema('s2', 'Also good?')], onSetStatus);
+
+    expect(screen.getByText('Submit').closest('button')).not.toBeDisabled();
+  });
+});
+
 describe('FocusedReview view-only when not assigned', () => {
   beforeEach(() => {
     mockCreateAssessment.mockReset();

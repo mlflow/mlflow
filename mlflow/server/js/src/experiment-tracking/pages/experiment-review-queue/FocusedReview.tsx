@@ -19,7 +19,7 @@ import { LabelSchemaInputRenderer } from '../../components/label-schemas';
 import type { LabelSchema, LabelSchemaValue } from '../../components/label-schemas';
 import { useCreateReviewAssessmentMutation } from './hooks/useCreateReviewAssessmentMutation';
 import { useTraceAssessmentsQuery } from './hooks/useTraceAssessmentsQuery';
-import { buildPrefilledAnswers, buildPrefilledRationales, buildPriorAssessmentIds } from './reviewAnswers';
+import { buildPrefilledAnswers, buildPrefilledRationales, buildPriorAssessmentIds, isAnswered } from './reviewAnswers';
 import { StatusTag } from './ReviewQueueList';
 import { SegmentedProgressBar } from './SegmentedProgressBar';
 import type { ReviewQueueItem, ReviewStatus } from './types';
@@ -127,6 +127,18 @@ export const FocusedReview = ({
   const autoSubmitValue = autoSubmitSchema ? valueFor(autoSubmitSchema.name) : undefined;
   const hideSubmit = autoSubmitSchema != null && (autoSubmitValue === undefined || autoSubmitValue === null);
 
+  // Submit writes one assessment per answered question; completing with zero
+  // answers would mark the trace done while recording nothing, so the button
+  // stays disabled until at least one question has a value. This reads the
+  // committed answer state (edited/prefilled) and intentionally ignores the
+  // auto-submit `answerOverrides`: those only flow through the auto-submit path
+  // (single Pass/Fail), which submits directly and hides this button, so the two
+  // never gate the same interaction.
+  const answeredCount = useMemo(
+    () => schemas.filter((s) => isAnswered(s.name in edited ? edited[s.name] : prefilled[s.name])).length,
+    [schemas, edited, prefilled],
+  );
+
   // Position in the queue + adjacent traces for prev/next navigation.
   const currentIndex = items.findIndex((i) => i.item_id === item.item_id);
   const prevItemId = currentIndex > 0 ? items[currentIndex - 1].item_id : undefined;
@@ -170,10 +182,12 @@ export const FocusedReview = ({
       answerOverrides && name in answerOverrides ? answerOverrides[name] : valueFor(name);
     // Every answered question is (re)written here; an unchanged answer
     // re-supersedes its prior rather than being skipped.
-    const answered = schemas.filter((s) => {
-      const v = effectiveValue(s.name);
-      return v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
-    });
+    const answered = schemas.filter((s) => isAnswered(effectiveValue(s.name)));
+    // Defensive: the Submit button is disabled with no answers, but never
+    // record an empty completion if this is somehow reached.
+    if (answered.length === 0) {
+      return;
+    }
     try {
       // Write the answers, then mark complete. Status is advanced only if every
       // write succeeds, so a partial failure leaves the trace pending for retry.
@@ -513,7 +527,14 @@ export const FocusedReview = ({
                 <Button
                   componentId={`${CID}.complete`}
                   type="primary"
-                  disabled={isTerminal || isCreatingAssessment || isSettingStatus || !canReview || priorAnswersFetching}
+                  disabled={
+                    isTerminal ||
+                    isCreatingAssessment ||
+                    isSettingStatus ||
+                    !canReview ||
+                    answeredCount === 0 ||
+                    priorAnswersFetching
+                  }
                   loading={isCreatingAssessment || isSettingStatus}
                   onClick={() => submitAnswersAndComplete()}
                 >
