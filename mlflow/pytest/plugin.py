@@ -64,20 +64,19 @@ def pytest_runtest_call(item: pytest.Item):
         yield
         return
 
-    test_name = item.function.__name__
-    case_id = _case_id(item)
-
-    _session.set_current_test(test_name, case_id)
+    # Full test id (e.g. "tests/foo/test_a.py::test_x[case]") so names are unique
+    # across files; the UI renders just the function name.
+    _session.set_current_test(item.nodeid, _case_id(item))
     _session.ensure_run()
 
     start = time.time()
     outcome = yield
     duration_ms = int((time.time() - start) * 1000)
 
-    # A raised exception in the call phase means the test failed. Skips/xfails
-    # raise their own outcome exceptions, so exclude them: the run status should
-    # reflect genuine assertion failures only.
-    failed = outcome.excinfo is not None and not isinstance(outcome.excinfo[1], (Skipped, XFailed))
-    _session.record_test(failed=failed, duration_ms=duration_ms)
+    # Skips/xfails raise their own outcome exceptions; don't count them toward
+    # the run outcome or telemetry. Any other exception is a genuine failure.
+    exc = outcome.excinfo[1] if outcome.excinfo is not None else None
+    if not isinstance(exc, (Skipped, XFailed)):
+        _session.record_test(failed=exc is not None, duration_ms=duration_ms)
 
     _session.set_current_test(None, None)

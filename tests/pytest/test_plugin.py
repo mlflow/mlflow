@@ -28,16 +28,19 @@ def always_pass(*, outputs):
 
 @mlflow.test
 def test_marked_one():
-    # Identity is set for the running marked test.
-    assert session.current_test() == ("test_marked_one", None)
+    # Identity is the full test id; set for the running marked test.
+    name, case_id = session.current_test()
+    assert name.endswith("::test_marked_one")
+    assert case_id is None
     mlflow.genai.evaluate(
         data=[{"inputs": {"text": "hi"}, "outputs": "hi"}],
         scorers=[always_pass],
     )
 
 
-@mlflow.test
-def test_marked_two():
+@mlflow.test()
+def test_marked_called():
+    # The called form @mlflow.test() works too.
     mlflow.genai.evaluate(
         data=[{"inputs": {"text": "bye"}, "outputs": "bye"}],
         scorers=[always_pass],
@@ -187,7 +190,7 @@ def always_pass(*, outputs):
 @mlflow.test
 def test_param(value):
     name, case_id = session.current_test()
-    assert name == "test_param"
+    assert "::test_param[" in name
     assert case_id == value
     mlflow.genai.evaluate(
         data=[{"inputs": {"text": value}, "outputs": value}],

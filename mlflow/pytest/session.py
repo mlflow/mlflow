@@ -12,7 +12,6 @@ import threading
 import uuid
 
 import mlflow
-from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_TEST
 
 _logger = logging.getLogger(__name__)
@@ -83,34 +82,21 @@ def total_duration_ms() -> int:
 
 
 def ensure_run() -> str | None:
-    """Open (or adopt) the test run, once per session. Thread-safe."""
+    """Open the test run, once per session. Thread-safe.
+
+    If a run is already active (e.g. opened by a user fixture), start a nested
+    child run rather than reusing/retagging the user's run -- we don't know what
+    that run is for, so we never mutate it.
+    """
     global _run_id, _run_owned
     with _lock:
         if _run_id is not None:
             return _run_id
 
         tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_TEST, TAG_SESSION_ID: session_id()}
-
         try:
-            active = mlflow.active_run()
-        except Exception as e:
-            _logger.warning("mlflow.test: could not check active run: %s", e)
-            return None
-
-        if active is not None:
-            try:
-                client = MlflowClient()
-                for k, v in tags.items():
-                    client.set_tag(active.info.run_id, k, v)
-            except Exception as e:
-                _logger.warning("mlflow.test: could not tag active run: %s", e)
-                return None
-            _run_id = active.info.run_id
-            _run_owned = False
-            return _run_id
-
-        try:
-            run = mlflow.start_run(tags=tags)
+            nested = mlflow.active_run() is not None
+            run = mlflow.start_run(nested=nested, tags=tags)
         except Exception as e:
             _logger.warning("mlflow.test: could not start test run: %s", e)
             return None

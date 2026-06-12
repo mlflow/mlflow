@@ -16,7 +16,6 @@ the marked test.
 
 from __future__ import annotations
 
-import functools
 from typing import Callable, ParamSpec, TypeVar
 
 from mlflow.utils.annotations import experimental
@@ -34,12 +33,8 @@ def test(fn: Callable[_P, _R] | None = None) -> Callable[_P, _R]:
     Supports both bare ``@mlflow.test`` and ``@mlflow.test()``.
     """
 
-    def decorator(f: Callable[_P, _R]) -> Callable[_P, _R]:
-        @functools.wraps(f)
-        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-            return f(*args, **kwargs)
+    def mark(f: Callable[_P, _R]) -> Callable[_P, _R]:
+        setattr(f, MLFLOW_TEST_ATTR, True)
+        return f
 
-        setattr(wrapper, MLFLOW_TEST_ATTR, True)
-        return wrapper
-
-    return decorator if fn is None else decorator(fn)
+    return mark if fn is None else mark(fn)
