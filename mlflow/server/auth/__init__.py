@@ -1627,15 +1627,20 @@ def validate_can_read_user():
 
 
 def validate_can_list_users():
-    # Any workspace member may list users: the review-queue assignment UI needs the
-    # roster so a (non-admin) experiment manager can pick reviewers to assign.
-    # Listing grants no access on its own — assigning a user to a queue still
-    # requires experiment MANAGE. Scope it to the request workspace so the roster
-    # isn't leaked across workspaces: ``_user_can_create_in_workspace`` requires a
-    # workspace-wide grant when workspaces are enabled, and allows any authenticated
-    # user when they're disabled (single-tenant). (Super admins short-circuit in
-    # ``_before_request`` and never reach this validator.)
+    # If explicit user directory enumeration rules are turned on, do not default
+    # to all workspace creation members. Instead, confirm they explicitly carry
+    # MANAGE privileges within the targeted workspace context.
+    if getattr(auth_config, "enforce_user_enumeration_capability", False):
+        if not MLFLOW_ENABLE_WORKSPACES.get():
+            return True
+        workspace_name = workspace_context.get_request_workspace()
+        if workspace_name is None:
+            return False
+        user = store.get_user(authenticate_request().username)
+        return store.is_workspace_admin(user.id, workspace_name)
+
     return _user_can_create_in_workspace()
+
 
 
 def validate_can_create_user():
