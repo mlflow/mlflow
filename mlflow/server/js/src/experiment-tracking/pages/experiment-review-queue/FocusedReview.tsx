@@ -27,15 +27,93 @@ import { StatusTag } from './ReviewQueueList';
 import { SegmentedProgressBar } from './SegmentedProgressBar';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
+import { MARKDOWN_RENDER_SIZE_LIMIT } from '../../../shared/web-shared/model-trace-explorer/constants';
+
 const CID = 'mlflow.experiment-review-queue.focused-review';
 
-/** Pretty-print a request/response preview as JSON, falling back to the raw string. */
-const formatPreview = (raw: string): string => {
+/** Try to parse `raw` as JSON; returns the pretty-printed string + a flag. */
+const tryParseJson = (raw: string): { text: string; isJson: boolean } => {
   try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
+    return { text: JSON.stringify(JSON.parse(raw), null, 2), isJson: true };
   } catch {
-    return raw;
+    return { text: raw, isJson: false };
   }
+};
+
+/**
+ * Renders trace content with the same protections as the trace explorer:
+ * 1. JSON → rendered as a syntax-highlighted code block (no markdown misparse)
+ * 2. Content > 1 MB → plain-text fallback (prevents browser freeze)
+ * 3. Everything else → markdown via GenAIMarkdownRenderer
+ */
+const TraceContentBubble = ({ content, variant }: { content: string; variant: 'input' | 'output' }) => {
+  const { theme } = useDesignSystemTheme();
+  const { text, isJson } = tryParseJson(content);
+
+  const isInput = variant === 'input';
+  const wrapperCss = isInput
+    ? {
+        maxWidth: '50%',
+        padding: theme.spacing.sm,
+        backgroundColor: theme.isDarkMode ? theme.colors.blue800 : theme.colors.blue200,
+        borderRadius: theme.borders.borderRadiusMd,
+        fontSize: theme.typography.fontSizeSm,
+        wordBreak: 'break-word' as const,
+        '& pre[class*="prism"]': { padding: `${theme.spacing.sm}px ${theme.spacing.md}px` },
+      }
+    : {
+        padding: theme.spacing.md,
+        backgroundColor: theme.isDarkMode ? theme.colors.backgroundSecondary : theme.colors.white,
+        borderRadius: theme.borders.borderRadiusMd,
+        fontSize: theme.typography.fontSizeSm,
+        lineHeight: 1.6,
+        wordBreak: 'break-word' as const,
+        '& pre[class*="prism"]': { padding: `${theme.spacing.sm}px ${theme.spacing.md}px` },
+      };
+
+  const body = (() => {
+    if (text.length > MARKDOWN_RENDER_SIZE_LIMIT) {
+      return (
+        <pre
+          css={{
+            margin: 0,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
+            maxHeight: 400,
+            overflow: 'auto',
+            fontSize: theme.typography.fontSizeSm,
+          }}
+        >
+          {text.slice(0, 10_000)}
+        </pre>
+      );
+    }
+    if (isJson) {
+      return (
+        <pre
+          css={{
+            margin: 0,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            fontSize: theme.typography.fontSizeSm,
+            fontFamily: 'monospace',
+          }}
+        >
+          {text}
+        </pre>
+      );
+    }
+    return <GenAIMarkdownRenderer compact={isInput}>{text}</GenAIMarkdownRenderer>;
+  })();
+
+  if (isInput) {
+    return (
+      <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div css={wrapperCss}>{body}</div>
+      </div>
+    );
+  }
+  return <div css={wrapperCss}>{body}</div>;
 };
 
 /**
@@ -95,7 +173,6 @@ export const FocusedReview = ({
   const requestPreview = trace?.info?.request_preview;
   const responsePreview = trace?.info?.response_preview;
   const hasIO = Boolean(requestPreview || responsePreview);
-  const traceTime = trace?.info?.request_time ? new Date(trace.info.request_time) : null;
 
   // Prefill the widgets from the trace's existing assessments; edits overlay
   // the prefill so the query result never clobbers what the reviewer typed.
@@ -321,34 +398,10 @@ export const FocusedReview = ({
             ) : (
               <>
                 {requestPreview && (
-                  <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <div
-                      css={{
-                        maxWidth: '50%',
-                        padding: theme.spacing.sm,
-                        backgroundColor: theme.isDarkMode ? theme.colors.blue800 : theme.colors.blue200,
-                        borderRadius: theme.borders.borderRadiusMd,
-                        fontSize: theme.typography.fontSizeSm,
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      <GenAIMarkdownRenderer compact>{formatPreview(requestPreview)}</GenAIMarkdownRenderer>
-                    </div>
-                  </div>
+                  <TraceContentBubble content={requestPreview} variant="input" />
                 )}
                 {responsePreview && (
-                  <div
-                    css={{
-                      padding: theme.spacing.md,
-                      backgroundColor: theme.isDarkMode ? theme.colors.backgroundSecondary : theme.colors.white,
-                      borderRadius: theme.borders.borderRadiusMd,
-                      fontSize: theme.typography.fontSizeSm,
-                      lineHeight: 1.6,
-                      wordBreak: 'break-word',
-                    }}
-                  >
-                    <GenAIMarkdownRenderer>{formatPreview(responsePreview)}</GenAIMarkdownRenderer>
-                  </div>
+                  <TraceContentBubble content={responsePreview} variant="output" />
                 )}
               </>
             )}
