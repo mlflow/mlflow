@@ -221,7 +221,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
           empty fragment so it takes no space. */}
       {renderAddToReviewQueueDropdown && (
         <div css={showReviewQueueDropdown ? undefined : { display: 'none' }}>
-          {React.createElement(renderAddToReviewQueueDropdown as React.ComponentType<any>, {
+          {React.createElement(renderAddToReviewQueueDropdown, {
             selectedTraceInfos: reviewQueueDropdownTraceInfos,
             experimentId,
             open: showReviewQueueDropdown,

@@ -140,7 +140,8 @@ export const ModelTraceExplorerDrawer = ({
               </Button>
             )}
             {showFlagForReviewButton &&
-              React.createElement(renderAddToReviewQueueDropdown as React.ComponentType<any>, {
+              renderAddToReviewQueueDropdown &&
+              React.createElement(renderAddToReviewQueueDropdown, {
                 selectedTraceInfos: traceInfo ? [traceInfo] : [],
                 experimentId: experimentId ?? '',
                 children: (

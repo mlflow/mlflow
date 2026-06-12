@@ -18,6 +18,7 @@ export interface RenderAddToReviewQueueDropdownParams {
   children: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  popoverAlign?: 'start' | 'end';
 }
 
 export type DrawerComponentType = {
@@ -36,7 +37,7 @@ export interface AddToDatasetAction {
 
 export interface ModelTraceExplorerContextValue {
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => React.ReactNode;
-  renderAddToReviewQueueDropdown?: (params: RenderAddToReviewQueueDropdownParams) => React.ReactNode;
+  renderAddToReviewQueueDropdown?: React.ComponentType<RenderAddToReviewQueueDropdownParams>;
   DrawerComponent: DrawerComponentType;
   /** When set (e.g. by the evaluation review drawer), content can show "Add to dataset" that calls openModal */
   addToDatasetAction?: AddToDatasetAction;
@@ -45,7 +46,6 @@ export interface ModelTraceExplorerContextValue {
 
 const ModelTraceExplorerContext = createContext<ModelTraceExplorerContextValue>({
   renderExportTracesToDatasetsModal: () => null,
-  renderAddToReviewQueueDropdown: () => null,
   DrawerComponent: Drawer,
   addToDatasetAction: undefined,
 });
@@ -53,7 +53,7 @@ const ModelTraceExplorerContext = createContext<ModelTraceExplorerContextValue>(
 interface ModelTraceExplorerContextProviderProps {
   children: React.ReactNode;
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => React.ReactNode;
-  renderAddToReviewQueueDropdown?: (params: RenderAddToReviewQueueDropdownParams) => React.ReactNode;
+  renderAddToReviewQueueDropdown?: React.ComponentType<RenderAddToReviewQueueDropdownParams>;
   DrawerComponent?: DrawerComponentType;
   drawerWidth?: string | number;
 }

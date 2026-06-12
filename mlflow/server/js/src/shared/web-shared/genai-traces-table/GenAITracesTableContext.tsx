@@ -8,6 +8,7 @@ import { ModelTraceExplorerPreferencesProvider } from '../model-trace-explorer/M
 import {
   useModelTraceExplorerContext,
   type DrawerComponentType,
+  type RenderAddToReviewQueueDropdownParams,
 } from '../model-trace-explorer/ModelTraceExplorerContext';
 import type { GetTraceFunction } from './hooks/useGetTrace';
 import { getExperimentIdFromTraceLocation } from './utils/TraceUtils';
@@ -44,13 +45,7 @@ export interface GenAITracesTableContextValue<T> {
    * Render function for the "Add to review queue" dropdown.
    * Returns a Popover-wrapped trigger element that lets the user pick queues.
    */
-  renderAddToReviewQueueDropdown?: (params: {
-    selectedTraceInfos: import('../model-trace-explorer/ModelTrace.types').ModelTraceInfoV3[];
-    experimentId: string;
-    children: React.ReactNode;
-    open?: boolean;
-    onOpenChange?: (open: boolean) => void;
-  }) => React.ReactNode;
+  renderAddToReviewQueueDropdown?: React.ComponentType<RenderAddToReviewQueueDropdownParams>;
 }
 export const GenAITracesTableContext = createContext<GenAITracesTableContextValue<TraceRow>>({
   table: undefined,
