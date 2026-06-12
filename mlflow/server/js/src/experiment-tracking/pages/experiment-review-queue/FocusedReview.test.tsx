@@ -1,4 +1,4 @@
-import { describe, jest, it, expect, beforeEach } from '@jest/globals';
+import { describe, jest, it, expect, beforeEach, afterEach } from '@jest/globals';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
@@ -21,8 +21,12 @@ jest.mock('./hooks/useCreateReviewAssessmentMutation', () => ({
     isCreatingAssessment: false,
   }),
 }));
+let mockPriorAnswersResult: { priorAnswers: unknown[]; isLoading: boolean } = {
+  priorAnswers: [],
+  isLoading: false,
+};
 jest.mock('./hooks/useTraceAssessmentsQuery', () => ({
-  useTraceAssessmentsQuery: () => ({ priorAnswers: [], isLoading: false }),
+  useTraceAssessmentsQuery: () => mockPriorAnswersResult,
 }));
 
 const passFailSchema = (schemaId = 's1', name = 'Looks good?', enableComment = false): LabelSchema => ({
@@ -113,6 +117,9 @@ describe('FocusedReview submit requires at least one answer', () => {
     mockCreateAssessment.mockReset();
     mockCreateAssessment.mockImplementation(() => Promise.resolve());
   });
+  afterEach(() => {
+    mockPriorAnswersResult = { priorAnswers: [], isLoading: false };
+  });
 
   it('disables Submit until a question is answered, then completes', async () => {
     const onSetStatus = jest.fn((_status: string) => Promise.resolve());
@@ -128,6 +135,22 @@ describe('FocusedReview submit requires at least one answer', () => {
     fireEvent.click(screen.getByText('Submit'));
     await waitFor(() => expect(onSetStatus).toHaveBeenCalledWith('COMPLETE'));
     expect(mockCreateAssessment).toHaveBeenCalledTimes(1);
+    expect(mockCreateAssessment).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Looks good?', value: true, assessmentKind: 'feedback' }),
+    );
+  });
+
+  it('enables Submit on load when a prior answer prefills a question', () => {
+    // A reopened trace whose answer comes from prefill (no edit) must still count
+    // toward answeredCount, exercising the `prefilled` branch of the memo.
+    mockPriorAnswersResult = {
+      priorAnswers: [{ name: 'Looks good?', kind: 'feedback', value: true, valid: true }],
+      isLoading: false,
+    };
+    const onSetStatus = jest.fn((_status: string) => Promise.resolve());
+    renderFocused([passFailSchema(), passFailSchema('s2', 'Also good?')], onSetStatus);
+
+    expect(screen.getByText('Submit').closest('button')).not.toBeDisabled();
   });
 });
 
