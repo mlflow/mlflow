@@ -4,6 +4,8 @@
 > It adds **no production code** and changes **no shippable surface** — only a script under
 > `dev/benchmarks/` and a generated results file. Do not open this as a real PR.
 
+Reference material for implementation PR mlflow/mlflow#23948.
+
 ## What this is
 
 A self-contained benchmark that quantifies the per-query latency overhead of the
@@ -57,6 +59,15 @@ Same-skeleton, **same selectivity** (isolates the pure per-row CAST/CASE cost):
 | 100,000   | 29.94 ms   | 66.19 ms             | **2.21x** |
 | 1,000,000 | 305.75 ms  | 665.18 ms            | **2.18x** |
 
+Same-selectivity operator comparison (verifies numeric inequality operators are equivalent
+to numeric `=` when matched on row selectivity):
+
+| scale     | CAST `=`  | CAST `>`  | CAST `<=` |
+| --------- | --------- | --------- | --------- |
+| 10,000    | 6.48 ms   | 6.47 ms   | 6.48 ms   |
+| 100,000   | 66.19 ms  | 66.12 ms  | 66.29 ms  |
+| 1,000,000 | 665.18 ms | 664.37 ms | 666.60 ms |
+
 Range query vs the real production string-eq baseline (different selectivity):
 
 | scale     | baseline eq | CAST `>` | ratio | attr-numeric |
@@ -75,6 +86,9 @@ already `O(N)` scans of the `assessments` table (no index on the JSON value), so
 does **not** change the complexity class — it makes an already-linear comparison ~2x
 heavier. On real range queries the absolute latency stays in the same ballpark as the
 equality baseline already shipping in production.
+
+At matched selectivity, the inequality operators (`>`, `<=`) are effectively equal to
+numeric `=`; the operator choice does not add measurable overhead beyond the CAST itself.
 
 **Recommend shipping the CAST approach in phase 2.** Separately (and orthogonally), if
 sub-100 ms assessment-filter latency at 100k+ becomes a hard requirement, add a
