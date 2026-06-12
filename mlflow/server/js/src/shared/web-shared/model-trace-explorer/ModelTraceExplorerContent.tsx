@@ -118,11 +118,16 @@ export const ModelTraceExplorerContent = ({
       </Tabs.Content>
       <Tabs.Content
         value="custom"
+        mountMode="preserve"
         css={{
           display: 'flex',
           flexDirection: 'column',
           flex: 1,
           minHeight: 0,
+          // With mountMode="preserve" the panel stays mounted when inactive
+          '&[hidden]': {
+            display: 'none',
+          },
         }}
       >
         <ModelTraceExplorerCustomView modelTraceInfo={modelTraceInfo} />
