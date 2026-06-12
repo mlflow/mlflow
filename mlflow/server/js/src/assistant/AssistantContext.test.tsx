@@ -1,10 +1,12 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
-import { renderHook, act, cleanup } from '@testing-library/react';
+import { describe, it, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { renderHook, act, cleanup, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
 import { AssistantProvider, useAssistant } from './AssistantContext';
 import * as AssistantService from './AssistantService';
 import type { SendMessageStreamCallbacks } from './AssistantService';
+import { GatewayApi } from '../gateway/api';
+import type { AssistantConfig, ProviderConfig } from './types';
 
 jest.mock('./AssistantService', () => ({
   __esModule: true,
@@ -13,8 +15,17 @@ jest.mock('./AssistantService', () => ({
   cancelSession: jest.fn(),
 }));
 
+jest.mock('../gateway/api', () => ({
+  GatewayApi: { listEndpoints: jest.fn() },
+}));
+
+jest.mock('./AssistantPageContext', () => ({
+  useAssistantPageContextActions: () => ({ getContext: () => ({}) }),
+}));
+
 const mockSendMessageStream = jest.mocked(AssistantService.sendMessageStream);
 const mockGetConfig = jest.mocked(AssistantService.getConfig);
+const mockListEndpoints = jest.mocked(GatewayApi.listEndpoints);
 
 // A fake EventSource — the real one is created inside sendMessageStream, which we mock,
 // so the context only ever calls .close() on what we hand back here.
@@ -256,5 +267,67 @@ describe('AssistantContext — pendingPrompt seed', () => {
 
     expect(result.current.setupComplete).toBe(true);
     expect(result.current.pendingPrompt).toBe('SEED');
+  });
+});
+
+const providerConfig = (overrides: Partial<ProviderConfig>): ProviderConfig => ({
+  model: 'default',
+  selected: false,
+  permissions: { allow_edit_files: true, allow_read_docs: true, full_access: false },
+  ...overrides,
+});
+
+const config = (providers: AssistantConfig['providers']): AssistantConfig => ({
+  providers,
+  projects: {},
+});
+
+describe('AssistantProvider setup completeness', () => {
+  const renderAndWaitForConfig = async () => {
+    const { result } = renderHook(() => useAssistant(), { wrapper: AssistantProvider });
+    await waitFor(() => expect(result.current.isLoadingConfig).toBe(false));
+    return result;
+  };
+
+  beforeEach(() => {
+    mockGetConfig.mockReset();
+    mockListEndpoints.mockReset();
+  });
+
+  test('gateway selected but no endpoints exist => setup incomplete', async () => {
+    mockGetConfig.mockResolvedValue(config({ mlflow_gateway: providerConfig({ model: 'assistant', selected: true }) }));
+    mockListEndpoints.mockResolvedValue({ endpoints: [] });
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.setupComplete).toBe(false);
+  });
+
+  test('gateway selected but configured endpoint is missing from the list => setup incomplete', async () => {
+    mockGetConfig.mockResolvedValue(config({ mlflow_gateway: providerConfig({ model: 'assistant', selected: true }) }));
+    mockListEndpoints.mockResolvedValue({ endpoints: [{ name: 'some-other-endpoint' }] as any });
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.setupComplete).toBe(false);
+  });
+
+  test('gateway selected and configured endpoint exists => setup complete', async () => {
+    mockGetConfig.mockResolvedValue(config({ mlflow_gateway: providerConfig({ model: 'assistant', selected: true }) }));
+    mockListEndpoints.mockResolvedValue({ endpoints: [{ name: 'assistant' }] as any });
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.setupComplete).toBe(true);
+    expect(mockListEndpoints).toHaveBeenCalled();
+  });
+
+  test('non-gateway provider selected => setup complete without querying gateway endpoints', async () => {
+    mockGetConfig.mockResolvedValue(config({ claude_code: providerConfig({ model: 'default', selected: true }) }));
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.setupComplete).toBe(true);
+    expect(mockListEndpoints).not.toHaveBeenCalled();
   });
 });
