@@ -10,12 +10,10 @@ import {
 } from '../../pages/prompts/components/promptsAgentPrompt';
 
 describe('coding-agent prompt builders', () => {
-  it('build_instrument_prompt interpolates experiment name and references both skills', () => {
+  it('build_instrument_prompt interpolates experiment name and points to the bundled skills', () => {
     const out = buildInstrumentPrompt('my-exp');
     expect(out).toContain('Target experiment: my-exp.');
-    expect(out).toContain('instrumenting-with-mlflow-tracing');
-    expect(out).toContain('searching-mlflow-docs');
-    expect(out).toContain('github.com/mlflow/skills');
+    expect(out).toContain('mlflow skills list');
     expect(out).not.toContain('.databrickscfg');
   });
 
@@ -23,40 +21,38 @@ describe('coding-agent prompt builders', () => {
     const out = buildEvaluatePrompt('42');
     expect(out).toContain('Target experiment ID: 42.');
     expect(out).toContain('experiment_id="42"');
-    expect(out).toContain('searching-mlflow-docs');
+    expect(out).toContain('mlflow skills list');
     expect(out).toContain('mlflow.genai.evaluate');
     expect(out).not.toContain('.databrickscfg');
   });
 
-  it('build_create_prompt_prompt walks all 6 conversational steps and references the docs skill', () => {
+  it('build_create_prompt_prompt walks all 7 conversational steps and points to the bundled skills', () => {
     const out = buildCreatePromptPrompt();
     expect(out).toMatch(/1\.\s/);
-    expect(out).toMatch(/6\.\s/);
+    expect(out).toMatch(/7\.\s/);
     expect(out).toContain('registered prompt');
-    expect(out).toContain('searching-mlflow-docs');
+    expect(out).toContain('mlflow skills list');
   });
 });
 
 describe('assistant prompt builders', () => {
-  it('build_instrument_assistant_prompt interpolates experiment and does NOT reference local skills', () => {
+  it('build_instrument_assistant_prompt interpolates experiment and points to mlflow skills list', () => {
     const out = buildInstrumentAssistantPrompt('my-exp');
     expect(out).toContain('Target experiment: my-exp.');
-    expect(out).not.toContain('searching-mlflow-docs');
-    expect(out).not.toContain('instrumenting-with-mlflow-tracing');
-    expect(out).toContain('Ask');
+    expect(out).toContain('mlflow skills list');
   });
 
-  it('build_evaluate_assistant_prompt does NOT reference local skills', () => {
+  it('build_evaluate_assistant_prompt points to mlflow skills list', () => {
     const out = buildEvaluateAssistantPrompt('42');
     expect(out).toContain('Target experiment ID: 42.');
-    expect(out).not.toContain('searching-mlflow-docs');
+    expect(out).toContain('mlflow skills list');
     expect(out).toContain('Ask');
   });
 
-  it('build_create_prompt_assistant_prompt walks the 6 steps and does NOT reference local skills', () => {
+  it('build_create_prompt_assistant_prompt walks the 6 steps and points to mlflow skills list', () => {
     const out = buildCreatePromptAssistantPrompt();
     expect(out).toMatch(/1\.\s/);
     expect(out).toMatch(/6\.\s/);
-    expect(out).not.toContain('searching-mlflow-docs');
+    expect(out).toContain('mlflow skills list');
   });
 });

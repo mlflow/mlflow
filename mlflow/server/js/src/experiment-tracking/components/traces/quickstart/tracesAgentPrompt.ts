@@ -4,7 +4,7 @@ export const buildInstrumentPrompt = (
 
 1. Add \`mlflow\` as a dependency.
 2. Set the tracking URI to match the project: read \`MLFLOW_TRACKING_URI\` or ask me. Apply via env or \`mlflow.set_tracking_uri()\`.
-3. Add \`mlflow.autolog()\` or the matching per-framework call at the entry point. Use the \`instrumenting-with-mlflow-tracing\` skill for framework specifics and the \`searching-mlflow-docs\` skill for API questions (fallback: https://github.com/mlflow/skills).
+3. Add \`mlflow.autolog()\` or the matching per-framework call at the entry point. Run \`mlflow skills list\` rather than guessing at APIs.
 4. Run the app and confirm a trace appears.
 
 Infer the package manager, entry point, and framework from the repo. If you hit a blocker you can't resolve (missing API key, permissions, dependencies), stop and tell me what you need.`;
@@ -13,8 +13,6 @@ export const buildInstrumentAssistantPrompt = (
   experimentName: string,
 ): string => `Help me add MLflow tracing to my app. Target experiment: ${experimentName}.
 
-Ask what language and framework I'm using (LangChain, OpenAI SDK, Anthropic, LlamaIndex, etc.) and whether MLflow is local, self-hosted, or on Databricks.
+Walk me through the minimal setup: adding \`mlflow\` as a dependency, wiring the tracking URI, and the right \`autolog()\` or instrumentation call.
 
-Then walk me through the minimal setup: adding \`mlflow\` as a dependency, wiring the tracking URI, and the right \`autolog()\` or instrumentation call.
-
-Use your built-in MLflow docs knowledge rather than guessing at APIs.`;
+Run \`mlflow skills list\` rather than guessing at APIs.`;
