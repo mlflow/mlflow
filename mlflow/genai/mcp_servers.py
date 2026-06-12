@@ -88,6 +88,9 @@ def register_mcp_server(
     return version
 
 
+_MAX_SERVER_JSON_BYTES = 10 * 1024 * 1024  # 10 MiB
+
+
 def register_mcp_server_from_url(
     *,
     url: str,
@@ -100,7 +103,7 @@ def register_mcp_server_from_url(
     """Fetch a ``server.json`` from ``url`` and register the MCP server.
 
     Args:
-        url: HTTPS URL pointing to a ``server.json`` document.
+        url: HTTP or HTTPS URL pointing to a ``server.json`` document.
         display_name: Human-readable label for the version.
         source: Provenance URI; defaults to ``url`` when not provided.
         status: Initial status (default ``"draft"``).
@@ -117,8 +120,13 @@ def register_mcp_server_from_url(
             f"URL must use http or https scheme, got: {scheme!r}"
         )
 
-    with urllib.request.urlopen(url) as resp:
-        server_json = json.loads(resp.read())
+    with urllib.request.urlopen(url, timeout=30) as resp:
+        data = resp.read(_MAX_SERVER_JSON_BYTES + 1)
+        if len(data) > _MAX_SERVER_JSON_BYTES:
+            raise MlflowException.invalid_parameter_value(
+                f"server.json response exceeds {_MAX_SERVER_JSON_BYTES} byte limit"
+            )
+        server_json = json.loads(data)
 
     return register_mcp_server(
         server_json=server_json,
@@ -206,31 +214,33 @@ def search_mcp_servers(
 def update_mcp_server(
     *,
     name: str,
-    display_name: str | None = None,
-    description: str | None = None,
-    icons: list[MCPIcon] | None = None,
-    latest_version: str | None = None,
+    display_name: str | None = NOT_SET,
+    description: str | None = NOT_SET,
+    icons: list[MCPIcon] | None = NOT_SET,
+    latest_version: str | None = NOT_SET,
 ) -> MCPServer:
     """Update mutable fields of an MCP server.
 
-    Only provided (non-``None``) keyword arguments are updated.
+    Only fields that are explicitly passed are updated; omitted fields are left
+    unchanged. Pass ``None`` to clear a field.
 
     Args:
         name: Server name.
-        display_name: New human-readable label.
-        description: New description.
-        icons: New icon variants.
+        display_name: New human-readable label. Pass ``None`` to clear.
+        description: New description. Pass ``None`` to clear.
+        icons: New icon variants. Pass ``None`` to clear.
         latest_version: Explicit version string to pin as ``@latest`` resolution.
+            Pass ``None`` to clear.
 
     Returns:
         The updated :py:class:`MCPServer <mlflow.entities.MCPServer>`.
     """
     return MlflowClient().update_mcp_server(
         name=name,
-        display_name=display_name if display_name is not None else NOT_SET,
-        description=description if description is not None else NOT_SET,
-        icons=icons if icons is not None else NOT_SET,
-        latest_version=latest_version if latest_version is not None else NOT_SET,
+        display_name=display_name,
+        description=description,
+        icons=icons,
+        latest_version=latest_version,
     )
 
 
@@ -354,19 +364,22 @@ def update_mcp_server_version(
     *,
     name: str,
     version: str,
-    display_name: str | None = None,
-    status: Literal["draft", "active", "deprecated", "deleted"] | None = None,
-    tools: list[MCPTool] | None = None,
+    display_name: str | None = NOT_SET,
+    status: Literal["draft", "active", "deprecated", "deleted"] | None = NOT_SET,
+    tools: list[MCPTool] | None = NOT_SET,
 ) -> MCPServerVersion:
     """Update mutable fields of an MCP server version.
+
+    Only fields that are explicitly passed are updated; omitted fields are left
+    unchanged. Pass ``None`` to clear a field.
 
     Args:
         name: Server name.
         version: Version string.
-        display_name: New display name.
+        display_name: New display name. Pass ``None`` to clear.
         status: New status (``"draft"``, ``"active"``, ``"deprecated"``, ``"deleted"``).
             Transition rules are enforced.
-        tools: New tool definitions.
+        tools: New tool definitions. Pass ``None`` to clear.
 
     Returns:
         The updated :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>`.
@@ -374,9 +387,9 @@ def update_mcp_server_version(
     return MlflowClient().update_mcp_server_version(
         name=name,
         version=version,
-        display_name=display_name if display_name is not None else NOT_SET,
-        status=MCPStatus(status) if status is not None else NOT_SET,
-        tools=tools if tools is not None else NOT_SET,
+        display_name=display_name,
+        status=MCPStatus(status) if status is not NOT_SET and status is not None else status,
+        tools=tools,
     )
 
 
@@ -490,20 +503,23 @@ def update_mcp_access_binding(
     *,
     server_name: str,
     binding_id: int,
-    endpoint_url: str | None = None,
-    transport_type: str | None = None,
-    server_version: str | None = None,
-    server_alias: str | None = None,
+    endpoint_url: str | None = NOT_SET,
+    transport_type: str | None = NOT_SET,
+    server_version: str | None = NOT_SET,
+    server_alias: str | None = NOT_SET,
 ) -> MCPAccessBinding:
     """Update an existing access binding.
+
+    Only fields that are explicitly passed are updated; omitted fields are left
+    unchanged. Pass ``None`` to clear a field.
 
     Args:
         server_name: Server name.
         binding_id: Binding ID.
-        endpoint_url: New endpoint URL.
-        transport_type: New transport type.
-        server_version: New version target.
-        server_alias: New alias target.
+        endpoint_url: New endpoint URL. Pass ``None`` to clear.
+        transport_type: New transport type. Pass ``None`` to clear.
+        server_version: New version target. Pass ``None`` to clear.
+        server_alias: New alias target. Pass ``None`` to clear.
 
     Returns:
         The updated :py:class:`MCPAccessBinding <mlflow.entities.MCPAccessBinding>`.
@@ -511,12 +527,14 @@ def update_mcp_access_binding(
     return MlflowClient().update_mcp_access_binding(
         server_name=server_name,
         binding_id=binding_id,
-        endpoint_url=endpoint_url if endpoint_url is not None else NOT_SET,
+        endpoint_url=endpoint_url,
         transport_type=(
-            MCPRemoteTransportType(transport_type) if transport_type is not None else NOT_SET
+            MCPRemoteTransportType(transport_type)
+            if transport_type is not NOT_SET and transport_type is not None
+            else transport_type
         ),
-        server_version=server_version if server_version is not None else NOT_SET,
-        server_alias=server_alias if server_alias is not None else NOT_SET,
+        server_version=server_version,
+        server_alias=server_alias,
     )
 
 

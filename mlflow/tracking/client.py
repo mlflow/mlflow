@@ -49,7 +49,7 @@ from mlflow.entities import (
 from mlflow.entities.mcp_access_binding import MCPAccessBinding
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
 from mlflow.entities.mcp_server_version import MCPServerVersion
-from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
+from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.prompt_version import PromptModelConfig
@@ -6789,10 +6789,10 @@ class MlflowClient:
     def update_mcp_server(
         self,
         name: str,
-        display_name: str | None = None,
-        description: str | None = None,
-        icons: list[MCPIcon] | None = None,
-        latest_version: str | None = None,
+        display_name: str | None = NOT_SET,
+        description: str | None = NOT_SET,
+        icons: list[MCPIcon] | None = NOT_SET,
+        latest_version: str | None = NOT_SET,
     ) -> MCPServer:
         return self._tracking_client.store.update_mcp_server(
             name=name,
@@ -6852,9 +6852,9 @@ class MlflowClient:
         self,
         name: str,
         version: str,
-        display_name: str | None = None,
-        status: MCPStatus | None = None,
-        tools: list[MCPTool] | None = None,
+        display_name: str | None = NOT_SET,
+        status: MCPStatus | None = NOT_SET,
+        tools: list[MCPTool] | None = NOT_SET,
     ) -> MCPServerVersion:
         return self._tracking_client.store.update_mcp_server_version(
             name=name,
@@ -6912,10 +6912,10 @@ class MlflowClient:
         self,
         server_name: str,
         binding_id: int,
-        endpoint_url: str | None = None,
-        transport_type: MCPRemoteTransportType | None = None,
-        server_version: str | None = None,
-        server_alias: str | None = None,
+        endpoint_url: str | None = NOT_SET,
+        transport_type: MCPRemoteTransportType | None = NOT_SET,
+        server_version: str | None = NOT_SET,
+        server_alias: str | None = NOT_SET,
     ) -> MCPAccessBinding:
         return self._tracking_client.store.update_mcp_access_binding(
             server_name=server_name,

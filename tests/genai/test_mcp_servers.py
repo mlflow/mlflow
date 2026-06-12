@@ -59,8 +59,8 @@ class _FakeResponse:
     def __exit__(self, *_):
         pass
 
-    def read(self):
-        return self._payload
+    def read(self, n=-1):
+        return self._payload[:n] if n >= 0 else self._payload
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +160,7 @@ def test_register_mcp_server_from_url():
     ) as mock_urlopen:
         version = genai.register_mcp_server_from_url(url="https://example.com/server.json")
 
-    mock_urlopen.assert_called_once_with("https://example.com/server.json")
+    mock_urlopen.assert_called_once_with("https://example.com/server.json", timeout=30)
     assert version.name == "io.github.test/url-server"
     assert version.version == "2.0.0"
 
@@ -173,7 +173,7 @@ def test_register_mcp_server_from_url_sets_source_from_url():
     ) as mock_urlopen:
         version = genai.register_mcp_server_from_url(url=url)
 
-    mock_urlopen.assert_called_once_with(url)
+    mock_urlopen.assert_called_once_with(url, timeout=30)
     assert version.source == url
 
 
