@@ -8,8 +8,6 @@ What it does:
   attach to it naturally.
 - Enables tracing autologging for ``@mlflow.test``-marked tests, the same
   way ``mlflow.genai.evaluate`` does.
-- Set ``_MLFLOW_TEST_SESSION_ID`` to override the auto-generated session id
-  (useful in CI).
 """
 
 from __future__ import annotations
@@ -40,8 +38,10 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     # One event per pytest session that ran at least one @mlflow.test, capturing
-    # how many marked tests ran and their total execution time.
-    if _session.run_id() is not None:
+    # how many marked tests ran and their total execution time. Gate on the test
+    # count, not run_id: marked tests can run even when run creation failed
+    # (e.g. tracking unavailable).
+    if _session.num_tests() > 0:
         _record_event(
             MlflowTestEvent,
             {"num_tests": _session.num_tests()},
@@ -76,9 +76,7 @@ def pytest_runtest_call(item: pytest.Item):
     # A raised exception in the call phase means the test failed. Skips/xfails
     # raise their own outcome exceptions, so exclude them: the run status should
     # reflect genuine assertion failures only.
-    failed = outcome.excinfo is not None and not isinstance(
-        outcome.excinfo[1], (Skipped, XFailed)
-    )
+    failed = outcome.excinfo is not None and not isinstance(outcome.excinfo[1], (Skipped, XFailed))
     _session.record_test(failed=failed, duration_ms=duration_ms)
 
     _session.set_current_test(None, None)

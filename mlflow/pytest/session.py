@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-import os
 import threading
 import uuid
 
@@ -44,8 +43,6 @@ def current_test() -> tuple[str | None, str | None]:
 
 def reset(session_id: str | None = None) -> None:
     global _session_id, _run_id, _run_owned, _any_test_failed, _num_tests, _total_test_ms
-    if session_id is None:
-        session_id = os.environ.get("_MLFLOW_TEST_SESSION_ID")
     if not session_id:
         stamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
         session_id = f"{stamp}-{uuid.uuid4().hex[:6]}"
@@ -133,7 +130,9 @@ def finalize() -> None:
     with _lock:
         if _run_id is None:
             return
-        run_id_, run_owned, failed = _run_id, _run_owned, _any_test_failed
+        run_id_ = _run_id
+        run_owned = _run_owned
+        failed = _any_test_failed
         _run_id = None
         _run_owned = False
 
