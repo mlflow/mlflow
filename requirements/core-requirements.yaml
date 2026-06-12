@@ -83,4 +83,5 @@ huey:
 
 aiohttp:
   pip_release: aiohttp
+  minimum: "3.7.0"
   max_major_version: 3

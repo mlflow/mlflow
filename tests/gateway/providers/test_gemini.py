@@ -1110,7 +1110,7 @@ async def test_passthrough_gemini_generate_content():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1161,7 +1161,7 @@ async def test_passthrough_gemini_stream_generate_content():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1259,6 +1259,55 @@ async def test_chat_with_structured_output():
         call_kwargs = mock_post.call_args[1]
         assert call_kwargs["json"]["generationConfig"]["responseJsonSchema"] == json_schema
         assert call_kwargs["json"]["generationConfig"]["responseMimeType"] == "application/json"
+
+
+@pytest.mark.asyncio
+async def test_chat_with_json_object_response_format():
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "gemini",
+            "name": "gemini-2.0-flash",
+            "config": {
+                "gemini_api_key": "test-key",
+            },
+        },
+    }
+
+    resp = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [{"text": '{"answer": 42}'}],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+            }
+        ],
+        "usageMetadata": {
+            "promptTokenCount": 10,
+            "candidatesTokenCount": 5,
+            "totalTokenCount": 15,
+        },
+    }
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = GeminiProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Give me JSON"}],
+            "response_format": {"type": "json_object"},
+        }
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+        assert response.choices[0].message.content == '{"answer": 42}'
+
+        call_kwargs = mock_post.call_args[1]
+        generation_config = call_kwargs["json"]["generationConfig"]
+        assert generation_config["responseMimeType"] == "application/json"
+        assert "responseJsonSchema" not in generation_config
 
 
 @pytest.mark.asyncio

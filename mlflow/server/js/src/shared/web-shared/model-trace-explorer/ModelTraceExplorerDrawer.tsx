@@ -5,6 +5,7 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
+  FlagPointerIcon,
   PlusIcon,
   Notification,
   Tooltip,
@@ -46,7 +47,12 @@ export const ModelTraceExplorerDrawer = ({
   const [showDatasetModal, setShowDatasetModal] = useState(false);
   const [showCopiedNotification, setShowCopiedNotification] = useState(false);
   const [showCopyError, setShowCopyError] = useState(false);
-  const { renderExportTracesToDatasetsModal, DrawerComponent, drawerWidth = '60vw' } = useModelTraceExplorerContext();
+  const {
+    renderExportTracesToDatasetsModal,
+    renderAddToReviewQueueDropdown,
+    DrawerComponent,
+    drawerWidth = '60vw',
+  } = useModelTraceExplorerContext();
 
   const handleShareClick = useCallback(async () => {
     const success = await copyToClipboard(window.location.href);
@@ -91,6 +97,8 @@ export const ModelTraceExplorerDrawer = ({
   const showAddToDatasetButton = Boolean(renderExportTracesToDatasetsModal && experimentId && traceInfo);
   const handleAddToDatasetClick = useCallback(() => setShowDatasetModal(true), []);
 
+  const showFlagForReviewButton = Boolean(renderAddToReviewQueueDropdown && experimentId && traceInfo);
+
   return (
     <DrawerComponent.Root
       open
@@ -132,6 +140,20 @@ export const ModelTraceExplorerDrawer = ({
                 />
               </Button>
             )}
+            {showFlagForReviewButton &&
+              renderAddToReviewQueueDropdown &&
+              React.createElement(renderAddToReviewQueueDropdown, {
+                selectedTraceInfos: traceInfo ? [traceInfo] : [],
+                experimentId: experimentId ?? '',
+                children: (
+                  <Button componentId="mlflow.evaluations_review.modal.flag_for_review" icon={<FlagPointerIcon />}>
+                    <FormattedMessage
+                      defaultMessage="Assign to reviewers"
+                      description="Button text for assigning a trace to reviewers via a review queue"
+                    />
+                  </Button>
+                ),
+              })}
             <Tooltip
               componentId="mlflow.evaluations_review.modal.share-tooltip"
               content={
