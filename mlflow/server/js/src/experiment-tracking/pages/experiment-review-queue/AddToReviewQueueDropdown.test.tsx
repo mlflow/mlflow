@@ -73,12 +73,13 @@ let mockListQueues: any[] = [
   { queue_id: 'rq-custom', queue_type: 'CUSTOM', name: 'Relevance', created_by: 'default', schema_ids: ['s1'] },
 ];
 // Queues the single selected trace is already a member of (the `itemId`-scoped
-// call). Default: none. Tests override to exercise the membership behavior.
+// call). Default: none, loaded. Tests override to exercise the membership behavior.
 let mockMemberQueues: any[] = [];
+let mockMembersLoading = false;
 jest.mock('./hooks/useListReviewQueuesQuery', () => ({
   useListReviewQueuesQuery: ({ itemId }: { itemId?: string }) =>
     itemId
-      ? { reviewQueues: mockMemberQueues, isLoading: false, error: null }
+      ? { reviewQueues: mockMemberQueues, isLoading: mockMembersLoading, error: null }
       : {
           reviewQueues: mockListQueues,
           isLoading: false,
@@ -117,6 +118,7 @@ describe('AddToReviewQueueDropdown', () => {
     mockCanEdit = true;
     mockCanManage = false;
     mockMemberQueues = [];
+    mockMembersLoading = false;
     mockListQueues = [
       { queue_id: 'rq-custom', queue_type: 'CUSTOM', name: 'Relevance', created_by: 'default', schema_ids: ['s1'] },
     ];
@@ -289,5 +291,33 @@ describe('AddToReviewQueueDropdown', () => {
     expect(option).toBeChecked();
     expect(option).toBeDisabled();
     expect(mockRemoveItems).not.toHaveBeenCalled();
+  });
+
+  it("disables queue options until a single trace's memberships finish loading", () => {
+    // While membership is unknown we can't tell which rows are checked/locked,
+    // so toggling must be blocked to avoid adding to a queue meant for removal.
+    mockMembersLoading = true;
+    renderDropdown({ open: true });
+
+    expect(screen.getByRole('checkbox', { name: 'Relevance' })).toBeDisabled();
+  });
+
+  it('filters checked member rows by the search query', async () => {
+    mockAuthAvailable = true;
+    mockMemberQueues = [
+      { queue_id: 'rq-alice', queue_type: 'USER', name: 'alice', created_by: 'alice', schema_ids: [] },
+    ];
+    renderDropdown({ open: true });
+
+    // The membership shows by default...
+    expect(await screen.findByRole('checkbox', { name: /alice/ })).toBeInTheDocument();
+
+    // ...but a non-matching search hides it (the filter must apply to members too).
+    fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'zzz' } });
+    expect(screen.queryByRole('checkbox', { name: /alice/ })).not.toBeInTheDocument();
+
+    // A matching search brings it back.
+    fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'ali' } });
+    expect(screen.getByRole('checkbox', { name: /alice/ })).toBeInTheDocument();
   });
 });
