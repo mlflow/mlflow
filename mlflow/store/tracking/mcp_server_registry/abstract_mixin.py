@@ -170,14 +170,22 @@ class MCPServerRegistryMixin:
     def get_latest_mcp_server_version(self, name: str) -> MCPServerVersion:
         """Retrieve the latest version of an MCP server.
 
-        Uses the pinned latest_version if set, otherwise falls back to the
-        most recently created non-draft version.
+        If latest_version is explicitly pinned, resolves to that version only.
+        A stale pin (version no longer exists or is deleted) raises
+        RESOURCE_DOES_NOT_EXIST rather than silently falling back.
+
+        If latest_version is unset, falls back to the most recently created
+        non-draft, non-deleted version.
 
         Args:
             name: Server name.
 
         Returns:
             The latest MCPServerVersion entity.
+
+        Raises:
+            MlflowException: If the pinned version is stale or no eligible
+                version exists.
         """
         raise NotImplementedError(self.__class__.__name__)
 
