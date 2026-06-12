@@ -284,10 +284,9 @@ def test_process_transcript_returns_none_for_nonexistent_file():
 def test_process_transcript_falls_back_to_snapshot_when_get_trace_fails(
     mock_transcript_file, monkeypatch
 ):
-    """Simulates the eventual-consistency scenario where the trace is created and
-    exported, but the post-export get_trace round-trip returns None. The caller
-    must still receive a non-None Trace so that stop-hook callers don't treat
-    a successful creation as a failure.
+    """When the post-export get_trace lookup returns None (e.g. eventual
+    consistency on a remote backend), the caller must still receive the in-memory
+    snapshot so a successful creation isn't reported as a failure.
     """
     monkeypatch.setattr(tracing_module.mlflow, "get_trace", lambda *args, **kwargs: None)
 

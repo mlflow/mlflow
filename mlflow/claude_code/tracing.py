@@ -545,13 +545,9 @@ def _finalize_trace(
         outputs["response"] = final_response
     parent_span.set_outputs(outputs)
 
-    # Snapshot the trace from the in-memory manager before ending the parent span.
-    # Ending the parent span triggers async export and removes the trace from the
-    # in-memory store, so we use this snapshot as a fallback when the post-export
-    # round-trip to the tracking store can't fetch the trace back (e.g., due to
-    # eventual consistency on remote Databricks tracking backends). Without this,
-    # successful trace creations were being reported as failures by stop-hook
-    # callers that interpret a None return as "creation failed".
+    # Snapshot the trace before end(): ending the span exports and evicts it from
+    # the in-memory store, so this is the fallback when the post-export lookup lags
+    # (e.g. eventual consistency on remote backends).
     snapshot: mlflow.entities.Trace | None = None
     try:
         with InMemoryTraceManager.get_instance().get_trace(parent_span.trace_id) as in_memory_trace:
@@ -564,24 +560,16 @@ def _finalize_trace(
     _flush_trace_async_logging()
     get_logger().log(CLAUDE_TRACING_LEVEL, "Created MLflow trace: %s", parent_span.trace_id)
 
-    # silent=True because we emit our own warning that includes the trace_id;
-    # flush=True so async writes complete before the lookup. Even with flush,
-    # remote backends may not have the trace queryable yet — fall back to the
-    # in-memory snapshot in that case so callers don't see a false failure.
+    # flush so the export completes; silent so we can fall back to the snapshot
+    # rather than emit a misleading "not found" warning when the backend lags.
     trace = mlflow.get_trace(parent_span.trace_id, silent=True, flush=True)
-    if trace is None:
-        if snapshot is not None:
-            get_logger().warning(
-                "Trace %s was created but could not be fetched from the tracking "
-                "store; returning in-memory snapshot. The trace should appear in "
-                "the MLflow UI shortly.",
-                parent_span.trace_id,
-            )
-            return snapshot
+    if trace is None and snapshot is not None:
         get_logger().warning(
-            "Trace %s was created but could not be fetched from the tracking store.",
+            "Trace %s is not yet queryable from the tracking store; returning the "
+            "in-memory snapshot. It should appear in the MLflow UI shortly.",
             parent_span.trace_id,
         )
+        return snapshot
     return trace
 
 
