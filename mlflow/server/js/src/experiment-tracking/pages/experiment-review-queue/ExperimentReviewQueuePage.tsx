@@ -359,14 +359,14 @@ const ExperimentReviewQueuePage = () => {
         paddingBottom: theme.spacing.md,
       }}
     >
-      <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: inFocusMode ? 'visible' : 'hidden' }}>
         {inFocusMode ? (
           <div
             css={{
               width: '100%',
               height: '100%',
               minHeight: 0,
-              overflow: 'hidden',
+              overflow: 'visible',
               display: 'flex',
               flexDirection: 'column',
             }}

@@ -353,7 +353,7 @@ export const FocusedReview = ({
             backgroundColor: theme.colors.backgroundPrimary,
             border: `1px solid ${theme.colors.borderDecorative}`,
             borderRadius: theme.borders.borderRadiusMd,
-            boxShadow: '0 0 20px rgba(0, 0, 0, 0.12)',
+            boxShadow: theme.shadows.lg,
             overflow: 'hidden',
           }}
         >
