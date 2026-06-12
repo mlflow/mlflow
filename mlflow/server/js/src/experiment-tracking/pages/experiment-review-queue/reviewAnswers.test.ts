@@ -4,6 +4,7 @@ import type { LabelSchema, LabelSchemaType } from '../../components/label-schema
 import {
   buildPrefilledAnswers,
   buildPrefilledRationales,
+  buildPriorAssessmentIds,
   extractPriorAnswers,
   type RawTraceAssessment,
 } from './reviewAnswers';
@@ -75,6 +76,87 @@ describe('extractPriorAnswers', () => {
       { assessment_name: 'expected', expectation: { value: undefined, serialized_value: { value: 'x' } } },
     ];
     expect(extractPriorAnswers(raw)).toEqual([{ name: 'expected', kind: 'expectation', value: 'x', valid: true }]);
+  });
+
+  it('captures the assessment id', () => {
+    const raw: RawTraceAssessment[] = [
+      { assessment_id: 'a1', assessment_name: 'correctness', feedback: { value: true } },
+    ];
+    expect(extractPriorAnswers(raw)[0].assessmentId).toBe('a1');
+  });
+
+  describe('reviewer source scoping', () => {
+    const raw: RawTraceAssessment[] = [
+      {
+        assessment_id: 'a1',
+        assessment_name: 'correctness',
+        feedback: { value: true },
+        source: { source_id: 'alice', source_type: 'HUMAN' },
+      },
+      {
+        assessment_id: 'a2',
+        assessment_name: 'correctness',
+        feedback: { value: false },
+        source: { source_id: 'bob', source_type: 'HUMAN' },
+      },
+    ];
+
+    it('keeps every answer when no reviewer source is given', () => {
+      expect(extractPriorAnswers(raw).map((p) => p.assessmentId)).toEqual(['a1', 'a2']);
+    });
+
+    it("keeps only the reviewer's own answers when scoped (case-insensitive)", () => {
+      expect(extractPriorAnswers(raw, 'ALICE')).toEqual([
+        { name: 'correctness', kind: 'feedback', value: true, valid: true, assessmentId: 'a1' },
+      ]);
+    });
+
+    it('drops answers without a matching source when scoped', () => {
+      expect(extractPriorAnswers([{ assessment_name: 'x', feedback: { value: true } }], 'alice')).toEqual([]);
+    });
+
+    it('drops a non-HUMAN assessment that shares the reviewer source_id when scoped', () => {
+      // An LLM judge or SDK-written feedback can collide on source_id (both
+      // `default` on a no-auth server); only the reviewer's own HUMAN answer
+      // should be adopted, never superseded as if it were theirs.
+      const collide: RawTraceAssessment[] = [
+        {
+          assessment_id: 'judge',
+          assessment_name: 'correctness',
+          feedback: { value: true },
+          source: { source_id: 'default', source_type: 'LLM_JUDGE' },
+        },
+        {
+          assessment_id: 'mine',
+          assessment_name: 'correctness',
+          feedback: { value: false },
+          source: { source_id: 'default', source_type: 'HUMAN' },
+        },
+      ];
+      expect(extractPriorAnswers(collide, 'default').map((p) => p.assessmentId)).toEqual(['mine']);
+    });
+
+    it('prefills nothing for an empty source id rather than matching source-less answers', () => {
+      // `''` can't identify a reviewer; guard against `sameUser('', undefined)` matching.
+      expect(extractPriorAnswers(raw, '')).toEqual([]);
+      expect(extractPriorAnswers([{ assessment_name: 'x', feedback: { value: true } }], '')).toEqual([]);
+    });
+  });
+});
+
+describe('buildPriorAssessmentIds', () => {
+  const schemas = [schema('correctness', 'FEEDBACK')];
+
+  it('maps each schema to the last matching valid prior assessment id', () => {
+    const priors = extractPriorAnswers([
+      { assessment_id: 'old', assessment_name: 'correctness', feedback: { value: true } },
+      { assessment_id: 'new', assessment_name: 'correctness', feedback: { value: false } },
+    ]);
+    expect(buildPriorAssessmentIds(priors, schemas)).toEqual({ correctness: 'new' });
+  });
+
+  it('omits schemas with no prior answer', () => {
+    expect(buildPriorAssessmentIds([], schemas)).toEqual({});
   });
 });
 

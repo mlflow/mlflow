@@ -4246,6 +4246,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     .filter(SqlTraceInfo.request_id.in_(db_backed_trace_ids))
                     .delete(synchronize_session=False)
                 )
+                self._delete_review_queue_items_for_traces(session, db_backed_trace_ids)
 
         if not selected_archived_traces:
             return deleted_db_backed_count
@@ -4264,7 +4265,33 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .filter(SqlTraceInfo.request_id.in_(deleted_archived_trace_ids))
                 .delete(synchronize_session=False)
             )
+            self._delete_review_queue_items_for_traces(session, deleted_archived_trace_ids)
         return deleted_db_backed_count + deleted_archived_count
+
+    def _delete_review_queue_items_for_traces(self, session: Session, trace_ids: list[str]) -> None:
+        """Remove review-queue items pointing at traces that are being deleted.
+
+        ``review_queue_items.item_id`` has no foreign key into ``trace_info`` (an
+        item can reference a trace, session, or span), so deleting a trace does
+        not cascade to its queue items. Without this cleanup the item lingers in
+        its queue and any review submitted for it fails on the assessments
+        foreign key (surfacing the raw SQL error to the reviewer).
+        """
+        # Lazy import: importing `mlflow.genai.review_queues` triggers the `mlflow.genai`
+        # package init, which can pull this module back in (see `dbmodels/models.py`).
+        from mlflow.genai.review_queues import ReviewItemType
+
+        if not trace_ids:
+            return
+        (
+            session
+            .query(SqlReviewQueueItem)
+            .filter(
+                SqlReviewQueueItem.item_type == ReviewItemType.TRACE.value,
+                SqlReviewQueueItem.item_id.in_(trace_ids),
+            )
+            .delete(synchronize_session=False)
+        )
 
     def _select_trace_ids_for_delete(
         self,
@@ -4407,6 +4434,32 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     )
 
             session.add(sql_assessment)
+            # A missing trace (e.g. deleted while still attached to a review queue) trips the
+            # ``trace_id`` -> ``trace_info`` foreign key on flush. Rather than leak the raw SQL
+            # error, roll back and check whether the trace is actually gone: report a clean
+            # "not found" if so, otherwise a generic error (the IntegrityError could also come
+            # from another constraint, e.g. a caller-supplied duplicate ``assessment_id``).
+            try:
+                session.flush()
+            except IntegrityError as e:
+                session.rollback()
+                trace_exists = (
+                    session
+                    .query(SqlTraceInfo.request_id)
+                    .filter(SqlTraceInfo.request_id == assessment.trace_id)
+                    .first()
+                ) is not None
+                if not trace_exists:
+                    raise MlflowException(
+                        f"Trace with ID '{assessment.trace_id}' not found. "
+                        "It may have been deleted.",
+                        RESOURCE_DOES_NOT_EXIST,
+                    ) from e
+                raise MlflowException(
+                    f"Failed to create assessment for trace '{assessment.trace_id}' "
+                    "due to a constraint violation.",
+                    INTERNAL_ERROR,
+                ) from e
             return sql_assessment.to_mlflow_entity()
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
@@ -5297,6 +5350,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # span writes, including span-only changes that did not update trace_info, commit
             # atomically with the new DB-backed payload generation.
             for trace_id in all_trace_ids:
+                agg = trace_aggregates[trace_id]
                 session.merge(
                     SqlTraceTag(
                         request_id=trace_id,
@@ -5304,8 +5358,45 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         value=SpansLocation.TRACKING_STORE.value,
                     )
                 )
+
+                # Persist OTel resource attributes (e.g., service.name) as trace tags so
+                # they are visible in the UI and available for filtering. Resource is attached
+                # to every span produced from the same OTLP ResourceSpans block; use any span
+                # in this trace so multi-trace batches are handled correctly.
+                # These are written first so that user-defined trace tags (below) take
+                # precedence over resource attributes on key collision.
+                resource = next(
+                    (
+                        r
+                        for span in spans_by_trace[trace_id]
+                        if (r := getattr(span._span, "resource", None)) is not None and r.attributes
+                    ),
+                    None,
+                )
+                if resource is not None:
+                    for key, value in resource.attributes.items():
+                        # Skip OTel SDK internal metadata and the reserved mlflow.*
+                        # namespace so a client cannot clobber bookkeeping tags
+                        # (e.g. SPANS_LOCATION) via resource attributes.
+                        if key.startswith(("telemetry.sdk.", "mlflow.")):
+                            continue
+                        str_value = value if isinstance(value, str) else json.dumps(value)
+                        try:
+                            key, str_value = _validate_trace_tag(key, str_value)
+                        except Exception:
+                            _logger.debug("Skipping invalid resource attribute %r", key)
+                            continue
+                        session.merge(
+                            SqlTraceTag(
+                                request_id=trace_id,
+                                key=key,
+                                value=str_value,
+                            )
+                        )
+
                 # Restore user-defined tags carried via mlflow.traceTag.* attributes on the root
                 # span (set by OtelSpanProcessor when the trace was exported over OTLP).
+                # Written after resource attributes so user tags take precedence on collision.
                 for tag_key, tag_value in agg.trace_tags.items():
                     session.merge(SqlTraceTag(request_id=trace_id, key=tag_key, value=tag_value))
 
@@ -8281,14 +8372,20 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def _review_queue_query(self, session):
         return self._get_query(session, SqlReviewQueue)
 
-    def _get_sql_review_queue(self, session, queue_id):
-        """Fetch the workspace-scoped queue row or raise RESOURCE_DOES_NOT_EXIST."""
-        sql_queue = (
-            self
-            ._review_queue_query(session)
-            .filter(SqlReviewQueue.queue_id == queue_id)
-            .one_or_none()
-        )
+    def _get_sql_review_queue(self, session, queue_id, *, for_update=False):
+        """Fetch the workspace-scoped queue row or raise RESOURCE_DOES_NOT_EXIST.
+
+        Pass ``for_update=True`` from mutating paths (attaching items, editing
+        questions) to lock the queue row for the rest of the transaction. The
+        question-freeze check reads the item count and then swaps the schema set;
+        without the lock a concurrent attach could slip an item in between, leaving
+        reviewers answering questions that were swapped out from under them. Taking
+        the row lock serializes the editing and attaching paths against each other.
+        """
+        query = self._review_queue_query(session).filter(SqlReviewQueue.queue_id == queue_id)
+        if for_update:
+            query = query.with_for_update()
+        sql_queue = query.one_or_none()
         if sql_queue is None:
             raise MlflowException(
                 f"Review queue with id '{queue_id}' not found.",
@@ -8417,17 +8514,51 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 creation_time_ms=now_ms,
                 last_update_time_ms=now_ms,
             )
-            session.add(sql_queue)
             try:
-                session.flush()
+                # SAVEPOINT around the add+flush so an IntegrityError rolls back
+                # just this insert (not the whole transaction) and leaves the
+                # session usable for the disambiguating re-query below.
+                with session.begin_nested():
+                    session.add(sql_queue)
+                    session.flush()
             except IntegrityError as e:
-                # Race: a parallel transaction inserted (experiment_id, name)
-                # between the pre-check and the flush.
-                raise MlflowException(
-                    f"Review queue with name '{validated.name}' already exists for experiment "
-                    f"'{experiment_id}'.",
-                    error_code=RESOURCE_ALREADY_EXISTS,
-                ) from e
+                # The flush violated a constraint. Disambiguate by checking which
+                # one now holds rather than assuming a cause. The duplicate check
+                # is intentionally unscoped: the unique constraint is global on
+                # (experiment_id, name), independent of any workspace scoping
+                # applied to reads.
+                duplicate = (
+                    session
+                    .query(SqlReviewQueue)
+                    .filter(
+                        SqlReviewQueue.experiment_id == int(experiment_id),
+                        SqlReviewQueue.name == validated.name,
+                    )
+                    .first()
+                )
+                if duplicate is not None:
+                    # A parallel transaction won the create race.
+                    raise MlflowException(
+                        f"Review queue with name '{validated.name}' already exists for experiment "
+                        f"'{experiment_id}'.",
+                        error_code=RESOURCE_ALREADY_EXISTS,
+                    ) from e
+                experiment_present = (
+                    session
+                    .query(SqlExperiment.experiment_id)
+                    .filter(SqlExperiment.experiment_id == int(experiment_id))
+                    .first()
+                )
+                if experiment_present is None:
+                    # The experiment FK failed because the experiment was deleted
+                    # between the pre-check and the flush.
+                    raise MlflowException(
+                        f"Experiment '{experiment_id}' does not exist.",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    ) from e
+                # Neither known cause holds; surface the real error rather than
+                # mislabeling it.
+                raise
 
             for user in validated.users:
                 session.add(SqlReviewQueueUser(queue_id=sql_queue.queue_id, user_id=user))
@@ -8438,7 +8569,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.flush()
             return self._hydrate_review_queues(session, [sql_queue])[0]
 
-    def get_or_create_user_queue(self, experiment_id, *, user, created_by=None):
+    def get_or_create_user_queue(self, experiment_id, *, user):
         from mlflow.genai.review_queues import ReviewQueueType
         from mlflow.genai.review_queues.validation import normalize_user
 
@@ -8448,7 +8579,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 experiment_id,
                 name=name,
                 queue_type="user",
-                created_by=created_by,
+                # A user queue is owned by its user (attribution only).
+                created_by=name,
             )
         except MlflowException as e:
             if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
@@ -8534,7 +8666,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         from mlflow.genai.review_queues.validation import normalize_schema_ids, normalize_users
 
         with self.ManagedSessionMaker(read_only=False) as session:
-            sql_queue = self._get_sql_review_queue(session, queue_id)
+            sql_queue = self._get_sql_review_queue(session, queue_id, for_update=True)
             if ReviewQueueType(sql_queue.queue_type) == ReviewQueueType.USER:
                 raise MlflowException(
                     "A user queue's assigned user and schemas are fixed and cannot be updated.",
@@ -8622,7 +8754,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         normalized_item_ids = validate_item_ids_for_attach(item_ids)
 
         with self.ManagedSessionMaker(read_only=False) as session:
-            sql_queue = self._get_sql_review_queue(session, queue_id)
+            sql_queue = self._get_sql_review_queue(session, queue_id, for_update=True)
 
             existing_item_ids = {
                 row.item_id
@@ -8671,10 +8803,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 .all()
             )
-            # Every requested id is present now (pre-existing, just-inserted, or
-            # inserted by a racing writer), so the response covers them all.
+            # Usually every requested id is present now (pre-existing,
+            # just-inserted, or inserted by a racing writer), but a concurrent
+            # remove/delete can drop a row between the inserts above and this
+            # read, so skip any id that is no longer present rather than raising
+            # a KeyError.
             rows_by_item = {row.item_id: row for row in final_rows}
-            return [rows_by_item[item_id].to_mlflow_entity() for item_id in normalized_item_ids]
+            return [
+                rows_by_item[item_id].to_mlflow_entity()
+                for item_id in normalized_item_ids
+                if item_id in rows_by_item
+            ]
 
     def remove_items_from_review_queue(self, queue_id, *, item_ids):
         from mlflow.genai.review_queues.validation import validate_item_ids_for_attach

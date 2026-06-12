@@ -19,7 +19,7 @@ import { LabelSchemaInputRenderer } from '../../components/label-schemas';
 import type { LabelSchema, LabelSchemaValue } from '../../components/label-schemas';
 import { useCreateReviewAssessmentMutation } from './hooks/useCreateReviewAssessmentMutation';
 import { useTraceAssessmentsQuery } from './hooks/useTraceAssessmentsQuery';
-import { buildPrefilledAnswers, buildPrefilledRationales } from './reviewAnswers';
+import { buildPrefilledAnswers, buildPrefilledRationales, buildPriorAssessmentIds, isAnswered } from './reviewAnswers';
 import { StatusTag } from './ReviewQueueList';
 import { SegmentedProgressBar } from './SegmentedProgressBar';
 import type { ReviewQueueItem, ReviewStatus } from './types';
@@ -53,6 +53,9 @@ export const FocusedReview = ({
   schemas,
   completedBy,
   isSettingStatus,
+  canReview,
+  onAssignSelf,
+  isAssigningSelf,
   onBack,
   onSelect,
   onSetStatus,
@@ -64,6 +67,15 @@ export const FocusedReview = ({
   completedBy: string;
   /** True while a status write is in flight (disables the actions). */
   isSettingStatus: boolean;
+  /**
+   * Whether the current reviewer may submit reviews in this queue — true unless
+   * an auth-server manager is viewing a queue they aren't assigned to. When
+   * false the answer inputs and submit/decline/reopen are disabled (view-only).
+   */
+  canReview: boolean;
+  /** Self-assign action; shown to a manager viewing a queue they aren't in. */
+  onAssignSelf?: () => void;
+  isAssigningSelf?: boolean;
   onBack: () => void;
   onSelect: (itemId: string) => void;
   onSetStatus: (status: ReviewStatus) => Promise<void>;
@@ -83,9 +95,17 @@ export const FocusedReview = ({
 
   // Prefill the widgets from the trace's existing assessments; edits overlay
   // the prefill so the query result never clobbers what the reviewer typed.
-  const { priorAnswers } = useTraceAssessmentsQuery({ traceId: item.item_id });
+  // Scope prior answers to this reviewer's own source so the prefill and the
+  // supersede target are never another reviewer's answer.
+  const { priorAnswers, isFetching: priorAnswersFetching } = useTraceAssessmentsQuery({
+    traceId: item.item_id,
+    sourceId: completedBy,
+  });
   const prefilled = useMemo(() => buildPrefilledAnswers(priorAnswers, schemas), [priorAnswers, schemas]);
   const prefilledRationales = useMemo(() => buildPrefilledRationales(priorAnswers, schemas), [priorAnswers, schemas]);
+  // Each question's prior assessment id (this reviewer's), so a re-submit
+  // supersedes it instead of writing a duplicate.
+  const priorAssessmentIds = useMemo(() => buildPriorAssessmentIds(priorAnswers, schemas), [priorAnswers, schemas]);
   const [edited, setEdited] = useState<Record<string, LabelSchemaValue>>({});
   const [editedRationales, setEditedRationales] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -106,6 +126,18 @@ export const FocusedReview = ({
   // reopened trace or a failed auto-submit still has an explicit re-submit path.
   const autoSubmitValue = autoSubmitSchema ? valueFor(autoSubmitSchema.name) : undefined;
   const hideSubmit = autoSubmitSchema != null && (autoSubmitValue === undefined || autoSubmitValue === null);
+
+  // Submit writes one assessment per answered question; completing with zero
+  // answers would mark the trace done while recording nothing, so the button
+  // stays disabled until at least one question has a value. This reads the
+  // committed answer state (edited/prefilled) and intentionally ignores the
+  // auto-submit `answerOverrides`: those only flow through the auto-submit path
+  // (single Pass/Fail), which submits directly and hides this button, so the two
+  // never gate the same interaction.
+  const answeredCount = useMemo(
+    () => schemas.filter((s) => isAnswered(s.name in edited ? edited[s.name] : prefilled[s.name])).length,
+    [schemas, edited, prefilled],
+  );
 
   // Position in the queue + adjacent traces for prev/next navigation.
   const currentIndex = items.findIndex((i) => i.item_id === item.item_id);
@@ -137,14 +169,25 @@ export const FocusedReview = ({
 
   const submitAnswersAndComplete = async (answerOverrides?: Record<string, LabelSchemaValue>) => {
     setSubmitError(null);
+    // The supersede ids are derived from the prior-answers query, so submitting
+    // against a still-refetching snapshot (e.g. reopen-and-resubmit before the
+    // post-write refetch lands) could miss the prior and leave two live
+    // assessments for one question. Wait for the query to settle first.
+    if (priorAnswersFetching) {
+      return;
+    }
     // Auto-submit passes the just-picked value directly, since the answer state
     // set in the same click hasn't flushed yet.
     const effectiveValue = (name: string): LabelSchemaValue =>
       answerOverrides && name in answerOverrides ? answerOverrides[name] : valueFor(name);
-    const answered = schemas.filter((s) => {
-      const v = effectiveValue(s.name);
-      return v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
-    });
+    // Every answered question is (re)written here; an unchanged answer
+    // re-supersedes its prior rather than being skipped.
+    const answered = schemas.filter((s) => isAnswered(effectiveValue(s.name)));
+    // Defensive: the Submit button is disabled with no answers, but never
+    // record an empty completion if this is somehow reached.
+    if (answered.length === 0) {
+      return;
+    }
     try {
       // Write the answers, then mark complete. Status is advanced only if every
       // write succeeds, so a partial failure leaves the trace pending for retry.
@@ -157,6 +200,7 @@ export const FocusedReview = ({
             value: effectiveValue(s.name) as Exclude<LabelSchemaValue, null | undefined>,
             sourceId: completedBy,
             rationale: s.enable_comment ? rationaleFor(s.name).trim() || undefined : undefined,
+            overrides: priorAssessmentIds[s.name],
           }),
         ),
       );
@@ -375,6 +419,7 @@ export const FocusedReview = ({
                     onChange={(value) => {
                       setAnswer(schema.name, value);
                       if (
+                        canReview &&
                         autoSubmitSchema?.schema_id === schema.schema_id &&
                         !isTerminal &&
                         !isCreatingAssessment &&
@@ -383,7 +428,7 @@ export const FocusedReview = ({
                         submitAnswersAndComplete({ [schema.name]: value });
                       }
                     }}
-                    disabled={isTerminal}
+                    disabled={isTerminal || !canReview}
                     componentId={`${CID}.question`}
                     label={schema.name}
                     instruction={schema.instruction}
@@ -394,7 +439,7 @@ export const FocusedReview = ({
                       rows={2}
                       value={rationaleFor(schema.name)}
                       onChange={(e) => setRationale(schema.name, e.target.value)}
-                      disabled={isTerminal}
+                      disabled={isTerminal || !canReview}
                       placeholder={intl.formatMessage({
                         defaultMessage: 'Rationale (optional)',
                         description: 'Review focused view: free-form rationale placeholder',
@@ -419,6 +464,32 @@ export const FocusedReview = ({
               borderTop: `1px solid ${theme.colors.border}`,
             }}
           >
+            {!canReview && (
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                <Alert
+                  componentId={`${CID}.not-assigned`}
+                  type="info"
+                  closable={false}
+                  message={intl.formatMessage({
+                    defaultMessage: "You're not assigned to this queue, so you can't submit reviews here.",
+                    description: 'Review focused view: viewing a queue the reviewer is not assigned to',
+                  })}
+                />
+                {onAssignSelf && (
+                  <Button
+                    componentId={`${CID}.assign-self`}
+                    css={{ alignSelf: 'flex-start' }}
+                    loading={isAssigningSelf}
+                    onClick={onAssignSelf}
+                  >
+                    <FormattedMessage
+                      defaultMessage="Assign myself"
+                      description="Review focused view: self-assign to the queue to start reviewing"
+                    />
+                  </Button>
+                )}
+              </div>
+            )}
             {submitError && (
               <Alert
                 componentId={`${CID}.submit-error`}
@@ -438,7 +509,7 @@ export const FocusedReview = ({
               {isTerminal ? (
                 <Button
                   componentId={`${CID}.reopen`}
-                  disabled={isSettingStatus}
+                  disabled={isSettingStatus || !canReview}
                   onClick={() => handleSetStatus('PENDING')}
                 >
                   <FormattedMessage defaultMessage="Reopen" description="Review focused view: reopen action" />
@@ -446,7 +517,7 @@ export const FocusedReview = ({
               ) : (
                 <Button
                   componentId={`${CID}.decline`}
-                  disabled={isSettingStatus}
+                  disabled={isSettingStatus || !canReview}
                   onClick={() => handleSetStatus('DECLINED')}
                 >
                   <FormattedMessage defaultMessage="Decline" description="Review focused view: decline action" />
@@ -456,7 +527,14 @@ export const FocusedReview = ({
                 <Button
                   componentId={`${CID}.complete`}
                   type="primary"
-                  disabled={isTerminal || isCreatingAssessment || isSettingStatus}
+                  disabled={
+                    isTerminal ||
+                    isCreatingAssessment ||
+                    isSettingStatus ||
+                    !canReview ||
+                    answeredCount === 0 ||
+                    priorAnswersFetching
+                  }
                   loading={isCreatingAssessment || isSettingStatus}
                   onClick={() => submitAnswersAndComplete()}
                 >

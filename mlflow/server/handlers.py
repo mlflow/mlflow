@@ -16,7 +16,7 @@ from typing import Any, Callable
 
 import requests
 from cachetools import TTLCache
-from flask import Request, Response, current_app, jsonify, request, send_file
+from flask import Request, Response, current_app, g, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 from werkzeug.http import quote_header_value
@@ -4653,6 +4653,14 @@ def _review_queue_max_results_validator(x):
     )
 
 
+def _get_request_username():
+    """The authenticated request user, stamped on ``flask.g`` by the auth
+    plugin's before-request hook. ``None`` when no auth plugin is active (a
+    no-auth server), where queue ownership is meaningless.
+    """
+    return getattr(g, "mlflow_authenticated_user", None)
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_review_queue():
@@ -4673,8 +4681,13 @@ def _create_review_queue():
         "users": list(request_message.users),
         "schema_ids": list(request_message.schema_ids),
     }
-    if request_message.HasField("created_by"):
-        kwargs["created_by"] = request_message.created_by
+    # `created_by` is the queue owner and must be trustworthy — never honor the
+    # client's value. On an auth server it is the authenticated user (stamped on
+    # `flask.g` by the auth plugin); on a no-auth server it stays unset (owner is
+    # meaningless there).
+    username = _get_request_username()
+    if username is not None:
+        kwargs["created_by"] = username
     created = _get_tracking_store().create_review_queue(**kwargs)
     return _wrap_response(CreateReviewQueue.Response(review_queue=created.to_proto()))
 
@@ -4689,13 +4702,11 @@ def _get_or_create_user_queue():
             "user": [_assert_required, _assert_string],
         },
     )
-    kwargs: dict[str, object] = {
-        "experiment_id": request_message.experiment_id,
-        "user": request_message.user,
-    }
-    if request_message.HasField("created_by"):
-        kwargs["created_by"] = request_message.created_by
-    queue = _get_tracking_store().get_or_create_user_queue(**kwargs)
+    # A user queue is owned by its user (set in the store); the client-supplied
+    # `created_by` is ignored.
+    queue = _get_tracking_store().get_or_create_user_queue(
+        request_message.experiment_id, user=request_message.user
+    )
     return _wrap_response(GetOrCreateUserQueue.Response(review_queue=queue.to_proto()))
 
 
@@ -4785,13 +4796,29 @@ def _add_items_to_review_queue():
         AddItemsToReviewQueue(),
         schema={"queue_id": [_assert_required, _assert_string]},
     )
-    kwargs: dict[str, object] = {"item_ids": list(request_message.item_ids)}
+    store = _get_tracking_store()
+    item_ids = list(request_message.item_ids)
+    kwargs: dict[str, object] = {"item_ids": item_ids}
     if (
         request_message.HasField("item_type")
         and request_message.item_type != REVIEW_ITEM_TYPE_UNSPECIFIED
     ):
         kwargs["item_type"] = ReviewItemType.from_proto(request_message.item_type)
-    items = _get_tracking_store().add_items_to_review_queue(request_message.queue_id, **kwargs)
+    # Items are trace references with no DB foreign key, so verify every trace
+    # exists in the queue's experiment before attaching. A missing or
+    # cross-experiment id would otherwise become a ghost PENDING item the UI
+    # can't render, and reviewing it would leak traces across experiments.
+    queue = store.get_review_queue(request_message.queue_id)
+    experiment_by_trace = {
+        info.trace_id: str(info.experiment_id) for info in store.batch_get_trace_infos(item_ids)
+    }
+    if invalid := [i for i in item_ids if experiment_by_trace.get(i) != str(queue.experiment_id)]:
+        raise MlflowException(
+            f"Cannot attach trace(s) {invalid} to review queue '{request_message.queue_id}': "
+            f"they do not exist in experiment '{queue.experiment_id}'.",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        )
+    items = store.add_items_to_review_queue(request_message.queue_id, **kwargs)
     response = AddItemsToReviewQueue.Response(items=[i.to_proto() for i in items])
     return _wrap_response(response)
 

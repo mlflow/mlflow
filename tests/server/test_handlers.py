@@ -58,6 +58,8 @@ from mlflow.exceptions import (
     MlflowTracingException,
 )
 from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
+from mlflow.genai.review_queues import ReviewQueueType
+from mlflow.genai.review_queues.review_queues import ReviewQueue
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -98,6 +100,10 @@ from mlflow.protos.prompt_optimization_pb2 import (
     OPTIMIZER_TYPE_GEPA,
     OPTIMIZER_TYPE_METAPROMPT,
     OPTIMIZER_TYPE_UNSPECIFIED,
+)
+from mlflow.protos.review_queues_pb2 import (
+    CreateReviewQueue,
+    GetOrCreateUserQueue,
 )
 from mlflow.protos.service_pb2 import (
     BatchGetTraceInfos,
@@ -150,6 +156,7 @@ from mlflow.server.handlers import (
     _create_presigned_upload_url,
     _create_prompt_optimization_job,
     _create_registered_model,
+    _create_review_queue,
     _delete_artifact_mlflow_artifacts,
     _delete_dataset_handler,
     _delete_dataset_tag_handler,
@@ -173,6 +180,7 @@ from mlflow.server.handlers import (
     _get_model_version,
     _get_model_version_by_alias,
     _get_model_version_download_uri,
+    _get_or_create_user_queue,
     _get_presigned_download_url,
     _get_registered_model,
     _get_request_message,
@@ -6228,3 +6236,77 @@ def test_get_rest_path_respects_static_prefix(monkeypatch):
         _get_ajax_path("/mlflow/experiments/search")
         == "/myapp/ajax-api/2.0/mlflow/experiments/search"
     )
+
+
+def _review_queue_entity(**overrides):
+    defaults = {
+        "queue_id": "rq-1",
+        "experiment_id": "exp-1",
+        "name": "q",
+        "queue_type": ReviewQueueType.CUSTOM,
+        "created_by": "alice",
+        "creation_time_ms": 1,
+        "last_update_time_ms": 1,
+        "users": [],
+        "schema_ids": [],
+    }
+    defaults.update(overrides)
+    return ReviewQueue(**defaults)
+
+
+def test_create_review_queue_stamps_owner_from_authenticated_user():
+    request_message = CreateReviewQueue()
+    request_message.experiment_id = "exp-1"
+    request_message.name = "q"
+    request_message.queue_type = ReviewQueueType.CUSTOM.to_proto()
+    # The client even tries to set a different owner; it must be ignored.
+    request_message.created_by = "spoofed"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+        mock.patch("mlflow.server.handlers._get_request_username", return_value="alice"),
+    ):
+        mock_store.return_value.create_review_queue.return_value = _review_queue_entity()
+        _create_review_queue()
+        call_kwargs = mock_store.return_value.create_review_queue.call_args[1]
+        assert call_kwargs["created_by"] == "alice"
+
+
+def test_create_review_queue_no_owner_on_noauth():
+    request_message = CreateReviewQueue()
+    request_message.experiment_id = "exp-1"
+    request_message.name = "q"
+    request_message.queue_type = ReviewQueueType.CUSTOM.to_proto()
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+        # No auth plugin -> no request user.
+        mock.patch("mlflow.server.handlers._get_request_username", return_value=None),
+    ):
+        mock_store.return_value.create_review_queue.return_value = _review_queue_entity(
+            created_by=None
+        )
+        _create_review_queue()
+        call_kwargs = mock_store.return_value.create_review_queue.call_args[1]
+        assert "created_by" not in call_kwargs
+
+
+def test_get_or_create_user_queue_ignores_client_created_by():
+    request_message = GetOrCreateUserQueue()
+    request_message.experiment_id = "exp-1"
+    request_message.user = "alice"
+    request_message.created_by = "spoofed"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.get_or_create_user_queue.return_value = _review_queue_entity(
+            queue_type=ReviewQueueType.USER, name="alice", created_by="alice", users=["alice"]
+        )
+        _get_or_create_user_queue()
+        call_kwargs = mock_store.return_value.get_or_create_user_queue.call_args[1]
+        assert "created_by" not in call_kwargs
+        assert call_kwargs["user"] == "alice"

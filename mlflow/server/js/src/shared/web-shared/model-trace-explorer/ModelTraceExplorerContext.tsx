@@ -12,11 +12,13 @@ export interface RenderExportTracesToDatasetsModalParams {
   setVisible: (visible: boolean) => void;
 }
 
-export interface RenderAddToReviewQueueModalParams {
+export interface RenderAddToReviewQueueDropdownParams {
   selectedTraceInfos: ModelTraceInfoV3[];
   experimentId: string;
-  visible: boolean;
-  setVisible: (visible: boolean) => void;
+  children: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  popoverAlign?: 'start' | 'end';
 }
 
 export type DrawerComponentType = {
@@ -35,7 +37,7 @@ export interface AddToDatasetAction {
 
 export interface ModelTraceExplorerContextValue {
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => React.ReactNode;
-  renderAddToReviewQueueModal?: (params: RenderAddToReviewQueueModalParams) => React.ReactNode;
+  renderAddToReviewQueueDropdown?: React.ComponentType<RenderAddToReviewQueueDropdownParams>;
   DrawerComponent: DrawerComponentType;
   /** When set (e.g. by the evaluation review drawer), content can show "Add to dataset" that calls openModal */
   addToDatasetAction?: AddToDatasetAction;
@@ -44,7 +46,6 @@ export interface ModelTraceExplorerContextValue {
 
 const ModelTraceExplorerContext = createContext<ModelTraceExplorerContextValue>({
   renderExportTracesToDatasetsModal: () => null,
-  renderAddToReviewQueueModal: () => null,
   DrawerComponent: Drawer,
   addToDatasetAction: undefined,
 });
@@ -52,7 +53,7 @@ const ModelTraceExplorerContext = createContext<ModelTraceExplorerContextValue>(
 interface ModelTraceExplorerContextProviderProps {
   children: React.ReactNode;
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => React.ReactNode;
-  renderAddToReviewQueueModal?: (params: RenderAddToReviewQueueModalParams) => React.ReactNode;
+  renderAddToReviewQueueDropdown?: React.ComponentType<RenderAddToReviewQueueDropdownParams>;
   DrawerComponent?: DrawerComponentType;
   drawerWidth?: string | number;
 }
@@ -60,18 +61,18 @@ interface ModelTraceExplorerContextProviderProps {
 export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerContextProviderProps> = ({
   children,
   renderExportTracesToDatasetsModal,
-  renderAddToReviewQueueModal,
+  renderAddToReviewQueueDropdown,
   DrawerComponent = Drawer,
   drawerWidth,
 }) => {
   const value = useMemo(
     () => ({
       renderExportTracesToDatasetsModal,
-      renderAddToReviewQueueModal,
+      renderAddToReviewQueueDropdown,
       DrawerComponent,
       drawerWidth,
     }),
-    [renderExportTracesToDatasetsModal, renderAddToReviewQueueModal, DrawerComponent, drawerWidth],
+    [renderExportTracesToDatasetsModal, renderAddToReviewQueueDropdown, DrawerComponent, drawerWidth],
   );
 
   return <ModelTraceExplorerContext.Provider value={value}>{children}</ModelTraceExplorerContext.Provider>;
