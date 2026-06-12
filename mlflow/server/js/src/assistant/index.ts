@@ -5,6 +5,7 @@
  */
 export { AssistantProvider, useAssistant } from './AssistantContext';
 export { AssistantChatPanel } from './AssistantChatPanel';
+export { AssistantSparkleIcon } from './AssistantIconButton';
 export {
   AssistantRouteContextProvider,
   useRegisterAssistantContext,

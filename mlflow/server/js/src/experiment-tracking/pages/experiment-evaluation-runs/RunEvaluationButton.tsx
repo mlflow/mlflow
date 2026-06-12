@@ -174,16 +174,21 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
 
   return (
     <>
-      <Button componentId="mlflow.eval-runs.start-run-button" icon={<ChartLineIcon />} onClick={() => setIsOpen(true)}>
+      <Button
+        componentId="mlflow.eval-runs.start-run-button"
+        icon={<ChartLineIcon />}
+        type="primary"
+        onClick={() => setIsOpen(true)}
+      >
         <FormattedMessage
-          defaultMessage="Run evaluation"
-          description="Label for a button that displays instructions for starting a new evaluation run"
+          defaultMessage="Evaluate traces"
+          description="Label for the primary button that opens the run-evaluation modal"
         />
       </Button>
       <Modal
         componentId="mlflow.eval-runs.start-run-modal"
         title={
-          <FormattedMessage defaultMessage="Run evaluation" description="Title for the run evaluation modal dialog" />
+          <FormattedMessage defaultMessage="Evaluate traces" description="Title for the run evaluation modal dialog" />
         }
         visible={isOpen}
         cancelText={intl.formatMessage({
