@@ -206,7 +206,8 @@ class AnthropicAdapter(ProviderAdapter):
         # Transform response_format for Anthropic structured outputs
         # Anthropic uses output_config.format with {"type": "json_schema", "schema": {...}}
         if response_format := payload.pop("response_format", None):
-            if response_format.get("type") == "json_schema" and "json_schema" in response_format:
+            response_format_type = response_format.get("type")
+            if response_format_type == "json_schema" and "json_schema" in response_format:
                 json_schema = response_format["json_schema"]
                 schema = json_schema.get("schema", {})
                 try:
@@ -226,6 +227,18 @@ class AnthropicAdapter(ProviderAdapter):
                             "schema": schema,
                         }
                     }
+            elif response_format_type == "json_object":
+                # Anthropic has no schema-less JSON mode (its output_config.format
+                # requires a schema), so steer the model to emit JSON via a system
+                # instruction. This is best-effort rather than a hard constraint.
+                json_instruction = (
+                    "Respond with only a single valid JSON value. Do not include any "
+                    "explanatory text, markdown, or code fences before or after the JSON."
+                )
+                if existing_system := payload.get("system"):
+                    payload["system"] = f"{existing_system}\n{json_instruction}"
+                else:
+                    payload["system"] = json_instruction
 
         return payload
 
