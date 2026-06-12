@@ -307,7 +307,6 @@ const ExperimentReviewQueuePage = () => {
         item={openItem}
         items={orderedTraces}
         schemas={questionSchemas}
-        queueName={selectedQueue.queue_type === 'USER' ? displayUser(selectedQueue.name, intl) : selectedQueue.name}
         completedBy={reviewer}
         // Treat an unresolved reviewer like an in-flight write so the complete /
         // decline controls stay disabled until `completed_by` is trustworthy.

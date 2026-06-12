@@ -55,7 +55,6 @@ const renderFocused = (
           item={pendingItem}
           items={[pendingItem]}
           schemas={schemas}
-          queueName="Test Queue"
           completedBy="tester"
           isSettingStatus={false}
           canReview={opts.canReview ?? true}

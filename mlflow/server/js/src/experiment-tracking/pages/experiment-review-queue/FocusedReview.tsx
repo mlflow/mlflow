@@ -65,8 +65,6 @@ export const FocusedReview = ({
   item: ReviewQueueItem;
   items: ReviewQueueItem[];
   schemas: LabelSchema[];
-  /** Display name of the queue, shown as the questions-panel title. */
-  queueName: string;
   /** Reviewer identifier recorded on completion; `default` in no-auth OSS. */
   completedBy: string;
   /** True while a status write is in flight (disables the actions). */
