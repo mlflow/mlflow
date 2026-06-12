@@ -12,7 +12,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
-from mlflow.store.tracking.dbmodels.models import SqlReviewQueue
+from mlflow.store.tracking.dbmodels.models import SqlReviewQueue, SqlReviewQueueItem
 
 from tests.store.tracking.sqlalchemy_store.conftest import _create_experiments, _create_trace
 
@@ -731,6 +731,75 @@ def test_create_custom_queue_rejects_default_name_case_insensitive(store, name):
     with pytest.raises(MlflowException, match="reserved queue name") as exc:
         store.create_review_queue(exp_id, name=name, queue_type="custom")
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+
+
+# --------------------------------------------------------------------------
+# Concurrency edge cases (error-code correctness)
+# --------------------------------------------------------------------------
+
+
+def test_create_queue_experiment_fk_violation_maps_to_not_found(store):
+    # If the experiment is deleted between the existence pre-check and the insert,
+    # the experiment-FK violation must surface as RESOURCE_DOES_NOT_EXIST, not a
+    # misleading "already exists". Patch out the pre-check so a missing experiment
+    # reaches the flush and trips the FK.
+    with mock.patch.object(type(store), "_validate_experiment_exists", autospec=True):
+        with pytest.raises(MlflowException, match="does not exist") as exc:
+            store.create_review_queue("999999", name="q", queue_type="custom")
+    _assert_error_code(exc, RESOURCE_DOES_NOT_EXIST)
+
+
+def test_create_queue_duplicate_race_maps_to_already_exists(store):
+    # When two creators race, the loser misses the name pre-check and the unique
+    # constraint rejects the insert. That IntegrityError must still map to
+    # RESOURCE_ALREADY_EXISTS. Force the pre-check to miss so the flush is what
+    # rejects the duplicate.
+    exp_id = _create_experiments(store, "dup_race")
+    store.create_review_queue(exp_id, name="dupe", queue_type="custom")
+
+    real_review_queue_query = type(store)._review_queue_query
+    calls = {"n": 0}
+
+    def first_call_misses(self, session):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            # The name pre-check: pretend no existing row so the insert proceeds.
+            empty = mock.MagicMock()
+            empty.filter.return_value.one_or_none.return_value = None
+            return empty
+        return real_review_queue_query(self, session)
+
+    with mock.patch.object(type(store), "_review_queue_query", first_call_misses):
+        with pytest.raises(MlflowException, match="already exists") as exc:
+            store.create_review_queue(exp_id, name="dupe", queue_type="custom")
+    _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
+
+
+def test_add_items_skips_rows_removed_mid_attach(store):
+    # A concurrent remove/delete can drop a just-attached row between the inserts
+    # and the final read-back; the dropped id must be skipped, not raise KeyError.
+    from sqlalchemy.orm import Query
+
+    exp_id = _create_experiments(store, "attach_race")
+    queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
+
+    real_all = Query.all
+
+    def flaky_all(self):
+        rows = real_all(self)
+        # Perturb only the final read-back, which selects full SqlReviewQueueItem
+        # entities; the existing-items pre-read selects item_id scalars, so keying
+        # on the row type targets the right query without counting calls. Drop a
+        # row to mimic a concurrent removal landing before the read-back.
+        if rows and isinstance(rows[0], SqlReviewQueueItem):
+            return rows[:-1]
+        return rows
+
+    with mock.patch.object(Query, "all", flaky_all):
+        items = store.add_items_to_review_queue(queue.queue_id, item_ids=["tr-1", "tr-2"])
+
+    assert len(items) == 1
+    assert {i.item_id for i in items} <= {"tr-1", "tr-2"}
 
 
 def test_delete_trace_removes_its_review_queue_items(store):
