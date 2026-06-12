@@ -150,6 +150,13 @@ export const AddToReviewQueueDropdown = ({
     () => new Set(memberQueues.filter((q) => q.queue_type === 'CUSTOM').map((q) => q.queue_id)),
     [memberQueues],
   );
+  // USER-queue memberships, keyed by the queue name (== the username); covers
+  // the no-auth `default` queue and any per-user queues the trace is in.
+  const memberUserNames = useMemo(
+    () => memberQueues.filter((q) => q.queue_type === 'USER').map((q) => q.name),
+    [memberQueues],
+  );
+  const memberUserSet = useMemo(() => new Set(memberUserNames.map((n) => n.toLowerCase())), [memberUserNames]);
   const seededItemRef = useRef<string | null>(null);
   useEffect(() => {
     // Seed once per open (the ref guards against re-seeding on refetch), then
@@ -159,7 +166,8 @@ export const AddToReviewQueueDropdown = ({
     }
     seededItemRef.current = singleItemId;
     setAddedQueueIds(new Set(memberQueueIds));
-  }, [isOpen, singleItemId, membersLoading, memberQueueIds]);
+    setAddedUsers(new Set(memberUserNames));
+  }, [isOpen, singleItemId, membersLoading, memberQueueIds, memberUserNames]);
 
   // Shared queues anyone can route into. The no-auth catch-all (the reserved
   // `default` user queue) is surfaced through the pinned option instead of the
@@ -202,9 +210,15 @@ export const AddToReviewQueueDropdown = ({
       return [];
     }
     return users
-      .filter((u) => !sameUser(u.username, reviewer) && u.username.toLowerCase().includes(query))
+      .filter(
+        (u) =>
+          !sameUser(u.username, reviewer) &&
+          // Members are listed separately (checked) above the search results.
+          !memberUserSet.has(u.username.toLowerCase()) &&
+          u.username.toLowerCase().includes(query),
+      )
       .slice(0, MAX_USER_MATCHES);
-  }, [users, query, reviewer]);
+  }, [users, query, reviewer, memberUserSet]);
 
   const resetState = useCallback(() => {
     setSearch('');
@@ -335,6 +349,11 @@ export const AddToReviewQueueDropdown = ({
     defaultMessage: 'Default queue',
     description: 'Add to review queue: the experiment default queue option',
   });
+  // Reason shown on a checked-but-locked membership the reviewer can't remove.
+  const lockedMemberReason = intl.formatMessage({
+    defaultMessage: "This trace is already in this queue, and you don't have permission to remove it.",
+    description: 'Add to review queue: queue option locked because the trace is a member the reviewer cannot remove',
+  });
 
   return (
     <>
@@ -464,12 +483,7 @@ export const AddToReviewQueueDropdown = ({
                           disabled={lockedMember || notAssignable || busyIds.has(q.queue_id)}
                           disabledReason={
                             lockedMember
-                              ? intl.formatMessage({
-                                  defaultMessage:
-                                    "This trace is already in this queue, and you don't have permission to remove it.",
-                                  description:
-                                    'Add to review queue: queue option locked because the trace is a member and the reviewer cannot remove it',
-                                })
+                              ? lockedMemberReason
                               : notAssignable
                                 ? reasonText(assignability?.reason)
                                 : undefined
@@ -499,6 +513,20 @@ export const AddToReviewQueueDropdown = ({
                             description="Add to review queue: per-user personal-queue section header"
                           />
                         </DialogComboboxSectionHeader>
+                        {/* Existing per-user memberships, shown checked regardless of search. A
+                            personal queue is prunable only by a manager, so otherwise it's locked. */}
+                        {memberUserNames.map((username) => (
+                          <DialogComboboxOptionListCheckboxItem
+                            key={`member-${username}`}
+                            value={username}
+                            checked={addedUsers.has(username)}
+                            disabled={!canManage || busyIds.has(username)}
+                            disabledReason={!canManage ? lockedMemberReason : undefined}
+                            onChange={() => toggleUserQueue(username)}
+                          >
+                            {username}
+                          </DialogComboboxOptionListCheckboxItem>
+                        ))}
                         {!query ? (
                           <DialogComboboxEmpty
                             emptyText={

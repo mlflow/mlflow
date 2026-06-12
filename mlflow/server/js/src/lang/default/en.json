@@ -479,6 +479,10 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "0NomdE": {
+    "defaultMessage": "This trace is already in this queue, and you don't have permission to remove it.",
+    "description": "Add to review queue: queue option locked because the trace is a member the reviewer cannot remove"
+  },
   "0P5Ooz": {
     "defaultMessage": "+{count} more",
     "description": "Suffix on the dataset record tags column indicating how many additional tags are hidden in the preview"
@@ -11106,10 +11110,6 @@
   "tUDgmf": {
     "defaultMessage": "Select one or more sessions to perform actions.",
     "description": "Tooltip shown when actions button is disabled due to no session selection"
-  },
-  "tUEIfz": {
-    "defaultMessage": "This trace is already in this queue, and you don't have permission to remove it.",
-    "description": "Add to review queue: queue option locked because the trace is a member and the reviewer cannot remove it"
   },
   "ta42Qe": {
     "defaultMessage": "Active",

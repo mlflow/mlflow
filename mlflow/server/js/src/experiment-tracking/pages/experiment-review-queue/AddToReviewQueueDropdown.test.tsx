@@ -10,8 +10,9 @@ import Utils from '../../../common/utils/Utils';
 import { generatePath } from '../../../common/utils/RoutingUtils';
 import { RoutePaths } from '../../routes';
 
+let mockAuthAvailable = false;
 jest.mock('../../../account/hooks', () => ({
-  useIsAuthAvailable: () => false,
+  useIsAuthAvailable: () => mockAuthAvailable,
   useCurrentUserIsAdmin: () => false,
   useCurrentUserIsWorkspaceAdmin: () => false,
 }));
@@ -25,8 +26,9 @@ jest.mock('./hooks/useReviewer', () => ({
 // a no-auth server) so flagging stays enabled, but is overridable to model a
 // READ-only user who can't flag.
 let mockCanEdit = true;
+let mockCanManage = false;
 jest.mock('./hooks/useCanManageReviews', () => ({
-  useCanManageReviews: () => false,
+  useCanManageReviews: () => mockCanManage,
   useCanEditReviews: () => mockCanEdit,
 }));
 jest.mock('./CreateReviewQueueModal', () => ({ CreateReviewQueueModal: () => null }));
@@ -111,7 +113,9 @@ const renderDropdown = (props?: { open?: boolean; onOpenChange?: (open: boolean)
 describe('AddToReviewQueueDropdown', () => {
   beforeEach(() => {
     mockReviewerResolved = true;
+    mockAuthAvailable = false;
     mockCanEdit = true;
+    mockCanManage = false;
     mockMemberQueues = [];
     mockListQueues = [
       { queue_id: 'rq-custom', queue_type: 'CUSTOM', name: 'Relevance', created_by: 'default', schema_ids: ['s1'] },
@@ -254,6 +258,34 @@ describe('AddToReviewQueueDropdown', () => {
     renderDropdown({ open: true });
 
     const option = await screen.findByRole('checkbox', { name: /Relevance/ });
+    expect(option).toBeChecked();
+    expect(option).toBeDisabled();
+    expect(mockRemoveItems).not.toHaveBeenCalled();
+  });
+
+  it('pre-checks the default queue when the trace is already in it', async () => {
+    // The default queue is a USER queue ('default'); a USER membership seeds the
+    // pinned default option as checked (and on no-auth it stays removable).
+    mockMemberQueues = [
+      { queue_id: 'rq-default', queue_type: 'USER', name: 'default', created_by: 'default', schema_ids: [] },
+    ];
+    renderDropdown({ open: true });
+
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: 'Default queue' })).toBeChecked());
+  });
+
+  it("locks a user's queue the trace is in unless the reviewer is a manager", async () => {
+    // On an auth server, a per-user queue membership shows that user checked.
+    // A personal queue is prunable only by a manager, so a non-manager sees it
+    // locked (its accessible name carries the disabled reason).
+    mockAuthAvailable = true;
+    mockCanManage = false;
+    mockMemberQueues = [
+      { queue_id: 'rq-alice', queue_type: 'USER', name: 'alice', created_by: 'alice', schema_ids: [] },
+    ];
+    renderDropdown({ open: true });
+
+    const option = await screen.findByRole('checkbox', { name: /alice/ });
     expect(option).toBeChecked();
     expect(option).toBeDisabled();
     expect(mockRemoveItems).not.toHaveBeenCalled();
