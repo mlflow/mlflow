@@ -301,7 +301,7 @@ export const FocusedReview = ({
                       css={{
                         maxWidth: '50%',
                         padding: theme.spacing.sm,
-                        backgroundColor: theme.colors.blue200,
+                        backgroundColor: theme.isDarkMode ? theme.colors.blue800 : theme.colors.blue200,
                         borderRadius: theme.borders.borderRadiusMd,
                         fontSize: theme.typography.fontSizeSm,
                         wordBreak: 'break-word',
@@ -315,7 +315,7 @@ export const FocusedReview = ({
                   <div
                     css={{
                       padding: theme.spacing.md,
-                      backgroundColor: theme.colors.white,
+                      backgroundColor: theme.isDarkMode ? theme.colors.backgroundSecondary : theme.colors.white,
                       borderRadius: theme.borders.borderRadiusMd,
                       fontSize: theme.typography.fontSizeSm,
                       lineHeight: 1.6,
