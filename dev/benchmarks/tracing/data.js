@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781237744965,
+  "lastUpdate": 1781243606480,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -9341,6 +9341,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 36.303506200010816,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84737625+kriscon-db@users.noreply.github.com",
+            "name": "Kris Concepcion",
+            "username": "kriscon-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "82d9fa1639647c7969f2a6e4c0ede8a35b4dfe56",
+          "message": "Add an `item_id` filter to `ListReviewQueues` (#23931)\n\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>\nSigned-off-by: kriscon-db <84737625+kriscon-db@users.noreply.github.com>",
+          "timestamp": "2026-06-12T05:49:38Z",
+          "tree_id": "c5f2f050214c36273dcb5cc9e18483afe1d667e7",
+          "url": "https://github.com/mlflow/mlflow/commit/82d9fa1639647c7969f2a6e4c0ede8a35b4dfe56"
+        },
+        "date": 1781243605419,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 46.814810749998514,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 27.34786994117776,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.480772491523812,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 23.540397245612933,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 24.68078948148355,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.613422799994396,
             "unit": "ms"
           }
         ]
