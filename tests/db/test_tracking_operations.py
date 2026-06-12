@@ -112,7 +112,11 @@ def test_database_operational_error(monkeypatch):
                 and "test_database_operational_error_1667938883_value" in args[1]
             ):
                 # Simulate a database error
-                raise sqlite3.OperationalError("test")
+                raise sqlalchemy.exc.OperationalError(
+                    statement=args[0],
+                    params=args[1] if len(args) > 1 else None,
+                    orig=sqlite3.OperationalError("simulated operational error"),
+                ) sqlite3.OperationalError("test")
             return self.cursor.execute(*args, **kwargs)
 
     def connect(*args, **kwargs):
