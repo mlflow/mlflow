@@ -64,6 +64,23 @@ def test_create_mcp_server_invalid_name_raises(store, invalid_name):
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
+def test_create_mcp_server_accepts_mixed_case_reverse_dns_namespace(store):
+    server = store.create_mcp_server("io.github.TestOrg/server-name")
+    assert server.name == "io.github.TestOrg/server-name"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "io.github.test/server_name",
+        "io.github.test/server.name",
+    ],
+)
+def test_create_mcp_server_accepts_upstream_slug_chars(store, name):
+    server = store.create_mcp_server(name)
+    assert server.name == name
+
+
 def test_create_mcp_server_with_icons(store):
     icons = [{"src": "https://example.com/icon.png", "sizes": "32x32"}]
     server = store.create_mcp_server("io.github.test/server", icons=icons)
@@ -357,6 +374,18 @@ def test_create_mcp_server_version_invalid_name_raises(store, invalid_name):
     ) as exc:
         store.create_mcp_server_version({"name": invalid_name, "version": "1.0"})
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "io.github.test/server_name",
+        "io.github.test/server.name",
+    ],
+)
+def test_create_mcp_server_version_accepts_upstream_slug_chars(store, name):
+    sv = store.create_mcp_server_version({"name": name, "version": "1.0"})
+    assert sv.name == name
 
 
 def test_create_mcp_server_version_with_tools(store):
