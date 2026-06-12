@@ -1932,6 +1932,7 @@ class AbstractStore(GatewayStoreMixin):
         experiment_id: str,
         *,
         user: str | None = None,
+        item_id: str | None = None,
         max_results: int | None = None,
         page_token: str | None = None,
     ) -> PagedList["ReviewQueue"]:
@@ -1941,6 +1942,8 @@ class AbstractStore(GatewayStoreMixin):
             experiment_id: Parent experiment ID.
             user: If set, restrict to queues this user is assigned to (their
                 user queue plus any custom queue they belong to).
+            item_id: If set, restrict to queues that already contain this item
+                (a trace id), so callers can see which queues it is a member of.
             max_results: Page size.
             page_token: Opaque continuation token from a previous call.
         """
