@@ -650,7 +650,13 @@ langchain:
           "uvicorn",
           # Required for testing Databricks dependency extraction
           "databricks-langchain",
-          "databricks-vectorsearch",
+          # Pin <0.74: 0.74 renamed databricks-vectorsearch to databricks-ai-search and
+          # turned `databricks.vector_search.*` into a re-export that drops
+          # `VectorSearchIndex`. Both this dependency-extraction test AND databricks-langchain
+          # itself import that symbol from `databricks.vector_search.client` at import time,
+          # so 0.74 breaks the whole langchain matrix. Revisit once databricks-langchain
+          # moves to databricks-ai-search.
+          "databricks-vectorsearch<0.74",
           # Required for testing uc tools
           "unitycatalog-langchain",
         ]
