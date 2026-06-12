@@ -663,37 +663,54 @@ const buildSpanPanelComponents = (
   return [{ id: panelRootId, component: 'Column', children: childIds }, ...components];
 };
 
-// A span tree built from first-class TreeNode components. Each node maps 1:1 to
-// a span and carries `panelItems` directives (input / output / feedback). The
-// host builds the actual side panel from the span's data when the node is
-// selected. Demonstrates the host-built, author-directed side panel.
+const spanName = (span: ModelTraceSpanNode): string =>
+  typeof span.title === 'string' ? span.title : String(span.title ?? 'span');
+
+// Side-panel directives reused across the predefined tree builders.
+const TRACE_TREE_PANEL_ITEMS: PanelItem[] = [{ type: 'input' }, { type: 'output' }, { type: 'feedback' }];
+const SPAN_IO_PANEL_ITEMS: PanelItem[] = [{ type: 'input' }, { type: 'output' }];
+
+// Recursively emits TreeNode components for a span AND its descendants into
+// `sink` (preserving the span hierarchy), attaching the given side-panel
+// `panelItems` to each node, and returns the span's node id. `state.counter`
+// keeps ids unique across the whole surface. Shared by the 1:1 trace tree and
+// the grouped milestone view (whose member spans are built with this).
+const buildSpanNodeComponents = (
+  span: ModelTraceSpanNode,
+  sink: Record<string, unknown>[],
+  options: { panelItems: PanelItem[]; idPrefix: string; state: { counter: number } },
+): string => {
+  options.state.counter += 1;
+  const nodeId = `${options.idPrefix}-${options.state.counter}-node`;
+  const childIds = (span.children ?? []).map((child) => buildSpanNodeComponents(child, sink, options));
+
+  const hasException = getSpanExceptionEvents(span).length > 0;
+  const assessmentCount = span.assessments?.length ?? 0;
+  sink.push({
+    id: nodeId,
+    component: 'TreeNode',
+    label: spanName(span),
+    icon: getIconTypeForSpan(span.type ?? ModelSpanType.UNKNOWN),
+    hasException,
+    isRootSpan: !span.parentId,
+    ...(assessmentCount > 0 ? { badge: String(assessmentCount) } : {}),
+    spanId: String(span.key),
+    ...(options.panelItems.length > 0 ? { panelItems: options.panelItems } : {}),
+    ...(childIds.length > 0 ? { children: childIds } : {}),
+  });
+  return nodeId;
+};
+
+// A 1:1 span tree built from first-class TreeNode components. Each node maps to
+// a span and carries `panelItems` directives (input / output / feedback); the
+// host builds the actual side panel from the span's data on selection.
+// Demonstrates the host-built, author-directed side panel.
 const buildTraceTreeMessages = (surfaceId: string, { treeRoots }: CustomViewData): A2uiMessage[] => {
   const components: Record<string, unknown>[] = [];
-  let counter = 0;
-
-  const toComponents = (span: ModelTraceSpanNode): string => {
-    counter += 1;
-    const nodeId = `tn-${counter}-node`;
-    const childIds = (span.children ?? []).map(toComponents);
-
-    const hasException = getSpanExceptionEvents(span).length > 0;
-    const assessmentCount = span.assessments?.length ?? 0;
-    components.push({
-      id: nodeId,
-      component: 'TreeNode',
-      label: typeof span.title === 'string' ? span.title : String(span.title ?? 'unknown'),
-      icon: getIconTypeForSpan(span.type ?? ModelSpanType.UNKNOWN),
-      hasException,
-      isRootSpan: !span.parentId,
-      ...(assessmentCount > 0 ? { badge: String(assessmentCount) } : {}),
-      spanId: String(span.key),
-      panelItems: [{ type: 'input' }, { type: 'output' }, { type: 'feedback' }],
-      ...(childIds.length > 0 ? { children: childIds } : {}),
-    });
-    return nodeId;
-  };
-
-  const rootChildIds = treeRoots.map(toComponents);
+  const state = { counter: 0 };
+  const rootChildIds = treeRoots.map((span) =>
+    buildSpanNodeComponents(span, components, { panelItems: TRACE_TREE_PANEL_ITEMS, idPrefix: 'tn', state }),
+  );
 
   return [
     createSurfaceMessage(surfaceId),
@@ -716,11 +733,15 @@ const buildTraceTreeMessages = (surfaceId: string, { treeRoots }: CustomViewData
   ];
 };
 
-// Demonstrates the milestone/trajectory use case: each TreeNode is a high-level
-// step whose side panel is a markdown summary that deeplinks to its span via
-// [text](#span:<id>), plus span-scoped feedback. Selecting a milestone (or
-// following its deeplink) asks the host to build that panel. Built from the real
-// top-level spans (no fabricated narrative).
+// Demonstrates the GROUPED key-action / milestone use case: each top-level node
+// is a span-less milestone (a logical action) whose side panel is a markdown
+// summary deeplinking (`[text](#span:<id>)`) to the member spans it groups, plus
+// feedback. The member spans are the milestone's `children` (real nodes with
+// input/output panels, keeping any of their own sub-spans nested). For this
+// no-LLM demo we group each top-level span's subtree under one milestone (the
+// member spans are that span's children; when it has none, the span itself is
+// the single member, demonstrating the 1:1 fallback). Agent Mode does the
+// smarter, content-aware grouping/summarization.
 const buildTrajectoryDemoMessages = (surfaceId: string, { treeRoots }: CustomViewData): A2uiMessage[] => {
   const milestones = treeRoots.slice(0, 6);
   if (milestones.length === 0) {
@@ -738,30 +759,40 @@ const buildTrajectoryDemoMessages = (surfaceId: string, { treeRoots }: CustomVie
 
   const components: Record<string, unknown>[] = [];
   const milestoneIds: string[] = [];
+  const state = { counter: 0 };
 
   milestones.forEach((span, index) => {
-    const nodeId = `ms-${index + 1}-node`;
-    milestoneIds.push(nodeId);
+    const milestoneId = `ms-${index + 1}-node`;
+    milestoneIds.push(milestoneId);
 
-    const spanName = typeof span.title === 'string' ? span.title : String(span.title ?? 'span');
     const spanType = String(span.type ?? ModelSpanType.UNKNOWN);
-    const spanKey = String(span.key);
+    // Member spans = this milestone span's children (grouped); fall back to the
+    // span itself when it has no children (the 1:1 case).
+    const memberSpans = span.children && span.children.length > 0 ? span.children : [span];
+    const memberIds = memberSpans.map((member) =>
+      buildSpanNodeComponents(member, components, {
+        panelItems: SPAN_IO_PANEL_ITEMS,
+        idPrefix: `ms${index + 1}`,
+        state,
+      }),
+    );
+
+    // Factual summary that deeplinks to a few member spans (no fabricated
+    // narrative — just names the action and its key spans).
+    const links = memberSpans
+      .slice(0, 3)
+      .map((member) => `[${spanName(member)}](#span:${String(member.key)})`)
+      .join(', ');
+    const text = `Step ${index + 1} covers the \`${spanType}\` action **${spanName(span)}**. Key spans: ${links}.`;
 
     components.push({
-      id: nodeId,
+      id: milestoneId,
       component: 'TreeNode',
-      title: `Step ${index + 1}: ${spanName}`,
+      title: `Step ${index + 1}: ${spanName(span)}`,
       icon: getIconTypeForSpan(span.type ?? ModelSpanType.UNKNOWN),
       isRootSpan: !span.parentId,
-      spanId: spanKey,
-      panelItems: [
-        {
-          type: 'markdown',
-          title: `Step ${index + 1}`,
-          text: `Milestone covering the \`${spanType}\` span **${spanName}**. Jump to the span [here](#span:${spanKey}).`,
-        },
-        { type: 'feedback' },
-      ],
+      panelItems: [{ type: 'markdown', title: 'Action summary', text }, { type: 'feedback' }],
+      children: memberIds,
     });
   });
 
@@ -775,7 +806,7 @@ const buildTrajectoryDemoMessages = (surfaceId: string, { treeRoots }: CustomVie
           {
             id: 'root',
             component: 'TreeView',
-            title: 'Agent Trajectory',
+            title: 'Agent Key Actions',
             children: milestoneIds,
             emptyMessage: 'No spans to summarize.',
           },
@@ -906,7 +937,7 @@ const MESSAGE_SETS: MessageSet[] = [
   { id: 'tool-performance', label: 'List performance summary for all tools', build: buildToolPerformanceMessages },
   { id: 'trace-breakdown', label: 'Give me a timeline of all spans calls', build: buildTraceBreakdownMessages },
   { id: 'trace-tree', label: 'Show me the span calls in a tree view', build: buildTraceTreeMessages },
-  { id: 'trajectory-demo', label: 'Summarize the agent trajectory as milestones', build: buildTrajectoryDemoMessages },
+  { id: 'trajectory-demo', label: 'Summarize the agent as key-action milestones', build: buildTrajectoryDemoMessages },
   { id: 'assessments', label: 'Show the LLM-as-a-judge assessments', build: buildAssessmentsMessages },
   {
     id: 'first-tool-io',

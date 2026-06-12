@@ -155,6 +155,27 @@ To show a span's INPUT and OUTPUT (or attributes), DO NOT emit the data yourself
 \`\`\`
 This stays tiny no matter how large the span inputs/outputs are, because the host fills in the data. Add { "type": "feedback" } to also collect a thumbs up/down per span, or { "type": "markdown", "text": "..." } for a summary.`;
 
+const MILESTONE_EXAMPLE = `Example — KEY ACTIONS / milestones that GROUP several spans. Each milestone is a span-less node (NO "spanId") with a markdown summary that deeplinks to the member spans; the member spans are its "children" (real nodes with a "spanId", each keeping its own sub-spans nested):
+\`\`\`json
+[
+  {
+    "version": "v0.9",
+    "updateComponents": {
+      "surfaceId": "${PLACEHOLDER_SURFACE_ID}",
+      "components": [
+        { "id": "root", "component": "TreeView", "title": "Agent Key Actions", "children": ["ms-1", "ms-2"] },
+        { "id": "ms-1", "component": "TreeNode", "title": "Step 1: Agent plans the deployment", "icon": "agent", "isRootSpan": true, "panelItems": [ { "type": "markdown", "title": "Action summary", "text": "The agent reasoned with [generate_content](#span:span-1), then issued a tool call to [generate_k8s_manifest](#span:span-2)." } ], "children": ["n-1", "n-2"] },
+        { "id": "n-1", "component": "TreeNode", "label": "generate_content", "icon": "models", "spanId": "span-1", "panelItems": [ { "type": "input" }, { "type": "output" } ] },
+        { "id": "n-2", "component": "TreeNode", "label": "generate_k8s_manifest", "icon": "wrench", "spanId": "span-2", "panelItems": [ { "type": "input" }, { "type": "output" } ] },
+        { "id": "ms-2", "component": "TreeNode", "title": "Step 2: Agent delivers the workflow", "icon": "agent", "panelItems": [ { "type": "markdown", "title": "Action summary", "text": "The agent finalized the deployment via [format_response](#span:span-3)." } ], "children": ["n-3"] },
+        { "id": "n-3", "component": "TreeNode", "label": "format_response", "icon": "function", "spanId": "span-3", "panelItems": [ { "type": "input" }, { "type": "output" } ] }
+      ]
+    }
+  }
+]
+\`\`\`
+Note: milestone nodes ("ms-*") have NO "spanId" and only a markdown summary; the real spans ("n-*") are nested as "children" and carry the "spanId" + input/output. A member span with its OWN sub-spans nests them the same way.`;
+
 const BINDING_EXAMPLE = `Example — extract span inputs/outputs from nodeMap into the data model, then bind them:
 \`\`\`json
 [
@@ -240,6 +261,7 @@ export const buildAgentMessages = ({
     OUTPUT_RULES,
     EXAMPLE,
     TREE_EXAMPLE,
+    MILESTONE_EXAMPLE,
     BINDING_EXAMPLE,
   ].join('\n\n');
 
@@ -267,7 +289,8 @@ export const buildAgentMessages = ({
     '- `metrics` → StatCard values',
     '- `treeNodes` → the source span hierarchy for building a TreeView. Each entry is { "id", "label", "icon", "hasException", "isRootSpan", "badge"?, "attributes": { "type", ... }, "children": [...] }. This is NOT inlineable as-is: emit one "TreeNode" component per span (reuse its "label"/"icon"/"hasException"/"isRootSpan"; set "spanId" to its "id"), set each TreeNode\'s "children" to the ids of its child TreeNode components, and set the TreeView\'s "children" to the root TreeNode ids. Keep TreeNodes MINIMAL by default (just label/icon/spanId/children) — this is the common "show the span tree" case (see the span-tree example). If the user asks to ALSO see input/output (or attributes) for each span, add a "panelItems" array like [ { "type": "input" }, { "type": "output" } ] to each node (with its "spanId") — the host builds the side panel from the span data, so you do NOT emit the inputs/outputs (see the input/output example).',
     'IMPORTANT — filtering to a subset: if the request asks for only a SUBSET of spans (e.g. "only tool calls", "only retrievers", "only errors"), emit TreeNodes ONLY for the matching spans. Every `treeNodes` entry has `attributes.type` and every `nodeMap` entry has a "type" field (the span type: "TOOL", "LLM", "RETRIEVER", "CHAIN", "PARSER", "AGENT", etc.). Select the matching spans (e.g. type === "TOOL"), emit a flat list of TreeNodes for them (no "children"), and reference their ids in the TreeView. For tool calls specifically, you may instead use `toolRows` which already contains only tools.',
-    'MILESTONE / TRAJECTORY view: if the request asks to summarize the agent\'s trajectory, steps, or milestones, emit a TreeView of a FEW high-level TreeNodes (one per milestone). Give each a "title" (e.g. "Step 1: ...") and a "spanId", and add a "panelItems" markdown directive that narrates that step using ONLY facts present in the data: { "type": "markdown", "text": "... [the tool call](#span:<spanId>) ..." } (deeplinks select the linked span\'s node). Optionally add { "type": "feedback" } as well. Selecting a milestone (or following a deeplink) asks the host to build that panel.',
+    'MILESTONE / KEY-ACTION view: if the request asks to summarize the agent\'s KEY ACTIONS, trajectory, steps, or milestones, do NOT map one node per span. Instead read the WHOLE trace (use `nodeMap` + the `treeNodes` hierarchy) and CLUSTER related spans into a FEW key actions — a single key action usually covers MULTIPLE spans (e.g. an LLM call plus the tool calls it triggered, or a span and its whole subtree). Emit one milestone TreeNode per key action: give it a "title" (e.g. "Step 1: Agent plans the deployment"), DO NOT give it a "spanId" (it is a logical grouping, not a span), and add a "panelItems" markdown directive that summarizes the action using ONLY facts present in the data, with [text](#span:<spanId>) deeplinks to the member spans it summarizes: { "type": "markdown", "title": "Action summary", "text": "The agent called [generate_content](#span:<id>) then [run_sql_query](#span:<id>) ..." } (optionally also { "type": "feedback" }). Set the milestone\'s "children" to the actual member-span TreeNodes — each with its real "spanId", an optional "panelItems": [ { "type": "input" }, { "type": "output" } ], and any of THAT span\'s own child spans nested underneath (preserve the span hierarchy). Selecting a milestone shows its summary; following a deeplink selects the linked child span and opens its input/output panel.',
+    'FLEXIBILITY — 1:1 vs grouped: the tree supports BOTH. If the user asks for a plain span tree or a node per span, give every node its own "spanId" and skip the grouping (see the span-tree example). Only group spans under span-less milestone nodes when the user asks for key actions / a summary / a trajectory (see the milestone example).',
     '`assessments` is the trace\'s REAL evaluation data (LLM-judge / human feedback): each has a `name`, a `value` (e.g. "yes"/"no"/a score/boolean), an optional `rationale`, a `source` (e.g. LLM_JUDGE), and an optional `error`. For any request about judge results, evaluations, scores, or feedback, use ONLY `assessments` — there is no other scoring data. If `assessments` is empty, say it is unavailable.',
     '`nodeMap` (keyed by span id) is the raw per-span source including each span\'s `type` and `inputs`/`outputs`; use it for anything the precomputed arrays do not cover. Only individual scalar values may be bound via an `updateDataModel` message and `{ "path": "/..." }`; all arrays must be inlined.',
     '```json',
