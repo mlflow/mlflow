@@ -13,6 +13,10 @@ import os
 import threading
 import uuid
 
+import mlflow
+from mlflow.tracking import MlflowClient
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_TEST
+
 _logger = logging.getLogger(__name__)
 
 TAG_TEST_NAME = "mlflow.test.name"
@@ -23,6 +27,7 @@ _lock = threading.Lock()
 _session_id: str | None = None
 _run_id: str | None = None
 _run_owned: bool = False
+_any_test_failed: bool = False
 
 _current = threading.local()
 
@@ -36,15 +41,17 @@ def current_test() -> tuple[str | None, str | None]:
 
 
 def reset(session_id: str | None = None) -> None:
-    global _session_id, _run_id, _run_owned
+    global _session_id, _run_id, _run_owned, _any_test_failed
     if session_id is None:
         session_id = os.environ.get("MLFLOW_TEST_SESSION_ID")
     if not session_id:
         stamp = datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
         session_id = f"{stamp}-{uuid.uuid4().hex[:6]}"
-    _session_id = session_id
-    _run_id = None
-    _run_owned = False
+    with _lock:
+        _session_id = session_id
+        _run_id = None
+        _run_owned = False
+        _any_test_failed = False
 
 
 def session_id() -> str:
@@ -57,16 +64,19 @@ def run_id() -> str | None:
     return _run_id
 
 
+def record_test_failed() -> None:
+    """Mark that a ``@mlflow.test``-marked test failed in this session."""
+    global _any_test_failed
+    with _lock:
+        _any_test_failed = True
+
+
 def ensure_run() -> str | None:
     """Open (or adopt) the test run, once per session. Thread-safe."""
     global _run_id, _run_owned
     with _lock:
         if _run_id is not None:
             return _run_id
-
-        import mlflow
-        from mlflow.tracking import MlflowClient
-        from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_TEST
 
         tags = {MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_TEST, TAG_SESSION_ID: session_id()}
 
@@ -98,18 +108,23 @@ def ensure_run() -> str | None:
         return _run_id
 
 
-def finalize(exitstatus: int) -> None:
+def finalize() -> None:
+    """End the test run, marking it FAILED only if a ``@mlflow.test`` test failed.
+
+    The run status reflects only ``@mlflow.test``-marked tests, not other tests
+    that happen to run in the same pytest session.
+    """
     global _run_id, _run_owned
-    if _run_id is None:
-        return
+    with _lock:
+        if _run_id is None:
+            return
+        run_id_, run_owned, failed = _run_id, _run_owned, _any_test_failed
+        _run_id = None
+        _run_owned = False
 
-    import mlflow
-
-    if _run_owned:
-        status = "FINISHED" if exitstatus == 0 else "FAILED"
+    if run_owned:
+        status = "FAILED" if failed else "FINISHED"
         try:
             mlflow.end_run(status=status)
         except Exception as e:
-            _logger.warning("Failed to end run %s: %s", _run_id, e)
-    _run_id = None
-    _run_owned = False
+            _logger.warning("Failed to end run %s: %s", run_id_, e)

@@ -616,6 +616,10 @@ class AgentSetupEvent(Event):
     name: str = "agent_setup"
 
 
+class MlflowTestEvent(Event):
+    name: str = "mlflow_test"
+
+
 class TracingContextPropagation(Event):
     name: str = "tracing_context_propagation"
 

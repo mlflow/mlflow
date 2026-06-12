@@ -18,9 +18,12 @@ import logging
 import re
 
 import pytest
+from _pytest.outcomes import Skipped, XFailed
 
 from mlflow.pytest import session as _session
 from mlflow.pytest.decorator import MLFLOW_TEST_ATTR
+from mlflow.telemetry.events import MlflowTestEvent
+from mlflow.telemetry.track import _record_event
 
 _logger = logging.getLogger(__name__)
 
@@ -35,7 +38,9 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
-    _session.finalize(exitstatus)
+    if _session.run_id() is not None:
+        _record_event(MlflowTestEvent, {})
+    _session.finalize()
 
 
 def _is_mlflow_test(item: pytest.Item) -> bool:
@@ -57,6 +62,14 @@ def pytest_runtest_call(item: pytest.Item):
     _session.set_current_test(test_name, case_id)
     _session.ensure_run()
 
-    yield
+    outcome = yield
+
+    # A raised exception in the call phase means the test failed. Skips/xfails
+    # raise their own outcome exceptions, so exclude them: the run status should
+    # reflect genuine assertion failures only.
+    if outcome.excinfo is not None and not isinstance(
+        outcome.excinfo[1], (Skipped, XFailed)
+    ):
+        _session.record_test_failed()
 
     _session.set_current_test(None, None)
