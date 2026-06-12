@@ -194,6 +194,6 @@ describe('ReviewQueueList', () => {
     expect(screen.getByRole('button', { name: /1 trace/ })).toBeInTheDocument();
     // Switching filters resets the selection so hidden rows can't be deleted.
     fireEvent.click(screen.getByText('Completed (1)'));
-    expect(screen.getByRole('button', { name: /0 traces/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /trace/ })).not.toBeInTheDocument();
   });
 });

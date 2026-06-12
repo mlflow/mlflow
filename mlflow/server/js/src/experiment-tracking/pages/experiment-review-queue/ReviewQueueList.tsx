@@ -319,12 +319,12 @@ export const ReviewQueueList = ({
               <FormattedMessage defaultMessage="Start review" description="Review queue: start-review button" />
             </Button>
           )}
-          {selectable && (
+          {selectable && selected.size > 0 && (
             <Button
               componentId={`${CID}.delete-selected`}
               danger
               icon={<TrashIcon />}
-              disabled={selected.size === 0 || isRemovingItems}
+              disabled={isRemovingItems}
               loading={isRemovingItems}
               onClick={handleDelete}
             >

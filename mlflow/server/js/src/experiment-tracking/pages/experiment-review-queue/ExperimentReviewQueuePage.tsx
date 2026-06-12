@@ -92,9 +92,25 @@ const ExperimentReviewQueuePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authAvailable, experimentId]);
 
-  // No queue is selected until the reviewer picks one (the right panel prompts
-  // them to). Auto-selecting the first queue could land on a queue with no work
-  // left, or one the reviewer can't open.
+  // Pre-select the reviewer's own USER queue once on load, so the right pane
+  // opens on their queue instead of the "Select a queue" prompt. Fire-once (a
+  // ref) rather than reacting to `selectedQueueId === undefined`: explicit
+  // deselection (collapsing the sidebar's no-work group, or deleting the open
+  // queue) must stick, not snap back to the USER queue. Gate on
+  // `reviewerResolved` so a selection isn't committed against the `default`
+  // fallback while `/users/current` is still in flight.
+  const didAutoSelectQueue = useRef(false);
+  useEffect(() => {
+    if (didAutoSelectQueue.current || selectedQueueIdState !== undefined || queuesLoading || !reviewerResolved) {
+      return;
+    }
+    const userQueue = reviewQueues.find((q) => q.queue_type === 'USER' && sameUser(q.name, reviewer));
+    if (userQueue) {
+      didAutoSelectQueue.current = true;
+      setSelectedQueueIdState(userQueue.queue_id);
+    }
+  }, [selectedQueueIdState, queuesLoading, reviewerResolved, reviewQueues, reviewer]);
+
   const selectedQueueId = selectedQueueIdState;
   const selectedQueue = useMemo(
     () => reviewQueues.find((q) => q.queue_id === selectedQueueId) ?? null,
