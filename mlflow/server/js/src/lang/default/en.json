@@ -5727,10 +5727,6 @@
     "defaultMessage": "LLM judge feedback",
     "description": "Tooltip content for LLM judge feedback"
   },
-  "SlI2G2": {
-    "defaultMessage": "Remove {count, plural, one {# trace} other {# traces}}",
-    "description": "Review queue: remove selected traces button"
-  },
   "Sm0bXt": {
     "defaultMessage": "None",
     "description": "Label for a user_frustration assessment with 'none' value"
@@ -7926,6 +7922,10 @@
   "dYbJha": {
     "defaultMessage": "Please provide run name",
     "description": "Experiment page > new run modal > invalid state - no run name provided"
+  },
+  "dcYM63": {
+    "defaultMessage": "Remove {count, plural, one {# trace} other {# traces}} from queue",
+    "description": "Review queue: button that removes the selected traces from the queue (the traces themselves are not deleted)"
   },
   "dd8i7f": {
     "defaultMessage": "Define custom instructions for LLM evaluation",

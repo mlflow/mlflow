@@ -329,8 +329,8 @@ export const ReviewQueueList = ({
               onClick={handleDelete}
             >
               <FormattedMessage
-                defaultMessage="Remove {count, plural, one {# trace} other {# traces}}"
-                description="Review queue: remove selected traces button"
+                defaultMessage="Remove {count, plural, one {# trace} other {# traces}} from queue"
+                description="Review queue: button that removes the selected traces from the queue (the traces themselves are not deleted)"
                 values={{ count: selected.size }}
               />
             </Button>
