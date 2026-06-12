@@ -397,12 +397,8 @@ export const FocusedReview = ({
               />
             ) : (
               <>
-                {requestPreview && (
-                  <TraceContentBubble content={requestPreview} variant="input" />
-                )}
-                {responsePreview && (
-                  <TraceContentBubble content={responsePreview} variant="output" />
-                )}
+                {requestPreview && <TraceContentBubble content={requestPreview} variant="input" />}
+                {responsePreview && <TraceContentBubble content={responsePreview} variant="output" />}
               </>
             )}
           </div>

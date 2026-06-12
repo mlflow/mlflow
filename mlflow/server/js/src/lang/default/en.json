@@ -11775,6 +11775,10 @@
     "defaultMessage": "Created by",
     "description": "Column title text for creator username in model version table"
   },
+  "xS3XbA": {
+    "defaultMessage": "All items in this queue have been reviewed!",
+    "description": "Review focused view: toast shown when all queue items are reviewed"
+  },
   "xTsXb6": {
     "defaultMessage": "Are you sure you want to delete the {itemType} \"{itemName}\"?",
     "description": "Delete confirmation message"
