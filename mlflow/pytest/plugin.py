@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 
 import pytest
 from _pytest.outcomes import Skipped, XFailed
@@ -38,8 +39,14 @@ def pytest_sessionstart(session: pytest.Session) -> None:
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    # One event per pytest session that ran at least one @mlflow.test, capturing
+    # how many marked tests ran and their total execution time.
     if _session.run_id() is not None:
-        _record_event(MlflowTestEvent, {})
+        _record_event(
+            MlflowTestEvent,
+            {"num_tests": _session.num_tests()},
+            duration_ms=_session.total_test_ms(),
+        )
     _session.finalize()
 
 
@@ -62,14 +69,16 @@ def pytest_runtest_call(item: pytest.Item):
     _session.set_current_test(test_name, case_id)
     _session.ensure_run()
 
+    start = time.time()
     outcome = yield
+    duration_ms = int((time.time() - start) * 1000)
 
     # A raised exception in the call phase means the test failed. Skips/xfails
     # raise their own outcome exceptions, so exclude them: the run status should
     # reflect genuine assertion failures only.
-    if outcome.excinfo is not None and not isinstance(
+    failed = outcome.excinfo is not None and not isinstance(
         outcome.excinfo[1], (Skipped, XFailed)
-    ):
-        _session.record_test_failed()
+    )
+    _session.record_test(failed=failed, duration_ms=duration_ms)
 
     _session.set_current_test(None, None)

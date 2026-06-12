@@ -28,6 +28,8 @@ _session_id: str | None = None
 _run_id: str | None = None
 _run_owned: bool = False
 _any_test_failed: bool = False
+_num_tests: int = 0
+_total_test_ms: int = 0
 
 _current = threading.local()
 
@@ -41,7 +43,7 @@ def current_test() -> tuple[str | None, str | None]:
 
 
 def reset(session_id: str | None = None) -> None:
-    global _session_id, _run_id, _run_owned, _any_test_failed
+    global _session_id, _run_id, _run_owned, _any_test_failed, _num_tests, _total_test_ms
     if session_id is None:
         session_id = os.environ.get("_MLFLOW_TEST_SESSION_ID")
     if not session_id:
@@ -52,6 +54,8 @@ def reset(session_id: str | None = None) -> None:
         _run_id = None
         _run_owned = False
         _any_test_failed = False
+        _num_tests = 0
+        _total_test_ms = 0
 
 
 def session_id() -> str:
@@ -64,11 +68,22 @@ def run_id() -> str | None:
     return _run_id
 
 
-def record_test_failed() -> None:
-    """Mark that a ``@mlflow.test``-marked test failed in this session."""
-    global _any_test_failed
+def record_test(*, failed: bool, duration_ms: int) -> None:
+    """Record the outcome and duration of one ``@mlflow.test``-marked test."""
+    global _any_test_failed, _num_tests, _total_test_ms
     with _lock:
-        _any_test_failed = True
+        _num_tests += 1
+        _total_test_ms += duration_ms
+        if failed:
+            _any_test_failed = True
+
+
+def num_tests() -> int:
+    return _num_tests
+
+
+def total_test_ms() -> int:
+    return _total_test_ms
 
 
 def ensure_run() -> str | None:
