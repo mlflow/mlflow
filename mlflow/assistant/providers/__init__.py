@@ -5,11 +5,18 @@ from mlflow.assistant.providers.claude_code import ClaudeCodeProvider
 from mlflow.assistant.providers.codex import CodexProvider
 from mlflow.assistant.providers.openai_compatible import OpenAICompatibleProvider
 
+# Provider name for the in-server MLflow AI Gateway backend. The frontend
+# mirrors this literal in `server/js/src/assistant/constants.ts`
+# (GATEWAY_PROVIDER_ID); keep the two in sync.
+GATEWAY_PROVIDER_NAME = "mlflow_gateway"
+
+
 __all__ = [
     "AssistantProvider",
     "ClaudeCodeProvider",
     "CodexProvider",
     "OpenAICompatibleProvider",
+    "GATEWAY_PROVIDER_NAME",
     "list_providers",
 ]
 
@@ -42,7 +49,7 @@ def _build_providers() -> list[AssistantProvider]:
         ClaudeCodeProvider(),
         CodexProvider(),
         OpenAICompatibleProvider(
-            name="mlflow_gateway",
+            name=GATEWAY_PROVIDER_NAME,
             display_name="MLflow AI Gateway",
             description=(
                 "AI-powered assistant backed by an MLflow AI Gateway endpoint "
