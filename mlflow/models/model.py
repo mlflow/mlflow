@@ -1176,7 +1176,9 @@ class Model:
                     else None,
                     flavor=flavor_name,
                     serialization_format=kwargs.get("serialization_format"),
-                    uses_uv=kwargs.get("uv_project_path") is not None or _is_uv_auto_detected(),
+                    uses_uv=kwargs.get("uv_project_path") is not None
+                    or kwargs.get("uv") is not None
+                    or _is_uv_auto_detected(),
                 )
                 _last_logged_model_id.set(model.model_id)
                 if (

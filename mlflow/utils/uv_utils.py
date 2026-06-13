@@ -10,6 +10,7 @@ import os
 import re
 import shutil
 import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import NamedTuple
 
@@ -21,6 +22,54 @@ _logger = logging.getLogger(__name__)
 
 # Minimum uv version required for ``uv export`` functionality
 _MIN_UV_VERSION = Version("0.6.10")
+
+
+@dataclass
+class UvConfig:
+    """Configuration for uv-based dependency management when logging MLflow models.
+
+    Consolidates uv-related parameters into a single object that can be passed
+    to any flavor's ``log_model()`` or ``save_model()``.
+
+    Args:
+        project_path: Path to the uv project directory containing ``uv.lock``.
+            If None, MLflow uses auto-detection from the current working directory
+            (controlled by the ``MLFLOW_UV_AUTO_DETECT`` environment variable).
+        groups: Dependency groups to include in the exported requirements.
+            Maps to ``uv export --group <name>``.
+        extras: Optional extras to include in the exported requirements.
+            Maps to ``uv export --extra <name>``.
+
+    Example:
+
+    .. code-block:: python
+
+        from mlflow.utils.uv_utils import UvConfig
+
+        mlflow.sklearn.log_model(
+            sk_model=model,
+            name="my-model",
+            uv=UvConfig(project_path="./", groups=["ml"]),
+        )
+    """
+
+    project_path: str | Path | None = None
+    groups: list[str] = field(default_factory=list)
+    extras: list[str] = field(default_factory=list)
+
+    def resolve_project_dir(self) -> str | Path | None:
+        """Resolve the uv project directory.
+
+        Returns project_path if set, otherwise defers to MLFLOW_UV_AUTO_DETECT.
+        """
+        if self.project_path is not None:
+            return self.project_path
+        from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
+
+        if MLFLOW_UV_AUTO_DETECT.get():
+            return os.getcwd()
+        return None
+
 
 # File names used for uv project detection and artifacts
 _UV_LOCK_FILE = "uv.lock"

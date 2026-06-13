@@ -2866,6 +2866,7 @@ def save_model(
     uv_project_path: str | Path | None = None,
     uv_groups: list[str] | None = None,
     uv_extras: list[str] | None = None,
+    uv=None,
     **kwargs,
 ):
     """
@@ -3090,6 +3091,23 @@ def save_model(
             "Consider using a file path (str or Path) instead. See "
             "https://mlflow.org/docs/latest/ml/model/models-from-code/ for details."
         )
+
+    # UvConfig takes precedence over individual uv_* params
+    if uv is not None:
+        from mlflow.utils.uv_utils import UvConfig
+
+        if not isinstance(uv, UvConfig):
+            raise MlflowException.invalid_parameter_value(
+                f"'uv' must be a UvConfig instance, got {type(uv).__name__}"
+            )
+        if uv_project_path is not None or uv_groups is not None or uv_extras is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Cannot specify both 'uv' (UvConfig) and individual uv_project_path/"
+                "uv_groups/uv_extras parameters. Use one or the other."
+            )
+        uv_project_path = uv.project_path
+        uv_groups = uv.groups or None
+        uv_extras = uv.extras or None
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
@@ -3454,6 +3472,7 @@ def log_model(
     uv_project_path: str | Path | None = None,
     uv_groups: list[str] | None = None,
     uv_extras: list[str] | None = None,
+    uv=None,
     prompts: list[str | Prompt] | None = None,
     name=None,
     params: dict[str, Any] | None = None,
@@ -3694,6 +3713,23 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
+    # UvConfig takes precedence over individual uv_* params
+    if uv is not None:
+        from mlflow.utils.uv_utils import UvConfig
+
+        if not isinstance(uv, UvConfig):
+            raise MlflowException.invalid_parameter_value(
+                f"'uv' must be a UvConfig instance, got {type(uv).__name__}"
+            )
+        if uv_project_path is not None or uv_groups is not None or uv_extras is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Cannot specify both 'uv' (UvConfig) and individual uv_project_path/"
+                "uv_groups/uv_extras parameters. Use one or the other."
+            )
+        uv_project_path = uv.project_path
+        uv_groups = uv.groups or None
+        uv_extras = uv.extras or None
+
     flavor_name = _get_pyfunc_model_flavor_name(python_model)
     return Model.log(
         artifact_path=artifact_path,
