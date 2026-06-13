@@ -1292,6 +1292,7 @@ mlflow.genai.scorers.ragas.scorers.rag_metrics.AnswerRelevancy
 mlflow.genai.scorers.ragas.scorers.rag_metrics.ContextEntityRecall
 mlflow.genai.scorers.ragas.scorers.rag_metrics.ContextPrecision
 mlflow.genai.scorers.ragas.scorers.rag_metrics.ContextRecall
+mlflow.genai.scorers.ragas.scorers.rag_metrics.ContextUtilization
 mlflow.genai.scorers.ragas.scorers.rag_metrics.Faithfulness
 mlflow.genai.scorers.ragas.scorers.rag_metrics.NoiseSensitivity
 mlflow.genai.scorers.ragas.scorers.rag_metrics.NonLLMContextPrecisionWithReference
