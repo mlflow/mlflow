@@ -1,6 +1,13 @@
 """Pytest plugin for ``@mlflow.test`` + ``mlflow.genai.evaluate``.
 
-Auto-registered via the ``pytest11`` entry point in ``pyproject.toml``.
+Opt-in: the plugin is intentionally not auto-registered (loading it would make
+every pytest run on the machine import mlflow at startup). Enable it by adding
+the following to your root ``conftest.py``::
+
+    pytest_plugins = ["mlflow.pytest.plugin"]
+
+or by running pytest with ``-p mlflow.pytest.plugin``. ``@mlflow.test``-marked
+tests raise a clear error if the plugin is not enabled.
 
 What it does:
 - Creates one **test run** per pytest session. ``evaluate()``
@@ -32,6 +39,7 @@ def _case_id(item: pytest.Item) -> str | None:
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
+    _session.set_plugin_active()
     _session.reset()
 
 

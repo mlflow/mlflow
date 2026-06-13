@@ -48,16 +48,23 @@ def test_marked_called():
 """
 
 
-def _run_pytest(tmp_path: Path, file_name: str) -> tuple[subprocess.CompletedProcess, str]:
+def _run_pytest(
+    tmp_path: Path, file_name: str, *, enable_plugin: bool = True
+) -> tuple[subprocess.CompletedProcess, str]:
     """Run pytest on ``file_name`` in a subprocess against a sqlite store.
 
-    Returns the completed process and the tracking URI so the caller can
-    inspect the runs that were actually persisted.
+    The plugin is opt-in (no pytest11 entry point), so it is enabled explicitly
+    with ``-p mlflow.pytest.plugin`` unless ``enable_plugin=False``. Returns the
+    completed process and the tracking URI so the caller can inspect the runs
+    that were actually persisted.
     """
     tracking_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     env = {**os.environ, "MLFLOW_TRACKING_URI": tracking_uri}
+    cmd = [sys.executable, "-m", "pytest", file_name, "-p", "no:cacheprovider", "-q"]
+    if enable_plugin:
+        cmd += ["-p", "mlflow.pytest.plugin"]
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", file_name, "-p", "no:cacheprovider", "-q"],
+        cmd,
         cwd=tmp_path,
         capture_output=True,
         text=True,
@@ -208,3 +215,29 @@ def test_parametrized_marked_test_captures_case_id(tmp_path: Path):
 
     # All three cases share the one session run.
     assert len(_test_runs(tracking_uri)) == 1
+
+
+# ---------------------------------------------------------------------------
+# The plugin is opt-in: a marked test without it fails loudly with instructions
+# instead of silently running without run/trace management.
+# ---------------------------------------------------------------------------
+
+_MARKED_MINIMAL = """
+import mlflow
+
+
+@mlflow.test
+def test_marked():
+    pass
+"""
+
+
+def test_marked_test_fails_loudly_when_plugin_not_enabled(tmp_path: Path):
+    test_file = tmp_path / "test_no_plugin.py"
+    test_file.write_text(_MARKED_MINIMAL)
+
+    result, tracking_uri = _run_pytest(tmp_path, test_file.name, enable_plugin=False)
+    assert result.returncode != 0
+    assert "pytest_plugins" in result.stdout
+    assert "mlflow.pytest.plugin" in result.stdout
+    assert _test_runs(tracking_uri) == []

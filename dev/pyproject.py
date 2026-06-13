@@ -404,9 +404,6 @@ def build(package_type: PackageType) -> None:
                     "https": "mlflow.deployments.mlflow",
                     "openai": "mlflow.deployments.openai",
                 },
-                "pytest11": {
-                    "mlflow": "mlflow.pytest.plugin",
-                },
             }
             if package_type != PackageType.TRACING
             else None,

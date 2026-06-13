@@ -26,8 +26,20 @@ _run_owned: bool = False
 _any_test_failed: bool = False
 _num_tests: int = 0
 _total_duration_ms: int = 0
+# True once the (opt-in) pytest plugin registered in this process; @mlflow.test
+# checks it to fail loudly instead of silently doing nothing.
+_plugin_active: bool = False
 
 _current = threading.local()
+
+
+def set_plugin_active() -> None:
+    global _plugin_active
+    _plugin_active = True
+
+
+def is_plugin_active() -> bool:
+    return _plugin_active
 
 
 def set_current_test(test_name: str | None, case_id: str | None = None) -> None:
