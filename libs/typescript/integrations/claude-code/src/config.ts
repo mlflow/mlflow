@@ -8,6 +8,14 @@ export const MLFLOW_CLAUDE_TRACING_ENABLED = 'MLFLOW_CLAUDE_TRACING_ENABLED';
 export const MLFLOW_TRACKING_URI = 'MLFLOW_TRACKING_URI';
 export const MLFLOW_EXPERIMENT_ID = 'MLFLOW_EXPERIMENT_ID';
 export const MLFLOW_EXPERIMENT_NAME = 'MLFLOW_EXPERIMENT_NAME';
+/**
+ * Optional Databricks Unity Catalog trace location, in
+ * `catalog.schema.table_prefix` form. When set, Claude Code traces are routed
+ * to the UC table-prefix destination (V4 trace IDs) instead of the V3
+ * experiment-backed path. The UC location must already be provisioned in the
+ * workspace; the SDK does not create it.
+ */
+export const MLFLOW_TRACE_LOCATION = 'MLFLOW_TRACE_LOCATION';
 
 type ConfigSource = 'environment' | 'project' | 'user' | 'none';
 
@@ -21,8 +29,16 @@ export interface TracingConfig {
   trackingUri?: string;
   experimentId?: string;
   experimentName?: string;
+  /** Raw `catalog.schema.table_prefix` UC trace location, if configured. */
+  traceLocation?: string;
   source: ConfigSource;
   settingsPath?: string;
+}
+
+export interface UnityCatalogTraceLocation {
+  catalogName: string;
+  schemaName: string;
+  tablePrefix: string;
 }
 
 export interface ConfigPathOptions {
@@ -41,18 +57,41 @@ function hasConfigValue(value: string | undefined): value is string {
   return Boolean(value && value.trim().length > 0);
 }
 
+/**
+ * Parse a `catalog.schema.table_prefix` string into a UC trace location.
+ * Returns null when the value is empty or not exactly three non-empty,
+ * dot-separated parts. All three parts are required because the SDK does not
+ * upsert UC trace locations.
+ */
+export function parseTraceLocation(value: string | undefined): UnityCatalogTraceLocation | null {
+  if (!hasConfigValue(value)) {
+    return null;
+  }
+  const parts = value.trim().split('.');
+  if (parts.length !== 3 || parts.some((part) => part.trim().length === 0)) {
+    return null;
+  }
+  const [catalogName, schemaName, tablePrefix] = parts.map((part) => part.trim());
+  return { catalogName, schemaName, tablePrefix };
+}
+
 function hasAnyTracingKey(env: Record<string, string | undefined>): boolean {
   return [
     MLFLOW_CLAUDE_TRACING_ENABLED,
     MLFLOW_TRACKING_URI,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_TRACE_LOCATION,
   ].some((key) => env[key] !== undefined);
 }
 
 function hasTracingConfig(config: TracingConfig): boolean {
   return Boolean(
-    config.trackingUri || config.experimentId || config.experimentName || config.enabled,
+    config.trackingUri ||
+      config.experimentId ||
+      config.experimentName ||
+      config.traceLocation ||
+      config.enabled,
   );
 }
 
@@ -66,6 +105,7 @@ function parseTracingConfig(
     trackingUri: env[MLFLOW_TRACKING_URI],
     experimentId: env[MLFLOW_EXPERIMENT_ID],
     experimentName: env[MLFLOW_EXPERIMENT_NAME],
+    traceLocation: env[MLFLOW_TRACE_LOCATION],
     source,
     settingsPath,
   };
@@ -119,12 +159,14 @@ export function getEffectiveTracingConfig(options: ConfigPathOptions = {}): Trac
     trackingUri: userConfig.trackingUri,
     experimentId: userConfig.experimentId,
     experimentName: userConfig.experimentName,
+    traceLocation: userConfig.traceLocation,
     ...(hasTracingConfig(projectConfig)
       ? {
           enabled: projectConfig.enabled,
           trackingUri: projectConfig.trackingUri,
           experimentId: projectConfig.experimentId,
           experimentName: projectConfig.experimentName,
+          traceLocation: projectConfig.traceLocation,
         }
       : {}),
   };
@@ -136,6 +178,7 @@ export function getEffectiveTracingConfig(options: ConfigPathOptions = {}): Trac
     trackingUri: process.env[MLFLOW_TRACKING_URI] ?? merged.trackingUri,
     experimentId: process.env[MLFLOW_EXPERIMENT_ID] ?? merged.experimentId,
     experimentName: process.env[MLFLOW_EXPERIMENT_NAME] ?? merged.experimentName,
+    traceLocation: process.env[MLFLOW_TRACE_LOCATION] ?? merged.traceLocation,
     source: 'none',
   };
 
@@ -205,7 +248,13 @@ export async function resolveExperiment(
 
 export function writeTracingSettings(
   settingsPath: string,
-  config: { trackingUri: string; experimentId: string; experimentName?: string; enabled?: boolean },
+  config: {
+    trackingUri: string;
+    experimentId: string;
+    experimentName?: string;
+    traceLocation?: string;
+    enabled?: boolean;
+  },
 ): void {
   const settings = loadSettings(settingsPath);
   const env = { ...(settings.env ?? {}) };
@@ -223,6 +272,13 @@ export function writeTracingSettings(
     env[MLFLOW_EXPERIMENT_NAME] = config.experimentName;
   } else {
     delete env[MLFLOW_EXPERIMENT_NAME];
+  }
+
+  if (hasConfigValue(config.traceLocation)) {
+    // Trim on write so stored settings match what parsing/init() will use.
+    env[MLFLOW_TRACE_LOCATION] = config.traceLocation.trim();
+  } else {
+    delete env[MLFLOW_TRACE_LOCATION];
   }
 
   settings.env = env;
@@ -245,11 +301,24 @@ export async function ensureInitialized(): Promise<boolean> {
     return false;
   }
 
+  let traceLocation: UnityCatalogTraceLocation | null = null;
+  if (hasConfigValue(config.traceLocation)) {
+    traceLocation = parseTraceLocation(config.traceLocation);
+    if (!traceLocation) {
+      console.error(
+        `[mlflow] MLFLOW_TRACE_LOCATION must be in 'catalog.schema.table_prefix' format, ` +
+          `got '${config.traceLocation}'`,
+      );
+      return false;
+    }
+  }
+
   // Fast path: skip network call when experimentId is already known.
   if (hasConfigValue(config.experimentId)) {
     const quickKey = JSON.stringify({
       trackingUri: config.trackingUri,
       experimentId: config.experimentId,
+      traceLocation,
     });
     if (initializedKey === quickKey) {
       return true;
@@ -265,6 +334,7 @@ export async function ensureInitialized(): Promise<boolean> {
     const initKey = JSON.stringify({
       trackingUri: config.trackingUri,
       experimentId: resolvedExperiment.experimentId,
+      traceLocation,
     });
     if (initializedKey === initKey) {
       return true;
@@ -273,6 +343,7 @@ export async function ensureInitialized(): Promise<boolean> {
     init({
       trackingUri: config.trackingUri,
       experimentId: resolvedExperiment.experimentId,
+      ...(traceLocation ? { traceLocation } : {}),
     });
     initializedKey = initKey;
     return true;

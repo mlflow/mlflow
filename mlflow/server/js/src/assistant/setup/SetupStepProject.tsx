@@ -34,7 +34,7 @@ interface SetupStepProjectProps {
 
 const PROVIDER_SKILLS_DIR = {
   claude_code: '.claude/skills',
-  codex: '.codex/skills',
+  codex: '.agents/skills',
 } satisfies Record<string, string>;
 
 // Only Claude Code actually loads skills at runtime; other providers ignore

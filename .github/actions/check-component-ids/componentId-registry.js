@@ -1100,6 +1100,7 @@ module.exports = {
   "mlflow.eval-runs.dataset-cell": "",
   "mlflow.eval-runs.dataset-cell-tooltip": "",
   "mlflow.eval-runs.empty-state.learn-more-link": "",
+  "mlflow.eval-runs.empty-state.unified": "",
   "mlflow.eval-runs.group-expand-button": "",
   "mlflow.eval-runs.group-tag": "",
   "mlflow.eval-runs.header": "",
@@ -1113,7 +1114,12 @@ module.exports = {
   "mlflow.eval-runs.runs-delete-modal": "",
   "mlflow.eval-runs.start-run-button": "",
   "mlflow.eval-runs.start-run-modal": "",
-  "mlflow.eval-runs.start-run-modal.copy-snippet": "",
+  "mlflow.eval-runs.start-run-modal.error": "",
+  "mlflow.eval-runs.start-run-modal.judge-llm": "",
+  "mlflow.eval-runs.start-run-modal.judge-search": "",
+  "mlflow.eval-runs.start-run-modal.judge-template": "",
+  "mlflow.eval-runs.start-run-modal.judge-type-filter": "",
+  "mlflow.eval-runs.start-run-modal.select-traces": "",
   "mlflow.eval-runs.table-column-selector": "",
   "mlflow.eval-runs.table-refresh-button": "",
   "mlflow.eval-runs.table-refresh-button.tooltip": "",
@@ -1138,6 +1144,7 @@ module.exports = {
   "mlflow.evaluations_review.modal": "",
   "mlflow.evaluations_review.modal.add_to_dataset": "",
   "mlflow.evaluations_review.modal.add_to_evaluation_dataset": "",
+  "mlflow.evaluations_review.modal.flag_for_review": "",
   "mlflow.evaluations_review.modal.next_eval": "",
   "mlflow.evaluations_review.modal.previous_eval": "",
   "mlflow.evaluations_review.modal.share-button": "",
@@ -1204,10 +1211,18 @@ module.exports = {
   "mlflow.experiment-evaluation-monitoring.trace-info-hover-other-request-time": "",
   "mlflow.experiment-evaluation-monitoring.trace-info-hover-request-time": "",
 
+  // -- mlflow.experiment-label-schemas --
+  "mlflow.experiment-label-schemas.preview": "",
+  "mlflow.experiment-label-schemas.preview.comment": "",
+
   // -- mlflow.experiment-page --
   "mlflow.experiment-page.header.back-icon-button": "",
   "mlflow.experiment-page.header.docs-link": "",
   "mlflow.experiment-page.header.docs-link-button": "",
+
+  // -- mlflow.experiment-review-queue --
+  "mlflow.experiment-review-queue.delete-queue-confirm": "",
+  "mlflow.experiment-review-queue.empty-state-new-queue": "",
 
   // -- mlflow.experiment-scorers --
   "mlflow.experiment-scorers.add-variable-button": "",
@@ -1265,6 +1280,7 @@ module.exports = {
   "mlflow.experiment-side-nav.genai.judges": "",
   "mlflow.experiment-side-nav.genai.overview": "",
   "mlflow.experiment-side-nav.genai.prompts": "",
+  "mlflow.experiment-side-nav.genai.review-queue": "",
   "mlflow.experiment-side-nav.genai.sessions": "",
   "mlflow.experiment-side-nav.genai.traces": "",
   "mlflow.experiment-side-nav.genai.training-runs": "",
@@ -1642,6 +1658,7 @@ module.exports = {
   // -- mlflow.genai-traces-table --
   "mlflow.genai-traces-table.actions-disabled-tooltip": "",
   "mlflow.genai-traces-table.actions-dropdown": "",
+  "mlflow.genai-traces-table.add-to-review-queue": "",
   "mlflow.genai-traces-table.assessment-cell-judge-running": "",
   "mlflow.genai-traces-table.average-values-tag": "",
   "mlflow.genai-traces-table.chat_sessions_table.session_row_link": "",
@@ -1941,9 +1958,9 @@ module.exports = {
   "mlflow.prompts.details.version.tags.show_more": "",
   "mlflow.prompts.edit_model_config.error": "",
   "mlflow.prompts.edit_model_config.modal": "",
+  "mlflow.prompts.list.empty_state.learn_more_link": "",
   "mlflow.prompts.list.prompt_name_link": "",
   "mlflow.prompts.list.table.create_prompt": "",
-  "mlflow.prompts.list.table.learn_more_link": "",
   "mlflow.prompts.list.tag.add": "",
   "mlflow.prompts.model_config.frequencyPenalty": "",
   "mlflow.prompts.model_config.help": "",
@@ -1955,6 +1972,7 @@ module.exports = {
   "mlflow.prompts.model_config.temperature": "",
   "mlflow.prompts.model_config.topK": "",
   "mlflow.prompts.model_config.topP": "",
+  "mlflow.prompts.onboarding.create_with_agent": "",
   "mlflow.prompts.version_runs.run_link": "",
   "mlflow.prompts.versions-table.row": "",
   "mlflow.prompts.versions.table.header": "",
@@ -2135,6 +2153,7 @@ module.exports = {
   "mlflow.traces.onboarding.step2.install.copy": "",
   "mlflow.traces.onboarding.step2.otel_code.copy": "",
   "mlflow.traces.onboarding.step2.otel_install.copy": "",
+  "mlflow.traces.onboarding.trace_with_agent": "",
 
   // -- mlflow.traces-tab --
   "mlflow.traces-tab.trace-count": "",

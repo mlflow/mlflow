@@ -28,6 +28,7 @@ export enum PageId {
   experimentPageTabChatSessions = 'mlflow.experiment.tab.chat-sessions',
   experimentPageTabSingleChatSession = 'mlflow.experiment.tab.single-chat-session',
   experimentPageTabScorers = 'mlflow.experiment.tab.scorers',
+  experimentPageTabReviewQueue = 'mlflow.experiment.tab.review-queue',
   experimentPageTabPrompts = 'mlflow.experiment.prompts.list',
   experimentPageTabPromptDetails = 'mlflow.experiment.prompt.details',
   // Child routes for experiment page - end
@@ -91,6 +92,9 @@ export class RoutePaths {
   }
   static get experimentPageTabScorers() {
     return createMLflowRoutePath('/experiments/:experimentId/judges');
+  }
+  static get experimentPageTabReviewQueue() {
+    return createMLflowRoutePath('/experiments/:experimentId/review-queue');
   }
   // Child routes for experiment page - end
   static get experimentLoggedModelDetailsPageTab() {

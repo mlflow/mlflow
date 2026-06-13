@@ -38,9 +38,13 @@ MLFLOW_RUN_SOURCE_TYPE = "mlflow.runSourceType"
 MLFLOW_RUN_TYPE = "mlflow.runType"
 MLFLOW_RUN_TYPE_GENAI_EVALUATE = "genai_evaluate"
 MLFLOW_RUN_TYPE_ISSUE_DETECTION = "issue_detection"
+MLFLOW_RUN_TYPE_TEST = "test"
 
 # The ID of the job that is running issue detection
 MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
+
+# The ID of the job that is running the UI-triggered mlflow.genai.evaluate flow
+MLFLOW_GENAI_EVALUATE_JOB_ID = "mlflow.genaiEvaluate.jobId"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"

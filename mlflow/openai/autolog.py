@@ -173,7 +173,7 @@ def _autolog(
         safe_patch(FLAVOR_NAME, Responses, "parse", patched_call)
 
 
-def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
+def _get_span_type(task: type) -> str:
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
     from openai.resources.chat.completions import Completions as ChatCompletions
     from openai.resources.completions import AsyncCompletions, Completions
@@ -219,7 +219,12 @@ def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
     except ImportError:
         pass
 
-    return span_type_mapping.get(task, (SpanType.UNKNOWN, None))
+    # Walk the MRO so subclasses (e.g. third-party wrappers like
+    # `DatabricksOpenAI`'s `ChatCompletions`) resolve to the right type.
+    for base_cls, span_type in span_type_mapping.items():
+        if issubclass(task, base_cls):
+            return span_type
+    return SpanType.UNKNOWN
 
 
 def _try_parse_raw_response(response: Any) -> Any:
@@ -303,7 +308,7 @@ def _start_span(
     inputs: dict[str, Any],
     run_id: str,
 ):
-    span_type = _get_span_type_and_message_format(instance.__class__)
+    span_type = _get_span_type(instance.__class__)
     # Record input parameters to attributes
     attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
     if span_type in (SpanType.CHAT_MODEL, SpanType.LLM):

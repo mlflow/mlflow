@@ -29,7 +29,7 @@ requires-python = ">=3.10"
 dependencies = [
   "Flask-CORS<7",
   "Flask<4",
-  "aiohttp<4",
+  "aiohttp<4,>=3.7.0",
   "alembic<2,!=1.10.0",
   "cachetools<8,>=5.0.0",
   "click<9,>=7.0",
@@ -150,6 +150,7 @@ mlflow = [
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
   "assistant/skills/**/*",
+  "agent/setup/templates/**/*.md",
   "models/container/**/*",
   "server/js/build/**/*",
   "utils/model_catalog/*.json",
