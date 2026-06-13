@@ -19,9 +19,12 @@ export const MAX_ASSIGNED_USERS = 10;
 
 // Unselected reviewers seeded into the list as defaults before the user searches;
 // the rest of the roster is reachable by name through the search box.
-const DEFAULT_REVIEWER_COUNT = 3;
+const DEFAULT_REVIEWER_COUNT = 5;
+// Cap on matches shown while searching, so a broad query (e.g. "a") doesn't flood
+// the list; the rest are reachable by narrowing the search.
+const MAX_SEARCH_MATCHES = 20;
 // Scroll cap on the option list (matches AddToReviewQueueDropdown's list height).
-const LIST_MAX_HEIGHT = 240;
+const LIST_MAX_HEIGHT = 280;
 
 /**
  * Multi-select, searchable checklist of assignable reviewers (usernames), used
@@ -142,12 +145,13 @@ export const ReviewerChecklistCombobox = ({
   // While searching, surface roster matches (plus any selected user, who may be
   // off-roster) in a stable roster order so selecting one doesn't reorder the
   // results. With no search, show the stable list.
-  const matches = useMemo(() => {
+  const { matches, searchTruncated } = useMemo(() => {
     if (!query) {
-      return order;
+      return { matches: order, searchTruncated: false };
     }
     const universe = [...new Set([...usernames, ...checkedUsers])];
-    return universe.filter((u) => u.toLowerCase().includes(query));
+    const filtered = universe.filter((u) => u.toLowerCase().includes(query));
+    return { matches: filtered.slice(0, MAX_SEARCH_MATCHES), searchTruncated: filtered.length > MAX_SEARCH_MATCHES };
   }, [order, usernames, checkedUsers, query]);
 
   // More roster reviewers exist than the defaults shown, reachable by search.
@@ -223,6 +227,20 @@ export const ReviewerChecklistCombobox = ({
                             <FormattedMessage
                               defaultMessage="Search to find more reviewers"
                               description="Review queue: hint that more reviewers are searchable"
+                            />
+                          }
+                        />,
+                      ]
+                    : []),
+                  ...(searchTruncated
+                    ? [
+                        <DialogComboboxEmpty
+                          key="__capped"
+                          emptyText={
+                            <FormattedMessage
+                              defaultMessage="Showing the first {count} matches — refine your search"
+                              description="Review queue: hint that the reviewer search results were capped"
+                              values={{ count: MAX_SEARCH_MATCHES }}
                             />
                           }
                         />,

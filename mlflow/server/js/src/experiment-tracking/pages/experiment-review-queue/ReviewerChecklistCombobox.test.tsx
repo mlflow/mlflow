@@ -94,15 +94,24 @@ describe('ReviewerChecklistCombobox', () => {
     expect(screen.getByRole('checkbox', { name: 'alice' })).not.toBeChecked();
   });
 
-  it('caps the default reviewers at three and hints to search for the rest', () => {
-    renderBox({ usernames: ['u1', 'u2', 'u3', 'u4', 'u5'], checkedUsers: new Set() });
+  it('caps the default reviewers at five and hints to search for the rest', () => {
+    renderBox({ usernames: ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7'], checkedUsers: new Set() });
     expect(screen.getByRole('checkbox', { name: 'u1' })).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: 'u3' })).toBeInTheDocument();
-    expect(screen.queryByRole('checkbox', { name: 'u4' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('checkbox', { name: 'u5' })).not.toBeInTheDocument();
-    expect(screen.getByText(/search to find more reviewers/i)).toBeInTheDocument();
-    fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'u5' } });
     expect(screen.getByRole('checkbox', { name: 'u5' })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'u6' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'u7' })).not.toBeInTheDocument();
+    expect(screen.getByText(/search to find more reviewers/i)).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'u7' } });
+    expect(screen.getByRole('checkbox', { name: 'u7' })).toBeInTheDocument();
+  });
+
+  it('caps search matches and hints to refine when too many users match', () => {
+    const many = Array.from({ length: 25 }, (_, i) => `user${i}`);
+    renderBox({ usernames: many, checkedUsers: new Set() });
+    fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'user' } });
+    // 25 match "user", but only the first 20 render, with a refine hint.
+    expect(screen.getAllByRole('checkbox')).toHaveLength(20);
+    expect(screen.getByText(/showing the first 20 matches/i)).toBeInTheDocument();
   });
 
   it('does not move a row when it is checked or unchecked', () => {
@@ -118,31 +127,32 @@ describe('ReviewerChecklistCombobox', () => {
   });
 
   it('compacts to the selected reviewers (pick on top) with fresh defaults when one is chosen from search', () => {
-    // sel1/sel2 are already selected; a/b/c/d/target are unselected roster users.
+    // sel1/sel2 are already selected; a..f + target are unselected roster users.
     renderStateful({
-      usernames: ['sel1', 'sel2', 'a', 'b', 'c', 'd', 'target'],
+      usernames: ['sel1', 'sel2', 'a', 'b', 'c', 'd', 'e', 'f', 'target'],
       initial: ['sel1', 'sel2'],
     });
-    // Seed: selection first, then the first three unselected defaults.
-    expectRowOrder(['sel1', 'sel2', 'a', 'b', 'c']);
+    // Seed: selection first, then the first five unselected defaults.
+    expectRowOrder(['sel1', 'sel2', 'a', 'b', 'c', 'd', 'e']);
     expect(screen.queryByRole('checkbox', { name: 'target' })).not.toBeInTheDocument();
     // Find target by search and select it.
     fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'target' } });
     fireEvent.click(screen.getByRole('checkbox', { name: 'target' }));
     fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: '' } });
-    // Compacts to the selected reviewers (target on top), then a fresh set of three
+    // Compacts to the selected reviewers (target on top), then a fresh set of five
     // unselected defaults at the bottom.
-    expectRowOrder(['target', 'sel1', 'sel2', 'a', 'b', 'c']);
+    expectRowOrder(['target', 'sel1', 'sel2', 'a', 'b', 'c', 'd', 'e']);
     expect(screen.getByRole('checkbox', { name: 'target' })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: 'a' })).not.toBeChecked();
-    // Only three defaults — the fourth unselected user stays search-only.
-    expect(screen.queryByRole('checkbox', { name: 'd' })).not.toBeInTheDocument();
+    // Only five defaults — the sixth unselected user stays search-only.
+    expect(screen.queryByRole('checkbox', { name: 'f' })).not.toBeInTheDocument();
   });
 
   // Sets up a lingering unselected row: add `p` via search, then deselect it in
   // place so it stays in the list (unchecked) until the next recompaction.
   const seedLingeringUnselected = () => {
-    renderStateful({ usernames: ['a', 'b', 'c', 'd', 'p'] });
+    // `p` is past the 5 default rows, so it's only reachable via search.
+    renderStateful({ usernames: ['a', 'b', 'c', 'd', 'e', 'f', 'p'] });
     fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: 'p' } });
     fireEvent.click(screen.getByRole('checkbox', { name: 'p' }));
     fireEvent.change(screen.getByPlaceholderText(/search/i), { target: { value: '' } });

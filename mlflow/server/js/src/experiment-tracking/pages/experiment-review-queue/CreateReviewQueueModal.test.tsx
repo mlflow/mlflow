@@ -60,14 +60,23 @@ jest.mock('./hooks/useCreateReviewQueueMutation', () => ({
   useCreateReviewQueueMutation: () => ({ createReviewQueueAsync: mockCreate, isCreatingQueue: false, error: null }),
 }));
 
-const renderModal = () =>
+const renderModal = () => {
+  const onClose = jest.fn();
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
-        <CreateReviewQueueModal experimentId="exp-1" onClose={jest.fn()} />
+        <CreateReviewQueueModal experimentId="exp-1" onClose={onClose} />
       </DesignSystemProvider>
     </IntlProvider>,
   );
+  return { onClose };
+};
+
+const fillAndSubmit = () => {
+  fireEvent.change(screen.getByPlaceholderText(/hallucination review/i), { target: { value: 'My Queue' } });
+  fireEvent.click(screen.getByText('toggle-question'));
+  fireEvent.click(screen.getByText('Create'));
+};
 
 describe('CreateReviewQueueModal', () => {
   beforeEach(() => {
@@ -92,5 +101,14 @@ describe('CreateReviewQueueModal', () => {
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({ created_by: 'creator', users: ['creator', 'bob'], schema_ids: ['s1'] }),
     );
+  });
+
+  it('keeps the modal open when creation fails (e.g. a duplicate name) instead of crashing', async () => {
+    mockCreate.mockImplementation(() => Promise.reject(new Error('Review queue with name already exists')));
+    const { onClose } = renderModal();
+    fillAndSubmit();
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
+    // The rejection is swallowed (surfaced via the error Alert), so the modal stays open.
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

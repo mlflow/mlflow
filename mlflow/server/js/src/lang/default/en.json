@@ -8883,6 +8883,10 @@
     "defaultMessage": "Retry",
     "description": "Home page workspaces retry CTA"
   },
+  "i3YjH+": {
+    "defaultMessage": "Showing the first {count} matches — refine your search",
+    "description": "Review queue: hint that the reviewer search results were capped"
+  },
   "i49wE6": {
     "defaultMessage": "We couldn't load your experiments.",
     "description": "Home page experiments error message"

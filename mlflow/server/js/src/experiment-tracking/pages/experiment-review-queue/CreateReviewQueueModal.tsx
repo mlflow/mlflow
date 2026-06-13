@@ -26,6 +26,7 @@ import { useIsAuthAvailable } from '../../../account/hooks';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useCreateReviewQueueMutation } from './hooks/useCreateReviewQueueMutation';
 import { useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
+import { sameUser } from './queuePermissions';
 import type { ReviewQueue } from './types';
 
 const CID = 'mlflow.experiment-review-queue.create-queue';
@@ -118,8 +119,13 @@ export const CreateReviewQueueModal = ({
   };
 
   const usernames = useMemo(
-    () => assignableUsers.map((u) => u.username).filter((u): u is string => Boolean(u)),
-    [assignableUsers],
+    () =>
+      assignableUsers
+        .map((u) => u.username)
+        .filter((u): u is string => Boolean(u))
+        // The creator is auto-added as a member, so don't offer them as a pickable option.
+        .filter((u) => !sameUser(u, createdBy)),
+    [assignableUsers, createdBy],
   );
   const toggleReviewer = (username: string) =>
     setMembers((prev) => {
@@ -165,16 +171,21 @@ export const CreateReviewQueueModal = ({
     // assigned reviewers (auth only) get it under "Feedback requested".
     const assigned = authAvailable ? [...members] : [];
     const users = Array.from(new Set([createdBy, ...assigned]));
-    const { review_queue } = await createReviewQueueAsync({
-      experiment_id: experimentId,
-      name: trimmedName,
-      queue_type: 'CUSTOM',
-      created_by: createdBy,
-      users,
-      schema_ids: [...checkedIds],
-    });
-    onCreated?.(review_queue);
-    onClose();
+    try {
+      const { review_queue } = await createReviewQueueAsync({
+        experiment_id: experimentId,
+        name: trimmedName,
+        queue_type: 'CUSTOM',
+        created_by: createdBy,
+        users,
+        schema_ids: [...checkedIds],
+      });
+      onCreated?.(review_queue);
+      onClose();
+    } catch {
+      // The failure (e.g. a duplicate queue name) is surfaced via the error Alert
+      // below; swallow the rejection so the modal stays open instead of crashing.
+    }
   };
 
   return (
