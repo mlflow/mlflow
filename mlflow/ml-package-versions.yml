@@ -420,10 +420,13 @@ shap:
     pip_release: "shap"
   models:
     minimum: "0.46.0"
-    maximum: "0.52.0"
-    python:
-      # shap >= 0.52.0 dropped Python 3.10/3.11 support and requires Python >= 3.12
-      ">= 0.52.0": "3.12"
+    maximum: "0.51.0"
+    unsupported:
+      # shap >= 0.52.0 dropped Python 3.10/3.11 support and requires Python >= 3.12.
+      # The cross version test CI only runs Python 3.10/3.11 (the setup-python action
+      # rejects other versions), so mark these releases unsupported until CI can run
+      # Python 3.12.
+      - ">= 0.52.0"
     run: |
       pytest tests/shap
 
