@@ -1229,6 +1229,8 @@ mlflow.genai.scorers.ragas.ContextRecall
 mlflow.genai.scorers.ragas.ContextRecall.model_post_init
 mlflow.genai.scorers.ragas.ContextRelevance
 mlflow.genai.scorers.ragas.ContextRelevance.model_post_init
+mlflow.genai.scorers.ragas.ContextUtilization
+mlflow.genai.scorers.ragas.ContextUtilization.model_post_init
 mlflow.genai.scorers.ragas.DiscreteMetric
 mlflow.genai.scorers.ragas.DiscreteMetric.model_post_init
 mlflow.genai.scorers.ragas.ExactMatch
