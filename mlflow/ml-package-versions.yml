@@ -41,6 +41,10 @@ pytorch:
       # for torch < 2.5 (annotations stored as strings under `from __future__`).
       # https://github.com/huggingface/transformers/issues/42352
       "< 2.5": ["transformers<5"]
+      # transformers 5.10.x references torch.float8_e8m0fnu at import time, which
+      # only exists in torch >= 2.7, so importing any model fails on older torch.
+      # Fixed (guarded) in transformers 5.11.0.
+      ">= 2.5, < 2.7": ["transformers<5.10"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
