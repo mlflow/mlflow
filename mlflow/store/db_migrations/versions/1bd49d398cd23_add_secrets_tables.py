@@ -82,7 +82,21 @@ END;
 """
 
 
+def _get_existing_tables():
+    connection = op.get_bind()
+    inspector = sa.inspect(connection)
+    return set(inspector.get_table_names())
+
+
+def _get_existing_indexes(table_name):
+    connection = op.get_bind()
+    inspector = sa.inspect(connection)
+    return {idx["name"] for idx in inspector.get_indexes(table_name)}
+
+
 def _create_immutability_trigger():
+    # Drop before recreating so this is safe to call on a retry after a partial migration.
+    _drop_immutability_trigger()
     bind = op.get_bind()
     dialect = bind.engine.dialect.name
 
@@ -116,179 +130,207 @@ def _drop_immutability_trigger():
 
 
 def upgrade():
-    op.create_table(
-        "secrets",
-        sa.Column("secret_id", sa.String(length=36), nullable=False),
-        sa.Column("secret_name", sa.String(length=255), nullable=False),
-        sa.Column("encrypted_value", sa.LargeBinary(), nullable=False),
-        sa.Column("wrapped_dek", sa.LargeBinary(), nullable=False),
-        sa.Column("kek_version", sa.Integer(), nullable=False, default=1),
-        sa.Column("masked_value", sa.String(length=500), nullable=False),
-        sa.Column("provider", sa.String(length=64), nullable=True),
-        sa.Column("auth_config", sa.Text(), nullable=True),
-        sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("created_by", sa.String(length=255), nullable=True),
-        sa.Column(
-            "created_at",
-            sa.BigInteger(),
-            default=lambda: int(time.time() * 1000),
-            nullable=False,
-        ),
-        sa.Column("last_updated_by", sa.String(length=255), nullable=True),
-        sa.Column(
-            "last_updated_at",
-            sa.BigInteger(),
-            default=lambda: int(time.time() * 1000),
-            nullable=False,
-        ),
-        sa.PrimaryKeyConstraint("secret_id", name="secrets_pk"),
-    )
-    with op.batch_alter_table("secrets", schema=None) as batch_op:
-        batch_op.create_index("unique_secret_name", ["secret_name"], unique=True)
+    existing_tables = _get_existing_tables()
 
-    op.create_table(
-        "endpoints",
-        sa.Column("endpoint_id", sa.String(length=36), nullable=False),
-        sa.Column("name", sa.String(length=255), nullable=True),
-        sa.Column("created_by", sa.String(length=255), nullable=True),
-        sa.Column(
-            "created_at",
-            sa.BigInteger(),
-            default=lambda: int(time.time() * 1000),
-            nullable=False,
-        ),
-        sa.Column("last_updated_by", sa.String(length=255), nullable=True),
-        sa.Column(
-            "last_updated_at",
-            sa.BigInteger(),
-            default=lambda: int(time.time() * 1000),
-            nullable=False,
-        ),
-        sa.PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
-    )
-    with op.batch_alter_table("endpoints", schema=None) as batch_op:
-        batch_op.create_index("unique_endpoint_name", ["name"], unique=True)
-
-    op.create_table(
-        "model_definitions",
-        sa.Column("model_definition_id", sa.String(length=36), nullable=False),
-        sa.Column("name", sa.String(length=255), nullable=False),
-        sa.Column("secret_id", sa.String(length=36), nullable=True),
-        sa.Column("provider", sa.String(length=64), nullable=False),
-        sa.Column("model_name", sa.String(length=256), nullable=False),
-        sa.Column("created_by", sa.String(length=255), nullable=True),
-        sa.Column(
-            "created_at",
-            sa.BigInteger(),
-            default=lambda: int(time.time() * 1000),
-            nullable=False,
-        ),
-        sa.Column("last_updated_by", sa.String(length=255), nullable=True),
-        sa.Column(
-            "last_updated_at",
-            sa.BigInteger(),
-            default=lambda: int(time.time() * 1000),
-            nullable=False,
-        ),
-        sa.ForeignKeyConstraint(
-            ["secret_id"],
-            ["secrets.secret_id"],
-            name="fk_model_definitions_secret_id",
-            ondelete="SET NULL",
-        ),
-        sa.PrimaryKeyConstraint("model_definition_id", name="model_definitions_pk"),
-    )
-    with op.batch_alter_table("model_definitions", schema=None) as batch_op:
-        batch_op.create_index("unique_model_definition_name", ["name"], unique=True)
-        batch_op.create_index("index_model_definitions_secret_id", ["secret_id"], unique=False)
-        batch_op.create_index("index_model_definitions_provider", ["provider"], unique=False)
-
-    op.create_table(
-        "endpoint_model_mappings",
-        sa.Column("mapping_id", sa.String(length=36), nullable=False),
-        sa.Column("endpoint_id", sa.String(length=36), nullable=False),
-        sa.Column("model_definition_id", sa.String(length=36), nullable=False),
-        sa.Column("weight", sa.Float(), nullable=False, default=1.0),
-        sa.Column("created_by", sa.String(length=255), nullable=True),
-        sa.Column(
-            "created_at",
-            sa.BigInteger(),
-            default=lambda: int(time.time() * 1000),
-            nullable=False,
-        ),
-        sa.ForeignKeyConstraint(
-            ["endpoint_id"],
-            ["endpoints.endpoint_id"],
-            name="fk_endpoint_model_mappings_endpoint_id",
-            ondelete="CASCADE",
-        ),
-        sa.ForeignKeyConstraint(
-            ["model_definition_id"],
-            ["model_definitions.model_definition_id"],
-            name="fk_endpoint_model_mappings_model_definition_id",
-        ),
-        sa.PrimaryKeyConstraint("mapping_id", name="endpoint_model_mappings_pk"),
-    )
-    with op.batch_alter_table("endpoint_model_mappings", schema=None) as batch_op:
-        batch_op.create_index(
-            "index_endpoint_model_mappings_endpoint_id", ["endpoint_id"], unique=False
+    if "secrets" not in existing_tables:
+        op.create_table(
+            "secrets",
+            sa.Column("secret_id", sa.String(length=36), nullable=False),
+            sa.Column("secret_name", sa.String(length=255), nullable=False),
+            sa.Column("encrypted_value", sa.LargeBinary(), nullable=False),
+            sa.Column("wrapped_dek", sa.LargeBinary(), nullable=False),
+            sa.Column("kek_version", sa.Integer(), nullable=False, default=1),
+            sa.Column("masked_value", sa.String(length=500), nullable=False),
+            sa.Column("provider", sa.String(length=64), nullable=True),
+            sa.Column("auth_config", sa.Text(), nullable=True),
+            sa.Column("description", sa.Text(), nullable=True),
+            sa.Column("created_by", sa.String(length=255), nullable=True),
+            sa.Column(
+                "created_at",
+                sa.BigInteger(),
+                default=lambda: int(time.time() * 1000),
+                nullable=False,
+            ),
+            sa.Column("last_updated_by", sa.String(length=255), nullable=True),
+            sa.Column(
+                "last_updated_at",
+                sa.BigInteger(),
+                default=lambda: int(time.time() * 1000),
+                nullable=False,
+            ),
+            sa.PrimaryKeyConstraint("secret_id", name="secrets_pk"),
         )
-        batch_op.create_index(
+    existing_indexes = _get_existing_indexes("secrets")
+    if "unique_secret_name" not in existing_indexes:
+        op.create_index("unique_secret_name", "secrets", ["secret_name"], unique=True)
+
+    if "endpoints" not in existing_tables:
+        op.create_table(
+            "endpoints",
+            sa.Column("endpoint_id", sa.String(length=36), nullable=False),
+            sa.Column("name", sa.String(length=255), nullable=True),
+            sa.Column("created_by", sa.String(length=255), nullable=True),
+            sa.Column(
+                "created_at",
+                sa.BigInteger(),
+                default=lambda: int(time.time() * 1000),
+                nullable=False,
+            ),
+            sa.Column("last_updated_by", sa.String(length=255), nullable=True),
+            sa.Column(
+                "last_updated_at",
+                sa.BigInteger(),
+                default=lambda: int(time.time() * 1000),
+                nullable=False,
+            ),
+            sa.PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
+        )
+    existing_indexes = _get_existing_indexes("endpoints")
+    if "unique_endpoint_name" not in existing_indexes:
+        op.create_index("unique_endpoint_name", "endpoints", ["name"], unique=True)
+
+    if "model_definitions" not in existing_tables:
+        op.create_table(
+            "model_definitions",
+            sa.Column("model_definition_id", sa.String(length=36), nullable=False),
+            sa.Column("name", sa.String(length=255), nullable=False),
+            sa.Column("secret_id", sa.String(length=36), nullable=True),
+            sa.Column("provider", sa.String(length=64), nullable=False),
+            sa.Column("model_name", sa.String(length=256), nullable=False),
+            sa.Column("created_by", sa.String(length=255), nullable=True),
+            sa.Column(
+                "created_at",
+                sa.BigInteger(),
+                default=lambda: int(time.time() * 1000),
+                nullable=False,
+            ),
+            sa.Column("last_updated_by", sa.String(length=255), nullable=True),
+            sa.Column(
+                "last_updated_at",
+                sa.BigInteger(),
+                default=lambda: int(time.time() * 1000),
+                nullable=False,
+            ),
+            sa.ForeignKeyConstraint(
+                ["secret_id"],
+                ["secrets.secret_id"],
+                name="fk_model_definitions_secret_id",
+                ondelete="SET NULL",
+            ),
+            sa.PrimaryKeyConstraint("model_definition_id", name="model_definitions_pk"),
+        )
+    existing_indexes = _get_existing_indexes("model_definitions")
+    if "unique_model_definition_name" not in existing_indexes:
+        op.create_index("unique_model_definition_name", "model_definitions", ["name"], unique=True)
+    if "index_model_definitions_secret_id" not in existing_indexes:
+        op.create_index(
+            "index_model_definitions_secret_id", "model_definitions", ["secret_id"], unique=False
+        )
+    if "index_model_definitions_provider" not in existing_indexes:
+        op.create_index(
+            "index_model_definitions_provider", "model_definitions", ["provider"], unique=False
+        )
+
+    if "endpoint_model_mappings" not in existing_tables:
+        op.create_table(
+            "endpoint_model_mappings",
+            sa.Column("mapping_id", sa.String(length=36), nullable=False),
+            sa.Column("endpoint_id", sa.String(length=36), nullable=False),
+            sa.Column("model_definition_id", sa.String(length=36), nullable=False),
+            sa.Column("weight", sa.Float(), nullable=False, default=1.0),
+            sa.Column("created_by", sa.String(length=255), nullable=True),
+            sa.Column(
+                "created_at",
+                sa.BigInteger(),
+                default=lambda: int(time.time() * 1000),
+                nullable=False,
+            ),
+            sa.ForeignKeyConstraint(
+                ["endpoint_id"],
+                ["endpoints.endpoint_id"],
+                name="fk_endpoint_model_mappings_endpoint_id",
+                ondelete="CASCADE",
+            ),
+            sa.ForeignKeyConstraint(
+                ["model_definition_id"],
+                ["model_definitions.model_definition_id"],
+                name="fk_endpoint_model_mappings_model_definition_id",
+            ),
+            sa.PrimaryKeyConstraint("mapping_id", name="endpoint_model_mappings_pk"),
+        )
+    existing_indexes = _get_existing_indexes("endpoint_model_mappings")
+    if "index_endpoint_model_mappings_endpoint_id" not in existing_indexes:
+        op.create_index(
+            "index_endpoint_model_mappings_endpoint_id",
+            "endpoint_model_mappings",
+            ["endpoint_id"],
+            unique=False,
+        )
+    if "index_endpoint_model_mappings_model_definition_id" not in existing_indexes:
+        op.create_index(
             "index_endpoint_model_mappings_model_definition_id",
+            "endpoint_model_mappings",
             ["model_definition_id"],
             unique=False,
         )
-        batch_op.create_index(
+    if "unique_endpoint_model_mapping" not in existing_indexes:
+        op.create_index(
             "unique_endpoint_model_mapping",
+            "endpoint_model_mappings",
             ["endpoint_id", "model_definition_id"],
             unique=True,
         )
 
-    op.create_table(
-        "endpoint_bindings",
-        sa.Column("endpoint_id", sa.String(length=36), nullable=False),
-        sa.Column("resource_type", sa.String(length=50), nullable=False),
-        sa.Column("resource_id", sa.String(length=255), nullable=False),
-        sa.Column(
-            "created_at",
-            sa.BigInteger(),
-            default=lambda: int(time.time() * 1000),
-            nullable=False,
-        ),
-        sa.Column("created_by", sa.String(length=255), nullable=True),
-        sa.Column(
-            "last_updated_at",
-            sa.BigInteger(),
-            default=lambda: int(time.time() * 1000),
-            nullable=False,
-        ),
-        sa.Column("last_updated_by", sa.String(length=255), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["endpoint_id"],
-            ["endpoints.endpoint_id"],
-            name="fk_endpoint_bindings_endpoint_id",
-            ondelete="CASCADE",
-        ),
-        sa.PrimaryKeyConstraint(
-            "endpoint_id", "resource_type", "resource_id", name="endpoint_bindings_pk"
-        ),
-    )
+    if "endpoint_bindings" not in existing_tables:
+        op.create_table(
+            "endpoint_bindings",
+            sa.Column("endpoint_id", sa.String(length=36), nullable=False),
+            sa.Column("resource_type", sa.String(length=50), nullable=False),
+            sa.Column("resource_id", sa.String(length=255), nullable=False),
+            sa.Column(
+                "created_at",
+                sa.BigInteger(),
+                default=lambda: int(time.time() * 1000),
+                nullable=False,
+            ),
+            sa.Column("created_by", sa.String(length=255), nullable=True),
+            sa.Column(
+                "last_updated_at",
+                sa.BigInteger(),
+                default=lambda: int(time.time() * 1000),
+                nullable=False,
+            ),
+            sa.Column("last_updated_by", sa.String(length=255), nullable=True),
+            sa.ForeignKeyConstraint(
+                ["endpoint_id"],
+                ["endpoints.endpoint_id"],
+                name="fk_endpoint_bindings_endpoint_id",
+                ondelete="CASCADE",
+            ),
+            sa.PrimaryKeyConstraint(
+                "endpoint_id", "resource_type", "resource_id", name="endpoint_bindings_pk"
+            ),
+        )
 
-    op.create_table(
-        "endpoint_tags",
-        sa.Column("key", sa.String(length=250), nullable=False),
-        sa.Column("value", sa.String(length=5000), nullable=True),
-        sa.Column("endpoint_id", sa.String(length=36), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["endpoint_id"],
-            ["endpoints.endpoint_id"],
-            name="fk_endpoint_tags_endpoint_id",
-            ondelete="CASCADE",
-        ),
-        sa.PrimaryKeyConstraint("key", "endpoint_id", name="endpoint_tag_pk"),
-    )
-    with op.batch_alter_table("endpoint_tags", schema=None) as batch_op:
-        batch_op.create_index("index_endpoint_tags_endpoint_id", ["endpoint_id"], unique=False)
+    if "endpoint_tags" not in existing_tables:
+        op.create_table(
+            "endpoint_tags",
+            sa.Column("key", sa.String(length=250), nullable=False),
+            sa.Column("value", sa.String(length=5000), nullable=True),
+            sa.Column("endpoint_id", sa.String(length=36), nullable=False),
+            sa.ForeignKeyConstraint(
+                ["endpoint_id"],
+                ["endpoints.endpoint_id"],
+                name="fk_endpoint_tags_endpoint_id",
+                ondelete="CASCADE",
+            ),
+            sa.PrimaryKeyConstraint("key", "endpoint_id", name="endpoint_tag_pk"),
+        )
+    existing_indexes = _get_existing_indexes("endpoint_tags")
+    if "index_endpoint_tags_endpoint_id" not in existing_indexes:
+        op.create_index(
+            "index_endpoint_tags_endpoint_id", "endpoint_tags", ["endpoint_id"], unique=False
+        )
 
     _create_immutability_trigger()
 
