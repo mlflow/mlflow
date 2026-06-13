@@ -1397,8 +1397,15 @@ def test_custom_components_pipeline(custom_components_pipeline, model_path):
         "feature_extractor": custom_components_pipeline.feature_extractor,
     }
 
+    # Pass the task explicitly rather than relying on inference from the Hub:
+    # the backing model's `pipeline_tag` is now `image-feature-extraction`, so
+    # task inference would build an unsupported pipeline type. The fixture
+    # pipeline is already built with the `feature-extraction` task.
     mlflow.transformers.save_model(
-        transformers_model=components, path=model_path, signature=signature
+        transformers_model=components,
+        path=model_path,
+        signature=signature,
+        task=custom_components_pipeline.task,
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
