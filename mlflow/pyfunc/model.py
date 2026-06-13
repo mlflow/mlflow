@@ -24,7 +24,6 @@ from mlflow.entities.span import SpanType
 from mlflow.environment_variables import (
     MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
     MLFLOW_LOG_MODEL_COMPRESSION,
-    MLFLOW_UV_AUTO_DETECT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -1028,9 +1027,7 @@ def _save_model_with_class_artifacts_params(
     streamable=None,
     model_code_path=None,
     infer_code_paths=False,
-    uv_project_path=None,
-    uv_groups=None,
-    uv_extras=None,
+    uv=None,
 ):
     """
     Args:
@@ -1070,10 +1067,6 @@ def _save_model_with_class_artifacts_params(
                     If None, MLflow will try to inspect if the model supports streaming
                     by checking if `predict_stream` method exists. Default None.
     """
-    # Capture original working directory for uv project detection
-    # This must be done before any operations that might change cwd
-    original_cwd = Path.cwd()
-
     if mlflow_model is None:
         mlflow_model = Model()
 
@@ -1208,12 +1201,10 @@ def _save_model_with_class_artifacts_params(
     # `mlflow_model.code` is updated, re-generate `MLmodel` file.
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
-    if uv_project_path is not None:
-        uv_source_dir = uv_project_path
-    elif MLFLOW_UV_AUTO_DETECT.get():
-        uv_source_dir = original_cwd
-    else:
-        uv_source_dir = None
+    from mlflow.utils.uv_utils import resolve_uv_params
+
+    resolved_uv = resolve_uv_params(uv)
+    uv_source_dir = resolved_uv.project_path
 
     if conda_env is None:
         if pip_requirements is None:
@@ -1230,9 +1221,7 @@ def _save_model_with_class_artifacts_params(
                 mlflow.pyfunc.FLAVOR_NAME,
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
-                uv_project_dir=uv_source_dir,
-                uv_groups=uv_groups,
-                uv_extras=uv_extras,
+                uv=resolved_uv,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
