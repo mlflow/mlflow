@@ -1,12 +1,10 @@
 import importlib.metadata
 from contextlib import asynccontextmanager
-from unittest.mock import patch
 
 import pytest
 from packaging.version import Version
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
-from pydantic_ai.models.instrumented import InstrumentedModel
 from pydantic_ai.usage import Usage
 
 import mlflow
@@ -14,6 +12,11 @@ import mlflow.pydantic_ai  # ensure the integration module is importable
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
 
+from tests.pydantic_ai.helper import (
+    LLM_STREAM_SPAN_NAME,
+    patch_model_request,
+    patch_model_request_stream,
+)
 from tests.tracing.helper import get_traces
 
 _FINAL_ANSWER_WITHOUT_TOOL = "Paris"
@@ -192,7 +195,7 @@ def test_agent_run_sync_enable_fluent_disable_autolog(simple_agent):
     async def request(self, *args, **kwargs):
         return dummy
 
-    with patch.object(InstrumentedModel, "request", new=request):
+    with patch_model_request(new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = simple_agent.run_sync("France")
@@ -213,7 +216,7 @@ def test_agent_run_sync_enable_fluent_disable_autolog(simple_agent):
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
 
-    with patch.object(InstrumentedModel, "request", new=request):
+    with patch_model_request(new=request):
         mlflow.pydantic_ai.autolog(disable=True)
         simple_agent.run_sync("France")
     assert len(get_traces()) == 1
@@ -226,7 +229,7 @@ async def test_agent_run_enable_fluent_disable_autolog(simple_agent):
     async def request(self, *args, **kwargs):
         return dummy
 
-    with patch.object(InstrumentedModel, "request", new=request):
+    with patch_model_request(new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = await simple_agent.run("France")
@@ -251,7 +254,7 @@ def test_agent_run_sync_enable_disable_fluent_autolog_with_tool(agent_with_tool)
     async def request(self, *args, **kwargs):
         return next(sequence)
 
-    with patch.object(InstrumentedModel, "request", new=request):
+    with patch_model_request(new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = agent_with_tool.run_sync("Put my money on square eighteen", deps=18)
@@ -271,7 +274,7 @@ async def test_agent_run_enable_disable_fluent_autolog_with_tool(agent_with_tool
     async def request(self, *args, **kwargs):
         return next(sequence)
 
-    with patch.object(InstrumentedModel, "request", new=request):
+    with patch_model_request(new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = await agent_with_tool.run("Put my money on square eighteen", deps=18)
@@ -295,7 +298,7 @@ async def test_agent_run_stream_creates_trace(simple_agent):
     async def request_stream(self, *args, **kwargs):
         yield MockStreamedResponse(response, usage)
 
-    with patch.object(InstrumentedModel, "request_stream", new=request_stream):
+    with patch_model_request_stream(new=request_stream):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         async with simple_agent.run_stream("France") as result:
@@ -311,7 +314,7 @@ async def test_agent_run_stream_creates_trace(simple_agent):
     assert spans[0].name == "Agent.run_stream"
     assert spans[0].span_type == SpanType.AGENT
 
-    assert spans[1].name == "InstrumentedModel.request_stream"
+    assert spans[1].name == LLM_STREAM_SPAN_NAME
     assert spans[1].span_type == SpanType.LLM
     assert spans[1].parent_id == spans[0].span_id
 
@@ -333,7 +336,7 @@ def test_agent_run_stream_sync_creates_trace(simple_agent):
     async def request_stream(self, *args, **kwargs):
         yield MockStreamedResponse(response, usage)
 
-    with patch.object(InstrumentedModel, "request_stream", new=request_stream):
+    with patch_model_request_stream(new=request_stream):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = simple_agent.run_stream_sync("France")
@@ -355,7 +358,7 @@ def test_agent_run_stream_sync_creates_trace(simple_agent):
     assert "user_prompt" in spans[0].inputs
     assert spans[0].outputs is not None
 
-    assert spans[1].name == "InstrumentedModel.request_stream"
+    assert spans[1].name == LLM_STREAM_SPAN_NAME
     assert spans[1].span_type == SpanType.LLM
     assert spans[1].parent_id == spans[0].span_id
 
@@ -382,7 +385,7 @@ async def test_agent_run_stream_with_tool(agent_with_tool):
             resp = sequence[-1]
             yield MockStreamedResponse(resp, resp.usage)
 
-    with patch.object(InstrumentedModel, "request_stream", new=request_stream):
+    with patch_model_request_stream(new=request_stream):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         async with agent_with_tool.run_stream("Put my money on square eighteen", deps=18) as result:
@@ -412,7 +415,7 @@ def test_agent_run_stream_sync_with_tool(agent_with_tool):
             resp = sequence[-1]
             yield MockStreamedResponse(resp, resp.usage)
 
-    with patch.object(InstrumentedModel, "request_stream", new=request_stream):
+    with patch_model_request_stream(new=request_stream):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = agent_with_tool.run_stream_sync("Put my money on square eighteen", deps=18)

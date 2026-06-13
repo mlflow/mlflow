@@ -22,6 +22,7 @@ from mlflow.pydantic_ai.autolog import (
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
+from tests.pydantic_ai.helper import patch_model_request
 from tests.tracing.helper import get_traces
 
 PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
@@ -128,7 +129,7 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent, mock_litellm_cost):
     async def request(self, *args, **kwargs):
         return dummy
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+    with patch_model_request(new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = simple_agent.run_sync("France")
@@ -182,7 +183,7 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent, mock_litellm_cost):
         "total_tokens": 2,
     }
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+    with patch_model_request(new=request):
         mlflow.pydantic_ai.autolog(disable=True)
         simple_agent.run_sync("France")
     assert len(get_traces()) == 1
@@ -195,7 +196,7 @@ async def test_agent_run_enable_disable_autolog(simple_agent, mock_litellm_cost)
     async def request(self, *args, **kwargs):
         return dummy
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+    with patch_model_request(new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = await simple_agent.run("France")
@@ -241,7 +242,7 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool, mock_l
             return sequence.pop(0)
         return resp
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+    with patch_model_request(new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = agent_with_tool.run_sync("Put my money on square eighteen", deps=18)
@@ -281,7 +282,7 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool, mock_
             return sequence.pop(0)
         return resp
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+    with patch_model_request(new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = await agent_with_tool.run("Put my money on square eighteen", deps=18)
@@ -313,10 +314,7 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool, mock_
 
 
 def test_agent_run_sync_failure(simple_agent):
-    with patch(
-        "pydantic_ai.models.instrumented.InstrumentedModel.request",
-        side_effect=ValueError("test error"),
-    ):
+    with patch_model_request(side_effect=ValueError("test error")):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         with pytest.raises(ValueError, match="test error"):
@@ -335,10 +333,7 @@ def test_agent_run_sync_failure(simple_agent):
     assert spans[2].name.startswith("InstrumentedModel.")
     assert spans[2].span_type == SpanType.LLM
 
-    with patch(
-        "pydantic_ai.models.instrumented.InstrumentedModel.request",
-        side_effect=ValueError("test error"),
-    ):
+    with patch_model_request(side_effect=ValueError("test error")):
         mlflow.pydantic_ai.autolog(disable=True)
 
         with pytest.raises(ValueError, match="test error"):
@@ -423,7 +418,7 @@ def test_autolog_auto_instrument_captures_llm_spans(mock_litellm_cost):
         return dummy
 
     # Mock must be set BEFORE autolog so autolog patches the mock
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+    with patch_model_request(new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
 
         # Create agent WITHOUT explicitly setting instrument=True
@@ -450,7 +445,7 @@ def test_autolog_does_not_capture_client_references(simple_agent):
     async def request(self, *args, **kwargs):
         return dummy
 
-    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+    with patch_model_request(new=request):
         mlflow.pydantic_ai.autolog(log_traces=True)
         simple_agent.run_sync("France")
 
@@ -462,7 +457,9 @@ def test_autolog_does_not_capture_client_references(simple_agent):
         attrs = span.attributes or {}
         for key in attrs:
             assert "client" not in key.lower() or key == "openai_client"
-            assert "provider" not in key.lower()
+            # mlflow.llm.provider is a deliberate semantic attribute, not a
+            # captured client reference.
+            assert "provider" not in key.lower() or key == SpanAttributeKey.MODEL_PROVIDER
             assert "_state" not in key.lower()
             assert "httpx" not in key.lower()
 
