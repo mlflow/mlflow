@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781392673748,
+  "lastUpdate": 1781394858271,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -9719,6 +9719,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.408813800007465,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sanatbhargava18@gmail.com",
+            "name": "Sanat Bhargava",
+            "username": "sanatb187"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "890323b152ab6e43c069491842b7c4663da12f59",
+          "message": "Add `x-mlflow-run-id` support to OTLP trace ingestion (#23664)\n\nSigned-off-by: sanatb187 <sanatbhargava18@gmail.com>\nSigned-off-by: Sanat Bhargava <sanatbhargava18@gmail.com>\nCo-authored-by: Yuki Watanabe <31463517+B-Step62@users.noreply.github.com>",
+          "timestamp": "2026-06-13T23:50:57Z",
+          "tree_id": "bf71e03c9dc796eb45843464d621d36a56dbb4c5",
+          "url": "https://github.com/mlflow/mlflow/commit/890323b152ab6e43c069491842b7c4663da12f59"
+        },
+        "date": 1781394856857,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 46.63713319999658,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 23.700239647059153,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 20.597710622951126,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 20.108435888888966,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 15.768715874997952,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 36.17894619999902,
             "unit": "ms"
           }
         ]
