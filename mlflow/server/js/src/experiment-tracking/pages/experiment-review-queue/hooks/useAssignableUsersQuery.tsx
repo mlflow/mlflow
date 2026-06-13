@@ -5,18 +5,14 @@ import type { ListUsersResponse } from '../../../../admin/types';
 
 export const ASSIGNABLE_USERS_QUERY_KEY = 'REVIEW_QUEUE_ASSIGNABLE_USERS';
 
-// Stable fallback so a disabled/loading query (e.g. a no-auth server, or before
-// the roster loads) returns the same array identity every render. A fresh `[]`
-// here would give consumers a new reference each render, looping any
-// `useMemo`/`useEffect` keyed on the list (see QueueSettingsModal's members typeahead).
+// Stable fallback so a disabled/loading query returns the same array identity
+// every render, avoiding render loops in consumers keyed on the list.
 const EMPTY_USERS: ListUsersResponse['users'] = [];
 
 /**
- * Usernames assignable as review-queue targets, for the "Flag for review" user
- * search. Backed by the admin `users/list` endpoint. Any authenticated user may
- * list users (the basic-auth ACL allows it); listing grants no access on its own
- * — assigning a user to a queue still requires experiment MANAGE. Callers still
- * pass `enabled` to skip the request on a no-auth server.
+ * Usernames assignable as review-queue targets, via the admin `users/list`
+ * endpoint. Any authenticated user may list users; that grants no access on its
+ * own. Callers pass `enabled` to skip the request on a no-auth server.
  */
 export const useAssignableUsersQuery = ({ enabled }: { enabled: boolean }) => {
   const { data, isLoading, error } = useQuery<ListUsersResponse, Error>({

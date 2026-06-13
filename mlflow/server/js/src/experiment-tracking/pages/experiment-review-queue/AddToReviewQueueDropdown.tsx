@@ -84,9 +84,8 @@ export const AddToReviewQueueDropdown = ({
   // Don't let a write stamp `created_by` until the reviewer identity is settled.
   const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
-  // Routing traces (flagging items into any queue, including a user's personal
-  // queue) is an EDIT capability. We fetch the user roster for the per-user queue
-  // picker whenever an editor opens the dropdown.
+  // Flagging traces into a queue is an EDIT capability; fetch the roster for the
+  // per-user-queue picker only when an editor opens the dropdown.
   const canEdit = useCanEditReviews(experimentId);
   const canManage = useCanManageReviews(experimentId);
   const canListUsers = authAvailable && canEdit;

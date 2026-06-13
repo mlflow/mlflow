@@ -67,11 +67,7 @@ export const FocusedReview = ({
   completedBy: string;
   /** True while a status write is in flight (disables the actions). */
   isSettingStatus: boolean;
-  /**
-   * Whether the current reviewer may submit reviews in this queue — true unless
-   * an auth-server manager is viewing a queue they aren't assigned to. When
-   * false the answer inputs and submit/decline/reopen are disabled (view-only).
-   */
+  /** Whether the reviewer may submit reviews; when false the inputs/actions are view-only. */
   canReview: boolean;
   /** Self-assign action; shown to a manager viewing a queue they aren't in. */
   onAssignSelf?: () => void;
