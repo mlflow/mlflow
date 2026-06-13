@@ -85,7 +85,18 @@ def test_evaluate_traces_tagged_with_test_identity(tmp_path: Path):
 
     tracking_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     result = subprocess.run(
-        [sys.executable, "-m", "pytest", test_file.name, "-p", "no:cacheprovider", "-q"],
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            test_file.name,
+            "-p",
+            "no:cacheprovider",
+            # The plugin is opt-in (no pytest11 entry point).
+            "-p",
+            "mlflow.pytest.plugin",
+            "-q",
+        ],
         cwd=tmp_path,
         capture_output=True,
         text=True,
