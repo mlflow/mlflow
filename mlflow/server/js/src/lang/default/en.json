@@ -1775,6 +1775,10 @@
     "defaultMessage": "Traces",
     "description": "Label for the traces mode on the registered prompt details page"
   },
+  "7N8Fqq": {
+    "defaultMessage": "Changes saved",
+    "description": "Review focused view: confirmation that edited answers were saved"
+  },
   "7NKkk1": {
     "defaultMessage": "Save",
     "description": "Modal button text to save the changes to rename the experiment run name"
@@ -2006,6 +2010,10 @@
   "8YmId5": {
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in Contour chart configurator in compare runs chart config modal"
+  },
+  "8bgHT0": {
+    "defaultMessage": "Save changes",
+    "description": "Review focused view: re-save edited answers on an already-complete trace"
   },
   "8biXJJ": {
     "defaultMessage": "Select output type",
