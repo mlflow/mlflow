@@ -1,4 +1,6 @@
+import asyncio
 import contextvars
+import time
 from typing import Any, AsyncGenerator
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -430,6 +432,58 @@ def test_invocations_endpoint_success_stream():
         assert response.status_code == 200
         assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
         mock_span.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_sync_invoke_does_not_block_event_loop():
+    @invoke()
+    def test_invoke(request):
+        time.sleep(0.2)
+        return {"output": "done"}
+
+    server = AgentServer()
+    mock_span_instance = Mock()
+    mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+    mock_span_instance.__exit__ = Mock(return_value=None)
+
+    with patch("mlflow.start_span", return_value=mock_span_instance):
+        task = asyncio.create_task(server._handle_invoke_request({"input": "hello"}, False))
+        start = time.perf_counter()
+        await asyncio.sleep(0.02)
+
+        assert time.perf_counter() - start < 0.12
+        assert not task.done()
+        assert await task == {"output": "done"}
+
+
+@pytest.mark.asyncio
+async def test_sync_stream_does_not_block_event_loop():
+    @stream()
+    def test_stream(request):
+        time.sleep(0.2)
+        yield {"delta": "done"}
+
+    server = AgentServer()
+    mock_span_instance = Mock()
+    mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
+    mock_span_instance.__exit__ = Mock(return_value=None)
+
+    with patch("mlflow.start_span", return_value=mock_span_instance):
+        generator = server._generate(get_stream_function(), {"input": "hello"}, False)
+        task = asyncio.create_task(anext(generator))
+        start = time.perf_counter()
+        await asyncio.sleep(0.02)
+
+        assert time.perf_counter() - start < 0.12
+        assert not task.done()
+        assert await task == 'data: {"delta": "done"}\n\n'
+        assert await anext(generator) == "data: [DONE]\n\n"
+        try:
+            await anext(generator)
+        except StopAsyncIteration:
+            pass
+        else:
+            pytest.fail("stream generator should be exhausted")
 
 
 def test_health_endpoint_returns_status():

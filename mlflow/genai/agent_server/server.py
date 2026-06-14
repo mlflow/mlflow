@@ -1,10 +1,13 @@
 import argparse
+import asyncio
+import contextvars
 import functools
 import inspect
 import json
 import logging
 import os
 import posixpath
+import threading
 from typing import Any, AsyncGenerator, Callable, Literal, ParamSpec, TypeVar
 
 import httpx
@@ -29,6 +32,7 @@ _R = TypeVar("_R")
 
 _invoke_function: Callable[..., Any] | None = None
 _stream_function: Callable[..., Any] | None = None
+_STREAM_DONE = object()
 
 
 def get_invoke_function():
@@ -37,6 +41,52 @@ def get_invoke_function():
 
 def get_stream_function():
     return _stream_function
+
+
+async def _iterate_sync_stream(
+    func: Callable[[dict[str, Any]], Any],
+    request: dict[str, Any],
+    context: contextvars.Context,
+) -> AsyncGenerator[Any, None]:
+    loop = asyncio.get_running_loop()
+    queue = asyncio.Queue()
+    stop = threading.Event()
+    iterator = None
+
+    def put(item: Any) -> None:
+        asyncio.run_coroutine_threadsafe(queue.put(item), loop).result()
+
+    def run() -> None:
+        nonlocal iterator
+        try:
+            iterator = iter(context.run(func, request))
+            while not stop.is_set():
+                try:
+                    chunk = context.run(next, iterator)
+                except StopIteration:
+                    break
+                put(chunk)
+        except BaseException as e:
+            put(e)
+        finally:
+            if stop.is_set() and hasattr(iterator, "close"):
+                context.run(iterator.close)
+            put(_STREAM_DONE)
+
+    thread = threading.Thread(target=run, name="mlflow-agent-server-stream", daemon=True)
+    thread.start()
+    try:
+        while True:
+            item = await queue.get()
+            if item is _STREAM_DONE:
+                break
+            if isinstance(item, BaseException):
+                raise item
+            yield item
+    finally:
+        stop.set()
+        if thread.is_alive():
+            await asyncio.to_thread(thread.join, 1)
 
 
 def invoke() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
@@ -319,7 +369,7 @@ class AgentServer:
                 if inspect.iscoroutinefunction(func):
                     result = await func(request)
                 else:
-                    result = func(request)
+                    result = await asyncio.to_thread(func, request)
 
                 result = self.validator.validate_and_convert_result(result)
                 if self.agent_type == "ResponsesAgent":
@@ -354,6 +404,7 @@ class AgentServer:
     ) -> AsyncGenerator[str, None]:
         func_name = func.__name__
         all_chunks: list[dict[str, Any]] = []
+        request_context = contextvars.copy_context()
         try:
             with mlflow.start_span(name=f"{func_name}") as span:
                 span.set_inputs(request)
@@ -363,7 +414,7 @@ class AgentServer:
                         all_chunks.append(chunk)
                         yield f"data: {json.dumps(chunk)}\n\n"
                 else:
-                    for chunk in func(request):
+                    async for chunk in _iterate_sync_stream(func, request, request_context):
                         chunk = self.validator.validate_and_convert_result(chunk, stream=True)
                         all_chunks.append(chunk)
                         yield f"data: {json.dumps(chunk)}\n\n"
