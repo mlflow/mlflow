@@ -7,7 +7,9 @@ import json
 import logging
 import os
 import posixpath
-from queue import Queue
+import threading
+from contextlib import suppress
+from queue import Full, Queue
 from typing import Any, AsyncGenerator, Callable, Literal, ParamSpec, TypeVar
 
 import httpx
@@ -35,6 +37,14 @@ _stream_function: Callable[..., Any] | None = None
 
 # Sentinel pushed onto the bridge queue to signal a worker generator has finished.
 _STREAM_SENTINEL = object()
+
+# Bound the bridge queue so a slow or disconnected consumer applies backpressure
+# to the worker thread instead of letting it buffer the whole stream in memory.
+_STREAM_QUEUE_MAXSIZE = 64
+
+# How often the worker thread wakes while blocked on a full queue to re-check the
+# stop signal, so a client disconnect halts production promptly.
+_STREAM_POLL_SECONDS = 0.1
 
 
 def get_invoke_function():
@@ -367,35 +377,75 @@ class AgentServer:
         context. This keeps MLflow's contextvar-based span attach/detach from
         crossing thread/context boundaries, which would otherwise raise
         "token was created in a different Context" errors.
+
+        Teardown on client disconnect is handled explicitly: when the client goes
+        away, Starlette closes the streaming body generator, which raises
+        ``GeneratorExit`` into the ``yield`` below. The ``finally`` then sets a
+        stop signal. A worker blocked on a full queue wakes within a poll interval
+        (its ``put`` uses a timeout), closes the user's generator to run its
+        cleanup, and terminates instead of leaking the thread or running an
+        unbounded stream to completion.
         """
         loop = asyncio.get_running_loop()
-        chunk_queue: Queue[Any] = Queue()
+        # Bounded so a stalled consumer applies backpressure rather than letting
+        # the worker buffer the entire stream in memory.
+        chunk_queue: Queue[Any] = Queue(maxsize=_STREAM_QUEUE_MAXSIZE)
         error: list[BaseException] = []
+        stop_event = threading.Event()
         # Copy the current context so the active tracing span set by the caller
         # propagates into the worker thread and the generator's own spans nest
         # correctly.
         ctx = contextvars.copy_context()
 
         def produce() -> None:
+            gen = func(request)
             try:
-                for chunk in func(request):
-                    chunk_queue.put(chunk)
+                for chunk in gen:
+                    # Block for queue space but wake periodically to re-check the
+                    # stop signal so a disconnected client halts production.
+                    while not stop_event.is_set():
+                        try:
+                            chunk_queue.put(chunk, timeout=_STREAM_POLL_SECONDS)
+                            break
+                        except Full:
+                            continue
+                    if stop_event.is_set():
+                        break
             except BaseException as e:
                 error.append(e)
             finally:
-                chunk_queue.put(_STREAM_SENTINEL)
+                # Close the user's generator so its cleanup (span exit, finally
+                # blocks) runs in this worker thread/context even when the client
+                # disconnected mid-stream. On the normal path the generator is
+                # already exhausted and close() is a no-op.
+                gen_close = getattr(gen, "close", None)
+                if gen_close is not None:
+                    gen_close()
+                if stop_event.is_set():
+                    # Consumer has gone away; don't block on a possibly-full queue.
+                    with suppress(Full):
+                        chunk_queue.put_nowait(_STREAM_SENTINEL)
+                else:
+                    chunk_queue.put(_STREAM_SENTINEL)
 
         # Fire-and-forget: the generator is consumed in a background thread and
         # chunks are read from the queue below. Not awaited so the loop stays free.
         loop.run_in_executor(None, lambda: ctx.run(produce))
 
-        while True:
-            chunk = await loop.run_in_executor(None, chunk_queue.get)
-            if chunk is _STREAM_SENTINEL:
-                if error:
-                    raise error[0]
-                break
-            yield chunk
+        try:
+            while True:
+                chunk = await loop.run_in_executor(None, chunk_queue.get)
+                if chunk is _STREAM_SENTINEL:
+                    if error:
+                        raise error[0]
+                    break
+                yield chunk
+        finally:
+            # Runs on normal completion, error, and GeneratorExit (client
+            # disconnect). Signal the worker to stop; a worker blocked on a full
+            # queue wakes within a poll interval, runs its generator's cleanup,
+            # and terminates instead of leaking the thread.
+            stop_event.set()
 
     async def _generate(
         self,

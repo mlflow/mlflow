@@ -1460,3 +1460,77 @@ def test_sync_stream_child_span_across_yields_succeeds():
     # No SSE error event: the cross-yield span never crossed a context boundary.
     assert "error" not in response.text
     assert len(span_ids) == 1
+
+
+@pytest.mark.asyncio
+async def test_sync_stream_worker_stops_on_client_disconnect():
+    from mlflow.genai.agent_server.server import _STREAM_QUEUE_MAXSIZE
+
+    # On client disconnect Starlette closes the streaming body generator, which
+    # raises GeneratorExit into the worker bridge generator's yield. Closing the
+    # bridge generator directly reproduces that. Teardown must stop the worker
+    # thread and run the user generator's cleanup, rather than leaking the thread
+    # or draining an infinite stream to completion.
+    produced = 0
+    cleaned_up = threading.Event()
+
+    @stream()
+    def infinite_stream(request):
+        nonlocal produced
+        try:
+            while True:
+                produced += 1
+                yield {"chunk": produced}
+        finally:
+            cleaned_up.set()
+
+    server = AgentServer()
+    agen = server._iterate_sync_in_thread(infinite_stream, {"x": 1})
+
+    for _ in range(3):
+        await agen.__anext__()
+    await agen.aclose()
+
+    # The user generator's finally ran in the worker thread/context.
+    assert cleaned_up.wait(timeout=5)
+
+    # Production halts shortly after the stop signal: the count stops climbing and
+    # stays bounded by the queue size plus the few chunks produced before the stop
+    # took effect (never the unbounded full stream).
+    await asyncio.sleep(0.5)
+    count_after_close = produced
+    await asyncio.sleep(0.5)
+    assert produced == count_after_close
+    assert produced < _STREAM_QUEUE_MAXSIZE * 2
+
+
+@pytest.mark.asyncio
+async def test_sync_stream_disconnect_propagates_through_body_generator():
+    # End-to-end of the disconnect path: Starlette closes the StreamingResponse
+    # body (_generate), and the inner worker bridge generator is closed via the
+    # async-generator finalizer as _generate's frame unwinds. This is the
+    # load-bearing link the fix relies on -- without it the worker would run the
+    # infinite stream forever. Poll with asyncio.sleep (not a blocking wait) so
+    # the loop can run the scheduled finalizer.
+    cleaned_up = threading.Event()
+
+    @stream()
+    def infinite_stream(request):
+        try:
+            while True:
+                yield {"chunk": "x"}
+        finally:
+            cleaned_up.set()
+
+    server = AgentServer()
+    body = server._generate(infinite_stream, {"x": 1}, False)
+
+    for _ in range(3):
+        await body.__anext__()
+    await body.aclose()
+
+    for _ in range(100):
+        if cleaned_up.is_set():
+            break
+        await asyncio.sleep(0.05)
+    assert cleaned_up.is_set()
