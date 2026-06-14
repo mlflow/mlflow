@@ -195,10 +195,11 @@ describe('ReviewerChecklistCombobox', () => {
       </IntlProvider>,
     );
     fireEvent.click(screen.getByRole('combobox'));
-    // Cap of 2 reached: the unchecked row is disabled (its accessible name carries
-    // the disabled reason), while the checked rows stay toggleable.
-    expect(screen.getByRole('checkbox', { name: /^c/ })).toBeDisabled();
+    // Cap of 2 reached: the unchecked row is disabled while the checked rows stay
+    // toggleable, and an inline hint (not a hidden tooltip) explains the cap.
+    expect(screen.getByRole('checkbox', { name: 'c' })).toBeDisabled();
     expect(screen.getByRole('checkbox', { name: 'a' })).not.toBeDisabled();
+    expect(screen.getByText(/you can assign up to 2 reviewers/i)).toBeInTheDocument();
   });
 
   it('shows a loading state until the roster resolves, then seeds the defaults', () => {

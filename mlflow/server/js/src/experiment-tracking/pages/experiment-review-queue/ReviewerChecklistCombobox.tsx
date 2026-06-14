@@ -114,7 +114,10 @@ export const ReviewerChecklistCombobox = ({
     setSearch(value);
   };
 
-  // At the cap, keep selected rows toggleable (so you can swap) but block adding more.
+  // At the cap, keep selected rows toggleable (so you can swap) but block adding
+  // more. The reason is surfaced as an inline hint row below rather than a
+  // per-row `disabledReason` tooltip: the tooltip renders behind the dropdown
+  // (which sits at an elevated z-index inside a modal), so it isn't visible.
   const atLimit = maxSelected !== undefined && checkedUsers.size >= maxSelected;
   const renderItem = (username: string) => {
     const checked = checkedUsers.has(username);
@@ -124,17 +127,6 @@ export const ReviewerChecklistCombobox = ({
         value={username}
         checked={checked}
         disabled={!checked && atLimit}
-        disabledReason={
-          !checked && atLimit
-            ? intl.formatMessage(
-                {
-                  defaultMessage: 'You can assign up to {max} reviewers.',
-                  description: 'Review queue: reviewer-cap reason on a disabled row',
-                },
-                { max: maxSelected },
-              )
-            : undefined
-        }
         onChange={() => handleToggle(username)}
       >
         {username}
@@ -218,6 +210,20 @@ export const ReviewerChecklistCombobox = ({
                 // fail to render. (Filtering itself is ours — with `controlledValue`
                 // set, the search skips its built-in child filter.)
                 [
+                  ...(atLimit
+                    ? [
+                        <DialogComboboxEmpty
+                          key="__atlimit"
+                          emptyText={
+                            <FormattedMessage
+                              defaultMessage="You can assign up to {max} reviewers. Unselect one to choose another."
+                              description="Review queue: hint shown when the reviewer-assignment cap is reached"
+                              values={{ max: maxSelected }}
+                            />
+                          }
+                        />,
+                      ]
+                    : []),
                   ...matches.map(renderItem),
                   ...(hasMore
                     ? [

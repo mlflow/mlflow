@@ -20,6 +20,7 @@ import {
   useListLabelSchemasQuery,
 } from '../../components/label-schemas';
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
+import { sameUser } from './queuePermissions';
 import { MAX_ASSIGNED_USERS, ReviewerChecklistCombobox } from './ReviewerChecklistCombobox';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
@@ -65,8 +66,15 @@ export const QueueSettingsModal = ({
   // loads, so it doesn't flash editable for a queue with traces.
   const canEditQuestions = canManage && !itemsLoading && traces.length === 0;
 
+  // The owner is implicitly a member (they own the queue) and can't be
+  // unassigned, so keep them out of the selectable roster and the toggleable
+  // member set, then re-add on save — consistent with the create flow, where the
+  // creator is auto-assigned and hidden from the picker.
+  const owner = queue.created_by;
+  const withoutOwner = (users: string[]) => users.filter((u) => !owner || !sameUser(u, owner));
+
   const [selectedSchemaIds, setSelectedSchemaIds] = useState<Set<string>>(new Set(queue.schema_ids ?? []));
-  const [members, setMembers] = useState<Set<string>>(new Set(queue.users ?? []));
+  const [members, setMembers] = useState<Set<string>>(() => new Set(withoutOwner(queue.users ?? [])));
   const [createQuestionOpen, setCreateQuestionOpen] = useState(false);
 
   const selectedSchemas = useMemo(
@@ -115,8 +123,9 @@ export const QueueSettingsModal = ({
   // (same UX as the create modal and the "Flag for review" picker), so members
   // are chosen from the roster rather than free text.
   const usernames = useMemo(
-    () => assignableUsers.map((u) => u.username).filter((u): u is string => Boolean(u)),
-    [assignableUsers],
+    () => withoutOwner(assignableUsers.map((u) => u.username).filter((u): u is string => Boolean(u))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [assignableUsers, owner],
   );
   const toggleReviewer = (username: string) =>
     setMembers((prev) => {
@@ -146,15 +155,20 @@ export const QueueSettingsModal = ({
 
   // Dedupe the stored members before diffing so a duplicate in `queue.users`
   // can't read as a spurious change (and trigger a needless update_users write).
-  const originalMembers = useMemo(() => new Set(queue.users ?? []), [queue.users]);
+  const originalMembers = useMemo(
+    () => new Set(withoutOwner(queue.users ?? [])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [queue.users, owner],
+  );
   const membersChanged = members.size !== originalMembers.size || [...originalMembers].some((m) => !members.has(m));
 
   const handleSave = async () => {
     await updateReviewQueueAsync({
       queue_id: queue.queue_id,
       // Only send `users` when membership changed: a repeated write is an
-      // `update_users` that would otherwise clobber a concurrent edit.
-      ...(membersChanged ? { users: [...members] } : {}),
+      // `update_users` that would otherwise clobber a concurrent edit. The owner
+      // is re-added (they're always a member) since they're hidden from the picker.
+      ...(membersChanged ? { users: Array.from(new Set([...(owner ? [owner] : []), ...members])) } : {}),
       // Only send schema_ids when they're still editable; once the queue has
       // traces (or the user lacks MANAGE) the backend freezes them.
       ...(canEditQuestions ? { schema_ids: [...selectedSchemaIds] } : {}),
@@ -209,7 +223,7 @@ export const QueueSettingsModal = ({
                   triggerValue={reviewersTriggerValue}
                   dropdownZIndex={dropdownZIndex}
                   isLoading={usersLoading}
-                  maxSelected={MAX_ASSIGNED_USERS}
+                  maxSelected={owner ? MAX_ASSIGNED_USERS - 1 : MAX_ASSIGNED_USERS}
                 />
               </div>
             )}

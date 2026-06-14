@@ -118,4 +118,24 @@ describe('QueueSettingsModal save', () => {
     expect('name' in arg).toBe(false);
     expect('new_owner' in arg).toBe(false);
   });
+
+  it('hides the queue owner from the picker but keeps them assigned on save', async () => {
+    const ownedQueue: ReviewQueue = { ...queue, created_by: 'owner1', users: ['owner1', 'alice'] };
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <QueueSettingsModal queue={ownedQueue} canManage onClose={jest.fn()} />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+    fireEvent.click(screen.getByRole('combobox'));
+    // The owner is auto-assigned, so it isn't a toggleable row; the other member is.
+    expect(screen.queryByRole('checkbox', { name: 'owner1' })).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'alice' })).toBeInTheDocument();
+    // Remove the only visible member, then save — the owner stays assigned.
+    fireEvent.click(screen.getByRole('checkbox', { name: 'alice' }));
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ users: ['owner1'] }));
+  });
 });
