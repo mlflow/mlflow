@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781397335450,
+  "lastUpdate": 1781406483172,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -9881,6 +9881,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 25.310590799995225,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "31463517+B-Step62@users.noreply.github.com",
+            "name": "Yuki Watanabe",
+            "username": "B-Step62"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6005b76bc77776478e3b41478e38ad9011e5d14f",
+          "message": "Set model provider in Anthropic autolog so LLM cost is computed (#23972)\n\nSigned-off-by: B-Step62 <yuki.watanabe@databricks.com>",
+          "timestamp": "2026-06-14T03:04:42Z",
+          "tree_id": "09c5446d25ace4639a4ae4bc481706e804b1ff14",
+          "url": "https://github.com/mlflow/mlflow/commit/6005b76bc77776478e3b41478e38ad9011e5d14f"
+        },
+        "date": 1781406482119,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 49.72626614999953,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 28.51668433333266,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 27.565567346153095,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 30.41834327083374,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 24.64233884313699,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 55.46805920000111,
             "unit": "ms"
           }
         ]
