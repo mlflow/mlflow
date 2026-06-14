@@ -8,7 +8,7 @@ MLflow Authentication REST API
 
 The MLflow Authentication REST API allows you to create, get, update, and delete users,
 manage user permissions, and manage roles and role-based access control (RBAC).
-The API supports both legacy ``2.0`` endpoints for user management and new ``3.0`` 
+The API supports both legacy ``2.0`` endpoints for user management and new ``3.0``
 endpoints for unified permission and role management introduced in MLflow 3.13.0.
 The API is hosted under the ``/api`` route on the MLflow tracking server. For example, to create
 a user on a tracking server hosted at ``http://localhost:5000``, access
