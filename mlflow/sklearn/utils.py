@@ -304,7 +304,7 @@ def _get_class_labels_from_estimator(estimator):
     return estimator.classes_ if hasattr(estimator, "classes_") else None
 
 
-def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight):
+def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight, pos_label):
     """
     Draw and record various common artifacts for classifier
 
@@ -391,6 +391,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     "X": X,
                     "y": y_true,
                     "sample_weight": sample_weight,
+                    "pos_label": pos_label,
                 },
                 title="ROC curve",
             ),
@@ -404,6 +405,7 @@ def _get_classifier_artifacts(fitted_estimator, prefix, X, y_true, sample_weight
                     "X": X,
                     "y": y_true,
                     "sample_weight": sample_weight,
+                    "pos_label": pos_label,
                 },
                 title="Precision recall curve",
             ),
@@ -555,7 +557,7 @@ def _log_specialized_estimator_content(
     if sklearn.base.is_classifier(fitted_estimator):
         try:
             artifacts = _get_classifier_artifacts(
-                fitted_estimator, prefix, X, y_true, sample_weight
+                fitted_estimator, prefix, X, y_true, sample_weight, pos_label
             )
         except Exception as e:
             msg = (
