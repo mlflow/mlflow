@@ -1,0 +1,276 @@
+---
+sidebar_label: Review Queues
+description: Organize traces into review queues, assign them to human reviewers, and collect structured feedback and ground-truth annotations in the MLflow UI.
+---
+
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import CollapsibleSection from "@site/src/components/CollapsibleSection";
+import { APILink } from "@site/src/components/APILink";
+import { Users, ListCheck, MessageSquare, Database, Target, TrendingUp, Eye } from "lucide-react";
+
+# Review Queues
+
+Review queues turn ad-hoc human review into a structured workflow. You bundle a set of traces into a named queue, attach the questions you want answered, assign the queue to one or more reviewers, and let them work through it in a focused review UI. Every answer is recorded back on the trace as a [feedback](/genai/assessments/feedback) or [expectation](/genai/assessments/expectations) assessment, so the review effort feeds directly into evaluation and monitoring.
+
+For the full API, see the <APILink fn="mlflow.genai.review_queues.create_review_queue">`mlflow.genai.review_queues`</APILink> and <APILink fn="mlflow.genai.label_schemas.create_label_schema">`mlflow.genai.label_schemas`</APILink> references.
+
+:::note Experimental
+The review-queue and label-schema APIs are experimental (added in MLflow 3.14.0) and may change in a future release.
+:::
+
+## What is a Review Queue?
+
+A review queue is a named collection of traces, scoped to an experiment, that a defined set of reviewers works through together. Three building blocks make up the workflow:
+
+<ConceptOverview concepts={[
+  {
+    icon: ListCheck,
+    title: "Label Schemas (the questions)",
+    description: "Reusable question definitions — a Pass/Fail toggle, a categorical choice, a numeric score, or free text. Each schema is either a feedback question (how good was the output?) or an expectation question (what should the output have been?)."
+  },
+  {
+    icon: Users,
+    title: "Review Queues (the work)",
+    description: "A bundle of traces plus the questions to ask and the reviewers assigned. A user queue is one person's personal to-do list; a custom queue is a shared queue with up to ten reviewers and a chosen subset of questions."
+  },
+  {
+    icon: MessageSquare,
+    title: "Shared-Pool Status (the progress)",
+    description: "Each trace in a queue is pending, complete, or declined. The status is shared across reviewers — the first reviewer to finish a trace marks it complete for the whole queue — so a team can divide and conquer without double-work."
+  }
+]} />
+
+## Prerequisites
+
+- MLflow 3.14.0 or later.
+- An MLflow tracking server (or local tracking setup) with traces already logged to an experiment.
+- For multi-reviewer (custom) queues and per-reviewer attribution, run the tracking server with [authentication](/genai/governance) enabled. On a server without authentication, reviews are attributed to a single `default` user and reviewer assignment is hidden.
+
+## Why use Review Queues?
+
+<FeatureHighlights features={[
+  {
+    icon: Target,
+    title: "Structured, Consistent Review",
+    description: "Reviewers answer the same well-defined questions on every trace instead of leaving free-form notes, so results are comparable and aggregatable."
+  },
+  {
+    icon: Users,
+    title: "Divide Work Across a Team",
+    description: "Assign a queue to several reviewers and let the shared-pool status keep everyone on different traces, with clear attribution of who reviewed what."
+  },
+  {
+    icon: Database,
+    title: "Feeds Evaluation Directly",
+    description: "Every answer is written back to the trace as a feedback or expectation assessment, building ground-truth datasets and quality signals you can reuse in evaluation."
+  },
+  {
+    icon: TrendingUp,
+    title: "Track Progress at a Glance",
+    description: "A progress bar and per-status counts show how much of a queue is done, so you know when a labeling effort is complete."
+  }
+]} />
+
+## Step 1: Define your questions with label schemas
+
+A label schema is one reusable question. Create the questions your reviewers should answer once per experiment, then reuse them across queues.
+
+```python
+from mlflow.genai.label_schemas import (
+    create_label_schema,
+    InputCategorical,
+    InputPassFail,
+    InputText,
+)
+
+# A Pass/Fail feedback question.
+create_label_schema(
+    name="correctness",
+    type="feedback",
+    input=InputPassFail(positive_label="Correct", negative_label="Incorrect"),
+    instruction="Is the answer factually correct?",
+    enable_comment=True,  # also let reviewers leave a free-text rationale
+)
+
+# A categorical feedback question.
+create_label_schema(
+    name="tone",
+    type="feedback",
+    input=InputCategorical(options=["Professional", "Casual", "Inappropriate"]),
+    instruction="How would you describe the tone of the response?",
+)
+
+# An expectation question that captures the ideal answer (ground truth).
+create_label_schema(
+    name="expected_response",
+    type="expectation",
+    input=InputText(),
+    instruction="What should the assistant have said?",
+)
+```
+
+A schema's `type` controls where the answer lands on the trace:
+
+- **`feedback`** schemas record a [feedback](/genai/assessments/feedback) assessment — an evaluation of what the AI produced.
+- **`expectation`** schemas record an [expectation](/genai/assessments/expectations) assessment — the ground-truth value the output should have matched.
+
+### Input types
+
+The `input` argument picks the widget the reviewer sees and the value type recorded:
+
+| Input | Reviewer sees | Recorded value |
+| --- | --- | --- |
+| `InputPassFail(positive_label, negative_label)` | A two-option toggle | Boolean (`true` = positive) |
+| `InputCategorical(options, multi_select=False)` | A single-select dropdown | The chosen option |
+| `InputNumeric(min_value, max_value)` | A number field | A number |
+| `InputText(max_length)` | A free-form text box | A string |
+
+`enable_comment=True` adds an optional free-text rationale field alongside any of the above, and `instruction` is the prompt shown under the question.
+
+:::note
+`InputCategoricalList`, `InputTextList`, and some input options are only fully supported on Databricks-managed tracking. On Databricks, `create_label_schema` routes to the Databricks Review App; on open-source MLflow it uses the tracking store, and `get_label_schema` / `list_label_schemas` / `update_label_schema` operate against that store.
+:::
+
+You can also create and manage schemas without code: from the **Review** tab of an experiment, open the queue creation or settings dialog and use **New question** to define a schema with the same input types.
+
+## Step 2: Create a review queue
+
+There are two kinds of queue.
+
+<ConceptOverview concepts={[
+  {
+    icon: Users,
+    title: "Custom queue",
+    description: "A shared queue for a team. You pick the exact questions (label schemas) it asks and assign up to ten reviewers. Best for a focused labeling effort that several people work through together."
+  },
+  {
+    icon: Eye,
+    title: "User queue",
+    description: "One reviewer's personal queue. It inherits all of the experiment's label schemas and is assigned to exactly one person. Best for routing specific traces to a specific reviewer."
+  }
+]} />
+
+```python
+from mlflow.genai.label_schemas import list_label_schemas
+from mlflow.genai.review_queues import create_review_queue, get_or_create_user_queue
+
+# A custom queue with a chosen subset of questions and assigned reviewers.
+schema_ids = [s.schema_id for s in list_label_schemas()]
+queue = create_review_queue(
+    name="Hallucination review - June",
+    queue_type="custom",
+    schema_ids=schema_ids,
+    users=["alice@company.com", "bob@company.com"],  # auth servers only
+)
+
+# A user queue: one reviewer, inherits every schema in the experiment.
+# get_or_create_user_queue is idempotent — it is the backbone of
+# "assign these traces to this person".
+personal = get_or_create_user_queue("carol@company.com")
+```
+
+Notes:
+
+- `create_review_queue` is keyword-only past `name`. The owner (`created_by`) is stamped by the server from the authenticated user, not passed by the caller.
+- A queue name is unique within its experiment, and `experiment_id` defaults to the active experiment.
+- A custom queue's questions (`schema_ids`) are frozen once it has traces attached. Detach the traces first if you need to change the questions; the assigned `users` stay editable at any time.
+
+To create a queue in the UI, open the experiment's **Review** tab and choose **Create queue** — name it, pick the questions, and (on an authenticated server) assign reviewers.
+
+## Step 3: Add traces to a queue
+
+Attach traces by their trace IDs. Adding is idempotent — re-adding a trace keeps its existing review status.
+
+```python
+from mlflow.genai.review_queues import add_items_to_review_queue
+
+add_items_to_review_queue(queue.queue_id, item_ids=["tr-abc123", "tr-def456"])
+```
+
+In the UI, select traces from the trace table (or open a single trace) and use **Assign to reviewers** to flag them into one or more queues.
+
+## Step 4: Review traces in the UI
+
+Reviewers work a queue from the experiment's **Review** tab. Selecting a trace opens **focus mode**, a full-page review surface with three panels:
+
+- **Left** — a compact rail of the queue's traces, with a progress bar across the top, for moving between items.
+- **Middle** — the trace's input and output. Chat-style and plain-text content render as formatted Markdown, JSON renders as a syntax-highlighted block, and **View full trace** opens the complete span timeline in a drawer.
+- **Right** — the queue's questions as input widgets (the label schemas from Step 1), each with a status dot showing whether it has been answered.
+
+<CollapsibleSection title="The review workflow in focus mode" defaultExpanded={false}>
+
+- **Answer the questions** using the widgets, then **Submit** to record the answers and mark the trace complete. A queue whose only question is a single Pass/Fail auto-submits as soon as the reviewer picks an answer.
+- **Decline** a trace to flag that it should not have been in the queue (distinct from skipping it for later).
+- A completed trace stays **editable**: revise the answers and **Save changes** to update the recorded assessments in place, without sending the trace back to the to-do list. A small "Changes saved" toast confirms the update.
+- **Move to Todo** puts a completed or declined trace back into the pending pool so it (or another reviewer) can review it again.
+- Submitting requires at least one answered question, so a trace is never marked complete with nothing recorded.
+- When the last trace in the queue is reviewed, a toast confirms the queue is fully reviewed.
+
+</CollapsibleSection>
+
+Because status is shared across the queue, the first reviewer to complete a trace marks it done for everyone, and `completed_by` records who that was.
+
+## Manage and track queues programmatically
+
+List a queue's items, optionally filtered by status, and drive the review status from code — useful for automation, reporting, or seeding review state.
+
+```python
+from mlflow.genai.review_queues import (
+    list_review_queue_items,
+    set_review_queue_item_status,
+    list_review_queues,
+)
+
+# How much of the queue is left?
+pending = list_review_queue_items(queue.queue_id, status="pending")
+print(f"{len(pending)} traces still to review")
+
+# Mark a trace complete (completed_by is required for terminal states).
+set_review_queue_item_status(
+    queue.queue_id,
+    item_id="tr-abc123",
+    status="complete",
+    completed_by="alice@company.com",
+)
+
+# Reopen it (clears completed_by).
+set_review_queue_item_status(queue.queue_id, item_id="tr-abc123", status="pending")
+
+# Find which queues a reviewer is assigned to.
+my_queues = list_review_queues(user="alice@company.com")
+```
+
+You can also <APILink fn="mlflow.genai.review_queues.update_review_queue">`update_review_queue`</APILink> to change a custom queue's reviewers or questions, <APILink fn="mlflow.genai.review_queues.remove_items_from_review_queue">`remove_items_from_review_queue`</APILink> to detach traces, and <APILink fn="mlflow.genai.review_queues.delete_review_queue">`delete_review_queue`</APILink> to delete a queue. Deleting a queue leaves the reviewer assessments already recorded on its traces untouched.
+
+## How review answers become assessments
+
+A review queue never stores answers separately from your traces. Each answer is written straight onto the reviewed trace:
+
+- a **feedback** schema produces a feedback assessment,
+- an **expectation** schema produces an expectation assessment,
+
+attributed to the reviewer (`source_id`). Re-saving an edited answer supersedes the reviewer's previous answer rather than creating a duplicate. This means review output is immediately available everywhere assessments are — the trace UI, [evaluation](/genai/eval-monitor), and ground-truth [datasets](/genai/datasets) — without an extra export step.
+
+## API Reference
+
+Review queues:
+
+- <APILink fn="mlflow.genai.review_queues.create_review_queue">`create_review_queue`</APILink>
+- <APILink fn="mlflow.genai.review_queues.get_or_create_user_queue">`get_or_create_user_queue`</APILink>
+- <APILink fn="mlflow.genai.review_queues.get_review_queue">`get_review_queue`</APILink>
+- <APILink fn="mlflow.genai.review_queues.list_review_queues">`list_review_queues`</APILink>
+- <APILink fn="mlflow.genai.review_queues.update_review_queue">`update_review_queue`</APILink>
+- <APILink fn="mlflow.genai.review_queues.delete_review_queue">`delete_review_queue`</APILink>
+- <APILink fn="mlflow.genai.review_queues.add_items_to_review_queue">`add_items_to_review_queue`</APILink>
+- <APILink fn="mlflow.genai.review_queues.remove_items_from_review_queue">`remove_items_from_review_queue`</APILink>
+- <APILink fn="mlflow.genai.review_queues.list_review_queue_items">`list_review_queue_items`</APILink>
+- <APILink fn="mlflow.genai.review_queues.set_review_queue_item_status">`set_review_queue_item_status`</APILink>
+
+Label schemas:
+
+- <APILink fn="mlflow.genai.label_schemas.create_label_schema">`create_label_schema`</APILink>
+- <APILink fn="mlflow.genai.label_schemas.get_label_schema">`get_label_schema`</APILink>
+- <APILink fn="mlflow.genai.label_schemas.list_label_schemas">`list_label_schemas`</APILink>
+- <APILink fn="mlflow.genai.label_schemas.update_label_schema">`update_label_schema`</APILink>
+- <APILink fn="mlflow.genai.label_schemas.delete_label_schema">`delete_label_schema`</APILink>

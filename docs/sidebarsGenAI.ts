@@ -925,6 +925,11 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'assessments/expectations',
               label: 'Annotating Ground Truth',
             },
+            {
+              type: 'doc',
+              id: 'assessments/review-queues',
+              label: 'Review Queues',
+            },
           ],
         },
         {
