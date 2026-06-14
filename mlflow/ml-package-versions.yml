@@ -41,6 +41,11 @@ pytorch:
       # for torch < 2.5 (annotations stored as strings under `from __future__`).
       # https://github.com/huggingface/transformers/issues/42352
       "< 2.5": ["transformers<5"]
+      # transformers 5.10.x references torch.float8_e8m0fnu at import time, which
+      # only exists in torch >= 2.7, so importing any model fails on older torch.
+      # Fixed (guarded) in transformers 5.11.0, so exclude only the broken 5.10
+      # line and keep testing newer transformers on torch 2.5/2.6.
+      ">= 2.5, < 2.7": ["transformers!=5.10.*"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
 
@@ -421,6 +426,12 @@ shap:
   models:
     minimum: "0.46.0"
     maximum: "0.51.0"
+    unsupported:
+      # shap >= 0.52.0 dropped Python 3.10/3.11 support and requires Python >= 3.12.
+      # The cross version test CI only runs Python 3.10/3.11 (the setup-python action
+      # rejects other versions), so mark these releases unsupported until CI can run
+      # Python 3.12.
+      - ">= 0.52.0"
     run: |
       pytest tests/shap
 
@@ -650,7 +661,13 @@ langchain:
           "uvicorn",
           # Required for testing Databricks dependency extraction
           "databricks-langchain",
-          "databricks-vectorsearch",
+          # Pin <0.74: 0.74 renamed databricks-vectorsearch to databricks-ai-search and
+          # turned `databricks.vector_search.*` into a re-export that drops
+          # `VectorSearchIndex`. Both this dependency-extraction test AND databricks-langchain
+          # itself import that symbol from `databricks.vector_search.client` at import time,
+          # so 0.74 breaks the whole langchain matrix. Revisit once databricks-langchain
+          # moves to databricks-ai-search.
+          "databricks-vectorsearch<0.74",
           # Required for testing uc tools
           "unitycatalog-langchain",
         ]

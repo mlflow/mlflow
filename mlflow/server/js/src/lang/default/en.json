@@ -67,10 +67,6 @@
     "defaultMessage": "Python",
     "description": "Tab label for the runnable Python code-snippet path in the eval-runs empty state"
   },
-  "+GVDd2": {
-    "defaultMessage": "Assign reviewers by name. They'll find this queue under “Feedback requested”.",
-    "description": "Queue settings: members field hint"
-  },
   "+HgSTK": {
     "defaultMessage": "Use these code examples to call your endpoint. Choose between unified APIs for seamless model switching or passthrough APIs for provider-specific features.",
     "description": "Endpoint usage modal description"
@@ -494,10 +490,6 @@
   "0P5Ooz": {
     "defaultMessage": "+{count} more",
     "description": "Suffix on the dataset record tags column indicating how many additional tags are hidden in the preview"
-  },
-  "0PXsSn": {
-    "defaultMessage": "Add a reviewer by username or email",
-    "description": "Queue settings: member typeahead placeholder"
   },
   "0QTEQi": {
     "defaultMessage": "Usage",
@@ -1295,6 +1287,10 @@
     "defaultMessage": "Close",
     "description": "Close button for tag details modal"
   },
+  "4cnExh": {
+    "defaultMessage": "{count, plural, one {# reviewer} other {# reviewers}} selected",
+    "description": "Queue settings: reviewers dropdown selected-count summary"
+  },
   "4e1JWO": {
     "defaultMessage": "Delete question?",
     "description": "Manage review questions: delete confirmation title"
@@ -1775,6 +1771,10 @@
     "defaultMessage": "Traces",
     "description": "Label for the traces mode on the registered prompt details page"
   },
+  "7N8Fqq": {
+    "defaultMessage": "Changes saved",
+    "description": "Review focused view: confirmation that edited answers were saved"
+  },
   "7NKkk1": {
     "defaultMessage": "Save",
     "description": "Modal button text to save the changes to rename the experiment run name"
@@ -1878,6 +1878,10 @@
   "7pkOrA": {
     "defaultMessage": "Model",
     "description": "Summary model label"
+  },
+  "7rO5IT": {
+    "defaultMessage": "Select reviewers",
+    "description": "Review queue: reviewers dropdown placeholder"
   },
   "7ritzC": {
     "defaultMessage": "Optional. Define a JSON schema for structured LLM responses.",
@@ -2006,6 +2010,10 @@
   "8YmId5": {
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in Contour chart configurator in compare runs chart config modal"
+  },
+  "8bgHT0": {
+    "defaultMessage": "Save changes",
+    "description": "Review focused view: re-save edited answers on an already-complete trace"
   },
   "8biXJJ": {
     "defaultMessage": "Select output type",
@@ -2799,6 +2807,10 @@
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
   },
+  "CKwhUr": {
+    "defaultMessage": "Move to Todo",
+    "description": "Review focused view: send a completed/declined trace back to the to-do list"
+  },
   "CO81il": {
     "defaultMessage": "No usage data available",
     "description": "Empty state title"
@@ -3007,6 +3019,10 @@
     "defaultMessage": "Diff highlighting is not supported in Markdown view. Switch to Text view to see differences.",
     "description": "Warning message shown in prompt comparison view when markdown rendering is enabled"
   },
+  "DSu+/R": {
+    "defaultMessage": "Select reviewers",
+    "description": "Review queue: reviewers dropdown label"
+  },
   "DUnrWL": {
     "defaultMessage": "Run Name:",
     "description": "Row title for the run name on the experiment compare runs page"
@@ -3211,10 +3227,6 @@
     "defaultMessage": "Workspace Manager",
     "description": "Roles table column header for the workspace-admin marker (multi-tenant)"
   },
-  "Ek+kWF": {
-    "defaultMessage": "Reopen",
-    "description": "Review focused view: reopen action"
-  },
   "EkUD0b": {
     "defaultMessage": "No results",
     "description": "Experiment page > sort selector > no results after filtering by search query"
@@ -3342,6 +3354,10 @@
   "FcddG+": {
     "defaultMessage": "Zoom Out",
     "description": "Button to reset chart zoom"
+  },
+  "Fd6/Yb": {
+    "defaultMessage": "Loading reviewers…",
+    "description": "Review queue: reviewers roster loading"
   },
   "FdDWTo": {
     "defaultMessage": "Clear All",
@@ -3474,10 +3490,6 @@
   "GKiPV1": {
     "defaultMessage": "Start Time:",
     "description": "Text for start time row header in the main table in the model comparison\n                page"
-  },
-  "GO4YVQ": {
-    "defaultMessage": "Add reviewer",
-    "description": "Create review queue: add-reviewer button"
   },
   "GRaplV": {
     "defaultMessage": "Context sufficiency",
@@ -4174,6 +4186,10 @@
   "KT0fFe": {
     "defaultMessage": "Add tag",
     "description": "Button text for adding a tag when no tags exist on a dataset record"
+  },
+  "KTl4GE": {
+    "defaultMessage": "No assignable reviewers",
+    "description": "Review queue: no assignable reviewers available"
   },
   "KV3BXl": {
     "defaultMessage": "Select as baseline version",
@@ -6055,6 +6071,10 @@
     "defaultMessage": "Group:",
     "description": "Label for a group of runs in the evaluation runs table"
   },
+  "UWSg5M": {
+    "defaultMessage": "Search to find more reviewers",
+    "description": "Review queue: hint that more reviewers are searchable"
+  },
   "UXCsxN": {
     "defaultMessage": "Unsaved changes",
     "description": "Status text shown when the dataset record drawer has unsaved edits"
@@ -7915,10 +7935,6 @@
     "defaultMessage": "Run name",
     "description": "Column label for run name"
   },
-  "dY0HOA": {
-    "defaultMessage": "No reviewers assigned yet.",
-    "description": "Queue settings: empty members state"
-  },
   "dY1g+4": {
     "defaultMessage": "Optional character limit for the free-form text. Leave blank for no limit.",
     "description": "Text max length hint"
@@ -8234,6 +8250,10 @@
   "fHI22G": {
     "defaultMessage": "JSON",
     "description": "Label for the JSON render mode in the model trace explorer inputs/outputs tab"
+  },
+  "fIoh61": {
+    "defaultMessage": "No matching reviewers",
+    "description": "Review queue: no reviewers match the search"
   },
   "fKx4kG": {
     "defaultMessage": "Aggregation: {value}",
@@ -8675,10 +8695,6 @@
     "defaultMessage": "Resource",
     "description": "Permissions table column header for the resource"
   },
-  "h5PsUd": {
-    "defaultMessage": "Remove reviewer",
-    "description": "Create review queue: remove-reviewer button"
-  },
   "hBAhI8": {
     "defaultMessage": "Copy",
     "description": "Tooltip message displayed on copy action"
@@ -8871,6 +8887,10 @@
     "defaultMessage": "Retry",
     "description": "Home page workspaces retry CTA"
   },
+  "i3YjH+": {
+    "defaultMessage": "Showing the first {count} matches — refine your search",
+    "description": "Review queue: hint that the reviewer search results were capped"
+  },
   "i49wE6": {
     "defaultMessage": "We couldn't load your experiments.",
     "description": "Home page experiments error message"
@@ -8918,6 +8938,10 @@
   "iHstr7": {
     "defaultMessage": "Output",
     "description": "Review focused view: trace output label"
+  },
+  "iLEEpo": {
+    "defaultMessage": "Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”.",
+    "description": "Queue settings: members field hint"
   },
   "iLFoPb": {
     "defaultMessage": "State",
@@ -10094,10 +10118,6 @@
   "o6uTLu": {
     "defaultMessage": "Created",
     "description": "Column selector label for the create-time column"
-  },
-  "o6vu2C": {
-    "defaultMessage": "username or email",
-    "description": "Create review queue: reviewer input placeholder"
   },
   "o7dzKo": {
     "defaultMessage": "Last Modified",
@@ -11819,6 +11839,10 @@
     "defaultMessage": "Tag key already exists on one or more of the selected runs. Please choose a different key.",
     "description": "Add new key-value tag modal > Duplicate tag key error"
   },
+  "xDQZlj": {
+    "defaultMessage": "{count, plural, one {# reviewer} other {# reviewers}} selected",
+    "description": "Create review queue: reviewers dropdown selected-count summary"
+  },
   "xEr8Gl": {
     "defaultMessage": "Set spending limits and control costs across your endpoints.",
     "description": "Empty state message for budgets list"
@@ -11934,6 +11958,10 @@
   "xiFkTH": {
     "defaultMessage": "Use for evaluation",
     "description": "Trace actions dropdown group label"
+  },
+  "xiMqde": {
+    "defaultMessage": "You can assign up to {max} reviewers. Unselect one to choose another.",
+    "description": "Review queue: hint shown when the reviewer-assignment cap is reached"
   },
   "xiiaIF": {
     "defaultMessage": "Run on all future traces",
