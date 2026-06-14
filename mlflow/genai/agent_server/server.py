@@ -1,10 +1,13 @@
 import argparse
+import asyncio
+import contextvars
 import functools
 import inspect
 import json
 import logging
 import os
 import posixpath
+from queue import Queue
 from typing import Any, AsyncGenerator, Callable, Literal, ParamSpec, TypeVar
 
 import httpx
@@ -29,6 +32,9 @@ _R = TypeVar("_R")
 
 _invoke_function: Callable[..., Any] | None = None
 _stream_function: Callable[..., Any] | None = None
+
+# Sentinel pushed onto the bridge queue to signal a worker generator has finished.
+_STREAM_SENTINEL = object()
 
 
 def get_invoke_function():
@@ -319,7 +325,10 @@ class AgentServer:
                 if inspect.iscoroutinefunction(func):
                     result = await func(request)
                 else:
-                    result = func(request)
+                    # Run sync handlers off the event loop so a slow handler does not
+                    # block other concurrent requests (e.g. /health). to_thread copies
+                    # the current context, so the active tracing span propagates.
+                    result = await asyncio.to_thread(func, request)
 
                 result = self.validator.validate_and_convert_result(result)
                 if self.agent_type == "ResponsesAgent":
@@ -346,6 +355,48 @@ class AgentServer:
 
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def _iterate_sync_in_thread(
+        self, func: Callable[..., Any], request: dict[str, Any]
+    ) -> AsyncGenerator[Any, None]:
+        """Iterate a synchronous generator on a dedicated worker thread.
+
+        Running user generators off the event loop keeps the server responsive to
+        other requests (e.g. /health) while a chunk is being produced. A single
+        worker thread running in a copied context is used rather than Starlette's
+        per-``__next__`` threadpool so the generator executes in one consistent
+        context. This keeps MLflow's contextvar-based span attach/detach from
+        crossing thread/context boundaries, which would otherwise raise
+        "token was created in a different Context" errors.
+        """
+        loop = asyncio.get_running_loop()
+        chunk_queue: Queue[Any] = Queue()
+        error: list[BaseException] = []
+        # Copy the current context so the active tracing span set by the caller
+        # propagates into the worker thread and the generator's own spans nest
+        # correctly.
+        ctx = contextvars.copy_context()
+
+        def produce() -> None:
+            try:
+                for chunk in func(request):
+                    chunk_queue.put(chunk)
+            except BaseException as e:
+                error.append(e)
+            finally:
+                chunk_queue.put(_STREAM_SENTINEL)
+
+        # Fire-and-forget: the generator is consumed in a background thread and
+        # chunks are read from the queue below. Not awaited so the loop stays free.
+        loop.run_in_executor(None, lambda: ctx.run(produce))
+
+        while True:
+            chunk = await loop.run_in_executor(None, chunk_queue.get)
+            if chunk is _STREAM_SENTINEL:
+                if error:
+                    raise error[0]
+                break
+            yield chunk
+
     async def _generate(
         self,
         func: Callable[..., Any],
@@ -363,7 +414,7 @@ class AgentServer:
                         all_chunks.append(chunk)
                         yield f"data: {json.dumps(chunk)}\n\n"
                 else:
-                    for chunk in func(request):
+                    async for chunk in self._iterate_sync_in_thread(func, request):
                         chunk = self.validator.validate_and_convert_result(chunk, stream=True)
                         all_chunks.append(chunk)
                         yield f"data: {json.dumps(chunk)}\n\n"
