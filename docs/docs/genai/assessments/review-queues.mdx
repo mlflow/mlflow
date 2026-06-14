@@ -16,7 +16,7 @@ Review queues turn ad-hoc human review into a structured workflow. You bundle a 
 For the full API, see the <APILink fn="mlflow.genai.review_queues.create_review_queue">`mlflow.genai.review_queues`</APILink> and <APILink fn="mlflow.genai.label_schemas.create_label_schema">`mlflow.genai.label_schemas`</APILink> references.
 
 :::note Experimental
-The review-queue and label-schema APIs are experimental (added in MLflow 3.14.0) and may change in a future release.
+The review-queue and review-question APIs are experimental (added in MLflow 3.14.0) and may change in a future release.
 :::
 
 ## What is a Review Queue?
@@ -26,8 +26,8 @@ A review queue is a named collection of traces, scoped to an experiment, that a 
 <ConceptOverview concepts={[
   {
     icon: ListCheck,
-    title: "Label Schemas (the questions)",
-    description: "Reusable question definitions — a Pass/Fail toggle, a categorical choice, a numeric score, or free text. Each schema is either a feedback question (how good was the output?) or an expectation question (what should the output have been?)."
+    title: "Review Questions",
+    description: "Reusable question definitions — a Pass/Fail toggle, a categorical choice, a numeric score, or free text. Each question is either a feedback question (how good was the output?) or an expectation question (what should the output have been?)."
   },
   {
     icon: Users,
@@ -45,7 +45,7 @@ A review queue is a named collection of traces, scoped to an experiment, that a 
 
 - MLflow 3.14.0 or later.
 - An MLflow tracking server (or local tracking setup) with traces already logged to an experiment.
-- For multi-reviewer (custom) queues and per-reviewer attribution, run the tracking server with [authentication](/genai/governance) enabled. On a server without authentication, reviews are attributed to a single `default` user and reviewer assignment is hidden.
+- For multi-reviewer (custom) queues and per-reviewer attribution, run the tracking server with [authentication](/self-hosting/security/basic-http-auth) enabled. On a server without authentication, reviews are attributed to a single `default` user and reviewer assignment is hidden.
 
 ## Why use Review Queues?
 
@@ -72,9 +72,9 @@ A review queue is a named collection of traces, scoped to an experiment, that a 
   }
 ]} />
 
-## Step 1: Define your questions with label schemas
+## Step 1: Define your review questions
 
-A label schema is one reusable question. Create the questions your reviewers should answer once per experiment, then reuse them across queues.
+Define the questions your reviewers should answer once per experiment, then reuse them across queues. In the SDK a review question is created with `create_label_schema` (the API uses the term _label schema_):
 
 ```python
 from mlflow.genai.label_schemas import (
@@ -110,10 +110,10 @@ create_label_schema(
 )
 ```
 
-A schema's `type` controls where the answer lands on the trace:
+A question's `type` controls where the answer lands on the trace:
 
-- **`feedback`** schemas record a [feedback](/genai/assessments/feedback) assessment — an evaluation of what the AI produced.
-- **`expectation`** schemas record an [expectation](/genai/assessments/expectations) assessment — the ground-truth value the output should have matched.
+- **`feedback`** questions record a [feedback](/genai/assessments/feedback) assessment — an evaluation of what the AI produced.
+- **`expectation`** questions record an [expectation](/genai/assessments/expectations) assessment — the ground-truth value the output should have matched.
 
 ### Input types
 
@@ -132,7 +132,7 @@ The `input` argument picks the widget the reviewer sees and the value type recor
 `InputCategoricalList`, `InputTextList`, and some input options are only fully supported on Databricks-managed tracking. On Databricks, `create_label_schema` routes to the Databricks Review App; on open-source MLflow it uses the tracking store, and `get_label_schema` / `list_label_schemas` / `update_label_schema` operate against that store.
 :::
 
-You can also create and manage schemas without code: from the **Review** tab of an experiment, open the queue creation or settings dialog and use **New question** to define a schema with the same input types.
+You can also create and manage questions without code: from the **Review** tab of an experiment, open the queue creation or settings dialog and use **New question** to define one with the same input types.
 
 ## Step 2: Create a review queue
 
@@ -142,12 +142,12 @@ There are two kinds of queue.
   {
     icon: Users,
     title: "Custom queue",
-    description: "A shared queue for a team. You pick the exact questions (label schemas) it asks and assign up to ten reviewers. Best for a focused labeling effort that several people work through together."
+    description: "A shared queue for a team. You pick the exact questions it asks and assign up to ten reviewers. Best for a focused labeling effort that several people work through together."
   },
   {
     icon: Eye,
     title: "User queue",
-    description: "One reviewer's personal queue. It inherits all of the experiment's label schemas and is assigned to exactly one person. Best for routing specific traces to a specific reviewer."
+    description: "One reviewer's personal queue. It inherits all of the experiment's questions and is assigned to exactly one person. Best for routing specific traces to a specific reviewer."
   }
 ]} />
 
@@ -156,6 +156,7 @@ from mlflow.genai.label_schemas import list_label_schemas
 from mlflow.genai.review_queues import create_review_queue, get_or_create_user_queue
 
 # A custom queue with a chosen subset of questions and assigned reviewers.
+# (Questions are the experiment's label schemas; pass their ids as schema_ids.)
 schema_ids = [s.schema_id for s in list_label_schemas()]
 queue = create_review_queue(
     name="Hallucination review - June",
@@ -164,7 +165,7 @@ queue = create_review_queue(
     users=["alice@company.com", "bob@company.com"],  # auth servers only
 )
 
-# A user queue: one reviewer, inherits every schema in the experiment.
+# A user queue: one reviewer, inherits every question in the experiment.
 # get_or_create_user_queue is idempotent — it is the backbone of
 # "assign these traces to this person".
 personal = get_or_create_user_queue("carol@company.com")
@@ -196,7 +197,7 @@ Reviewers work a queue from the experiment's **Review** tab. Selecting a trace o
 
 - **Left** — a compact rail of the queue's traces, with a progress bar across the top, for moving between items.
 - **Middle** — the trace's input and output. Chat-style and plain-text content render as formatted Markdown, JSON renders as a syntax-highlighted block, and **View full trace** opens the complete span timeline in a drawer.
-- **Right** — the queue's questions as input widgets (the label schemas from Step 1), each with a status dot showing whether it has been answered.
+- **Right** — the queue's review questions as input widgets (from Step 1), each with a status dot showing whether it has been answered.
 
 <CollapsibleSection title="The review workflow in focus mode" defaultExpanded={false}>
 
@@ -247,8 +248,8 @@ You can also <APILink fn="mlflow.genai.review_queues.update_review_queue">`updat
 
 A review queue never stores answers separately from your traces. Each answer is written straight onto the reviewed trace:
 
-- a **feedback** schema produces a feedback assessment,
-- an **expectation** schema produces an expectation assessment,
+- a **feedback** question produces a feedback assessment,
+- an **expectation** question produces an expectation assessment,
 
 attributed to the reviewer (`source_id`). Re-saving an edited answer supersedes the reviewer's previous answer rather than creating a duplicate. This means review output is immediately available everywhere assessments are — the trace UI, [evaluation](/genai/eval-monitor), and ground-truth [datasets](/genai/datasets) — without an extra export step.
 
@@ -267,7 +268,7 @@ Review queues:
 - <APILink fn="mlflow.genai.review_queues.list_review_queue_items">`list_review_queue_items`</APILink>
 - <APILink fn="mlflow.genai.review_queues.set_review_queue_item_status">`set_review_queue_item_status`</APILink>
 
-Label schemas:
+Review questions (the `label_schemas` SDK):
 
 - <APILink fn="mlflow.genai.label_schemas.create_label_schema">`create_label_schema`</APILink>
 - <APILink fn="mlflow.genai.label_schemas.get_label_schema">`get_label_schema`</APILink>
