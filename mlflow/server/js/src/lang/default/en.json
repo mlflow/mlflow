@@ -2807,6 +2807,10 @@
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
   },
+  "CKwhUr": {
+    "defaultMessage": "Move to Todo",
+    "description": "Review focused view: send a completed/declined trace back to the to-do list"
+  },
   "CO81il": {
     "defaultMessage": "No usage data available",
     "description": "Empty state title"
@@ -3218,10 +3222,6 @@
   "EjPmMR": {
     "defaultMessage": "Workspace Manager",
     "description": "Roles table column header for the workspace-admin marker (multi-tenant)"
-  },
-  "Ek+kWF": {
-    "defaultMessage": "Reopen",
-    "description": "Review focused view: reopen action"
   },
   "EkUD0b": {
     "defaultMessage": "No results",

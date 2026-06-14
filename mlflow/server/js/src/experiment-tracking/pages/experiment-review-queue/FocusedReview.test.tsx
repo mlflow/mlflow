@@ -307,19 +307,19 @@ describe('FocusedReview edit-in-place on a completed trace', () => {
     expect(onSetStatus).not.toHaveBeenCalled();
   });
 
-  it('still offers Reopen as the explicit way to send a completed trace back to the to-do list', async () => {
+  it('still offers Move to Todo as the explicit way to send a completed trace back to the to-do list', async () => {
     const onSetStatus = jest.fn((_status: string) => Promise.resolve());
     renderFocused([passFailSchema(), passFailSchema('s2', 'Also good?')], onSetStatus, { item: completeItem });
 
-    fireEvent.click(screen.getByText('Reopen'));
+    fireEvent.click(screen.getByText('Move to Todo'));
     await waitFor(() => expect(onSetStatus).toHaveBeenCalledWith('PENDING'));
   });
 
-  it('locks a declined trace and offers only Reopen (no save/submit)', () => {
+  it('locks a declined trace and offers only Move to Todo (no save/submit)', () => {
     const onSetStatus = jest.fn((_status: string) => Promise.resolve());
     renderFocused([passFailSchema(), passFailSchema('s2', 'Also good?')], onSetStatus, { item: declinedItem });
 
-    expect(screen.getByText('Reopen')).toBeInTheDocument();
+    expect(screen.getByText('Move to Todo')).toBeInTheDocument();
     expect(screen.queryByText('Save changes')).not.toBeInTheDocument();
     expect(screen.queryByText('Submit')).not.toBeInTheDocument();
     // The lock is the inputs being disabled, not just the missing button.

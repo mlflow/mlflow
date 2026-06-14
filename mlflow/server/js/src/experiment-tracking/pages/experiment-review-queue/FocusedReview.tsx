@@ -548,7 +548,10 @@ export const FocusedReview = ({
                   disabled={isSettingStatus || !canReview}
                   onClick={() => handleSetStatus('PENDING')}
                 >
-                  <FormattedMessage defaultMessage="Reopen" description="Review focused view: reopen action" />
+                  <FormattedMessage
+                    defaultMessage="Move to Todo"
+                    description="Review focused view: send a completed/declined trace back to the to-do list"
+                  />
                 </Button>
               ) : (
                 <Button
