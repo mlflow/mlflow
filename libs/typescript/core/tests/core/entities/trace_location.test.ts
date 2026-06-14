@@ -2,6 +2,7 @@ import {
   TraceLocation,
   TraceLocationType,
   createTraceLocationFromExperimentId,
+  deserializeTraceLocation,
 } from '../../../src/core/entities/trace_location';
 
 describe('TraceLocation', () => {
@@ -81,6 +82,14 @@ describe('TraceLocation', () => {
       expect(location.mlflowExperiment).toBeDefined();
       expect(location.mlflowExperiment?.experimentId).toBe(experimentId);
       expect(location.inferenceTable).toBeUndefined();
+    });
+  });
+
+  describe('deserializeTraceLocation', () => {
+    it('should reject missing trace location data', () => {
+      expect(() => deserializeTraceLocation(undefined)).toThrow(
+        'Invalid trace location: missing type.',
+      );
     });
   });
 });

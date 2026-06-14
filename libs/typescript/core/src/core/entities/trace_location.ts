@@ -125,8 +125,12 @@ export function serializeTraceLocation(loc: TraceLocation): SerializedTraceLocat
 }
 
 export function deserializeTraceLocation(json: SerializedTraceLocation | undefined): TraceLocation {
+  if (!json?.type) {
+    throw new Error('Invalid trace location: missing type.');
+  }
+
   return {
-    type: json?.type as TraceLocationType,
+    type: json.type,
     mlflowExperiment: json?.mlflow_experiment
       ? { experimentId: json.mlflow_experiment.experiment_id }
       : undefined,

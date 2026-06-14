@@ -20,6 +20,7 @@ import {
   createTraceLocationFromExperimentId,
   serializeTraceLocation,
   type TraceLocation,
+  TraceLocationType,
 } from '../core/entities/trace_location';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import type { ReadableSpan as OTelReadableSpan } from '@opentelemetry/sdk-trace-base';
@@ -211,6 +212,14 @@ export class MlflowClient {
     ];
     if (locations.length === 0) {
       throw new Error('searchTraces requires at least one experiment ID or trace location.');
+    }
+    for (const location of locations) {
+      if (
+        location.type !== TraceLocationType.MLFLOW_EXPERIMENT ||
+        !location.mlflowExperiment?.experimentId
+      ) {
+        throw new Error('searchTraces supports only MLflow experiment locations.');
+      }
     }
 
     const url = SearchTracesV3.getEndpoint(this.hostUrl);

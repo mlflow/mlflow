@@ -125,6 +125,7 @@ describe('MlflowClient', () => {
     it('should search traces by experiment ID and page through results', async () => {
       const firstTraceId = randomUUID();
       const secondTraceId = randomUUID();
+      const testFilterTag = randomUUID();
       await client.createTrace(
         new TraceInfo({
           traceId: firstTraceId,
@@ -136,6 +137,7 @@ describe('MlflowClient', () => {
           },
           state: TraceState.OK,
           requestTime: 1000,
+          tags: { searchTracesPagination: testFilterTag },
         }),
       );
       await client.createTrace(
@@ -149,11 +151,13 @@ describe('MlflowClient', () => {
           },
           state: TraceState.OK,
           requestTime: 2000,
+          tags: { searchTracesPagination: testFilterTag },
         }),
       );
 
       const firstPage = await client.searchTraces({
         experimentIds: [experimentId],
+        filter: `tags.searchTracesPagination = '${testFilterTag}'`,
         maxResults: 1,
         orderBy: ['timestamp_ms DESC'],
       });
@@ -165,6 +169,7 @@ describe('MlflowClient', () => {
 
       const secondPage = await client.searchTraces({
         experimentIds: [experimentId],
+        filter: `tags.searchTracesPagination = '${testFilterTag}'`,
         maxResults: 1,
         orderBy: ['timestamp_ms DESC'],
         pageToken: firstPage.nextPageToken,
@@ -241,6 +246,19 @@ describe('MlflowClient', () => {
       await expect(client.searchTraces({})).rejects.toThrow(
         'searchTraces requires at least one experiment ID or trace location.',
       );
+    });
+
+    it('should reject unsupported trace locations', async () => {
+      await expect(
+        client.searchTraces({
+          locations: [
+            {
+              type: TraceLocationType.INFERENCE_TABLE,
+              inferenceTable: { fullTableName: 'catalog.schema.table' },
+            },
+          ],
+        }),
+      ).rejects.toThrow('searchTraces supports only MLflow experiment locations.');
     });
   });
 
