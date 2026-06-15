@@ -46,6 +46,34 @@ describe('ReviewQueueList', () => {
     expect(screen.getByText('Date added')).toBeInTheDocument();
   });
 
+  it('shows minute/second-fidelity relative time for the date added', () => {
+    // Regression: a freshly-added trace used to render "1h ago" because the
+    // formatter clamped its smallest unit to 1 hour.
+    const items = [
+      item('tr-just-now', 'PENDING', undefined, NOW - 10_000),
+      item('tr-min', 'PENDING', undefined, NOW - 5 * 60_000),
+      item('tr-hr', 'PENDING', undefined, NOW - 2 * 60 * 60_000),
+      item('tr-day', 'PENDING', undefined, NOW - 3 * 24 * 60 * 60_000),
+    ];
+    renderWithProviders(<ReviewQueueList items={items} onOpen={jest.fn()} nowMs={NOW} />);
+    expect(screen.getByText('just now')).toBeInTheDocument();
+    expect(screen.getByText('5m ago')).toBeInTheDocument();
+    expect(screen.getByText('2h ago')).toBeInTheDocument();
+    expect(screen.getByText('3d ago')).toBeInTheDocument();
+  });
+
+  it('floors each tier so a near-boundary age never rounds up to the next unit', () => {
+    // 59.5 min and 23.5h must read "59m ago" / "23h ago", not round up to
+    // "1h ago" / "1d ago" (which would reintroduce the clamping bug a level down).
+    const items = [
+      item('tr-min-boundary', 'PENDING', undefined, NOW - (59 * 60 + 30) * 1000),
+      item('tr-hr-boundary', 'PENDING', undefined, NOW - (23 * 60 + 30) * 60 * 1000),
+    ];
+    renderWithProviders(<ReviewQueueList items={items} onOpen={jest.fn()} nowMs={NOW} />);
+    expect(screen.getByText('59m ago')).toBeInTheDocument();
+    expect(screen.getByText('23h ago')).toBeInTheDocument();
+  });
+
   it('renders status tags for all items in a flat list', () => {
     renderWithProviders(
       <ReviewQueueList
@@ -55,7 +83,7 @@ describe('ReviewQueueList', () => {
       />,
     );
     expect(screen.getByText('Needs review')).toBeInTheDocument();
-    expect(screen.getByText('Complete')).toBeInTheDocument();
+    expect(screen.getByText('Reviewed')).toBeInTheDocument();
   });
 
   it('renders request and response previews from trace data', () => {
@@ -106,10 +134,10 @@ describe('ReviewQueueList', () => {
       />,
     );
     expect(screen.getByText('Needs review')).toBeInTheDocument();
-    expect(screen.getByText('Complete')).toBeInTheDocument();
+    expect(screen.getByText('Reviewed')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Needs review (1)'));
     expect(screen.getByText('Needs review')).toBeInTheDocument();
-    expect(screen.queryByText('Complete')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reviewed')).not.toBeInTheDocument();
   });
 
   it('filters to only completed items when Completed is clicked', () => {
@@ -122,7 +150,7 @@ describe('ReviewQueueList', () => {
     );
     fireEvent.click(screen.getByText('Completed (1)'));
     expect(screen.queryByText('Needs review')).not.toBeInTheDocument();
-    expect(screen.getByText('Complete')).toBeInTheDocument();
+    expect(screen.getByText('Reviewed')).toBeInTheDocument();
   });
 
   it('sorts by Date added when the column header is clicked', () => {
@@ -191,9 +219,9 @@ describe('ReviewQueueList', () => {
     // checkboxes[0] is select-all; [1] is the first row.
     const checkboxes = screen.getAllByRole('checkbox');
     fireEvent.click(checkboxes[1]);
-    expect(screen.getByRole('button', { name: /1 trace/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Unassign' })).toBeInTheDocument();
     // Switching filters resets the selection so hidden rows can't be deleted.
     fireEvent.click(screen.getByText('Completed (1)'));
-    expect(screen.queryByRole('button', { name: /trace/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Unassign' })).not.toBeInTheDocument();
   });
 });

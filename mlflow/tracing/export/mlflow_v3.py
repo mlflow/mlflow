@@ -307,8 +307,8 @@ class MlflowV3SpanExporter(SpanExporter):
         return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
 
     def _should_log_async(self) -> bool:
-        # During evaluate, the eval harness relies on the generated trace objects,
-        # so we should not log traces asynchronously.
+        # During evaluate or assertion tests, the harness relies on the generated
+        # trace objects being immediately available, so log synchronously.
         if maybe_get_request_id(is_evaluate=True):
             return False
 

@@ -8499,8 +8499,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
             if existing is not None:
                 raise MlflowException(
-                    f"Review queue with name '{validated.name}' already exists for experiment "
-                    f"'{experiment_id}'.",
+                    f"Review queue with name '{validated.name}' already exists.",
                     error_code=RESOURCE_ALREADY_EXISTS,
                 )
 
@@ -8539,8 +8538,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 if duplicate is not None:
                     # A parallel transaction won the create race.
                     raise MlflowException(
-                        f"Review queue with name '{validated.name}' already exists for experiment "
-                        f"'{experiment_id}'.",
+                        f"Review queue with name '{validated.name}' already exists.",
                         error_code=RESOURCE_ALREADY_EXISTS,
                     ) from e
                 experiment_present = (
@@ -8592,8 +8590,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # A custom queue squatting on this user's name — don't hand it
                 # back as if it were the user's personal queue.
                 raise MlflowException(
-                    f"A non-user queue named '{name}' already exists for experiment "
-                    f"'{experiment_id}'; cannot get-or-create a user queue with that name.",
+                    f"A non-user queue named '{name}' already exists; cannot get-or-create "
+                    f"a user queue with that name.",
                     error_code=RESOURCE_ALREADY_EXISTS,
                 ) from e
             return existing

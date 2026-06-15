@@ -330,6 +330,7 @@ from mlflow.genai.scorers.ragas.scorers import (
     ContextPrecision,
     ContextRecall,
     ContextRelevance,
+    ContextUtilization,
     DiscreteMetric,
     ExactMatch,
     FactualCorrectness,
@@ -356,6 +357,7 @@ __all__ = [
     "get_scorer",
     # RAG metrics
     "ContextPrecision",
+    "ContextUtilization",
     "NonLLMContextPrecisionWithReference",
     "ContextRecall",
     "NonLLMContextRecall",

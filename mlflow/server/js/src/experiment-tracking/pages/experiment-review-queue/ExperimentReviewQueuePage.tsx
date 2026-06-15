@@ -26,6 +26,7 @@ import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFro
 import { DEFAULT_REVIEWER, displayUser, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
 import { canDeleteQueue, canManageQueue, canRemoveQueueItems, sameUser } from './queuePermissions';
+import { useHeaderVisibility } from '../experiment-page-tabs/ExperimentPageHeaderVisibilityContext';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 /**
@@ -34,9 +35,7 @@ import type { ReviewQueueItem, ReviewStatus } from './types';
  * Clicking a trace opens the full-page focused question-answering view (the
  * queue list collapses), with a "Back" control to return to the list.
  *
- * The left list is a flat, sortable list of the reviewer's visible queues
- * (name / owner / to-do count); on an auth server an editor sees every queue,
- * with ones they can't open greyed out. See `ReviewQueueSidebar`.
+ * The left list of visible queues lives in `ReviewQueueSidebar`.
  */
 const ExperimentReviewQueuePage = () => {
   const { theme } = useDesignSystemTheme();
@@ -47,9 +46,8 @@ const ExperimentReviewQueuePage = () => {
   // identity is settled (an in-flight /users/current load reads as `default`).
   const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
-  // Question management (create / edit / delete label schemas) and owner
-  // reassignment require MANAGE; creating + owner-managing queues and reviewing
-  // require EDIT. Owner-level per-queue access combines `canEdit` with ownership.
+  // MANAGE gates question management and owner reassignment; EDIT (+ownership)
+  // gates queue create/manage and reviewing. Per-queue rules: queuePermissions.ts.
   const canManage = useCanManageReviews(experimentId ?? '');
   const canEdit = useCanEditReviews(experimentId ?? '');
 
@@ -66,9 +64,8 @@ const ExperimentReviewQueuePage = () => {
 
   const { reviewQueues, isLoading: queuesLoading } = useListReviewQueuesQuery({
     experimentId: experimentId ?? '',
-    // Don't scope by reviewer: a manager must see every queue, and the server's
-    // visibility filter (`filter_list_review_queues`) narrows the list to assigned
-    // queues for non-managers (admins / no-auth see all).
+    // Unscoped by reviewer on purpose: the server's `filter_list_review_queues`
+    // narrows the list for non-managers.
   });
   const { labelSchemas } = useListLabelSchemasQuery({ experimentId: experimentId ?? '' });
   const { setReviewQueueItemStatusAsync, isSettingStatus } = useSetReviewQueueItemStatusMutation();
@@ -124,34 +121,23 @@ const ExperimentReviewQueuePage = () => {
     () => (confirmDeleteQueueId ? (reviewQueues.find((q) => q.queue_id === confirmDeleteQueueId) ?? null) : null),
     [reviewQueues, confirmDeleteQueueId],
   );
-  // Whether the reviewer may manage the selected queue — a CUSTOM queue they can
-  // manage (MANAGE) or own (EDIT + owner). Removing traces and the right-pane
-  // gear (manage settings / delete) share this one permission.
+  // Per-queue gates (see queuePermissions.ts). Delete is its own gate because a
+  // manager may delete a USER queue, which has no manageable settings.
   const canManageSelectedQueue = selectedQueue ? canManageQueue(selectedQueue, reviewer, canManage, canEdit) : false;
-  // Delete is broader than manage: a manager may delete a personal USER queue
-  // (which has no editable settings), so it gets its own gate.
   const canDeleteSelectedQueue = selectedQueue ? canDeleteQueue(selectedQueue, reviewer, canManage, canEdit) : false;
-  // Removing traces (un-assigning work) follows the same rule as deleting the
-  // queue: a manager may prune any queue (including a personal USER queue), but
-  // an EDIT owner only their own CUSTOM queue — a reviewer can't un-assign work
-  // from their own USER queue.
   const canRemoveItemsFromSelectedQueue = selectedQueue
     ? canRemoveQueueItems(selectedQueue, reviewer, canManage, canEdit)
     : false;
-  // Whether the reviewer may submit reviews in the selected queue: always on a
-  // no-auth server; otherwise experiment EDIT plus membership in the queue's
-  // assigned-user pool (the server enforces both on set-status). A manager/owner
-  // viewing a queue they're not assigned to gets a view-only pane with a
-  // self-assign affordance.
+  // Reviewing needs EDIT + membership (server enforces both); a manager/owner who
+  // isn't assigned gets a view-only pane with a self-assign affordance.
   const isAssignedToSelectedQueue = !!selectedQueue && (selectedQueue.users ?? []).some((u) => sameUser(u, reviewer));
   const canReviewSelectedQueue = !authAvailable || (canEdit && isAssignedToSelectedQueue);
   const handleAssignSelf =
     authAvailable && canManageSelectedQueue && !canReviewSelectedQueue && selectedQueue
       ? () => {
-          // KNOWN LIMITATION (V1): this read-modify-writes the assignee list from a
-          // possibly-stale client snapshot, so a concurrent edit by another manager
-          // between load and save is clobbered. A dedicated server-side
-          // add-user-to-queue RPC (append, not replace) would remove the race.
+          // KNOWN LIMITATION (V1): read-modify-write of the assignee list from a
+          // possibly-stale snapshot races a concurrent manager edit. A server-side
+          // append RPC would remove it.
           void updateReviewQueueAsync({
             queue_id: selectedQueue.queue_id,
             users: [...(selectedQueue.users ?? []), reviewer],
@@ -253,6 +239,12 @@ const ExperimentReviewQueuePage = () => {
       }
     };
   }, [inFocusMode]);
+
+  const { setHeaderHidden } = useHeaderVisibility();
+  useEffect(() => {
+    setHeaderHidden(inFocusMode);
+    return () => setHeaderHidden(false);
+  }, [inFocusMode, setHeaderHidden]);
 
   const selectQueue = (queueId: string) => {
     setSelectedQueueIdState(queueId);
@@ -362,8 +354,7 @@ const ExperimentReviewQueuePage = () => {
             : undefined
         }
         isRemovingItems={isRemovingItems}
-        // Gear menu: "Manage queue" (settings) only for editable CUSTOM queues;
-        // "Delete queue" is separate — a manager can delete a USER queue too.
+        // Manage and delete are separately gated (a manager can delete a USER queue).
         onManageQueue={canManageSelectedQueue ? () => setEditingQueueId(selectedQueue.queue_id) : undefined}
         onDeleteQueue={canDeleteSelectedQueue ? () => setConfirmDeleteQueueId(selectedQueue.queue_id) : undefined}
         onGoToTraces={
@@ -391,14 +382,14 @@ const ExperimentReviewQueuePage = () => {
         paddingBottom: theme.spacing.md,
       }}
     >
-      <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: inFocusMode ? 'visible' : 'hidden' }}>
         {inFocusMode ? (
           <div
             css={{
               width: '100%',
               height: '100%',
               minHeight: 0,
-              overflow: 'hidden',
+              overflow: 'visible',
               display: 'flex',
               flexDirection: 'column',
             }}
@@ -457,8 +448,7 @@ const ExperimentReviewQueuePage = () => {
 
       {editingQueue && (
         <QueueSettingsModal
-          // Remount per queue so the name / owner inputs re-seed from the new
-          // queue rather than keeping the previous queue's values.
+          // Remount per queue so the inputs re-seed from the new queue.
           key={editingQueue.queue_id}
           queue={editingQueue}
           canManage={canManage}
