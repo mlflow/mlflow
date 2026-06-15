@@ -9767,6 +9767,10 @@
     "defaultMessage": "Last modified",
     "description": "Last modified column header"
   },
+  "mBzOSV": {
+    "defaultMessage": "A saved answer can't be removed. Enter a value for every question you've answered, or keep your previous answer.",
+    "description": "Review focused view: shown when a previously-answered question is cleared, which can't be saved"
+  },
   "mGUpJv": {
     "defaultMessage": "Failed to create record",
     "description": "Generic fallback save-error text for the dataset record side panel (create mode)"
