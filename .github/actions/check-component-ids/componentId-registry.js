@@ -1124,6 +1124,8 @@ module.exports = {
   "mlflow.eval-runs.table-refresh-button": "",
   "mlflow.eval-runs.table-refresh-button.tooltip": "",
   "mlflow.eval-runs.traces-mode-toggle-tooltip": "",
+  "mlflow.eval-runs.type-cell.eval": "",
+  "mlflow.eval-runs.type-filter": "",
   "mlflow.eval-runs.visibility-mode-selector": "",
 
   // -- mlflow.evaluations_overview --
@@ -1672,6 +1674,7 @@ module.exports = {
   "mlflow.genai-traces-table.issue-tag-overflow-trigger": "",
   "mlflow.genai-traces-table.logged_model_cell.model_link": "",
   "mlflow.genai-traces-table.prompt_link": "",
+  "mlflow.genai-traces-table.result": "",
   "mlflow.genai-traces-table.run-judges": "",
   "mlflow.genai-traces-table.run_name_link": "",
   "mlflow.genai-traces-table.session": "",
@@ -2015,6 +2018,16 @@ module.exports = {
 
   // -- mlflow.quality_tab --
   "mlflow.quality_tab.empty_state.learn_more_link": "",
+
+  // -- mlflow.regression-test-detail --
+  "mlflow.regression-test-detail.assertion-expand": "",
+  "mlflow.regression-test-detail.col-assertion": "",
+  "mlflow.regression-test-detail.col-result": "",
+  "mlflow.regression-test-detail.drawer": "",
+  "mlflow.regression-test-detail.next": "",
+  "mlflow.regression-test-detail.open-trace": "",
+  "mlflow.regression-test-detail.prev": "",
+  "mlflow.regression-test-detail.result-pill": "",
 
   // -- mlflow.run --
   "mlflow.run.artifact_view.create_run.tooltip": "",

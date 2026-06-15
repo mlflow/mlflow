@@ -269,6 +269,7 @@ export const GenAiTracesTableBody = React.memo(
       onTraceTagsEdit,
       enableGrouping,
       allColumns,
+      regressionTestMode,
     ]);
 
     const { setTable, setSelectedRowIds } = React.useContext(GenAITracesTableContext);
