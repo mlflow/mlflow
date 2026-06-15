@@ -57,7 +57,70 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceInfo,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.utils.search_utils import SearchTraceUtils
+from mlflow.utils.search_utils import SearchTraceUtils, SearchUtils
+
+# ---------------------------------------------------------------------------
+# Production-path numeric-CAST seam (benchmark-only monkeypatch)
+# ---------------------------------------------------------------------------
+#
+# This bench branch is cut from ``master``, which does NOT yet contain the numeric
+# assessment filter. On master, ``feedback.score`` only supports the string comparators
+# (``=``, ``!=``, ``LIKE``, ...) and ``_get_sql_json_comparison_func`` emits a plain TEXT
+# comparison for ``>``/``>=``/``<``/``<=``. The runtime numeric CAST lives only on the
+# implementation branch (PR #23948 / feat/numeric-assessment-trace-filter).
+#
+# To measure the CAST through the *real* ``store.search_traces`` path (full ``TraceInfo``
+# hydration, parse, pagination) on THIS branch without editing any production file, we
+# install the implementation branch's ``json_numeric_comparison`` closure at runtime,
+# byte-for-byte, and widen the assessment comparator allow-list to admit ``>``/``>=``/
+# ``<``/``<=``. Nothing under ``mlflow/`` is modified on disk — the patch is applied in
+# this process only, and exactly reproduces the shipped production SQL.
+
+NUMERIC_ASSESSMENT_COMPARATORS = {">", ">=", "<", "<="}
+_MYSQL = "mysql"
+
+
+def install_production_numeric_cast_path() -> None:
+    """Patch ``SearchTraceUtils`` in-process to expose the production numeric-CAST path.
+
+    Mirrors ``json_numeric_comparison`` from the implementation branch's
+    ``search_utils.SearchTraceUtils._get_sql_json_comparison_func`` exactly (booleans/
+    "yes"/"no" -> 1.0/0.0, JSON null + non-scalar JSON -> NULL, else dialect-aware CAST),
+    and routes ``>``/``>=``/``<``/``<=`` for assessments to it. After this call,
+    ``store.search_traces('feedback.score > "9.9"')`` runs the same SQL the shipped
+    feature does, through the same hydration path.
+    """
+    if getattr(SearchTraceUtils, "_bench_numeric_cast_installed", False):
+        return
+
+    original = SearchTraceUtils._get_sql_json_comparison_func
+
+    def patched(comparator, dialect):
+        def json_numeric_comparison(column, value):
+            if dialect == _MYSQL:
+                col_ref = f"{column.class_.__tablename__}.{column.key}"
+                numeric_value = sa.literal_column(f"CAST({col_ref} AS DOUBLE)")
+            else:
+                numeric_value = sa.cast(column, sa.Float)
+            numeric_column = sa.case(
+                (column.in_([json.dumps(True), json.dumps("yes")]), 1.0),
+                (column.in_([json.dumps(False), json.dumps("no")]), 0.0),
+                (column == json.dumps(None), sa.null()),
+                (sa.func.substring(column, 1, 1).in_(['"', "[", "{"]), sa.null()),
+                else_=numeric_value,
+            )
+            return SearchUtils.get_comparison_func(comparator)(numeric_column, float(value))
+
+        if comparator in NUMERIC_ASSESSMENT_COMPARATORS:
+            return json_numeric_comparison
+        return original(comparator, dialect)
+
+    SearchTraceUtils._get_sql_json_comparison_func = staticmethod(patched)
+    SearchTraceUtils.VALID_ASSESSMENT_COMPARATORS = (
+        SearchTraceUtils.VALID_ASSESSMENT_COMPARATORS | NUMERIC_ASSESSMENT_COMPARATORS
+    )
+    SearchTraceUtils._bench_numeric_cast_installed = True
+
 
 # ---------------------------------------------------------------------------
 # Value expression builders (mirror the store / prototype exactly)
@@ -166,6 +229,80 @@ def run_attr_numeric_query(session, experiment_id: str, threshold_ms: int):
     return [r[0] for r in q.all()]
 
 
+def run_production_path_comparison(store, exp_id: str, n: int, reps: int, meta: dict) -> list[dict]:
+    """Like-for-like, production-path comparison: string-eq vs numeric-CAST.
+
+    BOTH queries go through the REAL ``store.search_traces(...)`` path — full ``TraceInfo``
+    entity hydration (tags/metadata/assessments selectin-loaded), filter parse, and
+    pagination — so the ONLY variable between them is the value expression (string OR-compare
+    vs CASE+CAST). This is the genuinely like-for-like comparison the bare-skeleton micro
+    benchmark could not provide.
+
+    Selectivity is controlled by construction, not just matched: scores are
+    ``round(uniform(0, 10), 1)``, so the predicate ``score > 9.9`` selects EXACTLY the
+    ``{10.0}`` bucket — the identical row set that ``score = "10.0"`` selects. We assert the
+    two ``search_traces`` result sets are byte-identical and report both counts, so the
+    reader can see selectivity is held constant (a result-set-size confound is impossible).
+
+    The numeric-CAST routing is provided by ``install_production_numeric_cast_path()`` (a
+    benchmark-only, in-process monkeypatch that reproduces the shipped production closure;
+    nothing under ``mlflow/`` is modified on disk).
+    """
+    install_production_numeric_cast_path()
+
+    eq_value = meta["prod_eq_value"]  # "10.0"
+    cast_threshold = meta["prod_cast_threshold"]  # "9.9"
+    eq_filter = f'feedback.score = "{eq_value}"'
+    cast_filter = f'feedback.score > "{cast_threshold}"'
+    max_results = min(n, 50000)
+
+    def eq_search():
+        traces, _ = store.search_traces([exp_id], filter_string=eq_filter, max_results=max_results)
+        return traces
+
+    def cast_search():
+        traces, _ = store.search_traces(
+            [exp_id], filter_string=cast_filter, max_results=max_results
+        )
+        return traces
+
+    # Correctness / selectivity control: identical row sets at byte level.
+    eq_ids = {t.request_id for t in eq_search()}
+    cast_ids = {t.request_id for t in cast_search()}
+    identical = eq_ids == cast_ids
+    assert identical, (
+        f"production-path pair must return identical row sets, got "
+        f"|eq|={len(eq_ids)} |cast|={len(cast_ids)} "
+        f"sym_diff={len(eq_ids ^ cast_ids)}"
+    )
+
+    eq_med, eq_p90, eq_rows = timed(eq_search, reps)
+    cast_med, cast_p90, cast_rows = timed(cast_search, reps)
+    print(
+        f"  prod-path  eq {eq_filter:<26} rows={eq_rows:>7,} median={eq_med:>9.2f}ms | "
+        f"CAST {cast_filter:<24} rows={cast_rows:>7,} median={cast_med:>9.2f}ms | "
+        f"identical={identical} ratio={cast_med / eq_med:.2f}x"
+    )
+    return [
+        {
+            "scale": n,
+            "name": "eq (search_traces)",
+            "filter": eq_filter,
+            "median_ms": eq_med,
+            "p90_ms": eq_p90,
+            "rows": eq_rows,
+        },
+        {
+            "scale": n,
+            "name": "CAST > (search_traces)",
+            "filter": cast_filter,
+            "median_ms": cast_med,
+            "p90_ms": cast_p90,
+            "rows": cast_rows,
+        },
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Seeding
 # ---------------------------------------------------------------------------
@@ -191,6 +328,7 @@ def seed(store: SqlAlchemyStore, experiment_id: str, n: int, seed_val: int = 123
     n_gt_8 = 0  # rows with score > 8.0 (selectivity for the > query)
     n_num_ge_8 = 0  # genuine numerics with score >= 8.0 (A-vs-B matched scenario)
     n_num_le_1_5 = 0  # genuine numerics with score <= 1.5 (A-vs-B selectivity scenario)
+    n_eq_10 = 0  # rows with score == 10.0 (== rows with score > 9.9: the prod-path pair)
     eq_target = None  # an exact numeric value guaranteed to exist for the = query
 
     trace_rows: list[dict] = []
@@ -237,6 +375,8 @@ def seed(store: SqlAlchemyStore, experiment_id: str, n: int, seed_val: int = 123
                 n_num_ge_8 += 1
             if score <= 1.5:
                 n_num_le_1_5 += 1
+            if score == 10.0:
+                n_eq_10 += 1
             if eq_target is None and score == 5.0:
                 eq_target = "5.0"
             value_json = json.dumps(score)
@@ -274,8 +414,13 @@ def seed(store: SqlAlchemyStore, experiment_id: str, n: int, seed_val: int = 123
         "n_gt_8": n_gt_8,
         "n_num_ge_8": n_num_ge_8,
         "n_num_le_1_5": n_num_le_1_5,
+        "n_eq_10": n_eq_10,
         "eq_target": eq_target,
         "gt_threshold": 8.0,
+        # Production-path like-for-like pair: scores are round(uniform(0,10), 1), so
+        # `> 9.9` selects EXACTLY the {10.0} bucket — byte-identical to `= "10.0"`.
+        "prod_eq_value": "10.0",
+        "prod_cast_threshold": "9.9",
         "ts_threshold": base_ts + int(n * 0.2),  # ~80% of rows have ts > this
     }
 
@@ -316,7 +461,8 @@ def run_scale(n: int, reps: int) -> list[dict]:
         print(
             f"seeded {n:,} traces ({meta['n_numeric']:,} numeric) "
             f"in {time.perf_counter() - t0:.1f}s; "
-            f"eq_target={meta['eq_target']} score>8 rows={meta['n_gt_8']:,}"
+            f"eq_target={meta['eq_target']} score>8 rows={meta['n_gt_8']:,} "
+            f"score==10.0 rows={meta['n_eq_10']:,}"
         )
 
         session = store.ManagedSessionMaker().__enter__()
@@ -414,7 +560,8 @@ def run_scale(n: int, reps: int) -> list[dict]:
         ]
 
         sweep_results = run_selectivity_sweep(session, exp_id, n, reps)
-        return main_results, sweep_results
+        prod_results = run_production_path_comparison(store, exp_id, n, reps, meta)
+        return main_results, sweep_results, prod_results
     finally:
         os.unlink(tmpfile.name)
 
@@ -710,14 +857,17 @@ def main():
 
     all_results: list[dict] = []
     sweep_all: list[dict] = []
+    prod_all: list[dict] = []
     for n in scales:
-        main_results, sweep_results = run_scale(n, args.reps)
+        main_results, sweep_results, prod_results = run_scale(n, args.reps)
         all_results.extend(main_results)
         sweep_all.extend(sweep_results)
+        prod_all.extend(prod_results)
 
     table = fmt_table(all_results)
     print("\n" + table)
     print("\n" + fmt_table(sweep_all))
+    print("\n" + fmt_table(prod_all))
 
     # Verdict: CAST median vs the real string-equality baseline, per scale.
     md = [
@@ -733,6 +883,11 @@ def main():
         by_scale.setdefault(r["scale"], {})[r["name"]] = r
     md.append(
         "\n### Same-skeleton, same-selectivity (isolates pure per-row CAST/CASE cost)\n"
+        "\n_This is the **per-row CAST cost in isolation (micro-benchmark)**: a bare,\n"
+        "ID-only subquery+join skeleton that selects only `request_id` (no entity\n"
+        'hydration), so the value expression dominates the measurement. It answers "how\n'
+        'much heavier is the value comparison itself?" — NOT "how much slower is a real\n'
+        'search?" For the latter, see the production-path table below._\n'
         "\n| scale | constructed eq (string) | CAST = (same rows) | ratio (CAST/eq) |\n"
         "|---|---|---|---|\n"
     )
@@ -741,16 +896,73 @@ def main():
         cce = by_scale[n]["NUMERIC-CAST = (same rows as eq)"]["median_ms"]
         md.append(f"| {n:,} | {ce:.2f} ms | {cce:.2f} ms | {cce / ce:.2f}x |\n")
 
+    # Production-path, like-for-like comparison: BOTH sides via store.search_traces.
+    prod_by_scale: dict[int, dict] = {}
+    for r in prod_all:
+        prod_by_scale.setdefault(r["scale"], {})[r["name"]] = r
+
     md.append(
-        "\n### CAST range query vs real string-eq baseline (different selectivity)\n"
-        "\n| scale | baseline eq median | CAST > median | ratio (CAST/baseline) | "
-        "attr-numeric median |\n|---|---|---|---|---|\n"
+        "\n### Production-path, like-for-like: string-eq vs CAST `>` (both via "
+        "`store.search_traces`)\n"
+        "\n_This is the **end-user impact on the production path**. BOTH queries run through "
+        "the real `store.search_traces(...)` — full `TraceInfo` entity hydration "
+        "(tags/metadata/assessments selectin-loaded), filter parse, and pagination — so the "
+        "ONLY variable is the value expression (string OR-compare vs CASE+CAST). Selectivity "
+        "is held **byte-identical**, not merely matched: scores are `round(uniform(0,10), 1)`, "
+        'so `score > 9.9` selects EXACTLY the `{10.0}` bucket that `score = "10.0"` selects '
+        "(the harness asserts the two result sets are identical and reports both row counts). "
+        "The numeric-CAST routing is supplied by an in-process, benchmark-only monkeypatch "
+        "that reproduces the shipped production closure byte-for-byte; no production file is "
+        "modified._\n"
+        "\n| scale | eq rows | CAST rows | eq median ms | eq p90 ms | CAST median ms | "
+        "CAST p90 ms | ratio (CAST/eq) |\n"
+        "|---|---|---|---|---|---|---|---|\n"
     )
     for n in scales:
-        b = by_scale[n]["BASELINE eq (real search_traces)"]["median_ms"]
-        c = by_scale[n]["NUMERIC-CAST > (prototype)"]["median_ms"]
-        a = by_scale[n]["ATTR-NUMERIC > (native column)"]["median_ms"]
-        md.append(f"| {n:,} | {b:.2f} ms | {c:.2f} ms | {c / b:.2f}x | {a:.2f} ms |\n")
+        eq = prod_by_scale[n]["eq (search_traces)"]
+        ca = prod_by_scale[n]["CAST > (search_traces)"]
+        md.append(
+            f"| {n:,} | {eq['rows']:,} | {ca['rows']:,} | {eq['median_ms']:.2f} | "
+            f"{eq['p90_ms']:.2f} | {ca['median_ms']:.2f} | {ca['p90_ms']:.2f} | "
+            f"{ca['median_ms'] / eq['median_ms']:.2f}x |\n"
+        )
+
+    prod_ratios = [
+        prod_by_scale[n]["CAST > (search_traces)"]["median_ms"]
+        / prod_by_scale[n]["eq (search_traces)"]["median_ms"]
+        for n in scales
+    ]
+    micro_ratios = [
+        by_scale[n]["NUMERIC-CAST = (same rows as eq)"]["median_ms"]
+        / by_scale[n]["CONSTRUCTED eq (same skeleton)"]["median_ms"]
+        for n in scales
+    ]
+    abs_delta_parts = []
+    for n in scales:
+        delta = (
+            prod_by_scale[n]["CAST > (search_traces)"]["median_ms"]
+            - prod_by_scale[n]["eq (search_traces)"]["median_ms"]
+        )
+        abs_delta_parts.append(f"+{delta:.0f} ms @ {n:,}")
+    abs_deltas = ", ".join(abs_delta_parts)
+    md.append(
+        f"\n**Interpretation.** On the production path the CAST/eq median ratio is "
+        f"**{min(prod_ratios):.2f}x–{max(prod_ratios):.2f}x** across "
+        f"{', '.join(f'{n:,}' for n in scales)} (absolute overhead {abs_deltas}). That is "
+        f"**substantially smaller** than the per-row CAST overhead the micro-benchmark above "
+        f"measures in isolation (**{min(micro_ratios):.2f}x–{max(micro_ratios):.2f}x**): once "
+        f"the CAST runs inside the real query, its cost is partly **diluted** by the "
+        f"operator-independent cost of hydrating full `TraceInfo` entities, parsing the "
+        f"filter, and paginating — work both queries pay equally. It is *not* erased, though: "
+        f"the CAST still adds a roughly fixed absolute overhead (the same `O(N)` scan + "
+        f"per-row `CAST(... AS FLOAT)` the skeleton table isolates), so the production ratio "
+        f"sits **above 1.0x**, not at it. The honest summary for a real user issuing a numeric "
+        f"assessment filter through `search_traces`: the CAST makes the query "
+        f"**~{min(prod_ratios):.1f}–{max(prod_ratios):.1f}x slower than the same-selectivity "
+        f"string-equality filter end to end** — meaningfully less than the ~2.2x per-row "
+        f"figure, because hydration dominates, but still a real (bounded, constant-factor) "
+        f"cost, not a free operation.\n"
+    )
 
     # Same-selectivity operator comparison: ratio of each CAST operator vs CAST = at
     # matched row count, so the operator is the only variable.
@@ -760,7 +972,9 @@ def main():
 
     md.append(
         "\n## Same-selectivity operator comparison\n"
-        "\nHolds the matched row set constant so the *operator* is the only variable. "
+        "\n_Micro-benchmark (same bare ID-only skeleton as the per-row table above; no entity "
+        "hydration). Isolates the *operator*, not end-user latency._ "
+        "Holds the matched row set constant so the *operator* is the only variable. "
         "Scores are `round(uniform(0,10), 1)`, giving half-width edge buckets at 0.0/10.0; "
         "`= 10.0`, `> 9.9`, `>= 10.0` select the identical `{10.0}` bucket and "
         "`< 0.1`, `<= 0.0` select the identical `{0.0}` bucket (both half-width, equal "

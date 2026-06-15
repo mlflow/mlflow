@@ -6,86 +6,96 @@ SQLite, warm cache, reps=9. Backend: real MLflow `SqlAlchemyStore`.
 ## Results
 |     scale | query                            | filter                             | median(ms) |  p90(ms) |     rows |
 |----------------------------------------------------------------------------------------------------------------------|
-|    10,000 | BASELINE eq (real search_traces) | feedback.score = "5.0"             |      12.25 |    13.27 |       85 |
-|    10,000 | CONSTRUCTED eq (same skeleton)   | feedback.score = "5.0"             |       3.19 |     3.39 |       85 |
-|    10,000 | NUMERIC-CAST = (same rows as eq) | feedback.score = 5.0               |       6.97 |     7.44 |       85 |
-|    10,000 | NUMERIC-CAST > (prototype)       | feedback.score > 8.0               |       9.40 |     9.64 |    1,732 |
-|    10,000 | NUMERIC-CAST <= (prototype)      | feedback.score <= 5.0              |      13.80 |    13.88 |    5,056 |
-|    10,000 | ATTR-NUMERIC > (native column)   | trace_info.timestamp_ms > T        |       5.44 |     5.61 |    7,999 |
-|   100,000 | BASELINE eq (real search_traces) | feedback.score = "5.0"             |     137.15 |   178.53 |      882 |
-|   100,000 | CONSTRUCTED eq (same skeleton)   | feedback.score = "5.0"             |      30.42 |    31.79 |      882 |
-|   100,000 | NUMERIC-CAST = (same rows as eq) | feedback.score = 5.0               |      67.53 |    68.01 |      882 |
-|   100,000 | NUMERIC-CAST > (prototype)       | feedback.score > 8.0               |     101.84 |   142.13 |   17,446 |
-|   100,000 | NUMERIC-CAST <= (prototype)      | feedback.score <= 5.0              |     195.83 |   198.50 |   50,422 |
-|   100,000 | ATTR-NUMERIC > (native column)   | trace_info.timestamp_ms > T        |     139.36 |   148.92 |   79,999 |
-| 1,000,000 | BASELINE eq (real search_traces) | feedback.score = "5.0"             |    1671.82 |  1702.39 |    9,105 |
-| 1,000,000 | CONSTRUCTED eq (same skeleton)   | feedback.score = "5.0"             |     314.83 |   319.16 |    9,105 |
-| 1,000,000 | NUMERIC-CAST = (same rows as eq) | feedback.score = 5.0               |     672.60 |   700.52 |    9,105 |
-| 1,000,000 | NUMERIC-CAST > (prototype)       | feedback.score > 8.0               |    1159.63 |  1188.86 |  174,750 |
-| 1,000,000 | NUMERIC-CAST <= (prototype)      | feedback.score <= 5.0              |    1946.56 |  2043.48 |  505,136 |
-| 1,000,000 | ATTR-NUMERIC > (native column)   | trace_info.timestamp_ms > T        |    1135.83 |  1157.52 |  799,999 |
+|    10,000 | BASELINE eq (real search_traces) | feedback.score = "5.0"             |      13.91 |    14.44 |       85 |
+|    10,000 | CONSTRUCTED eq (same skeleton)   | feedback.score = "5.0"             |       3.31 |     3.53 |       85 |
+|    10,000 | NUMERIC-CAST = (same rows as eq) | feedback.score = 5.0               |       7.19 |     7.43 |       85 |
+|    10,000 | NUMERIC-CAST > (prototype)       | feedback.score > 8.0               |       9.97 |    10.33 |    1,732 |
+|    10,000 | NUMERIC-CAST <= (prototype)      | feedback.score <= 5.0              |      15.02 |    15.34 |    5,056 |
+|    10,000 | ATTR-NUMERIC > (native column)   | trace_info.timestamp_ms > T        |       5.26 |     5.97 |    7,999 |
+|   100,000 | BASELINE eq (real search_traces) | feedback.score = "5.0"             |     147.07 |   202.91 |      882 |
+|   100,000 | CONSTRUCTED eq (same skeleton)   | feedback.score = "5.0"             |      33.01 |    35.17 |      882 |
+|   100,000 | NUMERIC-CAST = (same rows as eq) | feedback.score = 5.0               |      72.79 |    73.80 |      882 |
+|   100,000 | NUMERIC-CAST > (prototype)       | feedback.score > 8.0               |     107.26 |   153.15 |   17,446 |
+|   100,000 | NUMERIC-CAST <= (prototype)      | feedback.score <= 5.0              |     201.22 |   214.71 |   50,422 |
+|   100,000 | ATTR-NUMERIC > (native column)   | trace_info.timestamp_ms > T        |     151.60 |   155.50 |   79,999 |
+| 1,000,000 | BASELINE eq (real search_traces) | feedback.score = "5.0"             |    1762.84 |  1810.49 |    9,105 |
+| 1,000,000 | CONSTRUCTED eq (same skeleton)   | feedback.score = "5.0"             |     323.23 |   337.75 |    9,105 |
+| 1,000,000 | NUMERIC-CAST = (same rows as eq) | feedback.score = 5.0               |     696.76 |   748.86 |    9,105 |
+| 1,000,000 | NUMERIC-CAST > (prototype)       | feedback.score > 8.0               |    1184.16 |  1245.21 |  174,750 |
+| 1,000,000 | NUMERIC-CAST <= (prototype)      | feedback.score <= 5.0              |    1991.11 |  2105.75 |  505,136 |
+| 1,000,000 | ATTR-NUMERIC > (native column)   | trace_info.timestamp_ms > T        |    1246.88 |  1295.99 |  799,999 |
 
 ## CAST overhead vs string-equality baseline
 
 ### Same-skeleton, same-selectivity (isolates pure per-row CAST/CASE cost)
 
+_This is the **per-row CAST cost in isolation (micro-benchmark)**: a bare,
+ID-only subquery+join skeleton that selects only `request_id` (no entity
+hydration), so the value expression dominates the measurement. It answers "how
+much heavier is the value comparison itself?" — NOT "how much slower is a real
+search?" For the latter, see the production-path table below._
+
 | scale | constructed eq (string) | CAST = (same rows) | ratio (CAST/eq) |
 |---|---|---|---|
-| 10,000 | 3.19 ms | 6.97 ms | 2.19x |
-| 100,000 | 30.42 ms | 67.53 ms | 2.22x |
-| 1,000,000 | 314.83 ms | 672.60 ms | 2.14x |
+| 10,000 | 3.31 ms | 7.19 ms | 2.18x |
+| 100,000 | 33.01 ms | 72.79 ms | 2.20x |
+| 1,000,000 | 323.23 ms | 696.76 ms | 2.16x |
 
-### CAST range query vs real string-eq baseline (different selectivity)
+### Production-path, like-for-like: string-eq vs CAST `>` (both via `store.search_traces`)
 
-| scale | baseline eq median | CAST > median | ratio (CAST/baseline) | attr-numeric median |
-|---|---|---|---|---|
-| 10,000 | 12.25 ms | 9.40 ms | 0.77x | 5.44 ms |
-| 100,000 | 137.15 ms | 101.84 ms | 0.74x | 139.36 ms |
-| 1,000,000 | 1671.82 ms | 1159.63 ms | 0.69x | 1135.83 ms |
+_This is the **end-user impact on the production path**. BOTH queries run through the real `store.search_traces(...)` — full `TraceInfo` entity hydration (tags/metadata/assessments selectin-loaded), filter parse, and pagination — so the ONLY variable is the value expression (string OR-compare vs CASE+CAST). Selectivity is held **byte-identical**, not merely matched: scores are `round(uniform(0,10), 1)`, so `score > 9.9` selects EXACTLY the `{10.0}` bucket that `score = "10.0"` selects (the harness asserts the two result sets are identical and reports both row counts). The numeric-CAST routing is supplied by an in-process, benchmark-only monkeypatch that reproduces the shipped production closure byte-for-byte; no production file is modified._
+
+| scale | eq rows | CAST rows | eq median ms | eq p90 ms | CAST median ms | CAST p90 ms | ratio (CAST/eq) |
+|---|---|---|---|---|---|---|---|
+| 10,000 | 43 | 43 | 11.53 | 11.77 | 15.29 | 15.58 | 1.33x |
+| 100,000 | 430 | 430 | 121.33 | 178.23 | 160.06 | 208.50 | 1.32x |
+| 1,000,000 | 4,555 | 4,555 | 1405.47 | 1423.94 | 1752.73 | 1774.08 | 1.25x |
+
+**Interpretation.** On the production path the CAST/eq median ratio is **1.25x–1.33x** across 10,000, 100,000, 1,000,000 (absolute overhead +4 ms @ 10,000, +39 ms @ 100,000, +347 ms @ 1,000,000). That is **substantially smaller** than the per-row CAST overhead the micro-benchmark above measures in isolation (**2.16x–2.20x**): once the CAST runs inside the real query, its cost is partly **diluted** by the operator-independent cost of hydrating full `TraceInfo` entities, parsing the filter, and paginating — work both queries pay equally. It is *not* erased, though: the CAST still adds a roughly fixed absolute overhead (the same `O(N)` scan + per-row `CAST(... AS FLOAT)` the skeleton table isolates), so the production ratio sits **above 1.0x**, not at it. The honest summary for a real user issuing a numeric assessment filter through `search_traces`: the CAST makes the query **~1.2–1.3x slower than the same-selectivity string-equality filter end to end** — meaningfully less than the ~2.2x per-row figure, because hydration dominates, but still a real (bounded, constant-factor) cost, not a free operation.
 
 ## Same-selectivity operator comparison
 
-Holds the matched row set constant so the *operator* is the only variable. Scores are `round(uniform(0,10), 1)`, giving half-width edge buckets at 0.0/10.0; `= 10.0`, `> 9.9`, `>= 10.0` select the identical `{10.0}` bucket and `< 0.1`, `<= 0.0` select the identical `{0.0}` bucket (both half-width, equal count within noise). Matched-rows column proves selectivity is held constant.
+_Micro-benchmark (same bare ID-only skeleton as the per-row table above; no entity hydration). Isolates the *operator*, not end-user latency._ Holds the matched row set constant so the *operator* is the only variable. Scores are `round(uniform(0,10), 1)`, giving half-width edge buckets at 0.0/10.0; `= 10.0`, `> 9.9`, `>= 10.0` select the identical `{10.0}` bucket and `< 0.1`, `<= 0.0` select the identical `{0.0}` bucket (both half-width, equal count within noise). Matched-rows column proves selectivity is held constant.
 |     scale | query                            | filter                             | median(ms) |  p90(ms) |     rows |
 |----------------------------------------------------------------------------------------------------------------------|
-|    10,000 | string = 10.0 (ref)              | feedback.score = 10.0              |       2.73 |     2.76 |       43 |
-|    10,000 | CAST = 10.0                      | feedback.score = 10.0              |       6.32 |     6.34 |       43 |
-|    10,000 | CAST > 9.9                       | feedback.score > 9.9               |       6.21 |     6.74 |       43 |
-|    10,000 | CAST >= 10.0                     | feedback.score >= 10.0             |       6.24 |     6.28 |       43 |
-|    10,000 | CAST < 0.1                       | feedback.score < 0.1               |       6.61 |     6.65 |      286 |
-|    10,000 | CAST <= 0.0                      | feedback.score <= 0.0              |       6.81 |     7.14 |      286 |
-|   100,000 | string = 10.0 (ref)              | feedback.score = 10.0              |      31.72 |    32.49 |      430 |
-|   100,000 | CAST = 10.0                      | feedback.score = 10.0              |      65.80 |    67.82 |      430 |
-|   100,000 | CAST > 9.9                       | feedback.score > 9.9               |      64.98 |    68.28 |      430 |
-|   100,000 | CAST >= 10.0                     | feedback.score >= 10.0             |      67.01 |    70.15 |      430 |
-|   100,000 | CAST < 0.1                       | feedback.score < 0.1               |      71.29 |    73.24 |    2,866 |
-|   100,000 | CAST <= 0.0                      | feedback.score <= 0.0              |      70.98 |    73.00 |    2,866 |
-| 1,000,000 | string = 10.0 (ref)              | feedback.score = 10.0              |     293.91 |   301.30 |    4,555 |
-| 1,000,000 | CAST = 10.0                      | feedback.score = 10.0              |     654.30 |   658.21 |    4,555 |
-| 1,000,000 | CAST > 9.9                       | feedback.score > 9.9               |     650.43 |   657.77 |    4,555 |
-| 1,000,000 | CAST >= 10.0                     | feedback.score >= 10.0             |     657.66 |   686.64 |    4,555 |
-| 1,000,000 | CAST < 0.1                       | feedback.score < 0.1               |     754.36 |   764.27 |   29,276 |
-| 1,000,000 | CAST <= 0.0                      | feedback.score <= 0.0              |     748.42 |   772.30 |   29,276 |
+|    10,000 | string = 10.0 (ref)              | feedback.score = 10.0              |       2.79 |     2.89 |       43 |
+|    10,000 | CAST = 10.0                      | feedback.score = 10.0              |       6.53 |     7.07 |       43 |
+|    10,000 | CAST > 9.9                       | feedback.score > 9.9               |       6.47 |     6.50 |       43 |
+|    10,000 | CAST >= 10.0                     | feedback.score >= 10.0             |       6.52 |     6.71 |       43 |
+|    10,000 | CAST < 0.1                       | feedback.score < 0.1               |       7.81 |     8.03 |      286 |
+|    10,000 | CAST <= 0.0                      | feedback.score <= 0.0              |       7.52 |     7.92 |      286 |
+|   100,000 | string = 10.0 (ref)              | feedback.score = 10.0              |      32.43 |    32.92 |      430 |
+|   100,000 | CAST = 10.0                      | feedback.score = 10.0              |      69.50 |    71.19 |      430 |
+|   100,000 | CAST > 9.9                       | feedback.score > 9.9               |      68.68 |    71.14 |      430 |
+|   100,000 | CAST >= 10.0                     | feedback.score >= 10.0             |      69.56 |    70.39 |      430 |
+|   100,000 | CAST < 0.1                       | feedback.score < 0.1               |      79.11 |    80.73 |    2,866 |
+|   100,000 | CAST <= 0.0                      | feedback.score <= 0.0              |      77.72 |    78.37 |    2,866 |
+| 1,000,000 | string = 10.0 (ref)              | feedback.score = 10.0              |     320.51 |   330.05 |    4,555 |
+| 1,000,000 | CAST = 10.0                      | feedback.score = 10.0              |     701.76 |   702.97 |    4,555 |
+| 1,000,000 | CAST > 9.9                       | feedback.score > 9.9               |     695.82 |   701.69 |    4,555 |
+| 1,000,000 | CAST >= 10.0                     | feedback.score >= 10.0             |     686.51 |   709.97 |    4,555 |
+| 1,000,000 | CAST < 0.1                       | feedback.score < 0.1               |     784.33 |   802.71 |   29,276 |
+| 1,000,000 | CAST <= 0.0                      | feedback.score <= 0.0              |     783.15 |   795.75 |   29,276 |
 
 ### Per-operator ratio vs CAST `=` (same selectivity)
 
 | scale | operator | matched rows | median | ratio vs CAST = |
 |---|---|---|---|---|
-| 10,000 | CAST = 10.0 | 43 | 6.32 ms | 1.00x |
-| 10,000 | CAST > 9.9 | 43 | 6.21 ms | 0.98x |
-| 10,000 | CAST >= 10.0 | 43 | 6.24 ms | 0.99x |
-| 10,000 | CAST < 0.1 | 286 | 6.61 ms | 1.05x |
-| 10,000 | CAST <= 0.0 | 286 | 6.81 ms | 1.08x |
-| 100,000 | CAST = 10.0 | 430 | 65.80 ms | 1.00x |
-| 100,000 | CAST > 9.9 | 430 | 64.98 ms | 0.99x |
-| 100,000 | CAST >= 10.0 | 430 | 67.01 ms | 1.02x |
-| 100,000 | CAST < 0.1 | 2,866 | 71.29 ms | 1.08x |
-| 100,000 | CAST <= 0.0 | 2,866 | 70.98 ms | 1.08x |
-| 1,000,000 | CAST = 10.0 | 4,555 | 654.30 ms | 1.00x |
-| 1,000,000 | CAST > 9.9 | 4,555 | 650.43 ms | 0.99x |
-| 1,000,000 | CAST >= 10.0 | 4,555 | 657.66 ms | 1.01x |
-| 1,000,000 | CAST < 0.1 | 29,276 | 754.36 ms | 1.15x |
-| 1,000,000 | CAST <= 0.0 | 29,276 | 748.42 ms | 1.14x |
+| 10,000 | CAST = 10.0 | 43 | 6.53 ms | 1.00x |
+| 10,000 | CAST > 9.9 | 43 | 6.47 ms | 0.99x |
+| 10,000 | CAST >= 10.0 | 43 | 6.52 ms | 1.00x |
+| 10,000 | CAST < 0.1 | 286 | 7.81 ms | 1.20x |
+| 10,000 | CAST <= 0.0 | 286 | 7.52 ms | 1.15x |
+| 100,000 | CAST = 10.0 | 430 | 69.50 ms | 1.00x |
+| 100,000 | CAST > 9.9 | 430 | 68.68 ms | 0.99x |
+| 100,000 | CAST >= 10.0 | 430 | 69.56 ms | 1.00x |
+| 100,000 | CAST < 0.1 | 2,866 | 79.11 ms | 1.14x |
+| 100,000 | CAST <= 0.0 | 2,866 | 77.72 ms | 1.12x |
+| 1,000,000 | CAST = 10.0 | 4,555 | 701.76 ms | 1.00x |
+| 1,000,000 | CAST > 9.9 | 4,555 | 695.82 ms | 0.99x |
+| 1,000,000 | CAST >= 10.0 | 4,555 | 686.51 ms | 0.98x |
+| 1,000,000 | CAST < 0.1 | 29,276 | 784.33 ms | 1.12x |
+| 1,000,000 | CAST <= 0.0 | 29,276 | 783.15 ms | 1.12x |
 
 ### Verdict: inequality CAST overhead == equality CAST overhead (within noise)
 
@@ -95,7 +105,7 @@ At **matched selectivity**, the CAST inequality operators cost the **same** as C
   (43 / 430 / 4,555 rows at 10k / 100k / 1M). Their ratios vs CAST `=` are
   **0.98–1.02x across all scales** — i.e. indistinguishable from `=` within run-to-run
   noise. This is the truly controlled comparison (operator is the *only* variable).
-- `< 0.1` and `<= 0.0` ratio **1.05–1.15x**, but that is a *selectivity* artifact, not an
+- `< 0.1` and `<= 0.0` ratio **1.12–1.20x**, but that is a *selectivity* artifact, not an
   operator-cost difference: those predicates match the `{0.0}` edge bucket, which carries
   more rows (286 / 2,866 / 29,276) because the prototype CASE folds boolean `false` →
   `0.0`. The extra latency tracks the extra returned rows, not the `<`/`<=` operator.
@@ -108,17 +118,29 @@ no cost beyond the already-quantified, bounded CAST factor.
 
 ## Overall verdict: GO (with a scaling caveat)
 
-**The runtime CAST does NOT add a major regression.** Same-skeleton, same-selectivity
-(`CAST =` vs string `=`, identical row sets), the CAST-to-float adds a **stable ~2.2x**
-overhead on the value comparison, flat across 10k → 1M (a bounded constant factor, not a
-super-linear cliff). The same-selectivity operator sweep above confirms `>`, `>=`, `<`,
-`<=` carry that same ~2.2x and no operator-specific penalty.
+**The runtime CAST does NOT add a major regression.** Two complementary measurements bound
+the cost:
+
+- **Per-row CAST cost in isolation (micro-benchmark).** Same-skeleton, same-selectivity
+  (`CAST =` vs string `=`, identical row sets, bare ID-only query with no entity
+  hydration), the CAST-to-float adds a **stable ~2.2x** overhead on the value comparison,
+  flat across 10k → 1M (a bounded constant factor, not a super-linear cliff). The
+  same-selectivity operator sweep confirms `>`, `>=`, `<`, `<=` carry that same ~2.2x and
+  no operator-specific penalty.
+- **End-user impact on the production path.** Run through the *real* `store.search_traces`
+  (full `TraceInfo` hydration, parse, pagination) at byte-identical selectivity
+  (`= "10.0"` vs `> "9.9"`, identical `{10.0}` row set), the CAST makes the query
+  **~1.25–1.33x slower** than the same-selectivity string-equality filter — meaningfully
+  less than the ~2.2x per-row figure, because the dominant hydration/parse/pagination cost
+  (paid equally by both queries) dilutes the value-expression delta. The ratio **shrinks**
+  as scale grows (1.33x → 1.25x from 10k → 1M) as hydration takes a larger share. It is a
+  real, bounded, constant-factor cost — not a free operation, and **not** faster than
+  equality.
 
 Both the existing string-equality filter and the CAST filter are already `O(N)` scans of
 the `assessments` table (no index on the JSON `value` column), so the CAST does not change
-the complexity class — it makes an already-linear comparison ~2x heavier. On realistic
-range queries the CAST's absolute latency stays in the same ballpark as the equality
-baseline already in production.
+the complexity class — it makes an already-linear comparison ~2x heavier per row, which
+the production path absorbs down to ~1.25–1.33x end to end.
 
 **Recommendation: GO** — ship the CAST approach (all four inequality operators) in phase 2.
 
@@ -135,11 +157,17 @@ fix is a dedicated generated/indexed numeric column on `assessments`, which spee
   `create_assessment` are too slow at 100k+. The BASELINE row is the real
   `store.search_traces` path; `CONSTRUCTED eq` reproduces the store's subquery+join
   skeleton and returns identical rows.
+- This bench branch is cut from `master`, which does **not** contain the numeric-CAST
+  filter (it lives only on the implementation branch). The production-path table's CAST
+  routing is therefore supplied by an **in-process, benchmark-only monkeypatch**
+  (`install_production_numeric_cast_path`) that reproduces the implementation branch's
+  `json_numeric_comparison` closure byte-for-byte and widens the assessment comparator
+  allow-list. No file under `mlflow/` is modified on disk; the SQL executed is exactly what
+  the shipped feature emits, through the same `store.search_traces` hydration path.
 - In the operator sweep, `< 0.1` / `<= 0.0` match the `{0.0}` bucket, which is larger than
   `{10.0}` because the prototype CASE folds boolean `false` → 0.0; their slightly higher
   latency reflects more matched rows, not operator cost. The `> 9.9` / `>= 10.0` pair
   (byte-identical row set to `= 10.0`) is the strictly controlled comparison.
-
 
 ---
 
