@@ -1341,8 +1341,11 @@ _RESPONSIVE_THRESHOLD_SECONDS = 1.0
 
 @pytest.mark.asyncio
 async def test_sync_invoke_does_not_block_event_loop():
+    handler_started = threading.Event()
+
     @invoke()
     def slow_invoke(request):
+        handler_started.set()
         time.sleep(_SLOW_HANDLER_SECONDS)
         return {"result": "done"}
 
@@ -1351,8 +1354,11 @@ async def test_sync_invoke_does_not_block_event_loop():
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         start = time.perf_counter()
         invoke_task = asyncio.create_task(client.post("/invocations", json={"x": 1}))
-        # Let the invoke reach the handler and offload to a worker thread.
-        await asyncio.sleep(0.1)
+        # Deterministically wait until the handler has started (and offloaded to a
+        # worker thread) before timing /health, instead of assuming a fixed delay.
+        # Waiting on the Event from an executor thread keeps the event loop free.
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, handler_started.wait)
 
         health = await client.get("/health")
         health_latency = time.perf_counter() - start
@@ -1367,8 +1373,11 @@ async def test_sync_invoke_does_not_block_event_loop():
 
 @pytest.mark.asyncio
 async def test_sync_stream_does_not_block_event_loop():
+    handler_started = threading.Event()
+
     @stream()
     def slow_stream(request):
+        handler_started.set()
         time.sleep(_SLOW_HANDLER_SECONDS)
         yield {"chunk": "done"}
 
@@ -1379,8 +1388,11 @@ async def test_sync_stream_does_not_block_event_loop():
         stream_task = asyncio.create_task(
             client.post("/invocations", json={"x": 1, "stream": True})
         )
-        # Let the stream reach the handler and start producing on a worker thread.
-        await asyncio.sleep(0.1)
+        # Deterministically wait until the handler has started producing (on a worker
+        # thread) before timing /health, instead of assuming a fixed delay. Waiting on
+        # the Event from an executor thread keeps the event loop free.
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, handler_started.wait)
 
         health = await client.get("/health")
         health_latency = time.perf_counter() - start
