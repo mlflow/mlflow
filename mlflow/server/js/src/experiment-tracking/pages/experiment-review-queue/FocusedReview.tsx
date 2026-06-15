@@ -400,7 +400,7 @@ export const FocusedReview = ({
             flexDirection: 'column',
           }}
         >
-          <div css={{ padding: `${theme.spacing.sm}px ${theme.spacing.md}px`, flexShrink: 0 }}>
+          <div css={{ padding: `${theme.spacing.sm}px ${theme.spacing.md}px 0 0`, flexShrink: 0, textAlign: 'right' }}>
             <Typography.Link
               componentId={`${CID}.view-full-trace`}
               disabled={!trace}
