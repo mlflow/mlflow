@@ -8704,20 +8704,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if name is not None:
                 new_name = validate_custom_queue_name(name)
                 if new_name != sql_queue.name:
-                    name_clash = (
-                        self
-                        ._review_queue_query(session)
-                        .filter(
-                            SqlReviewQueue.experiment_id == sql_queue.experiment_id,
-                            SqlReviewQueue.name == new_name,
-                        )
-                        .one_or_none()
-                    )
-                    if name_clash is not None:
-                        raise MlflowException(
-                            f"Review queue with name '{new_name}' already exists.",
-                            error_code=RESOURCE_ALREADY_EXISTS,
-                        )
+                    # A collision with an existing name is caught at flush via the
+                    # unique (experiment_id, name) constraint; no upfront SELECT.
                     sql_queue.name = new_name
                     renamed_to = new_name
 
@@ -8763,15 +8751,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             try:
                 session.flush()
             except IntegrityError as e:
-                # The only unique constraint here is (experiment_id, name), so a
-                # flush-time IntegrityError means a rename race: a parallel
-                # transaction took the new name between the pre-check and this
-                # flush. If no rename was applied, the violation is unrelated and
-                # blaming the name would mislead, so re-raise it untranslated.
+                # The only unique constraint here is (experiment_id, name): a rename
+                # to a name already taken in the experiment violates it. Surface that
+                # as a clean RESOURCE_ALREADY_EXISTS. If no rename was applied the
+                # violation is unrelated, so re-raise it untranslated rather than
+                # blaming the name.
                 if renamed_to is None:
                     raise
-                # Mirror create_review_queue and surface a clean
-                # RESOURCE_ALREADY_EXISTS for the lost rename race.
                 raise MlflowException(
                     f"Review queue with name '{renamed_to}' already exists.",
                     error_code=RESOURCE_ALREADY_EXISTS,
