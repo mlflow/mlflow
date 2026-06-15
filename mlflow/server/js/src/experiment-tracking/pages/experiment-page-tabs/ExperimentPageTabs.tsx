@@ -29,7 +29,7 @@ import { useGetExperimentPageActiveTabByRoute } from '../../components/experimen
 import { useNavigateToExperimentPageTab } from '../../components/experiment-page/hooks/useNavigateToExperimentPageTab';
 
 import { ExperimentPageSideNav, ExperimentPageSideNavSkeleton } from './side-nav/ExperimentPageSideNav';
-import { ReviewQueueTitleProvider } from '../experiment-review-queue/ReviewQueueTitleContext';
+import { ReviewQueueTitleProvider, useReviewQueueTitle } from '../experiment-review-queue/ReviewQueueTitleContext';
 
 const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
@@ -185,27 +185,32 @@ const ExperimentPageTabsImpl = () => {
     minHeight: 0,
   };
 
+  const { title: reviewQueueTitleOverride } = useReviewQueueTitle();
+  const inReviewFocusMode = reviewQueueTitleOverride !== null;
+
   return (
-    <ReviewQueueTitleProvider>
-      <ExperimentPageHeaderWithDescription
-        experiment={experiment}
-        loading={loadingExperiment || inferringExperimentType}
-        onNoteUpdated={refetchExperiment}
-        error={experimentError}
-        inferredExperimentKind={inferredExperimentKind}
-        experimentKindSelector={
-          !enableWorkflowBasedNavigation ? (
-            <ExperimentViewHeaderKindSelector
-              value={experimentKind}
-              inferredExperimentKind={inferredExperimentKind}
-              onChange={(kind) => updateExperimentKind({ experimentId, kind })}
-              isUpdating={updatingExperimentKind || inferringExperimentType}
-              key={inferredExperimentKind}
-              readOnly={!canUpdateExperimentKind}
-            />
-          ) : null
-        }
-      />
+    <>
+      {!inReviewFocusMode && (
+        <ExperimentPageHeaderWithDescription
+          experiment={experiment}
+          loading={loadingExperiment || inferringExperimentType}
+          onNoteUpdated={refetchExperiment}
+          error={experimentError}
+          inferredExperimentKind={inferredExperimentKind}
+          experimentKindSelector={
+            !enableWorkflowBasedNavigation ? (
+              <ExperimentViewHeaderKindSelector
+                value={experimentKind}
+                inferredExperimentKind={inferredExperimentKind}
+                onChange={(kind) => updateExperimentKind({ experimentId, kind })}
+                isUpdating={updatingExperimentKind || inferringExperimentType}
+                key={inferredExperimentKind}
+                readOnly={!canUpdateExperimentKind}
+              />
+            ) : null
+          }
+        />
+      )}
       {!enableWorkflowBasedNavigation ? (
         <div css={{ display: 'flex', flex: 1, minWidth: 0, minHeight: 0 }}>
           {loadingExperiment || inferringExperimentType ? (
@@ -221,7 +226,7 @@ const ExperimentPageTabsImpl = () => {
       ) : (
         <div css={contentWrapperCss}>{outletComponent}</div>
       )}
-    </ReviewQueueTitleProvider>
+    </>
   );
 };
 
@@ -229,18 +234,20 @@ const ExperimentPageTabs = () => {
   const { theme } = useDesignSystemTheme();
 
   return (
-    <div
-      css={{
-        flex: 1,
-        overflow: 'hidden',
-        display: 'flex',
-        flexDirection: 'column',
-        padding: theme.spacing.md,
-        height: '100%',
-      }}
-    >
-      <ExperimentPageTabsImpl />
-    </div>
+    <ReviewQueueTitleProvider>
+      <div
+        css={{
+          flex: 1,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: theme.spacing.md,
+          height: '100%',
+        }}
+      >
+        <ExperimentPageTabsImpl />
+      </div>
+    </ReviewQueueTitleProvider>
   );
 };
 

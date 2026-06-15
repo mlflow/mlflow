@@ -39,7 +39,6 @@ import { useGetExperimentPageActiveTabByRoute } from '../../hooks/useGetExperime
 import { useWorkflowType } from '@mlflow/mlflow/src/common/contexts/WorkflowTypeContext';
 import { getTabDisplayIcon, getTabDisplayName } from './ExperimentViewHeader.utils';
 import { formatTraceArchivalRetentionForDisplay } from '../../../../../common/utils/traceArchival';
-import { useReviewQueueTitle } from '../../../../pages/experiment-review-queue/ReviewQueueTitleContext';
 
 const getDocLinkHref = (experimentKind: ExperimentKind) => {
   if (isGenAIExperimentKind(experimentKind)) {
@@ -112,10 +111,8 @@ export const ExperimentViewHeader = React.memo(
       activeTabByRoute === ExperimentPageTabName.Traces ||
       activeTabByRoute === ExperimentPageTabName.ChatSessions ||
       activeTabByRoute === ExperimentPageTabName.SingleChatSession;
-    const { title: reviewQueueTitleOverride } = useReviewQueueTitle();
     const experimentTitle =
-      reviewQueueTitleOverride ??
-      (shouldEnableWorkflowBasedNavigation() && tabDisplayName ? tabDisplayName : normalizedExperimentName);
+      shouldEnableWorkflowBasedNavigation() && tabDisplayName ? tabDisplayName : normalizedExperimentName;
 
     const breadcrumbs: React.ReactNode[] = useMemo(
       () => [
@@ -299,10 +296,9 @@ export const ExperimentViewHeader = React.memo(
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
           >
-            {!reviewQueueTitleOverride &&
-              !ROUTES_WITHOUT_MANAGEMENT_MENU.some((route) => matchPath(route, location.pathname)) && (
-                <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
-              )}
+            {!ROUTES_WITHOUT_MANAGEMENT_MENU.some((route) => matchPath(route, location.pathname)) && (
+              <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
+            )}
             <ExperimentViewHeaderShareButton
               experimentIds={experimentIds}
               searchFacetsState={searchFacetsState}
