@@ -110,6 +110,7 @@ from mlflow.protos.review_queues_pb2 import (
     CreateReviewQueue,
     GetOrCreateUserQueue,
     SetReviewQueueItemStatus,
+    UpdateReviewQueue,
 )
 from mlflow.protos.service_pb2 import (
     BatchGetTraceInfos,
@@ -225,6 +226,7 @@ from mlflow.server.handlers import (
     _update_issue,
     _update_model_version,
     _update_registered_model,
+    _update_review_queue,
     _upsert_dataset_records_handler,
     _validate_source_run,
     catch_mlflow_exception,
@@ -6274,6 +6276,52 @@ def test_create_review_queue_no_owner_on_noauth():
         _create_review_queue()
         call_kwargs = mock_store.return_value.create_review_queue.call_args[1]
         assert "created_by" not in call_kwargs
+
+
+def test_update_review_queue_passes_name_and_new_owner():
+    request_message = UpdateReviewQueue()
+    request_message.queue_id = "rq-1"
+    request_message.name = "renamed"
+    request_message.new_owner = "bob"
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.update_review_queue.return_value = _review_queue_entity(
+            name="renamed", created_by="bob"
+        )
+        _update_review_queue()
+        call_kwargs = mock_store.return_value.update_review_queue.call_args[1]
+        assert call_kwargs["name"] == "renamed"
+        assert call_kwargs["new_owner"] == "bob"
+        # Untouched association sets stay None (proto2 presence on the singular
+        # fields; no update_* flag set for users/schemas).
+        assert call_kwargs["users"] is None
+        assert call_kwargs["schema_ids"] is None
+
+
+def test_update_review_queue_unset_name_and_owner_pass_none():
+    # Only users changed; name / new_owner are unset, so HasField is False and
+    # the store must receive None (guards against a truthiness-vs-HasField
+    # regression that could, e.g., wipe the owner with an empty string).
+    request_message = UpdateReviewQueue()
+    request_message.queue_id = "rq-1"
+    request_message.update_users = True
+    request_message.users.append("bob")
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.update_review_queue.return_value = _review_queue_entity(
+            users=["bob"]
+        )
+        _update_review_queue()
+        call_kwargs = mock_store.return_value.update_review_queue.call_args[1]
+        assert call_kwargs["name"] is None
+        assert call_kwargs["new_owner"] is None
+        assert call_kwargs["users"] == ["bob"]
 
 
 def test_get_or_create_user_queue_ignores_client_created_by():

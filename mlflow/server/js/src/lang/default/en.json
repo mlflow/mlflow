@@ -1079,10 +1079,6 @@
     "defaultMessage": "Sending...",
     "description": "Send request button loading state"
   },
-  "3db93e": {
-    "defaultMessage": "Failed to save the queue settings.",
-    "description": "Queue settings: error alert title"
-  },
   "3dtjfI": {
     "defaultMessage": "No minimum",
     "description": "Numeric question: min-value input placeholder when unbounded"
@@ -1179,6 +1175,10 @@
     "defaultMessage": "{fieldName} are empty",
     "description": "Default text in data table where items are empty in the model\n                  comparison page"
   },
+  "48M+kw": {
+    "defaultMessage": "Owner",
+    "description": "Queue settings: owner field label"
+  },
   "4AkzyD": {
     "defaultMessage": "Confirm",
     "description": "Button label to confirm the inferred experiment kind"
@@ -1242,6 +1242,10 @@
   "4OrIsb": {
     "defaultMessage": "Expectations",
     "description": "Section title for expectations in the V2 dataset record side panel"
+  },
+  "4PnsJV": {
+    "defaultMessage": "Failed to save the queue settings: {error}",
+    "description": "Queue settings: error toast shown when saving fails"
   },
   "4Qft47": {
     "defaultMessage": "{nodeCount, plural, =0 {} one {# node} other {# nodes}}",
@@ -1979,6 +1983,10 @@
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
   },
+  "8Mwwrq": {
+    "defaultMessage": "No matching users",
+    "description": "Review queue: no users match the owner search"
+  },
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
@@ -2194,6 +2202,10 @@
   "9TOU1G": {
     "defaultMessage": "No charts in this section",
     "description": "Runs compare page > Charts tab > No charts placeholder title"
+  },
+  "9TovtF": {
+    "defaultMessage": "No assignable users",
+    "description": "Review queue: no assignable users available to own the queue"
   },
   "9Uh3c0": {
     "defaultMessage": "Trace",
@@ -3299,6 +3311,10 @@
     "defaultMessage": "No datasets match \"{query}\"",
     "description": "Title for the empty state when a search returns no datasets in the V2 evaluation datasets list"
   },
+  "FNEy+/": {
+    "defaultMessage": "Used by {custom} and {user}:",
+    "description": "Manage review questions: heading above the affected-queue list when the experiment also has user queues (which inherit every question)"
+  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
@@ -3370,6 +3386,10 @@
   "Fk4w6k": {
     "defaultMessage": "Status",
     "description": "Review queue table: status column"
+  },
+  "Fk7Mme": {
+    "defaultMessage": "{count, plural, one {# user queue} other {# user queues}}",
+    "description": "Manage review questions: count of user queues affected by deleting the question"
   },
   "FmKAee": {
     "defaultMessage": "Observability",
@@ -4375,6 +4395,10 @@
     "defaultMessage": "Move to top",
     "description": "Experiment page > compare runs tab > chart header > move to top option"
   },
+  "LfggX9": {
+    "defaultMessage": "Loading users…",
+    "description": "Review queue: owner roster loading"
+  },
   "LgnR+r": {
     "defaultMessage": "Configure the model to power issue detection.",
     "description": "Description for model selection in issue detection modal"
@@ -4679,6 +4703,10 @@
     "defaultMessage": "Error while loading metric page",
     "description": "Title of the error state on the metric page"
   },
+  "N8xOwg": {
+    "defaultMessage": "Search to find more users",
+    "description": "Review queue: hint that more users are searchable for the owner"
+  },
   "NDEhn/": {
     "defaultMessage": "Configure chart",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > configure chart button"
@@ -4870,6 +4898,10 @@
   "O3RheJ": {
     "defaultMessage": "Link prompts to traces",
     "description": "Heading describing how to add prompts when no prompt records are available"
+  },
+  "O45Gdv": {
+    "defaultMessage": "Showing the first {count} matches — refine your search",
+    "description": "Review queue: hint that the owner search results were capped"
   },
   "O4KXrW": {
     "defaultMessage": "Enter the retention",
@@ -6703,6 +6735,10 @@
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
   },
+  "XR45oU": {
+    "defaultMessage": "Inherited by {count, plural, one {# user queue} other {# user queues}}.",
+    "description": "Manage review questions: note shown when no custom queue uses the question but user queues (which inherit every question) do"
+  },
   "XREd2h": {
     "defaultMessage": "Learn more",
     "description": "Link text in column header tooltip that opens documentation in a new tab"
@@ -7134,6 +7170,10 @@
   "ZhHSRR": {
     "defaultMessage": "Evaluating traces: OFF",
     "description": "Status label for stopped scorer"
+  },
+  "ZhMWAY": {
+    "defaultMessage": "The owner can manage this queue with experiment EDIT access.",
+    "description": "Queue settings: owner field hint"
   },
   "Zj5ugd": {
     "defaultMessage": "Permission",
@@ -7766,6 +7806,10 @@
   "cb9LLM": {
     "defaultMessage": "Last updated",
     "description": "Header for the dataset record last-updated column"
+  },
+  "cbj8bg": {
+    "defaultMessage": "{count, plural, one {# custom queue} other {# custom queues}}",
+    "description": "Manage review questions: count of custom queues using the question being deleted"
   },
   "cfzQMh": {
     "defaultMessage": "baseline run",
@@ -8419,10 +8463,6 @@
     "defaultMessage": "Examples:",
     "description": "Text header for examples of logged models search syntax"
   },
-  "fygCDU": {
-    "defaultMessage": "Cancel",
-    "description": "Queue settings: cancel button"
-  },
   "g++0mY": {
     "defaultMessage": "Does the response follow the provided guidelines?",
     "description": "Hint for Guidelines template"
@@ -8670,6 +8710,10 @@
   "gy4ziK": {
     "defaultMessage": "Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”.",
     "description": "Create review queue: reviewers field hint"
+  },
+  "gzzFuZ": {
+    "defaultMessage": "Select owner",
+    "description": "Review queue: owner dropdown label"
   },
   "h0XfC3": {
     "defaultMessage": "Tags",
@@ -9130,6 +9174,10 @@
   "j25Ttg": {
     "defaultMessage": "Model metrics",
     "description": "Run details page > tab selector > Model metrics tab"
+  },
+  "j2cg1p": {
+    "defaultMessage": "Used by {count, plural, one {# queue} other {# queues}}:",
+    "description": "Manage review questions: heading above the list of queues that use the question being deleted"
   },
   "j3yKcX": {
     "defaultMessage": "Select the experiment you configured above.",
@@ -10610,6 +10658,10 @@
   "qbtNJS": {
     "defaultMessage": "Block",
     "description": "Block action title"
+  },
+  "qcO5RW": {
+    "defaultMessage": "Select an owner",
+    "description": "Review queue: owner dropdown placeholder"
   },
   "qcYoo4": {
     "defaultMessage": "Please select sessions to run the judge",
