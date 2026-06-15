@@ -1538,6 +1538,54 @@ async def test_sync_stream_disconnect_propagates_through_body_generator():
 
 
 @pytest.mark.asyncio
+async def test_sync_stream_handler_error_propagates_to_consumer():
+    # A regular Exception raised by the user generator is captured on the worker
+    # thread and re-raised through the consumer, so the stream endpoint can surface
+    # it as an SSE error event.
+    @stream()
+    def failing_stream(request):
+        yield {"chunk": 1}
+        raise ValueError("boom")
+
+    server = AgentServer()
+    agen = server._iterate_sync_in_thread(failing_stream, {"x": 1})
+
+    assert await agen.__anext__() == {"chunk": 1}
+    with pytest.raises(ValueError, match="boom"):
+        await agen.__anext__()
+
+
+@pytest.mark.asyncio
+async def test_sync_stream_handler_base_exception_is_not_captured(monkeypatch):
+    # BaseException types (KeyboardInterrupt, SystemExit) must propagate on the
+    # worker thread and terminate it, rather than being captured into the error
+    # channel and re-raised on the event loop where they would impede shutdown. The
+    # worker's uncaught KeyboardInterrupt reaches threading.excepthook; swallow it
+    # so it does not surface as a spurious thread-exception warning.
+    monkeypatch.setattr(threading, "excepthook", lambda args: None)
+    raised = threading.Event()
+
+    @stream()
+    def interrupted_stream(request):
+        yield {"chunk": 1}
+        raised.set()
+        raise KeyboardInterrupt
+
+    server = AgentServer()
+
+    # The consumer ends normally yielding only the pre-interrupt chunk: the
+    # sentinel carries no error because the KeyboardInterrupt was never captured
+    # into the error channel.
+    chunks = [chunk async for chunk in server._iterate_sync_in_thread(interrupted_stream, {"x": 1})]
+    assert chunks == [{"chunk": 1}]
+
+    assert raised.is_set()
+    # Let the worker finish unwinding the KeyboardInterrupt into the swallowing
+    # excepthook before monkeypatch restores the original at teardown.
+    await asyncio.sleep(0.1)
+
+
+@pytest.mark.asyncio
 async def test_concurrent_sync_streams_do_not_starve_default_executor():
     from mlflow.genai.agent_server.server import _STREAM_MAX_CHUNKS_AHEAD
 

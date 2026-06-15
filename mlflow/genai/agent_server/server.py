@@ -405,7 +405,7 @@ class AgentServer:
         # +1 is headroom for the permit-less sentinel enqueued at teardown.
         chunk_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=_STREAM_MAX_CHUNKS_AHEAD + 1)
         free_slots = threading.Semaphore(_STREAM_MAX_CHUNKS_AHEAD)
-        error: list[BaseException] = []
+        error: list[Exception] = []
         stop_event = threading.Event()
         # Copy the current context so the active tracing span set by the caller
         # propagates into the worker thread and the generator's own spans nest
@@ -435,7 +435,11 @@ class AgentServer:
                     if not acquired:
                         break
                     enqueue(chunk)
-            except BaseException as e:
+            except Exception as e:
+                # Only capture ordinary errors. Let BaseException types
+                # (KeyboardInterrupt, SystemExit) propagate so they terminate the
+                # worker thread and don't impede interpreter shutdown; the finally
+                # block still closes the generator and flushes the sentinel.
                 error.append(e)
             finally:
                 # Close the user's generator so its cleanup (span exit, finally
@@ -447,7 +451,7 @@ class AgentServer:
                 if gen_close is not None:
                     try:
                         gen_close()
-                    except BaseException as e:
+                    except Exception as e:
                         if not error:
                             error.append(e)
                 # The sentinel carries no permit, so it always enqueues even when
