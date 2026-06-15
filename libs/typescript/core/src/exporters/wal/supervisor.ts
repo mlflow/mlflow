@@ -121,11 +121,8 @@ let spawnInFlight: Promise<void> | null = null;
  */
 async function waitForDaemonBind(timeoutMs: number, pollIntervalMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
-  while (true) {
+  while (Date.now() < deadline) {
     const remainingMs = deadline - Date.now();
-    if (remainingMs <= 0) {
-      return;
-    }
 
     let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     const result = await Promise.race<boolean | 'timeout'>([
