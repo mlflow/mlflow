@@ -269,8 +269,6 @@ spacy:
   models:
     minimum: "3.8.2"
     maximum: "3.8.14"
-    requirements:
-      "< 3.8": ["numpy<2"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py
 
