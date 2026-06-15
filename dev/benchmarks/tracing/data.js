@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781531078471,
+  "lastUpdate": 1781533446038,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -10205,6 +10205,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 36.59713940000131,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84737625+kriscon-db@users.noreply.github.com",
+            "name": "Kris Concepcion",
+            "username": "kriscon-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b715af4c8932afb2ccb1fe771752bc92dc0e3c91",
+          "message": "Review queues: queue rename + owner reassignment (#23910)\n\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>\nSigned-off-by: kriscon-db <84737625+kriscon-db@users.noreply.github.com>\nCo-authored-by: Isaac <isaac@example.com>",
+          "timestamp": "2026-06-15T14:19:59Z",
+          "tree_id": "3a3ac1c5e50c7cebabe8509ecfaffe0efd759ae5",
+          "url": "https://github.com/mlflow/mlflow/commit/b715af4c8932afb2ccb1fe771752bc92dc0e3c91"
+        },
+        "date": 1781533444182,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.7404859499992,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 22.230185222221383,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.58402492307713,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 21.603590964910556,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 21.384260866666693,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.266098799999554,
             "unit": "ms"
           }
         ]
