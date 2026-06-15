@@ -681,6 +681,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'eval-monitor/regression-testing',
+          label: 'Regression Testing and CI/CD',
+        },
+        {
+          type: 'doc',
           id: 'eval-monitor/automatic-evaluations/index',
           label: 'Automatic Evaluation',
         },
