@@ -124,7 +124,6 @@ export const AddToReviewQueueDropdown = ({
   const { addItemsToReviewQueueAsync, reset: resetAdd } = useAddItemsToReviewQueueMutation();
   const { removeItemsFromReviewQueueAsync } = useRemoveItemsFromReviewQueueMutation();
   const { getOrCreateUserQueueAsync, reset: resetResolve } = useGetOrCreateUserQueueMutation();
-  const [submitError, setSubmitError] = useState<string | null>(null);
   // Tracks which queue IDs / usernames are currently being processed so only
   // those specific items are disabled — no full-list flash.
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
@@ -238,7 +237,6 @@ export const AddToReviewQueueDropdown = ({
     setAddedQueueIds(new Set());
     setAddedUsers(new Set());
     setCreateOpen(false);
-    setSubmitError(null);
     setBusyIds(new Set());
     // Allow the next open to re-seed membership from the server.
     seededItemRef.current = null;
@@ -277,6 +275,20 @@ export const AddToReviewQueueDropdown = ({
     );
   }, [experimentId, itemIds.length, intl]);
 
+  const showErrorToast = useCallback(
+    (e: unknown) =>
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Failed to update the review queue: {error}',
+            description: 'Add to review queue: error toast when adding or removing traces fails',
+          },
+          { error: e instanceof Error ? e.message : String(e) },
+        ),
+      ),
+    [intl],
+  );
+
   const markBusy = (id: string) => setBusyIds((prev) => new Set(prev).add(id));
   const clearBusy = (id: string) =>
     setBusyIds((prev) => {
@@ -288,7 +300,6 @@ export const AddToReviewQueueDropdown = ({
   const toggleCustomQueue = async (queueId: string) => {
     if (busyIds.has(queueId) || !reviewerResolved || itemIds.length === 0) return;
     markBusy(queueId);
-    setSubmitError(null);
     const alreadyAdded = addedQueueIds.has(queueId);
     try {
       if (alreadyAdded) {
@@ -304,7 +315,7 @@ export const AddToReviewQueueDropdown = ({
         showSuccessToast();
       }
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : String(e));
+      showErrorToast(e);
     } finally {
       clearBusy(queueId);
     }
@@ -313,7 +324,6 @@ export const AddToReviewQueueDropdown = ({
   const toggleUserQueue = async (username: string) => {
     if (busyIds.has(username) || !reviewerResolved || itemIds.length === 0) return;
     markBusy(username);
-    setSubmitError(null);
     const alreadyAdded = addedUsers.has(username);
     try {
       const { review_queue } = await getOrCreateUserQueueAsync({
@@ -334,7 +344,7 @@ export const AddToReviewQueueDropdown = ({
         showSuccessToast();
       }
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : String(e));
+      showErrorToast(e);
     } finally {
       clearBusy(username);
     }
@@ -600,21 +610,6 @@ export const AddToReviewQueueDropdown = ({
                   </DialogComboboxOptionListSearch>
                 </DialogComboboxOptionList>
               </DialogCombobox>
-
-              {submitError && (
-                <div css={{ padding: theme.spacing.sm }}>
-                  <Alert
-                    componentId={`${CID}.error`}
-                    type="error"
-                    closable={false}
-                    message={intl.formatMessage({
-                      defaultMessage: 'Something went wrong.',
-                      description: 'Add to review queue: error alert title',
-                    })}
-                    description={submitError}
-                  />
-                </div>
-              )}
             </>
           )}
         </Popover.Content>
