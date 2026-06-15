@@ -527,8 +527,6 @@ transformers:
           "boto3<1.36",
         ]
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
-      # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
-      "< 4.42": ["sentence-transformers<5.1.2"]
       # sentence-transformers 5.4 passes `processing_class` to transformers Trainer,
       # which was added in transformers 4.46.0
       "< 4.46": ["sentence-transformers<5.4"]
