@@ -4783,8 +4783,15 @@ def _update_review_queue():
     )
     users = list(request_message.users) if request_message.update_users else None
     schema_ids = list(request_message.schema_ids) if request_message.update_schema_ids else None
+    # Singular fields use proto2 presence (no update_* flag).
+    name = request_message.name if request_message.HasField("name") else None
+    new_owner = request_message.new_owner if request_message.HasField("new_owner") else None
     updated = _get_tracking_store().update_review_queue(
-        request_message.queue_id, users=users, schema_ids=schema_ids
+        request_message.queue_id,
+        users=users,
+        schema_ids=schema_ids,
+        name=name,
+        new_owner=new_owner,
     )
     return _wrap_response(UpdateReviewQueue.Response(review_queue=updated.to_proto()))
 
