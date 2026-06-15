@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
   Alert,
@@ -8,14 +8,8 @@ import {
   FormUI,
   Input,
   Modal,
-  Tag,
   TableSkeleton,
   Typography,
-  TypeaheadComboboxInput,
-  TypeaheadComboboxMenu,
-  TypeaheadComboboxMenuItem,
-  TypeaheadComboboxRoot,
-  useComboboxState,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -26,6 +20,8 @@ import {
   useListLabelSchemasQuery,
 } from '../../components/label-schemas';
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
+import { sameUser } from './queuePermissions';
+import { MAX_ASSIGNED_USERS, ReviewerChecklistCombobox } from './ReviewerChecklistCombobox';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
@@ -57,12 +53,12 @@ export const QueueSettingsModal = ({
   const authAvailable = useIsAuthAvailable();
   // Any authenticated user may list users server-side, and the modal only opens
   // for someone who can edit this queue's members, so the roster is fetched
-  // whenever auth is on. Free-text member entry still works without it.
+  // whenever auth is on.
   const canListUsers = authAvailable;
 
   const { labelSchemas, isLoading: schemasLoading } = useListLabelSchemasQuery({ experimentId: queue.experiment_id });
   const { items: traces, isLoading: itemsLoading } = useListReviewQueueItemsQuery({ queueId: queue.queue_id });
-  const { users: assignableUsers } = useAssignableUsersQuery({ enabled: canListUsers });
+  const { users: assignableUsers, isLoading: usersLoading } = useAssignableUsersQuery({ enabled: canListUsers });
   const { updateReviewQueueAsync, isUpdatingQueue, error: updateError } = useUpdateReviewQueueMutation();
 
   // Questions are an experiment-manager concern (`canManage`) and additionally
@@ -72,13 +68,20 @@ export const QueueSettingsModal = ({
   const canEditQuestions = canManage && !itemsLoading && traces.length === 0;
 
   const [name, setName] = useState(queue.name);
-  // Owner reassignment is manager-only; pre-fill with the current owner.
-  const [owner, setOwner] = useState(queue.created_by ?? '');
+  // The current owner is implicitly a member (they own the queue) and can't be
+  // unassigned, so keep them out of the selectable roster and the toggleable
+  // member set, then re-add on save — consistent with the create flow, where the
+  // creator is auto-assigned and hidden from the picker.
+  const owner = queue.created_by;
+  const withoutOwner = (users: string[]) => users.filter((u) => !owner || !sameUser(u, owner));
+  // Owner reassignment is manager-only; a free-text new owner pre-filled with
+  // the current one. Distinct from `owner` above, which is the immutable key
+  // used to filter the reviewer picker.
+  const [newOwner, setNewOwner] = useState(queue.created_by ?? '');
+
   const [selectedSchemaIds, setSelectedSchemaIds] = useState<Set<string>>(new Set(queue.schema_ids ?? []));
-  const [members, setMembers] = useState<string[]>(queue.users ?? []);
+  const [members, setMembers] = useState<Set<string>>(() => new Set(withoutOwner(queue.users ?? [])));
   const [createQuestionOpen, setCreateQuestionOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [selectedItem, setSelectedItem] = useState<string | null>(null);
 
   const selectedSchemas = useMemo(
     () => labelSchemas.filter((s) => selectedSchemaIds.has(s.schema_id)),
@@ -122,57 +125,55 @@ export const QueueSettingsModal = ({
       return next;
     });
 
-  // Members typeahead: free text autocompleting assignable users, with the typed
-  // value injected so an unlisted user (or a user on a server without listing)
-  // can be added too.
+  // Reviewers picker: searchable multi-select checkbox list of assignable users
+  // (same UX as the create modal and the "Flag for review" picker), so members
+  // are chosen from the roster rather than free text.
   const usernames = useMemo(
-    () => assignableUsers.map((u) => u.username).filter((u): u is string => Boolean(u)),
-    [assignableUsers],
+    () => withoutOwner(assignableUsers.map((u) => u.username).filter((u): u is string => Boolean(u))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [assignableUsers, owner],
   );
-  const [filteredUsers, setFilteredUsers] = useState<(string | null)[]>([]);
-  useEffect(() => {
-    setFilteredUsers(usernames);
-  }, [usernames]);
-  const memberItems = useMemo(() => {
-    const base = filteredUsers.filter((u): u is string => typeof u === 'string' && !members.includes(u));
-    const typed = query.trim();
-    if (typed && !members.includes(typed) && !base.includes(typed)) {
-      return [typed, ...base];
-    }
-    return base;
-  }, [filteredUsers, members, query]);
-  const addMember = (value: string | null) => {
-    const name = value?.trim();
-    if (name && !members.includes(name)) {
-      setMembers((prev) => [...prev, name]);
-    }
-    setSelectedItem(null);
-    setQuery('');
-  };
-  const comboboxState = useComboboxState<string | null>({
-    componentId: `${CID}.member-typeahead`,
-    allItems: usernames,
-    items: memberItems,
-    setItems: setFilteredUsers,
-    multiSelect: false,
-    setInputValue: setQuery,
-    itemToString: (item) => item ?? '',
-    matcher: (item, q) => (item ?? '').toLowerCase().includes(q.toLowerCase()),
-    formValue: selectedItem,
-    formOnChange: addMember,
-    preventUnsetOnBlur: true,
-  });
-  const removeMember = (name: string) => setMembers((prev) => prev.filter((m) => m !== name));
+  const toggleReviewer = (username: string) =>
+    setMembers((prev) => {
+      const next = new Set(prev);
+      if (next.has(username)) {
+        next.delete(username);
+      } else {
+        next.add(username);
+      }
+      return next;
+    });
+  const reviewersTriggerValue = useMemo(
+    () =>
+      members.size > 0
+        ? [
+            intl.formatMessage(
+              {
+                defaultMessage: '{count, plural, one {# reviewer} other {# reviewers}} selected',
+                description: 'Queue settings: reviewers dropdown selected-count summary',
+              },
+              { count: members.size },
+            ),
+          ]
+        : [],
+    [members, intl],
+  );
 
   const trimmedName = name.trim();
-  const trimmedOwner = owner.trim();
   const nameChanged = trimmedName !== queue.name;
+  const trimmedNewOwner = newOwner.trim();
   // Owner can only change for a manager; ignore a cleared field (the backend
   // requires a non-empty owner) so blanking it is a no-op rather than an error.
-  const ownerChanged = canManage && trimmedOwner !== '' && trimmedOwner !== (queue.created_by ?? '');
-  const originalMembers = queue.users ?? [];
-  const membersChanged = members.length !== originalMembers.length || members.some((m) => !originalMembers.includes(m));
+  const ownerChanged = canManage && trimmedNewOwner !== '' && trimmedNewOwner !== (queue.created_by ?? '');
   const canSave = trimmedName !== '';
+  // Dedupe the stored members before diffing so a duplicate in `queue.users`
+  // can't read as a spurious change (and trigger a needless update_users write).
+  const originalMembers = useMemo(
+    () => new Set(withoutOwner(queue.users ?? [])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [queue.users, owner],
+  );
+  const membersChanged = members.size !== originalMembers.size || [...originalMembers].some((m) => !members.has(m));
 
   const handleSave = async () => {
     await updateReviewQueueAsync({
@@ -180,9 +181,11 @@ export const QueueSettingsModal = ({
       // Send each field only when it actually changed: a repeated `users` write
       // is an `update_users` that would otherwise clobber a concurrent edit, and
       // name / owner skip the backend's rename collision and owner re-validation.
-      ...(membersChanged ? { users: members } : {}),
+      // The owner is re-added to `users` (they're always a member) since they're
+      // hidden from the picker.
+      ...(membersChanged ? { users: Array.from(new Set([...(owner ? [owner] : []), ...members])) } : {}),
       ...(nameChanged ? { name: trimmedName } : {}),
-      ...(ownerChanged ? { new_owner: trimmedOwner } : {}),
+      ...(ownerChanged ? { new_owner: trimmedNewOwner } : {}),
       // Only send schema_ids when they're still editable; once the queue has
       // traces (or the user lacks MANAGE) the backend freezes them.
       ...(canEditQuestions ? { schema_ids: [...selectedSchemaIds] } : {}),
@@ -238,12 +241,36 @@ export const QueueSettingsModal = ({
                 <Input
                   componentId={`${CID}.owner`}
                   id={`${CID}.owner-input`}
-                  value={owner}
-                  onChange={(e) => setOwner(e.target.value)}
+                  value={newOwner}
+                  onChange={(e) => setNewOwner(e.target.value)}
                   placeholder={intl.formatMessage({
                     defaultMessage: 'Owner username or email',
                     description: 'Queue settings: owner field placeholder',
                   })}
+                />
+              </div>
+            )}
+
+            {authAvailable && (
+              <div>
+                <FormUI.Label>
+                  <FormattedMessage defaultMessage="Reviewers" description="Queue settings: members field label" />
+                </FormUI.Label>
+                <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
+                  <FormattedMessage
+                    defaultMessage="Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”."
+                    description="Queue settings: members field hint"
+                  />
+                </FormUI.Hint>
+                <ReviewerChecklistCombobox
+                  componentId={`${CID}.reviewers`}
+                  usernames={usernames}
+                  checkedUsers={members}
+                  onToggle={toggleReviewer}
+                  triggerValue={reviewersTriggerValue}
+                  dropdownZIndex={dropdownZIndex}
+                  isLoading={usersLoading}
+                  maxSelected={owner ? MAX_ASSIGNED_USERS - 1 : MAX_ASSIGNED_USERS}
                 />
               </div>
             )}
@@ -372,65 +399,6 @@ export const QueueSettingsModal = ({
                 </div>
               </div>
             </div>
-
-            {authAvailable && (
-              <div>
-                <FormUI.Label htmlFor={`${CID}.member-typeahead-input`}>
-                  <FormattedMessage defaultMessage="Reviewers" description="Queue settings: members field label" />
-                </FormUI.Label>
-                <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
-                  <FormattedMessage
-                    defaultMessage="Assign reviewers by name. They'll find this queue under “Feedback requested”."
-                    description="Queue settings: members field hint"
-                  />
-                </FormUI.Hint>
-                <TypeaheadComboboxRoot id={`${CID}.member-typeahead`} comboboxState={comboboxState}>
-                  <TypeaheadComboboxInput
-                    id={`${CID}.member-typeahead-input`}
-                    placeholder={intl.formatMessage({
-                      defaultMessage: 'Add a reviewer by username or email',
-                      description: 'Queue settings: member typeahead placeholder',
-                    })}
-                    comboboxState={comboboxState}
-                    formOnChange={addMember}
-                    onPressEnter={() => {
-                      if (memberItems.length > 0) {
-                        addMember(memberItems[0]);
-                      }
-                    }}
-                    allowClear
-                  />
-                  <TypeaheadComboboxMenu comboboxState={comboboxState}>
-                    {memberItems.map((item, index) => (
-                      <TypeaheadComboboxMenuItem
-                        key={item ?? ''}
-                        item={item}
-                        index={index}
-                        comboboxState={comboboxState}
-                      >
-                        {item ?? ''}
-                      </TypeaheadComboboxMenuItem>
-                    ))}
-                  </TypeaheadComboboxMenu>
-                </TypeaheadComboboxRoot>
-                {members.length > 0 ? (
-                  <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs, marginTop: theme.spacing.sm }}>
-                    {members.map((member) => (
-                      <Tag key={member} componentId={`${CID}.member-tag`} closable onClose={() => removeMember(member)}>
-                        {member}
-                      </Tag>
-                    ))}
-                  </div>
-                ) : (
-                  <Typography.Hint css={{ marginTop: theme.spacing.sm }}>
-                    <FormattedMessage
-                      defaultMessage="No reviewers assigned yet."
-                      description="Queue settings: empty members state"
-                    />
-                  </Typography.Hint>
-                )}
-              </div>
-            )}
 
             {updateError && (
               <Alert

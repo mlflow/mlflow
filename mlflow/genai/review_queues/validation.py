@@ -40,10 +40,11 @@ ITEM_ID_MAX_LENGTH = 50
 # (case-insensitively, so "Default"/"DEFAULT" are rejected too).
 RESERVED_QUEUE_NAME = "default"
 
-# Cap on a queue's assigned users, mirroring the managed-evals
-# `LabelingSession.assigned_users` ceiling so an OSS queue can't be assigned an
-# unbounded reviewer set. A user queue always stays well under this (exactly 1).
-MAX_ASSIGNED_USERS = 4
+# Cap on a queue's assigned users so a queue can't be assigned an unbounded
+# reviewer set. A user queue always stays well under this (exactly 1). Keep in
+# sync with `MAX_ASSIGNED_USERS` in the frontend (ReviewerChecklistCombobox.tsx),
+# which gates the picker so the cap isn't hit on submit.
+MAX_ASSIGNED_USERS = 10
 
 
 def _invalid(message: str) -> MlflowException:

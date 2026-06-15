@@ -159,6 +159,12 @@ message ListReviewQueues {
   optional int32 max_results = 3;
   optional string page_token = 4;
 
+  // When set, return only queues that already contain this item (a trace id),
+  // resolved via the per-item index on `review_queue_items`. Mirrors `user` as
+  // an optional server-side filter; combine with an unfiltered list to surface
+  // which queues a trace is already a member of.
+  optional string item_id = 6;
+
   // Field 5 was `ensure_default` (no-auth default-queue seeding); removed with
   // the default queue. The no-auth catch-all is the reserved `default` USER
   // queue, seeded via GetOrCreateUserQueue.
