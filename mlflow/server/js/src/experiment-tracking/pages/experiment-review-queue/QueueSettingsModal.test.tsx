@@ -13,7 +13,7 @@ import type { ReviewQueue, ReviewQueueItem } from './types';
 jest.mock('./QuestionChecklistCombobox', () => ({ QuestionChecklistCombobox: () => null }));
 jest.mock('../../components/label-schemas', () => ({
   useListLabelSchemasQuery: () => ({
-    labelSchemas: [{ schema_id: 's1', name: 'Q1', type: 'FEEDBACK', input: { text: {} } }],
+    labelSchemas: [{ schema_id: 's1', name: 'Q1', type: 'FEEDBACK', input: { text: {} }, enable_comment: true }],
     isLoading: false,
   }),
   LabelSchemaInputRenderer: () => null,
@@ -117,6 +117,14 @@ describe('QueueSettingsModal save', () => {
     expect('users' in arg).toBe(false);
     expect('name' in arg).toBe(false);
     expect('new_owner' in arg).toBe(false);
+  });
+
+  it('shows the optional rationale box in the question preview when the schema collects one', () => {
+    renderModal();
+    // The preview card is collapsed by default; expand it to reveal the question
+    // as a reviewer sees it, including the optional rationale box.
+    fireEvent.click(screen.getByText('Q1'));
+    expect(screen.getByPlaceholderText('Rationale (optional)')).toBeInTheDocument();
   });
 
   it('hides the queue owner from the picker but keeps them assigned on save', async () => {
