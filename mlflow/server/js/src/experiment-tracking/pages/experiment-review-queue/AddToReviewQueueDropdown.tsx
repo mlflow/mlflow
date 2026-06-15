@@ -21,14 +21,14 @@ import { useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { useCanEditReviews, useCanManageReviews } from './hooks/useCanManageReviews';
 import Utils from '../../../common/utils/Utils';
-import { generatePath, Link } from '../../../common/utils/RoutingUtils';
-import { RoutePaths } from '../../routes';
+import { Link } from '../../../common/utils/RoutingUtils';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { getQueueAssignability } from './queueAssignability';
 import { canRemoveQueueItems, sameUser } from './queuePermissions';
 import { useAddItemsToReviewQueueMutation } from './hooks/useAddItemsToReviewQueueMutation';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
+import { getReviewQueuePageRoute } from './hooks/useReviewQueueSearchParams';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
 import { DEFAULT_REVIEWER, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
@@ -124,7 +124,6 @@ export const AddToReviewQueueDropdown = ({
   const { addItemsToReviewQueueAsync, reset: resetAdd } = useAddItemsToReviewQueueMutation();
   const { removeItemsFromReviewQueueAsync } = useRemoveItemsFromReviewQueueMutation();
   const { getOrCreateUserQueueAsync, reset: resetResolve } = useGetOrCreateUserQueueMutation();
-  const [submitError, setSubmitError] = useState<string | null>(null);
   // Tracks which queue IDs / usernames are currently being processed so only
   // those specific items are disabled — no full-list flash.
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
@@ -238,7 +237,6 @@ export const AddToReviewQueueDropdown = ({
     setAddedQueueIds(new Set());
     setAddedUsers(new Set());
     setCreateOpen(false);
-    setSubmitError(null);
     setBusyIds(new Set());
     // Allow the next open to re-seed membership from the server.
     seededItemRef.current = null;
@@ -255,27 +253,44 @@ export const AddToReviewQueueDropdown = ({
     toggleCustomQueue(queue.queue_id);
   };
 
-  const showSuccessToast = useCallback(() => {
-    const reviewQueuePath = generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId });
-    Utils.displayGlobalInfoNotification(
-      <span css={{ whiteSpace: 'nowrap' }}>
-        {intl.formatMessage(
+  const showSuccessToast = useCallback(
+    (queueId: string) => {
+      const reviewQueuePath = getReviewQueuePageRoute(experimentId, queueId);
+      Utils.displayGlobalInfoNotification(
+        <span css={{ whiteSpace: 'nowrap' }}>
+          {intl.formatMessage(
+            {
+              defaultMessage: 'Added {count, plural, one {# trace} other {# traces}} to review.',
+              description: 'Add to review queue: success toast after traces are added',
+            },
+            { count: itemIds.length },
+          )}{' '}
+          <Link componentId={`${CID}.toast-view-queue`} to={reviewQueuePath}>
+            {intl.formatMessage({
+              defaultMessage: 'View review queue',
+              description: 'Add to review queue: success toast link to the review queue page',
+            })}
+          </Link>
+        </span>,
+        3,
+      );
+    },
+    [experimentId, itemIds.length, intl],
+  );
+
+  const showErrorToast = useCallback(
+    (e: unknown) =>
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage(
           {
-            defaultMessage: 'Added {count, plural, one {# trace} other {# traces}} to review.',
-            description: 'Add to review queue: success toast after traces are added',
+            defaultMessage: 'Failed to update the review queue: {error}',
+            description: 'Add to review queue: error toast when adding or removing traces fails',
           },
-          { count: itemIds.length },
-        )}{' '}
-        <Link componentId={`${CID}.toast-view-queue`} to={reviewQueuePath}>
-          {intl.formatMessage({
-            defaultMessage: 'View review queue',
-            description: 'Add to review queue: success toast link to the review queue page',
-          })}
-        </Link>
-      </span>,
-      3,
-    );
-  }, [experimentId, itemIds.length, intl]);
+          { error: e instanceof Error ? e.message : String(e) },
+        ),
+      ),
+    [intl],
+  );
 
   const markBusy = (id: string) => setBusyIds((prev) => new Set(prev).add(id));
   const clearBusy = (id: string) =>
@@ -288,7 +303,6 @@ export const AddToReviewQueueDropdown = ({
   const toggleCustomQueue = async (queueId: string) => {
     if (busyIds.has(queueId) || !reviewerResolved || itemIds.length === 0) return;
     markBusy(queueId);
-    setSubmitError(null);
     const alreadyAdded = addedQueueIds.has(queueId);
     try {
       if (alreadyAdded) {
@@ -301,10 +315,10 @@ export const AddToReviewQueueDropdown = ({
       } else {
         await addItemsToReviewQueueAsync({ queue_id: queueId, item_ids: itemIds });
         setAddedQueueIds((prev) => new Set(prev).add(queueId));
-        showSuccessToast();
+        showSuccessToast(queueId);
       }
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : String(e));
+      showErrorToast(e);
     } finally {
       clearBusy(queueId);
     }
@@ -313,7 +327,6 @@ export const AddToReviewQueueDropdown = ({
   const toggleUserQueue = async (username: string) => {
     if (busyIds.has(username) || !reviewerResolved || itemIds.length === 0) return;
     markBusy(username);
-    setSubmitError(null);
     const alreadyAdded = addedUsers.has(username);
     try {
       const { review_queue } = await getOrCreateUserQueueAsync({
@@ -331,10 +344,10 @@ export const AddToReviewQueueDropdown = ({
       } else {
         await addItemsToReviewQueueAsync({ queue_id: review_queue.queue_id, item_ids: itemIds });
         setAddedUsers((prev) => new Set(prev).add(username));
-        showSuccessToast();
+        showSuccessToast(review_queue.queue_id);
       }
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : String(e));
+      showErrorToast(e);
     } finally {
       clearBusy(username);
     }
@@ -600,21 +613,6 @@ export const AddToReviewQueueDropdown = ({
                   </DialogComboboxOptionListSearch>
                 </DialogComboboxOptionList>
               </DialogCombobox>
-
-              {submitError && (
-                <div css={{ padding: theme.spacing.sm }}>
-                  <Alert
-                    componentId={`${CID}.error`}
-                    type="error"
-                    closable={false}
-                    message={intl.formatMessage({
-                      defaultMessage: 'Something went wrong.',
-                      description: 'Add to review queue: error alert title',
-                    })}
-                    description={submitError}
-                  />
-                </div>
-              )}
             </>
           )}
         </Popover.Content>

@@ -54,7 +54,7 @@ def test_forecasting_model_pyfunc_loader(model_path: str):
     predicted = deepar.predict(data).numpy()
     assert predicted.shape == (n_series, max_prediction_length)
 
-    mlflow.pytorch.save_model(deepar, model_path)
+    mlflow.pytorch.save_model(deepar, model_path, serialization_format="pickle")
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     torch.manual_seed(42)

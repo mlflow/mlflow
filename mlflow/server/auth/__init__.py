@@ -2170,7 +2170,9 @@ def validate_gateway_proxy():
 # Review queues & label schemas
 #
 # Permissions inherit from the parent experiment (like runs / logged models).
-# Managing a queue or schema (create / update / delete) requires experiment
+# Creating a queue requires EDIT (the creator owns it); updating or deleting one
+# requires MANAGE or EDIT-with-ownership (reassigning a queue's owner is
+# MANAGE-only); managing label schemas (create / update / delete) requires
 # MANAGE; routing work into a queue requires EDIT; reviewing through a queue
 # (set / reopen status) requires EDIT plus membership in the queue's assigned-user
 # pool; reads require experiment READ, with per-queue visibility narrowed by
@@ -2228,14 +2230,33 @@ def _can_delete_or_prune_review_queue(queue, username: str) -> bool:
     )
 
 
+def _update_review_queue_reassigns_owner() -> bool:
+    """Whether an ``UpdateReviewQueue`` request reassigns the owner.
+
+    Detected by parsing the proto and checking field presence — matching how the
+    handler reads it — rather than scanning raw JSON keys. Protobuf JSON accepts
+    both ``new_owner`` and its camelCase ``newOwner``, so a raw-key check would
+    miss the latter and under-gate the MANAGE-only owner reassignment.
+    """
+    body = request.get_json(silent=True)
+    message = UpdateReviewQueue()
+    parse_dict(body if isinstance(body, dict) else {}, message)
+    return message.HasField("new_owner")
+
+
 def validate_can_create_review_queue():
     # Creating (and thereby owning) a queue requires experiment EDIT.
     return _get_permission_from_experiment_id().can_update
 
 
 def validate_can_update_review_queue():
+    # Editing a queue's shape (name / users / schemas) is allowed to a manager or
+    # the owning EDIT user. Reassigning the owner (``new_owner``) is MANAGE-only —
+    # an owner cannot transfer their own queue.
     username = authenticate_request().username
     queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+    if _update_review_queue_reassigns_owner():
+        return _get_experiment_permission(queue.experiment_id, username).can_manage
     return _can_own_or_manage_review_queue(queue, username)
 
 

@@ -132,6 +132,10 @@ describe('AddToReviewQueueDropdown', () => {
       .spyOn(Utils, 'displayGlobalInfoNotification')
       .mockReset()
       .mockImplementation(() => {});
+    jest
+      .spyOn(Utils, 'displayGlobalErrorNotification')
+      .mockReset()
+      .mockImplementation(() => {});
   });
 
   it('opens the dropdown when controlled with open=true', () => {
@@ -165,8 +169,9 @@ describe('AddToReviewQueueDropdown', () => {
       }
       return undefined;
     };
+    // The toast deep-links to the queue the traces were just added to.
     expect(findLinkTarget(toastNode)).toBe(
-      generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId: 'exp-1' }),
+      `${generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId: 'exp-1' })}?selectedQueueId=rq-default`,
     );
   });
 
@@ -176,7 +181,8 @@ describe('AddToReviewQueueDropdown', () => {
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Default queue' }));
 
-    expect(await screen.findByText('Queue resolution failed')).toBeInTheDocument();
+    await waitFor(() => expect(Utils.displayGlobalErrorNotification).toHaveBeenCalledTimes(1));
+    expect(jest.mocked(Utils.displayGlobalErrorNotification).mock.calls[0][0]).toContain('Queue resolution failed');
     expect(mockAddItems).not.toHaveBeenCalled();
     expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
   });
@@ -187,7 +193,8 @@ describe('AddToReviewQueueDropdown', () => {
 
     fireEvent.click(screen.getByRole('checkbox', { name: 'Relevance' }));
 
-    expect(await screen.findByText('Attach failed')).toBeInTheDocument();
+    await waitFor(() => expect(Utils.displayGlobalErrorNotification).toHaveBeenCalledTimes(1));
+    expect(jest.mocked(Utils.displayGlobalErrorNotification).mock.calls[0][0]).toContain('Attach failed');
     expect(Utils.displayGlobalInfoNotification).not.toHaveBeenCalled();
   });
 
