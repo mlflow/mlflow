@@ -86,8 +86,6 @@ def test_numeric_value_without_pass_when_fails_loudly():
 
 
 def test_numeric_value_rationale_does_not_suppress_pass_when_hint():
-    # A scorer rationale on a numeric value must augment, not replace, the
-    # pass_when guidance, since this is exactly when the author needs it.
     df = pd.DataFrame([{"scorer_a/value": 0.7, "scorer_a/rationale": "looks good"}])
     result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
     assert not result.passed

@@ -28,13 +28,7 @@ def _assertion_outcome(
     rationale: str | None,
     pass_when: Callable[[Any], bool] | None,
 ) -> tuple[bool, str | None]:
-    """Decide whether one scorer value passes, plus a failure detail.
-
-    Resolution order: a scorer error always fails; an explicit ``pass_when``
-    predicate decides next; otherwise a ``yes`` rating or a ``bool`` decides. A
-    value that is neither yes/no nor a bool, with no ``pass_when``, fails and asks
-    the author to declare one (rather than guessing a threshold).
-    """
+    """Decide whether one scorer value passes, plus a failure detail."""
     if error_msg is not None:
         return False, error_msg
     if pass_when is not None:
@@ -42,19 +36,17 @@ def _assertion_outcome(
             return bool(pass_when(value)), rationale or f"value={value!r}"
         except Exception as e:
             return False, f"pass_when raised {type(e).__name__}: {e}"
-    # CategoricalRating is a StrEnum, so yes/no ratings land here as strings.
+    # CategoricalRating is a StrEnum, so yes/no ratings arrive as strings.
     if isinstance(value, str):
         return value.strip().lower() == "yes", rationale or f"value={value!r}"
-    # Handles both Python bool and NumPy bool_ from the dataframe.
+    # pd.api.types.is_bool also covers NumPy bool_ from the dataframe.
     if pd.api.types.is_bool(value):
         return bool(value), rationale or f"value={value!r}"
-    # Always surface the pass_when guidance here: this is the branch where the
-    # author needs it, so a scorer-provided rationale augments it rather than
-    # replacing it.
     hint = (
         f"returned {value!r}; assertions need a yes/no rating or a bool. "
         f"Declare pass_when=... on the scorer to define what counts as passing."
     )
+    # Always append the hint; a rationale augments it rather than replacing it.
     return False, f"{rationale}; {hint}" if rationale else hint
 
 
@@ -292,11 +284,8 @@ class EvaluationResult:
     def passed(self) -> bool:
         """``True`` when every scorer passed for every row.
 
-        A scorer value passes when it is a ``yes``
-        :class:`~mlflow.genai.judges.CategoricalRating` (or the string ``"yes"``) or
-        ``True``. A scorer can override this for non-yes/no values by declaring a
-        predicate via ``@scorer(pass_when=...)``. A value that is neither yes/no nor
-        a bool and has no ``pass_when`` fails, asking you to declare one.
+        A value passes when it is a ``yes`` rating (or ``"yes"``) or ``True``.
+        Declare ``@scorer(pass_when=...)`` to define passing for other values.
 
         Usage::
 
@@ -332,8 +321,7 @@ class EvaluationResult:
                 scorer_name = col.removesuffix("/value")
                 value = row.get(col)
                 error_msg = _clean(row.get(f"{scorer_name}/error_message"))
-                # Skip cells a scorer did not produce for this row (sparse columns
-                # arise when different rows run different scorers).
+                # Skip cells a scorer did not produce for this row.
                 if error_msg is None and is_none_or_nan(value):
                     continue
                 rationale = _clean(row.get(f"{scorer_name}/rationale"))
