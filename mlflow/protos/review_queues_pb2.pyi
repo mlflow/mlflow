@@ -138,7 +138,7 @@ class GetReviewQueueByName(_message.Message):
     def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
 
 class ListReviewQueues(_message.Message):
-    __slots__ = ("experiment_id", "user", "max_results", "page_token")
+    __slots__ = ("experiment_id", "user", "max_results", "page_token", "item_id")
     class Response(_message.Message):
         __slots__ = ("review_queues", "next_page_token")
         REVIEW_QUEUES_FIELD_NUMBER: _ClassVar[int]
@@ -150,11 +150,13 @@ class ListReviewQueues(_message.Message):
     USER_FIELD_NUMBER: _ClassVar[int]
     MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    ITEM_ID_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
     user: str
     max_results: int
     page_token: str
-    def __init__(self, experiment_id: _Optional[str] = ..., user: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+    item_id: str
+    def __init__(self, experiment_id: _Optional[str] = ..., user: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ..., item_id: _Optional[str] = ...) -> None: ...
 
 class UpdateReviewQueue(_message.Message):
     __slots__ = ("queue_id", "update_users", "users", "update_schema_ids", "schema_ids")

@@ -2075,7 +2075,19 @@ def _get_metric_history():
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
 
-    max_results = request_message.max_results if request_message.max_results is not None else None
+    # NB: An unset proto2 int field reads as 0 (never None), so a `max_results is not None`
+    # check would treat requests without `max_results` as `max_results=0`: the store queries
+    # one row beyond the requested page size (LIMIT 1), concludes more results exist,
+    # truncates the page to zero metrics, and emits a token for `offset + 0` that points back
+    # at the same position forever. Use HasField to keep requests without `max_results` on the
+    # documented non-paginated path, and reject explicit non-positive page sizes.
+    max_results = request_message.max_results if request_message.HasField("max_results") else None
+    if max_results is not None and max_results <= 0:
+        raise MlflowException(
+            f"Invalid value {max_results} for parameter 'max_results' supplied. "
+            "It must be a positive integer.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     metric_entities = _get_tracking_store().get_metric_history(
         run_id,
@@ -4677,10 +4689,8 @@ def _create_review_queue():
         "users": list(request_message.users),
         "schema_ids": list(request_message.schema_ids),
     }
-    # `created_by` is the queue owner and must be trustworthy — never honor the
-    # client's value. On an auth server it is the authenticated user (stamped on
-    # `flask.g` by the auth plugin); on a no-auth server it stays unset (owner is
-    # meaningless there).
+    # `created_by` is the owner: stamp it from the authenticated user, never the
+    # client. Stays unset on a no-auth server (owner is meaningless there).
     username = _get_request_username()
     if username is not None:
         kwargs["created_by"] = username
@@ -4698,8 +4708,7 @@ def _get_or_create_user_queue():
             "user": [_assert_required, _assert_string],
         },
     )
-    # A user queue is owned by its user (set in the store); the client-supplied
-    # `created_by` is ignored.
+    # A user queue is owned by its user (set in the store), not by any client value.
     queue = _get_tracking_store().get_or_create_user_queue(
         request_message.experiment_id, user=request_message.user
     )
@@ -4746,9 +4755,11 @@ def _list_review_queues():
     max_results = request_message.max_results if request_message.HasField("max_results") else None
     page_token = request_message.page_token if request_message.HasField("page_token") else None
     user = request_message.user if request_message.HasField("user") else None
+    item_id = request_message.item_id if request_message.HasField("item_id") else None
     queues = _get_tracking_store().list_review_queues(
         request_message.experiment_id,
         user=user,
+        item_id=item_id,
         max_results=max_results,
         page_token=page_token,
     )

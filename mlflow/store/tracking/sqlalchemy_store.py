@@ -8514,17 +8514,51 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 creation_time_ms=now_ms,
                 last_update_time_ms=now_ms,
             )
-            session.add(sql_queue)
             try:
-                session.flush()
+                # SAVEPOINT around the add+flush so an IntegrityError rolls back
+                # just this insert (not the whole transaction) and leaves the
+                # session usable for the disambiguating re-query below.
+                with session.begin_nested():
+                    session.add(sql_queue)
+                    session.flush()
             except IntegrityError as e:
-                # Race: a parallel transaction inserted (experiment_id, name)
-                # between the pre-check and the flush.
-                raise MlflowException(
-                    f"Review queue with name '{validated.name}' already exists for experiment "
-                    f"'{experiment_id}'.",
-                    error_code=RESOURCE_ALREADY_EXISTS,
-                ) from e
+                # The flush violated a constraint. Disambiguate by checking which
+                # one now holds rather than assuming a cause. The duplicate check
+                # is intentionally unscoped: the unique constraint is global on
+                # (experiment_id, name), independent of any workspace scoping
+                # applied to reads.
+                duplicate = (
+                    session
+                    .query(SqlReviewQueue)
+                    .filter(
+                        SqlReviewQueue.experiment_id == int(experiment_id),
+                        SqlReviewQueue.name == validated.name,
+                    )
+                    .first()
+                )
+                if duplicate is not None:
+                    # A parallel transaction won the create race.
+                    raise MlflowException(
+                        f"Review queue with name '{validated.name}' already exists for experiment "
+                        f"'{experiment_id}'.",
+                        error_code=RESOURCE_ALREADY_EXISTS,
+                    ) from e
+                experiment_present = (
+                    session
+                    .query(SqlExperiment.experiment_id)
+                    .filter(SqlExperiment.experiment_id == int(experiment_id))
+                    .first()
+                )
+                if experiment_present is None:
+                    # The experiment FK failed because the experiment was deleted
+                    # between the pre-check and the flush.
+                    raise MlflowException(
+                        f"Experiment '{experiment_id}' does not exist.",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    ) from e
+                # Neither known cause holds; surface the real error rather than
+                # mislabeling it.
+                raise
 
             for user in validated.users:
                 session.add(SqlReviewQueueUser(queue_id=sql_queue.queue_id, user_id=user))
@@ -8588,7 +8622,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
             return self._hydrate_review_queues(session, [sql_queue])[0]
 
-    def list_review_queues(self, experiment_id, *, user=None, max_results=None, page_token=None):
+    def list_review_queues(
+        self, experiment_id, *, user=None, item_id=None, max_results=None, page_token=None
+    ):
         from mlflow.genai.review_queues.validation import normalize_user
 
         if max_results is None:
@@ -8609,6 +8645,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     SqlReviewQueueUser.user_id == normalize_user(user)
                 )
                 query = query.filter(SqlReviewQueue.queue_id.in_(assigned_queue_ids))
+            if item_id is not None:
+                # Scope to queues that already contain this item, via the per-item
+                # index on review_queue_items, so callers can see which queues a
+                # trace is already a member of.
+                containing_queue_ids = session.query(SqlReviewQueueItem.queue_id).filter(
+                    SqlReviewQueueItem.item_id == item_id
+                )
+                query = query.filter(SqlReviewQueue.queue_id.in_(containing_queue_ids))
 
             results = (
                 query
@@ -8769,10 +8813,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 .all()
             )
-            # Every requested id is present now (pre-existing, just-inserted, or
-            # inserted by a racing writer), so the response covers them all.
+            # Usually every requested id is present now (pre-existing,
+            # just-inserted, or inserted by a racing writer), but a concurrent
+            # remove/delete can drop a row between the inserts above and this
+            # read, so skip any id that is no longer present rather than raising
+            # a KeyError.
             rows_by_item = {row.item_id: row for row in final_rows}
-            return [rows_by_item[item_id].to_mlflow_entity() for item_id in normalized_item_ids]
+            return [
+                rows_by_item[item_id].to_mlflow_entity()
+                for item_id in normalized_item_ids
+                if item_id in rows_by_item
+            ]
 
     def remove_items_from_review_queue(self, queue_id, *, item_ids):
         from mlflow.genai.review_queues.validation import validate_item_ids_for_attach

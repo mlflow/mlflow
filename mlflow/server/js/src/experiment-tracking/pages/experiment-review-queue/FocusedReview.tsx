@@ -22,7 +22,7 @@ import { LabelSchemaInputRenderer } from '../../components/label-schemas';
 import type { LabelSchema, LabelSchemaValue } from '../../components/label-schemas';
 import { useCreateReviewAssessmentMutation } from './hooks/useCreateReviewAssessmentMutation';
 import { useTraceAssessmentsQuery } from './hooks/useTraceAssessmentsQuery';
-import { buildPrefilledAnswers, buildPrefilledRationales, buildPriorAssessmentIds } from './reviewAnswers';
+import { buildPrefilledAnswers, buildPrefilledRationales, buildPriorAssessmentIds, isAnswered } from './reviewAnswers';
 import { StatusTag } from './ReviewQueueList';
 import { SegmentedProgressBar } from './SegmentedProgressBar';
 import type { ReviewQueueItem, ReviewStatus } from './types';
@@ -148,11 +148,7 @@ export const FocusedReview = ({
   completedBy: string;
   /** True while a status write is in flight (disables the actions). */
   isSettingStatus: boolean;
-  /**
-   * Whether the current reviewer may submit reviews in this queue — true unless
-   * an auth-server manager is viewing a queue they aren't assigned to. When
-   * false the answer inputs and submit/decline/reopen are disabled (view-only).
-   */
+  /** Whether the reviewer may submit reviews; when false the inputs/actions are view-only. */
   canReview: boolean;
   /** Self-assign action; shown to a manager viewing a queue they aren't in. */
   onAssignSelf?: () => void;
@@ -190,14 +186,34 @@ export const FocusedReview = ({
   const [edited, setEdited] = useState<Record<string, LabelSchemaValue>>({});
   const [editedRationales, setEditedRationales] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Confirmation shown after an in-place edit of a completed trace is saved;
+  // cleared as soon as the reviewer edits again.
+  const [editSaved, setEditSaved] = useState(false);
 
   const valueFor = (name: string): LabelSchemaValue => (name in edited ? edited[name] : prefilled[name]);
-  const setAnswer = (name: string, value: LabelSchemaValue) => setEdited((prev) => ({ ...prev, [name]: value }));
+  const setAnswer = (name: string, value: LabelSchemaValue) => {
+    setEditSaved(false);
+    setEdited((prev) => ({ ...prev, [name]: value }));
+  };
   const rationaleFor = (name: string): string =>
     name in editedRationales ? editedRationales[name] : (prefilledRationales[name] ?? '');
-  const setRationale = (name: string, value: string) => setEditedRationales((prev) => ({ ...prev, [name]: value }));
+  const setRationale = (name: string, value: string) => {
+    setEditSaved(false);
+    setEditedRationales((prev) => ({ ...prev, [name]: value }));
+  };
 
-  const isTerminal = item.status === 'COMPLETE' || item.status === 'DECLINED';
+  // A completed trace stays editable: the reviewer can revise their answers and
+  // re-save without the trace leaving the "done" bucket (mirrors the review app,
+  // where there is no reopen — you just edit a completed item). A declined trace
+  // has no answers to edit, so it stays locked; "Reopen" is the way back to it.
+  const isComplete = item.status === 'COMPLETE';
+  const isDeclined = item.status === 'DECLINED';
+  const isTerminal = isComplete || isDeclined;
+  // Whether the reviewer has touched any answer/rationale this session. The
+  // "Save changes" path on a completed trace only writes when there's an edit,
+  // so a no-op click doesn't re-supersede identical assessments. (A fresh submit
+  // doesn't need this — a reopened trace can be re-completed straight from prefill.)
+  const hasEdits = Object.keys(edited).length > 0 || Object.keys(editedRationales).length > 0;
   // A queue whose only question is a single Pass/Fail (no rationale) submits as
   // soon as the reviewer picks an answer — no Submit click needed.
   const autoSubmitSchema =
@@ -207,6 +223,18 @@ export const FocusedReview = ({
   // reopened trace or a failed auto-submit still has an explicit re-submit path.
   const autoSubmitValue = autoSubmitSchema ? valueFor(autoSubmitSchema.name) : undefined;
   const hideSubmit = autoSubmitSchema != null && (autoSubmitValue === undefined || autoSubmitValue === null);
+
+  // Submit writes one assessment per answered question; completing with zero
+  // answers would mark the trace done while recording nothing, so the button
+  // stays disabled until at least one question has a value. This reads the
+  // committed answer state (edited/prefilled) and intentionally ignores the
+  // auto-submit `answerOverrides`: those only flow through the auto-submit path
+  // (single Pass/Fail), which submits directly and hides this button, so the two
+  // never gate the same interaction.
+  const answeredCount = useMemo(
+    () => schemas.filter((s) => isAnswered(s.name in edited ? edited[s.name] : prefilled[s.name])).length,
+    [schemas, edited, prefilled],
+  );
 
   // Position in the queue + adjacent traces for prev/next navigation.
   const currentIndex = items.findIndex((i) => i.item_id === item.item_id);
@@ -251,10 +279,12 @@ export const FocusedReview = ({
       answerOverrides && name in answerOverrides ? answerOverrides[name] : valueFor(name);
     // Every answered question is (re)written here; an unchanged answer
     // re-supersedes its prior rather than being skipped.
-    const answered = schemas.filter((s) => {
-      const v = effectiveValue(s.name);
-      return v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
-    });
+    const answered = schemas.filter((s) => isAnswered(effectiveValue(s.name)));
+    // Defensive: the Submit button is disabled with no answers, but never
+    // record an empty completion if this is somehow reached.
+    if (answered.length === 0) {
+      return;
+    }
     try {
       // Write the answers, then mark complete. Status is advanced only if every
       // write succeeds, so a partial failure leaves the trace pending for retry.
@@ -271,6 +301,14 @@ export const FocusedReview = ({
           }),
         ),
       );
+      // Editing an already-complete trace: the answers above are re-written
+      // (superseding the priors), but the trace stays COMPLETE and we keep the
+      // reviewer on it. Re-saving an edit must not flip it back to PENDING / the
+      // to-do list, and its `completed_by`/`completed_time_ms` attribution stands.
+      if (isComplete) {
+        setEditSaved(true);
+        return;
+      }
       await onSetStatus('COMPLETE');
       // Keep the reviewer moving: jump to the next still-pending trace, or
       // return to the queue list once everything has been reviewed.
@@ -481,7 +519,7 @@ export const FocusedReview = ({
                             submitAnswersAndComplete({ [schema.name]: value });
                           }
                         }}
-                        disabled={isTerminal || !canReview}
+                        disabled={isDeclined || !canReview}
                         componentId={`${CID}.question`}
                         label={schema.name}
                         instruction={schema.instruction}
@@ -492,7 +530,7 @@ export const FocusedReview = ({
                           rows={2}
                           value={rationaleFor(schema.name)}
                           onChange={(e) => setRationale(schema.name, e.target.value)}
-                          disabled={isTerminal || !canReview}
+                          disabled={isDeclined || !canReview}
                           placeholder={intl.formatMessage({
                             defaultMessage: 'Rationale (optional)',
                             description: 'Review focused view: free-form rationale placeholder',
@@ -545,6 +583,18 @@ export const FocusedReview = ({
                 )}
               </div>
             )}
+            {editSaved && !submitError && (
+              <Alert
+                componentId={`${CID}.edit-saved`}
+                type="success"
+                closable
+                onClose={() => setEditSaved(false)}
+                message={intl.formatMessage({
+                  defaultMessage: 'Changes saved',
+                  description: 'Review focused view: confirmation that edited answers were saved',
+                })}
+              />
+            )}
             {submitError && (
               <Alert
                 componentId={`${CID}.submit-error`}
@@ -567,7 +617,10 @@ export const FocusedReview = ({
                   disabled={isSettingStatus || !canReview}
                   onClick={() => handleSetStatus('PENDING')}
                 >
-                  <FormattedMessage defaultMessage="Reopen" description="Review focused view: reopen action" />
+                  <FormattedMessage
+                    defaultMessage="Move to Todo"
+                    description="Review focused view: send a completed/declined trace back to the to-do list"
+                  />
                 </Button>
               ) : (
                 <Button
@@ -578,18 +631,32 @@ export const FocusedReview = ({
                   <FormattedMessage defaultMessage="Decline" description="Review focused view: decline action" />
                 </Button>
               )}
-              {!hideSubmit && (
+              {!hideSubmit && !isDeclined && (
                 <Button
                   componentId={`${CID}.complete`}
                   type="primary"
-                  disabled={isTerminal || isCreatingAssessment || isSettingStatus || !canReview || priorAnswersFetching}
+                  disabled={
+                    isCreatingAssessment ||
+                    isSettingStatus ||
+                    !canReview ||
+                    answeredCount === 0 ||
+                    priorAnswersFetching ||
+                    (isComplete && !hasEdits)
+                  }
                   loading={isCreatingAssessment || isSettingStatus}
                   onClick={() => submitAnswersAndComplete()}
                 >
-                  <FormattedMessage
-                    defaultMessage="Submit"
-                    description="Review focused view: submit answers and mark the trace complete"
-                  />
+                  {isComplete ? (
+                    <FormattedMessage
+                      defaultMessage="Save changes"
+                      description="Review focused view: re-save edited answers on an already-complete trace"
+                    />
+                  ) : (
+                    <FormattedMessage
+                      defaultMessage="Submit"
+                      description="Review focused view: submit answers and mark the trace complete"
+                    />
+                  )}
                 </Button>
               )}
             </div>

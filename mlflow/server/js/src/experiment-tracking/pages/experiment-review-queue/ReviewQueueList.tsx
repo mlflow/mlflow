@@ -5,8 +5,9 @@ import {
   Checkbox,
   CheckCircleIcon,
   DropdownMenu,
-  Empty,
   GearIcon,
+  NewWindowIcon,
+  PlusIcon,
   SearchIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
@@ -22,6 +23,8 @@ import {
 import { useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
+import { displayUser } from './hooks/useReviewer';
+import { ReviewQueueEmptyState } from './ReviewQueueEmptyState';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 const CID = 'mlflow.experiment-review-queue.list';
@@ -119,6 +122,7 @@ export const ReviewQueueList = ({
   isRemovingItems,
   onManageQueue,
   onDeleteQueue,
+  onGoToTraces,
 }: {
   items: ReviewQueueItem[];
   /** Queue name shown in the header, next to the question count + gear menu. */
@@ -133,10 +137,10 @@ export const ReviewQueueList = ({
    *  so the queue's manager can remove traces from this view. */
   onRemoveItems?: (itemIds: string[]) => void;
   isRemovingItems?: boolean;
-  /** When provided (editable custom queues only), a gear menu offers
-   *  "Manage queue"; `onDeleteQueue`, when also provided, adds "Delete queue". */
+  /** When set, the gear menu shows "Manage queue" (and "Delete queue" if `onDeleteQueue` is set). */
   onManageQueue?: () => void;
   onDeleteQueue?: () => void;
+  onGoToTraces?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -304,8 +308,7 @@ export const ReviewQueueList = ({
                     />
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="start">
-                    {/* A USER queue has no editable settings, so a manager sees
-                        only "Delete queue"; CUSTOM queues show both. */}
+                    {/* USER queues show only "Delete queue" (no settings); CUSTOM show both. */}
                     {onManageQueue && (
                       <DropdownMenu.Item componentId={`${CID}.manage-queue`} onClick={onManageQueue}>
                         <FormattedMessage
@@ -342,12 +345,12 @@ export const ReviewQueueList = ({
               <FormattedMessage defaultMessage="Start review" description="Review queue: start-review button" />
             </Button>
           )}
-          {selectable && (
+          {selectable && selected.size > 0 && (
             <Button
               componentId={`${CID}.delete-selected`}
               danger
               icon={<TrashIcon />}
-              disabled={selected.size === 0 || isRemovingItems}
+              disabled={isRemovingItems}
               loading={isRemovingItems}
               onClick={handleDelete}
             >
@@ -362,14 +365,36 @@ export const ReviewQueueList = ({
       )}
 
       {items.length === 0 ? (
-        <div css={{ display: 'flex', justifyContent: 'center', width: '100%', padding: theme.spacing.lg }}>
-          <Empty
-            description={
-              <FormattedMessage defaultMessage="No traces in this queue yet." description="Review queue empty state" />
-            }
-            image={<SearchIcon />}
-          />
-        </div>
+        <ReviewQueueEmptyState
+          title={
+            <FormattedMessage
+              defaultMessage="No traces in this queue yet"
+              description="Review queue: empty queue title"
+            />
+          }
+          description={
+            <FormattedMessage
+              defaultMessage="Add traces from the Traces tab to start reviewing them with your team."
+              description="Review queue: empty queue description"
+            />
+          }
+          button={
+            onGoToTraces && (
+              <Button
+                componentId={`${CID}.go-to-traces`}
+                type="primary"
+                icon={<PlusIcon />}
+                endIcon={<NewWindowIcon />}
+                onClick={onGoToTraces}
+              >
+                <FormattedMessage
+                  defaultMessage="Add traces"
+                  description="Review queue: button to navigate to Traces tab"
+                />
+              </Button>
+            )
+          }
+        />
       ) : (
         <>
           <SegmentedControlGroup

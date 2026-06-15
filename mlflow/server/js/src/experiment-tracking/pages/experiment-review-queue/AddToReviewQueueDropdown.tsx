@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Alert,
@@ -19,13 +19,13 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import { useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useIsAuthAvailable } from '../../../account/hooks';
-import { useCanEditReviews } from './hooks/useCanManageReviews';
+import { useCanEditReviews, useCanManageReviews } from './hooks/useCanManageReviews';
 import Utils from '../../../common/utils/Utils';
 import { generatePath, Link } from '../../../common/utils/RoutingUtils';
 import { RoutePaths } from '../../routes';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { getQueueAssignability } from './queueAssignability';
-import { sameUser } from './queuePermissions';
+import { canRemoveQueueItems, sameUser } from './queuePermissions';
 import { useAddItemsToReviewQueueMutation } from './hooks/useAddItemsToReviewQueueMutation';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
@@ -84,10 +84,10 @@ export const AddToReviewQueueDropdown = ({
   // Don't let a write stamp `created_by` until the reviewer identity is settled.
   const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
-  // Routing traces (flagging items into any queue, including a user's personal
-  // queue) is an EDIT capability. We fetch the user roster for the per-user queue
-  // picker whenever an editor opens the dropdown.
+  // Flagging traces into a queue is an EDIT capability; fetch the roster for the
+  // per-user-queue picker only when an editor opens the dropdown.
   const canEdit = useCanEditReviews(experimentId);
+  const canManage = useCanManageReviews(experimentId);
   const canListUsers = authAvailable && canEdit;
 
   // -- open state (controlled or uncontrolled) --
@@ -134,6 +134,48 @@ export const AddToReviewQueueDropdown = ({
     [selectedTraceInfos],
   );
 
+  // For a single trace, reflect the queues it is already a member of. The
+  // checked set is seeded from those memberships on open so a queue the reviewer
+  // is allowed to remove from can be unchecked through the normal toggle path;
+  // a queue they can't remove from is rendered checked-but-locked below. A bulk
+  // selection has no single membership set, so this is skipped.
+  const singleItemId = itemIds.length === 1 ? itemIds[0] : undefined;
+  const { reviewQueues: memberQueues, isLoading: membersLoading } = useListReviewQueuesQuery({
+    experimentId,
+    itemId: singleItemId,
+    enabled: (isOpen || createOpen) && Boolean(singleItemId),
+  });
+  const memberQueueIds = useMemo(
+    () => new Set(memberQueues.filter((q) => q.queue_type === 'CUSTOM').map((q) => q.queue_id)),
+    [memberQueues],
+  );
+  // USER-queue memberships, keyed by the queue name (== the username); covers
+  // the no-auth `default` queue and any per-user queues the trace is in.
+  const memberUserNames = useMemo(
+    () => memberQueues.filter((q) => q.queue_type === 'USER').map((q) => q.name),
+    [memberQueues],
+  );
+  const memberUserSet = useMemo(() => new Set(memberUserNames.map((n) => n.toLowerCase())), [memberUserNames]);
+  // While a single trace's memberships are still loading we don't yet know which
+  // rows are checked/locked, so disable toggling to avoid e.g. adding to a queue
+  // the reviewer only meant to remove from. Bulk selections never query this.
+  const membershipPending = Boolean(singleItemId) && membersLoading;
+  const seededItemRef = useRef<string | null>(null);
+  useEffect(() => {
+    // Seed once per open (the ref guards against re-seeding on refetch), then
+    // let toggles take over.
+    if (!isOpen || !singleItemId || membersLoading || seededItemRef.current === singleItemId) {
+      return;
+    }
+    seededItemRef.current = singleItemId;
+    setAddedQueueIds(new Set(memberQueueIds));
+    // Only seed user memberships that have a visible row to uncheck: the Users
+    // section (canListUsers) on an auth server, or just the pinned `default`
+    // queue on no-auth. Seeding an invisible user would be unreachable state.
+    const seedableUsers = canListUsers ? memberUserNames : memberUserNames.filter((n) => sameUser(n, DEFAULT_REVIEWER));
+    setAddedUsers(new Set(seedableUsers));
+  }, [isOpen, singleItemId, membersLoading, memberQueueIds, memberUserNames, canListUsers]);
+
   // Shared queues anyone can route into. The no-auth catch-all (the reserved
   // `default` user queue) is surfaced through the pinned option instead of the
   // list; other users' personal queues are reached through the "Users" section.
@@ -160,9 +202,13 @@ export const AddToReviewQueueDropdown = ({
     }
     const head = customQueues.slice(0, COLLAPSED_QUEUE_COUNT);
     const headIds = new Set(head.map((q) => q.queue_id));
-    const addedExtras = customQueues.filter((q) => addedQueueIds.has(q.queue_id) && !headIds.has(q.queue_id));
-    return [...head, ...addedExtras];
-  }, [customQueues, query, addedQueueIds]);
+    // Keep added queues and existing memberships visible even if they'd fall
+    // outside the collapsed head, so a checked row is never hidden.
+    const extras = customQueues.filter(
+      (q) => (addedQueueIds.has(q.queue_id) || memberQueueIds.has(q.queue_id)) && !headIds.has(q.queue_id),
+    );
+    return [...head, ...extras];
+  }, [customQueues, query, addedQueueIds, memberQueueIds]);
   const hasMoreQueues = !query && customQueues.length > visibleQueues.length;
 
   // Users are search-driven; the experiment default queue is the pinned option.
@@ -171,9 +217,21 @@ export const AddToReviewQueueDropdown = ({
       return [];
     }
     return users
-      .filter((u) => !sameUser(u.username, reviewer) && u.username.toLowerCase().includes(query))
+      .filter(
+        (u) =>
+          !sameUser(u.username, reviewer) &&
+          // Members are listed separately (checked) above the search results.
+          !memberUserSet.has(u.username.toLowerCase()) &&
+          u.username.toLowerCase().includes(query),
+      )
       .slice(0, MAX_USER_MATCHES);
-  }, [users, query, reviewer]);
+  }, [users, query, reviewer, memberUserSet]);
+
+  // Existing memberships shown in the Users section, narrowed by the search.
+  const visibleMemberUserNames = useMemo(
+    () => (query ? memberUserNames.filter((n) => n.toLowerCase().includes(query)) : memberUserNames),
+    [memberUserNames, query],
+  );
 
   const resetState = useCallback(() => {
     setSearch('');
@@ -182,6 +240,8 @@ export const AddToReviewQueueDropdown = ({
     setCreateOpen(false);
     setSubmitError(null);
     setBusyIds(new Set());
+    // Allow the next open to re-seed membership from the server.
+    seededItemRef.current = null;
     resetAdd();
     resetResolve();
   }, [resetAdd, resetResolve]);
@@ -302,6 +362,11 @@ export const AddToReviewQueueDropdown = ({
     defaultMessage: 'Default queue',
     description: 'Add to review queue: the experiment default queue option',
   });
+  // Reason shown on a checked-but-locked membership the reviewer can't remove.
+  const lockedMemberReason = intl.formatMessage({
+    defaultMessage: "This trace is already in this queue, and you don't have permission to remove it.",
+    description: 'Add to review queue: queue option locked because the trace is a member the reviewer cannot remove',
+  });
 
   return (
     <>
@@ -370,7 +435,7 @@ export const AddToReviewQueueDropdown = ({
                 value={[]}
                 open
               >
-                <DialogComboboxOptionList css={{ maxHeight: LIST_MAX_HEIGHT }}>
+                <DialogComboboxOptionList css={{ maxHeight: LIST_MAX_HEIGHT, overflowY: 'auto', overflowX: 'hidden' }}>
                   <DialogComboboxOptionListSearch controlledValue={search} setControlledValue={setSearch}>
                     {/* Creating a queue (which you then own) requires EDIT. */}
                     {!query && canEdit && (
@@ -397,7 +462,7 @@ export const AddToReviewQueueDropdown = ({
                       <DialogComboboxOptionListCheckboxItem
                         value={defaultQueueLabel}
                         checked={addedUsers.has(DEFAULT_REVIEWER)}
-                        disabled={!inheritAllAssignable || busyIds.has(DEFAULT_REVIEWER)}
+                        disabled={!inheritAllAssignable || busyIds.has(DEFAULT_REVIEWER) || membershipPending}
                         disabledReason={inheritAllAssignable ? undefined : reasonText('no-experiment-schemas')}
                         onChange={() => toggleDefaultQueue()}
                       >
@@ -418,13 +483,24 @@ export const AddToReviewQueueDropdown = ({
                     {visibleQueues.map((q) => {
                       const assignability = assignabilityById.get(q.queue_id);
                       const notAssignable = !assignability?.assignable;
+                      // A queue the trace already belongs to is locked unless the
+                      // reviewer is allowed to remove from it (then unchecking
+                      // removes the trace via the toggle path).
+                      const lockedMember =
+                        memberQueueIds.has(q.queue_id) && !canRemoveQueueItems(q, reviewer, canManage, canEdit);
                       return (
                         <DialogComboboxOptionListCheckboxItem
                           key={q.queue_id}
                           value={q.name}
                           checked={addedQueueIds.has(q.queue_id)}
-                          disabled={notAssignable || busyIds.has(q.queue_id)}
-                          disabledReason={notAssignable ? reasonText(assignability?.reason) : undefined}
+                          disabled={lockedMember || notAssignable || busyIds.has(q.queue_id) || membershipPending}
+                          disabledReason={
+                            lockedMember
+                              ? lockedMemberReason
+                              : notAssignable
+                                ? reasonText(assignability?.reason)
+                                : undefined
+                          }
                           onChange={() => toggleCustomQueue(q.queue_id)}
                         >
                           {q.name}
@@ -450,6 +526,21 @@ export const AddToReviewQueueDropdown = ({
                             description="Add to review queue: per-user personal-queue section header"
                           />
                         </DialogComboboxSectionHeader>
+                        {/* Existing per-user memberships, shown checked. Still honor the search
+                            filter so typing narrows the list. A personal queue is prunable only
+                            by a manager, so otherwise it's locked. */}
+                        {visibleMemberUserNames.map((username) => (
+                          <DialogComboboxOptionListCheckboxItem
+                            key={`member-${username}`}
+                            value={username}
+                            checked={addedUsers.has(username)}
+                            disabled={!canManage || busyIds.has(username) || membershipPending}
+                            disabledReason={!canManage ? lockedMemberReason : undefined}
+                            onChange={() => toggleUserQueue(username)}
+                          >
+                            {username}
+                          </DialogComboboxOptionListCheckboxItem>
+                        ))}
                         {!query ? (
                           <DialogComboboxEmpty
                             emptyText={
@@ -468,7 +559,7 @@ export const AddToReviewQueueDropdown = ({
                               />
                             }
                           />
-                        ) : visibleUsers.length === 0 ? (
+                        ) : visibleUsers.length === 0 && visibleMemberUserNames.length === 0 ? (
                           <DialogComboboxEmpty
                             emptyText={
                               <FormattedMessage
@@ -484,7 +575,7 @@ export const AddToReviewQueueDropdown = ({
                                 key={u.username}
                                 value={u.username}
                                 checked={addedUsers.has(u.username)}
-                                disabled={!inheritAllAssignable || busyIds.has(u.username)}
+                                disabled={!inheritAllAssignable || busyIds.has(u.username) || membershipPending}
                                 disabledReason={inheritAllAssignable ? undefined : reasonText('no-experiment-schemas')}
                                 onChange={() => toggleUserQueue(u.username)}
                               >

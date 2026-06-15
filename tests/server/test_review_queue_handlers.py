@@ -207,6 +207,18 @@ def test_list_review_queues_defaults_user_to_none():
         _list_review_queues, request_message, "list_review_queues", PagedList([], token=None)
     )
     assert store.list_review_queues.call_args[1]["user"] is None
+    assert store.list_review_queues.call_args[1]["item_id"] is None
+
+
+def test_list_review_queues_passes_item_filter():
+    request_message = ListReviewQueues(experiment_id="1", item_id="tr-1")
+    store, _ = _run_handler(
+        _list_review_queues,
+        request_message,
+        "list_review_queues",
+        PagedList([_queue_entity()], token=None),
+    )
+    assert store.list_review_queues.call_args[1]["item_id"] == "tr-1"
 
 
 @pytest.mark.parametrize(

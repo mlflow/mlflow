@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@databricks/web-shared/query-client
 import { fetchAPI, getAjaxUrl } from '../../../../common/utils/FetchUtils';
 import { REVIEW_QUEUES_API_BASE } from './constants';
 import { LIST_REVIEW_QUEUE_ITEMS_QUERY_KEY } from './useListReviewQueueItemsQuery';
+import { LIST_REVIEW_QUEUES_QUERY_KEY } from './useListReviewQueuesQuery';
 
 export interface RemoveItemsFromReviewQueueParams {
   queue_id: string;
@@ -12,7 +13,9 @@ export interface RemoveItemsFromReviewQueueParams {
 /**
  * Detach traces from a review queue. No-op for traces that aren't attached;
  * the traces and their assessments are untouched (they can be re-flagged).
- * Invalidates the queue's trace list so the Review tab drops the rows.
+ * Invalidates the queue's trace list so the Review tab drops the rows, and the
+ * queue list so the per-trace membership view (`itemId`) stops reporting this
+ * queue as a member (otherwise the flag-for-review picker re-checks it on reopen).
  */
 export const useRemoveItemsFromReviewQueueMutation = () => {
   const queryClient = useQueryClient();
@@ -26,6 +29,7 @@ export const useRemoveItemsFromReviewQueueMutation = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries([LIST_REVIEW_QUEUE_ITEMS_QUERY_KEY]);
+      queryClient.invalidateQueries([LIST_REVIEW_QUEUES_QUERY_KEY]);
     },
   });
 
