@@ -157,8 +157,10 @@ describe('FocusedReview full-trace explorer', () => {
 
     fireEvent.click(screen.getByText('View full trace'));
 
-    // Without the surrounding provider the JSON/Table render-mode buttons are no-ops,
-    // so assert the explorer is nested inside it.
+    // Structural guard only: both the provider and the explorer are mocked to plain
+    // divs here, so this asserts the explorer is nested *under* the provider in the
+    // tree (the wiring this PR adds), not that real preferences context propagates.
+    // Without the surrounding provider the JSON/Table render-mode buttons are no-ops.
     const explorer = await screen.findByTestId('full-trace-explorer');
     expect(screen.getByTestId('trace-prefs-provider')).toContainElement(explorer);
   });
