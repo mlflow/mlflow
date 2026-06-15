@@ -21,7 +21,15 @@ import { GenAiTracesTableHeader } from './GenAiTracesTableHeader';
 import { groupTracesBySessionForTable } from './utils/SessionGroupingUtils';
 import { HeaderCellRenderer } from './cellRenderers/HeaderCellRenderer';
 import type { GetTraceFunction } from './hooks/useGetTrace';
-import { REQUEST_TIME_COLUMN_ID, SESSION_COLUMN_ID, SERVER_SORTABLE_INFO_COLUMNS } from './hooks/useTableColumns';
+import {
+  EXECUTION_DURATION_COLUMN_ID,
+  INPUTS_COLUMN_ID,
+  REQUEST_TIME_COLUMN_ID,
+  RESPONSE_COLUMN_ID,
+  SESSION_COLUMN_ID,
+  SERVER_SORTABLE_INFO_COLUMNS,
+  TRACE_ID_COLUMN_ID,
+} from './hooks/useTableColumns';
 import {
   type RunEvaluationTracesDataEntry,
   type EvaluationsOverviewTableSort,
@@ -184,6 +192,25 @@ export const GenAiTracesTableBody = React.memo(
             onTraceTagsEdit,
           }),
         );
+
+        if (regressionTestMode) {
+          const preferredOrder = new Map(
+            [
+              TRACE_ID_COLUMN_ID,
+              INPUTS_COLUMN_ID,
+              RESPONSE_COLUMN_ID,
+              EXECUTION_DURATION_COLUMN_ID,
+              RESULT_ASSESSMENT_NAME,
+            ].map((id, index) => [id, index]),
+          );
+          return {
+            columns: columnsList.sort((a, b) => {
+              const rankA = preferredOrder.get(String(a.id)) ?? Number.MAX_SAFE_INTEGER;
+              const rankB = preferredOrder.get(String(b.id)) ?? Number.MAX_SAFE_INTEGER;
+              return rankA - rankB;
+            }),
+          };
+        }
 
         return { columns: sortColumns(columnsList, selectedColumns) };
       }

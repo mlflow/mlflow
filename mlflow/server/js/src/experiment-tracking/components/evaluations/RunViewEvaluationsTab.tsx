@@ -17,6 +17,7 @@ import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databri
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
+  INPUTS_COLUMN_ID,
   RUN_EVALUATION_RESULTS_TAB_COMPARE_RUNS,
   RUN_EVALUATION_RESULTS_TAB_SINGLE_RUN,
   getTracesTagKeys,
@@ -72,7 +73,7 @@ import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/Assis
 import { useCountInfo } from '../experiment-page/components/traces-v3/hooks/useCountInfo';
 import { useAssessmentCountMetrics } from '../experiment-page/components/traces-v3/hooks/useAssessmentCountMetrics';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
-import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_REGRESSION_TEST } from '../../constants';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_TEST } from '../../constants';
 
 const ContextProviders = ({
   children,
@@ -141,6 +142,38 @@ const RunViewEvaluationsTabInner = ({
     synthesizeResult: isRegressionTest,
   });
 
+  const displayColumns = useMemo(() => {
+    if (!isRegressionTest) {
+      return allColumns;
+    }
+
+    const resultColumnId = createAssessmentColumnId(RESULT_ASSESSMENT_NAME);
+    const preferredOrder = new Map(
+      [TRACE_ID_COLUMN_ID, INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, resultColumnId].map(
+        (id, index) => [id, index],
+      ),
+    );
+
+    return allColumns
+      .filter((column) => column.id !== STATE_COLUMN_ID)
+      .map((column) =>
+        column.id === TRACE_ID_COLUMN_ID
+          ? {
+              ...column,
+              label: intl.formatMessage({
+                defaultMessage: 'Test',
+                description: 'Column label for the regression test name column',
+              }),
+            }
+          : column,
+      )
+      .sort((a, b) => {
+        const rankA = preferredOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+        const rankB = preferredOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+        return rankA - rankB;
+      });
+  }, [allColumns, intl, isRegressionTest]);
+
   // Setup table states
   // Row selection state - lifted to provide shared state via context
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -164,12 +197,12 @@ const RunViewEvaluationsTabInner = ({
         const resultColumnId = createAssessmentColumnId(RESULT_ASSESSMENT_NAME);
         return columns.filter(
           (col) =>
+            (col.type === TracesTableColumnType.TRACE_INFO && col.id === TRACE_ID_COLUMN_ID) ||
             (col.type === TracesTableColumnType.ASSESSMENT && col.id === resultColumnId) ||
             (inputHasContent && col.type === TracesTableColumnType.INPUT) ||
             (responseHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
-            (tokensHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === TOKENS_COLUMN_ID) ||
-            (col.type === TracesTableColumnType.TRACE_INFO &&
-              [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, STATE_COLUMN_ID].includes(col.id)),
+            (col.type === TracesTableColumnType.TRACE_INFO && col.id === EXECUTION_DURATION_COLUMN_ID) ||
+            (tokensHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === TOKENS_COLUMN_ID),
         );
       }
 
@@ -191,7 +224,7 @@ const RunViewEvaluationsTabInner = ({
 
   const { selectedColumns, toggleColumns, setSelectedColumns } = useSelectedColumns(
     experimentId,
-    allColumns,
+    displayColumns,
     defaultSelectedColumns,
     runUuid,
   );
@@ -393,7 +426,7 @@ const RunViewEvaluationsTabInner = ({
                 traceActions={traceActions}
                 tableSort={tableSort}
                 setTableSort={setTableSort}
-                allColumns={allColumns}
+                allColumns={displayColumns}
                 selectedColumns={selectedColumns}
                 setSelectedColumns={setSelectedColumns}
                 toggleColumns={toggleColumns}
@@ -426,7 +459,7 @@ const RunViewEvaluationsTabInner = ({
                     setFilters={setFilters}
                     filters={filters}
                     selectedColumns={selectedColumns}
-                    allColumns={allColumns}
+                    allColumns={displayColumns}
                     tableSort={tableSort}
                     currentTraceInfoV3={traceInfos || []}
                     compareToTraceInfoV3={compareToRunData}
@@ -475,11 +508,11 @@ export const RunViewEvaluationsTab = ({
   showRefreshButton?: boolean;
   hideCompareSelector?: boolean;
 }) => {
-  // A regression-test run (produced by an @mlflow.assertions pytest session) is
-  // tagged `mlflow.runType=regression_test`. The result view stays the same eval
+  // A regression-test run (produced by an @mlflow.test pytest session) is
+  // tagged `mlflow.runType=test`. The result view stays the same eval
   // table, but shows a consolidated pass/fail "Result" column and the test-case
   // detail drawer instead of the per-scorer breakdown.
-  const isRegressionTest = runTags?.[MLFLOW_RUN_TYPE_TAG]?.value === MLFLOW_RUN_TYPE_VALUE_REGRESSION_TEST;
+  const isRegressionTest = runTags?.[MLFLOW_RUN_TYPE_TAG]?.value === MLFLOW_RUN_TYPE_VALUE_TEST;
 
   // Determine which tables are logged in the run
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);

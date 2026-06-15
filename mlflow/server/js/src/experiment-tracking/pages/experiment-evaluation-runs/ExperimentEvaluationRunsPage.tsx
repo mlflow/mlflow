@@ -23,7 +23,7 @@ import {
 import { invalidateMlflowSearchTracesCache } from '@databricks/web-shared/genai-traces-table';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { FormattedMessage } from 'react-intl';
-import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_REGRESSION_TEST } from '../../constants';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_TEST } from '../../constants';
 import {
   useSelectedRunUuid,
   SELECTED_RUN_UUID_QUERY_PARAM,
@@ -284,14 +284,14 @@ const ExperimentEvaluationRunsPageImpl = () => {
   const isEmpty = runUuids.length === 0 && !searchFilter && !isLoading;
 
   // Client-side Type filter (All / Eval / Test). Tag-based: runs tagged
-  // `mlflow.runType=regression_test` are "Test"; everything else is "Eval".
+  // `mlflow.runType=test` are "Test"; everything else is "Eval".
   const filteredRuns = useMemo(() => {
     if (typeFilter === 'all' || !runs) {
       return runs ?? [];
     }
     return runs.filter((run) => {
       const isTest = (run.data?.tags ?? []).some(
-        (tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_REGRESSION_TEST,
+        (tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_TEST,
       );
       return typeFilter === 'test' ? isTest : !isTest;
     });
@@ -321,7 +321,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
 
     const selectedRun = runs?.find((run) => run.info.runUuid === selectedRunUuid);
     // Keyed by tag key so RunViewEvaluationsTab can detect regression-test runs
-    // (mlflow.runType=regression_test) and switch the result view accordingly.
+    // (mlflow.runType=test) and switch the result view accordingly.
     const selectedRunTags = keyBy(selectedRun?.data?.tags ?? [], 'key');
     return (
       <RunViewEvaluationsTab

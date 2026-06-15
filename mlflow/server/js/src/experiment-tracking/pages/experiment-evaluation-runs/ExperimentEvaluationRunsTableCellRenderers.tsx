@@ -39,7 +39,7 @@ import {
 import {
   MLFLOW_RUN_TYPE_TAG,
   MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
-  MLFLOW_RUN_TYPE_VALUE_REGRESSION_TEST,
+  MLFLOW_RUN_TYPE_VALUE_TEST,
 } from '../../constants';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 import { RunStatusIcon } from '../../components/RunStatusIcon';
@@ -386,8 +386,8 @@ export const StatusCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => 
 
 /**
  * Renders the run's Type pill: a purple "Test" pill with a beaker icon for runs
- * produced by an `@mlflow.assertions` pytest session (tagged
- * `mlflow.runType=regression_test`), and a turquoise "Eval" pill with a
+ * produced by an `@mlflow.test` pytest session (tagged
+ * `mlflow.runType=test`), and a turquoise "Eval" pill with a
  * chart-line icon for everything else. Lets users tell regression-test runs
  * apart from ordinary `evaluate()` runs at a glance.
  */
@@ -396,9 +396,7 @@ export const TypeCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
     return <div>-</div>;
   }
   const tags = row.original.data?.tags ?? [];
-  const isTest = tags.some(
-    (tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_REGRESSION_TEST,
-  );
+  const isTest = tags.some((tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_TEST);
   return (
     <Tag
       componentId={isTest ? 'mlflow.eval-runs.type-cell.test' : 'mlflow.eval-runs.type-cell.eval'}
