@@ -11,7 +11,7 @@ import { Users, ListCheck, MessageSquare, Database, Target, TrendingUp, Eye } fr
 
 # Review Queues
 
-Review queues turn ad-hoc human review into a structured workflow. You bundle a set of traces into a named queue, attach the questions you want answered, assign the queue to one or more reviewers, and let them work through it in a focused review UI. Every answer is recorded back on the trace as a [feedback](/genai/assessments/feedback) or [expectation](/genai/assessments/expectations) assessment, so the review effort feeds directly into evaluation and monitoring.
+Review queues turn ad-hoc human review into a structured workflow. You bundle a set of traces into a named queue, attach the questions you want answered, assign the queue to one or more reviewers, and let them work through it in focus mode. Every answer is recorded back on the trace as a [feedback](/genai/assessments/feedback) or [expectation](/genai/assessments/expectations) assessment, so the review effort feeds directly into evaluation and monitoring.
 
 For the full API, see the <APILink fn="mlflow.genai.review_queues.create_review_queue">`mlflow.genai.review_queues`</APILink> and <APILink fn="mlflow.genai.label_schemas.create_label_schema">`mlflow.genai.label_schemas`</APILink> references.
 
@@ -31,13 +31,13 @@ A review queue is a named collection of traces, scoped to an experiment, that a 
   },
   {
     icon: Users,
-    title: "Review Queues (the work)",
+    title: "Review Queues",
     description: "A bundle of traces plus the questions to ask and the reviewers assigned. A user queue is one person's personal to-do list; a custom queue is a shared queue with up to ten reviewers and a chosen subset of questions."
   },
   {
     icon: MessageSquare,
-    title: "Shared-Pool Status (the progress)",
-    description: "Each trace in a queue is pending, complete, or declined. The status is shared across reviewers — the first reviewer to finish a trace marks it complete for the whole queue — so a team can divide and conquer without double-work."
+    title: "Shared Review Status",
+    description: "Each trace in a queue is pending, complete, or declined, and that status is shared across the queue's reviewers — the first reviewer to finish a trace marks it complete for the whole queue — so a team can divide and conquer without double-work."
   }
 ]} />
 
@@ -58,7 +58,7 @@ A review queue is a named collection of traces, scoped to an experiment, that a 
   {
     icon: Users,
     title: "Divide Work Across a Team",
-    description: "Assign a queue to several reviewers and let the shared-pool status keep everyone on different traces, with clear attribution of who reviewed what."
+    description: "Assign a queue to several reviewers and let the shared review status keep everyone on different traces, with clear attribution of who reviewed what."
   },
   {
     icon: Database,
@@ -74,7 +74,7 @@ A review queue is a named collection of traces, scoped to an experiment, that a 
 
 ## Step 1: Define your review questions
 
-Define the questions your reviewers should answer once per experiment, then reuse them across queues. In the SDK a review question is created with `create_label_schema` (the API uses the term _label schema_):
+Define your review questions once, then reuse them across queues for the same experiment. In the SDK a review question is created with `create_label_schema` (the API uses the term _label schema_):
 
 ```python
 from mlflow.genai.label_schemas import (
@@ -122,7 +122,7 @@ The `input` argument picks the widget the reviewer sees and the value type recor
 | Input | Reviewer sees | Recorded value |
 | --- | --- | --- |
 | `InputPassFail(positive_label, negative_label)` | A two-option toggle | Boolean (`true` = positive) |
-| `InputCategorical(options, multi_select=False)` | A single-select dropdown | The chosen option |
+| `InputCategorical(options, multi_select=False)` | A single- or multi-select dropdown | The chosen option (or list of options, with `multi_select=True`) |
 | `InputNumeric(min_value, max_value)` | A number field | A number |
 | `InputText(max_length)` | A free-form text box | A string |
 
@@ -196,13 +196,13 @@ In the UI, select traces from the trace table (or open a single trace) and use *
 Reviewers work a queue from the experiment's **Review** tab. Selecting a trace opens **focus mode**, a full-page review surface with three panels:
 
 - **Left** — a compact rail of the queue's traces, with a progress bar across the top, for moving between items.
-- **Middle** — the trace's input and output. Chat-style and plain-text content render as formatted Markdown, JSON renders as a syntax-highlighted block, and **View full trace** opens the complete span timeline in a drawer.
+- **Middle** — the trace's input and output. Chat-style and plain-text content render as formatted Markdown, JSON renders as a syntax-highlighted block, and **View full trace** opens the full trace explorer in a drawer.
 - **Right** — the queue's review questions as input widgets (from Step 1), each with a status dot showing whether it has been answered.
 
 <CollapsibleSection title="The review workflow in focus mode" defaultExpanded={false}>
 
-- **Answer the questions** using the widgets, then **Submit** to record the answers and mark the trace complete. A queue whose only question is a single Pass/Fail auto-submits as soon as the reviewer picks an answer.
-- **Decline** a trace to flag that it should not have been in the queue (distinct from skipping it for later).
+- **Answer the questions** using the widgets, then **Submit** to record the answers and mark the trace complete. A queue whose only question is a single Pass/Fail question auto-submits as soon as the reviewer picks an answer.
+- **Decline** a trace that was added to the queue by mistake — for example, one that shouldn't have been included for review.
 - A completed trace stays **editable**: revise the answers and **Save changes** to update the recorded assessments in place, without sending the trace back to the to-do list. A brief "Changes saved" notification confirms the update.
 - **Move to Todo** puts a completed or declined trace back into the pending pool so you (or another reviewer) can review it again.
 - Submitting requires at least one answered question, so a trace is never marked complete with nothing recorded.
