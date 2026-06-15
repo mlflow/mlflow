@@ -306,8 +306,8 @@ def test_evaluate_with_static_dataset(server_config):
     assert run.inputs.dataset_inputs[0].dataset.source_type == "code"
 
 
-def test_evaluate_passed_respects_scorer_pass_when(server_config):
-    @scorer(pass_when=lambda v: v >= 0.8)
+def test_evaluate_passed_respects_scorer_pass_if(server_config):
+    @scorer(pass_if=lambda v: v >= 0.8)
     def confidence(outputs):
         return 0.9 if outputs == "good" else 0.5
 
@@ -326,7 +326,7 @@ def test_evaluate_passed_respects_scorer_pass_when(server_config):
     assert "confidence" in failing.reason
 
 
-def test_evaluate_numeric_value_without_pass_when_fails_loudly(server_config):
+def test_evaluate_numeric_value_without_pass_if_fails_loudly(server_config):
     @scorer
     def confidence(outputs):
         return 0.9
@@ -335,9 +335,36 @@ def test_evaluate_numeric_value_without_pass_when_fails_loudly(server_config):
         data=[{"inputs": {"q": "x"}, "outputs": "good"}],
         scorers=[confidence],
     )
-    # A bare numeric value is not guessed as pass/fail; the user must declare pass_when.
+    # A bare numeric value is not guessed as pass/fail; the user must declare pass_if.
     assert not result.passed
-    assert "pass_when" in result.reason
+    assert "pass_if" in result.reason
+
+
+def test_evaluate_errored_scorer_fails_not_silently_passes(server_config):
+    @scorer
+    def boom(outputs):
+        raise ValueError("kaboom")
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+        scorers=[boom],
+    )
+    assert not result.passed
+    assert "boom" in result.reason
+    assert "kaboom" in result.reason
+
+
+def test_evaluate_reason_includes_scorer_rationale(server_config):
+    @scorer
+    def judged(outputs):
+        return Feedback(value="no", rationale="answer was wrong")
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+        scorers=[judged],
+    )
+    assert not result.passed
+    assert "answer was wrong" in result.reason
 
 
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])

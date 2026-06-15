@@ -228,7 +228,7 @@ class Scorer(BaseModel):
     # assertion (``EvaluationResult.passed``). In-process only: it is a local
     # testing concern and is intentionally not serialized. ``None`` falls back to
     # the default rule (yes/no or bool).
-    _pass_when: Callable[[Any], bool] | None = PrivateAttr(default=None)
+    _pass_if: Callable[[Any], bool] | None = PrivateAttr(default=None)
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -257,14 +257,14 @@ class Scorer(BaseModel):
         return False
 
     @property
-    def pass_when(self) -> Callable[[Any], bool] | None:
+    def pass_if(self) -> Callable[[Any], bool] | None:
         """Predicate deciding whether this scorer's value counts as passing.
 
         Used by :attr:`mlflow.genai.scorers.EvaluationResult.passed`. ``None`` means
         the default rule applies (a ``yes``/:class:`~mlflow.genai.judges.CategoricalRating`
-        rating or a ``bool``). Set via ``@scorer(pass_when=...)``.
+        rating or a ``bool``). Set via ``@scorer(pass_if=...)``.
         """
-        return self._pass_when
+        return self._pass_if
 
     @experimental(version="3.9.0")
     @property
@@ -1145,7 +1145,7 @@ def scorer(
     name: str | None = None,
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
-    pass_when: Callable[[Any], bool] | None = None,
+    pass_if: Callable[[Any], bool] | None = None,
 ) -> Scorer: ...
 
 
@@ -1156,7 +1156,7 @@ def scorer(
     name: str | None = None,
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
-    pass_when: Callable[[Any], bool] | None = None,
+    pass_if: Callable[[Any], bool] | None = None,
 ) -> Callable[[_F], Scorer]: ...
 
 
@@ -1166,7 +1166,7 @@ def scorer(
     name: str | None = None,
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
-    pass_when: Callable[[Any], bool] | None = None,
+    pass_if: Callable[[Any], bool] | None = None,
 ) -> Scorer | Callable[[_F], Scorer]:
     """
     A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
@@ -1248,10 +1248,10 @@ def scorer(
             * If a callable, it must take a list of values and return a single value.
 
             By default, "mean" is used as the aggregation function.
-        pass_when: A predicate ``(value) -> bool`` that decides whether the scorer's
+        pass_if: A predicate ``(value) -> bool`` that decides whether the scorer's
             value counts as passing in :attr:`~mlflow.genai.scorers.EvaluationResult.passed`.
             Use it for scorers whose value is not a ``yes``/``no`` rating or a ``bool``
-            (e.g. a numeric score): ``@scorer(pass_when=lambda v: v >= 0.8)``. When omitted,
+            (e.g. a numeric score): ``@scorer(pass_if=lambda v: v >= 0.8)``. When omitted,
             the default rule applies (a ``yes`` rating or ``True`` passes).
 
     Example:
@@ -1340,7 +1340,7 @@ def scorer(
             name=name,
             description=description,
             aggregations=aggregations,
-            pass_when=pass_when,
+            pass_if=pass_if,
         )
 
     func_params = set(inspect.signature(func).parameters.keys())
@@ -1368,7 +1368,7 @@ def scorer(
             # during model initialization, as direct assignment (self._original_func = func) may be
             # ignored or fail in this context
             object.__setattr__(self, "_original_func", func)
-            object.__setattr__(self, "_pass_when", pass_when)
+            object.__setattr__(self, "_pass_if", pass_if)
 
         def __call__(self, *args, **kwargs):
             return func(*args, **kwargs)

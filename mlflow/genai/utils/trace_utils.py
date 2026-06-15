@@ -992,10 +992,18 @@ def _get_assessment_values(assessments: list[dict[str, Any]], run_id: str) -> di
             and source_run_id != run_id
         ):
             continue
+        name = a["assessment_name"]
         if feedback := a.get("feedback"):
-            result[f"{a['assessment_name']}/value"] = feedback.get("value")
+            result[f"{name}/value"] = feedback.get("value")
+            # Carry the rationale and any scorer error so downstream consumers (e.g.
+            # EvaluationResult.passed/reason) can surface them. Emitted only when
+            # present to keep the result DataFrame compact.
+            if (rationale := a.get("rationale")) is not None:
+                result[f"{name}/rationale"] = rationale
+            if (error := feedback.get("error")) and (msg := error.get("error_message")):
+                result[f"{name}/error_message"] = msg
         elif expectation := a.get("expectation"):
-            result[f"{a['assessment_name']}/value"] = expectation.get("value")
+            result[f"{name}/value"] = expectation.get("value")
 
     return result
 

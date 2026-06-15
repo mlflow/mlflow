@@ -772,12 +772,12 @@ def run(
     # Clean up noisy traces generated during evaluation
     clean_up_extra_traces(traces, eval_start_time, experiment_id, input_trace_ids)
 
-    # Carry each scorer's pass_when predicate so EvaluationResult.passed can decide
+    # Carry each scorer's pass_if predicate so EvaluationResult.passed can decide
     # pass/fail for non-yes/no values. In-process only; not persisted.
     pass_criteria = {
-        scorer.name: scorer.pass_when
+        scorer.name: scorer.pass_if
         for scorer in (scorers or [])
-        if getattr(scorer, "pass_when", None) is not None
+        if getattr(scorer, "pass_if", None) is not None
     }
 
     return EvaluationResult(

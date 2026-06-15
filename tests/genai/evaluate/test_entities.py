@@ -103,22 +103,22 @@ def test_error_message_fails_with_detail():
     assert "scorer blew up" in result.reason
 
 
-def test_numeric_value_without_pass_when_fails_loudly():
+def test_numeric_value_without_pass_if_fails_loudly():
     df = pd.DataFrame([{"scorer_a/value": 0.7, "scorer_a/rationale": None}])
     result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
     assert not result.passed
-    assert "pass_when" in result.reason
+    assert "pass_if" in result.reason
 
 
-def test_numeric_value_rationale_does_not_suppress_pass_when_hint():
+def test_numeric_value_rationale_does_not_suppress_pass_if_hint():
     df = pd.DataFrame([{"scorer_a/value": 0.7, "scorer_a/rationale": "looks good"}])
     result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
     assert not result.passed
     assert "looks good" in result.reason
-    assert "pass_when" in result.reason
+    assert "pass_if" in result.reason
 
 
-def test_pass_when_predicate_gates_numeric_value():
+def test_pass_if_predicate_gates_numeric_value():
     df = pd.DataFrame([{"scorer_a/value": 0.7, "scorer_a/rationale": None}])
 
     lenient = EvaluationResult(
@@ -133,7 +133,7 @@ def test_pass_when_predicate_gates_numeric_value():
     assert "scorer_a" in strict.reason
 
 
-def test_pass_when_raising_is_reported_not_propagated():
+def test_pass_if_raising_is_reported_not_propagated():
     df = pd.DataFrame([{"scorer_a/value": "weird", "scorer_a/rationale": None}])
 
     def boom(v):
@@ -143,7 +143,7 @@ def test_pass_when_raising_is_reported_not_propagated():
         run_id="r1", metrics={}, result_df=df, pass_criteria={"scorer_a": boom}
     )
     assert not result.passed
-    assert "pass_when raised" in result.reason
+    assert "pass_if raised" in result.reason
 
 
 def test_numpy_scalar_values():

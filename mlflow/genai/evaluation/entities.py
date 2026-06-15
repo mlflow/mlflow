@@ -21,16 +21,16 @@ def _assertion_outcome(
     value: Any,
     error_msg: str | None,
     rationale: str | None,
-    pass_when: Callable[[Any], bool] | None,
+    pass_if: Callable[[Any], bool] | None,
 ) -> tuple[bool, str | None]:
     """Decide whether one scorer value passes, plus a failure detail."""
     if error_msg is not None:
         return False, error_msg
-    if pass_when is not None:
+    if pass_if is not None:
         try:
-            return bool(pass_when(value)), rationale or f"value={value!r}"
+            return bool(pass_if(value)), rationale or f"value={value!r}"
         except Exception as e:
-            return False, f"pass_when raised {type(e).__name__}: {e}"
+            return False, f"pass_if raised {type(e).__name__}: {e}"
     # CategoricalRating is a StrEnum, so yes/no ratings arrive as strings.
     if isinstance(value, str):
         return value.strip().lower() == "yes", rationale or f"value={value!r}"
@@ -39,7 +39,7 @@ def _assertion_outcome(
         return bool(value), rationale or f"value={value!r}"
     hint = (
         f"returned {value!r}; assertions need a yes/no rating or a bool. "
-        f"Declare pass_when=... on the scorer to define what counts as passing."
+        f"Declare pass_if=... on the scorer to define what counts as passing."
     )
     # Always append the hint; a rationale augments it rather than replacing it.
     return False, f"{rationale}; {hint}" if rationale else hint
@@ -255,7 +255,7 @@ class EvaluationResult:
     run_id: str
     metrics: dict[str, float]
     result_df: pd.DataFrame | None
-    # Per-scorer ``pass_when`` predicates, keyed by scorer name. Populated by the
+    # Per-scorer ``pass_if`` predicates, keyed by scorer name. Populated by the
     # evaluation harness from the scorers that declare one. In-process only.
     pass_criteria: dict[str, Callable[[Any], bool]] = field(default_factory=dict)
 
@@ -280,7 +280,7 @@ class EvaluationResult:
         """``True`` when every scorer passed for every row.
 
         A value passes when it is a ``yes`` rating (or ``"yes"``) or ``True``.
-        Declare ``@scorer(pass_when=...)`` to define passing for other values.
+        Declare ``@scorer(pass_if=...)`` to define passing for other values.
 
         Usage::
 
