@@ -630,7 +630,7 @@ export const FocusedReview = ({
                 data-testid={`${CID}.cleared-answer-hint`}
               >
                 <FormattedMessage
-                  defaultMessage="A saved answer can't be removed. Enter a value for every question you've answered, or keep your previous answer."
+                  defaultMessage="A cleared answer can't be saved. Enter a value for each question, or keep the previous answer."
                   description="Review focused view: shown when a previously-answered question is cleared, which can't be saved"
                 />
               </Typography.Hint>
