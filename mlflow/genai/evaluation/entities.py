@@ -3,7 +3,7 @@
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -17,18 +17,43 @@ from mlflow.genai.evaluation.context import get_context
 from mlflow.genai.evaluation.utils import is_none_or_nan
 
 
-def _is_passing_value(value) -> bool:
-    match value:
-        case bool():
-            return value
-        case str():
-            return value.lower().strip() in {"yes", "pass", "true"}
-        case int() | float():
-            return value >= 0.5
-        case list():
-            return all(_is_passing_value(v) for v in value)
-        case _:
-            return False
+def _clean(value: Any) -> Any | None:
+    """Normalize missing/NaN dataframe cells to ``None``."""
+    return None if is_none_or_nan(value) else value
+
+
+def _assertion_outcome(
+    scorer_name: str,
+    value: Any,
+    error_msg: str | None,
+    rationale: str | None,
+    pass_when: Callable[[Any], bool] | None,
+) -> tuple[bool, str | None]:
+    """Decide whether one scorer value passes, plus a failure detail.
+
+    Resolution order: a scorer error always fails; an explicit ``pass_when``
+    predicate decides next; otherwise a ``yes`` rating or a ``bool`` decides. A
+    value that is neither yes/no nor a bool, with no ``pass_when``, fails and asks
+    the author to declare one (rather than guessing a threshold).
+    """
+    if error_msg is not None:
+        return False, error_msg
+    if pass_when is not None:
+        try:
+            return bool(pass_when(value)), rationale or f"value={value!r}"
+        except Exception as e:
+            return False, f"pass_when raised {type(e).__name__}: {e}"
+    # CategoricalRating is a StrEnum, so yes/no ratings land here as strings.
+    if isinstance(value, str):
+        return value.strip().lower() == "yes", rationale or f"value={value!r}"
+    # Handles both Python bool and NumPy bool_ from the dataframe.
+    if pd.api.types.is_bool(value):
+        return bool(value), rationale or f"value={value!r}"
+    return False, (
+        rationale
+        or f"returned {value!r}; assertions need a yes/no rating or a bool. "
+        f"Declare pass_when=... on the scorer to define what counts as passing."
+    )
 
 
 @dataclass
@@ -241,6 +266,9 @@ class EvaluationResult:
     run_id: str
     metrics: dict[str, float]
     result_df: pd.DataFrame | None
+    # Per-scorer ``pass_when`` predicates, keyed by scorer name. Populated by the
+    # evaluation harness from the scorers that declare one. In-process only.
+    pass_criteria: dict[str, Callable[[Any], bool]] = field(default_factory=dict)
 
     def __repr__(self) -> str:
         metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
@@ -262,8 +290,11 @@ class EvaluationResult:
     def passed(self) -> bool:
         """``True`` when every scorer passed for every row.
 
-        A value is *passing* when it is ``True``, ``"yes"``/``"pass"``/``"true"``
-        (case-insensitive), or a number ``>= 0.5``.
+        A scorer value passes when it is a ``yes``
+        :class:`~mlflow.genai.judges.CategoricalRating` (or the string ``"yes"``) or
+        ``True``. A scorer can override this for non-yes/no values by declaring a
+        predicate via ``@scorer(pass_when=...)``. A value that is neither yes/no nor
+        a bool and has no ``pass_when`` fails, asking you to declare one.
 
         Usage::
 
@@ -298,19 +329,17 @@ class EvaluationResult:
             for col in value_cols:
                 scorer_name = col.removesuffix("/value")
                 value = row.get(col)
-                if is_none_or_nan(value) or not _is_passing_value(value):
-                    rationale_col = f"{scorer_name}/rationale"
-                    rationale = row.get(rationale_col) if rationale_col in row.index else None
-                    if is_none_or_nan(rationale):
-                        rationale = None
-                    error_col = f"{scorer_name}/error_message"
-                    error_msg = row.get(error_col) if error_col in row.index else None
-                    if is_none_or_nan(error_msg):
-                        error_msg = None
-                    detail = rationale or error_msg
-                    failures.append(
-                        f"{scorer_name}: {detail}" if detail else f"{scorer_name}: value={value!r}"
-                    )
+                error_msg = _clean(row.get(f"{scorer_name}/error_message"))
+                # Skip cells a scorer did not produce for this row (sparse columns
+                # arise when different rows run different scorers).
+                if error_msg is None and is_none_or_nan(value):
+                    continue
+                rationale = _clean(row.get(f"{scorer_name}/rationale"))
+                passed, detail = _assertion_outcome(
+                    scorer_name, value, error_msg, rationale, self.pass_criteria.get(scorer_name)
+                )
+                if not passed:
+                    failures.append(f"{scorer_name}: {detail}" if detail else scorer_name)
         return failures
 
     # For backwards compatibility

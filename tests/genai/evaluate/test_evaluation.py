@@ -306,6 +306,40 @@ def test_evaluate_with_static_dataset(server_config):
     assert run.inputs.dataset_inputs[0].dataset.source_type == "code"
 
 
+def test_evaluate_passed_respects_scorer_pass_when(server_config):
+    @scorer(pass_when=lambda v: v >= 0.8)
+    def confidence(outputs):
+        return 0.9 if outputs == "good" else 0.5
+
+    passing = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+        scorers=[confidence],
+    )
+    assert passing.pass_criteria.get("confidence") is not None
+    assert passing.passed, passing.reason
+
+    failing = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "bad"}],
+        scorers=[confidence],
+    )
+    assert not failing.passed
+    assert "confidence" in failing.reason
+
+
+def test_evaluate_numeric_value_without_pass_when_fails_loudly(server_config):
+    @scorer
+    def confidence(outputs):
+        return 0.9
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+        scorers=[confidence],
+    )
+    # A bare numeric value is not guessed as pass/fail; the user must declare pass_when.
+    assert not result.passed
+    assert "pass_when" in result.reason
+
+
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
 def test_evaluate_with_predict_fn(is_predict_fn_traced, server_config):
     model_id = mlflow.set_active_model(name="test-model-id").model_id
