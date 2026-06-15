@@ -285,7 +285,9 @@ def test_python_model_predict_compatible_without_params(sklearn_knn_model, iris_
     )
 
 
-def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmp_path):
+def test_signature_and_examples_are_saved_correctly(
+    sklearn_knn_model, iris_data, main_scoped_model_class, tmp_path
+):
     sklearn_model_path = str(tmp_path.joinpath("sklearn_model"))
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 

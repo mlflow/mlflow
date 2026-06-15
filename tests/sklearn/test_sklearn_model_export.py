@@ -781,6 +781,7 @@ def test_pyfunc_serve_and_score(sklearn_logreg_model):
             model,
             name=artifact_path,
             input_example=inference_dataframe,
+            serialization_format="cloudpickle",
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
