@@ -1,5 +1,6 @@
 import { describe, jest, it, expect } from '@jest/globals';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import React from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -223,5 +224,35 @@ describe('ReviewQueueList', () => {
     // Switching filters resets the selection so hidden rows can't be deleted.
     fireEvent.click(screen.getByText('Completed (1)'));
     expect(screen.queryByRole('button', { name: 'Unassign' })).not.toBeInTheDocument();
+  });
+
+  it('offers copy-link menu items even without manage/delete permissions', async () => {
+    const onCopyLink = jest.fn();
+    renderWithProviders(
+      <ReviewQueueList
+        items={[item('tr-1', 'PENDING')]}
+        title="My queue"
+        onOpen={jest.fn()}
+        nowMs={NOW}
+        onCopyLink={onCopyLink}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Queue settings' }));
+    expect(screen.queryByText('Manage queue')).not.toBeInTheDocument();
+    expect(screen.queryByText('Delete queue')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Copy link to queue'));
+    expect(onCopyLink).toHaveBeenCalledWith({ startReview: false });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Queue settings' }));
+    await userEvent.click(screen.getByText('Copy start-review link'));
+    expect(onCopyLink).toHaveBeenCalledWith({ startReview: true });
+  });
+
+  it('hides the gear menu when no actions are available', () => {
+    renderWithProviders(
+      <ReviewQueueList items={[item('tr-1', 'PENDING')]} title="My queue" onOpen={jest.fn()} nowMs={NOW} />,
+    );
+    expect(screen.queryByRole('button', { name: 'Queue settings' })).not.toBeInTheDocument();
   });
 });

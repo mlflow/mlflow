@@ -6,6 +6,8 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import { useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useParams } from '../../../common/utils/RoutingUtils';
+import Utils from '../../../common/utils/Utils';
+import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 import Routes from '../../routes';
 import { useMlflowSidebar } from '../../../common/contexts/MlflowSidebarContext';
 import { useIsAuthAvailable } from '../../../account/hooks';
@@ -21,6 +23,7 @@ import { useDeleteReviewQueueMutation } from './hooks/useDeleteReviewQueueMutati
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
 import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
+import { getReviewQueuePageRoute, useReviewQueueSearchParams } from './hooks/useReviewQueueSearchParams';
 import { useUpdateReviewQueueMutation } from './hooks/useUpdateReviewQueueMutation';
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
 import { DEFAULT_REVIEWER, displayUser, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
@@ -51,9 +54,10 @@ const ExperimentReviewQueuePage = () => {
   const canManage = useCanManageReviews(experimentId ?? '');
   const canEdit = useCanEditReviews(experimentId ?? '');
 
-  const [selectedQueueIdState, setSelectedQueueIdState] = useState<string>();
-  // The trace open in focused review (null = show the queue's trace table).
-  const [openItemId, setOpenItemId] = useState<string | null>(null);
+  // Queue selection and the trace open in focused review (null = show the
+  // queue's trace table) live in the URL, so both are shareable links.
+  const { selectedQueueId, openItemId, startReviewRequested, selectQueue, setOpenItemId, consumeStartReview } =
+    useReviewQueueSearchParams();
   const [manageOpen, setManageOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   // The queue open in "Manage queue" (questions + members), from the right-pane gear.
@@ -95,20 +99,21 @@ const ExperimentReviewQueuePage = () => {
   // deselection (collapsing the sidebar's no-work group, or deleting the open
   // queue) must stick, not snap back to the USER queue. Gate on
   // `reviewerResolved` so a selection isn't committed against the `default`
-  // fallback while `/users/current` is still in flight.
+  // fallback while `/users/current` is still in flight. A deep link
+  // (`?selectedQueueId=...`) wins over auto-select via the undefined check;
+  // `preserveStartReview` keeps a bare `?startReview=true` link's intent alive
+  // through the auto-selection so it resolves against the visitor's own queue.
   const didAutoSelectQueue = useRef(false);
   useEffect(() => {
-    if (didAutoSelectQueue.current || selectedQueueIdState !== undefined || queuesLoading || !reviewerResolved) {
+    if (didAutoSelectQueue.current || selectedQueueId !== undefined || queuesLoading || !reviewerResolved) {
       return;
     }
     const userQueue = reviewQueues.find((q) => q.queue_type === 'USER' && sameUser(q.name, reviewer));
     if (userQueue) {
       didAutoSelectQueue.current = true;
-      setSelectedQueueIdState(userQueue.queue_id);
+      selectQueue(userQueue.queue_id, { preserveStartReview: true });
     }
-  }, [selectedQueueIdState, queuesLoading, reviewerResolved, reviewQueues, reviewer]);
-
-  const selectedQueueId = selectedQueueIdState;
+  }, [selectedQueueId, queuesLoading, reviewerResolved, reviewQueues, reviewer, selectQueue]);
   const selectedQueue = useMemo(
     () => reviewQueues.find((q) => q.queue_id === selectedQueueId) ?? null,
     [reviewQueues, selectedQueueId],
@@ -152,8 +157,7 @@ const ExperimentReviewQueuePage = () => {
         onSuccess: () => {
           // Drop the selection if the queue that was open got deleted.
           if (selectedQueueId === queueId) {
-            setSelectedQueueIdState(undefined);
-            setOpenItemId(null);
+            selectQueue(undefined);
           }
         },
       },
@@ -190,6 +194,17 @@ const ExperimentReviewQueuePage = () => {
     const todo = traces.filter((t) => t.status === 'PENDING').sort(byTraceNewest);
     return [...done, ...todo];
   }, [traces, traceCreatedMsById]);
+
+  // A `?startReview=true` deep link mirrors the "Start review" button: once
+  // the selected queue's items are in, jump to the first to-do trace (or stay
+  // on the list when there's none) and drop the one-shot intent param.
+  useEffect(() => {
+    if (!startReviewRequested || !selectedQueue || itemsLoading) {
+      return;
+    }
+    const firstToDo = orderedTraces.find((t) => t.status === 'PENDING');
+    consumeStartReview(firstToDo?.item_id ?? null);
+  }, [startReviewRequested, selectedQueue, itemsLoading, orderedTraces, consumeStartReview]);
 
   // A user queue inherits all of the experiment's schemas; a custom queue uses
   // its explicit subset.
@@ -246,9 +261,34 @@ const ExperimentReviewQueuePage = () => {
     return () => setHeaderHidden(false);
   }, [inFocusMode, setHeaderHidden]);
 
-  const selectQueue = (queueId: string) => {
-    setSelectedQueueIdState(queueId);
-    setOpenItemId(null);
+  // Copy a shareable link to the selected queue — plain, or with the
+  // start-review intent so the recipient lands in the focused review of the
+  // queue's first to-do trace.
+  const copyQueueLink = async ({ startReview }: { startReview: boolean }) => {
+    if (!experimentId || !selectedQueue) {
+      return;
+    }
+    const path = getReviewQueuePageRoute(experimentId, selectedQueue.queue_id, { startReview });
+    // `copyToClipboard` falls back to execCommand on insecure-HTTP contexts and
+    // reports whether the copy actually landed — only confirm success when it did.
+    const copied = await copyToClipboard(`${window.location.origin}${window.location.pathname}#${path}`);
+    if (copied) {
+      Utils.displayGlobalInfoNotification(
+        intl.formatMessage({
+          defaultMessage: 'Link copied to clipboard.',
+          description: 'Review queue: toast after copying a shareable queue link',
+        }),
+        3,
+      );
+    } else {
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage({
+          defaultMessage: 'Could not copy link to clipboard.',
+          description: 'Review queue: toast when copying a shareable queue link fails',
+        }),
+        3,
+      );
+    }
   };
 
   const setOpenStatus = async (status: ReviewStatus) => {
@@ -354,7 +394,10 @@ const ExperimentReviewQueuePage = () => {
             : undefined
         }
         isRemovingItems={isRemovingItems}
-        // Manage and delete are separately gated (a manager can delete a USER queue).
+        // Gear menu: "Manage queue" (settings) only for editable CUSTOM queues;
+        // "Delete queue" is separate — a manager can delete a USER queue too.
+        // Copying a share link is permission-free.
+        onCopyLink={copyQueueLink}
         onManageQueue={canManageSelectedQueue ? () => setEditingQueueId(selectedQueue.queue_id) : undefined}
         onDeleteQueue={canDeleteSelectedQueue ? () => setConfirmDeleteQueueId(selectedQueue.queue_id) : undefined}
         onGoToTraces={
