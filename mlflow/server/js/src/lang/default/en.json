@@ -7115,6 +7115,10 @@
     "defaultMessage": "View traces for this period",
     "description": "Link text to navigate to traces tab filtered by the selected time period"
   },
+  "c0Z+KM": {
+    "defaultMessage": "Analyze in Assistant",
+    "description": "Label for the tab that opens the MLflow assistant side panel to analyze the current trace"
+  },
   "c0ljd6": {
     "defaultMessage": "MLflow documentation",
     "description": "Link to MLflow documentation"
