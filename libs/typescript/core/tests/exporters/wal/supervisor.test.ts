@@ -258,5 +258,38 @@ describe('wal/supervisor', () => {
       const counterContents = await readFile(counterFile, 'utf8');
       expect(counterContents).toBe('+');
     });
+
+    it('dedupes a second ensureDaemon call during the spawn -> bind window', async () => {
+      const bindDelayMs = 300;
+      const lockPath = getLockSocketPath();
+      const slowBindStub = [
+        "const net = require('net');",
+        "const fs = require('fs');",
+        `fs.appendFileSync(${JSON.stringify(counterFile)}, '+');`,
+        `fs.appendFileSync(${JSON.stringify(pidFile)}, process.pid + '\\n');`,
+        'const server = net.createServer((s) => s.end());',
+        // Delay listen() to widen the spawn→bind window the fix is meant to cover.
+        `setTimeout(() => {`,
+        `  server.listen(${JSON.stringify(lockPath)}, () => {`,
+        `    setTimeout(() => process.exit(0), 3000);`,
+        `  });`,
+        `}, ${bindDelayMs});`,
+      ].join('\n');
+      await writeFile(stubScript, slowBindStub);
+
+      const spawnMock = childProcess.spawn as jest.MockedFunction<typeof childProcess.spawn>;
+      spawnMock.mockClear();
+
+      const first = ensureDaemon();
+      // Land the second call mid-bind-window: after spawnDaemon() has
+      // returned (~ms) but well before the stub's 300ms listen() fires.
+      await sleep(100);
+      const second = ensureDaemon();
+      await Promise.all([first, second]);
+      await sleep(200);
+
+      expect(await readFile(counterFile, 'utf8')).toBe('+');
+      expect(spawnMock).toHaveBeenCalledTimes(1);
+    });
   });
 });
