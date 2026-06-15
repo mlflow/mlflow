@@ -2,6 +2,7 @@ import asyncio
 import contextvars
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, AsyncGenerator
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -1464,7 +1465,7 @@ def test_sync_stream_child_span_across_yields_succeeds():
 
 @pytest.mark.asyncio
 async def test_sync_stream_worker_stops_on_client_disconnect():
-    from mlflow.genai.agent_server.server import _STREAM_QUEUE_MAXSIZE
+    from mlflow.genai.agent_server.server import _STREAM_MAX_CHUNKS_AHEAD
 
     # On client disconnect Starlette closes the streaming body generator, which
     # raises GeneratorExit into the worker bridge generator's yield. Closing the
@@ -1501,7 +1502,7 @@ async def test_sync_stream_worker_stops_on_client_disconnect():
     count_after_close = produced
     await asyncio.sleep(0.5)
     assert produced == count_after_close
-    assert produced < _STREAM_QUEUE_MAXSIZE * 2
+    assert produced < _STREAM_MAX_CHUNKS_AHEAD * 2
 
 
 @pytest.mark.asyncio
@@ -1534,3 +1535,45 @@ async def test_sync_stream_disconnect_propagates_through_body_generator():
             break
         await asyncio.sleep(0.05)
     assert cleaned_up.is_set()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_sync_streams_do_not_starve_default_executor():
+    from mlflow.genai.agent_server.server import _STREAM_MAX_CHUNKS_AHEAD
+
+    # Regression test for the executor-starvation deadlock: an earlier design
+    # scheduled both the producer and every per-chunk get onto the loop's default
+    # executor (shared with asyncio.to_thread). With more concurrent streams than
+    # the pool has threads, the long-lived producers pin every thread; their
+    # queues fill, so they block on put while no thread is left to run a consumer
+    # get -- a hard deadlock. Each stream below yields more than the queue bound so
+    # the old producer would block on a full queue. The current design uses a
+    # dedicated thread plus an asyncio.Queue per stream and never touches the
+    # executor, so a tiny pool cannot starve it.
+    pool_size = 2
+    num_streams = pool_size + 4
+    chunks_per_stream = _STREAM_MAX_CHUNKS_AHEAD + 20
+
+    loop = asyncio.get_running_loop()
+    loop.set_default_executor(
+        ThreadPoolExecutor(max_workers=pool_size, thread_name_prefix="test-default-executor")
+    )
+
+    @stream()
+    def big_stream(request):
+        for i in range(chunks_per_stream):
+            yield {"chunk": i}
+
+    server = AgentServer()
+    transport = httpx.ASGITransport(app=server.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        tasks = [
+            asyncio.create_task(client.post("/invocations", json={"x": i, "stream": True}))
+            for i in range(num_streams)
+        ]
+        responses = await asyncio.wait_for(asyncio.gather(*tasks), timeout=10)
+
+    assert len(responses) == num_streams
+    for resp in responses:
+        assert resp.status_code == 200
+        assert resp.text.count('"chunk"') == chunks_per_stream
