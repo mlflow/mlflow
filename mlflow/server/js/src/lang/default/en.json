@@ -1075,10 +1075,6 @@
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search models"
   },
-  "3c3l9v": {
-    "defaultMessage": "Assign to reviewers",
-    "description": "Button text for assigning a trace to reviewers via a review queue"
-  },
   "3cn8ue": {
     "defaultMessage": "Sending...",
     "description": "Send request button loading state"
@@ -6171,6 +6167,10 @@
     "defaultMessage": "View logs for this period",
     "description": "Link text to navigate to gateway endpoint logs tab"
   },
+  "V/EeFG": {
+    "defaultMessage": "Flag for review",
+    "description": "Assign traces to reviewers via a review queue action"
+  },
   "V0/5Oy": {
     "defaultMessage": "Model: {model}",
     "description": "Display of default model for selected provider"
@@ -6578,6 +6578,10 @@
   "WwFre9": {
     "defaultMessage": "New queue",
     "description": "Add to review queue: create new queue link"
+  },
+  "WyO4fq": {
+    "defaultMessage": "Flag for review",
+    "description": "Button text for assigning a trace to reviewers via a review queue"
   },
   "WybkD9": {
     "defaultMessage": "Review",
@@ -11242,10 +11246,6 @@
   "tv0qk9": {
     "defaultMessage": "Native MLflow API for model invocations. Supports seamless model switching and advanced routing.",
     "description": "MLflow invocations API description"
-  },
-  "twsZUF": {
-    "defaultMessage": "Assign to reviewers",
-    "description": "Assign traces to reviewers via a review queue action"
   },
   "tx3aAM": {
     "defaultMessage": "Add tag",
