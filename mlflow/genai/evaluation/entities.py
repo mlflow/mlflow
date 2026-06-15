@@ -23,7 +23,6 @@ def _clean(value: Any) -> Any | None:
 
 
 def _assertion_outcome(
-    scorer_name: str,
     value: Any,
     error_msg: str | None,
     rationale: str | None,
@@ -49,11 +48,14 @@ def _assertion_outcome(
     # Handles both Python bool and NumPy bool_ from the dataframe.
     if pd.api.types.is_bool(value):
         return bool(value), rationale or f"value={value!r}"
-    return False, (
-        rationale
-        or f"returned {value!r}; assertions need a yes/no rating or a bool. "
+    # Always surface the pass_when guidance here: this is the branch where the
+    # author needs it, so a scorer-provided rationale augments it rather than
+    # replacing it.
+    hint = (
+        f"returned {value!r}; assertions need a yes/no rating or a bool. "
         f"Declare pass_when=... on the scorer to define what counts as passing."
     )
+    return False, f"{rationale}; {hint}" if rationale else hint
 
 
 @dataclass
@@ -336,7 +338,7 @@ class EvaluationResult:
                     continue
                 rationale = _clean(row.get(f"{scorer_name}/rationale"))
                 passed, detail = _assertion_outcome(
-                    scorer_name, value, error_msg, rationale, self.pass_criteria.get(scorer_name)
+                    value, error_msg, rationale, self.pass_criteria.get(scorer_name)
                 )
                 if not passed:
                     failures.append(f"{scorer_name}: {detail}" if detail else scorer_name)
