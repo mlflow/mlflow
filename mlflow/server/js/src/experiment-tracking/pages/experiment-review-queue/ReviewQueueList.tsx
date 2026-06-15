@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   Button,
   Checkbox,
+  CheckCircleIcon,
   DropdownMenu,
   GearIcon,
   LinkOffIcon,
@@ -29,20 +30,47 @@ import type { ReviewQueueItem, ReviewStatus } from './types';
 
 const CID = 'mlflow.experiment-review-queue.list';
 
-const STATUS_META: Record<ReviewStatus, { color: 'turquoise' | 'lime' | 'charcoal' }> = {
-  PENDING: { color: 'turquoise' },
+const STATUS_META: Record<ReviewStatus, { color: 'turquoise' | 'lime' | 'charcoal' | 'lemon' }> = {
+  PENDING: { color: 'lemon' },
   DECLINED: { color: 'charcoal' },
   COMPLETE: { color: 'lime' },
 };
 
+const PendingDot = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <span
+      css={{
+        display: 'inline-block',
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        backgroundColor: theme.colors.yellow600,
+        flexShrink: 0,
+      }}
+    />
+  );
+};
+
 export const StatusTag = ({ status }: { status: ReviewStatus }) => {
+  const { theme } = useDesignSystemTheme();
   const label: Record<ReviewStatus, React.ReactNode> = {
     PENDING: <FormattedMessage defaultMessage="Needs review" description="Review queue status: pending" />,
-    COMPLETE: <FormattedMessage defaultMessage="Complete" description="Review queue status: complete" />,
+    COMPLETE: <FormattedMessage defaultMessage="Reviewed" description="Review queue status: complete" />,
     DECLINED: <FormattedMessage defaultMessage="Declined" description="Review queue status: declined" />,
   };
+  const icon: Record<ReviewStatus, React.ReactNode> = {
+    PENDING: <PendingDot />,
+    COMPLETE: <CheckCircleIcon />,
+    DECLINED: null,
+  };
   return (
-    <Tag componentId={`${CID}.status-tag`} color={STATUS_META[status].color}>
+    <Tag
+      componentId={`${CID}.status-tag`}
+      color={STATUS_META[status].color}
+      icon={icon[status]}
+      css={{ paddingLeft: theme.spacing.xs, paddingRight: theme.spacing.xs }}
+    >
       {label[status]}
     </Tag>
   );
@@ -110,8 +138,7 @@ export const ReviewQueueList = ({
    *  so the queue's manager can remove traces from this view. */
   onRemoveItems?: (itemIds: string[]) => void;
   isRemovingItems?: boolean;
-  /** When provided (editable custom queues only), a gear menu offers
-   *  "Manage queue"; `onDeleteQueue`, when also provided, adds "Delete queue". */
+  /** When set, the gear menu shows "Manage queue" (and "Delete queue" if `onDeleteQueue` is set). */
   onManageQueue?: () => void;
   onDeleteQueue?: () => void;
   onGoToTraces?: () => void;
@@ -282,8 +309,7 @@ export const ReviewQueueList = ({
                     />
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="start">
-                    {/* A USER queue has no editable settings, so a manager sees
-                        only "Delete queue"; CUSTOM queues show both. */}
+                    {/* USER queues show only "Delete queue" (no settings); CUSTOM show both. */}
                     {onManageQueue && (
                       <DropdownMenu.Item componentId={`${CID}.manage-queue`} onClick={onManageQueue}>
                         <FormattedMessage

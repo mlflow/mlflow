@@ -153,36 +153,36 @@ def test_same_name_different_experiments_coexist(store):
 
 def test_create_custom_queue_accepts_users_at_cap(store):
     exp_id = _create_experiments(store, "cap_at_limit")
-    queue = store.create_review_queue(
-        exp_id, name="full", queue_type="custom", users=["a", "b", "c", "d"]
-    )
-    assert queue.users == ["a", "b", "c", "d"]
+    at_cap = [f"u{i}" for i in range(10)]
+    queue = store.create_review_queue(exp_id, name="full", queue_type="custom", users=at_cap)
+    assert queue.users == at_cap
 
 
 def test_create_custom_queue_rejects_users_over_cap(store):
     exp_id = _create_experiments(store, "cap_over")
-    with pytest.raises(MlflowException, match="at most 4 assigned users") as exc:
+    with pytest.raises(MlflowException, match="at most 10 assigned users") as exc:
         store.create_review_queue(
-            exp_id, name="too_many", queue_type="custom", users=["a", "b", "c", "d", "e"]
+            exp_id, name="too_many", queue_type="custom", users=[f"u{i}" for i in range(11)]
         )
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
 
 
 def test_create_custom_queue_caps_after_dedup(store):
     exp_id = _create_experiments(store, "cap_dedup")
-    # Five raw users that de-duplicate to four are under the cap (the cap is
-    # checked on the de-duplicated set, not the raw input).
+    # 11 raw users that de-duplicate to 10 are accepted: the cap is checked on the
+    # de-duplicated set, not the raw input.
+    deduped = [f"u{i}" for i in range(10)]
     queue = store.create_review_queue(
-        exp_id, name="dupes", queue_type="custom", users=["a", "b", "c", "d", "a"]
+        exp_id, name="dupes", queue_type="custom", users=[*deduped, "u0"]
     )
-    assert queue.users == ["a", "b", "c", "d"]
+    assert queue.users == deduped
 
 
 def test_update_custom_queue_rejects_users_over_cap(store):
     exp_id = _create_experiments(store, "cap_update")
     queue = store.create_review_queue(exp_id, name="growing", queue_type="custom", users=["a"])
-    with pytest.raises(MlflowException, match="at most 4 assigned users") as exc:
-        store.update_review_queue(queue.queue_id, users=["a", "b", "c", "d", "e"])
+    with pytest.raises(MlflowException, match="at most 10 assigned users") as exc:
+        store.update_review_queue(queue.queue_id, users=[f"u{i}" for i in range(11)])
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
 
 

@@ -81,9 +81,9 @@ def create_review_queue(
             for custom queues.
         queue_type: ``"user"`` (exactly one assigned user equal to ``name``,
             inherits all of the experiment's label schemas) or ``"custom"``
-            (0 to 4 users and an explicit subset of schemas).
-        users: Assigned users (at most 4). Derived as ``[name]`` for a user
-            queue when omitted; 0 to 4 for a custom queue.
+            (0 to 10 users and an explicit subset of schemas).
+        users: Assigned users (at most 10). Derived as ``[name]`` for a user
+            queue when omitted; 0 to 10 for a custom queue.
         schema_ids: Attached label-schema ids. Must be empty for a user
             queue (it resolves to all of the experiment's schemas); the chosen
             subset for a custom queue.
