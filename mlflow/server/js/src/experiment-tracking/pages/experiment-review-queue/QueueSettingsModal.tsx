@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 
 import {
-  Alert,
   ApplyDesignSystemContextOverrides,
   Button,
   ChevronDownIcon,
@@ -25,6 +24,7 @@ import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
 import { sameUser } from './queuePermissions';
 import { MAX_ASSIGNED_USERS, ReviewerChecklistCombobox } from './ReviewerChecklistCombobox';
 import { useIsAuthAvailable } from '../../../account/hooks';
+import Utils from '../../../common/utils/Utils';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { useUpdateReviewQueueMutation } from './hooks/useUpdateReviewQueueMutation';
@@ -61,7 +61,7 @@ export const QueueSettingsModal = ({
   const { labelSchemas, isLoading: schemasLoading } = useListLabelSchemasQuery({ experimentId: queue.experiment_id });
   const { items: traces, isLoading: itemsLoading } = useListReviewQueueItemsQuery({ queueId: queue.queue_id });
   const { users: assignableUsers, isLoading: usersLoading } = useAssignableUsersQuery({ enabled: canListUsers });
-  const { updateReviewQueueAsync, isUpdatingQueue, error: updateError } = useUpdateReviewQueueMutation();
+  const { updateReviewQueueAsync, isUpdatingQueue } = useUpdateReviewQueueMutation();
 
   // Questions are an experiment-manager concern (`canManage`) and additionally
   // freeze once the queue has traces (the backend rejects schema changes then),
@@ -200,9 +200,19 @@ export const QueueSettingsModal = ({
         ...(canEditQuestions ? { schema_ids: [...selectedSchemaIds] } : {}),
       });
       onClose();
-    } catch {
-      // The failure (e.g. a duplicate queue name) is surfaced via the error Alert
-      // below; keep the modal open so the user can correct and retry.
+    } catch (e) {
+      // Surface the failure (e.g. a duplicate queue name) as a toast rather than an
+      // inline alert, so the modal body (and the Save button) don't shift. The modal
+      // stays open so the user can correct and retry.
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Failed to save the queue settings: {error}',
+            description: 'Queue settings: error toast shown when saving fails',
+          },
+          { error: e instanceof Error ? e.message : String(e) },
+        ),
+      );
     }
   };
 
@@ -419,19 +429,6 @@ export const QueueSettingsModal = ({
                 </div>
               </div>
             </div>
-
-            {updateError && (
-              <Alert
-                componentId={`${CID}.error`}
-                type="error"
-                closable={false}
-                message={intl.formatMessage({
-                  defaultMessage: 'Failed to save the queue settings.',
-                  description: 'Queue settings: error alert title',
-                })}
-                description={updateError.message}
-              />
-            )}
           </div>
         </ApplyDesignSystemContextOverrides>
       </Modal>

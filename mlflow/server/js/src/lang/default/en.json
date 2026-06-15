@@ -1087,10 +1087,6 @@
     "defaultMessage": "Sending...",
     "description": "Send request button loading state"
   },
-  "3db93e": {
-    "defaultMessage": "Failed to save the queue settings.",
-    "description": "Queue settings: error alert title"
-  },
   "3dtjfI": {
     "defaultMessage": "No minimum",
     "description": "Numeric question: min-value input placeholder when unbounded"
@@ -1254,6 +1250,10 @@
   "4OrIsb": {
     "defaultMessage": "Expectations",
     "description": "Section title for expectations in the V2 dataset record side panel"
+  },
+  "4PnsJV": {
+    "defaultMessage": "Failed to save the queue settings: {error}",
+    "description": "Queue settings: error toast shown when saving fails"
   },
   "4Qft47": {
     "defaultMessage": "{nodeCount, plural, =0 {} one {# node} other {# nodes}}",

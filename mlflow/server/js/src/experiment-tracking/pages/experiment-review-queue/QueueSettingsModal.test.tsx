@@ -7,6 +7,7 @@ import { IntlProvider } from '@databricks/i18n';
 
 import { QueueSettingsModal } from './QueueSettingsModal';
 import type { ReviewQueue, ReviewQueueItem } from './types';
+import Utils from '../../../common/utils/Utils';
 
 // The questions checklist and rich previews aren't under test here — the focus is
 // the schema-freeze save logic — so stub them out.
@@ -89,6 +90,10 @@ describe('QueueSettingsModal save', () => {
     mockTraces = [];
     mockUpdate.mockReset();
     mockUpdate.mockImplementation(() => Promise.resolve());
+    jest
+      .spyOn(Utils, 'displayGlobalErrorNotification')
+      .mockReset()
+      .mockImplementation(() => {});
   });
 
   it('sends schema_ids when the queue has no traces (questions editable)', async () => {
@@ -159,6 +164,23 @@ describe('QueueSettingsModal save', () => {
     expect('users' in arg).toBe(false);
     expect('name' in arg).toBe(false);
     expect('new_owner' in arg).toBe(false);
+  });
+
+  it('toasts the error and keeps the modal open when the save fails', async () => {
+    mockUpdate.mockImplementationOnce(() => Promise.reject(new Error("Review queue with name 'Dup' already exists.")));
+    const onClose = jest.fn();
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <QueueSettingsModal queue={queue} canManage onClose={onClose} />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+    fireEvent.change(screen.getByDisplayValue('My Queue'), { target: { value: 'Dup' } });
+    fireEvent.click(screen.getByText('Save'));
+    // The failure surfaces as a toast (not an inline alert), and the modal stays open.
+    await waitFor(() => expect(Utils.displayGlobalErrorNotification).toHaveBeenCalledTimes(1));
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('hides the queue owner from the picker but keeps them assigned on save', async () => {
