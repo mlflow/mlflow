@@ -8,6 +8,9 @@ import ConceptOverview from "@site/src/components/ConceptOverview";
 import CollapsibleSection from "@site/src/components/CollapsibleSection";
 import { APILink } from "@site/src/components/APILink";
 import { Users, ListCheck, MessageSquare, Database, Target, TrendingUp, Eye } from "lucide-react";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Review Queues
 
@@ -74,41 +77,63 @@ A review queue is a named collection of traces, scoped to an experiment, that a 
 
 ## Step 1: Define your review questions
 
-Define your review questions once, then reuse them across queues for the same experiment. In the SDK a review question is created with `create_label_schema` (the API uses the term _label schema_):
+Define your review questions once, then reuse them across queues for the same experiment.
 
-```python
-from mlflow.genai.label_schemas import (
-    create_label_schema,
-    InputCategorical,
-    InputPassFail,
-    InputText,
-)
+<TabsWrapper>
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      1. Open the experiment's **Review** tab.
+      2. In the create-queue or queue-settings dialog, click **New question**.
+      3. Name the question, pick an input type (Pass/Fail, categorical, numeric, or text), add an optional instruction, choose whether it's a feedback or expectation question, and optionally allow a free-text comment.
+      4. Save it — the question is now reusable across that experiment's queues.
 
-# A Pass/Fail feedback question.
-create_label_schema(
-    name="correctness",
-    type="feedback",
-    input=InputPassFail(positive_label="Correct", negative_label="Incorrect"),
-    instruction="Is the answer factually correct?",
-    enable_comment=True,  # also let reviewers leave a free-text rationale
-)
+      ![Creating a review question in the MLflow UI](/images/assessments/review-queue-new-question.png)
+    </div>
 
-# A categorical feedback question.
-create_label_schema(
-    name="tone",
-    type="feedback",
-    input=InputCategorical(options=["Professional", "Casual", "Inappropriate"]),
-    instruction="How would you describe the tone of the response?",
-)
+  </TabItem>
+  <TabItem value="python" label="Python">
+    <div class="flex-column">
+      In the SDK a review question is created with <APILink fn="mlflow.genai.label_schemas.create_label_schema">`create_label_schema`</APILink> (the API uses the term _label schema_).
 
-# An expectation question that captures the ideal answer (ground truth).
-create_label_schema(
-    name="expected_response",
-    type="expectation",
-    input=InputText(),
-    instruction="What should the assistant have said?",
-)
-```
+      ```python
+      from mlflow.genai.label_schemas import (
+          create_label_schema,
+          InputCategorical,
+          InputPassFail,
+          InputText,
+      )
+
+      # A Pass/Fail feedback question.
+      create_label_schema(
+          name="correctness",
+          type="feedback",
+          input=InputPassFail(positive_label="Correct", negative_label="Incorrect"),
+          instruction="Is the answer factually correct?",
+          enable_comment=True,  # also let reviewers leave a free-text rationale
+      )
+
+      # A categorical feedback question.
+      create_label_schema(
+          name="tone",
+          type="feedback",
+          input=InputCategorical(options=["Professional", "Casual", "Inappropriate"]),
+          instruction="How would you describe the tone of the response?",
+      )
+
+      # An expectation question that captures the ideal answer (ground truth).
+      create_label_schema(
+          name="expected_response",
+          type="expectation",
+          input=InputText(),
+          instruction="What should the assistant have said?",
+      )
+      ```
+    </div>
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
 
 A question's `type` controls where the answer lands on the trace:
 
@@ -132,8 +157,6 @@ The `input` argument picks the widget the reviewer sees and the value type recor
 `InputCategoricalList`, `InputTextList`, and some input options are only fully supported on Databricks-managed tracking. On Databricks, `create_label_schema` routes to the Databricks Review App; on open-source MLflow it uses the tracking store, and `get_label_schema` / `list_label_schemas` / `update_label_schema` operate against that store.
 :::
 
-You can also create and manage questions without code: from the **Review** tab of an experiment, open the queue creation or settings dialog and use **New question** to define one with the same input types.
-
 ## Step 2: Create a review queue
 
 There are two kinds of queue.
@@ -151,45 +174,81 @@ There are two kinds of queue.
   }
 ]} />
 
-```python
-from mlflow.genai.label_schemas import list_label_schemas
-from mlflow.genai.review_queues import create_review_queue, get_or_create_user_queue
+<TabsWrapper>
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      1. Open the experiment's **Review** tab and choose **Create queue**.
+      2. Name the queue and pick the questions it should ask.
+      3. On an authenticated server, assign the reviewers who should work the queue.
+      4. Click **Create**.
 
-# A custom queue with a chosen subset of questions and assigned reviewers.
-# (Questions are the experiment's label schemas; pass their ids as schema_ids.)
-schema_ids = [s.schema_id for s in list_label_schemas()]
-queue = create_review_queue(
-    name="Hallucination review - June",
-    queue_type="custom",
-    schema_ids=schema_ids,
-    users=["alice@company.com", "bob@company.com"],  # auth servers only
-)
+      ![Creating a review queue in the MLflow UI](/images/assessments/review-queue-create-queue.png)
+    </div>
 
-# A user queue: one reviewer, inherits every question in the experiment.
-# get_or_create_user_queue is idempotent — it is the backbone of
-# "assign these traces to this person".
-personal = get_or_create_user_queue("carol@company.com")
-```
+  </TabItem>
+  <TabItem value="python" label="Python">
+    <div class="flex-column">
+      ```python
+      from mlflow.genai.label_schemas import list_label_schemas
+      from mlflow.genai.review_queues import create_review_queue, get_or_create_user_queue
 
-Notes:
+      # A custom queue with a chosen subset of questions and assigned reviewers.
+      # (Questions are the experiment's label schemas; pass their ids as schema_ids.)
+      schema_ids = [s.schema_id for s in list_label_schemas()]
+      queue = create_review_queue(
+          name="Hallucination review - June",
+          queue_type="custom",
+          schema_ids=schema_ids,
+          users=["alice@company.com", "bob@company.com"],  # auth servers only
+      )
 
-- `create_review_queue` is keyword-only past `name`. The owner (`created_by`) is stamped by the server from the authenticated user, not passed by the caller.
-- A queue name is unique within its experiment, and `experiment_id` defaults to the active experiment.
-- A custom queue's questions (`schema_ids`) are frozen once it has traces attached. Detach the traces first if you need to change the questions; the assigned `users` stay editable at any time.
+      # A user queue: one reviewer, inherits every question in the experiment.
+      # get_or_create_user_queue is idempotent — it is the backbone of
+      # "assign these traces to this person".
+      personal = get_or_create_user_queue("carol@company.com")
+      ```
 
-To create a queue in the UI, open the experiment's **Review** tab and choose **Create queue** — name it, pick the questions, and (on an authenticated server) assign reviewers.
+      Notes:
+
+      - `create_review_queue` is keyword-only past `name`. The owner (`created_by`) is stamped by the server from the authenticated user, not passed by the caller.
+      - A queue name is unique within its experiment, and `experiment_id` defaults to the active experiment.
+      - A custom queue's questions (`schema_ids`) are frozen once it has traces attached. Detach the traces first if you need to change the questions; the assigned `users` stay editable at any time.
+    </div>
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Step 3: Add traces to a queue
 
-Attach traces by their trace IDs. Adding is idempotent — re-adding a trace keeps its existing review status.
+Attach the traces you want reviewed to the queue.
 
-```python
-from mlflow.genai.review_queues import add_items_to_review_queue
+<TabsWrapper>
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      1. From the trace table (or an open trace), select the traces you want reviewed.
+      2. Use **Assign to reviewers** to flag them into one or more queues.
 
-add_items_to_review_queue(queue.queue_id, item_ids=["tr-abc123", "tr-def456"])
-```
+      ![Assigning traces to a review queue in the MLflow UI](/images/assessments/review-queue-assign-to-reviewers.png)
+    </div>
 
-In the UI, select traces from the trace table (or open a single trace) and use **Assign to reviewers** to flag them into one or more queues.
+  </TabItem>
+  <TabItem value="python" label="Python">
+    <div class="flex-column">
+      Attach traces by their trace IDs. Adding is idempotent — re-adding a trace keeps its existing review status.
+
+      ```python
+      from mlflow.genai.review_queues import add_items_to_review_queue
+
+      add_items_to_review_queue(queue.queue_id, item_ids=["tr-abc123", "tr-def456"])
+      ```
+    </div>
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Step 4: Review traces in the UI
 
@@ -198,6 +257,8 @@ Reviewers work a queue from the experiment's **Review** tab. Selecting a trace o
 - **Left** — a compact rail of the queue's traces, with a progress bar across the top, for moving between items.
 - **Middle** — the trace's input and output. Chat-style and plain-text content render as formatted Markdown, JSON renders as a syntax-highlighted block, and **View full trace** opens the full trace explorer in a drawer.
 - **Right** — the queue's review questions as input widgets (from Step 1), each with a status dot showing whether it has been answered.
+
+![Reviewing a trace in focus mode](/images/assessments/review-queue-focus-mode.png)
 
 <CollapsibleSection title="The review workflow in focus mode" defaultExpanded={false}>
 
