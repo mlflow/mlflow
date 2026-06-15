@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781417561950,
+  "lastUpdate": 1781513064402,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -9989,6 +9989,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.471951400001899,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "84737625+kriscon-db@users.noreply.github.com",
+            "name": "Kris Concepcion",
+            "username": "kriscon-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "57f040cf699cc1465176d6e9adaf0fe8e33864f8",
+          "message": "Review queues: surface action errors as toasts instead of inline alerts (#23990)\n\nSigned-off-by: Kris Concepcion <kris.concepcion@databricks.com>\nCo-authored-by: Isaac <isaac@example.com>",
+          "timestamp": "2026-06-15T08:40:54Z",
+          "tree_id": "577232b97bfbb80fb5ce7079d089008daec58b05",
+          "url": "https://github.com/mlflow/mlflow/commit/57f040cf699cc1465176d6e9adaf0fe8e33864f8"
+        },
+        "date": 1781513063568,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 45.88889434999999,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 24.312437742859014,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 24.341629111108976,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 25.478269727273073,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 23.82609239285825,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.539451399998143,
             "unit": "ms"
           }
         ]
