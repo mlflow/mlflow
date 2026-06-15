@@ -3,8 +3,10 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   Button,
   Checkbox,
+  CheckCircleIcon,
   DropdownMenu,
   GearIcon,
+  LinkOffIcon,
   NewWindowIcon,
   PlusIcon,
   SearchIcon,
@@ -15,7 +17,7 @@ import {
   TableHeader,
   TableRow,
   Tag,
-  TrashIcon,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -28,20 +30,47 @@ import type { ReviewQueueItem, ReviewStatus } from './types';
 
 const CID = 'mlflow.experiment-review-queue.list';
 
-const STATUS_META: Record<ReviewStatus, { color: 'turquoise' | 'lime' | 'charcoal' }> = {
-  PENDING: { color: 'turquoise' },
+const STATUS_META: Record<ReviewStatus, { color: 'turquoise' | 'lime' | 'charcoal' | 'lemon' }> = {
+  PENDING: { color: 'lemon' },
   DECLINED: { color: 'charcoal' },
   COMPLETE: { color: 'lime' },
 };
 
+const PendingDot = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <span
+      css={{
+        display: 'inline-block',
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        backgroundColor: theme.colors.yellow600,
+        flexShrink: 0,
+      }}
+    />
+  );
+};
+
 export const StatusTag = ({ status }: { status: ReviewStatus }) => {
+  const { theme } = useDesignSystemTheme();
   const label: Record<ReviewStatus, React.ReactNode> = {
     PENDING: <FormattedMessage defaultMessage="Needs review" description="Review queue status: pending" />,
-    COMPLETE: <FormattedMessage defaultMessage="Complete" description="Review queue status: complete" />,
+    COMPLETE: <FormattedMessage defaultMessage="Reviewed" description="Review queue status: complete" />,
     DECLINED: <FormattedMessage defaultMessage="Declined" description="Review queue status: declined" />,
   };
+  const icon: Record<ReviewStatus, React.ReactNode> = {
+    PENDING: <PendingDot />,
+    COMPLETE: <CheckCircleIcon />,
+    DECLINED: null,
+  };
   return (
-    <Tag componentId={`${CID}.status-tag`} color={STATUS_META[status].color}>
+    <Tag
+      componentId={`${CID}.status-tag`}
+      color={STATUS_META[status].color}
+      icon={icon[status]}
+      css={{ paddingLeft: theme.spacing.xs, paddingRight: theme.spacing.xs }}
+    >
       {label[status]}
     </Tag>
   );
@@ -318,20 +347,30 @@ export const ReviewQueueList = ({
             </Button>
           )}
           {selectable && selected.size > 0 && (
-            <Button
-              componentId={`${CID}.delete-selected`}
-              danger
-              icon={<TrashIcon />}
-              disabled={isRemovingItems}
-              loading={isRemovingItems}
-              onClick={handleDelete}
+            <Tooltip
+              componentId={`${CID}.unassign-selected.tooltip`}
+              content={intl.formatMessage(
+                {
+                  defaultMessage: 'Unassign {count, plural, one {# trace} other {# traces}} from the queue',
+                  description:
+                    'Review queue: tooltip explaining that the button removes the selected traces from the queue (the traces themselves are not deleted)',
+                },
+                { count: selected.size },
+              )}
             >
-              <FormattedMessage
-                defaultMessage="Remove {count, plural, one {# trace} other {# traces}}"
-                description="Review queue: remove selected traces button"
-                values={{ count: selected.size }}
-              />
-            </Button>
+              <Button
+                componentId={`${CID}.delete-selected`}
+                icon={<LinkOffIcon />}
+                disabled={isRemovingItems}
+                loading={isRemovingItems}
+                onClick={handleDelete}
+              >
+                <FormattedMessage
+                  defaultMessage="Unassign"
+                  description="Review queue: button that removes the selected traces from the queue (the traces themselves are not deleted)"
+                />
+              </Button>
+            </Tooltip>
           )}
         </div>
       )}

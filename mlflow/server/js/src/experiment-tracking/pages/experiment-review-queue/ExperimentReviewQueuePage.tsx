@@ -26,6 +26,7 @@ import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFro
 import { DEFAULT_REVIEWER, displayUser, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
 import { canDeleteQueue, canManageQueue, canRemoveQueueItems, sameUser } from './queuePermissions';
+import { useHeaderVisibility } from '../experiment-page-tabs/ExperimentPageHeaderVisibilityContext';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 /**
@@ -239,6 +240,12 @@ const ExperimentReviewQueuePage = () => {
     };
   }, [inFocusMode]);
 
+  const { setHeaderHidden } = useHeaderVisibility();
+  useEffect(() => {
+    setHeaderHidden(inFocusMode);
+    return () => setHeaderHidden(false);
+  }, [inFocusMode, setHeaderHidden]);
+
   const selectQueue = (queueId: string) => {
     setSelectedQueueIdState(queueId);
     setOpenItemId(null);
@@ -375,14 +382,14 @@ const ExperimentReviewQueuePage = () => {
         paddingBottom: theme.spacing.md,
       }}
     >
-      <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: inFocusMode ? 'visible' : 'hidden' }}>
         {inFocusMode ? (
           <div
             css={{
               width: '100%',
               height: '100%',
               minHeight: 0,
-              overflow: 'hidden',
+              overflow: 'visible',
               display: 'flex',
               flexDirection: 'column',
             }}

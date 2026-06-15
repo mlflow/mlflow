@@ -11,8 +11,9 @@ import type { ReviewQueueItem } from './types';
 
 const FEEDBACK_SUBMITTED_COMPONENT_ID = 'mlflow.experiment-review-queue.focused-review.feedback-submitted';
 
+let mockTraceData: unknown[] = [];
 jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
-  useGetTracesById: () => ({ data: [], isLoading: false }),
+  useGetTracesById: () => ({ data: mockTraceData, isLoading: false }),
   ModelTraceExplorer: () => null,
 }));
 
@@ -280,6 +281,47 @@ describe('FocusedReview waits for prior answers to settle before submitting', ()
     fireEvent.click(screen.getByText('Pass'));
     expect(mockCreateAssessment).not.toHaveBeenCalled();
     expect(onSetStatus).not.toHaveBeenCalled();
+  });
+});
+
+describe('FocusedReview trace content rendering', () => {
+  const onSetStatus = jest.fn((_status: string) => Promise.resolve());
+
+  afterEach(() => {
+    mockTraceData = [];
+  });
+
+  it('renders markdown for plain-text response content', () => {
+    mockTraceData = [{ info: { trace_id: 'tr-1', request_preview: null, response_preview: 'Hello **world**' } }];
+    renderFocused([passFailSchema()], onSetStatus);
+    expect(screen.getByText('world')).toBeInTheDocument();
+  });
+
+  it('renders JSON content as a preformatted code block, not markdown', () => {
+    const json = JSON.stringify({ key: '# not a heading', list: [1, 2] });
+    mockTraceData = [{ info: { trace_id: 'tr-1', request_preview: null, response_preview: json } }];
+    renderFocused([passFailSchema()], onSetStatus);
+
+    // JSON keys/values with markdown-like characters must NOT be parsed as
+    // headings or bold — they should appear as literal text in a <pre>.
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+    expect(screen.getByText(/# not a heading/)).toBeInTheDocument();
+  });
+
+  it('falls back to truncated plain text for content exceeding the size limit', () => {
+    const huge = 'x'.repeat(1_100_000);
+    mockTraceData = [{ info: { trace_id: 'tr-1', request_preview: null, response_preview: huge } }];
+    renderFocused([passFailSchema()], onSetStatus);
+
+    // The rendered text should be capped at 10 000 chars (the slice limit).
+    const preElement = screen.getByText((_, el) => el?.tagName === 'PRE' && (el.textContent?.length ?? 0) <= 10_001);
+    expect(preElement).toBeInTheDocument();
+  });
+
+  it('renders input preview as a right-aligned chat bubble', () => {
+    mockTraceData = [{ info: { trace_id: 'tr-1', request_preview: 'user prompt', response_preview: null } }];
+    renderFocused([passFailSchema()], onSetStatus);
+    expect(screen.getByText('user prompt')).toBeInTheDocument();
   });
 });
 
