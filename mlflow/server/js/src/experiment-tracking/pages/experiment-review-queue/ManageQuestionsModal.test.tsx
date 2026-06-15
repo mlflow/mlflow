@@ -1,4 +1,4 @@
-import { describe, jest, it, expect } from '@jest/globals';
+import { describe, beforeEach, jest, it, expect } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
@@ -51,6 +51,11 @@ const renderModal = () =>
   );
 
 describe('ManageQuestionsModal delete confirmation', () => {
+  // Reset to a known baseline so a prior test's queues can't bleed into the next.
+  beforeEach(() => {
+    mockQueues = [];
+  });
+
   it('lists the custom queues that use the question (as deep links) and excludes others', async () => {
     mockQueues = [
       { queue_id: 'rq-a', name: 'Queue A', queue_type: 'CUSTOM', schema_ids: ['s1'] },
