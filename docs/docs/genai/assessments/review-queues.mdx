@@ -3,28 +3,28 @@ sidebar_label: Review Queues
 description: Organize traces into review queues, assign them to human reviewers, and collect structured feedback and ground-truth annotations in the MLflow UI.
 ---
 
-import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import ConceptOverview from "@site/src/components/ConceptOverview";
+import ImageBox from "@site/src/components/ImageBox";
 import { APILink } from "@site/src/components/APILink";
-import { Users, ListCheck, MessageSquare, Database, Target, TrendingUp } from "lucide-react";
+import { Users, ListCheck, MessageSquare } from "lucide-react";
 
 # Review Queues
 
-Review queues turn ad-hoc human review into a structured workflow. You bundle a set of traces into a named queue, attach the questions you want answered, assign the queue to one or more reviewers, and let them work through it in focus mode. Every answer is logged back onto the trace, so the review effort feeds directly into evaluation.
+Review queues turn ad-hoc human review into a structured workflow. You bundle a set of traces into a named queue, attach the questions you want answered, assign the queue to one or more reviewers, and let them work through it trace by trace. Every answer is logged back onto the trace, so the review effort feeds directly into evaluation.
 
-:::note Experimental
+:::note[Experimental]
 Review queues are experimental (added in MLflow 3.14.0) and may change in a future release.
 :::
 
 ## What is a Review Queue?
 
-A review queue is a named collection of traces, scoped to an experiment, that a defined set of reviewers works through together. Three building blocks make up the workflow:
+A review queue is a named collection of traces, scoped to an experiment, that a defined set of reviewers works through together. Reviewers answer the same well-defined questions on every trace (so results are comparable and aggregatable), the shared status keeps the team from reviewing the same trace twice, and every answer is logged straight back onto the trace so it is immediately reusable in evaluation. Three building blocks make up the workflow:
 
 <ConceptOverview concepts={[
   {
     icon: ListCheck,
     title: "Review Questions",
-    description: "The questions reviewers answer on each trace — a Pass/Fail toggle, a categorical choice, a numeric score, or free text."
+    description: "The questions reviewers answer on each trace: a Pass/Fail toggle, a categorical choice, a numeric score, or free text."
   },
   {
     icon: Users,
@@ -34,7 +34,7 @@ A review queue is a named collection of traces, scoped to an experiment, that a 
   {
     icon: MessageSquare,
     title: "Shared Review Status",
-    description: "Each trace is pending, complete, or declined — shared across reviewers, so the first to finish a trace clears it for the whole team."
+    description: "Each trace is pending, complete, or declined, shared across reviewers, so the first to finish a trace clears it for the whole team."
   }
 ]} />
 
@@ -42,79 +42,62 @@ A review queue is a named collection of traces, scoped to an experiment, that a 
 
 - MLflow 3.14.0 or later.
 - An MLflow tracking server (or local tracking setup) with traces already logged to an experiment.
-- For multi-reviewer (custom) queues and per-reviewer attribution, run the tracking server with [authentication](/self-hosting/security/basic-http-auth) enabled. On a server without authentication, reviews are attributed to a single `default` user and reviewer assignment is hidden.
-
-## Why use Review Queues?
-
-<FeatureHighlights features={[
-  {
-    icon: Target,
-    title: "Structured, Consistent Review",
-    description: "Reviewers answer the same well-defined questions on every trace instead of leaving free-form notes, so results are comparable and aggregatable."
-  },
-  {
-    icon: Users,
-    title: "Multi-reviewers Collaboration",
-    description: "Assign a queue to several reviewers and let the shared review status keep everyone on different traces, with clear attribution of who reviewed what."
-  },
-  {
-    icon: Database,
-    title: "Feeds Evaluation Directly",
-    description: "Every answer is logged back onto the trace, building ground-truth datasets and quality signals you can reuse in evaluation."
-  },
-  {
-    icon: TrendingUp,
-    title: "Track Progress at a Glance",
-    description: "A progress bar and per-status counts show how much of a queue is done, so you know when a labeling effort is complete."
-  }
-]} />
+- To assign reviews using a user name, run the tracking server with [authentication](/self-hosting/security/basic-http-auth) enabled. On a server without authentication, reviews are attributed to a single `default` user and reviewer assignment is hidden, so use a [custom queue](#create-a-custom-queue) instead.
 
 ## Assign traces to reviewers
 
-The quickest way to get traces reviewed: from the trace table (or an open trace), select the traces, click **Assign to reviewers**, and pick one or more reviewers. Each trace lands in that reviewer's personal queue, where they answer the experiment's review questions. (On a server without authentication, reviewer assignment isn't available — use a custom queue instead, described below.)
+The quickest way to get traces reviewed: from the trace table (or an open trace), select the traces, click **Assign to reviewers**, and pick one or more reviewers. Each trace lands in that reviewer's personal queue, where they answer the experiment's review questions. (On a server without authentication, direct reviewer assignment isn't available. Use a custom queue instead, described below.)
 
-![Assigning traces to reviewers in the MLflow UI](/images/assessments/review-queue-assign-to-reviewers.png)
+<ImageBox src="/images/assessments/review-queue-assign-to-reviewers.png" alt="Assigning traces to reviewers in the MLflow UI" />
 
 ## Review traces in the UI
 
-Reviewers find the work assigned to them under the experiment's **Review** tab, where each queue shows a progress bar across its traces.
+Reviewers find the work assigned to them under the experiment's **Review** tab. Selecting a queue lists its traces with their review status and how many are still to do.
 
-![The Review tab listing queues and progress](/images/assessments/review-queue-tab-overview.png)
+<ImageBox src="/images/assessments/review-queue-tab-overview.png" alt="The Review tab showing a selected queue and its traces" />
 
-Selecting a trace opens **focus mode** — a full-page surface with the queue's traces on the left, the trace's input and output in the middle (with **View full trace** for the complete trace explorer), and the review questions on the right.
+Selecting a trace opens the focused review page: the trace's input and output in the main pane (with **View full trace** for the complete trace explorer) and the review questions in a panel on the right.
 
-![Reviewing a trace in focus mode](/images/assessments/review-queue-focus-mode.png)
+<ImageBox src="/images/assessments/review-queue-focus-mode.png" alt="Reviewing a trace in the focused review page" />
 
-In focus mode a reviewer can:
+From here a reviewer can:
 
 - **Submit** their answers to mark the trace complete (a single Pass/Fail question submits as soon as it's picked).
 - **Decline** a trace that was added to the queue by mistake.
-- Re-open a completed answer, edit it, and **Save changes** in place — or use **Move to Todo** to send the trace back to the pending pool.
+- Re-open a completed answer, edit it, and **Save changes** in place, or use **Move to Todo** to send the trace back to the pending pool.
 
 Because the status is shared across the queue, the first reviewer to complete a trace clears it for everyone, with `completed_by` recording who did it.
 
 ## Create a custom queue
 
-When you want a curated, shared queue that asks a **specific set of questions** — or you're on a server without authentication — create a custom queue instead of assigning to individual reviewers.
+When you want a curated, shared queue that asks a **specific set of questions** (or you're on a server without authentication), create a custom queue instead of assigning to individual reviewers.
 
-**1. Define your review questions.** From the experiment's **Review** tab, open the create-queue dialog and click **New question**:
+#### Step 1. Define your review questions.
+
+From the experiment's **Review** tab, open the create-queue dialog and click **New question**:
 
 1. Name the question.
-2. Pick an input type — Pass/Fail, single- or multi-select categorical, numeric, or free text.
+2. Pick an input type: Pass/Fail, single- or multi-select categorical, numeric, or free text.
 3. Optionally add an instruction shown to reviewers, and allow a free-text comment.
 4. Choose whether it's a **feedback** question (how good was the output?) or an **expectation** question (what should the output have been?).
 
 Questions are defined once and reused across the queues in that experiment.
 
-![Creating a review question in the MLflow UI](/images/assessments/review-queue-new-question.png)
+<ImageBox src="/images/assessments/review-queue-new-question.png" alt="Creating a review question in the MLflow UI" />
 
-**2. Create the queue.** Name it, pick the questions it should ask, assign reviewers (on an authenticated server), and click **Create**. Then add traces to it with **Assign to reviewers** from the trace table.
+#### Step 2. Create the queue.
 
-![Creating a review queue in the MLflow UI](/images/assessments/review-queue-create-queue.png)
+Name the queue and pick the questions it should ask, then click **Create**.
+
+<ImageBox src="/images/assessments/review-queue-create-queue.png" alt="Creating a review queue in the MLflow UI" />
+
+#### Step 3. Assign reviewers and add traces.
+
+On an authenticated server, assign reviewers to the queue so it shows up in their **Review** tab. Add traces to the queue with **Assign to reviewers** from the trace table.
 
 ## Manage and track queues programmatically
 
-The same workflow is available through the SDK — useful for automation, bulk assignment, reporting, or seeding review state. Questions are created with `create_label_schema` (the API uses the term _label schema_); queues and their items are managed with `mlflow.genai.review_queues`.
+The same workflow is available through the SDK, useful for automation, bulk assignment, reporting, or seeding review state. Questions are created with `create_label_schema` (the API uses the term _label schema_); queues and their items are managed with `mlflow.genai.review_queues`.
 
 ```python
 from mlflow.genai.label_schemas import (
@@ -157,10 +140,10 @@ queue = create_review_queue(
 )
 
 # A user queue is one reviewer's personal worklist; get_or_create_user_queue is
-# idempotent — the backbone of "assign these traces to this person".
+# idempotent, the backbone of "assign these traces to this person".
 personal = get_or_create_user_queue("carol@company.com")
 
-# 3. Attach traces (idempotent — re-adding keeps the existing status).
+# 3. Attach traces (idempotent; re-adding keeps the existing status).
 add_items_to_review_queue(queue.queue_id, item_ids=["tr-abc123", "tr-def456"])
 
 # 4. Track and drive review status.
@@ -182,27 +165,10 @@ Other available calls: <APILink fn="mlflow.genai.review_queues.update_review_que
 
 ## How review answers get logged to traces
 
-A review queue never stores answers separately from your traces. Each answer is written straight onto the reviewed trace — a **feedback** question logs feedback, an **expectation** question logs the expected (ground-truth) value — attributed to the reviewer. Re-saving an edited answer replaces the reviewer's previous one rather than creating a duplicate. This means review output is immediately available wherever trace data is used — the trace UI, [evaluation](/genai/eval-monitor), and ground-truth [datasets](/genai/datasets) — with no extra export step.
+A review queue never stores answers separately from your traces. Each answer is written straight onto the reviewed trace (a **feedback** question logs feedback, an **expectation** question logs the expected ground-truth value), attributed to the reviewer. Re-saving an edited answer replaces the reviewer's previous one rather than creating a duplicate. This means review output is immediately available wherever trace data is used: the trace UI, [evaluation](/genai/eval-monitor), and ground-truth [datasets](/genai/datasets), with no extra export step.
 
-## API Reference
+## Next steps
 
-Review queues:
-
-- <APILink fn="mlflow.genai.review_queues.create_review_queue">`create_review_queue`</APILink>
-- <APILink fn="mlflow.genai.review_queues.get_or_create_user_queue">`get_or_create_user_queue`</APILink>
-- <APILink fn="mlflow.genai.review_queues.get_review_queue">`get_review_queue`</APILink>
-- <APILink fn="mlflow.genai.review_queues.list_review_queues">`list_review_queues`</APILink>
-- <APILink fn="mlflow.genai.review_queues.update_review_queue">`update_review_queue`</APILink>
-- <APILink fn="mlflow.genai.review_queues.delete_review_queue">`delete_review_queue`</APILink>
-- <APILink fn="mlflow.genai.review_queues.add_items_to_review_queue">`add_items_to_review_queue`</APILink>
-- <APILink fn="mlflow.genai.review_queues.remove_items_from_review_queue">`remove_items_from_review_queue`</APILink>
-- <APILink fn="mlflow.genai.review_queues.list_review_queue_items">`list_review_queue_items`</APILink>
-- <APILink fn="mlflow.genai.review_queues.set_review_queue_item_status">`set_review_queue_item_status`</APILink>
-
-Review questions (the `label_schemas` SDK):
-
-- <APILink fn="mlflow.genai.label_schemas.create_label_schema">`create_label_schema`</APILink>
-- <APILink fn="mlflow.genai.label_schemas.get_label_schema">`get_label_schema`</APILink>
-- <APILink fn="mlflow.genai.label_schemas.list_label_schemas">`list_label_schemas`</APILink>
-- <APILink fn="mlflow.genai.label_schemas.update_label_schema">`update_label_schema`</APILink>
-- <APILink fn="mlflow.genai.label_schemas.delete_label_schema">`delete_label_schema`</APILink>
+- **[Evaluate your app](/genai/eval-monitor)**: use the collected feedback and expectations as quality signals when you run evaluation.
+- **[Align an LLM judge](/genai/eval-monitor/scorers/llm-judge/alignment)**: turn reviewer feedback into an aligned judge that scales human judgment to more traces.
+- **[Build an evaluation dataset](/genai/datasets)**: promote ground-truth expectations into a dataset you can evaluate against.
