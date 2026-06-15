@@ -20,7 +20,6 @@ import pytest
 import sklearn
 import sklearn.datasets
 import sklearn.linear_model
-import sklearn.neighbors
 import yaml
 
 import mlflow
@@ -128,9 +127,9 @@ def iris_data():
 @pytest.fixture(scope="module")
 def sklearn_knn_model(iris_data):
     x, y = iris_data
-    knn_model = sklearn.neighbors.KNeighborsClassifier()
-    knn_model.fit(x, y)
-    return knn_model
+    logreg_model = sklearn.linear_model.LogisticRegression()
+    logreg_model.fit(x, y)
+    return logreg_model
 
 
 @pytest.fixture(scope="module")
