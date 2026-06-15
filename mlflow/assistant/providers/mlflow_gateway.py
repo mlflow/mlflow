@@ -1,11 +1,4 @@
-"""MLflow AI Gateway preset of the OpenAI-compatible assistant provider.
-
-This preset proxies through the same MLflow tracking server that hosts the
-assistant API, so the chat URL is derived from the ``tracking_uri`` rather
-than a stand-alone ``base_url``. Model enumeration is handled by the
-frontend (which calls the gateway's own endpoints API), so
-``list_models_fn`` is intentionally omitted.
-"""
+"""MLflow AI Gateway preset of the OpenAI-compatible assistant provider."""
 
 from typing import ClassVar
 

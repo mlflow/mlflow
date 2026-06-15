@@ -1,8 +1,4 @@
-"""Ollama preset of the OpenAI-compatible assistant provider.
-
-Talks to a locally running Ollama server via its native ``/api/tags``
-listing endpoint and the OpenAI-compatible ``/v1/chat/completions`` shim.
-"""
+"""Ollama preset of the OpenAI-compatible assistant provider."""
 
 from typing import ClassVar
 
