@@ -3311,6 +3311,10 @@
     "defaultMessage": "No datasets match \"{query}\"",
     "description": "Title for the empty state when a search returns no datasets in the V2 evaluation datasets list"
   },
+  "FNEy+/": {
+    "defaultMessage": "Used by {custom} and {user}:",
+    "description": "Manage review questions: heading above the affected-queue list when the experiment also has user queues (which inherit every question)"
+  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
@@ -3382,6 +3386,10 @@
   "Fk4w6k": {
     "defaultMessage": "Status",
     "description": "Review queue table: status column"
+  },
+  "Fk7Mme": {
+    "defaultMessage": "{count, plural, one {# user queue} other {# user queues}}",
+    "description": "Manage review questions: count of user queues affected by deleting the question"
   },
   "FmKAee": {
     "defaultMessage": "Observability",
@@ -6727,6 +6735,10 @@
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
   },
+  "XR45oU": {
+    "defaultMessage": "Inherited by {count, plural, one {# user queue} other {# user queues}}.",
+    "description": "Manage review questions: note shown when no custom queue uses the question but user queues (which inherit every question) do"
+  },
   "XREd2h": {
     "defaultMessage": "Learn more",
     "description": "Link text in column header tooltip that opens documentation in a new tab"
@@ -7794,6 +7806,10 @@
   "cb9LLM": {
     "defaultMessage": "Last updated",
     "description": "Header for the dataset record last-updated column"
+  },
+  "cbj8bg": {
+    "defaultMessage": "{count, plural, one {# custom queue} other {# custom queues}}",
+    "description": "Manage review questions: count of custom queues using the question being deleted"
   },
   "cfzQMh": {
     "defaultMessage": "baseline run",
@@ -9158,6 +9174,10 @@
   "j25Ttg": {
     "defaultMessage": "Model metrics",
     "description": "Run details page > tab selector > Model metrics tab"
+  },
+  "j2cg1p": {
+    "defaultMessage": "Used by {count, plural, one {# queue} other {# queues}}:",
+    "description": "Manage review questions: heading above the list of queues that use the question being deleted"
   },
   "j3yKcX": {
     "defaultMessage": "Select the experiment you configured above.",
