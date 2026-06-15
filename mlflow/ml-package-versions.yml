@@ -855,6 +855,10 @@ autogen:
           "autogen_ext",
           # TODO: remove this pin after https://github.com/pydantic/pydantic/issues/12348 is resolved
           "pydantic<2.12.0",
+          # autogen-core pins opentelemetry-semantic-conventions==0.55b1, but the latest
+          # opentelemetry-sdk imports a symbol (OTEL_SPAN_PARENT_ORIGIN) only present in
+          # newer semconv. Keep the SDK on the matching 1.34.x line to avoid an ImportError.
+          "opentelemetry-sdk<1.35",
         ]
     run: pytest tests/autogen
     test_tracing_sdk: true
@@ -955,7 +959,10 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
     minimum: "0.2.19"
-    maximum: "1.106.0"
+    # TODO: Bump past 1.94.0 once the tracing tests patch the right model request
+    # entrypoint. pydantic-ai >= 1.96 no longer routes through
+    # `InstrumentedModel.request`, so the mock is bypassed and tests hit the real API.
+    maximum: "1.94.0"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai

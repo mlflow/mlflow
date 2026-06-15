@@ -143,7 +143,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.2.19",
-            "maximum": "1.106.0"
+            "maximum": "1.94.0"
         }
     },
     "smolagents": {
