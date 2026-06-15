@@ -2413,3 +2413,46 @@ def test_delete_run_deletes_assessments_with_source_run_id():
     remaining_ids = {a.assessment_id for a in trace.info.assessments}
     assert linked_feedback.assessment_id not in remaining_ids
     assert unlinked_feedback.assessment_id in remaining_ids
+
+def test_classifier_evaluation_with_non_default_pos_label():
+    import numpy as np
+    import pandas as pd
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import average_precision_score
+
+    # 1. Create data where '0' is highly separable (our target positive class)
+    rng = np.random.RandomState(42)
+    X = rng.randn(100, 2)
+    y = (X[:, 0] > 0).astype(int)  # classes are {0, 1}
+    
+    # Train model
+    model = LogisticRegression().fit(X, y)
+    P = model.predict_proba(X)
+    
+    # Calculate the ground truth average precision score for class 0
+    expected_pr_auc = average_precision_score(y == 0, P[:, 0])
+    
+    # Format data for mlflow.evaluate
+    df = pd.DataFrame(X, columns=["f1", "f2"])
+    df["target"] = y
+    
+    # 2. Log the model locally
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(model, "model")
+        
+    # 3. Run evaluation with the non-default pos_label=0
+    with mlflow.start_run():
+        res = mlflow.evaluate(
+            model_info.model_uri,
+            df,
+            targets="target",
+            model_type="classifier",
+            evaluator_config={"pos_label": 0, "label_list": [0, 1]}
+        )
+        
+    # 4. Assert that precision_recall_auc matches the ground truth exactly
+    np.testing.assert_almost_equal(
+        res.metrics["precision_recall_auc"], 
+        expected_pr_auc, 
+        decimal=4
+    )

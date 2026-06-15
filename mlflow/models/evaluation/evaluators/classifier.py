@@ -171,11 +171,15 @@ class ClassifierEvaluator(BuiltInEvaluator):
 
     def _compute_roc_and_pr_curve(self):
         if self.y_probs is not None:
+            pos_idx = 1
+            if self.pos_label is not None and self.label_list is not None:
+                if self.pos_label in self.label_list:
+                    pos_idx = list(self.label_list).index(self.pos_label)
             with _suppress_class_imbalance_errors(ValueError, log_warning=False):
                 self.roc_curve = _gen_classifier_curve(
                     is_binomial=True,
                     y=self.y_true,
-                    y_probs=self.y_probs[:, 1],
+                    y_probs=self.y_probs[:, pos_idx],
                     labels=self.label_list,
                     pos_label=self.pos_label,
                     curve_type="roc",
@@ -189,7 +193,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 self.pr_curve = _gen_classifier_curve(
                     is_binomial=True,
                     y=self.y_true,
-                    y_probs=self.y_probs[:, 1],
+                    y_probs=self.y_probs[:, pos_idx],
                     labels=self.label_list,
                     pos_label=self.pos_label,
                     curve_type="pr",
@@ -603,13 +607,11 @@ def _gen_classifier_curve(
                 _y,
                 _y_prob,
                 sample_weight=sample_weights,
-                # For multiclass classification where a one-vs-rest ROC curve is produced for each
-                # class, the positive label is binarized and should not be included in the plot
-                # legend
-                pos_label=_pos_label if _pos_label == pos_label else None,
+                pos_label=_pos_label,
             )
 
-            auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_y_prob, sample_weight=sample_weights)
+            _y_mapped = (_y == _pos_label).astype(int) if _pos_label is not None else _y
+            auc = sk_metrics.roc_auc_score(y_true=_y_mapped, y_score=_y_prob, sample_weight=sample_weights)
             return fpr, tpr, f"AUC={auc:.3f}", auc
 
         xlabel = "False Positive Rate"
@@ -621,8 +623,8 @@ def _gen_classifier_curve(
     elif curve_type == "pr":
 
         def gen_line_x_y_label_auc(_y, _y_prob, _pos_label):
-            precision, recall, _ = sk_metrics.precision_recall_curve(
-                _y,
+            _y_mapped = (_y == _pos_label).astype(int) if _pos_label is not None else _y
+            precision, recall, _ = sk_metrics.precision_recall_curve(_y_mapped,
                 _y_prob,
                 sample_weight=sample_weights,
                 # For multiclass classification where a one-vs-rest precision-recall curve is
@@ -632,8 +634,7 @@ def _gen_classifier_curve(
             )
             # NB: We return average precision score (AP) instead of AUC because AP is more
             # appropriate for summarizing a precision-recall curve
-            ap = sk_metrics.average_precision_score(
-                y_true=_y, y_score=_y_prob, pos_label=_pos_label, sample_weight=sample_weights
+            ap = sk_metrics.average_precision_score(y_true=_y_mapped, y_score=_y_prob, pos_label=_pos_label, sample_weight=sample_weights
             )
             return recall, precision, f"AP={ap:.3f}", ap
 
