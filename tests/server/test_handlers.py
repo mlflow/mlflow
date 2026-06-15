@@ -59,7 +59,12 @@ from mlflow.exceptions import (
 )
 from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
 from mlflow.genai.review_queues import ReviewQueueType
-from mlflow.genai.review_queues.review_queues import ReviewQueue
+from mlflow.genai.review_queues.review_queues import (
+    ReviewItemType,
+    ReviewQueue,
+    ReviewQueueItem,
+    ReviewStatus,
+)
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -104,6 +109,7 @@ from mlflow.protos.prompt_optimization_pb2 import (
 from mlflow.protos.review_queues_pb2 import (
     CreateReviewQueue,
     GetOrCreateUserQueue,
+    SetReviewQueueItemStatus,
 )
 from mlflow.protos.service_pb2 import (
     BatchGetTraceInfos,
@@ -212,6 +218,7 @@ from mlflow.server.handlers import (
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
+    _set_review_queue_item_status,
     _set_trace_tag,
     _set_trace_tag_v3,
     _transition_stage,
@@ -6286,3 +6293,68 @@ def test_get_or_create_user_queue_ignores_client_created_by():
         call_kwargs = mock_store.return_value.get_or_create_user_queue.call_args[1]
         assert "created_by" not in call_kwargs
         assert call_kwargs["user"] == "alice"
+
+
+def _review_queue_item_entity(**overrides):
+    defaults = {
+        "queue_id": "rq-1",
+        "item_type": ReviewItemType.TRACE,
+        "item_id": "tr-1",
+        "status": ReviewStatus.COMPLETE,
+        "creation_time_ms": 1,
+        "last_update_time_ms": 1,
+        "completed_by": "alice",
+        "completed_time_ms": 1,
+    }
+    defaults.update(overrides)
+    return ReviewQueueItem(**defaults)
+
+
+def _set_status_request(status, completed_by=None):
+    request_message = SetReviewQueueItemStatus()
+    request_message.queue_id = "rq-1"
+    request_message.item_id = "tr-1"
+    request_message.status = status.to_proto()
+    if completed_by is not None:
+        request_message.completed_by = completed_by
+    return request_message
+
+
+@pytest.mark.parametrize(
+    ("username", "status", "client_completed_by", "expected_completed_by"),
+    [
+        # Auth server: the caller's identity is stamped and the client value (even
+        # a spoofed one) is ignored, for both terminal states.
+        ("alice", ReviewStatus.COMPLETE, "ghost@nowhere.example", "alice"),
+        ("alice", ReviewStatus.DECLINED, "ghost@nowhere.example", "alice"),
+        # Auth server reopen: attribution is cleared regardless of the client value.
+        ("alice", ReviewStatus.PENDING, "ghost@nowhere.example", None),
+        # No-auth server: no identity to bind to, so the client value passes through
+        # verbatim (a real no-auth client sends the single `default` user).
+        (None, ReviewStatus.COMPLETE, "default", "default"),
+        (None, ReviewStatus.COMPLETE, "ghost@nowhere.example", "ghost@nowhere.example"),
+    ],
+)
+def test_set_review_queue_item_status_stamps_completed_by(
+    username, status, client_completed_by, expected_completed_by
+):
+    request_message = _set_status_request(status, completed_by=client_completed_by)
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+        mock.patch("mlflow.server.handlers._get_request_username", return_value=username),
+    ):
+        mock_store.return_value.set_review_queue_item_status.return_value = (
+            _review_queue_item_entity(
+                status=status,
+                completed_by=expected_completed_by,
+                completed_time_ms=None if status == ReviewStatus.PENDING else 1,
+            )
+        )
+        _set_review_queue_item_status()
+        mock_store.return_value.set_review_queue_item_status.assert_called_once()
+        call_kwargs = mock_store.return_value.set_review_queue_item_status.call_args[1]
+        assert call_kwargs["completed_by"] == expected_completed_by
+        # Pin status pass-through too, so a regression that mangles status is caught.
+        assert call_kwargs["status"] == status
