@@ -3487,6 +3487,10 @@
     "defaultMessage": "Predict on a Pandas DataFrame:",
     "description": "Section heading to display the code block on how we can use registered model to predict using pandas DataFrame"
   },
+  "GYxv/z": {
+    "defaultMessage": "Unassign {count, plural, one {# trace} other {# traces}} from the queue",
+    "description": "Review queue: tooltip explaining that the button removes the selected traces from the queue (the traces themselves are not deleted)"
+  },
   "GbEHyg": {
     "defaultMessage": "Name",
     "description": "Section title for endpoint name"
@@ -6111,6 +6115,10 @@
     "defaultMessage": "Created: {date}",
     "description": "Issue creation date label"
   },
+  "Uod74j": {
+    "defaultMessage": "Unassign",
+    "description": "Review queue: button that removes the selected traces from the queue (the traces themselves are not deleted)"
+  },
   "UpVskF": {
     "defaultMessage": "Expectations",
     "description": "Header for the dataset record expectations column"
@@ -7922,10 +7930,6 @@
   "dYbJha": {
     "defaultMessage": "Please provide run name",
     "description": "Experiment page > new run modal > invalid state - no run name provided"
-  },
-  "dcYM63": {
-    "defaultMessage": "Remove {count, plural, one {# trace} other {# traces}} from queue",
-    "description": "Review queue: button that removes the selected traces from the queue (the traces themselves are not deleted)"
   },
   "dd8i7f": {
     "defaultMessage": "Define custom instructions for LLM evaluation",
