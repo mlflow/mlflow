@@ -6303,6 +6303,10 @@
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment creation form"
   },
+  "VYfxMp": {
+    "defaultMessage": "{hours}h ago",
+    "description": "Review queue table: date-added cell, hours ago"
+  },
   "VZRc73": {
     "defaultMessage": "Using the list of logged table artifacts, select at least one to start comparing results.",
     "description": "Experiment page > artifact compare view > table select dropdown tooltip"
@@ -6334,6 +6338,10 @@
   "VkK38/": {
     "defaultMessage": "Equivalence",
     "description": "LLM template option"
+  },
+  "VkRwrG": {
+    "defaultMessage": "{days}d ago",
+    "description": "Review queue table: date-added cell, days ago"
   },
   "Vm9CvZ": {
     "defaultMessage": "Description",
@@ -7667,6 +7675,10 @@
     "defaultMessage": "Maximum number of language tokens returned from evaluation.",
     "description": "Experiment page > prompt lab > max tokens parameter help text"
   },
+  "cHCKza": {
+    "defaultMessage": "{minutes}m ago",
+    "description": "Review queue table: date-added cell, minutes ago"
+  },
   "cHV5jh": {
     "defaultMessage": "Resources using this key via endpoints",
     "description": "Gateway > Bindings using key drawer > Subtitle"
@@ -8746,6 +8758,10 @@
   "hR27A2": {
     "defaultMessage": "View full dashboard",
     "description": "Link to view full usage dashboard"
+  },
+  "hRhWzR": {
+    "defaultMessage": "just now",
+    "description": "Review queue table: date-added cell, less than a minute ago"
   },
   "hT5ZGW": {
     "defaultMessage": "Remove message",
