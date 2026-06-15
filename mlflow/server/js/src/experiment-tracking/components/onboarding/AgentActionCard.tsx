@@ -56,7 +56,7 @@ export const AgentActionCard = ({
   onActiveTabChange?: (tab: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { openPanel, sendMessage, setupComplete } = useAssistant();
+  const { openPanel, sendMessage, setupComplete, isLocalServer } = useAssistant();
   const defaultTab: TabKey = showAgentSetupTab ? 'agent-setup' : 'copy-prompt';
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
@@ -126,15 +126,18 @@ export const AgentActionCard = ({
             />
           </Tabs.Trigger>
           {codeSnippet && <Tabs.Trigger value="code-snippet">{codeSnippet.label}</Tabs.Trigger>}
-          <Tabs.Trigger value="assistant">
-            <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
-              <AssistantSparkleIcon isHovered={false} iconSize={14} />
-              <FormattedMessage
-                defaultMessage="MLflow assistant"
-                description="Tab label for the in-UI MLflow assistant path in the agent action card"
-              />
-            </span>
-          </Tabs.Trigger>
+          {/* The in-UI assistant only runs against a local MLflow server, so hide it otherwise. */}
+          {isLocalServer && (
+            <Tabs.Trigger value="assistant">
+              <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                <AssistantSparkleIcon isHovered={false} iconSize={14} />
+                <FormattedMessage
+                  defaultMessage="MLflow assistant"
+                  description="Tab label for the in-UI MLflow assistant path in the agent action card"
+                />
+              </span>
+            </Tabs.Trigger>
+          )}
           {extraTabs?.map((tab) => (
             <Tabs.Trigger key={tab.value} value={tab.value}>
               {tab.label}
@@ -267,20 +270,22 @@ export const AgentActionCard = ({
           </Tabs.Content>
         )}
 
-        <Tabs.Content value="assistant" css={{ paddingTop: 0 }}>
-          <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>
-            <FormattedMessage
-              defaultMessage="Opens the MLflow assistant in this browser and starts the conversation."
-              description="Description above the MLflow assistant button in the agent action card"
-            />
-          </Typography.Text>
-          <Button componentId={`${componentId}.open_assistant`} type="primary" onClick={handleAssistantClick}>
-            <FormattedMessage
-              defaultMessage="Open assistant"
-              description="Canonical button label for opening the MLflow assistant from an agent action card"
-            />
-          </Button>
-        </Tabs.Content>
+        {isLocalServer && (
+          <Tabs.Content value="assistant" css={{ paddingTop: 0 }}>
+            <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>
+              <FormattedMessage
+                defaultMessage="Opens the MLflow assistant in this browser and starts the conversation."
+                description="Description above the MLflow assistant button in the agent action card"
+              />
+            </Typography.Text>
+            <Button componentId={`${componentId}.open_assistant`} type="primary" onClick={handleAssistantClick}>
+              <FormattedMessage
+                defaultMessage="Open assistant"
+                description="Canonical button label for opening the MLflow assistant from an agent action card"
+              />
+            </Button>
+          </Tabs.Content>
+        )}
 
         {extraTabs?.map((tab) => (
           <Tabs.Content key={tab.value} value={tab.value} css={{ paddingTop: 0 }}>
