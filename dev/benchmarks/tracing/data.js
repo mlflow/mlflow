@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781533446038,
+  "lastUpdate": 1781539118291,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -10259,6 +10259,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.266098799999554,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "198982749+Copilot@users.noreply.github.com",
+            "name": "Copilot",
+            "username": "Copilot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "aaf634920302e8833f731362e4d829a8c89a572b",
+          "message": "Change `mlflow.sklearn` `serialization_format` default from `cloudpickle` to `skops` (#23987)\n\nSigned-off-by: Weichen Xu <weichen.xu@databricks.com>\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>\nCo-authored-by: WeichenXu123 <19235986+WeichenXu123@users.noreply.github.com>\nCo-authored-by: Weichen Xu <weichen.xu@databricks.com>",
+          "timestamp": "2026-06-15T15:55:00Z",
+          "tree_id": "bfd58dac1491521db03d00a3cdfd8a57b04a83b6",
+          "url": "https://github.com/mlflow/mlflow/commit/aaf634920302e8833f731362e4d829a8c89a572b"
+        },
+        "date": 1781539116449,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 62.51167744999933,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 21.101895022727422,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 18.296381371795015,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 17.726476347825386,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 20.8810509866665,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 5.167056999999886,
             "unit": "ms"
           }
         ]
