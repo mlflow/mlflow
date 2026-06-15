@@ -4511,6 +4511,10 @@
     "defaultMessage": "Calls",
     "description": "Column header for call count"
   },
+  "MOGbwm": {
+    "defaultMessage": "Could not delete queue: {error}",
+    "description": "Review queue: error toast when deleting a queue fails"
+  },
   "MP+H1B": {
     "defaultMessage": "No webhooks configured. Create one to get started. <link>Learn more about webhooks.</link>",
     "description": "Empty state for webhooks list"

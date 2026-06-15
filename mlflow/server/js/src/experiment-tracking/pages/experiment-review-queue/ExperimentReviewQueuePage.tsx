@@ -74,7 +74,7 @@ const ExperimentReviewQueuePage = () => {
   const { labelSchemas } = useListLabelSchemasQuery({ experimentId: experimentId ?? '' });
   const { setReviewQueueItemStatusAsync, isSettingStatus } = useSetReviewQueueItemStatusMutation();
   const { removeItemsFromReviewQueue, isRemovingItems } = useRemoveItemsFromReviewQueueMutation();
-  const { deleteReviewQueue } = useDeleteReviewQueueMutation();
+  const { deleteReviewQueueAsync, isDeletingQueue } = useDeleteReviewQueueMutation();
   const { updateReviewQueueAsync, isUpdatingQueue } = useUpdateReviewQueueMutation();
   const { getOrCreateUserQueueAsync } = useGetOrCreateUserQueueMutation();
 
@@ -150,18 +150,13 @@ const ExperimentReviewQueuePage = () => {
         }
       : undefined;
 
-  const handleDeleteQueue = (queueId: string) =>
-    deleteReviewQueue(
-      { queue_id: queueId },
-      {
-        onSuccess: () => {
-          // Drop the selection if the queue that was open got deleted.
-          if (selectedQueueId === queueId) {
-            selectQueue(undefined);
-          }
-        },
-      },
-    );
+  const handleDeleteQueue = async (queueId: string) => {
+    await deleteReviewQueueAsync({ queue_id: queueId });
+    // Drop the selection if the queue that was open got deleted.
+    if (selectedQueueId === queueId) {
+      selectQueue(undefined);
+    }
+  };
 
   const { items: traces, isLoading: itemsLoading } = useListReviewQueueItemsQuery({
     queueId: selectedQueueId ?? '',
@@ -506,12 +501,33 @@ const ExperimentReviewQueuePage = () => {
           title={<FormattedMessage defaultMessage="Delete queue?" description="Delete review queue: confirm title" />}
           okText={<FormattedMessage defaultMessage="Delete" description="Delete review queue: confirm button" />}
           okButtonProps={{ danger: true }}
+          confirmLoading={isDeletingQueue}
           cancelText={<FormattedMessage defaultMessage="Cancel" description="Delete review queue: cancel button" />}
-          onOk={() => {
-            handleDeleteQueue(confirmDeleteQueue.queue_id);
-            setConfirmDeleteQueueId(undefined);
+          cancelButtonProps={{ disabled: isDeletingQueue }}
+          onOk={async () => {
+            try {
+              await handleDeleteQueue(confirmDeleteQueue.queue_id);
+              // Close only after the delete lands, so a failure keeps the dialog
+              // open for retry instead of looking like a silent no-op.
+              setConfirmDeleteQueueId(undefined);
+            } catch (e) {
+              Utils.displayGlobalErrorNotification(
+                intl.formatMessage(
+                  {
+                    defaultMessage: 'Could not delete queue: {error}',
+                    description: 'Review queue: error toast when deleting a queue fails',
+                  },
+                  { error: e instanceof Error ? e.message : String(e) },
+                ),
+              );
+            }
           }}
-          onCancel={() => setConfirmDeleteQueueId(undefined)}
+          onCancel={() => {
+            // Ignore dismissals while a delete is in flight.
+            if (!isDeletingQueue) {
+              setConfirmDeleteQueueId(undefined);
+            }
+          }}
         >
           <FormattedMessage
             defaultMessage='Permanently delete "{name}" and remove its traces from review? This cannot be undone.'
