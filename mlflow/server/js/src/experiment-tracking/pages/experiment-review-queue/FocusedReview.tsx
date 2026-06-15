@@ -5,6 +5,7 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
+  CloseSmallIcon,
   Drawer,
   Empty,
   Input,
@@ -13,8 +14,10 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { ModelTraceExplorer, useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
+import { GenAIMarkdownRenderer } from '../../../shared/web-shared/genai-markdown-renderer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
+import Utils from '../../../common/utils/Utils';
 import { LabelSchemaInputRenderer } from '../../components/label-schemas';
 import type { LabelSchema, LabelSchemaValue } from '../../components/label-schemas';
 import { useCreateReviewAssessmentMutation } from './hooks/useCreateReviewAssessmentMutation';
@@ -24,15 +27,93 @@ import { StatusTag } from './ReviewQueueList';
 import { SegmentedProgressBar } from './SegmentedProgressBar';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
+import { MARKDOWN_RENDER_SIZE_LIMIT } from '../../../shared/web-shared/model-trace-explorer/constants';
+
 const CID = 'mlflow.experiment-review-queue.focused-review';
 
-/** Pretty-print a request/response preview as JSON, falling back to the raw string. */
-const formatPreview = (raw: string): string => {
+/** Try to parse `raw` as JSON; returns the pretty-printed string + a flag. */
+const tryParseJson = (raw: string): { text: string; isJson: boolean } => {
   try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
+    return { text: JSON.stringify(JSON.parse(raw), null, 2), isJson: true };
   } catch {
-    return raw;
+    return { text: raw, isJson: false };
   }
+};
+
+/**
+ * Renders trace content with the same protections as the trace explorer:
+ * 1. JSON → rendered as a syntax-highlighted code block (no markdown misparse)
+ * 2. Content > 1 MB → plain-text fallback (prevents browser freeze)
+ * 3. Everything else → markdown via GenAIMarkdownRenderer
+ */
+const TraceContentBubble = ({ content, variant }: { content: string; variant: 'input' | 'output' }) => {
+  const { theme } = useDesignSystemTheme();
+  const { text, isJson } = tryParseJson(content);
+
+  const isInput = variant === 'input';
+  const wrapperCss = isInput
+    ? {
+        maxWidth: '50%',
+        padding: theme.spacing.sm,
+        backgroundColor: theme.isDarkMode ? theme.colors.blue800 : theme.colors.blue200,
+        borderRadius: theme.borders.borderRadiusMd,
+        fontSize: theme.typography.fontSizeSm,
+        wordBreak: 'break-word' as const,
+        '& pre[class*="prism"]': { padding: `${theme.spacing.sm}px ${theme.spacing.md}px` },
+      }
+    : {
+        padding: theme.spacing.md,
+        backgroundColor: theme.isDarkMode ? theme.colors.backgroundSecondary : theme.colors.white,
+        borderRadius: theme.borders.borderRadiusMd,
+        fontSize: theme.typography.fontSizeSm,
+        lineHeight: 1.6,
+        wordBreak: 'break-word' as const,
+        '& pre[class*="prism"]': { padding: `${theme.spacing.sm}px ${theme.spacing.md}px` },
+      };
+
+  const body = (() => {
+    if (text.length > MARKDOWN_RENDER_SIZE_LIMIT) {
+      return (
+        <pre
+          css={{
+            margin: 0,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
+            maxHeight: 400,
+            overflow: 'auto',
+            fontSize: theme.typography.fontSizeSm,
+          }}
+        >
+          {text.slice(0, 10_000)}
+        </pre>
+      );
+    }
+    if (isJson) {
+      return (
+        <pre
+          css={{
+            margin: 0,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            fontSize: theme.typography.fontSizeSm,
+            fontFamily: 'monospace',
+          }}
+        >
+          {text}
+        </pre>
+      );
+    }
+    return <GenAIMarkdownRenderer compact={isInput}>{text}</GenAIMarkdownRenderer>;
+  })();
+
+  if (isInput) {
+    return (
+      <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div css={wrapperCss}>{body}</div>
+      </div>
+    );
+  }
+  return <div css={wrapperCss}>{body}</div>;
 };
 
 /**
@@ -234,6 +315,12 @@ export const FocusedReview = ({
       if (nextPendingItemId) {
         onSelect(nextPendingItemId);
       } else {
+        Utils.displayGlobalInfoNotification(
+          intl.formatMessage({
+            defaultMessage: 'All items in this queue have been reviewed!',
+            description: 'Review focused view: toast shown when all queue items are reviewed',
+          }),
+        );
         onBack();
       }
     } catch (e) {
@@ -253,12 +340,20 @@ export const FocusedReview = ({
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, height: '100%' }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-        <Button componentId={`${CID}.back`} icon={<ChevronLeftIcon />} onClick={onBack}>
-          <FormattedMessage defaultMessage="Back" description="Review focused view: back button" />
+        <Button componentId={`${CID}.back`} type="tertiary" icon={<CloseSmallIcon />} onClick={onBack}>
+          <FormattedMessage defaultMessage="Exit review" description="Review focused view: exit review button" />
         </Button>
-        <Typography.Text bold>{item.item_id}</Typography.Text>
-        <StatusTag status={item.status} />
         <div css={{ flex: 1 }} />
+        <StatusTag status={item.status} />
+        {/* Progress across the queue's traces: count/percentage + segmented bar. */}
+        <Typography.Text bold css={{ flexShrink: 0 }}>
+          <FormattedMessage
+            defaultMessage="{reviewed} of {total} reviewed ({percentage}%)"
+            description="Review focused view: queue progress summary"
+            values={{ reviewed: reviewedCount, total: totalCount, percentage }}
+          />
+        </Typography.Text>
+        <SegmentedProgressBar items={progressBarItems} css={{ width: 240, height: theme.typography.fontSizeSm }} />
         <Button
           componentId={`${CID}.prev`}
           icon={<ChevronLeftIcon />}
@@ -279,46 +374,33 @@ export const FocusedReview = ({
           })}
           onClick={() => nextItemId && onSelect(nextItemId)}
         />
-      </div>
-
-      {/* Progress across the queue's traces: count/percentage + segmented bar. */}
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
-        <Typography.Text bold size="lg" css={{ flexShrink: 0 }}>
+        <Button
+          componentId={`${CID}.next-unreviewed`}
+          disabled={!nextPendingItemId}
+          onClick={() => nextPendingItemId && onSelect(nextPendingItemId)}
+          endIcon={<ChevronRightIcon />}
+        >
           <FormattedMessage
-            defaultMessage="{reviewed} of {total} reviewed ({percentage}%)"
-            description="Review focused view: queue progress summary"
-            values={{ reviewed: reviewedCount, total: totalCount, percentage }}
+            defaultMessage="Next unreviewed"
+            description="Review focused view: jump to the next pending trace"
           />
-        </Typography.Text>
-        <SegmentedProgressBar items={progressBarItems} css={{ width: 240, height: theme.typography.fontSizeSm }} />
+        </Button>
       </div>
 
-      <div css={{ display: 'flex', gap: theme.spacing.lg, flex: 1, minHeight: 0 }}>
+      <div css={{ display: 'flex', gap: 48, flex: 1, minHeight: 0 }}>
         {/* Trace input / output (full trace available via the drawer) */}
         <div
           css={{
             flex: 1,
             minWidth: 0,
-            border: `1px solid ${theme.colors.border}`,
+            backgroundColor: theme.colors.backgroundSecondary,
             borderRadius: theme.borders.borderRadiusMd,
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
           }}
         >
-          <div
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing.sm,
-              padding: theme.spacing.sm,
-              borderBottom: `1px solid ${theme.colors.border}`,
-            }}
-          >
-            <Typography.Title level={4} withoutMargins>
-              <FormattedMessage defaultMessage="Trace" description="Review focused view: trace panel title" />
-            </Typography.Title>
-            <div css={{ flex: 1 }} />
+          <div css={{ padding: `${theme.spacing.sm}px ${theme.spacing.md}px 0 0`, flexShrink: 0, textAlign: 'right' }}>
             <Typography.Link
               componentId={`${CID}.view-full-trace`}
               disabled={!trace}
@@ -352,42 +434,10 @@ export const FocusedReview = ({
                 }
               />
             ) : (
-              [
-                requestPreview && {
-                  key: 'input',
-                  label: (
-                    <FormattedMessage defaultMessage="Input" description="Review focused view: trace input label" />
-                  ),
-                  value: formatPreview(requestPreview),
-                },
-                responsePreview && {
-                  key: 'output',
-                  label: (
-                    <FormattedMessage defaultMessage="Output" description="Review focused view: trace output label" />
-                  ),
-                  value: formatPreview(responsePreview),
-                },
-              ]
-                .filter((section): section is { key: string; label: JSX.Element; value: string } => Boolean(section))
-                .map((section) => (
-                  <div key={section.key} css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                    <Typography.Text bold>{section.label}</Typography.Text>
-                    <pre
-                      css={{
-                        margin: 0,
-                        padding: theme.spacing.sm,
-                        backgroundColor: theme.colors.backgroundSecondary,
-                        borderRadius: theme.borders.borderRadiusMd,
-                        fontFamily: 'monospace',
-                        fontSize: theme.typography.fontSizeSm,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {section.value}
-                    </pre>
-                  </div>
-                ))
+              <>
+                {requestPreview && <TraceContentBubble content={requestPreview} variant="input" />}
+                {responsePreview && <TraceContentBubble content={responsePreview} variant="output" />}
+              </>
             )}
           </div>
         </div>
@@ -395,20 +445,20 @@ export const FocusedReview = ({
         {/* Question widgets driven by the queue's label schemas */}
         <div
           css={{
-            width: 360,
+            width: 420,
             flexShrink: 0,
+            alignSelf: 'flex-start',
+            maxHeight: '100%',
             display: 'flex',
             flexDirection: 'column',
-            borderLeft: `1px solid ${theme.colors.border}`,
-            paddingLeft: theme.spacing.lg,
-            minHeight: 0,
+            padding: theme.spacing.lg,
+            backgroundColor: theme.colors.backgroundPrimary,
+            border: `1px solid ${theme.colors.border}`,
+            borderRadius: theme.borders.borderRadiusMd,
+            boxShadow: theme.shadows.lg,
             overflow: 'hidden',
           }}
         >
-          <Typography.Title level={4} withoutMargins css={{ marginBottom: theme.spacing.lg, flexShrink: 0 }}>
-            <FormattedMessage defaultMessage="Review" description="Review focused view: questions panel title" />
-          </Typography.Title>
-
           {/* Only the questions scroll. The actions below are a non-scrolling
               sibling, so they stay put (no sticky jiggle) when the list is long;
               when it's short this box shrinks to fit and the actions sit right
@@ -431,47 +481,66 @@ export const FocusedReview = ({
                 />
               </Typography.Hint>
             ) : (
-              schemas.map((schema) => (
-                <div key={schema.schema_id} css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                  <Typography.Text bold>{schema.name}</Typography.Text>
-                  {schema.instruction && (
-                    <Typography.Hint css={{ marginBottom: theme.spacing.xs }}>{schema.instruction}</Typography.Hint>
-                  )}
-                  <LabelSchemaInputRenderer
-                    input={schema.input}
-                    value={valueFor(schema.name)}
-                    onChange={(value) => {
-                      setAnswer(schema.name, value);
-                      if (
-                        canReview &&
-                        autoSubmitSchema?.schema_id === schema.schema_id &&
-                        !isTerminal &&
-                        !isCreatingAssessment &&
-                        !isSettingStatus
-                      ) {
-                        submitAnswersAndComplete({ [schema.name]: value });
-                      }
-                    }}
-                    disabled={isDeclined || !canReview}
-                    componentId={`${CID}.question`}
-                    label={schema.name}
-                    instruction={schema.instruction}
-                  />
-                  {schema.enable_comment && (
-                    <Input.TextArea
-                      componentId={`${CID}.rationale`}
-                      rows={2}
-                      value={rationaleFor(schema.name)}
-                      onChange={(e) => setRationale(schema.name, e.target.value)}
-                      disabled={isDeclined || !canReview}
-                      placeholder={intl.formatMessage({
-                        defaultMessage: 'Rationale (optional)',
-                        description: 'Review focused view: free-form rationale placeholder',
-                      })}
+              schemas.map((schema) => {
+                const v = valueFor(schema.name);
+                const answered = v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
+                return (
+                  <div key={schema.schema_id} css={{ display: 'flex', gap: theme.spacing.sm }}>
+                    <span
+                      css={{
+                        display: 'inline-block',
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        backgroundColor: answered ? theme.colors.green600 : theme.colors.yellow600,
+                        flexShrink: 0,
+                        marginTop: 6,
+                      }}
                     />
-                  )}
-                </div>
-              ))
+                    <div
+                      css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}
+                    >
+                      <Typography.Text bold>{schema.name}</Typography.Text>
+                      {schema.instruction && !schema.input.text && (
+                        <Typography.Hint css={{ marginBottom: theme.spacing.xs }}>{schema.instruction}</Typography.Hint>
+                      )}
+                      <LabelSchemaInputRenderer
+                        input={schema.input}
+                        value={valueFor(schema.name)}
+                        onChange={(value) => {
+                          setAnswer(schema.name, value);
+                          if (
+                            canReview &&
+                            autoSubmitSchema?.schema_id === schema.schema_id &&
+                            !isTerminal &&
+                            !isCreatingAssessment &&
+                            !isSettingStatus
+                          ) {
+                            submitAnswersAndComplete({ [schema.name]: value });
+                          }
+                        }}
+                        disabled={isDeclined || !canReview}
+                        componentId={`${CID}.question`}
+                        label={schema.name}
+                        instruction={schema.instruction}
+                      />
+                      {schema.enable_comment && (
+                        <Input.TextArea
+                          componentId={`${CID}.rationale`}
+                          rows={2}
+                          value={rationaleFor(schema.name)}
+                          onChange={(e) => setRationale(schema.name, e.target.value)}
+                          disabled={isDeclined || !canReview}
+                          placeholder={intl.formatMessage({
+                            defaultMessage: 'Rationale (optional)',
+                            description: 'Review focused view: free-form rationale placeholder',
+                          })}
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
 

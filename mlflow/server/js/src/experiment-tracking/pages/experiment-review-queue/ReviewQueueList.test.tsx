@@ -55,7 +55,7 @@ describe('ReviewQueueList', () => {
       />,
     );
     expect(screen.getByText('Needs review')).toBeInTheDocument();
-    expect(screen.getByText('Complete')).toBeInTheDocument();
+    expect(screen.getByText('Reviewed')).toBeInTheDocument();
   });
 
   it('renders request and response previews from trace data', () => {
@@ -106,10 +106,10 @@ describe('ReviewQueueList', () => {
       />,
     );
     expect(screen.getByText('Needs review')).toBeInTheDocument();
-    expect(screen.getByText('Complete')).toBeInTheDocument();
+    expect(screen.getByText('Reviewed')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Needs review (1)'));
     expect(screen.getByText('Needs review')).toBeInTheDocument();
-    expect(screen.queryByText('Complete')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reviewed')).not.toBeInTheDocument();
   });
 
   it('filters to only completed items when Completed is clicked', () => {
@@ -122,7 +122,7 @@ describe('ReviewQueueList', () => {
     );
     fireEvent.click(screen.getByText('Completed (1)'));
     expect(screen.queryByText('Needs review')).not.toBeInTheDocument();
-    expect(screen.getByText('Complete')).toBeInTheDocument();
+    expect(screen.getByText('Reviewed')).toBeInTheDocument();
   });
 
   it('sorts by Date added when the column header is clicked', () => {
