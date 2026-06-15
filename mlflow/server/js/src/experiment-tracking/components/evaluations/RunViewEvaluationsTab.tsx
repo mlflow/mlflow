@@ -148,11 +148,19 @@ const RunViewEvaluationsTabInner = ({
     }
 
     const resultColumnId = createAssessmentColumnId(RESULT_ASSESSMENT_NAME);
-    const preferredOrder = new Map(
-      [TRACE_ID_COLUMN_ID, INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, resultColumnId].map(
-        (id, index) => [id, index],
-      ),
-    );
+    // Column order for the regression-test view: the fixed lead columns, then any
+    // other trace-info/metadata columns the user has unhidden (tokens, commit,
+    // tags, ...), then the consolidated "Result" column ordered as the left-most
+    // assessment, then any other assessment columns.
+    const columnRank = (column: TracesTableColumn) => {
+      if (column.id === TRACE_ID_COLUMN_ID) return 0;
+      if (column.type === TracesTableColumnType.INPUT || column.id === INPUTS_COLUMN_ID) return 1;
+      if (column.id === RESPONSE_COLUMN_ID) return 2;
+      if (column.id === EXECUTION_DURATION_COLUMN_ID) return 3;
+      if (column.id === resultColumnId) return 5;
+      if (column.type === TracesTableColumnType.ASSESSMENT) return 6;
+      return 4;
+    };
 
     return allColumns
       .filter((column) => column.id !== STATE_COLUMN_ID)
@@ -167,11 +175,7 @@ const RunViewEvaluationsTabInner = ({
             }
           : column,
       )
-      .sort((a, b) => {
-        const rankA = preferredOrder.get(a.id) ?? Number.MAX_SAFE_INTEGER;
-        const rankB = preferredOrder.get(b.id) ?? Number.MAX_SAFE_INTEGER;
-        return rankA - rankB;
-      });
+      .sort((a, b) => columnRank(a) - columnRank(b));
   }, [allColumns, intl, isRegressionTest]);
 
   // Setup table states
@@ -201,8 +205,7 @@ const RunViewEvaluationsTabInner = ({
             (col.type === TracesTableColumnType.ASSESSMENT && col.id === resultColumnId) ||
             (inputHasContent && col.type === TracesTableColumnType.INPUT) ||
             (responseHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
-            (col.type === TracesTableColumnType.TRACE_INFO && col.id === EXECUTION_DURATION_COLUMN_ID) ||
-            (tokensHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === TOKENS_COLUMN_ID),
+            (col.type === TracesTableColumnType.TRACE_INFO && col.id === EXECUTION_DURATION_COLUMN_ID),
         );
       }
 

@@ -194,21 +194,22 @@ export const GenAiTracesTableBody = React.memo(
         );
 
         if (regressionTestMode) {
-          const preferredOrder = new Map(
-            [
-              TRACE_ID_COLUMN_ID,
-              INPUTS_COLUMN_ID,
-              RESPONSE_COLUMN_ID,
-              EXECUTION_DURATION_COLUMN_ID,
-              RESULT_ASSESSMENT_NAME,
-            ].map((id, index) => [id, index]),
-          );
+          const typeById = new Map(selectedColumns.map((col) => [String(col.id), col.type]));
+          // Order: the fixed lead columns, then any other trace-info/metadata
+          // columns the user unhid (tokens, commit, tags, ...), then "Result"
+          // ordered as the left-most assessment, then any other assessments.
+          const columnRank = (col: ColumnDef<EvalTraceComparisonEntry>) => {
+            const id = String(col.id);
+            if (id === TRACE_ID_COLUMN_ID) return 0;
+            if (typeById.get(id) === TracesTableColumnType.INPUT || id === INPUTS_COLUMN_ID) return 1;
+            if (id === RESPONSE_COLUMN_ID) return 2;
+            if (id === EXECUTION_DURATION_COLUMN_ID) return 3;
+            if (id === RESULT_ASSESSMENT_NAME) return 5;
+            if (typeById.get(id) === TracesTableColumnType.ASSESSMENT) return 6;
+            return 4;
+          };
           return {
-            columns: columnsList.sort((a, b) => {
-              const rankA = preferredOrder.get(String(a.id)) ?? Number.MAX_SAFE_INTEGER;
-              const rankB = preferredOrder.get(String(b.id)) ?? Number.MAX_SAFE_INTEGER;
-              return rankA - rankB;
-            }),
+            columns: columnsList.sort((a, b) => columnRank(a) - columnRank(b)),
           };
         }
 
