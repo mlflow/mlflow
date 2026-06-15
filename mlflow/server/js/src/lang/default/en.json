@@ -7115,6 +7115,10 @@
     "defaultMessage": "(unknown)",
     "description": "Filler text when run's time information is unavailable"
   },
+  "ZfCNp4": {
+    "defaultMessage": "New! Flag traces for human review and send them to a review queue.",
+    "description": "Guidance tooltip message for the flag for review button in the trace drawer"
+  },
   "ZfsnMj": {
     "defaultMessage": "Not grounded",
     "description": "Evaluation results > grounded assessment > negative value label. Displayed if evaluation result is considered as not grounded."
