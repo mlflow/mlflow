@@ -871,10 +871,6 @@
     "defaultMessage": "Created at",
     "description": "Column header for created timestamp in the evaluation runs table"
   },
-  "2P5bVn": {
-    "defaultMessage": "Failed to create the review queue.",
-    "description": "Create review queue: error alert title"
-  },
   "2ROAqe": {
     "defaultMessage": "Record {id}",
     "description": "Heading at the top of the V2 dataset record side panel showing the record id"
@@ -1078,10 +1074,6 @@
   "3bagxW": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search models"
-  },
-  "3c3l9v": {
-    "defaultMessage": "Assign to reviewers",
-    "description": "Button text for assigning a trace to reviewers via a review queue"
   },
   "3cn8ue": {
     "defaultMessage": "Sending...",
@@ -2567,10 +2559,6 @@
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the experiments table"
   },
-  "BBfa66": {
-    "defaultMessage": "Decline",
-    "description": "Review focused view: decline action"
-  },
   "BCpX6U": {
     "defaultMessage": "Registered models",
     "description": "Run page > Overview > Run models section label"
@@ -3863,6 +3851,10 @@
     "defaultMessage": "Description update failed",
     "description": "Partial save status message when experiment description update fails"
   },
+  "IWIjkw": {
+    "defaultMessage": "Copy link to queue",
+    "description": "Review queue header: copy shareable queue link menu item"
+  },
   "IWNUE0": {
     "defaultMessage": "Failed to load roles",
     "description": "Alert title shown when the roles query fails on the account page"
@@ -4526,6 +4518,10 @@
   "ML+mQa": {
     "defaultMessage": "Overall assessment:",
     "description": "Evaluation review > assessments > overall assessment > title"
+  },
+  "ML7TiJ": {
+    "defaultMessage": "Could not save your review: {error}",
+    "description": "Review focused view: error toast when saving a review fails"
   },
   "MNCAQh": {
     "defaultMessage": "Calls",
@@ -6195,6 +6191,10 @@
     "defaultMessage": "View logs for this period",
     "description": "Link text to navigate to gateway endpoint logs tab"
   },
+  "V/EeFG": {
+    "defaultMessage": "Flag for review",
+    "description": "Assign traces to reviewers via a review queue action"
+  },
   "V0/5Oy": {
     "defaultMessage": "Model: {model}",
     "description": "Display of default model for selected provider"
@@ -6246,6 +6246,10 @@
   "VDkXRG": {
     "defaultMessage": "View model",
     "description": "Label for a button that opens a new tab to view the details of a logged ML model while registering a model version"
+  },
+  "VDumsF": {
+    "defaultMessage": "Failed to update the review queue: {error}",
+    "description": "Add to review queue: error toast when adding or removing traces fails"
   },
   "VEuVfv": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
@@ -6311,10 +6315,6 @@
     "defaultMessage": "Structured output (JSON schema)",
     "description": "Label for the structured output JSON schema field in the prompt creation modal"
   },
-  "VWIO8j": {
-    "defaultMessage": "Could not save your review: {error}",
-    "description": "Review focused view: submit error alert"
-  },
   "VWngGA": {
     "defaultMessage": "e.g., PII Detection & Redaction",
     "description": "Guardrail name placeholder"
@@ -6326,6 +6326,10 @@
   "VXduJD": {
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment creation form"
+  },
+  "VYfxMp": {
+    "defaultMessage": "{hours}h ago",
+    "description": "Review queue table: date-added cell, hours ago"
   },
   "VZRc73": {
     "defaultMessage": "Using the list of logged table artifacts, select at least one to start comparing results.",
@@ -6358,6 +6362,10 @@
   "VkK38/": {
     "defaultMessage": "Equivalence",
     "description": "LLM template option"
+  },
+  "VkRwrG": {
+    "defaultMessage": "{days}d ago",
+    "description": "Review queue table: date-added cell, days ago"
   },
   "Vm9CvZ": {
     "defaultMessage": "Description",
@@ -6602,6 +6610,10 @@
   "WwFre9": {
     "defaultMessage": "New queue",
     "description": "Add to review queue: create new queue link"
+  },
+  "WyO4fq": {
+    "defaultMessage": "Flag for review",
+    "description": "Button text for assigning a trace to reviewers via a review queue"
   },
   "WybkD9": {
     "defaultMessage": "Review",
@@ -6998,10 +7010,6 @@
   "Z+tEhr": {
     "defaultMessage": "Compare selected runs",
     "description": "Tooltip for the compare button when enabled"
-  },
-  "Z/7Ru5": {
-    "defaultMessage": "Something went wrong.",
-    "description": "Add to review queue: error alert title"
   },
   "Z/CtWD": {
     "defaultMessage": "Safety",
@@ -7694,6 +7702,10 @@
   "cEwSR8": {
     "defaultMessage": "Maximum number of language tokens returned from evaluation.",
     "description": "Experiment page > prompt lab > max tokens parameter help text"
+  },
+  "cHCKza": {
+    "defaultMessage": "{minutes}m ago",
+    "description": "Review queue table: date-added cell, minutes ago"
   },
   "cHV5jh": {
     "defaultMessage": "Resources using this key via endpoints",
@@ -8611,6 +8623,10 @@
     "defaultMessage": "Edit",
     "description": "Trace actions dropdown group label"
   },
+  "gfCVGt": {
+    "defaultMessage": "Link copied to clipboard.",
+    "description": "Review queue: toast after copying a shareable queue link"
+  },
   "ghgW69": {
     "defaultMessage": "Select traces",
     "description": "Button to open the trace selection modal from the run evaluation modal"
@@ -8775,6 +8791,10 @@
     "defaultMessage": "View full dashboard",
     "description": "Link to view full usage dashboard"
   },
+  "hRhWzR": {
+    "defaultMessage": "just now",
+    "description": "Review queue table: date-added cell, less than a minute ago"
+  },
   "hT5ZGW": {
     "defaultMessage": "Remove message",
     "description": "Button to remove a chat message row"
@@ -8886,6 +8906,10 @@
   "hyHL1n": {
     "defaultMessage": "No metrics match the search filter",
     "description": "Message displayed when no metrics match the search filter in the logged model details metrics table"
+  },
+  "i+JtEu": {
+    "defaultMessage": "Could not copy link to clipboard.",
+    "description": "Review queue: toast when copying a shareable queue link fails"
   },
   "i+RyPC": {
     "defaultMessage": "Your request could not be fulfilled. Please try again.",
@@ -9890,6 +9914,10 @@
   "mtYPI8": {
     "defaultMessage": "Adheres to global guidelines",
     "description": "Evaluation results > global guideline adherence assessment > positive value label. Displayed if evaluation result adheres to the global guidelines."
+  },
+  "mtmTKV": {
+    "defaultMessage": "Failed to create the review queue: {error}",
+    "description": "Create review queue: error toast shown when creation fails"
   },
   "mtxqm8": {
     "defaultMessage": "Flexible, governed deployments with the new Model Registry UI",
@@ -11275,10 +11303,6 @@
     "defaultMessage": "Native MLflow API for model invocations. Supports seamless model switching and advanced routing.",
     "description": "MLflow invocations API description"
   },
-  "twsZUF": {
-    "defaultMessage": "Assign to reviewers",
-    "description": "Assign traces to reviewers via a review queue action"
-  },
   "tx3aAM": {
     "defaultMessage": "Add tag",
     "description": "Key-value tag editor modal > Add tag button"
@@ -12214,6 +12238,10 @@
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
     "description": "Tooltip for deleted endpoint"
+  },
+  "z8QLT1": {
+    "defaultMessage": "Copy start-review link",
+    "description": "Review queue header: copy link that opens the first to-do trace for review"
   },
   "z8srAp": {
     "defaultMessage": "Trace archival retention",

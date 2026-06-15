@@ -419,6 +419,19 @@ export const QueueSettingsModal = ({
                                   label={schema.name}
                                   instruction={schema.instruction}
                                 />
+                                {/* Mirror the create-question form preview: a question
+                                    that collects an optional rationale shows the box here too. */}
+                                {schema.enable_comment && (
+                                  <Input.TextArea
+                                    componentId={`${CID}.preview.rationale`}
+                                    rows={2}
+                                    disabled
+                                    placeholder={intl.formatMessage({
+                                      defaultMessage: 'Rationale (optional)',
+                                      description: 'Review question preview free-form rationale placeholder',
+                                    })}
+                                  />
+                                )}
                               </>
                             )}
                           </div>

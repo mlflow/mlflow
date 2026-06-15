@@ -1,5 +1,6 @@
 import { describe, jest, it, expect } from '@jest/globals';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import React from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -44,6 +45,34 @@ describe('ReviewQueueList', () => {
     expect(screen.getByText('Response')).toBeInTheDocument();
     expect(screen.getByText('Status')).toBeInTheDocument();
     expect(screen.getByText('Date added')).toBeInTheDocument();
+  });
+
+  it('shows minute/second-fidelity relative time for the date added', () => {
+    // Regression: a freshly-added trace used to render "1h ago" because the
+    // formatter clamped its smallest unit to 1 hour.
+    const items = [
+      item('tr-just-now', 'PENDING', undefined, NOW - 10_000),
+      item('tr-min', 'PENDING', undefined, NOW - 5 * 60_000),
+      item('tr-hr', 'PENDING', undefined, NOW - 2 * 60 * 60_000),
+      item('tr-day', 'PENDING', undefined, NOW - 3 * 24 * 60 * 60_000),
+    ];
+    renderWithProviders(<ReviewQueueList items={items} onOpen={jest.fn()} nowMs={NOW} />);
+    expect(screen.getByText('just now')).toBeInTheDocument();
+    expect(screen.getByText('5m ago')).toBeInTheDocument();
+    expect(screen.getByText('2h ago')).toBeInTheDocument();
+    expect(screen.getByText('3d ago')).toBeInTheDocument();
+  });
+
+  it('floors each tier so a near-boundary age never rounds up to the next unit', () => {
+    // 59.5 min and 23.5h must read "59m ago" / "23h ago", not round up to
+    // "1h ago" / "1d ago" (which would reintroduce the clamping bug a level down).
+    const items = [
+      item('tr-min-boundary', 'PENDING', undefined, NOW - (59 * 60 + 30) * 1000),
+      item('tr-hr-boundary', 'PENDING', undefined, NOW - (23 * 60 + 30) * 60 * 1000),
+    ];
+    renderWithProviders(<ReviewQueueList items={items} onOpen={jest.fn()} nowMs={NOW} />);
+    expect(screen.getByText('59m ago')).toBeInTheDocument();
+    expect(screen.getByText('23h ago')).toBeInTheDocument();
   });
 
   it('renders status tags for all items in a flat list', () => {
@@ -195,5 +224,35 @@ describe('ReviewQueueList', () => {
     // Switching filters resets the selection so hidden rows can't be deleted.
     fireEvent.click(screen.getByText('Completed (1)'));
     expect(screen.queryByRole('button', { name: 'Unassign' })).not.toBeInTheDocument();
+  });
+
+  it('offers copy-link menu items even without manage/delete permissions', async () => {
+    const onCopyLink = jest.fn();
+    renderWithProviders(
+      <ReviewQueueList
+        items={[item('tr-1', 'PENDING')]}
+        title="My queue"
+        onOpen={jest.fn()}
+        nowMs={NOW}
+        onCopyLink={onCopyLink}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Queue settings' }));
+    expect(screen.queryByText('Manage queue')).not.toBeInTheDocument();
+    expect(screen.queryByText('Delete queue')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Copy link to queue'));
+    expect(onCopyLink).toHaveBeenCalledWith({ startReview: false });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Queue settings' }));
+    await userEvent.click(screen.getByText('Copy start-review link'));
+    expect(onCopyLink).toHaveBeenCalledWith({ startReview: true });
+  });
+
+  it('hides the gear menu when no actions are available', () => {
+    renderWithProviders(
+      <ReviewQueueList items={[item('tr-1', 'PENDING')]} title="My queue" onOpen={jest.fn()} nowMs={NOW} />,
+    );
+    expect(screen.queryByRole('button', { name: 'Queue settings' })).not.toBeInTheDocument();
   });
 });

@@ -197,7 +197,6 @@ export const FocusedReview = ({
   const priorAssessmentIds = useMemo(() => buildPriorAssessmentIds(priorAnswers, schemas), [priorAnswers, schemas]);
   const [edited, setEdited] = useState<Record<string, LabelSchemaValue>>({});
   const [editedRationales, setEditedRationales] = useState<Record<string, string>>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const valueFor = (name: string): LabelSchemaValue => (name in edited ? edited[name] : prefilled[name]);
   const setAnswer = (name: string, value: LabelSchemaValue) => setEdited((prev) => ({ ...prev, [name]: value }));
@@ -267,8 +266,18 @@ export const FocusedReview = ({
     .concat(items.slice(0, Math.max(currentIndex, 0)))
     .find((i) => i.item_id !== item.item_id && i.status === 'PENDING')?.item_id;
 
+  const showSubmitError = (e: unknown) =>
+    Utils.displayGlobalErrorNotification(
+      intl.formatMessage(
+        {
+          defaultMessage: 'Could not save your review: {error}',
+          description: 'Review focused view: error toast when saving a review fails',
+        },
+        { error: e instanceof Error ? e.message : String(e) },
+      ),
+    );
+
   const submitAnswersAndComplete = async (answerOverrides?: Record<string, LabelSchemaValue>) => {
-    setSubmitError(null);
     // The supersede ids are derived from the prior-answers query, so submitting
     // against a still-refetching snapshot (e.g. reopen-and-resubmit before the
     // post-write refetch lands) could miss the prior and leave two live
@@ -337,16 +346,15 @@ export const FocusedReview = ({
         onBack();
       }
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : String(e));
+      showSubmitError(e);
     }
   };
 
   const handleSetStatus = async (status: ReviewStatus) => {
-    setSubmitError(null);
     try {
       await onSetStatus(status);
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : String(e));
+      showSubmitError(e);
     }
   };
 
@@ -596,23 +604,11 @@ export const FocusedReview = ({
                 )}
               </div>
             )}
-            {submitError && (
-              <Alert
-                componentId={`${CID}.submit-error`}
-                type="error"
-                closable
-                onClose={() => setSubmitError(null)}
-                message={intl.formatMessage(
-                  {
-                    defaultMessage: 'Could not save your review: {error}',
-                    description: 'Review focused view: submit error alert',
-                  },
-                  { error: submitError },
-                )}
-              />
-            )}
             <div css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
-              {isTerminal ? (
+              {/* A terminal trace can be sent back to the to-do list. Declining is
+                  no longer offered in the UI (the API still supports it); a pending
+                  trace's only action is Submit. */}
+              {isTerminal && (
                 <Button
                   componentId={`${CID}.reopen`}
                   disabled={isSettingStatus || !canReview}
@@ -622,14 +618,6 @@ export const FocusedReview = ({
                     defaultMessage="Move to Todo"
                     description="Review focused view: send a completed/declined trace back to the to-do list"
                   />
-                </Button>
-              ) : (
-                <Button
-                  componentId={`${CID}.decline`}
-                  disabled={isSettingStatus || !canReview}
-                  onClick={() => handleSetStatus('DECLINED')}
-                >
-                  <FormattedMessage defaultMessage="Decline" description="Review focused view: decline action" />
                 </Button>
               )}
               {!hideSubmit && !isDeclined && (

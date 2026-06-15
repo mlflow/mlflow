@@ -24,7 +24,7 @@ jest.mock('./OwnerCombobox', () => ({
 }));
 jest.mock('../../components/label-schemas', () => ({
   useListLabelSchemasQuery: () => ({
-    labelSchemas: [{ schema_id: 's1', name: 'Q1', type: 'FEEDBACK', input: { text: {} } }],
+    labelSchemas: [{ schema_id: 's1', name: 'Q1', type: 'FEEDBACK', input: { text: {} }, enable_comment: true }],
     isLoading: false,
   }),
   LabelSchemaInputRenderer: () => null,
@@ -181,6 +181,14 @@ describe('QueueSettingsModal save', () => {
     // The failure surfaces as a toast (not an inline alert), and the modal stays open.
     await waitFor(() => expect(Utils.displayGlobalErrorNotification).toHaveBeenCalledTimes(1));
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('shows the optional rationale box in the question preview when the schema collects one', () => {
+    renderModal();
+    // The preview card is collapsed by default; expand it to reveal the question
+    // as a reviewer sees it, including the optional rationale box.
+    fireEvent.click(screen.getByText('Q1'));
+    expect(screen.getByPlaceholderText('Rationale (optional)')).toBeInTheDocument();
   });
 
   it('hides the queue owner from the picker but keeps them assigned on save', async () => {
