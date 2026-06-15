@@ -60,6 +60,8 @@ const ExperimentPageTabsImpl = () => {
   // Put the experiment in the redux store so that the logged models page can transition smoothly
   useExperimentReduxStoreCompat(experiment);
 
+  const { headerHidden } = useHeaderVisibility();
+
   // For showstopper experiment fetch errors, we want it to hit the error boundary
   // so that the user can see the error message
   if (experimentError instanceof PredefinedError) {
@@ -184,8 +186,6 @@ const ExperimentPageTabsImpl = () => {
     minWidth: 0,
     minHeight: 0,
   };
-
-  const { headerHidden } = useHeaderVisibility();
 
   return (
     <>
