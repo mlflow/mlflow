@@ -17,11 +17,6 @@ from mlflow.genai.evaluation.context import get_context
 from mlflow.genai.evaluation.utils import is_none_or_nan
 
 
-def _clean(value: Any) -> Any | None:
-    """Normalize missing/NaN dataframe cells to ``None``."""
-    return None if is_none_or_nan(value) else value
-
-
 def _assertion_outcome(
     value: Any,
     error_msg: str | None,
@@ -320,11 +315,13 @@ class EvaluationResult:
             for col in value_cols:
                 scorer_name = col.removesuffix("/value")
                 value = row.get(col)
-                error_msg = _clean(row.get(f"{scorer_name}/error_message"))
+                error_msg = row.get(f"{scorer_name}/error_message")
+                error_msg = None if is_none_or_nan(error_msg) else error_msg
                 # Skip cells a scorer did not produce for this row.
                 if error_msg is None and is_none_or_nan(value):
                     continue
-                rationale = _clean(row.get(f"{scorer_name}/rationale"))
+                rationale = row.get(f"{scorer_name}/rationale")
+                rationale = None if is_none_or_nan(rationale) else rationale
                 passed, detail = _assertion_outcome(
                     value, error_msg, rationale, self.pass_criteria.get(scorer_name)
                 )
