@@ -121,7 +121,11 @@ describe('CreateReviewQueueModal', () => {
     renderModal(eventCallback);
     fillAndSubmit();
     await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
-    expect(eventCallback).toHaveBeenCalledWith(expect.objectContaining({ componentId: QUEUE_CREATED_COMPONENT_ID }));
+    // The event fires after the awaited create resolves, so wait for it rather
+    // than asserting synchronously (mirrors the FocusedReview telemetry tests).
+    await waitFor(() =>
+      expect(eventCallback).toHaveBeenCalledWith(expect.objectContaining({ componentId: QUEUE_CREATED_COMPONENT_ID })),
+    );
   });
 
   it('does not log the queue-created event when creation fails', async () => {
