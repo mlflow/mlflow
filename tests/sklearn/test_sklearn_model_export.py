@@ -225,16 +225,16 @@ def test_log_model_skops_no_pip_requirements_warning(sklearn_logreg_model, recwa
     assert not any("Fall back to return" in msg for msg in warning_messages)
 
 
-def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmp_path):
+def test_model_save_behavior_with_preexisting_folders(sklearn_logreg_model, tmp_path):
     sklearn_model_path = tmp_path / "sklearn_model_empty_exists"
     sklearn_model_path.mkdir()
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+    mlflow.sklearn.save_model(sk_model=sklearn_logreg_model.model, path=sklearn_model_path)
 
     sklearn_model_path = tmp_path / "sklearn_model_filled_exists"
     sklearn_model_path.mkdir()
     (sklearn_model_path / "foo.txt").write_text("dummy content")
     with pytest.raises(MlflowException, match="already exists and is not empty"):
-        mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+        mlflow.sklearn.save_model(sk_model=sklearn_logreg_model.model, path=sklearn_model_path)
 
 
 def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_signature):
@@ -246,7 +246,11 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_sign
             with TempDir() as tmp:
                 path = tmp.path("model")
                 mlflow.sklearn.save_model(
-                    model, path=path, signature=signature, input_example=example
+                    model,
+                    path=path,
+                    signature=signature,
+                    input_example=example,
+                    skops_trusted_types=sklearn_knn_model_skops_trusted_types,
                 )
                 mlflow_model = Model.load(path)
                 if signature is None and example is None:
@@ -436,7 +440,10 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     sklearn_knn_model, model_path, sklearn_custom_env
 ):
     mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model.model, path=model_path, conda_env=sklearn_custom_env
+        sk_model=sklearn_knn_model.model,
+        path=model_path,
+        conda_env=sklearn_custom_env,
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
     )
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
@@ -450,14 +457,20 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, tmp_path):
     req_file.write_text("a")
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model, name="model", pip_requirements=str(req_file)
+            sklearn_knn_model.model,
+            name="model",
+            pip_requirements=str(req_file),
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
         _assert_pip_requirements(model_info.model_uri, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model, name="model", pip_requirements=[f"-r {req_file}", "b"]
+            sklearn_knn_model.model,
+            name="model",
+            pip_requirements=[f"-r {req_file}", "b"],
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, "a", "b"], strict=True
@@ -466,7 +479,10 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, tmp_path):
     # Constraints file
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model, name="model", pip_requirements=[f"-c {req_file}", "b"]
+            sklearn_knn_model.model,
+            name="model",
+            pip_requirements=[f"-c {req_file}", "b"],
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
         _assert_pip_requirements(
             model_info.model_uri,
@@ -478,14 +494,17 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, tmp_path):
 
 def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
-    default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+    default_reqs = mlflow.sklearn.get_default_pip_requirements(include_skops=True)
 
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model, name="model", extra_pip_requirements=str(req_file)
+            sklearn_knn_model.model,
+            name="model",
+            extra_pip_requirements=str(req_file),
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, *default_reqs, "a"]
@@ -494,7 +513,10 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmp_path):
     # List of requirements
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model, name="model", extra_pip_requirements=[f"-r {req_file}", "b"]
+            sklearn_knn_model.model,
+            name="model",
+            extra_pip_requirements=[f"-r {req_file}", "b"],
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -503,7 +525,10 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmp_path):
     # Constraints file
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model, name="model", extra_pip_requirements=[f"-c {req_file}", "b"]
+            sklearn_knn_model.model,
+            name="model",
+            extra_pip_requirements=[f"-c {req_file}", "b"],
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
         _assert_pip_requirements(
             model_info.model_uri,
@@ -516,7 +541,10 @@ def test_model_save_accepts_conda_env_as_dict(sklearn_knn_model, model_path):
     conda_env = dict(mlflow.sklearn.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
     mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model.model, path=model_path, conda_env=conda_env
+        sk_model=sklearn_knn_model.model,
+        path=model_path,
+        conda_env=conda_env,
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -537,6 +565,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
             sklearn_knn_model.model,
             name=artifact_path,
             conda_env=sklearn_custom_env,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
         model_uri = model_info.model_uri
 
@@ -561,6 +590,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
             sklearn_knn_model.model,
             name="model",
             conda_env=sklearn_custom_env,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_info.model_uri)
@@ -583,49 +613,53 @@ def test_model_save_throws_exception_if_serialization_format_is_unrecognized(
     # any directory creation or state-mutating persistence logic that would prevent a second
     # serialization call with the same model path from succeeding
     assert not os.path.exists(model_path)
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model.model,
+        path=model_path,
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
 
 
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-    sklearn_knn_model, model_path
+    sklearn_logreg_model, model_path
 ):
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
+    mlflow.sklearn.save_model(sk_model=sklearn_logreg_model.model, path=model_path)
     _assert_pip_requirements(
-        model_path, mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+        model_path, mlflow.sklearn.get_default_pip_requirements(include_skops=True)
     )
 
 
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-    sklearn_knn_model,
+    sklearn_logreg_model,
 ):
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(sklearn_knn_model.model, name="model")
+        model_info = mlflow.sklearn.log_model(sklearn_logreg_model.model, name="model")
 
     _assert_pip_requirements(
-        model_info.model_uri, mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+        model_info.model_uri, mlflow.sklearn.get_default_pip_requirements(include_skops=True)
     )
 
 
-def test_model_save_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model, model_path):
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
+def test_model_save_uses_skops_serialization_format_by_default(sklearn_logreg_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_logreg_model.model, path=model_path)
 
     sklearn_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
     )
     assert "serialization_format" in sklearn_conf
-    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
 
 
-def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model):
+def test_model_log_uses_skops_serialization_format_by_default(sklearn_logreg_model):
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(sklearn_knn_model.model, name="model")
+        model_info = mlflow.sklearn.log_model(sklearn_logreg_model.model, name="model")
 
     model_path = _download_artifact_from_uri(artifact_uri=model_info.model_uri)
     sklearn_conf = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
     )
     assert "serialization_format" in sklearn_conf
-    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
 
 
 def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environment(
@@ -744,7 +778,10 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     artifact_path = "model"
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            model, name=artifact_path, input_example=inference_dataframe
+            model,
+            name=artifact_path,
+            input_example=inference_dataframe,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -849,7 +886,10 @@ def test_log_model_with_code_paths(sklearn_knn_model):
         mock.patch("mlflow.sklearn._add_code_from_conf_to_system_path") as add_mock,
     ):
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model, name=artifact_path, code_paths=[__file__]
+            sklearn_knn_model.model,
+            name=artifact_path,
+            code_paths=[__file__],
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
         _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.sklearn.FLAVOR_NAME)
         mlflow.sklearn.load_model(model_uri=model_info.model_uri)
