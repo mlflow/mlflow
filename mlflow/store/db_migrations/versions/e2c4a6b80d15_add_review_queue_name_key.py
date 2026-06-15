@@ -42,20 +42,21 @@ def upgrade():
     # raw-`name` constraint blocked exact-case dupes). Adding the new constraint
     # would otherwise abort mid-migration with an opaque IntegrityError; surface an
     # actionable message naming the pairs instead.
-    seen: dict[tuple[int, str], str] = {}
-    collisions = []
+    groups: dict[tuple[int, str], list[str]] = {}
     for _, experiment_id, name in rows:
-        key = (experiment_id, name.lower())
-        if key in seen:
-            collisions.append((experiment_id, seen[key], name))
-        else:
-            seen[key] = name
+        groups.setdefault((experiment_id, name.lower()), []).append(name)
+    collisions = {key: names for key, names in groups.items() if len(names) > 1}
     if collisions:
-        details = "; ".join(f"experiment {e}: {a!r} vs {b!r}" for e, a, b in collisions)
+        # Report every member of each colliding group (not just the first pair),
+        # so the operator can resolve them all in one pass.
+        details = "; ".join(
+            f"experiment {experiment_id}: {names!r}"
+            for (experiment_id, _), names in collisions.items()
+        )
         raise RuntimeError(
             "Cannot upgrade review_queues: case-insensitively duplicate queue names exist and "
             "would violate the new unique (experiment_id, name_key) constraint. Rename or delete "
-            f"one queue in each pair, then re-run the migration. Collisions: {details}"
+            f"all but one queue in each group, then re-run the migration. Collisions: {details}"
         )
 
     # Add the column nullable, backfill in Python (so `name_key` matches exactly

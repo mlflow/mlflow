@@ -325,9 +325,10 @@ CREATE TABLE review_queues (
 	created_by VARCHAR(255),
 	creation_time_ms BIGINT NOT NULL,
 	last_update_time_ms BIGINT NOT NULL,
+	name_key VARCHAR(250) NOT NULL,
 	CONSTRAINT review_queues_pk PRIMARY KEY (queue_id),
 	CONSTRAINT fk_review_queues_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
-	CONSTRAINT uq_review_queues_experiment_name UNIQUE (experiment_id, name)
+	CONSTRAINT uq_review_queues_experiment_name_key UNIQUE (experiment_id, name_key)
 )
 
 
