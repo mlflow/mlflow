@@ -8867,6 +8867,10 @@
     "defaultMessage": "No metrics match the search filter",
     "description": "Message displayed when no metrics match the search filter in the logged model details metrics table"
   },
+  "i+JtEu": {
+    "defaultMessage": "Could not copy link to clipboard.",
+    "description": "Review queue: toast when copying a shareable queue link fails"
+  },
   "i+RyPC": {
     "defaultMessage": "Your request could not be fulfilled. Please try again.",
     "description": "A message shown on the experiment page if the runs request fails"

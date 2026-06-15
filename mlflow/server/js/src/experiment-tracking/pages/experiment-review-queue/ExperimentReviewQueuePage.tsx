@@ -7,6 +7,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import Utils from '../../../common/utils/Utils';
+import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 import Routes from '../../routes';
 import { useMlflowSidebar } from '../../../common/contexts/MlflowSidebarContext';
 import { useIsAuthAvailable } from '../../../account/hooks';
@@ -263,19 +264,31 @@ const ExperimentReviewQueuePage = () => {
   // Copy a shareable link to the selected queue — plain, or with the
   // start-review intent so the recipient lands in the focused review of the
   // queue's first to-do trace.
-  const copyQueueLink = ({ startReview }: { startReview: boolean }) => {
+  const copyQueueLink = async ({ startReview }: { startReview: boolean }) => {
     if (!experimentId || !selectedQueue) {
       return;
     }
     const path = getReviewQueuePageRoute(experimentId, selectedQueue.queue_id, { startReview });
-    navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#${path}`);
-    Utils.displayGlobalInfoNotification(
-      intl.formatMessage({
-        defaultMessage: 'Link copied to clipboard.',
-        description: 'Review queue: toast after copying a shareable queue link',
-      }),
-      3,
-    );
+    // `copyToClipboard` falls back to execCommand on insecure-HTTP contexts and
+    // reports whether the copy actually landed — only confirm success when it did.
+    const copied = await copyToClipboard(`${window.location.origin}${window.location.pathname}#${path}`);
+    if (copied) {
+      Utils.displayGlobalInfoNotification(
+        intl.formatMessage({
+          defaultMessage: 'Link copied to clipboard.',
+          description: 'Review queue: toast after copying a shareable queue link',
+        }),
+        3,
+      );
+    } else {
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage({
+          defaultMessage: 'Could not copy link to clipboard.',
+          description: 'Review queue: toast when copying a shareable queue link fails',
+        }),
+        3,
+      );
+    }
   };
 
   const setOpenStatus = async (status: ReviewStatus) => {
