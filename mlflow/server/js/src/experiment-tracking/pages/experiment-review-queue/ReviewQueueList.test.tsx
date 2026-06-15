@@ -191,9 +191,9 @@ describe('ReviewQueueList', () => {
     // checkboxes[0] is select-all; [1] is the first row.
     const checkboxes = screen.getAllByRole('checkbox');
     fireEvent.click(checkboxes[1]);
-    expect(screen.getByRole('button', { name: /1 trace/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Unassign' })).toBeInTheDocument();
     // Switching filters resets the selection so hidden rows can't be deleted.
     fireEvent.click(screen.getByText('Completed (1)'));
-    expect(screen.queryByRole('button', { name: /trace/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Unassign' })).not.toBeInTheDocument();
   });
 });
