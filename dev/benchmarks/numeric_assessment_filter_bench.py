@@ -43,12 +43,15 @@ Extending to 1M: pass ``--scales 1000000``. Seeding is O(N) bulk inserts batched
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import random
 import statistics
 import tempfile
 import time
+import uuid
+from urllib.parse import urlsplit, urlunsplit
 
 import sqlalchemy as sa
 
@@ -78,6 +81,28 @@ from mlflow.utils.search_utils import SearchTraceUtils, SearchUtils
 
 NUMERIC_ASSESSMENT_COMPARATORS = {">", ">=", "<", "<="}
 _MYSQL = "mysql"
+
+# Active SQL dialect for the locally-constructed (micro-bench / sweep / A-vs-B) value
+# expressions. Defaults to "sqlite" so unparameterized runs are byte-for-byte unchanged.
+# ``_make_store`` sets this to the store's real dialect (``engine.dialect.name``) so the
+# constructed skeletons exercise the same per-dialect CAST/eq SQL the production path does
+# (MySQL -> DOUBLE + BINARY eq, Postgres/SQLite -> FLOAT). The production ``search_traces``
+# path picks its dialect independently via ``store._get_dialect()``; this global only steers
+# the locally-built expressions so both sides of every comparison stay dialect-consistent.
+BENCH_DIALECT = "sqlite"
+
+
+def _numeric_cast_expr(column):
+    """Dialect-aware ``CAST(value AS <float>)`` for the locally-built numeric filters.
+
+    Mirrors the production closure: MySQL CASTs to ``DOUBLE`` (it has no ``FLOAT`` cast
+    target on older 8.0 and uses ``DOUBLE`` in the shipped code), every other dialect
+    CASTs to SQLAlchemy ``Float`` (renders ``FLOAT`` / ``REAL`` per dialect).
+    """
+    if BENCH_DIALECT == _MYSQL:
+        col_ref = f"{column.class_.__tablename__}.{column.key}"
+        return sa.literal_column(f"CAST({col_ref} AS DOUBLE)")
+    return sa.func.cast(column, sa.Float)
 
 
 def install_production_numeric_cast_path() -> None:
@@ -123,6 +148,123 @@ def install_production_numeric_cast_path() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Store factory: SQLite (default) or a caller-supplied Postgres/MySQL server
+# ---------------------------------------------------------------------------
+#
+# Default behavior is byte-for-byte unchanged: a throwaway temp-file SQLite DB. When
+# ``--db-uri`` (or ``MLFLOW_TRACKING_URI``) points at a Postgres/MySQL *server*, each run
+# gets its OWN freshly-created database on that server, because the seed writes
+# deterministic primary keys (``tr-00000000`` / experiment ``bench_{n}``); two scales
+# sharing a database would collide on insert. We CREATE the per-run database, let
+# ``SqlAlchemyStore.__init__`` run its normal alembic migration to build the schema, then
+# DROP it on teardown. ``BENCH_DIALECT`` is set to the live ``engine.dialect.name`` so the
+# locally-constructed value expressions match the production dialect (MySQL -> DOUBLE +
+# BINARY eq, Postgres -> FLOAT).
+
+# Base URI for non-SQLite runs; None means "use the default temp-file SQLite per run".
+BENCH_DB_URI: str | None = None
+
+
+def _server_engine_and_dbname(base_uri: str):
+    """Split ``base_uri`` into a server-level engine (for CREATE/DROP DATABASE) + db name.
+
+    The maintenance engine connects to a known always-present database on the server
+    (``postgres`` for Postgres, no specific schema for MySQL) so we can issue
+    ``CREATE DATABASE``/``DROP DATABASE`` for the per-run database out-of-band.
+    """
+    parts = urlsplit(base_uri)
+    backend = parts.scheme.split("+", 1)[0]
+    run_db = f"bench_{uuid.uuid4().hex[:12]}"
+    if backend == "postgresql":
+        admin_path = "/postgres"
+    elif backend == "mysql":
+        admin_path = "/"
+    else:
+        raise ValueError(f"Unsupported non-sqlite backend for benchmark: {backend!r}")
+    admin_uri = urlunsplit((parts.scheme, parts.netloc, admin_path, "", ""))
+    run_uri = urlunsplit((parts.scheme, parts.netloc, f"/{run_db}", parts.query, parts.fragment))
+    # CREATE/DROP DATABASE cannot run inside a transaction on Postgres; AUTOCOMMIT works
+    # for both backends.
+    admin_engine = sa.create_engine(admin_uri, isolation_level="AUTOCOMMIT")
+    return admin_engine, run_db, run_uri
+
+
+@contextlib.contextmanager
+def _make_store(label: str):
+    """Yield a fresh ``SqlAlchemyStore``; default is temp-file SQLite, else a per-run DB.
+
+    SQLite path (default, ``BENCH_DB_URI`` is None): identical to the original script —
+    a temp-file SQLite database, unlinked on exit.
+
+    Postgres/MySQL path: create a uniquely-named database on the configured server, build
+    the store (alembic auto-migrates the schema), set ``BENCH_DIALECT`` from the live
+    engine, and drop the database on exit.
+    """
+    global BENCH_DIALECT
+
+    if BENCH_DB_URI is None:
+        tmpfile = tempfile.NamedTemporaryFile(suffix=".db", delete=False)  # noqa: SIM115
+        tmpfile.close()
+        db_uri = f"sqlite:///{tmpfile.name}"
+        print(f"\n=== {label} db={db_uri} ===")
+        store = SqlAlchemyStore(db_uri, default_artifact_root=tempfile.mkdtemp())
+        BENCH_DIALECT = store.engine.dialect.name
+        try:
+            yield store
+        finally:
+            store.engine.dispose()
+            os.unlink(tmpfile.name)
+        return
+
+    admin_engine, run_db, run_uri = _server_engine_and_dbname(BENCH_DB_URI)
+    backend = urlsplit(run_uri).scheme.split("+", 1)[0]
+    quoted_db = f'"{run_db}"' if backend == "postgresql" else f"`{run_db}`"
+    # The bench opens a long-lived ManagedSessionMaker session it never explicitly closes,
+    # so a connection to the per-run DB can linger past engine.dispose(); Postgres refuses
+    # to DROP a database with live sessions, so force-terminate them on PG (no-op syntax on
+    # MySQL, which drops regardless of open connections).
+    drop_sql = (
+        f"DROP DATABASE IF EXISTS {quoted_db} WITH (FORCE)"
+        if backend == "postgresql"
+        else f"DROP DATABASE IF EXISTS {quoted_db}"
+    )
+    print(f"\n=== {label} db={run_uri} (fresh {backend} database {run_db}) ===")
+    with admin_engine.connect() as conn:
+        conn.execute(sa.text(f"CREATE DATABASE {quoted_db}"))
+    store = None
+    try:
+        store = SqlAlchemyStore(run_uri, default_artifact_root=tempfile.mkdtemp())
+        BENCH_DIALECT = store.engine.dialect.name
+        yield store
+    finally:
+        if store is not None:
+            store.engine.dispose()
+        with admin_engine.connect() as conn:
+            # The bench leaves a ManagedSessionMaker session open; on MySQL that holds a
+            # metadata lock that makes DROP DATABASE hang forever (PG handles this via
+            # WITH (FORCE) above). Proactively KILL any other connection still pinned to
+            # the per-run DB before dropping it.
+            if backend == "mysql":
+                stuck = (
+                    conn
+                    .execute(
+                        sa.text(
+                            "SELECT id FROM information_schema.processlist "
+                            "WHERE db = :db AND id <> CONNECTION_ID()"
+                        ),
+                        {"db": run_db},
+                    )
+                    .scalars()
+                    .all()
+                )
+                for conn_id in stuck:
+                    with contextlib.suppress(Exception):
+                        conn.execute(sa.text(f"KILL {int(conn_id)}"))
+            conn.execute(sa.text(drop_sql))
+        admin_engine.dispose()
+
+
+# ---------------------------------------------------------------------------
 # Value expression builders (mirror the store / prototype exactly)
 # ---------------------------------------------------------------------------
 
@@ -132,7 +274,7 @@ def build_string_eq_value_filter(value: str):
 
     See ``SearchTraceUtils._get_sql_json_comparison_func`` -> json_equality path.
     """
-    return SearchTraceUtils._get_sql_json_comparison_func("=", "sqlite")(
+    return SearchTraceUtils._get_sql_json_comparison_func("=", BENCH_DIALECT)(
         SqlAssessments.value, value
     )
 
@@ -155,7 +297,7 @@ def build_numeric_cast_value_filter(comparator: str, value: float):
         (column.in_([json.dumps(False), json.dumps("no")]), 0.0),
         (column == "null", sa.null()),
         (sa.func.substring(column, 1, 1).in_(['"', "[", "{"]), sa.null()),
-        else_=sa.func.cast(column, sa.Float),
+        else_=_numeric_cast_expr(column),
     )
     return SearchTraceUtils.get_comparison_func(comparator)(numeric_col, float(value))
 
@@ -181,7 +323,7 @@ def build_variant_a_value_filter(comparator: str, value: float):
     numeric_col = sa.case(
         (sa.func.lower(column).in_(["true", "false", "null"]), sa.null()),
         (sa.func.substring(column, 1, 1).in_(['"', "[", "{"]), sa.null()),
-        else_=sa.func.cast(column, sa.Float),
+        else_=_numeric_cast_expr(column),
     )
     return SearchTraceUtils.get_comparison_func(comparator)(numeric_col, float(value))
 
@@ -448,12 +590,7 @@ def timed(fn, reps: int, warmup: int = 2):
 
 
 def run_scale(n: int, reps: int) -> list[dict]:
-    tmpfile = tempfile.NamedTemporaryFile(suffix=".db", delete=False)  # noqa: SIM115
-    tmpfile.close()
-    db_uri = f"sqlite:///{tmpfile.name}"
-    print(f"\n=== scale={n:,} db={db_uri} ===")
-    try:
-        store = SqlAlchemyStore(db_uri, default_artifact_root=tempfile.mkdtemp())
+    with _make_store(f"scale={n:,}") as store:
         exp_id = store.create_experiment(f"bench_{n}")
 
         t0 = time.perf_counter()
@@ -562,8 +699,6 @@ def run_scale(n: int, reps: int) -> list[dict]:
         sweep_results = run_selectivity_sweep(session, exp_id, n, reps)
         prod_results = run_production_path_comparison(store, exp_id, n, reps, meta)
         return main_results, sweep_results, prod_results
-    finally:
-        os.unlink(tmpfile.name)
 
 
 def run_selectivity_sweep(session, exp_id: str, n: int, reps: int) -> list[dict]:
@@ -657,12 +792,7 @@ def run_ab_scale(n: int, reps: int) -> dict:
         returns A's rows PLUS all boolean-valued feedback, quantifying the downstream cost of
         the extra matched rows the coercion introduces.
     """
-    tmpfile = tempfile.NamedTemporaryFile(suffix=".db", delete=False)  # noqa: SIM115
-    tmpfile.close()
-    db_uri = f"sqlite:///{tmpfile.name}"
-    print(f"\n=== [A-vs-B] scale={n:,} db={db_uri} ===")
-    try:
-        store = SqlAlchemyStore(db_uri, default_artifact_root=tempfile.mkdtemp())
+    with _make_store(f"[A-vs-B] scale={n:,}") as store:
         exp_id = store.create_experiment(f"ab_bench_{n}")
 
         t0 = time.perf_counter()
@@ -722,8 +852,6 @@ def run_ab_scale(n: int, reps: int) -> dict:
             })
 
         return {"meta": meta, "scenarios": rows_out}
-    finally:
-        os.unlink(tmpfile.name)
 
 
 def ab_main(scales: list[int], reps: int, out_path: str):
@@ -839,6 +967,18 @@ def main():
     ap.add_argument("--reps", type=int, default=7, help="timed repetitions per query (warm cache)")
     ap.add_argument("--out", default="benchmark_results.md", help="results markdown output path")
     ap.add_argument(
+        "--db-uri",
+        default=None,
+        help=(
+            "SQLAlchemy URI of a Postgres/MySQL SERVER to benchmark against, e.g. "
+            "'postgresql+psycopg2://mlflow:mlflow@localhost:5432/mlflow' or "
+            "'mysql+pymysql://mlflow:mlflow@localhost:3306/mlflow'. The path component is "
+            "only used to reach the server; each run creates and drops its OWN database. "
+            "Falls back to $MLFLOW_TRACKING_URI; when neither is set, defaults to a "
+            "throwaway temp-file SQLite DB (original behavior, byte-for-byte unchanged)."
+        ),
+    )
+    ap.add_argument(
         "--ab-compare",
         action="store_true",
         help=(
@@ -850,6 +990,17 @@ def main():
     args = ap.parse_args()
 
     scales = [int(s) for s in args.scales.split(",") if s.strip()]
+
+    # Resolve the backend: explicit --db-uri, else MLFLOW_TRACKING_URI, else SQLite default.
+    # A "sqlite..." URI (from either source) keeps the original temp-file behavior.
+    global BENCH_DB_URI
+    resolved = args.db_uri or os.environ.get("MLFLOW_TRACKING_URI")
+    if resolved and not resolved.startswith("sqlite"):
+        BENCH_DB_URI = resolved
+        print(f"Benchmarking against external DB server: {BENCH_DB_URI}")
+    else:
+        BENCH_DB_URI = None
+        print("Benchmarking against throwaway temp-file SQLite (default).")
 
     if args.ab_compare:
         ab_main(scales, args.reps, args.out)

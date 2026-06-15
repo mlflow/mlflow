@@ -1,0 +1,67 @@
+# Postgres + MySQL servers for the numeric-assessment-filter cross-dialect benchmark.
+#
+# BENCHMARK-ONLY. Not used by CI or production. Spins up stock `postgres` and `mysql`
+# servers so `numeric_assessment_filter_bench.py --db-uri ...` can exercise the
+# dialect-aware CAST path on each engine (Postgres -> CAST AS FLOAT, MySQL -> CAST AS
+# DOUBLE). The bench creates and drops its OWN per-run database on each server, so the
+# configured users need server-wide CREATE/DROP DATABASE rights:
+#   - Postgres: POSTGRES_USER is a superuser by default (can CREATE DATABASE).
+#   - MySQL:    init.sql grants the app user ALL PRIVILEGES ON *.* so it can too.
+#
+# Usage
+# -----
+#   cd dev/benchmarks
+#   docker compose up -d                 # start both servers (waits for healthchecks)
+#   docker compose ps                    # confirm both are "healthy"
+#
+#   # One-time: install the DB drivers into the repo venv (Databricks PyPI proxy index):
+#   uv pip install --index-url https://pypi-proxy.cloud.databricks.com/simple \
+#       psycopg2-binary PyMySQL
+#
+#   # Run the benchmark against each engine at 10k + 100k:
+#   uv run python numeric_assessment_filter_bench.py \
+#       --db-uri "postgresql+psycopg2://mlflow:mlflow@localhost:5432/postgres" \
+#       --scales 10000,100000 --out benchmark_results_postgres.md
+#
+#   uv run python numeric_assessment_filter_bench.py \
+#       --db-uri "mysql+pymysql://mlflow:mlflow@localhost:3306/mlflow" \
+#       --scales 10000,100000 --out benchmark_results_mysql.md
+#
+#   docker compose down -v               # tear everything down (removes volumes)
+#
+# The path component of the URI only needs to reach the server (an always-present
+# database such as `postgres` for PG, or the seeded `mlflow` DB for MySQL); the bench
+# ignores it for data and provisions a fresh `bench_<uuid>` database per run.
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow
+      POSTGRES_DB: mlflow
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mlflow
+      MYSQL_USER: mlflow
+      MYSQL_PASSWORD: mlflow
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: --log-bin-trust-function-creators=1
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
