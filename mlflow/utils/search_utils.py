@@ -2053,7 +2053,9 @@ class SearchTraceUtils(SearchUtils):
             else:
                 numeric_value = sa.cast(column, sa.Float)
             numeric_column = sa.case(
-                (sa.func.lower(column).in_(["true", "false", "null"]), sa.null()),
+                (column.in_([json.dumps(True), json.dumps("yes")]), 1.0),
+                (column.in_([json.dumps(False), json.dumps("no")]), 0.0),
+                (column == json.dumps(None), sa.null()),
                 (sa.func.substring(column, 1, 1).in_(['"', "[", "{"]), sa.null()),
                 else_=numeric_value,
             )

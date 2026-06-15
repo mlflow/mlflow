@@ -1297,7 +1297,7 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
 
 def test_search_traces_with_assessment_numeric_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_assessment_numeric_search")
-    trace_ids = [f"trace{i}" for i in range(1, 7)]
+    trace_ids = [f"trace{i}" for i in range(1, 10)]
     for trace_id in trace_ids:
         _create_trace(store, trace_id, exp_id)
 
@@ -1320,7 +1320,13 @@ def test_search_traces_with_assessment_numeric_filters(store: SqlAlchemyStore):
             Expectation(trace_id=trace_id, name="threshold", value=threshold, source=source)
         )
 
-    for trace_id, value in [("trace5", "high"), ("trace6", True)]:
+    for trace_id, value in [
+        ("trace5", "high"),
+        ("trace6", True),
+        ("trace7", False),
+        ("trace8", "yes"),
+        ("trace9", "no"),
+    ]:
         store.create_assessment(
             Feedback(trace_id=trace_id, name="score", value=value, source=source)
         )
@@ -1331,13 +1337,55 @@ def test_search_traces_with_assessment_numeric_filters(store: SqlAlchemyStore):
 
     assert search("feedback.score > 3") == {"trace3", "trace4"}
     assert search("feedback.score >= 3.5") == {"trace3", "trace4"}
-    assert search("feedback.score < 3.5") == {"trace1", "trace2"}
-    assert search("feedback.score <= 3") == {"trace1", "trace2"}
+    assert search("feedback.score < 3.5") == {
+        "trace1",
+        "trace2",
+        "trace6",
+        "trace7",
+        "trace8",
+        "trace9",
+    }
+    assert search("feedback.score <= 3") == {
+        "trace1",
+        "trace2",
+        "trace6",
+        "trace7",
+        "trace8",
+        "trace9",
+    }
     assert search('feedback.score > 3 AND feedback.quality = "high"') == {"trace3", "trace4"}
     assert search("feedback.score >= 3.0 AND feedback.score < 4") == {"trace2", "trace3"}
     assert search("expectation.threshold > 0.25") == {"trace2", "trace3"}
     assert search("expectation.threshold <= 0.5") == {"trace1", "trace2"}
-    assert search("feedback.score > 0") == {"trace1", "trace2", "trace3", "trace4"}
+    assert search("feedback.score >= 1.0") == {
+        "trace1",
+        "trace2",
+        "trace3",
+        "trace4",
+        "trace6",
+        "trace8",
+    }
+    assert search("feedback.score <= 1.0") == {"trace6", "trace7", "trace8", "trace9"}
+    assert search("feedback.score > 0") == {
+        "trace1",
+        "trace2",
+        "trace3",
+        "trace4",
+        "trace6",
+        "trace8",
+    }
+    assert search("feedback.score <= 0.0") == {"trace7", "trace9"}
+    assert search("feedback.score < 0.5") == {"trace7", "trace9"}
+    assert search("feedback.score >= 0.0") == {
+        "trace1",
+        "trace2",
+        "trace3",
+        "trace4",
+        "trace6",
+        "trace7",
+        "trace8",
+        "trace9",
+    }
 
     with pytest.raises(MlflowException, match="Expected a numeric value for feedback"):
         store.search_traces([exp_id], filter_string='feedback.score > "high"')

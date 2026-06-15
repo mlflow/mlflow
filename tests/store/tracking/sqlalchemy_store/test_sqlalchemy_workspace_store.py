@@ -1109,7 +1109,13 @@ def test_search_traces_with_assessment_numeric_filters_is_workspace_scoped(
                 Expectation(trace_id=trace_id, name="threshold", value=threshold, source=source)
             )
 
-        for trace_id, value in [("trace-b5", "high"), ("trace-b6", True)]:
+        for trace_id, value in [
+            ("trace-b5", "high"),
+            ("trace-b6", True),
+            ("trace-b7", False),
+            ("trace-b8", "yes"),
+            ("trace-b9", "no"),
+        ]:
             _create_trace(workspace_tracking_store, trace_id, exp_b)
             workspace_tracking_store.create_assessment(
                 Feedback(trace_id=trace_id, name="score", value=value, source=source)
@@ -1123,18 +1129,55 @@ def test_search_traces_with_assessment_numeric_filters_is_workspace_scoped(
 
         assert search("feedback.score > 3") == {"trace-b3", "trace-b4"}
         assert search("feedback.score >= 3.5") == {"trace-b3", "trace-b4"}
-        assert search("feedback.score < 3.5") == {"trace-b1", "trace-b2"}
-        assert search("feedback.score <= 3") == {"trace-b1", "trace-b2"}
+        assert search("feedback.score < 3.5") == {
+            "trace-b1",
+            "trace-b2",
+            "trace-b6",
+            "trace-b7",
+            "trace-b8",
+            "trace-b9",
+        }
+        assert search("feedback.score <= 3") == {
+            "trace-b1",
+            "trace-b2",
+            "trace-b6",
+            "trace-b7",
+            "trace-b8",
+            "trace-b9",
+        }
         assert search('feedback.score > 3 AND feedback.quality = "high"') == {
             "trace-b3",
             "trace-b4",
         }
         assert search("expectation.threshold > 0.25") == {"trace-b2", "trace-b3"}
+        assert search("feedback.score >= 1.0") == {
+            "trace-b1",
+            "trace-b2",
+            "trace-b3",
+            "trace-b4",
+            "trace-b6",
+            "trace-b8",
+        }
+        assert search("feedback.score <= 1.0") == {"trace-b6", "trace-b7", "trace-b8", "trace-b9"}
         assert search("feedback.score > 0") == {
             "trace-b1",
             "trace-b2",
             "trace-b3",
             "trace-b4",
+            "trace-b6",
+            "trace-b8",
+        }
+        assert search("feedback.score <= 0.0") == {"trace-b7", "trace-b9"}
+        assert search("feedback.score < 0.5") == {"trace-b7", "trace-b9"}
+        assert search("feedback.score >= 0.0") == {
+            "trace-b1",
+            "trace-b2",
+            "trace-b3",
+            "trace-b4",
+            "trace-b6",
+            "trace-b7",
+            "trace-b8",
+            "trace-b9",
         }
 
         traces, _ = workspace_tracking_store.search_traces(
