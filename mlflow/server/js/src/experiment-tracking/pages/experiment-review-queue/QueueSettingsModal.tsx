@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import {
   Alert,
   ApplyDesignSystemContextOverrides,
+  Button,
   ChevronDownIcon,
   ChevronRightIcon,
   FormUI,
@@ -19,6 +20,7 @@ import {
   LabelSchemaFormModal,
   useListLabelSchemasQuery,
 } from '../../components/label-schemas';
+import { OwnerCombobox } from './OwnerCombobox';
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
 import { sameUser } from './queuePermissions';
 import { MAX_ASSIGNED_USERS, ReviewerChecklistCombobox } from './ReviewerChecklistCombobox';
@@ -133,6 +135,12 @@ export const QueueSettingsModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [assignableUsers, owner],
   );
+  // Owner picker spans the whole roster (anyone with experiment EDIT can own a
+  // queue), unlike the reviewers list which hides the current owner.
+  const ownerCandidates = useMemo(
+    () => assignableUsers.map((u) => u.username).filter((u): u is string => Boolean(u)),
+    [assignableUsers],
+  );
   const toggleReviewer = (username: string) =>
     setMembers((prev) => {
       const next = new Set(prev);
@@ -176,21 +184,26 @@ export const QueueSettingsModal = ({
   const membersChanged = members.size !== originalMembers.size || [...originalMembers].some((m) => !members.has(m));
 
   const handleSave = async () => {
-    await updateReviewQueueAsync({
-      queue_id: queue.queue_id,
-      // Send each field only when it actually changed: a repeated `users` write
-      // is an `update_users` that would otherwise clobber a concurrent edit, and
-      // name / owner skip the backend's rename collision and owner re-validation.
-      // The owner is re-added to `users` (they're always a member) since they're
-      // hidden from the picker.
-      ...(membersChanged ? { users: Array.from(new Set([...(owner ? [owner] : []), ...members])) } : {}),
-      ...(nameChanged ? { name: trimmedName } : {}),
-      ...(ownerChanged ? { new_owner: trimmedNewOwner } : {}),
-      // Only send schema_ids when they're still editable; once the queue has
-      // traces (or the user lacks MANAGE) the backend freezes them.
-      ...(canEditQuestions ? { schema_ids: [...selectedSchemaIds] } : {}),
-    });
-    onClose();
+    try {
+      await updateReviewQueueAsync({
+        queue_id: queue.queue_id,
+        // Send each field only when it actually changed: a repeated `users` write
+        // is an `update_users` that would otherwise clobber a concurrent edit, and
+        // name / owner skip the backend's rename collision and owner re-validation.
+        // The owner is re-added to `users` (they're always a member) since they're
+        // hidden from the picker.
+        ...(membersChanged ? { users: Array.from(new Set([...(owner ? [owner] : []), ...members])) } : {}),
+        ...(nameChanged ? { name: trimmedName } : {}),
+        ...(ownerChanged ? { new_owner: trimmedNewOwner } : {}),
+        // Only send schema_ids when they're still editable; once the queue has
+        // traces (or the user lacks MANAGE) the backend freezes them.
+        ...(canEditQuestions ? { schema_ids: [...selectedSchemaIds] } : {}),
+      });
+      onClose();
+    } catch {
+      // The failure (e.g. a duplicate queue name) is surfaced via the error Alert
+      // below; keep the modal open so the user can correct and retry.
+    }
   };
 
   const dropdownZIndex = theme.options.zIndexBase + 100;
@@ -205,11 +218,20 @@ export const QueueSettingsModal = ({
           { defaultMessage: 'Queue settings — “{name}”', description: 'Queue settings modal title' },
           { name: queue.name },
         )}
-        okText={<FormattedMessage defaultMessage="Save" description="Queue settings: save button" />}
-        okButtonProps={{ loading: isUpdatingQueue, disabled: isUpdatingQueue || !canSave }}
-        cancelText={<FormattedMessage defaultMessage="Cancel" description="Queue settings: cancel button" />}
-        onOk={handleSave}
         onCancel={onClose}
+        footer={
+          <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              componentId={`${CID}.save`}
+              type="primary"
+              loading={isUpdatingQueue}
+              disabled={isUpdatingQueue || !canSave}
+              onClick={handleSave}
+            >
+              <FormattedMessage defaultMessage="Save" description="Queue settings: save button" />
+            </Button>
+          </div>
+        }
       >
         <ApplyDesignSystemContextOverrides getPopupContainer={() => document.body}>
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -229,7 +251,7 @@ export const QueueSettingsModal = ({
                 owns the queue manages its name and members but not who owns it. */}
             {canManage && authAvailable && (
               <div>
-                <FormUI.Label htmlFor={`${CID}.owner-input`}>
+                <FormUI.Label>
                   <FormattedMessage defaultMessage="Owner" description="Queue settings: owner field label" />
                 </FormUI.Label>
                 <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
@@ -238,15 +260,13 @@ export const QueueSettingsModal = ({
                     description="Queue settings: owner field hint"
                   />
                 </FormUI.Hint>
-                <Input
+                <OwnerCombobox
                   componentId={`${CID}.owner`}
-                  id={`${CID}.owner-input`}
-                  value={newOwner}
-                  onChange={(e) => setNewOwner(e.target.value)}
-                  placeholder={intl.formatMessage({
-                    defaultMessage: 'Owner username or email',
-                    description: 'Queue settings: owner field placeholder',
-                  })}
+                  usernames={ownerCandidates}
+                  selectedUser={newOwner}
+                  onSelect={setNewOwner}
+                  dropdownZIndex={dropdownZIndex}
+                  isLoading={usersLoading}
                 />
               </div>
             )}

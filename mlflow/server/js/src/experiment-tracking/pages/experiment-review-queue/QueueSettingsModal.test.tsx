@@ -11,6 +11,16 @@ import type { ReviewQueue, ReviewQueueItem } from './types';
 // The questions checklist and rich previews aren't under test here — the focus is
 // the schema-freeze save logic — so stub them out.
 jest.mock('./QuestionChecklistCombobox', () => ({ QuestionChecklistCombobox: () => null }));
+// Stub the owner picker (its own UX is covered in OwnerCombobox.test.tsx): expose a
+// button that selects a fixed user, and keep the real reviewers picker the only
+// combobox so `getByRole('combobox')` stays unambiguous.
+jest.mock('./OwnerCombobox', () => ({
+  OwnerCombobox: ({ selectedUser, onSelect }: { selectedUser: string; onSelect: (u: string) => void }) => (
+    <button type="button" onClick={() => onSelect('bob')}>
+      {`owner-picker (selected: ${selectedUser || 'none'})`}
+    </button>
+  ),
+}));
 jest.mock('../../components/label-schemas', () => ({
   useListLabelSchemasQuery: () => ({
     labelSchemas: [{ schema_id: 's1', name: 'Q1', type: 'FEEDBACK', input: { text: {} } }],
@@ -109,9 +119,18 @@ describe('QueueSettingsModal save', () => {
     expect('new_owner' in arg).toBe(false);
   });
 
-  it('sends new_owner when a manager changes the owner', async () => {
-    renderModal();
-    fireEvent.change(screen.getByPlaceholderText('Owner username or email'), { target: { value: 'bob' } });
+  it('sends new_owner when a manager replaces the pre-filled owner', async () => {
+    const ownedQueue: ReviewQueue = { ...queue, created_by: 'alice', users: ['alice'] };
+    render(
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <QueueSettingsModal queue={ownedQueue} canManage onClose={jest.fn()} />
+        </DesignSystemProvider>
+      </IntlProvider>,
+    );
+    // The picker is pre-filled with the current owner, then the manager replaces it.
+    expect(screen.getByText('owner-picker (selected: alice)')).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/owner-picker/));
     fireEvent.click(screen.getByText('Save'));
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ new_owner: 'bob' }));
@@ -119,7 +138,7 @@ describe('QueueSettingsModal save', () => {
 
   it('hides the owner field and freezes questions for a non-manager editor', async () => {
     renderModal({ canManage: false });
-    expect(screen.queryByPlaceholderText('Owner username or email')).toBeNull();
+    expect(screen.queryByText(/owner-picker/)).toBeNull();
     // A non-manager editor can still rename the queue they own.
     fireEvent.change(screen.getByDisplayValue('My Queue'), { target: { value: 'Renamed' } });
     fireEvent.click(screen.getByText('Save'));
