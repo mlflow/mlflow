@@ -15,7 +15,13 @@ const FEEDBACK_SUBMITTED_COMPONENT_ID = 'mlflow.experiment-review-queue.focused-
 let mockTraceData: unknown[] = [];
 jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
   useGetTracesById: () => ({ data: mockTraceData, isLoading: false }),
-  ModelTraceExplorer: () => null,
+  // The explorer's JSON/Table render-mode toggle reads from this preferences
+  // context, so FocusedReview must wrap the explorer in it; mock both to assert
+  // the nesting in the regression test below.
+  ModelTraceExplorerPreferencesProvider: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="trace-prefs-provider">{children}</div>
+  ),
+  ModelTraceExplorer: () => <div data-testid="full-trace-explorer" />,
 }));
 
 const mockCreateAssessment = jest.fn();
@@ -134,6 +140,27 @@ describe('FocusedReview single Pass/Fail auto-submit', () => {
     expect(screen.getByText('Submit')).toBeInTheDocument();
     fireEvent.click(screen.getByText('Pass'));
     expect(onSetStatus).not.toHaveBeenCalled();
+  });
+});
+
+describe('FocusedReview full-trace explorer', () => {
+  afterEach(() => {
+    mockTraceData = [];
+  });
+
+  it('wraps the full-trace explorer in the preferences provider so the render-mode toggle works', async () => {
+    mockTraceData = [{ info: { trace_id: 'tr-1', request_preview: 'q', response_preview: 'a' } }];
+    renderFocused(
+      [passFailSchema()],
+      jest.fn((_status: string) => Promise.resolve()),
+    );
+
+    fireEvent.click(screen.getByText('View full trace'));
+
+    // Without the surrounding provider the JSON/Table render-mode buttons are no-ops,
+    // so assert the explorer is nested inside it.
+    const explorer = await screen.findByTestId('full-trace-explorer');
+    expect(screen.getByTestId('trace-prefs-provider')).toContainElement(explorer);
   });
 });
 
