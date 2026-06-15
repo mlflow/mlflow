@@ -286,7 +286,6 @@ describe('wal/supervisor', () => {
       await sleep(100);
       const second = ensureDaemon();
       await Promise.all([first, second]);
-      await sleep(200);
 
       expect(await readFile(counterFile, 'utf8')).toBe('+');
       expect(spawnMock).toHaveBeenCalledTimes(1);

@@ -127,10 +127,14 @@ async function waitForDaemonBind(timeoutMs: number, pollIntervalMs: number): Pro
       return;
     }
 
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
     const result = await Promise.race<boolean | 'timeout'>([
       isDaemonAlive(),
-      new Promise((resolve) => setTimeout(() => resolve('timeout'), remainingMs)),
+      new Promise((resolve) => {
+        timeoutHandle = setTimeout(() => resolve('timeout'), remainingMs);
+      }),
     ]);
+    clearTimeout(timeoutHandle);
     if (result === true || result === 'timeout') {
       return;
     }
