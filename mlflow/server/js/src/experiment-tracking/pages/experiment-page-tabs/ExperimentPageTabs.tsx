@@ -29,7 +29,7 @@ import { useGetExperimentPageActiveTabByRoute } from '../../components/experimen
 import { useNavigateToExperimentPageTab } from '../../components/experiment-page/hooks/useNavigateToExperimentPageTab';
 
 import { ExperimentPageSideNav, ExperimentPageSideNavSkeleton } from './side-nav/ExperimentPageSideNav';
-import { ReviewQueueTitleProvider, useReviewQueueTitle } from '../experiment-review-queue/ReviewQueueTitleContext';
+import { HeaderVisibilityProvider, useHeaderVisibility } from './ExperimentPageHeaderVisibilityContext';
 
 const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
@@ -185,12 +185,11 @@ const ExperimentPageTabsImpl = () => {
     minHeight: 0,
   };
 
-  const { title: reviewQueueTitleOverride } = useReviewQueueTitle();
-  const inReviewFocusMode = reviewQueueTitleOverride !== null;
+  const { headerHidden } = useHeaderVisibility();
 
   return (
     <>
-      {!inReviewFocusMode && (
+      {!headerHidden && (
         <ExperimentPageHeaderWithDescription
           experiment={experiment}
           loading={loadingExperiment || inferringExperimentType}
@@ -234,7 +233,7 @@ const ExperimentPageTabs = () => {
   const { theme } = useDesignSystemTheme();
 
   return (
-    <ReviewQueueTitleProvider>
+    <HeaderVisibilityProvider>
       <div
         css={{
           flex: 1,
@@ -247,7 +246,7 @@ const ExperimentPageTabs = () => {
       >
         <ExperimentPageTabsImpl />
       </div>
-    </ReviewQueueTitleProvider>
+    </HeaderVisibilityProvider>
   );
 };
 

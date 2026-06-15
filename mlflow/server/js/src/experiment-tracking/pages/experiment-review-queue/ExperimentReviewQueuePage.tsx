@@ -26,7 +26,7 @@ import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFro
 import { DEFAULT_REVIEWER, displayUser, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
 import { canDeleteQueue, canManageQueue, canRemoveQueueItems, sameUser } from './queuePermissions';
-import { useReviewQueueTitle } from './ReviewQueueTitleContext';
+import { useHeaderVisibility } from '../experiment-page-tabs/ExperimentPageHeaderVisibilityContext';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 /**
@@ -240,16 +240,11 @@ const ExperimentReviewQueuePage = () => {
     };
   }, [inFocusMode]);
 
-  const { setTitle: setHeaderTitle } = useReviewQueueTitle();
-  const queueDisplayName = selectedQueue
-    ? selectedQueue.queue_type === 'USER'
-      ? displayUser(selectedQueue.name, intl)
-      : selectedQueue.name
-    : null;
+  const { setHeaderHidden } = useHeaderVisibility();
   useEffect(() => {
-    setHeaderTitle(inFocusMode ? queueDisplayName : null);
-    return () => setHeaderTitle(null);
-  }, [inFocusMode, queueDisplayName, setHeaderTitle]);
+    setHeaderHidden(inFocusMode);
+    return () => setHeaderHidden(false);
+  }, [inFocusMode, setHeaderHidden]);
 
   const selectQueue = (queueId: string) => {
     setSelectedQueueIdState(queueId);
