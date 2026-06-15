@@ -38,7 +38,9 @@ def test_list_models_returns_model_names():
     mock_resp.json.return_value = {"models": [{"model": "llama3"}, {"model": "mistral"}]}
     mock_resp.raise_for_status = MagicMock()
 
-    with patch("mlflow.assistant.providers.requests.get", return_value=mock_resp) as mock_get:
+    with patch(
+        "mlflow.assistant.providers.ollama.requests.get", return_value=mock_resp
+    ) as mock_get:
         models = _ollama_provider().list_models("http://localhost:11434")
 
     assert models == ["llama3", "mistral"]
@@ -50,7 +52,9 @@ def test_list_models_forwards_api_key_as_bearer():
     mock_resp.json.return_value = {"models": [{"model": "llama3"}]}
     mock_resp.raise_for_status = MagicMock()
 
-    with patch("mlflow.assistant.providers.requests.get", return_value=mock_resp) as mock_get:
+    with patch(
+        "mlflow.assistant.providers.ollama.requests.get", return_value=mock_resp
+    ) as mock_get:
         _ollama_provider().list_models("http://localhost:11434", api_key="secret")
 
     mock_get.assert_called_once_with(
@@ -62,7 +66,7 @@ def test_list_models_forwards_api_key_as_bearer():
 
 def test_list_models_raises_on_connection_error():
     with patch(
-        "mlflow.assistant.providers.requests.get",
+        "mlflow.assistant.providers.ollama.requests.get",
         side_effect=Exception("Connection refused"),
     ):
         with pytest.raises(ProviderNotConfiguredError, match="Connection refused"):
@@ -77,7 +81,7 @@ def test_default_base_url_used_when_unconfigured(tmp_path):
     mock_resp.json.return_value = {"models": [{"model": "llama3"}]}
     with (
         patch("mlflow.assistant.config.CONFIG_PATH", config_file),
-        patch("mlflow.assistant.providers.requests.get", return_value=mock_resp) as mock_get,
+        patch("mlflow.assistant.providers.ollama.requests.get", return_value=mock_resp) as mock_get,
     ):
         models = _ollama_provider().list_models()
     assert models == ["llama3"]

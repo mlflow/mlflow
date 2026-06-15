@@ -1,18 +1,18 @@
 import pytest
 
-from mlflow.assistant.providers import GATEWAY_PROVIDER_NAME, list_providers
+from mlflow.assistant.providers import MlflowGatewayProvider, list_providers
 
 
 def _gateway_provider():
     for p in list_providers():
-        if p.name == GATEWAY_PROVIDER_NAME:
+        if p.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
             return p
-    raise AssertionError(f"{GATEWAY_PROVIDER_NAME} provider not registered")
+    raise AssertionError(f"{MlflowGatewayProvider.GATEWAY_PROVIDER_NAME} provider not registered")
 
 
 def test_provider_identity():
     p = _gateway_provider()
-    assert p.name == GATEWAY_PROVIDER_NAME
+    assert p.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME
     assert p.display_name == "MLflow AI Gateway"
     assert p.is_available() is True
 

@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 
 from mlflow.assistant.config import AssistantConfig, PermissionsConfig
-from mlflow.assistant.providers import GATEWAY_PROVIDER_NAME
+from mlflow.assistant.providers import MlflowGatewayProvider
 from mlflow.assistant.providers.base import clear_config_cache
 
 
@@ -91,7 +91,7 @@ def test_update_provider_preserves_permissions():
 def test_api_key_round_trip(config_file):
     config = AssistantConfig()
     config.set_provider(
-        GATEWAY_PROVIDER_NAME,
+        MlflowGatewayProvider.GATEWAY_PROVIDER_NAME,
         "gpt-4",
         base_url="http://gateway.local:5000",
         api_key="sk-test-123",
@@ -99,14 +99,16 @@ def test_api_key_round_trip(config_file):
     config.save()
 
     loaded = AssistantConfig.load()
-    assert loaded.providers[GATEWAY_PROVIDER_NAME].api_key == "sk-test-123"
-    assert loaded.providers[GATEWAY_PROVIDER_NAME].base_url == "http://gateway.local:5000"
+    name = MlflowGatewayProvider.GATEWAY_PROVIDER_NAME
+    assert loaded.providers[name].api_key == "sk-test-123"
+    assert loaded.providers[name].base_url == "http://gateway.local:5000"
 
 
 def test_update_provider_updates_api_key():
+    name = MlflowGatewayProvider.GATEWAY_PROVIDER_NAME
     config = AssistantConfig()
-    config.set_provider(GATEWAY_PROVIDER_NAME, "gpt-4", api_key="sk-old")
+    config.set_provider(name, "gpt-4", api_key="sk-old")
 
-    config.update_provider(GATEWAY_PROVIDER_NAME, api_key="sk-new")
+    config.update_provider(name, api_key="sk-new")
 
-    assert config.providers[GATEWAY_PROVIDER_NAME].api_key == "sk-new"
+    assert config.providers[name].api_key == "sk-new"
