@@ -73,17 +73,17 @@ A review queue is a named collection of traces, scoped to an experiment, that a 
 
 The quickest way to get traces reviewed: from the trace table (or an open trace), select the traces, click **Assign to reviewers**, and pick one or more reviewers. Each trace lands in that reviewer's personal queue, where they answer the experiment's review questions. (On a server without authentication, reviewer assignment isn't available — use a custom queue instead, described below.)
 
-{/* Screenshot to add: ![Assigning traces to reviewers in the MLflow UI](/images/assessments/review-queue-assign-to-reviewers.png) */}
+![Assigning traces to reviewers in the MLflow UI](/images/assessments/review-queue-assign-to-reviewers.png)
 
 ## Review traces in the UI
 
 Reviewers find the work assigned to them under the experiment's **Review** tab, where each queue shows a progress bar across its traces.
 
-{/* Screenshot to add: ![The Review tab listing queues and progress](/images/assessments/review-queue-tab-overview.png) */}
+![The Review tab listing queues and progress](/images/assessments/review-queue-tab-overview.png)
 
 Selecting a trace opens **focus mode** — a full-page surface with the queue's traces on the left, the trace's input and output in the middle (with **View full trace** for the complete trace explorer), and the review questions on the right.
 
-{/* Screenshot to add: ![Reviewing a trace in focus mode](/images/assessments/review-queue-focus-mode.png) */}
+![Reviewing a trace in focus mode](/images/assessments/review-queue-focus-mode.png)
 
 In focus mode a reviewer can:
 
@@ -106,11 +106,11 @@ When you want a curated, shared queue that asks a **specific set of questions** 
 
 Questions are defined once and reused across the queues in that experiment.
 
-{/* Screenshot to add: ![Creating a review question in the MLflow UI](/images/assessments/review-queue-new-question.png) */}
+![Creating a review question in the MLflow UI](/images/assessments/review-queue-new-question.png)
 
 **2. Create the queue.** Name it, pick the questions it should ask, assign reviewers (on an authenticated server), and click **Create**. Then add traces to it with **Assign to reviewers** from the trace table.
 
-{/* Screenshot to add: ![Creating a review queue in the MLflow UI](/images/assessments/review-queue-create-queue.png) */}
+![Creating a review queue in the MLflow UI](/images/assessments/review-queue-create-queue.png)
 
 ## Manage and track queues programmatically
 
