@@ -94,6 +94,28 @@ describe('ReviewerChecklistCombobox', () => {
     expect(screen.getByRole('checkbox', { name: 'alice' })).not.toBeChecked();
   });
 
+  it('checks a member whose stored casing differs from the roster, without duplicating the row', () => {
+    // Assigned users are stored normalized (lowercase); the roster carries display
+    // casing. The member must render checked against its roster row, and appear once.
+    renderBox({ usernames: ['Alice', 'Bob'], checkedUsers: new Set(['alice']) });
+    expect(screen.getByRole('checkbox', { name: 'Alice' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Bob' })).not.toBeChecked();
+    // No separate lowercase "alice" row leaks in alongside the roster's "Alice".
+    expect(screen.queryByRole('checkbox', { name: 'alice' })).not.toBeInTheDocument();
+  });
+
+  it('removes (not duplicates) a case-mismatched member when its row is unchecked', () => {
+    // The caller's checked set is seeded from the server-normalized (lowercase)
+    // assigned users, while the roster row carries display casing. Unchecking must
+    // remove the member; emitting the roster casing would instead add a cased
+    // duplicate, leaving the row stuck checked.
+    renderStateful({ usernames: ['Alice'], initial: ['alice'] });
+    const row = screen.getByRole('checkbox', { name: 'Alice' });
+    expect(row).toBeChecked();
+    fireEvent.click(row);
+    expect(screen.getByRole('checkbox', { name: 'Alice' })).not.toBeChecked();
+  });
+
   it('caps the default reviewers at five and hints to search for the rest', () => {
     renderBox({ usernames: ['u1', 'u2', 'u3', 'u4', 'u5', 'u6', 'u7'], checkedUsers: new Set() });
     expect(screen.getByRole('checkbox', { name: 'u1' })).toBeInTheDocument();
