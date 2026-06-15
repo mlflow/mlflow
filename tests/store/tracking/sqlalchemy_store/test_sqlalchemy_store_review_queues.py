@@ -137,6 +137,64 @@ def test_create_duplicate_name_raises(store):
     _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
 
 
+def test_create_custom_name_collides_case_insensitively(store):
+    # Names are unique case-insensitively, so `Foo` and `foo` can't coexist
+    # (the display casing is preserved on the one that wins).
+    exp_id = _create_experiments(store, "dup_ci")
+    store.create_review_queue(exp_id, name="Foo", queue_type="custom")
+    with pytest.raises(MlflowException, match="already exists") as exc:
+        store.create_review_queue(exp_id, name="foo", queue_type="custom")
+    _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
+    # The losing create doesn't mutate the winner: its display casing survives.
+    assert store.get_review_queue_by_name(exp_id, name="foo").name == "Foo"
+
+
+def test_create_custom_collides_with_user_queue_case_insensitively(store):
+    # Custom and user queues share the name space; a custom name that matches a
+    # user queue's (normalized) name case-insensitively is rejected.
+    exp_id = _create_experiments(store, "cross_type_ci")
+    store.create_review_queue(exp_id, name="alice", queue_type="user")
+    with pytest.raises(MlflowException, match="already exists") as exc:
+        store.create_review_queue(exp_id, name="Alice", queue_type="custom")
+    _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
+    # The surviving queue is still the original user queue, not a custom one.
+    assert store.get_review_queue_by_name(exp_id, name="alice").queue_type == "user"
+
+
+def test_create_duplicate_case_variant_race_maps_to_already_exists(store):
+    # The concurrency guard must hold for a case-variant collision too: when the
+    # loser of a race misses the pre-check, the unique (experiment_id, name_key)
+    # constraint rejects the insert, and the disambiguating re-query (keyed on
+    # name_key) must classify it as a duplicate -> RESOURCE_ALREADY_EXISTS, not a
+    # leaked IntegrityError.
+    exp_id = _create_experiments(store, "dup_ci_race")
+    store.create_review_queue(exp_id, name="Foo", queue_type="custom")
+
+    real_review_queue_query = type(store)._review_queue_query
+    calls = {"n": 0}
+
+    def first_call_misses(self, session):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            empty = mock.MagicMock()
+            empty.filter.return_value.one_or_none.return_value = None
+            return empty
+        return real_review_queue_query(self, session)
+
+    with mock.patch.object(type(store), "_review_queue_query", first_call_misses):
+        with pytest.raises(MlflowException, match="already exists") as exc:
+            store.create_review_queue(exp_id, name="foo", queue_type="custom")
+    _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
+
+
+def test_get_review_queue_by_name_is_case_insensitive(store):
+    exp_id = _create_experiments(store, "by_name_ci")
+    created = store.create_review_queue(exp_id, name="Foo", queue_type="custom")
+    found = store.get_review_queue_by_name(exp_id, name="FOO")
+    assert found.queue_id == created.queue_id
+    assert found.name == "Foo"
+
+
 def test_create_against_missing_experiment_raises(store):
     with pytest.raises(MlflowException, match="No Experiment with id") as exc:
         store.create_review_queue("999999", name="q", queue_type="custom")
@@ -460,6 +518,24 @@ def test_update_rename_to_existing_name_raises(store):
     with pytest.raises(MlflowException, match="already exists") as exc:
         store.update_review_queue(queue.queue_id, name="taken")
     _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
+
+
+def test_update_rename_to_existing_name_case_insensitive_raises(store):
+    exp_id = _create_experiments(store, "rename_clash_ci")
+    store.create_review_queue(exp_id, name="taken", queue_type="custom")
+    queue = store.create_review_queue(exp_id, name="mine", queue_type="custom")
+    with pytest.raises(MlflowException, match="already exists") as exc:
+        store.update_review_queue(queue.queue_id, name="TAKEN")
+    _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
+
+
+def test_update_rename_changes_display_case_only(store):
+    # Re-casing a queue's own name (same name_key) is allowed; it can't collide
+    # with itself, and the display casing is updated.
+    exp_id = _create_experiments(store, "rename_recase")
+    queue = store.create_review_queue(exp_id, name="Foo", queue_type="custom")
+    updated = store.update_review_queue(queue.queue_id, name="foo")
+    assert updated.name == "foo"
 
 
 def test_update_rename_to_reserved_name_raises(store):

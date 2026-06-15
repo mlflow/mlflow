@@ -8483,6 +8483,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             users=users,
             schema_ids=schema_ids,
         )
+        # Names are unique within an experiment case-insensitively, via the
+        # case-folded `name_key`; `name` keeps the display casing.
+        name_key = validated.name.lower()
 
         with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_experiment_exists(session, experiment_id)
@@ -8493,7 +8496,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 ._review_queue_query(session)
                 .filter(
                     SqlReviewQueue.experiment_id == int(experiment_id),
-                    SqlReviewQueue.name == validated.name,
+                    SqlReviewQueue.name_key == name_key,
                 )
                 .one_or_none()
             )
@@ -8508,6 +8511,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 queue_id=f"{SqlReviewQueue.QUEUE_ID_PREFIX}{uuid.uuid4().hex}",
                 experiment_id=int(experiment_id),
                 name=validated.name,
+                name_key=name_key,
                 queue_type=str(validated.queue_type),
                 created_by=created_by,
                 creation_time_ms=now_ms,
@@ -8523,15 +8527,19 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             except IntegrityError as e:
                 # The flush violated a constraint. Disambiguate by checking which
                 # one now holds rather than assuming a cause. The duplicate check
-                # is intentionally unscoped: the unique constraint is global on
-                # (experiment_id, name), independent of any workspace scoping
+                # is on `name_key` (matching the unique constraint), so a parallel
+                # create of a case-variant name (e.g. `foo` vs an existing `Foo`)
+                # is correctly classified as a duplicate and translated below,
+                # rather than falling through and re-raising a raw IntegrityError.
+                # It is intentionally unscoped: the unique constraint is global on
+                # (experiment_id, name_key), independent of any workspace scoping
                 # applied to reads.
                 duplicate = (
                     session
                     .query(SqlReviewQueue)
                     .filter(
                         SqlReviewQueue.experiment_id == int(experiment_id),
-                        SqlReviewQueue.name == validated.name,
+                        SqlReviewQueue.name_key == name_key,
                     )
                     .first()
                 )
@@ -8609,7 +8617,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 ._review_queue_query(session)
                 .filter(
                     SqlReviewQueue.experiment_id == int(experiment_id),
-                    SqlReviewQueue.name == name,
+                    # Look up case-insensitively (matching the uniqueness key).
+                    SqlReviewQueue.name_key == name.lower(),
                 )
                 .one_or_none()
             )
@@ -8702,9 +8711,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if name is not None:
                 new_name = validate_custom_queue_name(name)
                 if new_name != sql_queue.name:
-                    # A collision with an existing name is caught at flush via the
-                    # unique (experiment_id, name) constraint; no upfront SELECT.
+                    # A case-insensitive collision with an existing name is caught
+                    # at flush via the unique (experiment_id, name_key) constraint;
+                    # no upfront SELECT. A pure display-case change (same name_key)
+                    # is harmless — it can't collide with the row's own key.
                     sql_queue.name = new_name
+                    sql_queue.name_key = new_name.lower()
                     renamed_to = new_name
 
             if users is not None:
@@ -8749,9 +8761,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             try:
                 session.flush()
             except IntegrityError as e:
-                # The only unique constraint here is (experiment_id, name): a rename
-                # to a name already taken in the experiment violates it. Surface that
-                # as a clean RESOURCE_ALREADY_EXISTS. If no rename was applied the
+                # The only unique constraint here is (experiment_id, name_key): a
+                # rename to a name already taken (case-insensitively) in the
+                # experiment violates it. Surface that as a clean
+                # RESOURCE_ALREADY_EXISTS. If no rename was applied the
                 # violation is unrelated, so re-raise it untranslated rather than
                 # blaming the name.
                 if renamed_to is None:

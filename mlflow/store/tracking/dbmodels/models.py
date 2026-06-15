@@ -3428,10 +3428,19 @@ class SqlReviewQueue(Base):
     """
     Queue name: ``String`` (limit 250, matching ``label_schemas.name``).
     For a user queue this equals the (normalized) user identifier; for a
-    custom queue it is an arbitrary display name. Unique within
-    ``experiment_id``. ``'default'`` (the no-auth default user queue) is
-    reserved case-insensitively (any casing of ``'default'``) and rejected
-    for custom queues.
+    custom queue it is an arbitrary display name, stored case-preserved.
+    ``'default'`` (the no-auth default user queue) is reserved
+    case-insensitively (any casing of ``'default'``) and rejected for
+    custom queues.
+    """
+
+    name_key = Column(String(250), nullable=False)
+    """
+    Case-folded (lowercased) form of ``name``, carrying the uniqueness
+    guarantee. Names are unique within ``experiment_id`` case-insensitively,
+    so ``Foo`` and ``foo`` can't coexist (and a custom queue can't collide
+    with a user queue's normalized name). ``name`` keeps the display casing;
+    this column is the identity key. Always set to ``name.lower()``.
     """
 
     queue_type = Column(String(16), nullable=False)
@@ -3460,7 +3469,7 @@ class SqlReviewQueue(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("queue_id", name="review_queues_pk"),
-        UniqueConstraint("experiment_id", "name", name="uq_review_queues_experiment_name"),
+        UniqueConstraint("experiment_id", "name_key", name="uq_review_queues_experiment_name_key"),
         Index("index_review_queues_experiment_id", "experiment_id"),
     )
 
