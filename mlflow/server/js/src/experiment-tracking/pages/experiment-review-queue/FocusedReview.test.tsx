@@ -502,7 +502,12 @@ describe('FocusedReview blocks saving a cleared prior answer', () => {
     expect(saveButton()).not.toBeDisabled();
     expect(screen.queryByTestId(hintTestId)).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Save changes'));
-    await waitFor(() => expect(mockCreateAssessment).toHaveBeenCalled());
+    // The re-entered value is what actually gets written, not a stale/empty one.
+    await waitFor(() =>
+      expect(mockCreateAssessment).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Score', value: 7, assessmentKind: 'feedback' }),
+      ),
+    );
   });
 
   it('blocks the save when a previously-selected multi-select answer is cleared', () => {

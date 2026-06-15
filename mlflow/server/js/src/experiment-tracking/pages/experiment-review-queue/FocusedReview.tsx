@@ -305,7 +305,12 @@ export const FocusedReview = ({
     // Defense in depth (the Submit button is already disabled in this state):
     // never write when a previously-answered question has been cleared. Clearing
     // has no value to record, and the cleared question would otherwise be silently
-    // skipped below, leaving its stale prior assessment live.
+    // skipped below, leaving its stale prior assessment live. This uses
+    // `effectiveValue` (folding in the auto-submit `answerOverrides`) while the
+    // button gates on `hasClearedPriorAnswer` via `valueFor`; the two can't
+    // disagree, because `answerOverrides` only ever carries a just-picked
+    // (answered) value, so this guard never fires on a question the button
+    // considered answered.
     if (schemas.some((s) => isAnswered(prefilled[s.name]) && !isAnswered(effectiveValue(s.name)))) {
       return;
     }
