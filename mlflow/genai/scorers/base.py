@@ -260,7 +260,7 @@ class Scorer(BaseModel):
     def pass_if(self) -> Callable[[Any], bool] | None:
         """Predicate deciding whether this scorer's value counts as passing.
 
-        Used by :attr:`mlflow.genai.scorers.EvaluationResult.passed`. ``None`` means
+        Used by ``EvaluationResult.passed``. ``None`` means
         the default rule applies (a ``yes``/:class:`~mlflow.genai.judges.CategoricalRating`
         rating or a ``bool``). Set via ``@scorer(pass_if=...)``.
         """
@@ -1249,7 +1249,7 @@ def scorer(
 
             By default, "mean" is used as the aggregation function.
         pass_if: A predicate ``(value) -> bool`` that decides whether the scorer's
-            value counts as passing in :attr:`~mlflow.genai.scorers.EvaluationResult.passed`.
+            value counts as passing in ``EvaluationResult.passed``.
             Use it for scorers whose value is not a ``yes``/``no`` rating or a ``bool``
             (e.g. a numeric score): ``@scorer(pass_if=lambda v: v >= 0.8)``. When omitted,
             the default rule applies (a ``yes`` rating or ``True`` passes).
