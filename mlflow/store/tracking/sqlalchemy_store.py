@@ -8669,20 +8669,43 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 next_token = SearchUtils.create_page_token(offset + max_results)
             return PagedList(self._hydrate_review_queues(session, results), next_token)
 
-    def update_review_queue(self, queue_id, *, users=None, schema_ids=None):
+    def update_review_queue(
+        self, queue_id, *, users=None, schema_ids=None, name=None, new_owner=None
+    ):
         from mlflow.genai.review_queues import ReviewQueueType
-        from mlflow.genai.review_queues.validation import normalize_schema_ids, normalize_users
+        from mlflow.genai.review_queues.validation import (
+            normalize_schema_ids,
+            normalize_users,
+            validate_custom_queue_name,
+            validate_queue_owner,
+        )
 
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_queue = self._get_sql_review_queue(session, queue_id, for_update=True)
             if ReviewQueueType(sql_queue.queue_type) == ReviewQueueType.USER:
                 raise MlflowException(
-                    "A user queue's assigned user and schemas are fixed and cannot be updated.",
+                    "A user queue's name, assigned user, schemas, and owner are fixed "
+                    "and cannot be updated.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            if users is None and schema_ids is None:
+            if users is None and schema_ids is None and name is None and new_owner is None:
                 return self._hydrate_review_queues(session, [sql_queue])[0]
+
+            if new_owner is not None:
+                # Owner reassignment; authorization (MANAGE-only) is enforced at
+                # the handler layer. Stored case-preserved (matching is
+                # case-insensitive).
+                sql_queue.created_by = validate_queue_owner(new_owner)
+
+            renamed_to = None
+            if name is not None:
+                new_name = validate_custom_queue_name(name)
+                if new_name != sql_queue.name:
+                    # A collision with an existing name is caught at flush via the
+                    # unique (experiment_id, name) constraint; no upfront SELECT.
+                    sql_queue.name = new_name
+                    renamed_to = new_name
 
             if users is not None:
                 normalized_users = normalize_users(users)
@@ -8723,7 +8746,20 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     )
 
             sql_queue.last_update_time_ms = get_current_time_millis()
-            session.flush()
+            try:
+                session.flush()
+            except IntegrityError as e:
+                # The only unique constraint here is (experiment_id, name): a rename
+                # to a name already taken in the experiment violates it. Surface that
+                # as a clean RESOURCE_ALREADY_EXISTS. If no rename was applied the
+                # violation is unrelated, so re-raise it untranslated rather than
+                # blaming the name.
+                if renamed_to is None:
+                    raise
+                raise MlflowException(
+                    f"Review queue with name '{renamed_to}' already exists.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                ) from e
             return self._hydrate_review_queues(session, [sql_queue])[0]
 
     def delete_review_queue(self, queue_id):

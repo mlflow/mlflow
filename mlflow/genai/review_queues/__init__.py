@@ -182,21 +182,26 @@ def list_review_queues(
 def update_review_queue(
     queue_id: str,
     *,
+    name: str | None = None,
+    new_owner: str | None = None,
     users: list[str] | None = None,
     schema_ids: list[str] | None = None,
 ) -> ReviewQueue:
-    """Replace a custom queue's assigned users and/or attached schemas.
+    """Update a custom queue's name, owner, assigned users, and/or schemas.
 
-    ``None`` leaves that set untouched; a list (possibly empty) replaces it.
-    ``name`` and ``queue_type`` are immutable, and user queues reject this.
-    A queue's ``schema_ids`` (its questions) are also frozen once it has any
-    attached items; detach the items first to edit them. Assigned users
-    stay editable.
+    Pass only the fields you want to change; ``None`` leaves a field untouched
+    (an empty ``users`` / ``schema_ids`` list clears that set). ``queue_type`` is
+    immutable and user queues reject this. Reassigning the owner (``new_owner``)
+    requires experiment MANAGE — enforced server-side — while the queue's owner
+    may make the other edits with EDIT. A queue's ``schema_ids`` (its questions)
+    are frozen once it has attached items; detach the items first to edit them.
 
     Returns:
         The updated :py:class:`ReviewQueue`.
     """
-    return TracingClient()._update_review_queue(queue_id, users=users, schema_ids=schema_ids)
+    return TracingClient()._update_review_queue(
+        queue_id, name=name, new_owner=new_owner, users=users, schema_ids=schema_ids
+    )
 
 
 @experimental(version="3.14.0")
