@@ -2,13 +2,15 @@ import { describe, jest, it, expect, beforeEach, afterEach } from '@jest/globals
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
-import { DesignSystemProvider } from '@databricks/design-system';
+import { DesignSystemEventProvider, DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
 import { FocusedReview } from './FocusedReview';
 import type { LabelSchema } from '../../components/label-schemas';
 import type { ReviewQueueItem } from './types';
 import Utils from '../../../common/utils/Utils';
+
+const FEEDBACK_SUBMITTED_COMPONENT_ID = 'mlflow.experiment-review-queue.focused-review.feedback-submitted';
 
 let mockTraceData: unknown[] = [];
 jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
@@ -59,26 +61,29 @@ const renderFocused = (
     item?: ReviewQueueItem;
     onSelect?: () => void;
     onBack?: () => void;
+    eventCallback?: (e: { componentId: string }) => void;
   } = {},
 ) => {
   const item = opts.item ?? pendingItem;
   return render(
-    <IntlProvider locale="en">
-      <DesignSystemProvider>
-        <FocusedReview
-          item={item}
-          items={[item]}
-          schemas={schemas}
-          completedBy="tester"
-          isSettingStatus={false}
-          canReview={opts.canReview ?? true}
-          onAssignSelf={opts.onAssignSelf}
-          onBack={opts.onBack ?? jest.fn()}
-          onSelect={opts.onSelect ?? jest.fn()}
-          onSetStatus={onSetStatus}
-        />
-      </DesignSystemProvider>
-    </IntlProvider>,
+    <DesignSystemEventProvider callback={opts.eventCallback ?? (() => {})}>
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <FocusedReview
+            item={item}
+            items={[item]}
+            schemas={schemas}
+            completedBy="tester"
+            isSettingStatus={false}
+            canReview={opts.canReview ?? true}
+            onAssignSelf={opts.onAssignSelf}
+            onBack={opts.onBack ?? jest.fn()}
+            onSelect={opts.onSelect ?? jest.fn()}
+            onSetStatus={onSetStatus}
+          />
+        </DesignSystemProvider>
+      </IntlProvider>
+    </DesignSystemEventProvider>,
   );
 };
 
@@ -157,6 +162,49 @@ describe('FocusedReview submit requires at least one answer', () => {
     expect(mockCreateAssessment).toHaveBeenCalledTimes(1);
     expect(mockCreateAssessment).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'Looks good?', value: true, assessmentKind: 'feedback' }),
+    );
+  });
+
+  it('logs a feedback-submitted telemetry event once the review is submitted', async () => {
+    const eventCallback = jest.fn();
+    const onSetStatus = jest.fn((_status: string) => Promise.resolve());
+    renderFocused([passFailSchema(), passFailSchema('s2', 'Also good?')], onSetStatus, { eventCallback });
+
+    fireEvent.click(screen.getAllByText('Pass')[0]);
+    fireEvent.click(screen.getByText('Submit'));
+    await waitFor(() =>
+      expect(eventCallback).toHaveBeenCalledWith(
+        expect.objectContaining({ componentId: FEEDBACK_SUBMITTED_COMPONENT_ID }),
+      ),
+    );
+  });
+
+  it('logs the feedback-submitted event on the single Pass/Fail auto-submit path too', async () => {
+    const eventCallback = jest.fn();
+    const onSetStatus = jest.fn((_status: string) => Promise.resolve());
+    // Single Pass/Fail -> picking the answer auto-submits (no explicit Submit click).
+    renderFocused([passFailSchema()], onSetStatus, { eventCallback });
+
+    fireEvent.click(screen.getByText('Pass'));
+    await waitFor(() =>
+      expect(eventCallback).toHaveBeenCalledWith(
+        expect.objectContaining({ componentId: FEEDBACK_SUBMITTED_COMPONENT_ID }),
+      ),
+    );
+  });
+
+  it('does not log the feedback-submitted event when the assessment write fails', async () => {
+    mockCreateAssessment.mockImplementation(() => Promise.reject(new Error('boom')));
+    const eventCallback = jest.fn();
+    const onSetStatus = jest.fn((_status: string) => Promise.resolve());
+    renderFocused([passFailSchema(), passFailSchema('s2', 'Also good?')], onSetStatus, { eventCallback });
+
+    fireEvent.click(screen.getAllByText('Pass')[0]);
+    fireEvent.click(screen.getByText('Submit'));
+    // The error surfaces; the event must not fire (it sits after the writes succeed).
+    expect(await screen.findByText(/could not save your review/i)).toBeInTheDocument();
+    expect(eventCallback).not.toHaveBeenCalledWith(
+      expect.objectContaining({ componentId: FEEDBACK_SUBMITTED_COMPONENT_ID }),
     );
   });
 

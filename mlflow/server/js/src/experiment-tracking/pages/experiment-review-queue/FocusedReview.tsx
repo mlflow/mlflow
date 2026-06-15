@@ -6,11 +6,14 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CloseSmallIcon,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
   Drawer,
   Empty,
   Input,
   TableSkeleton,
   Typography,
+  useDesignSystemEventComponentCallbacks,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { ModelTraceExplorer, useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
@@ -161,6 +164,15 @@ export const FocusedReview = ({
   const intl = useIntl();
   const { createReviewAssessmentAsync, isCreatingAssessment } = useCreateReviewAssessmentMutation();
 
+  // Telemetry: count reviews (feedback) submitted from the UI. Fired after the
+  // assessment writes succeed, so failed submits don't inflate the metric.
+  const feedbackEvents = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const feedbackSubmittedEventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId: `${CID}.feedback-submitted`,
+    analyticsEvents: feedbackEvents,
+  });
+
   // The trace's input/output for the middle panel. The full trace (spans,
   // timeline, etc.) is available on demand through the drawer.
   const { data: traceData, isLoading: traceLoading } = useGetTracesById([item.item_id]);
@@ -292,6 +304,10 @@ export const FocusedReview = ({
           }),
         ),
       );
+      // Telemetry: a review (feedback) was submitted from the UI. Covers the
+      // explicit Submit, the single Pass/Fail auto-submit, and the edit-in-place
+      // re-save — all of which land here after the writes succeed.
+      feedbackSubmittedEventContext.onClick(undefined);
       // Editing an already-complete trace: the answers above are re-written
       // (superseding the priors), but the trace stays COMPLETE and we keep the
       // reviewer on it. Re-saving an edit must not flip it back to PENDING / the

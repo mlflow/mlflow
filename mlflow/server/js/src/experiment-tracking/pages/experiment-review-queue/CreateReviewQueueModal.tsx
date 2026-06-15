@@ -5,12 +5,15 @@ import {
   ApplyDesignSystemContextOverrides,
   ChevronDownIcon,
   ChevronRightIcon,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
   Empty,
   FormUI,
   Input,
   Modal,
   TableSkeleton,
   Typography,
+  useDesignSystemEventComponentCallbacks,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -56,6 +59,15 @@ export const CreateReviewQueueModal = ({
   const authAvailable = useIsAuthAvailable();
   const { labelSchemas, isLoading } = useListLabelSchemasQuery({ experimentId });
   const { createReviewQueueAsync, isCreatingQueue, error } = useCreateReviewQueueMutation();
+
+  // Telemetry: count queues actually created from the UI (fired on success, not
+  // on the click, so failed creates don't inflate the metric).
+  const queueCreatedEvents = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const queueCreatedEventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId: `${CID}.queue-created`,
+    analyticsEvents: queueCreatedEvents,
+  });
 
   // Any authenticated user may list users server-side, so fetch the roster
   // whenever auth is on; the Reviewers picker is hidden otherwise.
@@ -180,6 +192,7 @@ export const CreateReviewQueueModal = ({
         users,
         schema_ids: [...checkedIds],
       });
+      queueCreatedEventContext.onClick(undefined);
       onCreated?.(review_queue);
       onClose();
     } catch {

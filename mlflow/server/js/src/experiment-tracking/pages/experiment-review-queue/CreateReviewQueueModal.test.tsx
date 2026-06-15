@@ -2,11 +2,13 @@ import { describe, jest, it, expect, beforeEach } from '@jest/globals';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 
-import { DesignSystemProvider } from '@databricks/design-system';
+import { DesignSystemEventProvider, DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { MAX_ASSIGNED_USERS } from './ReviewerChecklistCombobox';
+
+const QUEUE_CREATED_COMPONENT_ID = 'mlflow.experiment-review-queue.create-queue.queue-created';
 
 // Stub the question picker so a question can be selected (required to submit).
 jest.mock('./QuestionChecklistCombobox', () => ({
@@ -60,14 +62,16 @@ jest.mock('./hooks/useCreateReviewQueueMutation', () => ({
   useCreateReviewQueueMutation: () => ({ createReviewQueueAsync: mockCreate, isCreatingQueue: false, error: null }),
 }));
 
-const renderModal = () => {
+const renderModal = (eventCallback?: (e: { componentId: string }) => void) => {
   const onClose = jest.fn();
   render(
-    <IntlProvider locale="en">
-      <DesignSystemProvider>
-        <CreateReviewQueueModal experimentId="exp-1" onClose={onClose} />
-      </DesignSystemProvider>
-    </IntlProvider>,
+    <DesignSystemEventProvider callback={eventCallback ?? (() => {})}>
+      <IntlProvider locale="en">
+        <DesignSystemProvider>
+          <CreateReviewQueueModal experimentId="exp-1" onClose={onClose} />
+        </DesignSystemProvider>
+      </IntlProvider>
+    </DesignSystemEventProvider>,
   );
   return { onClose };
 };
@@ -110,5 +114,28 @@ describe('CreateReviewQueueModal', () => {
     await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
     // The rejection is swallowed (surfaced via the error Alert), so the modal stays open.
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('logs a telemetry event when a queue is successfully created', async () => {
+    const eventCallback = jest.fn();
+    renderModal(eventCallback);
+    fillAndSubmit();
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
+    // The event fires after the awaited create resolves, so wait for it rather
+    // than asserting synchronously (mirrors the FocusedReview telemetry tests).
+    await waitFor(() =>
+      expect(eventCallback).toHaveBeenCalledWith(expect.objectContaining({ componentId: QUEUE_CREATED_COMPONENT_ID })),
+    );
+  });
+
+  it('does not log the queue-created event when creation fails', async () => {
+    mockCreate.mockImplementation(() => Promise.reject(new Error('Review queue with name already exists')));
+    const eventCallback = jest.fn();
+    renderModal(eventCallback);
+    fillAndSubmit();
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
+    expect(eventCallback).not.toHaveBeenCalledWith(
+      expect.objectContaining({ componentId: QUEUE_CREATED_COMPONENT_ID }),
+    );
   });
 });
