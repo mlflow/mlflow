@@ -1298,7 +1298,14 @@ class Guidelines(BuiltInScorer):
             name=self.name,
             model=self.model,
         )
-        return _sanitize_scorer_feedback(feedback)
+        sanitized = _sanitize_scorer_feedback(feedback)
+        # Surface the guideline text in assessment metadata so the regression-test
+        # UI can show the original guideline alongside each assertion's result.
+        guidelines_text = (
+            self.guidelines if isinstance(self.guidelines, str) else "\n".join(self.guidelines)
+        )
+        sanitized.metadata = {**(sanitized.metadata or {}), "guideline": guidelines_text}
+        return sanitized
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -1456,7 +1463,12 @@ class ExpectationsGuidelines(BuiltInScorer):
             name=self.name,
             model=self.model,
         )
-        return _sanitize_scorer_feedback(feedback)
+        sanitized = _sanitize_scorer_feedback(feedback)
+        # Surface the guideline text in assessment metadata so the regression-test
+        # UI can show the original guideline alongside each assertion's result.
+        guidelines_text = guidelines if isinstance(guidelines, str) else "\n".join(guidelines)
+        sanitized.metadata = {**(sanitized.metadata or {}), "guideline": guidelines_text}
+        return sanitized
 
 
 @format_docstring(_MODEL_API_DOC)

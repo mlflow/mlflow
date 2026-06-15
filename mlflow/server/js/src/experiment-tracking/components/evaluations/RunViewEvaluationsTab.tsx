@@ -43,6 +43,8 @@ import {
   SESSION_COLUMN_ID,
   SIMULATION_GOAL_COLUMN_ID,
   SIMULATION_PERSONA_COLUMN_ID,
+  createAssessmentColumnId,
+  RESULT_ASSESSMENT_NAME,
 } from '@databricks/web-shared/genai-traces-table';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
@@ -70,6 +72,7 @@ import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/Assis
 import { useCountInfo } from '../experiment-page/components/traces-v3/hooks/useCountInfo';
 import { useAssessmentCountMetrics } from '../experiment-page/components/traces-v3/hooks/useAssessmentCountMetrics';
 import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_REGRESSION_TEST } from '../../constants';
 
 const ContextProviders = ({
   children,
@@ -95,6 +98,7 @@ const RunViewEvaluationsTabInner = ({
   showCompareSelector = false,
   showRefreshButton = false,
   hideCompareSelector = false,
+  isRegressionTest = false,
 }: {
   experimentId: string;
   runUuid: string;
@@ -104,6 +108,9 @@ const RunViewEvaluationsTabInner = ({
   compareToRunUuid?: string;
   showRefreshButton?: boolean;
   hideCompareSelector?: boolean;
+  // Regression-test run: show the consolidated pass/fail "Result" column and the
+  // test-case detail drawer instead of the per-scorer evaluation view.
+  isRegressionTest?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -131,6 +138,7 @@ const RunViewEvaluationsTabInner = ({
     otherRunUuid: compareToRunUuid,
     disabled: isQueryDisabled,
     filterByAssessmentSourceRun: true,
+    synthesizeResult: isRegressionTest,
   });
 
   // Setup table states
@@ -149,6 +157,22 @@ const RunViewEvaluationsTabInner = ({
       const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(allTraces);
       const hasSessionIds = allTraces.some((t) => Boolean(t.traceInfo?.trace_metadata?.[SESSION_ID_METADATA_KEY]));
 
+      // Regression-test view: show the test name, the agent input/output, and the
+      // single consolidated "Result" pass/fail column. The per-scorer assessment
+      // columns stay available in the column selector, just hidden by default.
+      if (isRegressionTest) {
+        const resultColumnId = createAssessmentColumnId(RESULT_ASSESSMENT_NAME);
+        return columns.filter(
+          (col) =>
+            (col.type === TracesTableColumnType.ASSESSMENT && col.id === resultColumnId) ||
+            (inputHasContent && col.type === TracesTableColumnType.INPUT) ||
+            (responseHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
+            (tokensHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === TOKENS_COLUMN_ID) ||
+            (col.type === TracesTableColumnType.TRACE_INFO &&
+              [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, STATE_COLUMN_ID].includes(col.id)),
+        );
+      }
+
       return columns.filter(
         (col) =>
           col.type === TracesTableColumnType.ASSESSMENT ||
@@ -162,7 +186,7 @@ const RunViewEvaluationsTabInner = ({
             [SESSION_COLUMN_ID, SIMULATION_GOAL_COLUMN_ID, SIMULATION_PERSONA_COLUMN_ID].includes(col.id)),
       );
     },
-    [evaluatedTraces, otherEvaluatedTraces],
+    [evaluatedTraces, otherEvaluatedTraces, isRegressionTest],
   );
 
   const { selectedColumns, toggleColumns, setSelectedColumns } = useSelectedColumns(
@@ -414,6 +438,8 @@ const RunViewEvaluationsTabInner = ({
                     isFetchingNextPage={isFetchingNextPage}
                     assessmentCountMetrics={assessmentCountMetrics}
                     compareAssessmentCountMetrics={compareAssessmentCountMetrics}
+                    regressionTestMode={isRegressionTest}
+                    fitToContainer={isRegressionTest}
                   />
                 </ContextProviders>
               )
@@ -449,6 +475,12 @@ export const RunViewEvaluationsTab = ({
   showRefreshButton?: boolean;
   hideCompareSelector?: boolean;
 }) => {
+  // A regression-test run (produced by an @mlflow.assertions pytest session) is
+  // tagged `mlflow.runType=regression_test`. The result view stays the same eval
+  // table, but shows a consolidated pass/fail "Result" column and the test-case
+  // detail drawer instead of the per-scorer breakdown.
+  const isRegressionTest = runTags?.[MLFLOW_RUN_TYPE_TAG]?.value === MLFLOW_RUN_TYPE_VALUE_REGRESSION_TEST;
+
   // Determine which tables are logged in the run
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
   const isArtifactCallEnabled = Boolean(runUuid);
@@ -486,6 +518,7 @@ export const RunViewEvaluationsTab = ({
       showCompareSelector={showCompareSelector}
       showRefreshButton={showRefreshButton}
       hideCompareSelector={hideCompareSelector}
+      isRegressionTest={isRegressionTest}
     />
   );
 };

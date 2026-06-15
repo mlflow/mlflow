@@ -81,6 +81,8 @@ export const ExperimentEvaluationRunsTableControls = ({
   setSelectedColumns,
   groupByConfig,
   setGroupByConfig,
+  typeFilter,
+  setTypeFilter,
   viewMode,
   setViewMode,
   onCompare,
@@ -102,6 +104,8 @@ export const ExperimentEvaluationRunsTableControls = ({
   setSelectedColumns: (columns: { [key: string]: boolean }) => void;
   groupByConfig: RunsGroupByConfig | null;
   setGroupByConfig: (groupBy: RunsGroupByConfig | null) => void;
+  typeFilter: 'all' | 'eval' | 'test';
+  setTypeFilter: (typeFilter: 'all' | 'eval' | 'test') => void;
   viewMode?: ExperimentEvaluationRunsPageMode;
   setViewMode?: (mode: ExperimentEvaluationRunsPageMode) => void;
   onCompare: (runUuid1: string, runUuid2: string) => void;
@@ -213,6 +217,31 @@ export const ExperimentEvaluationRunsTableControls = ({
         </Tooltip>
       </div>
       <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+        <SegmentedControlGroup
+          name="mlflow.eval-runs.type-filter"
+          componentId="mlflow.eval-runs.type-filter"
+          value={typeFilter}
+          css={{ flexShrink: 0 }}
+        >
+          <SegmentedControlButton value="all" onClick={() => setTypeFilter('all')}>
+            <FormattedMessage
+              defaultMessage="All"
+              description="Type filter option in the evaluation runs table: show every run"
+            />
+          </SegmentedControlButton>
+          <SegmentedControlButton value="eval" onClick={() => setTypeFilter('eval')}>
+            <FormattedMessage
+              defaultMessage="Eval"
+              description="Type filter option in the evaluation runs table: show only evaluation runs"
+            />
+          </SegmentedControlButton>
+          <SegmentedControlButton value="test" onClick={() => setTypeFilter('test')}>
+            <FormattedMessage
+              defaultMessage="Test"
+              description="Type filter option in the evaluation runs table: show only regression-test runs"
+            />
+          </SegmentedControlButton>
+        </SegmentedControlGroup>
         <DialogCombobox componentId="mlflow.eval-runs.table-column-selector" label="Columns" multiSelect>
           <DialogComboboxTrigger />
           <DialogComboboxContent>

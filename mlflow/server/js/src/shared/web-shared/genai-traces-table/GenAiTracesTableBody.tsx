@@ -38,7 +38,8 @@ import {
 } from './types';
 import { getAssessmentAggregates, buildAggregatesFromCountMetrics } from './utils/AggregationUtils';
 import { escapeCssSpecialCharacters } from './utils/DisplayUtils';
-import { getExperimentIdFromTraceLocation, getRowIdFromEvaluation } from './utils/TraceUtils';
+import { getExperimentIdFromTraceLocation, getRowIdFromEvaluation, RESULT_ASSESSMENT_NAME } from './utils/TraceUtils';
+import { TestCaseDetail } from './TestCaseDetail';
 
 const GenAITraceComparisonModal = React.lazy(() =>
   import('./components/GenAITraceComparisonModal').then((m) => ({ default: m.GenAITraceComparisonModal })),
@@ -85,6 +86,8 @@ export const GenAiTracesTableBody = React.memo(
     isFetchingNextPage,
     assessmentCountMetrics,
     compareAssessmentCountMetrics,
+    regressionTestMode = false,
+    fitToContainer = false,
   }: {
     experimentId?: string;
     selectedColumns: TracesTableColumn[];
@@ -129,6 +132,11 @@ export const GenAiTracesTableBody = React.memo(
     // Server-side assessment count data (active when shouldUseInfinitePaginatedTraces is true)
     assessmentCountMetrics?: AssessmentCountMetrics;
     compareAssessmentCountMetrics?: AssessmentCountMetrics;
+    // Regression-test mode: open the test-case detail drawer instead of the
+    // trace review. Defaults to false so ordinary evaluation runs are unaffected.
+    regressionTestMode?: boolean;
+    // Stretch the table to fill its container width.
+    fitToContainer?: boolean;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -511,7 +519,10 @@ export const GenAiTracesTableBody = React.memo(
       const currentData = !assessmentCountMetrics?.isLoading ? assessmentCountMetrics?.data : undefined;
       const otherData = !compareAssessmentCountMetrics?.isLoading ? compareAssessmentCountMetrics?.data : undefined;
       for (const assessmentInfo of selectedAssessmentInfos) {
-        if (currentData && assessmentInfo.dtype !== 'unknown') {
+        // The synthetic "Result" assessment exists only on the loaded traces (no
+        // server-side count metric), so always aggregate it from the traces;
+        // metric-based counts would be empty (0%).
+        if (currentData && assessmentInfo.dtype !== 'unknown' && assessmentInfo.name !== RESULT_ASSESSMENT_NAME) {
           result[assessmentInfo.name] = buildAggregatesFromCountMetrics(
             assessmentInfo,
             currentData,
@@ -607,7 +618,7 @@ export const GenAiTracesTableBody = React.memo(
         >
           <Table
             css={{
-              width: tableWidth,
+              width: fitToContainer ? '100%' : tableWidth,
               minWidth: '100%',
               ...columnSizeVars, // Define column sizes on the <table> element
             }}
@@ -679,6 +690,25 @@ export const GenAiTracesTableBody = React.memo(
               onClose={() => onChangeEvaluationId(undefined)}
               // prettier-ignore
             />
+          ) : regressionTestMode ? (
+            selectedEvaluationId &&
+            selectedEvaluation &&
+            (() => {
+              // Walk the rows to wire prev/next through the test cases.
+              const curId = selectedEvaluation.currentRunValue?.evaluationId;
+              const idx = rows.findIndex((row) => row.original?.currentRunValue?.evaluationId === curId);
+              const evalIdAt = (j: number) => rows[j]?.original?.currentRunValue?.evaluationId;
+              return (
+                <TestCaseDetail
+                  evaluation={selectedEvaluation}
+                  experimentId={selectedEvaluationExperimentId ?? experimentId}
+                  assessmentInfos={assessmentInfos}
+                  onClose={() => onChangeEvaluationId(undefined)}
+                  onPrev={idx > 0 ? () => onChangeEvaluationId(evalIdAt(idx - 1)) : undefined}
+                  onNext={idx >= 0 && idx < rows.length - 1 ? () => onChangeEvaluationId(evalIdAt(idx + 1)) : undefined}
+                />
+              );
+            })()
           ) : (
             selectedEvaluationId &&
             selectedEvaluationExperimentId && (

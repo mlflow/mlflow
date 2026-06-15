@@ -84,6 +84,7 @@ export {
   formatTraceId,
   getSpansLocation,
   TRACKING_STORE_SPANS_LOCATION,
+  RESULT_ASSESSMENT_NAME,
 } from './utils/TraceUtils';
 
 export {
@@ -106,6 +107,7 @@ export {
   ISSUES_COLUMN_ID,
   GIT_BRANCH_COLUMN_ID,
   GIT_COMMIT_COLUMN_ID,
+  createAssessmentColumnId,
 } from './hooks/useTableColumns';
 
 export { ExperimentViewTracesStatusLabels } from './cellRenderers/StatusRenderer';

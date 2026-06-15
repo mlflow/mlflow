@@ -227,6 +227,7 @@ export const useMlflowTracesTableMetadata = ({
   disabled,
   networkFilters,
   filterByAssessmentSourceRun = false,
+  synthesizeResult = false,
 }: {
   locations: ModelTraceSearchLocation[];
   runUuid?: string;
@@ -253,6 +254,12 @@ export const useMlflowTracesTableMetadata = ({
    * Defaults to false for other tabs (traces, labeling, etc.).
    */
   filterByAssessmentSourceRun?: boolean;
+  /**
+   * If true, adds a synthetic per-trace "Result" assessment (pass iff all the
+   * trace's assertions pass) used by the regression-test view. Defaults to
+   * false so ordinary evaluation runs are unaffected.
+   */
+  synthesizeResult?: boolean;
 }) => {
   const intl = useIntl();
   const filter = createMlflowSearchFilter(runUuid, timeRange, networkFilters, filterByLoggedModelId);
@@ -300,16 +307,16 @@ export const useMlflowTracesTableMetadata = ({
     if (!filteredTraces || isInnerLoading || error || !filteredTraces.length) {
       return [];
     }
-    return filteredTraces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace));
-  }, [filteredTraces, isInnerLoading, error]);
+    return filteredTraces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace, { synthesizeResult }));
+  }, [filteredTraces, isInnerLoading, error, synthesizeResult]);
 
   const otherEvaluatedTraces = useMemo(() => {
     const isOtherLoading = isOtherInnerLoading && Boolean(otherRunUuid);
     if (!filteredOtherTraces || isOtherLoading || otherError || !filteredOtherTraces.length) {
       return [];
     }
-    return filteredOtherTraces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace));
-  }, [filteredOtherTraces, isOtherInnerLoading, otherError, otherRunUuid]);
+    return filteredOtherTraces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace, { synthesizeResult }));
+  }, [filteredOtherTraces, isOtherInnerLoading, otherError, otherRunUuid, synthesizeResult]);
 
   const assessmentInfos = useMemo(() => {
     return getAssessmentInfos(intl, evaluatedTraces || [], otherEvaluatedTraces || []);

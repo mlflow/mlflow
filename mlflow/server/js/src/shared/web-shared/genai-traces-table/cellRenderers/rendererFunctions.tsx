@@ -6,6 +6,8 @@ import type { FormatDateOptions } from 'react-intl';
 import type { ThemeType } from '@databricks/design-system';
 import {
   ArrowRightIcon,
+  CheckCircleIcon,
+  HoverCard,
   Overflow,
   Spinner,
   Tag,
@@ -13,6 +15,7 @@ import {
   Typography,
   useDesignSystemTheme,
   UserIcon,
+  XCircleIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl, type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
@@ -35,6 +38,7 @@ import { TagsCellRenderer } from './Tags/TagsCellRenderer';
 import { TokensCell } from './TokensCell';
 import { getTraceInfoValueWithColId } from '../GenAiTracesTable.utils';
 import { compareAssessmentValues, formatResponseTitle } from '../GenAiTracesTableBody.utils';
+import { isPassingAssessmentValue, readTraceTag, RESULT_ASSESSMENT_NAME } from '../utils/TraceUtils';
 import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import {
   getEvaluationResultAssessmentValue,
@@ -117,6 +121,88 @@ export const assessmentCellRenderer = (
   comparisonEntry: EvalTraceComparisonEntry,
 ) => {
   const assessmentName = assessmentInfo.name;
+
+  // Regression-test "Result" column: show N/M assertions passed (+ icon) per
+  // row, tallied from the row's scorer assessments. The column header still
+  // renders the standard pass-fail graph off the synthetic Result value. Only
+  // reached when the data layer synthesized a "Result" assessment (test mode).
+  if (assessmentName === RESULT_ASSESSMENT_NAME) {
+    const breakdown = (runValue: typeof comparisonEntry.currentRunValue) => {
+      const byName = runValue?.responseAssessmentsByName ?? {};
+      const rows: { label: string; passed: boolean }[] = [];
+      for (const name of Object.keys(byName)) {
+        if (name === RESULT_ASSESSMENT_NAME) continue;
+        for (const r of byName[name] ?? []) {
+          const label =
+            name !== 'guidelines'
+              ? name
+              : ((r as any)?.metadata?.['guideline'] ?? (r as any)?.metadata?.['guidelines'] ?? r?.rationale ?? name);
+          const displayLabel = typeof label === 'string' ? label : JSON.stringify(label);
+          rows.push({
+            label: displayLabel.length > 80 ? `${displayLabel.slice(0, 77)}...` : displayLabel,
+            passed: isPassingAssessmentValue(getEvaluationResultAssessmentValue(r)),
+          });
+        }
+      }
+      return rows;
+    };
+    const badge = (runValue: typeof comparisonEntry.currentRunValue) => {
+      const rows = breakdown(runValue);
+      const total = rows.length;
+      if (total === 0) return null;
+      const passed = rows.filter((r) => r.passed).length;
+      const allPassed = passed === total;
+      const tag = (
+        <Tag
+          componentId="mlflow.genai-traces-table.result"
+          color={allPassed ? 'turquoise' : 'coral'}
+          css={{
+            margin: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            width: 'fit-content',
+            cursor: 'default',
+          }}
+        >
+          {allPassed ? (
+            <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess }} />
+          ) : (
+            <XCircleIcon css={{ color: theme.colors.textValidationDanger }} />
+          )}
+          {passed}/{total}
+        </Tag>
+      );
+      // Hover shows the per-assertion breakdown (name + pass/fail, no rationale).
+      return (
+        <HoverCard
+          side="bottom"
+          content={
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, maxWidth: '22rem' }}>
+              {rows.map((row, i) => (
+                <div key={i} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                  {row.passed ? (
+                    <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess }} />
+                  ) : (
+                    <XCircleIcon css={{ color: theme.colors.textValidationDanger }} />
+                  )}
+                  <Typography.Text css={{ wordBreak: 'break-word' }}>{row.label}</Typography.Text>
+                </div>
+              ))}
+            </div>
+          }
+          trigger={tag}
+        />
+      );
+    };
+    return (
+      <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+        {badge(comparisonEntry.currentRunValue)}
+        {isComparing && badge(comparisonEntry.otherRunValue)}
+      </div>
+    );
+  }
+
   const assessment = {
     currentValue: first(comparisonEntry.currentRunValue?.responseAssessmentsByName[assessmentName]),
     otherValue: first(comparisonEntry.otherRunValue?.responseAssessmentsByName[assessmentName]),
@@ -721,8 +807,21 @@ export const traceInfoCellRenderer = (
       />
     );
   } else if (colId === TRACE_ID_COLUMN_ID) {
-    const value = currentTraceInfo?.trace_id;
-    const otherValue = otherTraceInfo?.trace_id;
+    // Regression-test view: display the test name (from the mlflow.test.* tags)
+    // when present, but keep the real trace id for click/navigation. Falls back
+    // to the trace id for ordinary runs, so this is a no-op outside test runs.
+    const testDisplayName = (info?: ModelTraceInfoV3): string | undefined => {
+      const name = readTraceTag(info, 'mlflow.test.name');
+      if (!name) return undefined;
+      const caseId = readTraceTag(info, 'mlflow.test.case_id');
+      return caseId ? `${name}[${caseId}]` : name;
+    };
+    const navId = currentTraceInfo?.trace_id;
+    const otherNavId = otherTraceInfo?.trace_id;
+    const testName = testDisplayName(currentTraceInfo);
+    const otherTestName = testDisplayName(otherTraceInfo);
+    const value = testName ?? navId;
+    const otherValue = otherTestName ?? otherNavId;
     const displayValue = value && searchQuery ? highlightSearchInText(value, searchQuery) : value;
     const displayOtherValue = otherValue && searchQuery ? highlightSearchInText(otherValue, searchQuery) : otherValue;
     return (
@@ -732,8 +831,9 @@ export const traceInfoCellRenderer = (
             <Tag
               css={{ width: 'fit-content', maxWidth: '100%' }}
               componentId="mlflow.genai-traces-table.trace-id"
-              color="indigo"
-              onClick={() => onChangeEvaluationId(value, currentTraceInfo)}
+              color={testName ? 'purple' : 'indigo'}
+              title={value}
+              onClick={() => navId && onChangeEvaluationId(navId, currentTraceInfo)}
             >
               <span
                 css={{
@@ -756,9 +856,9 @@ export const traceInfoCellRenderer = (
             <Tag
               css={{ width: 'fit-content', maxWidth: '100%' }}
               componentId="mlflow.genai-traces-table.trace-id"
-              color="indigo"
+              color={otherTestName ? 'purple' : 'indigo'}
               title={otherValue}
-              onClick={() => onChangeEvaluationId(otherValue, otherTraceInfo)}
+              onClick={() => otherNavId && onChangeEvaluationId(otherNavId, otherTraceInfo)}
             >
               <span
                 css={{
