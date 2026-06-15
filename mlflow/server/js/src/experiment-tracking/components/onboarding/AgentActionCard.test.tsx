@@ -8,6 +8,7 @@ import { AgentActionCard } from './AgentActionCard';
 const mockOpenPanel = jest.fn();
 const mockSendMessage = jest.fn();
 let mockSetupComplete = true;
+let mockIsLocalServer = true;
 
 jest.mock('../../../assistant', () => ({
   __esModule: true,
@@ -23,7 +24,7 @@ jest.mock('../../../assistant', () => ({
     currentStatus: null,
     activeTools: [],
     isLoadingConfig: false,
-    isLocalServer: true,
+    isLocalServer: mockIsLocalServer,
     closePanel: jest.fn(),
     regenerateLastMessage: jest.fn(),
     reset: jest.fn(),
@@ -53,6 +54,7 @@ beforeEach(() => {
   mockOpenPanel.mockClear();
   mockSendMessage.mockClear();
   mockSetupComplete = true;
+  mockIsLocalServer = true;
 });
 
 describe('AgentActionCard', () => {
@@ -67,6 +69,16 @@ describe('AgentActionCard', () => {
     expect(assistantTab).toBeInTheDocument();
     // Sparkle should be inside the assistant trigger (only one in the card now).
     expect(screen.getByTestId('assistant-sparkle-icon')).toBeInTheDocument();
+  });
+
+  it('hides the MLflow assistant tab when not on a local server', () => {
+    mockIsLocalServer = false;
+    renderCard();
+    // Trigger (and its icon) gone...
+    expect(screen.queryByRole('tab', { name: /MLflow assistant/ })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('assistant-sparkle-icon')).not.toBeInTheDocument();
+    // ...and the Tab.Content too — the "Open assistant" button must not be in the DOM either.
+    expect(screen.queryByText('Open assistant')).not.toBeInTheDocument();
   });
 
   it('hides the one-line setup tab by default and shows it when showAgentSetupTab is true', () => {
