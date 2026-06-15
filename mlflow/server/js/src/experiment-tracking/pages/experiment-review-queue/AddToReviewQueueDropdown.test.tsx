@@ -165,8 +165,9 @@ describe('AddToReviewQueueDropdown', () => {
       }
       return undefined;
     };
+    // The link deep-links to the queue the traces landed in, not just the tab.
     expect(findLinkTarget(toastNode)).toBe(
-      generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId: 'exp-1' }),
+      `${generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId: 'exp-1' })}?selectedQueueId=rq-default`,
     );
   });
 

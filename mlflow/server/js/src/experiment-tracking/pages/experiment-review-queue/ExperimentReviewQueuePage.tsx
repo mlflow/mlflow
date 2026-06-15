@@ -25,6 +25,7 @@ import { useUpdateReviewQueueMutation } from './hooks/useUpdateReviewQueueMutati
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
 import { DEFAULT_REVIEWER, displayUser, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
+import { useSelectedReviewQueueBySearchParam } from './hooks/useSelectedReviewQueueBySearchParam';
 import { canDeleteQueue, canManageQueue, canRemoveQueueItems, sameUser } from './queuePermissions';
 import { useHeaderVisibility } from '../experiment-page-tabs/ExperimentPageHeaderVisibilityContext';
 import type { ReviewQueueItem, ReviewStatus } from './types';
@@ -51,7 +52,9 @@ const ExperimentReviewQueuePage = () => {
   const canManage = useCanManageReviews(experimentId ?? '');
   const canEdit = useCanEditReviews(experimentId ?? '');
 
-  const [selectedQueueIdState, setSelectedQueueIdState] = useState<string>();
+  // Selection lives in the URL (?selectedQueueId=...) so it's shareable and the
+  // "Added to review" toast can deep-link to the queue the traces landed in.
+  const [selectedQueueId, setSelectedQueueId] = useSelectedReviewQueueBySearchParam();
   // The trace open in focused review (null = show the queue's trace table).
   const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
@@ -98,17 +101,26 @@ const ExperimentReviewQueuePage = () => {
   // fallback while `/users/current` is still in flight.
   const didAutoSelectQueue = useRef(false);
   useEffect(() => {
-    if (didAutoSelectQueue.current || selectedQueueIdState !== undefined || queuesLoading || !reviewerResolved) {
+    if (queuesLoading || !reviewerResolved) {
+      return;
+    }
+    // A stale/invalid ?selectedQueueId= (a deleted queue, or one a deep link
+    // points at that this reviewer can't see) would otherwise leave the pane stuck
+    // on the empty "select a queue" state. Clear it so the auto-select below can
+    // fall back to the reviewer's own queue.
+    if (selectedQueueId !== undefined && !reviewQueues.some((q) => q.queue_id === selectedQueueId)) {
+      setSelectedQueueId(undefined);
+      return;
+    }
+    if (didAutoSelectQueue.current || selectedQueueId !== undefined) {
       return;
     }
     const userQueue = reviewQueues.find((q) => q.queue_type === 'USER' && sameUser(q.name, reviewer));
     if (userQueue) {
       didAutoSelectQueue.current = true;
-      setSelectedQueueIdState(userQueue.queue_id);
+      setSelectedQueueId(userQueue.queue_id);
     }
-  }, [selectedQueueIdState, queuesLoading, reviewerResolved, reviewQueues, reviewer]);
-
-  const selectedQueueId = selectedQueueIdState;
+  }, [selectedQueueId, queuesLoading, reviewerResolved, reviewQueues, reviewer, setSelectedQueueId]);
   const selectedQueue = useMemo(
     () => reviewQueues.find((q) => q.queue_id === selectedQueueId) ?? null,
     [reviewQueues, selectedQueueId],
@@ -152,7 +164,7 @@ const ExperimentReviewQueuePage = () => {
         onSuccess: () => {
           // Drop the selection if the queue that was open got deleted.
           if (selectedQueueId === queueId) {
-            setSelectedQueueIdState(undefined);
+            setSelectedQueueId(undefined);
             setOpenItemId(null);
           }
         },
@@ -247,7 +259,7 @@ const ExperimentReviewQueuePage = () => {
   }, [inFocusMode, setHeaderHidden]);
 
   const selectQueue = (queueId: string) => {
-    setSelectedQueueIdState(queueId);
+    setSelectedQueueId(queueId);
     setOpenItemId(null);
   };
 

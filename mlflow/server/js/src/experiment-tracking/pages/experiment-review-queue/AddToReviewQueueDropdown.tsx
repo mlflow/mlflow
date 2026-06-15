@@ -32,6 +32,7 @@ import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueue
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
 import { DEFAULT_REVIEWER, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
+import { SELECTED_REVIEW_QUEUE_ID_QUERY_PARAM_KEY } from './hooks/useSelectedReviewQueueBySearchParam';
 import type { ReviewQueue } from './types';
 
 const CID = 'mlflow.experiment-review-queue.add-to-queue';
@@ -255,27 +256,35 @@ export const AddToReviewQueueDropdown = ({
     toggleCustomQueue(queue.queue_id);
   };
 
-  const showSuccessToast = useCallback(() => {
-    const reviewQueuePath = generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId });
-    Utils.displayGlobalInfoNotification(
-      <span css={{ whiteSpace: 'nowrap' }}>
-        {intl.formatMessage(
-          {
-            defaultMessage: 'Added {count, plural, one {# trace} other {# traces}} to review.',
-            description: 'Add to review queue: success toast after traces are added',
-          },
-          { count: itemIds.length },
-        )}{' '}
-        <Link componentId={`${CID}.toast-view-queue`} to={reviewQueuePath}>
-          {intl.formatMessage({
-            defaultMessage: 'View review queue',
-            description: 'Add to review queue: success toast link to the review queue page',
-          })}
-        </Link>
-      </span>,
-      3,
-    );
-  }, [experimentId, itemIds.length, intl]);
+  const showSuccessToast = useCallback(
+    (targetQueueId: string) => {
+      const reviewQueuePath = generatePath(RoutePaths.experimentPageTabReviewQueue, { experimentId });
+      // Deep-link to the queue the traces landed in (not just the tab), so the
+      // page opens on that queue instead of auto-selecting the default. Build the
+      // query with URLSearchParams so it encodes exactly how the page reads it back.
+      const params = new URLSearchParams({ [SELECTED_REVIEW_QUEUE_ID_QUERY_PARAM_KEY]: targetQueueId });
+      const to = `${reviewQueuePath}?${params.toString()}`;
+      Utils.displayGlobalInfoNotification(
+        <span css={{ whiteSpace: 'nowrap' }}>
+          {intl.formatMessage(
+            {
+              defaultMessage: 'Added {count, plural, one {# trace} other {# traces}} to review.',
+              description: 'Add to review queue: success toast after traces are added',
+            },
+            { count: itemIds.length },
+          )}{' '}
+          <Link componentId={`${CID}.toast-view-queue`} to={to}>
+            {intl.formatMessage({
+              defaultMessage: 'View review queue',
+              description: 'Add to review queue: success toast link to the review queue page',
+            })}
+          </Link>
+        </span>,
+        3,
+      );
+    },
+    [experimentId, itemIds.length, intl],
+  );
 
   const markBusy = (id: string) => setBusyIds((prev) => new Set(prev).add(id));
   const clearBusy = (id: string) =>
@@ -301,7 +310,7 @@ export const AddToReviewQueueDropdown = ({
       } else {
         await addItemsToReviewQueueAsync({ queue_id: queueId, item_ids: itemIds });
         setAddedQueueIds((prev) => new Set(prev).add(queueId));
-        showSuccessToast();
+        showSuccessToast(queueId);
       }
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : String(e));
@@ -331,7 +340,7 @@ export const AddToReviewQueueDropdown = ({
       } else {
         await addItemsToReviewQueueAsync({ queue_id: review_queue.queue_id, item_ids: itemIds });
         setAddedUsers((prev) => new Set(prev).add(username));
-        showSuccessToast();
+        showSuccessToast(review_queue.queue_id);
       }
     } catch (e) {
       setSubmitError(e instanceof Error ? e.message : String(e));
