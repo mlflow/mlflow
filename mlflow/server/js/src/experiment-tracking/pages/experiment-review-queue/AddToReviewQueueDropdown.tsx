@@ -24,7 +24,7 @@ import Utils from '../../../common/utils/Utils';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { getQueueAssignability } from './queueAssignability';
-import { canRemoveQueueItems, sameUser } from './queuePermissions';
+import { canRemoveQueueItems, normalizeUser, sameUser } from './queuePermissions';
 import { useAddItemsToReviewQueueMutation } from './hooks/useAddItemsToReviewQueueMutation';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
@@ -154,7 +154,7 @@ export const AddToReviewQueueDropdown = ({
     () => memberQueues.filter((q) => q.queue_type === 'USER').map((q) => q.name),
     [memberQueues],
   );
-  const memberUserSet = useMemo(() => new Set(memberUserNames.map((n) => n.toLowerCase())), [memberUserNames]);
+  const memberUserSet = useMemo(() => new Set(memberUserNames.map(normalizeUser)), [memberUserNames]);
   // While a single trace's memberships are still loading we don't yet know which
   // rows are checked/locked, so disable toggling to avoid e.g. adding to a queue
   // the reviewer only meant to remove from. Bulk selections never query this.
@@ -172,7 +172,9 @@ export const AddToReviewQueueDropdown = ({
     // section (canListUsers) on an auth server, or just the pinned `default`
     // queue on no-auth. Seeding an invisible user would be unreachable state.
     const seedableUsers = canListUsers ? memberUserNames : memberUserNames.filter((n) => sameUser(n, DEFAULT_REVIEWER));
-    setAddedUsers(new Set(seedableUsers));
+    // `addedUsers` is keyed on the normalized (lowercase) name, matching the row
+    // checks and `toggleUserQueue`, so a roster row's display casing still matches.
+    setAddedUsers(new Set(seedableUsers.map(normalizeUser)));
   }, [isOpen, singleItemId, membersLoading, memberQueueIds, memberUserNames, canListUsers]);
 
   // Shared queues anyone can route into. The no-auth catch-all (the reserved
@@ -220,7 +222,7 @@ export const AddToReviewQueueDropdown = ({
         (u) =>
           !sameUser(u.username, reviewer) &&
           // Members are listed separately (checked) above the search results.
-          !memberUserSet.has(u.username.toLowerCase()) &&
+          !memberUserSet.has(normalizeUser(u.username)) &&
           u.username.toLowerCase().includes(query),
       )
       .slice(0, MAX_USER_MATCHES);
@@ -325,9 +327,14 @@ export const AddToReviewQueueDropdown = ({
   };
 
   const toggleUserQueue = async (username: string) => {
-    if (busyIds.has(username) || !reviewerResolved || itemIds.length === 0) return;
-    markBusy(username);
-    const alreadyAdded = addedUsers.has(username);
+    // Identity is case-insensitive: the server stores a user queue's name
+    // lowercased while the roster carries display case. Key the local checked /
+    // busy state on the normalized name so a row's checked state (and therefore
+    // whether a toggle adds or removes) is correct regardless of casing.
+    const key = normalizeUser(username);
+    if (busyIds.has(key) || !reviewerResolved || itemIds.length === 0) return;
+    markBusy(key);
+    const alreadyAdded = addedUsers.has(key);
     try {
       const { review_queue } = await getOrCreateUserQueueAsync({
         experiment_id: experimentId,
@@ -338,18 +345,18 @@ export const AddToReviewQueueDropdown = ({
         await removeItemsFromReviewQueueAsync({ queue_id: review_queue.queue_id, item_ids: itemIds });
         setAddedUsers((prev) => {
           const next = new Set(prev);
-          next.delete(username);
+          next.delete(key);
           return next;
         });
       } else {
         await addItemsToReviewQueueAsync({ queue_id: review_queue.queue_id, item_ids: itemIds });
-        setAddedUsers((prev) => new Set(prev).add(username));
+        setAddedUsers((prev) => new Set(prev).add(key));
         showSuccessToast(review_queue.queue_id);
       }
     } catch (e) {
       showErrorToast(e);
     } finally {
-      clearBusy(username);
+      clearBusy(key);
     }
   };
 
@@ -546,8 +553,8 @@ export const AddToReviewQueueDropdown = ({
                           <DialogComboboxOptionListCheckboxItem
                             key={`member-${username}`}
                             value={username}
-                            checked={addedUsers.has(username)}
-                            disabled={!canManage || busyIds.has(username) || membershipPending}
+                            checked={addedUsers.has(normalizeUser(username))}
+                            disabled={!canManage || busyIds.has(normalizeUser(username)) || membershipPending}
                             disabledReason={!canManage ? lockedMemberReason : undefined}
                             onChange={() => toggleUserQueue(username)}
                           >
@@ -587,8 +594,10 @@ export const AddToReviewQueueDropdown = ({
                               <DialogComboboxOptionListCheckboxItem
                                 key={u.username}
                                 value={u.username}
-                                checked={addedUsers.has(u.username)}
-                                disabled={!inheritAllAssignable || busyIds.has(u.username) || membershipPending}
+                                checked={addedUsers.has(normalizeUser(u.username))}
+                                disabled={
+                                  !inheritAllAssignable || busyIds.has(normalizeUser(u.username)) || membershipPending
+                                }
                                 disabledReason={inheritAllAssignable ? undefined : reasonText('no-experiment-schemas')}
                                 onChange={() => toggleUserQueue(u.username)}
                               >
