@@ -157,6 +157,8 @@ async def test_astream_builds_correct_command(tmp_path, monkeypatch):
         call_args[i + 1] for i, arg in enumerate(call_args) if arg == "--allowed-tools"
     ]
     assert "Skill" in allowed_tools
+    # Verify /tmp reads are allowed by default (without enabling file edits)
+    assert "Read(//tmp/**)" in allowed_tools
 
     # Verify cwd and tracking URI env var are passed correctly
     call_kwargs = mock_exec.call_args[1]

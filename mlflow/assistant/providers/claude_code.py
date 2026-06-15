@@ -39,6 +39,9 @@ _logger = logging.getLogger(__name__)
 BASE_ALLOWED_TOOLS = [
     "Bash(mlflow:*)",
     "Skill",  # Skill tool needs to be explicitly allowed
+    # Always allow reading /tmp so the assistant can inspect scratch output
+    # (e.g. large command results dumped there) without file-edit permissions.
+    "Read(//tmp/**)",
 ]
 FILE_EDIT_TOOLS = [
     # Allow writing evaluation scripts, editing code, reading
@@ -50,7 +53,6 @@ FILE_EDIT_TOOLS = [
     # can be analyzed with bash commands (e.g. grep, jq) without
     # loading full contents into context
     "Edit(//tmp/**)",
-    "Read(//tmp/**)",
     "Write(//tmp/**)",
 ]
 DOCS_TOOLS = ["WebFetch(domain:mlflow.org)"]
@@ -160,6 +162,11 @@ For querying and reading MLflow data (experiments, runs, traces, metrics, etc.):
 * If the CLI cannot accomplish the task, fall back to the MLflow SDK.
 * When working with large output, write it to files /tmp and use
   bash commands to analyze the files, rather than reading the full contents into context.
+* When reading a single trace, prefer `mlflow traces get --trace-id <id> --jq '<filter>'`
+  to return only the part you need (this applies the jq filter inside the command, so you
+  do NOT redirect to a file or pipe to jq yourself). Span status is OTLP-style, so errored
+  spans are selected with `[.data.spans[] | select(.status.code=="STATUS_CODE_ERROR") | .name]`.
+  Do NOT fetch the full trace JSON into context unless you genuinely need all of it.
 
 ### MLflow Write Operations
 

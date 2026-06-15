@@ -67,6 +67,8 @@ For detailed help on any command, use:
 
 import json
 import os
+import shutil
+import subprocess
 import warnings
 from typing import Literal
 
@@ -384,6 +386,16 @@ def search_traces(
     "If not specified, returns all trace data.",
 )
 @click.option(
+    "--jq",
+    "jq_filter",
+    type=click.STRING,
+    help="Apply a jq filter to the trace JSON and print only the result. "
+    "Requires the 'jq' command (install with: brew install jq). More expressive than "
+    "--extract-fields (supports predicate filters and reshaping). Span status is "
+    'OTLP-style (e.g. status.code == "STATUS_CODE_ERROR"). '
+    "Takes precedence over --extract-fields if both are given.",
+)
+@click.option(
     "--verbose",
     is_flag=True,
     help="Show all available fields in error messages when invalid fields are specified.",
@@ -391,6 +403,7 @@ def search_traces(
 def get_trace(
     trace_id: str,
     extract_fields: str | None = None,
+    jq_filter: str | None = None,
     verbose: bool = False,
 ) -> None:
     """
@@ -405,12 +418,34 @@ def get_trace(
     # Get specific fields only
     mlflow traces get --trace-id tr-1234567890abcdef \\
         --extract-fields "info.trace_id,info.assessments.*,data.spans.*.name"
+
+    \b
+    # Filter with a jq expression (requires `jq`). Span status is OTLP-style.
+    mlflow traces get --trace-id tr-1234567890abcdef \\
+        --jq '[.data.spans[] | select(.status.code=="STATUS_CODE_ERROR") | .name]'
     """
     client = TracingClient()
     trace = client.get_trace(trace_id)
     trace_dict = trace.to_dict()
 
-    if extract_fields:
+    if jq_filter:
+        jq_path = shutil.which("jq")
+        if jq_path is None:
+            raise click.UsageError(
+                "--jq requires the 'jq' command, which was not found. "
+                "Install it with: brew install jq"
+            )
+        proc = subprocess.run(
+            [jq_path, jq_filter],
+            input=json.dumps(trace_dict),
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            raise click.UsageError(f"jq error: {proc.stderr.strip()}")
+        click.echo(proc.stdout, nl=False)
+        return
+    elif extract_fields:
         field_list = [f.strip() for f in extract_fields.split(",")]
         # Validate fields against trace data
         try:
