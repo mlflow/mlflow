@@ -6,6 +6,7 @@ import {
   CheckCircleIcon,
   DropdownMenu,
   GearIcon,
+  LinkOffIcon,
   NewWindowIcon,
   PlusIcon,
   SearchIcon,
@@ -16,7 +17,7 @@ import {
   TableHeader,
   TableRow,
   Tag,
-  TrashIcon,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -346,20 +347,30 @@ export const ReviewQueueList = ({
             </Button>
           )}
           {selectable && selected.size > 0 && (
-            <Button
-              componentId={`${CID}.delete-selected`}
-              danger
-              icon={<TrashIcon />}
-              disabled={isRemovingItems}
-              loading={isRemovingItems}
-              onClick={handleDelete}
+            <Tooltip
+              componentId={`${CID}.unassign-selected.tooltip`}
+              content={intl.formatMessage(
+                {
+                  defaultMessage: 'Unassign {count, plural, one {# trace} other {# traces}} from the queue',
+                  description:
+                    'Review queue: tooltip explaining that the button removes the selected traces from the queue (the traces themselves are not deleted)',
+                },
+                { count: selected.size },
+              )}
             >
-              <FormattedMessage
-                defaultMessage="Remove {count, plural, one {# trace} other {# traces}}"
-                description="Review queue: remove selected traces button"
-                values={{ count: selected.size }}
-              />
-            </Button>
+              <Button
+                componentId={`${CID}.delete-selected`}
+                icon={<LinkOffIcon />}
+                disabled={isRemovingItems}
+                loading={isRemovingItems}
+                onClick={handleDelete}
+              >
+                <FormattedMessage
+                  defaultMessage="Unassign"
+                  description="Review queue: button that removes the selected traces from the queue (the traces themselves are not deleted)"
+                />
+              </Button>
+            </Tooltip>
           )}
         </div>
       )}

@@ -3495,6 +3495,10 @@
     "defaultMessage": "Predict on a Pandas DataFrame:",
     "description": "Section heading to display the code block on how we can use registered model to predict using pandas DataFrame"
   },
+  "GYxv/z": {
+    "defaultMessage": "Unassign {count, plural, one {# trace} other {# traces}} from the queue",
+    "description": "Review queue: tooltip explaining that the button removes the selected traces from the queue (the traces themselves are not deleted)"
+  },
   "GbEHyg": {
     "defaultMessage": "Name",
     "description": "Section title for endpoint name"
@@ -5743,10 +5747,6 @@
     "defaultMessage": "Reviewed",
     "description": "Review queue status: complete"
   },
-  "SlI2G2": {
-    "defaultMessage": "Remove {count, plural, one {# trace} other {# traces}}",
-    "description": "Review queue: remove selected traces button"
-  },
   "Sm0bXt": {
     "defaultMessage": "None",
     "description": "Label for a user_frustration assessment with 'none' value"
@@ -6130,6 +6130,10 @@
   "UnQIPJ": {
     "defaultMessage": "Created: {date}",
     "description": "Issue creation date label"
+  },
+  "Uod74j": {
+    "defaultMessage": "Unassign",
+    "description": "Review queue: button that removes the selected traces from the queue (the traces themselves are not deleted)"
   },
   "UpVskF": {
     "defaultMessage": "Expectations",
