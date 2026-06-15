@@ -2,6 +2,7 @@ import {
   artifactUriToLocalPath,
   getArtifactUriScheme,
   isLocalArtifactUri,
+  toAbsoluteLocalPath,
 } from '../../../src/core/utils/artifact_uri';
 
 describe('artifact_uri helpers', () => {
@@ -53,6 +54,19 @@ describe('artifact_uri helpers', () => {
       );
       // Percent-encoded spaces are decoded.
       expect(artifactUriToLocalPath('file:///tmp/with%20space/0')).toBe('/tmp/with space/0');
+    });
+  });
+
+  describe('toAbsoluteLocalPath', () => {
+    it('returns absolute bare paths and file:// URIs unchanged', () => {
+      expect(toAbsoluteLocalPath('/tmp/mlflow-artifacts/0')).toBe('/tmp/mlflow-artifacts/0');
+      expect(toAbsoluteLocalPath('file:///tmp/mlflow-artifacts/0')).toBe('/tmp/mlflow-artifacts/0');
+    });
+
+    it('throws for relative paths', () => {
+      expect(() => toAbsoluteLocalPath('relative/path')).toThrow(
+        /Refusing to use a relative local artifact location/,
+      );
     });
   });
 });

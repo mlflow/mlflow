@@ -1,11 +1,11 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { TraceTagKey } from '../../core/constants';
 import { SerializedTraceData, TraceData } from '../../core/entities/trace_data';
 import { TraceInfo } from '../../core/entities/trace_info';
 import { JSONBig } from '../../core/utils/json';
 import { makeRequest } from '../utils';
-import { artifactUriToLocalPath, isLocalArtifactUri } from '../../core/utils/artifact_uri';
+import { isLocalArtifactUri, toAbsoluteLocalPath } from '../../core/utils/artifact_uri';
 import { ArtifactsClient } from './base';
 import { AuthProvider, HeadersProvider } from '../../auth';
 
@@ -46,7 +46,6 @@ export class MlflowArtifactsClient implements ArtifactsClient {
       return;
     }
 
-    // Serialize trace data to JSON string (equivalent to Python's json.dumps)
     const traceDataJson = traceData.toJson();
 
     const artifactUrl = this.resolveArtifactUri(artifactUri, TRACE_DATA_FILE_NAME);
@@ -57,7 +56,7 @@ export class MlflowArtifactsClient implements ArtifactsClient {
    * Write trace data to a local filesystem artifact location.
    */
   private async uploadTraceDataLocal(artifactUri: string, traceData: TraceData): Promise<void> {
-    const dir = artifactUriToLocalPath(artifactUri);
+    const dir = toAbsoluteLocalPath(artifactUri);
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, TRACE_DATA_FILE_NAME), JSONBig.stringify(traceData.toJson()), 'utf8');
   }
@@ -72,8 +71,14 @@ export class MlflowArtifactsClient implements ArtifactsClient {
    * @returns The downloaded and parsed trace data
    */
   async downloadTraceData(traceInfo: TraceInfo): Promise<TraceData> {
+    const artifactUri = this.getArtifactLocation(traceInfo);
+
+    if (isLocalArtifactUri(artifactUri)) {
+      return this.downloadTraceDataLocal(artifactUri);
+    }
+
     // Download the trace data file
-    const artifactUrl = this.getArtifactUrlForTrace(traceInfo);
+    const artifactUrl = this.resolveArtifactUri(artifactUri, TRACE_DATA_FILE_NAME);
     const traceDataJson = await makeRequest<SerializedTraceData>(
       'GET',
       artifactUrl,
@@ -91,17 +96,18 @@ export class MlflowArtifactsClient implements ArtifactsClient {
   }
 
   /**
-   * Construct the artifact URL from the trace info. The artifact location is set as a tag
-   * on the trace info by the backend.
-   *
-   * This implements the same URI resolution logic as Python's MlflowArtifactsRepository.resolve_uri()
-   * converting mlflow-artifacts:// URIs to HTTP endpoints.
+   * Read trace data from a local filesystem artifact location.
    */
-  private getArtifactUrlForTrace(traceInfo: TraceInfo): string {
-    const artifactUri = this.getArtifactLocation(traceInfo);
-
-    // Resolve mlflow-artifacts:// URI to HTTP endpoint
-    return this.resolveArtifactUri(artifactUri, TRACE_DATA_FILE_NAME);
+  private async downloadTraceDataLocal(artifactUri: string): Promise<TraceData> {
+    const filePath = join(toAbsoluteLocalPath(artifactUri), TRACE_DATA_FILE_NAME);
+    const contents = await readFile(filePath, 'utf8');
+    try {
+      return TraceData.fromJson(JSONBig.parse(contents) as SerializedTraceData);
+    } catch (error) {
+      throw new Error(
+        `Failed to parse trace data JSON: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**

@@ -147,6 +147,38 @@ describe('MlflowArtifactsClient', () => {
         'Expected mlflow-artifacts:// URI, got s3:',
       );
     });
+
+    it('refuses to write to a relative local artifact path', async () => {
+      const traceInfo = makeTraceInfo('relative/0/traces/tr-local/artifacts');
+      const traceData = new TraceData([]);
+
+      await expect(client.uploadTraceData(traceInfo, traceData)).rejects.toThrow(
+        /Refusing to use a relative local artifact location/,
+      );
+    });
+
+    it('round-trips trace data through a bare local path (upload then download)', async () => {
+      const artifactDir = join(tmpRoot, '0', 'traces', 'tr-local', 'artifacts');
+      const traceInfo = makeTraceInfo(artifactDir);
+
+      await client.uploadTraceData(traceInfo, new TraceData([]));
+      const result = await client.downloadTraceData(traceInfo);
+
+      expect(result).toBeInstanceOf(TraceData);
+      expect(result.spans).toHaveLength(0);
+    });
+
+    it('reads trace data from a file:// artifact location', async () => {
+      const artifactDir = join(tmpRoot, '0', 'traces', 'tr-local', 'artifacts');
+      const fileUri = pathToFileURL(artifactDir).href;
+      const traceInfo = makeTraceInfo(fileUri);
+
+      await client.uploadTraceData(traceInfo, new TraceData([]));
+      const result = await client.downloadTraceData(traceInfo);
+
+      expect(result).toBeInstanceOf(TraceData);
+      expect(result.spans).toHaveLength(0);
+    });
   });
 
   describe('downloadTraceData', () => {
