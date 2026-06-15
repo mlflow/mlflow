@@ -169,6 +169,60 @@ def patched_class_call(original, self, *args, **kwargs):
         return result
 
 
+async def patched_model_request_capability(original, self, *args, **kwargs):
+    """Capture the LLM span on pydantic-ai >= 1.95.0.
+
+    pydantic-ai 1.95.0 moved model-request instrumentation off ``InstrumentedModel``
+    and onto the ``Instrumentation`` capability. ``InstrumentedModel.request`` is no
+    longer in the call path; instead the capability's ``wrap_model_request`` hook is
+    invoked for both streaming and non-streaming model calls and returns the final
+    ``ModelResponse``. We keep the span named ``InstrumentedModel.request`` so the
+    trace shape is consistent with older pydantic-ai versions.
+    """
+    cfg = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
+    if not cfg.log_traces:
+        return await original(self, *args, **kwargs)
+
+    # wrap_model_request(self, ctx, *, request_context, handler)
+    ctx = args[0] if args else kwargs.get("ctx")
+    request_context = kwargs.get("request_context")
+
+    with mlflow.start_span(name="InstrumentedModel.request", span_type=SpanType.LLM) as span:
+        span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "pydantic_ai")
+        _set_model_request_attributes(span, ctx, request_context)
+
+        result = await original(self, *args, **kwargs)
+
+        span.set_outputs(_serialize_output(result))
+        if usage_dict := _parse_usage(result):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+        return result
+
+
+def _set_model_request_attributes(span: LiveSpan, ctx, request_context):
+    """Set model + input attributes for the capability-based LLM span (>= 1.95.0)."""
+    try:
+        model = getattr(ctx, "model", None)
+        if model is not None:
+            model_attrs = _get_model_attributes(model)
+            span.set_attributes({k: v for k, v in model_attrs.items() if v is not None})
+            if model_name := getattr(model, "model_name", None):
+                span.set_attribute(SpanAttributeKey.MODEL, model_name)
+                # On the concrete model the provider is exposed via `system`
+                # (e.g. "openai"); older InstrumentedModel used a "provider:model"
+                # model_name instead.
+                if provider := getattr(model, "system", None):
+                    span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
+    except Exception as e:
+        _logger.warning("Failed saving model attributes: %s", e)
+
+    try:
+        if request_context is not None and (messages := getattr(request_context, "messages", None)):
+            span.set_inputs({"messages": [asdict(m) for m in messages]})
+    except Exception as e:
+        _logger.debug("Failed to set model request inputs: %s", e)
+
+
 def patched_async_stream_call(original, self, *args, **kwargs):
     @asynccontextmanager
     async def _wrapper():

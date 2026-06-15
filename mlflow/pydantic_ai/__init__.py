@@ -8,6 +8,7 @@ from mlflow.pydantic_ai.autolog import (
     patched_async_class_call,
     patched_async_stream_call,
     patched_class_call,
+    patched_model_request_capability,
     patched_sync_stream_call,
 )
 from mlflow.telemetry.events import AutologgingEvent
@@ -180,6 +181,21 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
                 _patch_method(cls, method)
             except AttributeError as e:
                 _logger.error("Error patching %s.%s: %s", cls_path, method, e)
+
+    # pydantic-ai >= 1.95.0 moved model-request instrumentation off
+    # InstrumentedModel and onto the Instrumentation capability. The
+    # InstrumentedModel.request/request_stream patches above are no longer in the
+    # call path for these versions, so patch the capability's wrap_model_request
+    # hook to capture the LLM span. On older versions this module doesn't exist
+    # and the InstrumentedModel patches above still apply.
+    try:
+        from pydantic_ai.capabilities.instrumentation import Instrumentation
+
+        safe_patch(
+            FLAVOR_NAME, Instrumentation, "wrap_model_request", patched_model_request_capability
+        )
+    except ImportError:
+        pass
 
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
