@@ -37,18 +37,21 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
   const { deleteLabelSchema, isDeleting } = useDeleteLabelSchemaMutation();
   // Shares the cache with the Review tab's queue list (same query key), so this
   // is a cache hit; used to show which custom queues a deletion would affect.
+  // First page only (no maxResults), matching the Review tab; an experiment with
+  // more queues than the default page size would undercount the blast radius.
   const { reviewQueues } = useListReviewQueuesQuery({ experimentId });
 
   // The schema pending deletion confirmation; deleting a label schema is
   // experiment-wide (it removes the question from every queue), so it goes
   // through an explicit confirm rather than firing on the first click.
   const [pendingDelete, setPendingDelete] = useState<LabelSchema | null>(null);
-  // Custom queues that explicitly include the pending question (user queues
-  // inherit every question, so they aren't listed individually). Shown in the
-  // confirm so a manager sees exactly which queues a deletion touches.
+  // Custom queues that explicitly include the pending question (linked below).
+  // User queues inherit every question, so all of them are affected by a delete —
+  // we surface their count (not a list) so the manager sees the full blast radius.
   const affectedQueues = pendingDelete
     ? reviewQueues.filter((q) => q.queue_type === 'CUSTOM' && (q.schema_ids ?? []).includes(pendingDelete.schema_id))
     : [];
+  const userQueueCount = pendingDelete ? reviewQueues.filter((q) => q.queue_type === 'USER').length : 0;
   // The authoring modal: open with `null` to create, or a schema to edit.
   const [formOpen, setFormOpen] = useState(false);
   const [editingSchema, setEditingSchema] = useState<LabelSchema | null>(null);
@@ -217,16 +220,44 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
               description="Manage review questions: delete confirmation body"
               values={{ name: pendingDelete.name }}
             />
-            {affectedQueues.length > 0 && (
+            {affectedQueues.length > 0 ? (
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
                 <Typography.Text bold>
-                  <FormattedMessage
-                    defaultMessage="Used by {count, plural, one {# queue} other {# queues}}:"
-                    description="Manage review questions: heading above the list of queues that use the question being deleted"
-                    values={{ count: affectedQueues.length }}
-                  />
+                  {userQueueCount > 0 ? (
+                    // Each count is its own single-plural message, composed into a
+                    // plural-free sentence (formatjs disallows two plurals per message).
+                    <FormattedMessage
+                      defaultMessage="Used by {custom} and {user}:"
+                      description="Manage review questions: heading above the affected-queue list when the experiment also has user queues (which inherit every question)"
+                      values={{
+                        custom: intl.formatMessage(
+                          {
+                            defaultMessage: '{count, plural, one {# custom queue} other {# custom queues}}',
+                            description:
+                              'Manage review questions: count of custom queues using the question being deleted',
+                          },
+                          { count: affectedQueues.length },
+                        ),
+                        user: intl.formatMessage(
+                          {
+                            defaultMessage: '{count, plural, one {# user queue} other {# user queues}}',
+                            description:
+                              'Manage review questions: count of user queues affected by deleting the question',
+                          },
+                          { count: userQueueCount },
+                        ),
+                      }}
+                    />
+                  ) : (
+                    <FormattedMessage
+                      defaultMessage="Used by {count, plural, one {# queue} other {# queues}}:"
+                      description="Manage review questions: heading above the list of queues that use the question being deleted"
+                      values={{ count: affectedQueues.length }}
+                    />
+                  )}
                 </Typography.Text>
-                {/* Scrollable so a question used by many queues doesn't blow up the modal. */}
+                {/* Only custom queues are listed (user queues inherit every question);
+                    scrollable so a question used by many queues doesn't blow up the modal. */}
                 <div
                   css={{
                     maxHeight: 160,
@@ -254,6 +285,18 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
                   ))}
                 </div>
               </div>
+            ) : (
+              // No custom queue uses the question, but every user queue inherits it,
+              // so surface that count as a plain sentence (no list follows).
+              userQueueCount > 0 && (
+                <Typography.Text bold>
+                  <FormattedMessage
+                    defaultMessage="Inherited by {count, plural, one {# user queue} other {# user queues}}."
+                    description="Manage review questions: note shown when no custom queue uses the question but user queues (which inherit every question) do"
+                    values={{ count: userQueueCount }}
+                  />
+                </Typography.Text>
+              )
             )}
           </div>
         </Modal>
