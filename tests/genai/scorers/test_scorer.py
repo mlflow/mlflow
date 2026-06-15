@@ -529,3 +529,18 @@ def test_make_judge_scorer_works_without_databricks_uri():
     assert scorers[0].name == "helpfulness_judge"
 
     mlflow.delete_experiment(experiment_id)
+
+
+def test_scorer_pass_when_is_exposed():
+    @scorer(pass_when=lambda v: v >= 0.5)
+    def my_score(outputs):
+        return 0.6
+
+    assert my_score.pass_when is not None
+    assert my_score.pass_when(0.6) is True
+
+    @scorer
+    def plain(outputs):
+        return True
+
+    assert plain.pass_when is None
