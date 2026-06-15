@@ -16,7 +16,11 @@ import {
   useDesignSystemEventComponentCallbacks,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { ModelTraceExplorer, useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
+import {
+  ModelTraceExplorer,
+  ModelTraceExplorerPreferencesProvider,
+  useGetTracesById,
+} from '@databricks/web-shared/model-trace-explorer';
 import { GenAIMarkdownRenderer } from '../../../shared/web-shared/genai-markdown-renderer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
@@ -664,13 +668,20 @@ export const FocusedReview = ({
           }
           width="60vw"
         >
-          {trace ? (
-            <div css={{ height: '100%' }} onWheel={(e) => e.stopPropagation()}>
-              <ModelTraceExplorer modelTrace={trace} initialActiveView="detail" />
-            </div>
-          ) : (
-            <TableSkeleton lines={8} />
-          )}
+          {/* ModelTraceExplorer doesn't provide its own preferences context, so the
+              JSON/Table render-mode toggle is a no-op without this wrapper (other
+              consumers wrap it the same way). It sits outside the `trace` conditional
+              so a background refetch (which can momentarily clear `trace`) doesn't
+              remount it and reset the user's chosen render mode. */}
+          <ModelTraceExplorerPreferencesProvider>
+            {trace ? (
+              <div css={{ height: '100%' }} onWheel={(e) => e.stopPropagation()}>
+                <ModelTraceExplorer modelTrace={trace} initialActiveView="detail" />
+              </div>
+            ) : (
+              <TableSkeleton lines={8} />
+            )}
+          </ModelTraceExplorerPreferencesProvider>
         </Drawer.Content>
       </Drawer.Root>
     </div>
