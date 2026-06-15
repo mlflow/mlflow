@@ -77,21 +77,23 @@ export const StatusTag = ({ status }: { status: ReviewStatus }) => {
 };
 
 const formatAgo = (ms: number, nowMs: number, intl: IntlShape) => {
-  const seconds = Math.max(0, Math.round((nowMs - ms) / 1000));
+  // Floor each tier (not round): the label is "X ago", so it must never round up
+  // past its own threshold (e.g. 59.5 min must read "59m ago", not skip to "1h ago").
+  const seconds = Math.max(0, Math.floor((nowMs - ms) / 1000));
   if (seconds < 60) {
     return intl.formatMessage({
       defaultMessage: 'just now',
       description: 'Review queue table: date-added cell, less than a minute ago',
     });
   }
-  const minutes = Math.round(seconds / 60);
+  const minutes = Math.floor(seconds / 60);
   if (minutes < 60) {
     return intl.formatMessage(
       { defaultMessage: '{minutes}m ago', description: 'Review queue table: date-added cell, minutes ago' },
       { minutes },
     );
   }
-  const hours = Math.round(minutes / 60);
+  const hours = Math.floor(minutes / 60);
   if (hours < 24) {
     return intl.formatMessage(
       { defaultMessage: '{hours}h ago', description: 'Review queue table: date-added cell, hours ago' },
@@ -100,7 +102,7 @@ const formatAgo = (ms: number, nowMs: number, intl: IntlShape) => {
   }
   return intl.formatMessage(
     { defaultMessage: '{days}d ago', description: 'Review queue table: date-added cell, days ago' },
-    { days: Math.round(hours / 24) },
+    { days: Math.floor(hours / 24) },
   );
 };
 

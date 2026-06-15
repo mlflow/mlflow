@@ -62,6 +62,18 @@ describe('ReviewQueueList', () => {
     expect(screen.getByText('3d ago')).toBeInTheDocument();
   });
 
+  it('floors each tier so a near-boundary age never rounds up to the next unit', () => {
+    // 59.5 min and 23.5h must read "59m ago" / "23h ago", not round up to
+    // "1h ago" / "1d ago" (which would reintroduce the clamping bug a level down).
+    const items = [
+      item('tr-min-boundary', 'PENDING', undefined, NOW - (59 * 60 + 30) * 1000),
+      item('tr-hr-boundary', 'PENDING', undefined, NOW - (23 * 60 + 30) * 60 * 1000),
+    ];
+    renderWithProviders(<ReviewQueueList items={items} onOpen={jest.fn()} nowMs={NOW} />);
+    expect(screen.getByText('59m ago')).toBeInTheDocument();
+    expect(screen.getByText('23h ago')).toBeInTheDocument();
+  });
+
   it('renders status tags for all items in a flat list', () => {
     renderWithProviders(
       <ReviewQueueList
