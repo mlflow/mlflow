@@ -396,10 +396,14 @@ class AgentServer:
         loop = asyncio.get_running_loop()
         # asyncio.Queue is awaited natively by the consumer; the worker thread
         # feeds it via call_soon_threadsafe since asyncio.Queue is not
-        # thread-safe. A semaphore (not the queue's maxsize) bounds how far the
-        # worker may run ahead, because a put_nowait scheduled onto the loop
-        # cannot block to apply backpressure.
-        chunk_queue: asyncio.Queue[Any] = asyncio.Queue()
+        # thread-safe. The actual backpressure is the semaphore below: the
+        # worker blocks on it before producing, since a put_nowait scheduled
+        # onto the loop cannot block to apply backpressure itself. The queue's
+        # maxsize is a structural hard cap so memory stays bounded even without
+        # reasoning about the semaphore -- the semaphore keeps the queue from
+        # ever actually reaching it (so put_nowait never raises QueueFull). The
+        # +1 is headroom for the permit-less sentinel enqueued at teardown.
+        chunk_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=_STREAM_MAX_CHUNKS_AHEAD + 1)
         free_slots = threading.Semaphore(_STREAM_MAX_CHUNKS_AHEAD)
         error: list[BaseException] = []
         stop_event = threading.Event()
