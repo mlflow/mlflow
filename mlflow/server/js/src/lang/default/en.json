@@ -9127,6 +9127,10 @@
     "defaultMessage": "Model metrics",
     "description": "Run details page > tab selector > Model metrics tab"
   },
+  "j2cg1p": {
+    "defaultMessage": "Used by {count, plural, one {# queue} other {# queues}}:",
+    "description": "Manage review questions: heading above the list of queues that use the question being deleted"
+  },
   "j3yKcX": {
     "defaultMessage": "Select the experiment you configured above.",
     "description": "Instruction to select the experiment configured for traces"

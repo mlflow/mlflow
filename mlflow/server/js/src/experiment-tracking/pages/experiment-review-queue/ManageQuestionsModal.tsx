@@ -19,6 +19,9 @@ import {
   useListLabelSchemasQuery,
 } from '../../components/label-schemas';
 import type { LabelSchema } from '../../components/label-schemas';
+import { Link } from '../../../common/utils/RoutingUtils';
+import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
+import { getReviewQueuePageRoute } from './hooks/useReviewQueueSearchParams';
 
 const CID = 'mlflow.experiment-review-queue.manage-questions';
 
@@ -32,11 +35,20 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
   const intl = useIntl();
   const { labelSchemas, isLoading } = useListLabelSchemasQuery({ experimentId });
   const { deleteLabelSchema, isDeleting } = useDeleteLabelSchemaMutation();
+  // Shares the cache with the Review tab's queue list (same query key), so this
+  // is a cache hit; used to show which custom queues a deletion would affect.
+  const { reviewQueues } = useListReviewQueuesQuery({ experimentId });
 
   // The schema pending deletion confirmation; deleting a label schema is
   // experiment-wide (it removes the question from every queue), so it goes
   // through an explicit confirm rather than firing on the first click.
   const [pendingDelete, setPendingDelete] = useState<LabelSchema | null>(null);
+  // Custom queues that explicitly include the pending question (user queues
+  // inherit every question, so they aren't listed individually). Shown in the
+  // confirm so a manager sees exactly which queues a deletion touches.
+  const affectedQueues = pendingDelete
+    ? reviewQueues.filter((q) => q.queue_type === 'CUSTOM' && (q.schema_ids ?? []).includes(pendingDelete.schema_id))
+    : [];
   // The authoring modal: open with `null` to create, or a schema to edit.
   const [formOpen, setFormOpen] = useState(false);
   const [editingSchema, setEditingSchema] = useState<LabelSchema | null>(null);
@@ -199,11 +211,51 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
             deleteLabelSchema({ schema_id: pendingDelete.schema_id }, { onSettled: () => setPendingDelete(null) })
           }
         >
-          <FormattedMessage
-            defaultMessage='Deleting "{name}" removes it from every review queue in this experiment. This cannot be undone.'
-            description="Manage review questions: delete confirmation body"
-            values={{ name: pendingDelete.name }}
-          />
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+            <FormattedMessage
+              defaultMessage='Deleting "{name}" removes it from every review queue in this experiment. This cannot be undone.'
+              description="Manage review questions: delete confirmation body"
+              values={{ name: pendingDelete.name }}
+            />
+            {affectedQueues.length > 0 && (
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                <Typography.Text bold>
+                  <FormattedMessage
+                    defaultMessage="Used by {count, plural, one {# queue} other {# queues}}:"
+                    description="Manage review questions: heading above the list of queues that use the question being deleted"
+                    values={{ count: affectedQueues.length }}
+                  />
+                </Typography.Text>
+                {/* Scrollable so a question used by many queues doesn't blow up the modal. */}
+                <div
+                  css={{
+                    maxHeight: 160,
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: theme.spacing.xs,
+                    border: `1px solid ${theme.colors.border}`,
+                    borderRadius: theme.borders.borderRadiusMd,
+                    padding: theme.spacing.sm,
+                  }}
+                >
+                  {affectedQueues.map((q) => (
+                    // Opens in a new tab so the manager can inspect a queue without
+                    // losing this confirmation. Only managers reach this modal.
+                    <Link
+                      key={q.queue_id}
+                      componentId={`${CID}.delete-confirm.queue-link`}
+                      to={getReviewQueuePageRoute(experimentId, q.queue_id)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {q.name}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </Modal>
       )}
 
