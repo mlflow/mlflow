@@ -165,7 +165,7 @@ def log_model(
     step: int = 0,
     model_id: str | None = None,
     export_model: bool = False,
-    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PICKLE,
+    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PT2,
     **kwargs,
 ):
     """
@@ -343,7 +343,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     export_model: bool = False,
-    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PICKLE,
+    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PT2,
     **kwargs,
 ):
     """
