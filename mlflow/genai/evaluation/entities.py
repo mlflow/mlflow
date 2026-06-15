@@ -31,9 +31,11 @@ def _assertion_outcome(
             return bool(pass_if(value)), rationale or f"value={value!r}"
         except Exception as e:
             return False, f"pass_if raised {type(e).__name__}: {e}"
-    # CategoricalRating is a StrEnum, so yes/no ratings arrive as strings.
-    if isinstance(value, str):
-        return value.strip().lower() == "yes", rationale or f"value={value!r}"
+    # CategoricalRating is a StrEnum, so yes/no ratings arrive as strings. Only an
+    # explicit yes/no is a recognized rating; any other string (e.g. "pass") falls
+    # through to the pass_if hint below.
+    if isinstance(value, str) and (rating := value.strip().lower()) in ("yes", "no"):
+        return rating == "yes", rationale or f"value={value!r}"
     # pd.api.types.is_bool also covers NumPy bool_ from the dataframe.
     if pd.api.types.is_bool(value):
         return bool(value), rationale or f"value={value!r}"

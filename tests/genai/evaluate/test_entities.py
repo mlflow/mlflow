@@ -75,6 +75,24 @@ def test_string_yes_no():
     assert "scorer_a" in result.reason
 
 
+def test_no_rating_fails_cleanly_without_pass_if_hint():
+    # "no" is a recognized rating, so it fails without nagging about pass_if.
+    df = pd.DataFrame([{"scorer_a/value": "no", "scorer_a/rationale": None}])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert not result.passed
+    assert "value='no'" in result.reason
+    assert "pass_if" not in result.reason
+
+
+def test_unrecognized_string_gets_pass_if_hint():
+    # A non-yes/no string is not a recognized rating; surface the pass_if hint.
+    df = pd.DataFrame([{"scorer_a/value": "pass", "scorer_a/rationale": None}])
+    result = EvaluationResult(run_id="r1", metrics={}, result_df=df)
+    assert not result.passed
+    assert "'pass'" in result.reason
+    assert "pass_if" in result.reason
+
+
 def test_none_result_df():
     result = EvaluationResult(run_id="r1", metrics={}, result_df=None)
     assert result.passed
