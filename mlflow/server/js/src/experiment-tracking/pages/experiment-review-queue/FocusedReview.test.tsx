@@ -8,6 +8,7 @@ import { IntlProvider } from '@databricks/i18n';
 import { FocusedReview } from './FocusedReview';
 import type { LabelSchema } from '../../components/label-schemas';
 import type { ReviewQueueItem } from './types';
+import Utils from '../../../common/utils/Utils';
 
 let mockTraceData: unknown[] = [];
 jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
@@ -278,7 +279,9 @@ describe('FocusedReview trace content rendering', () => {
 });
 
 describe('FocusedReview edit-in-place on a completed trace', () => {
+  let toastSpy: jest.SpiedFunction<typeof Utils.displayGlobalInfoNotification>;
   beforeEach(() => {
+    toastSpy = jest.spyOn(Utils, 'displayGlobalInfoNotification').mockImplementation(() => {});
     mockCreateAssessment.mockReset();
     mockCreateAssessment.mockImplementation(() => Promise.resolve());
     // The completed trace prefills its prior answer (with its assessment id, so a
@@ -290,6 +293,7 @@ describe('FocusedReview edit-in-place on a completed trace', () => {
     };
   });
   afterEach(() => {
+    toastSpy.mockRestore();
     mockPriorAnswersResult = { priorAnswers: [], isLoading: false, isFetching: false };
   });
 
@@ -333,7 +337,9 @@ describe('FocusedReview edit-in-place on a completed trace', () => {
     expect(onSetStatus).not.toHaveBeenCalled();
     expect(onSelect).not.toHaveBeenCalled();
     expect(onBack).not.toHaveBeenCalled();
-    expect(await screen.findByText('Changes saved')).toBeInTheDocument();
+    // The save is confirmed by a global toast (not an inline alert that would
+    // reflow the action buttons).
+    await waitFor(() => expect(toastSpy).toHaveBeenCalledWith('Changes saved'));
   });
 
   it('shows the save error and suppresses the saved confirmation when an in-place re-save fails', async () => {
@@ -345,7 +351,7 @@ describe('FocusedReview edit-in-place on a completed trace', () => {
     fireEvent.click(screen.getByText('Save changes'));
 
     expect(await screen.findByText(/could not save your review/i)).toBeInTheDocument();
-    expect(screen.queryByText('Changes saved')).not.toBeInTheDocument();
+    expect(toastSpy).not.toHaveBeenCalledWith('Changes saved');
     expect(onSetStatus).not.toHaveBeenCalled();
   });
 

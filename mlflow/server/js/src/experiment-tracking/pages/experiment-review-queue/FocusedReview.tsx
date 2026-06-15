@@ -186,21 +186,12 @@ export const FocusedReview = ({
   const [edited, setEdited] = useState<Record<string, LabelSchemaValue>>({});
   const [editedRationales, setEditedRationales] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // Confirmation shown after an in-place edit of a completed trace is saved;
-  // cleared as soon as the reviewer edits again.
-  const [editSaved, setEditSaved] = useState(false);
 
   const valueFor = (name: string): LabelSchemaValue => (name in edited ? edited[name] : prefilled[name]);
-  const setAnswer = (name: string, value: LabelSchemaValue) => {
-    setEditSaved(false);
-    setEdited((prev) => ({ ...prev, [name]: value }));
-  };
+  const setAnswer = (name: string, value: LabelSchemaValue) => setEdited((prev) => ({ ...prev, [name]: value }));
   const rationaleFor = (name: string): string =>
     name in editedRationales ? editedRationales[name] : (prefilledRationales[name] ?? '');
-  const setRationale = (name: string, value: string) => {
-    setEditSaved(false);
-    setEditedRationales((prev) => ({ ...prev, [name]: value }));
-  };
+  const setRationale = (name: string, value: string) => setEditedRationales((prev) => ({ ...prev, [name]: value }));
 
   // A completed trace stays editable: the reviewer can revise their answers and
   // re-save without the trace leaving the "done" bucket (mirrors the review app,
@@ -305,8 +296,14 @@ export const FocusedReview = ({
       // (superseding the priors), but the trace stays COMPLETE and we keep the
       // reviewer on it. Re-saving an edit must not flip it back to PENDING / the
       // to-do list, and its `completed_by`/`completed_time_ms` attribution stands.
+      // A global toast confirms the save without reflowing the action buttons.
       if (isComplete) {
-        setEditSaved(true);
+        Utils.displayGlobalInfoNotification(
+          intl.formatMessage({
+            defaultMessage: 'Changes saved',
+            description: 'Review focused view: confirmation that edited answers were saved',
+          }),
+        );
         return;
       }
       await onSetStatus('COMPLETE');
@@ -582,18 +579,6 @@ export const FocusedReview = ({
                   </Button>
                 )}
               </div>
-            )}
-            {editSaved && !submitError && (
-              <Alert
-                componentId={`${CID}.edit-saved`}
-                type="success"
-                closable
-                onClose={() => setEditSaved(false)}
-                message={intl.formatMessage({
-                  defaultMessage: 'Changes saved',
-                  description: 'Review focused view: confirmation that edited answers were saved',
-                })}
-              />
             )}
             {submitError && (
               <Alert
