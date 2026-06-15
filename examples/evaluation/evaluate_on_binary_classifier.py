@@ -1,5 +1,5 @@
 import shap
-from sklearn.linear_model import LogisticRegression
+import xgboost
 from sklearn.model_selection import train_test_split
 
 import mlflow
@@ -11,8 +11,8 @@ X, y = shap.datasets.adult()
 # Split the data into training and test sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
-# Fit a logistic regression binary classifier on the training data split
-model = LogisticRegression(max_iter=1000).fit(X_train, y_train)
+# Fit an XGBoost binary classifier on the training data split
+model = xgboost.XGBClassifier().fit(X_train, y_train)
 
 # Infer model signature
 predictions = model.predict(X_train)
@@ -24,7 +24,9 @@ eval_data["label"] = y_test
 
 with mlflow.start_run() as run:
     # Log the XGBoost binary classifier model to MLflow
-    model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
+    model_info = mlflow.sklearn.log_model(
+        model, name="model", signature=signature, serialization_format="cloudpickle"
+    )
 
     # Evaluate the logged model
     result = mlflow.evaluate(

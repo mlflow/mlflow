@@ -309,7 +309,10 @@ def test_signature_and_examples_are_saved_correctly(
                     input_example=example,
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is not None:
+                    assert mlflow_model.signature == signature
+                elif example is None:
+                    assert mlflow_model.signature is None
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:

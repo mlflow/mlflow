@@ -1,6 +1,6 @@
 import shap
+import xgboost
 from sklearn.dummy import DummyClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 
 import mlflow
@@ -10,8 +10,8 @@ from mlflow.models import MetricThreshold, infer_signature, make_metric
 X, y = shap.datasets.adult()
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
-# train a candidate logistic regression model
-candidate_model = LogisticRegression(max_iter=1000).fit(X_train, y_train)
+# train a candidate XGBoost model
+candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
 candidate_signature = infer_signature(X_train, candidate_model.predict(X_train))
 
 # train a baseline dummy model
@@ -60,10 +60,13 @@ double_positive_metric = make_metric(
 )
 
 with mlflow.start_run() as run:
-    # Note: in most model validation use-cases the baseline model should instead be
+    # Note: in most model validation use-cases the baseline model should instead b
     # a previously trained model (such as the current production model)
     baseline_model_uri = mlflow.sklearn.log_model(
-        baseline_model, name="baseline_model", signature=baseline_signature
+        baseline_model,
+        name="baseline_model",
+        signature=baseline_signature,
+        serialization_format="cloudpickle",
     ).model_uri
 
     # Evaluate the baseline model
@@ -80,7 +83,10 @@ with mlflow.start_run() as run:
 
     # Evaluate the candidate model
     candidate_model_uri = mlflow.sklearn.log_model(
-        candidate_model, name="candidate_model", signature=candidate_signature
+        candidate_model,
+        name="candidate_model",
+        signature=candidate_signature,
+        serialization_format="cloudpickle",
     ).model_uri
 
     candidate_result = mlflow.evaluate(
