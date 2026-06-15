@@ -605,7 +605,10 @@ export const FocusedReview = ({
               </div>
             )}
             <div css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
-              {isTerminal ? (
+              {/* A terminal trace can be sent back to the to-do list. Declining is
+                  no longer offered in the UI (the API still supports it); a pending
+                  trace's only action is Submit. */}
+              {isTerminal && (
                 <Button
                   componentId={`${CID}.reopen`}
                   disabled={isSettingStatus || !canReview}
@@ -615,14 +618,6 @@ export const FocusedReview = ({
                     defaultMessage="Move to Todo"
                     description="Review focused view: send a completed/declined trace back to the to-do list"
                   />
-                </Button>
-              ) : (
-                <Button
-                  componentId={`${CID}.decline`}
-                  disabled={isSettingStatus || !canReview}
-                  onClick={() => handleSetStatus('DECLINED')}
-                >
-                  <FormattedMessage defaultMessage="Decline" description="Review focused view: decline action" />
                 </Button>
               )}
               {!hideSubmit && !isDeclined && (

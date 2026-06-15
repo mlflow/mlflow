@@ -168,6 +168,16 @@ describe('FocusedReview submit requires at least one answer', () => {
     );
   });
 
+  it('does not offer a Decline action on a pending trace (decline removed from the UI)', () => {
+    const onSetStatus = jest.fn((_status: string) => Promise.resolve());
+    renderFocused([passFailSchema(), passFailSchema('s2', 'Also good?')], onSetStatus);
+    // Decline is gone; a pending trace's only action is Submit (Move to Todo is
+    // terminal-only).
+    expect(screen.queryByText('Decline')).not.toBeInTheDocument();
+    expect(screen.queryByText('Move to Todo')).not.toBeInTheDocument();
+    expect(screen.getByText('Submit')).toBeInTheDocument();
+  });
+
   it('logs a feedback-submitted telemetry event once the review is submitted', async () => {
     const eventCallback = jest.fn();
     const onSetStatus = jest.fn((_status: string) => Promise.resolve());

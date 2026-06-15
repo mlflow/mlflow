@@ -2551,10 +2551,6 @@
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the experiments table"
   },
-  "BBfa66": {
-    "defaultMessage": "Decline",
-    "description": "Review focused view: decline action"
-  },
   "BCpX6U": {
     "defaultMessage": "Registered models",
     "description": "Run page > Overview > Run models section label"
