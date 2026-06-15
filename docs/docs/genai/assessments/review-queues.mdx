@@ -69,36 +69,19 @@ A review queue is a named collection of traces, scoped to an experiment, that a 
   }
 ]} />
 
-## Step 1: Define your review questions
+## Assign traces to reviewers
 
-Define your review questions once, then reuse them across queues in the same experiment. From the experiment's **Review** tab, open the create-queue or queue-settings dialog and click **New question**, then:
+The quickest way to get traces reviewed: from the trace table (or an open trace), select the traces, click **Assign to reviewers**, and pick one or more reviewers. Each trace lands in that reviewer's personal queue, where they answer the experiment's review questions. (On a server without authentication, reviewer assignment isn't available — use a custom queue instead, described below.)
 
-1. Name the question.
-2. Pick an input type — Pass/Fail, single- or multi-select categorical, numeric, or free text.
-3. Optionally add an instruction shown to reviewers, and allow a free-text comment.
-4. Choose whether it's a **feedback** question (how good was the output?) or an **expectation** question (what should the output have been?).
+{/* Screenshot to add: ![Assigning traces to reviewers in the MLflow UI](/images/assessments/review-queue-assign-to-reviewers.png) */}
 
-{/* Screenshot to add: ![Creating a review question in the MLflow UI](/images/assessments/review-queue-new-question.png) */}
+## Review traces in the UI
 
-## Step 2: Create a review queue
+Reviewers find the work assigned to them under the experiment's **Review** tab, where each queue shows a progress bar across its traces.
 
-A **custom queue** is a shared queue for a team — you pick the questions it asks and assign the reviewers. A **user queue** is one reviewer's personal queue that inherits all of the experiment's questions. To create a custom queue, open the experiment's **Review** tab and choose **Create queue**:
+{/* Screenshot to add: ![The Review tab listing queues and progress](/images/assessments/review-queue-tab-overview.png) */}
 
-1. Name the queue and pick the questions it should ask.
-2. On an authenticated server, assign the reviewers who should work the queue.
-3. Click **Create**.
-
-{/* Screenshot to add: ![Creating a review queue in the MLflow UI](/images/assessments/review-queue-create-queue.png) */}
-
-## Step 3: Add traces to a queue
-
-From the trace table (or an open trace), select the traces you want reviewed and use **Assign to reviewers** to flag them into one or more queues.
-
-{/* Screenshot to add: ![Assigning traces to a review queue in the MLflow UI](/images/assessments/review-queue-assign-to-reviewers.png) */}
-
-## Step 4: Review traces in the UI
-
-Reviewers work a queue from the experiment's **Review** tab. Selecting a trace opens **focus mode**, a full-page surface with the queue's traces on the left, the trace's input and output in the middle (with **View full trace** for the complete trace explorer), and the review questions on the right.
+Selecting a trace opens **focus mode** — a full-page surface with the queue's traces on the left, the trace's input and output in the middle (with **View full trace** for the complete trace explorer), and the review questions on the right.
 
 {/* Screenshot to add: ![Reviewing a trace in focus mode](/images/assessments/review-queue-focus-mode.png) */}
 
@@ -109,6 +92,25 @@ In focus mode a reviewer can:
 - Re-open a completed answer, edit it, and **Save changes** in place — or use **Move to Todo** to send the trace back to the pending pool.
 
 Because the status is shared across the queue, the first reviewer to complete a trace clears it for everyone, with `completed_by` recording who did it.
+
+## Create a custom queue
+
+When you want a curated, shared queue that asks a **specific set of questions** — or you're on a server without authentication — create a custom queue instead of assigning to individual reviewers.
+
+**1. Define your review questions.** From the experiment's **Review** tab, open the create-queue dialog and click **New question**:
+
+1. Name the question.
+2. Pick an input type — Pass/Fail, single- or multi-select categorical, numeric, or free text.
+3. Optionally add an instruction shown to reviewers, and allow a free-text comment.
+4. Choose whether it's a **feedback** question (how good was the output?) or an **expectation** question (what should the output have been?).
+
+Questions are defined once and reused across the queues in that experiment.
+
+{/* Screenshot to add: ![Creating a review question in the MLflow UI](/images/assessments/review-queue-new-question.png) */}
+
+**2. Create the queue.** Name it, pick the questions it should ask, assign reviewers (on an authenticated server), and click **Create**. Then add traces to it with **Assign to reviewers** from the trace table.
+
+{/* Screenshot to add: ![Creating a review queue in the MLflow UI](/images/assessments/review-queue-create-queue.png) */}
 
 ## Manage and track queues programmatically
 
