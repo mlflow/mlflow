@@ -138,11 +138,14 @@ describe('FocusedReview single Pass/Fail auto-submit', () => {
 });
 
 describe('FocusedReview submit requires at least one answer', () => {
+  let errorToastSpy: jest.SpiedFunction<typeof Utils.displayGlobalErrorNotification>;
   beforeEach(() => {
+    errorToastSpy = jest.spyOn(Utils, 'displayGlobalErrorNotification').mockImplementation(() => {});
     mockCreateAssessment.mockReset();
     mockCreateAssessment.mockImplementation(() => Promise.resolve());
   });
   afterEach(() => {
+    errorToastSpy.mockRestore();
     mockPriorAnswersResult = { priorAnswers: [], isLoading: false, isFetching: false };
   });
 
@@ -201,8 +204,9 @@ describe('FocusedReview submit requires at least one answer', () => {
 
     fireEvent.click(screen.getAllByText('Pass')[0]);
     fireEvent.click(screen.getByText('Submit'));
-    // The error surfaces; the event must not fire (it sits after the writes succeed).
-    expect(await screen.findByText(/could not save your review/i)).toBeInTheDocument();
+    // The error surfaces as a toast; the event must not fire (it sits after the writes succeed).
+    await waitFor(() => expect(errorToastSpy).toHaveBeenCalledTimes(1));
+    expect(errorToastSpy.mock.calls[0][0]).toMatch(/could not save your review/i);
     expect(eventCallback).not.toHaveBeenCalledWith(
       expect.objectContaining({ componentId: FEEDBACK_SUBMITTED_COMPONENT_ID }),
     );
@@ -328,8 +332,10 @@ describe('FocusedReview trace content rendering', () => {
 
 describe('FocusedReview edit-in-place on a completed trace', () => {
   let toastSpy: jest.SpiedFunction<typeof Utils.displayGlobalInfoNotification>;
+  let errorToastSpy: jest.SpiedFunction<typeof Utils.displayGlobalErrorNotification>;
   beforeEach(() => {
     toastSpy = jest.spyOn(Utils, 'displayGlobalInfoNotification').mockImplementation(() => {});
+    errorToastSpy = jest.spyOn(Utils, 'displayGlobalErrorNotification').mockImplementation(() => {});
     mockCreateAssessment.mockReset();
     mockCreateAssessment.mockImplementation(() => Promise.resolve());
     // The completed trace prefills its prior answer (with its assessment id, so a
@@ -342,6 +348,7 @@ describe('FocusedReview edit-in-place on a completed trace', () => {
   });
   afterEach(() => {
     toastSpy.mockRestore();
+    errorToastSpy.mockRestore();
     mockPriorAnswersResult = { priorAnswers: [], isLoading: false, isFetching: false };
   });
 
@@ -398,7 +405,8 @@ describe('FocusedReview edit-in-place on a completed trace', () => {
     fireEvent.click(screen.getAllByText('Pass')[1]);
     fireEvent.click(screen.getByText('Save changes'));
 
-    expect(await screen.findByText(/could not save your review/i)).toBeInTheDocument();
+    await waitFor(() => expect(errorToastSpy).toHaveBeenCalledTimes(1));
+    expect(errorToastSpy.mock.calls[0][0]).toMatch(/could not save your review/i);
     expect(toastSpy).not.toHaveBeenCalledWith('Changes saved');
     expect(onSetStatus).not.toHaveBeenCalled();
   });

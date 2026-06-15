@@ -871,10 +871,6 @@
     "defaultMessage": "Created at",
     "description": "Column header for created timestamp in the evaluation runs table"
   },
-  "2P5bVn": {
-    "defaultMessage": "Failed to create the review queue.",
-    "description": "Create review queue: error alert title"
-  },
   "2ROAqe": {
     "defaultMessage": "Record {id}",
     "description": "Heading at the top of the V2 dataset record side panel showing the record id"
@@ -4511,6 +4507,10 @@
     "defaultMessage": "Overall assessment:",
     "description": "Evaluation review > assessments > overall assessment > title"
   },
+  "ML7TiJ": {
+    "defaultMessage": "Could not save your review: {error}",
+    "description": "Review focused view: error toast when saving a review fails"
+  },
   "MNCAQh": {
     "defaultMessage": "Calls",
     "description": "Column header for call count"
@@ -6223,6 +6223,10 @@
     "defaultMessage": "View model",
     "description": "Label for a button that opens a new tab to view the details of a logged ML model while registering a model version"
   },
+  "VDumsF": {
+    "defaultMessage": "Failed to update the review queue: {error}",
+    "description": "Add to review queue: error toast when adding or removing traces fails"
+  },
   "VEuVfv": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
     "description": "Label showing number of traces selected in the run evaluation modal"
@@ -6286,10 +6290,6 @@
   "VVoQ5V": {
     "defaultMessage": "Structured output (JSON schema)",
     "description": "Label for the structured output JSON schema field in the prompt creation modal"
-  },
-  "VWIO8j": {
-    "defaultMessage": "Could not save your review: {error}",
-    "description": "Review focused view: submit error alert"
   },
   "VWngGA": {
     "defaultMessage": "e.g., PII Detection & Redaction",
@@ -6974,10 +6974,6 @@
   "Z+tEhr": {
     "defaultMessage": "Compare selected runs",
     "description": "Tooltip for the compare button when enabled"
-  },
-  "Z/7Ru5": {
-    "defaultMessage": "Something went wrong.",
-    "description": "Add to review queue: error alert title"
   },
   "Z/CtWD": {
     "defaultMessage": "Safety",
@@ -9862,6 +9858,10 @@
   "mtYPI8": {
     "defaultMessage": "Adheres to global guidelines",
     "description": "Evaluation results > global guideline adherence assessment > positive value label. Displayed if evaluation result adheres to the global guidelines."
+  },
+  "mtmTKV": {
+    "defaultMessage": "Failed to create the review queue: {error}",
+    "description": "Create review queue: error toast shown when creation fails"
   },
   "mtxqm8": {
     "defaultMessage": "Flexible, governed deployments with the new Model Registry UI",

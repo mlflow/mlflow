@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 
 import {
-  Alert,
   ApplyDesignSystemContextOverrides,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -26,6 +25,7 @@ import {
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
 import { MAX_ASSIGNED_USERS, ReviewerChecklistCombobox } from './ReviewerChecklistCombobox';
 import { useIsAuthAvailable } from '../../../account/hooks';
+import Utils from '../../../common/utils/Utils';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useCreateReviewQueueMutation } from './hooks/useCreateReviewQueueMutation';
 import { useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
@@ -58,7 +58,7 @@ export const CreateReviewQueueModal = ({
   const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
   const { labelSchemas, isLoading } = useListLabelSchemasQuery({ experimentId });
-  const { createReviewQueueAsync, isCreatingQueue, error } = useCreateReviewQueueMutation();
+  const { createReviewQueueAsync, isCreatingQueue } = useCreateReviewQueueMutation();
 
   // Telemetry: count queues actually created from the UI (fired on success, not
   // on the click, so failed creates don't inflate the metric).
@@ -195,9 +195,18 @@ export const CreateReviewQueueModal = ({
       queueCreatedEventContext.onClick(undefined);
       onCreated?.(review_queue);
       onClose();
-    } catch {
-      // The failure (e.g. a duplicate queue name) is surfaced via the error Alert
-      // below; swallow the rejection so the modal stays open instead of crashing.
+    } catch (e) {
+      // Surface the failure (e.g. a duplicate queue name) as a toast rather than an
+      // inline alert, so the modal body doesn't shift. The modal stays open to retry.
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Failed to create the review queue: {error}',
+            description: 'Create review queue: error toast shown when creation fails',
+          },
+          { error: e instanceof Error ? e.message : String(e) },
+        ),
+      );
     }
   };
 
@@ -393,19 +402,6 @@ export const CreateReviewQueueModal = ({
                 </div>
               )}
             </div>
-
-            {error && (
-              <Alert
-                componentId={`${CID}.error`}
-                type="error"
-                closable={false}
-                message={intl.formatMessage({
-                  defaultMessage: 'Failed to create the review queue.',
-                  description: 'Create review queue: error alert title',
-                })}
-                description={error.message}
-              />
-            )}
           </div>
         </ApplyDesignSystemContextOverrides>
       </Modal>
