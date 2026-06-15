@@ -1,3 +1,7 @@
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { MlflowArtifactsClient } from '../../../src/clients/artifacts/mlflow';
 import { TraceInfo } from '../../../src/core/entities/trace_info';
 import { TraceData } from '../../../src/core/entities/trace_data';
@@ -84,6 +88,64 @@ describe('MlflowArtifactsClient', () => {
       );
 
       // Test passes if error is thrown as expected
+    });
+  });
+
+  describe('uploadTraceData with local artifact roots', () => {
+    let tmpRoot: string;
+
+    const makeTraceInfo = (artifactLocation: string) =>
+      new TraceInfo({
+        traceId: 'tr-local',
+        traceLocation: {
+          type: TraceLocationType.MLFLOW_EXPERIMENT,
+          mlflowExperiment: { experimentId: '0' },
+        },
+        state: TraceState.OK,
+        requestTime: 1000,
+        tags: {
+          'mlflow.artifactLocation': artifactLocation,
+        },
+      });
+
+    beforeEach(async () => {
+      tmpRoot = await mkdtemp(join(tmpdir(), 'mlflow-wal-test-'));
+    });
+
+    afterEach(async () => {
+      await rm(tmpRoot, { recursive: true, force: true });
+    });
+
+    it('writes traces.json to a bare local path, creating the directory', async () => {
+      const artifactDir = join(tmpRoot, '0', 'traces', 'tr-local', 'artifacts');
+      const traceInfo = makeTraceInfo(artifactDir);
+      const traceData = new TraceData([]);
+
+      await client.uploadTraceData(traceInfo, traceData);
+
+      const written = await readFile(join(artifactDir, 'traces.json'), 'utf8');
+      expect(JSON.parse(written)).toEqual({ spans: [] });
+    });
+
+    it('writes traces.json for a file:// artifact location', async () => {
+      const artifactDir = join(tmpRoot, '0', 'traces', 'tr-local', 'artifacts');
+      const fileUri = pathToFileURL(artifactDir).href;
+      const traceInfo = makeTraceInfo(fileUri);
+      const traceData = new TraceData([]);
+
+      await client.uploadTraceData(traceInfo, traceData);
+
+      const written = await readFile(join(artifactDir, 'traces.json'), 'utf8');
+      expect(JSON.parse(written)).toEqual({ spans: [] });
+    });
+
+    it('rejects unsupported remote schemes via resolveArtifactUri', async () => {
+      const traceInfo = makeTraceInfo('s3://bucket/0/traces/tr-local/artifacts');
+      const traceData = new TraceData([]);
+
+      await expect(client.uploadTraceData(traceInfo, traceData)).rejects.toThrow(
+        'Expected mlflow-artifacts:// URI, got s3:',
+      );
     });
   });
 

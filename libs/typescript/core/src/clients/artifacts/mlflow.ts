@@ -1,7 +1,11 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { TraceTagKey } from '../../core/constants';
 import { SerializedTraceData, TraceData } from '../../core/entities/trace_data';
 import { TraceInfo } from '../../core/entities/trace_info';
+import { JSONBig } from '../../core/utils/json';
 import { makeRequest } from '../utils';
+import { artifactUriToLocalPath, isLocalArtifactUri } from '../../core/utils/artifact_uri';
 import { ArtifactsClient } from './base';
 import { AuthProvider, HeadersProvider } from '../../auth';
 
@@ -35,12 +39,27 @@ export class MlflowArtifactsClient implements ArtifactsClient {
    * @param traceData The trace data to upload
    */
   async uploadTraceData(traceInfo: TraceInfo, traceData: TraceData): Promise<void> {
+    const artifactUri = this.getArtifactLocation(traceInfo);
+
+    if (isLocalArtifactUri(artifactUri)) {
+      await this.uploadTraceDataLocal(artifactUri, traceData);
+      return;
+    }
+
     // Serialize trace data to JSON string (equivalent to Python's json.dumps)
     const traceDataJson = traceData.toJson();
 
-    // Upload trace data to the artifact store
-    const artifactUrl = this.getArtifactUrlForTrace(traceInfo);
+    const artifactUrl = this.resolveArtifactUri(artifactUri, TRACE_DATA_FILE_NAME);
     await makeRequest<void>('PUT', artifactUrl, this.headersProvider, traceDataJson);
+  }
+
+  /**
+   * Write trace data to a local filesystem artifact location.
+   */
+  private async uploadTraceDataLocal(artifactUri: string, traceData: TraceData): Promise<void> {
+    const dir = artifactUriToLocalPath(artifactUri);
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, TRACE_DATA_FILE_NAME), JSONBig.stringify(traceData.toJson()), 'utf8');
   }
 
   /**
@@ -79,14 +98,23 @@ export class MlflowArtifactsClient implements ArtifactsClient {
    * converting mlflow-artifacts:// URIs to HTTP endpoints.
    */
   private getArtifactUrlForTrace(traceInfo: TraceInfo): string {
+    const artifactUri = this.getArtifactLocation(traceInfo);
+
+    // Resolve mlflow-artifacts:// URI to HTTP endpoint
+    return this.resolveArtifactUri(artifactUri, TRACE_DATA_FILE_NAME);
+  }
+
+  /**
+   * Read the artifact location tag set on the trace by the backend.
+   */
+  private getArtifactLocation(traceInfo: TraceInfo): string {
     const artifactUri = traceInfo.tags[TraceTagKey.MLFLOW_ARTIFACT_LOCATION];
 
     if (!artifactUri) {
       throw new Error('Artifact location not found in trace tags');
     }
 
-    // Resolve mlflow-artifacts:// URI to HTTP endpoint
-    return this.resolveArtifactUri(artifactUri, TRACE_DATA_FILE_NAME);
+    return artifactUri;
   }
 
   /**
