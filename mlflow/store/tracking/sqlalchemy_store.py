@@ -8483,13 +8483,27 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             users=users,
             schema_ids=schema_ids,
         )
-        # Names are unique within an experiment case-insensitively, via the
-        # case-folded `name_key`; `name` keeps the display casing.
-        name_key = validated.name.lower()
-
         with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_experiment_exists(session, experiment_id)
             self._validate_schema_ids_exist(session, experiment_id, validated.schema_ids)
+
+            now_ms = get_current_time_millis()
+            sql_queue = SqlReviewQueue(
+                queue_id=f"{SqlReviewQueue.QUEUE_ID_PREFIX}{uuid.uuid4().hex}",
+                experiment_id=int(experiment_id),
+                # Names are unique within an experiment case-insensitively via the
+                # case-folded `name_key`, which the model validator derives from
+                # `name` (the display casing).
+                name=validated.name,
+                queue_type=str(validated.queue_type),
+                created_by=created_by,
+                creation_time_ms=now_ms,
+                last_update_time_ms=now_ms,
+            )
+            # Single source for the case-fold: the validator-derived key, reused by
+            # the pre-check and the disambiguation re-query below (captured rather
+            # than re-read off the object, which a savepoint rollback could expire).
+            name_key = sql_queue.name_key
 
             existing = (
                 self
@@ -8505,18 +8519,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     f"Review queue with name '{validated.name}' already exists.",
                     error_code=RESOURCE_ALREADY_EXISTS,
                 )
-
-            now_ms = get_current_time_millis()
-            sql_queue = SqlReviewQueue(
-                queue_id=f"{SqlReviewQueue.QUEUE_ID_PREFIX}{uuid.uuid4().hex}",
-                experiment_id=int(experiment_id),
-                # `name_key` is derived from `name` by SqlReviewQueue's validator.
-                name=validated.name,
-                queue_type=str(validated.queue_type),
-                created_by=created_by,
-                creation_time_ms=now_ms,
-                last_update_time_ms=now_ms,
-            )
             try:
                 # SAVEPOINT around the add+flush so an IntegrityError rolls back
                 # just this insert (not the whole transaction) and leaves the
