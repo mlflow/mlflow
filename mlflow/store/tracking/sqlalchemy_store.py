@@ -8510,8 +8510,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             sql_queue = SqlReviewQueue(
                 queue_id=f"{SqlReviewQueue.QUEUE_ID_PREFIX}{uuid.uuid4().hex}",
                 experiment_id=int(experiment_id),
+                # `name_key` is derived from `name` by SqlReviewQueue's validator.
                 name=validated.name,
-                name_key=name_key,
                 queue_type=str(validated.queue_type),
                 created_by=created_by,
                 creation_time_ms=now_ms,
@@ -8714,17 +8714,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if name is not None:
                 new_name = validate_custom_queue_name(name)
                 if new_name != sql_queue.name:
-                    # Always update the display name. Only a name_key change can
-                    # violate the unique (experiment_id, name_key) constraint, so
-                    # only then arm `renamed_to`, which translates a flush
-                    # IntegrityError into a name collision (no upfront SELECT). A
-                    # pure display-case change keeps the same name_key, so it can't
-                    # collide; leaving `renamed_to` None there means an unrelated
-                    # IntegrityError is surfaced untranslated, not mislabeled.
+                    # Assigning `name` re-derives `name_key` via the validator.
+                    # Only a name_key change can violate the unique
+                    # (experiment_id, name_key) constraint, so only then arm
+                    # `renamed_to`, which translates a flush IntegrityError into a
+                    # name collision (no upfront SELECT). A pure display-case change
+                    # keeps the same name_key, so it can't collide; leaving
+                    # `renamed_to` None there means an unrelated IntegrityError is
+                    # surfaced untranslated, not mislabeled.
+                    previous_name_key = sql_queue.name_key
                     sql_queue.name = new_name
-                    new_name_key = new_name.lower()
-                    if new_name_key != sql_queue.name_key:
-                        sql_queue.name_key = new_name_key
+                    if sql_queue.name_key != previous_name_key:
                         renamed_to = new_name
 
             if users is not None:

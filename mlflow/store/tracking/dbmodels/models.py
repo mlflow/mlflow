@@ -24,7 +24,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.inspection import inspect
-from sqlalchemy.orm import backref, relationship
+from sqlalchemy.orm import backref, relationship, validates
 
 from mlflow.entities import (
     Assessment,
@@ -3440,7 +3440,8 @@ class SqlReviewQueue(Base):
     guarantee. Names are unique within ``experiment_id`` case-insensitively,
     so ``Foo`` and ``foo`` can't coexist (and a custom queue can't collide
     with a user queue's normalized name). ``name`` keeps the display casing;
-    this column is the identity key. Always set to ``name.lower()``.
+    this column is the identity key. Kept equal to ``name.lower()`` by the
+    ``@validates("name")`` hook, which derives it whenever ``name`` is assigned.
     """
 
     queue_type = Column(String(16), nullable=False)
@@ -3472,6 +3473,18 @@ class SqlReviewQueue(Base):
         UniqueConstraint("experiment_id", "name_key", name="uq_review_queues_experiment_name_key"),
         Index("index_review_queues_experiment_id", "experiment_id"),
     )
+
+    @validates("name")
+    def _derive_name_key(self, _key, value):
+        # Keep `name_key` in lockstep with `name` from one place. Uses Python's
+        # Unicode-aware `.lower()` (the same casefold the rest of the store uses),
+        # so the key stays consistent across every dialect -- unlike a SQL
+        # `LOWER()` CHECK, which is ASCII-only on SQLite. This fires on ORM
+        # attribute assignment (constructor kwargs and `queue.name = ...`); it does
+        # NOT fire for Core / bulk updates, which this store never uses on `name`.
+        # `name` is non-nullable and always a validated string, so no None guard.
+        self.name_key = value.lower()
+        return value
 
     def __repr__(self):
         return (

@@ -55,6 +55,23 @@ def test_create_user_queue_defaults_to_all_schemas_and_single_user(store):
     assert queue.last_update_time_ms == queue.creation_time_ms
 
 
+@pytest.mark.parametrize(
+    ("name", "expected_key"),
+    [("Foo", "foo"), ("BAR", "bar"), ("CAFÉ", "café")],
+)
+def test_name_assignment_derives_name_key(name, expected_key):
+    # The @validates hook keeps name_key = name.lower() on any ORM name
+    # assignment, so the store never sets it by hand. Uses Python's Unicode-aware
+    # lower (consistent across dialects), covering both the constructor and a
+    # later reassignment.
+    constructed = SqlReviewQueue(queue_id="rq-x", experiment_id=1, name=name, queue_type="custom")
+    assert constructed.name_key == expected_key
+
+    reassigned = SqlReviewQueue(queue_id="rq-y", experiment_id=1, name="seed", queue_type="custom")
+    reassigned.name = name
+    assert reassigned.name_key == expected_key
+
+
 def test_create_custom_queue_with_users_and_schema_subset(store):
     exp_id = _create_experiments(store, "custom_queue")
     ls1 = _pass_fail(store, exp_id, "quality")
