@@ -117,7 +117,8 @@ export const SavePromptVersionModal = ({
         : undefined;
 
     // Keep a loaded text prompt text-typed while it stays a single user message;
-    // anything else (multiple turns, system/assistant roles) is saved as chat.
+    // anything else (multiple turns, a system role) is saved as chat. Assistant
+    // turns are already stripped by getSaveableMessages.
     const isSingleUserMessage = saveableMessages.length === 1 && saveableMessages[0].role === 'user';
     const promptType: PromptType =
       effectiveTarget === 'existing' && loadedPromptType === PROMPT_TYPE_TEXT && isSingleUserMessage

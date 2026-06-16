@@ -50,6 +50,20 @@ describe('getSaveableMessages', () => {
     ]);
   });
 
+  it('drops assistant (model-generated) turns so only the template is saved', () => {
+    const messages: ChatMessage[] = [
+      { role: 'system', content: 'Be concise.' },
+      { role: 'user', content: 'Hi' },
+      { role: 'assistant', content: 'Hello! How can I help?' },
+      { role: 'user', content: 'Summarize {{ text }}' },
+    ];
+    expect(getSaveableMessages(messages)).toEqual([
+      { role: 'system', content: 'Be concise.' },
+      { role: 'user', content: 'Hi' },
+      { role: 'user', content: 'Summarize {{ text }}' },
+    ]);
+  });
+
   it('returns an empty list when every message is blank', () => {
     expect(getSaveableMessages([{ role: 'user', content: '   ' }])).toEqual([]);
   });

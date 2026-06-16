@@ -21,13 +21,16 @@ export const paramsToModelConfig = (params: PlaygroundParams): PromptModelConfig
 };
 
 /**
- * The messages that will actually be written to the new version: content is
- * trimmed and empty messages are dropped. The playground always keeps a
- * trailing empty user turn, so this prevents that placeholder (and any blank
- * turns) from being persisted as part of the template.
+ * The messages that will actually be written to the new version: assistant
+ * (model-generated) turns are dropped, content is trimmed, and empty messages
+ * are removed. A saved prompt is the template you send to the model, so only
+ * the system/user turns belong in it - not the assistant replies the playground
+ * appended while running the conversation. The playground also keeps a trailing
+ * empty user turn, so trimming drops that placeholder (and any blank turns).
  */
 export const getSaveableMessages = (messages: ChatMessage[]): ChatMessage[] =>
   messages
+    .filter((message) => message.role !== 'assistant')
     .map((message) => ({ role: message.role, content: message.content.trim() }))
     .filter((message) => message.content.length > 0);
 
