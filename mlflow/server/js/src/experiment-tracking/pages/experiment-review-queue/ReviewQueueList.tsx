@@ -161,8 +161,11 @@ export const ReviewQueueList = ({
   /** Newest question's creation time; flags completed traces reviewed before it. */
   latestQuestionCreatedAtMs?: number;
   /** When provided, rows become checkbox-selectable and a delete action appears
-   *  so the queue's manager can remove traces from this view. Rejects if the
-   *  removal fails, so the selection is kept (and the caller surfaces the error). */
+   *  so the queue's manager can remove traces from this view. The returned promise
+   *  MUST reject if the removal fails: on rejection the list keeps the selection so
+   *  the reviewer can retry, and the caller is responsible for surfacing the error.
+   *  A caller that swallows the failure (resolves anyway) will clear the selection
+   *  as if it succeeded. */
   onRemoveItems?: (itemIds: string[]) => Promise<void>;
   isRemovingItems?: boolean;
   /** Copy a shareable link to this queue; `startReview` deep-links into the
