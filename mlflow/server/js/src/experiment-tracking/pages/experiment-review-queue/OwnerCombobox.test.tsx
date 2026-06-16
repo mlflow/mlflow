@@ -7,12 +7,26 @@ import { IntlProvider } from '@databricks/i18n';
 
 import { OwnerCombobox } from './OwnerCombobox';
 
-const renderBox = ({ usernames, selectedUser = '' }: { usernames: string[]; selectedUser?: string }) => {
+const renderBox = ({
+  usernames,
+  selectedUser = '',
+  error,
+}: {
+  usernames: string[];
+  selectedUser?: string;
+  error?: Error | null;
+}) => {
   const onSelect = jest.fn();
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
-        <OwnerCombobox componentId="test.owner" usernames={usernames} selectedUser={selectedUser} onSelect={onSelect} />
+        <OwnerCombobox
+          componentId="test.owner"
+          usernames={usernames}
+          selectedUser={selectedUser}
+          onSelect={onSelect}
+          error={error}
+        />
       </DesignSystemProvider>
     </IntlProvider>,
   );
@@ -123,6 +137,12 @@ describe('OwnerCombobox', () => {
   it('shows an empty state with no assignable users', () => {
     renderBox({ usernames: [] });
     expect(screen.getByText(/no assignable users/i)).toBeInTheDocument();
+  });
+
+  it('surfaces a load error instead of the empty state', () => {
+    renderBox({ usernames: [], error: new Error('boom') });
+    expect(screen.getByText(/couldn't load users/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no assignable users/i)).not.toBeInTheDocument();
   });
 
   it('shows an empty state when the search matches nothing', () => {

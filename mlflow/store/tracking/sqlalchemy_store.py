@@ -8483,36 +8483,43 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             users=users,
             schema_ids=schema_ids,
         )
-
         with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_experiment_exists(session, experiment_id)
             self._validate_schema_ids_exist(session, experiment_id, validated.schema_ids)
-
-            existing = (
-                self
-                ._review_queue_query(session)
-                .filter(
-                    SqlReviewQueue.experiment_id == int(experiment_id),
-                    SqlReviewQueue.name == validated.name,
-                )
-                .one_or_none()
-            )
-            if existing is not None:
-                raise MlflowException(
-                    f"Review queue with name '{validated.name}' already exists.",
-                    error_code=RESOURCE_ALREADY_EXISTS,
-                )
 
             now_ms = get_current_time_millis()
             sql_queue = SqlReviewQueue(
                 queue_id=f"{SqlReviewQueue.QUEUE_ID_PREFIX}{uuid.uuid4().hex}",
                 experiment_id=int(experiment_id),
+                # Names are unique within an experiment case-insensitively via the
+                # case-folded `name_key`, which the model validator derives from
+                # `name` (the display casing).
                 name=validated.name,
                 queue_type=str(validated.queue_type),
                 created_by=created_by,
                 creation_time_ms=now_ms,
                 last_update_time_ms=now_ms,
             )
+            # Single source for the case-fold: the validator-derived key, reused by
+            # the pre-check and the disambiguation re-query below (captured rather
+            # than re-read off the object, which a savepoint rollback could expire).
+            name_key = sql_queue.name_key
+
+            existing = (
+                self
+                ._review_queue_query(session)
+                .filter(
+                    SqlReviewQueue.experiment_id == int(experiment_id),
+                    SqlReviewQueue.name_key == name_key,
+                )
+                .one_or_none()
+            )
+            if existing is not None:
+                raise MlflowException(
+                    f"Review queue with name '{validated.name}' already exists "
+                    "(names are case-insensitive).",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                )
             try:
                 # SAVEPOINT around the add+flush so an IntegrityError rolls back
                 # just this insert (not the whole transaction) and leaves the
@@ -8523,22 +8530,30 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             except IntegrityError as e:
                 # The flush violated a constraint. Disambiguate by checking which
                 # one now holds rather than assuming a cause. The duplicate check
-                # is intentionally unscoped: the unique constraint is global on
-                # (experiment_id, name), independent of any workspace scoping
-                # applied to reads.
+                # is on `name_key` (matching the unique constraint), so a parallel
+                # create of a case-variant name (e.g. `foo` vs an existing `Foo`)
+                # is correctly classified as a duplicate and translated below,
+                # rather than falling through and re-raising a raw IntegrityError.
+                # It is intentionally unscoped: the unique constraint is global on
+                # (experiment_id, name_key), and an experiment belongs to a single
+                # workspace, so any row sharing this experiment_id is in the same
+                # workspace as the queue being created. The unscoped lookup
+                # therefore can't surface a foreign-workspace row; workspace scoping
+                # on reads is irrelevant to this disambiguation.
                 duplicate = (
                     session
                     .query(SqlReviewQueue)
                     .filter(
                         SqlReviewQueue.experiment_id == int(experiment_id),
-                        SqlReviewQueue.name == validated.name,
+                        SqlReviewQueue.name_key == name_key,
                     )
                     .first()
                 )
                 if duplicate is not None:
                     # A parallel transaction won the create race.
                     raise MlflowException(
-                        f"Review queue with name '{validated.name}' already exists.",
+                        f"Review queue with name '{validated.name}' already exists "
+                        "(names are case-insensitive).",
                         error_code=RESOURCE_ALREADY_EXISTS,
                     ) from e
                 experiment_present = (
@@ -8609,7 +8624,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 ._review_queue_query(session)
                 .filter(
                     SqlReviewQueue.experiment_id == int(experiment_id),
-                    SqlReviewQueue.name == name,
+                    # Look up case-insensitively (matching the uniqueness key).
+                    SqlReviewQueue.name_key == name.lower(),
                 )
                 .one_or_none()
             )
@@ -8702,10 +8718,18 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if name is not None:
                 new_name = validate_custom_queue_name(name)
                 if new_name != sql_queue.name:
-                    # A collision with an existing name is caught at flush via the
-                    # unique (experiment_id, name) constraint; no upfront SELECT.
+                    # Assigning `name` re-derives `name_key` via the validator.
+                    # Only a name_key change can violate the unique
+                    # (experiment_id, name_key) constraint, so only then arm
+                    # `renamed_to`, which translates a flush IntegrityError into a
+                    # name collision (no upfront SELECT). A pure display-case change
+                    # keeps the same name_key, so it can't collide; leaving
+                    # `renamed_to` None there means an unrelated IntegrityError is
+                    # surfaced untranslated, not mislabeled.
+                    previous_name_key = sql_queue.name_key
                     sql_queue.name = new_name
-                    renamed_to = new_name
+                    if sql_queue.name_key != previous_name_key:
+                        renamed_to = new_name
 
             if users is not None:
                 normalized_users = normalize_users(users)
@@ -8749,15 +8773,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             try:
                 session.flush()
             except IntegrityError as e:
-                # The only unique constraint here is (experiment_id, name): a rename
-                # to a name already taken in the experiment violates it. Surface that
-                # as a clean RESOURCE_ALREADY_EXISTS. If no rename was applied the
+                # The only unique constraint here is (experiment_id, name_key): a
+                # rename to a name already taken (case-insensitively) in the
+                # experiment violates it. Surface that as a clean
+                # RESOURCE_ALREADY_EXISTS. If no rename was applied the
                 # violation is unrelated, so re-raise it untranslated rather than
                 # blaming the name.
                 if renamed_to is None:
                     raise
                 raise MlflowException(
-                    f"Review queue with name '{renamed_to}' already exists.",
+                    f"Review queue with name '{renamed_to}' already exists "
+                    "(names are case-insensitive).",
                     error_code=RESOURCE_ALREADY_EXISTS,
                 ) from e
             return self._hydrate_review_queues(session, [sql_queue])[0]

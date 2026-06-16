@@ -60,7 +60,11 @@ export const QueueSettingsModal = ({
 
   const { labelSchemas, isLoading: schemasLoading } = useListLabelSchemasQuery({ experimentId: queue.experiment_id });
   const { items: traces, isLoading: itemsLoading } = useListReviewQueueItemsQuery({ queueId: queue.queue_id });
-  const { users: assignableUsers, isLoading: usersLoading } = useAssignableUsersQuery({ enabled: canListUsers });
+  const {
+    users: assignableUsers,
+    isLoading: usersLoading,
+    error: usersError,
+  } = useAssignableUsersQuery({ enabled: canListUsers });
   const { updateReviewQueueAsync, isUpdatingQueue } = useUpdateReviewQueueMutation();
 
   // Questions are an experiment-manager concern (`canManage`) and additionally
@@ -187,6 +191,11 @@ export const QueueSettingsModal = ({
     selectedSchemaIds.size !== originalSchemaIds.size ||
     [...originalSchemaIds].some((id) => !selectedSchemaIds.has(id));
 
+  // Mirror the create modal's floor: an editable CUSTOM queue must keep at least one
+  // question. Saving with none persists an empty schema_ids, leaving the queue
+  // unreviewable. Frozen questions aren't sent, so the floor doesn't apply.
+  const questionsBelowFloor = canEditQuestions && selectedSchemaIds.size === 0;
+
   const handleSave = async () => {
     try {
       await updateReviewQueueAsync({
@@ -241,7 +250,7 @@ export const QueueSettingsModal = ({
               componentId={`${CID}.save`}
               type="primary"
               loading={isUpdatingQueue}
-              disabled={isUpdatingQueue || !canSave}
+              disabled={isUpdatingQueue || !canSave || questionsBelowFloor}
               onClick={handleSave}
             >
               <FormattedMessage defaultMessage="Save" description="Queue settings: save button" />
@@ -283,6 +292,7 @@ export const QueueSettingsModal = ({
                   onSelect={setNewOwner}
                   dropdownZIndex={dropdownZIndex}
                   isLoading={usersLoading}
+                  error={usersError}
                 />
               </div>
             )}
@@ -306,6 +316,7 @@ export const QueueSettingsModal = ({
                   triggerValue={reviewersTriggerValue}
                   dropdownZIndex={dropdownZIndex}
                   isLoading={usersLoading}
+                  error={usersError}
                   maxSelected={owner ? MAX_ASSIGNED_USERS - 1 : MAX_ASSIGNED_USERS}
                 />
               </div>
@@ -345,6 +356,16 @@ export const QueueSettingsModal = ({
                   triggerValue={questionsTriggerValue}
                   disabled={!canEditQuestions}
                   dropdownZIndex={dropdownZIndex}
+                />
+              )}
+
+              {questionsBelowFloor && (
+                <FormUI.Message
+                  type="error"
+                  message={intl.formatMessage({
+                    defaultMessage: "Select at least one question. A queue with no questions can't be reviewed.",
+                    description: 'Queue settings: validation shown when no questions are selected',
+                  })}
                 />
               )}
 

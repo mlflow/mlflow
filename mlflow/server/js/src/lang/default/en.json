@@ -207,6 +207,10 @@
     "defaultMessage": "e.g. 0.7",
     "description": "Placeholder for the temperature input on the playground parameters panel"
   },
+  "+z2xbc": {
+    "defaultMessage": "Playground",
+    "description": "Label for the playground tab in the MLflow experiment navbar"
+  },
   "//EoiB": {
     "defaultMessage": "Search records by inputs or expectations",
     "description": "Aria label for the search input on the V2 dataset records page (placeholder is not a label per WCAG 1.3.1)"
@@ -403,6 +407,10 @@
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
   },
+  "/pO3oR": {
+    "defaultMessage": "Failed to save question: {error}",
+    "description": "Review question modal: error toast shown when saving a question fails"
+  },
   "/qIHh7": {
     "defaultMessage": "Traces",
     "description": "Label for the scorer evaluation scope selection"
@@ -434,6 +442,10 @@
   "/yjgDc": {
     "defaultMessage": "{formattedAverage} (AVG)",
     "description": "Label showing the average value of numeric assessments"
+  },
+  "/z8VeL": {
+    "defaultMessage": "Couldn't load users. Try again.",
+    "description": "Add to review queue: users roster failed to load"
   },
   "/zbm8T": {
     "defaultMessage": "Continue editing the question to see a preview.",
@@ -907,6 +919,10 @@
     "defaultMessage": "Load the model",
     "description": "Heading text for stating how to load the model from the experiment run"
   },
+  "2Noq+z": {
+    "defaultMessage": "Could not assign yourself to the queue: {error}",
+    "description": "Review queue: error toast when self-assigning to a queue fails"
+  },
   "2OifbU": {
     "defaultMessage": "Inputs cannot be empty",
     "description": "Status text shown in the dataset record drawer footer when the inputs editor is empty (would otherwise wipe the field server-side)"
@@ -1106,10 +1122,6 @@
   "3PBIB8": {
     "defaultMessage": "Appearance, product feedback, telemetry, and workspace demo data.",
     "description": "Settings content section subtitle for general preferences including demo data"
-  },
-  "3Q8nGH": {
-    "defaultMessage": "Playground",
-    "description": "Title of the LLM playground page"
   },
   "3Rb4sG": {
     "defaultMessage": "Delete",
@@ -1786,6 +1798,10 @@
   "7/urtn": {
     "defaultMessage": "Automatically log traces for LangChain or LangGraph invocations by calling the {code} function. For example:",
     "description": "Description of how to log traces for the LangChain/LangGraph package using MLflow autologging. This message is followed by a code example."
+  },
+  "70Oj6o": {
+    "defaultMessage": "Share review link",
+    "description": "Review queue share dropdown: copies a link that opens the first pending trace for review"
   },
   "71dHIO": {
     "defaultMessage": "Classical ML",
@@ -3663,6 +3679,10 @@
     "defaultMessage": "Unassign {count, plural, one {# trace} other {# traces}} from the queue",
     "description": "Review queue: tooltip explaining that the button removes the selected traces from the queue (the traces themselves are not deleted)"
   },
+  "Ga2Oyg": {
+    "defaultMessage": "Share queue link",
+    "description": "Review queue share dropdown: copies a link to the queue's list view"
+  },
   "GbEHyg": {
     "defaultMessage": "Name",
     "description": "Section title for endpoint name"
@@ -4027,10 +4047,6 @@
     "defaultMessage": "Description update failed",
     "description": "Partial save status message when experiment description update fails"
   },
-  "IWIjkw": {
-    "defaultMessage": "Copy link to queue",
-    "description": "Review queue header: copy shareable queue link menu item"
-  },
   "IWNUE0": {
     "defaultMessage": "Failed to load roles",
     "description": "Alert title shown when the roles query fails on the account page"
@@ -4150,10 +4166,6 @@
   "JChRnq": {
     "defaultMessage": "Last 24 hours",
     "description": "Option for the start select dropdown to filter runs from the last 24 hours"
-  },
-  "JD0saW": {
-    "defaultMessage": "New",
-    "description": "Sidebar > Playground > New feature tag"
   },
   "JDpv0G": {
     "defaultMessage": "Operator",
@@ -4814,6 +4826,10 @@
   "MjypBt": {
     "defaultMessage": "Pending ({count})",
     "description": "Issue status filter > Pending button label"
+  },
+  "MkP0XP": {
+    "defaultMessage": "Could not remove traces: {error}",
+    "description": "Review queue: error toast when removing traces from a queue fails"
   },
   "Mmrsqt": {
     "defaultMessage": "Failed to load webhooks",
@@ -5667,6 +5683,10 @@
     "defaultMessage": "Advanced settings (optional)",
     "description": "Toggle button for advanced settings in prompt creation modal"
   },
+  "R1kmVV": {
+    "defaultMessage": "Couldn't load reviewers. Try again.",
+    "description": "Review queue: reviewers roster failed to load"
+  },
   "R28jzs": {
     "defaultMessage": "Action",
     "description": "Guardrail action column header"
@@ -6371,6 +6391,10 @@
     "defaultMessage": "Choose your framework and add one line to enable automatic tracing, or use the {code} decorator for custom functions.",
     "description": "Step 2 description for Python traces onboarding"
   },
+  "UcXPrr": {
+    "defaultMessage": "New! Flag traces for review and add them to a review queue.",
+    "description": "Guidance tooltip message for the flag for review button in the trace drawer"
+  },
   "UcXao0": {
     "defaultMessage": "Deleted dataset \"{name}\"",
     "description": "Success toast after deleting a V2 evaluation dataset"
@@ -6651,6 +6675,10 @@
     "defaultMessage": "Usage example",
     "description": "A title of the modal showing the usage example of the prompt"
   },
+  "VtJXih": {
+    "defaultMessage": "Select at least one question. A queue with no questions can't be reviewed.",
+    "description": "Queue settings: validation shown when no questions are selected"
+  },
   "Vvs+79": {
     "defaultMessage": "Low",
     "description": "Issue severity tag label for low severity"
@@ -6923,10 +6951,6 @@
     "defaultMessage": "Off",
     "description": "Usage tracking disabled state"
   },
-  "X3nbpN": {
-    "defaultMessage": "Playground",
-    "description": "Sidebar link for playground tab"
-  },
   "X6P8tX": {
     "defaultMessage": "No models found",
     "description": "Empty state title displayed when all models are filtered out in the logged models list page"
@@ -6978,6 +7002,10 @@
   "XIWwOm": {
     "defaultMessage": "Session ID",
     "description": "Label for the session id section"
+  },
+  "XIicPZ": {
+    "defaultMessage": "Couldn't load users. Try again.",
+    "description": "Review queue: owner roster failed to load"
   },
   "XJP2Uv": {
     "defaultMessage": "Pick a workspace from the workspace selector to see its roles.",
@@ -7150,6 +7178,10 @@
   "YGtA3F": {
     "defaultMessage": "Collect a free-form rationale alongside the input",
     "description": "Enable rationale checkbox"
+  },
+  "YHOEuf": {
+    "defaultMessage": "Share queue",
+    "description": "Review queue header: share queue button aria label"
   },
   "YIKNtj": {
     "defaultMessage": "An error occurred while creating the budget policy. Please try again.",
@@ -7574,10 +7606,6 @@
   "aLRRam": {
     "defaultMessage": "Prompts",
     "description": "Header title for the registered prompts page"
-  },
-  "aLyy52": {
-    "defaultMessage": "Failed to save: {message}",
-    "description": "Review question save error"
   },
   "aMOq4p": {
     "defaultMessage": "See {mlflowLink} for more details.",
@@ -11103,6 +11131,10 @@
     "defaultMessage": "Add rationale (optional)",
     "description": "Evaluation review > assessments > rationale input placeholder"
   },
+  "r/uvjS": {
+    "defaultMessage": "Failed to delete question: {error}",
+    "description": "Manage review questions: error toast shown when deleting a question fails"
+  },
   "r0J+Jm": {
     "defaultMessage": "Selected guardrail model endpoint is unavailable. Please choose another endpoint.",
     "description": "Error shown when selected guardrail model endpoint is no longer available"
@@ -12690,10 +12722,6 @@
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
     "description": "Tooltip for deleted endpoint"
-  },
-  "z8QLT1": {
-    "defaultMessage": "Copy start-review link",
-    "description": "Review queue header: copy link that opens the first to-do trace for review"
   },
   "z8srAp": {
     "defaultMessage": "Trace archival retention",

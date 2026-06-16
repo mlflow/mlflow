@@ -77,12 +77,10 @@ describe('PlaygroundPage', () => {
     });
   });
 
-  it('renders the page header with a single empty user composer by default', async () => {
+  it('renders a single empty user composer by default', async () => {
     renderPlayground();
 
-    await waitFor(() => {
-      expect(screen.getByText('Playground')).toBeInTheDocument();
-    });
+    await screen.findByTestId('endpoint-selector-test-input');
 
     expect(screen.getByPlaceholderText('Type a message')).toHaveValue('');
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
@@ -93,9 +91,7 @@ describe('PlaygroundPage', () => {
   it('keeps Submit disabled until both an endpoint and a non-empty message are present', async () => {
     renderPlayground();
 
-    await waitFor(() => {
-      expect(screen.getByText('Playground')).toBeInTheDocument();
-    });
+    await screen.findByTestId('endpoint-selector-test-input');
 
     const submit = screen.getByRole('button', { name: /submit/i });
     expect(submit).toBeDisabled();

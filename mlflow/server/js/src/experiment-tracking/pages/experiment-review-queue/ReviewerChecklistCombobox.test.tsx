@@ -7,7 +7,15 @@ import { IntlProvider } from '@databricks/i18n';
 
 import { ReviewerChecklistCombobox } from './ReviewerChecklistCombobox';
 
-const renderBox = ({ usernames, checkedUsers }: { usernames: string[]; checkedUsers: Set<string> }) => {
+const renderBox = ({
+  usernames,
+  checkedUsers,
+  error,
+}: {
+  usernames: string[];
+  checkedUsers: Set<string>;
+  error?: Error | null;
+}) => {
   const onToggle = jest.fn();
   render(
     <IntlProvider locale="en">
@@ -18,6 +26,7 @@ const renderBox = ({ usernames, checkedUsers }: { usernames: string[]; checkedUs
           checkedUsers={checkedUsers}
           onToggle={onToggle}
           triggerValue={[]}
+          error={error}
         />
       </DesignSystemProvider>
     </IntlProvider>,
@@ -253,6 +262,12 @@ describe('ReviewerChecklistCombobox', () => {
   it('shows an empty state with no assignable reviewers', () => {
     renderBox({ usernames: [], checkedUsers: new Set() });
     expect(screen.getByText(/no assignable reviewers/i)).toBeInTheDocument();
+  });
+
+  it('surfaces a load error instead of the empty state', () => {
+    renderBox({ usernames: [], checkedUsers: new Set(), error: new Error('boom') });
+    expect(screen.getByText(/couldn't load reviewers/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no assignable reviewers/i)).not.toBeInTheDocument();
   });
 
   it('shows an empty state when the search matches nothing', () => {
