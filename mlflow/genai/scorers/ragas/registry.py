@@ -73,7 +73,7 @@ _METRIC_REGISTRY: dict[str, MetricConfig] = {
     "BleuScore": MetricConfig(
         "ragas.metrics.collections.BleuScore", requires_llm_in_constructor=False
     ),
-    "CHRFScore": MetricConfig(
+    "ChrfScore": MetricConfig(
         "ragas.metrics.collections.CHRFScore", requires_llm_in_constructor=False
     ),
     "RougeScore": MetricConfig(
