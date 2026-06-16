@@ -305,6 +305,23 @@ def test_add_items_forwards_explicit_item_type():
     store.batch_get_trace_infos.assert_called_once_with(["tr-1"])
 
 
+def test_add_items_normalizes_ids_before_existence_check():
+    # Whitespace-padded / duplicate ids must be stripped + de-duped BEFORE the
+    # trace-existence check, so the check validates the same ids the store writes.
+    # Otherwise a padded-but-valid id (" tr-1 ") is looked up raw, misses, and is
+    # wrongly rejected as non-existent even though the store would store it stripped.
+    request_message = AddItemsToReviewQueue(queue_id="rq-1", item_ids=[" tr-1 ", "tr-1", "tr-2\t"])
+    store, response = _run_add_items(
+        request_message,
+        trace_infos=[_trace_info("tr-1"), _trace_info("tr-2")],
+        add_return=[_item_entity("tr-1"), _item_entity("tr-2")],
+    )
+    assert response.status_code == 200
+    # Both the existence check and the store write see the normalized, de-duped ids.
+    store.batch_get_trace_infos.assert_called_once_with(["tr-1", "tr-2"])
+    assert store.add_items_to_review_queue.call_args[1]["item_ids"] == ["tr-1", "tr-2"]
+
+
 def test_add_items_rejects_traces_not_in_queue_experiment():
     # tr-2 doesn't exist anywhere; tr-3 exists but in a different experiment.
     request_message = AddItemsToReviewQueue(queue_id="rq-1", item_ids=["tr-1", "tr-2", "tr-3"])
@@ -319,6 +336,37 @@ def test_add_items_rejects_traces_not_in_queue_experiment():
     assert body["error_code"] == "RESOURCE_DOES_NOT_EXIST"
     assert "tr-2" in body["message"]
     assert "tr-3" in body["message"]
+    store.add_items_to_review_queue.assert_not_called()
+
+
+def test_add_items_reports_missing_padded_id_by_its_stripped_form():
+    # A padded id that doesn't exist is checked (and reported) by its normalized
+    # form, not the raw padded form -- the existence lookup uses the stripped id.
+    request_message = AddItemsToReviewQueue(queue_id="rq-1", item_ids=[" tr-9 "])
+    store, response = _run_add_items(
+        request_message,
+        queue_experiment_id="1",
+        trace_infos=[],
+        add_return=[],
+    )
+    assert response.status_code == 404
+    body = json.loads(response.get_data())
+    assert body["error_code"] == "RESOURCE_DOES_NOT_EXIST"
+    assert "tr-9" in body["message"]
+    store.batch_get_trace_infos.assert_called_once_with(["tr-9"])
+    store.add_items_to_review_queue.assert_not_called()
+
+
+def test_add_items_rejects_empty_ids_before_touching_the_store():
+    # Malformed input fails fast: an empty (or whitespace-only) item_ids list is
+    # rejected before the queue lookup / existence check / store write.
+    request_message = AddItemsToReviewQueue(queue_id="rq-1", item_ids=[])
+    store, response = _run_add_items(request_message, trace_infos=[], add_return=[])
+    assert response.status_code == 400
+    body = json.loads(response.get_data())
+    assert body["error_code"] == "INVALID_PARAMETER_VALUE"
+    store.get_review_queue.assert_not_called()
+    store.batch_get_trace_infos.assert_not_called()
     store.add_items_to_review_queue.assert_not_called()
 
 

@@ -90,6 +90,7 @@ from mlflow.gateway.budget_tracker import _policy_applies, get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.genai.label_schemas.label_schemas import LabelSchemaType, _input_from_proto
 from mlflow.genai.review_queues import ReviewItemType, ReviewQueueType, ReviewStatus
+from mlflow.genai.review_queues.validation import validate_item_ids_for_attach
 from mlflow.genai.scorers.scorer_utils import DECORATOR_SCORER_REGISTRATION_NOT_SUPPORTED_ERROR
 from mlflow.models import Model
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
@@ -4811,7 +4812,11 @@ def _add_items_to_review_queue():
         schema={"queue_id": [_assert_required, _assert_string]},
     )
     store = _get_tracking_store()
-    item_ids = list(request_message.item_ids)
+    # Normalize (strip + de-dup) up front so the existence check below validates
+    # the same ids the store persists. The store re-normalizes (idempotent); doing
+    # it here too keeps the raw-vs-stored mismatch from rejecting a padded-but-valid
+    # id as non-existent.
+    item_ids = validate_item_ids_for_attach(list(request_message.item_ids))
     kwargs: dict[str, object] = {"item_ids": item_ids}
     if (
         request_message.HasField("item_type")
