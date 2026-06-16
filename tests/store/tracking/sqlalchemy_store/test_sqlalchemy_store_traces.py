@@ -1342,6 +1342,35 @@ def test_search_traces_with_assessment_numeric_filters(store: SqlAlchemyStore):
     with pytest.raises(MlflowException, match="Expected a numeric value for feedback"):
         store.search_traces([exp_id], filter_string='feedback.score > "high"')
 
+    with pytest.raises(MlflowException, match="Expected a quoted string value for feedback"):
+        store.search_traces([exp_id], filter_string="feedback.quality = 3")
+
+
+def test_search_traces_numeric_filters_exclude_nan_and_infinity(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_numeric_nan_inf")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    for trace_id, score in [
+        ("trace_finite", 3.0),
+        ("trace_nan", float("nan")),
+        ("trace_inf", float("inf")),
+        ("trace_neg_inf", float("-inf")),
+    ]:
+        _create_trace(store, trace_id, exp_id)
+        store.create_assessment(
+            Feedback(trace_id=trace_id, name="score", value=score, source=source)
+        )
+
+    def search(filter_string):
+        traces, _ = store.search_traces([exp_id], filter_string=filter_string)
+        return {trace.request_id for trace in traces}
+
+    # NaN/+Inf/-Inf serialize to the JSON literals "NaN"/"Infinity"/"-Infinity" and must be
+    # excluded from numeric comparisons (a naive CAST coerces them to 0 or errors out).
+    assert search("feedback.score < 4") == {"trace_finite"}
+    assert search("feedback.score > 4") == set()
+    assert search("feedback.score > 0") == {"trace_finite"}
+    assert search("feedback.score <= 3") == {"trace_finite"}
+
 
 def test_search_traces_with_run_id(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_run_id")

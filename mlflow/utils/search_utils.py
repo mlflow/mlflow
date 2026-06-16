@@ -2047,13 +2047,22 @@ class SearchTraceUtils(SearchUtils):
             return clause
 
         def json_numeric_comparison(column: "ColumnElement", value: str) -> "ClauseElement":
-            if dialect == MYSQL:
-                col_ref = f"{column.class_.__tablename__}.{column.key}"
-                numeric_value = sa.literal_column(f"CAST({col_ref} AS DOUBLE)")
-            else:
-                numeric_value = sa.cast(column, sa.Float)
+            # `CAST(... AS DOUBLE)` is only valid on MySQL 8.0.17+. Numeric coercion via addition
+            # (`column + 0.0`) yields a floating comparison and renders identically across MySQL
+            # versions, including 5.7.
+            numeric_value = column + 0.0 if dialect == MYSQL else sa.cast(column, sa.Float)
             numeric_column = sa.case(
-                (sa.func.lower(column).in_(["true", "false", "null"]), sa.null()),
+                (
+                    sa.func.lower(column).in_([
+                        "true",
+                        "false",
+                        "null",
+                        "nan",
+                        "infinity",
+                        "-infinity",
+                    ]),
+                    sa.null(),
+                ),
                 (sa.func.substring(column, 1, 1).in_(['"', "[", "{"]), sa.null()),
                 else_=numeric_value,
             )
@@ -2230,32 +2239,22 @@ class SearchTraceUtils(SearchUtils):
             return
 
         is_numeric_assessment_comparison = comparator in cls.NUMERIC_ASSESSMENT_COMPARATORS
+        msg = (
+            f"Expected a numeric value for {identifier_type} when using comparator "
+            f"'{comparator}'. Got value {token.value}"
+            if is_numeric_assessment_comparison
+            else "Expected a quoted string value for "
+            f"{identifier_type} (e.g. 'my-value'). Got value "
+            f"{token.value}"
+        )
         if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
             if is_numeric_assessment_comparison:
-                raise MlflowException(
-                    f"Expected a numeric value for {identifier_type} when using comparator "
-                    f"'{comparator}'. Got value {token.value}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+                raise MlflowException(msg, error_code=INVALID_PARAMETER_VALUE)
         elif token.ttype in cls.NUMERIC_VALUE_TYPES:
             if not is_numeric_assessment_comparison:
-                raise MlflowException(
-                    "Expected a quoted string value for "
-                    f"{identifier_type} (e.g. 'my-value'). Got value "
-                    f"{token.value}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+                raise MlflowException(msg, error_code=INVALID_PARAMETER_VALUE)
         else:
-            raise MlflowException(
-                (
-                    f"Expected a numeric value for {identifier_type} when using comparator "
-                    f"'{comparator}'. Got value {token.value}"
-                    if is_numeric_assessment_comparison
-                    else "Expected a quoted string value for "
-                    f"{identifier_type} (e.g. 'my-value'). Got value {token.value}"
-                ),
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+            raise MlflowException(msg, error_code=INVALID_PARAMETER_VALUE)
 
     @classmethod
     def _validate_comparison(cls, tokens):
