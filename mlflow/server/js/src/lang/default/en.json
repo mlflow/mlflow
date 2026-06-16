@@ -6335,6 +6335,10 @@
     "defaultMessage": "Choose your framework and add one line to enable automatic tracing, or use the {code} decorator for custom functions.",
     "description": "Step 2 description for Python traces onboarding"
   },
+  "UcXPrr": {
+    "defaultMessage": "New! Flag traces for review and add them to a review queue.",
+    "description": "Guidance tooltip message for the flag for review button in the trace drawer"
+  },
   "UcXao0": {
     "defaultMessage": "Deleted dataset \"{name}\"",
     "description": "Success toast after deleting a V2 evaluation dataset"
