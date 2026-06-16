@@ -16,12 +16,12 @@ export const SaveToRegistryButton = ({ onOpen, disabled }: Props) => {
       disabled={disabled}
       aria-label={intl.formatMessage({
         defaultMessage: 'Save prompt',
-        description: 'Aria label for the playground top-bar button that opens the save-prompt-version drawer',
+        description: 'Aria label for the playground top-bar button that opens the save-prompt-version modal',
       })}
     >
       <FormattedMessage
         defaultMessage="Save prompt"
-        description="Label for the playground top-bar button that opens the save-prompt-version drawer"
+        description="Label for the playground top-bar button that opens the save-prompt-version modal"
       />
     </Button>
   );

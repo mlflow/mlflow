@@ -271,10 +271,6 @@
     "defaultMessage": "Git commit",
     "description": "Column label for the git commit hash the trace was produced on"
   },
-  "/GfWqb": {
-    "defaultMessage": "Save prompt",
-    "description": "Label for the playground top-bar button that opens the save-prompt-version drawer"
-  },
   "/HeTx7": {
     "defaultMessage": "Create",
     "description": "Create webhook confirm button"
@@ -1010,10 +1006,6 @@
   "2gxV/O": {
     "defaultMessage": "Evaluation not available when grouping is enabled",
     "description": "Experiment page > artifact compare view > disabled due to run grouping > title"
-  },
-  "2hIAQP": {
-    "defaultMessage": "Save prompt",
-    "description": "Aria label for the playground top-bar button that opens the save-prompt-version drawer"
   },
   "2hwoFW": {
     "defaultMessage": "Text",
@@ -3215,6 +3207,10 @@
     "defaultMessage": "Budget exceeded",
     "description": "Warning icon label for exceeded budget"
   },
+  "DxHEXN": {
+    "defaultMessage": "Preview",
+    "description": "Title of the preview section in the playground prompt-registry picker modal"
+  },
   "Dz/+6s": {
     "defaultMessage": "Usage tracking",
     "description": "Label for usage tracking toggle in sidebar"
@@ -3222,10 +3218,6 @@
   "E+bByS": {
     "defaultMessage": "My queues",
     "description": "Review queue sidebar: show-only-owned-queues filter"
-  },
-  "E0nFI2": {
-    "defaultMessage": "Preview",
-    "description": "Title of the preview section in the playground prompt-registry picker drawer"
   },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
@@ -3991,6 +3983,10 @@
     "defaultMessage": "New password and confirmation do not match",
     "description": "Validation error when new password and confirmation do not match"
   },
+  "IDk8d+": {
+    "defaultMessage": "Save prompt",
+    "description": "Aria label for the playground top-bar button that opens the save-prompt-version modal"
+  },
   "IEORCP": {
     "defaultMessage": "Comparing {numRuns} Runs from {numExperiments} Experiments",
     "description": "Breadcrumb title for compare runs page with multiple experiments"
@@ -4450,6 +4446,10 @@
   "KoiZrr": {
     "defaultMessage": "This queue has no questions attached.",
     "description": "Add to review queue: custom queue disabled reason"
+  },
+  "KpFPCX": {
+    "defaultMessage": "Settings",
+    "description": "Subsection header listing model settings stored with the selected prompt version on the playground prompt-registry picker modal"
   },
   "KqReh3": {
     "defaultMessage": "Error stack trace",
@@ -5606,6 +5606,10 @@
   "Qayyg6": {
     "defaultMessage": "Columns",
     "description": "Columns button label"
+  },
+  "Qb78hE": {
+    "defaultMessage": "Messages",
+    "description": "Subsection header listing messages of the selected prompt version on the playground prompt-registry picker modal"
   },
   "QcEYpD": {
     "defaultMessage": "Add to evaluation dataset",
@@ -7055,6 +7059,10 @@
     "defaultMessage": "Prompt alias deleted",
     "description": "Webhook event label"
   },
+  "XfsPd4": {
+    "defaultMessage": "Save prompt",
+    "description": "Label for the playground top-bar button that opens the save-prompt-version modal"
+  },
   "XiGiE1": {
     "defaultMessage": "Workspace",
     "description": "Permissions table column header for the workspace"
@@ -8110,10 +8118,6 @@
   "cbj8bg": {
     "defaultMessage": "{count, plural, one {# custom queue} other {# custom queues}}",
     "description": "Manage review questions: count of custom queues using the question being deleted"
-  },
-  "cdkVoZ": {
-    "defaultMessage": "Settings",
-    "description": "Subsection header listing model settings stored with the selected prompt version on the playground prompt-registry picker drawer"
   },
   "cfzQMh": {
     "defaultMessage": "baseline run",
@@ -11470,10 +11474,6 @@
   "sOQcFW": {
     "defaultMessage": "None",
     "description": "Label for the button disabling grouping in the logged model list page"
-  },
-  "sQxTyj": {
-    "defaultMessage": "Messages",
-    "description": "Subsection header listing messages of the selected prompt version on the playground prompt-registry picker drawer"
   },
   "sS3GBl": {
     "defaultMessage": "Trace LLM applications for debugging and monitoring.",

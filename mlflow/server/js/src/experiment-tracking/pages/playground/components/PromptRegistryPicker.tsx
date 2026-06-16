@@ -261,7 +261,7 @@ export const PromptRegistryPicker = ({ visible, onCancel, onLoad }: Props) => {
               >
                 <FormattedMessage
                   defaultMessage="Preview"
-                  description="Title of the preview section in the playground prompt-registry picker drawer"
+                  description="Title of the preview section in the playground prompt-registry picker modal"
                 />
               </Typography.Title>
 
@@ -274,7 +274,7 @@ export const PromptRegistryPicker = ({ visible, onCancel, onLoad }: Props) => {
                 >
                   <FormattedMessage
                     defaultMessage="Messages"
-                    description="Subsection header listing messages of the selected prompt version on the playground prompt-registry picker drawer"
+                    description="Subsection header listing messages of the selected prompt version on the playground prompt-registry picker modal"
                   />
                 </Typography.Text>
                 <div
@@ -332,7 +332,7 @@ export const PromptRegistryPicker = ({ visible, onCancel, onLoad }: Props) => {
                 >
                   <FormattedMessage
                     defaultMessage="Settings"
-                    description="Subsection header listing model settings stored with the selected prompt version on the playground prompt-registry picker drawer"
+                    description="Subsection header listing model settings stored with the selected prompt version on the playground prompt-registry picker modal"
                   />
                 </Typography.Text>
                 {loadPayload.settings === null ? (
