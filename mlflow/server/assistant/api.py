@@ -1,12 +1,15 @@
 import ipaddress
 import logging
 import uuid
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, AsyncGenerator, Literal
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from fastapi.routing import APIRoute
 from pydantic import BaseModel, Field
+from starlette.responses import Response
 
 from mlflow.assistant import clear_project_path_cache, get_project_path
 from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
@@ -33,8 +36,9 @@ def _get_provider(name: str):
     return None
 
 
-def _get_selected_provider():
-    config = AssistantConfig.load()
+def _get_selected_provider(config: AssistantConfig | None = None):
+    if config is None:
+        config = AssistantConfig.load()
     for provider_name, provider_config in config.providers.items():
         if provider_config.selected:
             return _get_provider(provider_name)
@@ -45,6 +49,7 @@ _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
     "Assistant API is only accessible from the same host where the MLflow server is running."
 )
 _REMOTE_ACCESS_MODES = ("off", "api-only", "all")
+_INVALID_REMOTE_ACCESS_MODES_WARNED: set[str] = set()
 
 
 def _is_localhost(request: Request) -> bool:
@@ -61,12 +66,14 @@ def _is_localhost(request: Request) -> bool:
 def _get_remote_access_mode() -> str:
     mode = MLFLOW_ALLOW_REMOTE_ASSISTANT.get()
     if mode not in _REMOTE_ACCESS_MODES:
-        _logger.warning(
-            "Invalid value %r for %s, falling back to 'off'. Valid values are: %s",
-            mode,
-            MLFLOW_ALLOW_REMOTE_ASSISTANT.name,
-            _REMOTE_ACCESS_MODES,
-        )
+        if mode not in _INVALID_REMOTE_ACCESS_MODES_WARNED:
+            _logger.warning(
+                "Invalid value %r for %s, falling back to 'off'. Valid values are: %s",
+                mode,
+                MLFLOW_ALLOW_REMOTE_ASSISTANT.name,
+                _REMOTE_ACCESS_MODES,
+            )
+            _INVALID_REMOTE_ACCESS_MODES_WARNED.add(mode)
         return "off"
     return mode
 
@@ -87,9 +94,50 @@ def _enforce_remote_access(request: Request, provider: AssistantProvider | None)
         raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
 
 
+_RemoteAccessPolicy = Literal["selected_provider", "path_provider", "config_write", "none"]
+_REMOTE_ACCESS_POLICY_ATTR = "_assistant_remote_access_policy"
+
+
+def _remote_access_policy(policy: _RemoteAccessPolicy):
+    def decorator(func):
+        setattr(func, _REMOTE_ACCESS_POLICY_ATTR, policy)
+        return func
+
+    return decorator
+
+
+def _get_route_provider(request: Request, policy: _RemoteAccessPolicy) -> AssistantProvider | None:
+    match policy:
+        case "selected_provider":
+            return _get_selected_provider()
+        case "path_provider":
+            provider_name = request.path_params.get("provider")
+            return _get_provider(provider_name) if provider_name else None
+        case "config_write":
+            return None
+        case "none":
+            return None
+
+
+class _AssistantAPIRoute(APIRoute):
+    def get_route_handler(self) -> Callable[[Request], Awaitable[Response]]:
+        original_route_handler = super().get_route_handler()
+        policy = getattr(self.endpoint, _REMOTE_ACCESS_POLICY_ATTR, "selected_provider")
+
+        async def route_handler(request: Request) -> Response:
+            if policy != "none":
+                provider = _get_route_provider(request, policy)
+                if policy != "path_provider" or provider is not None:
+                    _enforce_remote_access(request, provider)
+            return await original_route_handler(request)
+
+        return route_handler
+
+
 assistant_router = APIRouter(
     prefix="/ajax-api/3.0/mlflow/assistant",
     tags=["assistant"],
+    route_class=_AssistantAPIRoute,
 )
 
 
@@ -154,8 +202,6 @@ async def send_message(http_request: Request, request: MessageRequest) -> Messag
     Returns:
         MessageResponse with session_id and stream_url
     """
-    _enforce_remote_access(http_request, _get_selected_provider())
-
     # Generate or use existing session ID
     session_id = request.session_id or str(uuid.uuid4())
 
@@ -193,8 +239,6 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     Returns:
         StreamingResponse with SSE events
     """
-    _enforce_remote_access(request, _get_selected_provider())
-
     session = SessionManager.load(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -281,8 +325,6 @@ async def patch_session(
     Returns:
         SessionPatchResponse indicating success
     """
-    _enforce_remote_access(http_request, _get_selected_provider())
-
     session = SessionManager.load(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -329,12 +371,11 @@ async def resolve_permission(session_id: str, request: PermissionDecision) -> Me
 
 
 @assistant_router.get("/providers/{provider}/health")
+@_remote_access_policy("path_provider")
 async def provider_health_check(http_request: Request, provider: str) -> dict[str, str]:
     p = _get_provider(provider)
     if p is None:
         raise HTTPException(status_code=404, detail=f"Provider '{provider}' not found")
-
-    _enforce_remote_access(http_request, p)
 
     try:
         p.check_connection()
@@ -352,6 +393,7 @@ async def provider_health_check(http_request: Request, provider: str) -> dict[st
 
 
 @assistant_router.get("/config")
+@_remote_access_policy("none")
 async def get_config(request: Request) -> ConfigResponse:
     """
     Get the current assistant configuration.
@@ -368,11 +410,12 @@ async def get_config(request: Request) -> ConfigResponse:
     return ConfigResponse(
         providers=providers,
         projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
-        remote_chat_allowed=_provider_allows_remote_access(_get_selected_provider()),
+        remote_chat_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
     )
 
 
 @assistant_router.put("/config")
+@_remote_access_policy("config_write")
 async def update_config(http_request: Request, request: ConfigUpdateRequest) -> ConfigResponse:
     """
     Update the assistant configuration.
@@ -384,8 +427,6 @@ async def update_config(http_request: Request, request: ConfigUpdateRequest) -> 
     Returns:
         Updated configuration.
     """
-    _enforce_remote_access(http_request, None)
-
     config = AssistantConfig.load()
 
     # Update providers
@@ -443,7 +484,7 @@ async def update_config(http_request: Request, request: ConfigUpdateRequest) -> 
     return ConfigResponse(
         providers={name: p.model_dump() for name, p in config.providers.items()},
         projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
-        remote_chat_allowed=_provider_allows_remote_access(_get_selected_provider()),
+        remote_chat_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
     )
 
 
@@ -465,8 +506,6 @@ async def install_skills_endpoint(
     Raises:
         HTTPException 400: If custom type without custom_path or project type without experiment_id.
     """
-    _enforce_remote_access(http_request, _get_selected_provider())
-
     config = AssistantConfig.load()
 
     project_path: Path | None = None
@@ -514,6 +553,7 @@ async def install_skills_endpoint(
 
 
 @assistant_router.get("/providers/{provider}/models")
+@_remote_access_policy("path_provider")
 async def list_provider_models(
     http_request: Request,
     provider: str,
@@ -531,8 +571,6 @@ async def list_provider_models(
             status_code=404,
             detail=f"Provider '{provider}' not found",
         )
-
-    _enforce_remote_access(http_request, p)
 
     try:
         models = p.list_models(base_url, api_key)
