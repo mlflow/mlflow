@@ -208,6 +208,29 @@ def test_pydantic_to_response_format():
 
     assert result["type"] == "json_schema"
     assert result["json_schema"]["name"] == "MySchema"
+    # OpenAI / Azure strict structured outputs (used by the MLflow AI Gateway) reject
+    # the request unless the schema declares strict=True and additionalProperties=False.
+    assert result["json_schema"]["strict"] is True
     schema = result["json_schema"]["schema"]
+    assert schema["additionalProperties"] is False
     assert "name" in schema["properties"]
     assert "score" in schema["properties"]
+
+
+def test_pydantic_to_response_format_sets_additional_properties_on_nested_objects():
+    class Address(pydantic.BaseModel):
+        city: str
+
+    class Person(pydantic.BaseModel):
+        name: str
+        addresses: list[Address]
+        primary_address: Address
+
+    result = pydantic_to_response_format(Person)
+    schema = result["json_schema"]["schema"]
+
+    assert result["json_schema"]["strict"] is True
+    assert schema["additionalProperties"] is False
+    # Every nested object - including those under $defs reached via list items and
+    # direct references - must also declare additionalProperties=False under strict mode.
+    assert schema["$defs"]["Address"]["additionalProperties"] is False

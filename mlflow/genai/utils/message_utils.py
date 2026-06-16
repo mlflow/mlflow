@@ -70,11 +70,34 @@ def serialize_chat_messages_to_prompts(
     return serialize_messages_to_prompts(messages)
 
 
+def _enforce_strict_json_schema(node: Any) -> None:
+    """Recursively set ``additionalProperties: false`` on every object schema.
+
+    OpenAI's strict structured output API (used by the MLflow AI Gateway and the
+    ``openai``/``azure`` providers) rejects a ``json_schema`` response format
+    unless every object - including those nested under ``$defs``, ``properties``,
+    array ``items``, or combinators like ``anyOf`` - declares
+    ``additionalProperties: false``. Pydantic's ``model_json_schema()`` does not
+    emit this field, so we add it in place before sending the request.
+    """
+    if isinstance(node, dict):
+        if node.get("type") == "object":
+            node["additionalProperties"] = False
+        for value in node.values():
+            _enforce_strict_json_schema(value)
+    elif isinstance(node, list):
+        for item in node:
+            _enforce_strict_json_schema(item)
+
+
 def pydantic_to_response_format(cls: type[BaseModel]) -> dict[str, Any]:
+    schema = cls.model_json_schema()
+    _enforce_strict_json_schema(schema)
     return {
         "type": "json_schema",
         "json_schema": {
             "name": cls.__name__,
-            "schema": cls.model_json_schema(),
+            "schema": schema,
+            "strict": True,
         },
     }
