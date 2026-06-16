@@ -125,25 +125,26 @@ export const ModelTraceExplorerDrawer = ({
   const showFlagForReviewButton = Boolean(renderAddToReviewQueueDropdown && experimentId && traceInfo);
   const showFlagGuidance = showFlagForReviewButton && !hasSeenFlagGuidance && isDrawerAnimationDone;
 
-  const flagForReviewButton = showFlagForReviewButton && renderAddToReviewQueueDropdown
-    ? React.createElement(renderAddToReviewQueueDropdown, {
-        selectedTraceInfos: traceInfo ? [traceInfo] : [],
-        experimentId: experimentId ?? '',
-        onOpenChange: (open: boolean) => {
-          if (open && !hasSeenFlagGuidance) {
-            handleDismissFlagGuidance();
-          }
-        },
-        children: (
-          <Button componentId="mlflow.evaluations_review.modal.flag_for_review" icon={<FlagPointerIcon />}>
-            <FormattedMessage
-              defaultMessage="Flag for review"
-              description="Button text for assigning a trace to reviewers via a review queue"
-            />
-          </Button>
-        ),
-      })
-    : null;
+  const flagForReviewButton =
+    showFlagForReviewButton && renderAddToReviewQueueDropdown
+      ? React.createElement(renderAddToReviewQueueDropdown, {
+          selectedTraceInfos: traceInfo ? [traceInfo] : [],
+          experimentId: experimentId ?? '',
+          onOpenChange: (open: boolean) => {
+            if (open && !hasSeenFlagGuidance) {
+              handleDismissFlagGuidance();
+            }
+          },
+          children: (
+            <Button componentId="mlflow.evaluations_review.modal.flag_for_review" icon={<FlagPointerIcon />}>
+              <FormattedMessage
+                defaultMessage="Flag for review"
+                description="Button text for assigning a trace to reviewers via a review queue"
+              />
+            </Button>
+          ),
+        })
+      : null;
 
   return (
     <DrawerComponent.Root

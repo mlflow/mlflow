@@ -1145,6 +1145,7 @@ module.exports = {
   "mlflow.evaluations_review.modal.add_to_dataset": "",
   "mlflow.evaluations_review.modal.add_to_evaluation_dataset": "",
   "mlflow.evaluations_review.modal.flag_for_review": "",
+  "mlflow.evaluations_review.modal.flag_for_review.guidance": "",
   "mlflow.evaluations_review.modal.next_eval": "",
   "mlflow.evaluations_review.modal.previous_eval": "",
   "mlflow.evaluations_review.modal.share-button": "",
