@@ -14,17 +14,22 @@ import { WalRecord } from './types';
  * endpoint
  */
 function serializeSpansToOtlpBase64(spans: OTelReadableSpan[]): string | undefined {
-  if (spans.length === 0) {
+  const serializable = spans.filter((s) => s?.resource != null && s?.instrumentationScope != null);
+  if (serializable.length === 0) {
     return undefined;
   }
   try {
-    const bytes = ProtobufTraceSerializer.serializeRequest(spans);
+    const bytes = ProtobufTraceSerializer.serializeRequest(serializable);
     if (!bytes || bytes.length === 0) {
       return undefined;
     }
     return Buffer.from(bytes).toString('base64');
   } catch (err) {
-    console.warn('[mlflow][wal] Failed to serialize spans to OTLP protobuf.', err);
+    console.warn(
+      '[mlflow][wal] Failed to serialize spans to OTLP protobuf; ' +
+        'falling back to JSON artifact upload (spans will not appear in DB-backed span metrics).',
+      err,
+    );
     return undefined;
   }
 }

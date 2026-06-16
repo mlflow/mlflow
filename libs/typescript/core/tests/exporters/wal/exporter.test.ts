@@ -13,7 +13,7 @@ import { MlflowWalSpanExporter } from '../../../src/exporters/wal/exporter';
 import { init, resetConfig } from '../../../src/core/config';
 import { InMemoryTraceManager } from '../../../src/core/trace_manager';
 import { Trace } from '../../../src/core/entities/trace';
-import { Span as MlflowSpan } from '../../../src/core/entities/span';
+import { Span as MlflowSpan, NoOpSpan } from '../../../src/core/entities/span';
 import { TraceInfo } from '../../../src/core/entities/trace_info';
 import { TraceData } from '../../../src/core/entities/trace_data';
 import { createTraceLocationFromExperimentId } from '../../../src/core/entities/trace_location';
@@ -436,6 +436,26 @@ describe('wal/exporter', () => {
 
     const record = submit.mock.calls[0][0];
     expect(record.otlpSpans).toBeUndefined();
+  });
+
+  it('filters malformed spans (missing resource/scope) and still serializes the valid ones', async () => {
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    const trace = makeTraceWithSpans('tr-mixed');
+    trace.data.spans.push(new NoOpSpan());
+    popTraceSpy.mockReturnValue(trace);
+    const span = makeSpan({ traceId: 'otel-1', rootSpan: true });
+
+    const { callback, promise } = captureExportResult();
+    exporter.export([span], callback);
+
+    expect((await promise).code).toBe(ExportResultCode.SUCCESS);
+    await exporter.forceFlush();
+
+    const record = submit.mock.calls[0][0];
+    expect(typeof record.otlpSpans).toBe('string');
+    expect(Buffer.from(record.otlpSpans as string, 'base64').length).toBeGreaterThan(0);
   });
 
   it('warns and submits without otlpSpans when OTLP serialization throws', async () => {
