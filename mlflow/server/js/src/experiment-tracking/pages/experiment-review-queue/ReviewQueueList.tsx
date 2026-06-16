@@ -161,8 +161,9 @@ export const ReviewQueueList = ({
   /** Newest question's creation time; flags completed traces reviewed before it. */
   latestQuestionCreatedAtMs?: number;
   /** When provided, rows become checkbox-selectable and a delete action appears
-   *  so the queue's manager can remove traces from this view. */
-  onRemoveItems?: (itemIds: string[]) => void;
+   *  so the queue's manager can remove traces from this view. Rejects if the
+   *  removal fails, so the selection is kept (and the caller surfaces the error). */
+  onRemoveItems?: (itemIds: string[]) => Promise<void>;
   isRemovingItems?: boolean;
   /** Copy a shareable link to this queue; `startReview` deep-links into the
    *  focused review of the first to-do trace. Permission-free, so unlike the
@@ -250,10 +251,17 @@ export const ReviewQueueList = ({
     });
   const toggleAll = (checked: boolean) =>
     setSelected(checked ? new Set(filteredItems.map((i) => i.item_id)) : new Set());
-  const handleDelete = () => {
-    if (onRemoveItems && selected.size > 0) {
-      onRemoveItems([...selected]);
+  const handleDelete = async () => {
+    if (!onRemoveItems || selected.size === 0) {
+      return;
+    }
+    try {
+      await onRemoveItems([...selected]);
+      // Clear only once the removal lands; on failure keep the selection so the
+      // reviewer can retry (the caller surfaces the error).
       setSelected(new Set());
+    } catch {
+      // Surfaced by the caller's onRemoveItems; leave the selection intact.
     }
   };
   // Changing the filter drops any row selection: a row checked under one filter

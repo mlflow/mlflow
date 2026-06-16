@@ -4783,6 +4783,10 @@
     "defaultMessage": "Pending ({count})",
     "description": "Issue status filter > Pending button label"
   },
+  "MkP0XP": {
+    "defaultMessage": "Could not remove traces: {error}",
+    "description": "Review queue: error toast when removing traces from a queue fails"
+  },
   "Mmrsqt": {
     "defaultMessage": "Failed to load webhooks",
     "description": "Error message informing the user that webhooks did not load successfully"
