@@ -100,6 +100,7 @@ export const AddToReviewQueueDropdown = ({
         controlledOnOpenChange?.(next);
       } else {
         setInternalOpen(next);
+        controlledOnOpenChange?.(next);
       }
     },
     [isControlled, controlledOnOpenChange],

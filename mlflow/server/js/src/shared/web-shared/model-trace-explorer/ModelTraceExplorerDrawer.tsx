@@ -129,6 +129,11 @@ export const ModelTraceExplorerDrawer = ({
     ? React.createElement(renderAddToReviewQueueDropdown, {
         selectedTraceInfos: traceInfo ? [traceInfo] : [],
         experimentId: experimentId ?? '',
+        onOpenChange: (open: boolean) => {
+          if (open && !hasSeenFlagGuidance) {
+            handleDismissFlagGuidance();
+          }
+        },
         children: (
           <Button componentId="mlflow.evaluations_review.modal.flag_for_review" icon={<FlagPointerIcon />}>
             <FormattedMessage
@@ -208,9 +213,7 @@ export const ModelTraceExplorerDrawer = ({
                     </div>
                   }
                 >
-                  <div onClick={!hasSeenFlagGuidance ? handleDismissFlagGuidance : undefined}>
-                    {flagForReviewButton}
-                  </div>
+                  <div>{flagForReviewButton}</div>
                 </Tooltip>
               </>
             )}
