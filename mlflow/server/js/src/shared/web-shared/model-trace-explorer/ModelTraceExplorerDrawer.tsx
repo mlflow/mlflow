@@ -21,6 +21,11 @@ import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 
 const FLAG_FOR_REVIEW_GUIDANCE_STORAGE_KEY = 'mlflow.flagForReview.guidanceShown';
+
+// Targets the Radix popper wrapper that contains the tooltip background, arrow,
+// and content so the entire tooltip fades in together. If Radix renames this
+// internal attribute the animation silently stops — no functional breakage.
+const RADIX_POPPER_WRAPPER_SELECTOR = '[data-radix-popper-content-wrapper]:has([data-flag-guidance])';
 const FLAG_FOR_REVIEW_GUIDANCE_STORAGE_VERSION = 1;
 
 export interface ModelTraceExplorerDrawerProps {
@@ -67,13 +72,15 @@ export const ModelTraceExplorerDrawer = ({
 
   const [isDrawerAnimationDone, setIsDrawerAnimationDone] = useState(false);
 
+  const showFlagForReviewButton = Boolean(renderAddToReviewQueueDropdown && experimentId && traceInfo);
+
   useEffect(() => {
-    if (hasSeenFlagGuidance) {
+    if (!showFlagForReviewButton || hasSeenFlagGuidance) {
       return;
     }
     const timer = setTimeout(() => setIsDrawerAnimationDone(true), 500);
     return () => clearTimeout(timer);
-  }, [hasSeenFlagGuidance]);
+  }, [showFlagForReviewButton, hasSeenFlagGuidance]);
 
   const handleDismissFlagGuidance = useCallback(() => {
     setHasSeenFlagGuidance(true);
@@ -122,7 +129,6 @@ export const ModelTraceExplorerDrawer = ({
   const showAddToDatasetButton = Boolean(renderExportTracesToDatasetsModal && experimentId && traceInfo);
   const handleAddToDatasetClick = useCallback(() => setShowDatasetModal(true), []);
 
-  const showFlagForReviewButton = Boolean(renderAddToReviewQueueDropdown && experimentId && traceInfo);
   const showFlagGuidance = showFlagForReviewButton && !hasSeenFlagGuidance && isDrawerAnimationDone;
 
   const flagForReviewButton =
@@ -196,7 +202,7 @@ export const ModelTraceExplorerDrawer = ({
                         from: { opacity: 0 },
                         to: { opacity: 1 },
                       },
-                      '[data-radix-popper-content-wrapper]:has([data-flag-guidance])': {
+                      [RADIX_POPPER_WRAPPER_SELECTOR]: {
                         animation: 'flagGuidanceFadeIn 300ms ease-in',
                       },
                     }}
@@ -208,7 +214,7 @@ export const ModelTraceExplorerDrawer = ({
                   content={
                     <div data-flag-guidance onClick={handleDismissFlagGuidance} css={{ cursor: 'pointer' }}>
                       <FormattedMessage
-                        defaultMessage="New! Flag traces for review and send them to a review queue."
+                        defaultMessage="New! Flag traces for review and add them to a review queue."
                         description="Guidance tooltip message for the flag for review button in the trace drawer"
                       />
                     </div>

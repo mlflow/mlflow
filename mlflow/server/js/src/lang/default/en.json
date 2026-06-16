@@ -1791,10 +1791,6 @@
     "defaultMessage": "MLflow API documentation",
     "description": "Link to the MLflow API documentation for the Trace object"
   },
-  "7RtEHp": {
-    "defaultMessage": "New! Flag traces for review and send them to a review queue.",
-    "description": "Guidance tooltip message for the flag for review button in the trace drawer"
-  },
   "7S/ozs": {
     "defaultMessage": "Context sufficient",
     "description": "Evaluation results > context sufficiency assessment > positive value label. Displayed if retrieved context is sufficient to generate the expected response."
@@ -6134,6 +6130,10 @@
   "UbY9E3": {
     "defaultMessage": "Choose your framework and add one line to enable automatic tracing, or use the {code} decorator for custom functions.",
     "description": "Step 2 description for Python traces onboarding"
+  },
+  "UcXPrr": {
+    "defaultMessage": "New! Flag traces for review and add them to a review queue.",
+    "description": "Guidance tooltip message for the flag for review button in the trace drawer"
   },
   "UcXao0": {
     "defaultMessage": "Deleted dataset \"{name}\"",

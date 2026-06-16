@@ -309,6 +309,15 @@ describe('AddToReviewQueueDropdown', () => {
     expect(screen.getByRole('checkbox', { name: 'Relevance' })).toBeDisabled();
   });
 
+  it('calls onOpenChange in uncontrolled mode when the trigger is clicked', () => {
+    const spy = jest.fn();
+    renderDropdown({ onOpenChange: spy });
+
+    fireEvent.click(screen.getByText('Trigger'));
+
+    expect(spy).toHaveBeenCalledWith(true);
+  });
+
   it('filters checked member rows by the search query', async () => {
     mockAuthAvailable = true;
     mockMemberQueues = [
