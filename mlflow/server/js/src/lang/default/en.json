@@ -6607,6 +6607,10 @@
     "defaultMessage": "Usage example",
     "description": "A title of the modal showing the usage example of the prompt"
   },
+  "VtJXih": {
+    "defaultMessage": "Select at least one question. A queue with no questions can't be reviewed.",
+    "description": "Queue settings: validation shown when no questions are selected"
+  },
   "Vvs+79": {
     "defaultMessage": "Low",
     "description": "Issue severity tag label for low severity"
