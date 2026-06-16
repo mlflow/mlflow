@@ -2102,7 +2102,7 @@ class SearchTraceUtils(SearchUtils):
         return lambda trace: tuple(_apply_reversor(trace, k, asc) for (k, asc) in order_by)
 
     @classmethod
-    def _get_value(cls, identifier_type, key, token, comparator=None):
+    def _get_value(cls, identifier_type, key, token):
         if identifier_type == cls._TAG_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
@@ -2164,45 +2164,29 @@ class SearchTraceUtils(SearchUtils):
                     f"{token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-        elif identifier_type in (
-            cls._FEEDBACK_IDENTIFIER,
-            cls._EXPECTATION_IDENTIFIER,
-            cls._ISSUE_IDENTIFIER,
-        ):
-            is_numeric_assessment_comparison = (
-                identifier_type in (cls._FEEDBACK_IDENTIFIER, cls._EXPECTATION_IDENTIFIER)
-                and comparator in cls.NUMERIC_ASSESSMENT_COMPARATORS
-            )
-            # Feedback and expectation values are stored as JSON, so we expect string values
+        elif identifier_type in (cls._FEEDBACK_IDENTIFIER, cls._EXPECTATION_IDENTIFIER):
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
-                if is_numeric_assessment_comparison:
-                    raise MlflowException(
-                        f"Expected a numeric value for {identifier_type} when using comparator "
-                        f"'{comparator}'. Got value {token.value}",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif token.ttype in cls.NUMERIC_VALUE_TYPES:
-                if not is_numeric_assessment_comparison:
-                    raise MlflowException(
-                        "Expected a quoted string value for "
-                        f"{identifier_type} (e.g. 'my-value'). Got value "
-                        f"{token.value}",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
                 if token.ttype == TokenType.Literal.Number.Integer:
                     return int(token.value)
                 elif token.ttype == TokenType.Literal.Number.Float:
                     return float(token.value)
             else:
                 raise MlflowException(
-                    (
-                        f"Expected a numeric value for {identifier_type} when using comparator "
-                        f"'{comparator}'. Got value {token.value}"
-                        if is_numeric_assessment_comparison
-                        else "Expected a quoted string value for "
-                        f"{identifier_type} (e.g. 'my-value'). Got value {token.value}"
-                    ),
+                    "Expected a quoted string value or numeric value for "
+                    f"{identifier_type} (e.g. 'my-value' or 0.8). Got value "
+                    f"{token.value}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif identifier_type == cls._ISSUE_IDENTIFIER:
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
+            else:
+                raise MlflowException(
+                    "Expected a quoted string value for "
+                    f"{identifier_type} (e.g. 'my-value'). Got value "
+                    f"{token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         else:
@@ -2239,6 +2223,39 @@ class SearchTraceUtils(SearchUtils):
         ):
             return False
         return True
+
+    @classmethod
+    def _validate_assessment_comparison_value(cls, identifier_type, comparator, token):
+        if identifier_type not in (cls._FEEDBACK_IDENTIFIER, cls._EXPECTATION_IDENTIFIER):
+            return
+
+        is_numeric_assessment_comparison = comparator in cls.NUMERIC_ASSESSMENT_COMPARATORS
+        if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+            if is_numeric_assessment_comparison:
+                raise MlflowException(
+                    f"Expected a numeric value for {identifier_type} when using comparator "
+                    f"'{comparator}'. Got value {token.value}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif token.ttype in cls.NUMERIC_VALUE_TYPES:
+            if not is_numeric_assessment_comparison:
+                raise MlflowException(
+                    "Expected a quoted string value for "
+                    f"{identifier_type} (e.g. 'my-value'). Got value "
+                    f"{token.value}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        else:
+            raise MlflowException(
+                (
+                    f"Expected a numeric value for {identifier_type} when using comparator "
+                    f"'{comparator}'. Got value {token.value}"
+                    if is_numeric_assessment_comparison
+                    else "Expected a quoted string value for "
+                    f"{identifier_type} (e.g. 'my-value'). Got value {token.value}"
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     @classmethod
     def _validate_comparison(cls, tokens):
@@ -2278,9 +2295,10 @@ class SearchTraceUtils(SearchUtils):
 
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
-        comp["value"] = cls._get_value(
-            comp.get("type"), comp.get("key"), stripped_comparison[2], comp.get("comparator")
+        cls._validate_assessment_comparison_value(
+            comp.get("type"), comp.get("comparator"), stripped_comparison[2]
         )
+        comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
 
         if comp.get("type") == cls._SPAN_IDENTIFIER:
             cls.is_span(comp["type"], comp["key"], comp["comparator"])
