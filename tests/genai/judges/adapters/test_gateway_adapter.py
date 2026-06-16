@@ -438,10 +438,15 @@ def test_build_request_with_inference_params():
 def test_build_request_response_format_is_strict():
     # Regression test for https://github.com/mlflow/mlflow/issues/23981: the AI
     # Gateway (and openai/azure providers) reject a json_schema response format
-    # unless it is strict and every object declares additionalProperties=False.
+    # unless it is strict and every object - including nested $defs - declares
+    # additionalProperties=False.
+    class Address(pydantic.BaseModel):
+        city: str
+
     class CustomSchema(pydantic.BaseModel):
         result: int
         rationale: str
+        address: Address
 
     payload = _build_request(
         messages=[ChatMessage(role="user", content="test")],
@@ -454,7 +459,9 @@ def test_build_request_response_format_is_strict():
     response_format = payload["response_format"]
     assert response_format["type"] == "json_schema"
     assert response_format["json_schema"]["strict"] is True
-    assert response_format["json_schema"]["schema"]["additionalProperties"] is False
+    schema = response_format["json_schema"]["schema"]
+    assert schema["additionalProperties"] is False
+    assert schema["$defs"]["Address"]["additionalProperties"] is False
 
 
 # --- _parse_response_message tests ---
