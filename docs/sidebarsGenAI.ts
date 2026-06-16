@@ -1023,6 +1023,11 @@ const sidebarsGenAI: SidebarsConfig = {
           id: 'prompt-registry/prompt-engineering',
           label: 'Prompt Engineering UI',
         },
+        {
+          type: 'doc',
+          id: 'prompt-registry/playground',
+          label: 'LLM Playground',
+        },
       ],
       link: {
         type: 'doc',
