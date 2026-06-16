@@ -242,6 +242,19 @@ export const FocusedReview = ({
     [schemas, edited, prefilled],
   );
 
+  // A question the reviewer already answered can't be retracted to empty: the
+  // data model has no empty value for expectations and no single-answer delete,
+  // so a cleared question is silently dropped on save (its prior assessment stays
+  // live). Block the save in that state, so the reviewer must re-enter a value or
+  // keep the previous one rather than see a misleading "saved" over stale data.
+  const hasClearedPriorAnswer = useMemo(
+    () =>
+      schemas.some(
+        (s) => isAnswered(prefilled[s.name]) && !isAnswered(s.name in edited ? edited[s.name] : prefilled[s.name]),
+      ),
+    [schemas, edited, prefilled],
+  );
+
   // Position in the queue + adjacent traces for prev/next navigation.
   const currentIndex = items.findIndex((i) => i.item_id === item.item_id);
   const prevItemId = currentIndex > 0 ? items[currentIndex - 1].item_id : undefined;
@@ -293,6 +306,18 @@ export const FocusedReview = ({
     // set in the same click hasn't flushed yet.
     const effectiveValue = (name: string): LabelSchemaValue =>
       answerOverrides && name in answerOverrides ? answerOverrides[name] : valueFor(name);
+    // Defense in depth (the Submit button is already disabled in this state):
+    // never write when a previously-answered question has been cleared. Clearing
+    // has no value to record, and the cleared question would otherwise be silently
+    // skipped below, leaving its stale prior assessment live. This uses
+    // `effectiveValue` (folding in the auto-submit `answerOverrides`) while the
+    // button gates on `hasClearedPriorAnswer` via `valueFor`; the two can't
+    // disagree, because `answerOverrides` only ever carries a just-picked
+    // (answered) value, so this guard never fires on a question the button
+    // considered answered.
+    if (schemas.some((s) => isAnswered(prefilled[s.name]) && !isAnswered(effectiveValue(s.name)))) {
+      return;
+    }
     // Every answered question is (re)written here; an unchanged answer
     // re-supersedes its prior rather than being skipped.
     const answered = schemas.filter((s) => isAnswered(effectiveValue(s.name)));
@@ -608,6 +633,17 @@ export const FocusedReview = ({
                 )}
               </div>
             )}
+            {hasClearedPriorAnswer && !isDeclined && canReview && (
+              <Typography.Hint
+                css={{ textAlign: 'right', color: theme.colors.textValidationDanger }}
+                data-testid={`${CID}.cleared-answer-hint`}
+              >
+                <FormattedMessage
+                  defaultMessage="A cleared answer can't be saved. Enter a value for each question, or keep the previous answer."
+                  description="Review focused view: shown when a previously-answered question is cleared, which can't be saved"
+                />
+              </Typography.Hint>
+            )}
             <div css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
               {/* A terminal trace can be sent back to the to-do list. Declining is
                   no longer offered in the UI (the API still supports it); a pending
@@ -634,6 +670,7 @@ export const FocusedReview = ({
                     !canReview ||
                     answeredCount === 0 ||
                     priorAnswersFetching ||
+                    hasClearedPriorAnswer ||
                     (isComplete && !hasEdits)
                   }
                   loading={isCreatingAssessment || isSettingStatus}
