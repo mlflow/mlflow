@@ -328,7 +328,9 @@ export const convertTraceInfoV3ToRunEvalEntry = (
   if (options?.synthesizeResult) {
     const scorerResults = Object.entries(responseAssessmentsByName)
       .filter(([name]) => name !== KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT)
-      .map(([, arr]) => arr[0])
+      // Count every assertion (a scorer name can carry multiple), so the N/M
+      // header count matches the per-assertion hover-card breakdown.
+      .flatMap(([, arr]) => arr)
       .filter(Boolean);
     if (scorerResults.length > 0) {
       const passedCount = scorerResults.filter((a) => {

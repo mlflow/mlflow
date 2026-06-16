@@ -114,7 +114,11 @@ const RunViewEvaluationsTabInner = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const makeHtmlFromMarkdown = useMarkdownConverter();
-  const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
+  const [compareToRunUuidParam, setCompareToRunUuid] = useCompareToRunUuid();
+  // Regression-test runs don't support run comparison (the per-test Result column
+  // and test-case drawer are single-run concepts), so ignore any compare target
+  // and hide the compare selector below.
+  const compareToRunUuid = isRegressionTest ? undefined : compareToRunUuidParam;
   const [isGroupedBySession, setIsGroupedBySession] = useState(false);
 
   const traceLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
@@ -338,22 +342,25 @@ const RunViewEvaluationsTabInner = ({
         overflowY: 'hidden',
       }}
     >
-      {!shouldEnableImprovedEvalRunsComparison() && !showCompareSelector && !hideCompareSelector && (
-        <div
-          css={{
-            width: '100%',
-            padding: `${theme.spacing.xs}px 0`,
-          }}
-        >
-          <EvaluationRunCompareSelector
-            experimentId={experimentId}
-            currentRunUuid={runUuid}
-            compareToRunUuid={compareToRunUuid}
-            setCompareToRunUuid={setCompareToRunUuid}
-            setCurrentRunUuid={setCurrentRunUuid}
-          />
-        </div>
-      )}
+      {!shouldEnableImprovedEvalRunsComparison() &&
+        !showCompareSelector &&
+        !hideCompareSelector &&
+        !isRegressionTest && (
+          <div
+            css={{
+              width: '100%',
+              padding: `${theme.spacing.xs}px 0`,
+            }}
+          >
+            <EvaluationRunCompareSelector
+              experimentId={experimentId}
+              currentRunUuid={runUuid}
+              compareToRunUuid={compareToRunUuid}
+              setCompareToRunUuid={setCompareToRunUuid}
+              setCurrentRunUuid={setCurrentRunUuid}
+            />
+          </div>
+        )}
       {showCompareSelector && compareToRunUuid && (
         <div
           css={{

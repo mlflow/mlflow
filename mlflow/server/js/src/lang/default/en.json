@@ -9503,6 +9503,10 @@
     "defaultMessage": "Select the experiment you configured above.",
     "description": "Instruction to select the experiment configured for traces"
   },
+  "j4rsyV": {
+    "defaultMessage": "Could not load the trace for this test case.",
+    "description": "Error message shown when the regression-test detail drawer fails to load the trace"
+  },
   "j4vtTO": {
     "defaultMessage": "Save aliases",
     "description": "Alias editor > Confirm change of aliases"

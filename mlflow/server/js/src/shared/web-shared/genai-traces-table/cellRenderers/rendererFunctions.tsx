@@ -120,12 +120,14 @@ export const assessmentCellRenderer = (
   isComparing: boolean,
   assessmentInfo: AssessmentInfo,
   comparisonEntry: EvalTraceComparisonEntry,
+  regressionTestMode?: boolean,
 ) => {
   const assessmentName = assessmentInfo.name;
 
   // Regression-test "Result" column: show N/M assertions passed per row, with a
-  // hover-card breakdown. Only reached when the data layer synthesized "Result".
-  if (assessmentName === RESULT_ASSESSMENT_NAME) {
+  // hover-card breakdown. Gated on regression-test mode so a normal eval run with
+  // a scorer named "Result" isn't hijacked into this synthetic badge.
+  if (regressionTestMode && assessmentName === RESULT_ASSESSMENT_NAME) {
     const breakdown = (runValue: typeof comparisonEntry.currentRunValue) => {
       const byName = runValue?.responseAssessmentsByName ?? {};
       const rows: { label: string; passed: boolean }[] = [];
@@ -133,8 +135,9 @@ export const assessmentCellRenderer = (
         if (name === RESULT_ASSESSMENT_NAME) continue;
         for (const r of byName[name] ?? []) {
           const value = getEvaluationResultAssessmentValue(r);
+          const guideline = r.metadata?.['guideline'];
           rows.push({
-            label: name,
+            label: typeof guideline === 'string' && guideline.trim() ? guideline : name,
             passed: value === KnownEvaluationResultAssessmentStringValue.YES || value === true,
           });
         }
@@ -371,7 +374,8 @@ export const AssessmentCell: React.FC<{
   isComparing: boolean;
   assessmentInfo: AssessmentInfo;
   comparisonEntry: EvalTraceComparisonEntry;
-}> = ({ isComparing, assessmentInfo, comparisonEntry }) => {
+  regressionTestMode?: boolean;
+}> = ({ isComparing, assessmentInfo, comparisonEntry, regressionTestMode }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { isGroupedBySession } = useContext(GenAITracesTableContext);
@@ -410,7 +414,7 @@ export const AssessmentCell: React.FC<{
     );
   }
 
-  return assessmentCellRenderer(theme, intl, isComparing, assessmentInfo, comparisonEntry);
+  return assessmentCellRenderer(theme, intl, isComparing, assessmentInfo, comparisonEntry, regressionTestMode);
 };
 
 export const expectationCellRenderer = (
@@ -805,12 +809,9 @@ export const traceInfoCellRenderer = (
     // Regression-test view: display the test name (from the mlflow.test.* tags)
     // when present, but keep the real trace id for click/navigation. Falls back
     // to the trace id for ordinary runs, so this is a no-op outside test runs.
-    const testDisplayName = (info?: ModelTraceInfoV3): string | undefined => {
-      const name = readTraceTag(info, 'mlflow.test.name');
-      if (!name) return undefined;
-      const caseId = readTraceTag(info, 'mlflow.test.case_id');
-      return caseId ? `${name}[${caseId}]` : name;
-    };
+    const testDisplayName = (info?: ModelTraceInfoV3): string | undefined =>
+      // mlflow.test.name is already the full pytest nodeid (includes any [case]).
+      readTraceTag(info, 'mlflow.test.name');
     const navId = currentTraceInfo?.trace_id;
     const otherNavId = otherTraceInfo?.trace_id;
     const testName = testDisplayName(currentTraceInfo);

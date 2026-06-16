@@ -188,6 +188,7 @@ export const GenAiTracesTableBody = React.memo(
             experimentId,
             onChangeEvaluationId,
             onTraceTagsEdit,
+            regressionTestMode,
           }),
         );
 
@@ -237,6 +238,7 @@ export const GenAiTracesTableBody = React.memo(
             experimentId,
             onChangeEvaluationId,
             onTraceTagsEdit,
+            regressionTestMode,
           }),
         );
       });
@@ -712,13 +714,9 @@ export const GenAiTracesTableBody = React.memo(
           </Table>
         </div>
         <React.Suspense fallback={null}>
-          {comparedTraceIds && shouldUseUnifiedModelTraceComparisonUI() ? (
-            <GenAITraceComparisonModal
-              traceIds={comparedTraceIds}
-              onClose={() => onChangeEvaluationId(undefined)}
-              // prettier-ignore
-            />
-          ) : regressionTestMode ? (
+          {/* Regression-test mode takes priority: it shows the single test-case
+              drawer and doesn't support trace comparison. */}
+          {regressionTestMode ? (
             selectedEvaluationId &&
             selectedEvaluation &&
             (() => {
@@ -737,6 +735,12 @@ export const GenAiTracesTableBody = React.memo(
                 />
               );
             })()
+          ) : comparedTraceIds && shouldUseUnifiedModelTraceComparisonUI() ? (
+            <GenAITraceComparisonModal
+              traceIds={comparedTraceIds}
+              onClose={() => onChangeEvaluationId(undefined)}
+              // prettier-ignore
+            />
           ) : (
             selectedEvaluationId &&
             selectedEvaluationExperimentId && (

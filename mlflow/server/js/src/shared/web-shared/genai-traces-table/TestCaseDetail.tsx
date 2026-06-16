@@ -15,6 +15,7 @@ import {
   ChevronRightIcon,
   ChevronUpIcon,
   ListIcon,
+  Spinner,
   Table,
   TableCell,
   TableHeader,
@@ -31,9 +32,11 @@ import { EvaluationsReviewAssessmentTag, isAssessmentPassing } from './component
 import { getEvaluationResultAssessmentValue } from './components/GenAiEvaluationTracesReview.utils';
 import type { AssessmentInfo, EvalTraceComparisonEntry, RunEvaluationResultAssessment } from './types';
 import { getAjaxUrl, getDefaultHeaders } from './utils/FetchUtils';
+import { useNavigate } from './utils/RoutingUtils';
 import { readTraceTag, RESULT_ASSESSMENT_NAME } from './utils/TraceUtils';
 import { useQuery } from '../query-client/queryClient';
 import type { ModelTrace } from '../model-trace-explorer/ModelTrace.types';
+import { getExperimentPageTracesTabRoute } from '../model-trace-explorer/routes';
 import { SingleChatTurnMessages } from '../model-trace-explorer/session-view/SingleChatTurnMessages';
 
 const ResultPill = ({ passed }: { passed: boolean }) => (
@@ -118,19 +121,21 @@ export const TestCaseDetail = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const navigate = useNavigate();
   const { DrawerComponent } = useContext(GenAITracesTableContext);
   const run = evaluation.currentRunValue;
   const info = run?.traceInfo;
   const traceId = info?.trace_id;
 
-  const baseName = readTraceTag(info, 'mlflow.test.name') ?? traceId ?? 'Test case';
-  const caseId = readTraceTag(info, 'mlflow.test.case_id');
-  const testName = caseId ? `${baseName}[${caseId}]` : baseName;
+  // mlflow.test.name is already the full pytest nodeid (includes any [case]).
+  const testName = readTraceTag(info, 'mlflow.test.name') ?? traceId ?? 'Test case';
 
   const infoByName = useMemo(() => new Map((assessmentInfos ?? []).map((i) => [i.name, i])), [assessmentInfos]);
 
   // One row per assertion (a scorer name can repeat, e.g. multiple guidelines).
-  // Each row keeps its AssessmentInfo so the Result cell reuses the value tag.
+  // Label with the criterion text (guideline/instructions) when present, else
+  // the scorer name. Each row keeps its AssessmentInfo so the Result cell reuses
+  // the value tag.
   const byName = run?.responseAssessmentsByName ?? {};
   const assertions = Object.entries(byName)
     .filter(([name]) => name !== RESULT_ASSESSMENT_NAME)
@@ -138,7 +143,9 @@ export const TestCaseDetail = ({
       (arr ?? []).flatMap((a: RunEvaluationResultAssessment, i: number) => {
         const assessmentInfo = infoByName.get(name);
         if (!assessmentInfo) return [];
-        const label = arr.length > 1 ? `${name} ${i + 1}` : name;
+        const guideline = a.metadata?.['guideline'];
+        const label =
+          typeof guideline === 'string' && guideline.trim() ? guideline : arr.length > 1 ? `${name} ${i + 1}` : name;
         const passed = isAssessmentPassing(assessmentInfo, getEvaluationResultAssessmentValue(a)) === true;
         return [{ label, assessment: a, assessmentInfo, passed }];
       }),
@@ -147,7 +154,11 @@ export const TestCaseDetail = ({
 
   // Fetch the full trace so SingleChatTurnMessages can render the conversation.
   // useQuery survives the IIFE-based remount pattern in GenAiTracesTableBody.
-  const { data: fullTrace } = useQuery<ModelTrace | null>({
+  const {
+    data: fullTrace,
+    isLoading: isTraceLoading,
+    isError: isTraceError,
+  } = useQuery<ModelTrace | null>({
     queryKey: ['testCaseDetailTrace', traceId],
     queryFn: async (): Promise<ModelTrace | null> => {
       if (!traceId) return null;
@@ -155,11 +166,13 @@ export const TestCaseDetail = ({
       const id = encodeURIComponent(traceId);
       const [infoResp, dataResp] = await Promise.all([
         fetch(getAjaxUrl(`ajax-api/3.0/mlflow/traces/${id}`), { headers }).then((r) => (r.ok ? r.json() : null)),
-        fetch(getAjaxUrl(`ajax-api/3.0/mlflow/get-trace-artifact?request_id=${id}`), { headers }).then((r) =>
-          r.ok ? r.json() : null,
-        ),
+        fetch(getAjaxUrl(`ajax-api/3.0/mlflow/get-trace-artifact?request_id=${id}`), { headers }).then((r) => {
+          if (!r.ok) {
+            throw new Error(`Failed to fetch trace artifact (status ${r.status})`);
+          }
+          return r.json();
+        }),
       ]);
-      if (!dataResp) return null;
       return { info: infoResp?.trace?.trace_info ?? {}, data: dataResp } as ModelTrace;
     },
     enabled: Boolean(traceId),
@@ -202,7 +215,7 @@ export const TestCaseDetail = ({
               <Typography.Title level={4} withoutMargins css={{ fontFamily: 'monospace' }}>
                 {testName}
               </Typography.Title>
-              <ResultPill passed={allPassed} />
+              {assertions.length > 0 && <ResultPill passed={allPassed} />}
             </div>
           </div>
         }
@@ -212,30 +225,45 @@ export const TestCaseDetail = ({
             <Button
               componentId="mlflow.regression-test-detail.open-trace"
               icon={<ListIcon />}
-              onClick={() => {
-                window.location.hash = `#/experiments/${experimentId}/traces?selectedEvaluationId=${traceId}`;
-              }}
+              onClick={() =>
+                navigate(`${getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${traceId}`)
+              }
             >
               <FormattedMessage defaultMessage="Trace" description="Button to open the raw trace from the detail" />
             </Button>
           )}
         </div>
 
-        {fullTrace && (
-          <div
-            css={{
-              marginBottom: theme.spacing.lg,
-              // Add visible borders to the chat message bubbles rendered by
-              // SingleChatTurnMessages (the component sets borderWidth but
-              // not borderStyle/borderColor on the message elements).
-              '& > div > div': {
-                border: `1px solid ${theme.colors.border}`,
-                borderRadius: theme.borders.borderRadiusMd,
-              },
-            }}
-          >
-            <SingleChatTurnMessages trace={fullTrace} />
+        {isTraceLoading ? (
+          <div css={{ display: 'flex', justifyContent: 'center', marginBottom: theme.spacing.lg }}>
+            <Spinner />
           </div>
+        ) : isTraceError ? (
+          <div css={{ marginBottom: theme.spacing.lg }}>
+            <Typography.Text color="secondary">
+              <FormattedMessage
+                defaultMessage="Could not load the trace for this test case."
+                description="Error message shown when the regression-test detail drawer fails to load the trace"
+              />
+            </Typography.Text>
+          </div>
+        ) : (
+          fullTrace && (
+            <div
+              css={{
+                marginBottom: theme.spacing.lg,
+                // Add visible borders to the chat message bubbles rendered by
+                // SingleChatTurnMessages (the component sets borderWidth but
+                // not borderStyle/borderColor on the message elements).
+                '& > div > div': {
+                  border: `1px solid ${theme.colors.border}`,
+                  borderRadius: theme.borders.borderRadiusMd,
+                },
+              }}
+            >
+              <SingleChatTurnMessages trace={fullTrace} />
+            </div>
+          )
         )}
 
         <div
