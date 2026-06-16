@@ -227,3 +227,131 @@ describe('buildPrefilledRationales', () => {
     expect(buildPrefilledRationales(priors, schemas)).toEqual({ correctness: 'second' });
   });
 });
+
+describe('most-recent selection by timestamp (not array order)', () => {
+  const schemas = [schema('correctness', 'FEEDBACK')];
+
+  // The fresh assessment is FIRST in the array but carries the newer timestamp;
+  // the stale one is LAST. The old `.at(-1)` array-order pick would wrongly
+  // choose the stale one, since the response order is backend heap-dependent.
+  const outOfOrder: RawTraceAssessment[] = [
+    {
+      assessment_id: 'fresh',
+      assessment_name: 'correctness',
+      feedback: { value: false },
+      rationale: 'fresh',
+      last_update_time: '2025-04-19T10:00:00.000Z',
+    },
+    {
+      assessment_id: 'stale',
+      assessment_name: 'correctness',
+      feedback: { value: true },
+      rationale: 'stale',
+      last_update_time: '2025-04-19T08:00:00.000Z',
+    },
+  ];
+
+  it('prefills the answer with the newest last_update_time, not the last in the array', () => {
+    expect(buildPrefilledAnswers(extractPriorAnswers(outOfOrder), schemas)).toEqual({ correctness: false });
+  });
+
+  it('prefills the rationale from the newest assessment', () => {
+    expect(buildPrefilledRationales(extractPriorAnswers(outOfOrder), schemas)).toEqual({ correctness: 'fresh' });
+  });
+
+  it('supersedes the newest assessment id', () => {
+    expect(buildPriorAssessmentIds(extractPriorAnswers(outOfOrder), schemas)).toEqual({ correctness: 'fresh' });
+  });
+
+  it('falls back to create_time when last_update_time is absent', () => {
+    const byCreateTime: RawTraceAssessment[] = [
+      {
+        assessment_id: 'fresh',
+        assessment_name: 'correctness',
+        feedback: { value: false },
+        create_time: '2025-04-19T10:00:00.000Z',
+      },
+      {
+        assessment_id: 'stale',
+        assessment_name: 'correctness',
+        feedback: { value: true },
+        create_time: '2025-04-19T08:00:00.000Z',
+      },
+    ];
+    expect(buildPriorAssessmentIds(extractPriorAnswers(byCreateTime), schemas)).toEqual({ correctness: 'fresh' });
+  });
+
+  it('falls back to array order when timestamps are equal', () => {
+    // Equal timestamps -> last in array wins, preserving the old `.at(-1)` behavior.
+    const sameTime: RawTraceAssessment[] = [
+      {
+        assessment_id: 'a1',
+        assessment_name: 'correctness',
+        feedback: { value: true },
+        last_update_time: '2025-04-19T10:00:00.000Z',
+      },
+      {
+        assessment_id: 'a2',
+        assessment_name: 'correctness',
+        feedback: { value: false },
+        last_update_time: '2025-04-19T10:00:00.000Z',
+      },
+    ];
+    expect(buildPriorAssessmentIds(extractPriorAnswers(sameTime), schemas)).toEqual({ correctness: 'a2' });
+  });
+
+  it('prefers a timestamped answer over an un-timestamped one regardless of array position', () => {
+    // The timestamped (fresh) answer is FIRST; the un-timestamped one is LAST.
+    // A missing timestamp sorts oldest, so the timestamped answer still wins.
+    const mixed: RawTraceAssessment[] = [
+      {
+        assessment_id: 'timestamped',
+        assessment_name: 'correctness',
+        feedback: { value: false },
+        last_update_time: '2025-04-19T10:00:00.000Z',
+      },
+      { assessment_id: 'untimed', assessment_name: 'correctness', feedback: { value: true } },
+    ];
+    expect(buildPriorAssessmentIds(extractPriorAnswers(mixed), schemas)).toEqual({ correctness: 'timestamped' });
+  });
+
+  it('treats an unparseable timestamp as missing (sorts oldest)', () => {
+    const badTime: RawTraceAssessment[] = [
+      {
+        assessment_id: 'valid-time',
+        assessment_name: 'correctness',
+        feedback: { value: false },
+        last_update_time: '2025-04-19T10:00:00.000Z',
+      },
+      {
+        assessment_id: 'garbage-time',
+        assessment_name: 'correctness',
+        feedback: { value: true },
+        last_update_time: 'not-a-date',
+      },
+    ];
+    expect(buildPriorAssessmentIds(extractPriorAnswers(badTime), schemas)).toEqual({ correctness: 'valid-time' });
+  });
+
+  it('prefers last_update_time over create_time when both are present', () => {
+    // The fresher last_update_time belongs to the assessment with the OLDER
+    // create_time, so a create_time-based pick would choose the wrong one.
+    const both: RawTraceAssessment[] = [
+      {
+        assessment_id: 'newer-update',
+        assessment_name: 'correctness',
+        feedback: { value: false },
+        create_time: '2025-04-19T08:00:00.000Z',
+        last_update_time: '2025-04-19T12:00:00.000Z',
+      },
+      {
+        assessment_id: 'older-update',
+        assessment_name: 'correctness',
+        feedback: { value: true },
+        create_time: '2025-04-19T10:00:00.000Z',
+        last_update_time: '2025-04-19T11:00:00.000Z',
+      },
+    ];
+    expect(buildPriorAssessmentIds(extractPriorAnswers(both), schemas)).toEqual({ correctness: 'newer-update' });
+  });
+});
