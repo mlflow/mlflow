@@ -272,7 +272,7 @@ export const AgentActionCard = ({
           <Tabs.Content value="assistant" css={{ paddingTop: 0 }}>
             <Typography.Text color="secondary" css={{ fontSize: 13, display: 'block', marginBottom: theme.spacing.sm }}>
               <FormattedMessage
-                defaultMessage="Opens the MLflow assistant in this browser and starts the conversation."
+                defaultMessage="Opens the MLflow assistant in the browser with a suggested prompt."
                 description="Description above the MLflow assistant button in the agent action card"
               />
             </Typography.Text>

@@ -6,11 +6,37 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import type { AssistantAgentContextType, ChatMessage, ToolUseInfo } from './types';
-import { cancelSession as cancelSessionApi, sendMessageStream, getConfig } from './AssistantService';
+import {
+  cancelSession as cancelSessionApi,
+  sendMessageStream,
+  getConfig,
+  type SendMessageStreamCallbacks,
+  type SendMessageStreamResult,
+} from './AssistantService';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useAssistantPageContextActions } from './AssistantPageContext';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
+
+/**
+ * Wrap every stream callback so it no-ops once the originating send is stale (the user reset or
+ * cancelled while the POST was still in flight). Guards the whole object generically rather than
+ * each callback by hand, so callbacks added later are covered automatically.
+ */
+const withGuard = (isCurrent: () => boolean, callbacks: SendMessageStreamCallbacks): SendMessageStreamCallbacks =>
+  Object.fromEntries(
+    Object.entries(callbacks).map(([key, fn]) => [
+      key,
+      typeof fn === 'function'
+        ? (...args: unknown[]) => {
+            if (isCurrent()) {
+              fn(...args);
+            }
+          }
+        : fn,
+    ]),
+    // Object.fromEntries widens to { [k: string]: ... }; the shape is unchanged so the cast is safe.
+  ) as SendMessageStreamCallbacks;
 
 /**
  * Check if the server is running locally (localhost or 127.0.0.1).
@@ -58,6 +84,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   // Use ref to track active EventSource for cancellation
   const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Identity token for the in-flight send. Each send captures its own token; reset()/cancel set
+  // this to null, which invalidates a send still awaiting its POST so its callbacks (fired from
+  // inside the service) and its late-attached EventSource can't leak into the reset state.
+  const activeRequestRef = useRef<symbol | null>(null);
 
   // Throttle streaming updates to avoid overwhelming React with re-renders
   const rafPendingRef = useRef<number | null>(null);
@@ -143,6 +174,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Cancel pending RAF and close EventSource on unmount
   useEffect(() => {
     return () => {
+      // Invalidate any in-flight send so any POST cleans up the stream on unmount
+      activeRequestRef.current = null;
       if (rafPendingRef.current !== null) {
         cancelAnimationFrame(rafPendingRef.current);
         rafPendingRef.current = null;
@@ -203,6 +236,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const clearPendingPrompt = useCallback(() => setPendingPrompt(null), []);
 
   const reset = useCallback(() => {
+    // Invalidate any in-flight send still awaiting its POST: its captured token no longer matches,
+    // so its guarded callbacks no-op and its EventSource is closed when the await resolves.
+    activeRequestRef.current = null;
     // Tear down any active stream so its callbacks can't leak into the reset state
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -221,8 +257,30 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     streamingMessageRef.current = '';
   }, []);
 
+  // Begin a new in-flight send: stamp a fresh token in closure,
+  // return a checker for whether this send is
+  // still the active one (i.e. not superseded by a reset/cancel that ran during its POST).
+  const beginRequest = useCallback(() => {
+    const token = Symbol();
+    activeRequestRef.current = token;
+    return () => activeRequestRef.current === token;
+  }, []);
+
+  // Store the resolved stream if its send is still current, otherwise close the orphan. Returns
+  // whether it was attached
+  const attachStreamIfCurrent = useCallback((isCurrent: () => boolean, result: SendMessageStreamResult): boolean => {
+    if (!isCurrent()) {
+      result.eventSource?.close();
+      return false;
+    }
+    eventSourceRef.current = result.eventSource;
+    return true;
+  }, []);
+
   const startChat = useCallback(
     async (prompt?: string) => {
+      const isCurrent = beginRequest();
+
       setError(null);
       setIsStreaming(true);
 
@@ -261,7 +319,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
             experiment_id: pageContext['experimentId'] as string | undefined,
             context: pageContext,
           },
-          {
+          withGuard(isCurrent, {
             onMessage: appendToStreamingMessage,
             onError: handleStreamError,
             onDone: finalizeStreamingMessage,
@@ -269,15 +327,22 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
             onSessionId: handleSessionId,
             onToolUse: handleToolUse,
             onInterrupted: handleInterrupted,
-          },
+          }),
         );
-        eventSourceRef.current = result.eventSource;
+        if (!attachStreamIfCurrent(isCurrent, result)) {
+          return;
+        }
       } catch (err) {
+        if (!isCurrent()) {
+          return;
+        }
         handleStreamError(err instanceof Error ? err.message : 'Failed to start chat');
       }
     },
     [
       sessionId,
+      beginRequest,
+      attachStreamIfCurrent,
       getPageContext,
       appendToStreamingMessage,
       handleStreamError,
@@ -295,6 +360,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         startChat(message);
         return;
       }
+
+      const isCurrent = beginRequest();
 
       setError(null);
       setIsStreaming(true);
@@ -332,7 +399,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           experiment_id: pageContext['experimentId'] as string | undefined,
           context: pageContext,
         },
-        {
+        withGuard(isCurrent, {
           onMessage: appendToStreamingMessage,
           onError: handleStreamError,
           onDone: finalizeStreamingMessage,
@@ -340,13 +407,15 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           onSessionId: handleSessionId,
           onToolUse: handleToolUse,
           onInterrupted: handleInterrupted,
-        },
+        }),
       );
-      eventSourceRef.current = result.eventSource;
+      attachStreamIfCurrent(isCurrent, result);
     },
     [
       sessionId,
       startChat,
+      beginRequest,
+      attachStreamIfCurrent,
       getPageContext,
       appendToStreamingMessage,
       handleStreamError,
@@ -360,6 +429,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const handleCancelSession = useCallback(() => {
     if (!sessionId || !isStreaming) return;
+
+    // Invalidate any in-flight send so a stream still awaiting its POST can't attach after cancel.
+    activeRequestRef.current = null;
 
     // Close EventSource immediately to stop receiving data
     if (eventSourceRef.current) {
@@ -389,7 +461,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     streamingMessageRef.current = '';
   }, [sessionId, isStreaming]);
 
-  const regenerateLastMessage = useCallback(() => {
+  const regenerateLastMessage = useCallback(async () => {
     // Prevent regeneration while already streaming
     if (isStreaming) {
       return;
@@ -400,6 +472,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     if (lastUserMessageIndex === -1) {
       return; // No user message to regenerate from
     }
+
+    const isCurrent = beginRequest();
 
     const userMessageContent = messages[lastUserMessageIndex].content;
 
@@ -434,14 +508,14 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
     // Re-send the last user message
     const pageContext = getPageContext();
-    sendMessageStream(
+    const result = await sendMessageStream(
       {
         session_id: sessionId ?? undefined,
         message: userMessageContent,
         experiment_id: pageContext['experimentId'] as string | undefined,
         context: pageContext,
       },
-      {
+      withGuard(isCurrent, {
         onMessage: appendToStreamingMessage,
         onError: handleStreamError,
         onDone: finalizeStreamingMessage,
@@ -449,12 +523,15 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         onSessionId: handleSessionId,
         onToolUse: handleToolUse,
         onInterrupted: handleInterrupted,
-      },
+      }),
     );
+    attachStreamIfCurrent(isCurrent, result);
   }, [
     messages,
     sessionId,
     isStreaming,
+    beginRequest,
+    attachStreamIfCurrent,
     getPageContext,
     appendToStreamingMessage,
     handleStreamError,
