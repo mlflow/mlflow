@@ -3,8 +3,9 @@ import { createContext, useContext, useMemo, useState } from 'react';
 type HeaderVisibilityContextValue = {
   headerHidden: boolean;
   setHeaderHidden: (hidden: boolean) => void;
-  /** When true, hide action entry points in the experiment header (e.g. management menu, share button, metadata edit)
-   *  so the active tab page can provide its own controls without duplication. */
+  /** When true, the header's action buttons (management menu, share, description edit)
+   *  are hidden so the active tab page can provide its own controls without duplication. */
+  headerActionsHidden: boolean;
   setHeaderActionsHidden: (hidden: boolean) => void;
 };
 
