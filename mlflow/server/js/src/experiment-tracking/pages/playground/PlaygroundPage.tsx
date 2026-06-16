@@ -205,8 +205,12 @@ const PlaygroundPage = () => {
       {
         onSuccess: (response) => {
           const assistant = response.choices?.[0]?.message;
-          if (!assistant?.content) return;
-          const appended: ConversationMessage = { ...assistant, usage: response.usage };
+          if (!assistant) return;
+          const appended: ConversationMessage = {
+            ...assistant,
+            content: assistant.content || '(no text content)',
+            usage: response.usage,
+          };
           setMessages((current) => [...current, appended, { ...EMPTY_USER_MESSAGE }]);
         },
       },
