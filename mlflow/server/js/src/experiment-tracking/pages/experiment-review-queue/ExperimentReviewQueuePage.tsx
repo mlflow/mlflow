@@ -73,7 +73,7 @@ const ExperimentReviewQueuePage = () => {
   });
   const { labelSchemas } = useListLabelSchemasQuery({ experimentId: experimentId ?? '' });
   const { setReviewQueueItemStatusAsync, isSettingStatus } = useSetReviewQueueItemStatusMutation();
-  const { removeItemsFromReviewQueue, isRemovingItems } = useRemoveItemsFromReviewQueueMutation();
+  const { removeItemsFromReviewQueueAsync, isRemovingItems } = useRemoveItemsFromReviewQueueMutation();
   const { deleteReviewQueueAsync, isDeletingQueue } = useDeleteReviewQueueMutation();
   const { updateReviewQueueAsync, isUpdatingQueue } = useUpdateReviewQueueMutation();
   const { getOrCreateUserQueueAsync } = useGetOrCreateUserQueueMutation();
@@ -401,7 +401,23 @@ const ExperimentReviewQueuePage = () => {
         latestQuestionCreatedAtMs={latestQuestionCreatedAtMs}
         onRemoveItems={
           canRemoveItemsFromSelectedQueue
-            ? (itemIds) => removeItemsFromReviewQueue({ queue_id: selectedQueue.queue_id, item_ids: itemIds })
+            ? async (itemIds) => {
+                try {
+                  await removeItemsFromReviewQueueAsync({ queue_id: selectedQueue.queue_id, item_ids: itemIds });
+                } catch (e) {
+                  Utils.displayGlobalErrorNotification(
+                    intl.formatMessage(
+                      {
+                        defaultMessage: 'Could not remove traces: {error}',
+                        description: 'Review queue: error toast when removing traces from a queue fails',
+                      },
+                      { error: e instanceof Error ? e.message : String(e) },
+                    ),
+                  );
+                  // Re-throw so the list keeps the selection for a retry.
+                  throw e;
+                }
+              }
             : undefined
         }
         isRemovingItems={isRemovingItems}

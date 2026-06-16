@@ -1,5 +1,5 @@
 import { describe, jest, it, expect } from '@jest/globals';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
@@ -214,7 +214,7 @@ describe('ReviewQueueList', () => {
         items={[item('tr-1', 'PENDING'), item('tr-2', 'COMPLETE', 'bob')]}
         onOpen={jest.fn()}
         nowMs={NOW}
-        onRemoveItems={jest.fn()}
+        onRemoveItems={jest.fn<(ids: string[]) => Promise<void>>().mockResolvedValue(undefined)}
       />,
     );
     // checkboxes[0] is select-all; [1] is the first row.
@@ -224,6 +224,78 @@ describe('ReviewQueueList', () => {
     // Switching filters resets the selection so hidden rows can't be deleted.
     fireEvent.click(screen.getByText('Completed (1)'));
     expect(screen.queryByRole('button', { name: 'Unassign' })).not.toBeInTheDocument();
+  });
+
+  it('clears the selection only after a successful removal', async () => {
+    const onRemoveItems = jest.fn<(ids: string[]) => Promise<void>>().mockResolvedValue(undefined);
+    renderWithProviders(
+      <ReviewQueueList
+        items={[item('tr-1', 'PENDING')]}
+        onOpen={jest.fn()}
+        nowMs={NOW}
+        onRemoveItems={onRemoveItems}
+      />,
+    );
+    fireEvent.click(screen.getAllByRole('checkbox')[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Unassign' }));
+    await waitFor(() => expect(onRemoveItems).toHaveBeenCalledTimes(1));
+    expect(onRemoveItems).toHaveBeenCalledWith(['tr-1']);
+    // The Unassign button only shows with a selection, so its absence proves the
+    // selection was cleared once the removal landed.
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Unassign' })).not.toBeInTheDocument());
+  });
+
+  it('keeps the selection when the removal fails, so the reviewer can retry', async () => {
+    const onRemoveItems = jest.fn<(ids: string[]) => Promise<void>>().mockRejectedValue(new Error('boom'));
+    renderWithProviders(
+      <ReviewQueueList
+        items={[item('tr-1', 'PENDING')]}
+        onOpen={jest.fn()}
+        nowMs={NOW}
+        onRemoveItems={onRemoveItems}
+      />,
+    );
+    const firstRow = screen.getAllByRole('checkbox')[1];
+    fireEvent.click(firstRow);
+    fireEvent.click(screen.getByRole('button', { name: 'Unassign' }));
+    await waitFor(() => expect(onRemoveItems).toHaveBeenCalledTimes(1));
+    expect(onRemoveItems).toHaveBeenCalledWith(['tr-1']);
+    // The rejection is swallowed in handleDelete's no-op catch (no state update),
+    // so the row stays checked and its Unassign button persists. waitFor lets the
+    // rejected promise settle before asserting, mirroring the success test.
+    await waitFor(() => {
+      expect(firstRow).toBeChecked();
+      expect(screen.getByRole('button', { name: 'Unassign' })).toBeInTheDocument();
+    });
+  });
+
+  it('clears only the removed ids, preserving rows selected mid-removal', async () => {
+    // Row checkboxes stay enabled during an in-flight removal, so a reviewer can
+    // select more rows before it lands. Clearing the whole selection on success
+    // would wipe those; only the submitted ids should be dropped.
+    let resolveRemoval!: () => void;
+    const onRemoveItems = jest
+      .fn<(ids: string[]) => Promise<void>>()
+      .mockReturnValue(new Promise<void>((resolve) => (resolveRemoval = resolve)));
+    renderWithProviders(
+      <ReviewQueueList
+        items={[item('tr-1', 'PENDING'), item('tr-2', 'PENDING')]}
+        onOpen={jest.fn()}
+        nowMs={NOW}
+        onRemoveItems={onRemoveItems}
+      />,
+    );
+    const [, row1, row2] = screen.getAllByRole('checkbox'); // [0] is select-all
+    fireEvent.click(row1);
+    fireEvent.click(screen.getByRole('button', { name: 'Unassign' }));
+    await waitFor(() => expect(onRemoveItems).toHaveBeenCalledWith(['tr-1']));
+    // Select another row while the removal is still in flight.
+    fireEvent.click(row2);
+    expect(row2).toBeChecked();
+    // The removal lands: only tr-1 is dropped; the mid-flight tr-2 selection survives.
+    resolveRemoval();
+    await waitFor(() => expect(row1).not.toBeChecked());
+    expect(row2).toBeChecked();
   });
 
   it('offers copy-link menu items in the share dropdown', async () => {

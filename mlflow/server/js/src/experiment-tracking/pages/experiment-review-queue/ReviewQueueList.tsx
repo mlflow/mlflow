@@ -161,8 +161,12 @@ export const ReviewQueueList = ({
   /** Newest question's creation time; flags completed traces reviewed before it. */
   latestQuestionCreatedAtMs?: number;
   /** When provided, rows become checkbox-selectable and a delete action appears
-   *  so the queue's manager can remove traces from this view. */
-  onRemoveItems?: (itemIds: string[]) => void;
+   *  so the queue's manager can remove traces from this view. The returned promise
+   *  MUST reject if the removal fails: on rejection the list keeps the selection so
+   *  the reviewer can retry, and the caller is responsible for surfacing the error.
+   *  A caller that swallows the failure (resolves anyway) will clear the selection
+   *  as if it succeeded. */
+  onRemoveItems?: (itemIds: string[]) => Promise<void>;
   isRemovingItems?: boolean;
   /** Copy a shareable link to this queue; `startReview` deep-links into the
    *  focused review of the first to-do trace. Permission-free, so unlike the
@@ -250,10 +254,24 @@ export const ReviewQueueList = ({
     });
   const toggleAll = (checked: boolean) =>
     setSelected(checked ? new Set(filteredItems.map((i) => i.item_id)) : new Set());
-  const handleDelete = () => {
-    if (onRemoveItems && selected.size > 0) {
-      onRemoveItems([...selected]);
-      setSelected(new Set());
+  const handleDelete = async () => {
+    if (!onRemoveItems || selected.size === 0) {
+      return;
+    }
+    const removing = [...selected];
+    try {
+      await onRemoveItems(removing);
+      // Drop only the ids we actually removed, once the removal lands. Rebuilding
+      // from the live `selected` preserves any rows the reviewer checked while the
+      // request was in flight; on failure the selection is left intact for retry
+      // (the caller surfaces the error).
+      setSelected((prev) => {
+        const next = new Set(prev);
+        removing.forEach((id) => next.delete(id));
+        return next;
+      });
+    } catch {
+      // Surfaced by the caller's onRemoveItems; leave the selection intact.
     }
   };
   // Changing the filter drops any row selection: a row checked under one filter
