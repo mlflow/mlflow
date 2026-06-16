@@ -2,6 +2,8 @@ import time
 from unittest import mock
 
 import pytest
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.label_schemas.label_schemas import InputPassFail
@@ -548,9 +550,6 @@ def test_update_display_case_rename_surfaces_unrelated_integrity_error(store):
     # (experiment_id, name_key) uniqueness. An unrelated IntegrityError at flush
     # must therefore surface as the generic underlying error (the managed session
     # re-wraps it), not be mislabeled as a name collision.
-    from sqlalchemy.exc import IntegrityError
-    from sqlalchemy.orm import Session
-
     exp_id = _create_experiments(store, "recase_passthrough")
     queue = store.create_review_queue(exp_id, name="Foo", queue_type="custom")
 
@@ -574,9 +573,6 @@ def test_update_display_case_rename_surfaces_unrelated_integrity_error(store):
 def test_update_keychanging_rename_translates_integrity_error(store):
     # A rename that changes name_key can violate uniqueness, so an IntegrityError
     # at flush is translated into a clean RESOURCE_ALREADY_EXISTS on the name.
-    from sqlalchemy.exc import IntegrityError
-    from sqlalchemy.orm import Session
-
     exp_id = _create_experiments(store, "rename_translate")
     queue = store.create_review_queue(exp_id, name="Foo", queue_type="custom")
 
