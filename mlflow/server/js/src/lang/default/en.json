@@ -439,6 +439,10 @@
     "defaultMessage": "{formattedAverage} (AVG)",
     "description": "Label showing the average value of numeric assessments"
   },
+  "/z8VeL": {
+    "defaultMessage": "Couldn't load users. Try again.",
+    "description": "Add to review queue: users roster failed to load"
+  },
   "/zbm8T": {
     "defaultMessage": "Continue editing the question to see a preview.",
     "description": "Review question preview render-error empty description"
@@ -5631,6 +5635,10 @@
     "defaultMessage": "Advanced settings (optional)",
     "description": "Toggle button for advanced settings in prompt creation modal"
   },
+  "R1kmVV": {
+    "defaultMessage": "Couldn't load reviewers. Try again.",
+    "description": "Review queue: reviewers roster failed to load"
+  },
   "R28jzs": {
     "defaultMessage": "Action",
     "description": "Guardrail action column header"
@@ -6934,6 +6942,10 @@
   "XIWwOm": {
     "defaultMessage": "Session ID",
     "description": "Label for the session id section"
+  },
+  "XIicPZ": {
+    "defaultMessage": "Couldn't load users. Try again.",
+    "description": "Review queue: owner roster failed to load"
   },
   "XJP2Uv": {
     "defaultMessage": "Pick a workspace from the workspace selector to see its roles.",
