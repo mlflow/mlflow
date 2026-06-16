@@ -211,10 +211,6 @@
     "defaultMessage": "Search records by inputs or expectations",
     "description": "Aria label for the search input on the V2 dataset records page (placeholder is not a label per WCAG 1.3.1)"
   },
-  "//TrDV": {
-    "defaultMessage": "Output",
-    "description": "Section header for the completion output panel on the playground page"
-  },
   "/2InJv": {
     "defaultMessage": "Grounded",
     "description": "Evaluation results > grounded assessment > positive value label. Displayed if evaluation result is considered as grounded."
@@ -1090,10 +1086,6 @@
   "3FH3mQ": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text in the run evaluation modal"
-  },
-  "3FZ8dZ": {
-    "defaultMessage": "Rename",
-    "description": "Text for rename button on the experiment view page header"
   },
   "3JAJtl": {
     "defaultMessage": "Current password",
@@ -3926,10 +3918,6 @@
   "I9bJ/T": {
     "defaultMessage": "Select All",
     "description": "Option to select all items in the item selector"
-  },
-  "IADRYy": {
-    "defaultMessage": "Message content",
-    "description": "Hidden label for the message content textarea on the playground page"
   },
   "IARcQx": {
     "defaultMessage": "Manage workspace {name}",
@@ -11566,10 +11554,6 @@
   "tHrp+A": {
     "defaultMessage": "Value",
     "description": "Key-value tag editor modal > Value input label (required)"
-  },
-  "tJ+7No": {
-    "defaultMessage": "Set description",
-    "description": "Label for set description button in workspaces table"
   },
   "tLScUd": {
     "defaultMessage": "Load prompt from registry",
