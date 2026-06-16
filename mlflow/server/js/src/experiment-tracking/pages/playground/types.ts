@@ -1,5 +1,8 @@
 export type ChatRole = 'system' | 'user' | 'assistant';
 
+// Registry prompt type, mirroring PROMPT_TYPE_TEXT / PROMPT_TYPE_CHAT in `../prompts/utils`.
+export type PromptType = 'text' | 'chat';
+
 export interface ChatMessage {
   role: ChatRole;
   content: string;

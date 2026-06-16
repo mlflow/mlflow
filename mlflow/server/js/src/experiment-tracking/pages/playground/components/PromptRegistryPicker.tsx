@@ -1,15 +1,14 @@
 import {
   Alert,
   BookIcon,
-  Button,
   DialogCombobox,
   DialogComboboxContent,
   DialogComboboxOptionList,
   DialogComboboxOptionListSearch,
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
-  Drawer,
   FormUI,
+  Modal,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -106,309 +105,287 @@ export const PromptRegistryPicker = ({ visible, onCancel, onLoad }: Props) => {
   };
 
   return (
-    <Drawer.Root
-      open={visible}
-      onOpenChange={(open) => {
-        if (!open) handleCancel();
-      }}
+    <Modal
+      componentId="mlflow.playground.prompt_registry_picker"
+      visible={visible}
+      onCancel={handleCancel}
+      title={
+        <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+          <BookIcon />
+          <FormattedMessage
+            defaultMessage="Load prompt from registry"
+            description="Title of the prompt-registry picker modal on the playground page"
+          />
+        </span>
+      }
+      okText={
+        <FormattedMessage
+          defaultMessage="Load"
+          description="Confirm-button label on the prompt-registry picker modal that loads the selected prompt version"
+        />
+      }
+      okButtonProps={{ disabled: !loadPayload }}
+      onOk={handleLoad}
+      cancelText={
+        <FormattedMessage
+          defaultMessage="Cancel"
+          description="Cancel-button label on the prompt-registry picker modal"
+        />
+      }
+      size="wide"
     >
-      <Drawer.Content
-        componentId="mlflow.playground.prompt_registry_picker"
-        width={520}
-        title={
-          <span
-            css={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: theme.spacing.xs,
-              fontSize: theme.typography.fontSizeXl,
-              fontWeight: theme.typography.typographyBoldFontWeight,
-              lineHeight: theme.typography.lineHeightXl,
-            }}
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+        <Typography.Paragraph withoutMargins>
+          <FormattedMessage
+            defaultMessage="Load a saved prompt to replace the current playground messages, and apply any settings stored with it."
+            description="Intro paragraph at the top of the playground prompt-registry picker modal, explaining that loading replaces messages and applies stored settings"
+          />
+        </Typography.Paragraph>
+        <div>
+          <FormUI.Label htmlFor="mlflow.playground.prompt_registry_picker.prompt">
+            <FormattedMessage
+              defaultMessage="Prompt"
+              description="Label for the prompt picker on the playground prompt-registry modal"
+            />
+          </FormUI.Label>
+          <DialogCombobox
+            componentId="mlflow.playground.prompt_registry_picker.prompt"
+            label={intl.formatMessage({
+              defaultMessage: 'Prompt',
+              description: 'Label for the prompt picker on the playground prompt-registry modal',
+            })}
+            modal={false}
+            value={selectedPromptName ? [selectedPromptName] : undefined}
           >
-            <BookIcon />
-            <FormattedMessage
-              defaultMessage="Load prompt from registry"
-              description="Title of the prompt-registry picker drawer on the playground page"
-            />
-          </span>
-        }
-      >
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-          <Typography.Paragraph withoutMargins>
-            <FormattedMessage
-              defaultMessage="Load a saved prompt to replace the current playground messages, and apply any settings stored with it."
-              description="Intro paragraph at the top of the playground prompt-registry picker drawer, explaining that loading replaces messages and applies stored settings"
-            />
-          </Typography.Paragraph>
-          <div>
-            <FormUI.Label htmlFor="mlflow.playground.prompt_registry_picker.prompt">
-              <FormattedMessage
-                defaultMessage="Prompt"
-                description="Label for the prompt picker on the playground prompt-registry modal"
-              />
-            </FormUI.Label>
-            <DialogCombobox
-              componentId="mlflow.playground.prompt_registry_picker.prompt"
-              label={intl.formatMessage({
-                defaultMessage: 'Prompt',
-                description: 'Label for the prompt picker on the playground prompt-registry modal',
+            <DialogComboboxTrigger
+              id="mlflow.playground.prompt_registry_picker.prompt"
+              css={{ width: '100%' }}
+              allowClear
+              placeholder={intl.formatMessage({
+                defaultMessage: 'Select a prompt',
+                description: 'Placeholder for the prompt picker on the playground prompt-registry modal',
               })}
-              modal={false}
-              value={selectedPromptName ? [selectedPromptName] : undefined}
-            >
-              <DialogComboboxTrigger
-                id="mlflow.playground.prompt_registry_picker.prompt"
-                css={{ width: '100%' }}
-                allowClear
-                placeholder={intl.formatMessage({
-                  defaultMessage: 'Select a prompt',
-                  description: 'Placeholder for the prompt picker on the playground prompt-registry modal',
-                })}
-                withInlineLabel={false}
-                onClear={() => handlePromptSelect('')}
-              />
-              <DialogComboboxContent loading={isPromptsLoading} maxHeight={320} matchTriggerWidth>
-                {!isPromptsLoading && (
-                  <DialogComboboxOptionList>
-                    <DialogComboboxOptionListSearch autoFocus>
-                      {(prompts ?? []).map((prompt) => (
-                        <DialogComboboxOptionListSelectItem
-                          key={prompt.name}
-                          value={prompt.name}
-                          onChange={(name) => handlePromptSelect(name)}
-                          checked={selectedPromptName === prompt.name}
-                        >
-                          {prompt.name}
-                        </DialogComboboxOptionListSelectItem>
-                      ))}
-                    </DialogComboboxOptionListSearch>
-                  </DialogComboboxOptionList>
-                )}
-              </DialogComboboxContent>
-            </DialogCombobox>
-            {promptsError && <FormUI.Message type="error" message={promptsError.message} />}
-          </div>
-
-          <div>
-            <FormUI.Label htmlFor="mlflow.playground.prompt_registry_picker.version">
-              <FormattedMessage
-                defaultMessage="Version"
-                description="Label for the version picker on the playground prompt-registry modal"
-              />
-            </FormUI.Label>
-            <DialogCombobox
-              componentId="mlflow.playground.prompt_registry_picker.version"
-              label={intl.formatMessage({
-                defaultMessage: 'Version',
-                description: 'Label for the version picker on the playground prompt-registry modal',
-              })}
-              modal={false}
-              value={selectedVersion ? [selectedVersion] : undefined}
-            >
-              <DialogComboboxTrigger
-                id="mlflow.playground.prompt_registry_picker.version"
-                css={{ width: '100%' }}
-                allowClear
-                disabled={!selectedPromptName || isDetailsLoading}
-                placeholder={intl.formatMessage({
-                  defaultMessage: 'Select a version',
-                  description: 'Placeholder for the version picker on the playground prompt-registry modal',
-                })}
-                withInlineLabel={false}
-                onClear={() => setSelectedVersion(undefined)}
-              />
-              <DialogComboboxContent loading={isDetailsLoading} maxHeight={320} matchTriggerWidth>
-                {!isDetailsLoading && (
-                  <DialogComboboxOptionList>
-                    {versions.map((version) => (
+              withInlineLabel={false}
+              onClear={() => handlePromptSelect('')}
+            />
+            <DialogComboboxContent loading={isPromptsLoading} maxHeight={320} matchTriggerWidth>
+              {!isPromptsLoading && (
+                <DialogComboboxOptionList>
+                  <DialogComboboxOptionListSearch autoFocus>
+                    {(prompts ?? []).map((prompt) => (
                       <DialogComboboxOptionListSelectItem
-                        key={version.version}
-                        value={version.version}
-                        onChange={(value) => setSelectedVersion(value)}
-                        checked={selectedVersion === version.version}
+                        key={prompt.name}
+                        value={prompt.name}
+                        onChange={(name) => handlePromptSelect(name)}
+                        checked={selectedPromptName === prompt.name}
                       >
-                        {`v${version.version}`}
+                        {prompt.name}
                       </DialogComboboxOptionListSelectItem>
                     ))}
-                  </DialogComboboxOptionList>
-                )}
-              </DialogComboboxContent>
-            </DialogCombobox>
-            {detailsError && <FormUI.Message type="error" message={detailsError.message} />}
-          </div>
+                  </DialogComboboxOptionListSearch>
+                </DialogComboboxOptionList>
+              )}
+            </DialogComboboxContent>
+          </DialogCombobox>
+          {promptsError && <FormUI.Message type="error" message={promptsError.message} />}
+        </div>
 
-          <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
-            <Button componentId="mlflow.playground.prompt_registry_picker.cancel" onClick={handleCancel}>
-              <FormattedMessage
-                defaultMessage="Cancel"
-                description="Cancel-button label on the prompt-registry picker drawer"
-              />
-            </Button>
-            <Button
-              componentId="mlflow.playground.prompt_registry_picker.load"
-              type="primary"
-              disabled={!loadPayload}
-              onClick={handleLoad}
+        <div>
+          <FormUI.Label htmlFor="mlflow.playground.prompt_registry_picker.version">
+            <FormattedMessage
+              defaultMessage="Version"
+              description="Label for the version picker on the playground prompt-registry modal"
+            />
+          </FormUI.Label>
+          <DialogCombobox
+            componentId="mlflow.playground.prompt_registry_picker.version"
+            label={intl.formatMessage({
+              defaultMessage: 'Version',
+              description: 'Label for the version picker on the playground prompt-registry modal',
+            })}
+            modal={false}
+            value={selectedVersion ? [selectedVersion] : undefined}
+          >
+            <DialogComboboxTrigger
+              id="mlflow.playground.prompt_registry_picker.version"
+              css={{ width: '100%' }}
+              allowClear
+              disabled={!selectedPromptName || isDetailsLoading}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'Select a version',
+                description: 'Placeholder for the version picker on the playground prompt-registry modal',
+              })}
+              withInlineLabel={false}
+              onClear={() => setSelectedVersion(undefined)}
+            />
+            <DialogComboboxContent loading={isDetailsLoading} maxHeight={320} matchTriggerWidth>
+              {!isDetailsLoading && (
+                <DialogComboboxOptionList>
+                  {versions.map((version) => (
+                    <DialogComboboxOptionListSelectItem
+                      key={version.version}
+                      value={version.version}
+                      onChange={(value) => setSelectedVersion(value)}
+                      checked={selectedVersion === version.version}
+                    >
+                      {`v${version.version}`}
+                    </DialogComboboxOptionListSelectItem>
+                  ))}
+                </DialogComboboxOptionList>
+              )}
+            </DialogComboboxContent>
+          </DialogCombobox>
+          {detailsError && <FormUI.Message type="error" message={detailsError.message} />}
+        </div>
+
+        {loadPayload && (
+          <>
+            <div css={{ borderTop: `1px solid ${theme.colors.border}` }} role="separator" aria-hidden="true" />
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: theme.spacing.md,
+                border: `1px solid ${theme.colors.border}`,
+                borderRadius: theme.general.borderRadiusBase,
+                padding: theme.spacing.md,
+              }}
             >
-              <FormattedMessage
-                defaultMessage="Load"
-                description="Confirm-button label on the prompt-registry picker drawer that loads the selected prompt version"
-              />
-            </Button>
-          </div>
-
-          {loadPayload && (
-            <>
-              <div css={{ borderTop: `1px solid ${theme.colors.border}` }} role="separator" aria-hidden="true" />
-              <div
+              <Typography.Title
+                level={3}
+                withoutMargins
                 css={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: theme.spacing.md,
-                  border: `1px solid ${theme.colors.border}`,
-                  borderRadius: theme.general.borderRadiusBase,
-                  padding: theme.spacing.md,
+                  borderBottom: `1px solid ${theme.colors.border}`,
+                  paddingBottom: theme.spacing.xs,
                 }}
               >
-                <Typography.Title
-                  level={3}
-                  withoutMargins
-                  css={{
-                    borderBottom: `1px solid ${theme.colors.border}`,
-                    paddingBottom: theme.spacing.xs,
-                  }}
+                <FormattedMessage
+                  defaultMessage="Preview"
+                  description="Title of the preview section in the playground prompt-registry picker modal"
+                />
+              </Typography.Title>
+
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                <Typography.Text
+                  size="sm"
+                  color="secondary"
+                  bold
+                  css={{ textTransform: 'uppercase', letterSpacing: 0.5 }}
                 >
                   <FormattedMessage
-                    defaultMessage="Preview"
-                    description="Title of the preview section in the playground prompt-registry picker drawer"
+                    defaultMessage="Messages"
+                    description="Subsection header listing messages of the selected prompt version on the playground prompt-registry picker modal"
                   />
-                </Typography.Title>
-
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                  <Typography.Text
-                    size="sm"
-                    color="secondary"
-                    bold
-                    css={{ textTransform: 'uppercase', letterSpacing: 0.5 }}
-                  >
-                    <FormattedMessage
-                      defaultMessage="Messages"
-                      description="Subsection header listing messages of the selected prompt version on the playground prompt-registry picker drawer"
-                    />
-                  </Typography.Text>
-                  <div
-                    css={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: theme.spacing.xs,
-                      maxHeight: 240,
-                      overflowY: 'auto',
-                      paddingRight: theme.spacing.xs,
-                    }}
-                  >
-                    {loadPayload.messages.length === 0 ? (
-                      <Typography.Text color="secondary">
-                        <FormattedMessage
-                          defaultMessage="(no messages)"
-                          description="Placeholder shown in the playground prompt-registry preview when a prompt version contains no messages"
-                        />
-                      </Typography.Text>
-                    ) : (
-                      loadPayload.messages.map((m, i) => (
-                        <div
-                          key={`${m.role}-${i}`}
-                          css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'baseline' }}
-                        >
-                          <Typography.Text bold css={{ minWidth: 72 }}>
-                            {m.role}
-                          </Typography.Text>
-                          <Typography.Text color="secondary">
-                            {truncate(m.content, PREVIEW_CONTENT_CAP)}
-                          </Typography.Text>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  {!isChatPrompt(selectedVersionEntity) && (
-                    <Alert
-                      componentId="mlflow.playground.prompt_registry_picker.text_prompt_hint"
-                      type="info"
-                      closable={false}
-                      message={
-                        <FormattedMessage
-                          defaultMessage="This is a text-typed prompt. It will load as a single user message."
-                          description="Info alert shown when a text-typed prompt is selected on the playground prompt-registry modal"
-                        />
-                      }
-                    />
-                  )}
-                </div>
-
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                  <Typography.Text
-                    size="sm"
-                    color="secondary"
-                    bold
-                    css={{ textTransform: 'uppercase', letterSpacing: 0.5 }}
-                  >
-                    <FormattedMessage
-                      defaultMessage="Settings"
-                      description="Subsection header listing model settings stored with the selected prompt version on the playground prompt-registry picker drawer"
-                    />
-                  </Typography.Text>
-                  {loadPayload.settings === null ? (
+                </Typography.Text>
+                <div
+                  css={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: theme.spacing.xs,
+                    maxHeight: 240,
+                    overflowY: 'auto',
+                    paddingRight: theme.spacing.xs,
+                  }}
+                >
+                  {loadPayload.messages.length === 0 ? (
                     <Typography.Text color="secondary">
                       <FormattedMessage
-                        defaultMessage="No settings stored with this version"
-                        description="Muted note shown in the playground prompt-registry preview when the selected prompt version has no model config or response format stored"
+                        defaultMessage="(no messages)"
+                        description="Placeholder shown in the playground prompt-registry preview when a prompt version contains no messages"
                       />
                     </Typography.Text>
                   ) : (
-                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                      {SETTINGS_FIELD_ORDER.map((key) => {
-                        const value = previewModelConfig?.[key];
-                        if (value === undefined) return null;
-                        if (Array.isArray(value)) {
-                          if (value.length === 0) return null;
-                          return (
-                            <div key={key} css={{ display: 'flex', gap: theme.spacing.sm }}>
-                              <Typography.Text bold>{MODEL_CONFIG_FIELD_LABELS[key]}:</Typography.Text>
-                              <Typography.Text color="secondary">{value.join(', ')}</Typography.Text>
-                            </div>
-                          );
-                        }
+                    loadPayload.messages.map((m, i) => (
+                      <div
+                        key={`${m.role}-${i}`}
+                        css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'baseline' }}
+                      >
+                        <Typography.Text bold css={{ minWidth: 72 }}>
+                          {m.role}
+                        </Typography.Text>
+                        <Typography.Text color="secondary">{truncate(m.content, PREVIEW_CONTENT_CAP)}</Typography.Text>
+                      </div>
+                    ))
+                  )}
+                </div>
+                {!isChatPrompt(selectedVersionEntity) && (
+                  <Alert
+                    componentId="mlflow.playground.prompt_registry_picker.text_prompt_hint"
+                    type="info"
+                    closable={false}
+                    message={
+                      <FormattedMessage
+                        defaultMessage="This is a text-typed prompt. It will load as a single user message."
+                        description="Info alert shown when a text-typed prompt is selected on the playground prompt-registry modal"
+                      />
+                    }
+                  />
+                )}
+              </div>
+
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                <Typography.Text
+                  size="sm"
+                  color="secondary"
+                  bold
+                  css={{ textTransform: 'uppercase', letterSpacing: 0.5 }}
+                >
+                  <FormattedMessage
+                    defaultMessage="Settings"
+                    description="Subsection header listing model settings stored with the selected prompt version on the playground prompt-registry picker modal"
+                  />
+                </Typography.Text>
+                {loadPayload.settings === null ? (
+                  <Typography.Text color="secondary">
+                    <FormattedMessage
+                      defaultMessage="No settings stored with this version"
+                      description="Muted note shown in the playground prompt-registry preview when the selected prompt version has no model config or response format stored"
+                    />
+                  </Typography.Text>
+                ) : (
+                  <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                    {SETTINGS_FIELD_ORDER.map((key) => {
+                      const value = previewModelConfig?.[key];
+                      if (value === undefined) return null;
+                      if (Array.isArray(value)) {
+                        if (value.length === 0) return null;
                         return (
                           <div key={key} css={{ display: 'flex', gap: theme.spacing.sm }}>
                             <Typography.Text bold>{MODEL_CONFIG_FIELD_LABELS[key]}:</Typography.Text>
-                            <Typography.Text color="secondary">{String(value)}</Typography.Text>
+                            <Typography.Text color="secondary">{value.join(', ')}</Typography.Text>
                           </div>
                         );
-                      })}
-                      {previewHasResponseFormat && (
-                        <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-                          <Typography.Text bold>
-                            <FormattedMessage
-                              defaultMessage="Response format:"
-                              description="Label preceding the response-format value in the playground prompt-registry preview"
-                            />
-                          </Typography.Text>
-                          <Typography.Text color="secondary">
-                            <FormattedMessage
-                              defaultMessage="JSON schema"
-                              description="Value shown next to the response-format label when the selected prompt version stores a JSON-schema response format"
-                            />
-                          </Typography.Text>
+                      }
+                      return (
+                        <div key={key} css={{ display: 'flex', gap: theme.spacing.sm }}>
+                          <Typography.Text bold>{MODEL_CONFIG_FIELD_LABELS[key]}:</Typography.Text>
+                          <Typography.Text color="secondary">{String(value)}</Typography.Text>
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                      );
+                    })}
+                    {previewHasResponseFormat && (
+                      <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+                        <Typography.Text bold>
+                          <FormattedMessage
+                            defaultMessage="Response format:"
+                            description="Label preceding the response-format value in the playground prompt-registry preview"
+                          />
+                        </Typography.Text>
+                        <Typography.Text color="secondary">
+                          <FormattedMessage
+                            defaultMessage="JSON schema"
+                            description="Value shown next to the response-format label when the selected prompt version stores a JSON-schema response format"
+                          />
+                        </Typography.Text>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </>
-          )}
-        </div>
-      </Drawer.Content>
-    </Drawer.Root>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
   );
 };

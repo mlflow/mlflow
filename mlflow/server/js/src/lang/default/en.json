@@ -183,10 +183,6 @@
     "defaultMessage": "An error occurred while attempting to fetch trace data (ID: {traceId}). Please ensure that the MLflow tracking server is running, and that the trace data exists. Error details:",
     "description": "An error message explaining that an error occurred while fetching trace data"
   },
-  "+qbuLR": {
-    "defaultMessage": "Load prompt from registry",
-    "description": "Label for the playground top-bar button that opens the registered prompt picker"
-  },
   "+tURAJ": {
     "defaultMessage": "Cancel",
     "description": "Button text for canceling evaluation"
@@ -310,6 +306,10 @@
   "/QYbzP": {
     "defaultMessage": "Time (wall)",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use wall time axis in all charts"
+  },
+  "/RFfvj": {
+    "defaultMessage": "Load prompt",
+    "description": "Aria label for the playground top-bar button that opens the registered prompt picker"
   },
   "/SGMOh": {
     "defaultMessage": "Only an experiment manager can change a queue's questions.",
@@ -971,9 +971,17 @@
     "defaultMessage": "Hours",
     "description": "Trace archival retention unit option for hours"
   },
+  "2ZB29e": {
+    "defaultMessage": "A new prompt will be created in the registry.",
+    "description": "Note shown in the playground save modal when no prompt is loaded, so a new prompt is created"
+  },
   "2a/rR8": {
     "defaultMessage": "Cancel",
     "description": "Key-value tag editor modal > Manage Tag cancel button"
+  },
+  "2aFMT3": {
+    "defaultMessage": "Save prompt to registry",
+    "description": "Title of the save-prompt-version modal on the playground page"
   },
   "2cshW2": {
     "defaultMessage": "Resolved ({count})",
@@ -2191,6 +2199,10 @@
     "defaultMessage": "Train models",
     "description": "Home page quick action title for training models"
   },
+  "9+31Wm": {
+    "defaultMessage": "Prompt name",
+    "description": "Label for the new-prompt name input in the playground save-prompt-version modal"
+  },
   "9/KT56": {
     "defaultMessage": "Prompts",
     "description": "Label for the prompts tab in the MLflow experiment navbar"
@@ -2959,6 +2971,10 @@
     "defaultMessage": "Expected output",
     "description": "Evaluation review > Response section > expected output > title"
   },
+  "CZW5JY": {
+    "defaultMessage": "Messages",
+    "description": "Header of the messages preview in the playground save-prompt-version modal"
+  },
   "CZWYoV": {
     "defaultMessage": "e.g. 0.0",
     "description": "Placeholder for the frequency-penalty input on the playground parameters panel"
@@ -3191,6 +3207,10 @@
     "defaultMessage": "Budget exceeded",
     "description": "Warning icon label for exceeded budget"
   },
+  "DxHEXN": {
+    "defaultMessage": "Preview",
+    "description": "Title of the preview section in the playground prompt-registry picker modal"
+  },
   "Dz/+6s": {
     "defaultMessage": "Usage tracking",
     "description": "Label for usage tracking toggle in sidebar"
@@ -3198,10 +3218,6 @@
   "E+bByS": {
     "defaultMessage": "My queues",
     "description": "Review queue sidebar: show-only-owned-queues filter"
-  },
-  "E0nFI2": {
-    "defaultMessage": "Preview",
-    "description": "Title of the preview section in the playground prompt-registry picker drawer"
   },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
@@ -3643,6 +3659,10 @@
     "defaultMessage": "Context sufficiency",
     "description": "Evaluation results > known type of evaluation result assessment > context sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. \"Context Sufficiency: mostly sufficient\""
   },
+  "GWkYrG": {
+    "defaultMessage": "Provide a unique prompt name",
+    "description": "Placeholder for the new-prompt name input in the playground save-prompt-version modal"
+  },
   "GXayIF": {
     "defaultMessage": "Predict on a Pandas DataFrame:",
     "description": "Section heading to display the code block on how we can use registered model to predict using pandas DataFrame"
@@ -3723,10 +3743,6 @@
     "defaultMessage": "Trace archival retention not updated",
     "description": "Partial save status message when experiment trace archival retention update was not attempted"
   },
-  "H+Onu7": {
-    "defaultMessage": "Cancel",
-    "description": "Cancel-button label on the prompt-registry picker drawer"
-  },
   "H+tV5c": {
     "defaultMessage": "Coding Agents",
     "description": "Gateway > Quick start > Coding Agents card header"
@@ -3790,6 +3806,10 @@
   "HQXWk2": {
     "defaultMessage": "Select the LLM-as-a-judge scorers to run on the selected traces.",
     "description": "Description for the judge selection section in the run evaluation modal"
+  },
+  "HRSBco": {
+    "defaultMessage": "Save model settings with this version",
+    "description": "Label for the checkbox that stores playground model settings alongside the saved prompt version"
   },
   "HSMagB": {
     "defaultMessage": "Error evaluating \"{label}\"",
@@ -3963,6 +3983,10 @@
     "defaultMessage": "New password and confirmation do not match",
     "description": "Validation error when new password and confirmation do not match"
   },
+  "IDk8d+": {
+    "defaultMessage": "Save prompt",
+    "description": "Aria label for the playground top-bar button that opens the save-prompt-version modal"
+  },
   "IEORCP": {
     "defaultMessage": "Comparing {numRuns} Runs from {numExperiments} Experiments",
     "description": "Breadcrumb title for compare runs page with multiple experiments"
@@ -4074,6 +4098,10 @@
   "ImBtKi": {
     "defaultMessage": "To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace. For more information, please visit the <a>official documentation</a> for manual tracing.",
     "description": "Description of how to log custom code traces using MLflow. This message is followed by a code example. The link leads to the MLflow documentation for the user to learn more."
+  },
+  "InNAAD": {
+    "defaultMessage": "Name is required",
+    "description": "Validation error when no prompt name is provided in the playground save-prompt-version modal"
   },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
@@ -4419,6 +4447,10 @@
     "defaultMessage": "This queue has no questions attached.",
     "description": "Add to review queue: custom queue disabled reason"
   },
+  "KpFPCX": {
+    "defaultMessage": "Settings",
+    "description": "Subsection header listing model settings stored with the selected prompt version on the playground prompt-registry picker modal"
+  },
   "KqReh3": {
     "defaultMessage": "Error stack trace",
     "description": "Title of the assessment error stack trace modal"
@@ -4586,6 +4618,10 @@
   "Ll6vbT": {
     "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
     "description": "Tooltip text for transitioning existing model versions in stage to archived\n     in the model versions page"
+  },
+  "LmHxvf": {
+    "defaultMessage": "Only alphanumeric characters, underscores, hyphens, and dots are allowed",
+    "description": "Validation error for an invalid prompt name in the playground save-prompt-version modal"
   },
   "LpdcPw": {
     "defaultMessage": "Model versions",
@@ -5571,6 +5607,10 @@
     "defaultMessage": "Columns",
     "description": "Columns button label"
   },
+  "Qb78hE": {
+    "defaultMessage": "Messages",
+    "description": "Subsection header listing messages of the selected prompt version on the playground prompt-registry picker modal"
+  },
   "QcEYpD": {
     "defaultMessage": "Add to evaluation dataset",
     "description": "Add traces to evaluation dataset action"
@@ -6134,6 +6174,10 @@
   "TTQoG9": {
     "defaultMessage": "Source",
     "description": "Header for the dataset record source column"
+  },
+  "TTXfdj": {
+    "defaultMessage": "Commit message (optional)",
+    "description": "Label for the optional commit-message input in the playground save-prompt-version modal"
   },
   "TWnsnV": {
     "defaultMessage": "Run Name",
@@ -6723,6 +6767,10 @@
     "defaultMessage": "Register model",
     "description": "Run page > Header > Register model dropdown > Button label when some models are not registered"
   },
+  "WGe+QH": {
+    "defaultMessage": "Load",
+    "description": "Confirm-button label on the prompt-registry picker modal that loads the selected prompt version"
+  },
   "WHf+VX": {
     "defaultMessage": "Please enter a name",
     "description": "Error message for empty assessment name in a creation form"
@@ -7011,6 +7059,10 @@
     "defaultMessage": "Prompt alias deleted",
     "description": "Webhook event label"
   },
+  "XfsPd4": {
+    "defaultMessage": "Save prompt",
+    "description": "Label for the playground top-bar button that opens the save-prompt-version modal"
+  },
   "XiGiE1": {
     "defaultMessage": "Workspace",
     "description": "Permissions table column header for the workspace"
@@ -7202,6 +7254,10 @@
   "Yd5ANL": {
     "defaultMessage": "PASS",
     "description": "Header label for pass/fail assessment type for the pass rate"
+  },
+  "YdxomH": {
+    "defaultMessage": "New version of {name}",
+    "description": "Option to save a new version of the loaded prompt in the playground save modal"
   },
   "YeCF5P": {
     "defaultMessage": "Human feedback",
@@ -7799,10 +7855,6 @@
     "defaultMessage": "Try selecting a longer time range.",
     "description": "Suggestion to select a longer time range"
   },
-  "bUiWBa": {
-    "defaultMessage": "Load prompt from registry",
-    "description": "Title of the prompt-registry picker drawer on the playground page"
-  },
   "bWh+VF": {
     "defaultMessage": "Create",
     "description": "Gateway > Endpoints list > Create endpoint button"
@@ -7834,10 +7886,6 @@
   "bdVsGZ": {
     "defaultMessage": "Collapse description",
     "description": "Aria label for button that collapses a long description"
-  },
-  "beIrMl": {
-    "defaultMessage": "Load",
-    "description": "Confirm-button label on the prompt-registry picker drawer that loads the selected prompt version"
   },
   "bi26D5": {
     "defaultMessage": "Run ID:",
@@ -8071,10 +8119,6 @@
     "defaultMessage": "{count, plural, one {# custom queue} other {# custom queues}}",
     "description": "Manage review questions: count of custom queues using the question being deleted"
   },
-  "cdkVoZ": {
-    "defaultMessage": "Settings",
-    "description": "Subsection header listing model settings stored with the selected prompt version on the playground prompt-registry picker drawer"
-  },
   "cfzQMh": {
     "defaultMessage": "baseline run",
     "description": "Placeholder text shown when no baseline run is selected for comparison"
@@ -8291,6 +8335,10 @@
     "defaultMessage": "Name",
     "description": "Queue settings: name field label"
   },
+  "dp7Jva": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel-button label on the playground save-prompt-version modal"
+  },
   "dq8MJd": {
     "defaultMessage": "Contour Plot",
     "description": "Tab text for contour plot on the model comparison page"
@@ -8382,6 +8430,10 @@
   "eE5VIF": {
     "defaultMessage": "Click to hide the run",
     "description": "A tooltip for the \"hide\" icon button in the runs chart tooltip"
+  },
+  "eEjDUQ": {
+    "defaultMessage": "Destination",
+    "description": "Label for the destination selector in the playground save-prompt-version modal"
   },
   "eIM9PU": {
     "defaultMessage": "Open dataset record {recordId} — tags",
@@ -8606,6 +8658,10 @@
   "fMxD0i": {
     "defaultMessage": "Admin",
     "description": "Tag content marking an admin role (single-tenant)"
+  },
+  "fRJE/2": {
+    "defaultMessage": "Load a saved prompt to replace the current playground messages, and apply any settings stored with it.",
+    "description": "Intro paragraph at the top of the playground prompt-registry picker modal, explaining that loading replaces messages and applies stored settings"
   },
   "fSm3ue": {
     "defaultMessage": "Category choices",
@@ -9355,6 +9411,10 @@
     "defaultMessage": "My webhook",
     "description": "Webhook name placeholder"
   },
+  "iX9mZm": {
+    "defaultMessage": "Saved {name} v{version} to the registry",
+    "description": "Success toast shown on the playground after saving the current messages as a new prompt version"
+  },
   "iXb99e": {
     "defaultMessage": "Box Plot",
     "description": "Tab pane title for box plot on the compare runs page"
@@ -10087,6 +10147,10 @@
     "defaultMessage": "Last modified",
     "description": "Last modified column header"
   },
+  "mEV+mz": {
+    "defaultMessage": "New prompt",
+    "description": "Option to save the playground messages as a brand-new prompt in the save modal"
+  },
   "mGUpJv": {
     "defaultMessage": "Failed to create record",
     "description": "Generic fallback save-error text for the dataset record side panel (create mode)"
@@ -10511,6 +10575,10 @@
     "defaultMessage": "Custom code judge",
     "description": "Menu item text to create a new custom code judge"
   },
+  "o66/ZA": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel-button label on the prompt-registry picker modal"
+  },
   "o6uTLu": {
     "defaultMessage": "Created",
     "description": "Column selector label for the create-time column"
@@ -10695,9 +10763,17 @@
     "defaultMessage": "Describe what this guardrail should check for...",
     "description": "Guardrail instructions placeholder"
   },
+  "p+urWV": {
+    "defaultMessage": "Load prompt from registry",
+    "description": "Title of the prompt-registry picker modal on the playground page"
+  },
   "p/wUKB": {
     "defaultMessage": "MLflow Assistant",
     "description": "Title for the global Assistant chat panel"
+  },
+  "p0FZXy": {
+    "defaultMessage": "Add at least one non-empty message before saving.",
+    "description": "Warning shown in the playground save-prompt-version modal when there are no messages to save"
   },
   "p1H1KR": {
     "defaultMessage": "Last 30 days",
@@ -11399,10 +11475,6 @@
     "defaultMessage": "None",
     "description": "Label for the button disabling grouping in the logged model list page"
   },
-  "sQxTyj": {
-    "defaultMessage": "Messages",
-    "description": "Subsection header listing messages of the selected prompt version on the playground prompt-registry picker drawer"
-  },
   "sS3GBl": {
     "defaultMessage": "Trace LLM applications for debugging and monitoring.",
     "description": "Home page quick action description for logging traces"
@@ -11567,6 +11639,10 @@
     "defaultMessage": "Failed to save record",
     "description": "Generic fallback save-error text for the dataset record side panel (edit mode)"
   },
+  "tEW/jO": {
+    "defaultMessage": "Save the current playground messages as a new prompt version in the registry.",
+    "description": "Intro paragraph at the top of the playground save-prompt-version modal"
+  },
   "tEX/Gk": {
     "defaultMessage": "Select a Guardrail Model endpoint to create this guardrail.",
     "description": "Tooltip shown when create button is disabled because guardrail model is not selected"
@@ -11586,10 +11662,6 @@
   "tHrp+A": {
     "defaultMessage": "Value",
     "description": "Key-value tag editor modal > Value input label (required)"
-  },
-  "tLScUd": {
-    "defaultMessage": "Load prompt from registry",
-    "description": "Aria label for the playground top-bar button that opens the registered prompt picker"
   },
   "tLb7+M": {
     "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
@@ -11702,6 +11774,10 @@
   "u1UjvS": {
     "defaultMessage": "e.g. Hallucination review",
     "description": "Create review queue: name field placeholder"
+  },
+  "u5B9TA": {
+    "defaultMessage": "Load prompt",
+    "description": "Label for the playground top-bar button that opens the registered prompt picker"
   },
   "u9ZeuA": {
     "defaultMessage": "State",
@@ -11951,10 +12027,6 @@
     "defaultMessage": "Experiment type",
     "description": "Label for the experiment type selector in the experiment view header"
   },
-  "vRhqKG": {
-    "defaultMessage": "Load a saved prompt to replace the current playground messages, and apply any settings stored with it.",
-    "description": "Intro paragraph at the top of the playground prompt-registry picker drawer, explaining that loading replaces messages and applies stored settings"
-  },
   "vSI23W": {
     "defaultMessage": "Provider cannot be changed. Create a new key if a different provider is needed.",
     "description": "Tooltip explaining why provider field is disabled in drawer edit"
@@ -12010,6 +12082,10 @@
   "vqWexj": {
     "defaultMessage": "Back to experiment list",
     "description": "Tooltip for experiments button"
+  },
+  "vtQvcd": {
+    "defaultMessage": "Save version",
+    "description": "Confirm-button label on the playground save-prompt-version modal"
   },
   "vwD2zW": {
     "defaultMessage": "Unified APIs",

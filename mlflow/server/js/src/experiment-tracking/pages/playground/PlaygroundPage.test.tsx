@@ -85,7 +85,7 @@ describe('PlaygroundPage', () => {
     expect(screen.getByPlaceholderText('Type a message')).toHaveValue('');
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /clear conversation/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /load prompt from registry/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /load prompt/i })).toBeInTheDocument();
   });
 
   it('keeps Submit disabled until both an endpoint and a non-empty message are present', async () => {
@@ -392,7 +392,7 @@ describe('PlaygroundPage', () => {
   };
 
   const openRegistryAndLoad = async (promptName: string) => {
-    await userEvent.click(screen.getByRole('button', { name: /load prompt from registry/i }));
+    await userEvent.click(screen.getByRole('button', { name: /load prompt/i }));
     await userEvent.click(await screen.findByRole('combobox', { name: /prompt/i }));
     await userEvent.click(await screen.findByText(promptName));
     await userEvent.click(await screen.findByRole('combobox', { name: /version/i }));
@@ -629,6 +629,38 @@ describe('PlaygroundPage', () => {
     expect(screen.queryByText('Chat completion failed')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /clear conversation/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
+  });
+
+  it('chains subsequent saves onto the freshly created prompt after a brand-new save', async () => {
+    jest.spyOn(RegisteredPromptsApi, 'createRegisteredPrompt').mockResolvedValue({});
+    jest
+      .spyOn(RegisteredPromptsApi, 'createRegisteredPromptVersion')
+      .mockResolvedValue({ model_version: { version: '1' } as any });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    // First save: nothing is loaded, so the drawer creates a brand-new prompt and
+    // requires a name (no destination toggle is shown yet).
+    await userEvent.click(screen.getByRole('button', { name: /save prompt/i }));
+    expect(screen.queryByText(/new version of/i)).not.toBeInTheDocument();
+    await userEvent.type(await screen.findByPlaceholderText(/provide a unique prompt name/i), 'fresh');
+    await userEvent.click(screen.getByRole('button', { name: /save version/i }));
+
+    // The success toast confirms the new version, and handleSaved records it as the
+    // loaded prompt.
+    await waitFor(() => {
+      expect(screen.getByText(/Saved fresh v1 to the registry/i)).toBeInTheDocument();
+    });
+    expect(RegisteredPromptsApi.createRegisteredPrompt).toHaveBeenCalledWith('fresh', []);
+
+    // Reopening the drawer now defaults to appending a new version of `fresh`
+    // rather than creating another brand-new prompt.
+    await userEvent.click(screen.getByRole('button', { name: /save prompt/i }));
+    expect(await screen.findByText(/new version of fresh/i)).toBeInTheDocument();
   });
 
   it('exposes a hook that posts to the chat completions API', async () => {
