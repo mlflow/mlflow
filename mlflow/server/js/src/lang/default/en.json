@@ -7007,6 +7007,10 @@
     "defaultMessage": "View prompt template",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > \"view prompt template\" button label"
   },
+  "XYUKDW": {
+    "defaultMessage": "Comparison isn't available for regression-test runs",
+    "description": "Tooltip for the compare button when a regression-test run is selected"
+  },
   "XZlIAj": {
     "defaultMessage": "Remove fallback model",
     "description": "Tooltip for remove fallback model button"

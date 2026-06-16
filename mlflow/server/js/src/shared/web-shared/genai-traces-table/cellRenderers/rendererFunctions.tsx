@@ -136,8 +136,11 @@ export const assessmentCellRenderer = (
         for (const r of byName[name] ?? []) {
           const value = getEvaluationResultAssessmentValue(r);
           const guideline = r.metadata?.['guideline'];
+          const text = typeof guideline === 'string' && guideline.trim() ? guideline : name;
           rows.push({
-            label: typeof guideline === 'string' && guideline.trim() ? guideline : name,
+            // Truncate in the compact hover card; the detail drawer shows the
+            // full criterion with an expand toggle.
+            label: text.length > 80 ? `${text.slice(0, 79)}…` : text,
             passed: value === KnownEvaluationResultAssessmentStringValue.YES || value === true,
           });
         }
