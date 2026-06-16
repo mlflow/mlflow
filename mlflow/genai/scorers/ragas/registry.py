@@ -153,6 +153,8 @@ def requires_args_from_placeholders(metric_name: str) -> bool:
 
 
 def _get_config(metric_name: str) -> MetricConfig:
+    if metric_name == "ChrfScore":
+        metric_name = "CHRFScore"
     if metric_name in _METRIC_REGISTRY:
         return _METRIC_REGISTRY[metric_name]
     # Return default config for unknown metrics - dynamic import will be attempted
