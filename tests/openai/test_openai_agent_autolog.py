@@ -12,7 +12,15 @@ try:
 except ImportError:
     pytest.skip("OpenAI SDK is not installed. Skipping tests.", allow_module_level=True)
 
-from agents import Agent, Runner, function_tool, set_default_openai_client, trace
+from agents import (
+    Agent,
+    GuardrailFunctionOutput,
+    Runner,
+    function_tool,
+    input_guardrail,
+    set_default_openai_client,
+    trace,
+)
 from agents.tracing import set_trace_processors
 from agents.tracing.processors import default_processor
 from agents.tracing.setup import get_trace_provider
@@ -270,6 +278,62 @@ async def test_autolog_agent_with_manual_trace():
     assert traces[0].info.status == "OK"
     spans = traces[0].data.spans
     assert len(spans) > 4
+
+
+@pytest.mark.asyncio
+async def test_autolog_agent_guardrail_span_type():
+    mlflow.openai.autolog()
+
+    DUMMY_RESPONSES = [
+        Response(
+            id="123",
+            created_at=12345678.0,
+            error=None,
+            model="gpt-4o-mini",
+            object="response",
+            instructions="You are a helpful assistant.",
+            output=[
+                ResponseOutputMessage(
+                    id="123",
+                    content=[
+                        ResponseOutputText(
+                            annotations=[],
+                            text="Hello!",
+                            type="output_text",
+                        )
+                    ],
+                    role="assistant",
+                    status="completed",
+                    type="message",
+                )
+            ],
+            tools=[],
+            tool_choice="auto",
+            temperature=1,
+            parallel_tool_calls=True,
+        ),
+    ]
+
+    set_dummy_client(DUMMY_RESPONSES)
+
+    @input_guardrail(name="Ethics check")
+    async def ethics_guardrail(ctx, agent, user_input):
+        return GuardrailFunctionOutput(tripwire_triggered=False, output_info={})
+
+    agent = Agent(
+        name="Assistant",
+        instructions="You are a helpful assistant.",
+        input_guardrails=[ethics_guardrail],
+    )
+
+    await Runner.run(agent, "Hello!")
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    guardrail_spans = [s for s in spans if s.name == "Ethics check"]
+    assert len(guardrail_spans) == 1
+    assert guardrail_spans[0].span_type == SpanType.GUARDRAIL
 
 
 @pytest.mark.asyncio
