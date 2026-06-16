@@ -208,7 +208,7 @@ export const ModelTraceExplorerDrawer = ({
                   content={
                     <div data-flag-guidance onClick={handleDismissFlagGuidance} css={{ cursor: 'pointer' }}>
                       <FormattedMessage
-                        defaultMessage="New! Flag traces for human review and send them to a review queue."
+                        defaultMessage="New! Flag traces for review and send them to a review queue."
                         description="Guidance tooltip message for the flag for review button in the trace drawer"
                       />
                     </div>
