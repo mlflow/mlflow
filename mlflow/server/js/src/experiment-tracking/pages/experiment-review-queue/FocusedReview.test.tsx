@@ -1,5 +1,5 @@
 import { describe, jest, it, expect, beforeEach, afterEach } from '@jest/globals';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import React from 'react';
 
 import { DesignSystemEventProvider, DesignSystemProvider } from '@databricks/design-system';
@@ -47,6 +47,24 @@ const passFailSchema = (schemaId = 's1', name = 'Looks good?', enableComment = f
   type: 'FEEDBACK',
   input: { pass_fail: { positive_label: 'Pass', negative_label: 'Fail' } },
   enable_comment: enableComment,
+});
+
+const numericSchema = (schemaId: string, name: string): LabelSchema => ({
+  schema_id: schemaId,
+  experiment_id: 'exp-1',
+  name,
+  type: 'FEEDBACK',
+  input: { numeric: {} },
+  enable_comment: false,
+});
+
+const multiSelectSchema = (schemaId: string, name: string, options: string[]): LabelSchema => ({
+  schema_id: schemaId,
+  experiment_id: 'exp-1',
+  name,
+  type: 'FEEDBACK',
+  input: { categorical: { options, multi_select: true } },
+  enable_comment: false,
 });
 
 const pendingItem: ReviewQueueItem = {
@@ -467,5 +485,81 @@ describe('FocusedReview edit-in-place on a completed trace', () => {
     expect(screen.queryByText('Submit')).not.toBeInTheDocument();
     // The lock is the inputs being disabled, not just the missing button.
     expect(screen.getAllByRole('radio', { name: 'Pass' })[0]).toBeDisabled();
+  });
+});
+
+describe('FocusedReview blocks saving a cleared prior answer', () => {
+  beforeEach(() => {
+    mockCreateAssessment.mockReset();
+    mockCreateAssessment.mockImplementation(() => Promise.resolve());
+  });
+  afterEach(() => {
+    mockPriorAnswersResult = { priorAnswers: [], isLoading: false, isFetching: false };
+  });
+
+  const hintTestId = 'mlflow.experiment-review-queue.focused-review.cleared-answer-hint';
+  const saveButton = () => screen.getByText('Save changes').closest('button');
+
+  it('disables Save changes and explains when a cleared numeric answer would drop a prior', async () => {
+    // A completed trace whose two questions both have this reviewer's saved answers.
+    mockPriorAnswersResult = {
+      priorAnswers: [
+        { name: 'Score', kind: 'feedback', value: 5, valid: true, assessmentId: 'a1' },
+        { name: 'Looks good?', kind: 'feedback', value: true, valid: true, assessmentId: 'a2' },
+      ],
+      isLoading: false,
+      isFetching: false,
+    };
+    renderFocused(
+      [numericSchema('s1', 'Score'), passFailSchema('s2', 'Looks good?')],
+      jest.fn((_status: string) => Promise.resolve()),
+      { item: completeItem },
+    );
+
+    // No edits yet: nothing to save, and no warning.
+    expect(saveButton()).toBeDisabled();
+    expect(screen.queryByTestId(hintTestId)).not.toBeInTheDocument();
+
+    // Clear the numeric answer. Saving here would silently drop it and leave the
+    // prior 5 live, so the button stays disabled with an explanation instead.
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '' } });
+    expect(saveButton()).toBeDisabled();
+    expect(screen.getByTestId(hintTestId)).toBeInTheDocument();
+
+    // Entering a new value clears the block and the save goes through.
+    fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '7' } });
+    expect(saveButton()).not.toBeDisabled();
+    expect(screen.queryByTestId(hintTestId)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Save changes'));
+    // The re-entered value is what actually gets written, not a stale/empty one.
+    await waitFor(() =>
+      expect(mockCreateAssessment).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Score', value: 7, assessmentKind: 'feedback' }),
+      ),
+    );
+  });
+
+  it('blocks the save when a previously-selected multi-select answer is cleared', () => {
+    mockPriorAnswersResult = {
+      priorAnswers: [
+        { name: 'Tags', kind: 'feedback', value: ['low'], valid: true, assessmentId: 'a1' },
+        { name: 'Looks good?', kind: 'feedback', value: true, valid: true, assessmentId: 'a2' },
+      ],
+      isLoading: false,
+      isFetching: false,
+    };
+    renderFocused(
+      [multiSelectSchema('s1', 'Tags', ['low', 'high']), passFailSchema('s2', 'Looks good?')],
+      jest.fn((_status: string) => Promise.resolve()),
+      { item: completeItem },
+    );
+
+    expect(saveButton()).toBeDisabled();
+    // Deselect the only chosen tag, clearing the answer to an empty list.
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.click(within(screen.getByRole('listbox')).getByText('low'));
+
+    expect(saveButton()).toBeDisabled();
+    expect(screen.getByTestId(hintTestId)).toBeInTheDocument();
   });
 });
