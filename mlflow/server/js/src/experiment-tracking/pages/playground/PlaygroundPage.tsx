@@ -247,7 +247,16 @@ const PlaygroundPage = () => {
       <Spacer size="sm" shrinks={false} />
       <div css={{ borderTop: `1px solid ${theme.colors.border}`, flexShrink: 0 }} role="separator" aria-hidden="true" />
       <Spacer size="sm" shrinks={false} />
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, flex: 1, minHeight: 0 }}>
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.md,
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+        }}
+      >
         <PromptInputPanel messages={messages} onChange={setMessages} />
         {isLoading && (
           <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.md }}>
