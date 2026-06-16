@@ -215,6 +215,7 @@ class OpenAICompatibleProvider(AssistantProvider):
         chat_url_builder: ChatUrlBuilder = _default_chat_url_builder,
         default_base_url: str | None = None,
         skills_dirname: str | None = None,
+        requires_local_execution: bool = True,
     ):
         self._name = name
         self._display_name = display_name
@@ -227,6 +228,7 @@ class OpenAICompatibleProvider(AssistantProvider):
         # OAI-compat providers don't actually load skills at runtime, but the
         # path is preserved so users can opt-in later via skill_installer.
         self._skills_dirname = skills_dirname or ".agent"
+        self._requires_local_execution = requires_local_execution
 
     @property
     def name(self) -> str:
@@ -239,6 +241,10 @@ class OpenAICompatibleProvider(AssistantProvider):
     @property
     def description(self) -> str:
         return self._description
+
+    @property
+    def requires_local_execution(self) -> bool:
+        return self._requires_local_execution
 
     def is_available(self) -> bool:
         return True

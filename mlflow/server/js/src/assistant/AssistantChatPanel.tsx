@@ -471,8 +471,8 @@ const SetupLoadingState = () => {
 };
 
 /**
- * Message shown when server is not running locally.
- * Assistant only works with local MLflow servers.
+ * Message shown when this client is not allowed to use the Assistant,
+ * e.g. a remote client when the server's remote-access settings don't permit it.
  */
 const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
   const { theme } = useDesignSystemTheme();
@@ -496,7 +496,7 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
       <Typography.Title level={4} css={{ textAlign: 'center', marginBottom: 0 }}>
         <FormattedMessage
           defaultMessage="Assistant Not Available"
-          description="Title shown when Assistant is not available for remote servers"
+          description="Title shown when Assistant is not available for this client"
         />
       </Typography.Title>
 
@@ -509,8 +509,8 @@ const RemoteServerMessage = ({ onClose }: { onClose: () => void }) => {
         }}
       >
         <FormattedMessage
-          defaultMessage="MLflow Assistant is only available when the server is running locally. Remote server support is coming soon."
-          description="Message explaining that Assistant only works with local servers"
+          defaultMessage="MLflow Assistant is not available from this client. Ask your MLflow server administrator to enable remote access if you need to use it remotely."
+          description="Message explaining that the Assistant is blocked by the server's remote-access settings"
         />
       </Typography.Text>
 
@@ -556,7 +556,7 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
  */
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
-  const { closePanel, reset, setupComplete, isLoadingConfig, isLocalServer, completeSetup } = useAssistant();
+  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, completeSetup } = useAssistant();
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 
@@ -588,8 +588,9 @@ export const AssistantChatPanel = () => {
   }, []);
 
   const renderContent = () => {
-    // Show message for remote servers - Assistant only works locally
-    if (!isLocalServer) {
+    // Show message when this client isn't allowed to use the Assistant
+    // (e.g. a remote client and the server's remote-access settings don't permit it)
+    if (!canUseAssistant) {
       return <RemoteServerMessage onClose={handleClose} />;
     }
 
