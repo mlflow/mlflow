@@ -357,10 +357,11 @@ def test_add_items_reports_missing_padded_id_by_its_stripped_form():
     store.add_items_to_review_queue.assert_not_called()
 
 
-def test_add_items_rejects_empty_ids_before_touching_the_store():
-    # Malformed input fails fast: an empty (or whitespace-only) item_ids list is
-    # rejected before the queue lookup / existence check / store write.
-    request_message = AddItemsToReviewQueue(queue_id="rq-1", item_ids=[])
+@pytest.mark.parametrize("item_ids", [[], ["   ", "\t"]])
+def test_add_items_rejects_malformed_ids_before_touching_the_store(item_ids):
+    # Malformed input fails fast: an empty list, or ids that are empty after
+    # stripping, are rejected before the queue lookup / existence check / store write.
+    request_message = AddItemsToReviewQueue(queue_id="rq-1", item_ids=item_ids)
     store, response = _run_add_items(request_message, trace_infos=[], add_return=[])
     assert response.status_code == 400
     body = json.loads(response.get_data())
