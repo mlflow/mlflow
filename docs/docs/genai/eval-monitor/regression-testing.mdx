@@ -8,8 +8,7 @@ import WorkflowSteps from '@site/src/components/WorkflowSteps';
 import TilesGrid from '@site/src/components/TilesGrid';
 import TileCard from '@site/src/components/TileCard';
 import ImageBox from '@site/src/components/ImageBox';
-import { Bot, Activity, MessageSquare, TestTube, ShieldCheck, Gauge, ScrollText, Database } from 'lucide-react';
-import ServerSetup from "@site/src/content/setup_server.mdx";
+import { Bot, Activity, MessageSquare, TestTube, ShieldCheck, Gauge, ScrollText } from 'lucide-react';
 
 # Regression Testing with Pytest
 
@@ -43,9 +42,9 @@ pytest tests/regression
 
 ## Regression test vs a dataset evaluation?
 
-[Running an evaluation](/genai/eval-monitor/running-evaluation/agents) against a dataset answers a *measurement* question: "what is my agent's correctness/safety/relevance score across this dataset?" The output is aggregate metrics (correctness is 82%, safety is 95%).
+[Running an evaluation](/genai/eval-monitor/running-evaluation/agents) against a dataset answers a _measurement_ question: "what is my agent's correctness/safety/relevance score across this dataset?" The output is aggregate metrics (correctness is 82%, safety is 95%).
 
-A regression test answers a *gating* question: "did this specific behavior break?" Each test starts from a particular failure mode you have already seen and turns it into a binary pass/fail check you run on every change, so that exact issue can never silently come back. You are not tracking a score trend; you are gating against known failures, like a prompt injection that once leaked the system prompt, or the three questions a customer reported last week.
+A regression test answers a _gating_ question: "did this specific behavior break?" Each test starts from a particular failure mode you have already seen and turns it into a binary pass/fail check you run on every change, so that exact issue can never silently come back. You are not tracking a score trend; you are gating against known failures, like a prompt injection that once leaked the system prompt, or the three questions a customer reported last week.
 
 `@mlflow.test` is built for that gating workflow. It reuses the same scorers and the same `evaluate()` engine, but shapes the result for pass/fail assertions and CI.
 
@@ -128,7 +127,7 @@ def test_answers_concisely_in_english(agent):
     assert result.passed, result.reason
 ```
 
-`result.passed` is `True` only when every scorer passed for every row. `result.reason` names the failing scorers and their rationales, so when the assertion fails, pytest shows you *why* without a second run.
+`result.passed` is `True` only when every scorer passed for every row. `result.reason` names the failing scorers and their rationales, so when the assertion fails, pytest shows you _why_ without a second run.
 
 You can use the full range of MLflow scorers here, including [built-in LLM judges](/genai/eval-monitor/scorers/llm-judge/predefined), [custom judges](/genai/eval-monitor/scorers/llm-judge/custom-judges), and [code-based scorers](/genai/eval-monitor/scorers/custom).
 
