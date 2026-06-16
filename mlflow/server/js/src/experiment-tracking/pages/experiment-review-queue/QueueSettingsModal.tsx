@@ -60,7 +60,11 @@ export const QueueSettingsModal = ({
 
   const { labelSchemas, isLoading: schemasLoading } = useListLabelSchemasQuery({ experimentId: queue.experiment_id });
   const { items: traces, isLoading: itemsLoading } = useListReviewQueueItemsQuery({ queueId: queue.queue_id });
-  const { users: assignableUsers, isLoading: usersLoading } = useAssignableUsersQuery({ enabled: canListUsers });
+  const {
+    users: assignableUsers,
+    isLoading: usersLoading,
+    error: usersError,
+  } = useAssignableUsersQuery({ enabled: canListUsers });
   const { updateReviewQueueAsync, isUpdatingQueue } = useUpdateReviewQueueMutation();
 
   // Questions are an experiment-manager concern (`canManage`) and additionally
@@ -288,6 +292,7 @@ export const QueueSettingsModal = ({
                   onSelect={setNewOwner}
                   dropdownZIndex={dropdownZIndex}
                   isLoading={usersLoading}
+                  error={usersError}
                 />
               </div>
             )}
@@ -311,6 +316,7 @@ export const QueueSettingsModal = ({
                   triggerValue={reviewersTriggerValue}
                   dropdownZIndex={dropdownZIndex}
                   isLoading={usersLoading}
+                  error={usersError}
                   maxSelected={owner ? MAX_ASSIGNED_USERS - 1 : MAX_ASSIGNED_USERS}
                 />
               </div>

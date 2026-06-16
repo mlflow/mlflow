@@ -1,4 +1,5 @@
 import { describe, beforeEach, expect, jest, test } from '@jest/globals';
+import { useEffect } from 'react';
 import { renderWithDesignSystem, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import userEvent from '@testing-library/user-event';
 import type { ExperimentEntity } from '../../../types';
@@ -9,6 +10,10 @@ import { ErrorCodes } from '../../../../common/constants';
 import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import { encodeTraceArchivalRetentionTag } from '../../../../common/utils/traceArchival';
 import { useTraceArchivalEnabled } from '../../../hooks/useServerInfo';
+import {
+  HeaderVisibilityProvider,
+  useHeaderVisibility,
+} from '../../../pages/experiment-page-tabs/ExperimentPageHeaderVisibilityContext';
 
 const mockDispatch = jest.fn((..._args: any[]) => Promise.resolve());
 const mockUseSelector = jest.fn();
@@ -575,5 +580,29 @@ describe('ExperimentViewMetadataEditor', () => {
     expect(MlflowService.deleteExperimentTag).not.toHaveBeenCalled();
     expect(getExperimentApi).toHaveBeenCalledWith('123');
     expect(mockInvalidateExperimentList).toHaveBeenCalled();
+  });
+
+  test('hides the inline edit button when headerActionsHidden is true even if canEditMetadata is true', () => {
+    const HideHeaderActions = () => {
+      const { setHeaderActionsHidden } = useHeaderVisibility();
+      useEffect(() => {
+        setHeaderActionsHidden(true);
+      }, [setHeaderActionsHidden]);
+      return null;
+    };
+
+    renderWithDesignSystem(
+      <HeaderVisibilityProvider>
+        <HideHeaderActions />
+        <ExperimentViewMetadataEditor
+          experiment={{ ...defaultExperiment, allowedActions: ['MODIFIY_PERMISSION'] }}
+          editing={false}
+          setEditing={jest.fn()}
+          defaultValue="Existing description"
+        />
+      </HeaderVisibilityProvider>,
+    );
+
+    expect(screen.queryByTestId('experiment-metadata-editor-edit-button')).not.toBeInTheDocument();
   });
 });

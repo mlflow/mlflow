@@ -9,9 +9,9 @@ import {
   LinkOffIcon,
   NewWindowIcon,
   PlusIcon,
-  SearchIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
+  ShareIcon,
   Table,
   TableCell,
   TableHeader,
@@ -255,11 +255,18 @@ export const ReviewQueueList = ({
     if (!onRemoveItems || selected.size === 0) {
       return;
     }
+    const removing = [...selected];
     try {
-      await onRemoveItems([...selected]);
-      // Clear only once the removal lands; on failure keep the selection so the
-      // reviewer can retry (the caller surfaces the error).
-      setSelected(new Set());
+      await onRemoveItems(removing);
+      // Drop only the ids we actually removed, once the removal lands. Rebuilding
+      // from the live `selected` preserves any rows the reviewer checked while the
+      // request was in flight; on failure the selection is left intact for retry
+      // (the caller surfaces the error).
+      setSelected((prev) => {
+        const next = new Set(prev);
+        removing.forEach((id) => next.delete(id));
+        return next;
+      });
     } catch {
       // Surfaced by the caller's onRemoveItems; leave the selection intact.
     }
@@ -337,7 +344,7 @@ export const ReviewQueueList = ({
               <Typography.Title level={3} withoutMargins ellipsis css={{ minWidth: 0 }}>
                 {title}
               </Typography.Title>
-              {(onCopyLink || onManageQueue || onDeleteQueue) && (
+              {(onManageQueue || onDeleteQueue) && (
                 <DropdownMenu.Root modal={false}>
                   <DropdownMenu.Trigger asChild>
                     <Button
@@ -350,30 +357,6 @@ export const ReviewQueueList = ({
                     />
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="start">
-                    {onCopyLink && (
-                      <>
-                        <DropdownMenu.Item
-                          componentId={`${CID}.copy-link`}
-                          onClick={() => onCopyLink({ startReview: false })}
-                        >
-                          <FormattedMessage
-                            defaultMessage="Copy link to queue"
-                            description="Review queue header: copy shareable queue link menu item"
-                          />
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item
-                          componentId={`${CID}.copy-start-review-link`}
-                          onClick={() => onCopyLink({ startReview: true })}
-                        >
-                          <FormattedMessage
-                            defaultMessage="Copy start-review link"
-                            description="Review queue header: copy link that opens the first to-do trace for review"
-                          />
-                        </DropdownMenu.Item>
-                      </>
-                    )}
-                    {/* A USER queue has no editable settings, so a manager sees
-                        only "Delete queue"; CUSTOM queues show both. */}
                     {onManageQueue && (
                       <DropdownMenu.Item componentId={`${CID}.manage-queue`} onClick={onManageQueue}>
                         <FormattedMessage
@@ -409,6 +392,37 @@ export const ReviewQueueList = ({
             <Button componentId={`${CID}.start-review`} type="primary" onClick={() => onOpen(toDo[0])}>
               <FormattedMessage defaultMessage="Start review" description="Review queue: start-review button" />
             </Button>
+          )}
+          {onCopyLink && (
+            <DropdownMenu.Root modal={false}>
+              <DropdownMenu.Trigger asChild>
+                <Button
+                  componentId={`${CID}.share-trigger`}
+                  icon={<ShareIcon />}
+                  aria-label={intl.formatMessage({
+                    defaultMessage: 'Share queue',
+                    description: 'Review queue header: share queue button aria label',
+                  })}
+                />
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="end">
+                <DropdownMenu.Item componentId={`${CID}.copy-link`} onClick={() => onCopyLink({ startReview: false })}>
+                  <FormattedMessage
+                    defaultMessage="Share queue link"
+                    description="Review queue share dropdown: copies a link to the queue's list view"
+                  />
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  componentId={`${CID}.copy-start-review-link`}
+                  onClick={() => onCopyLink({ startReview: true })}
+                >
+                  <FormattedMessage
+                    defaultMessage="Share review link"
+                    description="Review queue share dropdown: copies a link that opens the first pending trace for review"
+                  />
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
           )}
           {selectable && selected.size > 0 && (
             <Tooltip

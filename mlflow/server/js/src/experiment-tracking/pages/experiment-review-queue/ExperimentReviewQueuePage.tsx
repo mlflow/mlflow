@@ -262,11 +262,15 @@ const ExperimentReviewQueuePage = () => {
     };
   }, [inFocusMode]);
 
-  const { setHeaderHidden } = useHeaderVisibility();
+  const { setHeaderHidden, setHeaderActionsHidden } = useHeaderVisibility();
   useEffect(() => {
     setHeaderHidden(inFocusMode);
     return () => setHeaderHidden(false);
   }, [inFocusMode, setHeaderHidden]);
+  useEffect(() => {
+    setHeaderActionsHidden(true);
+    return () => setHeaderActionsHidden(false);
+  }, [setHeaderActionsHidden]);
 
   // Copy a shareable link to the selected queue — plain, or with the
   // start-review intent so the recipient lands in the focused review of the

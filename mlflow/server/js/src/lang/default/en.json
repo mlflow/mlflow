@@ -439,6 +439,10 @@
     "defaultMessage": "{formattedAverage} (AVG)",
     "description": "Label showing the average value of numeric assessments"
   },
+  "/z8VeL": {
+    "defaultMessage": "Couldn't load users. Try again.",
+    "description": "Add to review queue: users roster failed to load"
+  },
   "/zbm8T": {
     "defaultMessage": "Continue editing the question to see a preview.",
     "description": "Review question preview render-error empty description"
@@ -1786,6 +1790,10 @@
   "7/urtn": {
     "defaultMessage": "Automatically log traces for LangChain or LangGraph invocations by calling the {code} function. For example:",
     "description": "Description of how to log traces for the LangChain/LangGraph package using MLflow autologging. This message is followed by a code example."
+  },
+  "70Oj6o": {
+    "defaultMessage": "Share review link",
+    "description": "Review queue share dropdown: copies a link that opens the first pending trace for review"
   },
   "71dHIO": {
     "defaultMessage": "Classical ML",
@@ -3639,6 +3647,10 @@
     "defaultMessage": "Unassign {count, plural, one {# trace} other {# traces}} from the queue",
     "description": "Review queue: tooltip explaining that the button removes the selected traces from the queue (the traces themselves are not deleted)"
   },
+  "Ga2Oyg": {
+    "defaultMessage": "Share queue link",
+    "description": "Review queue share dropdown: copies a link to the queue's list view"
+  },
   "GbEHyg": {
     "defaultMessage": "Name",
     "description": "Section title for endpoint name"
@@ -4002,10 +4014,6 @@
   "IV37H1": {
     "defaultMessage": "Description update failed",
     "description": "Partial save status message when experiment description update fails"
-  },
-  "IWIjkw": {
-    "defaultMessage": "Copy link to queue",
-    "description": "Review queue header: copy shareable queue link menu item"
   },
   "IWNUE0": {
     "defaultMessage": "Failed to load roles",
@@ -5635,6 +5643,10 @@
     "defaultMessage": "Advanced settings (optional)",
     "description": "Toggle button for advanced settings in prompt creation modal"
   },
+  "R1kmVV": {
+    "defaultMessage": "Couldn't load reviewers. Try again.",
+    "description": "Review queue: reviewers roster failed to load"
+  },
   "R28jzs": {
     "defaultMessage": "Action",
     "description": "Guardrail action column header"
@@ -6331,6 +6343,10 @@
     "defaultMessage": "Choose your framework and add one line to enable automatic tracing, or use the {code} decorator for custom functions.",
     "description": "Step 2 description for Python traces onboarding"
   },
+  "UcXPrr": {
+    "defaultMessage": "New! Flag traces for review and add them to a review queue.",
+    "description": "Guidance tooltip message for the flag for review button in the trace drawer"
+  },
   "UcXao0": {
     "defaultMessage": "Deleted dataset \"{name}\"",
     "description": "Success toast after deleting a V2 evaluation dataset"
@@ -6939,6 +6955,10 @@
     "defaultMessage": "Session ID",
     "description": "Label for the session id section"
   },
+  "XIicPZ": {
+    "defaultMessage": "Couldn't load users. Try again.",
+    "description": "Review queue: owner roster failed to load"
+  },
   "XJP2Uv": {
     "defaultMessage": "Pick a workspace from the workspace selector to see its roles.",
     "description": "Roles tab empty state body when no workspace is selected"
@@ -7106,6 +7126,10 @@
   "YGtA3F": {
     "defaultMessage": "Collect a free-form rationale alongside the input",
     "description": "Enable rationale checkbox"
+  },
+  "YHOEuf": {
+    "defaultMessage": "Share queue",
+    "description": "Review queue header: share queue button aria label"
   },
   "YIKNtj": {
     "defaultMessage": "An error occurred while creating the budget policy. Please try again.",
@@ -12626,10 +12650,6 @@
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
     "description": "Tooltip for deleted endpoint"
-  },
-  "z8QLT1": {
-    "defaultMessage": "Copy start-review link",
-    "description": "Review queue header: copy link that opens the first to-do trace for review"
   },
   "z8srAp": {
     "defaultMessage": "Trace archival retention",
