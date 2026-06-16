@@ -175,7 +175,7 @@ export const TestCaseDetail = ({
     >
       <DrawerComponent.Content
         componentId="mlflow.regression-test-detail.drawer"
-        width="60vw"
+        width="40vw"
         title={
           <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
             <Button
