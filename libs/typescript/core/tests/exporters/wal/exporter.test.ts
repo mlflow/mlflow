@@ -1,16 +1,24 @@
 import { mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { ROOT_CONTEXT, SpanKind } from '@opentelemetry/api';
 import { ExportResult, ExportResultCode } from '@opentelemetry/core';
-import { ReadableSpan as OTelReadableSpan } from '@opentelemetry/sdk-trace-base';
+import {
+  BasicTracerProvider,
+  ReadableSpan as OTelReadableSpan,
+  Span as OTelSpan,
+} from '@opentelemetry/sdk-trace-base';
+import { ProtobufTraceSerializer } from '@opentelemetry/otlp-transformer';
 import { MlflowWalSpanExporter } from '../../../src/exporters/wal/exporter';
 import { init, resetConfig } from '../../../src/core/config';
 import { InMemoryTraceManager } from '../../../src/core/trace_manager';
 import { Trace } from '../../../src/core/entities/trace';
+import { Span as MlflowSpan } from '../../../src/core/entities/span';
 import { TraceInfo } from '../../../src/core/entities/trace_info';
 import { TraceData } from '../../../src/core/entities/trace_data';
 import { createTraceLocationFromExperimentId } from '../../../src/core/entities/trace_location';
 import { TraceState } from '../../../src/core/entities/trace_state';
+import { SpanAttributeKey } from '../../../src/core/constants';
 import type { WalRecord } from '../../../src/exporters/wal/types';
 
 function makeTrace(traceId: string): Trace {
@@ -26,6 +34,31 @@ function makeTrace(traceId: string): Trace {
   });
   const data = new TraceData([]);
   return new Trace(info, data);
+}
+
+/**
+ * Build a trace whose `data.spans` carries real, ended OTel spans (wrapped in
+ * MLflow `Span`s) so the exporter's OTLP serialization runs end-to-end
+ */
+function makeTraceWithSpans(traceId: string): Trace {
+  const info = new TraceInfo({
+    traceId,
+    traceLocation: createTraceLocationFromExperimentId('exp-test'),
+    requestTime: 1_700_000_000_000,
+    state: TraceState.OK,
+    executionDuration: 42,
+    traceMetadata: { 'mlflow.trace.schemaVersion': '3' },
+    tags: {},
+    assessments: [],
+  });
+
+  const provider = new BasicTracerProvider();
+  const tracer = provider.getTracer('wal-exporter-test');
+  const otelSpan = tracer.startSpan('tool-call', { kind: SpanKind.INTERNAL }, ROOT_CONTEXT) as OTelSpan;
+  otelSpan.setAttribute(SpanAttributeKey.TRACE_ID, JSON.stringify(traceId));
+  otelSpan.end();
+
+  return new Trace(info, new TraceData([new MlflowSpan(otelSpan)]));
 }
 
 function makeSpan(opts: { traceId: string; rootSpan: boolean; name?: string }): OTelReadableSpan {
@@ -359,6 +392,78 @@ describe('wal/exporter', () => {
       );
     } finally {
       errSpy.mockRestore();
+    }
+  });
+
+  it('captures OTLP protobuf bytes on the record when the trace has spans', async () => {
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    popTraceSpy.mockReturnValue(makeTraceWithSpans('tr-with-spans'));
+    const span = makeSpan({ traceId: 'otel-1', rootSpan: true });
+
+    const { callback, promise } = captureExportResult();
+    exporter.export([span], callback);
+
+    expect((await promise).code).toBe(ExportResultCode.SUCCESS);
+    await exporter.forceFlush();
+
+    const record = submit.mock.calls[0][0];
+    expect(typeof record.otlpSpans).toBe('string');
+    // Valid base64 that decodes to a non-empty OTLP ExportTraceServiceRequest.
+    const decoded = Buffer.from(record.otlpSpans as string, 'base64');
+    expect(decoded.length).toBeGreaterThan(0);
+    // The JSON trace data is retained alongside the OTLP bytes (artifact fallback).
+    expect((record.traceData as { spans: unknown[] }).spans).toHaveLength(1);
+  });
+
+  it('omits otlpSpans when the trace has no spans', async () => {
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    popTraceSpy.mockReturnValue(makeTrace('tr-no-spans'));
+    const span = makeSpan({ traceId: 'otel-1', rootSpan: true });
+
+    const { callback, promise } = captureExportResult();
+    exporter.export([span], callback);
+
+    expect((await promise).code).toBe(ExportResultCode.SUCCESS);
+    await exporter.forceFlush();
+
+    const record = submit.mock.calls[0][0];
+    expect(record.otlpSpans).toBeUndefined();
+  });
+
+  it('warns and submits without otlpSpans when OTLP serialization throws', async () => {
+    const serializeSpy = jest
+      .spyOn(ProtobufTraceSerializer, 'serializeRequest')
+      .mockImplementation(() => {
+        throw new Error('boom');
+      });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    popTraceSpy.mockReturnValue(makeTraceWithSpans('tr-serialize-fail'));
+    const span = makeSpan({ traceId: 'otel-1', rootSpan: true });
+
+    try {
+      const { callback, promise } = captureExportResult();
+      exporter.export([span], callback);
+
+      expect((await promise).code).toBe(ExportResultCode.SUCCESS);
+      await exporter.forceFlush();
+
+      // The record is still submitted (artifact fallback), just without spans.
+      expect(submit).toHaveBeenCalledTimes(1);
+      expect(submit.mock.calls[0][0].otlpSpans).toBeUndefined();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to serialize spans to OTLP protobuf'),
+        expect.any(Error),
+      );
+    } finally {
+      serializeSpy.mockRestore();
+      warnSpy.mockRestore();
     }
   });
 });
