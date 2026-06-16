@@ -12,6 +12,7 @@ export enum PageId {
   settingsPage = 'mlflow.settings',
   promptsPage = 'mlflow.prompts',
   promptDetailsPage = 'mlflow.prompts.details',
+  playgroundPage = 'mlflow.playground',
   experimentPageTabbed = 'mlflow.experiment.details.tab',
   experimentLoggedModelDetailsPageTab = 'mlflow.logged-model.details.tab',
   experimentLoggedModelDetailsPage = 'mlflow.logged-model.details',
@@ -151,6 +152,13 @@ export class RoutePaths {
   }
   static get promptDetailsPage() {
     return createMLflowRoutePath('/prompts/:promptName');
+  }
+  /**
+   * Route path for the LLM Playground page.
+   * Featured exclusively in open source MLflow.
+   */
+  static get playgroundPage() {
+    return createMLflowRoutePath('/playground');
   }
   static get settingsPage() {
     return createMLflowRoutePath('/settings');
@@ -360,6 +368,14 @@ class Routes {
       return generatePath(RoutePaths.experimentPageTabPromptDetails, { experimentId, promptName });
     }
     return generatePath(RoutePaths.promptDetailsPage, { promptName });
+  }
+
+  /**
+   * Route for the LLM Playground page.
+   * Featured exclusively in open source MLflow.
+   */
+  static get playgroundPageRoute() {
+    return RoutePaths.playgroundPage;
   }
 }
 
