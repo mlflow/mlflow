@@ -1,21 +1,22 @@
-import { describe, beforeEach, jest, it, expect } from '@jest/globals';
-import { render, screen } from '@testing-library/react';
+import { describe, beforeEach, afterEach, jest, it, expect } from '@jest/globals';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
+import Utils from '../../../common/utils/Utils';
 import { ManageQuestionsModal } from './ManageQuestionsModal';
 import type { ReviewQueue } from './types';
 
-const mockDelete = jest.fn();
+const mockDeleteAsync = jest.fn();
 jest.mock('../../components/label-schemas', () => ({
   useListLabelSchemasQuery: () => ({
     labelSchemas: [{ schema_id: 's1', name: 'Q1', type: 'FEEDBACK', input: { text: {} } }],
     isLoading: false,
   }),
-  useDeleteLabelSchemaMutation: () => ({ deleteLabelSchema: mockDelete, isDeleting: false }),
+  useDeleteLabelSchemaMutation: () => ({ deleteLabelSchemaAsync: mockDeleteAsync, isDeleting: false }),
   LabelSchemaFormModal: () => null,
 }));
 
@@ -54,6 +55,14 @@ describe('ManageQuestionsModal delete confirmation', () => {
   // Reset to a known baseline so a prior test's queues can't bleed into the next.
   beforeEach(() => {
     mockQueues = [];
+    mockDeleteAsync.mockReset().mockImplementation(() => Promise.resolve());
+    jest.spyOn(Utils, 'displayGlobalErrorNotification').mockImplementation(() => {});
+  });
+
+  // Restore the Utils spy so a fresh `beforeEach` spy doesn't wrap an already-spied
+  // method and stack layers across tests.
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('lists the custom queues that use the question (as deep links) and excludes others', async () => {
@@ -103,5 +112,29 @@ describe('ManageQuestionsModal delete confirmation', () => {
     expect(screen.queryByText(/Used by/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Inherited by/)).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('surfaces a toast and closes the confirmation when the delete fails', async () => {
+    mockDeleteAsync.mockImplementation(() => Promise.reject(new Error('boom')));
+    renderModal();
+    await userEvent.click(screen.getByRole('button', { name: 'Delete question' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(mockDeleteAsync).toHaveBeenCalledWith({ schema_id: 's1' });
+    await waitFor(() => expect(Utils.displayGlobalErrorNotification).toHaveBeenCalledTimes(1));
+    expect(Utils.displayGlobalErrorNotification).toHaveBeenCalledWith(expect.stringContaining('boom'));
+    // The confirmation closes, and the question stays in the list to retry.
+    await waitFor(() => expect(screen.queryByText('Delete question?')).not.toBeInTheDocument());
+    expect(screen.getByText('Q1')).toBeInTheDocument();
+  });
+
+  it('closes the confirmation without a toast on a successful delete', async () => {
+    renderModal();
+    await userEvent.click(screen.getByRole('button', { name: 'Delete question' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    expect(mockDeleteAsync).toHaveBeenCalledWith({ schema_id: 's1' });
+    await waitFor(() => expect(screen.queryByText('Delete question?')).not.toBeInTheDocument());
+    expect(Utils.displayGlobalErrorNotification).not.toHaveBeenCalled();
   });
 });
