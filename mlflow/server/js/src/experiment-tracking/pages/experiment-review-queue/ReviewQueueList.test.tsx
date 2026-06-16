@@ -226,7 +226,7 @@ describe('ReviewQueueList', () => {
     expect(screen.queryByRole('button', { name: 'Unassign' })).not.toBeInTheDocument();
   });
 
-  it('offers copy-link menu items even without manage/delete permissions', async () => {
+  it('offers copy-link menu items in the share dropdown', async () => {
     const onCopyLink = jest.fn();
     renderWithProviders(
       <ReviewQueueList
@@ -237,15 +237,14 @@ describe('ReviewQueueList', () => {
         onCopyLink={onCopyLink}
       />,
     );
-    await userEvent.click(screen.getByRole('button', { name: 'Queue settings' }));
-    expect(screen.queryByText('Manage queue')).not.toBeInTheDocument();
-    expect(screen.queryByText('Delete queue')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Queue settings' })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByText('Copy link to queue'));
+    await userEvent.click(screen.getByRole('button', { name: 'Share queue' }));
+    await userEvent.click(screen.getByText('Share queue link'));
     expect(onCopyLink).toHaveBeenCalledWith({ startReview: false });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Queue settings' }));
-    await userEvent.click(screen.getByText('Copy start-review link'));
+    await userEvent.click(screen.getByRole('button', { name: 'Share queue' }));
+    await userEvent.click(screen.getByText('Share review link'));
     expect(onCopyLink).toHaveBeenCalledWith({ startReview: true });
   });
 
