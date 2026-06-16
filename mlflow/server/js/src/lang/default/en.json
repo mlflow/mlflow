@@ -207,13 +207,13 @@
     "defaultMessage": "e.g. 0.7",
     "description": "Placeholder for the temperature input on the playground parameters panel"
   },
-  "//EoiB": {
-    "defaultMessage": "Search records by inputs or expectations",
-    "description": "Aria label for the search input on the V2 dataset records page (placeholder is not a label per WCAG 1.3.1)"
-  },
   "+z2xbc": {
     "defaultMessage": "Playground",
     "description": "Label for the playground tab in the MLflow experiment navbar"
+  },
+  "//EoiB": {
+    "defaultMessage": "Search records by inputs or expectations",
+    "description": "Aria label for the search input on the V2 dataset records page (placeholder is not a label per WCAG 1.3.1)"
   },
   "/2InJv": {
     "defaultMessage": "Grounded",
@@ -406,6 +406,10 @@
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
+  },
+  "/pO3oR": {
+    "defaultMessage": "Failed to save question: {error}",
+    "description": "Review question modal: error toast shown when saving a question fails"
   },
   "/qIHh7": {
     "defaultMessage": "Traces",
@@ -7555,10 +7559,6 @@
     "defaultMessage": "Prompts",
     "description": "Header title for the registered prompts page"
   },
-  "aLyy52": {
-    "defaultMessage": "Failed to save: {message}",
-    "description": "Review question save error"
-  },
   "aMOq4p": {
     "defaultMessage": "See {mlflowLink} for more details.",
     "description": "Link to MLflow prompt optimization documentation"
@@ -11066,6 +11066,10 @@
   "r/mP0/": {
     "defaultMessage": "Add rationale (optional)",
     "description": "Evaluation review > assessments > rationale input placeholder"
+  },
+  "r/uvjS": {
+    "defaultMessage": "Failed to delete question: {error}",
+    "description": "Manage review questions: error toast shown when deleting a question fails"
   },
   "r0J+Jm": {
     "defaultMessage": "Selected guardrail model endpoint is unavailable. Please choose another endpoint.",
