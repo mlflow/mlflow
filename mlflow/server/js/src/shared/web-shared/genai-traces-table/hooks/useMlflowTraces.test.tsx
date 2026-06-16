@@ -2440,13 +2440,16 @@ describe('getAvailableOperators', () => {
     },
   ];
 
-  test('offers numeric comparators for numeric and boolean assessments only', () => {
+  test('offers numeric comparators for numeric assessments only', () => {
     expect(getAvailableOperators(TracesTableColumnGroup.ASSESSMENT, 'score', true, assessmentInfos)).toEqual(
       expect.arrayContaining([FilterOperator.GREATER_THAN, FilterOperator.LESS_THAN_OR_EQUALS]),
     );
-    expect(getAvailableOperators(TracesTableColumnGroup.ASSESSMENT, 'is_correct', true, assessmentInfos)).toEqual(
-      expect.arrayContaining([FilterOperator.GREATER_THAN, FilterOperator.LESS_THAN_OR_EQUALS]),
-    );
+    expect(getAvailableOperators(TracesTableColumnGroup.ASSESSMENT, 'is_correct', true, assessmentInfos)).toEqual([
+      FilterOperator.EQUALS,
+      FilterOperator.NOT_EQUALS,
+      FilterOperator.IS_NULL,
+      FilterOperator.IS_NOT_NULL,
+    ]);
     expect(getAvailableOperators(TracesTableColumnGroup.ASSESSMENT, 'label', true, assessmentInfos)).toEqual([
       FilterOperator.EQUALS,
       FilterOperator.NOT_EQUALS,

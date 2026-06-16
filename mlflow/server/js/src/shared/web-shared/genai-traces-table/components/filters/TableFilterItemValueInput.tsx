@@ -21,7 +21,7 @@ import {
   SOURCE_COLUMN_ID,
 } from '../../hooks/useTableColumns';
 import type { AssessmentInfo, TableFilter, TableFilterOption, TableFilterOptions } from '../../types';
-import { FilterOperator, TracesTableColumnGroup } from '../../types';
+import { TracesTableColumnGroup } from '../../types';
 import { ERROR_KEY } from '../../utils/AggregationUtils';
 import { getAssessmentValueLabel } from '../GenAiEvaluationTracesReview.utils';
 
@@ -46,20 +46,6 @@ export const TableFilterItemValueInput = ({
   const id = `filter-value-${index}`;
 
   const [localValue, setLocalValue] = useState(tableFilter.value);
-
-  const isNumericOperator = [
-    FilterOperator.GREATER_THAN,
-    FilterOperator.GREATER_THAN_OR_EQUALS,
-    FilterOperator.LESS_THAN,
-    FilterOperator.LESS_THAN_OR_EQUALS,
-  ].includes(tableFilter.operator as FilterOperator);
-
-  const isValidNumericInput = (value: TableFilter['value']) => {
-    if (typeof value === 'number') {
-      return Number.isFinite(value);
-    }
-    return typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value));
-  };
 
   const onValueBlur = useCallback(() => {
     if (localValue !== tableFilter.value) {
@@ -141,7 +127,7 @@ export const TableFilterItemValueInput = ({
 
   if (tableFilter.column === TracesTableColumnGroup.ASSESSMENT) {
     const assessmentInfo = assessmentInfos.find((assessment) => assessment.name === tableFilter.key);
-    if (isNumericOperator || (assessmentInfo && assessmentInfo.dtype === 'numeric')) {
+    if (assessmentInfo && assessmentInfo.dtype === 'numeric') {
       // Numeric assessments get a number input field
       return (
         <Input
@@ -155,9 +141,6 @@ export const TableFilterItemValueInput = ({
             setLocalValue(e.target.value);
           }}
           onBlur={() => {
-            if (isNumericOperator && !isValidNumericInput(localValue)) {
-              return;
-            }
             const numVal = localValue === '' || localValue === undefined ? '' : Number(localValue);
             if (numVal !== tableFilter.value) {
               onChange({ ...tableFilter, value: numVal === '' ? '' : numVal }, index);

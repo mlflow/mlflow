@@ -117,7 +117,7 @@ export const getAvailableOperators = (
       FilterOperator.IS_NOT_NULL,
     ];
     const assessmentInfo = assessmentInfos?.find((assessment) => assessment.name === key);
-    if (assessmentInfo?.dtype !== 'numeric' && assessmentInfo?.dtype !== 'boolean') {
+    if (assessmentInfo?.dtype !== 'numeric') {
       return baseAssessmentOperators;
     }
     return [
