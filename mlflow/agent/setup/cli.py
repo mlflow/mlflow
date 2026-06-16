@@ -3,14 +3,17 @@ from __future__ import annotations
 import socket
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import click
 
 from mlflow.agent.agents import AGENTS, AgentName, AgentTool, detect_installed, get_agent
 from mlflow.agent.setup.prompt import build_prompt
 from mlflow.agent.setup.select import arrow_select
+from mlflow.assistant.config import AssistantConfig, SkillsConfig
 from mlflow.assistant.skill_installer import install_skills
 from mlflow.telemetry.events import AgentSetupEvent
 from mlflow.telemetry.track import _record_event
@@ -83,6 +86,69 @@ def _choose_agent(preferred: AgentName | None) -> AgentTool:
                 [a.display_name for a in installed],
             )
             return installed[idx]
+
+
+@dataclass(frozen=True)
+class _AssistantTarget:
+    """The in-app Assistant provider that a coding agent maps to."""
+
+    config_name: str  # key under AssistantConfig.providers
+    skills_subdir: str  # global skills dir relative to home (mirrors provider.resolve_skills_path)
+
+
+# Coding agents whose CLI doubles as an in-app MLflow Assistant provider.
+_ASSISTANT_PROVIDERS: dict[AgentName, _AssistantTarget] = {
+    "claude": _AssistantTarget(config_name="claude_code", skills_subdir=".claude/skills"),
+    "codex": _AssistantTarget(config_name="codex", skills_subdir=".codex/skills"),
+}
+
+
+def _is_localhost_tracking_uri(tracking_uri: str) -> bool:
+    """Whether the localhost-only Assistant API can reach this tracking server."""
+    parsed = urlparse(tracking_uri if "://" in tracking_uri else f"http://{tracking_uri}")
+    host = (parsed.hostname or "").lower()
+    return host == "localhost" or host.startswith("127.")
+
+
+def _offer_assistant_setup(agent: AgentTool, tracking_uri: str) -> bool | None:
+    """Optionally select `agent` as the in-app MLflow Assistant provider.
+
+    Installs global skills for the matching provider and selects it in the Assistant
+    config. Only offered for agents that have an Assistant provider and when the
+    tracking server is reachable from localhost (the Assistant API is localhost-only).
+
+    Returns None when the Assistant isn't applicable (no matching provider or the
+    tracking server isn't reachable from localhost), False when offered but declined,
+    and True when configured.
+    """
+    target = _ASSISTANT_PROVIDERS.get(agent.name)
+    if target is None or not _is_localhost_tracking_uri(tracking_uri):
+        return None
+
+    if not click.confirm(
+        click.style(
+            f"Also enable the in-app MLflow Assistant with {agent.display_name}?",
+            fg="cyan",
+            bold=True,
+        ),
+        default=True,
+        err=True,
+    ):
+        return False
+
+    skills_dest = Path.home() / target.skills_subdir
+    installed = install_skills(skills_dest)
+    config = AssistantConfig.load()
+    config.set_provider(target.config_name, model="default")
+    config.providers[target.config_name].skills = SkillsConfig(type="global")
+    config.save()
+    click.secho(
+        f"Enabled the MLflow Assistant ({agent.display_name}); "
+        f"installed {len(installed)} skill(s) to {skills_dest}.",
+        fg="green",
+        err=True,
+    )
+    return True
 
 
 def _run_setup(
@@ -162,6 +228,8 @@ def _run_setup(
                 err=True,
             ).strip()
 
+    payload["assistant_configured"] = _offer_assistant_setup(agent, tracking_uri)
+
     prompt = build_prompt(
         repo_root,
         agent,
@@ -216,6 +284,7 @@ def setup(
         "agent": None,
         "print_prompt": print_prompt,
         "skills_install_confirmed": None,
+        "assistant_configured": None,
     }
     try:
         launch = _run_setup(agent_name, print_prompt, payload)

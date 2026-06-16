@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 from unittest import mock
@@ -9,7 +10,7 @@ import pytest
 from click.testing import CliRunner
 
 from mlflow.agent.agents import AGENTS
-from mlflow.agent.setup.cli import _git_root, setup
+from mlflow.agent.setup.cli import _git_root, _is_localhost_tracking_uri, setup
 from mlflow.telemetry.events import AgentSetupEvent
 
 
@@ -27,7 +28,7 @@ def test_setup_local_server_path(tmp_git_repo: Path):
         ) as mock_which,
         mock.patch("mlflow.agent.setup.cli._find_available_port", return_value=5050) as mock_port,
     ):
-        result = CliRunner().invoke(setup, ["--agent", "claude", "--print"], input="1\n\n")
+        result = CliRunner().invoke(setup, ["--agent", "claude", "--print"], input="1\n\nn\n")
     assert result.exit_code == 0, result.stderr
     assert "Picked local tracking URI: http://127.0.0.1:5050" in result.stderr
     assert "mlflow server --host 127.0.0.1 --port 5050" in result.stdout
@@ -41,7 +42,7 @@ def test_setup_user_provided_uri(tmp_git_repo: Path):
         "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
     ) as mock_which:
         result = CliRunner().invoke(
-            setup, ["--agent", "claude", "--print"], input="1\n3\nhttp://localhost:5001\n"
+            setup, ["--agent", "claude", "--print"], input="1\n3\nhttp://localhost:5001\nn\n"
         )
     assert result.exit_code == 0, result.stderr
     assert "Start a local MLflow tracking server" not in result.stdout
@@ -62,7 +63,7 @@ def test_setup_renders_per_agent_skills_dir(
 ):
     with mock.patch("mlflow.agent.agents.shutil.which", return_value=binary) as mock_which:
         result = CliRunner().invoke(
-            setup, ["--agent", agent, "--print"], input="1\n3\nhttp://localhost:5001\n"
+            setup, ["--agent", agent, "--print"], input="1\n3\nhttp://localhost:5001\nn\n"
         )
     assert result.exit_code == 0, result.stderr
     assert f"Install MLflow skills at {skills_dir}/" in result.stderr
@@ -89,7 +90,7 @@ def test_setup_launches_agent_with_correct_argv(
             return_value=subprocess.CompletedProcess([], 0),
         ) as mock_run,
     ):
-        CliRunner().invoke(setup, ["--agent", agent], input="1\n3\nhttp://localhost:5001\n")
+        CliRunner().invoke(setup, ["--agent", agent], input="1\n3\nhttp://localhost:5001\nn\n")
     mock_run.assert_called_once()
     cmd = mock_run.call_args.args[0]
     assert cmd[:-1] == expected_args_before_prompt
@@ -126,7 +127,7 @@ def test_setup_outside_git_falls_back_to_cwd(
         ) as mock_git_root,
     ):
         result = CliRunner().invoke(
-            setup, ["--agent", "claude", "--print"], input="1\n3\nhttp://localhost:5001\n"
+            setup, ["--agent", "claude", "--print"], input="1\n3\nhttp://localhost:5001\nn\n"
         )
     assert result.exit_code == 0, result.stderr
     assert f"{reason} The agent's edits cannot be reviewed or reverted with git." in result.stderr
@@ -140,7 +141,7 @@ def test_setup_declined_skills_uses_bundled_path(tmp_git_repo: Path):
         "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
     ) as mock_which:
         result = CliRunner().invoke(
-            setup, ["--agent", "claude", "--print"], input="2\n3\nhttp://localhost:5001\n"
+            setup, ["--agent", "claude", "--print"], input="2\n3\nhttp://localhost:5001\nn\n"
         )
     assert result.exit_code == 0, result.stderr
     assert "Skipping skill installation." in result.stderr
@@ -166,7 +167,7 @@ def test_setup_records_telemetry(
         result = CliRunner().invoke(
             setup,
             ["--agent", "claude", "--print"],
-            input=f"{skills_input}\n3\nhttp://localhost:5001\n",
+            input=f"{skills_input}\n3\nhttp://localhost:5001\nn\n",
         )
     assert result.exit_code == 0, result.stderr
     mock_which.assert_called()
@@ -176,6 +177,7 @@ def test_setup_records_telemetry(
             "agent": "claude",
             "print_prompt": True,
             "skills_install_confirmed": skills_install_confirmed,
+            "assistant_configured": False,
         },
         success=True,
     )
@@ -192,7 +194,12 @@ def test_setup_requested_agent_not_installed(tmp_git_repo: Path):
     mock_which.assert_called()
     mock_record.assert_called_once_with(
         AgentSetupEvent,
-        {"agent": None, "print_prompt": True, "skills_install_confirmed": None},
+        {
+            "agent": None,
+            "print_prompt": True,
+            "skills_install_confirmed": None,
+            "assistant_configured": None,
+        },
         success=False,
     )
 
@@ -203,12 +210,17 @@ def test_setup_multi_agent_numeric_fallback(tmp_git_repo: Path):
         mock.patch("mlflow.agent.setup.cli.detect_installed", return_value=installed),
         mock.patch("mlflow.agent.setup.cli._record_event") as mock_record,
     ):
-        result = CliRunner().invoke(setup, ["--print"], input="2\n2\n3\nhttp://localhost:5001\n")
+        result = CliRunner().invoke(setup, ["--print"], input="2\n2\n3\nhttp://localhost:5001\nn\n")
     assert result.exit_code == 0, result.stderr
     assert "Multiple agents detected" in result.stderr
     mock_record.assert_called_once_with(
         AgentSetupEvent,
-        {"agent": "codex", "print_prompt": True, "skills_install_confirmed": False},
+        {
+            "agent": "codex",
+            "print_prompt": True,
+            "skills_install_confirmed": False,
+            "assistant_configured": False,
+        },
         success=True,
     )
 
@@ -223,7 +235,12 @@ def test_setup_no_agents_detected(tmp_git_repo: Path):
     assert "No supported agent CLI found on PATH" in result.stderr
     mock_record.assert_called_once_with(
         AgentSetupEvent,
-        {"agent": None, "print_prompt": True, "skills_install_confirmed": None},
+        {
+            "agent": None,
+            "print_prompt": True,
+            "skills_install_confirmed": None,
+            "assistant_configured": None,
+        },
         success=False,
     )
 
@@ -242,7 +259,12 @@ def test_setup_records_failure_on_abort(tmp_git_repo: Path):
     mock_select.assert_called_once()
     mock_record.assert_called_once_with(
         AgentSetupEvent,
-        {"agent": "claude", "print_prompt": True, "skills_install_confirmed": None},
+        {
+            "agent": "claude",
+            "print_prompt": True,
+            "skills_install_confirmed": None,
+            "assistant_configured": None,
+        },
         success=False,
     )
 
@@ -307,8 +329,112 @@ def test_setup_databricks_threads_profile_into_tracking_uri(tmp_git_repo: Path):
         result = CliRunner().invoke(
             setup,
             ["--agent", "claude", "--print"],
-            input="1\n2\nmy-profile\n1234567890\n",
+            input="1\n2\nmy-profile\n1234567890\nn\n",
         )
     assert result.exit_code == 0, result.stderr
     assert "MLFLOW_TRACKING_URI=databricks://my-profile" in result.stdout
     assert 'WorkspaceClient(profile="my-profile").current_user.me()' in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("http://127.0.0.1:5000", True),
+        ("http://localhost:5000", True),
+        ("localhost:5000", True),
+        ("http://127.0.0.2:8080", True),
+        ("http://example.com:5000", False),
+        ("https://my-workspace.databricks.com", False),
+        ("databricks", False),
+        ("databricks://profile", False),
+    ],
+)
+def test_is_localhost_tracking_uri(uri: str, expected: bool):
+    assert _is_localhost_tracking_uri(uri) is expected
+
+
+def test_setup_configures_assistant_when_accepted(
+    tmp_git_repo: Path, monkeypatch: pytest.MonkeyPatch
+):
+    config_path = tmp_git_repo / "assistant" / "config.json"
+    monkeypatch.setattr("mlflow.assistant.config.CONFIG_PATH", config_path)
+    with (
+        mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"),
+        mock.patch(
+            "mlflow.agent.setup.cli.install_skills", return_value=["analyze-mlflow-trace"]
+        ) as mock_install,
+        mock.patch("mlflow.agent.setup.cli._record_event") as mock_record,
+    ):
+        result = CliRunner().invoke(
+            setup, ["--agent", "claude", "--print"], input="2\n3\nhttp://localhost:5001\ny\n"
+        )
+    assert result.exit_code == 0, result.stderr
+    assert "Enabled the MLflow Assistant (Claude Code)" in result.stderr
+    mock_install.assert_called_once_with(Path.home() / ".claude" / "skills")
+    mock_record.assert_called_once_with(
+        AgentSetupEvent,
+        {
+            "agent": "claude",
+            "print_prompt": True,
+            "skills_install_confirmed": False,
+            "assistant_configured": True,
+        },
+        success=True,
+    )
+
+    saved = json.loads(config_path.read_text())
+    provider = saved["providers"]["claude_code"]
+    assert provider["selected"] is True
+    assert provider["model"] == "default"
+    assert provider["skills"]["type"] == "global"
+
+
+def test_setup_assistant_maps_codex_to_codex_provider(
+    tmp_git_repo: Path, monkeypatch: pytest.MonkeyPatch
+):
+    config_path = tmp_git_repo / "assistant" / "config.json"
+    monkeypatch.setattr("mlflow.assistant.config.CONFIG_PATH", config_path)
+    with (
+        mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/codex"),
+        mock.patch("mlflow.agent.setup.cli.install_skills", return_value=[]) as mock_install,
+    ):
+        result = CliRunner().invoke(
+            setup, ["--agent", "codex", "--print"], input="2\n3\nhttp://127.0.0.1:5001\ny\n"
+        )
+    assert result.exit_code == 0, result.stderr
+    mock_install.assert_called_once_with(Path.home() / ".codex" / "skills")
+    assert json.loads(config_path.read_text())["providers"]["codex"]["selected"] is True
+
+
+def test_setup_skips_assistant_when_declined(tmp_git_repo: Path, monkeypatch: pytest.MonkeyPatch):
+    config_path = tmp_git_repo / "assistant" / "config.json"
+    monkeypatch.setattr("mlflow.assistant.config.CONFIG_PATH", config_path)
+    with (
+        mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"),
+        mock.patch("mlflow.agent.setup.cli.install_skills", return_value=[]) as mock_install,
+    ):
+        result = CliRunner().invoke(
+            setup, ["--agent", "claude", "--print"], input="2\n3\nhttp://localhost:5001\nn\n"
+        )
+    assert result.exit_code == 0, result.stderr
+    assert "in-app MLflow Assistant" in result.stderr
+    mock_install.assert_not_called()
+    assert not config_path.exists()
+
+
+def test_setup_does_not_offer_assistant_for_databricks(tmp_git_repo: Path):
+    with mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"):
+        result = CliRunner().invoke(
+            setup, ["--agent", "claude", "--print"], input="2\n2\n\n1234567890\n"
+        )
+    assert result.exit_code == 0, result.stderr
+    assert "in-app MLflow Assistant" not in result.stderr
+
+
+def test_setup_does_not_offer_assistant_for_opencode(tmp_git_repo: Path):
+    with mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/opencode"):
+        result = CliRunner().invoke(
+            setup, ["--agent", "opencode", "--print"], input="2\n3\nhttp://localhost:5001\n"
+        )
+    assert result.exit_code == 0, result.stderr
+    assert "in-app MLflow Assistant" not in result.stderr
