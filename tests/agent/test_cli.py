@@ -344,4 +344,3 @@ def test_setup_env_databricks_still_prompts_for_experiment(
     assert "Experiment ID, or path (auto-created if it doesn't exist)" in result.stderr
     assert 'mlflow.set_experiment(experiment_id="1234567890")' in result.stdout
     mock_which.assert_called()
-    mock_which.assert_called()
