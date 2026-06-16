@@ -414,9 +414,12 @@ describe('wal/exporter', () => {
 
     const record = submit.mock.calls[0][0];
     expect(typeof record.otlpSpans).toBe('string');
-    // Valid base64 that decodes to a non-empty OTLP ExportTraceServiceRequest.
     const decoded = Buffer.from(record.otlpSpans as string, 'base64');
-    expect(decoded.length).toBeGreaterThan(0);
+
+    expect(decoded[0]).toBe(0x0a);
+    // And the span itself must be encoded in the payload, not just an empty
+    // envelope: its name is embedded as a UTF-8 string in the protobuf.
+    expect(decoded.includes(Buffer.from('tool-call'))).toBe(true);
     // The JSON trace data is retained alongside the OTLP bytes (artifact fallback).
     expect((record.traceData as { spans: unknown[] }).spans).toHaveLength(1);
   });
