@@ -495,10 +495,6 @@
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in contour plot comparison in MLflow"
   },
-  "0H/Y71": {
-    "defaultMessage": "Test",
-    "description": "Type filter option in the evaluation runs table: show only regression-test runs"
-  },
   "0HIfuE": {
     "defaultMessage": "Outputs of the trace, derived from the root span's outputs",
     "description": "Tooltip description for the Response column in the traces table"
@@ -3350,6 +3346,10 @@
   "EaH1E1": {
     "defaultMessage": "Version {version}",
     "description": "Version display for judge"
+  },
+  "EbJub1": {
+    "defaultMessage": "Test",
+    "description": "Column label for the regression test name column"
   },
   "EcjcgN": {
     "defaultMessage": "Metrics",
@@ -7695,10 +7695,6 @@
     "defaultMessage": "Tags",
     "description": "Title for the tags section on the run details page"
   },
-  "atJtoG": {
-    "defaultMessage": "Eval",
-    "description": "Type filter option in the evaluation runs table: show only evaluation runs"
-  },
   "atcZM5": {
     "defaultMessage": "Status",
     "description": "Header title for the status column in the logged model list table"
@@ -10187,10 +10183,6 @@
     "defaultMessage": "{toolName} was called in {toolCallId}",
     "description": "A message that shows the tool call ID of a tool call chat message."
   },
-  "mY3Q0W": {
-    "defaultMessage": "All",
-    "description": "Type filter option in the evaluation runs table: show every run"
-  },
   "mY6f0y": {
     "defaultMessage": "Params",
     "description": "Header for parameter columns in the evaluation runs table column configuration"
@@ -12674,6 +12666,10 @@
   "z6K3IC": {
     "defaultMessage": "Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here",
     "description": "Tooltip suggesting to create an endpoint for reuse"
+  },
+  "z6QxDs": {
+    "defaultMessage": "Issue detection",
+    "description": "Type pill text for an issue-detection run in the evaluation runs table"
   },
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",

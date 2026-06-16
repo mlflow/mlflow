@@ -38,11 +38,12 @@ import { TagsCellRenderer } from './Tags/TagsCellRenderer';
 import { TokensCell } from './TokensCell';
 import { getTraceInfoValueWithColId } from '../GenAiTracesTable.utils';
 import { compareAssessmentValues, formatResponseTitle } from '../GenAiTracesTableBody.utils';
-import { isPassingAssessmentValue, readTraceTag, RESULT_ASSESSMENT_NAME } from '../utils/TraceUtils';
+import { readTraceTag, RESULT_ASSESSMENT_NAME } from '../utils/TraceUtils';
 import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import {
   getEvaluationResultAssessmentValue,
   getEvaluationResultInputTitle,
+  KnownEvaluationResultAssessmentStringValue,
   KnownEvaluationResultAssessmentValueMissingTooltip,
   stringifyValue,
 } from '../components/GenAiEvaluationTracesReview.utils';
@@ -133,14 +134,10 @@ export const assessmentCellRenderer = (
       for (const name of Object.keys(byName)) {
         if (name === RESULT_ASSESSMENT_NAME) continue;
         for (const r of byName[name] ?? []) {
-          const label =
-            name !== 'guidelines'
-              ? name
-              : ((r as any)?.metadata?.['guideline'] ?? (r as any)?.metadata?.['guidelines'] ?? r?.rationale ?? name);
-          const displayLabel = typeof label === 'string' ? label : JSON.stringify(label);
+          const value = getEvaluationResultAssessmentValue(r);
           rows.push({
-            label: displayLabel.length > 80 ? `${displayLabel.slice(0, 77)}...` : displayLabel,
-            passed: isPassingAssessmentValue(getEvaluationResultAssessmentValue(r)),
+            label: name,
+            passed: value === KnownEvaluationResultAssessmentStringValue.YES || value === true,
           });
         }
       }

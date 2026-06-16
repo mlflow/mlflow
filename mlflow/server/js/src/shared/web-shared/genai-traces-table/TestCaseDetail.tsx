@@ -27,42 +27,14 @@ import { useContext, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { GenAITracesTableContext } from './GenAITracesTableContext';
-import { EvaluationsReviewAssessmentTag } from './components/EvaluationsReviewAssessmentTag';
+import { EvaluationsReviewAssessmentTag, isAssessmentPassing } from './components/EvaluationsReviewAssessmentTag';
 import { getEvaluationResultAssessmentValue } from './components/GenAiEvaluationTracesReview.utils';
 import type { AssessmentInfo, EvalTraceComparisonEntry, RunEvaluationResultAssessment } from './types';
 import { getAjaxUrl, getDefaultHeaders } from './utils/FetchUtils';
-import { isPassingAssessmentValue, readTraceTag, RESULT_ASSESSMENT_NAME } from './utils/TraceUtils';
+import { readTraceTag, RESULT_ASSESSMENT_NAME } from './utils/TraceUtils';
 import { useQuery } from '../query-client/queryClient';
 import type { ModelTrace } from '../model-trace-explorer/ModelTrace.types';
 import { SingleChatTurnMessages } from '../model-trace-explorer/session-view/SingleChatTurnMessages';
-
-const stringify = (v: unknown): string => {
-  if (v == null) return '';
-  if (typeof v === 'string') return v;
-  try {
-    return JSON.stringify(v, null, 2);
-  } catch {
-    return String(v);
-  }
-};
-
-// When the table doesn't carry an AssessmentInfo for a scorer (rare), build a
-// minimal one so the value tag + hover still render with the right value type.
-const fallbackAssessmentInfo = (name: string, a: RunEvaluationResultAssessment): AssessmentInfo => ({
-  name,
-  displayName: name,
-  isKnown: false,
-  isOverall: false,
-  metricName: name,
-  isCustomMetric: false,
-  isEditable: false,
-  isRetrievalAssessment: false,
-  dtype: typeof a.booleanValue === 'boolean' ? 'boolean' : a.numericValue != null ? 'numeric' : 'pass-fail',
-  uniqueValues: new Set(),
-  docsLink: '',
-  missingTooltip: '',
-  description: '',
-});
 
 const ResultPill = ({ passed }: { passed: boolean }) => (
   <Tag
@@ -157,21 +129,20 @@ export const TestCaseDetail = ({
 
   const infoByName = useMemo(() => new Map((assessmentInfos ?? []).map((i) => [i.name, i])), [assessmentInfos]);
 
-  // Flatten every assertion (one row each) -- multiple guideline assertions can
-  // share the default "guidelines" name, so we don't collapse to the first.
-  // Each row keeps the raw assessment + its AssessmentInfo so the Result cell
-  // can render the same value tag + LLM-judge hover the traces table uses.
+  // Flatten every assertion (one row each) -- multiple assertions can share a
+  // scorer name (e.g. several guideline assertions), so we don't collapse to the
+  // first. Each row keeps the raw assessment + its AssessmentInfo so the Result
+  // cell can render the same value tag + LLM-judge hover the traces table uses.
   const byName = run?.responseAssessmentsByName ?? {};
   const assertions = Object.entries(byName)
     .filter(([name]) => name !== RESULT_ASSESSMENT_NAME)
     .flatMap(([name, arr]) =>
-      (arr ?? []).map((a: RunEvaluationResultAssessment, i: number) => {
-        const value = getEvaluationResultAssessmentValue(a);
-        const named = arr.length > 1 ? `${name} ${i + 1}` : name;
-        const metaGuideline = stringify(a?.metadata?.['guideline'] ?? a?.metadata?.['guidelines']);
-        const label = metaGuideline || named || 'Assertion';
-        const assessmentInfo = infoByName.get(name) ?? fallbackAssessmentInfo(name, a);
-        return { label, assessment: a, assessmentInfo, passed: isPassingAssessmentValue(value) };
+      (arr ?? []).flatMap((a: RunEvaluationResultAssessment, i: number) => {
+        const assessmentInfo = infoByName.get(name);
+        if (!assessmentInfo) return [];
+        const label = arr.length > 1 ? `${name} ${i + 1}` : name;
+        const passed = isAssessmentPassing(assessmentInfo, getEvaluationResultAssessmentValue(a)) === true;
+        return [{ label, assessment: a, assessmentInfo, passed }];
       }),
     );
   const allPassed = assertions.length > 0 && assertions.every((a) => a.passed);

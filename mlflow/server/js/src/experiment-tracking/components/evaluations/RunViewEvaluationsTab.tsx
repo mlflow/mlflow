@@ -17,7 +17,6 @@ import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databri
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
-  INPUTS_COLUMN_ID,
   RUN_EVALUATION_RESULTS_TAB_COMPARE_RUNS,
   RUN_EVALUATION_RESULTS_TAB_SINGLE_RUN,
   getTracesTagKeys,
@@ -147,21 +146,9 @@ const RunViewEvaluationsTabInner = ({
       return allColumns;
     }
 
-    const resultColumnId = createAssessmentColumnId(RESULT_ASSESSMENT_NAME);
-    // Column order for the regression-test view: the fixed lead columns, then any
-    // other trace-info/metadata columns the user has unhidden (tokens, commit,
-    // tags, ...), then the consolidated "Result" column ordered as the left-most
-    // assessment, then any other assessment columns.
-    const columnRank = (column: TracesTableColumn) => {
-      if (column.id === TRACE_ID_COLUMN_ID) return 0;
-      if (column.type === TracesTableColumnType.INPUT || column.id === INPUTS_COLUMN_ID) return 1;
-      if (column.id === RESPONSE_COLUMN_ID) return 2;
-      if (column.id === EXECUTION_DURATION_COLUMN_ID) return 3;
-      if (column.id === resultColumnId) return 5;
-      if (column.type === TracesTableColumnType.ASSESSMENT) return 6;
-      return 4;
-    };
-
+    // Regression-test view: drop the State column and relabel the trace-id column
+    // to "Test". The left-to-right column order is applied by the table body's
+    // regression-test mode, so there's no need to reorder here.
     return allColumns
       .filter((column) => column.id !== STATE_COLUMN_ID)
       .map((column) =>
@@ -174,8 +161,7 @@ const RunViewEvaluationsTabInner = ({
               }),
             }
           : column,
-      )
-      .sort((a, b) => columnRank(a) - columnRank(b));
+      );
   }, [allColumns, intl, isRegressionTest]);
 
   // Setup table states
@@ -475,7 +461,6 @@ const RunViewEvaluationsTabInner = ({
                     assessmentCountMetrics={assessmentCountMetrics}
                     compareAssessmentCountMetrics={compareAssessmentCountMetrics}
                     regressionTestMode={isRegressionTest}
-                    fitToContainer={isRegressionTest}
                   />
                 </ContextProviders>
               )

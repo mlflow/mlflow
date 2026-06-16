@@ -385,36 +385,62 @@ export const StatusCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => 
 };
 
 /**
- * Renders the run's Type pill: a purple "Test" pill with a beaker icon for runs
- * produced by an `@mlflow.test` pytest session (tagged
- * `mlflow.runType=test`), and a turquoise "Eval" pill with a
- * chart-line icon for everything else. Lets users tell regression-test runs
- * apart from ordinary `evaluate()` runs at a glance.
+ * Renders the run's Type pill, keyed off the `mlflow.runType` tag:
+ * - a purple "Test" pill with a beaker icon for `@mlflow.test` pytest runs,
+ * - an indigo "Issue detection" pill with a sparkle icon for issue-detection runs,
+ * - a turquoise "Eval" pill with a chart-line icon for everything else.
+ * Lets users tell the run kinds apart at a glance.
  */
 export const TypeCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
   if ('subRuns' in row.original) {
     return <div>-</div>;
   }
   const tags = row.original.data?.tags ?? [];
-  const isTest = tags.some((tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_TEST);
-  return (
-    <Tag
-      componentId={isTest ? 'mlflow.eval-runs.type-cell.test' : 'mlflow.eval-runs.type-cell.eval'}
-      color={isTest ? 'purple' : 'turquoise'}
-      css={{ display: 'inline-flex', alignItems: 'center', gap: 4, margin: 0 }}
-    >
-      {isTest ? <BeakerIcon /> : <ChartLineIcon />}
-      {isTest ? (
+  const runType = tags.find((tag) => tag.key === MLFLOW_RUN_TYPE_TAG)?.value;
+
+  if (runType === MLFLOW_RUN_TYPE_VALUE_TEST) {
+    return (
+      <Tag
+        componentId="mlflow.eval-runs.type-cell.test"
+        color="purple"
+        css={{ display: 'inline-flex', alignItems: 'center', gap: 4, margin: 0 }}
+      >
+        <BeakerIcon />
         <FormattedMessage
           defaultMessage="Test"
           description="Type pill text for a regression-test run in the evaluation runs table"
         />
-      ) : (
+      </Tag>
+    );
+  }
+
+  if (runType === MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION) {
+    return (
+      <Tag
+        componentId="mlflow.eval-runs.type-cell.issue-detection"
+        color="indigo"
+        css={{ display: 'inline-flex', alignItems: 'center', gap: 4, margin: 0 }}
+      >
+        <SparkleIcon />
         <FormattedMessage
-          defaultMessage="Eval"
-          description="Type pill text for a regular evaluation run in the evaluation runs table"
+          defaultMessage="Issue detection"
+          description="Type pill text for an issue-detection run in the evaluation runs table"
         />
-      )}
+      </Tag>
+    );
+  }
+
+  return (
+    <Tag
+      componentId="mlflow.eval-runs.type-cell.eval"
+      color="turquoise"
+      css={{ display: 'inline-flex', alignItems: 'center', gap: 4, margin: 0 }}
+    >
+      <ChartLineIcon />
+      <FormattedMessage
+        defaultMessage="Eval"
+        description="Type pill text for a regular evaluation run in the evaluation runs table"
+      />
     </Tag>
   );
 };

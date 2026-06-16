@@ -22,6 +22,7 @@ import {
 } from '../../model-trace-explorer/constants';
 import {
   getEvaluationResultAssessmentValue,
+  KnownEvaluationResultAssessmentStringValue,
   stringifyValue,
   tryExtractUserMessageContent,
 } from '../components/GenAiEvaluationTracesReview.utils';
@@ -272,21 +273,6 @@ export const convertFeedbackAssessmentToRunEvalAssessment = (
 export const RESULT_ASSESSMENT_NAME = 'Result';
 
 /**
- * Whether a scorer/assertion value counts as passing: a truthy boolean, a
- * number >= 0.5, or a `yes`/`pass`/`true` string. Shared by the regression-test
- * Result column, the test-case detail drawer, and the synthesized Result so the
- * pass/fail rule is defined in exactly one place.
- */
-export const isPassingAssessmentValue = (value: unknown): boolean =>
-  typeof value === 'boolean'
-    ? value
-    : typeof value === 'number'
-      ? value >= 0.5
-      : typeof value === 'string'
-        ? ['yes', 'pass', 'true'].includes(value.trim().toLowerCase())
-        : false;
-
-/**
  * Read an `mlflow.*` tag from a trace info, tolerating both the tracking-store
  * array-of-`{key, value}` shape and the trace-server record / `trace_metadata`
  * shapes.
@@ -344,9 +330,10 @@ export const convertTraceInfoV3ToRunEvalEntry = (
       .map(([, arr]) => arr[0])
       .filter(Boolean);
     if (scorerResults.length > 0) {
-      const passedCount = scorerResults.filter((a) =>
-        isPassingAssessmentValue(getEvaluationResultAssessmentValue(a)),
-      ).length;
+      const passedCount = scorerResults.filter((a) => {
+        const value = getEvaluationResultAssessmentValue(a);
+        return value === KnownEvaluationResultAssessmentStringValue.YES || value === true;
+      }).length;
       responseAssessmentsByName[RESULT_ASSESSMENT_NAME] = [
         {
           name: RESULT_ASSESSMENT_NAME,

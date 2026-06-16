@@ -22,6 +22,7 @@ import { groupTracesBySessionForTable } from './utils/SessionGroupingUtils';
 import { HeaderCellRenderer } from './cellRenderers/HeaderCellRenderer';
 import type { GetTraceFunction } from './hooks/useGetTrace';
 import {
+  createAssessmentColumnId,
   EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
@@ -95,7 +96,6 @@ export const GenAiTracesTableBody = React.memo(
     assessmentCountMetrics,
     compareAssessmentCountMetrics,
     regressionTestMode = false,
-    fitToContainer = false,
   }: {
     experimentId?: string;
     selectedColumns: TracesTableColumn[];
@@ -143,8 +143,6 @@ export const GenAiTracesTableBody = React.memo(
     // Regression-test mode: open the test-case detail drawer instead of the
     // trace review. Defaults to false so ordinary evaluation runs are unaffected.
     regressionTestMode?: boolean;
-    // Stretch the table to fill its container width.
-    fitToContainer?: boolean;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -198,13 +196,14 @@ export const GenAiTracesTableBody = React.memo(
           // Order: the fixed lead columns, then any other trace-info/metadata
           // columns the user unhid (tokens, commit, tags, ...), then "Result"
           // ordered as the left-most assessment, then any other assessments.
+          const resultColumnId = createAssessmentColumnId(RESULT_ASSESSMENT_NAME);
           const columnRank = (col: ColumnDef<EvalTraceComparisonEntry>) => {
             const id = String(col.id);
             if (id === TRACE_ID_COLUMN_ID) return 0;
             if (typeById.get(id) === TracesTableColumnType.INPUT || id === INPUTS_COLUMN_ID) return 1;
             if (id === RESPONSE_COLUMN_ID) return 2;
             if (id === EXECUTION_DURATION_COLUMN_ID) return 3;
-            if (id === RESULT_ASSESSMENT_NAME) return 5;
+            if (id === resultColumnId) return 5;
             if (typeById.get(id) === TracesTableColumnType.ASSESSMENT) return 6;
             return 4;
           };
@@ -647,7 +646,7 @@ export const GenAiTracesTableBody = React.memo(
         >
           <Table
             css={{
-              width: fitToContainer ? '100%' : tableWidth,
+              width: tableWidth,
               minWidth: '100%',
               ...columnSizeVars, // Define column sizes on the <table> element
             }}
