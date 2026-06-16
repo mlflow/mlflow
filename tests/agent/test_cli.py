@@ -17,6 +17,9 @@ from mlflow.telemetry.events import AgentSetupEvent
 def tmp_git_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
     monkeypatch.chdir(tmp_path)
+    # The backend prompt only appears when no tracking URI is configured, so clear it to keep
+    # the tests deterministic regardless of the developer's environment.
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
     return tmp_path
 
 
@@ -312,3 +315,33 @@ def test_setup_databricks_threads_profile_into_tracking_uri(tmp_git_repo: Path):
     assert result.exit_code == 0, result.stderr
     assert "MLFLOW_TRACKING_URI=databricks://my-profile" in result.stdout
     assert 'WorkspaceClient(profile="my-profile").current_user.me()' in result.stdout
+
+
+def test_setup_uses_tracking_uri_from_env(tmp_git_repo: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "http://my-server:5000")
+    with mock.patch(
+        "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
+    ) as mock_which:
+        result = CliRunner().invoke(setup, ["--agent", "claude", "--print"], input="1\n")
+    assert result.exit_code == 0, result.stderr
+    assert "Tracking backend:" not in result.stderr
+    assert "MLFLOW_TRACKING_URI=http://my-server:5000" in result.stdout
+    mock_which.assert_called()
+
+
+def test_setup_env_databricks_still_prompts_for_experiment(
+    tmp_git_repo: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("MLFLOW_TRACKING_URI", "databricks")
+    with mock.patch(
+        "mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"
+    ) as mock_which:
+        result = CliRunner().invoke(
+            setup, ["--agent", "claude", "--print"], input="1\n1234567890\n"
+        )
+    assert result.exit_code == 0, result.stderr
+    assert "Tracking backend:" not in result.stderr
+    assert "Experiment ID, or path (auto-created if it doesn't exist)" in result.stderr
+    assert 'mlflow.set_experiment(experiment_id="1234567890")' in result.stdout
+    mock_which.assert_called()
+    mock_which.assert_called()
