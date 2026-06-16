@@ -1,8 +1,14 @@
 import type { ReviewQueue } from './types';
 
+/**
+ * Canonical form of a user identifier. Mirrors the server's `normalize_user`
+ * (strip + lowercase): assigned users and user-queue names are stored normalized,
+ * while the user roster carries display casing, so compare/key on this form.
+ */
+export const normalizeUser = (user: string | undefined): string => (user ?? '').trim().toLowerCase();
+
 /** Case-insensitive identity compare (created_by may be normalized server-side). */
-export const sameUser = (a: string | undefined, b: string): boolean =>
-  (a ?? '').trim().toLowerCase() === b.trim().toLowerCase();
+export const sameUser = (a: string | undefined, b: string): boolean => normalizeUser(a) === normalizeUser(b);
 
 /** Whether the reviewer owns the queue (its server-stamped `created_by`). */
 export const isQueueOwner = (queue: ReviewQueue, reviewer: string): boolean => sameUser(queue.created_by, reviewer);

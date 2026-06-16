@@ -11,6 +11,8 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
+import { normalizeUser } from './queuePermissions';
+
 // Max reviewers a queue may have assigned. Keep in sync with `MAX_ASSIGNED_USERS`
 // in mlflow/genai/review_queues/validation.py — the server rejects more, so the
 // picker gates selection at the limit the caller passes (the create modal reserves
@@ -69,18 +71,36 @@ export const ReviewerChecklistCombobox = ({
   const [search, setSearch] = useState('');
   const query = search.trim().toLowerCase();
 
+  // Reviewer identity is case-insensitive: assigned users are stored normalized
+  // while the roster carries display case, so a member assigned as `alice` must
+  // still render checked against a roster row `Alice`. Compare on the normalized
+  // form, and never list the same person twice across the two sources.
+  const checkedLower = useMemo(() => new Set(Array.from(checkedUsers, normalizeUser)), [checkedUsers]);
+  const isChecked = (username: string) => checkedLower.has(normalizeUser(username));
+
   // The display order, rebuilt by `recompact` whenever the list view is (re)entered.
   const [order, setOrder] = useState<string[]>([]);
   // Selected reviewers (keeping their current order, newest search-pick leading)
   // followed by a fresh set of unselected defaults; rows no longer selected drop.
   const recompact = () =>
     setOrder((prev) => {
+      // Show a checked user under the roster's display casing when it's on the
+      // roster (the stored value is normalized), falling back to the stored value
+      // for an off-roster reviewer.
+      const rosterByKey = new Map(usernames.map((u) => [normalizeUser(u), u]));
+      const display = (u: string) => rosterByKey.get(normalizeUser(u)) ?? u;
+      const prevKeys = new Set(prev.map(normalizeUser));
       const selected = [
-        ...prev.filter((u) => checkedUsers.has(u)),
-        ...[...checkedUsers].filter((u) => !prev.includes(u)),
+        ...prev.filter((u) => isChecked(u)).map(display),
+        // Checked users not already represented (case-insensitively) in `prev`,
+        // so a member shown under its roster casing isn't duplicated by its
+        // normalized counterpart.
+        ...Array.from(checkedUsers)
+          .filter((u) => !prevKeys.has(normalizeUser(u)))
+          .map(display),
       ];
-      const selectedSet = new Set(selected);
-      const defaults = usernames.filter((u) => !selectedSet.has(u)).slice(0, DEFAULT_REVIEWER_COUNT);
+      const selectedKeys = new Set(selected.map(normalizeUser));
+      const defaults = usernames.filter((u) => !selectedKeys.has(normalizeUser(u))).slice(0, DEFAULT_REVIEWER_COUNT);
       return [...selected, ...defaults];
     });
   // Seed once, when the roster first resolves. `useQuery` commits `data` and
@@ -97,13 +117,17 @@ export const ReviewerChecklistCombobox = ({
   }, [isLoading]);
 
   const handleToggle = (username: string) => {
-    if (query && !checkedUsers.has(username)) {
+    if (query && !isChecked(username)) {
       // Selecting from search leads the selected group; the list recompacts (drops
       // unselected rows, refreshes defaults) once the search is cleared.
-      setOrder((prev) => [username, ...prev.filter((u) => u !== username)]);
+      setOrder((prev) => [username, ...prev.filter((u) => normalizeUser(u) !== normalizeUser(username))]);
     }
     // With no search active, an in-place toggle never moves or removes a row.
-    onToggle(username);
+    // Emit the normalized identity so the caller's checked set stays canonical
+    // (it's seeded from the server-normalized assigned users); otherwise toggling
+    // a roster row whose casing differs from the stored value would add a
+    // duplicate instead of removing the member.
+    onToggle(normalizeUser(username));
   };
 
   // Recompact when a search is cleared (returning to the list view).
@@ -118,9 +142,11 @@ export const ReviewerChecklistCombobox = ({
   // more. The reason is surfaced as an inline hint row below rather than a
   // per-row `disabledReason` tooltip: the tooltip renders behind the dropdown
   // (which sits at an elevated z-index inside a modal), so it isn't visible.
-  const atLimit = maxSelected !== undefined && checkedUsers.size >= maxSelected;
+  // Count distinct reviewers case-insensitively, matching the deduped render, so a
+  // stray cased-duplicate in the caller's set can't trip the cap a slot early.
+  const atLimit = maxSelected !== undefined && checkedLower.size >= maxSelected;
   const renderItem = (username: string) => {
-    const checked = checkedUsers.has(username);
+    const checked = isChecked(username);
     return (
       <DialogComboboxOptionListCheckboxItem
         key={username}
@@ -141,7 +167,17 @@ export const ReviewerChecklistCombobox = ({
     if (!query) {
       return { matches: order, searchTruncated: false };
     }
-    const universe = [...new Set([...usernames, ...checkedUsers])];
+    // Dedupe case-insensitively with the roster listed first, so a selected
+    // off-roster user appears once and keeps the roster's display casing.
+    const seen = new Set<string>();
+    const universe: string[] = [];
+    for (const u of [...usernames, ...checkedUsers]) {
+      const key = normalizeUser(u);
+      if (!seen.has(key)) {
+        seen.add(key);
+        universe.push(u);
+      }
+    }
     const filtered = universe.filter((u) => u.toLowerCase().includes(query));
     return { matches: filtered.slice(0, MAX_SEARCH_MATCHES), searchTruncated: filtered.length > MAX_SEARCH_MATCHES };
   }, [order, usernames, checkedUsers, query]);
