@@ -259,9 +259,13 @@ describe('ReviewQueueList', () => {
     fireEvent.click(firstRow);
     fireEvent.click(screen.getByRole('button', { name: 'Unassign' }));
     await waitFor(() => expect(onRemoveItems).toHaveBeenCalledTimes(1));
-    // The removal rejected, so the row stays checked and its Unassign button persists.
-    expect(firstRow).toBeChecked();
-    expect(screen.getByRole('button', { name: 'Unassign' })).toBeInTheDocument();
+    // The rejection is swallowed in handleDelete's no-op catch (no state update),
+    // so the row stays checked and its Unassign button persists. waitFor lets the
+    // rejected promise settle before asserting, mirroring the success test.
+    await waitFor(() => {
+      expect(firstRow).toBeChecked();
+      expect(screen.getByRole('button', { name: 'Unassign' })).toBeInTheDocument();
+    });
   });
 
   it('offers copy-link menu items even without manage/delete permissions', async () => {
