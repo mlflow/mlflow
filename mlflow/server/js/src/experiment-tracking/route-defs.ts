@@ -3,19 +3,6 @@ import { createLazyRouteElement, DEFAULT_ASSISTANT_PROMPTS } from '../common/uti
 
 import { PageId, RoutePaths } from './routes';
 
-const getPlaygroundPageRouteDefs = () => {
-  return [
-    {
-      path: RoutePaths.playgroundPage,
-      element: createLazyRouteElement(() => import('./pages/playground/PlaygroundPage')),
-      pageId: PageId.playgroundPage,
-      handle: {
-        getPageTitle: () => 'Playground',
-      } satisfies RouteHandle,
-    },
-  ];
-};
-
 const getPromptPagesRouteDefs = () => {
   return [
     {
@@ -226,6 +213,14 @@ const getExperimentPageRouteDefs = () => {
           } satisfies RouteHandle,
         },
         {
+          path: RoutePaths.experimentPageTabPlayground,
+          pageId: PageId.experimentPageTabPlayground,
+          element: createLazyRouteElement(() => import('./pages/playground/PlaygroundPage')),
+          handle: {
+            getPageTitle: (params) => `Playground - Experiment ${params['experimentId']}`,
+          } satisfies RouteHandle,
+        },
+        {
           path: RoutePaths.experimentPageTabPrompts,
           pageId: PageId.experimentPageTabPrompts,
           element: createLazyRouteElement(() => {
@@ -405,5 +400,4 @@ export const getRouteDefs = () => [
     } satisfies RouteHandle,
   },
   ...getPromptPagesRouteDefs(),
-  ...getPlaygroundPageRouteDefs(),
 ];
