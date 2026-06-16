@@ -88,6 +88,19 @@ garbageCollection:
   schedule: "0 2 * * 0"
   olderThan: "30d"
 
+# Database migrations (recommended for production)
+# Runs `mlflow db upgrade` before each install/upgrade
+migrations:
+  enabled: true
+  # Adjust resources if your database migrations are heavy
+  resources:
+    requests:
+      cpu: 300m
+      memory: 768Mi
+    limits:
+      cpu: 1000m
+      memory: 1.5Gi
+
 resources:
   requests:
     cpu: 500m
