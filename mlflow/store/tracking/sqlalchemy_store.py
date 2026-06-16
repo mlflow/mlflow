@@ -8516,7 +8516,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
             if existing is not None:
                 raise MlflowException(
-                    f"Review queue with name '{validated.name}' already exists.",
+                    f"Review queue with name '{validated.name}' already exists "
+                    "(names are case-insensitive).",
                     error_code=RESOURCE_ALREADY_EXISTS,
                 )
             try:
@@ -8551,7 +8552,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 if duplicate is not None:
                     # A parallel transaction won the create race.
                     raise MlflowException(
-                        f"Review queue with name '{validated.name}' already exists.",
+                        f"Review queue with name '{validated.name}' already exists "
+                        "(names are case-insensitive).",
                         error_code=RESOURCE_ALREADY_EXISTS,
                     ) from e
                 experiment_present = (
@@ -8780,7 +8782,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 if renamed_to is None:
                     raise
                 raise MlflowException(
-                    f"Review queue with name '{renamed_to}' already exists.",
+                    f"Review queue with name '{renamed_to}' already exists "
+                    "(names are case-insensitive).",
                     error_code=RESOURCE_ALREADY_EXISTS,
                 ) from e
             return self._hydrate_review_queues(session, [sql_queue])[0]
