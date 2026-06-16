@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import subprocess
@@ -7,7 +8,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from mlflow.assistant.config import AssistantConfig, ProjectConfig
@@ -23,6 +24,8 @@ from mlflow.assistant.providers.base import (
 from mlflow.assistant.types import Event, Message, ToolUseBlock
 from mlflow.server.assistant.api import (
     PermissionDecision,
+    _INVALID_REMOTE_ACCESS_MODES_WARNED,
+    _AssistantAPIRoute,
     _enforce_remote_access,
     _is_localhost,
     _provider_allows_remote_access,
@@ -287,6 +290,14 @@ def test_get_config_keeps_api_key_for_localhost(client):
     assert response.json()["providers"]["claude_code"]["api_key"] == "sk-secret"
 
 
+def test_get_config_loads_config_once(client):
+    with patch.object(AssistantConfig, "load", wraps=AssistantConfig.load) as mock_load:
+        response = client.get("/ajax-api/3.0/mlflow/assistant/config")
+
+    assert response.status_code == 200
+    assert mock_load.call_count == 1
+
+
 @pytest.mark.parametrize(
     ("mode", "requires_local_execution", "expected"),
     [
@@ -308,7 +319,8 @@ def test_get_config_remote_chat_allowed(
     assert response.json()["remote_chat_allowed"] is expected
 
 
-def test_message_blocked_for_remote_client_when_remote_access_off():
+def test_message_blocked_for_remote_client_when_remote_access_off(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "off")
     app = FastAPI()
     app.include_router(assistant_router)
 
@@ -323,6 +335,29 @@ def test_message_blocked_for_remote_client_when_remote_access_off():
             "/ajax-api/3.0/mlflow/assistant/message",
             json={"message": "Hello"},
         )
+
+    assert response.status_code == 403
+    assert "same host" in response.json()["detail"]
+
+
+def test_assistant_route_enforces_remote_access_by_default(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "off")
+
+    app = FastAPI()
+    router = APIRouter(prefix="/assistant", route_class=_AssistantAPIRoute)
+
+    @router.get("/unguarded")
+    async def unguarded_route():
+        return {"status": "ok"}
+
+    app.include_router(router)
+
+    mock_provider = MockProvider()
+    with (
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=mock_provider),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=False),
+    ):
+        response = TestClient(app).get("/assistant/unguarded")
 
     assert response.status_code == 403
     assert "same host" in response.json()["detail"]
@@ -453,6 +488,24 @@ def test_invalid_remote_access_mode_falls_back_to_off(monkeypatch):
     provider = MagicMock()
     provider.requires_local_execution = False
     assert _provider_allows_remote_access(provider) is False
+
+
+def test_invalid_remote_access_mode_logs_warning_once(monkeypatch, caplog):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "bogus")
+    _INVALID_REMOTE_ACCESS_MODES_WARNED.clear()
+    provider = MagicMock()
+    provider.requires_local_execution = False
+    assistant_logger = logging.getLogger("mlflow.server.assistant.api")
+    assistant_logger.addHandler(caplog.handler)
+
+    try:
+        with caplog.at_level("WARNING", logger="mlflow.server.assistant.api"):
+            assert _provider_allows_remote_access(provider) is False
+            assert _provider_allows_remote_access(provider) is False
+    finally:
+        assistant_logger.removeHandler(caplog.handler)
+
+    assert sum("Invalid value 'bogus'" in record.message for record in caplog.records) == 1
 
 
 def test_enforce_remote_access_allows_localhost_regardless_of_mode(monkeypatch):
