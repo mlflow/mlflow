@@ -54,6 +54,11 @@ class AssistantProvider(ABC):
     def is_available(self) -> bool:
         """Check if the provider is available and ready to use."""
 
+    @property
+    def requires_local_execution(self) -> bool:
+        """Whether this provider must run on the same host as the MLflow server."""
+        return True
+
     @abstractmethod
     def check_connection(self, echo: Callable[[str], None] | None = None) -> None:
         """
