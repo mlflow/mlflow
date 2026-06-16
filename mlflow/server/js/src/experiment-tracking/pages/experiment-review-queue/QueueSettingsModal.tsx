@@ -182,6 +182,10 @@ export const QueueSettingsModal = ({
     [queue.users, owner],
   );
   const membersChanged = members.size !== originalMembers.size || [...originalMembers].some((m) => !members.has(m));
+  const originalSchemaIds = useMemo(() => new Set(queue.schema_ids ?? []), [queue.schema_ids]);
+  const questionsChanged =
+    selectedSchemaIds.size !== originalSchemaIds.size ||
+    [...originalSchemaIds].some((id) => !selectedSchemaIds.has(id));
 
   const handleSave = async () => {
     try {
@@ -195,9 +199,11 @@ export const QueueSettingsModal = ({
         ...(membersChanged ? { users: Array.from(new Set([...(owner ? [owner] : []), ...members])) } : {}),
         ...(nameChanged ? { name: trimmedName } : {}),
         ...(ownerChanged ? { new_owner: trimmedNewOwner } : {}),
-        // Only send schema_ids when they're still editable; once the queue has
-        // traces (or the user lacks MANAGE) the backend freezes them.
-        ...(canEditQuestions ? { schema_ids: [...selectedSchemaIds] } : {}),
+        // Only send schema_ids when they're still editable AND actually changed:
+        // once the queue has traces (or the user lacks MANAGE) the backend freezes
+        // them, and a no-op rewrite would needlessly re-write the whole association
+        // set and clobber a concurrent question edit.
+        ...(canEditQuestions && questionsChanged ? { schema_ids: [...selectedSchemaIds] } : {}),
       });
       onClose();
     } catch (e) {

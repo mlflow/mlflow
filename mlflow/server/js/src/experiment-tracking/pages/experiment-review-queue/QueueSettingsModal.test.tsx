@@ -11,7 +11,25 @@ import Utils from '../../../common/utils/Utils';
 
 // The questions checklist and rich previews aren't under test here — the focus is
 // the schema-freeze save logic — so stub them out.
-jest.mock('./QuestionChecklistCombobox', () => ({ QuestionChecklistCombobox: () => null }));
+jest.mock('./QuestionChecklistCombobox', () => ({
+  // Expose `onToggle` per schema via buttons so a test can change the selected
+  // questions (toggle one off, another on, etc.).
+  QuestionChecklistCombobox: ({
+    schemas,
+    onToggle,
+  }: {
+    schemas: { schema_id: string }[];
+    onToggle: (id: string) => void;
+  }) => (
+    <>
+      {schemas.map((s) => (
+        <button key={s.schema_id} type="button" onClick={() => onToggle(s.schema_id)}>
+          {`toggle-question-${s.schema_id}`}
+        </button>
+      ))}
+    </>
+  ),
+}));
 // Stub the owner picker (its own UX is covered in OwnerCombobox.test.tsx): expose a
 // button that selects a fixed user, and keep the real reviewers picker the only
 // combobox so `getByRole('combobox')` stays unambiguous.
@@ -24,7 +42,10 @@ jest.mock('./OwnerCombobox', () => ({
 }));
 jest.mock('../../components/label-schemas', () => ({
   useListLabelSchemasQuery: () => ({
-    labelSchemas: [{ schema_id: 's1', name: 'Q1', type: 'FEEDBACK', input: { text: {} }, enable_comment: true }],
+    labelSchemas: [
+      { schema_id: 's1', name: 'Q1', type: 'FEEDBACK', input: { text: {} }, enable_comment: true },
+      { schema_id: 's2', name: 'Q2', type: 'FEEDBACK', input: { text: {} }, enable_comment: true },
+    ],
     isLoading: false,
   }),
   LabelSchemaInputRenderer: () => null,
@@ -96,12 +117,38 @@ describe('QueueSettingsModal save', () => {
       .mockImplementation(() => {});
   });
 
-  it('sends schema_ids when the queue has no traces (questions editable)', async () => {
+  it('omits schema_ids on a no-op save even when questions are editable', async () => {
+    // Editable but unchanged: re-writing the whole schema set would be needless
+    // churn and could clobber a concurrent question edit, so it's omitted.
     mockTraces = [];
     renderModal();
     fireEvent.click(screen.getByText('Save'));
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
-    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ queue_id: 'rq-1', schema_ids: ['s1'] }));
+    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    expect('schema_ids' in arg).toBe(false);
+    expect(arg).toMatchObject({ queue_id: 'rq-1' });
+  });
+
+  it('sends schema_ids only when the questions actually change', async () => {
+    mockTraces = [];
+    renderModal();
+    // Toggle the one selected question off, changing the set from ['s1'] to [].
+    fireEvent.click(screen.getByText('toggle-question-s1'));
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ queue_id: 'rq-1', schema_ids: [] }));
+  });
+
+  it('detects a same-size question swap (different members, not just count)', async () => {
+    // Swap s1 -> s2: the set stays size 1 but its membership changes, exercising
+    // the membership half of the change check (not just the size comparison).
+    mockTraces = [];
+    renderModal();
+    fireEvent.click(screen.getByText('toggle-question-s1'));
+    fireEvent.click(screen.getByText('toggle-question-s2'));
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ queue_id: 'rq-1', schema_ids: ['s2'] }));
   });
 
   it('omits schema_ids once the queue has traces (questions frozen)', async () => {
@@ -164,6 +211,8 @@ describe('QueueSettingsModal save', () => {
     expect('users' in arg).toBe(false);
     expect('name' in arg).toBe(false);
     expect('new_owner' in arg).toBe(false);
+    // Likewise the unchanged questions aren't rewritten.
+    expect('schema_ids' in arg).toBe(false);
   });
 
   it('toasts the error and keeps the modal open when the save fails', async () => {
