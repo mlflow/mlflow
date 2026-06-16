@@ -12,6 +12,7 @@ import {
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
   GearIcon,
+  InfoTooltip,
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
@@ -51,6 +52,18 @@ const DOTS_ANIMATION = {
   '66%': { content: '".."' },
   '100%': { content: '"..."' },
 };
+
+// Abbreviate token counts for the compact usage footer (e.g. 45257 -> "45.3K").
+const formatCompactTokens = (n: number): string =>
+  new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+
+// Sub-dollar estimates need more precision than cents (e.g. "$0.0045").
+const formatCostUsd = (cost: number): string =>
+  new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: cost < 1 ? 4 : 2,
+  }).format(cost);
 
 /**
  * Single chat message bubble.
@@ -264,7 +277,7 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage, cancelSession } =
+  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage, cancelSession, tokenUsage } =
     useAssistant();
   const logTelemetryEvent = useLogTelemetryEvent();
   const viewId = useMemo(() => uuidv4(), []);
@@ -418,6 +431,72 @@ const ChatPanelContent = () => {
             />
           </div>
           <AssistantContextTags />
+          {tokenUsage.totalTokens > 0 && (
+            <div
+              css={{
+                alignSelf: 'flex-end',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs,
+                paddingTop: theme.spacing.sm,
+              }}
+            >
+              <Typography.Text size="sm" color="secondary">
+                <FormattedMessage
+                  defaultMessage="{total} tokens"
+                  description="Compact per-session assistant token count shown near the chat input"
+                  values={{ total: formatCompactTokens(tokenUsage.totalTokens) }}
+                />
+                {tokenUsage.costUsd != null && (
+                  <>
+                    {' · '}
+                    <FormattedMessage
+                      defaultMessage="~{cost}"
+                      description="Estimated session cost; the leading tilde marks it as an approximate estimate"
+                      values={{ cost: formatCostUsd(tokenUsage.costUsd) }}
+                    />
+                  </>
+                )}
+              </Typography.Text>
+              <InfoTooltip
+                componentId="mlflow.assistant.chat_panel.usage_info"
+                content={
+                  <div
+                    css={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: theme.spacing.xs,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    <span>
+                      <FormattedMessage
+                        defaultMessage="Input {input} · Output {output} tokens"
+                        description="Breakdown of session token usage into input (prompt) and output (completion) tokens"
+                        values={{
+                          input: tokenUsage.promptTokens.toLocaleString(),
+                          output: tokenUsage.completionTokens.toLocaleString(),
+                        }}
+                      />
+                    </span>
+                    <span>
+                      {tokenUsage.costUsd != null ? (
+                        <FormattedMessage
+                          defaultMessage="Estimated from public model pricing; actual cost may vary (provider and cache rates)."
+                          description="Disclaimer clarifying that the displayed assistant cost is an estimate"
+                        />
+                      ) : (
+                        <FormattedMessage
+                          defaultMessage="Cost estimate unavailable for this model."
+                          description="Shown when the assistant's model is not in the pricing catalog so cost cannot be estimated"
+                        />
+                      )}
+                    </span>
+                  </div>
+                }
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -193,6 +193,7 @@ async def test_chat_stream():
         chunk1.object = "chat.completion.chunk"
         chunk1.created = 1234567890
         chunk1.model = "claude-3-5-sonnet-20241022"
+        chunk1.usage = None
         choice1 = mock.MagicMock()
         choice1.index = 0
         choice1.delta = mock.MagicMock(spec=["role", "content"])
@@ -207,6 +208,7 @@ async def test_chat_stream():
         chunk2.object = "chat.completion.chunk"
         chunk2.created = 1234567890
         chunk2.model = "claude-3-5-sonnet-20241022"
+        chunk2.usage = None
         choice2 = mock.MagicMock()
         choice2.index = 0
         choice2.delta = mock.MagicMock(spec=["content"])
@@ -214,6 +216,19 @@ async def test_chat_stream():
         choice2.finish_reason = "stop"
         chunk2.choices = [choice2]
         yield chunk2
+
+        # Final usage-only chunk (litellm emits this when include_usage is set).
+        chunk3 = mock.MagicMock()
+        chunk3.id = "chunk-3"
+        chunk3.object = "chat.completion.chunk"
+        chunk3.created = 1234567890
+        chunk3.model = "claude-3-5-sonnet-20241022"
+        chunk3.choices = []
+        chunk3.usage = mock.MagicMock()
+        chunk3.usage.prompt_tokens = 10
+        chunk3.usage.completion_tokens = 20
+        chunk3.usage.total_tokens = 30
+        yield chunk3
 
     with mock.patch("litellm.acompletion", return_value=mock_stream()) as mock_completion:
         provider = LiteLLMProvider(EndpointConfig(**config), enable_tracing=True)
@@ -224,14 +239,46 @@ async def test_chat_stream():
 
         chunks = [chunk async for chunk in provider.chat_stream(chat.RequestPayload(**payload))]
 
-        assert len(chunks) == 2
+        assert len(chunks) == 3
         assert chunks[0].choices[0].delta.content == "Hello"
         assert chunks[1].choices[0].delta.content == " world"
         assert chunks[1].choices[0].finish_reason == "stop"
+        # Final chunk forwards token usage instead of content.
+        assert chunks[2].usage.prompt_tokens == 10
+        assert chunks[2].usage.completion_tokens == 20
+        assert chunks[2].usage.total_tokens == 30
 
         # Verify stream parameter was set
         call_kwargs = mock_completion.call_args[1]
         assert call_kwargs["stream"] is True
+        assert call_kwargs["stream_options"]["include_usage"] is True
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_requests_usage_without_tracing():
+    config = chat_config()
+
+    async def mock_stream():
+        chunk = mock.MagicMock()
+        chunk.id = "chunk-1"
+        chunk.object = "chat.completion.chunk"
+        chunk.created = 1234567890
+        chunk.model = "claude-3-5-sonnet-20241022"
+        chunk.usage = None
+        choice = mock.MagicMock()
+        choice.index = 0
+        choice.delta = mock.MagicMock(spec=["content"])
+        choice.delta.content = "Hi"
+        choice.finish_reason = "stop"
+        chunk.choices = [choice]
+        yield chunk
+
+    with mock.patch("litellm.acompletion", return_value=mock_stream()) as mock_completion:
+        provider = LiteLLMProvider(EndpointConfig(**config), enable_tracing=False)
+        payload = {"messages": [{"role": "user", "content": "Hello"}], "stream": True}
+        _ = [chunk async for chunk in provider.chat_stream(chat.RequestPayload(**payload))]
+
+        call_kwargs = mock_completion.call_args[1]
         assert call_kwargs["stream_options"]["include_usage"] is True
 
 

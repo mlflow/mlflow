@@ -30,6 +30,7 @@ jest.mock('./AssistantContext', () => ({
     setupComplete: true,
     isLoadingConfig: false,
     isLocalServer: true,
+    tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null },
     openPanel: jest.fn(),
     closePanel: jest.fn(),
     sendMessage: mockSendMessage,

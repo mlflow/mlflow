@@ -8,11 +8,13 @@ from mlflow.assistant.providers.base import clear_config_cache
 from mlflow.assistant.providers.openai_compatible import (
     _MAX_SESSION_BYTES,
     OpenAICompatibleProvider,
+    _build_usage_event,
     _merge_tool_call_chunk,
     _strip_think_blocks,
     _trim_session,
 )
 from mlflow.assistant.types import EventType
+from mlflow.tracing.constant import CostKey, TokenUsageKey
 
 # ---------------------------------------------------------------------------
 # aiohttp mock helpers
@@ -195,6 +197,53 @@ def test_trim_session_drops_oldest_keeping_system():
     assert trimmed[0]["role"] == "system"
     assert trimmed[-1]["content"].startswith("new-")
     assert not any(m["content"].startswith("old-") for m in trimmed[1:])
+
+
+def test_build_usage_event_remaps_cache_tokens_and_prices():
+    usage = {
+        "prompt_tokens": 35257,
+        "completion_tokens": 5,
+        "total_tokens": 35262,
+        "prompt_tokens_details": {"cached_tokens": 100},
+        "cache_creation_input_tokens": 35155,
+    }
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.calculate_cost_by_model_and_token_usage",
+        return_value={CostKey.TOTAL_COST: 0.1319},
+    ) as mock_cost:
+        event = _build_usage_event(usage, "claude-3-5-sonnet")
+
+    mock_cost.assert_called_once_with(
+        "claude-3-5-sonnet",
+        {
+            TokenUsageKey.INPUT_TOKENS: 35257,
+            TokenUsageKey.OUTPUT_TOKENS: 5,
+            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 100,
+            TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 35155,
+        },
+    )
+    assert event.type == EventType.STREAM_EVENT
+    assert event.data["event"]["usage"] == {
+        "prompt_tokens": 35257,
+        "completion_tokens": 5,
+        "total_tokens": 35262,
+        "total_cost_usd": 0.1319,
+    }
+
+
+def test_build_usage_event_cost_none_when_model_not_priced():
+    usage = {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.calculate_cost_by_model_and_token_usage",
+        return_value=None,
+    ) as mock_cost:
+        event = _build_usage_event(usage, "local-ollama-model")
+
+    mock_cost.assert_called_once_with(
+        "local-ollama-model",
+        {TokenUsageKey.INPUT_TOKENS: 10, TokenUsageKey.OUTPUT_TOKENS: 5},
+    )
+    assert event.data["event"]["usage"]["total_cost_usd"] is None
 
 
 # ---------------------------------------------------------------------------

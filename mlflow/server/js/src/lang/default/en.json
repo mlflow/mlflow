@@ -2443,6 +2443,10 @@
     "defaultMessage": "Confirm new password",
     "description": "Placeholder for the confirm-password input"
   },
+  "BOm6XU": {
+    "defaultMessage": "Input {input} · Output {output} tokens",
+    "description": "Breakdown of session token usage into input (prompt) and output (completion) tokens"
+  },
   "BOz0T2": {
     "defaultMessage": "Select metric",
     "description": "Placeholder text for a metric selector when configuring a line chart"
@@ -4675,6 +4679,10 @@
     "defaultMessage": "System metrics",
     "description": "Run details page > tab selector > System metrics tab"
   },
+  "OcN222": {
+    "defaultMessage": "Cost estimate unavailable for this model.",
+    "description": "Shown when the assistant's model is not in the pricing catalog so cost cannot be estimated"
+  },
   "OcYzCN": {
     "defaultMessage": "Unresolved",
     "description": "Label for a user_frustration assessment with 'unresolved' value"
@@ -4922,6 +4930,10 @@
   "Px7S/2": {
     "defaultMessage": "Close",
     "description": "Close button"
+  },
+  "PzthYE": {
+    "defaultMessage": "Estimated from public model pricing; actual cost may vary (provider and cache rates).",
+    "description": "Disclaimer clarifying that the displayed assistant cost is an estimate"
   },
   "Q/QcTS": {
     "defaultMessage": "Save",
@@ -7475,6 +7487,10 @@
     "defaultMessage": "You cannot select rows when comparing runs",
     "description": "Tooltip message for the select button when comparing runs"
   },
+  "dstY0o": {
+    "defaultMessage": "{total} tokens",
+    "description": "Compact per-session assistant token count shown near the chat input"
+  },
   "dt3hj5": {
     "defaultMessage": "Add tags",
     "description": "Run page > Overview > Tags cell > 'Add' button label"
@@ -9882,6 +9898,10 @@
   "qNCHNh": {
     "defaultMessage": "Select model",
     "description": "Model selector modal title"
+  },
+  "qNOKur": {
+    "defaultMessage": "~{cost}",
+    "description": "Estimated session cost; the leading tilde marks it as an approximate estimate"
   },
   "qNaoD5": {
     "defaultMessage": "Cannot be changed after creation.",

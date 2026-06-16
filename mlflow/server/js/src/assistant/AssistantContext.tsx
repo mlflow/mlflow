@@ -5,7 +5,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type { AssistantAgentContextType, ChatMessage, ToolUseInfo } from './types';
+import type { AssistantAgentContextType, ChatMessage, ToolUseInfo, TokenUsage } from './types';
 import { cancelSession as cancelSessionApi, sendMessageStream, getConfig } from './AssistantService';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useAssistantPageContextActions } from './AssistantPageContext';
@@ -42,6 +42,12 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage>({
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    costUsd: null,
+  });
 
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
@@ -111,6 +117,25 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const handleToolUse = useCallback((tools: ToolUseInfo[]) => {
     setActiveTools(tools);
   }, []);
+
+  const handleUsage = useCallback(
+    (usage: {
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+      total_cost_usd?: number | null;
+    }) => {
+      setTokenUsage((prev) => ({
+        promptTokens: prev.promptTokens + (usage.prompt_tokens ?? 0),
+        completionTokens: prev.completionTokens + (usage.completion_tokens ?? 0),
+        totalTokens: prev.totalTokens + (usage.total_tokens ?? 0),
+        // Accumulate cost only from priced turns; stays null until the first
+        // numeric estimate arrives so unpriced models render no cost at all.
+        costUsd: usage.total_cost_usd == null ? prev.costUsd : (prev.costUsd ?? 0) + usage.total_cost_usd,
+      }));
+    },
+    [],
+  );
 
   // Setup actions
   const refreshConfig = useCallback(async () => {
@@ -198,6 +223,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setMessages([]);
     setIsStreaming(false);
     setError(null);
+    setTokenUsage({ promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null });
     streamingMessageRef.current = '';
   }, []);
 
@@ -249,6 +275,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
             onSessionId: handleSessionId,
             onToolUse: handleToolUse,
             onInterrupted: handleInterrupted,
+            onUsage: handleUsage,
           },
         );
         eventSourceRef.current = result.eventSource;
@@ -266,6 +293,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       handleSessionId,
       handleToolUse,
       handleInterrupted,
+      handleUsage,
     ],
   );
 
@@ -320,6 +348,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           onSessionId: handleSessionId,
           onToolUse: handleToolUse,
           onInterrupted: handleInterrupted,
+          onUsage: handleUsage,
         },
       );
       eventSourceRef.current = result.eventSource;
@@ -335,6 +364,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       handleSessionId,
       handleToolUse,
       handleInterrupted,
+      handleUsage,
     ],
   );
 
@@ -457,6 +487,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setupComplete,
     isLoadingConfig,
     isLocalServer,
+    tokenUsage,
     // Actions
     openPanel,
     closePanel,
@@ -483,6 +514,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   setupComplete: false,
   isLoadingConfig: false,
   isLocalServer: false,
+  tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null },
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},

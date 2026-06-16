@@ -53,6 +53,18 @@ export interface KnownAssistantContext {
 /** All known context keys */
 export type AssistantContextKey = keyof KnownAssistantContext;
 
+/** Cumulative token usage reported by the provider for the current session. */
+export interface TokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  /**
+   * Estimated cumulative cost in USD, or null when no turn could be priced
+   * (e.g. local/unknown models absent from the pricing catalog).
+   */
+  costUsd: number | null;
+}
+
 export interface AssistantAgentState {
   /** Whether the Assistant panel is open */
   isPanelOpen: boolean;
@@ -74,6 +86,8 @@ export interface AssistantAgentState {
   isLoadingConfig: boolean;
   /** Whether the server is running locally (localhost) */
   isLocalServer: boolean;
+  /** Cumulative token usage for the session (best-effort; only some providers report it) */
+  tokenUsage: TokenUsage;
 }
 
 export interface AssistantAgentActions {

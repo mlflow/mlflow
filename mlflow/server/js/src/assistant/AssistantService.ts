@@ -107,6 +107,12 @@ export interface SendMessageStreamCallbacks {
   onSessionId?: (sessionId: string) => void;
   onToolUse?: (tools: ToolUseInfo[]) => void;
   onInterrupted?: () => void;
+  onUsage?: (usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    total_cost_usd?: number | null;
+  }) => void;
 }
 
 export interface SendMessageStreamResult {
@@ -122,7 +128,7 @@ export const sendMessageStream = async (
   request: MessageRequest,
   callbacks: SendMessageStreamCallbacks,
 ): Promise<SendMessageStreamResult> => {
-  const { onMessage, onError, onDone, onStatus, onSessionId, onToolUse, onInterrupted } = callbacks;
+  const { onMessage, onError, onDone, onStatus, onSessionId, onToolUse, onInterrupted, onUsage } = callbacks;
 
   try {
     // Step 1: POST the message to initiate processing
@@ -188,6 +194,8 @@ export const sendMessageStream = async (
             onMessage(data.event.delta.text);
           } else if (data.event.type === 'status') {
             onStatus?.(data.event.status);
+          } else if (data.event.type === 'usage' && data.event.usage) {
+            onUsage?.(data.event.usage);
           }
         }
       } catch (err) {
