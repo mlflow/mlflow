@@ -63,8 +63,9 @@ jest.mock('./hooks/useGetOrCreateUserQueueMutation', () => ({
   }),
 }));
 
+let mockUsersError: Error | null = null;
 jest.mock('./hooks/useAssignableUsersQuery', () => ({
-  useAssignableUsersQuery: () => ({ users: [], isLoading: false }),
+  useAssignableUsersQuery: () => ({ users: [], isLoading: false, error: mockUsersError }),
 }));
 // The experiment's queues (the unfiltered call). One assignable CUSTOM queue
 // (its schema_id resolves against the experiment schema below), so tests can
@@ -117,6 +118,7 @@ describe('AddToReviewQueueDropdown', () => {
     mockAuthAvailable = false;
     mockCanEdit = true;
     mockCanManage = false;
+    mockUsersError = null;
     mockMemberQueues = [];
     mockMembersLoading = false;
     mockListQueues = [
@@ -148,6 +150,17 @@ describe('AddToReviewQueueDropdown', () => {
     expect(screen.queryByText('Default queue')).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Trigger'));
     expect(screen.getByText('Default queue')).toBeInTheDocument();
+  });
+
+  it('surfaces a failed user-roster load in the Users section instead of an empty state', () => {
+    // On an auth server the Users section lists assignable users; a failed load
+    // must show the error rather than the "Search by name" prompt (which would
+    // otherwise mask the failure until the reviewer types).
+    mockAuthAvailable = true;
+    mockUsersError = new Error('boom');
+    renderDropdown({ open: true });
+    expect(screen.getByText(/couldn't load users/i)).toBeInTheDocument();
+    expect(screen.queryByText(/search by name to add/i)).not.toBeInTheDocument();
   });
 
   it('immediately adds traces when a queue is clicked and shows a toast', async () => {

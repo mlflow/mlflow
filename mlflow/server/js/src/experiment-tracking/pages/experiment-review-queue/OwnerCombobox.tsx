@@ -38,6 +38,7 @@ export const OwnerCombobox = ({
   disabled,
   dropdownZIndex,
   isLoading,
+  error,
 }: {
   componentId: string;
   usernames: string[];
@@ -47,6 +48,8 @@ export const OwnerCombobox = ({
   dropdownZIndex?: number;
   /** Whether the assignable-user roster is still loading (drives the empty state). */
   isLoading?: boolean;
+  /** Set when the roster failed to load; shown in place of the empty state. */
+  error?: Error | null;
 }) => {
   const intl = useIntl();
   const [search, setSearch] = useState('');
@@ -126,7 +129,14 @@ export const OwnerCombobox = ({
                   <DialogComboboxEmpty
                     key="__empty"
                     emptyText={
-                      query ? (
+                      // Error first: a failed roster load otherwise reads as an
+                      // empty roster ("No assignable users"), hiding the error.
+                      error ? (
+                        <FormattedMessage
+                          defaultMessage="Couldn't load users. Try again."
+                          description="Review queue: owner roster failed to load"
+                        />
+                      ) : query ? (
                         <FormattedMessage
                           defaultMessage="No matching users"
                           description="Review queue: no users match the owner search"

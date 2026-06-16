@@ -52,6 +52,7 @@ export const ReviewerChecklistCombobox = ({
   disabled,
   dropdownZIndex,
   isLoading,
+  error,
   maxSelected,
 }: {
   componentId: string;
@@ -64,6 +65,8 @@ export const ReviewerChecklistCombobox = ({
   dropdownZIndex?: number;
   /** Whether the assignable-user roster is still loading (gates the initial seed). */
   isLoading?: boolean;
+  /** Set when the roster failed to load; shown in place of the empty state. */
+  error?: Error | null;
   /** Max reviewers selectable; unchecked rows disable once this many are checked. */
   maxSelected?: number;
 }) => {
@@ -222,7 +225,14 @@ export const ReviewerChecklistCombobox = ({
                   <DialogComboboxEmpty
                     key="__empty"
                     emptyText={
-                      query ? (
+                      // Error first: a failed roster load otherwise reads as an
+                      // empty roster ("No assignable reviewers"), hiding the error.
+                      error ? (
+                        <FormattedMessage
+                          defaultMessage="Couldn't load reviewers. Try again."
+                          description="Review queue: reviewers roster failed to load"
+                        />
+                      ) : query ? (
                         <FormattedMessage
                           defaultMessage="No matching reviewers"
                           description="Review queue: no reviewers match the search"

@@ -118,7 +118,11 @@ export const AddToReviewQueueDropdown = ({
     error: queuesError,
   } = useListReviewQueuesQuery({ experimentId, enabled: isOpen || createOpen });
   const { labelSchemas } = useListLabelSchemasQuery({ experimentId, enabled: isOpen || createOpen });
-  const { users, isLoading: usersLoading } = useAssignableUsersQuery({
+  const {
+    users,
+    isLoading: usersLoading,
+    error: usersError,
+  } = useAssignableUsersQuery({
     enabled: (isOpen || createOpen) && canListUsers,
   });
   const { addItemsToReviewQueueAsync, reset: resetAdd } = useAddItemsToReviewQueueMutation();
@@ -561,7 +565,18 @@ export const AddToReviewQueueDropdown = ({
                             {username}
                           </DialogComboboxOptionListCheckboxItem>
                         ))}
-                        {!query ? (
+                        {usersError ? (
+                          // Error first: otherwise a failed roster load reads as the
+                          // search prompt or "No matching users", hiding the failure.
+                          <DialogComboboxEmpty
+                            emptyText={
+                              <FormattedMessage
+                                defaultMessage="Couldn't load users. Try again."
+                                description="Add to review queue: users roster failed to load"
+                              />
+                            }
+                          />
+                        ) : !query ? (
                           <DialogComboboxEmpty
                             emptyText={
                               <FormattedMessage
