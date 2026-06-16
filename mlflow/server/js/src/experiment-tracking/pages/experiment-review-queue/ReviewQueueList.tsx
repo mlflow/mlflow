@@ -322,7 +322,7 @@ export const ReviewQueueList = ({
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: theme.spacing.sm }}>
-      {(title || selectable || onManageQueue || onDeleteQueue) && (
+      {(title || selectable || onCopyLink || onManageQueue || onDeleteQueue) && (
         <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm }}>
           <div css={{ minWidth: 0 }}>
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs / 2, minWidth: 0 }}>
