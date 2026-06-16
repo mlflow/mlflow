@@ -61,7 +61,7 @@ export const PlaygroundTopBar = ({
         componentIdPrefix="mlflow.playground.endpoint-selector"
         currentEndpointName={endpointName}
         onEndpointSelect={onEndpointSelect}
-        showCreateButton={false}
+        showCreateButton
         triggerMaxWidth={400}
       />
       <ParametersButton
