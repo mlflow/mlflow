@@ -458,7 +458,9 @@ describe('wal/exporter', () => {
 
     const record = submit.mock.calls[0][0];
     expect(typeof record.otlpSpans).toBe('string');
-    expect(Buffer.from(record.otlpSpans as string, 'base64').length).toBeGreaterThan(0);
+    const decoded = Buffer.from(record.otlpSpans as string, 'base64');
+    expect(decoded[0]).toBe(0x0a);
+    expect(decoded.includes(Buffer.from('tool-call'))).toBe(true);
   });
 
   it('warns and submits without otlpSpans when OTLP serialization throws', async () => {
