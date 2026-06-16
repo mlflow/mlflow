@@ -153,36 +153,36 @@ def test_same_name_different_experiments_coexist(store):
 
 def test_create_custom_queue_accepts_users_at_cap(store):
     exp_id = _create_experiments(store, "cap_at_limit")
-    queue = store.create_review_queue(
-        exp_id, name="full", queue_type="custom", users=["a", "b", "c", "d"]
-    )
-    assert queue.users == ["a", "b", "c", "d"]
+    at_cap = [f"u{i}" for i in range(10)]
+    queue = store.create_review_queue(exp_id, name="full", queue_type="custom", users=at_cap)
+    assert queue.users == at_cap
 
 
 def test_create_custom_queue_rejects_users_over_cap(store):
     exp_id = _create_experiments(store, "cap_over")
-    with pytest.raises(MlflowException, match="at most 4 assigned users") as exc:
+    with pytest.raises(MlflowException, match="at most 10 assigned users") as exc:
         store.create_review_queue(
-            exp_id, name="too_many", queue_type="custom", users=["a", "b", "c", "d", "e"]
+            exp_id, name="too_many", queue_type="custom", users=[f"u{i}" for i in range(11)]
         )
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
 
 
 def test_create_custom_queue_caps_after_dedup(store):
     exp_id = _create_experiments(store, "cap_dedup")
-    # Five raw users that de-duplicate to four are under the cap (the cap is
-    # checked on the de-duplicated set, not the raw input).
+    # 11 raw users that de-duplicate to 10 are accepted: the cap is checked on the
+    # de-duplicated set, not the raw input.
+    deduped = [f"u{i}" for i in range(10)]
     queue = store.create_review_queue(
-        exp_id, name="dupes", queue_type="custom", users=["a", "b", "c", "d", "a"]
+        exp_id, name="dupes", queue_type="custom", users=[*deduped, "u0"]
     )
-    assert queue.users == ["a", "b", "c", "d"]
+    assert queue.users == deduped
 
 
 def test_update_custom_queue_rejects_users_over_cap(store):
     exp_id = _create_experiments(store, "cap_update")
     queue = store.create_review_queue(exp_id, name="growing", queue_type="custom", users=["a"])
-    with pytest.raises(MlflowException, match="at most 4 assigned users") as exc:
-        store.update_review_queue(queue.queue_id, users=["a", "b", "c", "d", "e"])
+    with pytest.raises(MlflowException, match="at most 10 assigned users") as exc:
+        store.update_review_queue(queue.queue_id, users=[f"u{i}" for i in range(11)])
     _assert_error_code(exc, INVALID_PARAMETER_VALUE)
 
 
@@ -431,6 +431,114 @@ def test_update_questions_allowed_after_traces_detached(store):
     # With the queue empty again, questions can be edited.
     updated = store.update_review_queue(queue.queue_id, schema_ids=[ls1.schema_id, ls2.schema_id])
     assert sorted(updated.schema_ids) == sorted([ls1.schema_id, ls2.schema_id])
+
+
+def test_update_renames_custom_queue(store):
+    exp_id = _create_experiments(store, "rename")
+    queue = store.create_review_queue(exp_id, name="old name", queue_type="custom")
+    updated = store.update_review_queue(queue.queue_id, name="new name")
+    assert updated.name == "new name"
+    assert store.get_review_queue_by_name(exp_id, name="new name").queue_id == queue.queue_id
+
+
+def test_update_rename_leaves_associations_untouched(store):
+    exp_id = _create_experiments(store, "rename_partial")
+    ls = _pass_fail(store, exp_id, "quality")
+    queue = store.create_review_queue(
+        exp_id, name="before", queue_type="custom", users=["bob"], schema_ids=[ls.schema_id]
+    )
+    updated = store.update_review_queue(queue.queue_id, name="after")
+    assert updated.name == "after"
+    assert updated.users == ["bob"]
+    assert updated.schema_ids == [ls.schema_id]
+
+
+def test_update_rename_to_existing_name_raises(store):
+    exp_id = _create_experiments(store, "rename_clash")
+    store.create_review_queue(exp_id, name="taken", queue_type="custom")
+    queue = store.create_review_queue(exp_id, name="mine", queue_type="custom")
+    with pytest.raises(MlflowException, match="already exists") as exc:
+        store.update_review_queue(queue.queue_id, name="taken")
+    _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
+
+
+def test_update_rename_to_reserved_name_raises(store):
+    exp_id = _create_experiments(store, "rename_reserved")
+    queue = store.create_review_queue(exp_id, name="mine", queue_type="custom")
+    with pytest.raises(MlflowException, match="reserved queue name") as exc:
+        store.update_review_queue(queue.queue_id, name="default")
+    _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+
+
+def test_update_rename_to_same_name_is_noop(store):
+    exp_id = _create_experiments(store, "rename_same")
+    queue = store.create_review_queue(exp_id, name="stable", queue_type="custom")
+    updated = store.update_review_queue(queue.queue_id, name="stable")
+    assert updated.name == "stable"
+
+
+def test_update_rename_user_queue_raises(store):
+    exp_id = _create_experiments(store, "rename_user")
+    queue = store.create_review_queue(exp_id, name="alice", queue_type="user")
+    with pytest.raises(MlflowException, match="fixed and cannot be updated") as exc:
+        store.update_review_queue(queue.queue_id, name="renamed")
+    _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+
+
+# --------------------------------------------------------------------------
+# Owner reassignment (via update_review_queue new_owner)
+# --------------------------------------------------------------------------
+
+
+def test_change_owner_reassigns_custom_queue(store):
+    exp_id = _create_experiments(store, "chown")
+    queue = store.create_review_queue(exp_id, name="q", queue_type="custom", created_by="alice")
+    updated = store.update_review_queue(queue.queue_id, new_owner="bob")
+    assert updated.created_by == "bob"
+    assert store.get_review_queue(queue.queue_id).created_by == "bob"
+
+
+def test_change_owner_preserves_case(store):
+    exp_id = _create_experiments(store, "chown_case")
+    queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
+    updated = store.update_review_queue(queue.queue_id, new_owner="  Bob  ")
+    # Stripped but case-preserved (owner matching is case-insensitive elsewhere).
+    assert updated.created_by == "Bob"
+
+
+def test_change_owner_leaves_associations_untouched(store):
+    exp_id = _create_experiments(store, "chown_partial")
+    ls = _pass_fail(store, exp_id, "quality")
+    queue = store.create_review_queue(
+        exp_id, name="q", queue_type="custom", users=["bob"], schema_ids=[ls.schema_id]
+    )
+    updated = store.update_review_queue(queue.queue_id, new_owner="carol")
+    assert updated.created_by == "carol"
+    assert updated.name == "q"
+    assert updated.users == ["bob"]
+    assert updated.schema_ids == [ls.schema_id]
+
+
+def test_change_owner_user_queue_raises(store):
+    exp_id = _create_experiments(store, "chown_user")
+    queue = store.create_review_queue(exp_id, name="alice", queue_type="user")
+    with pytest.raises(MlflowException, match="fixed and cannot be updated") as exc:
+        store.update_review_queue(queue.queue_id, new_owner="bob")
+    _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+
+
+def test_change_owner_missing_queue_raises(store):
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.update_review_queue("rq-missing", new_owner="bob")
+    _assert_error_code(exc, RESOURCE_DOES_NOT_EXIST)
+
+
+def test_change_owner_rejects_empty(store):
+    exp_id = _create_experiments(store, "chown_empty")
+    queue = store.create_review_queue(exp_id, name="q", queue_type="custom")
+    with pytest.raises(MlflowException, match="non-empty string") as exc:
+        store.update_review_queue(queue.queue_id, new_owner="   ")
+    _assert_error_code(exc, INVALID_PARAMETER_VALUE)
 
 
 def test_update_questions_locks_queue_row_for_update(store):

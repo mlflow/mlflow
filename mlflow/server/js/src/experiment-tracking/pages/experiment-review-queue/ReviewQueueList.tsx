@@ -3,8 +3,10 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   Button,
   Checkbox,
+  CheckCircleIcon,
   DropdownMenu,
   GearIcon,
+  LinkOffIcon,
   NewWindowIcon,
   PlusIcon,
   SearchIcon,
@@ -15,12 +17,12 @@ import {
   TableHeader,
   TableRow,
   Tag,
-  TrashIcon,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 
 import { displayUser } from './hooks/useReviewer';
 import { ReviewQueueEmptyState } from './ReviewQueueEmptyState';
@@ -28,28 +30,80 @@ import type { ReviewQueueItem, ReviewStatus } from './types';
 
 const CID = 'mlflow.experiment-review-queue.list';
 
-const STATUS_META: Record<ReviewStatus, { color: 'turquoise' | 'lime' | 'charcoal' }> = {
-  PENDING: { color: 'turquoise' },
+const STATUS_META: Record<ReviewStatus, { color: 'turquoise' | 'lime' | 'charcoal' | 'lemon' }> = {
+  PENDING: { color: 'lemon' },
   DECLINED: { color: 'charcoal' },
   COMPLETE: { color: 'lime' },
 };
 
+const PendingDot = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <span
+      css={{
+        display: 'inline-block',
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        backgroundColor: theme.colors.yellow600,
+        flexShrink: 0,
+      }}
+    />
+  );
+};
+
 export const StatusTag = ({ status }: { status: ReviewStatus }) => {
+  const { theme } = useDesignSystemTheme();
   const label: Record<ReviewStatus, React.ReactNode> = {
     PENDING: <FormattedMessage defaultMessage="Needs review" description="Review queue status: pending" />,
-    COMPLETE: <FormattedMessage defaultMessage="Complete" description="Review queue status: complete" />,
+    COMPLETE: <FormattedMessage defaultMessage="Reviewed" description="Review queue status: complete" />,
     DECLINED: <FormattedMessage defaultMessage="Declined" description="Review queue status: declined" />,
   };
+  const icon: Record<ReviewStatus, React.ReactNode> = {
+    PENDING: <PendingDot />,
+    COMPLETE: <CheckCircleIcon />,
+    DECLINED: null,
+  };
   return (
-    <Tag componentId={`${CID}.status-tag`} color={STATUS_META[status].color}>
+    <Tag
+      componentId={`${CID}.status-tag`}
+      color={STATUS_META[status].color}
+      icon={icon[status]}
+      css={{ paddingLeft: theme.spacing.xs, paddingRight: theme.spacing.xs }}
+    >
       {label[status]}
     </Tag>
   );
 };
 
-const formatAgo = (ms: number, nowMs: number) => {
-  const hours = Math.max(1, Math.round((nowMs - ms) / (60 * 60 * 1000)));
-  return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
+const formatAgo = (ms: number, nowMs: number, intl: IntlShape) => {
+  // Floor each tier (not round): the label is "X ago", so it must never round up
+  // past its own threshold (e.g. 59.5 min must read "59m ago", not skip to "1h ago").
+  const seconds = Math.max(0, Math.floor((nowMs - ms) / 1000));
+  if (seconds < 60) {
+    return intl.formatMessage({
+      defaultMessage: 'just now',
+      description: 'Review queue table: date-added cell, less than a minute ago',
+    });
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return intl.formatMessage(
+      { defaultMessage: '{minutes}m ago', description: 'Review queue table: date-added cell, minutes ago' },
+      { minutes },
+    );
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return intl.formatMessage(
+      { defaultMessage: '{hours}h ago', description: 'Review queue table: date-added cell, hours ago' },
+      { hours },
+    );
+  }
+  return intl.formatMessage(
+    { defaultMessage: '{days}d ago', description: 'Review queue table: date-added cell, days ago' },
+    { days: Math.floor(hours / 24) },
+  );
 };
 
 type ColumnKey = 'request' | 'response' | 'status' | 'creation_time_ms';
@@ -92,6 +146,7 @@ export const ReviewQueueList = ({
   latestQuestionCreatedAtMs,
   onRemoveItems,
   isRemovingItems,
+  onCopyLink,
   onManageQueue,
   onDeleteQueue,
   onGoToTraces,
@@ -109,6 +164,10 @@ export const ReviewQueueList = ({
    *  so the queue's manager can remove traces from this view. */
   onRemoveItems?: (itemIds: string[]) => void;
   isRemovingItems?: boolean;
+  /** Copy a shareable link to this queue; `startReview` deep-links into the
+   *  focused review of the first to-do trace. Permission-free, so unlike the
+   *  manage/delete actions it's offered to every viewer. */
+  onCopyLink?: (opts: { startReview: boolean }) => void;
   /** When provided (editable custom queues only), a gear menu offers
    *  "Manage queue"; `onDeleteQueue`, when also provided, adds "Delete queue". */
   onManageQueue?: () => void;
@@ -254,21 +313,23 @@ export const ReviewQueueList = ({
             </Tag>
           )}
         </TableCell>
-        <TableCell css={{ flex: colFlex.get('creation_time_ms') }}>{formatAgo(item.creation_time_ms, nowMs)}</TableCell>
+        <TableCell css={{ flex: colFlex.get('creation_time_ms') }}>
+          {formatAgo(item.creation_time_ms, nowMs, intl)}
+        </TableCell>
       </TableRow>
     );
   };
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: theme.spacing.sm }}>
-      {(title || selectable || onManageQueue || onDeleteQueue) && (
+      {(title || selectable || onCopyLink || onManageQueue || onDeleteQueue) && (
         <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm }}>
           <div css={{ minWidth: 0 }}>
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs / 2, minWidth: 0 }}>
               <Typography.Title level={3} withoutMargins ellipsis css={{ minWidth: 0 }}>
                 {title}
               </Typography.Title>
-              {(onManageQueue || onDeleteQueue) && (
+              {(onCopyLink || onManageQueue || onDeleteQueue) && (
                 <DropdownMenu.Root modal={false}>
                   <DropdownMenu.Trigger asChild>
                     <Button
@@ -281,6 +342,28 @@ export const ReviewQueueList = ({
                     />
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="start">
+                    {onCopyLink && (
+                      <>
+                        <DropdownMenu.Item
+                          componentId={`${CID}.copy-link`}
+                          onClick={() => onCopyLink({ startReview: false })}
+                        >
+                          <FormattedMessage
+                            defaultMessage="Copy link to queue"
+                            description="Review queue header: copy shareable queue link menu item"
+                          />
+                        </DropdownMenu.Item>
+                        <DropdownMenu.Item
+                          componentId={`${CID}.copy-start-review-link`}
+                          onClick={() => onCopyLink({ startReview: true })}
+                        >
+                          <FormattedMessage
+                            defaultMessage="Copy start-review link"
+                            description="Review queue header: copy link that opens the first to-do trace for review"
+                          />
+                        </DropdownMenu.Item>
+                      </>
+                    )}
                     {/* A USER queue has no editable settings, so a manager sees
                         only "Delete queue"; CUSTOM queues show both. */}
                     {onManageQueue && (
@@ -320,20 +403,30 @@ export const ReviewQueueList = ({
             </Button>
           )}
           {selectable && selected.size > 0 && (
-            <Button
-              componentId={`${CID}.delete-selected`}
-              danger
-              icon={<TrashIcon />}
-              disabled={isRemovingItems}
-              loading={isRemovingItems}
-              onClick={handleDelete}
+            <Tooltip
+              componentId={`${CID}.unassign-selected.tooltip`}
+              content={intl.formatMessage(
+                {
+                  defaultMessage: 'Unassign {count, plural, one {# trace} other {# traces}} from the queue',
+                  description:
+                    'Review queue: tooltip explaining that the button removes the selected traces from the queue (the traces themselves are not deleted)',
+                },
+                { count: selected.size },
+              )}
             >
-              <FormattedMessage
-                defaultMessage="Remove {count, plural, one {# trace} other {# traces}}"
-                description="Review queue: remove selected traces button"
-                values={{ count: selected.size }}
-              />
-            </Button>
+              <Button
+                componentId={`${CID}.delete-selected`}
+                icon={<LinkOffIcon />}
+                disabled={isRemovingItems}
+                loading={isRemovingItems}
+                onClick={handleDelete}
+              >
+                <FormattedMessage
+                  defaultMessage="Unassign"
+                  description="Review queue: button that removes the selected traces from the queue (the traces themselves are not deleted)"
+                />
+              </Button>
+            </Tooltip>
           )}
         </div>
       )}

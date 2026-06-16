@@ -4689,10 +4689,8 @@ def _create_review_queue():
         "users": list(request_message.users),
         "schema_ids": list(request_message.schema_ids),
     }
-    # `created_by` is the queue owner and must be trustworthy — never honor the
-    # client's value. On an auth server it is the authenticated user (stamped on
-    # `flask.g` by the auth plugin); on a no-auth server it stays unset (owner is
-    # meaningless there).
+    # `created_by` is the owner: stamp it from the authenticated user, never the
+    # client. Stays unset on a no-auth server (owner is meaningless there).
     username = _get_request_username()
     if username is not None:
         kwargs["created_by"] = username
@@ -4710,8 +4708,7 @@ def _get_or_create_user_queue():
             "user": [_assert_required, _assert_string],
         },
     )
-    # A user queue is owned by its user (set in the store); the client-supplied
-    # `created_by` is ignored.
+    # A user queue is owned by its user (set in the store), not by any client value.
     queue = _get_tracking_store().get_or_create_user_queue(
         request_message.experiment_id, user=request_message.user
     )
@@ -4782,8 +4779,15 @@ def _update_review_queue():
     )
     users = list(request_message.users) if request_message.update_users else None
     schema_ids = list(request_message.schema_ids) if request_message.update_schema_ids else None
+    # Singular fields use proto2 presence (no update_* flag).
+    name = request_message.name if request_message.HasField("name") else None
+    new_owner = request_message.new_owner if request_message.HasField("new_owner") else None
     updated = _get_tracking_store().update_review_queue(
-        request_message.queue_id, users=users, schema_ids=schema_ids
+        request_message.queue_id,
+        users=users,
+        schema_ids=schema_ids,
+        name=name,
+        new_owner=new_owner,
     )
     return _wrap_response(UpdateReviewQueue.Response(review_queue=updated.to_proto()))
 
@@ -4884,16 +4888,25 @@ def _set_review_queue_item_status():
             "item_id": [_assert_required, _assert_string],
         },
     )
-    completed_by = (
-        request_message.completed_by if request_message.HasField("completed_by") else None
-    )
     # `status` is intentionally not in the input schema above: rejection of an
     # absent/UNSPECIFIED status is delegated to `ReviewStatus.from_proto` (a
     # required-field schema entry would only check HasField, not enum value).
+    status = ReviewStatus.from_proto(request_message.status)
+    # `completed_by` is attribution: bind it to the authenticated caller, never
+    # the client value (which could spoof another user). Reopening to `pending`
+    # clears attribution, so it stays unset there. On a no-auth server there's no
+    # identity to bind to (a single `default` user), so accept the client value.
+    username = _get_request_username()
+    if username is not None:
+        completed_by = None if status == ReviewStatus.PENDING else username
+    else:
+        completed_by = (
+            request_message.completed_by if request_message.HasField("completed_by") else None
+        )
     item = _get_tracking_store().set_review_queue_item_status(
         request_message.queue_id,
         item_id=request_message.item_id,
-        status=ReviewStatus.from_proto(request_message.status),
+        status=status,
         completed_by=completed_by,
     )
     return _wrap_response(SetReviewQueueItemStatus.Response(item=item.to_proto()))

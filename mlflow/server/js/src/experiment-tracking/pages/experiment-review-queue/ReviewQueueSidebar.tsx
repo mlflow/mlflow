@@ -122,8 +122,7 @@ const QueueRow = ({
         padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
         borderRadius: theme.borders.borderRadiusMd,
         cursor: inspectable ? 'pointer' : 'default',
-        // Greyed: an EDIT user can see every queue in the list but may only open
-        // ones they own or are assigned to (mirrors the server detail-tier gate).
+        // Greyed when not inspectable: listed but not openable (server detail-tier gate).
         opacity: inspectable ? 1 : 0.5,
         backgroundColor: selected ? theme.colors.actionDefaultBackgroundPress : undefined,
         '&:hover': inspectable
@@ -140,8 +139,7 @@ const QueueRow = ({
         </Typography.Text>
       )}
       <Typography.Text color="secondary" css={{ width: COUNT_COL_WIDTH, flexShrink: 0, textAlign: 'right' }}>
-        {/* Blank for a zero count (no work is just noise as a "0"), while the
-            count loads, and for queues the reviewer can't inspect. */}
+        {/* Blank for zero, while loading, and for non-inspectable queues. */}
         {pending ? pending : ''}
       </Typography.Text>
     </div>
@@ -150,13 +148,10 @@ const QueueRow = ({
 
 /**
  * Left panel of the Review tab: a flat, sortable list of the reviewer's visible
- * queues with each queue's owner and how many traces are still to review. Which
- * queues are visible is decided server-side — managers and editors see every
- * queue; read-only reviewers see only the queues they're assigned to. Editors
- * see queues they don't own greyed out (listed but not openable, matching the
- * server's detail-tier gate); the "My queues" filter narrows to owned queues.
- * The selected queue's questions and per-queue actions (manage / delete) live in
- * the right pane's header, not here.
+ * queues with each queue's owner and to-do count. Visibility is decided
+ * server-side; queues that can't be opened are greyed (the detail-tier gate), and
+ * the "My queues" filter narrows to owned queues. Per-queue actions live in the
+ * right pane, not here.
  */
 export const ReviewQueueSidebar = ({
   queues,
@@ -186,17 +181,15 @@ export const ReviewQueueSidebar = ({
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [mineOnly, setMineOnly] = useState(false);
 
-  // Owner is only meaningful on an auth server (no-auth leaves `created_by`
-  // unset). The "My queues" filter only helps users who can see queues they
-  // don't own — read-only reviewers already see just their assigned queues.
+  // Owner is only meaningful on an auth server; the filter only helps users who
+  // can see queues they don't own (i.e. editors).
   const showOwner = authAvailable;
   const showFilter = authAvailable && canEdit;
 
   const inspectable = (q: ReviewQueue) => canInspectQueue(q, reviewer, canManage, canEdit);
 
-  // One fetch per inspectable queue for its pending count; shares cache with the
-  // right panel's trace list (same query config). Non-inspectable queues are
-  // skipped — their item list would 403 — and render a blank count.
+  // One pending-count fetch per inspectable queue (shares the right pane's cache).
+  // Non-inspectable queues are skipped (their item list would 403) and show blank.
   const traceQueries = useQueries({
     queries: queues.map((q) => ({
       ...buildReviewQueueItemsQuery({ queueId: q.queue_id }),
@@ -231,8 +224,7 @@ export const ReviewQueueSidebar = ({
     if (sortKey === 'todo') {
       const pa = pendingByQueueId.get(a.queue_id);
       const pb = pendingByQueueId.get(b.queue_id);
-      // Unknown counts (still loading or not inspectable) always sort last,
-      // regardless of direction.
+      // Unknown counts (loading or not inspectable) always sort last.
       if (pa == null && pb == null) return byLabel(a, b);
       if (pa == null) return 1;
       if (pb == null) return -1;
@@ -244,10 +236,8 @@ export const ReviewQueueSidebar = ({
     return d !== 0 ? dirMul * d : byLabel(a, b);
   };
 
-  // Ignore a stale `mineOnly` if the filter control is no longer shown (e.g.
-  // auth dropped), so the list can't get stuck owner-filtered with no way to
-  // clear it. Keep the selected queue visible even when it isn't owned, so the
-  // filter can't hide the queue the right pane is still showing.
+  // Ignore a stale `mineOnly` once the filter is hidden (can't get stuck filtered),
+  // and always keep the selected queue visible even when it isn't owned.
   const effectiveMineOnly = showFilter && mineOnly;
   const visible = (
     effectiveMineOnly ? queues.filter((q) => isQueueOwner(q, reviewer) || q.queue_id === selectedQueueId) : queues
@@ -269,8 +259,7 @@ export const ReviewQueueSidebar = ({
     >
       {(canManage || canCreateQueue) && (
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, flexWrap: 'wrap' }}>
-          {/* Editing the experiment's questions is MANAGE; creating a queue (which
-              you then own) only needs EDIT. */}
+          {/* Managing questions needs MANAGE; creating a queue only needs EDIT. */}
           {canManage && (
             <Button componentId={`${CID}.manage-questions`} icon={<GearIcon />} onClick={onManageQuestions}>
               <FormattedMessage

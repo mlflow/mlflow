@@ -19,6 +19,7 @@ from mlflow.genai.scorers.ragas import (
     ContextEntityRecall,
     ContextPrecision,
     ContextRecall,
+    ContextUtilization,
     DiscreteMetric,
     ExactMatch,
     FactualCorrectness,
@@ -176,6 +177,7 @@ def test_missing_reference_parameter_returns_mlflow_error():
     [
         # RAG Metrics
         (ContextPrecision, "ContextPrecision", {}),
+        (ContextUtilization, "ContextUtilization", {}),
         (ContextRecall, "ContextRecall", {}),
         (ContextEntityRecall, "ContextEntityRecall", {}),
         (NoiseSensitivity, "NoiseSensitivity", {}),

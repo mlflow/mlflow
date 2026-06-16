@@ -330,7 +330,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                           onClick={handleAddToReviewQueue}
                         >
                           {intl.formatMessage({
-                            defaultMessage: 'Assign to reviewers',
+                            defaultMessage: 'Flag for review',
                             description: 'Assign traces to reviewers via a review queue action',
                           })}
                         </DropdownMenu.Item>
