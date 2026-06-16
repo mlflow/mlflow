@@ -4,7 +4,7 @@ import { ReadableSpan as OTelReadableSpan, SpanExporter } from '@opentelemetry/s
 import { ProtobufTraceSerializer } from '@opentelemetry/otlp-transformer';
 import { getConfig, MLflowTracingConfig } from '../../core/config';
 import { InMemoryTraceManager } from '../../core/trace_manager';
-import { submitRecord } from './ipc';
+import { ipcRequestByteLength, MAX_REQUEST_BYTES, submitRecord } from './ipc';
 import { WalRecord } from './types';
 
 /**
@@ -103,6 +103,15 @@ export class MlflowWalSpanExporter implements SpanExporter {
         createdAt: Date.now(),
         otlpSpans,
       };
+
+      if (otlpSpans !== undefined && ipcRequestByteLength(record) > MAX_REQUEST_BYTES) {
+        console.warn(
+          `[mlflow][wal] OTLP span payload for trace ${trace.info.traceId} would exceed the ` +
+            `${MAX_REQUEST_BYTES}-byte IPC request limit; falling back to JSON artifact upload ` +
+            '(spans will not appear in DB-backed span metrics).',
+        );
+        record.otlpSpans = undefined;
+      }
 
       const pending = this._submit(record).catch((err) => {
         console.error(
