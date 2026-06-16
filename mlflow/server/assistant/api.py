@@ -48,7 +48,7 @@ def _get_selected_provider(config: AssistantConfig | None = None):
 _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
     "Assistant API is only accessible from the same host where the MLflow server is running."
 )
-_REMOTE_ACCESS_MODES = ("off", "api-only", "all")
+_REMOTE_ACCESS_MODES = ("off", "api-only")
 _INVALID_REMOTE_ACCESS_MODES_WARNED: set[str] = set()
 
 
@@ -80,8 +80,6 @@ def _get_remote_access_mode() -> str:
 
 def _provider_allows_remote_access(provider: AssistantProvider | None) -> bool:
     mode = _get_remote_access_mode()
-    if mode == "all":
-        return True
     if mode == "api-only":
         return provider is not None and not provider.requires_local_execution
     return False

@@ -304,7 +304,7 @@ def test_get_config_loads_config_once(client):
         ("off", True, False),
         ("api-only", True, False),
         ("api-only", False, True),
-        ("all", True, True),
+        ("all", False, False),
     ],
 )
 def test_get_config_remote_chat_allowed(
@@ -467,8 +467,8 @@ def test_is_localhost_blocks_when_no_client():
         ("off", False, False),
         ("api-only", True, False),
         ("api-only", False, True),
-        ("all", True, True),
-        ("all", False, True),
+        ("all", True, False),
+        ("all", False, False),
     ],
 )
 def test_provider_allows_remote_access(mode, requires_local_execution, expected, monkeypatch):
