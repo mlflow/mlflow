@@ -54,7 +54,11 @@ function makeTraceWithSpans(traceId: string): Trace {
 
   const provider = new BasicTracerProvider();
   const tracer = provider.getTracer('wal-exporter-test');
-  const otelSpan = tracer.startSpan('tool-call', { kind: SpanKind.INTERNAL }, ROOT_CONTEXT) as OTelSpan;
+  const otelSpan = tracer.startSpan(
+    'tool-call',
+    { kind: SpanKind.INTERNAL },
+    ROOT_CONTEXT,
+  ) as OTelSpan;
   otelSpan.setAttribute(SpanAttributeKey.TRACE_ID, JSON.stringify(traceId));
   otelSpan.end();
 

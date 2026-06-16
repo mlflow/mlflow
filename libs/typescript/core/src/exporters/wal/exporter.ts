@@ -24,10 +24,7 @@ function serializeSpansToOtlpBase64(spans: OTelReadableSpan[]): string | undefin
     }
     return Buffer.from(bytes).toString('base64');
   } catch (err) {
-    console.warn(
-      '[mlflow][wal] Failed to serialize spans to OTLP protobuf.',
-      err,
-    );
+    console.warn('[mlflow][wal] Failed to serialize spans to OTLP protobuf.', err);
     return undefined;
   }
 }
