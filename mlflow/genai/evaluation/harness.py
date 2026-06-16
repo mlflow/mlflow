@@ -617,6 +617,33 @@ def _run_pipeline(
         scorer_submitter.shutdown()
 
 
+def _tag_mlflow_test_traces(eval_results: list[EvalResult]) -> None:
+    """Tag each produced trace with the current ``@mlflow.test`` identity.
+
+    Lets the regression-test UI group and label the traces by test case. No-op
+    when not running inside an ``@mlflow.test``-marked test.
+    """
+    from mlflow.pytest import session as test_session
+
+    test_name, case_id = test_session.current_test()
+    if test_name is None:
+        return
+
+    tags = {test_session.TAG_TEST_NAME: test_name}
+    if case_id:
+        tags[test_session.TAG_CASE_ID] = case_id
+
+    client = MlflowClient()
+    for result in eval_results:
+        if (trace := result.eval_item.trace) is None:
+            continue
+        for key, value in tags.items():
+            try:
+                client.set_trace_tag(trace.info.trace_id, key, value)
+            except Exception as e:
+                _logger.debug("Failed to tag trace %s with %s: %s", trace.info.trace_id, key, e)
+
+
 @context.eval_context
 def run(
     *,
@@ -700,6 +727,10 @@ def run(
     # Link traces to the run if the backend support it
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
 
+    # When running inside an @mlflow.test, stamp each produced trace with the test
+    # identity so the regression-test UI can group/label them. No-op otherwise.
+    _tag_mlflow_test_traces(eval_results)
+
     # Refresh traces on eval_results to include all logged assessments.
     # This is done once after all assessments (single-turn and multi-turn) are logged to the traces.
     _refresh_eval_result_traces(eval_results)
@@ -743,10 +774,19 @@ def run(
     # Clean up noisy traces generated during evaluation
     clean_up_extra_traces(traces, eval_start_time, experiment_id, input_trace_ids)
 
+    # Carry each scorer's pass_if predicate so EvaluationResult.passed can decide
+    # pass/fail for non-yes/no values. In-process only; not persisted.
+    pass_criteria = {
+        scorer.name: scorer.pass_if
+        for scorer in (scorers or [])
+        if getattr(scorer, "pass_if", None) is not None
+    }
+
     return EvaluationResult(
         run_id=run_id,
         result_df=construct_eval_result_df(run_id, traces, eval_results),
         metrics=aggregated_metrics,
+        pass_criteria=pass_criteria,
     )
 
 

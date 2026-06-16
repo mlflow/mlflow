@@ -48,7 +48,6 @@ def test_log_dspy_module_state_params():
 
     run = mlflow.last_active_run()
 
-    # DSPy >= 3.0 changed how list values are flattened
     expected_params = {
         "Predict.signature.fields.0.description": "${question}",
         "Predict.signature.fields.0.prefix": "Question:",
@@ -58,13 +57,18 @@ def test_log_dspy_module_state_params():
         "Predict.demos.0.question": "What are cities in Japan?",
     }
 
-    if Version(importlib.metadata.version("dspy")).major >= 3:
+    # `log_dspy_module_params` stringifies the fields of demos serialized as `dspy.Example`
+    # objects but flattens list values of demos serialized as plain dicts. Which one
+    # `dump_state` emits depends on the DSPy version (e.g. 3.0.0 still uses `Example`, later
+    # 3.x releases use plain dicts), so derive the expectation from the actual serialization.
+    demo_state = (program.dump_state().get("demos") or [None])[0]
+    if isinstance(demo_state, dspy.Example):
+        expected_params["Predict.demos.0.answer"] = "['Tokyo', 'Osaka']"
+    else:
         expected_params.update({
             "Predict.demos.0.answer.0": "Tokyo",
             "Predict.demos.0.answer.1": "Osaka",
         })
-    else:
-        expected_params["Predict.demos.0.answer"] = "['Tokyo', 'Osaka']"
 
     assert run.data.params == expected_params
 

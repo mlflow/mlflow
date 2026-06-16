@@ -925,6 +925,11 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'assessments/expectations',
               label: 'Annotating Ground Truth',
             },
+            {
+              type: 'doc',
+              id: 'assessments/review-queues',
+              label: 'Review Queues',
+            },
           ],
         },
         {
@@ -1017,6 +1022,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'prompt-registry/prompt-engineering',
           label: 'Prompt Engineering UI',
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/playground',
+          label: 'LLM Playground',
         },
       ],
       link: {

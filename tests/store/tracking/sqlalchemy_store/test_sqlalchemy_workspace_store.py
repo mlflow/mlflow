@@ -2522,6 +2522,36 @@ def test_review_queues_are_workspace_scoped(workspace_tracking_store):
             workspace_tracking_store.get_review_queue(queue_b.queue_id)
 
 
+def test_list_review_queues_by_item_is_workspace_scoped(workspace_tracking_store):
+    # The same trace id can sit in queues across workspaces. The item_id filter
+    # resolves via a subquery on review_queue_items keyed only by item_id, so its
+    # cross-workspace correctness rides entirely on the outer experiment join —
+    # this pins that a shared id never leaks another workspace's queue.
+    with WorkspaceContext("team-a"):
+        exp_a_id = workspace_tracking_store.create_experiment("exp-a-item")
+        queue_a = workspace_tracking_store.create_review_queue(
+            exp_a_id, name="qa", queue_type="custom"
+        )
+        workspace_tracking_store.add_items_to_review_queue(queue_a.queue_id, item_ids=["tr-shared"])
+
+    with WorkspaceContext("team-b"):
+        exp_b_id = workspace_tracking_store.create_experiment("exp-b-item")
+        queue_b = workspace_tracking_store.create_review_queue(
+            exp_b_id, name="qb", queue_type="custom"
+        )
+        workspace_tracking_store.add_items_to_review_queue(queue_b.queue_id, item_ids=["tr-shared"])
+
+        # From team-b, the shared item only surfaces team-b's queue.
+        listed_b = workspace_tracking_store.list_review_queues(exp_b_id, item_id="tr-shared")
+        assert [q.queue_id for q in listed_b] == [queue_b.queue_id]
+
+    with WorkspaceContext("team-a"):
+        # From team-a, only team-a's queue — never team-b's, despite both holding
+        # "tr-shared" (a dropped experiment/workspace scope would leak queue B here).
+        listed_a = workspace_tracking_store.list_review_queues(exp_a_id, item_id="tr-shared")
+        assert [q.queue_id for q in listed_a] == [queue_a.queue_id]
+
+
 def test_review_queue_question_lock_holds_in_workspace_store(workspace_tracking_store):
     from mlflow.genai.label_schemas.label_schemas import InputPassFail
 

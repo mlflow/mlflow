@@ -387,6 +387,67 @@ def test_evaluate_with_empty_scorers_logs_dataset_tags(server_config):
     assert tags["case_id"] == "case-1"
 
 
+def test_evaluate_passed_respects_scorer_pass_if(server_config):
+    @scorer(pass_if=lambda v: v >= 0.8)
+    def confidence(outputs):
+        return 0.9 if outputs == "good" else 0.5
+
+    passing = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+        scorers=[confidence],
+    )
+    assert passing.pass_criteria.get("confidence") is not None
+    assert passing.passed, passing.reason
+
+    failing = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "bad"}],
+        scorers=[confidence],
+    )
+    assert not failing.passed
+    assert "confidence" in failing.reason
+
+
+def test_evaluate_numeric_value_without_pass_if_fails_loudly(server_config):
+    @scorer
+    def confidence(outputs):
+        return 0.9
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+        scorers=[confidence],
+    )
+    # A bare numeric value is not guessed as pass/fail; the user must declare pass_if.
+    assert not result.passed
+    assert "pass_if" in result.reason
+
+
+def test_evaluate_errored_scorer_fails_not_silently_passes(server_config):
+    @scorer
+    def boom(outputs):
+        raise ValueError("kaboom")
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+        scorers=[boom],
+    )
+    assert not result.passed
+    assert "boom" in result.reason
+    assert "kaboom" in result.reason
+
+
+def test_evaluate_reason_includes_scorer_rationale(server_config):
+    @scorer
+    def judged(outputs):
+        return Feedback(value="no", rationale="answer was wrong")
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"q": "x"}, "outputs": "good"}],
+        scorers=[judged],
+    )
+    assert not result.passed
+    assert "answer was wrong" in result.reason
+
+
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
 def test_evaluate_with_predict_fn(is_predict_fn_traced, server_config):
     model_id = mlflow.set_active_model(name="test-model-id").model_id

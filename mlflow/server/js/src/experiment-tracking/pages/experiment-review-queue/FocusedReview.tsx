@@ -5,34 +5,122 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
+  CloseSmallIcon,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
   Drawer,
   Empty,
   Input,
   TableSkeleton,
   Typography,
+  useDesignSystemEventComponentCallbacks,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { ModelTraceExplorer, useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
+import {
+  ModelTraceExplorer,
+  ModelTraceExplorerPreferencesProvider,
+  useGetTracesById,
+} from '@databricks/web-shared/model-trace-explorer';
+import { GenAIMarkdownRenderer } from '../../../shared/web-shared/genai-markdown-renderer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
+import Utils from '../../../common/utils/Utils';
 import { LabelSchemaInputRenderer } from '../../components/label-schemas';
 import type { LabelSchema, LabelSchemaValue } from '../../components/label-schemas';
 import { useCreateReviewAssessmentMutation } from './hooks/useCreateReviewAssessmentMutation';
 import { useTraceAssessmentsQuery } from './hooks/useTraceAssessmentsQuery';
-import { buildPrefilledAnswers, buildPrefilledRationales } from './reviewAnswers';
+import { buildPrefilledAnswers, buildPrefilledRationales, buildPriorAssessmentIds, isAnswered } from './reviewAnswers';
 import { StatusTag } from './ReviewQueueList';
 import { SegmentedProgressBar } from './SegmentedProgressBar';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
+import { MARKDOWN_RENDER_SIZE_LIMIT } from '../../../shared/web-shared/model-trace-explorer/constants';
+
 const CID = 'mlflow.experiment-review-queue.focused-review';
 
-/** Pretty-print a request/response preview as JSON, falling back to the raw string. */
-const formatPreview = (raw: string): string => {
+/** Try to parse `raw` as JSON; returns the pretty-printed string + a flag. */
+const tryParseJson = (raw: string): { text: string; isJson: boolean } => {
   try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
+    return { text: JSON.stringify(JSON.parse(raw), null, 2), isJson: true };
   } catch {
-    return raw;
+    return { text: raw, isJson: false };
   }
+};
+
+/**
+ * Renders trace content with the same protections as the trace explorer:
+ * 1. JSON → rendered as a syntax-highlighted code block (no markdown misparse)
+ * 2. Content > 1 MB → plain-text fallback (prevents browser freeze)
+ * 3. Everything else → markdown via GenAIMarkdownRenderer
+ */
+const TraceContentBubble = ({ content, variant }: { content: string; variant: 'input' | 'output' }) => {
+  const { theme } = useDesignSystemTheme();
+  const { text, isJson } = tryParseJson(content);
+
+  const isInput = variant === 'input';
+  const wrapperCss = isInput
+    ? {
+        maxWidth: '50%',
+        padding: theme.spacing.sm,
+        backgroundColor: theme.isDarkMode ? theme.colors.blue800 : theme.colors.blue200,
+        borderRadius: theme.borders.borderRadiusMd,
+        fontSize: theme.typography.fontSizeSm,
+        wordBreak: 'break-word' as const,
+        '& pre[class*="prism"]': { padding: `${theme.spacing.sm}px ${theme.spacing.md}px` },
+      }
+    : {
+        padding: theme.spacing.md,
+        backgroundColor: theme.isDarkMode ? theme.colors.backgroundSecondary : theme.colors.white,
+        borderRadius: theme.borders.borderRadiusMd,
+        fontSize: theme.typography.fontSizeSm,
+        lineHeight: 1.6,
+        wordBreak: 'break-word' as const,
+        '& pre[class*="prism"]': { padding: `${theme.spacing.sm}px ${theme.spacing.md}px` },
+      };
+
+  const body = (() => {
+    if (text.length > MARKDOWN_RENDER_SIZE_LIMIT) {
+      return (
+        <pre
+          css={{
+            margin: 0,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
+            maxHeight: 400,
+            overflow: 'auto',
+            fontSize: theme.typography.fontSizeSm,
+          }}
+        >
+          {text.slice(0, 10_000)}
+        </pre>
+      );
+    }
+    if (isJson) {
+      return (
+        <pre
+          css={{
+            margin: 0,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            fontSize: theme.typography.fontSizeSm,
+            fontFamily: 'monospace',
+          }}
+        >
+          {text}
+        </pre>
+      );
+    }
+    return <GenAIMarkdownRenderer compact={isInput}>{text}</GenAIMarkdownRenderer>;
+  })();
+
+  if (isInput) {
+    return (
+      <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div css={wrapperCss}>{body}</div>
+      </div>
+    );
+  }
+  return <div css={wrapperCss}>{body}</div>;
 };
 
 /**
@@ -67,11 +155,7 @@ export const FocusedReview = ({
   completedBy: string;
   /** True while a status write is in flight (disables the actions). */
   isSettingStatus: boolean;
-  /**
-   * Whether the current reviewer may submit reviews in this queue — true unless
-   * an auth-server manager is viewing a queue they aren't assigned to. When
-   * false the answer inputs and submit/decline/reopen are disabled (view-only).
-   */
+  /** Whether the reviewer may submit reviews; when false the inputs/actions are view-only. */
   canReview: boolean;
   /** Self-assign action; shown to a manager viewing a queue they aren't in. */
   onAssignSelf?: () => void;
@@ -84,6 +168,15 @@ export const FocusedReview = ({
   const intl = useIntl();
   const { createReviewAssessmentAsync, isCreatingAssessment } = useCreateReviewAssessmentMutation();
 
+  // Telemetry: count reviews (feedback) submitted from the UI. Fired after the
+  // assessment writes succeed, so failed submits don't inflate the metric.
+  const feedbackEvents = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const feedbackSubmittedEventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId: `${CID}.feedback-submitted`,
+    analyticsEvents: feedbackEvents,
+  });
+
   // The trace's input/output for the middle panel. The full trace (spans,
   // timeline, etc.) is available on demand through the drawer.
   const { data: traceData, isLoading: traceLoading } = useGetTracesById([item.item_id]);
@@ -95,12 +188,19 @@ export const FocusedReview = ({
 
   // Prefill the widgets from the trace's existing assessments; edits overlay
   // the prefill so the query result never clobbers what the reviewer typed.
-  const { priorAnswers } = useTraceAssessmentsQuery({ traceId: item.item_id });
+  // Scope prior answers to this reviewer's own source so the prefill and the
+  // supersede target are never another reviewer's answer.
+  const { priorAnswers, isFetching: priorAnswersFetching } = useTraceAssessmentsQuery({
+    traceId: item.item_id,
+    sourceId: completedBy,
+  });
   const prefilled = useMemo(() => buildPrefilledAnswers(priorAnswers, schemas), [priorAnswers, schemas]);
   const prefilledRationales = useMemo(() => buildPrefilledRationales(priorAnswers, schemas), [priorAnswers, schemas]);
+  // Each question's prior assessment id (this reviewer's), so a re-submit
+  // supersedes it instead of writing a duplicate.
+  const priorAssessmentIds = useMemo(() => buildPriorAssessmentIds(priorAnswers, schemas), [priorAnswers, schemas]);
   const [edited, setEdited] = useState<Record<string, LabelSchemaValue>>({});
   const [editedRationales, setEditedRationales] = useState<Record<string, string>>({});
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const valueFor = (name: string): LabelSchemaValue => (name in edited ? edited[name] : prefilled[name]);
   const setAnswer = (name: string, value: LabelSchemaValue) => setEdited((prev) => ({ ...prev, [name]: value }));
@@ -108,7 +208,18 @@ export const FocusedReview = ({
     name in editedRationales ? editedRationales[name] : (prefilledRationales[name] ?? '');
   const setRationale = (name: string, value: string) => setEditedRationales((prev) => ({ ...prev, [name]: value }));
 
-  const isTerminal = item.status === 'COMPLETE' || item.status === 'DECLINED';
+  // A completed trace stays editable: the reviewer can revise their answers and
+  // re-save without the trace leaving the "done" bucket (mirrors the review app,
+  // where there is no reopen — you just edit a completed item). A declined trace
+  // has no answers to edit, so it stays locked; "Reopen" is the way back to it.
+  const isComplete = item.status === 'COMPLETE';
+  const isDeclined = item.status === 'DECLINED';
+  const isTerminal = isComplete || isDeclined;
+  // Whether the reviewer has touched any answer/rationale this session. The
+  // "Save changes" path on a completed trace only writes when there's an edit,
+  // so a no-op click doesn't re-supersede identical assessments. (A fresh submit
+  // doesn't need this — a reopened trace can be re-completed straight from prefill.)
+  const hasEdits = Object.keys(edited).length > 0 || Object.keys(editedRationales).length > 0;
   // A queue whose only question is a single Pass/Fail (no rationale) submits as
   // soon as the reviewer picks an answer — no Submit click needed.
   const autoSubmitSchema =
@@ -118,6 +229,31 @@ export const FocusedReview = ({
   // reopened trace or a failed auto-submit still has an explicit re-submit path.
   const autoSubmitValue = autoSubmitSchema ? valueFor(autoSubmitSchema.name) : undefined;
   const hideSubmit = autoSubmitSchema != null && (autoSubmitValue === undefined || autoSubmitValue === null);
+
+  // Submit writes one assessment per answered question; completing with zero
+  // answers would mark the trace done while recording nothing, so the button
+  // stays disabled until at least one question has a value. This reads the
+  // committed answer state (edited/prefilled) and intentionally ignores the
+  // auto-submit `answerOverrides`: those only flow through the auto-submit path
+  // (single Pass/Fail), which submits directly and hides this button, so the two
+  // never gate the same interaction.
+  const answeredCount = useMemo(
+    () => schemas.filter((s) => isAnswered(s.name in edited ? edited[s.name] : prefilled[s.name])).length,
+    [schemas, edited, prefilled],
+  );
+
+  // A question the reviewer already answered can't be retracted to empty: the
+  // data model has no empty value for expectations and no single-answer delete,
+  // so a cleared question is silently dropped on save (its prior assessment stays
+  // live). Block the save in that state, so the reviewer must re-enter a value or
+  // keep the previous one rather than see a misleading "saved" over stale data.
+  const hasClearedPriorAnswer = useMemo(
+    () =>
+      schemas.some(
+        (s) => isAnswered(prefilled[s.name]) && !isAnswered(s.name in edited ? edited[s.name] : prefilled[s.name]),
+      ),
+    [schemas, edited, prefilled],
+  );
 
   // Position in the queue + adjacent traces for prev/next navigation.
   const currentIndex = items.findIndex((i) => i.item_id === item.item_id);
@@ -147,16 +283,49 @@ export const FocusedReview = ({
     .concat(items.slice(0, Math.max(currentIndex, 0)))
     .find((i) => i.item_id !== item.item_id && i.status === 'PENDING')?.item_id;
 
+  const showSubmitError = (e: unknown) =>
+    Utils.displayGlobalErrorNotification(
+      intl.formatMessage(
+        {
+          defaultMessage: 'Could not save your review: {error}',
+          description: 'Review focused view: error toast when saving a review fails',
+        },
+        { error: e instanceof Error ? e.message : String(e) },
+      ),
+    );
+
   const submitAnswersAndComplete = async (answerOverrides?: Record<string, LabelSchemaValue>) => {
-    setSubmitError(null);
+    // The supersede ids are derived from the prior-answers query, so submitting
+    // against a still-refetching snapshot (e.g. reopen-and-resubmit before the
+    // post-write refetch lands) could miss the prior and leave two live
+    // assessments for one question. Wait for the query to settle first.
+    if (priorAnswersFetching) {
+      return;
+    }
     // Auto-submit passes the just-picked value directly, since the answer state
     // set in the same click hasn't flushed yet.
     const effectiveValue = (name: string): LabelSchemaValue =>
       answerOverrides && name in answerOverrides ? answerOverrides[name] : valueFor(name);
-    const answered = schemas.filter((s) => {
-      const v = effectiveValue(s.name);
-      return v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
-    });
+    // Defense in depth (the Submit button is already disabled in this state):
+    // never write when a previously-answered question has been cleared. Clearing
+    // has no value to record, and the cleared question would otherwise be silently
+    // skipped below, leaving its stale prior assessment live. This uses
+    // `effectiveValue` (folding in the auto-submit `answerOverrides`) while the
+    // button gates on `hasClearedPriorAnswer` via `valueFor`; the two can't
+    // disagree, because `answerOverrides` only ever carries a just-picked
+    // (answered) value, so this guard never fires on a question the button
+    // considered answered.
+    if (schemas.some((s) => isAnswered(prefilled[s.name]) && !isAnswered(effectiveValue(s.name)))) {
+      return;
+    }
+    // Every answered question is (re)written here; an unchanged answer
+    // re-supersedes its prior rather than being skipped.
+    const answered = schemas.filter((s) => isAnswered(effectiveValue(s.name)));
+    // Defensive: the Submit button is disabled with no answers, but never
+    // record an empty completion if this is somehow reached.
+    if (answered.length === 0) {
+      return;
+    }
     try {
       // Write the answers, then mark complete. Status is advanced only if every
       // write succeeds, so a partial failure leaves the trace pending for retry.
@@ -169,40 +338,72 @@ export const FocusedReview = ({
             value: effectiveValue(s.name) as Exclude<LabelSchemaValue, null | undefined>,
             sourceId: completedBy,
             rationale: s.enable_comment ? rationaleFor(s.name).trim() || undefined : undefined,
+            overrides: priorAssessmentIds[s.name],
           }),
         ),
       );
+      // Telemetry: a review (feedback) was submitted from the UI. Covers the
+      // explicit Submit, the single Pass/Fail auto-submit, and the edit-in-place
+      // re-save — all of which land here after the writes succeed.
+      feedbackSubmittedEventContext.onClick(undefined);
+      // Editing an already-complete trace: the answers above are re-written
+      // (superseding the priors), but the trace stays COMPLETE and we keep the
+      // reviewer on it. Re-saving an edit must not flip it back to PENDING / the
+      // to-do list, and its `completed_by`/`completed_time_ms` attribution stands.
+      // A global toast confirms the save without reflowing the action buttons.
+      if (isComplete) {
+        Utils.displayGlobalInfoNotification(
+          intl.formatMessage({
+            defaultMessage: 'Changes saved',
+            description: 'Review focused view: confirmation that edited answers were saved',
+          }),
+        );
+        return;
+      }
       await onSetStatus('COMPLETE');
       // Keep the reviewer moving: jump to the next still-pending trace, or
       // return to the queue list once everything has been reviewed.
       if (nextPendingItemId) {
         onSelect(nextPendingItemId);
       } else {
+        Utils.displayGlobalInfoNotification(
+          intl.formatMessage({
+            defaultMessage: 'All items in this queue have been reviewed!',
+            description: 'Review focused view: toast shown when all queue items are reviewed',
+          }),
+        );
         onBack();
       }
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : String(e));
+      showSubmitError(e);
     }
   };
 
   const handleSetStatus = async (status: ReviewStatus) => {
-    setSubmitError(null);
     try {
       await onSetStatus(status);
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : String(e));
+      showSubmitError(e);
     }
   };
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, height: '100%' }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-        <Button componentId={`${CID}.back`} icon={<ChevronLeftIcon />} onClick={onBack}>
-          <FormattedMessage defaultMessage="Back" description="Review focused view: back button" />
+        <Button componentId={`${CID}.back`} type="tertiary" icon={<CloseSmallIcon />} onClick={onBack}>
+          <FormattedMessage defaultMessage="Exit review" description="Review focused view: exit review button" />
         </Button>
-        <Typography.Text bold>{item.item_id}</Typography.Text>
-        <StatusTag status={item.status} />
         <div css={{ flex: 1 }} />
+        <StatusTag status={item.status} />
+        {/* Progress across the queue's traces: count/percentage + segmented bar. */}
+        <Typography.Text bold css={{ flexShrink: 0 }}>
+          <FormattedMessage
+            defaultMessage="{reviewed} of {total} reviewed ({percentage}%)"
+            description="Review focused view: queue progress summary"
+            values={{ reviewed: reviewedCount, total: totalCount, percentage }}
+          />
+        </Typography.Text>
+        <SegmentedProgressBar items={progressBarItems} css={{ width: 240, height: theme.typography.fontSizeSm }} />
         <Button
           componentId={`${CID}.prev`}
           icon={<ChevronLeftIcon />}
@@ -223,46 +424,33 @@ export const FocusedReview = ({
           })}
           onClick={() => nextItemId && onSelect(nextItemId)}
         />
-      </div>
-
-      {/* Progress across the queue's traces: count/percentage + segmented bar. */}
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
-        <Typography.Text bold size="lg" css={{ flexShrink: 0 }}>
+        <Button
+          componentId={`${CID}.next-unreviewed`}
+          disabled={!nextPendingItemId}
+          onClick={() => nextPendingItemId && onSelect(nextPendingItemId)}
+          endIcon={<ChevronRightIcon />}
+        >
           <FormattedMessage
-            defaultMessage="{reviewed} of {total} reviewed ({percentage}%)"
-            description="Review focused view: queue progress summary"
-            values={{ reviewed: reviewedCount, total: totalCount, percentage }}
+            defaultMessage="Next unreviewed"
+            description="Review focused view: jump to the next pending trace"
           />
-        </Typography.Text>
-        <SegmentedProgressBar items={progressBarItems} css={{ width: 240, height: theme.typography.fontSizeSm }} />
+        </Button>
       </div>
 
-      <div css={{ display: 'flex', gap: theme.spacing.lg, flex: 1, minHeight: 0 }}>
+      <div css={{ display: 'flex', gap: 48, flex: 1, minHeight: 0 }}>
         {/* Trace input / output (full trace available via the drawer) */}
         <div
           css={{
             flex: 1,
             minWidth: 0,
-            border: `1px solid ${theme.colors.border}`,
+            backgroundColor: theme.colors.backgroundSecondary,
             borderRadius: theme.borders.borderRadiusMd,
             overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
           }}
         >
-          <div
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing.sm,
-              padding: theme.spacing.sm,
-              borderBottom: `1px solid ${theme.colors.border}`,
-            }}
-          >
-            <Typography.Title level={4} withoutMargins>
-              <FormattedMessage defaultMessage="Trace" description="Review focused view: trace panel title" />
-            </Typography.Title>
-            <div css={{ flex: 1 }} />
+          <div css={{ padding: `${theme.spacing.sm}px ${theme.spacing.md}px 0 0`, flexShrink: 0, textAlign: 'right' }}>
             <Typography.Link
               componentId={`${CID}.view-full-trace`}
               disabled={!trace}
@@ -296,42 +484,10 @@ export const FocusedReview = ({
                 }
               />
             ) : (
-              [
-                requestPreview && {
-                  key: 'input',
-                  label: (
-                    <FormattedMessage defaultMessage="Input" description="Review focused view: trace input label" />
-                  ),
-                  value: formatPreview(requestPreview),
-                },
-                responsePreview && {
-                  key: 'output',
-                  label: (
-                    <FormattedMessage defaultMessage="Output" description="Review focused view: trace output label" />
-                  ),
-                  value: formatPreview(responsePreview),
-                },
-              ]
-                .filter((section): section is { key: string; label: JSX.Element; value: string } => Boolean(section))
-                .map((section) => (
-                  <div key={section.key} css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                    <Typography.Text bold>{section.label}</Typography.Text>
-                    <pre
-                      css={{
-                        margin: 0,
-                        padding: theme.spacing.sm,
-                        backgroundColor: theme.colors.backgroundSecondary,
-                        borderRadius: theme.borders.borderRadiusMd,
-                        fontFamily: 'monospace',
-                        fontSize: theme.typography.fontSizeSm,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {section.value}
-                    </pre>
-                  </div>
-                ))
+              <>
+                {requestPreview && <TraceContentBubble content={requestPreview} variant="input" />}
+                {responsePreview && <TraceContentBubble content={responsePreview} variant="output" />}
+              </>
             )}
           </div>
         </div>
@@ -339,20 +495,20 @@ export const FocusedReview = ({
         {/* Question widgets driven by the queue's label schemas */}
         <div
           css={{
-            width: 360,
+            width: 420,
             flexShrink: 0,
+            alignSelf: 'flex-start',
+            maxHeight: '100%',
             display: 'flex',
             flexDirection: 'column',
-            borderLeft: `1px solid ${theme.colors.border}`,
-            paddingLeft: theme.spacing.lg,
-            minHeight: 0,
+            padding: theme.spacing.lg,
+            backgroundColor: theme.colors.backgroundPrimary,
+            border: `1px solid ${theme.colors.border}`,
+            borderRadius: theme.borders.borderRadiusMd,
+            boxShadow: theme.shadows.lg,
             overflow: 'hidden',
           }}
         >
-          <Typography.Title level={4} withoutMargins css={{ marginBottom: theme.spacing.lg, flexShrink: 0 }}>
-            <FormattedMessage defaultMessage="Review" description="Review focused view: questions panel title" />
-          </Typography.Title>
-
           {/* Only the questions scroll. The actions below are a non-scrolling
               sibling, so they stay put (no sticky jiggle) when the list is long;
               when it's short this box shrinks to fit and the actions sit right
@@ -375,47 +531,66 @@ export const FocusedReview = ({
                 />
               </Typography.Hint>
             ) : (
-              schemas.map((schema) => (
-                <div key={schema.schema_id} css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                  <Typography.Text bold>{schema.name}</Typography.Text>
-                  {schema.instruction && (
-                    <Typography.Hint css={{ marginBottom: theme.spacing.xs }}>{schema.instruction}</Typography.Hint>
-                  )}
-                  <LabelSchemaInputRenderer
-                    input={schema.input}
-                    value={valueFor(schema.name)}
-                    onChange={(value) => {
-                      setAnswer(schema.name, value);
-                      if (
-                        canReview &&
-                        autoSubmitSchema?.schema_id === schema.schema_id &&
-                        !isTerminal &&
-                        !isCreatingAssessment &&
-                        !isSettingStatus
-                      ) {
-                        submitAnswersAndComplete({ [schema.name]: value });
-                      }
-                    }}
-                    disabled={isTerminal || !canReview}
-                    componentId={`${CID}.question`}
-                    label={schema.name}
-                    instruction={schema.instruction}
-                  />
-                  {schema.enable_comment && (
-                    <Input.TextArea
-                      componentId={`${CID}.rationale`}
-                      rows={2}
-                      value={rationaleFor(schema.name)}
-                      onChange={(e) => setRationale(schema.name, e.target.value)}
-                      disabled={isTerminal || !canReview}
-                      placeholder={intl.formatMessage({
-                        defaultMessage: 'Rationale (optional)',
-                        description: 'Review focused view: free-form rationale placeholder',
-                      })}
+              schemas.map((schema) => {
+                const v = valueFor(schema.name);
+                const answered = v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
+                return (
+                  <div key={schema.schema_id} css={{ display: 'flex', gap: theme.spacing.sm }}>
+                    <span
+                      css={{
+                        display: 'inline-block',
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        backgroundColor: answered ? theme.colors.green600 : theme.colors.yellow600,
+                        flexShrink: 0,
+                        marginTop: 6,
+                      }}
                     />
-                  )}
-                </div>
-              ))
+                    <div
+                      css={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}
+                    >
+                      <Typography.Text bold>{schema.name}</Typography.Text>
+                      {schema.instruction && !schema.input.text && (
+                        <Typography.Hint css={{ marginBottom: theme.spacing.xs }}>{schema.instruction}</Typography.Hint>
+                      )}
+                      <LabelSchemaInputRenderer
+                        input={schema.input}
+                        value={valueFor(schema.name)}
+                        onChange={(value) => {
+                          setAnswer(schema.name, value);
+                          if (
+                            canReview &&
+                            autoSubmitSchema?.schema_id === schema.schema_id &&
+                            !isTerminal &&
+                            !isCreatingAssessment &&
+                            !isSettingStatus
+                          ) {
+                            submitAnswersAndComplete({ [schema.name]: value });
+                          }
+                        }}
+                        disabled={isDeclined || !canReview}
+                        componentId={`${CID}.question`}
+                        label={schema.name}
+                        instruction={schema.instruction}
+                      />
+                      {schema.enable_comment && (
+                        <Input.TextArea
+                          componentId={`${CID}.rationale`}
+                          rows={2}
+                          value={rationaleFor(schema.name)}
+                          onChange={(e) => setRationale(schema.name, e.target.value)}
+                          disabled={isDeclined || !canReview}
+                          placeholder={intl.formatMessage({
+                            defaultMessage: 'Rationale (optional)',
+                            description: 'Review focused view: free-form rationale placeholder',
+                          })}
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
 
@@ -458,51 +633,60 @@ export const FocusedReview = ({
                 )}
               </div>
             )}
-            {submitError && (
-              <Alert
-                componentId={`${CID}.submit-error`}
-                type="error"
-                closable
-                onClose={() => setSubmitError(null)}
-                message={intl.formatMessage(
-                  {
-                    defaultMessage: 'Could not save your review: {error}',
-                    description: 'Review focused view: submit error alert',
-                  },
-                  { error: submitError },
-                )}
-              />
+            {hasClearedPriorAnswer && !isDeclined && canReview && (
+              <Typography.Hint
+                css={{ textAlign: 'right', color: theme.colors.textValidationDanger }}
+                data-testid={`${CID}.cleared-answer-hint`}
+              >
+                <FormattedMessage
+                  defaultMessage="A cleared answer can't be saved. Enter a value for each question, or keep the previous answer."
+                  description="Review focused view: shown when a previously-answered question is cleared, which can't be saved"
+                />
+              </Typography.Hint>
             )}
             <div css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end' }}>
-              {isTerminal ? (
+              {/* A terminal trace can be sent back to the to-do list. Declining is
+                  no longer offered in the UI (the API still supports it); a pending
+                  trace's only action is Submit. */}
+              {isTerminal && (
                 <Button
                   componentId={`${CID}.reopen`}
                   disabled={isSettingStatus || !canReview}
                   onClick={() => handleSetStatus('PENDING')}
                 >
-                  <FormattedMessage defaultMessage="Reopen" description="Review focused view: reopen action" />
-                </Button>
-              ) : (
-                <Button
-                  componentId={`${CID}.decline`}
-                  disabled={isSettingStatus || !canReview}
-                  onClick={() => handleSetStatus('DECLINED')}
-                >
-                  <FormattedMessage defaultMessage="Decline" description="Review focused view: decline action" />
+                  <FormattedMessage
+                    defaultMessage="Move to Todo"
+                    description="Review focused view: send a completed/declined trace back to the to-do list"
+                  />
                 </Button>
               )}
-              {!hideSubmit && (
+              {!hideSubmit && !isDeclined && (
                 <Button
                   componentId={`${CID}.complete`}
                   type="primary"
-                  disabled={isTerminal || isCreatingAssessment || isSettingStatus || !canReview}
+                  disabled={
+                    isCreatingAssessment ||
+                    isSettingStatus ||
+                    !canReview ||
+                    answeredCount === 0 ||
+                    priorAnswersFetching ||
+                    hasClearedPriorAnswer ||
+                    (isComplete && !hasEdits)
+                  }
                   loading={isCreatingAssessment || isSettingStatus}
                   onClick={() => submitAnswersAndComplete()}
                 >
-                  <FormattedMessage
-                    defaultMessage="Submit"
-                    description="Review focused view: submit answers and mark the trace complete"
-                  />
+                  {isComplete ? (
+                    <FormattedMessage
+                      defaultMessage="Save changes"
+                      description="Review focused view: re-save edited answers on an already-complete trace"
+                    />
+                  ) : (
+                    <FormattedMessage
+                      defaultMessage="Submit"
+                      description="Review focused view: submit answers and mark the trace complete"
+                    />
+                  )}
                 </Button>
               )}
             </div>
@@ -521,13 +705,20 @@ export const FocusedReview = ({
           }
           width="60vw"
         >
-          {trace ? (
-            <div css={{ height: '100%' }} onWheel={(e) => e.stopPropagation()}>
-              <ModelTraceExplorer modelTrace={trace} initialActiveView="detail" />
-            </div>
-          ) : (
-            <TableSkeleton lines={8} />
-          )}
+          {/* ModelTraceExplorer doesn't provide its own preferences context, so the
+              JSON/Table render-mode toggle is a no-op without this wrapper (other
+              consumers wrap it the same way). It sits outside the `trace` conditional
+              so a background refetch (which can momentarily clear `trace`) doesn't
+              remount it and reset the user's chosen render mode. */}
+          <ModelTraceExplorerPreferencesProvider>
+            {trace ? (
+              <div css={{ height: '100%' }} onWheel={(e) => e.stopPropagation()}>
+                <ModelTraceExplorer modelTrace={trace} initialActiveView="detail" />
+              </div>
+            ) : (
+              <TableSkeleton lines={8} />
+            )}
+          </ModelTraceExplorerPreferencesProvider>
         </Drawer.Content>
       </Drawer.Root>
     </div>

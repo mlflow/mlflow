@@ -5,6 +5,7 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
+  FlagPointerIcon,
   PlusIcon,
   Notification,
   Tooltip,
@@ -44,12 +45,11 @@ export const ModelTraceExplorerDrawer = ({
 }: ModelTraceExplorerDrawerProps) => {
   const { theme } = useDesignSystemTheme();
   const [showDatasetModal, setShowDatasetModal] = useState(false);
-  const [showReviewQueueModal, setShowReviewQueueModal] = useState(false);
   const [showCopiedNotification, setShowCopiedNotification] = useState(false);
   const [showCopyError, setShowCopyError] = useState(false);
   const {
     renderExportTracesToDatasetsModal,
-    renderAddToReviewQueueModal,
+    renderAddToReviewQueueDropdown,
     DrawerComponent,
     drawerWidth = '60vw',
   } = useModelTraceExplorerContext();
@@ -97,8 +97,7 @@ export const ModelTraceExplorerDrawer = ({
   const showAddToDatasetButton = Boolean(renderExportTracesToDatasetsModal && experimentId && traceInfo);
   const handleAddToDatasetClick = useCallback(() => setShowDatasetModal(true), []);
 
-  const showFlagForReviewButton = Boolean(renderAddToReviewQueueModal && experimentId && traceInfo);
-  const handleFlagForReviewClick = useCallback(() => setShowReviewQueueModal(true), []);
+  const showFlagForReviewButton = Boolean(renderAddToReviewQueueDropdown && experimentId && traceInfo);
 
   return (
     <DrawerComponent.Root
@@ -141,18 +140,20 @@ export const ModelTraceExplorerDrawer = ({
                 />
               </Button>
             )}
-            {showFlagForReviewButton && (
-              <Button
-                componentId="mlflow.evaluations_review.modal.flag_for_review"
-                onClick={handleFlagForReviewClick}
-                icon={<PlusIcon />}
-              >
-                <FormattedMessage
-                  defaultMessage="Flag for review"
-                  description="Button text for adding a trace to a review queue"
-                />
-              </Button>
-            )}
+            {showFlagForReviewButton &&
+              renderAddToReviewQueueDropdown &&
+              React.createElement(renderAddToReviewQueueDropdown, {
+                selectedTraceInfos: traceInfo ? [traceInfo] : [],
+                experimentId: experimentId ?? '',
+                children: (
+                  <Button componentId="mlflow.evaluations_review.modal.flag_for_review" icon={<FlagPointerIcon />}>
+                    <FormattedMessage
+                      defaultMessage="Flag for review"
+                      description="Button text for assigning a trace to reviewers via a review queue"
+                    />
+                  </Button>
+                ),
+              })}
             <Tooltip
               componentId="mlflow.evaluations_review.modal.share-tooltip"
               content={
@@ -193,12 +194,6 @@ export const ModelTraceExplorerDrawer = ({
           experimentId: experimentId ?? '',
           visible: showDatasetModal,
           setVisible: setShowDatasetModal,
-        })}
-        {renderAddToReviewQueueModal?.({
-          selectedTraceInfos: traceInfo ? [traceInfo] : [],
-          experimentId: experimentId ?? '',
-          visible: showReviewQueueModal,
-          setVisible: setShowReviewQueueModal,
         })}
       </DrawerComponent.Content>
       {showCopiedNotification && (

@@ -1,17 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { Empty, Modal, SearchIcon, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, Modal, PlusIcon, TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { ModelTraceExplorerResizablePane, useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { useListLabelSchemasQuery } from '../../components/label-schemas';
 import { useParams } from '../../../common/utils/RoutingUtils';
+import Utils from '../../../common/utils/Utils';
+import { copyToClipboard } from '../../../common/utils/copyToClipboard';
+import Routes from '../../routes';
 import { useMlflowSidebar } from '../../../common/contexts/MlflowSidebarContext';
 import { useIsAuthAvailable } from '../../../account/hooks';
 import { CreateReviewQueueModal } from './CreateReviewQueueModal';
 import { FocusedReview } from './FocusedReview';
 import { ManageQuestionsModal } from './ManageQuestionsModal';
 import { QueueSettingsModal } from './QueueSettingsModal';
+import { ReviewQueueEmptyState } from './ReviewQueueEmptyState';
 import { ReviewQueueList } from './ReviewQueueList';
 import { ReviewQueueSidebar } from './ReviewQueueSidebar';
 import { useCanEditReviews, useCanManageReviews } from './hooks/useCanManageReviews';
@@ -19,11 +23,13 @@ import { useDeleteReviewQueueMutation } from './hooks/useDeleteReviewQueueMutati
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
 import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
+import { getReviewQueuePageRoute, useReviewQueueSearchParams } from './hooks/useReviewQueueSearchParams';
 import { useUpdateReviewQueueMutation } from './hooks/useUpdateReviewQueueMutation';
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
 import { DEFAULT_REVIEWER, displayUser, useIsReviewerResolved, useReviewer } from './hooks/useReviewer';
 import { useSetReviewQueueItemStatusMutation } from './hooks/useSetReviewQueueItemStatusMutation';
 import { canDeleteQueue, canManageQueue, canRemoveQueueItems, sameUser } from './queuePermissions';
+import { useHeaderVisibility } from '../experiment-page-tabs/ExperimentPageHeaderVisibilityContext';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 /**
@@ -32,9 +38,7 @@ import type { ReviewQueueItem, ReviewStatus } from './types';
  * Clicking a trace opens the full-page focused question-answering view (the
  * queue list collapses), with a "Back" control to return to the list.
  *
- * The left list is a flat, sortable list of the reviewer's visible queues
- * (name / owner / to-do count); on an auth server an editor sees every queue,
- * with ones they can't open greyed out. See `ReviewQueueSidebar`.
+ * The left list of visible queues lives in `ReviewQueueSidebar`.
  */
 const ExperimentReviewQueuePage = () => {
   const { theme } = useDesignSystemTheme();
@@ -45,15 +49,15 @@ const ExperimentReviewQueuePage = () => {
   // identity is settled (an in-flight /users/current load reads as `default`).
   const reviewerResolved = useIsReviewerResolved();
   const authAvailable = useIsAuthAvailable();
-  // Question management (create / edit / delete label schemas) and owner
-  // reassignment require MANAGE; creating + owner-managing queues and reviewing
-  // require EDIT. Owner-level per-queue access combines `canEdit` with ownership.
+  // MANAGE gates question management and owner reassignment; EDIT (+ownership)
+  // gates queue create/manage and reviewing. Per-queue rules: queuePermissions.ts.
   const canManage = useCanManageReviews(experimentId ?? '');
   const canEdit = useCanEditReviews(experimentId ?? '');
 
-  const [selectedQueueIdState, setSelectedQueueIdState] = useState<string>();
-  // The trace open in focused review (null = show the queue's trace table).
-  const [openItemId, setOpenItemId] = useState<string | null>(null);
+  // Queue selection and the trace open in focused review (null = show the
+  // queue's trace table) live in the URL, so both are shareable links.
+  const { selectedQueueId, openItemId, startReviewRequested, selectQueue, setOpenItemId, consumeStartReview } =
+    useReviewQueueSearchParams();
   const [manageOpen, setManageOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   // The queue open in "Manage queue" (questions + members), from the right-pane gear.
@@ -64,14 +68,13 @@ const ExperimentReviewQueuePage = () => {
 
   const { reviewQueues, isLoading: queuesLoading } = useListReviewQueuesQuery({
     experimentId: experimentId ?? '',
-    // Don't scope by reviewer: a manager must see every queue, and the server's
-    // visibility filter (`filter_list_review_queues`) narrows the list to assigned
-    // queues for non-managers (admins / no-auth see all).
+    // Unscoped by reviewer on purpose: the server's `filter_list_review_queues`
+    // narrows the list for non-managers.
   });
   const { labelSchemas } = useListLabelSchemasQuery({ experimentId: experimentId ?? '' });
   const { setReviewQueueItemStatusAsync, isSettingStatus } = useSetReviewQueueItemStatusMutation();
   const { removeItemsFromReviewQueue, isRemovingItems } = useRemoveItemsFromReviewQueueMutation();
-  const { deleteReviewQueue } = useDeleteReviewQueueMutation();
+  const { deleteReviewQueueAsync, isDeletingQueue } = useDeleteReviewQueueMutation();
   const { updateReviewQueueAsync, isUpdatingQueue } = useUpdateReviewQueueMutation();
   const { getOrCreateUserQueueAsync } = useGetOrCreateUserQueueMutation();
 
@@ -90,10 +93,27 @@ const ExperimentReviewQueuePage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authAvailable, experimentId]);
 
-  // No queue is selected until the reviewer picks one (the right panel prompts
-  // them to). Auto-selecting the first queue could land on a queue with no work
-  // left, or one the reviewer can't open.
-  const selectedQueueId = selectedQueueIdState;
+  // Pre-select the reviewer's own USER queue once on load, so the right pane
+  // opens on their queue instead of the "Select a queue" prompt. Fire-once (a
+  // ref) rather than reacting to `selectedQueueId === undefined`: explicit
+  // deselection (collapsing the sidebar's no-work group, or deleting the open
+  // queue) must stick, not snap back to the USER queue. Gate on
+  // `reviewerResolved` so a selection isn't committed against the `default`
+  // fallback while `/users/current` is still in flight. A deep link
+  // (`?selectedQueueId=...`) wins over auto-select via the undefined check;
+  // `preserveStartReview` keeps a bare `?startReview=true` link's intent alive
+  // through the auto-selection so it resolves against the visitor's own queue.
+  const didAutoSelectQueue = useRef(false);
+  useEffect(() => {
+    if (didAutoSelectQueue.current || selectedQueueId !== undefined || queuesLoading || !reviewerResolved) {
+      return;
+    }
+    const userQueue = reviewQueues.find((q) => q.queue_type === 'USER' && sameUser(q.name, reviewer));
+    if (userQueue) {
+      didAutoSelectQueue.current = true;
+      selectQueue(userQueue.queue_id, { preserveStartReview: true });
+    }
+  }, [selectedQueueId, queuesLoading, reviewerResolved, reviewQueues, reviewer, selectQueue]);
   const selectedQueue = useMemo(
     () => reviewQueues.find((q) => q.queue_id === selectedQueueId) ?? null,
     [reviewQueues, selectedQueueId],
@@ -106,34 +126,23 @@ const ExperimentReviewQueuePage = () => {
     () => (confirmDeleteQueueId ? (reviewQueues.find((q) => q.queue_id === confirmDeleteQueueId) ?? null) : null),
     [reviewQueues, confirmDeleteQueueId],
   );
-  // Whether the reviewer may manage the selected queue — a CUSTOM queue they can
-  // manage (MANAGE) or own (EDIT + owner). Removing traces and the right-pane
-  // gear (manage settings / delete) share this one permission.
+  // Per-queue gates (see queuePermissions.ts). Delete is its own gate because a
+  // manager may delete a USER queue, which has no manageable settings.
   const canManageSelectedQueue = selectedQueue ? canManageQueue(selectedQueue, reviewer, canManage, canEdit) : false;
-  // Delete is broader than manage: a manager may delete a personal USER queue
-  // (which has no editable settings), so it gets its own gate.
   const canDeleteSelectedQueue = selectedQueue ? canDeleteQueue(selectedQueue, reviewer, canManage, canEdit) : false;
-  // Removing traces (un-assigning work) follows the same rule as deleting the
-  // queue: a manager may prune any queue (including a personal USER queue), but
-  // an EDIT owner only their own CUSTOM queue — a reviewer can't un-assign work
-  // from their own USER queue.
   const canRemoveItemsFromSelectedQueue = selectedQueue
     ? canRemoveQueueItems(selectedQueue, reviewer, canManage, canEdit)
     : false;
-  // Whether the reviewer may submit reviews in the selected queue: always on a
-  // no-auth server; otherwise experiment EDIT plus membership in the queue's
-  // assigned-user pool (the server enforces both on set-status). A manager/owner
-  // viewing a queue they're not assigned to gets a view-only pane with a
-  // self-assign affordance.
+  // Reviewing needs EDIT + membership (server enforces both); a manager/owner who
+  // isn't assigned gets a view-only pane with a self-assign affordance.
   const isAssignedToSelectedQueue = !!selectedQueue && (selectedQueue.users ?? []).some((u) => sameUser(u, reviewer));
   const canReviewSelectedQueue = !authAvailable || (canEdit && isAssignedToSelectedQueue);
   const handleAssignSelf =
     authAvailable && canManageSelectedQueue && !canReviewSelectedQueue && selectedQueue
       ? () => {
-          // KNOWN LIMITATION (V1): this read-modify-writes the assignee list from a
-          // possibly-stale client snapshot, so a concurrent edit by another manager
-          // between load and save is clobbered. A dedicated server-side
-          // add-user-to-queue RPC (append, not replace) would remove the race.
+          // KNOWN LIMITATION (V1): read-modify-write of the assignee list from a
+          // possibly-stale snapshot races a concurrent manager edit. A server-side
+          // append RPC would remove it.
           void updateReviewQueueAsync({
             queue_id: selectedQueue.queue_id,
             users: [...(selectedQueue.users ?? []), reviewer],
@@ -141,19 +150,13 @@ const ExperimentReviewQueuePage = () => {
         }
       : undefined;
 
-  const handleDeleteQueue = (queueId: string) =>
-    deleteReviewQueue(
-      { queue_id: queueId },
-      {
-        onSuccess: () => {
-          // Drop the selection if the queue that was open got deleted.
-          if (selectedQueueId === queueId) {
-            setSelectedQueueIdState(undefined);
-            setOpenItemId(null);
-          }
-        },
-      },
-    );
+  const handleDeleteQueue = async (queueId: string) => {
+    await deleteReviewQueueAsync({ queue_id: queueId });
+    // Drop the selection if the queue that was open got deleted.
+    if (selectedQueueId === queueId) {
+      selectQueue(undefined);
+    }
+  };
 
   const { items: traces, isLoading: itemsLoading } = useListReviewQueueItemsQuery({
     queueId: selectedQueueId ?? '',
@@ -186,6 +189,17 @@ const ExperimentReviewQueuePage = () => {
     const todo = traces.filter((t) => t.status === 'PENDING').sort(byTraceNewest);
     return [...done, ...todo];
   }, [traces, traceCreatedMsById]);
+
+  // A `?startReview=true` deep link mirrors the "Start review" button: once
+  // the selected queue's items are in, jump to the first to-do trace (or stay
+  // on the list when there's none) and drop the one-shot intent param.
+  useEffect(() => {
+    if (!startReviewRequested || !selectedQueue || itemsLoading) {
+      return;
+    }
+    const firstToDo = orderedTraces.find((t) => t.status === 'PENDING');
+    consumeStartReview(firstToDo?.item_id ?? null);
+  }, [startReviewRequested, selectedQueue, itemsLoading, orderedTraces, consumeStartReview]);
 
   // A user queue inherits all of the experiment's schemas; a custom queue uses
   // its explicit subset.
@@ -236,9 +250,40 @@ const ExperimentReviewQueuePage = () => {
     };
   }, [inFocusMode]);
 
-  const selectQueue = (queueId: string) => {
-    setSelectedQueueIdState(queueId);
-    setOpenItemId(null);
+  const { setHeaderHidden } = useHeaderVisibility();
+  useEffect(() => {
+    setHeaderHidden(inFocusMode);
+    return () => setHeaderHidden(false);
+  }, [inFocusMode, setHeaderHidden]);
+
+  // Copy a shareable link to the selected queue — plain, or with the
+  // start-review intent so the recipient lands in the focused review of the
+  // queue's first to-do trace.
+  const copyQueueLink = async ({ startReview }: { startReview: boolean }) => {
+    if (!experimentId || !selectedQueue) {
+      return;
+    }
+    const path = getReviewQueuePageRoute(experimentId, selectedQueue.queue_id, { startReview });
+    // `copyToClipboard` falls back to execCommand on insecure-HTTP contexts and
+    // reports whether the copy actually landed — only confirm success when it did.
+    const copied = await copyToClipboard(`${window.location.origin}${window.location.pathname}#${path}`);
+    if (copied) {
+      Utils.displayGlobalInfoNotification(
+        intl.formatMessage({
+          defaultMessage: 'Link copied to clipboard.',
+          description: 'Review queue: toast after copying a shareable queue link',
+        }),
+        3,
+      );
+    } else {
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage({
+          defaultMessage: 'Could not copy link to clipboard.',
+          description: 'Review queue: toast when copying a shareable queue link fails',
+        }),
+        3,
+      );
+    }
   };
 
   const setOpenStatus = async (status: ReviewStatus) => {
@@ -254,38 +299,55 @@ const ExperimentReviewQueuePage = () => {
     });
   };
 
-  const centeredEmpty = (description: React.ReactNode) => (
-    <div
-      css={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100%',
-        minHeight: 400,
-        width: '100%',
-        '& > div': { height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' },
-      }}
-    >
-      <Empty description={description} image={<SearchIcon />} />
-    </div>
-  );
-
   let rightContent: React.ReactNode;
   if (queuesLoading) {
     rightContent = <TableSkeleton lines={6} />;
   } else if (reviewQueues.length === 0) {
-    rightContent = centeredEmpty(
-      <FormattedMessage
-        defaultMessage="No review queues yet. Flag traces for review to create one."
-        description="Review queue: empty state when no queues exist"
-      />,
+    rightContent = (
+      <ReviewQueueEmptyState
+        title={
+          <FormattedMessage
+            defaultMessage="Set up human review for your traces"
+            description="Review queue: empty state title when no queues exist"
+          />
+        }
+        description={
+          <FormattedMessage
+            defaultMessage="Review queues let your team evaluate trace quality with structured questions. Add traces to a queue from the Traces tab, or create a new queue to get started."
+            description="Review queue: empty state description when no queues exist"
+          />
+        }
+        button={
+          <Button
+            componentId="mlflow.experiment-review-queue.empty-state-new-queue"
+            type="primary"
+            icon={<PlusIcon />}
+            onClick={() => setCreateOpen(true)}
+          >
+            <FormattedMessage
+              defaultMessage="New queue"
+              description="Review queue: empty state button to create a new queue"
+            />
+          </Button>
+        }
+      />
     );
   } else if (!selectedQueue) {
-    rightContent = centeredEmpty(
-      <FormattedMessage
-        defaultMessage="Select a queue to review its traces."
-        description="Review queue: prompt to pick a queue"
-      />,
+    rightContent = (
+      <ReviewQueueEmptyState
+        title={
+          <FormattedMessage
+            defaultMessage="Select a queue to get started"
+            description="Review queue: empty state title when no queue selected"
+          />
+        }
+        description={
+          <FormattedMessage
+            defaultMessage="Review queues let you organize traces for human evaluation. Select a queue from the sidebar, or create a new one to start reviewing traces."
+            description="Review queue: empty state description when no queue selected"
+          />
+        }
+      />
     );
   } else if (openItemId && openItem) {
     rightContent = (
@@ -329,8 +391,20 @@ const ExperimentReviewQueuePage = () => {
         isRemovingItems={isRemovingItems}
         // Gear menu: "Manage queue" (settings) only for editable CUSTOM queues;
         // "Delete queue" is separate — a manager can delete a USER queue too.
+        // Copying a share link is permission-free.
+        onCopyLink={copyQueueLink}
         onManageQueue={canManageSelectedQueue ? () => setEditingQueueId(selectedQueue.queue_id) : undefined}
         onDeleteQueue={canDeleteSelectedQueue ? () => setConfirmDeleteQueueId(selectedQueue.queue_id) : undefined}
+        onGoToTraces={
+          experimentId
+            ? () =>
+                window.open(
+                  `/#${Routes.getExperimentPageTracesTabRoute(experimentId)}`,
+                  '_blank',
+                  'noopener,noreferrer',
+                )
+            : undefined
+        }
       />
     );
   }
@@ -346,14 +420,14 @@ const ExperimentReviewQueuePage = () => {
         paddingBottom: theme.spacing.md,
       }}
     >
-      <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div css={{ display: 'flex', flex: 1, minHeight: 0, overflow: inFocusMode ? 'visible' : 'hidden' }}>
         {inFocusMode ? (
           <div
             css={{
               width: '100%',
               height: '100%',
               minHeight: 0,
-              overflow: 'hidden',
+              overflow: 'visible',
               display: 'flex',
               flexDirection: 'column',
             }}
@@ -412,8 +486,7 @@ const ExperimentReviewQueuePage = () => {
 
       {editingQueue && (
         <QueueSettingsModal
-          // Remount per queue so the name / owner inputs re-seed from the new
-          // queue rather than keeping the previous queue's values.
+          // Remount per queue so the inputs re-seed from the new queue.
           key={editingQueue.queue_id}
           queue={editingQueue}
           canManage={canManage}
@@ -428,12 +501,33 @@ const ExperimentReviewQueuePage = () => {
           title={<FormattedMessage defaultMessage="Delete queue?" description="Delete review queue: confirm title" />}
           okText={<FormattedMessage defaultMessage="Delete" description="Delete review queue: confirm button" />}
           okButtonProps={{ danger: true }}
+          confirmLoading={isDeletingQueue}
           cancelText={<FormattedMessage defaultMessage="Cancel" description="Delete review queue: cancel button" />}
-          onOk={() => {
-            handleDeleteQueue(confirmDeleteQueue.queue_id);
-            setConfirmDeleteQueueId(undefined);
+          cancelButtonProps={{ disabled: isDeletingQueue }}
+          onOk={async () => {
+            try {
+              await handleDeleteQueue(confirmDeleteQueue.queue_id);
+              // Close only after the delete lands, so a failure keeps the dialog
+              // open for retry instead of looking like a silent no-op.
+              setConfirmDeleteQueueId(undefined);
+            } catch (e) {
+              Utils.displayGlobalErrorNotification(
+                intl.formatMessage(
+                  {
+                    defaultMessage: 'Could not delete queue: {error}',
+                    description: 'Review queue: error toast when deleting a queue fails',
+                  },
+                  { error: e instanceof Error ? e.message : String(e) },
+                ),
+              );
+            }
           }}
-          onCancel={() => setConfirmDeleteQueueId(undefined)}
+          onCancel={() => {
+            // Ignore dismissals while a delete is in flight.
+            if (!isDeletingQueue) {
+              setConfirmDeleteQueueId(undefined);
+            }
+          }}
         >
           <FormattedMessage
             defaultMessage='Permanently delete "{name}" and remove its traces from review? This cannot be undone.'

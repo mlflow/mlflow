@@ -11,7 +11,7 @@ import pandas as pd
 import pydantic
 import pytest
 import sklearn.datasets
-import sklearn.neighbors
+import sklearn.linear_model
 from packaging.version import Version
 from scipy.sparse import csc_matrix
 
@@ -41,9 +41,9 @@ def iris_data():
 @pytest.fixture(scope="module")
 def sklearn_knn_model(iris_data):
     x, y = iris_data
-    knn_model = sklearn.neighbors.KNeighborsClassifier()
-    knn_model.fit(x, y)
-    return knn_model
+    logreg_model = sklearn.linear_model.LogisticRegression()
+    logreg_model.fit(x, y)
+    return logreg_model
 
 
 def test_model_save_load():

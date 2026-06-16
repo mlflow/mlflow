@@ -127,7 +127,13 @@ def test_list_review_queues_delegates():
 def test_update_review_queue_delegates():
     with patch(f"{_BASE}._update_review_queue", return_value=_queue()) as m:
         update_review_queue("rq-1", users=["dave"])
-    m.assert_called_once_with("rq-1", users=["dave"], schema_ids=None)
+    m.assert_called_once_with("rq-1", name=None, new_owner=None, users=["dave"], schema_ids=None)
+
+
+def test_update_review_queue_delegates_name_and_owner():
+    with patch(f"{_BASE}._update_review_queue", return_value=_queue()) as m:
+        update_review_queue("rq-1", name="Renamed", new_owner="bob")
+    m.assert_called_once_with("rq-1", name="Renamed", new_owner="bob", users=None, schema_ids=None)
 
 
 def test_delete_review_queue_delegates():

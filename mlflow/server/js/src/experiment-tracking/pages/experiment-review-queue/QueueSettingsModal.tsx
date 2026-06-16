@@ -1,21 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
-  Alert,
   ApplyDesignSystemContextOverrides,
+  Button,
   ChevronDownIcon,
   ChevronRightIcon,
   FormUI,
   Input,
   Modal,
-  Tag,
   TableSkeleton,
   Typography,
-  TypeaheadComboboxInput,
-  TypeaheadComboboxMenu,
-  TypeaheadComboboxMenuItem,
-  TypeaheadComboboxRoot,
-  useComboboxState,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -25,8 +19,12 @@ import {
   LabelSchemaFormModal,
   useListLabelSchemasQuery,
 } from '../../components/label-schemas';
+import { OwnerCombobox } from './OwnerCombobox';
 import { QuestionChecklistCombobox } from './QuestionChecklistCombobox';
+import { sameUser } from './queuePermissions';
+import { MAX_ASSIGNED_USERS, ReviewerChecklistCombobox } from './ReviewerChecklistCombobox';
 import { useIsAuthAvailable } from '../../../account/hooks';
+import Utils from '../../../common/utils/Utils';
 import { useAssignableUsersQuery } from './hooks/useAssignableUsersQuery';
 import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { useUpdateReviewQueueMutation } from './hooks/useUpdateReviewQueueMutation';
@@ -37,10 +35,11 @@ const CID = 'mlflow.experiment-review-queue.queue-settings';
 /**
  * "Manage queue" modal for a CUSTOM queue (opened from the right-pane gear). The
  * modal only opens for someone who can manage the queue — an experiment manager
- * or the owning EDITor — and edits the assigned members (either) and the
- * questions (manager-only, also frozen once the queue has traces). The name is
- * read-only here. Deletion lives on the gear menu, not here. Personal USER
- * queues aren't managed here.
+ * or the owning EDITor. The name and assigned members are editable by either;
+ * the questions (also frozen once the queue has traces) and a new
+ * owner-reassignment field can only be changed by an experiment manager
+ * (`canManage`). Deletion lives on the gear menu, not here. Personal USER queues
+ * aren't managed here.
  */
 export const QueueSettingsModal = ({
   queue,
@@ -56,13 +55,13 @@ export const QueueSettingsModal = ({
   const authAvailable = useIsAuthAvailable();
   // Any authenticated user may list users server-side, and the modal only opens
   // for someone who can edit this queue's members, so the roster is fetched
-  // whenever auth is on. Free-text member entry still works without it.
+  // whenever auth is on.
   const canListUsers = authAvailable;
 
   const { labelSchemas, isLoading: schemasLoading } = useListLabelSchemasQuery({ experimentId: queue.experiment_id });
   const { items: traces, isLoading: itemsLoading } = useListReviewQueueItemsQuery({ queueId: queue.queue_id });
-  const { users: assignableUsers } = useAssignableUsersQuery({ enabled: canListUsers });
-  const { updateReviewQueueAsync, isUpdatingQueue, error: updateError } = useUpdateReviewQueueMutation();
+  const { users: assignableUsers, isLoading: usersLoading } = useAssignableUsersQuery({ enabled: canListUsers });
+  const { updateReviewQueueAsync, isUpdatingQueue } = useUpdateReviewQueueMutation();
 
   // Questions are an experiment-manager concern (`canManage`) and additionally
   // freeze once the queue has traces (the backend rejects schema changes then),
@@ -70,11 +69,21 @@ export const QueueSettingsModal = ({
   // loads, so it doesn't flash editable for a queue with traces.
   const canEditQuestions = canManage && !itemsLoading && traces.length === 0;
 
+  const [name, setName] = useState(queue.name);
+  // The current owner is implicitly a member (they own the queue) and can't be
+  // unassigned, so keep them out of the selectable roster and the toggleable
+  // member set, then re-add on save — consistent with the create flow, where the
+  // creator is auto-assigned and hidden from the picker.
+  const owner = queue.created_by;
+  const withoutOwner = (users: string[]) => users.filter((u) => !owner || !sameUser(u, owner));
+  // Owner reassignment is manager-only; a free-text new owner pre-filled with
+  // the current one. Distinct from `owner` above, which is the immutable key
+  // used to filter the reviewer picker.
+  const [newOwner, setNewOwner] = useState(queue.created_by ?? '');
+
   const [selectedSchemaIds, setSelectedSchemaIds] = useState<Set<string>>(new Set(queue.schema_ids ?? []));
-  const [members, setMembers] = useState<string[]>(queue.users ?? []);
+  const [members, setMembers] = useState<Set<string>>(() => new Set(withoutOwner(queue.users ?? [])));
   const [createQuestionOpen, setCreateQuestionOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [selectedItem, setSelectedItem] = useState<string | null>(null);
 
   const selectedSchemas = useMemo(
     () => labelSchemas.filter((s) => selectedSchemaIds.has(s.schema_id)),
@@ -118,62 +127,99 @@ export const QueueSettingsModal = ({
       return next;
     });
 
-  // Members typeahead: free text autocompleting assignable users, with the typed
-  // value injected so an unlisted user (or a user on a server without listing)
-  // can be added too.
+  // Reviewers picker: searchable multi-select checkbox list of assignable users
+  // (same UX as the create modal and the "Flag for review" picker), so members
+  // are chosen from the roster rather than free text.
   const usernames = useMemo(
+    () => withoutOwner(assignableUsers.map((u) => u.username).filter((u): u is string => Boolean(u))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [assignableUsers, owner],
+  );
+  // Owner picker spans the whole roster (anyone with experiment EDIT can own a
+  // queue), unlike the reviewers list which hides the current owner.
+  const ownerCandidates = useMemo(
     () => assignableUsers.map((u) => u.username).filter((u): u is string => Boolean(u)),
     [assignableUsers],
   );
-  const [filteredUsers, setFilteredUsers] = useState<(string | null)[]>([]);
-  useEffect(() => {
-    setFilteredUsers(usernames);
-  }, [usernames]);
-  const memberItems = useMemo(() => {
-    const base = filteredUsers.filter((u): u is string => typeof u === 'string' && !members.includes(u));
-    const typed = query.trim();
-    if (typed && !members.includes(typed) && !base.includes(typed)) {
-      return [typed, ...base];
-    }
-    return base;
-  }, [filteredUsers, members, query]);
-  const addMember = (value: string | null) => {
-    const name = value?.trim();
-    if (name && !members.includes(name)) {
-      setMembers((prev) => [...prev, name]);
-    }
-    setSelectedItem(null);
-    setQuery('');
-  };
-  const comboboxState = useComboboxState<string | null>({
-    componentId: `${CID}.member-typeahead`,
-    allItems: usernames,
-    items: memberItems,
-    setItems: setFilteredUsers,
-    multiSelect: false,
-    setInputValue: setQuery,
-    itemToString: (item) => item ?? '',
-    matcher: (item, q) => (item ?? '').toLowerCase().includes(q.toLowerCase()),
-    formValue: selectedItem,
-    formOnChange: addMember,
-    preventUnsetOnBlur: true,
-  });
-  const removeMember = (name: string) => setMembers((prev) => prev.filter((m) => m !== name));
+  const toggleReviewer = (username: string) =>
+    setMembers((prev) => {
+      const next = new Set(prev);
+      if (next.has(username)) {
+        next.delete(username);
+      } else {
+        next.add(username);
+      }
+      return next;
+    });
+  const reviewersTriggerValue = useMemo(
+    () =>
+      members.size > 0
+        ? [
+            intl.formatMessage(
+              {
+                defaultMessage: '{count, plural, one {# reviewer} other {# reviewers}} selected',
+                description: 'Queue settings: reviewers dropdown selected-count summary',
+              },
+              { count: members.size },
+            ),
+          ]
+        : [],
+    [members, intl],
+  );
 
-  const originalMembers = queue.users ?? [];
-  const membersChanged = members.length !== originalMembers.length || members.some((m) => !originalMembers.includes(m));
+  const trimmedName = name.trim();
+  const nameChanged = trimmedName !== queue.name;
+  const trimmedNewOwner = newOwner.trim();
+  // Owner can only change for a manager; ignore a cleared field (the backend
+  // requires a non-empty owner) so blanking it is a no-op rather than an error.
+  const ownerChanged = canManage && trimmedNewOwner !== '' && trimmedNewOwner !== (queue.created_by ?? '');
+  const canSave = trimmedName !== '';
+  // Dedupe the stored members before diffing so a duplicate in `queue.users`
+  // can't read as a spurious change (and trigger a needless update_users write).
+  const originalMembers = useMemo(
+    () => new Set(withoutOwner(queue.users ?? [])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [queue.users, owner],
+  );
+  const membersChanged = members.size !== originalMembers.size || [...originalMembers].some((m) => !members.has(m));
+  const originalSchemaIds = useMemo(() => new Set(queue.schema_ids ?? []), [queue.schema_ids]);
+  const questionsChanged =
+    selectedSchemaIds.size !== originalSchemaIds.size ||
+    [...originalSchemaIds].some((id) => !selectedSchemaIds.has(id));
 
   const handleSave = async () => {
-    await updateReviewQueueAsync({
-      queue_id: queue.queue_id,
-      // Only send `users` when membership changed: a repeated write is an
-      // `update_users` that would otherwise clobber a concurrent edit.
-      ...(membersChanged ? { users: members } : {}),
-      // Only send schema_ids when they're still editable; once the queue has
-      // traces (or the user lacks MANAGE) the backend freezes them.
-      ...(canEditQuestions ? { schema_ids: [...selectedSchemaIds] } : {}),
-    });
-    onClose();
+    try {
+      await updateReviewQueueAsync({
+        queue_id: queue.queue_id,
+        // Send each field only when it actually changed: a repeated `users` write
+        // is an `update_users` that would otherwise clobber a concurrent edit, and
+        // name / owner skip the backend's rename collision and owner re-validation.
+        // The owner is re-added to `users` (they're always a member) since they're
+        // hidden from the picker.
+        ...(membersChanged ? { users: Array.from(new Set([...(owner ? [owner] : []), ...members])) } : {}),
+        ...(nameChanged ? { name: trimmedName } : {}),
+        ...(ownerChanged ? { new_owner: trimmedNewOwner } : {}),
+        // Only send schema_ids when they're still editable AND actually changed:
+        // once the queue has traces (or the user lacks MANAGE) the backend freezes
+        // them, and a no-op rewrite would needlessly re-write the whole association
+        // set and clobber a concurrent question edit.
+        ...(canEditQuestions && questionsChanged ? { schema_ids: [...selectedSchemaIds] } : {}),
+      });
+      onClose();
+    } catch (e) {
+      // Surface the failure (e.g. a duplicate queue name) as a toast rather than an
+      // inline alert, so the modal body (and the Save button) don't shift. The modal
+      // stays open so the user can correct and retry.
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Failed to save the queue settings: {error}',
+            description: 'Queue settings: error toast shown when saving fails',
+          },
+          { error: e instanceof Error ? e.message : String(e) },
+        ),
+      );
+    }
   };
 
   const dropdownZIndex = theme.options.zIndexBase + 100;
@@ -188,11 +234,20 @@ export const QueueSettingsModal = ({
           { defaultMessage: 'Queue settings — “{name}”', description: 'Queue settings modal title' },
           { name: queue.name },
         )}
-        okText={<FormattedMessage defaultMessage="Save" description="Queue settings: save button" />}
-        okButtonProps={{ loading: isUpdatingQueue, disabled: isUpdatingQueue }}
-        cancelText={<FormattedMessage defaultMessage="Cancel" description="Queue settings: cancel button" />}
-        onOk={handleSave}
         onCancel={onClose}
+        footer={
+          <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              componentId={`${CID}.save`}
+              type="primary"
+              loading={isUpdatingQueue}
+              disabled={isUpdatingQueue || !canSave}
+              onClick={handleSave}
+            >
+              <FormattedMessage defaultMessage="Save" description="Queue settings: save button" />
+            </Button>
+          </div>
+        }
       >
         <ApplyDesignSystemContextOverrides getPopupContainer={() => document.body}>
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -200,9 +255,61 @@ export const QueueSettingsModal = ({
               <FormUI.Label htmlFor={`${CID}.name-input`}>
                 <FormattedMessage defaultMessage="Name" description="Queue settings: name field label" />
               </FormUI.Label>
-              {/* Renaming is handled in a separate stack; read-only here for now. */}
-              <Input componentId={`${CID}.name`} id={`${CID}.name-input`} value={queue.name} disabled />
+              <Input
+                componentId={`${CID}.name`}
+                id={`${CID}.name-input`}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
+
+            {/* Owner reassignment is an experiment-manager action; an editor who
+                owns the queue manages its name and members but not who owns it. */}
+            {canManage && authAvailable && (
+              <div>
+                <FormUI.Label>
+                  <FormattedMessage defaultMessage="Owner" description="Queue settings: owner field label" />
+                </FormUI.Label>
+                <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
+                  <FormattedMessage
+                    defaultMessage="The owner can manage this queue with experiment EDIT access."
+                    description="Queue settings: owner field hint"
+                  />
+                </FormUI.Hint>
+                <OwnerCombobox
+                  componentId={`${CID}.owner`}
+                  usernames={ownerCandidates}
+                  selectedUser={newOwner}
+                  onSelect={setNewOwner}
+                  dropdownZIndex={dropdownZIndex}
+                  isLoading={usersLoading}
+                />
+              </div>
+            )}
+
+            {authAvailable && (
+              <div>
+                <FormUI.Label>
+                  <FormattedMessage defaultMessage="Reviewers" description="Queue settings: members field label" />
+                </FormUI.Label>
+                <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
+                  <FormattedMessage
+                    defaultMessage="Assign reviewers who should answer this queue's questions. They'll find it under “Feedback requested”."
+                    description="Queue settings: members field hint"
+                  />
+                </FormUI.Hint>
+                <ReviewerChecklistCombobox
+                  componentId={`${CID}.reviewers`}
+                  usernames={usernames}
+                  checkedUsers={members}
+                  onToggle={toggleReviewer}
+                  triggerValue={reviewersTriggerValue}
+                  dropdownZIndex={dropdownZIndex}
+                  isLoading={usersLoading}
+                  maxSelected={owner ? MAX_ASSIGNED_USERS - 1 : MAX_ASSIGNED_USERS}
+                />
+              </div>
+            )}
 
             <div>
               <FormUI.Label>
@@ -318,6 +425,19 @@ export const QueueSettingsModal = ({
                                   label={schema.name}
                                   instruction={schema.instruction}
                                 />
+                                {/* Mirror the create-question form preview: a question
+                                    that collects an optional rationale shows the box here too. */}
+                                {schema.enable_comment && (
+                                  <Input.TextArea
+                                    componentId={`${CID}.preview.rationale`}
+                                    rows={2}
+                                    disabled
+                                    placeholder={intl.formatMessage({
+                                      defaultMessage: 'Rationale (optional)',
+                                      description: 'Review question preview free-form rationale placeholder',
+                                    })}
+                                  />
+                                )}
                               </>
                             )}
                           </div>
@@ -328,78 +448,6 @@ export const QueueSettingsModal = ({
                 </div>
               </div>
             </div>
-
-            {authAvailable && (
-              <div>
-                <FormUI.Label htmlFor={`${CID}.member-typeahead-input`}>
-                  <FormattedMessage defaultMessage="Reviewers" description="Queue settings: members field label" />
-                </FormUI.Label>
-                <FormUI.Hint css={{ marginBottom: theme.spacing.sm }}>
-                  <FormattedMessage
-                    defaultMessage="Assign reviewers by name. They'll find this queue under “Feedback requested”."
-                    description="Queue settings: members field hint"
-                  />
-                </FormUI.Hint>
-                <TypeaheadComboboxRoot id={`${CID}.member-typeahead`} comboboxState={comboboxState}>
-                  <TypeaheadComboboxInput
-                    id={`${CID}.member-typeahead-input`}
-                    placeholder={intl.formatMessage({
-                      defaultMessage: 'Add a reviewer by username or email',
-                      description: 'Queue settings: member typeahead placeholder',
-                    })}
-                    comboboxState={comboboxState}
-                    formOnChange={addMember}
-                    onPressEnter={() => {
-                      if (memberItems.length > 0) {
-                        addMember(memberItems[0]);
-                      }
-                    }}
-                    allowClear
-                  />
-                  <TypeaheadComboboxMenu comboboxState={comboboxState}>
-                    {memberItems.map((item, index) => (
-                      <TypeaheadComboboxMenuItem
-                        key={item ?? ''}
-                        item={item}
-                        index={index}
-                        comboboxState={comboboxState}
-                      >
-                        {item ?? ''}
-                      </TypeaheadComboboxMenuItem>
-                    ))}
-                  </TypeaheadComboboxMenu>
-                </TypeaheadComboboxRoot>
-                {members.length > 0 ? (
-                  <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs, marginTop: theme.spacing.sm }}>
-                    {members.map((member) => (
-                      <Tag key={member} componentId={`${CID}.member-tag`} closable onClose={() => removeMember(member)}>
-                        {member}
-                      </Tag>
-                    ))}
-                  </div>
-                ) : (
-                  <Typography.Hint css={{ marginTop: theme.spacing.sm }}>
-                    <FormattedMessage
-                      defaultMessage="No reviewers assigned yet."
-                      description="Queue settings: empty members state"
-                    />
-                  </Typography.Hint>
-                )}
-              </div>
-            )}
-
-            {updateError && (
-              <Alert
-                componentId={`${CID}.error`}
-                type="error"
-                closable={false}
-                message={intl.formatMessage({
-                  defaultMessage: 'Failed to save the queue settings.',
-                  description: 'Queue settings: error alert title',
-                })}
-                description={updateError.message}
-              />
-            )}
           </div>
         </ApplyDesignSystemContextOverrides>
       </Modal>
