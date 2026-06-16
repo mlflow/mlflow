@@ -1,5 +1,5 @@
 ---
-title: Regression Testing with Pytest
+title: Regression Testing and CI/CD
 description: Write agent behavioral and regression tests as plain pytest functions with @mlflow.test, and gate them in CI to prevent quality regressions.
 ---
 
@@ -10,15 +10,16 @@ import TileCard from '@site/src/components/TileCard';
 import ImageBox from '@site/src/components/ImageBox';
 import { Bot, Activity, MessageSquare, TestTube, ShieldCheck, Gauge, ScrollText } from 'lucide-react';
 
-# Regression Testing with Pytest
+# Regression Testing and CI/CD
 
 As you ship changes to an agent (a new prompt, a model swap, a refactored tool), you need confidence that you did not silently break behavior that used to work. The most effective way to get that confidence is the same one you already use for the rest of your code: **write a test, and run it in CI.**
 
-MLflow lets you write agent behavioral and regression tests as ordinary `pytest` functions. You mark a test with `@mlflow.test`, run scorers (built-in or custom, code-based or LLM judges) against your agent's output with <APILink fn="mlflow.genai.evaluate" />, and assert that they pass. Every test in the run is recorded under a single MLflow run, so a green CI check and a browsable record of what passed and what failed come from the exact same source.
+MLflow lets you write agent behavioral and regression tests as ordinary `pytest` functions. You mark a test with `@mlflow.test`, run scorers (built-in or custom, code-based or LLM judges) against your agent's output with <APILink fn="mlflow.genai.evaluate" />, and assert that they pass. Every test in the session is recorded under a single MLflow run, so a green CI check and a browsable record of what passed and what failed come from the exact same source.
 
 <ImageBox src="/images/mlflow-3/eval-monitor/regression-test-result-table.png" alt="MLflow regression test run showing each test case as a row with a consolidated pass/fail result" width="90%" />
 
 ```python
+# tests/regression/test_support_agent.py
 import mlflow
 from mlflow.genai.scorers import Guidelines
 
@@ -37,10 +38,10 @@ def test_answers_concisely_in_english(agent):
 ```
 
 ```bash
-pytest tests/regression
+pytest tests/regression/test_support_agent.py
 ```
 
-## Regression test vs a dataset evaluation?
+## Regression test vs a dataset evaluation
 
 [Running an evaluation](/genai/eval-monitor/running-evaluation/agents) against a dataset answers a _measurement_ question: "what is my agent's correctness/safety/relevance score across this dataset?" The output is aggregate metrics (correctness is 82%, safety is 95%).
 
@@ -86,7 +87,7 @@ The best regression suites are not written up front, they are grown from real fa
 
 :::tip[Let your coding agent set things up]
 
-Run `mlflow agent setup` once from inside your project's Git repository to install the **MLflow skills** into your coding agent (Claude Code, Codex, and more). The skills teach the agent how MLflow tracing, scorers, and `@mlflow.test` work, so it can wire up tracing and write regression tests for you.
+Run `mlflow agent setup` once from inside your project to install the **MLflow skills** into your coding agent (Claude Code, Codex, and more). The skills teach the agent how MLflow tracing, scorers, and `@mlflow.test` work, so it can wire up tracing and write regression tests for you.
 
 ```bash
 uvx mlflow@latest agent setup
@@ -96,11 +97,11 @@ uvx mlflow@latest agent setup
 
 ### Step 1: Enable the pytest plugin
 
-`@mlflow.test` runs through a pytest plugin. Enable it once by adding the following to your project's root `conftest.py`:
+`@mlflow.test` runs through a pytest plugin. Enable it once by adding it to your `pyproject.toml`:
 
-```python
-# conftest.py
-pytest_plugins = ["mlflow.pytest.plugin"]
+```toml
+[tool.pytest.ini_options]
+addopts = ["-p", "mlflow.pytest.plugin"]
 ```
 
 Or enable it for a single run with `pytest -p mlflow.pytest.plugin`.
@@ -109,7 +110,10 @@ Or enable it for a single run with `pytest -p mlflow.pytest.plugin`.
 
 Mark the test with `@mlflow.test`, call <APILink fn="mlflow.genai.evaluate" /> with your agent and the scorers that encode the behavior you care about, then assert on the result.
 
+Here `agent` is a `pytest` fixture you define that returns your application, so `agent.invoke` is the entrypoint MLflow calls for each input.
+
 ```python
+# tests/regression/test_support_agent.py
 import mlflow
 from mlflow.genai.scorers import Guidelines
 
@@ -134,7 +138,7 @@ You can use the full range of MLflow scorers here, including [built-in LLM judge
 ### Step 3: Run it
 
 ```bash
-pytest tests/regression
+pytest tests/regression/test_support_agent.py
 ```
 
 Run it like any other pytest suite. The whole session is recorded as a single MLflow run. Open the **Evaluation runs** page in the MLflow UI and select the run to inspect each test case, including its conversation, trace, and per-assertion results.
@@ -143,7 +147,7 @@ Run it like any other pytest suite. The whole session is recorded as a single ML
 
 ## Run the suite in parallel
 
-Agent tests are slow: each one runs your real agent and its LLM-judge scorers. `pytest` runs tests sequentially by default, so a suite of any size quickly takes minutes. [pytest-xdist](https://pytest-xdist.readthedocs.io/) spreads the tests across worker processes to cut that down.
+Agent tests are slow: each one runs your real agent and its LLM-judge scorers. `pytest` runs tests sequentially by default, so even a modest suite quickly adds up to minutes. [pytest-xdist](https://pytest-xdist.readthedocs.io/) spreads the tests across worker processes to cut that down.
 
 First, install it and add a hook to your `conftest.py` so every worker reports to a single MLflow run. Without this hook, each worker records its own run and your results scatter across one run per worker:
 
@@ -155,8 +159,6 @@ pip install pytest-xdist
 # conftest.py
 import os
 import mlflow
-
-pytest_plugins = ["mlflow.pytest.plugin"]
 
 
 def pytest_configure(config):
