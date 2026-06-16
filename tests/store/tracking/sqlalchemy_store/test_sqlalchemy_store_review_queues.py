@@ -158,7 +158,7 @@ def test_create_custom_collides_with_user_queue_case_insensitively(store):
         store.create_review_queue(exp_id, name="Alice", queue_type="custom")
     _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
     # The surviving queue is still the original user queue, not a custom one.
-    assert store.get_review_queue_by_name(exp_id, name="alice").queue_type == "user"
+    assert store.get_review_queue_by_name(exp_id, name="alice").queue_type == ReviewQueueType.USER
 
 
 def test_create_duplicate_case_variant_race_maps_to_already_exists(store):
