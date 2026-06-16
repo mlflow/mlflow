@@ -129,10 +129,8 @@ export const TestCaseDetail = ({
 
   const infoByName = useMemo(() => new Map((assessmentInfos ?? []).map((i) => [i.name, i])), [assessmentInfos]);
 
-  // Flatten every assertion (one row each) -- multiple assertions can share a
-  // scorer name (e.g. several guideline assertions), so we don't collapse to the
-  // first. Each row keeps the raw assessment + its AssessmentInfo so the Result
-  // cell can render the same value tag + LLM-judge hover the traces table uses.
+  // One row per assertion (a scorer name can repeat, e.g. multiple guidelines).
+  // Each row keeps its AssessmentInfo so the Result cell reuses the value tag.
   const byName = run?.responseAssessmentsByName ?? {};
   const assertions = Object.entries(byName)
     .filter(([name]) => name !== RESULT_ASSESSMENT_NAME)
@@ -147,8 +145,7 @@ export const TestCaseDetail = ({
     );
   const allPassed = assertions.length > 0 && assertions.every((a) => a.passed);
 
-  // Fetch the full trace (info + spans) so SingleChatTurnMessages can render
-  // the deduped user/assistant conversation exactly like the session view does.
+  // Fetch the full trace so SingleChatTurnMessages can render the conversation.
   // useQuery survives the IIFE-based remount pattern in GenAiTracesTableBody.
   const { data: fullTrace } = useQuery<ModelTrace | null>({
     queryKey: ['testCaseDetailTrace', traceId],
@@ -181,12 +178,26 @@ export const TestCaseDetail = ({
         width="60vw"
         title={
           <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-            <Button componentId="mlflow.regression-test-detail.prev" disabled={!onPrev} onClick={() => onPrev?.()}>
-              <ChevronLeftIcon />
-            </Button>
-            <Button componentId="mlflow.regression-test-detail.next" disabled={!onNext} onClick={() => onNext?.()}>
-              <ChevronRightIcon />
-            </Button>
+            <Button
+              componentId="mlflow.regression-test-detail.prev"
+              icon={<ChevronLeftIcon />}
+              disabled={!onPrev}
+              onClick={() => onPrev?.()}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Previous test case',
+                description: 'Aria label for the previous-test-case button in the regression-test detail drawer',
+              })}
+            />
+            <Button
+              componentId="mlflow.regression-test-detail.next"
+              icon={<ChevronRightIcon />}
+              disabled={!onNext}
+              onClick={() => onNext?.()}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Next test case',
+                description: 'Aria label for the next-test-case button in the regression-test detail drawer',
+              })}
+            />
             <div css={{ flex: 1, overflow: 'hidden', display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
               <Typography.Title level={4} withoutMargins css={{ fontFamily: 'monospace' }}>
                 {testName}
@@ -202,7 +213,7 @@ export const TestCaseDetail = ({
               componentId="mlflow.regression-test-detail.open-trace"
               icon={<ListIcon />}
               onClick={() => {
-                window.location.hash = `#/experiments/${experimentId}/traces?selectedTraceId=${traceId}`;
+                window.location.hash = `#/experiments/${experimentId}/traces?selectedEvaluationId=${traceId}`;
               }}
             >
               <FormattedMessage defaultMessage="Trace" description="Button to open the raw trace from the detail" />

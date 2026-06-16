@@ -123,10 +123,8 @@ export const assessmentCellRenderer = (
 ) => {
   const assessmentName = assessmentInfo.name;
 
-  // Regression-test "Result" column: show N/M assertions passed (+ icon) per
-  // row, tallied from the row's scorer assessments. The column header still
-  // renders the standard pass-fail graph off the synthetic Result value. Only
-  // reached when the data layer synthesized a "Result" assessment (test mode).
+  // Regression-test "Result" column: show N/M assertions passed per row, with a
+  // hover-card breakdown. Only reached when the data layer synthesized "Result".
   if (assessmentName === RESULT_ASSESSMENT_NAME) {
     const breakdown = (runValue: typeof comparisonEntry.currentRunValue) => {
       const byName = runValue?.responseAssessmentsByName ?? {};

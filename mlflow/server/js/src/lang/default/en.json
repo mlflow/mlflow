@@ -4111,6 +4111,10 @@
     "defaultMessage": "Created",
     "description": "Header for the dataset record create-time column"
   },
+  "J1orkI": {
+    "defaultMessage": "Previous test case",
+    "description": "Aria label for the previous-test-case button in the regression-test detail drawer"
+  },
   "J2IXIT": {
     "defaultMessage": "Create Guardrail",
     "description": "Title for create guardrail modal"
@@ -9222,6 +9226,10 @@
   "hwSDOP": {
     "defaultMessage": "Previous",
     "description": "Previous page button"
+  },
+  "hwmfrL": {
+    "defaultMessage": "Next test case",
+    "description": "Aria label for the next-test-case button in the regression-test detail drawer"
   },
   "hxMEqi": {
     "defaultMessage": "The model version will be copied to {selectedModel} as a new version.",

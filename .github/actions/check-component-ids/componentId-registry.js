@@ -1125,7 +1125,8 @@ module.exports = {
   "mlflow.eval-runs.table-refresh-button.tooltip": "",
   "mlflow.eval-runs.traces-mode-toggle-tooltip": "",
   "mlflow.eval-runs.type-cell.eval": "",
-  "mlflow.eval-runs.type-filter": "",
+  "mlflow.eval-runs.type-cell.issue-detection": "",
+  "mlflow.eval-runs.type-cell.test": "",
   "mlflow.eval-runs.visibility-mode-selector": "",
 
   // -- mlflow.evaluations_overview --

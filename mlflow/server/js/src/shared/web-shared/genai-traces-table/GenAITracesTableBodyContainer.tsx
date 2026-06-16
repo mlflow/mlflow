@@ -21,7 +21,11 @@ import type {
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from './types';
 import { sortAssessmentInfos } from './utils/AggregationUtils';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
-import { applyTraceInfoV3ToEvalEntry, DEFAULT_RUN_PLACEHOLDER_NAME } from './utils/TraceUtils';
+import {
+  applyTraceInfoV3ToEvalEntry,
+  DEFAULT_RUN_PLACEHOLDER_NAME,
+  REGRESSION_TEST_RUN_TYPE,
+} from './utils/TraceUtils';
 
 interface GenAITracesTableBodyContainerProps {
   // Experiment metadata
@@ -77,10 +81,8 @@ interface GenAITracesTableBodyContainerProps {
   assessmentCountMetrics?: AssessmentCountMetrics;
   compareAssessmentCountMetrics?: AssessmentCountMetrics;
 
-  // Regression-test mode: synthesize the consolidated "Result" assessment, open
-  // the test-case detail drawer instead of the trace review, and disable session
-  // grouping. Defaults to false so ordinary evaluation runs are unaffected.
-  regressionTestMode?: boolean;
+  // Run type (e.g. "test") that switches the table into the regression-test view.
+  runType?: string;
 }
 
 const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAITracesTableBodyContainerProps>> =
@@ -112,8 +114,9 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
       isFetchingNextPage,
       assessmentCountMetrics,
       compareAssessmentCountMetrics,
-      regressionTestMode = false,
+      runType,
     } = props;
+    const regressionTestMode = runType === REGRESSION_TEST_RUN_TYPE;
     const { theme } = useDesignSystemTheme();
 
     // Convert trace info v3 to the format expected by GenAITracesTableBody
@@ -279,7 +282,7 @@ const GenAITracesTableBodyContainerImpl: React.FC<React.PropsWithChildren<GenAIT
                 tableSort={tableSort}
                 getTrace={getTrace}
                 onTraceTagsEdit={onTraceTagsEdit}
-                enableGrouping={regressionTestMode ? false : shouldEnableTagGrouping()}
+                enableGrouping={shouldEnableTagGrouping()}
                 isTableLoading={isTableLoading}
                 isGroupedBySession={isGroupedBySession}
                 searchQuery={searchQuery}

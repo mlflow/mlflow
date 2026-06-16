@@ -193,9 +193,8 @@ export const GenAiTracesTableBody = React.memo(
 
         if (regressionTestMode) {
           const typeById = new Map(selectedColumns.map((col) => [String(col.id), col.type]));
-          // Order: the fixed lead columns, then any other trace-info/metadata
-          // columns the user unhid (tokens, commit, tags, ...), then "Result"
-          // ordered as the left-most assessment, then any other assessments.
+          // Lead columns first, then unhidden metadata, then "Result" as the
+          // left-most assessment, then any other assessments.
           const resultColumnId = createAssessmentColumnId(RESULT_ASSESSMENT_NAME);
           const columnRank = (col: ColumnDef<EvalTraceComparisonEntry>) => {
             const id = String(col.id);

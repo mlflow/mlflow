@@ -98,7 +98,7 @@ const RunViewEvaluationsTabInner = ({
   showCompareSelector = false,
   showRefreshButton = false,
   hideCompareSelector = false,
-  isRegressionTest = false,
+  runType,
 }: {
   experimentId: string;
   runUuid: string;
@@ -108,10 +108,9 @@ const RunViewEvaluationsTabInner = ({
   compareToRunUuid?: string;
   showRefreshButton?: boolean;
   hideCompareSelector?: boolean;
-  // Regression-test run: show the consolidated pass/fail "Result" column and the
-  // test-case detail drawer instead of the per-scorer evaluation view.
-  isRegressionTest?: boolean;
+  runType?: string;
 }) => {
+  const isRegressionTest = runType === MLFLOW_RUN_TYPE_VALUE_TEST;
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const makeHtmlFromMarkdown = useMarkdownConverter();
@@ -138,17 +137,15 @@ const RunViewEvaluationsTabInner = ({
     otherRunUuid: compareToRunUuid,
     disabled: isQueryDisabled,
     filterByAssessmentSourceRun: true,
-    synthesizeResult: isRegressionTest,
+    showConsolidatedResultColumn: isRegressionTest,
   });
 
+  // Regression-test view: drop the State column and relabel trace-id to "Test".
+  // Column order is applied by the table body's regression-test mode.
   const displayColumns = useMemo(() => {
     if (!isRegressionTest) {
       return allColumns;
     }
-
-    // Regression-test view: drop the State column and relabel the trace-id column
-    // to "Test". The left-to-right column order is applied by the table body's
-    // regression-test mode, so there's no need to reorder here.
     return allColumns
       .filter((column) => column.id !== STATE_COLUMN_ID)
       .map((column) =>
@@ -180,9 +177,8 @@ const RunViewEvaluationsTabInner = ({
       const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(allTraces);
       const hasSessionIds = allTraces.some((t) => Boolean(t.traceInfo?.trace_metadata?.[SESSION_ID_METADATA_KEY]));
 
-      // Regression-test view: show the test name, the agent input/output, and the
-      // single consolidated "Result" pass/fail column. The per-scorer assessment
-      // columns stay available in the column selector, just hidden by default.
+      // Regression-test view: show the test name, input/output, and the single
+      // consolidated "Result" column; per-scorer columns stay hidden by default.
       if (isRegressionTest) {
         const resultColumnId = createAssessmentColumnId(RESULT_ASSESSMENT_NAME);
         return columns.filter(
@@ -460,7 +456,7 @@ const RunViewEvaluationsTabInner = ({
                     isFetchingNextPage={isFetchingNextPage}
                     assessmentCountMetrics={assessmentCountMetrics}
                     compareAssessmentCountMetrics={compareAssessmentCountMetrics}
-                    regressionTestMode={isRegressionTest}
+                    runType={runType}
                   />
                 </ContextProviders>
               )
@@ -496,11 +492,7 @@ export const RunViewEvaluationsTab = ({
   showRefreshButton?: boolean;
   hideCompareSelector?: boolean;
 }) => {
-  // A regression-test run (produced by an @mlflow.test pytest session) is
-  // tagged `mlflow.runType=test`. The result view stays the same eval
-  // table, but shows a consolidated pass/fail "Result" column and the test-case
-  // detail drawer instead of the per-scorer breakdown.
-  const isRegressionTest = runTags?.[MLFLOW_RUN_TYPE_TAG]?.value === MLFLOW_RUN_TYPE_VALUE_TEST;
+  const runType = runTags?.[MLFLOW_RUN_TYPE_TAG]?.value;
 
   // Determine which tables are logged in the run
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
@@ -539,7 +531,7 @@ export const RunViewEvaluationsTab = ({
       showCompareSelector={showCompareSelector}
       showRefreshButton={showRefreshButton}
       hideCompareSelector={hideCompareSelector}
-      isRegressionTest={isRegressionTest}
+      runType={runType}
     />
   );
 };

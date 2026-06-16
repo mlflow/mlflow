@@ -227,7 +227,7 @@ export const useMlflowTracesTableMetadata = ({
   disabled,
   networkFilters,
   filterByAssessmentSourceRun = false,
-  synthesizeResult = false,
+  showConsolidatedResultColumn = false,
 }: {
   locations: ModelTraceSearchLocation[];
   runUuid?: string;
@@ -256,10 +256,9 @@ export const useMlflowTracesTableMetadata = ({
   filterByAssessmentSourceRun?: boolean;
   /**
    * If true, adds a synthetic per-trace "Result" assessment (pass iff all the
-   * trace's assertions pass) used by the regression-test view. Defaults to
-   * false so ordinary evaluation runs are unaffected.
+   * trace's assertions pass) used by the regression-test view.
    */
-  synthesizeResult?: boolean;
+  showConsolidatedResultColumn?: boolean;
 }) => {
   const intl = useIntl();
   const filter = createMlflowSearchFilter(runUuid, timeRange, networkFilters, filterByLoggedModelId);
@@ -307,16 +306,20 @@ export const useMlflowTracesTableMetadata = ({
     if (!filteredTraces || isInnerLoading || error || !filteredTraces.length) {
       return [];
     }
-    return filteredTraces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace, { synthesizeResult }));
-  }, [filteredTraces, isInnerLoading, error, synthesizeResult]);
+    return filteredTraces.map((trace) =>
+      convertTraceInfoV3ToRunEvalEntry(trace, { synthesizeResult: showConsolidatedResultColumn }),
+    );
+  }, [filteredTraces, isInnerLoading, error, showConsolidatedResultColumn]);
 
   const otherEvaluatedTraces = useMemo(() => {
     const isOtherLoading = isOtherInnerLoading && Boolean(otherRunUuid);
     if (!filteredOtherTraces || isOtherLoading || otherError || !filteredOtherTraces.length) {
       return [];
     }
-    return filteredOtherTraces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace, { synthesizeResult }));
-  }, [filteredOtherTraces, isOtherInnerLoading, otherError, otherRunUuid, synthesizeResult]);
+    return filteredOtherTraces.map((trace) =>
+      convertTraceInfoV3ToRunEvalEntry(trace, { synthesizeResult: showConsolidatedResultColumn }),
+    );
+  }, [filteredOtherTraces, isOtherInnerLoading, otherError, otherRunUuid, showConsolidatedResultColumn]);
 
   const assessmentInfos = useMemo(() => {
     return getAssessmentInfos(intl, evaluatedTraces || [], otherEvaluatedTraces || []);

@@ -272,6 +272,10 @@ export const convertFeedbackAssessmentToRunEvalAssessment = (
 // agree on the single column name.
 export const RESULT_ASSESSMENT_NAME = 'Result';
 
+// `mlflow.runType` tag value for an @mlflow.test regression-test run. The table
+// enters regression-test mode when the caller passes this run type.
+export const REGRESSION_TEST_RUN_TYPE = 'test';
+
 /**
  * Read an `mlflow.*` tag from a trace info, tolerating both the tracking-store
  * array-of-`{key, value}` shape and the trace-server record / `trace_metadata`
@@ -319,11 +323,8 @@ export const convertTraceInfoV3ToRunEvalEntry = (
     }
   });
 
-  // Regression-test view: synthesize a single "Result" assessment per trace -- a
-  // test passes iff *all* its assertions pass. Rendered as one pass-fail column
-  // (the overall test pass rate); the individual scorer columns are hidden by
-  // the table's default column selection. Gated behind `synthesizeResult` so
-  // ordinary evaluate() runs are completely unaffected.
+  // Synthesize a single "Result" assessment per trace (pass iff all assertions
+  // pass), rendered as one pass-fail column. Gated behind `synthesizeResult`.
   if (options?.synthesizeResult) {
     const scorerResults = Object.entries(responseAssessmentsByName)
       .filter(([name]) => name !== KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT)
@@ -337,8 +338,7 @@ export const convertTraceInfoV3ToRunEvalEntry = (
       responseAssessmentsByName[RESULT_ASSESSMENT_NAME] = [
         {
           name: RESULT_ASSESSMENT_NAME,
-          // Canonical pass-fail string ('yes'/'no') so the column is detected as
-          // a pass-fail assessment and renders the pass/fail graph in its header.
+          // 'yes'/'no' so the column is treated as a pass-fail assessment.
           stringValue: passedCount === scorerResults.length ? 'yes' : 'no',
           rationale: `${passedCount}/${scorerResults.length} assertions passed`,
           source: scorerResults[0].source,
