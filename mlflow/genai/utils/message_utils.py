@@ -79,9 +79,13 @@ def _enforce_strict_json_schema(node: Any) -> None:
     array ``items``, or combinators like ``anyOf`` - declares
     ``additionalProperties: false``. Pydantic's ``model_json_schema()`` does not
     emit this field, so we add it in place before sending the request.
+
+    An object node is detected either by an explicit ``type: object`` or by the
+    presence of ``properties``, since Pydantic does not always emit ``type`` on
+    object schemas.
     """
     if isinstance(node, dict):
-        if node.get("type") == "object":
+        if node.get("type") == "object" or "properties" in node:
             node["additionalProperties"] = False
         for value in node.values():
             _enforce_strict_json_schema(value)

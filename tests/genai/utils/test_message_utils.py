@@ -2,6 +2,7 @@ import pydantic
 import pytest
 
 from mlflow.genai.utils.message_utils import (
+    _enforce_strict_json_schema,
     pydantic_to_response_format,
     serialize_messages_to_prompts,
 )
@@ -234,3 +235,18 @@ def test_pydantic_to_response_format_sets_additional_properties_on_nested_object
     # Every nested object - including those under $defs reached via list items and
     # direct references - must also declare additionalProperties=False under strict mode.
     assert schema["$defs"]["Address"]["additionalProperties"] is False
+
+
+def test_enforce_strict_json_schema_detects_objects_without_explicit_type():
+    # Object nodes that omit an explicit "type": "object" (identified by the presence
+    # of "properties") must still get additionalProperties=False under strict mode.
+    schema = {
+        "properties": {
+            "nested": {"properties": {"x": {"type": "string"}}},
+        },
+        "title": "NoType",
+    }
+    _enforce_strict_json_schema(schema)
+
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["nested"]["additionalProperties"] is False
