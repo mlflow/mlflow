@@ -518,6 +518,22 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'category',
+              label: 'Observability Platforms',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/arize',
+                  label: 'Arize / Phoenix',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/langfuse',
+                  label: 'Langfuse',
+                },
+              ],
+            },
+            {
+              type: 'category',
               label: 'Gateways',
               items: [
                 {
@@ -862,6 +878,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'eval-monitor/scorers/llm-judge/simba',
                   label: 'SIMBA Optimizer',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/scorers/llm-judge/gepa',
+                  label: 'GEPA Optimizer',
                 },
                 {
                   type: 'doc',

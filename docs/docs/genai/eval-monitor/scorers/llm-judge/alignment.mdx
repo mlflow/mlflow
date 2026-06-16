@@ -6,7 +6,7 @@ import ConceptOverview from "@site/src/components/ConceptOverview"
 import TilesGrid from "@site/src/components/TilesGrid"
 import TileCard from "@site/src/components/TileCard"
 import DAGLoop from "@site/src/components/DAGLoop"
-import { Brain, RefreshCw, Target, Users, ChartBar, GitBranch, Shield, Database, Settings } from "lucide-react"
+import { Brain, RefreshCw, Target, Users, ChartBar, Shield, Database, Settings } from "lucide-react"
 import ImageBox from "@site/src/components/ImageBox"
 
 # Judge Alignment: Teaching AI to Match Human Preferences
@@ -333,15 +333,6 @@ def test_alignment_improvement(original_judge, aligned_judge, test_traces: list)
     description="Learn to create domain-specific judges with make_judge."
     href="/genai/eval-monitor/scorers/llm-judge/custom-judges"
     linkText="Create judges →"
-    containerHeight={64}
-  />
-  <TileCard
-    icon={GitBranch}
-    iconSize={48}
-    title="Development Workflow"
-    description="See complete workflow from creation to aligned production judge."
-    href="/genai/eval-monitor/scorers/llm-judge/workflow"
-    linkText="View workflow →"
     containerHeight={64}
   />
   <TileCard
