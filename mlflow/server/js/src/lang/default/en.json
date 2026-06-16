@@ -1791,6 +1791,10 @@
     "defaultMessage": "Automatically log traces for LangChain or LangGraph invocations by calling the {code} function. For example:",
     "description": "Description of how to log traces for the LangChain/LangGraph package using MLflow autologging. This message is followed by a code example."
   },
+  "70Oj6o": {
+    "defaultMessage": "Share review link",
+    "description": "Review queue share dropdown: copies a link that opens the first pending trace for review"
+  },
   "71dHIO": {
     "defaultMessage": "Classical ML",
     "description": "Example text snippet for classical ML"
@@ -3643,6 +3647,10 @@
     "defaultMessage": "Unassign {count, plural, one {# trace} other {# traces}} from the queue",
     "description": "Review queue: tooltip explaining that the button removes the selected traces from the queue (the traces themselves are not deleted)"
   },
+  "Ga2Oyg": {
+    "defaultMessage": "Share queue link",
+    "description": "Review queue share dropdown: copies a link to the queue's list view"
+  },
   "GbEHyg": {
     "defaultMessage": "Name",
     "description": "Section title for endpoint name"
@@ -4006,10 +4014,6 @@
   "IV37H1": {
     "defaultMessage": "Description update failed",
     "description": "Partial save status message when experiment description update fails"
-  },
-  "IWIjkw": {
-    "defaultMessage": "Copy link to queue",
-    "description": "Review queue header: copy shareable queue link menu item"
   },
   "IWNUE0": {
     "defaultMessage": "Failed to load roles",
@@ -7118,6 +7122,10 @@
   "YGtA3F": {
     "defaultMessage": "Collect a free-form rationale alongside the input",
     "description": "Enable rationale checkbox"
+  },
+  "YHOEuf": {
+    "defaultMessage": "Share queue",
+    "description": "Review queue header: share queue button aria label"
   },
   "YIKNtj": {
     "defaultMessage": "An error occurred while creating the budget policy. Please try again.",
@@ -12638,10 +12646,6 @@
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
     "description": "Tooltip for deleted endpoint"
-  },
-  "z8QLT1": {
-    "defaultMessage": "Copy start-review link",
-    "description": "Review queue header: copy link that opens the first to-do trace for review"
   },
   "z8srAp": {
     "defaultMessage": "Trace archival retention",
