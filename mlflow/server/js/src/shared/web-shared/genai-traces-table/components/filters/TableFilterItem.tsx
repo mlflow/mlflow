@@ -275,6 +275,7 @@ export const TableFilterItem = ({
                     operator: availableOperators.includes(operator as FilterOperator)
                       ? operator
                       : availableOperators[0],
+                    value: '',
                   },
                   index,
                 );
