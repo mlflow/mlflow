@@ -72,7 +72,8 @@ def create_review_queue(
     schema_ids: list[str] | None = None,
     experiment_id: str | None = None,
 ) -> ReviewQueue:
-    """Create a review queue scoped to an experiment.
+    """
+    Create a review queue scoped to an experiment.
 
     Args:
         name: Queue name, unique within the experiment. For a ``"user"``
@@ -108,7 +109,8 @@ def get_or_create_user_queue(
     *,
     experiment_id: str | None = None,
 ) -> ReviewQueue:
-    """Return a user's personal review queue, creating it if absent.
+    """
+    Return a user's personal review queue, creating it if absent.
 
     Idempotent: the backbone of "assign these items to this person" — call
     this, then :func:`add_items_to_review_queue`.
@@ -132,7 +134,8 @@ def get_review_queue(
     name: str | None = None,
     experiment_id: str | None = None,
 ) -> ReviewQueue:
-    """Fetch a review queue by ``queue_id`` or by ``(experiment_id, name)``.
+    """
+    Fetch a review queue by ``queue_id`` or by ``(experiment_id, name)``.
 
     Provide exactly one of ``queue_id`` or ``name``. When ``name`` is given,
     ``experiment_id`` defaults to the current experiment.
@@ -159,7 +162,8 @@ def list_review_queues(
     max_results: int | None = None,
     page_token: str | None = None,
 ) -> "PagedList[ReviewQueue]":
-    """List an experiment's review queues, newest first.
+    """
+    List an experiment's review queues, newest first.
 
     Args:
         user: If set, return only queues this user is assigned to.
@@ -206,7 +210,8 @@ def update_review_queue(
 
 @experimental(version="3.14.0")
 def delete_review_queue(queue_id: str) -> None:
-    """Delete a queue and its associations. No-op if it doesn't exist.
+    """
+    Delete a queue and its associations. No-op if it doesn't exist.
 
     Reviewer assessments on the queue's items are unaffected.
     """
@@ -215,7 +220,8 @@ def delete_review_queue(queue_id: str) -> None:
 
 @experimental(version="3.14.0")
 def add_items_to_review_queue(queue_id: str, *, item_ids: list[str]) -> list[ReviewQueueItem]:
-    """Attach items to a queue, returning the resulting queue items.
+    """
+    Attach items to a queue, returning the resulting queue items.
 
     Idempotent per item (re-attaching preserves the existing status). The
     returned list covers every requested ``item_id``, in request order.
@@ -237,7 +243,8 @@ def list_review_queue_items(
     max_results: int | None = None,
     page_token: str | None = None,
 ) -> "PagedList[ReviewQueueItem]":
-    """List a queue's attached items, newest-attached first.
+    """
+    List a queue's attached items, newest-attached first.
 
     Args:
         queue_id: The queue to list.
@@ -261,7 +268,8 @@ def set_review_queue_item_status(
     status: Literal["pending", "complete", "declined"],
     completed_by: str | None = None,
 ) -> ReviewQueueItem:
-    """Set the shared-pool status of an attached item.
+    """
+    Set the shared-pool status of an attached item.
 
     Moving to ``"complete"`` / ``"declined"`` records ``completed_by``;
     moving back to ``"pending"`` (reopen) clears it. ``completed_by`` is
