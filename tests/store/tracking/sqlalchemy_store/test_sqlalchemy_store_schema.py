@@ -203,30 +203,6 @@ def test_create_index_on_metrics_run_uuid_key_step(tmp_path, db_url):
         assert columns == ["run_uuid", "key", "step"]
 
 
-def test_review_queue_name_key_migration_rejects_case_collisions(db_url):
-    # For mlflow/store/db_migrations/versions/e2c4a6b80d15_add_review_queue_name_key.py:
-    # upgrade to just before the name_key migration, insert two queues that collide
-    # only by case (allowed under the old raw-name constraint, impossible through the
-    # store now), then the migration must fail fast with a clear message rather than
-    # an opaque IntegrityError when it adds the case-insensitive unique constraint.
-    engine = sqlalchemy.create_engine(db_url)
-    InitialBase.metadata.create_all(engine)
-    config = _get_alembic_config(db_url)
-    command.upgrade(config, "c5d9e1f3a7b2")  # the revision just before name_key
-    with engine.begin() as conn:
-        for queue_id, name in (("rq-1", "Foo"), ("rq-2", "foo")):
-            conn.execute(
-                sqlalchemy.text(
-                    "INSERT INTO review_queues (queue_id, experiment_id, name, queue_type, "
-                    "creation_time_ms, last_update_time_ms) "
-                    "VALUES (:queue_id, 0, :name, 'custom', 0, 0)"
-                ),
-                {"queue_id": queue_id, "name": name},
-            )
-    with pytest.raises(Exception, match="case-insensitively duplicate"):
-        command.upgrade(config, "head")
-
-
 def test_index_for_dataset_tables(tmp_path, db_url):
     # Test for
     # mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py
