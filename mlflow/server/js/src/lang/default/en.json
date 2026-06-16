@@ -911,6 +911,10 @@
     "defaultMessage": "Load the model",
     "description": "Heading text for stating how to load the model from the experiment run"
   },
+  "2Noq+z": {
+    "defaultMessage": "Could not assign yourself to the queue: {error}",
+    "description": "Review queue: error toast when self-assigning to a queue fails"
+  },
   "2OifbU": {
     "defaultMessage": "Inputs cannot be empty",
     "description": "Status text shown in the dataset record drawer footer when the inputs editor is empty (would otherwise wipe the field server-side)"

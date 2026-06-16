@@ -139,14 +139,26 @@ const ExperimentReviewQueuePage = () => {
   const canReviewSelectedQueue = !authAvailable || (canEdit && isAssignedToSelectedQueue);
   const handleAssignSelf =
     authAvailable && canManageSelectedQueue && !canReviewSelectedQueue && selectedQueue
-      ? () => {
+      ? async () => {
           // KNOWN LIMITATION (V1): read-modify-write of the assignee list from a
           // possibly-stale snapshot races a concurrent manager edit. A server-side
           // append RPC would remove it.
-          void updateReviewQueueAsync({
-            queue_id: selectedQueue.queue_id,
-            users: [...(selectedQueue.users ?? []), reviewer],
-          });
+          try {
+            await updateReviewQueueAsync({
+              queue_id: selectedQueue.queue_id,
+              users: [...(selectedQueue.users ?? []), reviewer],
+            });
+          } catch (e) {
+            Utils.displayGlobalErrorNotification(
+              intl.formatMessage(
+                {
+                  defaultMessage: 'Could not assign yourself to the queue: {error}',
+                  description: 'Review queue: error toast when self-assigning to a queue fails',
+                },
+                { error: e instanceof Error ? e.message : String(e) },
+              ),
+            );
+          }
         }
       : undefined;
 
