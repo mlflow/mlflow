@@ -8532,8 +8532,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # is correctly classified as a duplicate and translated below,
                 # rather than falling through and re-raising a raw IntegrityError.
                 # It is intentionally unscoped: the unique constraint is global on
-                # (experiment_id, name_key), independent of any workspace scoping
-                # applied to reads.
+                # (experiment_id, name_key), and an experiment belongs to a single
+                # workspace, so any row sharing this experiment_id is in the same
+                # workspace as the queue being created. The unscoped lookup
+                # therefore can't surface a foreign-workspace row; workspace scoping
+                # on reads is irrelevant to this disambiguation.
                 duplicate = (
                     session
                     .query(SqlReviewQueue)
@@ -8711,13 +8714,18 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             if name is not None:
                 new_name = validate_custom_queue_name(name)
                 if new_name != sql_queue.name:
-                    # A case-insensitive collision with an existing name is caught
-                    # at flush via the unique (experiment_id, name_key) constraint;
-                    # no upfront SELECT. A pure display-case change (same name_key)
-                    # is harmless — it can't collide with the row's own key.
+                    # Always update the display name. Only a name_key change can
+                    # violate the unique (experiment_id, name_key) constraint, so
+                    # only then arm `renamed_to`, which translates a flush
+                    # IntegrityError into a name collision (no upfront SELECT). A
+                    # pure display-case change keeps the same name_key, so it can't
+                    # collide; leaving `renamed_to` None there means an unrelated
+                    # IntegrityError is surfaced untranslated, not mislabeled.
                     sql_queue.name = new_name
-                    sql_queue.name_key = new_name.lower()
-                    renamed_to = new_name
+                    new_name_key = new_name.lower()
+                    if new_name_key != sql_queue.name_key:
+                        sql_queue.name_key = new_name_key
+                        renamed_to = new_name
 
             if users is not None:
                 normalized_users = normalize_users(users)
