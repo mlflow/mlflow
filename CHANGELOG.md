@@ -57,7 +57,7 @@ MLflow 3.14.0 includes several major features and improvements
 Bug fixes:
 
 - [Evaluation] Fix `ChrfScore` RAGAS scorer instantiation due to class name mismatch (#24047, @B-Step62)
-- [Tracing / Tracking] [Fix] Map OpenAI Agents SDK guardrail spans to `SpanType.GUARDRAIL` (#24044, @B-Step62)
+- [Tracing / Tracking] Map OpenAI Agents SDK guardrail spans to `SpanType.GUARDRAIL` (#24044, @B-Step62)
 - [UI] Surface review-question modal failures as toasts (#24035, @kriscon-db)
 - [Tracking] Prevent review queues from shadowing usernames (#24034, @kriscon-db)
 - [Tracking] Make review-queue names unique case-insensitively (defined at table creation) (#24015, @kriscon-db)
@@ -124,11 +124,11 @@ Documentation updates:
 - [Docs] Add documentation for review queues and label schemas (#23975, @kriscon-db)
 - [Docs] Surface mlflow agent setup in docs (#23859, @joshuawong-db)
 - [Docs] Document MLFLOW_STATIC_PREFIX behavior change in migration guide (#23851, @Sanket2329)
-- [Docs] [DOC-FIX] Add Colab warning in Quickstart Step 4 (#23831, @Farzah11)
+- [Docs] Add Colab warning in Quickstart Step 4 (#23831, @Farzah11)
 - [Docs] Fix undefined generate_response in tracing docs (#23814, @llljjjwww333)
 - [Docs / Tracing] Use CLI for Claude Code plugin install in docs (#23679, @harupy)
 - [Docs / Models] Deprecate `validate_serving_input` in favor of `mlflow.models.predict` (#23376, @B-Step62)
-- [Docs] [DOC] Fix incorrect output comment for best_run.info in tracking docs (#23571, @Aksh123100)
+- [Docs] Fix incorrect output comment for best_run.info in tracking docs (#23571, @Aksh123100)
 
 Small bug fixes and documentation updates:
 
