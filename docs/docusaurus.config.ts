@@ -1,8 +1,34 @@
+import path from 'path';
 import { themes as prismThemes } from 'prism-react-renderer';
 import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 import { postProcessSidebar, apiReferencePrefix } from './docusaurusConfigUtils';
 import tailwindPlugin from './src/plugins/tailwind-config.cjs';
+
+// Wrap `@docusaurus/Link` so links to static files (e.g. the Sphinx-built API
+// reference `*.html`) render as plain anchors. With `trailingSlash: true`, the
+// default Link appends a slash before the hash and breaks those URLs. See
+// `src/components/SmartLink` and https://github.com/mlflow/mlflow/issues/23966.
+function smartLinkPlugin() {
+  return {
+    name: 'mlflow-smart-link-alias',
+    configureWebpack() {
+      return {
+        resolve: {
+          alias: {
+            // Override Docusaurus' own `@docusaurus/Link` alias (same key) so the
+            // merge replaces it; a `$`-suffixed key would be added alongside and
+            // lose to the non-exact entry Docusaurus registers first.
+            '@docusaurus/Link': path.resolve(__dirname, 'src/components/SmartLink'),
+            // `@docusaurus/Link` is itself an alias Docusaurus maps into core, so
+            // resolve the underlying module directly to avoid a circular alias.
+            '@docusaurus-original/Link': require.resolve('@docusaurus/core/lib/client/exports/Link'),
+          },
+        },
+      };
+    },
+  };
+}
 
 // ensure baseUrl always ends in `/`
 const baseUrl = (process.env.DOCS_BASE_URL ?? '/docs/latest/').replace(/\/?$/, '/');
@@ -297,6 +323,7 @@ const config: Config = {
   } satisfies Preset.ThemeConfig,
 
   plugins: [
+    smartLinkPlugin,
     tailwindPlugin,
     [
       '@signalwire/docusaurus-plugin-llms-txt',
