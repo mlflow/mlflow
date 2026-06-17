@@ -5,6 +5,7 @@ import { join } from 'path';
 import { BatchingWriter } from '../../../src/exporters/wal/batching_writer';
 import {
   createIpcConnectionHandler,
+  ipcRequestByteLength,
   MAX_REQUEST_BYTES,
   submitRecord,
 } from '../../../src/exporters/wal/ipc';
@@ -402,5 +403,25 @@ describe('wal/ipc createIpcConnectionHandler', () => {
     await submitRecord(makeRecord('after-probe'));
     const lines = (await readFile(getWalPath(), 'utf8')).split('\n').filter((l) => l.length > 0);
     expect(lines).toHaveLength(1);
+  });
+});
+
+describe('wal/ipc ipcRequestByteLength', () => {
+  it('measures the real wire size of a record (envelope + newline)', () => {
+    const record = makeRecord('measure');
+
+    const expected = Buffer.byteLength(JSON.stringify({ op: 'append', record }) + '\n', 'utf8');
+    expect(ipcRequestByteLength(record)).toBe(expected);
+  });
+
+  it('returns a value above the cap for a genuinely oversized otlpSpans payload', () => {
+    // A baseline record sits comfortably under the cap...
+    expect(ipcRequestByteLength(makeRecord('small'))).toBeLessThan(MAX_REQUEST_BYTES);
+
+    // ...while a record carrying an over-cap otlpSpans blob measures over it.
+    const oversized = makeRecord('oversized', {
+      otlpSpans: 'A'.repeat(MAX_REQUEST_BYTES + 1),
+    });
+    expect(ipcRequestByteLength(oversized)).toBeGreaterThan(MAX_REQUEST_BYTES);
   });
 });
