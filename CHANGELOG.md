@@ -4,13 +4,22 @@
 
 MLflow 3.14.0 includes several major features and improvements
 
-Breaking changes:
+### Major New Features
+
+- **🚀 [One-command agent onboarding with `mlflow agent setup`](https://mlflow.org/docs/latest/genai/tracing/quickstart/)**: Install MLflow, set up tracing, and hand your favorite coding agent (Claude Code, OpenAI Codex, or OpenCode) the MLflow skills to instrument your app, all from a single command.
+- **⚡ [Durable, low-latency tracing for Claude Code](https://mlflow.org/docs/latest/genai/tracing/integrations/listing/claude_code)**: Roll out Claude Code tracing across a team with confidence: a write-ahead-log keeps it from slowing the agent, overwhelming the tracking server, or losing traces on a network blip or crash.
+- **📝 [Review Queues for traces](https://mlflow.org/docs/latest/genai/assessments/review-queues)**: Assign traces to reviewers (or agents) and collect structured feedback and ground-truth annotations in the UI, written straight back onto the trace so they are immediately usable for evaluation.
+- **🗂️ [Revamped evaluation dataset UI](https://mlflow.org/docs/latest/genai/datasets/)**: Browse, inspect, edit, and bulk-manage evaluation dataset records directly in the UI, with click-through to the source trace.
+- **🧪 [Pytest integration for regression testing](https://mlflow.org/docs/latest/genai/eval-monitor/regression-testing)**: Write GenAI regression tests as plain pytest functions with the `@mlflow.test` marker, gate them in CI, and review test history and per-assertion judge results in the UI.
+- **🎛️ [LLM Playground](https://mlflow.org/docs/latest/genai/prompt-registry/playground)**: Iterate on prompts in the browser against your AI Gateway endpoints and Prompt Registry versions, with settings, tools, structured output, and template variables.
+
+### Breaking Changes
 
 - [Models] Change `mlflow.sklearn` `serialization_format` default from `cloudpickle` to `skops` (#23987, @copilot-swe-agent)
 - [Models] Change `serialization_format` default to `"pt2"` for `mlflow.pytorch.log_model` and `mlflow.pytorch.save_model` (#23988, @copilot-swe-agent)
 - [Models] Change `serialization_format` default to `"skops"` in `mlflow.lightgbm` `log_model`/`save_model` (#23986, @copilot-swe-agent)
 
-Features:
+### Other Assorted Features & Improvements:
 
 - [Evaluation / UI] [3/3] Show regression-test results in the existing eval-run UI (#23985, @B-Step62)
 - [Prompts / UI] Add "Save prompt to registry" action to the Prompt Playground (#24021, @B-Step62)
