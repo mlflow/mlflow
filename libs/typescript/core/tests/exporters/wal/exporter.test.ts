@@ -521,7 +521,12 @@ describe('wal/exporter', () => {
       const record = submit.mock.calls[0][0];
       expect(record.otlpSpans).toBeUndefined();
       expect((record.traceData as { spans: unknown[] }).spans).toHaveLength(1);
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('would exceed the'));
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('exceeding the'),
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('dropping OTLP spans'),
+      );
     } finally {
       sizeSpy.mockRestore();
       warnSpy.mockRestore();
