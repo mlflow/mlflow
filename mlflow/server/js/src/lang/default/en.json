@@ -1263,6 +1263,10 @@
     "defaultMessage": "Owner",
     "description": "Queue settings: owner field label"
   },
+  "4AQBnK": {
+    "defaultMessage": "Collapse assertion text",
+    "description": "Aria label for the chevron that collapses a long assertion text"
+  },
   "4AkzyD": {
     "defaultMessage": "Confirm",
     "description": "Button label to confirm the inferred experiment kind"
@@ -2007,6 +2011,10 @@
     "defaultMessage": "Delete runs",
     "description": "Delete evaluation runs action"
   },
+  "7vws6u": {
+    "defaultMessage": "Trace",
+    "description": "Button to open the raw trace from the detail"
+  },
   "7x6xu8": {
     "defaultMessage": "Create prompt",
     "description": "Label for the create prompt button on the registered prompts page"
@@ -2375,6 +2383,10 @@
     "defaultMessage": "Manage and version prompts using MLflow's Prompt Registry. <link>Learn more</link>",
     "description": "Subtitle for the empty state on the prompts list page"
   },
+  "9i4YFp": {
+    "defaultMessage": "No assertions recorded for this test.",
+    "description": "Empty assertions state in the regression-test detail"
+  },
   "9icYIV": {
     "defaultMessage": "Select Categories",
     "description": "Header for the category selection step in issue detection modal"
@@ -2478,6 +2490,10 @@
   "A7jptW": {
     "defaultMessage": "Edit tags",
     "description": "Edit tags action"
+  },
+  "A7npjN": {
+    "defaultMessage": "Failed",
+    "description": "Fail status pill in the regression-test detail"
   },
   "AAdQxU": {
     "defaultMessage": "Messages",
@@ -2879,6 +2895,10 @@
     "defaultMessage": "Evaluation",
     "description": "Label for the evaluation section in the MLflow experiment navbar"
   },
+  "C1y/A6": {
+    "defaultMessage": "Assertions",
+    "description": "Assertions column header"
+  },
   "C4y1fv": {
     "defaultMessage": "-∞",
     "description": "Label displaying negative infinity symbol displayed on a plot UI element"
@@ -3159,6 +3179,10 @@
     "defaultMessage": "Run Name:",
     "description": "Row title for the run name on the experiment compare runs page"
   },
+  "DVBFdl": {
+    "defaultMessage": "Expand assertion text",
+    "description": "Aria label for the chevron that expands a long assertion text"
+  },
   "DXxTNn": {
     "defaultMessage": "Used for HMAC signature verification of incoming webhook requests.",
     "description": "Webhook secret field description"
@@ -3354,6 +3378,10 @@
   "EaH1E1": {
     "defaultMessage": "Version {version}",
     "description": "Version display for judge"
+  },
+  "EbJub1": {
+    "defaultMessage": "Test",
+    "description": "Column label for the regression test name column"
   },
   "EcjcgN": {
     "defaultMessage": "Metrics",
@@ -4126,6 +4154,10 @@
   "J1DBbP": {
     "defaultMessage": "Created",
     "description": "Header for the dataset record create-time column"
+  },
+  "J1orkI": {
+    "defaultMessage": "Previous test case",
+    "description": "Aria label for the previous-test-case button in the regression-test detail drawer"
   },
   "J2IXIT": {
     "defaultMessage": "Create Guardrail",
@@ -5295,6 +5327,10 @@
     "defaultMessage": "Classification",
     "description": "Label for experiments focused on classification modeling"
   },
+  "P037Va": {
+    "defaultMessage": "Passed",
+    "description": "Pass status pill in the regression-test detail"
+  },
   "P0Y/ks": {
     "defaultMessage": "Workspace Manager",
     "description": "Admin page title shown when the URL is scoped to a single workspace via ?workspace=…"
@@ -6003,6 +6039,10 @@
     "defaultMessage": "Select a prompt",
     "description": "Placeholder for the prompt picker on the playground prompt-registry modal"
   },
+  "SZQjTs": {
+    "defaultMessage": "Result",
+    "description": "Result column header"
+  },
   "Sb+wLa": {
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
     "description": "Help text explaining model configuration purpose"
@@ -6206,6 +6246,10 @@
   "TcNbWT": {
     "defaultMessage": "View dataset metadata",
     "description": "Overflow-menu item that opens the V2 evaluation dataset metadata modal"
+  },
+  "TcXjUy": {
+    "defaultMessage": "Eval",
+    "description": "Type pill text for a regular evaluation run in the evaluation runs table"
   },
   "TeN9hs": {
     "defaultMessage": "Traces",
@@ -7038,6 +7082,10 @@
   "XX8+x1": {
     "defaultMessage": "View prompt template",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > \"view prompt template\" button label"
+  },
+  "XYUKDW": {
+    "defaultMessage": "Comparison isn't available for regression-test runs",
+    "description": "Tooltip for the compare button when a regression-test run is selected"
   },
   "XZlIAj": {
     "defaultMessage": "Remove fallback model",
@@ -9267,6 +9315,10 @@
     "defaultMessage": "Previous",
     "description": "Previous page button"
   },
+  "hwmfrL": {
+    "defaultMessage": "Next test case",
+    "description": "Aria label for the next-test-case button in the regression-test detail drawer"
+  },
   "hxMEqi": {
     "defaultMessage": "The model version will be copied to {selectedModel} as a new version.",
     "description": "Model registry > OSS Promote model modal > copy explanatory text"
@@ -9274,6 +9326,10 @@
   "hyHL1n": {
     "defaultMessage": "No metrics match the search filter",
     "description": "Message displayed when no metrics match the search filter in the logged model details metrics table"
+  },
+  "i+1bTL": {
+    "defaultMessage": "Test",
+    "description": "Type pill text for a regression-test run in the evaluation runs table"
   },
   "i+JtEu": {
     "defaultMessage": "Could not copy link to clipboard.",
@@ -9538,6 +9594,10 @@
   "j3yKcX": {
     "defaultMessage": "Select the experiment you configured above.",
     "description": "Instruction to select the experiment configured for traces"
+  },
+  "j4rsyV": {
+    "defaultMessage": "Could not load the trace for this test case.",
+    "description": "Error message shown when the regression-test detail drawer fails to load the trace"
   },
   "j4vtTO": {
     "defaultMessage": "Save aliases",
@@ -11038,6 +11098,10 @@
   "qNtagt": {
     "defaultMessage": "Track and compare versions of your GenAI app",
     "description": "Empty state title displayed when no models are logged in the genai logged models list page"
+  },
+  "qQazgD": {
+    "defaultMessage": "Type",
+    "description": "Column header for run type (Eval vs Test) in the evaluation runs table"
   },
   "qR3llD": {
     "defaultMessage": "Max tokens",
@@ -12726,6 +12790,10 @@
   "z6K3IC": {
     "defaultMessage": "Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here",
     "description": "Tooltip suggesting to create an endpoint for reuse"
+  },
+  "z6QxDs": {
+    "defaultMessage": "Issue detection",
+    "description": "Type pill text for an issue-detection run in the evaluation runs table"
   },
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",

@@ -88,6 +88,7 @@ export const MLFLOW_RUN_SOURCE_TYPE_TAG = 'mlflow.runSourceType';
 export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
 export const MLFLOW_RUN_TYPE_VALUE_GENAI_EVALUATE = 'genai_evaluate';
 export const MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION = 'issue_detection';
+export const MLFLOW_RUN_TYPE_VALUE_TEST = 'test';
 export const MLFLOW_ISSUE_DETECTION_JOB_ID_TAG = 'mlflow.issueDetection.jobId';
 export const MLFLOW_ISSUE_DETECTION_RESULT_ISSUES_TAG = 'mlflow.issueDetection.result.issues';
 export const MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG = 'mlflow.issueDetection.result.totalTracesAnalyzed';

@@ -61,7 +61,7 @@ def pytest_runtest_call(item: pytest.Item):
         return
 
     # Full test id (e.g. "tests/foo/test_a.py::test_x[case]") so names are unique
-    # across files; the UI renders just the function name.
+    # across files; the UI renders this nodeid as-is.
     _session.set_current_test(item.nodeid, _case_id(item))
     _session.ensure_run()
 

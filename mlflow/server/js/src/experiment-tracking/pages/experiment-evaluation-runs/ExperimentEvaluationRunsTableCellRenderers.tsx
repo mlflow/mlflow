@@ -1,4 +1,6 @@
 import {
+  BeakerIcon,
+  ChartLineIcon,
   ModelsIcon,
   TableIcon,
   Tag,
@@ -34,7 +36,11 @@ import {
   shouldEnableImprovedEvalRunsComparison,
   shouldShowEvalRunsIssuesPanel,
 } from '../../../common/utils/FeatureUtils';
-import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION } from '../../constants';
+import {
+  MLFLOW_RUN_TYPE_TAG,
+  MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
+  MLFLOW_RUN_TYPE_VALUE_TEST,
+} from '../../constants';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 import { RunStatusIcon } from '../../components/RunStatusIcon';
 
@@ -376,4 +382,53 @@ export const StatusCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => 
   }
 
   return <RunStatusIcon status={status} />;
+};
+
+/**
+ * Renders the run's Type pill, keyed off the `mlflow.runType` tag:
+ * - a purple "Test" pill with a beaker icon for `@mlflow.test` pytest runs,
+ * - an indigo "Issue detection" pill with a sparkle icon for issue-detection runs,
+ * - a turquoise "Eval" pill with a chart-line icon for everything else.
+ * Lets users tell the run kinds apart at a glance.
+ */
+export const TypeCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
+  if ('subRuns' in row.original) {
+    return <div>-</div>;
+  }
+  const tags = row.original.data?.tags ?? [];
+  const runType = tags.find((tag) => tag.key === MLFLOW_RUN_TYPE_TAG)?.value;
+  const pillCss = { display: 'inline-flex', alignItems: 'center', gap: 4, margin: 0 } as const;
+
+  switch (runType) {
+    case MLFLOW_RUN_TYPE_VALUE_TEST:
+      return (
+        <Tag componentId="mlflow.eval-runs.type-cell.test" color="purple" css={pillCss}>
+          <BeakerIcon />
+          <FormattedMessage
+            defaultMessage="Test"
+            description="Type pill text for a regression-test run in the evaluation runs table"
+          />
+        </Tag>
+      );
+    case MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION:
+      return (
+        <Tag componentId="mlflow.eval-runs.type-cell.issue-detection" color="indigo" css={pillCss}>
+          <SparkleIcon />
+          <FormattedMessage
+            defaultMessage="Issue detection"
+            description="Type pill text for an issue-detection run in the evaluation runs table"
+          />
+        </Tag>
+      );
+    default:
+      return (
+        <Tag componentId="mlflow.eval-runs.type-cell.eval" color="turquoise" css={pillCss}>
+          <ChartLineIcon />
+          <FormattedMessage
+            defaultMessage="Eval"
+            description="Type pill text for a regular evaluation run in the evaluation runs table"
+          />
+        </Tag>
+      );
+  }
 };
