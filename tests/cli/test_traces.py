@@ -1,5 +1,6 @@
 import json
 import logging
+import shutil
 from unittest import mock
 
 import pytest
@@ -69,6 +70,7 @@ def test_get_command_params():
     param_names = [p.name for p in get_cmd.params]
     assert "trace_id" in param_names
     assert "extract_fields" in param_names
+    assert "jq_filter" in param_names
 
 
 def test_assessment_source_type_choices():
@@ -144,6 +146,132 @@ def test_get_command_with_fields(runner):
         assert result.exit_code == 0
         output_json = json.loads(result.output)
         assert output_json == {"info": {"trace_id": "tr-123"}}
+
+
+# Span status mirrors the real OTLP-style to_dict() schema (status.code, not status_code).
+_JQ_TRACE_DICT = {
+    "info": {"trace_id": "tr-123", "state": "OK"},
+    "data": {
+        "spans": [
+            {"name": "root", "status": {"code": "STATUS_CODE_OK"}},
+            {"name": "retriever", "status": {"code": "STATUS_CODE_ERROR"}},
+            {"name": "llm", "status": {"code": "STATUS_CODE_ERROR"}},
+        ]
+    },
+}
+
+requires_jq = pytest.mark.skipif(shutil.which("jq") is None, reason="jq binary not installed")
+
+
+@pytest.fixture
+def jq_trace():
+    trace = mock.Mock()
+    trace.to_dict.return_value = _JQ_TRACE_DICT
+    return trace
+
+
+@requires_jq
+def test_get_command_with_jq_filter(runner, jq_trace):
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        mock_client.return_value.get_trace.return_value = jq_trace
+        result = runner.invoke(
+            commands,
+            [
+                "get",
+                "--trace-id",
+                "tr-123",
+                "--jq",
+                '[.data.spans[] | select(.status.code=="STATUS_CODE_ERROR") | .name]',
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == ["retriever", "llm"]
+    mock_client.return_value.get_trace.assert_called_once_with("tr-123")
+
+
+@requires_jq
+def test_get_command_with_jq_reshape(runner, jq_trace):
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        mock_client.return_value.get_trace.return_value = jq_trace
+        result = runner.invoke(
+            commands,
+            [
+                "get",
+                "--trace-id",
+                "tr-123",
+                "--jq",
+                "{id: .info.trace_id, count: (.data.spans | length)}",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == {"id": "tr-123", "count": 3}
+
+
+@requires_jq
+def test_get_command_jq_takes_precedence_over_extract_fields(runner, jq_trace):
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        mock_client.return_value.get_trace.return_value = jq_trace
+        result = runner.invoke(
+            commands,
+            [
+                "get",
+                "--trace-id",
+                "tr-123",
+                "--extract-fields",
+                "info.trace_id",
+                "--jq",
+                ".info.state",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == "OK"
+
+
+@requires_jq
+def test_get_command_jq_invalid_filter(runner, jq_trace):
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        mock_client.return_value.get_trace.return_value = jq_trace
+        result = runner.invoke(
+            commands,
+            ["get", "--trace-id", "tr-123", "--jq", ".data.spans["],
+            catch_exceptions=True,
+        )
+
+    assert result.exit_code != 0
+    assert "jq error" in result.output
+
+
+@requires_jq
+def test_get_command_jq_empty_match(runner, jq_trace):
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        mock_client.return_value.get_trace.return_value = jq_trace
+        result = runner.invoke(
+            commands,
+            ["get", "--trace-id", "tr-123", "--jq", '[.data.spans[] | select(.name=="missing")]'],
+        )
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == []
+
+
+def test_get_command_jq_missing_binary(runner, jq_trace):
+    with (
+        mock.patch("mlflow.cli.traces.TracingClient") as mock_client,
+        mock.patch("mlflow.cli.traces.shutil.which", return_value=None) as mock_which,
+    ):
+        mock_client.return_value.get_trace.return_value = jq_trace
+        result = runner.invoke(
+            commands,
+            ["get", "--trace-id", "tr-123", "--jq", ".info.state"],
+            catch_exceptions=True,
+        )
+
+    assert result.exit_code != 0
+    assert "brew install jq" in result.output
+    mock_which.assert_called_once_with("jq")
 
 
 def test_delete_command(runner):
