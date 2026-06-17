@@ -4,6 +4,8 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import shutil
+import subprocess
 import uuid
 from collections import defaultdict
 from contextlib import contextmanager
@@ -383,6 +385,53 @@ def calculate_cost_by_model_and_token_usage(
         CostKey.OUTPUT_COST: output_cost_usd,
         CostKey.TOTAL_COST: input_cost_usd + output_cost_usd,
     }
+
+
+def apply_jq_to_trace(
+    trace_id: str, jq_filter: str | None = None, tracking_uri: str | None = None
+) -> str:
+    """Fetch a trace as JSON, optionally slicing it with a jq filter.
+
+    Shared by the ``mlflow traces get`` CLI and the assistant's ``trace_analyse`` tool so
+    both fetch and filter traces the same way. Slicing with jq keeps only the requested
+    part of the trace, which avoids loading a full (often 10k-50k token) trace into an
+    LLM's context.
+
+    Args:
+        trace_id: ID of the trace to fetch.
+        jq_filter: Optional jq expression. When omitted, the full trace JSON is returned.
+        tracking_uri: Optional MLflow tracking URI; resolved from the environment otherwise.
+
+    Returns:
+        The jq filter output (when ``jq_filter`` is given) or the full trace as
+        indented JSON.
+
+    Raises:
+        ValueError: If jq is requested but not installed, or the filter fails.
+    """
+    # Imported lazily to avoid a circular import (client imports from this module's package).
+    from mlflow.tracing.client import TracingClient
+
+    trace_dict = TracingClient(tracking_uri).get_trace(trace_id).to_dict()
+
+    if not jq_filter:
+        return json.dumps(trace_dict, indent=2)
+
+    jq_path = shutil.which("jq")
+    if jq_path is None:
+        raise ValueError(
+            "jq filtering requires the 'jq' command, which was not found. "
+            "Install it with: brew install jq"
+        )
+    proc = subprocess.run(
+        [jq_path, jq_filter],
+        input=json.dumps(trace_dict),
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        raise ValueError(f"jq error: {proc.stderr.strip()}")
+    return proc.stdout
 
 
 def get_otel_attribute(span: trace_api.Span, key: str) -> str | None:

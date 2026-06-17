@@ -170,9 +170,12 @@ def jq_trace():
     return trace
 
 
+# The --jq path now delegates to mlflow.tracing.utils.apply_jq_to_trace, which fetches the
+# trace via mlflow.tracing.client.TracingClient and resolves jq via mlflow.tracing.utils.shutil,
+# so these tests patch there rather than at the CLI module.
 @requires_jq
 def test_get_command_with_jq_filter(runner, jq_trace):
-    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+    with mock.patch("mlflow.tracing.client.TracingClient") as mock_client:
         mock_client.return_value.get_trace.return_value = jq_trace
         result = runner.invoke(
             commands,
@@ -192,7 +195,7 @@ def test_get_command_with_jq_filter(runner, jq_trace):
 
 @requires_jq
 def test_get_command_with_jq_reshape(runner, jq_trace):
-    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+    with mock.patch("mlflow.tracing.client.TracingClient") as mock_client:
         mock_client.return_value.get_trace.return_value = jq_trace
         result = runner.invoke(
             commands,
@@ -211,7 +214,7 @@ def test_get_command_with_jq_reshape(runner, jq_trace):
 
 @requires_jq
 def test_get_command_jq_takes_precedence_over_extract_fields(runner, jq_trace):
-    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+    with mock.patch("mlflow.tracing.client.TracingClient") as mock_client:
         mock_client.return_value.get_trace.return_value = jq_trace
         result = runner.invoke(
             commands,
@@ -232,7 +235,7 @@ def test_get_command_jq_takes_precedence_over_extract_fields(runner, jq_trace):
 
 @requires_jq
 def test_get_command_jq_invalid_filter(runner, jq_trace):
-    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+    with mock.patch("mlflow.tracing.client.TracingClient") as mock_client:
         mock_client.return_value.get_trace.return_value = jq_trace
         result = runner.invoke(
             commands,
@@ -246,7 +249,7 @@ def test_get_command_jq_invalid_filter(runner, jq_trace):
 
 @requires_jq
 def test_get_command_jq_empty_match(runner, jq_trace):
-    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+    with mock.patch("mlflow.tracing.client.TracingClient") as mock_client:
         mock_client.return_value.get_trace.return_value = jq_trace
         result = runner.invoke(
             commands,
@@ -259,8 +262,8 @@ def test_get_command_jq_empty_match(runner, jq_trace):
 
 def test_get_command_jq_missing_binary(runner, jq_trace):
     with (
-        mock.patch("mlflow.cli.traces.TracingClient") as mock_client,
-        mock.patch("mlflow.cli.traces.shutil.which", return_value=None) as mock_which,
+        mock.patch("mlflow.tracing.client.TracingClient") as mock_client,
+        mock.patch("mlflow.tracing.utils.shutil.which", return_value=None) as mock_which,
     ):
         mock_client.return_value.get_trace.return_value = jq_trace
         result = runner.invoke(

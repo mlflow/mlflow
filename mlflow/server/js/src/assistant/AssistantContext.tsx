@@ -5,7 +5,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type { AssistantAgentContextType, ChatMessage, ToolUseInfo, TokenUsage } from './types';
+import type { AssistantAgentContextType, AssistantPart, ChatMessage, ToolUseInfo, TokenUsage } from './types';
 import { cancelSession as cancelSessionApi, sendMessageStream, getConfig } from './AssistantService';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useAssistantPageContextActions } from './AssistantPageContext';
@@ -23,6 +23,41 @@ const checkIsLocalServer = (): boolean => {
 const generateMessageId = (): string => {
   return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
+
+/**
+ * Set the current (open) text segment of an assistant turn. `text` is the full
+ * segment since the last tool call, so we replace the trailing text part if there
+ * is one, otherwise append a new text part (a tool call always closes the prior
+ * text part, so the next text starts fresh).
+ */
+const setOpenTextPart = (parts: AssistantPart[], text: string): AssistantPart[] => {
+  const last = parts[parts.length - 1];
+  if (last?.type === 'text') {
+    return [...parts.slice(0, -1), { type: 'text', text }];
+  }
+  return [...parts, { type: 'text', text }];
+};
+
+/** Add or update tool-call parts by `toolUseId` (they can re-stream, so upsert). */
+const upsertToolCalls = (parts: AssistantPart[], tools: ToolUseInfo[]): AssistantPart[] => {
+  const next = [...parts];
+  for (const tool of tools) {
+    const i = next.findIndex((p) => p.type === 'toolCall' && p.toolUseId === tool.id);
+    const part: AssistantPart = { type: 'toolCall', toolUseId: tool.id, name: tool.name, input: tool.input };
+    if (i >= 0) {
+      next[i] = { ...next[i], ...part };
+    } else {
+      next.push(part);
+    }
+  }
+  return next;
+};
+
+const partsToContent = (parts: AssistantPart[]): string =>
+  parts
+    .filter((p): p is Extract<AssistantPart, { type: 'text' }> => p.type === 'text')
+    .map((p) => p.text)
+    .join('');
 
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Detect if server is local - memoized since hostname doesn't change
@@ -65,16 +100,26 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Throttle streaming updates to avoid overwhelming React with re-renders
   const rafPendingRef = useRef<number | null>(null);
 
-  const flushStreamingMessage = useCallback(() => {
-    rafPendingRef.current = null;
+  // Apply `fn` to the last message's parts if it's the streaming assistant message,
+  // keeping `content` mirrored to the text parts.
+  const updateStreamingParts = useCallback((fn: (parts: AssistantPart[]) => AssistantPart[]) => {
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, content: streamingMessageRef.current }];
+        const parts = fn(lastMessage.parts ?? []);
+        return [...prev.slice(0, -1), { ...lastMessage, parts, content: partsToContent(parts) }];
       }
       return prev;
     });
   }, []);
+
+  const flushStreamingMessage = useCallback(() => {
+    rafPendingRef.current = null;
+    if (!streamingMessageRef.current) {
+      return;
+    }
+    updateStreamingParts((parts) => setOpenTextPart(parts, streamingMessageRef.current));
+  }, [updateStreamingParts]);
 
   const appendToStreamingMessage = useCallback(
     (text: string) => {
@@ -95,7 +140,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, content: streamingMessageRef.current, isStreaming: false }];
+        const parts = streamingMessageRef.current
+          ? setOpenTextPart(lastMessage.parts ?? [], streamingMessageRef.current)
+          : (lastMessage.parts ?? []);
+        return [...prev.slice(0, -1), { ...lastMessage, parts, content: partsToContent(parts), isStreaming: false }];
       }
       return prev;
     });
@@ -114,9 +162,28 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setSessionId(newSessionId);
   }, []);
 
-  const handleToolUse = useCallback((tools: ToolUseInfo[]) => {
-    setActiveTools(tools);
-  }, []);
+  const handleToolUse = useCallback(
+    (tools: ToolUseInfo[]) => {
+      // `activeTools` drives the transient "working" indicator only.
+      setActiveTools(tools);
+      if (tools.length === 0) {
+        return;
+      }
+      // Persist the calls onto the message, in order. Commit any buffered text
+      // first (so the calls land after the text that preceded them) and reset the
+      // buffer so subsequent text starts a new part after the tool call.
+      if (rafPendingRef.current !== null) {
+        cancelAnimationFrame(rafPendingRef.current);
+        rafPendingRef.current = null;
+      }
+      updateStreamingParts((parts) => {
+        const withText = streamingMessageRef.current ? setOpenTextPart(parts, streamingMessageRef.current) : parts;
+        return upsertToolCalls(withText, tools);
+      });
+      streamingMessageRef.current = '';
+    },
+    [updateStreamingParts],
+  );
 
   const handleUsage = useCallback(
     (usage: {
@@ -185,10 +252,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, content: `Error: ${errorMsg}`, isStreaming: false }];
+        // Keep any tool calls / text produced so far and append the error as a
+        // text part (a styled error callout is a planned follow-up).
+        const base = streamingMessageRef.current
+          ? setOpenTextPart(lastMessage.parts ?? [], streamingMessageRef.current)
+          : (lastMessage.parts ?? []);
+        const parts: AssistantPart[] = [...base, { type: 'text', text: `Error: ${errorMsg}` }];
+        return [...prev.slice(0, -1), { ...lastMessage, parts, content: partsToContent(parts), isStreaming: false }];
       }
       return prev;
     });
+    streamingMessageRef.current = '';
   }, []);
 
   const handleInterrupted = useCallback(() => {
@@ -196,14 +270,25 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     eventSourceRef.current = null;
-    streamingMessageRef.current = '';
+    if (rafPendingRef.current !== null) {
+      cancelAnimationFrame(rafPendingRef.current);
+      rafPendingRef.current = null;
+    }
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, isStreaming: false, isInterrupted: true }];
+        // Keep whatever text/tool parts streamed before the interrupt.
+        const parts = streamingMessageRef.current
+          ? setOpenTextPart(lastMessage.parts ?? [], streamingMessageRef.current)
+          : (lastMessage.parts ?? []);
+        return [
+          ...prev.slice(0, -1),
+          { ...lastMessage, parts, content: partsToContent(parts), isStreaming: false, isInterrupted: true },
+        ];
       }
       return prev;
     });
+    streamingMessageRef.current = '';
   }, []);
 
   // Actions

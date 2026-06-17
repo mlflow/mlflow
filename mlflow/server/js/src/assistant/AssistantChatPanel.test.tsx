@@ -3,7 +3,8 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { AssistantChatPanel } from './AssistantChatPanel';
+import { AssistantChatPanel, AssistantMessageBody } from './AssistantChatPanel';
+import type { ChatMessage } from './types';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 
 jest.mock('../telemetry/hooks/useLogTelemetryEvent', () => ({
@@ -134,5 +135,57 @@ describe('AssistantChatPanel', () => {
     await user.keyboard('{Enter}');
 
     expect(mockLogTelemetryEvent).not.toHaveBeenCalled();
+  });
+});
+
+const renderBody = (message: ChatMessage) =>
+  renderWithIntl(
+    <DesignSystemProvider>
+      <AssistantMessageBody message={message} />
+    </DesignSystemProvider>,
+  );
+
+const baseAssistantMessage = {
+  id: 'm1',
+  role: 'assistant' as const,
+  content: '',
+  timestamp: new Date(),
+};
+
+describe('AssistantMessageBody', () => {
+  test('renders text and tool-call parts in order', () => {
+    renderBody({
+      ...baseAssistantMessage,
+      content: 'Found it.',
+      parts: [
+        { type: 'text', text: 'Let me check.' },
+        {
+          type: 'toolCall',
+          toolUseId: 't1',
+          name: 'trace_analyse',
+          input: { trace_id: 'tr-1', jq_filter: '.data.spans' },
+        },
+        { type: 'text', text: 'Found it.' },
+      ],
+    });
+
+    expect(screen.getByText('Let me check.')).toBeInTheDocument();
+    expect(screen.getByText('Found it.')).toBeInTheDocument();
+    expect(screen.getByText('trace_analyse')).toBeInTheDocument();
+    expect(screen.getByText('tr-1 · .data.spans')).toBeInTheDocument();
+  });
+
+  test('falls back to content for legacy messages without parts', () => {
+    renderBody({ ...baseAssistantMessage, content: 'legacy answer' });
+    expect(screen.getByText('legacy answer')).toBeInTheDocument();
+  });
+
+  test('renders a tool call that has no surrounding text', () => {
+    renderBody({
+      ...baseAssistantMessage,
+      parts: [{ type: 'toolCall', toolUseId: 't1', name: 'Bash', input: { command: 'mlflow traces search' } }],
+    });
+    expect(screen.getByText('Bash')).toBeInTheDocument();
+    expect(screen.getByText('mlflow traces search')).toBeInTheDocument();
   });
 });

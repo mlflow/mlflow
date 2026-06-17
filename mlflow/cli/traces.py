@@ -67,8 +67,6 @@ For detailed help on any command, use:
 
 import json
 import os
-import shutil
-import subprocess
 import warnings
 from typing import Literal
 
@@ -84,6 +82,7 @@ from mlflow.tracing.assessment import (
     log_feedback as _log_feedback,
 )
 from mlflow.tracing.client import TracingClient
+from mlflow.tracing.utils import apply_jq_to_trace
 from mlflow.utils.jsonpath_utils import (
     filter_json_by_fields,
     jsonpath_extract_values,
@@ -424,28 +423,15 @@ def get_trace(
     mlflow traces get --trace-id tr-1234567890abcdef \\
         --jq '[.data.spans[] | select(.status.code=="STATUS_CODE_ERROR") | .name]'
     """
-    client = TracingClient()
-    trace = client.get_trace(trace_id)
-    trace_dict = trace.to_dict()
-
     if jq_filter:
-        jq_path = shutil.which("jq")
-        if jq_path is None:
-            raise click.UsageError(
-                "--jq requires the 'jq' command, which was not found. "
-                "Install it with: brew install jq"
-            )
-        proc = subprocess.run(
-            [jq_path, jq_filter],
-            input=json.dumps(trace_dict),
-            capture_output=True,
-            text=True,
-        )
-        if proc.returncode != 0:
-            raise click.UsageError(f"jq error: {proc.stderr.strip()}")
-        click.echo(proc.stdout, nl=False)
+        try:
+            click.echo(apply_jq_to_trace(trace_id, jq_filter), nl=False)
+        except ValueError as e:
+            raise click.UsageError(str(e))
         return
-    elif extract_fields:
+
+    trace_dict = TracingClient().get_trace(trace_id).to_dict()
+    if extract_fields:
         field_list = [f.strip() for f in extract_fields.split(",")]
         # Validate fields against trace data
         try:

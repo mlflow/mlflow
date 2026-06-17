@@ -1,10 +1,34 @@
+/**
+ * An ordered piece of an assistant turn. Text and tool calls are kept in arrival
+ * order so the transcript can show the work (tool calls) interleaved with the
+ * narration, and so tool results/status (filled in later) render where they happened.
+ */
+export type AssistantPart =
+  | { type: 'text'; text: string }
+  | {
+      type: 'toolCall';
+      toolUseId: string;
+      name: string;
+      input?: Record<string, any>;
+      // Filled by follow-up work; kept here so the model doesn't change again.
+      status?: 'running' | 'done' | 'error';
+      result?: unknown;
+    };
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
+  /**
+   * Plain-text mirror of the message. For assistant messages this is the
+   * concatenation of the text parts (used for copy and as a fallback when
+   * `parts` is absent, e.g. legacy messages).
+   */
   content: string;
   timestamp: Date;
   isStreaming?: boolean;
   isInterrupted?: boolean;
+  /** Ordered parts (text + tool calls) for assistant messages. */
+  parts?: AssistantPart[];
 }
 
 /**

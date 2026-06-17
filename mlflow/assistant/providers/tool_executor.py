@@ -6,11 +6,14 @@ from pathlib import Path
 from typing import Any
 
 from mlflow.assistant.config import PermissionsConfig
+from mlflow.tracing.utils import apply_jq_to_trace
 
 _logger = logging.getLogger(__name__)
 
 _FILE_TOOLS = {"Read", "Write", "Edit"}
-_ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python"}
+# mlflow/python for MLflow ops; wc/stat/ls/du are read-only and let the model
+# cheaply check file sizes (e.g. of /tmp dumps) before loading large output.
+_ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python", "wc", "stat", "ls", "du"}
 
 
 def _is_path_within(path: Path, root: Path) -> bool:
@@ -69,11 +72,18 @@ async def execute_tool(
             case "Bash":
                 return await _execute_bash(tool_input, cwd=cwd, tracking_uri=tracking_uri)
             case "Read":
-                return _execute_read(tool_input, cwd=cwd)
+                return await asyncio.to_thread(_execute_read, tool_input, cwd=cwd)
             case "Write":
-                return _execute_write(tool_input, cwd=cwd)
+                return await asyncio.to_thread(_execute_write, tool_input, cwd=cwd)
             case "Edit":
-                return _execute_edit(tool_input, cwd=cwd)
+                return await asyncio.to_thread(_execute_edit, tool_input, cwd=cwd)
+            case "trace_analyse":
+                # Runs blocking I/O (HTTP trace fetch, jq subprocess, JSON encode); offload
+                # to a thread so the server's event loop stays free to serve the nested
+                # self-call this makes (avoids a single-worker dev-server deadlock).
+                return await asyncio.to_thread(
+                    _execute_trace_analyse, tool_input, tracking_uri=tracking_uri
+                )
             case _:
                 return f"Unknown tool: {tool_name}", True
     except Exception as e:
@@ -116,6 +126,19 @@ async def _execute_bash(
         return (output + err_output).strip() or "(no output)", False
     except asyncio.TimeoutError:
         return "Command timed out after 120 seconds", True
+
+
+def _execute_trace_analyse(
+    tool_input: dict[str, Any], tracking_uri: str | None = None
+) -> tuple[str, bool]:
+    trace_id = tool_input.get("trace_id")
+    if not trace_id:
+        return "No trace_id provided", True
+    try:
+        result = apply_jq_to_trace(trace_id, tool_input.get("jq_filter"), tracking_uri=tracking_uri)
+        return result, False
+    except Exception as e:
+        return str(e), True
 
 
 def _execute_read(tool_input: dict[str, Any], cwd: Path | None = None) -> tuple[str, bool]:
@@ -180,6 +203,35 @@ def build_tools_schema() -> list[dict[str, Any]]:
                         }
                     },
                     "required": ["command"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "trace_analyse",
+                "description": (
+                    "Fetch a single MLflow trace by id and slice it with a jq filter. "
+                    "Strongly prefer passing jq_filter to return only what you need instead "
+                    "of dumping the whole trace (traces are often 10k-50k tokens). Explore "
+                    "structure cheaply with filters like 'keys', '.data.spans | length', or "
+                    "'[.data.spans[].name]'. Span status is OTLP-style, so errored spans are "
+                    '[.data.spans[] | select(.status.code=="STATUS_CODE_ERROR") | .name]. '
+                    "Omit jq_filter only when you truly need the entire trace."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "trace_id": {
+                            "type": "string",
+                            "description": "ID of the trace to fetch (e.g. tr-abc123).",
+                        },
+                        "jq_filter": {
+                            "type": "string",
+                            "description": "Optional jq expression to slice the trace JSON.",
+                        },
+                    },
+                    "required": ["trace_id"],
                 },
             },
         },

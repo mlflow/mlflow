@@ -1,9 +1,10 @@
 import asyncio
+from unittest import mock
 
 import pytest
 
 from mlflow.assistant.config import PermissionsConfig
-from mlflow.assistant.providers.tool_executor import execute_tool
+from mlflow.assistant.providers.tool_executor import build_tools_schema, execute_tool
 
 
 @pytest.fixture
@@ -101,3 +102,68 @@ def test_full_access_bypasses_permission_checks(workspace):
     )
     # Should not get "Permission denied" (may get file not found depending on OS)
     assert "Permission denied" not in result
+
+
+@pytest.mark.parametrize("cmd", ["wc -c {f}", "ls {d}", "stat {f}", "du {f}"])
+def test_bash_allows_file_size_commands(workspace, cmd):
+    command = cmd.format(f=workspace / "README.md", d=workspace)
+    result, is_error = _run(execute_tool("Bash", {"command": command}))
+    assert "Permission denied" not in result
+
+
+def test_trace_analyse_returns_filtered_result():
+    with mock.patch(
+        "mlflow.assistant.providers.tool_executor.apply_jq_to_trace",
+        return_value='["chat","llm"]\n',
+    ) as mock_jq:
+        result, is_error = _run(
+            execute_tool(
+                "trace_analyse",
+                {"trace_id": "tr-1", "jq_filter": "[.data.spans[].name]"},
+                tracking_uri="http://localhost:5000",
+            )
+        )
+    assert not is_error
+    assert result == '["chat","llm"]\n'
+    mock_jq.assert_called_once_with(
+        "tr-1", "[.data.spans[].name]", tracking_uri="http://localhost:5000"
+    )
+
+
+def test_trace_analyse_reports_error():
+    with mock.patch(
+        "mlflow.assistant.providers.tool_executor.apply_jq_to_trace",
+        side_effect=ValueError("jq error: boom"),
+    ) as mock_jq:
+        result, is_error = _run(
+            execute_tool("trace_analyse", {"trace_id": "tr-1", "jq_filter": "."})
+        )
+    assert is_error
+    assert "jq error: boom" in result
+    mock_jq.assert_called_once()
+
+
+def test_build_tools_schema_includes_trace_analyse():
+    tools = {t["function"]["name"]: t["function"] for t in build_tools_schema()}
+    assert "trace_analyse" in tools
+    params = tools["trace_analyse"]["parameters"]
+    assert params["required"] == ["trace_id"]
+    assert set(params["properties"]) == {"trace_id", "jq_filter"}
+
+
+def test_trace_analyse_requires_trace_id():
+    result, is_error = _run(execute_tool("trace_analyse", {"jq_filter": "."}))
+    assert is_error
+    assert "No trace_id provided" in result
+
+
+def test_trace_analyse_allowed_without_full_access():
+    with mock.patch(
+        "mlflow.assistant.providers.tool_executor.apply_jq_to_trace",
+        return_value="{}",
+    ) as mock_jq:
+        result, is_error = _run(
+            execute_tool("trace_analyse", {"trace_id": "tr-1"}, permissions=PermissionsConfig())
+        )
+    assert not is_error
+    mock_jq.assert_called_once_with("tr-1", None, tracking_uri=None)

@@ -15,38 +15,29 @@ import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/comm
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
 
 /**
- * Process content block array from assistant response.
- * Extracts text or tool uses and calls appropriate callbacks.
+ * Process a content block array from an assistant response, emitting text and
+ * tool-use blocks in order so the transcript preserves their sequence. Tool-result
+ * blocks (which carry `tool_use_id`) are ignored here; rendering them is future work.
  */
 const processContentBlocks = (
   content: any[],
   onMessage: (text: string) => void,
   onToolUse?: (tools: ToolUseInfo[]) => void,
 ): void => {
-  // Extract text from TextBlock items
-  const text = content
-    .filter((block: any) => 'text' in block)
-    .map((block: any) => block.text)
-    .join('');
-
-  if (text) {
-    // Clear tools and show text when assistant is responding
-    onToolUse?.([]);
-    onMessage(text);
-    return;
-  }
-
-  // Only show tool uses when there's no text response yet
-  const toolUses = content
-    .filter((block: any) => block.name && block.input && !block.tool_use_id)
-    .map((block: any) => ({
-      id: block.id,
-      name: block.name,
-      description: block.input?.description,
-      input: block.input,
-    }));
-  if (toolUses.length > 0 && onToolUse) {
-    onToolUse(toolUses);
+  for (const block of content) {
+    if ('text' in block && block.text) {
+      onMessage(block.text);
+    } else if (block.name && block.input && !block.tool_use_id) {
+      // TextBlock-less ToolUseBlock (claude_code & openai_compatible both shape it this way).
+      onToolUse?.([
+        {
+          id: block.id,
+          name: block.name,
+          description: block.input?.description,
+          input: block.input,
+        },
+      ]);
+    }
   }
 };
 

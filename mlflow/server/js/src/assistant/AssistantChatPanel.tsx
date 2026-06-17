@@ -30,7 +30,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
-import type { ChatMessage, ToolUseInfo } from './types';
+import type { AssistantPart, ChatMessage } from './types';
 import { AssistantSetupWizard } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
@@ -65,18 +65,128 @@ const formatCostUsd = (cost: number): string =>
     maximumFractionDigits: cost < 1 ? 4 : 2,
   }).format(cost);
 
+type ToolCallPart = Extract<AssistantPart, { type: 'toolCall' }>;
+
+// One-line, human-readable summary of a tool call's input for the transcript.
+const toolInputSummary = (part: ToolCallPart): string => {
+  const input = part.input ?? {};
+  const command = input['command'];
+  const traceId = input['trace_id'];
+  const jqFilter = input['jq_filter'];
+  const description = input['description'];
+  if (typeof command === 'string') return command;
+  if (typeof traceId === 'string') {
+    return typeof jqFilter === 'string' && jqFilter ? `${traceId} · ${jqFilter}` : traceId;
+  }
+  if (typeof description === 'string') return description;
+  const json = JSON.stringify(input);
+  return json === '{}' ? '' : json;
+};
+
+/**
+ * A persistent record of a tool the assistant called, shown inline in the transcript.
+ */
+const ToolCallChip = ({ part }: { part: ToolCallPart }) => {
+  const { theme } = useDesignSystemTheme();
+  const summary = toolInputSummary(part);
+  return (
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.xs,
+        margin: `${theme.spacing.xs}px 0`,
+      }}
+      aria-label={`Tool call: ${part.name}`}
+    >
+      <WrenchSparkleIcon css={{ fontSize: 14, flexShrink: 0, color: theme.colors.textSecondary }} />
+      <Typography.Text size="sm" color="secondary" bold>
+        {part.name}
+      </Typography.Text>
+      {summary && (
+        <Typography.Text
+          size="sm"
+          color="secondary"
+          css={{
+            fontFamily: 'monospace',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {summary}
+        </Typography.Text>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Renders an assistant turn's ordered parts (text + tool calls). Falls back to plain
+ * `content` for messages that predate the parts model.
+ */
+export const AssistantMessageBody = ({ message }: { message: ChatMessage }) => {
+  const parts: AssistantPart[] = message.parts ?? [{ type: 'text', text: message.content }];
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.type === 'text' ? (
+          part.text ? (
+            <GenAIMarkdownRenderer key={`text-${i}`}>{part.text}</GenAIMarkdownRenderer>
+          ) : null
+        ) : (
+          <ToolCallChip key={part.toolUseId} part={part} />
+        ),
+      )}
+    </>
+  );
+};
+
+/** Animated "working" indicator shown while the assistant streams a turn. */
+const StreamingIndicator = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.sm,
+        marginTop: theme.spacing.sm,
+      }}
+    >
+      <SparkleIcon
+        color="ai"
+        css={{ fontSize: 16, animation: 'pulse 1.5s ease-in-out infinite', '@keyframes pulse': PULSE_ANIMATION }}
+      />
+      <span
+        css={{
+          fontSize: theme.typography.fontSizeBase,
+          color: theme.colors.textSecondary,
+          '&::after': {
+            content: '"..."',
+            animation: 'dots 1.5s steps(3, end) infinite',
+            display: 'inline-block',
+            width: '1.2em',
+          },
+          '@keyframes dots': DOTS_ANIMATION,
+        }}
+      >
+        Processing
+      </span>
+    </div>
+  );
+};
+
 /**
  * Single chat message bubble.
  */
 const ChatMessageBubble = ({
   message,
   isLastMessage,
-  activeTools,
   onRegenerate,
 }: {
   message: ChatMessage;
   isLastMessage: boolean;
-  activeTools?: ToolUseInfo[];
   onRegenerate?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -113,7 +223,7 @@ const ChatMessageBubble = ({
         {isUser ? (
           <Typography.Text css={{ whiteSpace: 'pre-wrap' }}>{message.content}</Typography.Text>
         ) : (
-          <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+          <AssistantMessageBody message={message} />
         )}
         {/* Interrupted indicator */}
         {message.isInterrupted && (
@@ -130,42 +240,7 @@ const ChatMessageBubble = ({
           </span>
         )}
         {/* Loading indicator */}
-        {message.isStreaming && (
-          <div
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing.sm,
-              marginTop: theme.spacing.sm,
-            }}
-          >
-            <SparkleIcon
-              color="ai"
-              css={{
-                fontSize: 16,
-                animation: 'pulse 1.5s ease-in-out infinite',
-                '@keyframes pulse': PULSE_ANIMATION,
-              }}
-            />
-            <span
-              css={{
-                fontSize: theme.typography.fontSizeBase,
-                color: theme.colors.textSecondary,
-                '&::after': {
-                  content: '"..."',
-                  animation: 'dots 1.5s steps(3, end) infinite',
-                  display: 'inline-block',
-                  width: '1.2em',
-                },
-                '@keyframes dots': DOTS_ANIMATION,
-              }}
-            >
-              {activeTools && activeTools.length > 0 && activeTools[0].description
-                ? `Tool: ${activeTools[0].description}`
-                : 'Processing'}
-            </span>
-          </div>
-        )}
+        {message.isStreaming && <StreamingIndicator />}
       </div>
 
       {/* Action buttons for assistant messages */}
@@ -277,7 +352,7 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage, cancelSession, tokenUsage } =
+  const { messages, isStreaming, error, sendMessage, regenerateLastMessage, cancelSession, tokenUsage } =
     useAssistant();
   const logTelemetryEvent = useLogTelemetryEvent();
   const viewId = useMemo(() => uuidv4(), []);
@@ -365,7 +440,6 @@ const ChatPanelContent = () => {
               key={message.id}
               message={message}
               isLastMessage={isLastAssistantMessage}
-              activeTools={message.isStreaming ? activeTools : undefined}
               onRegenerate={isLastAssistantMessage ? regenerateLastMessage : undefined}
             />
           );
