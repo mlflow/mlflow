@@ -12,6 +12,7 @@ import {
 import { getLockSocketPath, getWalPath } from '../../../src/exporters/wal/paths';
 import type { IpcRequest, IpcResponse } from '../../../src/exporters/wal/protocol';
 import type { WalRecord } from '../../../src/exporters/wal/types';
+import { JSONBig } from '../../../src/core/utils/json';
 
 function makeRecord(idSuffix: string, overrides: Partial<WalRecord> = {}): WalRecord {
   return {
@@ -407,10 +408,12 @@ describe('wal/ipc createIpcConnectionHandler', () => {
 });
 
 describe('wal/ipc ipcRequestByteLength', () => {
-  it('measures the real wire size of a record (envelope + newline)', () => {
-    const record = makeRecord('measure');
+  it('measures the real wire size of a record, including BigInt fields', () => {
+    const record = makeRecord('measure', {
+      traceData: { spans: [{ startTimeUnixNano: 1_700_000_000_000_000_000n }] },
+    });
 
-    const expected = Buffer.byteLength(JSON.stringify({ op: 'append', record }) + '\n', 'utf8');
+    const expected = Buffer.byteLength(JSONBig.stringify({ op: 'append', record }) + '\n', 'utf8');
     expect(ipcRequestByteLength(record)).toBe(expected);
   });
 
