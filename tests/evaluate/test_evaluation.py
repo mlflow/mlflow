@@ -226,7 +226,9 @@ def get_pipeline_model_uri():
     pipeline.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(pipeline, name="pipeline_model")
+        model_info = mlflow.sklearn.log_model(
+            pipeline, name="pipeline_model", serialization_format="cloudpickle"
+        )
         return model_info.model_uri
 
 

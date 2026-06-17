@@ -1891,14 +1891,15 @@ class AbstractStore(GatewayStoreMixin):
         experiment_id: str,
         *,
         user: str,
-        created_by: str | None = None,
     ) -> "ReviewQueue":
         """Return the user's personal queue for an experiment, creating it
         if absent.
 
-        Atomic and idempotent: concurrent callers converge on the single
-        ``(experiment_id, name=user)`` user queue. This is the backbone of
-        "assign these traces to this person" — get-or-create then attach.
+        The queue is owned by its user (``created_by`` is set to ``user``),
+        so there is no caller-supplied owner. Atomic and idempotent:
+        concurrent callers converge on the single ``(experiment_id, name=user)``
+        user queue. This is the backbone of "assign these traces to this
+        person" — get-or-create then attach.
 
         Raises:
             MlflowException(INVALID_PARAMETER_VALUE): on validation failure.
@@ -1931,6 +1932,7 @@ class AbstractStore(GatewayStoreMixin):
         experiment_id: str,
         *,
         user: str | None = None,
+        item_id: str | None = None,
         max_results: int | None = None,
         page_token: str | None = None,
     ) -> PagedList["ReviewQueue"]:
@@ -1940,6 +1942,8 @@ class AbstractStore(GatewayStoreMixin):
             experiment_id: Parent experiment ID.
             user: If set, restrict to queues this user is assigned to (their
                 user queue plus any custom queue they belong to).
+            item_id: If set, restrict to queues that already contain this item
+                (a trace id), so callers can see which queues it is a member of.
             max_results: Page size.
             page_token: Opaque continuation token from a previous call.
         """
@@ -1952,21 +1956,32 @@ class AbstractStore(GatewayStoreMixin):
         *,
         users: list[str] | None = None,
         schema_ids: list[str] | None = None,
+        name: str | None = None,
+        new_owner: str | None = None,
     ) -> "ReviewQueue":
-        """Replace a custom queue's assigned users and/or attached schemas.
+        """Edit a custom queue's name, assigned users, attached schemas, and/or owner.
 
-        ``None`` leaves that association set untouched; a list (possibly
-        empty) replaces it wholesale. ``name`` and ``queue_type`` are
-        immutable. User queues reject both arguments (their user is fixed
-        and their schemas resolve to all of the experiment's).
+        ``None`` leaves that field untouched; a value (a list, possibly empty,
+        for the association sets; a string for ``name`` / ``new_owner``) replaces
+        it wholesale. ``queue_type`` is immutable and user queues reject this
+        call (their name, user, schemas, and owner are fixed). ``name`` is
+        validated as a custom queue name (non-empty, non-reserved) and must be
+        unique within the experiment. ``new_owner`` reassigns ownership
+        (``created_by``); it is stored case-preserved (matching is
+        case-insensitive). Authorization differs per field — owner reassignment
+        is MANAGE-only while the other edits are allowed to an owning EDIT user —
+        but that gate lives at the handler layer, not here.
 
         ``schema_ids`` (the questions) are frozen once the queue has any
         attached items: changing them after reviewers start would strand
         answers or leave completed items with never-seen questions. Detach
-        the items first to edit questions. Assigned users stay editable.
+        the items first to edit questions. Assigned users, name, and owner stay
+        editable.
 
         Raises:
             MlflowException(RESOURCE_DOES_NOT_EXIST): if the queue doesn't exist.
+            MlflowException(RESOURCE_ALREADY_EXISTS): if ``name`` collides with
+                another queue in the experiment.
             MlflowException(INVALID_PARAMETER_VALUE): on validation failure,
                 when called against a user queue, or when changing
                 ``schema_ids`` on a queue that already has items.
@@ -1996,7 +2011,10 @@ class AbstractStore(GatewayStoreMixin):
         no-op that preserves its existing status. Newly-attached items
         start ``pending``. The returned list covers every requested
         ``item_id`` (newly-added and already-present), in the requested
-        order.
+        order, except that an item removed concurrently (between its insert
+        and the read-back) is omitted — callers should reconcile the
+        returned items against their requested ``item_ids`` rather than
+        assume a 1:1 result.
 
         ``item_ids`` are stored as soft references — this store method
         validates only their shape, NOT that each is a real trace in the

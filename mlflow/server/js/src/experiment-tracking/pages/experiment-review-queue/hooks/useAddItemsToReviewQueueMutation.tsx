@@ -4,6 +4,7 @@ import { fetchAPI, getAjaxUrl } from '../../../../common/utils/FetchUtils';
 import type { ReviewQueueItem } from '../types';
 import { REVIEW_QUEUES_API_BASE } from './constants';
 import { LIST_REVIEW_QUEUE_ITEMS_QUERY_KEY } from './useListReviewQueueItemsQuery';
+import { LIST_REVIEW_QUEUES_QUERY_KEY } from './useListReviewQueuesQuery';
 
 export interface AddItemsToReviewQueueParams {
   queue_id: string;
@@ -18,7 +19,8 @@ interface AddItemsToReviewQueueResponse {
  * Attach traces to a review queue. Idempotent per trace (re-attaching keeps
  * the existing status). The server defaults `item_type` to TRACE, so it is
  * omitted here. Invalidates the queue's trace list so the Review tab reflects
- * the new attachments.
+ * the new attachments, and the queue list so the per-trace membership view
+ * (`itemId`) picks up this new membership.
  */
 export const useAddItemsToReviewQueueMutation = () => {
   const queryClient = useQueryClient();
@@ -36,6 +38,7 @@ export const useAddItemsToReviewQueueMutation = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries([LIST_REVIEW_QUEUE_ITEMS_QUERY_KEY]);
+      queryClient.invalidateQueries([LIST_REVIEW_QUEUES_QUERY_KEY]);
     },
   });
 

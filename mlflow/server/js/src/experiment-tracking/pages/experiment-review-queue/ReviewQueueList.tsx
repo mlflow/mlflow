@@ -1,77 +1,139 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   Button,
   Checkbox,
-  ChevronDownIcon,
-  ChevronRightIcon,
+  CheckCircleIcon,
   DropdownMenu,
-  Empty,
   GearIcon,
-  SearchIcon,
+  LinkOffIcon,
+  NewWindowIcon,
+  PlusIcon,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  ShareIcon,
   Table,
   TableCell,
   TableHeader,
   TableRow,
   Tag,
-  TrashIcon,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useGetTracesById } from '@databricks/web-shared/model-trace-explorer';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 
 import { displayUser } from './hooks/useReviewer';
+import { ReviewQueueEmptyState } from './ReviewQueueEmptyState';
 import type { ReviewQueueItem, ReviewStatus } from './types';
 
 const CID = 'mlflow.experiment-review-queue.list';
 
-const STATUS_META: Record<ReviewStatus, { color: 'turquoise' | 'lime' | 'charcoal' }> = {
-  PENDING: { color: 'turquoise' },
+const STATUS_META: Record<ReviewStatus, { color: 'turquoise' | 'lime' | 'charcoal' | 'lemon' }> = {
+  PENDING: { color: 'lemon' },
   DECLINED: { color: 'charcoal' },
   COMPLETE: { color: 'lime' },
 };
 
+const PendingDot = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <span
+      css={{
+        display: 'inline-block',
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+        backgroundColor: theme.colors.yellow600,
+        flexShrink: 0,
+      }}
+    />
+  );
+};
+
 export const StatusTag = ({ status }: { status: ReviewStatus }) => {
+  const { theme } = useDesignSystemTheme();
   const label: Record<ReviewStatus, React.ReactNode> = {
     PENDING: <FormattedMessage defaultMessage="Needs review" description="Review queue status: pending" />,
-    COMPLETE: <FormattedMessage defaultMessage="Complete" description="Review queue status: complete" />,
+    COMPLETE: <FormattedMessage defaultMessage="Reviewed" description="Review queue status: complete" />,
     DECLINED: <FormattedMessage defaultMessage="Declined" description="Review queue status: declined" />,
   };
+  const icon: Record<ReviewStatus, React.ReactNode> = {
+    PENDING: <PendingDot />,
+    COMPLETE: <CheckCircleIcon />,
+    DECLINED: null,
+  };
   return (
-    <Tag componentId={`${CID}.status-tag`} color={STATUS_META[status].color}>
+    <Tag
+      componentId={`${CID}.status-tag`}
+      color={STATUS_META[status].color}
+      icon={icon[status]}
+      css={{ paddingLeft: theme.spacing.xs, paddingRight: theme.spacing.xs }}
+    >
       {label[status]}
     </Tag>
   );
 };
 
-const formatAgo = (ms: number, nowMs: number) => {
-  const hours = Math.max(1, Math.round((nowMs - ms) / (60 * 60 * 1000)));
-  return hours < 24 ? `${hours}h` : `${Math.round(hours / 24)}d`;
+const formatAgo = (ms: number, nowMs: number, intl: IntlShape) => {
+  // Floor each tier (not round): the label is "X ago", so it must never round up
+  // past its own threshold (e.g. 59.5 min must read "59m ago", not skip to "1h ago").
+  const seconds = Math.max(0, Math.floor((nowMs - ms) / 1000));
+  if (seconds < 60) {
+    return intl.formatMessage({
+      defaultMessage: 'just now',
+      description: 'Review queue table: date-added cell, less than a minute ago',
+    });
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return intl.formatMessage(
+      { defaultMessage: '{minutes}m ago', description: 'Review queue table: date-added cell, minutes ago' },
+      { minutes },
+    );
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return intl.formatMessage(
+      { defaultMessage: '{hours}h ago', description: 'Review queue table: date-added cell, hours ago' },
+      { hours },
+    );
+  }
+  return intl.formatMessage(
+    { defaultMessage: '{days}d ago', description: 'Review queue table: date-added cell, days ago' },
+    { days: Math.floor(hours / 24) },
+  );
 };
 
-type ColumnKey = 'item_id' | 'status' | 'completed_by' | 'creation_time_ms';
+type ColumnKey = 'request' | 'response' | 'status' | 'creation_time_ms';
+type SortDirection = 'asc' | 'desc' | 'none';
+type StatusFilter = 'all' | 'PENDING' | 'completed';
 
-const COLUMNS: { key: ColumnKey; label: React.ReactNode; flex: number }[] = [
+const STATUS_ORDER: Record<ReviewStatus, number> = { PENDING: 0, COMPLETE: 1, DECLINED: 2 };
+
+const COLUMNS: { key: ColumnKey; label: React.ReactNode; flex: number; sortable?: boolean }[] = [
   {
-    key: 'item_id',
-    label: <FormattedMessage defaultMessage="Trace" description="Review queue table: trace column" />,
+    key: 'request',
+    label: <FormattedMessage defaultMessage="Request" description="Review queue table: request column" />,
+    flex: 2,
+  },
+  {
+    key: 'response',
+    label: <FormattedMessage defaultMessage="Response" description="Review queue table: response column" />,
     flex: 2,
   },
   {
     key: 'status',
     label: <FormattedMessage defaultMessage="Status" description="Review queue table: status column" />,
     flex: 1,
-  },
-  {
-    key: 'completed_by',
-    label: <FormattedMessage defaultMessage="Completed by" description="Review queue table: completed-by column" />,
-    flex: 1.5,
+    sortable: true,
   },
   {
     key: 'creation_time_ms',
     label: <FormattedMessage defaultMessage="Date added" description="Review queue table: date-added column" />,
     flex: 1,
+    sortable: true,
   },
 ];
 
@@ -84,8 +146,10 @@ export const ReviewQueueList = ({
   latestQuestionCreatedAtMs,
   onRemoveItems,
   isRemovingItems,
+  onCopyLink,
   onManageQueue,
   onDeleteQueue,
+  onGoToTraces,
 }: {
   items: ReviewQueueItem[];
   /** Queue name shown in the header, next to the question count + gear menu. */
@@ -97,43 +161,87 @@ export const ReviewQueueList = ({
   /** Newest question's creation time; flags completed traces reviewed before it. */
   latestQuestionCreatedAtMs?: number;
   /** When provided, rows become checkbox-selectable and a delete action appears
-   *  so the queue's manager can remove traces from this view. */
-  onRemoveItems?: (itemIds: string[]) => void;
+   *  so the queue's manager can remove traces from this view. The returned promise
+   *  MUST reject if the removal fails: on rejection the list keeps the selection so
+   *  the reviewer can retry, and the caller is responsible for surfacing the error.
+   *  A caller that swallows the failure (resolves anyway) will clear the selection
+   *  as if it succeeded. */
+  onRemoveItems?: (itemIds: string[]) => Promise<void>;
   isRemovingItems?: boolean;
-  /** When provided (editable non-default custom queues only), a gear menu offers
+  /** Copy a shareable link to this queue; `startReview` deep-links into the
+   *  focused review of the first to-do trace. Permission-free, so unlike the
+   *  manage/delete actions it's offered to every viewer. */
+  onCopyLink?: (opts: { startReview: boolean }) => void;
+  /** When provided (editable custom queues only), a gear menu offers
    *  "Manage queue"; `onDeleteQueue`, when also provided, adds "Delete queue". */
   onManageQueue?: () => void;
   onDeleteQueue?: () => void;
+  onGoToTraces?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [completedOpen, setCompletedOpen] = useState(false);
   const selectable = Boolean(onRemoveItems);
 
-  // The trace output preview keeps rows human-readable — the raw trace id isn't.
+  const [sortKey, setSortKey] = useState<ColumnKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDirection>('none');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  const toggleSort = useCallback(
+    (key: ColumnKey) => {
+      if (sortKey !== key) {
+        setSortKey(key);
+        setSortDir('asc');
+      } else if (sortDir === 'asc') {
+        setSortDir('desc');
+      } else {
+        setSortKey(null);
+        setSortDir('none');
+      }
+    },
+    [sortKey, sortDir],
+  );
+
   const { data: traces } = useGetTracesById(items.map((i) => i.item_id));
-  const previewById = useMemo(() => {
-    const map = new Map<string, string>();
+  const previewsById = useMemo(() => {
+    const map = new Map<string, { input?: string; response?: string }>();
     (traces ?? []).forEach((t) => {
       const id = t?.info?.trace_id;
-      const preview = t?.info?.response_preview || t?.info?.request_preview;
-      if (id && preview) {
-        map.set(id, preview);
+      if (id) {
+        map.set(id, {
+          input: t?.info?.request_preview,
+          response: t?.info?.response_preview,
+        });
       }
     });
     return map;
   }, [traces]);
-  // Split into still-to-review vs. resolved (complete/declined). The page passes
-  // items already ordered (completed first, then to-do), so filtering preserves
-  // that order — keeping the list in sync with the focused view's prev/next.
-  const toDo = useMemo(() => items.filter((i) => i.status === 'PENDING'), [items]);
-  const completed = useMemo(() => items.filter((i) => i.status !== 'PENDING'), [items]);
 
-  // Select-all only covers the rows currently visible: "To do" always, plus
-  // "Completed" only when that group is expanded.
-  const visibleItems = useMemo(() => [...toDo, ...(completedOpen ? completed : [])], [toDo, completed, completedOpen]);
-  const allSelected = visibleItems.length > 0 && visibleItems.every((i) => selected.has(i.item_id));
+  const filteredItems = useMemo(() => {
+    let result = items;
+    if (statusFilter === 'PENDING') {
+      result = result.filter((i) => i.status === 'PENDING');
+    } else if (statusFilter === 'completed') {
+      result = result.filter((i) => i.status !== 'PENDING');
+    }
+    if (sortKey && sortDir !== 'none') {
+      const dir = sortDir === 'asc' ? 1 : -1;
+      result = [...result].sort((a, b) => {
+        if (sortKey === 'status') {
+          return (STATUS_ORDER[a.status] - STATUS_ORDER[b.status]) * dir;
+        }
+        if (sortKey === 'creation_time_ms') {
+          return (a.creation_time_ms - b.creation_time_ms) * dir;
+        }
+        return 0;
+      });
+    }
+    return result;
+  }, [items, statusFilter, sortKey, sortDir]);
+
+  const toDo = useMemo(() => items.filter((i) => i.status === 'PENDING'), [items]);
+
+  const allSelected = filteredItems.length > 0 && filteredItems.every((i) => selected.has(i.item_id));
   const toggleSelect = (itemId: string, checked: boolean) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -145,39 +253,48 @@ export const ReviewQueueList = ({
       return next;
     });
   const toggleAll = (checked: boolean) =>
-    setSelected(checked ? new Set(visibleItems.map((i) => i.item_id)) : new Set());
-  const handleDelete = () => {
-    if (onRemoveItems && selected.size > 0) {
-      onRemoveItems([...selected]);
-      setSelected(new Set());
+    setSelected(checked ? new Set(filteredItems.map((i) => i.item_id)) : new Set());
+  const handleDelete = async () => {
+    if (!onRemoveItems || selected.size === 0) {
+      return;
+    }
+    const removing = [...selected];
+    try {
+      await onRemoveItems(removing);
+      // Drop only the ids we actually removed, once the removal lands. Rebuilding
+      // from the live `selected` preserves any rows the reviewer checked while the
+      // request was in flight; on failure the selection is left intact for retry
+      // (the caller surfaces the error).
+      setSelected((prev) => {
+        const next = new Set(prev);
+        removing.forEach((id) => next.delete(id));
+        return next;
+      });
+    } catch {
+      // Surfaced by the caller's onRemoveItems; leave the selection intact.
     }
   };
+  // Changing the filter drops any row selection: a row checked under one filter
+  // would otherwise stay in `selected` after being filtered out of view, leaving
+  // the delete action targeting rows the user can no longer see.
+  const handleStatusFilterChange = (value: StatusFilter) => {
+    setStatusFilter(value);
+    setSelected(new Set());
+  };
 
-  const groupBand = (label: React.ReactNode, count: number, collapse?: { open: boolean; onToggle: () => void }) => (
-    <TableRow
-      onClick={collapse?.onToggle}
-      css={{
-        backgroundColor: theme.colors.backgroundSecondary,
-        cursor: collapse ? 'pointer' : 'default',
-      }}
-    >
-      <TableCell css={{ flex: 1, display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-        {collapse && (collapse.open ? <ChevronDownIcon /> : <ChevronRightIcon />)}
-        <Typography.Text bold>{label}</Typography.Text>
-        <Typography.Text color="secondary">({count})</Typography.Text>
-      </TableCell>
-    </TableRow>
-  );
+  const colFlex = useMemo(() => {
+    const map = new Map<ColumnKey, number>();
+    COLUMNS.forEach((c) => map.set(c.key, c.flex));
+    return map;
+  }, []);
 
   const renderRow = (item: ReviewQueueItem) => {
-    // A question was added after this trace was completed: it was reviewed
-    // without ever seeing that question.
     const hasNewQuestions =
       item.status === 'COMPLETE' &&
       item.completed_time_ms != null &&
       latestQuestionCreatedAtMs != null &&
       latestQuestionCreatedAtMs > item.completed_time_ms;
-    const previewText = previewById.get(item.item_id) ?? item.item_id;
+    const previews = previewsById.get(item.item_id);
     return (
       <TableRow
         key={item.item_id}
@@ -193,10 +310,17 @@ export const ReviewQueueList = ({
             />
           </TableCell>
         )}
-        <TableCell css={{ flex: COLUMNS[0].flex }}>
-          <Typography.Text ellipsis>{previewText}</Typography.Text>
+        <TableCell css={{ flex: colFlex.get('request') }}>
+          <Typography.Text ellipsis color="secondary">
+            {previews?.input || '—'}
+          </Typography.Text>
         </TableCell>
-        <TableCell css={{ flex: COLUMNS[1].flex, display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+        <TableCell css={{ flex: colFlex.get('response') }}>
+          <Typography.Text ellipsis color="secondary">
+            {previews?.response || '—'}
+          </Typography.Text>
+        </TableCell>
+        <TableCell css={{ flex: colFlex.get('status'), display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
           <StatusTag status={item.status} />
           {hasNewQuestions && (
             <Tag componentId={`${CID}.new-questions-tag`} color="lemon">
@@ -207,26 +331,23 @@ export const ReviewQueueList = ({
             </Tag>
           )}
         </TableCell>
-        <TableCell css={{ flex: COLUMNS[2].flex }}>
-          <Typography.Text color="secondary">
-            {item.completed_by ? displayUser(item.completed_by, intl) : '—'}
-          </Typography.Text>
+        <TableCell css={{ flex: colFlex.get('creation_time_ms') }}>
+          {formatAgo(item.creation_time_ms, nowMs, intl)}
         </TableCell>
-        <TableCell css={{ flex: COLUMNS[3].flex }}>{formatAgo(item.creation_time_ms, nowMs)}</TableCell>
       </TableRow>
     );
   };
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: theme.spacing.sm }}>
-      {(title || selectable || onManageQueue) && (
+      {(title || selectable || onCopyLink || onManageQueue || onDeleteQueue) && (
         <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm }}>
           <div css={{ minWidth: 0 }}>
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs / 2, minWidth: 0 }}>
               <Typography.Title level={3} withoutMargins ellipsis css={{ minWidth: 0 }}>
                 {title}
               </Typography.Title>
-              {onManageQueue && (
+              {(onManageQueue || onDeleteQueue) && (
                 <DropdownMenu.Root modal={false}>
                   <DropdownMenu.Trigger asChild>
                     <Button
@@ -239,12 +360,14 @@ export const ReviewQueueList = ({
                     />
                   </DropdownMenu.Trigger>
                   <DropdownMenu.Content align="start">
-                    <DropdownMenu.Item componentId={`${CID}.manage-queue`} onClick={onManageQueue}>
-                      <FormattedMessage
-                        defaultMessage="Manage queue"
-                        description="Review queue header: manage-queue menu item"
-                      />
-                    </DropdownMenu.Item>
+                    {onManageQueue && (
+                      <DropdownMenu.Item componentId={`${CID}.manage-queue`} onClick={onManageQueue}>
+                        <FormattedMessage
+                          defaultMessage="Manage queue"
+                          description="Review queue header: manage-queue menu item"
+                        />
+                      </DropdownMenu.Item>
+                    )}
                     {onDeleteQueue && (
                       <DropdownMenu.Item danger componentId={`${CID}.delete-queue`} onClick={onDeleteQueue}>
                         <FormattedMessage
@@ -273,85 +396,170 @@ export const ReviewQueueList = ({
               <FormattedMessage defaultMessage="Start review" description="Review queue: start-review button" />
             </Button>
           )}
-          {selectable && (
-            <Button
-              componentId={`${CID}.delete-selected`}
-              danger
-              icon={<TrashIcon />}
-              disabled={selected.size === 0 || isRemovingItems}
-              loading={isRemovingItems}
-              onClick={handleDelete}
+          {onCopyLink && (
+            <DropdownMenu.Root modal={false}>
+              <DropdownMenu.Trigger asChild>
+                <Button
+                  componentId={`${CID}.share-trigger`}
+                  icon={<ShareIcon />}
+                  aria-label={intl.formatMessage({
+                    defaultMessage: 'Share queue',
+                    description: 'Review queue header: share queue button aria label',
+                  })}
+                />
+              </DropdownMenu.Trigger>
+              <DropdownMenu.Content align="end">
+                <DropdownMenu.Item componentId={`${CID}.copy-link`} onClick={() => onCopyLink({ startReview: false })}>
+                  <FormattedMessage
+                    defaultMessage="Share queue link"
+                    description="Review queue share dropdown: copies a link to the queue's list view"
+                  />
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  componentId={`${CID}.copy-start-review-link`}
+                  onClick={() => onCopyLink({ startReview: true })}
+                >
+                  <FormattedMessage
+                    defaultMessage="Share review link"
+                    description="Review queue share dropdown: copies a link that opens the first pending trace for review"
+                  />
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Root>
+          )}
+          {selectable && selected.size > 0 && (
+            <Tooltip
+              componentId={`${CID}.unassign-selected.tooltip`}
+              content={intl.formatMessage(
+                {
+                  defaultMessage: 'Unassign {count, plural, one {# trace} other {# traces}} from the queue',
+                  description:
+                    'Review queue: tooltip explaining that the button removes the selected traces from the queue (the traces themselves are not deleted)',
+                },
+                { count: selected.size },
+              )}
             >
-              <FormattedMessage
-                defaultMessage="Delete {count, plural, one {# trace} other {# traces}}"
-                description="Review queue: delete selected traces button"
-                values={{ count: selected.size }}
-              />
-            </Button>
+              <Button
+                componentId={`${CID}.delete-selected`}
+                icon={<LinkOffIcon />}
+                disabled={isRemovingItems}
+                loading={isRemovingItems}
+                onClick={handleDelete}
+              >
+                <FormattedMessage
+                  defaultMessage="Unassign"
+                  description="Review queue: button that removes the selected traces from the queue (the traces themselves are not deleted)"
+                />
+              </Button>
+            </Tooltip>
           )}
         </div>
       )}
 
       {items.length === 0 ? (
-        <div css={{ display: 'flex', justifyContent: 'center', width: '100%', padding: theme.spacing.lg }}>
-          <Empty
-            description={
-              <FormattedMessage defaultMessage="No traces in this queue yet." description="Review queue empty state" />
-            }
-            image={<SearchIcon />}
-          />
-        </div>
+        <ReviewQueueEmptyState
+          title={
+            <FormattedMessage
+              defaultMessage="No traces in this queue yet"
+              description="Review queue: empty queue title"
+            />
+          }
+          description={
+            <FormattedMessage
+              defaultMessage="Add traces from the Traces tab to start reviewing them with your team."
+              description="Review queue: empty queue description"
+            />
+          }
+          button={
+            onGoToTraces && (
+              <Button
+                componentId={`${CID}.go-to-traces`}
+                type="primary"
+                icon={<PlusIcon />}
+                endIcon={<NewWindowIcon />}
+                onClick={onGoToTraces}
+              >
+                <FormattedMessage
+                  defaultMessage="Add traces"
+                  description="Review queue: button to navigate to Traces tab"
+                />
+              </Button>
+            )
+          }
+        />
       ) : (
-        <div css={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-          <Table>
-            <TableRow isHeader>
-              {selectable && (
-                <TableHeader componentId={`${CID}.select-header`} css={{ flex: '0 0 36px' }}>
-                  <Checkbox
-                    componentId={`${CID}.select-all`}
-                    isChecked={allSelected}
-                    onChange={(checked) => toggleAll(checked)}
-                  />
-                </TableHeader>
-              )}
-              {COLUMNS.map((col) => (
-                <TableHeader key={col.key} componentId={`${CID}.header`} css={{ flex: col.flex }}>
-                  {col.label}
-                </TableHeader>
-              ))}
-            </TableRow>
-
-            {groupBand(
-              <FormattedMessage defaultMessage="To do" description="Review queue table: to-do group label" />,
-              toDo.length,
-            )}
-            {toDo.length === 0 ? (
-              <TableRow>
-                <TableCell css={{ flex: 1 }}>
-                  <Typography.Text color="secondary">
-                    <FormattedMessage
-                      defaultMessage="Nothing left to review."
-                      description="Review queue table: empty to-do group"
+        <>
+          <SegmentedControlGroup
+            name={`${CID}.status-filter`}
+            componentId={`${CID}.status-filter`}
+            value={statusFilter}
+            onChange={(event) => handleStatusFilterChange(event.target.value as StatusFilter)}
+          >
+            <SegmentedControlButton value="all">
+              <FormattedMessage
+                defaultMessage="All ({count})"
+                description="Review queue status filter: all"
+                values={{ count: items.length }}
+              />
+            </SegmentedControlButton>
+            <SegmentedControlButton value="PENDING">
+              <FormattedMessage
+                defaultMessage="Needs review ({count})"
+                description="Review queue status filter: needs review"
+                values={{ count: toDo.length }}
+              />
+            </SegmentedControlButton>
+            <SegmentedControlButton value="completed">
+              <FormattedMessage
+                defaultMessage="Completed ({count})"
+                description="Review queue status filter: completed"
+                values={{ count: items.length - toDo.length }}
+              />
+            </SegmentedControlButton>
+          </SegmentedControlGroup>
+          <div css={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+            <Table>
+              <TableRow isHeader>
+                {selectable && (
+                  <TableHeader componentId={`${CID}.select-header`} css={{ flex: '0 0 36px' }}>
+                    <Checkbox
+                      componentId={`${CID}.select-all`}
+                      isChecked={allSelected}
+                      onChange={(checked) => toggleAll(checked)}
                     />
-                  </Typography.Text>
-                </TableCell>
+                  </TableHeader>
+                )}
+                {COLUMNS.map((col) => (
+                  <TableHeader
+                    key={col.key}
+                    componentId={`${CID}.header`}
+                    css={{ flex: col.flex }}
+                    sortable={col.sortable}
+                    sortDirection={sortKey === col.key ? sortDir : 'none'}
+                    onToggleSort={col.sortable ? () => toggleSort(col.key) : undefined}
+                  >
+                    {col.label}
+                  </TableHeader>
+                ))}
               </TableRow>
-            ) : (
-              toDo.map(renderRow)
-            )}
 
-            {/* To-do is shown first here; the queue's review order (completed
-                first, then to-do) lives in ExperimentReviewQueuePage and drives
-                the focused view's Prev/Next, not this grouping. */}
-            {completed.length > 0 &&
-              groupBand(
-                <FormattedMessage defaultMessage="Completed" description="Review queue table: completed group label" />,
-                completed.length,
-                { open: completedOpen, onToggle: () => setCompletedOpen((open) => !open) },
+              {filteredItems.length === 0 ? (
+                <TableRow>
+                  <TableCell css={{ flex: 1 }}>
+                    <Typography.Text color="secondary">
+                      <FormattedMessage
+                        defaultMessage="No traces match this filter."
+                        description="Review queue table: empty state when the active status filter matches no traces"
+                      />
+                    </Typography.Text>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredItems.map(renderRow)
               )}
-            {completedOpen && completed.map(renderRow)}
-          </Table>
-        </div>
+            </Table>
+          </div>
+        </>
       )}
     </div>
   );

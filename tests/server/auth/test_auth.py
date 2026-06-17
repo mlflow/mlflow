@@ -2807,12 +2807,14 @@ def test_list_users(client):
     response = requests.get(url=client.tracking_uri + LIST_USERS)
     assert response.status_code == 401
 
-    # Non-admin user should not be able to list all users
+    # Any authenticated user may list users (the review-queue assignment UI
+    # needs the roster); assigning a reviewer still requires elevated permission.
     response = requests.get(
         url=client.tracking_uri + LIST_USERS,
         auth=(username1, password1),
     )
-    assert response.status_code == 403
+    assert response.status_code == 200
+    assert username1 in [u["username"] for u in response.json()["users"]]
 
     # Ajax API path should also work for admin
     response = requests.get(

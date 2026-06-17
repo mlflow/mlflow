@@ -31,8 +31,7 @@ import {
   useCompareToRunUuid,
   COMPARE_TO_RUN_UUID_QUERY_PARAM,
 } from '../../components/evaluations/hooks/useCompareToRunUuid';
-import { EvaluationCodeSnippetButton } from './EvaluationCodeSnippetButton';
-import { RunEvaluationButton } from './RunEvaluationButton';
+import { EvalRunsEmptyStateCard } from './EvalRunsEmptyStateCard';
 import { isUserFacingTag } from '../../../common/utils/TagUtils';
 import { createEvalRunsTableKeyedColumnKey } from './ExperimentEvaluationRunsTable.utils';
 import type { RunsGroupByConfig } from '../../components/experiment-page/utils/experimentPage.group-row-utils';
@@ -304,14 +303,16 @@ const ExperimentEvaluationRunsPageImpl = () => {
       return <ExperimentEvaluationRunsPageCharts runs={runs} experimentId={experimentId} />;
     }
 
+    const selectedRun = runs?.find((run) => run.info.runUuid === selectedRunUuid);
+    // Keyed by tag key so RunViewEvaluationsTab can detect regression-test runs
+    // (mlflow.runType=test) and switch the result view accordingly.
+    const selectedRunTags = keyBy(selectedRun?.data?.tags ?? [], 'key');
     return (
       <RunViewEvaluationsTab
         experimentId={experimentId}
         runUuid={selectedRunUuid}
-        runDisplayName={Utils.getRunDisplayName(
-          runs?.find((run) => run.info.runUuid === selectedRunUuid)?.info,
-          selectedRunUuid,
-        )}
+        runTags={selectedRunTags}
+        runDisplayName={Utils.getRunDisplayName(selectedRun?.info, selectedRunUuid)}
         setCurrentRunUuid={setSelectedRunUuid}
         showCompareSelector
         showRefreshButton
@@ -409,44 +410,66 @@ const ExperimentEvaluationRunsPageImpl = () => {
         display: 'flex',
         flex: 1,
         flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: theme.spacing.lg,
-        paddingLeft: theme.spacing.md,
-        maxWidth: '100%',
+        overflow: 'auto',
+        // Always reserve the scrollbar gutter so the horizontally-centered content doesn't
+        // shift left/right when a taller tab adds (or a shorter tab removes) the scrollbar.
+        scrollbarGutter: 'stable',
       }}
     >
-      <Typography.Title level={3} color="secondary">
-        <FormattedMessage
-          defaultMessage="Evaluate and improve the quality, cost, latency of your GenAI app"
-          description="Title of the empty state for the evaluation runs page"
-        />
-      </Typography.Title>
-      <Typography.Paragraph color="secondary" css={{ maxWidth: 'min(100%, 600px)', textAlign: 'center' }}>
-        <FormattedMessage
-          defaultMessage="Create evaluation datasets in order to iteratively evaluate and improve your app. Run evaluations to check that your fixes are working, and compare quality between app / prompt versions. {learnMoreLink}"
-          description="Description of the empty state for the evaluation runs page"
-          values={{
-            learnMoreLink: (
-              <Typography.Link
-                componentId="mlflow.eval-runs.empty-state.learn-more-link"
-                href={getLearnMoreLink()}
-                css={{ whiteSpace: 'nowrap' }}
-                openInNewTab
-              >
-                <FormattedMessage
-                  defaultMessage="Learn more"
-                  description="Link text to learn more about evaluation runs"
-                />
-              </Typography.Link>
-            ),
-          }}
-        />
-      </Typography.Paragraph>
-      <img css={{ maxWidth: '100%', maxHeight: 200 }} src={evalRunsEmptyImg} alt="No runs found" />
-      <div css={{ display: 'flex', gap: theme.spacing.sm, marginTop: theme.spacing.md }}>
-        <RunEvaluationButton experimentId={experimentId} />
-        <EvaluationCodeSnippetButton experimentId={experimentId} />
+      <div
+        css={{
+          // Top-anchored (not vertically centered): the AgentActionCard below changes height
+          // when its active tab switches, and centering would re-center the whole block —
+          // making the title and image above visibly jump. Anchoring to the top keeps them
+          // put and stays scrollable when the content overflows.
+          margin: '0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          // Pin to a definite width (the card's own maxWidth) instead of shrink-to-fit. With
+          // `margin: 0 auto` a flex column hugs its widest child, so switching to a wide tab
+          // (e.g. the non-wrapping Python snippet) would widen the whole block and resize the
+          // card. A fixed width keeps it stable; wide tab content scrolls within the card.
+          width: '100%',
+          maxWidth: 720,
+          padding: `${theme.spacing.lg * 2}px ${theme.spacing.md}px ${theme.spacing.lg * 4}px`,
+        }}
+      >
+        <div
+          css={{ maxWidth: 520, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}
+        >
+          <Typography.Title level={3} color="secondary" css={{ marginTop: 0, marginBottom: theme.spacing.xs }}>
+            <FormattedMessage
+              defaultMessage="Evaluate and improve the quality, cost, latency of your GenAI app"
+              description="Title of the empty state for the evaluation runs page"
+            />
+          </Typography.Title>
+          <Typography.Paragraph color="secondary" css={{ marginBottom: theme.spacing.md }}>
+            <FormattedMessage
+              defaultMessage="Create evaluation datasets in order to iteratively evaluate and improve your app. Run evaluations to check that your fixes are working, and compare quality between app / prompt versions. {learnMoreLink}"
+              description="Description of the empty state for the evaluation runs page"
+              values={{
+                learnMoreLink: (
+                  <Typography.Link
+                    componentId="mlflow.eval-runs.empty-state.learn-more-link"
+                    href={getLearnMoreLink()}
+                    css={{ whiteSpace: 'nowrap' }}
+                    openInNewTab
+                  >
+                    <FormattedMessage
+                      defaultMessage="Learn more"
+                      description="Link text to learn more about evaluation runs"
+                    />
+                  </Typography.Link>
+                ),
+              }}
+            />
+          </Typography.Paragraph>
+        </div>
+        <img css={{ maxWidth: '100%', maxHeight: 160 }} src={evalRunsEmptyImg} alt="No runs found" />
+        <div css={{ width: '100%', marginTop: theme.spacing.lg }}>
+          <EvalRunsEmptyStateCard experimentId={experimentId} />
+        </div>
       </div>
     </div>
   );

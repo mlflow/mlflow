@@ -227,6 +227,7 @@ export const useMlflowTracesTableMetadata = ({
   disabled,
   networkFilters,
   filterByAssessmentSourceRun = false,
+  showConsolidatedResultColumn = false,
 }: {
   locations: ModelTraceSearchLocation[];
   runUuid?: string;
@@ -253,6 +254,11 @@ export const useMlflowTracesTableMetadata = ({
    * Defaults to false for other tabs (traces, labeling, etc.).
    */
   filterByAssessmentSourceRun?: boolean;
+  /**
+   * If true, adds a synthetic per-trace "Result" assessment (pass iff all the
+   * trace's assertions pass) used by the regression-test view.
+   */
+  showConsolidatedResultColumn?: boolean;
 }) => {
   const intl = useIntl();
   const filter = createMlflowSearchFilter(runUuid, timeRange, networkFilters, filterByLoggedModelId);
@@ -300,16 +306,20 @@ export const useMlflowTracesTableMetadata = ({
     if (!filteredTraces || isInnerLoading || error || !filteredTraces.length) {
       return [];
     }
-    return filteredTraces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace));
-  }, [filteredTraces, isInnerLoading, error]);
+    return filteredTraces.map((trace) =>
+      convertTraceInfoV3ToRunEvalEntry(trace, { synthesizeResult: showConsolidatedResultColumn }),
+    );
+  }, [filteredTraces, isInnerLoading, error, showConsolidatedResultColumn]);
 
   const otherEvaluatedTraces = useMemo(() => {
     const isOtherLoading = isOtherInnerLoading && Boolean(otherRunUuid);
     if (!filteredOtherTraces || isOtherLoading || otherError || !filteredOtherTraces.length) {
       return [];
     }
-    return filteredOtherTraces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace));
-  }, [filteredOtherTraces, isOtherInnerLoading, otherError, otherRunUuid]);
+    return filteredOtherTraces.map((trace) =>
+      convertTraceInfoV3ToRunEvalEntry(trace, { synthesizeResult: showConsolidatedResultColumn }),
+    );
+  }, [filteredOtherTraces, isOtherInnerLoading, otherError, otherRunUuid, showConsolidatedResultColumn]);
 
   const assessmentInfos = useMemo(() => {
     return getAssessmentInfos(intl, evaluatedTraces || [], otherEvaluatedTraces || []);

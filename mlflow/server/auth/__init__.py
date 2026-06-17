@@ -31,6 +31,7 @@ from flask import (
     Request,
     Response,
     flash,
+    g,
     jsonify,
     make_response,
     render_template_string,
@@ -59,6 +60,14 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.protos.label_schemas_pb2 import (
+    CreateLabelSchema,
+    DeleteLabelSchema,
+    GetLabelSchema,
+    GetLabelSchemaByName,
+    ListLabelSchemas,
+    UpdateLabelSchema,
+)
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
@@ -81,6 +90,19 @@ from mlflow.protos.model_registry_pb2 import (
     TransitionModelVersionStage,
     UpdateModelVersion,
     UpdateRegisteredModel,
+)
+from mlflow.protos.review_queues_pb2 import (
+    AddItemsToReviewQueue,
+    CreateReviewQueue,
+    DeleteReviewQueue,
+    GetOrCreateUserQueue,
+    GetReviewQueue,
+    GetReviewQueueByName,
+    ListReviewQueueItems,
+    ListReviewQueues,
+    RemoveItemsFromReviewQueue,
+    SetReviewQueueItemStatus,
+    UpdateReviewQueue,
 )
 from mlflow.protos.service_pb2 import (
     AttachModelToGatewayEndpoint,
@@ -1605,11 +1627,10 @@ def validate_can_read_user():
 
 
 def validate_can_list_users():
-    # Workspace admins are allowed: the payload has no per-workspace data, and
-    # they need all usernames to assign outsiders to roles in workspaces they manage.
-    # (Super admins short-circuit in ``_before_request`` and never reach this validator.)
-    user = store.get_user(authenticate_request().username)
-    return bool(store.list_workspace_admin_workspaces(user.id))
+    # Any workspace member may list users (the reviewer-assignment UI needs the
+    # roster); listing grants no access on its own. Workspace-scoped so the roster
+    # isn't leaked across workspaces.
+    return _user_can_create_in_workspace()
 
 
 def validate_can_create_user():
@@ -2146,6 +2167,282 @@ def validate_gateway_proxy():
     return True
 
 
+# Review queues & label schemas
+#
+# Permissions inherit from the parent experiment (like runs / logged models).
+# Creating a queue requires EDIT (the creator owns it); updating or deleting one
+# requires MANAGE or EDIT-with-ownership (reassigning a queue's owner is
+# MANAGE-only); managing label schemas (create / update / delete) requires
+# MANAGE; routing work into a queue requires EDIT; reviewing through a queue
+# (set / reopen status) requires EDIT plus membership in the queue's assigned-user
+# pool; reads require experiment READ, with per-queue visibility narrowed by
+# ``filter_list_review_queues``.
+def _get_permission_from_review_queue_id() -> Permission:
+    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+    username = authenticate_request().username
+    return _get_experiment_permission(queue.experiment_id, username)
+
+
+def _get_permission_from_label_schema_id() -> Permission:
+    schema = _get_tracking_store().get_label_schema(_get_request_param("schema_id"))
+    username = authenticate_request().username
+    return _get_experiment_permission(schema.experiment_id, username)
+
+
+def _review_queue_has_member(queue, username: str) -> bool:
+    # Assigned users are normalized at write time, so normalize only the incoming name.
+    target = (username or "").strip().lower()
+    return target in queue.users
+
+
+def _is_review_queue_owner(queue, username: str) -> bool:
+    # ``created_by`` is stored case-preserved; compare case-insensitively.
+    owner = (queue.created_by or "").strip().lower()
+    return bool(owner) and owner == (username or "").strip().lower()
+
+
+def _can_own_or_manage_review_queue(queue, username: str) -> bool:
+    """Owner-level access to a queue: experiment MANAGE, or experiment EDIT and
+    you own the queue (``created_by``). Ownership amplifies EDIT — it is never a
+    substitute for it.
+    """
+    perm = _get_experiment_permission(queue.experiment_id, username)
+    if perm.can_manage:
+        return True
+    return perm.can_update and _is_review_queue_owner(queue, username)
+
+
+def _can_delete_or_prune_review_queue(queue, username: str) -> bool:
+    """Whether the user may delete the queue or remove its items (un-assign work).
+
+    A manager may act on any queue; an EDIT owner only on their own CUSTOM queue (a
+    USER queue's lifecycle is a manager's responsibility, never its assignee's).
+    """
+    from mlflow.genai.review_queues import ReviewQueueType
+
+    perm = _get_experiment_permission(queue.experiment_id, username)
+    if perm.can_manage:
+        return True
+    return (
+        perm.can_update
+        and _is_review_queue_owner(queue, username)
+        and queue.queue_type == ReviewQueueType.CUSTOM
+    )
+
+
+def _parse_update_review_queue_request() -> UpdateReviewQueue:
+    """Parse the ``UpdateReviewQueue`` request body once for the gate to inspect.
+
+    Field presence is read from the parsed proto, not raw JSON keys, so protobuf
+    JSON's camelCase aliases (e.g. ``newOwner``) are detected the same way the
+    handler reads them; a raw-key scan would miss the camelCase form.
+    """
+    body = request.get_json(silent=True)
+    message = UpdateReviewQueue()
+    parse_dict(body if isinstance(body, dict) else {}, message)
+    return message
+
+
+def _registered_username_match(name: object) -> str | None:
+    """The registered user whose name equals ``name`` (case-insensitive), or None.
+
+    User queues are named after their user (lowercased by ``normalize_user``), so a
+    custom queue or a rename that takes a username shadows that user's personal
+    queue. The match is intentionally case-insensitive — broader than the store's
+    case-sensitive name uniqueness — so a look-alike like ``"Alice"`` is rejected
+    too, not just the exact ``"alice"`` that would hard-collide and lock the user out.
+    """
+    if not isinstance(name, str) or not name.strip():
+        return None
+    target = name.strip().lower()
+    return next(
+        (u.username for u in store.list_users() if u.username.strip().lower() == target), None
+    )
+
+
+def _reject_create_review_queue_shadowing_user():
+    """Reject creating a CUSTOM queue whose name is a registered username."""
+    from mlflow.genai.review_queues import ReviewQueueType
+
+    body = request.get_json(silent=True)
+    message = CreateReviewQueue()
+    parse_dict(body if isinstance(body, dict) else {}, message)
+    # Only CUSTOM queues choose an arbitrary name; a USER queue *is* its username.
+    # Compare the raw proto enum (an unset queue_type is 0/UNSPECIFIED, which
+    # `from_proto` would reject) so a non-CUSTOM request just skips the check.
+    if message.queue_type != ReviewQueueType.CUSTOM.to_proto():
+        return
+    if (matched := _registered_username_match(message.name)) is not None:
+        raise MlflowException.invalid_parameter_value(
+            f"'{matched}' is a registered user. A custom review queue cannot use a "
+            "username as its name; assign that user to a queue instead.",
+        )
+
+
+def _reject_rename_review_queue_shadowing_user(queue, message):
+    """Reject renaming a CUSTOM queue onto a registered username.
+
+    User queues can't be renamed at all (the store rejects that), so this only
+    concerns a CUSTOM queue being renamed onto a username.
+    """
+    from mlflow.genai.review_queues import ReviewQueueType
+
+    if queue.queue_type != ReviewQueueType.CUSTOM or not message.HasField("name"):
+        return
+    if (matched := _registered_username_match(message.name)) is not None:
+        raise MlflowException.invalid_parameter_value(
+            f"'{matched}' is a registered user. A custom review queue cannot be "
+            "renamed to a username; assign that user to a queue instead.",
+        )
+
+
+def validate_can_create_review_queue():
+    # Creating (and thereby owning) a queue requires experiment EDIT.
+    permission = _get_permission_from_experiment_id().can_update
+    # A custom queue may not take a registered username, which would shadow that
+    # user's personal queue. Only enforced once the caller is authorized.
+    if permission:
+        _reject_create_review_queue_shadowing_user()
+    return permission
+
+
+def validate_can_update_review_queue():
+    # Editing a queue's shape (name / users / schemas) is allowed to a manager or
+    # the owning EDIT user. Reassigning the owner (``new_owner``) is MANAGE-only —
+    # an owner cannot transfer their own queue.
+    username = authenticate_request().username
+    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+    message = _parse_update_review_queue_request()
+    if message.HasField("new_owner"):
+        permission = _get_experiment_permission(queue.experiment_id, username).can_manage
+    else:
+        permission = _can_own_or_manage_review_queue(queue, username)
+    # A rename can't take a registered username either (same shadowing concern).
+    if permission:
+        _reject_rename_review_queue_shadowing_user(queue, message)
+    return permission
+
+
+def enforce_review_queue_name_not_username():
+    """Reject a review-queue create/rename that shadows a username, for admins.
+
+    A custom queue (or a rename) named after a registered user shadows that user's
+    personal queue, so this is a data-integrity rule that applies to *every* caller,
+    not a permission. Non-admins hit it inside the validators above, after the
+    permission gate. Admins bypass validators entirely, so ``_before_request`` calls
+    this for them. A no-op for every endpoint other than create/update review queue.
+    """
+    # Resolve via the dispatcher (not a raw path lookup) so this stays correct if
+    # these routes ever gain a path parameter, matching how non-admins are routed.
+    validator = _find_validator(request)
+    if validator is validate_can_create_review_queue:
+        _reject_create_review_queue_shadowing_user()
+    elif validator is validate_can_update_review_queue:
+        queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+        _reject_rename_review_queue_shadowing_user(queue, _parse_update_review_queue_request())
+
+
+def validate_can_remove_items_from_review_queue():
+    username = authenticate_request().username
+    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+    return _can_delete_or_prune_review_queue(queue, username)
+
+
+def validate_can_delete_review_queue():
+    username = authenticate_request().username
+    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+    return _can_delete_or_prune_review_queue(queue, username)
+
+
+def validate_can_add_items_to_review_queue():
+    # Adding items (flag-for-review) is open to any EDITor, unlike removing them.
+    return _get_permission_from_review_queue_id().can_update
+
+
+def validate_can_get_or_create_user_queue():
+    return _get_permission_from_experiment_id().can_update
+
+
+def validate_can_view_review_queue():
+    # Detail-tier read: experiment READ plus MANAGE, owner, or membership. Mirrors
+    # the row predicate in ``filter_list_review_queues``.
+    username = authenticate_request().username
+    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+    perm = _get_experiment_permission(queue.experiment_id, username)
+    if not perm.can_read:
+        return False
+    if perm.can_manage or _review_queue_has_member(queue, username):
+        return True
+    return perm.can_update and _is_review_queue_owner(queue, username)
+
+
+def validate_can_view_review_queue_by_name():
+    experiment_id = _get_request_param("experiment_id")
+    username = authenticate_request().username
+    perm = _get_experiment_permission(experiment_id, username)
+    if not perm.can_read:
+        return False
+    if perm.can_manage:
+        return True
+    queue = _get_tracking_store().get_review_queue_by_name(
+        experiment_id, name=_get_request_param("name")
+    )
+    return _review_queue_has_member(queue, username) or (
+        perm.can_update and _is_review_queue_owner(queue, username)
+    )
+
+
+def validate_can_review_queue_item():
+    # Submitting / reopening review work: experiment EDIT plus membership in the
+    # queue's assigned-user pool (even a manager must assign themselves first).
+    # Fetch the queue once and resolve the experiment permission from it.
+    username = authenticate_request().username
+    queue = _get_tracking_store().get_review_queue(_get_request_param("queue_id"))
+    perm = _get_experiment_permission(queue.experiment_id, username)
+    return perm.can_update and _review_queue_has_member(queue, username)
+
+
+def validate_can_create_label_schema():
+    return _get_permission_from_experiment_id().can_manage
+
+
+def validate_can_read_label_schema():
+    return _get_permission_from_label_schema_id().can_read
+
+
+def validate_can_manage_label_schema():
+    return _get_permission_from_label_schema_id().can_manage
+
+
+def filter_list_review_queues(resp: Response) -> None:
+    """Narrow a ``ListReviewQueues`` response to queues the caller may see.
+
+    A server admin or any user with experiment EDIT (or MANAGE) sees every
+    queue (the list tier is intentionally broad — clicking into a queue is
+    separately gated by ``validate_can_view_review_queue``). A READ-only user
+    sees only queues they are assigned to (their personal queue plus any custom
+    queue whose assigned-user pool contains them).
+    """
+    if sender_is_admin():
+        return
+
+    response_message = ListReviewQueues.Response()
+    parse_dict(resp.json, response_message)
+
+    username = authenticate_request().username
+    # One shared experiment, so resolve the grant once: EDIT/MANAGE see all rows,
+    # READ-only users see only queues they're assigned to.
+    experiment_id = _get_request_param("experiment_id")
+    perm = _get_experiment_permission(experiment_id, username)
+    if perm.can_update:
+        return
+
+    visible = [q for q in response_message.review_queues if _review_queue_has_member(q, username)]
+    response_message.ClearField("review_queues")
+    response_message.review_queues.extend(visible)
+    resp.data = message_to_json(response_message)
+
+
 BEFORE_REQUEST_HANDLERS = {
     # Routes for experiments
     CreateExperiment: validate_can_create_experiment,
@@ -2256,6 +2553,25 @@ BEFORE_REQUEST_HANDLERS = {
     GetAssessmentRequest: validate_can_read_trace_by_trace_id,
     UpdateAssessment: validate_can_update_trace_by_trace_id,
     DeleteAssessment: validate_can_update_trace_by_trace_id,
+    # Routes for review queues
+    CreateReviewQueue: validate_can_create_review_queue,
+    GetReviewQueue: validate_can_view_review_queue,
+    GetReviewQueueByName: validate_can_view_review_queue_by_name,
+    GetOrCreateUserQueue: validate_can_get_or_create_user_queue,
+    ListReviewQueues: validate_can_read_experiment,
+    UpdateReviewQueue: validate_can_update_review_queue,
+    DeleteReviewQueue: validate_can_delete_review_queue,
+    AddItemsToReviewQueue: validate_can_add_items_to_review_queue,
+    RemoveItemsFromReviewQueue: validate_can_remove_items_from_review_queue,
+    ListReviewQueueItems: validate_can_view_review_queue,
+    SetReviewQueueItemStatus: validate_can_review_queue_item,
+    # Routes for label schemas (review questions)
+    CreateLabelSchema: validate_can_create_label_schema,
+    GetLabelSchema: validate_can_read_label_schema,
+    GetLabelSchemaByName: validate_can_read_experiment,
+    ListLabelSchemas: validate_can_read_experiment,
+    UpdateLabelSchema: validate_can_manage_label_schema,
+    DeleteLabelSchema: validate_can_manage_label_schema,
     # Workspace routes
     ListWorkspaces: None,
     CreateWorkspace: sender_is_admin,
@@ -2565,8 +2881,15 @@ def _before_request():
             INTERNAL_ERROR,
         )
 
-    # admins don't need to be authorized
+    # Expose the authenticated user to handlers (e.g. to stamp a review-queue owner).
+    g.mlflow_authenticated_user = authorization.username
+
+    # admins don't need to be authorized, but data-integrity rules still apply to
+    # them. A custom review queue (or rename) may not shadow a username; admins skip
+    # the validators, so the guard runs here for them (non-admins hit it post-gate
+    # inside the validators).
     if sender_is_admin():
+        enforce_review_queue_name_not_username()
         return
 
     # authorization
@@ -3237,6 +3560,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     RegisterScorer: set_can_manage_scorer_permission,
     ListScorers: filter_list_scorers,
     DeleteScorer: delete_scorer_permissions_cascade,
+    ListReviewQueues: filter_list_review_queues,
     CreateGatewaySecret: set_can_manage_gateway_secret_permission,
     DeleteGatewaySecret: delete_gateway_secret_permissions_cascade,
     CreateGatewayEndpoint: set_can_manage_gateway_endpoint_permission,

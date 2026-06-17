@@ -19,6 +19,7 @@ export interface WalRecord {
   nextAttemptAt: number;
   createdAt: number;
   firstAttemptAt?: number;
+  otlpSpans?: string; // base64 encoded ExportTraceServiceRequest protobuf
 }
 
 export type WalLine = { type: 'append'; record: WalRecord } | { type: 'tombstone'; id: string };
