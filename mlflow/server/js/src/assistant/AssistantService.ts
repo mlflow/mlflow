@@ -5,6 +5,7 @@
 import type {
   MessageRequest,
   ToolUseInfo,
+  ToolResultInfo,
   AssistantConfig,
   AssistantConfigUpdate,
   HealthCheckResult,
@@ -14,20 +15,34 @@ import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/comm
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
 
+/** Tool-result `content` is string | list[dict] | null on the wire; collapse to a string. */
+const normalizeToolResultContent = (content: unknown): string => {
+  if (content == null) return '';
+  if (typeof content === 'string') return content;
+  return JSON.stringify(content, null, 2);
+};
+
 /**
- * Process a content block array from an assistant response, emitting text and
- * tool-use blocks in order so the transcript preserves their sequence. Tool-result
- * blocks (which carry `tool_use_id`) are ignored here; rendering them is future work.
+ * Process a content block array from an assistant response, emitting text, tool-use,
+ * and tool-result blocks in order so the transcript preserves their sequence.
  */
-const processContentBlocks = (
+export const processContentBlocks = (
   content: any[],
   onMessage: (text: string) => void,
   onToolUse?: (tools: ToolUseInfo[]) => void,
+  onToolResult?: (result: ToolResultInfo) => void,
 ): void => {
   for (const block of content) {
     if ('text' in block && block.text) {
       onMessage(block.text);
-    } else if (block.name && block.input && !block.tool_use_id) {
+    } else if (block.tool_use_id) {
+      // ToolResultBlock: carries the output for a previously-streamed tool call.
+      onToolResult?.({
+        toolUseId: block.tool_use_id,
+        content: normalizeToolResultContent(block.content),
+        isError: Boolean(block.is_error),
+      });
+    } else if (block.name && block.input) {
       // TextBlock-less ToolUseBlock (claude_code & openai_compatible both shape it this way).
       onToolUse?.([
         {
@@ -97,6 +112,7 @@ export interface SendMessageStreamCallbacks {
   onStatus?: (status: string) => void;
   onSessionId?: (sessionId: string) => void;
   onToolUse?: (tools: ToolUseInfo[]) => void;
+  onToolResult?: (result: ToolResultInfo) => void;
   onInterrupted?: () => void;
   onUsage?: (usage: {
     prompt_tokens: number;
@@ -119,7 +135,8 @@ export const sendMessageStream = async (
   request: MessageRequest,
   callbacks: SendMessageStreamCallbacks,
 ): Promise<SendMessageStreamResult> => {
-  const { onMessage, onError, onDone, onStatus, onSessionId, onToolUse, onInterrupted, onUsage } = callbacks;
+  const { onMessage, onError, onDone, onStatus, onSessionId, onToolUse, onToolResult, onInterrupted, onUsage } =
+    callbacks;
 
   try {
     // Step 1: POST the message to initiate processing
@@ -166,7 +183,7 @@ export const sendMessageStream = async (
             onMessage(content);
           } else if (Array.isArray(content)) {
             // Handle ContentBlock array (TextBlock, ThinkingBlock, etc.)
-            processContentBlocks(content, onMessage, onToolUse);
+            processContentBlocks(content, onMessage, onToolUse, onToolResult);
           }
         }
       } catch (err) {
@@ -196,7 +213,6 @@ export const sendMessageStream = async (
 
     // Listen for 'done' event (completion)
     eventSource.addEventListener('done', () => {
-      onToolUse?.([]);
       onDone();
       eventSource.close();
     });

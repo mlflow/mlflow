@@ -6255,6 +6255,10 @@
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in trace tag assignment modal"
   },
+  "XGfSst": {
+    "defaultMessage": "Input",
+    "description": "Label for an assistant tool call's input"
+  },
   "XHKE0m": {
     "defaultMessage": "Latency",
     "description": "Label for the total latency metric in chat session metrics"
@@ -8058,6 +8062,10 @@
   "ghgW69": {
     "defaultMessage": "Select traces",
     "description": "Button to open the trace selection modal from the run evaluation modal"
+  },
+  "gi1Khk": {
+    "defaultMessage": "Output",
+    "description": "Label for an assistant tool call's output"
   },
   "giZdtW": {
     "defaultMessage": "Model",

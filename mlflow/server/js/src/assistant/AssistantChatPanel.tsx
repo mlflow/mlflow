@@ -30,6 +30,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
+import { ToolCallCard } from './ToolCallCard';
 import type { AssistantPart, ChatMessage } from './types';
 import { AssistantSetupWizard } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
@@ -65,62 +66,6 @@ const formatCostUsd = (cost: number): string =>
     maximumFractionDigits: cost < 1 ? 4 : 2,
   }).format(cost);
 
-type ToolCallPart = Extract<AssistantPart, { type: 'toolCall' }>;
-
-// One-line, human-readable summary of a tool call's input for the transcript.
-const toolInputSummary = (part: ToolCallPart): string => {
-  const input = part.input ?? {};
-  const command = input['command'];
-  const traceId = input['trace_id'];
-  const jqFilter = input['jq_filter'];
-  const description = input['description'];
-  if (typeof command === 'string') return command;
-  if (typeof traceId === 'string') {
-    return typeof jqFilter === 'string' && jqFilter ? `${traceId} · ${jqFilter}` : traceId;
-  }
-  if (typeof description === 'string') return description;
-  const json = JSON.stringify(input);
-  return json === '{}' ? '' : json;
-};
-
-/**
- * A persistent record of a tool the assistant called, shown inline in the transcript.
- */
-const ToolCallChip = ({ part }: { part: ToolCallPart }) => {
-  const { theme } = useDesignSystemTheme();
-  const summary = toolInputSummary(part);
-  return (
-    <div
-      css={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: theme.spacing.xs,
-        margin: `${theme.spacing.xs}px 0`,
-      }}
-      aria-label={`Tool call: ${part.name}`}
-    >
-      <WrenchSparkleIcon css={{ fontSize: 14, flexShrink: 0, color: theme.colors.textSecondary }} />
-      <Typography.Text size="sm" color="secondary" bold>
-        {part.name}
-      </Typography.Text>
-      {summary && (
-        <Typography.Text
-          size="sm"
-          color="secondary"
-          css={{
-            fontFamily: 'monospace',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {summary}
-        </Typography.Text>
-      )}
-    </div>
-  );
-};
-
 /**
  * Renders an assistant turn's ordered parts (text + tool calls). Falls back to plain
  * `content` for messages that predate the parts model.
@@ -135,7 +80,7 @@ export const AssistantMessageBody = ({ message }: { message: ChatMessage }) => {
             <GenAIMarkdownRenderer key={`text-${i}`}>{part.text}</GenAIMarkdownRenderer>
           ) : null
         ) : (
-          <ToolCallChip key={part.toolUseId} part={part} />
+          <ToolCallCard key={part.toolUseId} part={part} />
         ),
       )}
     </>

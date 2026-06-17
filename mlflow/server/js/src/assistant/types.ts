@@ -10,10 +10,20 @@ export type AssistantPart =
       toolUseId: string;
       name: string;
       input?: Record<string, any>;
-      // Filled by follow-up work; kept here so the model doesn't change again.
+      // 'running' until the matching tool_result arrives, then 'done'/'error'.
       status?: 'running' | 'done' | 'error';
-      result?: unknown;
+      // Normalized tool output (string) once the tool_result arrives.
+      result?: string;
     };
+
+/**
+ * Result of a tool the assistant called, correlated to its tool call by `toolUseId`.
+ */
+export interface ToolResultInfo {
+  toolUseId: string;
+  content: string;
+  isError: boolean;
+}
 
 export interface ChatMessage {
   id: string;

@@ -5,7 +5,14 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type { AssistantAgentContextType, AssistantPart, ChatMessage, ToolUseInfo, TokenUsage } from './types';
+import type {
+  AssistantAgentContextType,
+  AssistantPart,
+  ChatMessage,
+  ToolUseInfo,
+  ToolResultInfo,
+  TokenUsage,
+} from './types';
 import { cancelSession as cancelSessionApi, sendMessageStream, getConfig } from './AssistantService';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useAssistantPageContextActions } from './AssistantPageContext';
@@ -39,19 +46,28 @@ const setOpenTextPart = (parts: AssistantPart[], text: string): AssistantPart[] 
 };
 
 /** Add or update tool-call parts by `toolUseId` (they can re-stream, so upsert). */
-const upsertToolCalls = (parts: AssistantPart[], tools: ToolUseInfo[]): AssistantPart[] => {
+export const upsertToolCalls = (parts: AssistantPart[], tools: ToolUseInfo[]): AssistantPart[] => {
   const next = [...parts];
   for (const tool of tools) {
     const i = next.findIndex((p) => p.type === 'toolCall' && p.toolUseId === tool.id);
-    const part: AssistantPart = { type: 'toolCall', toolUseId: tool.id, name: tool.name, input: tool.input };
+    const part = { type: 'toolCall' as const, toolUseId: tool.id, name: tool.name, input: tool.input };
     if (i >= 0) {
+      // Merge without clobbering an already-resolved status/result from a tool_result.
       next[i] = { ...next[i], ...part };
     } else {
-      next.push(part);
+      next.push({ ...part, status: 'running' });
     }
   }
   return next;
 };
+
+/** Resolve a tool call's status/result once its tool_result arrives, matched by `toolUseId`. */
+export const applyToolResult = (parts: AssistantPart[], result: ToolResultInfo): AssistantPart[] =>
+  parts.map((p) =>
+    p.type === 'toolCall' && p.toolUseId === result.toolUseId
+      ? { ...p, status: result.isError ? 'error' : 'done', result: result.content }
+      : p,
+  );
 
 const partsToContent = (parts: AssistantPart[]): string =>
   parts
@@ -185,6 +201,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     [updateStreamingParts],
   );
 
+  const handleToolResult = useCallback(
+    (result: ToolResultInfo) => {
+      updateStreamingParts((parts) => applyToolResult(parts, result));
+    },
+    [updateStreamingParts],
+  );
+
   const handleUsage = useCallback(
     (usage: {
       prompt_tokens: number;
@@ -291,6 +314,32 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     streamingMessageRef.current = '';
   }, []);
 
+  // Shared SSE callback wiring for startChat and handleSendMessage.
+  const streamCallbacks = useMemo(
+    () => ({
+      onMessage: appendToStreamingMessage,
+      onError: handleStreamError,
+      onDone: finalizeStreamingMessage,
+      onStatus: handleStatus,
+      onSessionId: handleSessionId,
+      onToolUse: handleToolUse,
+      onToolResult: handleToolResult,
+      onInterrupted: handleInterrupted,
+      onUsage: handleUsage,
+    }),
+    [
+      appendToStreamingMessage,
+      handleStreamError,
+      finalizeStreamingMessage,
+      handleStatus,
+      handleSessionId,
+      handleToolUse,
+      handleToolResult,
+      handleInterrupted,
+      handleUsage,
+    ],
+  );
+
   // Actions
   const openPanel = useCallback(() => {
     setIsPanelOpen(true);
@@ -352,34 +401,14 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
             experiment_id: pageContext['experimentId'] as string | undefined,
             context: pageContext,
           },
-          {
-            onMessage: appendToStreamingMessage,
-            onError: handleStreamError,
-            onDone: finalizeStreamingMessage,
-            onStatus: handleStatus,
-            onSessionId: handleSessionId,
-            onToolUse: handleToolUse,
-            onInterrupted: handleInterrupted,
-            onUsage: handleUsage,
-          },
+          streamCallbacks,
         );
         eventSourceRef.current = result.eventSource;
       } catch (err) {
         handleStreamError(err instanceof Error ? err.message : 'Failed to start chat');
       }
     },
-    [
-      sessionId,
-      getPageContext,
-      appendToStreamingMessage,
-      handleStreamError,
-      finalizeStreamingMessage,
-      handleStatus,
-      handleSessionId,
-      handleToolUse,
-      handleInterrupted,
-      handleUsage,
-    ],
+    [sessionId, getPageContext, streamCallbacks, handleStreamError],
   );
 
   const handleSendMessage = useCallback(
@@ -425,32 +454,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           experiment_id: pageContext['experimentId'] as string | undefined,
           context: pageContext,
         },
-        {
-          onMessage: appendToStreamingMessage,
-          onError: handleStreamError,
-          onDone: finalizeStreamingMessage,
-          onStatus: handleStatus,
-          onSessionId: handleSessionId,
-          onToolUse: handleToolUse,
-          onInterrupted: handleInterrupted,
-          onUsage: handleUsage,
-        },
+        streamCallbacks,
       );
       eventSourceRef.current = result.eventSource;
     },
-    [
-      sessionId,
-      startChat,
-      getPageContext,
-      appendToStreamingMessage,
-      handleStreamError,
-      finalizeStreamingMessage,
-      handleStatus,
-      handleSessionId,
-      handleToolUse,
-      handleInterrupted,
-      handleUsage,
-    ],
+    [sessionId, startChat, getPageContext, streamCallbacks],
   );
 
   const handleCancelSession = useCallback(() => {
@@ -543,6 +551,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         onStatus: handleStatus,
         onSessionId: handleSessionId,
         onToolUse: handleToolUse,
+        onToolResult: handleToolResult,
         onInterrupted: handleInterrupted,
       },
     );
@@ -557,6 +566,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     handleStatus,
     handleSessionId,
     handleToolUse,
+    handleToolResult,
     handleInterrupted,
   ]);
 
