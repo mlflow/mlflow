@@ -148,6 +148,16 @@ class UpdateMCPAccessBindingRequest(BaseModel):
     transport_type: str | None = None
 
 
+class MCPServerVersionRef(BaseModel):
+    name: str
+    version: str
+
+
+class LinkMCPServerVersionsToTraceRequest(BaseModel):
+    trace_id: str
+    mcp_server_versions: list[MCPServerVersionRef]
+
+
 class SetAliasRequest(BaseModel):
     alias: str
     version: str
@@ -499,6 +509,39 @@ def search_all_access_bindings(
     return SearchMCPAccessBindingsResponse(
         mcp_access_bindings=bindings,
         next_page_token=results.token,
+    )
+
+
+# Static routes — must be registered before /{name:path} routes
+@mcp_server_router.post("/traces/link-versions")
+def link_mcp_server_versions_to_trace(
+    request: LinkMCPServerVersionsToTraceRequest,
+) -> dict[str, Any]:
+    from mlflow.server.handlers import _get_tracking_store
+
+    refs = [
+        MCPServerVersion(name=ref.name, version=ref.version, server_json={})
+        for ref in request.mcp_server_versions
+    ]
+    _get_tracking_store().link_mcp_server_versions_to_trace(
+        trace_id=request.trace_id,
+        mcp_servers=refs,
+    )
+    return {}
+
+
+@mcp_server_router.get(
+    "/traces/mcp-server-versions", response_model=SearchMCPServerVersionsResponse
+)
+def get_mcp_server_versions_for_trace(
+    trace_id: str = Query(...),
+) -> SearchMCPServerVersionsResponse:
+    from mlflow.server.handlers import _get_tracking_store
+
+    versions = _get_tracking_store().get_mcp_server_versions_for_trace(trace_id=trace_id)
+    return SearchMCPServerVersionsResponse(
+        mcp_server_versions=[MCPServerVersionResponse.from_entity(v) for v in versions],
+        next_page_token=None,
     )
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+import uuid
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -9,7 +10,11 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
+from mlflow.entities import trace_location
 from mlflow.entities.mcp_server import MCPStatus, MCPTool
+from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.server.registry_fastapi_app import create_registry_fastapi_app
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPServerRegistryMixin
@@ -531,3 +536,75 @@ def test_tools_round_trip(rest_client):
         "type": "object",
         "properties": {"q": {"type": "string"}},
     }
+
+
+# --- Trace linking ---
+
+
+@pytest.fixture
+def trace_id(store):
+    tid = f"tr-{uuid.uuid4()}"
+    store.start_trace(
+        TraceInfo(
+            trace_id=tid,
+            trace_location=trace_location.TraceLocation.from_experiment_id(0),
+            request_time=0,
+            execution_duration=0,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+        )
+    )
+    return tid
+
+
+def _version_ref(name="io.github.test/tl-srv", version="1.0"):
+    return MCPServerVersion(name=name, version=version, server_json={})
+
+
+def test_link_and_get_mcp_server_versions_for_trace(rest_client, trace_id):
+    rest_client.create_mcp_server_version(
+        _server_json("io.github.test/tl-srv", "1.0"), status=MCPStatus.ACTIVE
+    )
+
+    rest_client.link_mcp_server_versions_to_trace(trace_id, [_version_ref()])
+
+    linked = rest_client.get_mcp_server_versions_for_trace(trace_id)
+    assert len(linked) == 1
+    assert linked[0].name == "io.github.test/tl-srv"
+    assert linked[0].version == "1.0"
+
+
+def test_link_mcp_server_versions_to_trace_multiple(rest_client, trace_id):
+    rest_client.create_mcp_server_version(
+        _server_json("io.github.test/tl-srv", "1.0"), status=MCPStatus.ACTIVE
+    )
+    rest_client.create_mcp_server_version(
+        _server_json("io.github.test/tl-srv", "2.0"), status=MCPStatus.ACTIVE
+    )
+
+    rest_client.link_mcp_server_versions_to_trace(
+        trace_id, [_version_ref(version="1.0"), _version_ref(version="2.0")]
+    )
+
+    linked = rest_client.get_mcp_server_versions_for_trace(trace_id)
+    assert len(linked) == 2
+    assert {(sv.name, sv.version) for sv in linked} == {
+        ("io.github.test/tl-srv", "1.0"),
+        ("io.github.test/tl-srv", "2.0"),
+    }
+
+
+def test_link_mcp_server_versions_to_trace_idempotent(rest_client, trace_id):
+    rest_client.create_mcp_server_version(
+        _server_json("io.github.test/tl-srv", "1.0"), status=MCPStatus.ACTIVE
+    )
+
+    rest_client.link_mcp_server_versions_to_trace(trace_id, [_version_ref()])
+    rest_client.link_mcp_server_versions_to_trace(trace_id, [_version_ref()])
+
+    assert len(rest_client.get_mcp_server_versions_for_trace(trace_id)) == 1
+
+
+def test_get_mcp_server_versions_for_trace_no_links(rest_client, trace_id):
+    assert rest_client.get_mcp_server_versions_for_trace(trace_id) == []

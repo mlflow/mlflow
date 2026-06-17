@@ -1,7 +1,12 @@
+import uuid
+
 import pytest
 
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
+from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.exceptions import MlflowException
+
+from tests.store.tracking.sqlalchemy_store.conftest import _create_trace
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -1819,3 +1824,105 @@ def test_has_access_bindings_duplicate_rejected(store):
         store.search_mcp_servers(
             filter_string="has_access_bindings = true AND has_access_bindings = false"
         )
+
+
+# --- Trace linking ---
+
+
+def _make_trace(store):
+    trace_id = f"tr-{uuid.uuid4()}"
+    _create_trace(store, trace_id)
+    return trace_id
+
+
+def _version_ref(name="io.github.test/s", version="1.0"):
+    return MCPServerVersion(name=name, version=version, server_json={})
+
+
+def test_link_mcp_server_versions_to_trace(store):
+    store.create_mcp_server_version(_server_json("io.github.test/s", "1.0"))
+    trace_id = _make_trace(store)
+
+    store.link_mcp_server_versions_to_trace(trace_id, [_version_ref()])
+
+    linked = store.get_mcp_server_versions_for_trace(trace_id)
+    assert len(linked) == 1
+    assert linked[0].name == "io.github.test/s"
+    assert linked[0].version == "1.0"
+
+
+def test_link_mcp_server_versions_to_trace_multiple(store):
+    store.create_mcp_server_version(_server_json("io.github.test/s", "1.0"))
+    store.create_mcp_server_version(_server_json("io.github.test/s", "2.0"))
+    trace_id = _make_trace(store)
+
+    store.link_mcp_server_versions_to_trace(
+        trace_id,
+        [_version_ref(version="1.0"), _version_ref(version="2.0")],
+    )
+
+    linked = store.get_mcp_server_versions_for_trace(trace_id)
+    assert len(linked) == 2
+    assert {(sv.name, sv.version) for sv in linked} == {
+        ("io.github.test/s", "1.0"),
+        ("io.github.test/s", "2.0"),
+    }
+
+
+def test_link_mcp_server_versions_to_trace_idempotent(store):
+    store.create_mcp_server_version(_server_json("io.github.test/s", "1.0"))
+    trace_id = _make_trace(store)
+
+    store.link_mcp_server_versions_to_trace(trace_id, [_version_ref()])
+    store.link_mcp_server_versions_to_trace(trace_id, [_version_ref()])
+
+    assert len(store.get_mcp_server_versions_for_trace(trace_id)) == 1
+
+
+def test_link_mcp_server_versions_to_trace_empty_list(store):
+    trace_id = _make_trace(store)
+
+    store.link_mcp_server_versions_to_trace(trace_id, [])
+
+    assert store.get_mcp_server_versions_for_trace(trace_id) == []
+
+
+def test_get_mcp_server_versions_for_trace_no_links(store):
+    trace_id = _make_trace(store)
+    assert store.get_mcp_server_versions_for_trace(trace_id) == []
+
+
+def test_link_mcp_server_versions_to_trace_nonexistent_version_raises(store):
+    trace_id = _make_trace(store)
+
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.link_mcp_server_versions_to_trace(
+            trace_id, [_version_ref(name="io.github.test/nope", version="9.9")]
+        )
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_link_mcp_server_versions_to_trace_deleted_version_raises(store):
+    store.create_mcp_server_version(_server_json("io.github.test/s", "1.0"))
+    store.delete_mcp_server_version("io.github.test/s", "1.0")
+    trace_id = _make_trace(store)
+
+    with pytest.raises(MlflowException, match="not found") as exc:
+        store.link_mcp_server_versions_to_trace(trace_id, [_version_ref()])
+    assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_get_mcp_server_versions_for_trace_deleted_version_excluded(store):
+    store.create_mcp_server_version(_server_json("io.github.test/s", "1.0"))
+    store.create_mcp_server_version(_server_json("io.github.test/s", "2.0"))
+    trace_id = _make_trace(store)
+
+    store.link_mcp_server_versions_to_trace(
+        trace_id,
+        [_version_ref(version="1.0"), _version_ref(version="2.0")],
+    )
+    store.delete_mcp_server_version("io.github.test/s", "1.0")
+
+    linked = store.get_mcp_server_versions_for_trace(trace_id)
+    assert len(linked) == 1
+    assert linked[0].version == "2.0"

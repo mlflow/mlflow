@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -8,6 +9,9 @@ from urllib.parse import quote
 import pytest
 from starlette.testclient import TestClient
 
+from mlflow.entities import trace_location
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_state import TraceState
 from mlflow.server.registry_fastapi_app import create_registry_fastapi_app
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
@@ -891,3 +895,69 @@ def test_server_json_explicit_nulls_preserved(client):
     assert "custom_field" in r.json()["server_json"]
     assert r.json()["server_json"]["custom_field"] is None
     assert "repository" not in r.json()["server_json"]
+
+
+# --- Trace linking ---
+
+
+def _make_trace(store):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4().hex[:8]}")
+    trace_id = f"tr-{uuid.uuid4()}"
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=0,
+            execution_duration=0,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=None,
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+    return trace_id
+
+
+def test_link_mcp_server_versions_to_trace(client, store):
+    sj = _server_json("com.example/link-srv", "1.0")
+    client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/link-srv')}/versions",
+        json={"server_json": sj, "status": "active"},
+    )
+    trace_id = _make_trace(store)
+
+    r = client.post(
+        f"{PREFIX}/traces/link-versions",
+        json={
+            "trace_id": trace_id,
+            "mcp_server_versions": [{"name": "com.example/link-srv", "version": "1.0"}],
+        },
+    )
+    assert r.status_code == 200
+
+    r = client.get(f"{PREFIX}/traces/mcp-server-versions", params={"trace_id": trace_id})
+    assert r.status_code == 200
+    versions = r.json()["mcp_server_versions"]
+    assert len(versions) == 1
+    assert versions[0]["name"] == "com.example/link-srv"
+    assert versions[0]["version"] == "1.0"
+
+
+def test_link_mcp_server_versions_to_trace_missing_trace(client):
+    r = client.post(
+        f"{PREFIX}/traces/link-versions",
+        json={
+            "trace_id": "tr-nonexistent",
+            "mcp_server_versions": [{"name": "com.example/srv", "version": "1.0"}],
+        },
+    )
+    assert r.status_code == 404
+
+
+def test_get_mcp_server_versions_for_trace_empty(client, store):
+    trace_id = _make_trace(store)
+    r = client.get(f"{PREFIX}/traces/mcp-server-versions", params={"trace_id": trace_id})
+    assert r.status_code == 200
+    assert r.json()["mcp_server_versions"] == []

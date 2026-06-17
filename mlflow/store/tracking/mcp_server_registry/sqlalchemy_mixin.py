@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import contains_eager, subqueryload
 
+from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.mcp_access_binding import MCPAccessBinding
 from mlflow.entities.mcp_server import (
     VALID_STATUS_TRANSITIONS,
@@ -26,12 +28,14 @@ from mlflow.store.db.db_types import MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
+    SqlEntityAssociation,
     SqlMCPAccessBinding,
     SqlMCPServer,
     SqlMCPServerAlias,
     SqlMCPServerTag,
     SqlMCPServerVersion,
     SqlMCPServerVersionTag,
+    SqlTraceInfo,
 )
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
 from mlflow.utils.search_utils import (
@@ -943,13 +947,119 @@ class SqlAlchemyMCPServerRegistryMixin:
         trace_id: str,
         mcp_servers: list[MCPServerVersion],
     ) -> None:
-        raise NotImplementedError(self.__class__.__name__)
+        if not mcp_servers:
+            return
+
+        with self.ManagedSessionMaker(read_only=False) as session:
+            self._validate_trace_accessible(session, trace_id)
+
+            trace = (
+                session
+                .query(SqlTraceInfo)
+                .filter(SqlTraceInfo.request_id == trace_id)
+                .one_or_none()
+            )
+            if trace is None:
+                raise MlflowException(
+                    f"Trace with ID '{trace_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            conditions = [
+                sa.and_(
+                    SqlMCPServerVersion.name == sv.name,
+                    SqlMCPServerVersion.version == sv.version,
+                )
+                for sv in mcp_servers
+            ]
+            found = {
+                (row.name, row.version)
+                for row in session
+                .query(SqlMCPServerVersion.name, SqlMCPServerVersion.version)
+                .filter(
+                    sa.or_(*conditions),
+                    SqlMCPServerVersion.status != MCPStatus.DELETED.value,
+                )
+                .all()
+            }
+            missing = [
+                f"{sv.name}/{sv.version}"
+                for sv in mcp_servers
+                if (sv.name, sv.version) not in found
+            ]
+            if missing:
+                raise MlflowException(
+                    f"MCP server version(s) not found: {', '.join(missing)}",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            destination_ids = [f"{sv.name}/{sv.version}" for sv in mcp_servers]
+
+            existing = {
+                row.destination_id
+                for row in session
+                .query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                    SqlEntityAssociation.source_id == trace_id,
+                    SqlEntityAssociation.destination_type
+                    == EntityAssociationType.MCP_SERVER_VERSION,
+                    SqlEntityAssociation.destination_id.in_(destination_ids),
+                )
+                .all()
+            }
+
+            session.add_all(
+                SqlEntityAssociation(
+                    association_id=uuid.uuid4().hex,
+                    source_type=EntityAssociationType.TRACE,
+                    source_id=trace_id,
+                    destination_type=EntityAssociationType.MCP_SERVER_VERSION,
+                    destination_id=did,
+                )
+                for did in destination_ids
+                if did not in existing
+            )
 
     def get_mcp_server_versions_for_trace(
         self,
         trace_id: str,
     ) -> list[MCPServerVersion]:
-        raise NotImplementedError(self.__class__.__name__)
+        with self.ManagedSessionMaker() as session:
+            associations = (
+                session
+                .query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                    SqlEntityAssociation.source_id == trace_id,
+                    SqlEntityAssociation.destination_type
+                    == EntityAssociationType.MCP_SERVER_VERSION,
+                )
+                .all()
+            )
+
+            if not associations:
+                return []
+
+            pairs = []
+            for assoc in associations:
+                match assoc.destination_id.rsplit("/", 1):
+                    case [name, version]:
+                        pairs.append((name, version))
+                    case _:
+                        continue
+
+            conditions = [
+                sa.and_(
+                    SqlMCPServerVersion.name == name,
+                    SqlMCPServerVersion.version == version,
+                )
+                for name, version in pairs
+            ]
+
+            rows = self._mcp_server_version_query(session).filter(sa.or_(*conditions)).all()
+
+            return [row.to_mlflow_entity() for row in rows]
 
 
 def _get_expression_comparison_func(comparator, dialect):

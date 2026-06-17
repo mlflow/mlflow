@@ -472,10 +472,24 @@ class RestMCPServerRegistryMixin:
         trace_id: str,
         mcp_servers: list[MCPServerVersion],
     ) -> None:
-        raise NotImplementedError(self.__class__.__name__)
+        self._mcp_request(
+            "POST",
+            "/traces/link-versions",
+            json={
+                "trace_id": trace_id,
+                "mcp_server_versions": [
+                    {"name": sv.name, "version": sv.version} for sv in mcp_servers
+                ],
+            },
+        )
 
     def get_mcp_server_versions_for_trace(
         self,
         trace_id: str,
     ) -> list[MCPServerVersion]:
-        raise NotImplementedError(self.__class__.__name__)
+        data = self._mcp_request(
+            "GET",
+            "/traces/mcp-server-versions",
+            params={"trace_id": trace_id},
+        )
+        return [_version_from_response(v) for v in data["mcp_server_versions"]]

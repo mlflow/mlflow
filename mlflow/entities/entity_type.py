@@ -15,3 +15,4 @@ class EntityAssociationType:
     MODEL = "model"
     TRACE = "trace"
     PROMPT_VERSION = "prompt_version"
+    MCP_SERVER_VERSION = "mcp_server_version"

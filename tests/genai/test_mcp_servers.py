@@ -1,19 +1,19 @@
-"""Tests for mlflow.genai MCP server SDK functions.
-
-Integration tests run against a real SQLAlchemy store (SQLite) so the full
-round-trip (SDK -> MlflowClient -> store) is covered without needing an HTTP
-server.
-"""
 from __future__ import annotations
 
 import urllib.request
+import uuid
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import pytest
 
 from mlflow import genai
+from mlflow.entities import trace_location
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
+from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_state import TraceState
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.client import MlflowClient
 
@@ -27,6 +27,24 @@ def store(tmp_path: Path):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir()
     return SqlAlchemyStore(f"sqlite:///{tmp_path / 'test.db'}", artifact_uri.as_uri())
+
+
+@pytest.fixture
+def trace_id(store):
+
+    tid = f"tr-{uuid.uuid4()}"
+    store.start_trace(
+        TraceInfo(
+            trace_id=tid,
+            trace_location=trace_location.TraceLocation.from_experiment_id(0),
+            request_time=0,
+            execution_duration=0,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+        )
+    )
+    return tid
 
 
 @pytest.fixture(autouse=True)
@@ -43,7 +61,7 @@ def patch_store(store):
 # ---------------------------------------------------------------------------
 
 
-def _server_json(name: str, version: str, **extra) -> dict:
+def _server_json(name: str, version: str, **extra) -> dict[str, Any]:
     d = {"name": name, "version": version}
     d.update(extra)
     return d
@@ -99,9 +117,7 @@ def test_register_mcp_server_creates_bindings_from_remotes():
             {"type": "streamable-http", "url": "https://mcp.example.com/server"},
         ],
     )
-    version = genai.register_mcp_server(
-        server_json=sj, create_access_bindings_from_remotes=True
-    )
+    version = genai.register_mcp_server(server_json=sj, create_access_bindings_from_remotes=True)
 
     bindings = genai.search_mcp_access_bindings(server_name=version.name)
     assert len(bindings) == 1
@@ -127,9 +143,7 @@ def test_register_mcp_server_skips_remotes_without_url():
         "1.0.0",
         remotes=[{"type": "streamable-http"}],
     )
-    version = genai.register_mcp_server(
-        server_json=sj, create_access_bindings_from_remotes=True
-    )
+    version = genai.register_mcp_server(server_json=sj, create_access_bindings_from_remotes=True)
     bindings = genai.search_mcp_access_bindings(server_name=version.name)
     assert len(bindings) == 0
 
@@ -140,9 +154,7 @@ def test_register_mcp_server_falls_back_on_unknown_transport():
         "1.0.0",
         remotes=[{"type": "grpc-bidirectional", "url": "https://mcp.example.com/grpc"}],
     )
-    version = genai.register_mcp_server(
-        server_json=sj, create_access_bindings_from_remotes=True
-    )
+    version = genai.register_mcp_server(server_json=sj, create_access_bindings_from_remotes=True)
     bindings = genai.search_mcp_access_bindings(server_name=version.name)
     assert len(bindings) == 1
     assert bindings[0].transport_type == MCPRemoteTransportType.STREAMABLE_HTTP
@@ -280,9 +292,7 @@ def test_get_latest_mcp_server_version():
 def test_get_mcp_server_version_by_alias():
     sj = _server_json("io.github.test/alias-ver", "1.0.0")
     genai.register_mcp_server(server_json=sj, status="active")
-    genai.set_mcp_server_alias(
-        name="io.github.test/alias-ver", alias="production", version="1.0.0"
-    )
+    genai.set_mcp_server_alias(name="io.github.test/alias-ver", alias="production", version="1.0.0")
     v = genai.get_mcp_server_version_by_alias(name="io.github.test/alias-ver", alias="production")
     assert v.version == "1.0.0"
 
@@ -350,18 +360,14 @@ def test_create_and_get_mcp_access_binding():
     assert binding.endpoint_url == "https://mcp.example.com/server"
     assert binding.transport_type == MCPRemoteTransportType.STREAMABLE_HTTP
 
-    fetched = genai.get_mcp_access_binding(
-        server_name=version.name, binding_id=binding.binding_id
-    )
+    fetched = genai.get_mcp_access_binding(server_name=version.name, binding_id=binding.binding_id)
     assert fetched.binding_id == binding.binding_id
 
 
 def test_create_mcp_access_binding_via_alias():
     sj = _server_json("io.github.test/alias-bind", "1.0.0")
     genai.register_mcp_server(server_json=sj, status="active")
-    genai.set_mcp_server_alias(
-        name="io.github.test/alias-bind", alias="prod", version="1.0.0"
-    )
+    genai.set_mcp_server_alias(name="io.github.test/alias-bind", alias="prod", version="1.0.0")
     binding = genai.create_mcp_access_binding(
         server_name="io.github.test/alias-bind",
         endpoint_url="https://mcp.example.com/ab",
@@ -414,13 +420,9 @@ def test_delete_mcp_access_binding():
         endpoint_url="https://del.example.com",
         server_version=version.version,
     )
-    genai.delete_mcp_access_binding(
-        server_name=version.name, binding_id=binding.binding_id
-    )
+    genai.delete_mcp_access_binding(server_name=version.name, binding_id=binding.binding_id)
     with pytest.raises(MlflowException, match="not found"):
-        genai.get_mcp_access_binding(
-            server_name=version.name, binding_id=binding.binding_id
-        )
+        genai.get_mcp_access_binding(server_name=version.name, binding_id=binding.binding_id)
 
 
 # ---------------------------------------------------------------------------
@@ -448,9 +450,7 @@ def test_set_and_delete_mcp_server_version_tag():
     v = genai.get_mcp_server_version(name="io.github.test/tag-ver", version="1.0.0")
     assert v.tags.get("stage") == "beta"
 
-    genai.delete_mcp_server_version_tag(
-        name="io.github.test/tag-ver", version="1.0.0", key="stage"
-    )
+    genai.delete_mcp_server_version_tag(name="io.github.test/tag-ver", version="1.0.0", key="stage")
     v = genai.get_mcp_server_version(name="io.github.test/tag-ver", version="1.0.0")
     assert "stage" not in v.tags
 
@@ -525,6 +525,46 @@ def test_mlflow_client_version_lifecycle():
         client.get_mcp_server_version(name="io.github.test/lifecycle-ver", version="1.0.0")
 
 
+def test_mlflow_client_link_and_get_mcp_server_versions_for_trace(trace_id):
+    client = MlflowClient()
+    sj = _server_json("io.github.test/tl-client", "1.0.0")
+    client.create_mcp_server_version(server_json=sj, status=MCPStatus.ACTIVE)
+
+    client.link_mcp_server_versions_to_trace(
+        trace_id=trace_id,
+        mcp_server_versions=[
+            MCPServerVersion(name="io.github.test/tl-client", version="1.0.0", server_json={})
+        ],
+    )
+
+    linked = client.get_mcp_server_versions_for_trace(trace_id=trace_id)
+    assert len(linked) == 1
+    assert linked[0].name == "io.github.test/tl-client"
+
+
+# ---------------------------------------------------------------------------
+# Trace linking
+# ---------------------------------------------------------------------------
+
+
+def test_link_and_get_mcp_server_versions_for_trace(trace_id):
+    genai.register_mcp_server(
+        server_json=_server_json("io.github.test/tl-srv", "1.0.0"), status="active"
+    )
+
+    genai.link_mcp_server_versions_to_trace(
+        trace_id=trace_id,
+        mcp_server_versions=[
+            MCPServerVersion(name="io.github.test/tl-srv", version="1.0.0", server_json={})
+        ],
+    )
+
+    linked = genai.get_mcp_server_versions_for_trace(trace_id=trace_id)
+    assert len(linked) == 1
+    assert linked[0].name == "io.github.test/tl-srv"
+    assert linked[0].version == "1.0.0"
+
+
 # ---------------------------------------------------------------------------
 # Exports
 # ---------------------------------------------------------------------------
@@ -557,6 +597,8 @@ def test_all_functions_exported():
         "delete_mcp_server_version_tag",
         "set_mcp_server_alias",
         "delete_mcp_server_alias",
+        "link_mcp_server_versions_to_trace",
+        "get_mcp_server_versions_for_trace",
     ]
     for name in expected:
         assert name in mlflow.genai.__all__

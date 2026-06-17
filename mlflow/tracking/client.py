@@ -6950,3 +6950,18 @@ class MlflowClient:
 
     def delete_mcp_server_alias(self, name: str, alias: str) -> None:
         self._tracking_client.store.delete_mcp_server_alias(name=name, alias=alias)
+
+    def link_mcp_server_versions_to_trace(
+        self,
+        trace_id: str,
+        mcp_server_versions: list[MCPServerVersion],
+    ) -> None:
+        self._tracking_client.store.link_mcp_server_versions_to_trace(
+            trace_id=trace_id,
+            mcp_servers=mcp_server_versions,
+        )
+
+    def get_mcp_server_versions_for_trace(self, trace_id: str) -> list[MCPServerVersion]:
+        return self._tracking_client.store.get_mcp_server_versions_for_trace(
+            trace_id=trace_id,
+        )
