@@ -10,6 +10,7 @@ import {
 } from '@opentelemetry/sdk-trace-base';
 import { ProtobufTraceSerializer } from '@opentelemetry/otlp-transformer';
 import { MlflowWalSpanExporter } from '../../../src/exporters/wal/exporter';
+import * as ipc from '../../../src/exporters/wal/ipc';
 import { init, resetConfig } from '../../../src/core/config';
 import { InMemoryTraceManager } from '../../../src/core/trace_manager';
 import { Trace } from '../../../src/core/entities/trace';
@@ -492,6 +493,38 @@ describe('wal/exporter', () => {
       );
     } finally {
       serializeSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('drops otlpSpans but still submits when the record would exceed the IPC size budget', async () => {
+    const sizeSpy = jest
+      .spyOn(ipc, 'ipcRequestByteLength')
+      .mockReturnValue(ipc.MAX_REQUEST_BYTES + 1);
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    popTraceSpy.mockReturnValue(makeTraceWithSpans('tr-too-big'));
+    const span = makeSpan({ traceId: 'otel-1', rootSpan: true });
+
+    try {
+      const { callback, promise } = captureExportResult();
+      exporter.export([span], callback);
+
+      expect((await promise).code).toBe(ExportResultCode.SUCCESS);
+      await exporter.forceFlush();
+
+      // The trace is not dropped: it is still submitted, just without the OTLP
+      // blob, so the artifact fallback (traceData) keeps it alive.
+      expect(submit).toHaveBeenCalledTimes(1);
+      const record = submit.mock.calls[0][0];
+      expect(record.otlpSpans).toBeUndefined();
+      expect((record.traceData as { spans: unknown[] }).spans).toHaveLength(1);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('exceeding the'));
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('dropping OTLP spans'));
+    } finally {
+      sizeSpy.mockRestore();
       warnSpy.mockRestore();
     }
   });
