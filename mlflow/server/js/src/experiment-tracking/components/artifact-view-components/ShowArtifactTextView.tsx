@@ -91,7 +91,7 @@ class ShowArtifactTextView extends Component<Props, State> {
 
       const isVeryLargeFile =
         (this.props.size || 0) > VERY_LARGE_ARTIFACT_SIZE ||
-        countLines(renderedContent) > VERY_LARGE_ARTIFACT_LINE_COUNT;
+        exceedsLineCount(renderedContent, VERY_LARGE_ARTIFACT_LINE_COUNT);
 
       return (
         <div className="mlflow-ShowArtifactPage">
@@ -100,7 +100,7 @@ class ShowArtifactTextView extends Component<Props, State> {
               language={language}
               style={syntaxStyle}
               customStyle={overrideStyles}
-              renderer={isVeryLargeFile ? virtualizedRenderer() : undefined}
+              renderer={isVeryLargeFile ? virtualizedRenderer : undefined}
             >
               {renderedContent ?? ''}
             </SyntaxHighlighter>
@@ -127,17 +127,24 @@ class ShowArtifactTextView extends Component<Props, State> {
   }
 }
 
-function countLines(text?: string) {
+/**
+ * Returns true once `text` has more than `limit` lines. Stops scanning as soon as the limit is
+ * exceeded so extremely long content does not pay for a full traversal.
+ */
+function exceedsLineCount(text: string | undefined, limit: number) {
   if (!text) {
-    return 0;
+    return false;
   }
   let count = 1;
   let index = text.indexOf('\n');
   while (index !== -1) {
     count += 1;
+    if (count > limit) {
+      return true;
+    }
     index = text.indexOf('\n', index + 1);
   }
-  return count;
+  return false;
 }
 
 export function prettifyArtifactText(language: string, rawText: string, path?: string) {

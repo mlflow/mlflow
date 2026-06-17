@@ -1,7 +1,11 @@
 import { describe, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { render, screen } from '../../../common/utils/TestUtils.react18';
-import { virtualizedRenderer } from './artifactTextVirtualizedRenderer';
+import {
+  virtualizedRenderer,
+  ARTIFACT_TEXT_VIRTUALIZED_SPACER_TESTID,
+  ARTIFACT_TEXT_VIRTUALIZED_ROW_TESTID,
+} from './artifactTextVirtualizedRenderer';
 
 jest.mock('@tanstack/react-virtual', () => {
   const actual = jest.requireActual<typeof import('@tanstack/react-virtual')>('@tanstack/react-virtual');
@@ -16,6 +20,7 @@ jest.mock('@tanstack/react-virtual', () => {
           size: 20,
         })),
       getTotalSize: () => opts.count * 20,
+      measureElement: () => {},
     }),
   };
 });
@@ -23,67 +28,48 @@ jest.mock('@tanstack/react-virtual', () => {
 describe('artifactTextVirtualizedRenderer', () => {
   const mockStylesheet = {};
 
-  test('virtualizedRenderer returns a function', () => {
-    const renderer = virtualizedRenderer();
-    expect(typeof renderer).toBe('function');
-  });
-
-  test('renders visible rows from the rows array', () => {
-    const rows = [
-      {
-        type: 'element',
-        tagName: 'span',
-        properties: { className: [] },
-        children: [{ type: 'text', value: 'line one' }],
-      },
-      {
-        type: 'element',
-        tagName: 'span',
-        properties: { className: [] },
-        children: [{ type: 'text', value: 'line two' }],
-      },
-      {
-        type: 'element',
-        tagName: 'span',
-        properties: { className: [] },
-        children: [{ type: 'text', value: 'line three' }],
-      },
-    ];
-
-    const renderer = virtualizedRenderer();
-    const { container } = render(<div>{renderer({ rows, stylesheet: mockStylesheet, useInlineStyles: true })}</div>);
-
-    expect(screen.getByText('line one')).toBeInTheDocument();
-    expect(screen.getByText('line two')).toBeInTheDocument();
-    expect(screen.getByText('line three')).toBeInTheDocument();
-    expect(container.querySelector('[style*="translateY"]')).toBeInTheDocument();
-  });
-
-  test('renders empty when rows array is empty', () => {
-    const renderer = virtualizedRenderer();
-    const { container } = render(
-      <div>{renderer({ rows: [], stylesheet: mockStylesheet, useInlineStyles: true })}</div>,
-    );
-
-    // Should have the container divs but no row content
-    expect(container.querySelectorAll('[style*="translateY"]')).toHaveLength(0);
-  });
-
-  test('virtualizes large row sets - container reflects total height while rendering subset', () => {
-    const rows = Array.from({ length: 200 }, (_, i) => ({
+  const makeRows = (count: number) =>
+    Array.from({ length: count }, (_, i) => ({
       type: 'element',
       tagName: 'span',
       properties: { className: [] },
       children: [{ type: 'text', value: `line ${i}` }],
     }));
 
-    const renderer = virtualizedRenderer();
-    const { container } = render(<div>{renderer({ rows, stylesheet: mockStylesheet, useInlineStyles: true })}</div>);
+  test('renders visible rows from the rows array', () => {
+    const rows = makeRows(3);
 
-    // Total container height should reflect all 200 rows (200 * 20 = 4000px)
-    expect(container.querySelector('[style*="height: 4000px"]')).toBeInTheDocument();
-    // Only the virtualized subset is rendered in the DOM. The mock caps getVirtualItems() at 50.
-    const renderedRows = container.querySelectorAll('[style*="translateY"]');
-    expect(renderedRows.length).toBe(50);
+    const { container } = render(
+      <div>{virtualizedRenderer({ rows, stylesheet: mockStylesheet, useInlineStyles: true })}</div>,
+    );
+
+    expect(screen.getByText('line 0')).toBeInTheDocument();
+    expect(screen.getByText('line 1')).toBeInTheDocument();
+    expect(screen.getByText('line 2')).toBeInTheDocument();
+    expect(container.querySelectorAll(`[data-testid="${ARTIFACT_TEXT_VIRTUALIZED_ROW_TESTID}"]`)).toHaveLength(3);
+  });
+
+  test('renders no rows when rows array is empty', () => {
+    const { container } = render(
+      <div>{virtualizedRenderer({ rows: [], stylesheet: mockStylesheet, useInlineStyles: true })}</div>,
+    );
+
+    expect(container.querySelectorAll(`[data-testid="${ARTIFACT_TEXT_VIRTUALIZED_ROW_TESTID}"]`)).toHaveLength(0);
+  });
+
+  test('virtualizes large row sets - spacer reflects total height while rendering subset', () => {
+    const rows = makeRows(200);
+
+    const { container } = render(
+      <div>{virtualizedRenderer({ rows, stylesheet: mockStylesheet, useInlineStyles: true })}</div>,
+    );
+
+    // The spacer height should reflect all 200 rows (200 * 20 = 4000px).
+    const spacer = container.querySelector<HTMLElement>(`[data-testid="${ARTIFACT_TEXT_VIRTUALIZED_SPACER_TESTID}"]`);
+    expect(spacer).not.toBeNull();
+    expect(spacer?.style.height).toBe('4000px');
+    // Only the virtualized subset is mounted in the DOM. The mock caps getVirtualItems() at 50.
+    const renderedRows = container.querySelectorAll(`[data-testid="${ARTIFACT_TEXT_VIRTUALIZED_ROW_TESTID}"]`);
+    expect(renderedRows).toHaveLength(50);
   });
 });
