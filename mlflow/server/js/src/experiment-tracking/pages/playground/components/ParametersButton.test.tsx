@@ -71,34 +71,34 @@ describe('ParametersButton', () => {
     expect(screen.getByText('Response format')).toBeInTheDocument();
   });
 
-  it('shows only the Add tool button by default and hides the picker and JSON textarea', async () => {
+  it('shows only the Add tools button by default and hides the picker and JSON textarea', async () => {
     renderButton({ toolAdded: false });
     await openDrawer();
-    expect(screen.getByRole('button', { name: 'Add tool' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add tools' })).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: 'Auto' })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('JSON Tool Definition')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('JSON Tool Definitions')).not.toBeInTheDocument();
   });
 
-  it('fires onAddTool when the Add tool button is clicked', async () => {
+  it('fires onAddTool when the Add tools button is clicked', async () => {
     const { onAddTool } = renderButton({ toolAdded: false });
     await openDrawer();
-    await userEvent.click(screen.getByRole('button', { name: 'Add tool' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
     expect(onAddTool).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the JSON textarea plus an Auto/Required picker once a tool is added', async () => {
+  it('shows the JSON textarea plus an Auto/Required picker once tools are added', async () => {
     renderButton({ toolAdded: true, toolChoice: 'auto' });
     await openDrawer();
-    expect(screen.getByLabelText('JSON Tool Definition')).toBeInTheDocument();
+    expect(screen.getByLabelText('JSON Tool Definitions')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Auto' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'Required' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add tool' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add tools' })).not.toBeInTheDocument();
   });
 
-  it('fires onRemoveTool when the Remove tool button is clicked', async () => {
+  it('fires onRemoveTool when the Remove tools button is clicked', async () => {
     const { onRemoveTool } = renderButton({ toolAdded: true });
     await openDrawer();
-    await userEvent.click(screen.getByRole('button', { name: 'Remove tool' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove tools' }));
     expect(onRemoveTool).toHaveBeenCalledTimes(1);
   });
 
@@ -106,7 +106,7 @@ describe('ParametersButton', () => {
     renderButton();
     await openDrawer();
     await userEvent.click(screen.getByRole('button', { name: /about tool definitions/i }));
-    expect(screen.getByText(/Click ‘Add tool’ to define a tool/i)).toBeInTheDocument();
+    expect(screen.getByText(/Click ‘Add tools’ to provide/i)).toBeInTheDocument();
     expect(screen.queryByText(/never call a tool/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Pick Auto or Required/i)).not.toBeInTheDocument();
   });

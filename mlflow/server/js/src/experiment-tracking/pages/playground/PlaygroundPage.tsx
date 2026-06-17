@@ -39,8 +39,8 @@ const PlaygroundPage = () => {
   const [params, setParams] = useState<PlaygroundParams>({});
   const [variables, setVariables] = useState<Record<string, string>>({});
   const [toolsText, setToolsText] = useState<string>('');
-  // Whether the user has added a tool. When false, the Tools section shows only
-  // an "Add tool" button and neither `tools` nor `tool_choice` is sent.
+  // Whether the user has added tools. When false, the Tools section shows only
+  // an "Add tools" button and neither `tools` nor `tool_choice` is sent.
   const [toolAdded, setToolAdded] = useState<boolean>(false);
   const [toolChoice, setToolChoice] = useState<ToolChoice>('auto');
   const [responseFormatType, setResponseFormatType] = useState<ResponseFormatType>('text');

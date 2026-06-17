@@ -169,8 +169,8 @@ export const ParametersButton = ({
               <Popover.Content align="start" css={{ maxWidth: 360 }}>
                 <Typography.Paragraph withoutMargins>
                   <FormattedMessage
-                    defaultMessage="Have the model call functions you define. By default no tool is configured. Click ‘Add tool’ to define a tool, then pick how the model uses it:"
-                    description="Intro line of the info popover next to the Tools section header describing the add-tool flow"
+                    defaultMessage="Have the model call functions you define. By default no tools are configured. Click ‘Add tools’ to provide one or more tool definitions, then pick how the model uses them:"
+                    description="Intro line of the info popover next to the Tools section header describing the add-tools flow"
                   />
                 </Typography.Paragraph>
                 <ul css={{ margin: `${theme.spacing.xs}px 0 0`, paddingLeft: theme.spacing.lg }}>

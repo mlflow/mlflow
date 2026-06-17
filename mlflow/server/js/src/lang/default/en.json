@@ -127,10 +127,6 @@
     "defaultMessage": "{numUniqueValues} values",
     "description": "Text for number of unique values for categorical assessment"
   },
-  "+dueuC": {
-    "defaultMessage": "JSON Tool Definition",
-    "description": "Label for the JSON tool definitions textarea inside the Tools card"
-  },
   "+erxn2": {
     "defaultMessage": "Optimize prompts",
     "description": "Home page news card title two"
@@ -1130,10 +1126,6 @@
   "3Rb4sG": {
     "defaultMessage": "Delete",
     "description": "String for the delete button to delete a particular experiment run"
-  },
-  "3RvakW": {
-    "defaultMessage": "Add at least one tool definition",
-    "description": "Inline error shown in the Tools card when a tool has been added but no tool definitions are provided"
   },
   "3S361w": {
     "defaultMessage": "View source",
@@ -3083,6 +3075,10 @@
     "defaultMessage": "Provider",
     "description": "Provider column header"
   },
+  "CvQrVR": {
+    "defaultMessage": "Have the model call functions you define. By default no tools are configured. Click ‘Add tools’ to provide one or more tool definitions, then pick how the model uses them:",
+    "description": "Intro line of the info popover next to the Tools section header describing the add-tools flow"
+  },
   "CyTYL6": {
     "defaultMessage": "Line chart",
     "description": "Experiment tracking > runs charts > add chart menu > line chart"
@@ -3439,6 +3435,10 @@
     "defaultMessage": "Request",
     "description": "Column label for request"
   },
+  "EywX83": {
+    "defaultMessage": "Remove tools",
+    "description": "Button that removes tool definitions and returns the playground Tools card to its empty state"
+  },
   "F16DNA": {
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
@@ -3486,10 +3486,6 @@
   "FHJ1NN": {
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
-  },
-  "FIrjIF": {
-    "defaultMessage": "Add tool",
-    "description": "Button that adds a tool definition to the playground Tools card from its empty state"
   },
   "FKnUSV": {
     "defaultMessage": "Open assistant",
@@ -5783,6 +5779,10 @@
     "defaultMessage": "Create prompt version",
     "description": "Label for the create prompt action on the registered prompt details page"
   },
+  "RO+D4U": {
+    "defaultMessage": "JSON Tool Definitions",
+    "description": "Label for the JSON tool definitions textarea inside the Tools card"
+  },
   "RQ80MZ": {
     "defaultMessage": "You're not assigned to this queue, so you can't submit reviews here.",
     "description": "Review focused view: viewing a queue the reviewer is not assigned to"
@@ -6378,6 +6378,10 @@
   "ULljUX": {
     "defaultMessage": "Filter: {filterString}",
     "description": "Filter display for scorer"
+  },
+  "UNePyz": {
+    "defaultMessage": "Add at least one tool definition",
+    "description": "Inline error shown in the Tools card when tools have been added but no tool definitions are provided"
   },
   "UP/Atk": {
     "defaultMessage": "Preview how the questions will appear for the human reviewer.",
@@ -7306,10 +7310,6 @@
   "YdxomH": {
     "defaultMessage": "New version of {name}",
     "description": "Option to save a new version of the loaded prompt in the playground save modal"
-  },
-  "Ye8qdV": {
-    "defaultMessage": "Have the model call functions you define. By default no tool is configured. Click ‘Add tool’ to define a tool, then pick how the model uses it:",
-    "description": "Intro line of the info popover next to the Tools section header describing the add-tool flow"
   },
   "YeCF5P": {
     "defaultMessage": "Human feedback",
@@ -10359,6 +10359,10 @@
     "defaultMessage": "Size:",
     "description": "Label to display the size of the artifact of the experiment"
   },
+  "mq8v9x": {
+    "defaultMessage": "Add tools",
+    "description": "Button that adds tool definitions to the playground Tools card from its empty state"
+  },
   "mqDCNl": {
     "defaultMessage": "Unable to parse JSON file. The file should contain an object with 'columns' and 'data' keys.",
     "description": "An error message displayed when the logged table JSON file is malformed or does not contain 'columns' and 'data' keys"
@@ -12002,10 +12006,6 @@
   "utyagz": {
     "defaultMessage": "Feedback",
     "description": "Label for the feedback section in the assessments pane"
-  },
-  "uwM8Wo": {
-    "defaultMessage": "Remove tool",
-    "description": "Button that removes the tool definition and returns the playground Tools card to its empty state"
   },
   "uyx2Bd": {
     "defaultMessage": "search_traces syntax",

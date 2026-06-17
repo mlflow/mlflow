@@ -38,26 +38,26 @@ const renderForm = ({ value = '', error, toolAdded = false, toolChoice = 'auto' 
 };
 
 describe('ToolsForm', () => {
-  it('shows only the Add tool button in the default (no tool added) state', () => {
+  it('shows only the Add tools button in the default (no tools added) state', () => {
     renderForm({ toolAdded: false });
-    expect(screen.getByRole('button', { name: 'Add tool' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('JSON Tool Definition')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add tools' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('JSON Tool Definitions')).not.toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: 'Auto' })).not.toBeInTheDocument();
   });
 
-  it('fires onAddTool when the Add tool button is clicked', async () => {
+  it('fires onAddTool when the Add tools button is clicked', async () => {
     const { onAddTool } = renderForm({ toolAdded: false });
-    await userEvent.click(screen.getByRole('button', { name: 'Add tool' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
     expect(onAddTool).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the JSON textarea and an Auto/Required picker once a tool is added', () => {
+  it('shows the JSON textarea and an Auto/Required picker once tools are added', () => {
     renderForm({ toolAdded: true, toolChoice: 'auto' });
-    expect(screen.getByLabelText('JSON Tool Definition')).toBeInTheDocument();
+    expect(screen.getByLabelText('JSON Tool Definitions')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Auto' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Required' })).toBeInTheDocument();
-    // Once added, the Add tool affordance is gone (at most one tool).
-    expect(screen.queryByRole('button', { name: 'Add tool' })).not.toBeInTheDocument();
+    // Once added, the Add tools affordance is gone.
+    expect(screen.queryByRole('button', { name: 'Add tools' })).not.toBeInTheDocument();
   });
 
   it('reflects the active tool choice in the picker', () => {
@@ -72,9 +72,9 @@ describe('ToolsForm', () => {
     expect(onToolChoiceChange).toHaveBeenLastCalledWith('required');
   });
 
-  it('fires onRemoveTool when the Remove tool button is clicked', async () => {
+  it('fires onRemoveTool when the Remove tools button is clicked', async () => {
     const { onRemoveTool } = renderForm({ toolAdded: true });
-    await userEvent.click(screen.getByRole('button', { name: 'Remove tool' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove tools' }));
     expect(onRemoveTool).toHaveBeenCalledTimes(1);
   });
 
@@ -83,12 +83,12 @@ describe('ToolsForm', () => {
     expect(screen.getByText('Invalid JSON')).toBeInTheDocument();
   });
 
-  it('shows an empty-required inline error when a tool is added and the textarea is empty', () => {
+  it('shows an empty-required inline error when tools are added and the textarea is empty', () => {
     renderForm({ toolAdded: true, value: '' });
     expect(screen.getByText('Add at least one tool definition')).toBeInTheDocument();
   });
 
-  it('shows the empty-required inline error when a tool is added and the value parses to []', () => {
+  it('shows the empty-required inline error when tools are added and the value parses to []', () => {
     renderForm({ toolAdded: true, value: '[]' });
     expect(screen.getByText('Add at least one tool definition')).toBeInTheDocument();
   });

@@ -30,7 +30,7 @@ in the MLflow UI.
   {
     icon: Wrench,
     title: "Tools",
-    description: "Add a tool definition and pick how the model uses it (auto or required) to test function-calling behavior."
+    description: "Add tool definitions and pick how the model uses them (auto or required) to test function-calling behavior."
   },
   {
     icon: FileJson,
@@ -99,15 +99,15 @@ Not every provider accepts every parameter. Values the provider doesn't understa
 
 ### Tools
 
-By default no tool is configured and neither `tools` nor `tool_choice` is sent with the request. Click **Add tool** to define one, which reveals:
+By default no tools are configured and neither `tools` nor `tool_choice` is sent with the request. Click **Add tools** to provide one or more tool definitions, which reveals:
 
-- A **JSON Tool Definition** editor that accepts a JSON array of tool definitions.
-- A tool-choice picker that controls how the model uses the tool:
+- A **JSON Tool Definitions** editor that accepts a JSON array of one or more tool definitions.
+- A tool-choice picker that controls how the model uses the tools:
   - **Auto** (default) — the model decides whether to call a tool.
   - **Required** — the model must call a tool.
-- A **Remove tool** button that clears the definition and returns the section to its default (no tool) state.
+- A **Remove tools** button that clears the definitions and returns the section to its default (no tools) state.
 
-Once a tool is added, a valid tool definition is required: the Submit button stays disabled with a "Add at least one tool definition" or "Fix the Tools JSON" blocker until the JSON parses as a non-empty array.
+Once tools are added, at least one valid tool definition is required: the Submit button stays disabled with a "Add at least one tool definition" or "Fix the Tools JSON" blocker until the JSON parses as a non-empty array.
 
 ### Response format
 

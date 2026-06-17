@@ -65,8 +65,8 @@ export const ToolsForm = ({
     return (
       <Button componentId="mlflow.playground.tools.add_tool" icon={<PlusIcon />} onClick={onAddTool}>
         <FormattedMessage
-          defaultMessage="Add tool"
-          description="Button that adds a tool definition to the playground Tools card from its empty state"
+          defaultMessage="Add tools"
+          description="Button that adds tool definitions to the playground Tools card from its empty state"
         />
       </Button>
     );
@@ -77,7 +77,7 @@ export const ToolsForm = ({
       <div>
         <FormUI.Label htmlFor="mlflow.playground.tools.input">
           <FormattedMessage
-            defaultMessage="JSON Tool Definition"
+            defaultMessage="JSON Tool Definitions"
             description="Label for the JSON tool definitions textarea inside the Tools card"
           />
         </FormUI.Label>
@@ -105,7 +105,7 @@ export const ToolsForm = ({
             message={intl.formatMessage({
               defaultMessage: 'Add at least one tool definition',
               description:
-                'Inline error shown in the Tools card when a tool has been added but no tool definitions are provided',
+                'Inline error shown in the Tools card when tools have been added but no tool definitions are provided',
             })}
           />
         ) : (
@@ -139,8 +139,8 @@ export const ToolsForm = ({
       <div>
         <Button componentId="mlflow.playground.tools.remove_tool" icon={<TrashIcon />} onClick={onRemoveTool}>
           <FormattedMessage
-            defaultMessage="Remove tool"
-            description="Button that removes the tool definition and returns the playground Tools card to its empty state"
+            defaultMessage="Remove tools"
+            description="Button that removes tool definitions and returns the playground Tools card to its empty state"
           />
         </Button>
       </div>
