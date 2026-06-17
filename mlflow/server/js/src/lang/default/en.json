@@ -627,6 +627,10 @@
     "defaultMessage": "Alerts",
     "description": "Tab label for budget alerts"
   },
+  "0vkexV": {
+    "defaultMessage": "Analyze in Assistant",
+    "description": "Button that opens the MLflow assistant side panel to analyze the current trace"
+  },
   "0vwlO5": {
     "defaultMessage": "Each message has a role that tells the model who is speaking:",
     "description": "Intro line for the playground role-selector help popover"
@@ -6975,6 +6979,10 @@
     "defaultMessage": "Previous trace",
     "description": "Review focused view: previous-trace button"
   },
+  "X1/rxD": {
+    "defaultMessage": "MLflow Assistant",
+    "description": "Label revealed when hovering the floating MLflow assistant button"
+  },
   "X11caV": {
     "defaultMessage": "Failed to override assessment. Error: {error}",
     "description": "Error message when overriding an assessment fails"
@@ -7626,6 +7634,10 @@
   "aAAHaS": {
     "defaultMessage": "Context insufficient",
     "description": "Evaluation results > context sufficiency assessment > negative value label. Displayed if retrieved context is insufficient to generate the expected response."
+  },
+  "aAcCh2": {
+    "defaultMessage": "Analyze with Assistant",
+    "description": "Traces table toolbar button that opens the MLflow assistant to analyze the current traces"
   },
   "aB6xFd": {
     "defaultMessage": "Outputs",

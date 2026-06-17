@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
+import { Button, SparkleIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { shouldEnableTracesTableStatePersistence } from '@databricks/web-shared/model-trace-explorer';
 import { TracesV3Logs } from './TracesV3Logs';
 import {
@@ -11,6 +12,7 @@ import { TracesV3PageWrapper } from './TracesV3PageWrapper';
 import { useMonitoringViewState } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringViewState';
 import { useExperiments } from '../../hooks/useExperiments';
 import { TracesV3Toolbar } from './TracesV3Toolbar';
+import { useAssistant } from '@mlflow/mlflow/src/assistant';
 import {
   useMonitoringFilters,
   useMonitoringFiltersTimeRange,
@@ -30,6 +32,7 @@ const TracesV3Content = ({
   endpointName,
   timeRange,
 }: TracesV3ContentProps) => {
+  const { isLocalServer, openPanel } = useAssistant();
   if (viewState === 'logs') {
     return (
       <TracesV3Logs
@@ -38,6 +41,23 @@ const TracesV3Content = ({
         endpointName={endpointName || ''}
         timeRange={timeRange}
         drawerWidth="80vw"
+        toolbarAddons={
+          isLocalServer ? (
+            // data-assistant-ui marks this as assistant UI so AssistantAwareDrawer won't treat
+            // the click as an outside-click and close. See AssistantAwareDrawer.tsx.
+            <Button
+              componentId="mlflow.assistant.traces_toolbar_button"
+              data-assistant-ui="true"
+              icon={<SparkleIcon color="ai" />}
+              onClick={openPanel}
+            >
+              <FormattedMessage
+                defaultMessage="Analyze with Assistant"
+                description="Traces table toolbar button that opens the MLflow assistant to analyze the current traces"
+              />
+            </Button>
+          ) : undefined
+        }
       />
     );
   }
