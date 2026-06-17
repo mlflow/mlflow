@@ -106,7 +106,7 @@ describe('ParametersButton', () => {
     renderButton();
     await openDrawer();
     await userEvent.click(screen.getByRole('button', { name: /about tool definitions/i }));
-    expect(screen.getByText(/Click ‘Add tool’ to define one/i)).toBeInTheDocument();
+    expect(screen.getByText(/Click ‘Add tool’ to define a tool/i)).toBeInTheDocument();
     expect(screen.queryByText(/never call a tool/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Pick Auto or Required/i)).not.toBeInTheDocument();
   });

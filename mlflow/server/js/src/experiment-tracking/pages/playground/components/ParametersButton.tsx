@@ -169,7 +169,7 @@ export const ParametersButton = ({
               <Popover.Content align="start" css={{ maxWidth: 360 }}>
                 <Typography.Paragraph withoutMargins>
                   <FormattedMessage
-                    defaultMessage="Have the model call functions you define. By default no tool is configured. Click ‘Add tool’ to define one, then pick how the model uses it:"
+                    defaultMessage="Have the model call functions you define. By default no tool is configured. Click ‘Add tool’ to define a tool, then pick how the model uses it:"
                     description="Intro line of the info popover next to the Tools section header describing the add-tool flow"
                   />
                 </Typography.Paragraph>
@@ -177,14 +177,14 @@ export const ParametersButton = ({
                   <li>
                     <Typography.Text bold>Auto</Typography.Text>{' '}
                     <FormattedMessage
-                      defaultMessage="— model decides whether to call the tool."
+                      defaultMessage="— model decides whether to call a tool."
                       description="Description of the Auto tool choice in the Tools info popover"
                     />
                   </li>
                   <li>
                     <Typography.Text bold>Required</Typography.Text>{' '}
                     <FormattedMessage
-                      defaultMessage="— model must call the tool."
+                      defaultMessage="— model must call a tool."
                       description="Description of the Required tool choice in the Tools info popover"
                     />
                   </li>

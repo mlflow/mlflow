@@ -1567,6 +1567,10 @@
     "defaultMessage": "Detailed assessments",
     "description": "Evaluation review > assessments > detailed assessments > title"
   },
+  "5kc6dO": {
+    "defaultMessage": "— model decides whether to call a tool.",
+    "description": "Description of the Auto tool choice in the Tools info popover"
+  },
   "5lsHqm": {
     "defaultMessage": "Cancel",
     "description": "Cancel button for the edit model config modal"
@@ -3159,10 +3163,6 @@
     "defaultMessage": "Safe",
     "description": "Evaluation results > safety assessment > positive value label. Displayed if evaluation result is considered as safe."
   },
-  "DO+UXV": {
-    "defaultMessage": "— model must call the tool.",
-    "description": "Description of the Required tool choice in the Tools info popover"
-  },
   "DOC1AW": {
     "defaultMessage": "Use {example} to create reusable variables. Values entered below replace the placeholders on submit, while your templates stay unchanged for reuse with different inputs.",
     "description": "Intro paragraph at the top of the playground variables drawer"
@@ -4654,10 +4654,6 @@
   "LmHxvf": {
     "defaultMessage": "Only alphanumeric characters, underscores, hyphens, and dots are allowed",
     "description": "Validation error for an invalid prompt name in the playground save-prompt-version modal"
-  },
-  "Ln8se4": {
-    "defaultMessage": "— model decides whether to call the tool.",
-    "description": "Description of the Auto tool choice in the Tools info popover"
   },
   "LpdcPw": {
     "defaultMessage": "Model versions",
@@ -7310,6 +7306,10 @@
   "YdxomH": {
     "defaultMessage": "New version of {name}",
     "description": "Option to save a new version of the loaded prompt in the playground save modal"
+  },
+  "Ye8qdV": {
+    "defaultMessage": "Have the model call functions you define. By default no tool is configured. Click ‘Add tool’ to define a tool, then pick how the model uses it:",
+    "description": "Intro line of the info popover next to the Tools section header describing the add-tool flow"
   },
   "YeCF5P": {
     "defaultMessage": "Human feedback",
@@ -10675,6 +10675,10 @@
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
   },
+  "oJg/Kk": {
+    "defaultMessage": "— model must call a tool.",
+    "description": "Description of the Required tool choice in the Tools info popover"
+  },
   "oKNOju": {
     "defaultMessage": "Conversational tool call efficiency",
     "description": "LLM template option"
@@ -11742,10 +11746,6 @@
   "tNL+F4": {
     "defaultMessage": "Full trace with an agent using the right part of the trace to use to judge",
     "description": "Description for trace variable"
-  },
-  "tNTChi": {
-    "defaultMessage": "Have the model call functions you define. By default no tool is configured. Click ‘Add tool’ to define one, then pick how the model uses it:",
-    "description": "Intro line of the info popover next to the Tools section header describing the add-tool flow"
   },
   "tPUQUF": {
     "defaultMessage": "An API key with this name already exists. Please choose a different name.",
