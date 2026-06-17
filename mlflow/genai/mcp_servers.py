@@ -580,3 +580,40 @@ def set_mcp_server_alias(name: str, alias: str, version: str) -> None:
 
 def delete_mcp_server_alias(name: str, alias: str) -> None:
     MlflowClient().delete_mcp_server_alias(name=name, alias=alias)
+
+
+# --- Trace linking ---
+
+
+def link_mcp_server_versions_to_trace(
+    *,
+    trace_id: str,
+    mcp_server_versions: list[MCPServerVersion],
+) -> None:
+    """Link MCP server versions to a trace.
+
+    Creates entity associations between the trace and the given MCP server
+    versions. Duplicate links are silently ignored.
+
+    Args:
+        trace_id: ID of the trace to link to.
+        mcp_server_versions: List of
+            :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>` objects to link.
+    """
+    MlflowClient().link_mcp_server_versions_to_trace(
+        trace_id=trace_id,
+        mcp_server_versions=mcp_server_versions,
+    )
+
+
+def get_mcp_server_versions_for_trace(*, trace_id: str) -> list[MCPServerVersion]:
+    """Get MCP server versions linked to a trace.
+
+    Args:
+        trace_id: ID of the trace.
+
+    Returns:
+        A list of :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>` objects
+        linked to the trace. Deleted versions are excluded.
+    """
+    return MlflowClient().get_mcp_server_versions_for_trace(trace_id=trace_id)

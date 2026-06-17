@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import urllib.request
+import uuid
 from pathlib import Path
 from unittest import mock
 
 import pytest
 
 from mlflow import genai
+from mlflow.entities import trace_location
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
+from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.client import MlflowClient
@@ -22,6 +27,24 @@ def store(tmp_path: Path):
     artifact_uri = tmp_path / "artifacts"
     artifact_uri.mkdir()
     return SqlAlchemyStore(f"sqlite:///{tmp_path / 'test.db'}", artifact_uri.as_uri())
+
+
+@pytest.fixture
+def trace_id(store):
+
+    tid = f"tr-{uuid.uuid4()}"
+    store.start_trace(
+        TraceInfo(
+            trace_id=tid,
+            trace_location=trace_location.TraceLocation.from_experiment_id(0),
+            request_time=0,
+            execution_duration=0,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+        )
+    )
+    return tid
 
 
 @pytest.fixture(autouse=True)
@@ -631,6 +654,46 @@ def test_mlflow_client_version_lifecycle():
         client.get_mcp_server_version(name="io.github.test/lifecycle-ver", version="1.0.0")
 
 
+def test_mlflow_client_link_and_get_mcp_server_versions_for_trace(trace_id):
+    client = MlflowClient()
+    sj = _server_json("io.github.test/tl-client", "1.0.0")
+    client.create_mcp_server_version(server_json=sj, status=MCPStatus.ACTIVE)
+
+    client.link_mcp_server_versions_to_trace(
+        trace_id=trace_id,
+        mcp_server_versions=[
+            MCPServerVersion(name="io.github.test/tl-client", version="1.0.0", server_json={})
+        ],
+    )
+
+    linked = client.get_mcp_server_versions_for_trace(trace_id=trace_id)
+    assert len(linked) == 1
+    assert linked[0].name == "io.github.test/tl-client"
+
+
+# ---------------------------------------------------------------------------
+# Trace linking
+# ---------------------------------------------------------------------------
+
+
+def test_link_and_get_mcp_server_versions_for_trace(trace_id):
+    genai.register_mcp_server(
+        server_json=_server_json("io.github.test/tl-srv", "1.0.0"), status="active"
+    )
+
+    genai.link_mcp_server_versions_to_trace(
+        trace_id=trace_id,
+        mcp_server_versions=[
+            MCPServerVersion(name="io.github.test/tl-srv", version="1.0.0", server_json={})
+        ],
+    )
+
+    linked = genai.get_mcp_server_versions_for_trace(trace_id=trace_id)
+    assert len(linked) == 1
+    assert linked[0].name == "io.github.test/tl-srv"
+    assert linked[0].version == "1.0.0"
+
+
 # ---------------------------------------------------------------------------
 # Exports
 # ---------------------------------------------------------------------------
@@ -662,6 +725,8 @@ def test_mlflow_client_version_lifecycle():
         "delete_mcp_server_version_tag",
         "set_mcp_server_alias",
         "delete_mcp_server_alias",
+        "link_mcp_server_versions_to_trace",
+        "get_mcp_server_versions_for_trace",
     ],
 )
 def test_function_exported(name):
