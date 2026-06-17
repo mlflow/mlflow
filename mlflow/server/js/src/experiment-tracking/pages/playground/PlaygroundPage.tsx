@@ -39,7 +39,10 @@ const PlaygroundPage = () => {
   const [params, setParams] = useState<PlaygroundParams>({});
   const [variables, setVariables] = useState<Record<string, string>>({});
   const [toolsText, setToolsText] = useState<string>('');
-  const [toolChoice, setToolChoice] = useState<ToolChoice>('none');
+  // Whether the user has added a tool. When false, the Tools section shows only
+  // an "Add tool" button and neither `tools` nor `tool_choice` is sent.
+  const [toolAdded, setToolAdded] = useState<boolean>(false);
+  const [toolChoice, setToolChoice] = useState<ToolChoice>('auto');
   const [responseFormatType, setResponseFormatType] = useState<ResponseFormatType>('text');
   const [responseFormatSchemaText, setResponseFormatSchemaText] = useState<string>('');
   const [showRegistryPicker, setShowRegistryPicker] = useState(false);
@@ -94,6 +97,17 @@ const PlaygroundPage = () => {
     setSavedToast({ name, version });
   };
 
+  const handleAddTool = () => {
+    setToolAdded(true);
+    setToolChoice('auto');
+  };
+
+  const handleRemoveTool = () => {
+    setToolAdded(false);
+    setToolsText('');
+    setToolChoice('auto');
+  };
+
   const toolsError = useMemo(() => {
     if (!toolsText.trim()) {
       return null;
@@ -146,7 +160,7 @@ const PlaygroundPage = () => {
         }),
       );
     }
-    if (toolChoice !== 'none') {
+    if (toolAdded) {
       if (isToolsValueEmpty(toolsText)) {
         blockers.push(
           intl.formatMessage({
@@ -192,7 +206,7 @@ const PlaygroundPage = () => {
       );
     }
     return blockers;
-  }, [endpointName, messages, toolChoice, toolsText, toolsError, responseFormatSchemaError, variables, intl]);
+  }, [endpointName, messages, toolAdded, toolsText, toolsError, responseFormatSchemaError, variables, intl]);
 
   const canSubmit = submitBlockers.length === 0 && !isLoading;
 
@@ -200,7 +214,7 @@ const PlaygroundPage = () => {
     if (!canSubmit) {
       return;
     }
-    const tools = toolChoice !== 'none' && toolsText.trim() ? (JSON.parse(toolsText) as unknown[]) : undefined;
+    const tools = toolAdded && toolsText.trim() ? (JSON.parse(toolsText) as unknown[]) : undefined;
     let response_format: ResponseFormat | undefined;
     if (responseFormatType === 'json_object') {
       response_format = { type: 'json_object' };
@@ -262,6 +276,9 @@ const PlaygroundPage = () => {
         toolsText={toolsText}
         onToolsChange={setToolsText}
         toolsError={toolsError}
+        toolAdded={toolAdded}
+        onAddTool={handleAddTool}
+        onRemoveTool={handleRemoveTool}
         toolChoice={toolChoice}
         onToolChoiceChange={setToolChoice}
         responseFormatType={responseFormatType}

@@ -10,6 +10,7 @@ import { ParametersButton } from './ParametersButton';
 const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
 interface RenderProps {
+  toolAdded?: boolean;
   toolChoice?: ToolChoice;
   toolsText?: string;
   toolsError?: string | null;
@@ -18,7 +19,8 @@ interface RenderProps {
 }
 
 const renderButton = ({
-  toolChoice = 'none',
+  toolAdded = false,
+  toolChoice = 'auto',
   toolsText = '',
   toolsError = null,
   params = {},
@@ -26,6 +28,8 @@ const renderButton = ({
 }: RenderProps = {}) => {
   const onChange = jest.fn();
   const onToolsChange = jest.fn();
+  const onAddTool = jest.fn<() => void>();
+  const onRemoveTool = jest.fn<() => void>();
   const onToolChoiceChange = jest.fn<(next: ToolChoice) => void>();
   const onResponseFormatTypeChange = jest.fn();
   const onResponseFormatSchemaChange = jest.fn();
@@ -38,6 +42,9 @@ const renderButton = ({
           toolsText={toolsText}
           onToolsChange={onToolsChange}
           toolsError={toolsError}
+          toolAdded={toolAdded}
+          onAddTool={onAddTool}
+          onRemoveTool={onRemoveTool}
           toolChoice={toolChoice}
           onToolChoiceChange={onToolChoiceChange}
           responseFormatType={responseFormatType}
@@ -48,7 +55,7 @@ const renderButton = ({
       </DesignSystemProvider>
     </IntlProvider>,
   );
-  return { onChange, onToolsChange, onToolChoiceChange, onResponseFormatTypeChange };
+  return { onChange, onToolsChange, onAddTool, onRemoveTool, onToolChoiceChange, onResponseFormatTypeChange };
 };
 
 const openDrawer = async () => {
@@ -64,18 +71,44 @@ describe('ParametersButton', () => {
     expect(screen.getByText('Response format')).toBeInTheDocument();
   });
 
-  it('renders the Tool choice picker defaulting to None and hides the JSON textarea', async () => {
-    renderButton({ toolChoice: 'none' });
+  it('shows only the Add tool button by default and hides the picker and JSON textarea', async () => {
+    renderButton({ toolAdded: false });
     await openDrawer();
-    expect(screen.getByRole('radio', { name: 'None' })).toBeChecked();
+    expect(screen.getByRole('button', { name: 'Add tool' })).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Auto' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('JSON Tool Definition')).not.toBeInTheDocument();
   });
 
-  it('reveals the JSON textarea and fires onToolChoiceChange when picker switches to Auto', async () => {
-    const { onToolChoiceChange } = renderButton({ toolChoice: 'none' });
+  it('fires onAddTool when the Add tool button is clicked', async () => {
+    const { onAddTool } = renderButton({ toolAdded: false });
     await openDrawer();
-    await userEvent.click(screen.getByRole('radio', { name: 'Auto' }));
-    expect(onToolChoiceChange).toHaveBeenLastCalledWith('auto');
+    await userEvent.click(screen.getByRole('button', { name: 'Add tool' }));
+    expect(onAddTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the JSON textarea plus an Auto/Required picker once a tool is added', async () => {
+    renderButton({ toolAdded: true, toolChoice: 'auto' });
+    await openDrawer();
+    expect(screen.getByLabelText('JSON Tool Definition')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Auto' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Required' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add tool' })).not.toBeInTheDocument();
+  });
+
+  it('fires onRemoveTool when the Remove tool button is clicked', async () => {
+    const { onRemoveTool } = renderButton({ toolAdded: true });
+    await openDrawer();
+    await userEvent.click(screen.getByRole('button', { name: 'Remove tool' }));
+    expect(onRemoveTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('describes the add-tool flow in the Tools info popover', async () => {
+    renderButton();
+    await openDrawer();
+    await userEvent.click(screen.getByRole('button', { name: /about tool definitions/i }));
+    expect(screen.getByText(/Click ‘Add tool’ to define one/i)).toBeInTheDocument();
+    expect(screen.queryByText(/never call a tool/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Pick Auto or Required/i)).not.toBeInTheDocument();
   });
 
   it('opens the Parameters info popover and shows the provider-disclaimer line', async () => {

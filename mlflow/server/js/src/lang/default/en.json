@@ -115,10 +115,6 @@
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
     "description": "Queue settings: questions dropdown selected-count summary"
   },
-  "+asYF/": {
-    "defaultMessage": "Have the model call functions you define. Tool choice strategies:",
-    "description": "Intro line of the info popover next to the Tools section header"
-  },
   "+d9nXK": {
     "defaultMessage": "Output cost",
     "description": "Label for output cost"
@@ -1135,6 +1131,10 @@
     "defaultMessage": "Delete",
     "description": "String for the delete button to delete a particular experiment run"
   },
+  "3RvakW": {
+    "defaultMessage": "Add at least one tool definition",
+    "description": "Inline error shown in the Tools card when a tool has been added but no tool definitions are provided"
+  },
   "3S361w": {
     "defaultMessage": "View source",
     "description": "Tooltip for button that shows raw markdown source text"
@@ -1566,10 +1566,6 @@
   "5jXYY4": {
     "defaultMessage": "Detailed assessments",
     "description": "Evaluation review > assessments > detailed assessments > title"
-  },
-  "5kc6dO": {
-    "defaultMessage": "— model decides whether to call a tool.",
-    "description": "Description of the Auto tool choice in the Tools info popover"
   },
   "5lsHqm": {
     "defaultMessage": "Cancel",
@@ -3163,6 +3159,10 @@
     "defaultMessage": "Safe",
     "description": "Evaluation results > safety assessment > positive value label. Displayed if evaluation result is considered as safe."
   },
+  "DO+UXV": {
+    "defaultMessage": "— model must call the tool.",
+    "description": "Description of the Required tool choice in the Tools info popover"
+  },
   "DOC1AW": {
     "defaultMessage": "Use {example} to create reusable variables. Values entered below replace the placeholders on submit, while your templates stay unchanged for reuse with different inputs.",
     "description": "Intro paragraph at the top of the playground variables drawer"
@@ -3451,10 +3451,6 @@
     "defaultMessage": "No evaluation datasets found",
     "description": "Empty state for the evaluation datasets page"
   },
-  "F6YQTG": {
-    "defaultMessage": "Pick Auto or Required to enter the JSON tool definitions.",
-    "description": "Closing line of the Tools info popover hinting at the conditional definitions input"
-  },
   "F8MqzZ": {
     "defaultMessage": "Path",
     "description": "Label for displaying the current experiment path"
@@ -3490,6 +3486,10 @@
   "FHJ1NN": {
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
+  },
+  "FIrjIF": {
+    "defaultMessage": "Add tool",
+    "description": "Button that adds a tool definition to the playground Tools card from its empty state"
   },
   "FKnUSV": {
     "defaultMessage": "Open assistant",
@@ -4654,6 +4654,10 @@
   "LmHxvf": {
     "defaultMessage": "Only alphanumeric characters, underscores, hyphens, and dots are allowed",
     "description": "Validation error for an invalid prompt name in the playground save-prompt-version modal"
+  },
+  "Ln8se4": {
+    "defaultMessage": "— model decides whether to call the tool.",
+    "description": "Description of the Auto tool choice in the Tools info popover"
   },
   "LpdcPw": {
     "defaultMessage": "Model versions",
@@ -10671,10 +10675,6 @@
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
   },
-  "oJg/Kk": {
-    "defaultMessage": "— model must call a tool.",
-    "description": "Description of the Required tool choice in the Tools info popover"
-  },
   "oKNOju": {
     "defaultMessage": "Conversational tool call efficiency",
     "description": "LLM template option"
@@ -11743,6 +11743,10 @@
     "defaultMessage": "Full trace with an agent using the right part of the trace to use to judge",
     "description": "Description for trace variable"
   },
+  "tNTChi": {
+    "defaultMessage": "Have the model call functions you define. By default no tool is configured. Click ‘Add tool’ to define one, then pick how the model uses it:",
+    "description": "Intro line of the info popover next to the Tools section header describing the add-tool flow"
+  },
   "tPUQUF": {
     "defaultMessage": "An API key with this name already exists. Please choose a different name.",
     "description": "Error message for duplicate key name"
@@ -11967,10 +11971,6 @@
     "defaultMessage": "Edit Workspace",
     "description": "Title for edit workspace modal"
   },
-  "um/4MQ": {
-    "defaultMessage": "Add at least one tool definition",
-    "description": "Inline error shown in the Tools card when tool choice is not none but no tool definitions are provided"
-  },
   "umeTwG": {
     "defaultMessage": "Latest",
     "description": "Column title for the column displaying the latest metric values for a metric"
@@ -12002,6 +12002,10 @@
   "utyagz": {
     "defaultMessage": "Feedback",
     "description": "Label for the feedback section in the assessments pane"
+  },
+  "uwM8Wo": {
+    "defaultMessage": "Remove tool",
+    "description": "Button that removes the tool definition and returns the playground Tools card to its empty state"
   },
   "uyx2Bd": {
     "defaultMessage": "search_traces syntax",
@@ -12926,10 +12930,6 @@
   "ze1m7Z": {
     "defaultMessage": "Run name cannot consist only of whitespace!",
     "description": "An error shown when user sets the run's name to whitespace characters only"
-  },
-  "zehip9": {
-    "defaultMessage": "— never call a tool (default).",
-    "description": "Description of the None tool choice in the Tools info popover"
   },
   "zfpA2q": {
     "defaultMessage": "Source run",

@@ -1,8 +1,11 @@
 import {
+  Button,
   FormUI,
   Input,
+  PlusIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
+  TrashIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import type { ChangeEvent } from 'react';
@@ -16,12 +19,14 @@ interface Props {
   value: string;
   onChange: (next: string) => void;
   error?: string | null;
+  toolAdded: boolean;
+  onAddTool: () => void;
+  onRemoveTool: () => void;
   toolChoice: ToolChoice;
   onToolChoiceChange: (next: ToolChoice) => void;
 }
 
 const TOOL_CHOICE_OPTIONS: { value: ToolChoice; label: string }[] = [
-  { value: 'none', label: 'None' },
   { value: 'auto', label: 'Auto' },
   { value: 'required', label: 'Required' },
 ];
@@ -43,12 +48,71 @@ const TOOLS_PLACEHOLDER = `[
   }
 ]`;
 
-export const ToolsForm = ({ value, onChange, error, toolChoice, onToolChoiceChange }: Props) => {
+export const ToolsForm = ({
+  value,
+  onChange,
+  error,
+  toolAdded,
+  onAddTool,
+  onRemoveTool,
+  toolChoice,
+  onToolChoiceChange,
+}: Props) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
+  if (!toolAdded) {
+    return (
+      <Button componentId="mlflow.playground.tools.add_tool" icon={<PlusIcon />} onClick={onAddTool}>
+        <FormattedMessage
+          defaultMessage="Add tool"
+          description="Button that adds a tool definition to the playground Tools card from its empty state"
+        />
+      </Button>
+    );
+  }
+
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      <div>
+        <FormUI.Label htmlFor="mlflow.playground.tools.input">
+          <FormattedMessage
+            defaultMessage="JSON Tool Definition"
+            description="Label for the JSON tool definitions textarea inside the Tools card"
+          />
+        </FormUI.Label>
+        <TextArea
+          componentId="mlflow.playground.tools.input"
+          id="mlflow.playground.tools.input"
+          value={value}
+          onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value)}
+          autoSize={{ minRows: 4, maxRows: 16 }}
+          placeholder={intl.formatMessage(
+            {
+              defaultMessage: 'e.g. {example}',
+              description: 'Placeholder shown above the playground tools JSON textarea',
+            },
+            { example: TOOLS_PLACEHOLDER },
+          )}
+          css={{
+            fontFamily: 'monospace',
+            fontSize: theme.typography.fontSizeSm,
+          }}
+        />
+        {isToolsValueEmpty(value) ? (
+          <FormUI.Message
+            type="error"
+            message={intl.formatMessage({
+              defaultMessage: 'Add at least one tool definition',
+              description:
+                'Inline error shown in the Tools card when a tool has been added but no tool definitions are provided',
+            })}
+          />
+        ) : (
+          error && <FormUI.Message type="error" message={error} />
+        )}
+      </div>
+
       <div>
         <FormUI.Label htmlFor="mlflow.playground.tools.tool_choice">
           <FormattedMessage
@@ -72,46 +136,14 @@ export const ToolsForm = ({ value, onChange, error, toolChoice, onToolChoiceChan
         </SegmentedControlGroup>
       </div>
 
-      {toolChoice !== 'none' && (
-        <div>
-          <FormUI.Label htmlFor="mlflow.playground.tools.input">
-            <FormattedMessage
-              defaultMessage="JSON Tool Definition"
-              description="Label for the JSON tool definitions textarea inside the Tools card"
-            />
-          </FormUI.Label>
-          <TextArea
-            componentId="mlflow.playground.tools.input"
-            id="mlflow.playground.tools.input"
-            value={value}
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value)}
-            autoSize={{ minRows: 4, maxRows: 16 }}
-            placeholder={intl.formatMessage(
-              {
-                defaultMessage: 'e.g. {example}',
-                description: 'Placeholder shown above the playground tools JSON textarea',
-              },
-              { example: TOOLS_PLACEHOLDER },
-            )}
-            css={{
-              fontFamily: 'monospace',
-              fontSize: theme.typography.fontSizeSm,
-            }}
+      <div>
+        <Button componentId="mlflow.playground.tools.remove_tool" icon={<TrashIcon />} onClick={onRemoveTool}>
+          <FormattedMessage
+            defaultMessage="Remove tool"
+            description="Button that removes the tool definition and returns the playground Tools card to its empty state"
           />
-          {isToolsValueEmpty(value) ? (
-            <FormUI.Message
-              type="error"
-              message={intl.formatMessage({
-                defaultMessage: 'Add at least one tool definition',
-                description:
-                  'Inline error shown in the Tools card when tool choice is not none but no tool definitions are provided',
-              })}
-            />
-          ) : (
-            error && <FormUI.Message type="error" message={error} />
-          )}
-        </div>
-      )}
+        </Button>
+      </div>
     </div>
   );
 };

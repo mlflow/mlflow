@@ -41,7 +41,10 @@ const renderTopBar = () => {
           toolsText=""
           onToolsChange={noop}
           toolsError={null}
-          toolChoice={'none' as ToolChoice}
+          toolAdded={false}
+          onAddTool={noop}
+          onRemoveTool={noop}
+          toolChoice={'auto' as ToolChoice}
           onToolChoiceChange={noop}
           responseFormatType="text"
           onResponseFormatTypeChange={noop}

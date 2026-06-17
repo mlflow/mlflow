@@ -20,6 +20,9 @@ interface Props {
   toolsText: string;
   onToolsChange: (next: string) => void;
   toolsError?: string | null;
+  toolAdded: boolean;
+  onAddTool: () => void;
+  onRemoveTool: () => void;
   toolChoice: ToolChoice;
   onToolChoiceChange: (next: ToolChoice) => void;
   responseFormatType: ResponseFormatType;
@@ -51,6 +54,9 @@ export const ParametersButton = ({
   toolsText,
   onToolsChange,
   toolsError,
+  toolAdded,
+  onAddTool,
+  onRemoveTool,
   toolChoice,
   onToolChoiceChange,
   responseFormatType,
@@ -163,39 +169,26 @@ export const ParametersButton = ({
               <Popover.Content align="start" css={{ maxWidth: 360 }}>
                 <Typography.Paragraph withoutMargins>
                   <FormattedMessage
-                    defaultMessage="Have the model call functions you define. Tool choice strategies:"
-                    description="Intro line of the info popover next to the Tools section header"
+                    defaultMessage="Have the model call functions you define. By default no tool is configured. Click ‘Add tool’ to define one, then pick how the model uses it:"
+                    description="Intro line of the info popover next to the Tools section header describing the add-tool flow"
                   />
                 </Typography.Paragraph>
                 <ul css={{ margin: `${theme.spacing.xs}px 0 0`, paddingLeft: theme.spacing.lg }}>
                   <li>
-                    <Typography.Text bold>None</Typography.Text>{' '}
-                    <FormattedMessage
-                      defaultMessage="— never call a tool (default)."
-                      description="Description of the None tool choice in the Tools info popover"
-                    />
-                  </li>
-                  <li>
                     <Typography.Text bold>Auto</Typography.Text>{' '}
                     <FormattedMessage
-                      defaultMessage="— model decides whether to call a tool."
+                      defaultMessage="— model decides whether to call the tool."
                       description="Description of the Auto tool choice in the Tools info popover"
                     />
                   </li>
                   <li>
                     <Typography.Text bold>Required</Typography.Text>{' '}
                     <FormattedMessage
-                      defaultMessage="— model must call a tool."
+                      defaultMessage="— model must call the tool."
                       description="Description of the Required tool choice in the Tools info popover"
                     />
                   </li>
                 </ul>
-                <Typography.Paragraph withoutMargins css={{ marginTop: theme.spacing.xs }}>
-                  <FormattedMessage
-                    defaultMessage="Pick Auto or Required to enter the JSON tool definitions."
-                    description="Closing line of the Tools info popover hinting at the conditional definitions input"
-                  />
-                </Typography.Paragraph>
                 <Popover.Arrow />
               </Popover.Content>
             </Popover.Root>
@@ -211,6 +204,9 @@ export const ParametersButton = ({
               value={toolsText}
               onChange={onToolsChange}
               error={toolsError}
+              toolAdded={toolAdded}
+              onAddTool={onAddTool}
+              onRemoveTool={onRemoveTool}
               toolChoice={toolChoice}
               onToolChoiceChange={onToolChoiceChange}
             />
