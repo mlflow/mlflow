@@ -111,6 +111,26 @@ ingress:
           pathType: Prefix
   tls: []
 
+# Gateway API (HTTPRoute) for external access to the MLflow server.
+gateway:
+  enabled: false
+  # Annotations to be added to the HTTPRoute
+  annotations: {}
+  # Labels to be added to the HTTPRoute
+  labels: {}
+  # References to parent Gateway(s) to attach this HTTPRoute to.
+  # Example:
+  # parentRefs:
+  #   - name: internal-gateway
+  #     namespace: gateway-system
+  #     sectionName: http
+  parentRefs: []
+  # Hostnames defining the domains for this HTTPRoute.
+  # Example:
+  # hostnames:
+  #   - "mlflow.local"
+  hostnames: []
+
 mlflow:
   # URI of the database or file store used to record runs and metadata.
   # Examples: "sqlite:////mlflow/mlflow.db", "postgresql://user:pass@host/db"

@@ -1,0 +1,32 @@
+{{- if .Values.gateway.enabled -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+    {{- with .Values.gateway.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.gateway.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.gateway.parentRefs }}
+  parentRefs:
+    {{- toYaml .Values.gateway.parentRefs | nindent 4 }}
+  {{- end }}
+  {{- if .Values.gateway.hostnames }}
+  hostnames:
+    {{- toYaml .Values.gateway.hostnames | nindent 4 }}
+  {{- end }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ include "mlflow.fullname" . }}
+          port: {{ .Values.server.value_options.port }}
+{{- end }}

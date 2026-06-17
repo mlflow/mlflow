@@ -156,6 +156,21 @@ ingress:
         - mlflow.example.com
 ```
 
+### Gateway API (HTTPRoute)
+
+Alternatively, you can use the Kubernetes Gateway API by configuring an `HTTPRoute`:
+
+```yaml
+gateway:
+  enabled: true
+  parentRefs:
+    - name: internal-gateway
+      namespace: gateway-system
+      sectionName: http
+  hostnames:
+    - "mlflow.example.com"
+```
+
 ### Prometheus metrics
 
 ```yaml
