@@ -104,10 +104,11 @@ export class MlflowWalSpanExporter implements SpanExporter {
         otlpSpans,
       };
 
-      if (otlpSpans !== undefined && ipcRequestByteLength(record) > MAX_REQUEST_BYTES) {
+      const fullSizeBytes = ipcRequestByteLength(record);
+      if (otlpSpans !== undefined && fullSizeBytes > MAX_REQUEST_BYTES) {
         console.warn(
-          `[mlflow][wal] OTLP span payload for trace ${trace.info.traceId} would exceed the ` +
-            `${MAX_REQUEST_BYTES}-byte IPC request limit; falling back to JSON artifact upload ` +
+          `[mlflow][wal] WAL record for trace ${trace.info.traceId} is ${fullSizeBytes} bytes, exceeding the ` +
+            `${MAX_REQUEST_BYTES}-byte IPC request limit; dropping OTLP spans and attempting JSON artifact upload ` +
             '(spans will not appear in DB-backed span metrics).',
         );
         record.otlpSpans = undefined;
