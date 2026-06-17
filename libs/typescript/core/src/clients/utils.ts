@@ -115,6 +115,60 @@ export async function makeRequest<T>(
   }
 }
 
+/**
+ * Send a raw (already-serialized) body — e.g. OTLP protobuf bytes — to `url`.
+ * `extraHeaders` merge over the auth headers (to override `Content-Type` etc).
+ * The response body is ignored; non-2xx throws {@link MlflowHttpError} so
+ * callers can branch on `status` (e.g. 501 capability gating).
+ */
+export async function makeRawRequest(
+  method: string,
+  url: string,
+  headerProvider: HeadersProvider,
+  body: BodyInit,
+  extraHeaders: Record<string, string> = {},
+  timeout?: number,
+): Promise<void> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout ?? getDefaultTimeout());
+  const headers = { ...(await headerProvider()), ...extraHeaders };
+
+  try {
+    const response = await fetch(url, {
+      method,
+      headers,
+      body,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      let responseBody = '';
+      try {
+        responseBody = await response.text();
+      } catch {
+        // If we can't read the body, leave it empty
+      }
+      throw new MlflowHttpError(response.status, response.statusText, responseBody);
+    }
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof MlflowHttpError) {
+      throw error;
+    }
+
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new Error(`Request timeout after ${timeout}ms`);
+      }
+      throw new Error(`API request failed: ${error.message}`);
+    }
+    throw new Error(`API request failed: ${String(error)}`);
+  }
+}
+
 function getDefaultTimeout(): number {
   const envTimeout = process.env.MLFLOW_HTTP_REQUEST_TIMEOUT;
   if (envTimeout) {
