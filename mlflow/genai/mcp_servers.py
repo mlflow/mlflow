@@ -142,25 +142,6 @@ def register_mcp_server_from_url(
 # --- MCPServer CRUD ---
 
 
-def create_mcp_server(
-    *,
-    name: str,
-    description: str | None = None,
-    icons: list[MCPIcon] | None = None,
-) -> MCPServer:
-    """Create a new MCP server entry in the registry.
-
-    Args:
-        name: Unique server name in reverse-DNS format (e.g., ``"io.github.user/server"``).
-        description: Human-readable description.
-        icons: Sized icon variants following the upstream server.json icon schema.
-
-    Returns:
-        The created :py:class:`MCPServer <mlflow.entities.MCPServer>`.
-    """
-    return MlflowClient().create_mcp_server(name=name, description=description, icons=icons)
-
-
 def get_mcp_server(*, name: str) -> MCPServer:
     """Get an MCP server by name.
 
@@ -255,37 +236,6 @@ def delete_mcp_server(*, name: str) -> None:
 
 
 # --- MCPServerVersion CRUD ---
-
-
-def create_mcp_server_version(
-    *,
-    server_json: dict[str, Any],
-    display_name: str | None = None,
-    source: str | None = None,
-    status: Literal["draft", "active", "deprecated", "deleted"] = "draft",
-    tools: list[MCPTool] | None = None,
-) -> MCPServerVersion:
-    """Create a new version of an MCP server.
-
-    The parent ``MCPServer`` is auto-created if it does not exist.
-
-    Args:
-        server_json: The canonical MCP ``server.json`` payload.
-        display_name: Human-readable display name.
-        source: Provenance URI.
-        status: Initial status (default ``"draft"``).
-        tools: Declared tools this server version provides.
-
-    Returns:
-        The created :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>`.
-    """
-    return MlflowClient().create_mcp_server_version(
-        server_json=server_json,
-        display_name=display_name,
-        source=source,
-        status=MCPStatus(status) if status is not None else None,
-        tools=tools,
-    )
 
 
 def get_mcp_server_version(*, name: str, version: str) -> MCPServerVersion:

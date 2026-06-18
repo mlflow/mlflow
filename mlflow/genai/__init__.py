@@ -27,8 +27,6 @@ from mlflow.genai.labeling import (
 )
 from mlflow.genai.mcp_servers import (
     create_mcp_access_binding,
-    create_mcp_server,
-    create_mcp_server_version,
     delete_mcp_access_binding,
     delete_mcp_server,
     delete_mcp_server_alias,
@@ -123,12 +121,10 @@ __all__ = [
     # MCP server registry
     "register_mcp_server",
     "register_mcp_server_from_url",
-    "create_mcp_server",
     "get_mcp_server",
     "search_mcp_servers",
     "update_mcp_server",
     "delete_mcp_server",
-    "create_mcp_server_version",
     "get_mcp_server_version",
     "get_mcp_server_version_by_alias",
     "get_latest_mcp_server_version",

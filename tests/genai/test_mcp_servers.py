@@ -189,21 +189,16 @@ def test_register_mcp_server_from_url_invalid_scheme():
 # ---------------------------------------------------------------------------
 
 
-def test_create_mcp_server():
-    server = genai.create_mcp_server(name="io.github.test/my-server", description="Test")
-    assert server.name == "io.github.test/my-server"
-    assert server.description == "Test"
-
-
 def test_get_mcp_server():
-    genai.create_mcp_server(name="io.github.test/get-server")
+    sj = _server_json("io.github.test/get-server", "1.0.0")
+    genai.register_mcp_server(server_json=sj)
     server = genai.get_mcp_server(name="io.github.test/get-server")
     assert server.name == "io.github.test/get-server"
 
 
 def test_search_mcp_servers_returns_all():
-    genai.create_mcp_server(name="io.github.test/search-a")
-    genai.create_mcp_server(name="io.github.test/search-b")
+    genai.register_mcp_server(server_json=_server_json("io.github.test/search-a", "1.0.0"))
+    genai.register_mcp_server(server_json=_server_json("io.github.test/search-b", "1.0.0"))
     results = genai.search_mcp_servers()
     names = [s.name for s in results]
     assert "io.github.test/search-a" in names
@@ -213,7 +208,9 @@ def test_search_mcp_servers_returns_all():
 def test_search_mcp_servers_filter_by_status():
     sj = _server_json("io.github.test/status-active", "1.0.0")
     genai.register_mcp_server(server_json=sj, status="active")
-    genai.create_mcp_server(name="io.github.test/no-version-server")
+    genai.register_mcp_server(
+        server_json=_server_json("io.github.test/no-version-server", "1.0.0")
+    )
 
     results = genai.search_mcp_servers(filter_string="status = 'active'")
     assert any(s.name == "io.github.test/status-active" for s in results)
@@ -221,7 +218,9 @@ def test_search_mcp_servers_filter_by_status():
 
 
 def test_update_mcp_server():
-    genai.create_mcp_server(name="io.github.test/upd-server", description="old")
+    genai.register_mcp_server(
+        server_json=_server_json("io.github.test/upd-server", "1.0.0", description="old")
+    )
     server = genai.update_mcp_server(name="io.github.test/upd-server", description="new")
     assert server.description == "new"
 
@@ -229,7 +228,9 @@ def test_update_mcp_server():
 def test_delete_mcp_server():
     from mlflow.exceptions import MlflowException
 
-    genai.create_mcp_server(name="io.github.test/del-server")
+    genai.register_mcp_server(
+        server_json=_server_json("io.github.test/del-server", "1.0.0")
+    )
     genai.delete_mcp_server(name="io.github.test/del-server")
     with pytest.raises(MlflowException, match="MCP server .* not found"):
         genai.get_mcp_server(name="io.github.test/del-server")
@@ -240,20 +241,22 @@ def test_delete_mcp_server():
 # ---------------------------------------------------------------------------
 
 
-def test_create_mcp_server_version():
+def test_client_create_mcp_server_version():
+    client = MlflowClient()
     sj = _server_json("io.github.test/ver-server", "1.0.0")
-    version = genai.create_mcp_server_version(server_json=sj)
+    version = client.create_mcp_server_version(server_json=sj)
     assert version.version == "1.0.0"
     assert version.status == MCPStatus.DRAFT
 
 
-def test_create_mcp_server_version_does_not_create_bindings():
+def test_client_create_mcp_server_version_does_not_create_bindings():
+    client = MlflowClient()
     sj = _server_json(
         "io.github.test/ver-no-bind",
         "1.0.0",
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/x"}],
     )
-    version = genai.create_mcp_server_version(server_json=sj)
+    version = client.create_mcp_server_version(server_json=sj)
     bindings = genai.search_mcp_access_bindings(server_name=version.name)
     assert len(bindings) == 0
 
@@ -426,7 +429,7 @@ def test_delete_mcp_access_binding():
 
 
 def test_set_and_delete_mcp_server_tag():
-    genai.create_mcp_server(name="io.github.test/tag-server")
+    genai.register_mcp_server(server_json=_server_json("io.github.test/tag-server", "1.0.0"))
     genai.set_mcp_server_tag(name="io.github.test/tag-server", key="env", value="prod")
     server = genai.get_mcp_server(name="io.github.test/tag-server")
     assert server.tags.get("env") == "prod"
@@ -533,12 +536,10 @@ def test_all_functions_exported():
     expected = [
         "register_mcp_server",
         "register_mcp_server_from_url",
-        "create_mcp_server",
         "get_mcp_server",
         "search_mcp_servers",
         "update_mcp_server",
         "delete_mcp_server",
-        "create_mcp_server_version",
         "get_mcp_server_version",
         "get_mcp_server_version_by_alias",
         "get_latest_mcp_server_version",
