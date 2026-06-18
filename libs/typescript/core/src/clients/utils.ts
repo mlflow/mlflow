@@ -130,8 +130,17 @@ export async function makeRawRequest(
   timeout?: number,
 ): Promise<void> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout ?? getDefaultTimeout());
-  const headers = { ...(await headerProvider()), ...extraHeaders };
+  const effectiveTimeout = timeout ?? getDefaultTimeout();
+  const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
+
+  const headers: Record<string, string> = { ...(await headerProvider()) };
+  for (const [key, value] of Object.entries(extraHeaders)) {
+    const existingKey = Object.keys(headers).find((h) => h.toLowerCase() === key.toLowerCase());
+    if (existingKey) {
+      delete headers[existingKey];
+    }
+    headers[key] = value;
+  }
 
   try {
     const response = await fetch(url, {
@@ -161,7 +170,7 @@ export async function makeRawRequest(
 
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        throw new Error(`Request timeout after ${timeout}ms`);
+        throw new Error(`Request timeout after ${effectiveTimeout}ms`);
       }
       throw new Error(`API request failed: ${error.message}`);
     }
