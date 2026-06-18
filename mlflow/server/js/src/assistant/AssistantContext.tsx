@@ -156,6 +156,30 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
+  // Seal the in-flight streaming assistant message: flush any buffered text into an open
+  // text part, mirror `content`, and mark it no longer streaming. Optionally append a
+  // trailing text part (e.g. an error) or merge extra flags (e.g. isInterrupted). Shared
+  // by the done / error / interrupt terminal paths so the message-finalize logic lives once.
+  const sealStreamingMessage = useCallback((options: { appendText?: string; extra?: Partial<ChatMessage> } = {}) => {
+    setMessages((prev) => {
+      const lastMessage = prev[prev.length - 1];
+      if (!(lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming)) {
+        return prev;
+      }
+      const flushed = streamingMessageRef.current
+        ? setOpenTextPart(lastMessage.parts ?? [], streamingMessageRef.current)
+        : (lastMessage.parts ?? []);
+      const parts: AssistantPart[] = options.appendText
+        ? [...flushed, { type: 'text', text: options.appendText }]
+        : flushed;
+      return [
+        ...prev.slice(0, -1),
+        { ...lastMessage, parts, content: partsToContent(parts), isStreaming: false, ...options.extra },
+      ];
+    });
+    streamingMessageRef.current = '';
+  }, []);
+
   const flushStreamingMessage = useCallback(() => {
     rafPendingRef.current = null;
     if (!streamingMessageRef.current) {
@@ -180,22 +204,12 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       cancelAnimationFrame(rafPendingRef.current);
       rafPendingRef.current = null;
     }
-    setMessages((prev) => {
-      const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        const parts = streamingMessageRef.current
-          ? setOpenTextPart(lastMessage.parts ?? [], streamingMessageRef.current)
-          : (lastMessage.parts ?? []);
-        return [...prev.slice(0, -1), { ...lastMessage, parts, content: partsToContent(parts), isStreaming: false }];
-      }
-      return prev;
-    });
-    streamingMessageRef.current = '';
+    sealStreamingMessage();
     eventSourceRef.current = null;
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
-  }, []);
+  }, [sealStreamingMessage]);
 
   const handleStatus = useCallback((status: string) => {
     setCurrentStatus(status);
@@ -303,27 +317,19 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setPersistedChat({ messages: trimForStorage(messages), sessionId, tokenUsage });
   }, [isStreaming, messages, sessionId, tokenUsage, setPersistedChat]);
 
-  const handleStreamError = useCallback((errorMsg: string) => {
-    setError(errorMsg);
-    setIsStreaming(false);
-    setCurrentStatus(null);
-    eventSourceRef.current = null;
-    setActiveTools([]);
-    setMessages((prev) => {
-      const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        // Keep any tool calls / text produced so far and append the error as a
-        // text part (a styled error callout is a planned follow-up).
-        const base = streamingMessageRef.current
-          ? setOpenTextPart(lastMessage.parts ?? [], streamingMessageRef.current)
-          : (lastMessage.parts ?? []);
-        const parts: AssistantPart[] = [...base, { type: 'text', text: `Error: ${errorMsg}` }];
-        return [...prev.slice(0, -1), { ...lastMessage, parts, content: partsToContent(parts), isStreaming: false }];
-      }
-      return prev;
-    });
-    streamingMessageRef.current = '';
-  }, []);
+  const handleStreamError = useCallback(
+    (errorMsg: string) => {
+      setError(errorMsg);
+      setIsStreaming(false);
+      setCurrentStatus(null);
+      eventSourceRef.current = null;
+      setActiveTools([]);
+      // Keep any tool calls / text produced so far and append the error as a text
+      // part (a styled error callout is a planned follow-up).
+      sealStreamingMessage({ appendText: `Error: ${errorMsg}` });
+    },
+    [sealStreamingMessage],
+  );
 
   const handleInterrupted = useCallback(() => {
     setIsStreaming(false);
@@ -334,22 +340,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       cancelAnimationFrame(rafPendingRef.current);
       rafPendingRef.current = null;
     }
-    setMessages((prev) => {
-      const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        // Keep whatever text/tool parts streamed before the interrupt.
-        const parts = streamingMessageRef.current
-          ? setOpenTextPart(lastMessage.parts ?? [], streamingMessageRef.current)
-          : (lastMessage.parts ?? []);
-        return [
-          ...prev.slice(0, -1),
-          { ...lastMessage, parts, content: partsToContent(parts), isStreaming: false, isInterrupted: true },
-        ];
-      }
-      return prev;
-    });
-    streamingMessageRef.current = '';
-  }, []);
+    // Keep whatever text/tool parts streamed before the interrupt.
+    sealStreamingMessage({ extra: { isInterrupted: true } });
+  }, [sealStreamingMessage]);
 
   // Shared SSE callback wiring for startChat and handleSendMessage.
   const streamCallbacks = useMemo(
