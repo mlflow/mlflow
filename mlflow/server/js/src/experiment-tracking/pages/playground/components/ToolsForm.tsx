@@ -19,9 +19,9 @@ interface Props {
   value: string;
   onChange: (next: string) => void;
   error?: string | null;
-  toolAdded: boolean;
-  onAddTool: () => void;
-  onRemoveTool: () => void;
+  toolsAdded: boolean;
+  onAddTools: () => void;
+  onRemoveTools: () => void;
   toolChoice: ToolChoice;
   onToolChoiceChange: (next: ToolChoice) => void;
 }
@@ -52,18 +52,18 @@ export const ToolsForm = ({
   value,
   onChange,
   error,
-  toolAdded,
-  onAddTool,
-  onRemoveTool,
+  toolsAdded,
+  onAddTools,
+  onRemoveTools,
   toolChoice,
   onToolChoiceChange,
 }: Props) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  if (!toolAdded) {
+  if (!toolsAdded) {
     return (
-      <Button componentId="mlflow.playground.tools.add_tool" icon={<PlusIcon />} onClick={onAddTool}>
+      <Button componentId="mlflow.playground.tools.add_tools" icon={<PlusIcon />} onClick={onAddTools}>
         <FormattedMessage
           defaultMessage="Add tools"
           description="Button that adds tool definitions to the playground Tools card from its empty state"
@@ -137,7 +137,7 @@ export const ToolsForm = ({
       </div>
 
       <div>
-        <Button componentId="mlflow.playground.tools.remove_tool" icon={<TrashIcon />} onClick={onRemoveTool}>
+        <Button componentId="mlflow.playground.tools.remove_tools" icon={<TrashIcon />} onClick={onRemoveTools}>
           <FormattedMessage
             defaultMessage="Remove tools"
             description="Button that removes tool definitions and returns the playground Tools card to its empty state"

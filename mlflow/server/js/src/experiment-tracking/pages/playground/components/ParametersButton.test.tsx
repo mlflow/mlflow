@@ -10,7 +10,7 @@ import { ParametersButton } from './ParametersButton';
 const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
 interface RenderProps {
-  toolAdded?: boolean;
+  toolsAdded?: boolean;
   toolChoice?: ToolChoice;
   toolsText?: string;
   toolsError?: string | null;
@@ -19,7 +19,7 @@ interface RenderProps {
 }
 
 const renderButton = ({
-  toolAdded = false,
+  toolsAdded = false,
   toolChoice = 'auto',
   toolsText = '',
   toolsError = null,
@@ -28,8 +28,8 @@ const renderButton = ({
 }: RenderProps = {}) => {
   const onChange = jest.fn();
   const onToolsChange = jest.fn();
-  const onAddTool = jest.fn<() => void>();
-  const onRemoveTool = jest.fn<() => void>();
+  const onAddTools = jest.fn<() => void>();
+  const onRemoveTools = jest.fn<() => void>();
   const onToolChoiceChange = jest.fn<(next: ToolChoice) => void>();
   const onResponseFormatTypeChange = jest.fn();
   const onResponseFormatSchemaChange = jest.fn();
@@ -42,9 +42,9 @@ const renderButton = ({
           toolsText={toolsText}
           onToolsChange={onToolsChange}
           toolsError={toolsError}
-          toolAdded={toolAdded}
-          onAddTool={onAddTool}
-          onRemoveTool={onRemoveTool}
+          toolsAdded={toolsAdded}
+          onAddTools={onAddTools}
+          onRemoveTools={onRemoveTools}
           toolChoice={toolChoice}
           onToolChoiceChange={onToolChoiceChange}
           responseFormatType={responseFormatType}
@@ -55,7 +55,7 @@ const renderButton = ({
       </DesignSystemProvider>
     </IntlProvider>,
   );
-  return { onChange, onToolsChange, onAddTool, onRemoveTool, onToolChoiceChange, onResponseFormatTypeChange };
+  return { onChange, onToolsChange, onAddTools, onRemoveTools, onToolChoiceChange, onResponseFormatTypeChange };
 };
 
 const openDrawer = async () => {
@@ -72,22 +72,22 @@ describe('ParametersButton', () => {
   });
 
   it('shows only the Add tools button by default and hides the picker and JSON textarea', async () => {
-    renderButton({ toolAdded: false });
+    renderButton({ toolsAdded: false });
     await openDrawer();
     expect(screen.getByRole('button', { name: 'Add tools' })).toBeInTheDocument();
     expect(screen.queryByRole('radio', { name: 'Auto' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('JSON Tool Definitions')).not.toBeInTheDocument();
   });
 
-  it('fires onAddTool when the Add tools button is clicked', async () => {
-    const { onAddTool } = renderButton({ toolAdded: false });
+  it('fires onAddTools when the Add tools button is clicked', async () => {
+    const { onAddTools } = renderButton({ toolsAdded: false });
     await openDrawer();
     await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
-    expect(onAddTool).toHaveBeenCalledTimes(1);
+    expect(onAddTools).toHaveBeenCalledTimes(1);
   });
 
   it('shows the JSON textarea plus an Auto/Required picker once tools are added', async () => {
-    renderButton({ toolAdded: true, toolChoice: 'auto' });
+    renderButton({ toolsAdded: true, toolChoice: 'auto' });
     await openDrawer();
     expect(screen.getByLabelText('JSON Tool Definitions')).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Auto' })).toBeChecked();
@@ -95,14 +95,14 @@ describe('ParametersButton', () => {
     expect(screen.queryByRole('button', { name: 'Add tools' })).not.toBeInTheDocument();
   });
 
-  it('fires onRemoveTool when the Remove tools button is clicked', async () => {
-    const { onRemoveTool } = renderButton({ toolAdded: true });
+  it('fires onRemoveTools when the Remove tools button is clicked', async () => {
+    const { onRemoveTools } = renderButton({ toolsAdded: true });
     await openDrawer();
     await userEvent.click(screen.getByRole('button', { name: 'Remove tools' }));
-    expect(onRemoveTool).toHaveBeenCalledTimes(1);
+    expect(onRemoveTools).toHaveBeenCalledTimes(1);
   });
 
-  it('describes the add-tool flow in the Tools info popover', async () => {
+  it('describes the add-tools flow in the Tools info popover', async () => {
     renderButton();
     await openDrawer();
     await userEvent.click(screen.getByRole('button', { name: /about tool definitions/i }));

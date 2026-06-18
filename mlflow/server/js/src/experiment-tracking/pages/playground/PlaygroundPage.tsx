@@ -41,7 +41,7 @@ const PlaygroundPage = () => {
   const [toolsText, setToolsText] = useState<string>('');
   // Whether the user has added tools. When false, the Tools section shows only
   // an "Add tools" button and neither `tools` nor `tool_choice` is sent.
-  const [toolAdded, setToolAdded] = useState<boolean>(false);
+  const [toolsAdded, setToolsAdded] = useState<boolean>(false);
   const [toolChoice, setToolChoice] = useState<ToolChoice>('auto');
   const [responseFormatType, setResponseFormatType] = useState<ResponseFormatType>('text');
   const [responseFormatSchemaText, setResponseFormatSchemaText] = useState<string>('');
@@ -97,13 +97,13 @@ const PlaygroundPage = () => {
     setSavedToast({ name, version });
   };
 
-  const handleAddTool = () => {
-    setToolAdded(true);
+  const handleAddTools = () => {
+    setToolsAdded(true);
     setToolChoice('auto');
   };
 
-  const handleRemoveTool = () => {
-    setToolAdded(false);
+  const handleRemoveTools = () => {
+    setToolsAdded(false);
     setToolsText('');
     setToolChoice('auto');
   };
@@ -160,7 +160,7 @@ const PlaygroundPage = () => {
         }),
       );
     }
-    if (toolAdded) {
+    if (toolsAdded) {
       if (isToolsValueEmpty(toolsText)) {
         blockers.push(
           intl.formatMessage({
@@ -206,7 +206,7 @@ const PlaygroundPage = () => {
       );
     }
     return blockers;
-  }, [endpointName, messages, toolAdded, toolsText, toolsError, responseFormatSchemaError, variables, intl]);
+  }, [endpointName, messages, toolsAdded, toolsText, toolsError, responseFormatSchemaError, variables, intl]);
 
   const canSubmit = submitBlockers.length === 0 && !isLoading;
 
@@ -214,7 +214,7 @@ const PlaygroundPage = () => {
     if (!canSubmit) {
       return;
     }
-    const tools = toolAdded && toolsText.trim() ? (JSON.parse(toolsText) as unknown[]) : undefined;
+    const tools = toolsAdded && toolsText.trim() ? (JSON.parse(toolsText) as unknown[]) : undefined;
     let response_format: ResponseFormat | undefined;
     if (responseFormatType === 'json_object') {
       response_format = { type: 'json_object' };
@@ -276,9 +276,9 @@ const PlaygroundPage = () => {
         toolsText={toolsText}
         onToolsChange={setToolsText}
         toolsError={toolsError}
-        toolAdded={toolAdded}
-        onAddTool={handleAddTool}
-        onRemoveTool={handleRemoveTool}
+        toolsAdded={toolsAdded}
+        onAddTools={handleAddTools}
+        onRemoveTools={handleRemoveTools}
         toolChoice={toolChoice}
         onToolChoiceChange={setToolChoice}
         responseFormatType={responseFormatType}
