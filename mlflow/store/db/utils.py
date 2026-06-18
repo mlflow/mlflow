@@ -64,15 +64,19 @@ def _get_package_dir():
 
 
 def _all_tables_exist(engine):
-    # Check if all ORM-defined tables exist in the database.
-    # Derived from Base.metadata.tables so that newly added ORM models are
-    # automatically included without requiring a manual update here.
-    # Using issubset() instead of equality so that additional tables added by migrations
-    # don't cause this check to fail. This prevents unnecessary calls to _initialize_tables
-    # which can cause migration errors like "Can't locate revision identified by 'xxx'".
-    expected_tables = set(Base.metadata.tables)
+    # Check if all ORM-defined tables exist.
+    # For a database that already has alembic revision tracking, use Base.metadata.tables.
+    # For a fresh/empty database where alembic hasn't run yet, use InitialBase.metadata.tables
+    # to avoid falsely considering a partial 3.7.0 schema as "complete" when new ORM tables
+    # from 3.8.x are expected but don't exist yet.
+    inspector = sqlalchemy.inspect(engine)
+    has_alembic = any(t.startswith("alembic_") for t in inspector.get_table_names())
+    if has_alembic:
+        expected_tables = set(Base.metadata.tables)
+    else:
+        expected_tables = set(InitialBase.metadata.tables)
     actual_tables = {
-        t for t in sqlalchemy.inspect(engine).get_table_names() if not t.startswith("alembic_")
+        t for t in inspector.get_table_names() if not t.startswith("alembic_")
     }
     return expected_tables.issubset(actual_tables)
 
