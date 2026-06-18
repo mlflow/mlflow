@@ -343,6 +343,7 @@ def test_setup_databricks_threads_profile_into_tracking_uri(tmp_git_repo: Path):
         ("http://localhost:5000", True),
         ("localhost:5000", True),
         ("http://127.0.0.2:8080", True),
+        ("http://[::1]:5000", True),
         ("http://example.com:5000", False),
         ("https://my-workspace.databricks.com", False),
         ("databricks", False),
@@ -366,7 +367,7 @@ def test_setup_configures_assistant_when_accepted(
         mock.patch("mlflow.agent.setup.cli._record_event") as mock_record,
     ):
         result = CliRunner().invoke(
-            setup, ["--agent", "claude", "--print"], input="2\n3\nhttp://localhost:5001\ny\n"
+            setup, ["--agent", "claude", "--print"], input="2\n3\nhttp://localhost:5001\ny\ny\n"
         )
     assert result.exit_code == 0, result.stderr
     assert "Enabled the MLflow Assistant (Claude Code)" in result.stderr
@@ -399,11 +400,61 @@ def test_setup_assistant_maps_codex_to_codex_provider(
         mock.patch("mlflow.agent.setup.cli.install_skills", return_value=[]) as mock_install,
     ):
         result = CliRunner().invoke(
-            setup, ["--agent", "codex", "--print"], input="2\n3\nhttp://127.0.0.1:5001\ny\n"
+            setup, ["--agent", "codex", "--print"], input="2\n3\nhttp://127.0.0.1:5001\ny\ny\n"
         )
     assert result.exit_code == 0, result.stderr
     mock_install.assert_called_once_with(Path.home() / ".codex" / "skills")
     assert json.loads(config_path.read_text())["providers"]["codex"]["selected"] is True
+
+
+def test_setup_assistant_preserves_existing_config(
+    tmp_git_repo: Path, monkeypatch: pytest.MonkeyPatch
+):
+    config_path = tmp_git_repo / "assistant" / "config.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(
+        json.dumps({
+            "providers": {
+                "claude_code": {
+                    "model": "claude-sonnet-4-x",
+                    "selected": False,
+                    "skills": {"type": "project"},
+                }
+            }
+        })
+    )
+    monkeypatch.setattr("mlflow.assistant.config.CONFIG_PATH", config_path)
+    with (
+        mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"),
+        mock.patch("mlflow.agent.setup.cli.install_skills", return_value=[]),
+    ):
+        result = CliRunner().invoke(
+            setup, ["--agent", "claude", "--print"], input="2\n3\nhttp://localhost:5001\ny\ny\n"
+        )
+    assert result.exit_code == 0, result.stderr
+    assert "kept your existing configuration" in result.stderr
+
+    provider = json.loads(config_path.read_text())["providers"]["claude_code"]
+    assert provider["selected"] is True
+    assert provider["model"] == "claude-sonnet-4-x"
+    assert provider["skills"]["type"] == "project"
+
+
+def test_setup_assistant_skips_skill_install_when_declined(
+    tmp_git_repo: Path, monkeypatch: pytest.MonkeyPatch
+):
+    config_path = tmp_git_repo / "assistant" / "config.json"
+    monkeypatch.setattr("mlflow.assistant.config.CONFIG_PATH", config_path)
+    with (
+        mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"),
+        mock.patch("mlflow.agent.setup.cli.install_skills") as mock_install,
+    ):
+        result = CliRunner().invoke(
+            setup, ["--agent", "claude", "--print"], input="2\n3\nhttp://localhost:5001\ny\nn\n"
+        )
+    assert result.exit_code == 0, result.stderr
+    mock_install.assert_not_called()
+    assert json.loads(config_path.read_text())["providers"]["claude_code"]["selected"] is True
 
 
 def test_setup_skips_assistant_when_declined(tmp_git_repo: Path, monkeypatch: pytest.MonkeyPatch):

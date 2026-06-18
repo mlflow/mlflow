@@ -107,15 +107,21 @@ def _is_localhost_tracking_uri(tracking_uri: str) -> bool:
     """Whether the localhost-only Assistant API can reach this tracking server."""
     parsed = urlparse(tracking_uri if "://" in tracking_uri else f"http://{tracking_uri}")
     host = (parsed.hostname or "").lower()
-    return host == "localhost" or host.startswith("127.")
+    return host in ("localhost", "::1") or host.startswith("127.")
 
 
 def _offer_assistant_setup(agent: AgentTool, tracking_uri: str) -> bool | None:
     """Optionally select `agent` as the in-app MLflow Assistant provider.
 
-    Installs global skills for the matching provider and selects it in the Assistant
-    config. Only offered for agents that have an Assistant provider and when the
-    tracking server is reachable from localhost (the Assistant API is localhost-only).
+    Selects the matching provider in the Assistant config and offers to install its
+    skills into the global user directory. Only offered for agents that have an
+    Assistant provider and when the tracking server is reachable from localhost (the
+    Assistant API is localhost-only). An existing provider configuration is preserved
+    (model and skills location are left untouched); only the selection is updated.
+
+    Skills are installed globally because `agent setup` does not create an
+    experiment->path mapping, and the in-app Assistant resolves project-level skills
+    from that mapping; a project-level install would therefore not be discovered.
 
     Returns None when the Assistant isn't applicable (no matching provider or the
     tracking server isn't reachable from localhost), False when offered but declined,
@@ -136,18 +142,31 @@ def _offer_assistant_setup(agent: AgentTool, tracking_uri: str) -> bool | None:
     ):
         return False
 
-    skills_dest = Path.home() / target.skills_subdir
-    installed = install_skills(skills_dest)
     config = AssistantConfig.load()
-    config.set_provider(target.config_name, model="default")
-    config.providers[target.config_name].skills = SkillsConfig(type="global")
+    if existing := config.providers.get(target.config_name):
+        # Preserve the user's existing model and skills location; only select it.
+        config.set_provider(target.config_name, model=existing.model)
+        click.secho(
+            f"Selected {agent.display_name} as the MLflow Assistant provider "
+            "(kept your existing configuration).",
+            fg="green",
+            err=True,
+        )
+    else:
+        config.set_provider(target.config_name, model="default")
+        config.providers[target.config_name].skills = SkillsConfig(type="global")
+        click.secho(f"Enabled the MLflow Assistant ({agent.display_name}).", fg="green", err=True)
     config.save()
-    click.secho(
-        f"Enabled the MLflow Assistant ({agent.display_name}); "
-        f"installed {len(installed)} skill(s) to {skills_dest}.",
-        fg="green",
+
+    skills_dest = Path.home() / target.skills_subdir
+    if click.confirm(
+        click.style(f"Install MLflow skills to {skills_dest}?", fg="cyan", bold=True),
+        default=True,
         err=True,
-    )
+    ):
+        installed = install_skills(skills_dest)
+        click.secho(f"Installed {len(installed)} skill(s) to {skills_dest}.", fg="green", err=True)
+
     return True
 
 
