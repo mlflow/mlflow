@@ -13,7 +13,7 @@ const TEMPLATE_VARIABLE_PATTERN = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][
 export const extractTemplateVariables = (messages: ChatMessage[]): string[] => {
   const names: string[] = [];
   for (const message of messages) {
-    const matches = message.content.matchAll(TEMPLATE_VARIABLE_PATTERN);
+    const matches = (message.content ?? '').matchAll(TEMPLATE_VARIABLE_PATTERN);
     for (const match of matches) {
       names.push(match[1]);
     }
@@ -30,7 +30,7 @@ export const extractTemplateVariables = (messages: ChatMessage[]): string[] => {
 export const substituteVariables = (messages: ChatMessage[], values: Record<string, string>): ChatMessage[] => {
   return messages.map((message) => ({
     ...message,
-    content: message.content.replace(TEMPLATE_VARIABLE_PATTERN, (_, name: string) => values[name] ?? ''),
+    content: (message.content ?? '').replace(TEMPLATE_VARIABLE_PATTERN, (_, name: string) => values[name] ?? ''),
   }));
 };
 

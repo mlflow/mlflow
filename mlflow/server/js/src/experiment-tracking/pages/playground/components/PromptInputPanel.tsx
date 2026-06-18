@@ -24,6 +24,17 @@ const ROLE_OPTIONS: ChatRole[] = ['system', 'user', 'assistant'];
 
 const roleLabel = (role: ChatRole): string => role[0].toUpperCase() + role.slice(1);
 
+const formatToolCallArguments = (args?: string): string => {
+  if (!args) {
+    return '';
+  }
+  try {
+    return JSON.stringify(JSON.parse(args), null, 2);
+  } catch {
+    return args;
+  }
+};
+
 interface Props {
   messages: ConversationMessage[];
   onChange: (messages: ConversationMessage[]) => void;
@@ -101,7 +112,31 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
                   overflow: 'auto',
                 }}
               >
-                <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+                {message.content ? <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer> : null}
+                {message.tool_calls?.map((toolCall, toolCallIndex) => (
+                  <div
+                    key={toolCall.id ?? toolCallIndex}
+                    css={{
+                      marginTop: message.content || toolCallIndex > 0 ? theme.spacing.sm : 0,
+                    }}
+                  >
+                    {toolCall.function?.name && <Typography.Text bold>{toolCall.function.name}</Typography.Text>}
+                    {toolCall.function?.arguments && (
+                      <pre
+                        css={{
+                          margin: `${theme.spacing.xs}px 0 0`,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-word',
+                        }}
+                      >
+                        {formatToolCallArguments(toolCall.function.arguments)}
+                      </pre>
+                    )}
+                  </div>
+                ))}
+                {!message.content && !message.tool_calls?.length && (
+                  <GenAIMarkdownRenderer>(no text content)</GenAIMarkdownRenderer>
+                )}
               </div>
               {message.usage && (
                 <Typography.Hint>
@@ -219,7 +254,7 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
               </div>
               <TextArea
                 componentId="mlflow.playground.prompt_input.content"
-                value={message.content}
+                value={message.content ?? ''}
                 onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
                   updateMessage(index, { content: event.target.value })
                 }

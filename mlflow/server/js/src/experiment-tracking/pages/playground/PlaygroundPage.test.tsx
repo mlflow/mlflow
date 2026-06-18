@@ -539,6 +539,192 @@ describe('PlaygroundPage', () => {
     expect(screen.getByRole('button', { name: /clear conversation/i })).toBeEnabled();
   });
 
+  it('renders tool calls without showing the empty text fallback', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: 'call_1',
+                type: 'function',
+                function: { name: 'get_weather', arguments: '{"city":"SF"}' },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Weather?');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('get_weather')).toBeInTheDocument();
+    });
+    expect(screen.getByText(/"city": "SF"/)).toBeInTheDocument();
+    expect(screen.queryByText('(no text content)')).not.toBeInTheDocument();
+  });
+
+  it('renders assistant text together with tool calls', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: 'Checking the weather.',
+            tool_calls: [
+              {
+                id: 'call_1',
+                type: 'function',
+                function: { name: 'get_weather', arguments: '{"city":"SF"}' },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Weather?');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Checking the weather.')).toBeInTheDocument();
+    });
+    expect(screen.getByText('get_weather')).toBeInTheDocument();
+    expect(screen.getByText(/"city": "SF"/)).toBeInTheDocument();
+  });
+
+  it('renders multiple tool calls in one assistant response', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: 'call_1',
+                type: 'function',
+                function: { name: 'get_weather', arguments: '{"city":"SF"}' },
+              },
+              {
+                id: 'call_2',
+                type: 'function',
+                function: { name: 'get_time', arguments: '{"timezone":"America/Los_Angeles"}' },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Weather and time?');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('get_weather')).toBeInTheDocument();
+    });
+    expect(screen.getByText('get_time')).toBeInTheDocument();
+  });
+
+  it('strips tool calls from outbound follow-up conversation history', async () => {
+    const chatCompletionSpy = jest
+      .spyOn(PlaygroundApi, 'chatCompletion')
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: null,
+              tool_calls: [
+                {
+                  id: 'call_1',
+                  type: 'function',
+                  function: { name: 'get_weather', arguments: '{"city":"SF"}' },
+                },
+              ],
+            },
+            finish_reason: 'tool_calls',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [{ index: 0, message: { role: 'assistant', content: 'Done.' }, finish_reason: 'stop' }],
+      });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Weather?');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('get_weather')).toBeInTheDocument();
+    });
+
+    const composers = screen.getAllByPlaceholderText('Type a message');
+    await userEvent.type(composers[1], 'Thanks');
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(chatCompletionSpy).toHaveBeenCalledTimes(2);
+    });
+    expect(chatCompletionSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: 'user', content: 'Weather?' },
+          { role: 'assistant', content: '' },
+          { role: 'user', content: 'Thanks' },
+        ],
+      }),
+    );
+  });
+
+  it('renders the empty text fallback when assistant returns no content or tool calls', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: '' }, finish_reason: 'stop' }],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('(no text content)')).toBeInTheDocument();
+    });
+  });
+
   it('sends the full conversation history on the follow-up submit, stripping per-turn usage', async () => {
     const chatCompletionSpy = jest
       .spyOn(PlaygroundApi, 'chatCompletion')

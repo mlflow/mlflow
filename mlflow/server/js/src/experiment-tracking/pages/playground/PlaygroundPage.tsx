@@ -138,7 +138,7 @@ const PlaygroundPage = () => {
         }),
       );
     }
-    if (messages.length === 0 || messages.some((m) => m.content.trim().length === 0)) {
+    if (messages.length === 0 || messages.some((m) => (m.content ?? '').trim().length === 0 && !m.tool_calls?.length)) {
       blockers.push(
         intl.formatMessage({
           defaultMessage: 'Fill in every message',
@@ -214,6 +214,7 @@ const PlaygroundPage = () => {
         },
       };
     }
+    // Multi-turn tool conversations that forward tool_calls plus tool results are a known follow-up.
     const wireMessages = substituteVariables(messages, variables).map(({ role, content }) => ({ role, content }));
     mutate(
       {
@@ -234,9 +235,11 @@ const PlaygroundPage = () => {
         onSuccess: (response) => {
           const assistant = response.choices?.[0]?.message;
           if (!assistant) return;
+          const hasToolCalls = Boolean(assistant.tool_calls?.length);
           const appended: ConversationMessage = {
             ...assistant,
-            content: assistant.content || '(no text content)',
+            content: assistant.content ?? '',
+            ...(hasToolCalls && { tool_calls: assistant.tool_calls }),
             usage: response.usage,
           };
           setMessages((current) => [...current, appended, { ...EMPTY_USER_MESSAGE }]);

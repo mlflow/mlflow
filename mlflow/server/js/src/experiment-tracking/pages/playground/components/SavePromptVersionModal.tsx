@@ -124,7 +124,8 @@ export const SavePromptVersionModal = ({
       effectiveTarget === 'existing' && loadedPromptType === PROMPT_TYPE_TEXT && isSingleUserMessage
         ? PROMPT_TYPE_TEXT
         : PROMPT_TYPE_CHAT;
-    const content = promptType === PROMPT_TYPE_TEXT ? saveableMessages[0].content : JSON.stringify(saveableMessages);
+    const content =
+      promptType === PROMPT_TYPE_TEXT ? (saveableMessages[0].content ?? '') : JSON.stringify(saveableMessages);
 
     mutate(
       {
@@ -336,7 +337,9 @@ export const SavePromptVersionModal = ({
                     <Typography.Text bold css={{ minWidth: 72 }}>
                       {m.role}
                     </Typography.Text>
-                    <Typography.Text color="secondary">{truncate(m.content, PREVIEW_CONTENT_CAP)}</Typography.Text>
+                    <Typography.Text color="secondary">
+                      {truncate(m.content ?? '', PREVIEW_CONTENT_CAP)}
+                    </Typography.Text>
                   </div>
                 ))}
               </div>

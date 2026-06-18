@@ -303,7 +303,9 @@ export const PromptRegistryPicker = ({ visible, onCancel, onLoad }: Props) => {
                         <Typography.Text bold css={{ minWidth: 72 }}>
                           {m.role}
                         </Typography.Text>
-                        <Typography.Text color="secondary">{truncate(m.content, PREVIEW_CONTENT_CAP)}</Typography.Text>
+                        <Typography.Text color="secondary">
+                          {truncate(m.content ?? '', PREVIEW_CONTENT_CAP)}
+                        </Typography.Text>
                       </div>
                     ))
                   )}
