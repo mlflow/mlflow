@@ -4,10 +4,12 @@ description: Trace Omnigent agent sessions with MLflow for full observability in
 sidebar_position: 10
 sidebar_label: Omnigent
 keywords: [omnigent, tracing, mlflow, ai agent, opentelemetry, agent orchestration]
+image: /images/llms/tracing/omnigent-tracing.png
 ---
 
 import { Users, BookOpen, Scale } from "lucide-react";
 
+import ImageBox from "@site/src/components/ImageBox";
 import StepHeader from "@site/src/components/StepHeader";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
@@ -16,7 +18,9 @@ import TabItem from "@theme/TabItem";
 
 # Tracing Omnigent
 
-[MLflow Tracing](/genai/tracing) provides automatic tracing for [Omnigent](https://github.com/anthropics/omnigent), a multi-harness AI agent orchestration platform. Omnigent natively emits [OpenTelemetry](https://opentelemetry.io/) traces via MLflow's tracing SDK, so after setup MLflow will automatically capture traces of your Omnigent agent sessions including:
+<ImageBox src="/images/llms/tracing/omnigent-tracing.png" alt="Omnigent Traces in MLflow UI" />
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing for [Omnigent](https://omnigent.ai/), a multi-harness AI agent orchestration platform. Omnigent natively emits [OpenTelemetry](https://opentelemetry.io/) traces via MLflow's tracing SDK, so after setup MLflow will automatically capture traces of your Omnigent agent sessions including:
 
 - Agent turns with user prompts and assistant responses
 - LLM calls with model name, token usage (input, output, cache read/write), and latency
