@@ -571,7 +571,7 @@ describe('PlaygroundPage', () => {
     await waitFor(() => {
       expect(screen.getByText('get_weather')).toBeInTheDocument();
     });
-    expect(screen.getByText(/"city": "SF"/)).toBeInTheDocument();
+    expect(screen.getByText('{"city":"SF"}')).toBeInTheDocument();
     expect(screen.queryByText('(no text content)')).not.toBeInTheDocument();
   });
 
@@ -608,7 +608,50 @@ describe('PlaygroundPage', () => {
       expect(screen.getByText('Checking the weather.')).toBeInTheDocument();
     });
     expect(screen.getByText('get_weather')).toBeInTheDocument();
-    expect(screen.getByText(/"city": "SF"/)).toBeInTheDocument();
+    expect(screen.getByText('{"city":"SF"}')).toBeInTheDocument();
+  });
+
+  it('renders tool names in the muted footer with token usage and raw arguments in the body', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: 'call_1',
+                type: 'function',
+                function: {
+                  name: 'search_jobs',
+                  arguments: '{"currency":"USD","minimum_salary":4000,"maximum_salary":6000,"pay_period":"MONTH"}',
+                },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+        },
+      ],
+      usage: { prompt_tokens: 340, completion_tokens: 40, total_tokens: 380 },
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Find jobs');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Tokens — input: 340, output: 40, total: 380')).toBeInTheDocument();
+    });
+    expect(screen.getByText('search_jobs').tagName.toLowerCase()).toBe('span');
+    expect(
+      screen.getByText('{"currency":"USD","minimum_salary":4000,"maximum_salary":6000,"pay_period":"MONTH"}'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/"currency": "USD"/)).not.toBeInTheDocument();
   });
 
   it('renders multiple tool calls in one assistant response', async () => {
@@ -646,9 +689,10 @@ describe('PlaygroundPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('get_weather')).toBeInTheDocument();
+      expect(screen.getByText('get_weather, get_time')).toBeInTheDocument();
     });
-    expect(screen.getByText('get_time')).toBeInTheDocument();
+    expect(screen.getByText('{"city":"SF"}')).toBeInTheDocument();
+    expect(screen.getByText('{"timezone":"America/Los_Angeles"}')).toBeInTheDocument();
   });
 
   it('strips tool calls from outbound follow-up conversation history', async () => {
