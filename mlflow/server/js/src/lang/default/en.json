@@ -63,6 +63,10 @@
     "defaultMessage": "Use these code examples to call your endpoint. Choose between unified APIs for seamless model switching or passthrough APIs for provider-specific features.",
     "description": "Endpoint usage modal description"
   },
+  "+IMUVk": {
+    "defaultMessage": "{count, plural, one {# tool call} other {# tool calls}}",
+    "description": "Count of tool calls the assistant made in a turn"
+  },
   "+LLlvi": {
     "defaultMessage": "Source Run",
     "description": "Label name for source run metadata in model version page"
@@ -846,6 +850,10 @@
   "2YYEux": {
     "defaultMessage": "Hours",
     "description": "Trace archival retention unit option for hours"
+  },
+  "2ZCtJj": {
+    "defaultMessage": "Completed",
+    "description": "Status for a finished run of assistant tool calls"
   },
   "2a/rR8": {
     "defaultMessage": "Cancel",
@@ -2259,6 +2267,10 @@
     "defaultMessage": "Filter string (optional)",
     "description": "Section header for filter string"
   },
+  "AMyU4u": {
+    "defaultMessage": "Failed",
+    "description": "Status for a failed run of assistant tool calls"
+  },
   "AOoWxS": {
     "defaultMessage": "Error",
     "description": "Title for error fallback component in prompts management UI"
@@ -3502,6 +3514,10 @@
   "Hq/vjk": {
     "defaultMessage": "All",
     "description": "Evaluation review > sidebar list of evaluation results > filter control > option for filtering evaluation results with no filter"
+  },
+  "Hr6QZk": {
+    "defaultMessage": "Running",
+    "description": "Status for an in-progress run of assistant tool calls"
   },
   "HrDWRj": {
     "defaultMessage": "Compare",

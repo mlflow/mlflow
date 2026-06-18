@@ -30,7 +30,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
-import { ToolCallCard } from './ToolCallCard';
+import { ToolCallGroup, type ToolCallPart } from './ToolCallCard';
 import type { AssistantPart, ChatMessage } from './types';
 import { AssistantSetupWizard } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
@@ -66,21 +66,57 @@ const formatCostUsd = (cost: number): string =>
     maximumFractionDigits: cost < 1 ? 4 : 2,
   }).format(cost);
 
+export type MessagePartGroup = { kind: 'text'; text: string } | { kind: 'tools'; calls: ToolCallPart[] };
+
+/**
+ * Coalesces an ordered part list into render groups, collapsing each maximal run of
+ * adjacent tool calls into a single `tools` group while preserving interleaving order.
+ */
+export const groupParts = (parts: AssistantPart[]): MessagePartGroup[] => {
+  const groups: MessagePartGroup[] = [];
+  for (const part of parts) {
+    if (part.type === 'text') {
+      groups.push({ kind: 'text', text: part.text });
+      continue;
+    }
+    const last = groups[groups.length - 1];
+    if (last?.kind === 'tools') {
+      last.calls.push(part);
+    } else {
+      groups.push({ kind: 'tools', calls: [part] });
+    }
+  }
+  return groups;
+};
+
 /**
  * Renders an assistant turn's ordered parts (text + tool calls). Falls back to plain
  * `content` for messages that predate the parts model.
  */
 export const AssistantMessageBody = ({ message }: { message: ChatMessage }) => {
+  const { theme } = useDesignSystemTheme();
   const parts: AssistantPart[] = message.parts ?? [{ type: 'text', text: message.content }];
+  // The markdown renderer leaves `---` as a default <hr> and headings with tight margins,
+  // so model-generated section breaks read cramped. Give rules and headings room to breathe.
+  const markdownSpacing = {
+    '& hr': {
+      margin: `${theme.spacing.lg}px 0`,
+      border: 'none',
+      borderTop: `1px solid ${theme.colors.border}`,
+    },
+    '& h1, & h2, & h3, & h4': { marginTop: theme.spacing.md },
+  };
   return (
     <>
-      {parts.map((part, i) =>
-        part.type === 'text' ? (
-          part.text ? (
-            <GenAIMarkdownRenderer key={`text-${i}`}>{part.text}</GenAIMarkdownRenderer>
+      {groupParts(parts).map((group, i) =>
+        group.kind === 'text' ? (
+          group.text ? (
+            <div key={`text-${i}`} css={markdownSpacing}>
+              <GenAIMarkdownRenderer>{group.text}</GenAIMarkdownRenderer>
+            </div>
           ) : null
         ) : (
-          <ToolCallCard key={part.toolUseId} part={part} />
+          <ToolCallGroup key={group.calls[0].toolUseId} parts={group.calls} />
         ),
       )}
     </>

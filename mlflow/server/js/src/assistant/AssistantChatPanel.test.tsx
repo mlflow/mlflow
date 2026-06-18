@@ -3,8 +3,8 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { AssistantChatPanel, AssistantMessageBody } from './AssistantChatPanel';
-import type { ChatMessage } from './types';
+import { AssistantChatPanel, AssistantMessageBody, groupParts } from './AssistantChatPanel';
+import type { AssistantPart, ChatMessage } from './types';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 
 jest.mock('../telemetry/hooks/useLogTelemetryEvent', () => ({
@@ -152,8 +152,31 @@ const baseAssistantMessage = {
   timestamp: new Date(),
 };
 
+describe('groupParts', () => {
+  test('coalesces adjacent tool calls while preserving interleaving order', () => {
+    const parts: AssistantPart[] = [
+      { type: 'text', text: 'a' },
+      { type: 'toolCall', toolUseId: 't1', name: 'Bash' },
+      { type: 'toolCall', toolUseId: 't2', name: 'Bash' },
+      { type: 'text', text: 'b' },
+      { type: 'toolCall', toolUseId: 't3', name: 'Read' },
+    ];
+    const groups = groupParts(parts);
+    expect(groups).toEqual([
+      { kind: 'text', text: 'a' },
+      { kind: 'tools', calls: [parts[1], parts[2]] },
+      { kind: 'text', text: 'b' },
+      { kind: 'tools', calls: [parts[4]] },
+    ]);
+  });
+
+  test('returns an empty array unchanged', () => {
+    expect(groupParts([])).toEqual([]);
+  });
+});
+
 describe('AssistantMessageBody', () => {
-  test('renders text and tool-call parts in order', () => {
+  test('renders text parts in order around a collapsed tool-call group', () => {
     renderBody({
       ...baseAssistantMessage,
       content: 'Found it.',
@@ -171,21 +194,27 @@ describe('AssistantMessageBody', () => {
 
     expect(screen.getByText('Let me check.')).toBeInTheDocument();
     expect(screen.getByText('Found it.')).toBeInTheDocument();
+    // Collapsed: the header shows the count + tool name, but the inner card's input detail is hidden.
+    expect(screen.getByText('1 tool call')).toBeInTheDocument();
     expect(screen.getByText('trace_analyse')).toBeInTheDocument();
-    expect(screen.getByText('tr-1 · .data.spans')).toBeInTheDocument();
+    expect(screen.queryByText('tr-1 · .data.spans')).not.toBeInTheDocument();
+  });
+
+  test('expanding the group reveals the inner tool-call cards', async () => {
+    const user = userEvent.setup();
+    renderBody({
+      ...baseAssistantMessage,
+      parts: [{ type: 'toolCall', toolUseId: 't1', name: 'Bash', input: { command: 'mlflow traces search' } }],
+    });
+
+    // The command lives only in the inner card, hidden until the group is expanded.
+    expect(screen.queryByText('mlflow traces search')).not.toBeInTheDocument();
+    await user.click(screen.getByText('1 tool call'));
+    expect(screen.getByText('mlflow traces search')).toBeInTheDocument();
   });
 
   test('falls back to content for legacy messages without parts', () => {
     renderBody({ ...baseAssistantMessage, content: 'legacy answer' });
     expect(screen.getByText('legacy answer')).toBeInTheDocument();
-  });
-
-  test('renders a tool call that has no surrounding text', () => {
-    renderBody({
-      ...baseAssistantMessage,
-      parts: [{ type: 'toolCall', toolUseId: 't1', name: 'Bash', input: { command: 'mlflow traces search' } }],
-    });
-    expect(screen.getByText('Bash')).toBeInTheDocument();
-    expect(screen.getByText('mlflow traces search')).toBeInTheDocument();
   });
 });

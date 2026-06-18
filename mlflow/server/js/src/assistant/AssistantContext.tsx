@@ -14,7 +14,7 @@ import type {
   TokenUsage,
 } from './types';
 import { cancelSession as cancelSessionApi, sendMessageStream, getConfig } from './AssistantService';
-import { useLocalStorage } from '@databricks/web-shared/hooks';
+import { useLocalStorage, useSessionStorage } from '@databricks/web-shared/hooks';
 import { useAssistantPageContextActions } from './AssistantPageContext';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
@@ -75,6 +75,30 @@ const partsToContent = (parts: AssistantPart[]): string =>
     .map((p) => p.text)
     .join('');
 
+const EMPTY_TOKEN_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null };
+// Keep the persisted transcript well under the ~5 MB storage limit.
+const MAX_PERSISTED_BYTES = 1_500_000;
+
+interface PersistedChat {
+  messages: ChatMessage[];
+  sessionId: string | null;
+  tokenUsage: TokenUsage;
+}
+
+/** `timestamp` round-trips through JSON as a string; restore it to a Date on load. */
+export const reviveMessages = (messages: ChatMessage[]): ChatMessage[] =>
+  messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
+
+/** Shrink a transcript to fit storage by dropping the oldest messages under a byte budget. */
+export const trimForStorage = (messages: ChatMessage[], maxBytes: number = MAX_PERSISTED_BYTES): ChatMessage[] => {
+  // Drop the oldest message until under budget, but never drop the last one.
+  let trimmed = messages;
+  while (trimmed.length > 1 && JSON.stringify(trimmed).length > maxBytes) {
+    trimmed = trimmed.slice(1);
+  }
+  return trimmed;
+};
+
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Detect if server is local - memoized since hostname doesn't change
   const isLocalServer = useMemo(() => checkIsLocalServer(), []);
@@ -86,19 +110,22 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     initialValue: false,
   });
 
-  // Chat state
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Conversation - persisted per-tab in sessionStorage so it survives reloads within a
+  // tab but never collides with other tabs (unlike localStorage).
+  const [persistedChat, setPersistedChat] = useSessionStorage<PersistedChat>({
+    key: 'mlflow.assistant.chat',
+    version: 1,
+    initialValue: { messages: [], sessionId: null, tokenUsage: EMPTY_TOKEN_USAGE },
+  });
+
+  // Chat state - seeded once from this tab's persisted conversation on first mount.
+  const [sessionId, setSessionId] = useState<string | null>(persistedChat.sessionId);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => reviveMessages(persistedChat.messages));
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
-  const [tokenUsage, setTokenUsage] = useState<TokenUsage>({
-    promptTokens: 0,
-    completionTokens: 0,
-    totalTokens: 0,
-    costUsd: null,
-  });
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(persistedChat.tokenUsage);
 
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
@@ -265,6 +292,16 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       }
     };
   }, []);
+
+  // Persist the conversation only once a turn has settled (never on the streaming
+  // hot path, which would write to storage on every frame). `reset()` flips back to
+  // the empty state here too, which clears the stored conversation.
+  useEffect(() => {
+    if (isStreaming) {
+      return;
+    }
+    setPersistedChat({ messages: trimForStorage(messages), sessionId, tokenUsage });
+  }, [isStreaming, messages, sessionId, tokenUsage, setPersistedChat]);
 
   const handleStreamError = useCallback((errorMsg: string) => {
     setError(errorMsg);

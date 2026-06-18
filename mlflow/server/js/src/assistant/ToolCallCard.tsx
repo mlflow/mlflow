@@ -3,7 +3,7 @@
  * collapsible card whose header shows the tool name, a status badge, and a one-line
  * input summary, and whose expanded body shows the full input and (truncated) output.
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   Button,
   CheckCircleIcon,
@@ -22,9 +22,6 @@ import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-rende
 
 export type ToolCallPart = Extract<AssistantPart, { type: 'toolCall' }>;
 
-// Input fields, in priority order, used to build the one-line summary in the header.
-const SUMMARY_KEYS = ['command', 'trace_id', 'description', 'file_path'] as const;
-
 // Tool output can be huge (e.g. a full trace); cap what we render in the card.
 const MAX_OUTPUT_CHARS = 4000;
 
@@ -33,18 +30,12 @@ const truncate = (text: string): string =>
     ? `${text.slice(0, MAX_OUTPUT_CHARS)}\n… (truncated, ${text.length - MAX_OUTPUT_CHARS} more chars)`
     : text;
 
-// One-line, human-readable summary of a tool call's input for the header.
+// One-line summary of a tool call's input for the header. Generic across tools: joins the
+// input's string values in order; falls back to compact JSON when there are none.
 const toolInputSummary = (part: ToolCallPart): string => {
   const input = part.input ?? {};
-  const traceId = input['trace_id'];
-  const jqFilter = input['jq_filter'];
-  if (typeof traceId === 'string') {
-    return typeof jqFilter === 'string' && jqFilter ? `${traceId} · ${jqFilter}` : traceId;
-  }
-  for (const key of SUMMARY_KEYS) {
-    const value = input[key];
-    if (typeof value === 'string') return value;
-  }
+  const strings = Object.values(input).filter((v): v is string => typeof v === 'string' && v.length > 0);
+  if (strings.length > 0) return strings.join(' · ');
   const json = JSON.stringify(input);
   return json === '{}' ? '' : json;
 };
@@ -80,6 +71,122 @@ const StatusBadge = ({ status }: { status: ToolCallPart['status'] }) => {
 
 const fencedBlock = (body: string, lang = ''): string => `\`\`\`${lang}\n${body}\n\`\`\``;
 
+// Overall status for a run of tool calls: still running until every call resolves;
+// an error only surfaces once nothing is running.
+export const groupStatus = (parts: ToolCallPart[]): NonNullable<ToolCallPart['status']> => {
+  if (parts.some((p) => (p.status ?? 'running') === 'running')) return 'running';
+  if (parts.some((p) => p.status === 'error')) return 'error';
+  return 'done';
+};
+
+// Deduped, first-appearance-ordered tool names with `×N` when a name repeats,
+// e.g. [load_skill, Bash, Bash] → "load_skill, Bash ×2".
+export const toolNameSummary = (parts: ToolCallPart[]): string => {
+  const counts = new Map<string, number>();
+  for (const part of parts) {
+    counts.set(part.name, (counts.get(part.name) ?? 0) + 1);
+  }
+  return [...counts.entries()].map(([name, n]) => (n > 1 ? `${name} ×${n}` : name)).join(', ');
+};
+
+const GROUP_STATUS_LABEL: Record<NonNullable<ToolCallPart['status']>, ReactNode> = {
+  running: (
+    <FormattedMessage defaultMessage="Running" description="Status for an in-progress run of assistant tool calls" />
+  ),
+  done: <FormattedMessage defaultMessage="Completed" description="Status for a finished run of assistant tool calls" />,
+  error: <FormattedMessage defaultMessage="Failed" description="Status for a failed run of assistant tool calls" />,
+};
+
+/**
+ * Renders a run of consecutive tool calls as one collapsible row: the header shows the
+ * call count, a deduped tool-name summary, and an overall status; expanding reveals the
+ * individual {@link ToolCallCard}s.
+ */
+export const ToolCallGroup = ({ parts }: { parts: ToolCallPart[] }) => {
+  const { theme } = useDesignSystemTheme();
+  const [expanded, setExpanded] = useState(false);
+  const status = groupStatus(parts);
+  const summary = toolNameSummary(parts);
+  const statusColor =
+    status === 'done'
+      ? theme.colors.textValidationSuccess
+      : status === 'error'
+        ? theme.colors.textValidationDanger
+        : theme.colors.textSecondary;
+
+  return (
+    <div css={{ margin: `${theme.spacing.md}px 0` }} aria-label="Tool calls">
+      <div
+        css={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+          cursor: 'pointer',
+          minWidth: 0,
+        }}
+        onClick={() => setExpanded((prev) => !prev)}
+      >
+        <Button
+          componentId="mlflow.assistant.chat_panel.tool_group.expand"
+          size="small"
+          type="tertiary"
+          css={{ flexShrink: 0 }}
+          icon={expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded((prev) => !prev);
+          }}
+        />
+        <WrenchSparkleIcon css={{ fontSize: 14, flexShrink: 0, color: theme.colors.textSecondary }} />
+        <Typography.Text size="sm" color="secondary" bold css={{ flexShrink: 0 }}>
+          <FormattedMessage
+            defaultMessage="{count, plural, one {# tool call} other {# tool calls}}"
+            description="Count of tool calls the assistant made in a turn"
+            values={{ count: parts.length }}
+          />
+        </Typography.Text>
+        {summary && (
+          <Typography.Text
+            size="sm"
+            color="secondary"
+            css={{
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            {summary}
+          </Typography.Text>
+        )}
+        <Typography.Text
+          size="sm"
+          data-testid={`tool-group-status-${status}`}
+          css={{ flexShrink: 0, marginLeft: 'auto', color: statusColor }}
+        >
+          {GROUP_STATUS_LABEL[status]}
+        </Typography.Text>
+      </div>
+
+      {expanded && (
+        <div
+          css={{
+            marginTop: theme.spacing.sm,
+            marginLeft: theme.spacing.xs,
+            paddingLeft: theme.spacing.md,
+            borderLeft: `1px solid ${theme.colors.border}`,
+          }}
+        >
+          {parts.map((part) => (
+            <ToolCallCard key={part.toolUseId} part={part} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const ToolCallCard = ({ part }: { part: ToolCallPart }) => {
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
@@ -87,7 +194,7 @@ export const ToolCallCard = ({ part }: { part: ToolCallPart }) => {
   const inputJson = JSON.stringify(part.input ?? {}, null, 2);
 
   return (
-    <div css={{ margin: `${theme.spacing.xs}px 0` }} aria-label={`Tool call: ${part.name}`}>
+    <div css={{ margin: `${theme.spacing.sm}px 0` }} aria-label={`Tool call: ${part.name}`}>
       <div
         css={{
           display: 'flex',

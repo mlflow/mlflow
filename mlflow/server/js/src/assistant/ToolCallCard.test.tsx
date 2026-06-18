@@ -3,12 +3,19 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { ToolCallCard, type ToolCallPart } from './ToolCallCard';
+import { ToolCallCard, ToolCallGroup, groupStatus, toolNameSummary, type ToolCallPart } from './ToolCallCard';
 
 const renderCard = (part: ToolCallPart) =>
   renderWithIntl(
     <DesignSystemProvider>
       <ToolCallCard part={part} />
+    </DesignSystemProvider>,
+  );
+
+const renderGroup = (parts: ToolCallPart[]) =>
+  renderWithIntl(
+    <DesignSystemProvider>
+      <ToolCallGroup parts={parts} />
     </DesignSystemProvider>,
   );
 
@@ -75,5 +82,68 @@ describe('ToolCallCard', () => {
 
     await user.click(screen.getByText('Bash'));
     await waitFor(() => expect(document.body.textContent).toContain('truncated, 1000 more chars'));
+  });
+});
+
+describe('groupStatus', () => {
+  test('is running while any call is unresolved', () => {
+    expect(groupStatus([toolCall({ status: 'done' }), toolCall({ status: 'running' })])).toBe('running');
+    expect(groupStatus([toolCall({ status: undefined })])).toBe('running');
+  });
+
+  test('is error when something failed and nothing is still running', () => {
+    expect(groupStatus([toolCall({ status: 'done' }), toolCall({ status: 'error' })])).toBe('error');
+  });
+
+  test('is done when every call resolved successfully', () => {
+    expect(groupStatus([toolCall({ status: 'done' }), toolCall({ status: 'done' })])).toBe('done');
+  });
+});
+
+describe('toolNameSummary', () => {
+  test('dedupes repeated names with a count, preserving first-seen order', () => {
+    const parts = [toolCall({ name: 'load_skill' }), toolCall({ name: 'Bash' }), toolCall({ name: 'Bash' })];
+    expect(toolNameSummary(parts)).toBe('load_skill, Bash ×2');
+  });
+
+  test('omits the count for a single occurrence', () => {
+    expect(toolNameSummary([toolCall({ name: 'Bash' })])).toBe('Bash');
+  });
+});
+
+describe('ToolCallGroup', () => {
+  const calls = [
+    toolCall({ toolUseId: 't1', name: 'load_skill', status: 'done', result: 'a' }),
+    toolCall({ toolUseId: 't2', name: 'Bash', status: 'done', result: 'b' }),
+    toolCall({ toolUseId: 't3', name: 'Bash', status: 'done', result: 'c' }),
+  ];
+
+  test('renders the count, name summary, and a status label', () => {
+    renderGroup(calls);
+    expect(screen.getByText('3 tool calls')).toBeInTheDocument();
+    expect(screen.getByText('load_skill, Bash ×2')).toBeInTheDocument();
+    expect(screen.getByTestId('tool-group-status-done')).toBeInTheDocument();
+  });
+
+  test('treats a missing status as running', () => {
+    renderGroup([toolCall({ status: undefined })]);
+    expect(screen.getByTestId('tool-group-status-running')).toBeInTheDocument();
+  });
+
+  test('surfaces a failed call in the header status', () => {
+    renderGroup([toolCall({ status: 'done' }), toolCall({ toolUseId: 't2', status: 'error' })]);
+    expect(screen.getByTestId('tool-group-status-error')).toBeInTheDocument();
+  });
+
+  test('is collapsed by default and expands to reveal the inner cards', async () => {
+    const user = userEvent.setup();
+    renderGroup(calls);
+
+    expect(screen.queryByLabelText('Tool call: load_skill')).not.toBeInTheDocument();
+
+    await user.click(screen.getByText('3 tool calls'));
+
+    expect(screen.getByLabelText('Tool call: load_skill')).toBeInTheDocument();
+    expect(screen.getAllByLabelText('Tool call: Bash')).toHaveLength(2);
   });
 });
