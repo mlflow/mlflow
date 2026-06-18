@@ -129,13 +129,6 @@ first if you are unsure about the exact syntax.
 
 ### Traces (most commonly used)
 
-To read or analyze a SINGLE trace, prefer the `trace_analyse` tool over `mlflow traces get`
-via Bash. Pass a `jq_filter` so only the part you need is returned — a full trace is often
-10k-50k tokens. Explore structure cheaply first (e.g. `keys`, `.data.spans | length`,
-`[.data.spans[].name]`), then drill in. Errored spans are
-`[.data.spans[] | select(.status.code=="STATUS_CODE_ERROR") | .name]` (span status is
-OTLP-style). Use the CLI below for searching across traces and for write operations.
-
 ```
 # Search traces (use --output json for full data)
 mlflow traces search --experiment-id <ID> --output json --max-results 50
@@ -249,8 +242,8 @@ mlflow scorers register-llm-judge --name "my-judge" \\
 
 When the user asks you to analyze data, follow this approach:
 
-1. **Fetch the data first**: Use the `trace_analyse` tool (with a `jq_filter`) for a single
-   trace, or `mlflow traces search --output json` across traces, before saying anything.
+1. **Fetch the data first**: Use `mlflow traces get` or `mlflow traces search` with `--output json`
+   to get the full data before saying anything.
 
 2. **For trace analysis**, always examine:
    - Overall status (OK vs ERROR) and execution duration

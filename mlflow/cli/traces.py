@@ -82,7 +82,6 @@ from mlflow.tracing.assessment import (
     log_feedback as _log_feedback,
 )
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.utils import apply_jq_to_trace
 from mlflow.utils.jsonpath_utils import (
     filter_json_by_fields,
     jsonpath_extract_values,
@@ -385,16 +384,6 @@ def search_traces(
     "If not specified, returns all trace data.",
 )
 @click.option(
-    "--jq",
-    "jq_filter",
-    type=click.STRING,
-    help="Apply a jq filter to the trace JSON and print only the result. "
-    "Requires the 'jq' command (install with: brew install jq). More expressive than "
-    "--extract-fields (supports predicate filters and reshaping). Span status is "
-    'OTLP-style (e.g. status.code == "STATUS_CODE_ERROR"). '
-    "Takes precedence over --extract-fields if both are given.",
-)
-@click.option(
     "--verbose",
     is_flag=True,
     help="Show all available fields in error messages when invalid fields are specified.",
@@ -402,7 +391,6 @@ def search_traces(
 def get_trace(
     trace_id: str,
     extract_fields: str | None = None,
-    jq_filter: str | None = None,
     verbose: bool = False,
 ) -> None:
     """
@@ -417,19 +405,7 @@ def get_trace(
     # Get specific fields only
     mlflow traces get --trace-id tr-1234567890abcdef \\
         --extract-fields "info.trace_id,info.assessments.*,data.spans.*.name"
-
-    \b
-    # Filter with a jq expression (requires `jq`). Span status is OTLP-style.
-    mlflow traces get --trace-id tr-1234567890abcdef \\
-        --jq '[.data.spans[] | select(.status.code=="STATUS_CODE_ERROR") | .name]'
     """
-    if jq_filter:
-        try:
-            click.echo(apply_jq_to_trace(trace_id, jq_filter), nl=False)
-        except ValueError as e:
-            raise click.UsageError(str(e))
-        return
-
     trace_dict = TracingClient().get_trace(trace_id).to_dict()
     if extract_fields:
         field_list = [f.strip() for f in extract_fields.split(",")]

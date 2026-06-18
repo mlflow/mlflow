@@ -162,11 +162,8 @@ For querying and reading MLflow data (experiments, runs, traces, metrics, etc.):
 * If the CLI cannot accomplish the task, fall back to the MLflow SDK.
 * When working with large output, write it to files /tmp and use
   bash commands to analyze the files, rather than reading the full contents into context.
-* When reading a single trace, prefer `mlflow traces get --trace-id <id> --jq '<filter>'`
-  to return only the part you need (this applies the jq filter inside the command, so you
-  do NOT redirect to a file or pipe to jq yourself). Span status is OTLP-style, so errored
-  spans are selected with `[.data.spans[] | select(.status.code=="STATUS_CODE_ERROR") | .name]`.
-  Do NOT fetch the full trace JSON into context unless you genuinely need all of it.
+* When reading a single trace, use `mlflow traces get --trace-id <id>`. Pass
+  `--extract-fields` to select only the fields you need when the full trace is large.
 
 ### MLflow Write Operations
 
