@@ -569,7 +569,7 @@ describe('PlaygroundPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('get_weather')).toBeInTheDocument();
+      expect(screen.getByText('Tools — get_weather')).toBeInTheDocument();
     });
     expect(screen.getByText('{"city":"SF"}')).toBeInTheDocument();
     expect(screen.queryByText('(no text content)')).not.toBeInTheDocument();
@@ -607,7 +607,7 @@ describe('PlaygroundPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Checking the weather.')).toBeInTheDocument();
     });
-    expect(screen.getByText('get_weather')).toBeInTheDocument();
+    expect(screen.getByText('Tools — get_weather')).toBeInTheDocument();
     expect(screen.getByText('{"city":"SF"}')).toBeInTheDocument();
   });
 
@@ -647,7 +647,7 @@ describe('PlaygroundPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Tokens — input: 340, output: 40, total: 380')).toBeInTheDocument();
     });
-    expect(screen.getByText('search_jobs').tagName.toLowerCase()).toBe('span');
+    expect(screen.getByText('Tools — search_jobs')).toBeInTheDocument();
     expect(
       screen.getByText('{"currency":"USD","minimum_salary":4000,"maximum_salary":6000,"pay_period":"MONTH"}'),
     ).toBeInTheDocument();
@@ -689,7 +689,7 @@ describe('PlaygroundPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('get_weather, get_time')).toBeInTheDocument();
+      expect(screen.getByText('Tools — get_weather, get_time')).toBeInTheDocument();
     });
     expect(screen.getByText('{"city":"SF"}')).toBeInTheDocument();
     expect(screen.getByText('{"timezone":"America/Los_Angeles"}')).toBeInTheDocument();
@@ -730,7 +730,7 @@ describe('PlaygroundPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('get_weather')).toBeInTheDocument();
+      expect(screen.getByText('Tools — get_weather')).toBeInTheDocument();
     });
 
     const composers = screen.getAllByPlaceholderText('Type a message');

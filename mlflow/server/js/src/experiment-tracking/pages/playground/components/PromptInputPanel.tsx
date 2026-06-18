@@ -137,7 +137,15 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
                     </Typography.Hint>
                   )}
                   {getToolCallNames(message).length > 0 && (
-                    <Typography.Hint>{getToolCallNames(message).join(', ')}</Typography.Hint>
+                    <Typography.Hint>
+                      <FormattedMessage
+                        defaultMessage="Tools — {names}"
+                        description="Footer label listing the tool/function name(s) the assistant called, shown under token usage on the playground page"
+                        values={{
+                          names: getToolCallNames(message).join(', '),
+                        }}
+                      />
+                    </Typography.Hint>
                   )}
                 </Space>
               )}
