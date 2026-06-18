@@ -24,8 +24,8 @@ const ROLE_OPTIONS: ChatRole[] = ['system', 'user', 'assistant'];
 
 const roleLabel = (role: ChatRole): string => role[0].toUpperCase() + role.slice(1);
 
-const getToolCallNames = (message: ConversationMessage): string[] =>
-  message.tool_calls?.flatMap((toolCall) => (toolCall.function?.name ? [toolCall.function.name] : [])) ?? [];
+const getNamedToolCalls = (message: ConversationMessage) =>
+  message.tool_calls?.filter((toolCall) => Boolean(toolCall.function?.name)) ?? [];
 
 interface Props {
   messages: ConversationMessage[];
@@ -105,48 +105,38 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
                 }}
               >
                 {message.content ? <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer> : null}
-                {message.tool_calls?.map((toolCall, toolCallIndex) => (
+                {getNamedToolCalls(message).map((toolCall, toolCallIndex) => (
                   <div
                     key={toolCall.id ?? toolCallIndex}
                     css={{
                       marginTop: message.content || toolCallIndex > 0 ? theme.spacing.sm : 0,
                     }}
                   >
+                    <Typography.Text bold>
+                      <strong>{toolCall.function?.name}</strong>
+                    </Typography.Text>
                     {toolCall.function?.arguments && (
                       <GenAIMarkdownRenderer>{toolCall.function.arguments}</GenAIMarkdownRenderer>
                     )}
                   </div>
                 ))}
-                {!message.content && !message.tool_calls?.length && (
+                {!message.content && getNamedToolCalls(message).length === 0 && (
                   <GenAIMarkdownRenderer>(no text content)</GenAIMarkdownRenderer>
                 )}
               </div>
-              {(message.usage || getToolCallNames(message).length > 0) && (
+              {message.usage && (
                 <Space direction="vertical" size={0}>
-                  {message.usage && (
-                    <Typography.Hint>
-                      <FormattedMessage
-                        defaultMessage="Tokens — input: {input}, output: {output}, total: {total}"
-                        description="Token usage footer rendered below each assistant reply on the playground page"
-                        values={{
-                          input: message.usage.prompt_tokens ?? '—',
-                          output: message.usage.completion_tokens ?? '—',
-                          total: message.usage.total_tokens ?? '—',
-                        }}
-                      />
-                    </Typography.Hint>
-                  )}
-                  {getToolCallNames(message).length > 0 && (
-                    <Typography.Hint>
-                      <FormattedMessage
-                        defaultMessage="Tools — {names}"
-                        description="Footer label listing the tool/function name(s) the assistant called, shown under token usage on the playground page"
-                        values={{
-                          names: getToolCallNames(message).join(', '),
-                        }}
-                      />
-                    </Typography.Hint>
-                  )}
+                  <Typography.Hint>
+                    <FormattedMessage
+                      defaultMessage="Tokens — input: {input}, output: {output}, total: {total}"
+                      description="Token usage footer rendered below each assistant reply on the playground page"
+                      values={{
+                        input: message.usage.prompt_tokens ?? '—',
+                        output: message.usage.completion_tokens ?? '—',
+                        total: message.usage.total_tokens ?? '—',
+                      }}
+                    />
+                  </Typography.Hint>
                 </Space>
               )}
             </>

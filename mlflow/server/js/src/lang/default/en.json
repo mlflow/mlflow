@@ -27,10 +27,6 @@
     "defaultMessage": "Store it securely and restrict access to server administrators only.",
     "description": "AI Gateway setup guide > Passphrase warning security note"
   },
-  "+5Dk7y": {
-    "defaultMessage": "Tools — {names}",
-    "description": "Footer label listing the tool/function name(s) the assistant called, shown under token usage on the playground page"
-  },
   "+634bT": {
     "defaultMessage": "Feedback",
     "description": "Review question type: feedback"

@@ -551,7 +551,7 @@ describe('PlaygroundPage', () => {
               {
                 id: 'call_1',
                 type: 'function',
-                function: { name: 'get_weather', arguments: '{"city":"SF"}' },
+                function: { name: 'get_weather', arguments: '{"city":"San Francisco"}' },
               },
             ],
           },
@@ -569,9 +569,11 @@ describe('PlaygroundPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Tools — get_weather')).toBeInTheDocument();
+      expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
     });
-    expect(screen.getByText('{"city":"SF"}')).toBeInTheDocument();
+    expect(screen.getByText('{"city":"San Francisco"}')).toBeInTheDocument();
+    expect(screen.queryByText('Tools — get_weather')).not.toBeInTheDocument();
+    expect(screen.queryByText(/"city": "San Francisco"/)).not.toBeInTheDocument();
     expect(screen.queryByText('(no text content)')).not.toBeInTheDocument();
   });
 
@@ -587,7 +589,7 @@ describe('PlaygroundPage', () => {
               {
                 id: 'call_1',
                 type: 'function',
-                function: { name: 'get_weather', arguments: '{"city":"SF"}' },
+                function: { name: 'get_weather', arguments: '{"city":"San Francisco"}' },
               },
             ],
           },
@@ -607,11 +609,11 @@ describe('PlaygroundPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Checking the weather.')).toBeInTheDocument();
     });
-    expect(screen.getByText('Tools — get_weather')).toBeInTheDocument();
-    expect(screen.getByText('{"city":"SF"}')).toBeInTheDocument();
+    expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
+    expect(screen.getByText('{"city":"San Francisco"}')).toBeInTheDocument();
   });
 
-  it('renders tool names in the muted footer with token usage and raw arguments in the body', async () => {
+  it('renders tool names as bold body headers with token usage footer unchanged', async () => {
     jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
       choices: [
         {
@@ -647,7 +649,7 @@ describe('PlaygroundPage', () => {
     await waitFor(() => {
       expect(screen.getByText('Tokens — input: 340, output: 40, total: 380')).toBeInTheDocument();
     });
-    expect(screen.getByText('Tools — search_jobs')).toBeInTheDocument();
+    expect(screen.getByText('search_jobs').tagName.toLowerCase()).toBe('strong');
     expect(
       screen.getByText('{"currency":"USD","minimum_salary":4000,"maximum_salary":6000,"pay_period":"MONTH"}'),
     ).toBeInTheDocument();
@@ -666,12 +668,12 @@ describe('PlaygroundPage', () => {
               {
                 id: 'call_1',
                 type: 'function',
-                function: { name: 'get_weather', arguments: '{"city":"SF"}' },
+                function: { name: 'get_weather', arguments: '{"city":"San Francisco"}' },
               },
               {
                 id: 'call_2',
                 type: 'function',
-                function: { name: 'get_time', arguments: '{"timezone":"America/Los_Angeles"}' },
+                function: { name: 'get_time', arguments: '{"timezone": "America/Los_Angeles"}' },
               },
             ],
           },
@@ -689,10 +691,16 @@ describe('PlaygroundPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Tools — get_weather, get_time')).toBeInTheDocument();
+      expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
     });
-    expect(screen.getByText('{"city":"SF"}')).toBeInTheDocument();
-    expect(screen.getByText('{"timezone":"America/Los_Angeles"}')).toBeInTheDocument();
+    expect(screen.getByText('get_time').tagName.toLowerCase()).toBe('strong');
+    const weatherArgs = screen.getByText('{"city":"San Francisco"}');
+    const timeArgs = screen.getByText('{"timezone": "America/Los_Angeles"}');
+    expect(weatherArgs).toBeInTheDocument();
+    expect(timeArgs).toBeInTheDocument();
+    expect(weatherArgs.closest('div')).not.toBe(timeArgs.closest('div'));
+    expect(screen.queryByText('Tools — get_weather, get_time')).not.toBeInTheDocument();
+    expect(screen.queryByText(/"city": "San Francisco"/)).not.toBeInTheDocument();
   });
 
   it('strips tool calls from outbound follow-up conversation history', async () => {
@@ -730,7 +738,7 @@ describe('PlaygroundPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Tools — get_weather')).toBeInTheDocument();
+      expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
     });
 
     const composers = screen.getAllByPlaceholderText('Type a message');
