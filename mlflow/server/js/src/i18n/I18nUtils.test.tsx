@@ -42,9 +42,9 @@ describe('I18nUtils', () => {
     });
 
     it('should prefer locale in l query param over local storage', () => {
-      setQueryLocale('fr-CA');
-      setLocalStorageLocale('en-US');
-      expect(I18nUtils.getCurrentLocale()).toBe('fr-CA');
+      setQueryLocale('zh-CN');
+      setLocalStorageLocale('en');
+      expect(I18nUtils.getCurrentLocale()).toBe('zh-CN');
     });
 
     it('should not fail for invalid languages', () => {
@@ -58,17 +58,33 @@ describe('I18nUtils', () => {
       localStorage.setItem('locale', badLocale);
       const locale = I18nUtils.getCurrentLocale();
       expect(locale).toBe('en');
+      expect(window.localStorage.getItem('locale')).toBe('en');
       expect(() => createIntl({ locale, defaultLocale: 'en' })).not.toThrow();
     });
 
     it('should set locale from query into localStorage', () => {
-      setQueryLocale('test-locale');
-      expect(I18nUtils.getCurrentLocale()).toBe('test-locale');
+      setQueryLocale('zh-CN');
+      expect(I18nUtils.getCurrentLocale()).toBe('zh-CN');
+      expect(window.localStorage.getItem('locale')).toBe('zh-CN');
     });
+
+    it('should fall back to DEFAULT_LOCALE for an unsupported query locale', () => {
+      setQueryLocale('test-locale');
+      expect(I18nUtils.getCurrentLocale()).toBe('en');
+      expect(window.localStorage.getItem('locale')).toBe('en');
+    });
+
     it('should prefer locale from localStorage', () => {
+      setLocalStorageLocale('ko-KR');
+      const locale = I18nUtils.getCurrentLocale();
+      expect(locale).toBe('ko-KR');
+    });
+
+    it('should fall back to DEFAULT_LOCALE for an unsupported localStorage locale', () => {
       setLocalStorageLocale('test-locale');
       const locale = I18nUtils.getCurrentLocale();
-      expect(locale).toBe('test-locale');
+      expect(locale).toBe('en');
+      expect(window.localStorage.getItem('locale')).toBe('en');
     });
   });
 
@@ -159,13 +175,12 @@ describe('I18nUtils', () => {
 
   describe('initI18n', () => {
     it('should make messages available to getIntlProviderParams', async () => {
-      setLocalStorageLocale('fr-CA');
+      setLocalStorageLocale('fr-FR');
       await I18nUtils.initI18n();
       expect(I18nUtils.getIntlProviderParams().messages).toEqual({
-        'fr-CA': 'value',
         'fr-FR': 'value',
         en: 'value',
-        'top-locale': 'fr-CA',
+        'top-locale': 'fr-FR',
       });
     });
   });

@@ -9,7 +9,6 @@ import type { IntlShape } from 'react-intl';
 import { createIntlCache, createIntl } from 'react-intl';
 import { DEFAULT_LOCALE, loadMessages } from './loadMessages';
 import { useEffect, useState } from 'react';
-import Utils from '../common/utils/Utils';
 
 export const SUPPORTED_LOCALES = [
   { locale: 'en', label: 'English' },
@@ -70,22 +69,18 @@ export const I18nUtils = {
 
   getCurrentLocale() {
     const queryParams = new URLSearchParams(window.location.search);
-    const getLocale = () => {
-      const langFromQuery = queryParams.get('l');
-      if (langFromQuery) {
-        // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
-        window.localStorage.setItem('locale', langFromQuery);
-      }
-      // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
-      return window.localStorage.getItem('locale') || DEFAULT_LOCALE;
-    };
-    const locale = getLocale();
-
-    // _ in the locale causes createIntl to throw, so convert to default locale
-    if (locale.includes('_')) {
-      return DEFAULT_LOCALE;
+    const langFromQuery = queryParams.get('l');
+    if (langFromQuery) {
+      return I18nUtils.setCurrentLocale(langFromQuery);
     }
-    return locale;
+
+    // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
+    const localeFromStorage = window.localStorage.getItem('locale');
+    if (localeFromStorage) {
+      return I18nUtils.setCurrentLocale(localeFromStorage);
+    }
+
+    return DEFAULT_LOCALE;
   },
 
   setCurrentLocale(locale: string) {

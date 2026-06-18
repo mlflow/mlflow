@@ -12,6 +12,7 @@ type LocaleSelectChangeEvent = {
 export const LocaleSelector = () => {
   const { theme } = useDesignSystemTheme();
   const currentLocale = I18nUtils.getCurrentLocale();
+  const localeSelectorLabelId = 'mlflow.locale_selector_label';
 
   const handleLocaleChange = useCallback((event: LocaleSelectChangeEvent) => {
     const nextLocale = I18nUtils.setCurrentLocale(event.target.value);
@@ -42,6 +43,7 @@ export const LocaleSelector = () => {
     >
       <GlobeIcon css={{ color: theme.colors.textSecondary, flexShrink: 0, fontSize: 16 }} />
       <span
+        id={localeSelectorLabelId}
         css={{
           color: theme.colors.textSecondary,
           lineHeight: `${theme.general.heightSm}px`,
@@ -53,7 +55,7 @@ export const LocaleSelector = () => {
       <SimpleSelect
         id="mlflow.locale_selector"
         componentId="mlflow.locale_selector"
-        aria-label="Language"
+        aria-labelledby={localeSelectorLabelId}
         onChange={handleLocaleChange}
         value={currentLocale}
         css={{
