@@ -11,13 +11,28 @@ import { DEFAULT_LOCALE, loadMessages } from './loadMessages';
 import { useEffect, useState } from 'react';
 import Utils from '../common/utils/Utils';
 
+export const SUPPORTED_LOCALES = [
+  { locale: 'en', label: 'English' },
+  { locale: 'de-DE', label: 'Deutsch' },
+  { locale: 'es-ES', label: 'Español' },
+  { locale: 'fr-FR', label: 'Français' },
+  { locale: 'it-IT', label: 'Italiano' },
+  { locale: 'ja-JP', label: '日本語' },
+  { locale: 'ko-KR', label: '한국어' },
+  { locale: 'pt-BR', label: 'Português (Brasil)' },
+  { locale: 'pt-PT', label: 'Português' },
+  { locale: 'zh-CN', label: '简体中文' },
+  { locale: 'zh-HK', label: '繁體中文 (香港)' },
+  { locale: 'zh-TW', label: '繁體中文 (台灣)' },
+];
+
 // eslint-disable-next-line @databricks/no-const-object-record-string -- TODO(FEINF-2058)
 const FALLBACK_LOCALES: Record<string, string> = {
   es: 'es-ES',
   fr: 'fr-FR',
   pt: 'pt-PT',
   ja: 'ja-JP',
-  kr: 'kr-KR',
+  ko: 'ko-KR',
   it: 'it-IT',
   de: 'de-DE',
   zh: 'zh-CN',
@@ -71,6 +86,14 @@ export const I18nUtils = {
       return DEFAULT_LOCALE;
     }
     return locale;
+  },
+
+  setCurrentLocale(locale: string) {
+    const supportedLocale = SUPPORTED_LOCALES.find((supported) => supported.locale === locale);
+    const nextLocale = supportedLocale?.locale || DEFAULT_LOCALE;
+    // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
+    window.localStorage.setItem('locale', nextLocale);
+    return nextLocale;
   },
 
   /* Gets the locale to fall back on if messages are missing */

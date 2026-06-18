@@ -8,7 +8,7 @@
 import { jest, describe, beforeEach, afterEach, it, expect } from '@jest/globals';
 import React from 'react';
 import { createIntl } from 'react-intl';
-import { I18nUtils, useI18nInit } from './I18nUtils';
+import { I18nUtils, SUPPORTED_LOCALES, useI18nInit } from './I18nUtils';
 import { renderHook, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 // see mock for ./loadMessages in setupTests.js
@@ -69,6 +69,53 @@ describe('I18nUtils', () => {
       setLocalStorageLocale('test-locale');
       const locale = I18nUtils.getCurrentLocale();
       expect(locale).toBe('test-locale');
+    });
+  });
+
+  describe('setCurrentLocale', () => {
+    it('stores a supported locale', () => {
+      expect(I18nUtils.setCurrentLocale('zh-CN')).toBe('zh-CN');
+      expect(window.localStorage.getItem('locale')).toBe('zh-CN');
+    });
+
+    it('falls back to the default locale for unsupported locales', () => {
+      expect(I18nUtils.setCurrentLocale('unsupported-locale')).toBe('en');
+      expect(window.localStorage.getItem('locale')).toBe('en');
+    });
+  });
+
+  describe('SUPPORTED_LOCALES', () => {
+    it('includes Simplified Chinese', () => {
+      expect(SUPPORTED_LOCALES).toContainEqual({ locale: 'zh-CN', label: '简体中文' });
+    });
+  });
+
+  describe('normalizeMessages', () => {
+    it('extracts default messages from translation catalog entries', () => {
+      const { normalizeMessages } = jest.requireActual<typeof import('./loadMessages')>('./loadMessages');
+
+      expect(
+        normalizeMessages({
+          object: { defaultMessage: '对象值' },
+          string: '字符串值',
+          missing: {},
+        }),
+      ).toEqual({
+        object: '对象值',
+        string: '字符串值',
+      });
+    });
+  });
+
+  describe('getFallbackLocale', () => {
+    it('uses Simplified Chinese as the fallback for generic Chinese locales', () => {
+      expect(I18nUtils.getFallbackLocale('zh')).toBe('zh-CN');
+      expect(I18nUtils.getFallbackLocale('zh-SG')).toBe('zh-CN');
+    });
+
+    it('uses Korean as the fallback for generic Korean locales', () => {
+      expect(I18nUtils.getFallbackLocale('ko')).toBe('ko-KR');
+      expect(I18nUtils.getFallbackLocale('ko-KP')).toBe('ko-KR');
     });
   });
 
