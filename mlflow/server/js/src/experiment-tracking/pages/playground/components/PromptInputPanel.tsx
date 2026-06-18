@@ -36,6 +36,16 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
+  // Shared grey-card styling reused by every assistant card (the text card and each
+  // per-tool-call card) so they render as visually-identical sibling boxes.
+  const cardStyles = {
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.general.borderRadiusBase,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.backgroundSecondary,
+    overflow: 'auto',
+  } as const;
+
   const updateMessage = (index: number, patch: Partial<ConversationMessage>) => {
     onChange(messages.map((msg, i) => (i === index ? { ...msg, ...patch } : msg)));
   };
@@ -95,22 +105,17 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
                 </Typography.Text>
                 {removeButton(index)}
               </div>
-              <div
-                css={{
-                  border: `1px solid ${theme.colors.border}`,
-                  borderRadius: theme.general.borderRadiusBase,
-                  padding: theme.spacing.md,
-                  backgroundColor: theme.colors.backgroundSecondary,
-                  overflow: 'auto',
-                }}
-              >
-                {message.content ? <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer> : null}
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                {message.content ? (
+                  <div css={cardStyles} data-testid="mlflow.playground.assistant.text_card">
+                    <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+                  </div>
+                ) : null}
                 {getNamedToolCalls(message).map((toolCall, toolCallIndex) => (
                   <div
                     key={toolCall.id ?? toolCallIndex}
-                    css={{
-                      marginTop: message.content || toolCallIndex > 0 ? theme.spacing.sm : 0,
-                    }}
+                    css={cardStyles}
+                    data-testid="mlflow.playground.assistant.tool_call_card"
                   >
                     <Typography.Text bold>
                       <strong>{toolCall.function?.name}</strong>
@@ -121,7 +126,9 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
                   </div>
                 ))}
                 {!message.content && getNamedToolCalls(message).length === 0 && (
-                  <GenAIMarkdownRenderer>(no text content)</GenAIMarkdownRenderer>
+                  <div css={cardStyles} data-testid="mlflow.playground.assistant.text_card">
+                    <GenAIMarkdownRenderer>(no text content)</GenAIMarkdownRenderer>
+                  </div>
                 )}
               </div>
               {message.usage && (

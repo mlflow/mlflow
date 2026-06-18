@@ -571,7 +571,15 @@ describe('PlaygroundPage', () => {
     await waitFor(() => {
       expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
     });
-    expect(screen.getByText('{"city":"San Francisco"}')).toBeInTheDocument();
+
+    // Exactly one tool-call card holds the bold header + verbatim args; no text card.
+    const toolCards = screen.getAllByTestId('mlflow.playground.assistant.tool_call_card');
+    expect(toolCards).toHaveLength(1);
+    expect(screen.queryByTestId('mlflow.playground.assistant.text_card')).not.toBeInTheDocument();
+    expect(toolCards[0]).toContainElement(screen.getByText('get_weather'));
+    const weatherArgs = screen.getByText('{"city":"San Francisco"}');
+    expect(weatherArgs).toBeInTheDocument();
+    expect(toolCards[0]).toContainElement(weatherArgs);
     expect(screen.queryByText('Tools — get_weather')).not.toBeInTheDocument();
     expect(screen.queryByText(/"city": "San Francisco"/)).not.toBeInTheDocument();
     expect(screen.queryByText('(no text content)')).not.toBeInTheDocument();
@@ -610,7 +618,17 @@ describe('PlaygroundPage', () => {
       expect(screen.getByText('Checking the weather.')).toBeInTheDocument();
     });
     expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
-    expect(screen.getByText('{"city":"San Francisco"}')).toBeInTheDocument();
+    const weatherArgs = screen.getByText('{"city":"San Francisco"}');
+    expect(weatherArgs).toBeInTheDocument();
+
+    // Assistant text gets its own first card, separate from the tool-call card.
+    const textCard = screen.getByTestId('mlflow.playground.assistant.text_card');
+    const toolCard = screen.getByTestId('mlflow.playground.assistant.tool_call_card');
+    expect(textCard).toContainElement(screen.getByText('Checking the weather.'));
+    expect(textCard).not.toBe(toolCard);
+    expect(textCard).not.toContainElement(screen.getByText('get_weather'));
+    expect(toolCard).toContainElement(screen.getByText('get_weather'));
+    expect(toolCard).toContainElement(weatherArgs);
   });
 
   it('renders tool names as bold body headers with token usage footer unchanged', async () => {
@@ -654,6 +672,13 @@ describe('PlaygroundPage', () => {
       screen.getByText('{"currency":"USD","minimum_salary":4000,"maximum_salary":6000,"pay_period":"MONTH"}'),
     ).toBeInTheDocument();
     expect(screen.queryByText(/"currency": "USD"/)).not.toBeInTheDocument();
+
+    // The token usage footer renders exactly once and lives outside (below) the cards.
+    const footer = screen.getByText('Tokens — input: 340, output: 40, total: 380');
+    expect(screen.getAllByText(/^Tokens —/)).toHaveLength(1);
+    const toolCard = screen.getByTestId('mlflow.playground.assistant.tool_call_card');
+    expect(toolCard).not.toContainElement(footer);
+    expect(screen.queryByTestId('mlflow.playground.assistant.text_card')).not.toBeInTheDocument();
   });
 
   it('renders multiple tool calls in one assistant response', async () => {
@@ -694,11 +719,29 @@ describe('PlaygroundPage', () => {
       expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
     });
     expect(screen.getByText('get_time').tagName.toLowerCase()).toBe('strong');
+
+    // Each named tool call renders as its own sibling grey card.
+    const toolCards = screen.getAllByTestId('mlflow.playground.assistant.tool_call_card');
+    expect(toolCards).toHaveLength(2);
+    // No leading text card when the assistant returned no content.
+    expect(screen.queryByTestId('mlflow.playground.assistant.text_card')).not.toBeInTheDocument();
+
     const weatherArgs = screen.getByText('{"city":"San Francisco"}');
     const timeArgs = screen.getByText('{"timezone": "America/Los_Angeles"}');
     expect(weatherArgs).toBeInTheDocument();
     expect(timeArgs).toBeInTheDocument();
-    expect(weatherArgs.closest('div')).not.toBe(timeArgs.closest('div'));
+
+    // get_weather's header + args live in one card; get_time's in a different card.
+    const weatherCard = toolCards.find((card) => card.contains(screen.getByText('get_weather')));
+    const timeCard = toolCards.find((card) => card.contains(screen.getByText('get_time')));
+    expect(weatherCard).toBeDefined();
+    expect(timeCard).toBeDefined();
+    expect(weatherCard).not.toBe(timeCard);
+    expect(weatherCard).toContainElement(weatherArgs);
+    expect(weatherCard).not.toContainElement(timeArgs);
+    expect(timeCard).toContainElement(timeArgs);
+    expect(timeCard).not.toContainElement(weatherArgs);
+
     expect(screen.queryByText('Tools — get_weather, get_time')).not.toBeInTheDocument();
     expect(screen.queryByText(/"city": "San Francisco"/)).not.toBeInTheDocument();
   });
