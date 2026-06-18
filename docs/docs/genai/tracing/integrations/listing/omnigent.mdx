@@ -114,18 +114,15 @@ Omnigent sets `MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false` so MLflow shares the gl
 
 ## Configuration Reference
 
-| Variable                                | Purpose                                                          | Default    |
-| --------------------------------------- | ---------------------------------------------------------------- | ---------- |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`           | OTLP collector endpoint                                          | unset      |
-| `OTEL_EXPORTER_OTLP_PROTOCOL`           | OTLP transport (`grpc` or `http/protobuf`)                       | `grpc`     |
-| `OTEL_SERVICE_NAME`                     | Service name in traces                                           | `omnigent` |
-| `MLFLOW_TRACKING_URI`                   | MLflow tracking server (fallback when no OTLP endpoint)          | unset      |
-| `OMNIGENT_OTEL_CAPTURE_CONTENT`         | Include message content on spans (off by default for PII safety) | `false`    |
-| `OMNIGENT_OTEL_FASTAPI_INSTRUMENTATION` | Enable FastAPI HTTP server spans                                 | `false`    |
+| Variable                      | Purpose                                                 | Default |
+| ----------------------------- | ------------------------------------------------------- | ------- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint (e.g. your MLflow server URL)   | unset   |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | OTLP transport (`grpc` or `http/protobuf`)              | `grpc`  |
+| `MLFLOW_TRACKING_URI`         | MLflow tracking server (fallback when no OTLP endpoint) | unset   |
 
 ## Monitoring Token Usage
 
-MLflow automatically tracks token usage for each LLM call within Omnigent agent sessions. Token counts — including cache read and cache creation breakdowns — are logged on each `CHAT_MODEL` span via the `mlflow.chat.tokenUsage` attribute. Aggregated cost and time trends are displayed in the built-in experiment dashboard.
+MLflow automatically tracks token usage for each agent turn within Omnigent sessions. Token counts — including cache read and cache creation breakdowns — are logged on the agent span. Aggregated cost and time trends are displayed in the built-in experiment dashboard.
 
 See [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) for details on accessing this information programmatically.
 
