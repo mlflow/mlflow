@@ -132,19 +132,17 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
                 )}
               </div>
               {message.usage && (
-                <Space direction="vertical" size={0}>
-                  <Typography.Hint>
-                    <FormattedMessage
-                      defaultMessage="Tokens — input: {input}, output: {output}, total: {total}"
-                      description="Token usage footer rendered below each assistant reply on the playground page"
-                      values={{
-                        input: message.usage.prompt_tokens ?? '—',
-                        output: message.usage.completion_tokens ?? '—',
-                        total: message.usage.total_tokens ?? '—',
-                      }}
-                    />
-                  </Typography.Hint>
-                </Space>
+                <Typography.Hint>
+                  <FormattedMessage
+                    defaultMessage="Tokens — input: {input}, output: {output}, total: {total}"
+                    description="Token usage footer rendered below each assistant reply on the playground page"
+                    values={{
+                      input: message.usage.prompt_tokens ?? '—',
+                      output: message.usage.completion_tokens ?? '—',
+                      total: message.usage.total_tokens ?? '—',
+                    }}
+                  />
+                </Typography.Hint>
               )}
             </>
           ) : (
