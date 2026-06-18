@@ -7,7 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from mlflow.exceptions import MlflowException
 from mlflow.genai.review_queues import ReviewQueueType
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.protos.review_queues_pb2 import ListReviewQueues
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 
@@ -164,6 +166,216 @@ def test_owner_reassignment_requires_manage(monkeypatch):
         update_body={"queue_id": "q1", "new_owner": "victim"},
     )
     assert auth.validate_can_update_review_queue() is True
+
+
+def _users(*names):
+    return [SimpleNamespace(username=n) for n in names]
+
+
+def _forbid_list_users():
+    raise AssertionError("store.list_users must not be called here")
+
+
+def test_create_custom_queue_rejects_registered_username(monkeypatch):
+    # A custom queue named after a registered user would shadow that user's
+    # personal queue; reject it case-insensitively ("Alice" vs user "alice").
+    _setup(
+        monkeypatch,
+        permission="EDIT",
+        update_body={"experiment_id": "123", "name": "Alice", "queue_type": "CUSTOM"},
+    )
+    monkeypatch.setattr(auth.store, "list_users", lambda: _users("alice", "bob"))
+    with pytest.raises(MlflowException, match="registered user") as exc:
+        auth.validate_can_create_review_queue()
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_create_custom_queue_allows_non_username(monkeypatch):
+    _setup(
+        monkeypatch,
+        permission="EDIT",
+        update_body={"experiment_id": "123", "name": "Hallucinations", "queue_type": "CUSTOM"},
+    )
+    consulted = []
+    monkeypatch.setattr(
+        auth.store, "list_users", lambda: consulted.append(True) or _users("alice", "bob")
+    )
+    assert auth.validate_can_create_review_queue() is True
+    # The roster was actually consulted (guards against the match silently no-opping).
+    assert consulted == [True]
+
+
+def test_create_unset_queue_type_skips_shadow_check(monkeypatch):
+    # No queue_type (proto 0/UNSPECIFIED) skips the check without calling list_users
+    # and without `from_proto` raising on the unspecified value.
+    _setup(monkeypatch, permission="EDIT", update_body={"experiment_id": "123", "name": "alice"})
+    monkeypatch.setattr(auth.store, "list_users", _forbid_list_users)
+    assert auth.validate_can_create_review_queue() is True
+
+
+def test_create_blank_name_skips_shadow_check(monkeypatch):
+    # A blank name can't match a user; skip before querying the roster (the
+    # handler/store validate the empty name separately).
+    _setup(
+        monkeypatch,
+        permission="EDIT",
+        update_body={"experiment_id": "123", "name": "   ", "queue_type": "CUSTOM"},
+    )
+    monkeypatch.setattr(auth.store, "list_users", _forbid_list_users)
+    assert auth.validate_can_create_review_queue() is True
+
+
+def test_create_user_queue_named_after_user_is_allowed(monkeypatch):
+    # A USER queue *is* its username, so the CUSTOM-only shadowing guard skips it.
+    _setup(
+        monkeypatch,
+        permission="EDIT",
+        update_body={"experiment_id": "123", "name": "alice", "queue_type": "USER"},
+    )
+    monkeypatch.setattr(auth.store, "list_users", _forbid_list_users)
+    assert auth.validate_can_create_review_queue() is True
+
+
+def test_create_shadow_check_skipped_when_unauthorized(monkeypatch):
+    # The permission gate denies first; the name check (and user-list query) never runs.
+    _setup(
+        monkeypatch,
+        permission="READ",
+        update_body={"experiment_id": "123", "name": "alice", "queue_type": "CUSTOM"},
+    )
+    monkeypatch.setattr(auth.store, "list_users", _forbid_list_users)
+    assert auth.validate_can_create_review_queue() is False
+
+
+def test_rename_custom_queue_to_username_rejected(monkeypatch):
+    _setup(
+        monkeypatch,
+        permission="MANAGE",
+        created_by="bob",
+        username="alice",
+        update_body={"queue_id": "q1", "name": "Bob"},
+    )
+    monkeypatch.setattr(auth.store, "list_users", lambda: _users("alice", "bob"))
+    with pytest.raises(MlflowException, match="registered user") as exc:
+        auth.validate_can_update_review_queue()
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_rename_custom_queue_to_non_username_allowed(monkeypatch):
+    _setup(
+        monkeypatch,
+        permission="MANAGE",
+        created_by="bob",
+        username="alice",
+        update_body={"queue_id": "q1", "name": "Renamed"},
+    )
+    monkeypatch.setattr(auth.store, "list_users", lambda: _users("alice", "bob"))
+    assert auth.validate_can_update_review_queue() is True
+
+
+def test_rename_shadow_guard_skips_user_queues(monkeypatch):
+    # Renaming a USER queue is rejected by the store, not this guard; the guard is
+    # CUSTOM-only, so it neither fires nor queries the user list here.
+    _setup(
+        monkeypatch,
+        permission="MANAGE",
+        created_by="alice",
+        username="alice",
+        queue_type=ReviewQueueType.USER,
+        update_body={"queue_id": "q1", "name": "bob"},
+    )
+    monkeypatch.setattr(auth.store, "list_users", _forbid_list_users)
+    assert auth.validate_can_update_review_queue() is True
+
+
+def _route_for(validator):
+    # The exact (path, method) the dispatcher would match to this validator.
+    return next(
+        (path, method)
+        for (path, method), v in auth.BEFORE_REQUEST_VALIDATORS.items()
+        if v is validator
+    )
+
+
+def _patch_request(monkeypatch, validator, body):
+    path, method = _route_for(validator)
+    monkeypatch.setattr(
+        auth,
+        "request",
+        SimpleNamespace(path=path, method=method, get_json=lambda silent=False: dict(body)),
+    )
+
+
+def test_admin_create_shadowing_username_is_blocked(monkeypatch):
+    # Admins bypass the validators, so `_before_request` runs the integrity guard
+    # directly for them; shadowing a username is still rejected. permission is
+    # irrelevant here (admins never hit the permission gate).
+    body = {"experiment_id": "123", "name": "Bob", "queue_type": "CUSTOM"}
+    _setup(monkeypatch, permission="READ", update_body=body)
+    _patch_request(monkeypatch, auth.validate_can_create_review_queue, body)
+    monkeypatch.setattr(auth.store, "list_users", lambda: _users("alice", "bob"))
+    with pytest.raises(MlflowException, match="registered user") as exc:
+        auth.enforce_review_queue_name_not_username()
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_admin_rename_onto_username_is_blocked(monkeypatch):
+    body = {"queue_id": "q1", "name": "Bob"}
+    _setup(monkeypatch, permission="READ", created_by="bob", update_body=body)
+    _patch_request(monkeypatch, auth.validate_can_update_review_queue, body)
+    monkeypatch.setattr(auth.store, "list_users", lambda: _users("alice", "bob"))
+    with pytest.raises(MlflowException, match="registered user") as exc:
+        auth.enforce_review_queue_name_not_username()
+    assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_admin_create_non_shadowing_name_is_allowed(monkeypatch):
+    body = {"experiment_id": "123", "name": "Hallucinations", "queue_type": "CUSTOM"}
+    _setup(monkeypatch, permission="READ", update_body=body)
+    _patch_request(monkeypatch, auth.validate_can_create_review_queue, body)
+    monkeypatch.setattr(auth.store, "list_users", lambda: _users("alice", "bob"))
+    auth.enforce_review_queue_name_not_username()
+
+
+def test_name_guard_is_a_noop_off_the_review_queue_routes(monkeypatch):
+    # On any other route the guard does nothing and never touches the roster, so
+    # adding it to `_before_request`'s admin branch is free for every endpoint.
+    _setup(monkeypatch, permission="READ")
+    _patch_request(monkeypatch, auth.validate_can_read_experiment, {})
+    monkeypatch.setattr(auth.store, "list_users", _forbid_list_users)
+    auth.enforce_review_queue_name_not_username()
+
+
+def test_admin_owner_reassignment_without_rename_is_a_noop(monkeypatch):
+    # An admin update that only reassigns the owner (no `name`) is not a rename, so
+    # the guard short-circuits before querying the roster.
+    body = {"queue_id": "q1", "new_owner": "victim"}
+    _setup(monkeypatch, permission="READ", created_by="bob", update_body=body)
+    _patch_request(monkeypatch, auth.validate_can_update_review_queue, body)
+    monkeypatch.setattr(auth.store, "list_users", _forbid_list_users)
+    auth.enforce_review_queue_name_not_username()
+
+
+def test_admin_owner_reassignment_with_shadowing_rename_is_blocked(monkeypatch):
+    # Reassigning the owner and renaming onto a username in the same request: the
+    # rename still shadows, so it's rejected even alongside `new_owner`.
+    body = {"queue_id": "q1", "new_owner": "victim", "name": "Bob"}
+    _setup(monkeypatch, permission="READ", created_by="bob", update_body=body)
+    _patch_request(monkeypatch, auth.validate_can_update_review_queue, body)
+    monkeypatch.setattr(auth.store, "list_users", lambda: _users("alice", "bob"))
+    with pytest.raises(MlflowException, match="registered user"):
+        auth.enforce_review_queue_name_not_username()
+
+
+def test_admin_create_shadowing_username_via_camelcase_is_blocked(monkeypatch):
+    # Protobuf JSON accepts camelCase keys; the guard parses the proto (not raw
+    # keys), so `queueType` is detected the same way the handler reads it.
+    body = {"experimentId": "123", "name": "Bob", "queueType": "CUSTOM"}
+    _setup(monkeypatch, permission="READ", update_body=body)
+    _patch_request(monkeypatch, auth.validate_can_create_review_queue, body)
+    monkeypatch.setattr(auth.store, "list_users", lambda: _users("alice", "bob"))
+    with pytest.raises(MlflowException, match="registered user"):
+        auth.enforce_review_queue_name_not_username()
 
 
 def test_owner_reassignment_via_camelcase_still_requires_manage(monkeypatch):

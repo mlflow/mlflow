@@ -686,6 +686,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'eval-monitor/regression-testing',
+          label: 'Regression Testing and CI/CD',
+        },
+        {
+          type: 'doc',
           id: 'eval-monitor/automatic-evaluations/index',
           label: 'Automatic Evaluation',
         },
@@ -1027,6 +1032,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'prompt-registry/prompt-engineering',
           label: 'Prompt Engineering UI',
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/playground',
+          label: 'LLM Playground',
         },
       ],
       link: {

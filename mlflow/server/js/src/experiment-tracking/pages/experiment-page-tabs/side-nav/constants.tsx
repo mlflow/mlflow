@@ -8,6 +8,7 @@ import {
   GavelIcon,
   ListIcon,
   ModelsIcon,
+  PlayIcon,
   PlusMinusSquareIcon,
   SpeechBubbleIcon,
   TextBoxIcon,
@@ -93,6 +94,17 @@ const ExperimentPageSideNavGenAIConfig = {
     },
   ],
   'prompts-versions': [
+    {
+      label: (
+        <FormattedMessage
+          defaultMessage="Playground"
+          description="Label for the playground tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <PlayIcon />,
+      tabName: ExperimentPageTabName.Playground,
+      componentId: 'mlflow.experiment-side-nav.genai.playground',
+    },
     {
       label: (
         <FormattedMessage

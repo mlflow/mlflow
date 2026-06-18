@@ -303,14 +303,16 @@ const ExperimentEvaluationRunsPageImpl = () => {
       return <ExperimentEvaluationRunsPageCharts runs={runs} experimentId={experimentId} />;
     }
 
+    const selectedRun = runs?.find((run) => run.info.runUuid === selectedRunUuid);
+    // Keyed by tag key so RunViewEvaluationsTab can detect regression-test runs
+    // (mlflow.runType=test) and switch the result view accordingly.
+    const selectedRunTags = keyBy(selectedRun?.data?.tags ?? [], 'key');
     return (
       <RunViewEvaluationsTab
         experimentId={experimentId}
         runUuid={selectedRunUuid}
-        runDisplayName={Utils.getRunDisplayName(
-          runs?.find((run) => run.info.runUuid === selectedRunUuid)?.info,
-          selectedRunUuid,
-        )}
+        runTags={selectedRunTags}
+        runDisplayName={Utils.getRunDisplayName(selectedRun?.info, selectedRunUuid)}
         setCurrentRunUuid={setSelectedRunUuid}
         showCompareSelector
         showRefreshButton

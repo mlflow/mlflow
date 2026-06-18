@@ -96,11 +96,14 @@ const trace = (itemId: string): ReviewQueueItem => ({
   last_update_time_ms: 0,
 });
 
-const renderModal = ({ canManage = true }: { canManage?: boolean } = {}) =>
+const renderModal = ({
+  canManage = true,
+  queueOverride = queue,
+}: { canManage?: boolean; queueOverride?: ReviewQueue } = {}) =>
   render(
     <IntlProvider locale="en">
       <DesignSystemProvider>
-        <QueueSettingsModal queue={queue} canManage={canManage} onClose={jest.fn()} />
+        <QueueSettingsModal queue={queueOverride} canManage={canManage} onClose={jest.fn()} />
       </DesignSystemProvider>
     </IntlProvider>,
   );
@@ -132,11 +135,21 @@ describe('QueueSettingsModal save', () => {
   it('sends schema_ids only when the questions actually change', async () => {
     mockTraces = [];
     renderModal();
-    // Toggle the one selected question off, changing the set from ['s1'] to [].
-    fireEvent.click(screen.getByText('toggle-question-s1'));
+    // Add a second question, changing the set from ['s1'] to ['s1','s2'].
+    fireEvent.click(screen.getByText('toggle-question-s2'));
     fireEvent.click(screen.getByText('Save'));
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
-    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ queue_id: 'rq-1', schema_ids: [] }));
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ queue_id: 'rq-1', schema_ids: ['s1', 's2'] }));
+  });
+
+  it('blocks the empty-questions save: toggling off the last question disables Save', () => {
+    // Toggling the one selected question off would empty the set; the floor blocks
+    // the save rather than persisting a questionless (unreviewable) queue.
+    mockTraces = [];
+    renderModal();
+    fireEvent.click(screen.getByText('toggle-question-s1'));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByText(/at least one question/i)).toBeInTheDocument();
   });
 
   it('detects a same-size question swap (different members, not just count)', async () => {
@@ -200,6 +213,43 @@ describe('QueueSettingsModal save', () => {
     expect(arg).toMatchObject({ queue_id: 'rq-1', name: 'Renamed' });
     expect('schema_ids' in arg).toBe(false);
     expect('new_owner' in arg).toBe(false);
+  });
+
+  it('disables Save (and blocks the update) when questions are editable and none are selected', () => {
+    mockTraces = [];
+    renderModal({ queueOverride: { ...queue, schema_ids: [] } });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    // A disabled OK button can't fire, so the destructive empty-questions save is blocked.
+    fireEvent.click(screen.getByText('Save'));
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(screen.getByText(/at least one question/i)).toBeInTheDocument();
+  });
+
+  it('re-enables Save and clears the error once a question is re-added', async () => {
+    mockTraces = [];
+    renderModal({ queueOverride: { ...queue, schema_ids: [] } });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(screen.getByText(/at least one question/i)).toBeInTheDocument();
+    // Re-add the question: Save re-enables, the validation message clears, and the
+    // save now carries the non-empty schema set.
+    fireEvent.click(screen.getByText('toggle-question-s1'));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    expect(screen.queryByText(/at least one question/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ schema_ids: ['s1'] }));
+  });
+
+  it('keeps Save enabled and omits schema_ids on a frozen zero-question queue', async () => {
+    // With traces attached, questions are frozen, so the floor doesn't apply and the
+    // empty schema set is never sent. A manager can still edit members.
+    mockTraces = [trace('tr-1')];
+    renderModal({ queueOverride: { ...queue, schema_ids: [] } });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1));
+    const arg = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    expect('schema_ids' in arg).toBe(false);
   });
 
   it('omits unchanged fields entirely on a no-op save', async () => {
