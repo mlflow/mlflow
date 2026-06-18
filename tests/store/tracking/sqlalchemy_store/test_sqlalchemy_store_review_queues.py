@@ -2,6 +2,8 @@ import time
 from unittest import mock
 
 import pytest
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.label_schemas.label_schemas import InputPassFail
@@ -51,6 +53,23 @@ def test_create_user_queue_defaults_to_all_schemas_and_single_user(store):
     assert queue.schema_ids == []
     assert queue.creation_time_ms > 0
     assert queue.last_update_time_ms == queue.creation_time_ms
+
+
+@pytest.mark.parametrize(
+    ("name", "expected_key"),
+    [("Foo", "foo"), ("BAR", "bar"), ("CAFÉ", "café")],
+)
+def test_name_assignment_derives_name_key(name, expected_key):
+    # The @validates hook keeps name_key = name.lower() on any ORM name
+    # assignment, so the store never sets it by hand. Uses Python's Unicode-aware
+    # lower (consistent across dialects), covering both the constructor and a
+    # later reassignment.
+    constructed = SqlReviewQueue(queue_id="rq-x", experiment_id=1, name=name, queue_type="custom")
+    assert constructed.name_key == expected_key
+
+    reassigned = SqlReviewQueue(queue_id="rq-y", experiment_id=1, name="seed", queue_type="custom")
+    reassigned.name = name
+    assert reassigned.name_key == expected_key
 
 
 def test_create_custom_queue_with_users_and_schema_subset(store):
@@ -135,6 +154,69 @@ def test_create_duplicate_name_raises(store):
     with pytest.raises(MlflowException, match="already exists") as exc:
         store.create_review_queue(exp_id, name="dupe", queue_type="custom")
     _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
+
+
+def test_create_custom_name_collides_case_insensitively(store):
+    # Names are unique case-insensitively, so `Foo` and `foo` can't coexist
+    # (the display casing is preserved on the one that wins).
+    exp_id = _create_experiments(store, "dup_ci")
+    store.create_review_queue(exp_id, name="Foo", queue_type="custom")
+    with pytest.raises(MlflowException, match="already exists") as exc:
+        store.create_review_queue(exp_id, name="foo", queue_type="custom")
+    _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
+    # The losing create doesn't mutate the winner: its display casing survives.
+    assert store.get_review_queue_by_name(exp_id, name="foo").name == "Foo"
+
+
+def test_create_custom_collides_with_user_queue_case_insensitively(store):
+    # Custom and user queues share the name space; a custom name that matches a
+    # user queue's (normalized) name case-insensitively is rejected.
+    exp_id = _create_experiments(store, "cross_type_ci")
+    store.create_review_queue(exp_id, name="alice", queue_type="user")
+    with pytest.raises(MlflowException, match="already exists") as exc:
+        store.create_review_queue(exp_id, name="Alice", queue_type="custom")
+    _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
+    # The surviving queue is still the original user queue, not a custom one.
+    assert store.get_review_queue_by_name(exp_id, name="alice").queue_type == ReviewQueueType.USER
+
+
+def test_create_duplicate_case_variant_race_maps_to_already_exists(store):
+    # The concurrency guard must hold for a case-variant collision too: when the
+    # loser of a race misses the pre-check, the unique (experiment_id, name_key)
+    # constraint rejects the insert, and the disambiguating re-query (keyed on
+    # name_key) must classify it as a duplicate -> RESOURCE_ALREADY_EXISTS, not a
+    # leaked IntegrityError.
+    exp_id = _create_experiments(store, "dup_ci_race")
+    store.create_review_queue(exp_id, name="Foo", queue_type="custom")
+
+    real_review_queue_query = type(store)._review_queue_query
+    calls = {"n": 0}
+
+    # Stub only the pre-check (the first `_review_queue_query`) into a miss. The
+    # handler's disambiguating re-query uses `session.query(SqlReviewQueue)`
+    # directly and is intentionally left unmocked, so it runs against the real DB
+    # and exercises the genuine IntegrityError path: removing the disambiguation
+    # would leak a raw IntegrityError and fail the `match="already exists"` below.
+    def first_call_misses(self, session):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            empty = mock.MagicMock()
+            empty.filter.return_value.one_or_none.return_value = None
+            return empty
+        return real_review_queue_query(self, session)
+
+    with mock.patch.object(type(store), "_review_queue_query", first_call_misses):
+        with pytest.raises(MlflowException, match="already exists") as exc:
+            store.create_review_queue(exp_id, name="foo", queue_type="custom")
+    _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
+
+
+def test_get_review_queue_by_name_is_case_insensitive(store):
+    exp_id = _create_experiments(store, "by_name_ci")
+    created = store.create_review_queue(exp_id, name="Foo", queue_type="custom")
+    found = store.get_review_queue_by_name(exp_id, name="FOO")
+    assert found.queue_id == created.queue_id
+    assert found.name == "Foo"
 
 
 def test_create_against_missing_experiment_raises(store):
@@ -459,6 +541,68 @@ def test_update_rename_to_existing_name_raises(store):
     queue = store.create_review_queue(exp_id, name="mine", queue_type="custom")
     with pytest.raises(MlflowException, match="already exists") as exc:
         store.update_review_queue(queue.queue_id, name="taken")
+    _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
+
+
+def test_update_rename_to_existing_name_case_insensitive_raises(store):
+    exp_id = _create_experiments(store, "rename_clash_ci")
+    store.create_review_queue(exp_id, name="taken", queue_type="custom")
+    queue = store.create_review_queue(exp_id, name="mine", queue_type="custom")
+    with pytest.raises(MlflowException, match="already exists") as exc:
+        store.update_review_queue(queue.queue_id, name="TAKEN")
+    _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
+
+
+def test_update_rename_changes_display_case_only(store):
+    # Re-casing a queue's own name (same name_key) is allowed; it can't collide
+    # with itself, and the display casing is updated.
+    exp_id = _create_experiments(store, "rename_recase")
+    queue = store.create_review_queue(exp_id, name="Foo", queue_type="custom")
+    updated = store.update_review_queue(queue.queue_id, name="foo")
+    assert updated.name == "foo"
+
+
+def test_update_display_case_rename_surfaces_unrelated_integrity_error(store):
+    # A pure display-case rename keeps the same name_key, so it can't violate the
+    # (experiment_id, name_key) uniqueness. An unrelated IntegrityError at flush
+    # must therefore surface as the generic underlying error (the managed session
+    # re-wraps it), not be mislabeled as a name collision.
+    exp_id = _create_experiments(store, "recase_passthrough")
+    queue = store.create_review_queue(exp_id, name="Foo", queue_type="custom")
+
+    real_flush = Session.flush
+
+    # Only fail flushes that carry pending writes (the rename), leaving the
+    # no-op autoflush before the row load untouched.
+    def boom_on_pending(self, *args, **kwargs):
+        if self.dirty or self.new or self.deleted:
+            raise IntegrityError("unrelated", None, Exception("unrelated"))
+        return real_flush(self, *args, **kwargs)
+
+    with mock.patch.object(Session, "flush", boom_on_pending):
+        with pytest.raises(MlflowException, match="unrelated") as exc:
+            store.update_review_queue(queue.queue_id, name="foo")
+    # Surfaced generically, NOT translated into a name collision (arming
+    # `renamed_to` on a display-case change is exactly what this guards against).
+    assert "already exists" not in str(exc.value)
+
+
+def test_update_keychanging_rename_translates_integrity_error(store):
+    # A rename that changes name_key can violate uniqueness, so an IntegrityError
+    # at flush is translated into a clean RESOURCE_ALREADY_EXISTS on the name.
+    exp_id = _create_experiments(store, "rename_translate")
+    queue = store.create_review_queue(exp_id, name="Foo", queue_type="custom")
+
+    real_flush = Session.flush
+
+    def boom_on_pending(self, *args, **kwargs):
+        if self.dirty or self.new or self.deleted:
+            raise IntegrityError("dup", None, Exception("dup"))
+        return real_flush(self, *args, **kwargs)
+
+    with mock.patch.object(Session, "flush", boom_on_pending):
+        with pytest.raises(MlflowException, match="already exists") as exc:
+            store.update_review_queue(queue.queue_id, name="Bar")
     _assert_error_code(exc, RESOURCE_ALREADY_EXISTS)
 
 
@@ -887,6 +1031,9 @@ def test_create_queue_duplicate_race_maps_to_already_exists(store):
     real_review_queue_query = type(store)._review_queue_query
     calls = {"n": 0}
 
+    # Only the pre-check is stubbed into a miss; the handler's re-query
+    # (`session.query(SqlReviewQueue)`) stays unmocked and hits the real DB, so the
+    # IntegrityError disambiguation is genuinely exercised.
     def first_call_misses(self, session):
         calls["n"] += 1
         if calls["n"] == 1:

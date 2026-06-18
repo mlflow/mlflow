@@ -12,6 +12,7 @@ from mlflow.agent.agents import AGENTS, AgentName, AgentTool, detect_installed, 
 from mlflow.agent.setup.prompt import build_prompt
 from mlflow.agent.setup.select import arrow_select
 from mlflow.assistant.skill_installer import install_skills
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.telemetry.events import AgentSetupEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracking import MlflowClient
@@ -28,6 +29,18 @@ def _resolve_experiment_id(tracking_uri: str, ref: str) -> str:
     experiment_id = client.create_experiment(ref)
     click.secho(f"Created experiment {ref!r} (ID {experiment_id}).", fg="green", err=True)
     return experiment_id
+
+
+def _prompt_experiment_id(tracking_uri: str) -> str:
+    experiment_ref = click.prompt(
+        click.style(
+            "Experiment ID, or path (auto-created if it doesn't exist)",
+            fg="cyan",
+            bold=True,
+        ),
+        err=True,
+    ).strip()
+    return _resolve_experiment_id(tracking_uri, experiment_ref)
 
 
 def _find_available_port(start: int = 5000, end: int = 5100) -> int:
@@ -120,47 +133,46 @@ def _run_setup(
     else:
         click.secho("Skipping skill installation.", fg="yellow", err=True)
 
-    backend_choice = arrow_select(
-        "Tracking backend:",
-        [
-            "Start a new local server",
-            "Databricks workspace",
-            "Existing server URL (e.g. http://localhost:5000)",
-        ],
-    )
     experiment_id: str | None = None
     local_server_port: int | None = None
-    match backend_choice:
-        case 0:
-            local_server_port = _find_available_port()
-            tracking_uri = f"http://127.0.0.1:{local_server_port}"
-            click.secho(f"Picked local tracking URI: {tracking_uri}", fg="green", err=True)
-        case 1:
-            profile = click.prompt(
-                click.style(
-                    "Databricks configuration profile, or empty for default",
-                    fg="cyan",
-                    bold=True,
-                ),
-                default="",
-                show_default=False,
-                err=True,
-            ).strip()
-            tracking_uri = f"databricks://{profile}" if profile else "databricks"
-            experiment_ref = click.prompt(
-                click.style(
-                    "Experiment ID, or path (auto-created if it doesn't exist)",
-                    fg="cyan",
-                    bold=True,
-                ),
-                err=True,
-            ).strip()
-            experiment_id = _resolve_experiment_id(tracking_uri, experiment_ref)
-        case _:
-            tracking_uri = click.prompt(
-                click.style("Tracking server URL", fg="cyan", bold=True),
-                err=True,
-            ).strip()
+    if tracking_uri := MLFLOW_TRACKING_URI.get():
+        click.secho(
+            f"Using tracking URI from MLFLOW_TRACKING_URI: {tracking_uri}", fg="green", err=True
+        )
+        if tracking_uri == "databricks" or tracking_uri.startswith("databricks://"):
+            experiment_id = _prompt_experiment_id(tracking_uri)
+    else:
+        backend_choice = arrow_select(
+            "Tracking backend:",
+            [
+                "Start a new local server",
+                "Databricks workspace",
+                "Existing server URL (e.g. http://localhost:5000)",
+            ],
+        )
+        match backend_choice:
+            case 0:
+                local_server_port = _find_available_port()
+                tracking_uri = f"http://127.0.0.1:{local_server_port}"
+                click.secho(f"Picked local tracking URI: {tracking_uri}", fg="green", err=True)
+            case 1:
+                profile = click.prompt(
+                    click.style(
+                        "Databricks configuration profile, or empty for default",
+                        fg="cyan",
+                        bold=True,
+                    ),
+                    default="",
+                    show_default=False,
+                    err=True,
+                ).strip()
+                tracking_uri = f"databricks://{profile}" if profile else "databricks"
+                experiment_id = _prompt_experiment_id(tracking_uri)
+            case _:
+                tracking_uri = click.prompt(
+                    click.style("Tracking server URL", fg="cyan", bold=True),
+                    err=True,
+                ).strip()
 
     prompt = build_prompt(
         repo_root,

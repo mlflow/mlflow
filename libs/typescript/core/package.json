@@ -41,6 +41,7 @@
     "@databricks/sdk-experimental": "0.15.0",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-trace-otlp-proto": "^0.205.0",
+    "@opentelemetry/otlp-transformer": "^0.205.0",
     "@opentelemetry/sdk-node": "^0.205.0",
     "@opentelemetry/sdk-trace-base": "^2.1.0",
     "fast-safe-stringify": "^2.1.1",

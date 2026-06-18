@@ -19,6 +19,7 @@ import {
   useListLabelSchemasQuery,
 } from '../../components/label-schemas';
 import type { LabelSchema } from '../../components/label-schemas';
+import Utils from '../../../common/utils/Utils';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { getReviewQueuePageRoute } from './hooks/useReviewQueueSearchParams';
@@ -34,7 +35,7 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { labelSchemas, isLoading } = useListLabelSchemasQuery({ experimentId });
-  const { deleteLabelSchema, isDeleting } = useDeleteLabelSchemaMutation();
+  const { deleteLabelSchemaAsync, isDeleting } = useDeleteLabelSchemaMutation();
   // Shares the cache with the Review tab's queue list (same query key), so this
   // is a cache hit; used to show which custom queues a deletion would affect.
   // First page only (no maxResults), matching the Review tab; an experiment with
@@ -210,9 +211,26 @@ export const ManageQuestionsModal = ({ experimentId, onClose }: { experimentId: 
           okButtonProps={{ danger: true, loading: isDeleting }}
           cancelText={<FormattedMessage defaultMessage="Cancel" description="Manage review questions: cancel delete" />}
           onCancel={() => setPendingDelete(null)}
-          onOk={() =>
-            deleteLabelSchema({ schema_id: pendingDelete.schema_id }, { onSettled: () => setPendingDelete(null) })
-          }
+          onOk={async () => {
+            try {
+              await deleteLabelSchemaAsync({ schema_id: pendingDelete.schema_id });
+            } catch (e) {
+              // Without this the delete failure was swallowed: the confirm closed and
+              // the question silently stayed. Surface it as a toast (matching the other
+              // review-queue modals); the question remains in the list to retry.
+              Utils.displayGlobalErrorNotification(
+                intl.formatMessage(
+                  {
+                    defaultMessage: 'Failed to delete question: {error}',
+                    description: 'Manage review questions: error toast shown when deleting a question fails',
+                  },
+                  { error: e instanceof Error ? e.message : String(e) },
+                ),
+              );
+            } finally {
+              setPendingDelete(null);
+            }
+          }}
         >
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
             <FormattedMessage

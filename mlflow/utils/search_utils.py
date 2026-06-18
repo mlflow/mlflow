@@ -1735,7 +1735,17 @@ class SearchTraceUtils(SearchUtils):
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
     VALID_METADATA_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
-    VALID_ASSESSMENT_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
+    NUMERIC_ASSESSMENT_COMPARATORS = {">", ">=", "<", "<="}
+    VALID_ASSESSMENT_COMPARATORS = {
+        "!=",
+        "=",
+        *NUMERIC_ASSESSMENT_COMPARATORS,
+        "LIKE",
+        "ILIKE",
+        "RLIKE",
+        "IS NULL",
+        "IS NOT NULL",
+    }
 
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
     _TAG_IDENTIFIER = "tag"
@@ -2036,7 +2046,31 @@ class SearchTraceUtils(SearchUtils):
                 clause = sa.not_(clause)
             return clause
 
-        if comparator not in ("=", "!="):
+        def json_numeric_comparison(column: "ColumnElement", value: str) -> "ClauseElement":
+            # `CAST(... AS DOUBLE)` is only valid on MySQL 8.0.17+. Numeric coercion via addition
+            # (`column + 0.0`) yields a floating comparison and renders identically across MySQL
+            # versions, including 5.7.
+            numeric_value = column + 0.0 if dialect == MYSQL else sa.cast(column, sa.Float)
+            numeric_column = sa.case(
+                (
+                    sa.func.lower(column).in_([
+                        "true",
+                        "false",
+                        "null",
+                        "nan",
+                        "infinity",
+                        "-infinity",
+                    ]),
+                    sa.null(),
+                ),
+                (sa.func.substring(column, 1, 1).in_(['"', "[", "{"]), sa.null()),
+                else_=numeric_value,
+            )
+            return SearchUtils.get_comparison_func(comparator)(numeric_column, float(value))
+
+        if comparator in SearchTraceUtils.NUMERIC_ASSESSMENT_COMPARATORS:
+            return json_numeric_comparison
+        elif comparator not in ("=", "!="):
             return SearchTraceUtils.get_sql_comparison_func(comparator, dialect)
         elif dialect == MYSQL:
             return mysql_json_equality_inequality_comparison
@@ -2139,12 +2173,22 @@ class SearchTraceUtils(SearchUtils):
                     f"{token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-        elif identifier_type in (
-            cls._FEEDBACK_IDENTIFIER,
-            cls._EXPECTATION_IDENTIFIER,
-            cls._ISSUE_IDENTIFIER,
-        ):
-            # Feedback and expectation values are stored as JSON, so we expect string values
+        elif identifier_type in (cls._FEEDBACK_IDENTIFIER, cls._EXPECTATION_IDENTIFIER):
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
+            elif token.ttype in cls.NUMERIC_VALUE_TYPES:
+                if token.ttype == TokenType.Literal.Number.Integer:
+                    return int(token.value)
+                elif token.ttype == TokenType.Literal.Number.Float:
+                    return float(token.value)
+            else:
+                raise MlflowException(
+                    "Expected a quoted string value or numeric value for "
+                    f"{identifier_type} (e.g. 'my-value' or 0.8). Got value "
+                    f"{token.value}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif identifier_type == cls._ISSUE_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             else:
@@ -2190,6 +2234,29 @@ class SearchTraceUtils(SearchUtils):
         return True
 
     @classmethod
+    def _validate_assessment_comparison_value(cls, identifier_type, comparator, token):
+        if identifier_type not in (cls._FEEDBACK_IDENTIFIER, cls._EXPECTATION_IDENTIFIER):
+            return
+
+        is_numeric_assessment_comparison = comparator in cls.NUMERIC_ASSESSMENT_COMPARATORS
+        msg = (
+            f"Expected a numeric value for {identifier_type} when using comparator "
+            f"'{comparator}'. Got value {token.value}"
+            if is_numeric_assessment_comparison
+            else "Expected a quoted string value for "
+            f"{identifier_type} (e.g. 'my-value'). Got value "
+            f"{token.value}"
+        )
+        if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+            if is_numeric_assessment_comparison:
+                raise MlflowException(msg, error_code=INVALID_PARAMETER_VALUE)
+        elif token.ttype in cls.NUMERIC_VALUE_TYPES:
+            if not is_numeric_assessment_comparison:
+                raise MlflowException(msg, error_code=INVALID_PARAMETER_VALUE)
+        else:
+            raise MlflowException(msg, error_code=INVALID_PARAMETER_VALUE)
+
+    @classmethod
     def _validate_comparison(cls, tokens):
         # Allow 2-token IS NULL / IS NOT NULL comparisons
         if len(tokens) == 2:
@@ -2227,6 +2294,9 @@ class SearchTraceUtils(SearchUtils):
 
         comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
+        cls._validate_assessment_comparison_value(
+            comp.get("type"), comp.get("comparator"), stripped_comparison[2]
+        )
         comp["value"] = cls._get_value(comp.get("type"), comp.get("key"), stripped_comparison[2])
 
         if comp.get("type") == cls._SPAN_IDENTIFIER:

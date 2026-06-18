@@ -74,6 +74,8 @@ export interface AssistantAgentState {
   isLoadingConfig: boolean;
   /** Whether the server is running locally (localhost) */
   isLocalServer: boolean;
+  /** A prompt queued to seed the chat input the next time it becomes visible (null when none) */
+  pendingPrompt: string | null;
 }
 
 export interface AssistantAgentActions {
@@ -83,6 +85,10 @@ export interface AssistantAgentActions {
   closePanel: () => void;
   /** Send a message to Assistant */
   sendMessage: (message: string) => void;
+  /** Queue a prompt to seed the chat input the next time it's visible (survives the setup wizard) */
+  prefillPrompt: (prompt: string) => void;
+  /** Clear any queued prompt */
+  clearPendingPrompt: () => void;
   /** Regenerate the last assistant response */
   regenerateLastMessage: () => void;
   /** Reset the conversation */

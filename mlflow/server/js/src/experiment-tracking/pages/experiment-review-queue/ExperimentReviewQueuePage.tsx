@@ -73,7 +73,7 @@ const ExperimentReviewQueuePage = () => {
   });
   const { labelSchemas } = useListLabelSchemasQuery({ experimentId: experimentId ?? '' });
   const { setReviewQueueItemStatusAsync, isSettingStatus } = useSetReviewQueueItemStatusMutation();
-  const { removeItemsFromReviewQueue, isRemovingItems } = useRemoveItemsFromReviewQueueMutation();
+  const { removeItemsFromReviewQueueAsync, isRemovingItems } = useRemoveItemsFromReviewQueueMutation();
   const { deleteReviewQueueAsync, isDeletingQueue } = useDeleteReviewQueueMutation();
   const { updateReviewQueueAsync, isUpdatingQueue } = useUpdateReviewQueueMutation();
   const { getOrCreateUserQueueAsync } = useGetOrCreateUserQueueMutation();
@@ -139,14 +139,26 @@ const ExperimentReviewQueuePage = () => {
   const canReviewSelectedQueue = !authAvailable || (canEdit && isAssignedToSelectedQueue);
   const handleAssignSelf =
     authAvailable && canManageSelectedQueue && !canReviewSelectedQueue && selectedQueue
-      ? () => {
+      ? async () => {
           // KNOWN LIMITATION (V1): read-modify-write of the assignee list from a
           // possibly-stale snapshot races a concurrent manager edit. A server-side
           // append RPC would remove it.
-          void updateReviewQueueAsync({
-            queue_id: selectedQueue.queue_id,
-            users: [...(selectedQueue.users ?? []), reviewer],
-          });
+          try {
+            await updateReviewQueueAsync({
+              queue_id: selectedQueue.queue_id,
+              users: [...(selectedQueue.users ?? []), reviewer],
+            });
+          } catch (e) {
+            Utils.displayGlobalErrorNotification(
+              intl.formatMessage(
+                {
+                  defaultMessage: 'Could not assign yourself to the queue: {error}',
+                  description: 'Review queue: error toast when self-assigning to a queue fails',
+                },
+                { error: e instanceof Error ? e.message : String(e) },
+              ),
+            );
+          }
         }
       : undefined;
 
@@ -250,11 +262,15 @@ const ExperimentReviewQueuePage = () => {
     };
   }, [inFocusMode]);
 
-  const { setHeaderHidden } = useHeaderVisibility();
+  const { setHeaderHidden, setHeaderActionsHidden } = useHeaderVisibility();
   useEffect(() => {
     setHeaderHidden(inFocusMode);
     return () => setHeaderHidden(false);
   }, [inFocusMode, setHeaderHidden]);
+  useEffect(() => {
+    setHeaderActionsHidden(true);
+    return () => setHeaderActionsHidden(false);
+  }, [setHeaderActionsHidden]);
 
   // Copy a shareable link to the selected queue — plain, or with the
   // start-review intent so the recipient lands in the focused review of the
@@ -385,7 +401,23 @@ const ExperimentReviewQueuePage = () => {
         latestQuestionCreatedAtMs={latestQuestionCreatedAtMs}
         onRemoveItems={
           canRemoveItemsFromSelectedQueue
-            ? (itemIds) => removeItemsFromReviewQueue({ queue_id: selectedQueue.queue_id, item_ids: itemIds })
+            ? async (itemIds) => {
+                try {
+                  await removeItemsFromReviewQueueAsync({ queue_id: selectedQueue.queue_id, item_ids: itemIds });
+                } catch (e) {
+                  Utils.displayGlobalErrorNotification(
+                    intl.formatMessage(
+                      {
+                        defaultMessage: 'Could not remove traces: {error}',
+                        description: 'Review queue: error toast when removing traces from a queue fails',
+                      },
+                      { error: e instanceof Error ? e.message : String(e) },
+                    ),
+                  );
+                  // Re-throw so the list keeps the selection for a retry.
+                  throw e;
+                }
+              }
             : undefined
         }
         isRemovingItems={isRemovingItems}
