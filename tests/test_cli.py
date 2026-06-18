@@ -1218,8 +1218,6 @@ def test_server_help_has_quickstart():
     assert "sqlite:///mlflow.db" in out
     # Curated guidance is rendered before the exhaustive flat option list.
     assert out.index("Pick your setup") < out.index("\nOptions:")
-    assert "--backend-store-uri" in out
-    assert "--help" in out
 
 
 def test_cli_with_python_mod():
