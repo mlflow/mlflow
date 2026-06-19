@@ -31,7 +31,7 @@ export const paramsToModelConfig = (params: PlaygroundParams): PromptModelConfig
 export const getSaveableMessages = (messages: ChatMessage[]): ChatMessage[] =>
   messages
     .filter((message) => message.role !== 'assistant')
-    .map((message) => ({ role: message.role, content: message.content.trim() }))
+    .map((message) => ({ role: message.role, content: (message.content ?? '').trim() }))
     .filter((message) => message.content.length > 0);
 
 /**

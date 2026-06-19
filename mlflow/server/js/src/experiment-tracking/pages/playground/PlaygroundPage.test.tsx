@@ -539,6 +539,287 @@ describe('PlaygroundPage', () => {
     expect(screen.getByRole('button', { name: /clear conversation/i })).toBeEnabled();
   });
 
+  it('renders tool calls without showing the empty text fallback', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: 'call_1',
+                type: 'function',
+                function: { name: 'get_weather', arguments: '{"city":"San Francisco"}' },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Weather?');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
+    });
+
+    // Exactly one tool-call card holds the bold header + verbatim args; no text card.
+    const toolCards = screen.getAllByTestId('mlflow.playground.assistant.tool_call_card');
+    expect(toolCards).toHaveLength(1);
+    expect(screen.queryByTestId('mlflow.playground.assistant.text_card')).not.toBeInTheDocument();
+    expect(toolCards[0]).toContainElement(screen.getByText('get_weather'));
+    const weatherArgs = screen.getByText('{"city":"San Francisco"}');
+    expect(weatherArgs).toBeInTheDocument();
+    expect(toolCards[0]).toContainElement(weatherArgs);
+    expect(screen.queryByText('Tools — get_weather')).not.toBeInTheDocument();
+    expect(screen.queryByText(/"city": "San Francisco"/)).not.toBeInTheDocument();
+    expect(screen.queryByText('(no text content)')).not.toBeInTheDocument();
+  });
+
+  it('renders assistant text together with tool calls', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: 'Checking the weather.',
+            tool_calls: [
+              {
+                id: 'call_1',
+                type: 'function',
+                function: { name: 'get_weather', arguments: '{"city":"San Francisco"}' },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Weather?');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Checking the weather.')).toBeInTheDocument();
+    });
+    expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
+    const weatherArgs = screen.getByText('{"city":"San Francisco"}');
+    expect(weatherArgs).toBeInTheDocument();
+
+    // Assistant text gets its own first card, separate from the tool-call card.
+    const textCard = screen.getByTestId('mlflow.playground.assistant.text_card');
+    const toolCard = screen.getByTestId('mlflow.playground.assistant.tool_call_card');
+    expect(textCard).toContainElement(screen.getByText('Checking the weather.'));
+    expect(textCard).not.toBe(toolCard);
+    expect(textCard).not.toContainElement(screen.getByText('get_weather'));
+    expect(toolCard).toContainElement(screen.getByText('get_weather'));
+    expect(toolCard).toContainElement(weatherArgs);
+  });
+
+  it('renders tool names as bold body headers with token usage footer unchanged', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: 'call_1',
+                type: 'function',
+                function: {
+                  name: 'search_jobs',
+                  arguments: '{"currency":"USD","minimum_salary":4000,"maximum_salary":6000,"pay_period":"MONTH"}',
+                },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+        },
+      ],
+      usage: { prompt_tokens: 340, completion_tokens: 40, total_tokens: 380 },
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Find jobs');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Tokens — input: 340, output: 40, total: 380')).toBeInTheDocument();
+    });
+    expect(screen.getByText('search_jobs').tagName.toLowerCase()).toBe('strong');
+    expect(
+      screen.getByText('{"currency":"USD","minimum_salary":4000,"maximum_salary":6000,"pay_period":"MONTH"}'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/"currency": "USD"/)).not.toBeInTheDocument();
+
+    // The token usage footer renders exactly once and lives outside (below) the cards.
+    const footer = screen.getByText('Tokens — input: 340, output: 40, total: 380');
+    expect(screen.getAllByText(/^Tokens —/)).toHaveLength(1);
+    const toolCard = screen.getByTestId('mlflow.playground.assistant.tool_call_card');
+    expect(toolCard).not.toContainElement(footer);
+    expect(screen.queryByTestId('mlflow.playground.assistant.text_card')).not.toBeInTheDocument();
+  });
+
+  it('renders multiple tool calls in one assistant response', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: 'call_1',
+                type: 'function',
+                function: { name: 'get_weather', arguments: '{"city":"San Francisco"}' },
+              },
+              {
+                id: 'call_2',
+                type: 'function',
+                function: { name: 'get_time', arguments: '{"timezone": "America/Los_Angeles"}' },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Weather and time?');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
+    });
+    expect(screen.getByText('get_time').tagName.toLowerCase()).toBe('strong');
+
+    // Each named tool call renders as its own sibling grey card.
+    const toolCards = screen.getAllByTestId('mlflow.playground.assistant.tool_call_card');
+    expect(toolCards).toHaveLength(2);
+    // No leading text card when the assistant returned no content.
+    expect(screen.queryByTestId('mlflow.playground.assistant.text_card')).not.toBeInTheDocument();
+
+    const weatherArgs = screen.getByText('{"city":"San Francisco"}');
+    const timeArgs = screen.getByText('{"timezone": "America/Los_Angeles"}');
+    expect(weatherArgs).toBeInTheDocument();
+    expect(timeArgs).toBeInTheDocument();
+
+    // get_weather's header + args live in one card; get_time's in a different card.
+    const weatherCard = toolCards.find((card) => card.contains(screen.getByText('get_weather')));
+    const timeCard = toolCards.find((card) => card.contains(screen.getByText('get_time')));
+    expect(weatherCard).toBeDefined();
+    expect(timeCard).toBeDefined();
+    expect(weatherCard).not.toBe(timeCard);
+    expect(weatherCard).toContainElement(weatherArgs);
+    expect(weatherCard).not.toContainElement(timeArgs);
+    expect(timeCard).toContainElement(timeArgs);
+    expect(timeCard).not.toContainElement(weatherArgs);
+
+    expect(screen.queryByText('Tools — get_weather, get_time')).not.toBeInTheDocument();
+    expect(screen.queryByText(/"city": "San Francisco"/)).not.toBeInTheDocument();
+  });
+
+  it('strips tool calls from outbound follow-up conversation history', async () => {
+    const chatCompletionSpy = jest
+      .spyOn(PlaygroundApi, 'chatCompletion')
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: null,
+              tool_calls: [
+                {
+                  id: 'call_1',
+                  type: 'function',
+                  function: { name: 'get_weather', arguments: '{"city":"SF"}' },
+                },
+              ],
+            },
+            finish_reason: 'tool_calls',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [{ index: 0, message: { role: 'assistant', content: 'Done.' }, finish_reason: 'stop' }],
+      });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Weather?');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
+    });
+
+    const composers = screen.getAllByPlaceholderText('Type a message');
+    await userEvent.type(composers[1], 'Thanks');
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(chatCompletionSpy).toHaveBeenCalledTimes(2);
+    });
+    expect(chatCompletionSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: 'user', content: 'Weather?' },
+          { role: 'assistant', content: '' },
+          { role: 'user', content: 'Thanks' },
+        ],
+      }),
+    );
+  });
+
+  it('renders the empty text fallback when assistant returns no content or tool calls', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: '' }, finish_reason: 'stop' }],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('(no text content)')).toBeInTheDocument();
+    });
+  });
+
   it('sends the full conversation history on the follow-up submit, stripping per-turn usage', async () => {
     const chatCompletionSpy = jest
       .spyOn(PlaygroundApi, 'chatCompletion')

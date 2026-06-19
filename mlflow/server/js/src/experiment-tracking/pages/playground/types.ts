@@ -5,7 +5,17 @@ export type PromptType = 'text' | 'chat';
 
 export interface ChatMessage {
   role: ChatRole;
-  content: string;
+  content: string | null;
+  tool_calls?: ToolCall[];
+}
+
+export interface ToolCall {
+  id?: string;
+  type?: 'function';
+  function?: {
+    name?: string;
+    arguments?: string;
+  };
 }
 
 // In-app message type that may carry per-turn usage data on assistant replies.
