@@ -7,6 +7,42 @@ import { InMemoryTraceManager } from '../../core/trace_manager';
 import { ipcRequestByteLength, MAX_REQUEST_BYTES, submitRecord } from './ipc';
 import { WalRecord } from './types';
 
+function decodeMlflowSpanAttributes(
+  attributes: OTelReadableSpan['attributes'],
+): Record<string, unknown> {
+  const decoded: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(attributes)) {
+    if (typeof value === 'string') {
+      try {
+        decoded[key] = JSON.parse(value);
+      } catch {
+        decoded[key] = value;
+      }
+    } else {
+      decoded[key] = value;
+    }
+  }
+  return decoded;
+}
+
+/**
+ * Return a view of `span` whose `attributes` are decoded (see
+ * {@link decodeMlflowSpanAttributes}) while every other property/method is
+ * delegated to the original span untouched.
+ */
+function spanWithDecodedAttributes(span: OTelReadableSpan): OTelReadableSpan {
+  const decoded = decodeMlflowSpanAttributes(span.attributes);
+  return new Proxy(span, {
+    get(target, prop) {
+      if (prop === 'attributes') {
+        return decoded;
+      }
+      const value: unknown = Reflect.get(target, prop);
+      return typeof value === 'function' ? (value.bind(target) as unknown) : value;
+    },
+  });
+}
+
 /**
  * Serialize live OTel spans into a base64-encoded OTLP
  * `ExportTraceServiceRequest` protobuf, suitable for storing on a
@@ -19,7 +55,9 @@ function serializeSpansToOtlpBase64(spans: OTelReadableSpan[]): string | undefin
     return undefined;
   }
   try {
-    const bytes = ProtobufTraceSerializer.serializeRequest(serializable);
+    const bytes = ProtobufTraceSerializer.serializeRequest(
+      serializable.map(spanWithDecodedAttributes),
+    );
     if (!bytes || bytes.length === 0) {
       return undefined;
     }

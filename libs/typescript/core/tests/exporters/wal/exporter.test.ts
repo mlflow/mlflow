@@ -41,7 +41,7 @@ function makeTrace(traceId: string): Trace {
  * Build a trace whose `data.spans` carries real, ended OTel spans (wrapped in
  * MLflow `Span`s) so the exporter's OTLP serialization runs end-to-end
  */
-function makeTraceWithSpans(traceId: string): Trace {
+function makeTraceWithSpans(traceId: string, attributes: Record<string, string> = {}): Trace {
   const info = new TraceInfo({
     traceId,
     traceLocation: createTraceLocationFromExperimentId('exp-test'),
@@ -61,6 +61,11 @@ function makeTraceWithSpans(traceId: string): Trace {
     ROOT_CONTEXT,
   ) as OTelSpan;
   otelSpan.setAttribute(SpanAttributeKey.TRACE_ID, JSON.stringify(traceId));
+  // Attribute values are stored JSON-encoded on the OTel span, mirroring the
+  // SDK's `safeJsonStringify` behavior (see core/entities/span.ts).
+  for (const [key, value] of Object.entries(attributes)) {
+    otelSpan.setAttribute(key, value);
+  }
   otelSpan.end();
 
   return new Trace(info, new TraceData([new MlflowSpan(otelSpan)]));
@@ -527,5 +532,34 @@ describe('wal/exporter', () => {
       sizeSpy.mockRestore();
       warnSpy.mockRestore();
     }
+  });
+
+  it('serializes decoded attribute values (no double JSON-encoding)', async () => {
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    popTraceSpy.mockReturnValue(
+      makeTraceWithSpans('tr-decode', {
+        [SpanAttributeKey.SPAN_TYPE]: JSON.stringify('TOOL'),
+        tool_name: JSON.stringify('WebSearch'),
+      }),
+    );
+    const span = makeSpan({ traceId: 'otel-1', rootSpan: true });
+
+    const { callback, promise } = captureExportResult();
+    exporter.export([span], callback);
+
+    expect((await promise).code).toBe(ExportResultCode.SUCCESS);
+    await exporter.forceFlush();
+
+    const record = submit.mock.calls[0][0];
+    const decoded = Buffer.from(record.otlpSpans as string, 'base64');
+
+    // Decoded native values are present...
+    expect(decoded.includes(Buffer.from('TOOL'))).toBe(true);
+    expect(decoded.includes(Buffer.from('WebSearch'))).toBe(true);
+    // ...and the double-encoded (quoted) forms are NOT.
+    expect(decoded.includes(Buffer.from('"TOOL"'))).toBe(false);
+    expect(decoded.includes(Buffer.from('"WebSearch"'))).toBe(false);
   });
 });
