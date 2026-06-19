@@ -577,5 +577,5 @@ export const EXPERIMENTS_DEFAULT_COLUMN_SETUP = {
   resizable: true,
   filter: true,
   suppressMenu: true,
-  suppressMovable: true,
+  suppressMovable: false,
 };

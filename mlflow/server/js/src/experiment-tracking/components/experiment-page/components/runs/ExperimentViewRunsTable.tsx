@@ -1,4 +1,11 @@
-import type { CellClickedEvent, ColumnApi, GridApi, GridReadyEvent } from '@ag-grid-community/core';
+import type {
+  CellClickedEvent,
+  ColumnApi,
+  ColumnMovedEvent,
+  ColumnResizedEvent,
+  GridApi,
+  GridReadyEvent,
+} from '@ag-grid-community/core';
 import type { Theme } from '@emotion/react';
 import { type CSSObject, Interpolation } from '@emotion/react';
 import cx from 'classnames';
@@ -45,7 +52,9 @@ import { useExperimentTableSelectRowHandler } from '../../hooks/useExperimentTab
 import { useToggleRowVisibilityCallback } from '../../hooks/useToggleRowVisibilityCallback';
 import { ExperimentViewRunsTableHeaderContextProvider } from './ExperimentViewRunsTableHeaderContext';
 import { useRunsHighlightTableRow } from '../../../runs-charts/hooks/useRunsHighlightTableRow';
-import { isEmpty } from 'lodash';
+import { debounce, isEmpty, isEqual } from 'lodash';
+import { useColumnPreferences } from '@databricks/web-shared/table-prefs';
+import { columnStateToPrefs, prefsToColumnState } from './agGridColumnPrefsAdapter';
 
 const ROW_BUFFER = 101; // How many rows to keep rendered, even ones not visible
 const LARGE_COLUMN_COUNT_THRESHOLD = 1000; // Threshold to determine if we should optimize column rendering
@@ -224,6 +233,103 @@ export const ExperimentViewRunsTable = React.memo(
       runsHiddenMode: uiState.runsHiddenMode,
     });
 
+    // Universe of persistable colIds, taken from the live grid so order restores
+    // exactly. Excludes the auto-generated checkbox column (numeric colId).
+    const [allColumns, setAllColumns] = useState<string[]>([]);
+    useEffect(() => {
+      if (!columnApi) {
+        return;
+      }
+      const ids = (columnApi.getAllGridColumns() ?? [])
+        .map((column) => column.getColId())
+        .filter((id): id is string => Boolean(id) && !/^\d+$/.test(id));
+      setAllColumns((prev) => (isEqual(prev, ids) ? prev : ids));
+    }, [columnApi, columnDefs]);
+
+    const columnPrefsStorageKey = useMemo(
+      () => `mlflow.experiment-runs.column-prefs.${[...experiments.map((e) => e.experimentId)].sort().join(',')}`,
+      [experiments],
+    );
+
+    // Persists column order + width across sessions. Visibility stays on the
+    // existing `selectedColumns` path, so `defaultVisible` is the full set here.
+    const {
+      preferences: columnPreferences,
+      isCustomized: hasCustomColumnPrefs,
+      setColumnOrder,
+      setColumnWidths,
+    } = useColumnPreferences({
+      storageKey: columnPrefsStorageKey,
+      version: 1,
+      allColumns,
+      defaultVisible: allColumns,
+    });
+
+    const captureColumnState = useMemo(
+      () =>
+        debounce((api: ColumnApi) => {
+          const prefs = columnStateToPrefs(api.getColumnState(), allColumns);
+          setColumnOrder(prefs.columnOrder);
+          setColumnWidths(prefs.columnWidths);
+        }, 250),
+      [allColumns, setColumnOrder, setColumnWidths],
+    );
+
+    // Cancel any pending capture on unmount/navigation so we don't write state
+    // after the grid is gone.
+    useEffect(() => () => captureColumnState.cancel(), [captureColumnState]);
+
+    // Only capture genuine user gestures. Whitelisting (rather than excluding
+    // 'api'/'flex'/etc.) keeps initial layout, compare-mode auto-fit, and our
+    // own applyColumnState from being persisted or causing a feedback loop.
+    const handleColumnMoved = useCallback(
+      (event: ColumnMovedEvent) => {
+        if (isComparingRuns || !event.columnApi) {
+          return;
+        }
+        if (event.source === 'uiColumnMoved' || event.source === 'uiColumnDragged') {
+          captureColumnState(event.columnApi);
+        }
+      },
+      [captureColumnState, isComparingRuns],
+    );
+
+    const handleColumnResized = useCallback(
+      (event: ColumnResizedEvent) => {
+        if (isComparingRuns || !event.columnApi || event.finished === false) {
+          return;
+        }
+        if (event.source === 'uiColumnDragged' || event.source === 'uiColumnResized') {
+          captureColumnState(event.columnApi);
+        }
+      },
+      [captureColumnState, isComparingRuns],
+    );
+
+    // Read latest prefs without re-applying on every capture (which would fight
+    // an in-progress drag and revert the user's move mid-gesture).
+    const columnPreferencesRef = useRef(columnPreferences);
+    columnPreferencesRef.current = columnPreferences;
+    const hasCustomColumnPrefsRef = useRef(hasCustomColumnPrefs);
+    hasCustomColumnPrefsRef.current = hasCustomColumnPrefs;
+
+    // Apply persisted order + width only on grid-ready and when the column set
+    // structurally changes — and only once the user has actually customized,
+    // so the grid keeps its natural columnDefs order by default. Visibility
+    // stays on the selectedColumns effect, so `hide` is stripped here.
+    useEffect(() => {
+      if (!columnApi || isComparingRuns || !hasCustomColumnPrefsRef.current) {
+        return;
+      }
+      const state = prefsToColumnState(columnPreferencesRef.current).map(({ hide, ...rest }) => rest);
+      if (state.length > 0) {
+        columnApi.applyColumnState({ state, applyOrder: true });
+      }
+      // `allColumns` populates one tick after grid-ready; depending on it ensures
+      // the persisted order is applied once colIds are known. It stays stable
+      // across user drags, so this won't re-run and fight an in-progress gesture.
+    }, [columnApi, columnDefs, isComparingRuns, allColumns]);
+
     const gridSizeHandler = useCallback(
       (api: GridApi) => {
         if (api && isComparingRuns) {
@@ -393,7 +499,10 @@ export const ExperimentViewRunsTable = React.memo(
                 defaultColDef={EXPERIMENTS_DEFAULT_COLUMN_SETUP}
                 columnDefs={columnDefs}
                 rowSelection="multiple"
+                maintainColumnOrder
                 onGridReady={gridReadyHandler}
+                onColumnMoved={handleColumnMoved}
+                onColumnResized={handleColumnResized}
                 onSelectionChanged={onSelectionChange}
                 getRowHeight={rowHeightGetterFn}
                 headerHeight={EXPERIMENT_RUNS_TABLE_ROW_HEIGHT}
