@@ -119,7 +119,7 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
                 {getNamedToolCalls(message).map((toolCall, toolCallIndex) => (
                   <div
                     key={toolCall.id ?? toolCallIndex}
-                    css={cardStyles}
+                    css={{ ...cardStyles, display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}
                     data-testid="mlflow.playground.assistant.tool_call_card"
                   >
                     <Typography.Text bold>
