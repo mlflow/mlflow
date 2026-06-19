@@ -117,6 +117,47 @@ async def test_astream_yields_agent_message_text():
 
 
 @pytest.mark.asyncio
+async def test_astream_emits_usage_event_from_turn_completed():
+    stdout_lines = _make_stdout_lines(
+        {"type": "thread.started", "thread_id": "t1"},
+        {"type": "item.completed", "item": {"type": "agent_message", "text": "done"}},
+        {
+            "type": "turn.completed",
+            "usage": {"input_tokens": 10, "cached_input_tokens": 4, "output_tokens": 5},
+        },
+    )
+
+    mock_proc = _mock_process(stdout_lines=stdout_lines)
+
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            return_value=mock_proc,
+        ),
+        patch(
+            "mlflow.assistant.providers.codex.calculate_cost_by_model_and_token_usage",
+            return_value=None,
+        ) as mock_cost,
+    ):
+        provider = CodexProvider()
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    usage_events = [
+        e
+        for e in events
+        if e.type == EventType.STREAM_EVENT and e.data["event"].get("type") == "usage"
+    ]
+    assert len(usage_events) == 1
+    usage = usage_events[0].data["event"]["usage"]
+    assert usage["prompt_tokens"] == 10
+    assert usage["completion_tokens"] == 5
+    assert usage["total_tokens"] == 15
+    assert usage["total_cost_usd"] is None
+    mock_cost.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_astream_ignores_non_agent_message_items():
     mcp_item = {"id": "i1", "type": "mcp_tool_call", "text": "ignored"}
     agent_item = {"id": "i2", "type": "agent_message", "text": "kept"}
