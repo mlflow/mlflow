@@ -10,7 +10,9 @@ from mlflow.assistant.config import PermissionsConfig
 _logger = logging.getLogger(__name__)
 
 _FILE_TOOLS = {"Read", "Write", "Edit"}
-_ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python"}
+# mlflow/python for MLflow ops; wc/stat/ls/du are read-only and let the model
+# cheaply check file sizes (e.g. of /tmp dumps) before loading large output.
+_ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python", "wc", "stat", "ls", "du"}
 
 
 def _is_path_within(path: Path, root: Path) -> bool:
@@ -69,11 +71,11 @@ async def execute_tool(
             case "Bash":
                 return await _execute_bash(tool_input, cwd=cwd, tracking_uri=tracking_uri)
             case "Read":
-                return _execute_read(tool_input, cwd=cwd)
+                return await asyncio.to_thread(_execute_read, tool_input, cwd=cwd)
             case "Write":
-                return _execute_write(tool_input, cwd=cwd)
+                return await asyncio.to_thread(_execute_write, tool_input, cwd=cwd)
             case "Edit":
-                return _execute_edit(tool_input, cwd=cwd)
+                return await asyncio.to_thread(_execute_edit, tool_input, cwd=cwd)
             case _:
                 return f"Unknown tool: {tool_name}", True
     except Exception as e:
