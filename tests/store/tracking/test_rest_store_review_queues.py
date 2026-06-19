@@ -1,6 +1,9 @@
 import json
 from unittest import mock
 
+import pytest
+
+from mlflow.exceptions import MlflowException
 from mlflow.protos import review_queues_pb2 as pb
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -92,6 +95,17 @@ def test_update_review_queue_empty_list_still_flags():
     assert captured["body"].get("schema_ids", []) == []
 
 
+def test_update_review_queue_sends_name_and_new_owner():
+    resp = pb.UpdateReviewQueue.Response(
+        review_queue=pb.ReviewQueue(queue_id="rq-1", queue_type=pb.CUSTOM)
+    )
+    patcher, captured = _capture(resp)
+    with patcher:
+        _store().update_review_queue("rq-1", name="Renamed", new_owner="bob")
+    assert captured["body"]["name"] == "Renamed"
+    assert captured["body"]["new_owner"] == "bob"
+
+
 def test_add_items_sends_item_type_and_ids():
     resp = pb.AddItemsToReviewQueue.Response(
         items=[
@@ -164,6 +178,19 @@ def test_list_review_queues_parses_paged_response():
     assert page[0].queue_id == "rq-1"
 
 
+def test_list_review_queues_sends_item_filter():
+    resp = pb.ListReviewQueues.Response(
+        review_queues=[pb.ReviewQueue(queue_id="rq-1", name="q", queue_type=pb.CUSTOM)],
+        next_page_token="",
+    )
+    patcher, captured = _capture(resp)
+    with patcher:
+        page = _store().list_review_queues("1", item_id="tr-1")
+    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/list"
+    assert captured["body"]["item_id"] == "tr-1"
+    assert page[0].queue_id == "rq-1"
+
+
 def test_delete_review_queue_endpoint():
     patcher, captured = _capture(pb.DeleteReviewQueue.Response())
     with patcher:
@@ -204,3 +231,27 @@ def test_remove_items_endpoint():
     assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/items/remove"
     assert captured["body"]["queue_id"] == "rq-1"
     assert captured["body"]["item_ids"] == ["tr-1", "tr-2"]
+
+
+# Unknown enum strings are rejected with a clear MlflowException before the RPC,
+# rather than the bare ValueError a direct enum constructor would raise.
+
+
+def test_create_review_queue_rejects_unknown_queue_type():
+    with pytest.raises(MlflowException, match="`queue_type` must be one of"):
+        _store().create_review_queue("1", name="Q", queue_type="nonsense")
+
+
+def test_add_items_rejects_unknown_item_type():
+    with pytest.raises(MlflowException, match="`item_type` must be one of"):
+        _store().add_items_to_review_queue("rq-1", item_ids=["tr-1"], item_type="nonsense")
+
+
+def test_list_items_rejects_unknown_status():
+    with pytest.raises(MlflowException, match="`status` must be one of"):
+        _store().list_review_queue_items("rq-1", status="nonsense")
+
+
+def test_set_item_status_rejects_unknown_status():
+    with pytest.raises(MlflowException, match="`status` must be one of"):
+        _store().set_review_queue_item_status("rq-1", item_id="tr-1", status="nonsense")

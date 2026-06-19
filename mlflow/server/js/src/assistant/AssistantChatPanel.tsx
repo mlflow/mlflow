@@ -264,8 +264,17 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage, cancelSession } =
-    useAssistant();
+  const {
+    messages,
+    isStreaming,
+    error,
+    activeTools,
+    sendMessage,
+    regenerateLastMessage,
+    cancelSession,
+    pendingPrompt,
+    clearPendingPrompt,
+  } = useAssistant();
   const logTelemetryEvent = useLogTelemetryEvent();
   const viewId = useMemo(() => uuidv4(), []);
 
@@ -286,6 +295,16 @@ const ChatPanelContent = () => {
       textarea.style.height = `${textarea.scrollHeight}px`;
     }
   }, [inputValue]);
+
+  // Consume a prompt queued by an onboarding card. This component only mounts once setup is
+  // complete, so a prompt queued during the setup wizard lands here on first mount.
+  useEffect(() => {
+    if (pendingPrompt != null) {
+      setInputValue(pendingPrompt);
+      clearPendingPrompt();
+      textareaRef.current?.focus();
+    }
+  }, [pendingPrompt, clearPendingPrompt]);
 
   const handleSend = useCallback(() => {
     if (inputValue.trim() && !isStreaming) {

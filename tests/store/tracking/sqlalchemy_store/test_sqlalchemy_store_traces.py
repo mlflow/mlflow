@@ -56,6 +56,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSpanMetrics,
     SqlTraceInfo,
     SqlTraceMetrics,
+    SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _TraceArchiveCandidate
 from mlflow.store.workspace.abstract_store import ResolvedTraceArchivalConfig
@@ -1292,6 +1293,83 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
     # Test: Search for non-existent expectation
     traces, _ = store.search_traces([exp_id], filter_string='expectation.nonexistent = "value"')
     assert len(traces) == 0
+
+
+def test_search_traces_with_assessment_numeric_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_numeric_search")
+    trace_ids = [f"trace{i}" for i in range(1, 7)]
+    for trace_id in trace_ids:
+        _create_trace(store, trace_id, exp_id)
+
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    for trace_id, score, quality in [
+        ("trace1", 2, "low"),
+        ("trace2", 3.0, "medium"),
+        ("trace3", 3.5, "high"),
+        ("trace4", 4, "high"),
+    ]:
+        store.create_assessment(
+            Feedback(trace_id=trace_id, name="score", value=score, source=source)
+        )
+        store.create_assessment(
+            Feedback(trace_id=trace_id, name="quality", value=quality, source=source)
+        )
+
+    for trace_id, threshold in [("trace1", 0.25), ("trace2", 0.5), ("trace3", 0.75)]:
+        store.create_assessment(
+            Expectation(trace_id=trace_id, name="threshold", value=threshold, source=source)
+        )
+
+    for trace_id, value in [("trace5", "high"), ("trace6", True)]:
+        store.create_assessment(
+            Feedback(trace_id=trace_id, name="score", value=value, source=source)
+        )
+
+    def search(filter_string):
+        traces, _ = store.search_traces([exp_id], filter_string=filter_string)
+        return {trace.request_id for trace in traces}
+
+    assert search("feedback.score > 3") == {"trace3", "trace4"}
+    assert search("feedback.score >= 3.5") == {"trace3", "trace4"}
+    assert search("feedback.score < 3.5") == {"trace1", "trace2"}
+    assert search("feedback.score <= 3") == {"trace1", "trace2"}
+    assert search('feedback.score > 3 AND feedback.quality = "high"') == {"trace3", "trace4"}
+    assert search("feedback.score >= 3.0 AND feedback.score < 4") == {"trace2", "trace3"}
+    assert search("expectation.threshold > 0.25") == {"trace2", "trace3"}
+    assert search("expectation.threshold <= 0.5") == {"trace1", "trace2"}
+    assert search("feedback.score > 0") == {"trace1", "trace2", "trace3", "trace4"}
+
+    with pytest.raises(MlflowException, match="Expected a numeric value for feedback"):
+        store.search_traces([exp_id], filter_string='feedback.score > "high"')
+
+    with pytest.raises(MlflowException, match="Expected a quoted string value for feedback"):
+        store.search_traces([exp_id], filter_string="feedback.quality = 3")
+
+
+def test_search_traces_numeric_filters_exclude_nan_and_infinity(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_numeric_nan_inf")
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+    for trace_id, score in [
+        ("trace_finite", 3.0),
+        ("trace_nan", float("nan")),
+        ("trace_inf", float("inf")),
+        ("trace_neg_inf", float("-inf")),
+    ]:
+        _create_trace(store, trace_id, exp_id)
+        store.create_assessment(
+            Feedback(trace_id=trace_id, name="score", value=score, source=source)
+        )
+
+    def search(filter_string):
+        traces, _ = store.search_traces([exp_id], filter_string=filter_string)
+        return {trace.request_id for trace in traces}
+
+    # NaN/+Inf/-Inf serialize to the JSON literals "NaN"/"Infinity"/"-Infinity" and must be
+    # excluded from numeric comparisons (a naive CAST coerces them to 0 or errors out).
+    assert search("feedback.score < 4") == {"trace_finite"}
+    assert search("feedback.score > 4") == set()
+    assert search("feedback.score > 0") == {"trace_finite"}
+    assert search("feedback.score <= 3") == {"trace_finite"}
 
 
 def test_search_traces_with_run_id(store: SqlAlchemyStore):
@@ -3400,6 +3478,112 @@ def test_log_spans_multiple_traces(store: SqlAlchemyStore):
 
         span_row2 = session.query(SqlSpan).filter_by(trace_id="tr-multi-2").one()
         assert span_row2.name == "span_trace2"
+
+
+def test_log_spans_persists_resource_attributes_as_tags(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_resource_attrs")
+
+    resource = _OTelResource({
+        "service.name": "my-service",
+        "deployment.environment": "staging",
+        "host.arch": "amd64",
+        # telemetry.sdk.* should be filtered out
+        "telemetry.sdk.language": "python",
+        "telemetry.sdk.name": "opentelemetry",
+        # mlflow.* namespace should be filtered out to prevent clobbering reserved tags
+        "mlflow.evil": "should-be-dropped",
+        # non-string values should be serialized via json.dumps
+        "process.pid": 12345,
+        "k8s.pod.ready": True,
+        "host.cpu.count": 4.0,
+    })
+
+    span = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_with_resource",
+            context=trace_api.SpanContext(
+                trace_id=99999,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps("tr-resource-test"),
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=resource,
+        ),
+        "tr-resource-test",
+    )
+
+    store.log_spans(experiment_id, [span])
+
+    with store.ManagedSessionMaker() as session:
+        tags = {
+            row.key: row.value
+            for row in session
+            .query(SqlTraceTag)
+            .filter(SqlTraceTag.request_id == "tr-resource-test")
+            .all()
+        }
+
+    # Resource attributes should be persisted
+    assert tags["service.name"] == "my-service"
+    assert tags["deployment.environment"] == "staging"
+    assert tags["host.arch"] == "amd64"
+    # Non-string values should be serialized via json.dumps
+    assert tags["process.pid"] == "12345"
+    assert tags["k8s.pod.ready"] == "true"  # json.dumps lowercases booleans
+    assert tags["host.cpu.count"] == "4.0"
+    # telemetry.sdk.* should be filtered out
+    assert "telemetry.sdk.language" not in tags
+    assert "telemetry.sdk.name" not in tags
+    # mlflow.* namespace should be filtered out
+    assert "mlflow.evil" not in tags
+
+
+def test_log_spans_resource_tags_do_not_overwrite_user_tags(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_resource_tag_priority")
+
+    resource = _OTelResource({"service.name": "from-resource"})
+
+    span = create_mlflow_span(
+        OTelReadableSpan(
+            name="span_tag_priority",
+            context=trace_api.SpanContext(
+                trace_id=88888,
+                span_id=111,
+                is_remote=False,
+                trace_flags=trace_api.TraceFlags(1),
+            ),
+            parent=None,
+            attributes={
+                "mlflow.traceRequestId": json.dumps("tr-tag-priority"),
+                # User-defined trace tag via mlflow.traceTag.* attribute
+                f"{SpanAttributeKey.TRACE_TAG_PREFIX}service.name": json.dumps("from-user"),
+            },
+            start_time=1000000000,
+            end_time=2000000000,
+            resource=resource,
+        ),
+        "tr-tag-priority",
+    )
+
+    store.log_spans(experiment_id, [span])
+
+    with store.ManagedSessionMaker() as session:
+        tags = {
+            row.key: row.value
+            for row in session
+            .query(SqlTraceTag)
+            .filter(SqlTraceTag.request_id == "tr-tag-priority")
+            .all()
+        }
+
+    # User-defined tag should take precedence over resource attribute
+    assert tags["service.name"] == "from-user"
 
 
 def test_log_spans_persists_links(store: SqlAlchemyStore):

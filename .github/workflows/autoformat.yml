@@ -29,7 +29,7 @@ jobs:
       base_repo: ${{ fromJSON(steps.judge.outputs.result).base_repo }}
       pull_number: ${{ fromJSON(steps.judge.outputs.result).pull_number }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           sparse-checkout: |
@@ -71,7 +71,7 @@ jobs:
     outputs:
       reformatted: ${{ steps.patch.outputs.reformatted }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           repository: ${{ needs.check-comment.outputs.repository }}
@@ -225,7 +225,7 @@ jobs:
           # for how to rotate the private key
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
           permission-contents: write
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: true
           repository: ${{ needs.check-comment.outputs.repository }}
@@ -300,7 +300,7 @@ jobs:
       statuses: write # To update check statuses
       actions: write # To approve workflow runs
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           sparse-checkout: |

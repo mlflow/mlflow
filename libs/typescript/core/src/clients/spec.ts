@@ -129,6 +129,17 @@ export namespace ExportOtlpTraces {
 }
 
 /**
+ * OTLP span upload endpoint for OSS (non-Databricks) tracking servers.
+ *
+ * Endpoint: POST /v1/traces
+ * Required header: `x-mlflow-experiment-id: <experiment_id>`
+ * Content-Type: application/x-protobuf (OTLP/HTTP+protobuf).
+ */
+export namespace ExportOtlpTracesOss {
+  export const getEndpoint = (host: string) => `${host}/v1/traces`;
+}
+
+/**
  * Get credentials for uploading trace data to the artifact store. Only used for Databricks.
  */
 export namespace GetCredentialsForTraceDataUpload {

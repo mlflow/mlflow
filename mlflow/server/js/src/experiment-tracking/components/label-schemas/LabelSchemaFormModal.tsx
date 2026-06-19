@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Modal, useDesignSystemTheme } from '@databricks/design-system';
 import { ModelTraceExplorerResizablePane } from '@databricks/web-shared/model-trace-explorer';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { useForm, useWatch } from 'react-hook-form';
+
+import Utils from '../../../common/utils/Utils';
 
 import { LabelSchemaFormRenderer } from './LabelSchemaFormRenderer';
 import { LabelSchemaPreview } from './LabelSchemaPreview';
@@ -30,6 +32,8 @@ export interface LabelSchemaFormModalProps {
   editingSchema: LabelSchema | null;
   visible: boolean;
   onClose: () => void;
+  /** Called after a new schema is successfully created (not on edit). */
+  onCreated?: (schema: LabelSchema) => void;
 }
 
 /**
@@ -39,7 +43,13 @@ export interface LabelSchemaFormModalProps {
  * while this is open); the form itself is the schema authoring UI shared with
  * the rest of the app.
  */
-export const LabelSchemaFormModal = ({ experimentId, editingSchema, visible, onClose }: LabelSchemaFormModalProps) => {
+export const LabelSchemaFormModal = ({
+  experimentId,
+  editingSchema,
+  visible,
+  onClose,
+  onCreated,
+}: LabelSchemaFormModalProps) => {
   const { theme } = useDesignSystemTheme();
   const isEdit = editingSchema != null;
   const defaultValues = editingSchema ? getFormValuesFromSchema(editingSchema) : DEFAULT_FORM_VALUES;
@@ -56,10 +66,10 @@ export const LabelSchemaFormModal = ({ experimentId, editingSchema, visible, onC
 
   const [leftPaneWidth, setLeftPaneWidth] = useState(0);
 
+  const intl = useIntl();
   const createMutation = useCreateLabelSchemaMutation();
   const updateMutation = useUpdateLabelSchemaMutation();
   const isSubmitting = createMutation.isCreating || updateMutation.isUpdating;
-  const submitError = createMutation.error ?? updateMutation.error;
 
   // Reset the form whenever the modal opens or the edited schema changes. The
   // modal stays mounted across open/close, so without this react-hook-form's
@@ -89,7 +99,7 @@ export const LabelSchemaFormModal = ({ experimentId, editingSchema, visible, onC
           input,
         });
       } else {
-        await createMutation.createLabelSchemaAsync({
+        const { label_schema } = await createMutation.createLabelSchemaAsync({
           experiment_id: experimentId,
           name: form.name,
           type: form.type,
@@ -97,9 +107,21 @@ export const LabelSchemaFormModal = ({ experimentId, editingSchema, visible, onC
           instruction: form.instruction === '' ? undefined : form.instruction,
           enable_comment: form.enable_comment,
         });
+        onCreated?.(label_schema);
       }
-    } catch {
-      // Errors surface via `submitError`; keep the modal open.
+    } catch (e) {
+      // Surface as a toast rather than inline text, so the error doesn't shift
+      // the modal's layout/buttons. Keep the modal open so the reviewer can
+      // correct and retry.
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Failed to save question: {error}',
+            description: 'Review question modal: error toast shown when saving a question fails',
+          },
+          { error: e instanceof Error ? e.message : String(e) },
+        ),
+      );
       return;
     }
     reset(DEFAULT_FORM_VALUES);
@@ -188,15 +210,6 @@ export const LabelSchemaFormModal = ({ experimentId, editingSchema, visible, onC
             }
           />
         </div>
-        {submitError && (
-          <Typography.Text color="error">
-            <FormattedMessage
-              defaultMessage="Failed to save: {message}"
-              description="Review question save error"
-              values={{ message: submitError.message }}
-            />
-          </Typography.Text>
-        )}
       </div>
     </Modal>
   );

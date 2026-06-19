@@ -1117,12 +1117,13 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         users=None,
         schema_ids=None,
     ):
-        from mlflow.genai.review_queues import ReviewQueue, ReviewQueueType
+        from mlflow.genai.review_queues import ReviewQueue
+        from mlflow.genai.review_queues.validation import coerce_queue_type
 
         req = CreateReviewQueue(
             experiment_id=str(experiment_id),
             name=name,
-            queue_type=ReviewQueueType(str(queue_type)).to_proto(),
+            queue_type=coerce_queue_type(queue_type).to_proto(),
             users=list(users) if users is not None else [],
             schema_ids=list(schema_ids) if schema_ids is not None else [],
         )
@@ -1135,12 +1136,10 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
         return ReviewQueue.from_proto(response_proto.review_queue)
 
-    def get_or_create_user_queue(self, experiment_id, *, user, created_by=None):
+    def get_or_create_user_queue(self, experiment_id, *, user):
         from mlflow.genai.review_queues import ReviewQueue
 
         req = GetOrCreateUserQueue(experiment_id=str(experiment_id), user=user)
-        if created_by is not None:
-            req.created_by = created_by
         response_proto = self._call_endpoint(
             GetOrCreateUserQueue,
             message_to_json(req),
@@ -1170,12 +1169,16 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
         return ReviewQueue.from_proto(response_proto.review_queue)
 
-    def list_review_queues(self, experiment_id, *, user=None, max_results=None, page_token=None):
+    def list_review_queues(
+        self, experiment_id, *, user=None, item_id=None, max_results=None, page_token=None
+    ):
         from mlflow.genai.review_queues import ReviewQueue
 
         req = ListReviewQueues(experiment_id=str(experiment_id))
         if user is not None:
             req.user = user
+        if item_id is not None:
+            req.item_id = item_id
         if max_results is not None:
             req.max_results = max_results
         if page_token is not None:
@@ -1188,10 +1191,16 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         queues = [ReviewQueue.from_proto(q) for q in response_proto.review_queues]
         return PagedList(queues, response_proto.next_page_token or None)
 
-    def update_review_queue(self, queue_id, *, users=None, schema_ids=None):
+    def update_review_queue(
+        self, queue_id, *, name=None, new_owner=None, users=None, schema_ids=None
+    ):
         from mlflow.genai.review_queues import ReviewQueue
 
         req = UpdateReviewQueue(queue_id=queue_id)
+        if name is not None:
+            req.name = name
+        if new_owner is not None:
+            req.new_owner = new_owner
         if users is not None:
             req.update_users = True
             req.users.extend(users)
@@ -1214,11 +1223,12 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
 
     def add_items_to_review_queue(self, queue_id, *, item_ids, item_type="trace"):
-        from mlflow.genai.review_queues import ReviewItemType, ReviewQueueItem
+        from mlflow.genai.review_queues import ReviewQueueItem
+        from mlflow.genai.review_queues.validation import coerce_item_type
 
         req = AddItemsToReviewQueue(
             queue_id=queue_id,
-            item_type=ReviewItemType(str(item_type)).to_proto(),
+            item_type=coerce_item_type(item_type).to_proto(),
             item_ids=list(item_ids),
         )
         response_proto = self._call_endpoint(
@@ -1237,11 +1247,12 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
 
     def list_review_queue_items(self, queue_id, *, status=None, max_results=None, page_token=None):
-        from mlflow.genai.review_queues import ReviewQueueItem, ReviewStatus
+        from mlflow.genai.review_queues import ReviewQueueItem
+        from mlflow.genai.review_queues.validation import coerce_status
 
         req = ListReviewQueueItems(queue_id=queue_id)
         if status is not None:
-            req.status = ReviewStatus(str(status)).to_proto()
+            req.status = coerce_status(status).to_proto()
         if max_results is not None:
             req.max_results = max_results
         if page_token is not None:
@@ -1255,12 +1266,13 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         return PagedList(items, response_proto.next_page_token or None)
 
     def set_review_queue_item_status(self, queue_id, *, item_id, status, completed_by=None):
-        from mlflow.genai.review_queues import ReviewQueueItem, ReviewStatus
+        from mlflow.genai.review_queues import ReviewQueueItem
+        from mlflow.genai.review_queues.validation import coerce_status
 
         req = SetReviewQueueItemStatus(
             queue_id=queue_id,
             item_id=item_id,
-            status=ReviewStatus(str(status)).to_proto(),
+            status=coerce_status(status).to_proto(),
         )
         if completed_by is not None:
             req.completed_by = completed_by

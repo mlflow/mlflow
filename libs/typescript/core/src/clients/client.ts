@@ -5,16 +5,17 @@ import {
   CreateTraceInfoV4,
   DeleteExperiment,
   ExportOtlpTraces,
+  ExportOtlpTracesOss,
   GetExperiment,
   GetExperimentByName,
   GetTraceInfoV3,
   StartTraceV3,
 } from './spec';
-import { makeRequest, MlflowHttpError } from './utils';
+import { makeRawRequest, makeRequest, MlflowHttpError } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
 import { AuthProvider, HeadersProvider } from '../auth';
-import { DATABRICKS_UC_TABLE_HEADER } from '../core/constants';
+import { DATABRICKS_UC_TABLE_HEADER, MLFLOW_EXPERIMENT_ID_HEADER } from '../core/constants';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import type { ReadableSpan as OTelReadableSpan } from '@opentelemetry/sdk-trace-base';
 import { ExportResultCode, type ExportResult } from '@opentelemetry/core';
@@ -151,6 +152,29 @@ export class MlflowClient {
       // Drain any pending state so the exporter doesn't keep handles open.
       await exporter.shutdown().catch(() => undefined);
     }
+  }
+
+  /**
+   * Export OTLP spans to an OSS (non-Databricks) tracking server.
+   *
+   * `otlpProtoBytes` is an already-serialized OTLP `ExportTraceServiceRequest`
+   * protobuf (captured at WAL-write time), POSTed as `application/x-protobuf`
+   * with the experiment id forwarded via the `x-mlflow-experiment-id` header.
+   */
+  async exportOtlpSpans(experimentId: string, otlpProtoBytes: Uint8Array): Promise<void> {
+    if (otlpProtoBytes.length === 0) {
+      return;
+    }
+    await makeRawRequest(
+      'POST',
+      ExportOtlpTracesOss.getEndpoint(this.hostUrl),
+      this.headersProvider,
+      otlpProtoBytes,
+      {
+        'Content-Type': 'application/x-protobuf',
+        [MLFLOW_EXPERIMENT_ID_HEADER]: experimentId,
+      },
+    );
   }
 
   // === TRACE RETRIEVAL METHODS ===
