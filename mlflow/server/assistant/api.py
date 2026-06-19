@@ -107,14 +107,6 @@ class PermissionDecisionRequest(BaseModel):
     decision: Literal["allow", "deny"]
 
 
-class SessionFullAccessRequest(BaseModel):
-    full_access: bool
-
-
-class SessionFullAccessResponse(BaseModel):
-    full_access: bool
-
-
 # Skills-related models
 class SkillsInstallRequest(BaseModel):
     type: Literal["global", "project", "custom"] = "global"
@@ -276,34 +268,6 @@ async def respond_to_permission(
 
     permission_broker.resolve(session_id, request_id, request.decision == "allow")
     return {"status": "ok"}
-
-
-@assistant_router.put("/sessions/{session_id}/permissions")
-async def set_session_permissions(
-    session_id: str, request: SessionFullAccessRequest
-) -> SessionFullAccessResponse:
-    """Set the session-scoped full-access flag (the toolbox switch).
-
-    Full access is intentionally ephemeral and per-session: it is never written
-    to the global assistant config, so one user's choice never affects another.
-    """
-    try:
-        SessionManager.validate_session_id(session_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    permission_broker.set_full_access(session_id, request.full_access)
-    return SessionFullAccessResponse(full_access=request.full_access)
-
-
-@assistant_router.get("/sessions/{session_id}/permissions")
-async def get_session_permissions(session_id: str) -> SessionFullAccessResponse:
-    try:
-        SessionManager.validate_session_id(session_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    return SessionFullAccessResponse(full_access=permission_broker.is_full_access(session_id))
 
 
 @assistant_router.get("/providers/{provider}/health")

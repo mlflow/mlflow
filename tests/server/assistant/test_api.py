@@ -397,23 +397,6 @@ def test_patch_session_cancel_with_process(client):
             assert not _is_process_running(proc.pid)
 
 
-def test_session_full_access_round_trip(client):
-    from mlflow.server.assistant.permissions import permission_broker
-
-    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
-    permission_broker.clear(session_id)
-
-    get_url = f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/permissions"
-    assert client.get(get_url).json() == {"full_access": False}
-
-    put = client.put(get_url, json={"full_access": True})
-    assert put.status_code == 200
-    assert put.json() == {"full_access": True}
-    assert client.get(get_url).json() == {"full_access": True}
-    assert permission_broker.is_full_access(session_id) is True
-    permission_broker.clear(session_id)
-
-
 @pytest.mark.parametrize(("decision", "expected"), [("allow", True), ("deny", False)])
 @pytest.mark.asyncio
 async def test_respond_to_permission_resolves_pending_request(decision, expected):

@@ -454,10 +454,8 @@ def _tool_call_turns():
 
 @pytest.fixture(autouse=True)
 def reset_broker():
-    permission_broker._full_access.clear()
     permission_broker._pending.clear()
     yield
-    permission_broker._full_access.clear()
     permission_broker._pending.clear()
 
 
@@ -568,29 +566,3 @@ async def test_astream_global_full_access_skips_prompt(tmp_path):
     clear_config_cache()
     assert not any(e.type == EventType.PERMISSION_REQUEST for e in events)
     mock_tool.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_astream_full_access_session_skips_prompt(provider):
-    permission_broker.set_full_access(_SESSION_ID, True)
-    session, _calls = _make_aiohttp_session(_tool_call_turns())
-    with (
-        patch(
-            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
-            return_value=session,
-        ),
-        patch(
-            "mlflow.assistant.providers.openai_compatible.execute_tool",
-            AsyncMock(return_value=("file1.py\n", False)),
-        ) as mock_tool,
-    ):
-        events = [
-            e
-            async for e in provider.astream(
-                "ls", "http://localhost:5000", mlflow_session_id=_SESSION_ID
-            )
-        ]
-
-    assert not any(e.type == EventType.PERMISSION_REQUEST for e in events)
-    mock_tool.assert_awaited_once()
-    assert mock_tool.await_args.kwargs["permissions"].full_access is True

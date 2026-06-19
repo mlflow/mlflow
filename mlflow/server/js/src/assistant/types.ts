@@ -88,8 +88,6 @@ export interface AssistantAgentState {
   pendingPrompt: string | null;
   /** A tool call awaiting the user's Yes/No decision, or null */
   pendingPermission: PermissionRequest | null;
-  /** Session-scoped full access: when true, tool calls run without prompting */
-  sessionFullAccess: boolean;
 }
 
 export interface AssistantAgentActions {
@@ -115,8 +113,6 @@ export interface AssistantAgentActions {
   completeSetup: () => void;
   /** Answer the pending tool-call permission prompt */
   respondToPermission: (allow: boolean) => void;
-  /** Toggle session-scoped full access (the toolbox switch) */
-  setSessionFullAccess: (value: boolean) => void;
 }
 
 export type AssistantAgentContextType = AssistantAgentState & AssistantAgentActions;

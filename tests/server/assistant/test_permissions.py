@@ -10,18 +10,6 @@ def broker():
     return PermissionBroker()
 
 
-def test_full_access_defaults_to_false(broker):
-    assert broker.is_full_access("session-1") is False
-
-
-def test_set_and_get_full_access(broker):
-    broker.set_full_access("session-1", True)
-    assert broker.is_full_access("session-1") is True
-    assert broker.is_full_access("session-2") is False
-    broker.set_full_access("session-1", False)
-    assert broker.is_full_access("session-1") is False
-
-
 @pytest.mark.parametrize("allow", [True, False])
 @pytest.mark.asyncio
 async def test_request_resolves_with_decision(broker, allow):
@@ -82,15 +70,8 @@ async def test_request_cleans_up_on_cancellation(broker):
 
 
 @pytest.mark.asyncio
-async def test_clear_removes_session_state(broker):
-    broker.set_full_access("session-1", True)
-    resolver = asyncio.create_task(_resolve_after(broker, "session-1", "req-1", True))
-    await broker.request("session-1", "req-1")
-    await resolver
+async def test_clear_drops_pending_requests(broker):
+    broker.register("session-1", "req-1")
     broker.clear("session-1")
-    assert broker.is_full_access("session-1") is False
-
-
-async def _resolve_after(broker, session_id, request_id, allow):
-    await asyncio.sleep(0.01)
-    broker.resolve(session_id, request_id, allow)
+    # After clearing, resolving the dropped request is a harmless no-op.
+    broker.resolve("session-1", "req-1", True)

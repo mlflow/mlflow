@@ -467,22 +467,15 @@ class OpenAICompatibleProvider(AssistantProvider):
                             )
                         )
 
-                        # Permission gating. Full access — set globally in the
-                        # config or per-session via the toolbox — runs tools
-                        # without prompting. Otherwise, a session surfaces a
-                        # per-call Yes/No prompt and blocks until the user
-                        # answers; an explicit allow overrides the static tool
-                        # allowlist for that call. With no session (e.g. direct
-                        # astream use) fall back to the static config permissions.
-                        session_full_access = bool(
-                            mlflow_session_id
-                        ) and permission_broker.is_full_access(mlflow_session_id)
+                        # Permission gating. With full access (set in the
+                        # config) tools run without prompting. Otherwise a
+                        # session surfaces a per-call Yes/No prompt and blocks
+                        # until the user answers; an explicit allow overrides
+                        # the static tool allowlist for that call. With no
+                        # session (e.g. direct astream use) fall back to the
+                        # static config permissions.
                         effective_permissions = config.permissions
-                        if config.permissions.full_access:
-                            pass
-                        elif session_full_access:
-                            effective_permissions = PermissionsConfig(full_access=True)
-                        elif mlflow_session_id:
+                        if not config.permissions.full_access and mlflow_session_id:
                             request_id = str(uuid.uuid4())
                             permission_broker.register(mlflow_session_id, request_id)
                             yield Event.from_permission_request(request_id, tool_name, tool_input)

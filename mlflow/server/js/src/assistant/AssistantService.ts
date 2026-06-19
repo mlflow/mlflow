@@ -114,20 +114,6 @@ export const respondToPermission = async (
   });
 };
 
-/**
- * Set the session-scoped full-access flag (the toolbox switch). This never
- * touches the global config, so it only affects this session.
- */
-export const setSessionPermissions = async (
-  sessionId: string,
-  fullAccess: boolean,
-): Promise<{ full_access: boolean }> => {
-  return await fetchAPI(getAjaxUrl(`${API_BASE}/sessions/${sessionId}/permissions`), {
-    method: 'PUT',
-    body: JSON.stringify({ full_access: fullAccess }),
-  });
-};
-
 export interface SendMessageStreamCallbacks {
   onMessage: (text: string) => void;
   onError: (error: string) => void;

@@ -873,8 +873,6 @@ module.exports = {
   "mlflow.assistant.setup.provider.continue": "",
   "mlflow.assistant.setup.provider.model": "",
   "mlflow.assistant.setup.provider.url": "",
-  "mlflow.assistant.toolbox.full_access": "",
-  "mlflow.assistant.toolbox.full_access.tooltip": "",
 
   // -- mlflow.charts --
   "mlflow.charts.bar_card_title.dataset_tag": "",

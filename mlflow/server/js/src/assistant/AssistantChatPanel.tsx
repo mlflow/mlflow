@@ -29,7 +29,6 @@ import { FormattedMessage } from '@databricks/i18n';
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
-import { AssistantToolbox } from './AssistantToolbox';
 import { ToolPermissionPrompt } from './ToolPermissionPrompt';
 import type { ChatMessage, ToolUseInfo } from './types';
 import { AssistantSetupWizard } from './setup';
@@ -657,10 +656,9 @@ export const AssistantChatPanel = () => {
             Beta
           </Tag>
         </span>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+        <div css={{ display: 'flex', gap: theme.spacing.xs }}>
           {showChatControls && (
             <>
-              <AssistantToolbox />
               <Tooltip componentId="mlflow.assistant.chat_panel.reset.tooltip" content="New Chat">
                 <Button
                   componentId="mlflow.assistant.chat_panel.reset"

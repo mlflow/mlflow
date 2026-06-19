@@ -8,9 +8,8 @@ generator) and the HTTP endpoint that delivers the answer live in the same
 server process, so the decision is delivered directly through an
 ``asyncio.Future`` with no polling.
 
-State is keyed by MLflow session id and is intentionally ephemeral: it is never
-written to the global assistant config, so one user's grants never leak to
-another, and a server restart fails safe (full access defaults to off).
+Pending requests are keyed by MLflow session id and held only in memory, so a
+decision never leaks across sessions or survives a restart.
 """
 
 import asyncio
@@ -18,15 +17,8 @@ import asyncio
 
 class PermissionBroker:
     def __init__(self) -> None:
-        self._full_access: dict[str, bool] = {}
         # session_id -> {request_id -> Future[bool]}
         self._pending: dict[str, dict[str, asyncio.Future[bool]]] = {}
-
-    def set_full_access(self, session_id: str, value: bool) -> None:
-        self._full_access[session_id] = value
-
-    def is_full_access(self, session_id: str) -> bool:
-        return self._full_access.get(session_id, False)
 
     def register(self, session_id: str, request_id: str) -> "asyncio.Future[bool]":
         """Register a pending request and return its future.
@@ -72,7 +64,6 @@ class PermissionBroker:
         """Drop all state for a finished session."""
         self.deny_all(session_id)
         self._pending.pop(session_id, None)
-        self._full_access.pop(session_id, None)
 
 
 permission_broker = PermissionBroker()

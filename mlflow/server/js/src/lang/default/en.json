@@ -2415,10 +2415,6 @@
     "defaultMessage": "Model name",
     "description": "Text for form title on creating model in the model registry"
   },
-  "9n7e/G": {
-    "defaultMessage": "Full access runs tool calls without asking for permission each time. Applies to this session only.",
-    "description": "Tooltip explaining the assistant session full-access switch"
-  },
   "9oh44C": {
     "defaultMessage": "Stop Sequences (comma-separated)",
     "description": "Label for stop sequences input"
@@ -2922,10 +2918,6 @@
   "C1y/A6": {
     "defaultMessage": "Assertions",
     "description": "Assertions column header"
-  },
-  "C23A0T": {
-    "defaultMessage": "Full access",
-    "description": "Label for the assistant session full-access switch"
   },
   "C4y1fv": {
     "defaultMessage": "-∞",

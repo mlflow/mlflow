@@ -1,6 +1,6 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { fetchAPI } from '@mlflow/mlflow/src/common/utils/FetchUtils';
-import { respondToPermission, setSessionPermissions, sendMessageStream } from './AssistantService';
+import { respondToPermission, sendMessageStream } from './AssistantService';
 
 // jest.mock is hoisted above imports by babel-jest, so the mock still applies.
 jest.mock('@mlflow/mlflow/src/common/utils/FetchUtils', () => ({
@@ -46,14 +46,6 @@ describe('AssistantService permissions', () => {
     expect(mockedFetchAPI).toHaveBeenCalledWith('ajax-api/3.0/mlflow/assistant/sessions/sess-1/permissions/req-1', {
       method: 'POST',
       body: JSON.stringify({ decision: 'allow' }),
-    });
-  });
-
-  test('setSessionPermissions PUTs the full-access flag', async () => {
-    await setSessionPermissions('sess-1', true);
-    expect(mockedFetchAPI).toHaveBeenCalledWith('ajax-api/3.0/mlflow/assistant/sessions/sess-1/permissions', {
-      method: 'PUT',
-      body: JSON.stringify({ full_access: true }),
     });
   });
 });
