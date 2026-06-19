@@ -9,6 +9,7 @@ import type {
   AssistantConfigUpdate,
   HealthCheckResult,
   InstallSkillsResponse,
+  PermissionRequest,
 } from './types';
 import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
@@ -99,6 +100,34 @@ export const cancelSession = async (sessionId: string): Promise<{ message: strin
   });
 };
 
+/**
+ * Answer a pending tool-call permission request for a session.
+ */
+export const respondToPermission = async (
+  sessionId: string,
+  requestId: string,
+  decision: 'allow' | 'deny',
+): Promise<{ status: string }> => {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/sessions/${sessionId}/permissions/${requestId}`), {
+    method: 'POST',
+    body: JSON.stringify({ decision }),
+  });
+};
+
+/**
+ * Set the session-scoped full-access flag (the toolbox switch). This never
+ * touches the global config, so it only affects this session.
+ */
+export const setSessionPermissions = async (
+  sessionId: string,
+  fullAccess: boolean,
+): Promise<{ full_access: boolean }> => {
+  return await fetchAPI(getAjaxUrl(`${API_BASE}/sessions/${sessionId}/permissions`), {
+    method: 'PUT',
+    body: JSON.stringify({ full_access: fullAccess }),
+  });
+};
+
 export interface SendMessageStreamCallbacks {
   onMessage: (text: string) => void;
   onError: (error: string) => void;
@@ -107,6 +136,7 @@ export interface SendMessageStreamCallbacks {
   onSessionId?: (sessionId: string) => void;
   onToolUse?: (tools: ToolUseInfo[]) => void;
   onInterrupted?: () => void;
+  onPermissionRequest?: (request: PermissionRequest) => void;
 }
 
 export interface SendMessageStreamResult {
@@ -122,7 +152,8 @@ export const sendMessageStream = async (
   request: MessageRequest,
   callbacks: SendMessageStreamCallbacks,
 ): Promise<SendMessageStreamResult> => {
-  const { onMessage, onError, onDone, onStatus, onSessionId, onToolUse, onInterrupted } = callbacks;
+  const { onMessage, onError, onDone, onStatus, onSessionId, onToolUse, onInterrupted, onPermissionRequest } =
+    callbacks;
 
   try {
     // Step 1: POST the message to initiate processing
@@ -190,6 +221,21 @@ export const sendMessageStream = async (
             onStatus?.(data.event.status);
           }
         }
+      } catch (err) {
+        // fail silently
+      }
+    });
+
+    // Listen for 'permission_request' events (tool call awaiting Yes/No).
+    // The stream stays paused on the backend until the decision is POSTed.
+    eventSource.addEventListener('permission_request', (event) => {
+      try {
+        const data = JSON.parse((event as MessageEvent).data);
+        onPermissionRequest?.({
+          requestId: data.request_id,
+          toolName: data.tool_name,
+          toolInput: data.tool_input ?? {},
+        });
       } catch (err) {
         // fail silently
       }

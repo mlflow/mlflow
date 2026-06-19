@@ -18,6 +18,16 @@ export interface ToolUseInfo {
 }
 
 /**
+ * A pending tool-call permission request surfaced to the user for a Yes/No
+ * decision when the session is not in full-access mode.
+ */
+export interface PermissionRequest {
+  requestId: string;
+  toolName: string;
+  toolInput: Record<string, any>;
+}
+
+/**
  * Known context keys for the assistant.
  * Type-safe registration for common context values.
  */
@@ -76,6 +86,10 @@ export interface AssistantAgentState {
   isLocalServer: boolean;
   /** A prompt queued to seed the chat input the next time it becomes visible (null when none) */
   pendingPrompt: string | null;
+  /** A tool call awaiting the user's Yes/No decision, or null */
+  pendingPermission: PermissionRequest | null;
+  /** Session-scoped full access: when true, tool calls run without prompting */
+  sessionFullAccess: boolean;
 }
 
 export interface AssistantAgentActions {
@@ -99,6 +113,10 @@ export interface AssistantAgentActions {
   refreshConfig: () => Promise<void>;
   /** Mark setup as complete (after wizard finishes) */
   completeSetup: () => void;
+  /** Answer the pending tool-call permission prompt */
+  respondToPermission: (allow: boolean) => void;
+  /** Toggle session-scoped full access (the toolbox switch) */
+  setSessionFullAccess: (value: boolean) => void;
 }
 
 export type AssistantAgentContextType = AssistantAgentState & AssistantAgentActions;

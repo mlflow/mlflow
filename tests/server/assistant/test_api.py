@@ -1,3 +1,4 @@
+import asyncio
 import os
 import shutil
 import subprocess
@@ -20,8 +21,13 @@ from mlflow.assistant.providers.base import (
     ProviderConfig,
     ProviderNotConfiguredError,
 )
-from mlflow.assistant.types import Event, Message
-from mlflow.server.assistant.api import _require_localhost, assistant_router
+from mlflow.assistant.types import Event, Message, ToolUseBlock
+from mlflow.server.assistant.api import (
+    PermissionDecisionRequest,
+    SessionPatchRequest,
+    _require_localhost,
+    assistant_router,
+)
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager, save_process_pid
 from mlflow.utils.os import is_windows
 
@@ -389,6 +395,144 @@ def test_patch_session_cancel_with_process(client):
         # Skip on Windows because PIDs are reused more aggressively.
         if not is_windows():
             assert not _is_process_running(proc.pid)
+
+
+def test_session_full_access_round_trip(client):
+    from mlflow.server.assistant.permissions import permission_broker
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    permission_broker.clear(session_id)
+
+    get_url = f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/permissions"
+    assert client.get(get_url).json() == {"full_access": False}
+
+    put = client.put(get_url, json={"full_access": True})
+    assert put.status_code == 200
+    assert put.json() == {"full_access": True}
+    assert client.get(get_url).json() == {"full_access": True}
+    assert permission_broker.is_full_access(session_id) is True
+    permission_broker.clear(session_id)
+
+
+@pytest.mark.parametrize(("decision", "expected"), [("allow", True), ("deny", False)])
+@pytest.mark.asyncio
+async def test_respond_to_permission_resolves_pending_request(decision, expected):
+    # Call the endpoint coroutine directly so the future and its resolver share
+    # one event loop (TestClient would dispatch the route to a separate loop).
+    from mlflow.server.assistant.api import respond_to_permission
+    from mlflow.server.assistant.permissions import permission_broker
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    request_id = "req-1"
+    permission_broker.clear(session_id)
+
+    future = permission_broker.register(session_id, request_id)
+    result = await respond_to_permission(
+        session_id, request_id, PermissionDecisionRequest(decision=decision)
+    )
+    assert result == {"status": "ok"}
+    assert await asyncio.wait_for(future, timeout=1) is expected
+    permission_broker.clear(session_id)
+
+
+def test_respond_to_permission_rejects_invalid_session(client):
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/sessions/not-a-uuid/permissions/req-1",
+        json={"decision": "allow"},
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_patch_session_cancel_denies_pending_permissions():
+    from mlflow.server.assistant.api import patch_session
+    from mlflow.server.assistant.permissions import permission_broker
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    permission_broker.clear(session_id)
+    SessionManager.save(session_id, SessionManager.create())
+
+    future = permission_broker.register(session_id, "req-1")
+    await patch_session(session_id, SessionPatchRequest(status="cancelled"))
+    assert await asyncio.wait_for(future, timeout=1) is False
+    permission_broker.clear(session_id)
+
+
+@pytest.mark.parametrize(("decision", "expected_text"), [("allow", "ran"), ("deny", "denied")])
+@pytest.mark.asyncio
+async def test_stream_pauses_for_permission_then_resumes(decision, expected_text):
+    """End-to-end through the real SSE endpoint: the stream emits a
+    permission_request and blocks; resolving the decision (via the real respond
+    endpoint) unblocks it and the stream resumes to completion.
+    """
+    from mlflow.server.assistant.api import respond_to_permission, stream_response
+    from mlflow.server.assistant.permissions import permission_broker
+
+    class PausingProvider(MockProvider):
+        async def astream(
+            self,
+            prompt,
+            tracking_uri,
+            session_id=None,
+            mlflow_session_id=None,
+            cwd=None,
+            context=None,
+        ):
+            yield Event.from_message(
+                Message(
+                    role="assistant",
+                    content=[ToolUseBlock(id="t1", name="Bash", input={"command": "echo hi"})],
+                )
+            )
+            permission_broker.register(mlflow_session_id, "rq-1")
+            yield Event.from_permission_request("rq-1", "Bash", {"command": "echo hi"})
+            allowed = await permission_broker.wait(mlflow_session_id, "rq-1")
+            yield Event.from_message(
+                Message(role="assistant", content="ran" if allowed else "denied")
+            )
+            yield Event.from_result(result=None, session_id="prov-1")
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    permission_broker.clear(session_id)
+    session = SessionManager.create()
+    session.set_pending_message(role="user", content="hi")
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+
+    chunks: list[str] = []
+    provider = PausingProvider()
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+
+        async def consume():
+            async for chunk in response.body_iterator:
+                chunks.append(chunk)  # noqa: PERF401
+
+        reader = asyncio.create_task(consume())
+
+        for _ in range(100):
+            if any("rq-1" in c for c in chunks) or reader.done():
+                break
+            await asyncio.sleep(0.02)
+        if reader.done() and reader.exception():
+            raise reader.exception()
+        assert any("permission_request" in c for c in chunks)
+        assert not reader.done(), "stream should be paused awaiting the decision"
+
+        result = await respond_to_permission(
+            session_id, "rq-1", PermissionDecisionRequest(decision=decision)
+        )
+        assert result == {"status": "ok"}
+
+        await asyncio.wait_for(reader, timeout=5)
+
+    transcript = "".join(chunks)
+    assert expected_text in transcript
+    assert "event: done" in transcript
+    permission_broker.clear(session_id)
 
 
 def test_install_skills_success(client):

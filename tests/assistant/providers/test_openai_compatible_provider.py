@@ -13,6 +13,7 @@ from mlflow.assistant.providers.openai_compatible import (
     _trim_session,
 )
 from mlflow.assistant.types import EventType
+from mlflow.server.assistant.permissions import permission_broker
 
 # ---------------------------------------------------------------------------
 # aiohttp mock helpers
@@ -423,3 +424,173 @@ async def test_astream_tool_call_round_trip(provider):
     # Second request should include the tool message in history.
     second_payload = calls[1]["json"]
     assert any(m["role"] == "tool" for m in second_payload["messages"])
+
+
+# ---------------------------------------------------------------------------
+# astream — session-scoped permission gating
+# ---------------------------------------------------------------------------
+
+_SESSION_ID = "11111111-1111-1111-1111-111111111111"
+
+
+def _tool_call_turns():
+    turn1 = [
+        _sse(
+            _delta(
+                tool_calls=[
+                    {
+                        "index": 0,
+                        "id": "call_1",
+                        "function": {"name": "Bash", "arguments": '{"command": "ls"}'},
+                    }
+                ]
+            )
+        ),
+        b"data: [DONE]\n",
+    ]
+    turn2 = [_sse(_delta(content="Done")), b"data: [DONE]\n"]
+    return [turn1, turn2]
+
+
+@pytest.fixture(autouse=True)
+def reset_broker():
+    permission_broker._full_access.clear()
+    permission_broker._pending.clear()
+    yield
+    permission_broker._full_access.clear()
+    permission_broker._pending.clear()
+
+
+@pytest.mark.asyncio
+async def test_astream_prompts_and_runs_tool_when_allowed(provider):
+    session, _calls = _make_aiohttp_session(_tool_call_turns())
+    with (
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=session,
+        ),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.execute_tool",
+            AsyncMock(return_value=("file1.py\n", False)),
+        ) as mock_tool,
+    ):
+        events = []
+        async for e in provider.astream(
+            "ls", "http://localhost:5000", mlflow_session_id=_SESSION_ID
+        ):
+            events.append(e)
+            if e.type == EventType.PERMISSION_REQUEST:
+                permission_broker.resolve(_SESSION_ID, e.data["request_id"], True)
+
+    prompts = [e for e in events if e.type == EventType.PERMISSION_REQUEST]
+    assert len(prompts) == 1
+    assert prompts[0].data["tool_name"] == "Bash"
+    assert prompts[0].data["tool_input"] == {"command": "ls"}
+
+    mock_tool.assert_awaited_once()
+    # An explicit allow overrides the static allowlist for this call.
+    assert mock_tool.await_args.kwargs["permissions"].full_access is True
+    assert any(
+        e.type == EventType.STREAM_EVENT and e.data["event"]["delta"]["text"] == "Done"
+        for e in events
+    )
+
+
+@pytest.mark.asyncio
+async def test_astream_denies_tool_without_executing(provider):
+    session, _calls = _make_aiohttp_session(_tool_call_turns())
+    with (
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=session,
+        ),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.execute_tool",
+            AsyncMock(return_value=("file1.py\n", False)),
+        ) as mock_tool,
+    ):
+        events = []
+        async for e in provider.astream(
+            "ls", "http://localhost:5000", mlflow_session_id=_SESSION_ID
+        ):
+            events.append(e)
+            if e.type == EventType.PERMISSION_REQUEST:
+                permission_broker.resolve(_SESSION_ID, e.data["request_id"], False)
+
+    mock_tool.assert_not_awaited()
+    denied = [
+        e
+        for e in events
+        if e.type == EventType.MESSAGE
+        and isinstance(e.data["message"]["content"], list)
+        and e.data["message"]["content"][0].get("content") == "Permission denied by user."
+    ]
+    assert len(denied) == 1
+
+
+@pytest.mark.asyncio
+async def test_astream_global_full_access_skips_prompt(tmp_path):
+    # When full access is enabled in the global config, no per-call prompt fires
+    # even for a session — this preserves the pre-existing "run freely" setting.
+    cfg = tmp_path / "config.json"
+    cfg.write_text(
+        json.dumps({
+            "providers": {"oai_test": {"model": "model-a", "permissions": {"full_access": True}}}
+        })
+    )
+    clear_config_cache()
+    provider = OpenAICompatibleProvider(
+        name="oai_test",
+        display_name="OAI Test",
+        description="d",
+        list_models_fn=_list_models_stub,
+        connection_hint="h",
+        default_base_url="http://localhost:9999",
+    )
+    session, _calls = _make_aiohttp_session(_tool_call_turns())
+    with (
+        patch("mlflow.assistant.config.CONFIG_PATH", cfg),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=session,
+        ),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.execute_tool",
+            AsyncMock(return_value=("file1.py\n", False)),
+        ) as mock_tool,
+    ):
+        events = [
+            e
+            async for e in provider.astream(
+                "ls", "http://localhost:5000", mlflow_session_id=_SESSION_ID
+            )
+        ]
+    clear_config_cache()
+    assert not any(e.type == EventType.PERMISSION_REQUEST for e in events)
+    mock_tool.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_astream_full_access_session_skips_prompt(provider):
+    permission_broker.set_full_access(_SESSION_ID, True)
+    session, _calls = _make_aiohttp_session(_tool_call_turns())
+    with (
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=session,
+        ),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.execute_tool",
+            AsyncMock(return_value=("file1.py\n", False)),
+        ) as mock_tool,
+    ):
+        events = [
+            e
+            async for e in provider.astream(
+                "ls", "http://localhost:5000", mlflow_session_id=_SESSION_ID
+            )
+        ]
+
+    assert not any(e.type == EventType.PERMISSION_REQUEST for e in events)
+    mock_tool.assert_awaited_once()
+    assert mock_tool.await_args.kwargs["permissions"].full_access is True

@@ -18,6 +18,7 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
+from mlflow.server.assistant.permissions import permission_broker
 from mlflow.server.assistant.session import SessionManager, terminate_session_process
 
 
@@ -100,6 +101,18 @@ class SessionPatchRequest(BaseModel):
 
 class SessionPatchResponse(BaseModel):
     message: str
+
+
+class PermissionDecisionRequest(BaseModel):
+    decision: Literal["allow", "deny"]
+
+
+class SessionFullAccessRequest(BaseModel):
+    full_access: bool
+
+
+class SessionFullAccessResponse(BaseModel):
+    full_access: bool
 
 
 # Skills-related models
@@ -188,20 +201,26 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
                 "No assistant provider is configured or available."
             ).to_sse_event()
             return
-        async for event in provider.astream(
-            prompt=pending_message.content,
-            tracking_uri=tracking_uri,
-            session_id=session.provider_session_id,
-            mlflow_session_id=session_id,
-            cwd=session.working_dir,
-            context=session.context,
-        ):
-            # Store provider session ID if returned (for conversation continuity)
-            if event.type == EventType.DONE:
-                session.provider_session_id = event.data.get("session_id")
-                SessionManager.save(session_id, session)
+        try:
+            async for event in provider.astream(
+                prompt=pending_message.content,
+                tracking_uri=tracking_uri,
+                session_id=session.provider_session_id,
+                mlflow_session_id=session_id,
+                cwd=session.working_dir,
+                context=session.context,
+            ):
+                # Store provider session ID if returned (for conversation continuity)
+                if event.type == EventType.DONE:
+                    session.provider_session_id = event.data.get("session_id")
+                    SessionManager.save(session_id, session)
 
-            yield event.to_sse_event()
+                yield event.to_sse_event()
+        finally:
+            # Release any tool calls left awaiting a decision (e.g. the client
+            # disconnected mid-prompt). The session full-access flag is kept so
+            # it persists across turns within this session.
+            permission_broker.deny_all(session_id)
 
     return StreamingResponse(
         event_generator(),
@@ -234,12 +253,57 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
         raise HTTPException(status_code=404, detail="Session not found")
 
     if request.status == "cancelled":
+        # Unblock any tool call awaiting a permission decision so the stream
+        # can wind down, then terminate any associated subprocess.
+        permission_broker.deny_all(session_id)
         terminated = terminate_session_process(session_id)
         msg = "Session cancelled and process terminated" if terminated else "Session cancelled"
         return SessionPatchResponse(message=msg)
 
     # This branch is unreachable due to Literal type, but satisfies type checker
     raise HTTPException(status_code=400, detail=f"Unknown status: {request.status}")
+
+
+@assistant_router.post("/sessions/{session_id}/permissions/{request_id}")
+async def respond_to_permission(
+    session_id: str, request_id: str, request: PermissionDecisionRequest
+) -> dict[str, str]:
+    """Deliver a user's Yes/No decision for a pending tool-call permission request."""
+    try:
+        SessionManager.validate_session_id(session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    permission_broker.resolve(session_id, request_id, request.decision == "allow")
+    return {"status": "ok"}
+
+
+@assistant_router.put("/sessions/{session_id}/permissions")
+async def set_session_permissions(
+    session_id: str, request: SessionFullAccessRequest
+) -> SessionFullAccessResponse:
+    """Set the session-scoped full-access flag (the toolbox switch).
+
+    Full access is intentionally ephemeral and per-session: it is never written
+    to the global assistant config, so one user's choice never affects another.
+    """
+    try:
+        SessionManager.validate_session_id(session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    permission_broker.set_full_access(session_id, request.full_access)
+    return SessionFullAccessResponse(full_access=request.full_access)
+
+
+@assistant_router.get("/sessions/{session_id}/permissions")
+async def get_session_permissions(session_id: str) -> SessionFullAccessResponse:
+    try:
+        SessionManager.validate_session_id(session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    return SessionFullAccessResponse(full_access=permission_broker.is_full_access(session_id))
 
 
 @assistant_router.get("/providers/{provider}/health")

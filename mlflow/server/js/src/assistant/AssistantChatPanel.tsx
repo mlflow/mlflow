@@ -29,6 +29,8 @@ import { FormattedMessage } from '@databricks/i18n';
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
+import { AssistantToolbox } from './AssistantToolbox';
+import { ToolPermissionPrompt } from './ToolPermissionPrompt';
 import type { ChatMessage, ToolUseInfo } from './types';
 import { AssistantSetupWizard } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
@@ -274,6 +276,8 @@ const ChatPanelContent = () => {
     cancelSession,
     pendingPrompt,
     clearPendingPrompt,
+    pendingPermission,
+    respondToPermission,
   } = useAssistant();
   const logTelemetryEvent = useLogTelemetryEvent();
   const viewId = useMemo(() => uuidv4(), []);
@@ -387,6 +391,7 @@ const ChatPanelContent = () => {
           flexShrink: 0,
         }}
       >
+        {pendingPermission && <ToolPermissionPrompt request={pendingPermission} onRespond={respondToPermission} />}
         <div
           css={{
             display: 'flex',
@@ -652,9 +657,10 @@ export const AssistantChatPanel = () => {
             Beta
           </Tag>
         </span>
-        <div css={{ display: 'flex', gap: theme.spacing.xs }}>
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
           {showChatControls && (
             <>
+              <AssistantToolbox />
               <Tooltip componentId="mlflow.assistant.chat_panel.reset.tooltip" content="New Chat">
                 <Button
                   componentId="mlflow.assistant.chat_panel.reset"

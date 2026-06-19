@@ -5,11 +5,19 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type { AssistantAgentContextType, AssistantConfig, ChatMessage, ToolUseInfo } from './types';
+import type {
+  AssistantAgentContextType,
+  AssistantConfig,
+  ChatMessage,
+  PermissionRequest,
+  ToolUseInfo,
+} from './types';
 import {
   cancelSession as cancelSessionApi,
   sendMessageStream,
   getConfig,
+  respondToPermission as respondToPermissionApi,
+  setSessionPermissions as setSessionPermissionsApi,
   type SendMessageStreamCallbacks,
   type SendMessageStreamResult,
 } from './AssistantService';
@@ -85,6 +93,12 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
+  const [pendingPermission, setPendingPermission] = useState<PermissionRequest | null>(null);
+  const [sessionFullAccess, setSessionFullAccessState] = useState(false);
+
+  // Mirror of sessionFullAccess for reading the latest value inside stable
+  // callbacks (e.g. when a new session id arrives) without re-creating them.
+  const sessionFullAccessRef = useRef(false);
 
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
@@ -149,6 +163,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
+    setPendingPermission(null);
   }, []);
 
   const handleStatus = useCallback((status: string) => {
@@ -156,12 +171,46 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const handleSessionId = useCallback((newSessionId: string) => {
-    setSessionId(newSessionId);
+    setSessionId((prev) => {
+      // A backend session starts with full access off; if the user already
+      // turned it on, sync it to the newly created session.
+      if (prev !== newSessionId && sessionFullAccessRef.current) {
+        setSessionPermissionsApi(newSessionId, true).catch(() => {});
+      }
+      return newSessionId;
+    });
   }, []);
 
   const handleToolUse = useCallback((tools: ToolUseInfo[]) => {
     setActiveTools(tools);
   }, []);
+
+  const handlePermissionRequest = useCallback((request: PermissionRequest) => {
+    setPendingPermission(request);
+  }, []);
+
+  const respondToPermission = useCallback(
+    (allow: boolean) => {
+      setPendingPermission((pending) => {
+        if (pending && sessionId) {
+          respondToPermissionApi(sessionId, pending.requestId, allow ? 'allow' : 'deny').catch(() => {});
+        }
+        return null;
+      });
+    },
+    [sessionId],
+  );
+
+  const setSessionFullAccess = useCallback(
+    (value: boolean) => {
+      sessionFullAccessRef.current = value;
+      setSessionFullAccessState(value);
+      if (sessionId) {
+        setSessionPermissionsApi(sessionId, value).catch(() => {});
+      }
+    },
+    [sessionId],
+  );
 
   // Setup actions
   const refreshConfig = useCallback(async () => {
@@ -210,6 +259,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     eventSourceRef.current = null;
     setActiveTools([]);
+    setPendingPermission(null);
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
@@ -223,6 +273,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
+    setPendingPermission(null);
     eventSourceRef.current = null;
     streamingMessageRef.current = '';
     setMessages((prev) => {
@@ -272,6 +323,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     streamingMessageRef.current = '';
+    setPendingPermission(null);
+    // A new chat is a new backend session; fall back to least privilege.
+    sessionFullAccessRef.current = false;
+    setSessionFullAccessState(false);
   }, []);
 
   // Begin a new in-flight send: stamp a fresh token in closure,
@@ -344,6 +399,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
             onSessionId: handleSessionId,
             onToolUse: handleToolUse,
             onInterrupted: handleInterrupted,
+            onPermissionRequest: handlePermissionRequest,
           }),
         );
         if (!attachStreamIfCurrent(isCurrent, result)) {
@@ -368,6 +424,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       handleSessionId,
       handleToolUse,
       handleInterrupted,
+      handlePermissionRequest,
     ],
   );
 
@@ -424,6 +481,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           onSessionId: handleSessionId,
           onToolUse: handleToolUse,
           onInterrupted: handleInterrupted,
+          onPermissionRequest: handlePermissionRequest,
         }),
       );
       attachStreamIfCurrent(isCurrent, result);
@@ -441,6 +499,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       handleSessionId,
       handleToolUse,
       handleInterrupted,
+      handlePermissionRequest,
     ],
   );
 
@@ -475,6 +534,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
+    setPendingPermission(null);
     streamingMessageRef.current = '';
   }, [sessionId, isStreaming]);
 
@@ -572,6 +632,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     isLoadingConfig,
     isLocalServer,
     pendingPrompt,
+    pendingPermission,
+    sessionFullAccess,
     // Actions
     openPanel,
     closePanel,
@@ -583,6 +645,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     cancelSession: handleCancelSession,
     refreshConfig,
     completeSetup,
+    respondToPermission,
+    setSessionFullAccess,
   };
 
   return <AssistantReactContext.Provider value={value}>{children}</AssistantReactContext.Provider>;
@@ -601,6 +665,8 @@ const disabledAssistantContext: AssistantAgentContextType = {
   isLoadingConfig: false,
   isLocalServer: false,
   pendingPrompt: null,
+  pendingPermission: null,
+  sessionFullAccess: false,
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},
@@ -611,6 +677,8 @@ const disabledAssistantContext: AssistantAgentContextType = {
   cancelSession: () => {},
   refreshConfig: () => Promise.resolve(),
   completeSetup: () => {},
+  respondToPermission: () => {},
+  setSessionFullAccess: () => {},
 };
 
 /**

@@ -2415,6 +2415,10 @@
     "defaultMessage": "Model name",
     "description": "Text for form title on creating model in the model registry"
   },
+  "9n7e/G": {
+    "defaultMessage": "Full access runs tool calls without asking for permission each time. Applies to this session only.",
+    "description": "Tooltip explaining the assistant session full-access switch"
+  },
   "9oh44C": {
     "defaultMessage": "Stop Sequences (comma-separated)",
     "description": "Label for stop sequences input"
@@ -2919,6 +2923,10 @@
     "defaultMessage": "Assertions",
     "description": "Assertions column header"
   },
+  "C23A0T": {
+    "defaultMessage": "Full access",
+    "description": "Label for the assistant session full-access switch"
+  },
   "C4y1fv": {
     "defaultMessage": "-∞",
     "description": "Label displaying negative infinity symbol displayed on a plot UI element"
@@ -2970,6 +2978,10 @@
   "CDOfWP": {
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
+  },
+  "CIpiSM": {
+    "defaultMessage": "Allow",
+    "description": "Button to allow a tool-call permission request"
   },
   "CKwhUr": {
     "defaultMessage": "Move to Todo",
@@ -6551,6 +6563,10 @@
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
     "description": "Tooltip message for the export button when the trace is not exportable"
   },
+  "V0IJuy": {
+    "defaultMessage": "Allow the assistant to run {toolName}?",
+    "description": "Title of the prompt asking the user to approve a tool call"
+  },
   "V1kYC+": {
     "defaultMessage": "Select element type",
     "description": "Placeholder for list element type"
@@ -8414,6 +8430,10 @@
   "dft8gv": {
     "defaultMessage": "Permanently delete \"{name}\" and remove its traces from review? This cannot be undone.",
     "description": "Delete review queue: confirm body"
+  },
+  "dkw8bG": {
+    "defaultMessage": "Deny",
+    "description": "Button to deny a tool-call permission request"
   },
   "dl0TeT": {
     "defaultMessage": "Save",

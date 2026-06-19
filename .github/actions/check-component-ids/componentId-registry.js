@@ -832,6 +832,8 @@ module.exports = {
   "mlflow.assistant.chat_panel.suggestion.card": "",
   "mlflow.assistant.icon_button": "",
   "mlflow.assistant.icon_button.tooltip": "",
+  "mlflow.assistant.permission.allow": "",
+  "mlflow.assistant.permission.deny": "",
   "mlflow.assistant.setup.codex.api_keys": "",
   "mlflow.assistant.setup.codex.back": "",
   "mlflow.assistant.setup.codex.check_again": "",
@@ -871,6 +873,8 @@ module.exports = {
   "mlflow.assistant.setup.provider.continue": "",
   "mlflow.assistant.setup.provider.model": "",
   "mlflow.assistant.setup.provider.url": "",
+  "mlflow.assistant.toolbox.full_access": "",
+  "mlflow.assistant.toolbox.full_access.tooltip": "",
 
   // -- mlflow.charts --
   "mlflow.charts.bar_card_title.dataset_tag": "",

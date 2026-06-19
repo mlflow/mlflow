@@ -18,6 +18,7 @@ from typing import Any, AsyncGenerator
 
 import aiohttp
 
+from mlflow.assistant.config import PermissionsConfig
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     NotAuthenticatedError,
@@ -27,6 +28,7 @@ from mlflow.assistant.providers.base import (
 from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
 from mlflow.assistant.providers.tool_executor import build_tools_schema, execute_tool
 from mlflow.assistant.types import Event, Message, ToolResultBlock, ToolUseBlock
+from mlflow.server.assistant.permissions import permission_broker
 
 _logger = logging.getLogger(__name__)
 
@@ -465,12 +467,54 @@ class OpenAICompatibleProvider(AssistantProvider):
                             )
                         )
 
+                        # Permission gating. Full access — set globally in the
+                        # config or per-session via the toolbox — runs tools
+                        # without prompting. Otherwise, a session surfaces a
+                        # per-call Yes/No prompt and blocks until the user
+                        # answers; an explicit allow overrides the static tool
+                        # allowlist for that call. With no session (e.g. direct
+                        # astream use) fall back to the static config permissions.
+                        session_full_access = bool(
+                            mlflow_session_id
+                        ) and permission_broker.is_full_access(mlflow_session_id)
+                        effective_permissions = config.permissions
+                        if config.permissions.full_access:
+                            pass
+                        elif session_full_access:
+                            effective_permissions = PermissionsConfig(full_access=True)
+                        elif mlflow_session_id:
+                            request_id = str(uuid.uuid4())
+                            permission_broker.register(mlflow_session_id, request_id)
+                            yield Event.from_permission_request(request_id, tool_name, tool_input)
+                            allowed = await permission_broker.wait(mlflow_session_id, request_id)
+                            if not allowed:
+                                denied = "Permission denied by user."
+                                yield Event.from_message(
+                                    Message(
+                                        role="user",
+                                        content=[
+                                            ToolResultBlock(
+                                                tool_use_id=tc["id"],
+                                                content=denied,
+                                                is_error=True,
+                                            )
+                                        ],
+                                    )
+                                )
+                                messages.append({
+                                    "role": "tool",
+                                    "tool_call_id": tc["id"],
+                                    "content": denied,
+                                })
+                                continue
+                            effective_permissions = PermissionsConfig(full_access=True)
+
                         result_str, is_error = await execute_tool(
                             tool_name,
                             tool_input,
                             cwd=cwd,
                             tracking_uri=tracking_uri,
-                            permissions=config.permissions,
+                            permissions=effective_permissions,
                         )
 
                         yield Event.from_message(
