@@ -2755,6 +2755,10 @@
     "defaultMessage": "This model is also registered to the <link>model registry</link>.",
     "description": "Sub text to tell the users where the registered models are located "
   },
+  "BRfxyC": {
+    "defaultMessage": "See less",
+    "description": "Toggle that collapses a long JSON code block on the playground page"
+  },
   "BTAzqb": {
     "defaultMessage": "Toggle visibility of rows",
     "description": "Accessibility label for the button that toggles visibility of rows in the experiment view logged models compare mode"
@@ -11110,6 +11114,10 @@
   "qTjYVU": {
     "defaultMessage": "Hide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the visible run"
+  },
+  "qVOt+R": {
+    "defaultMessage": "See more",
+    "description": "Toggle that expands a collapsed long JSON code block on the playground page"
   },
   "qVQYZH": {
     "defaultMessage": "Show less",

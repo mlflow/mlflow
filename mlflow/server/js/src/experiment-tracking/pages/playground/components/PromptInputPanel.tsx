@@ -15,6 +15,7 @@ import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-ren
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { ChangeEvent } from 'react';
 import type { ChatRole, ConversationMessage } from '../types';
+import { JsonCodeBlock } from './JsonCodeBlock';
 
 const { TextArea } = Input;
 
@@ -108,21 +109,23 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
                 {message.content ? (
                   <div css={cardStyles} data-testid="mlflow.playground.assistant.text_card">
-                    <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+                    {message.contentIsJson ? (
+                      <JsonCodeBlock raw={message.content} />
+                    ) : (
+                      <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+                    )}
                   </div>
                 ) : null}
                 {getNamedToolCalls(message).map((toolCall, toolCallIndex) => (
                   <div
                     key={toolCall.id ?? toolCallIndex}
-                    css={cardStyles}
+                    css={{ ...cardStyles, display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}
                     data-testid="mlflow.playground.assistant.tool_call_card"
                   >
                     <Typography.Text bold>
                       <strong>{toolCall.function?.name}</strong>
                     </Typography.Text>
-                    {toolCall.function?.arguments && (
-                      <GenAIMarkdownRenderer>{toolCall.function.arguments}</GenAIMarkdownRenderer>
-                    )}
+                    {toolCall.function?.arguments && <JsonCodeBlock raw={toolCall.function.arguments} />}
                   </div>
                 ))}
                 {!message.content && getNamedToolCalls(message).length === 0 && (

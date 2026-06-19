@@ -44,6 +44,21 @@ export const getEmptyVariables = (messages: ChatMessage[], values: Record<string
 };
 
 /**
+ * Pretty-prints a JSON string with 2-space indentation. Falls back to the
+ * original string when it is not valid JSON (e.g. a partial or malformed
+ * tool-call argument), so the displayed text stays verbatim rather than being
+ * dropped. Used by `JsonCodeBlock` to render assistant tool-call arguments and
+ * JSON-format responses.
+ */
+export const prettyPrintJson = (raw: string): string => {
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+};
+
+/**
  * Returns true when the JSON tool-definitions text has no usable tools — either
  * empty/whitespace or parses to an empty array. Parse errors return false so
  * they flow to the separate parse-error path.
