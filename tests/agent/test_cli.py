@@ -468,7 +468,7 @@ def test_setup_skips_assistant_when_declined(tmp_git_repo: Path, monkeypatch: py
             setup, ["--agent", "claude", "--print"], input="2\n3\nhttp://localhost:5001\nn\n"
         )
     assert result.exit_code == 0, result.stderr
-    assert "in-app MLflow Assistant" in result.stderr
+    assert "in-app Assistant" in result.stderr
     mock_install.assert_not_called()
     assert not config_path.exists()
 
@@ -479,7 +479,7 @@ def test_setup_does_not_offer_assistant_for_databricks(tmp_git_repo: Path):
             setup, ["--agent", "claude", "--print"], input="2\n2\n\n1234567890\n"
         )
     assert result.exit_code == 0, result.stderr
-    assert "in-app MLflow Assistant" not in result.stderr
+    assert "in-app Assistant" not in result.stderr
 
 
 def test_setup_does_not_offer_assistant_for_opencode(tmp_git_repo: Path):
@@ -488,4 +488,4 @@ def test_setup_does_not_offer_assistant_for_opencode(tmp_git_repo: Path):
             setup, ["--agent", "opencode", "--print"], input="2\n3\nhttp://localhost:5001\n"
         )
     assert result.exit_code == 0, result.stderr
-    assert "in-app MLflow Assistant" not in result.stderr
+    assert "in-app Assistant" not in result.stderr

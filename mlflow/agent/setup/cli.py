@@ -133,7 +133,7 @@ def _offer_assistant_setup(agent: AgentTool, tracking_uri: str) -> bool | None:
 
     if not click.confirm(
         click.style(
-            f"Also enable the in-app MLflow Assistant with {agent.display_name}?",
+            f"Connect {agent.display_name} with MLflow to provide an in-app Assistant experience?",
             fg="cyan",
             bold=True,
         ),
