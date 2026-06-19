@@ -129,7 +129,7 @@ export function AssistantContextTags(): React.ReactElement | null {
   if (!hasContext) return null;
 
   return (
-    <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs, paddingTop: theme.spacing.sm }}>
+    <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs, paddingBottom: theme.spacing.md }}>
       <ContextTagGroup
         ids={traceIds}
         color="indigo"

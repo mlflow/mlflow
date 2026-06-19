@@ -71,12 +71,13 @@ const StatusBadge = ({ status }: { status: ToolCallPart['status'] }) => {
 
 const fencedBlock = (body: string, lang = ''): string => `\`\`\`${lang}\n${body}\n\`\`\``;
 
-// Overall status for a run of tool calls: still running until every call resolves;
-// an error only surfaces once nothing is running.
+// Overall status for a run of tool calls. Running until every call resolves. Once settled,
+// the run reflects how it *ended*: a failure that a later call recovered from (e.g. a retry)
+// reads as done, not failed — only a trailing error surfaces as `error`. Individual failures
+// stay visible on their own cards.
 export const groupStatus = (parts: ToolCallPart[]): NonNullable<ToolCallPart['status']> => {
   if (parts.some((p) => (p.status ?? 'running') === 'running')) return 'running';
-  if (parts.some((p) => p.status === 'error')) return 'error';
-  return 'done';
+  return parts[parts.length - 1]?.status === 'error' ? 'error' : 'done';
 };
 
 // Deduped, first-appearance-ordered tool names with `×N` when a name repeats,

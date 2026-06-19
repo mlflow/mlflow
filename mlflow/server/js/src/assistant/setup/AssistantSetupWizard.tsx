@@ -101,6 +101,12 @@ interface AssistantSetupWizardProps {
   initialStep?: SetupStep;
   /** Callback for back button when in settings mode */
   onBack?: () => void;
+  /**
+   * Skip the project step and finish after connection. Used by the in-chat "Model settings"
+   * flow, where the user only wants to switch provider/model — the project mapping is unrelated
+   * and already configured.
+   */
+  skipProject?: boolean;
 }
 
 export const AssistantSetupWizard = ({
@@ -108,6 +114,7 @@ export const AssistantSetupWizard = ({
   onComplete,
   initialStep,
   onBack: onBackFromSettings,
+  skipProject = false,
 }: AssistantSetupWizardProps) => {
   const { theme } = useDesignSystemTheme();
   const { config } = useAssistantConfigQuery();
@@ -142,8 +149,13 @@ export const AssistantSetupWizard = ({
   const handleConnectionContinue = useCallback(async () => {
     await updateConfig({ providers: { [selectedProvider]: { selected: true } } });
     markStepComplete('connection');
+    // Model-settings flow: provider/model is all the user wanted to change — finish here.
+    if (skipProject) {
+      onBackFromSettings?.();
+      return;
+    }
     setCurrentStep('project');
-  }, [markStepComplete, selectedProvider]);
+  }, [markStepComplete, selectedProvider, skipProject, onBackFromSettings]);
 
   const handleConnectionStatusChange = useCallback((provider: string, status: AuthState) => {
     setCachedAuthStatus((prev) => ({ ...prev, [provider]: status }));
@@ -215,7 +227,12 @@ export const AssistantSetupWizard = ({
       }}
     >
       <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>
-        {isSettingsMode ? (
+        {skipProject ? (
+          <FormattedMessage
+            defaultMessage="Model settings"
+            description="Title for the in-chat assistant model/provider settings flow"
+          />
+        ) : isSettingsMode ? (
           <FormattedMessage defaultMessage="Settings" description="Title for the MLflow Assistant settings wizard" />
         ) : (
           <FormattedMessage

@@ -91,8 +91,12 @@ describe('groupStatus', () => {
     expect(groupStatus([toolCall({ status: undefined })])).toBe('running');
   });
 
-  test('is error when something failed and nothing is still running', () => {
+  test('is error when the run ends on a failure', () => {
     expect(groupStatus([toolCall({ status: 'done' }), toolCall({ status: 'error' })])).toBe('error');
+  });
+
+  test('is done when a later call recovers from an earlier error', () => {
+    expect(groupStatus([toolCall({ status: 'error' }), toolCall({ status: 'done' })])).toBe('done');
   });
 
   test('is done when every call resolved successfully', () => {

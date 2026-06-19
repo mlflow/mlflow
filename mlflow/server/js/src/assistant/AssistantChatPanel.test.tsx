@@ -47,6 +47,10 @@ jest.mock('./AssistantPageContext', () => ({
   useAssistantPageContext: () => ({ experimentId: '123' }),
 }));
 
+jest.mock('./AssistantComposerControls', () => ({
+  AssistantComposerControls: () => null,
+}));
+
 jest.mock('../common/utils/RoutingUtils', () => ({
   useAssistantPrompts: () => ['Prompt 1', 'Prompt 2'],
 }));

@@ -808,6 +808,8 @@ module.exports = {
   "mlflow.artifacts.model_version.status": "",
 
   // -- mlflow.assistant --
+  "mlflow.assistant.chat_panel.back": "",
+  "mlflow.assistant.chat_panel.back.tooltip": "",
   "mlflow.assistant.chat_panel.beta": "",
   "mlflow.assistant.chat_panel.close": "",
   "mlflow.assistant.chat_panel.close.tooltip": "",
@@ -820,6 +822,10 @@ module.exports = {
   "mlflow.assistant.chat_panel.context.trace": "",
   "mlflow.assistant.chat_panel.copy": "",
   "mlflow.assistant.chat_panel.copy.tooltip": "",
+  "mlflow.assistant.chat_panel.execution_mode": "",
+  "mlflow.assistant.chat_panel.execution_mode_radio": "",
+  "mlflow.assistant.chat_panel.model_settings": "",
+  "mlflow.assistant.chat_panel.model_settings.tooltip": "",
   "mlflow.assistant.chat_panel.regenerate": "",
   "mlflow.assistant.chat_panel.regenerate.tooltip": "",
   "mlflow.assistant.chat_panel.remote_close": "",

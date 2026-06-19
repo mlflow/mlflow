@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  ArrowLeftIcon,
   Button,
   Card,
   CloseIcon,
@@ -30,6 +31,8 @@ import { FormattedMessage } from '@databricks/i18n';
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
+import { AssistantComposerControls } from './AssistantComposerControls';
+import { AssistantModelSettings } from './AssistantModelSettings';
 import { ToolCallGroup, type ToolCallPart } from './ToolCallCard';
 import type { AssistantPart, ChatMessage } from './types';
 import { AssistantSetupWizard } from './setup';
@@ -39,7 +42,7 @@ import { useCopyController } from '../shared/web-shared/snippet/hooks/useCopyCon
 import { useAssistantPrompts } from '../common/utils/RoutingUtils';
 import { AssistantWelcomeCarousel } from './AssistantWelcomeCarousel';
 
-type CurrentView = 'chat' | 'setup-wizard' | 'settings';
+type CurrentView = 'chat' | 'setup-wizard' | 'settings' | 'model-settings';
 
 // Shared animation keyframes
 const PULSE_ANIMATION = {
@@ -331,7 +334,7 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
 /**
  * Chat panel content component.
  */
-const ChatPanelContent = () => {
+const ChatPanelContent = ({ onChangeModel }: { onChangeModel: () => void }) => {
   const { theme } = useDesignSystemTheme();
   const { messages, isStreaming, error, sendMessage, regenerateLastMessage, cancelSession, tokenUsage } =
     useAssistant();
@@ -446,37 +449,96 @@ const ChatPanelContent = () => {
             backgroundColor: theme.colors.backgroundPrimary,
           }}
         >
-          <div css={{ display: 'flex', alignItems: 'flex-end' }}>
-            <textarea
-              ref={textareaRef}
-              placeholder="Ask a question..."
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              css={{
-                flex: 1,
+          <AssistantContextTags />
+          <textarea
+            ref={textareaRef}
+            placeholder="Ask a question..."
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={1}
+            css={{
+              width: '100%',
+              border: 'none',
+              outline: 'none',
+              backgroundColor: 'transparent',
+              fontSize: theme.typography.fontSizeBase,
+              color: theme.colors.textPrimary,
+              padding: theme.spacing.xs,
+              resize: 'none',
+              overflowX: 'hidden',
+              overflowY: 'auto',
+              fontFamily: 'inherit',
+              lineHeight: 'inherit',
+              maxHeight: 150,
+              '&::placeholder': {
+                color: theme.colors.textPlaceholder,
+              },
+              '&:focus': {
                 border: 'none',
                 outline: 'none',
-                backgroundColor: 'transparent',
-                fontSize: theme.typography.fontSizeBase,
-                color: theme.colors.textPrimary,
-                padding: theme.spacing.xs,
-                resize: 'none',
-                overflowX: 'hidden',
-                overflowY: 'auto',
-                fontFamily: 'inherit',
-                lineHeight: 'inherit',
-                maxHeight: 150,
-                '&::placeholder': {
-                  color: theme.colors.textPlaceholder,
-                },
-                '&:focus': {
-                  border: 'none',
-                  outline: 'none',
-                },
-              }}
-            />
+              },
+            }}
+          />
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.sm,
+              paddingTop: theme.spacing.sm,
+              marginTop: theme.spacing.xs,
+              borderTop: `1px solid ${theme.colors.borderDecorative}`,
+            }}
+          >
+            <AssistantComposerControls onOpenSettings={onChangeModel} />
+            <div css={{ flex: 1 }} />
+            {tokenUsage.totalTokens > 0 && (
+              <div css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                <Typography.Text size="sm" color="secondary" css={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {formatCompactTokens(tokenUsage.totalTokens)}
+                </Typography.Text>
+                <InfoTooltip
+                  componentId="mlflow.assistant.chat_panel.usage_info"
+                  content={
+                    <div
+                      css={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: theme.spacing.xs,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      <span>
+                        <FormattedMessage
+                          defaultMessage="Input {input} · Output {output} tokens"
+                          description="Breakdown of session token usage into input (prompt) and output (completion) tokens"
+                          values={{
+                            input: tokenUsage.promptTokens.toLocaleString(),
+                            output: tokenUsage.completionTokens.toLocaleString(),
+                          }}
+                        />
+                      </span>
+                      {tokenUsage.costUsd != null ? (
+                        <span>
+                          <FormattedMessage
+                            defaultMessage="Estimated cost ~{cost} — from public model pricing; actual may vary (provider and cache rates)."
+                            description="Estimated session cost with a disclaimer that it is approximate"
+                            values={{ cost: formatCostUsd(tokenUsage.costUsd) }}
+                          />
+                        </span>
+                      ) : (
+                        <span>
+                          <FormattedMessage
+                            defaultMessage="Cost estimate unavailable for this model."
+                            description="Shown when the assistant's model is not in the pricing catalog so cost cannot be estimated"
+                          />
+                        </span>
+                      )}
+                    </div>
+                  }
+                />
+              </div>
+            )}
             <Button
               componentId="mlflow.assistant.chat_panel.send"
               onClick={isStreaming ? cancelSession : handleSend}
@@ -485,73 +547,6 @@ const ChatPanelContent = () => {
               aria-label="Send message"
             />
           </div>
-          <AssistantContextTags />
-          {tokenUsage.totalTokens > 0 && (
-            <div
-              css={{
-                alignSelf: 'flex-end',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: theme.spacing.xs,
-                paddingTop: theme.spacing.sm,
-              }}
-            >
-              <Typography.Text size="sm" color="secondary">
-                <FormattedMessage
-                  defaultMessage="{total} tokens"
-                  description="Compact per-session assistant token count shown near the chat input"
-                  values={{ total: formatCompactTokens(tokenUsage.totalTokens) }}
-                />
-                {tokenUsage.costUsd != null && (
-                  <>
-                    {' · '}
-                    <FormattedMessage
-                      defaultMessage="~{cost}"
-                      description="Estimated session cost; the leading tilde marks it as an approximate estimate"
-                      values={{ cost: formatCostUsd(tokenUsage.costUsd) }}
-                    />
-                  </>
-                )}
-              </Typography.Text>
-              <InfoTooltip
-                componentId="mlflow.assistant.chat_panel.usage_info"
-                content={
-                  <div
-                    css={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: theme.spacing.xs,
-                      fontVariantNumeric: 'tabular-nums',
-                    }}
-                  >
-                    <span>
-                      <FormattedMessage
-                        defaultMessage="Input {input} · Output {output} tokens"
-                        description="Breakdown of session token usage into input (prompt) and output (completion) tokens"
-                        values={{
-                          input: tokenUsage.promptTokens.toLocaleString(),
-                          output: tokenUsage.completionTokens.toLocaleString(),
-                        }}
-                      />
-                    </span>
-                    <span>
-                      {tokenUsage.costUsd != null ? (
-                        <FormattedMessage
-                          defaultMessage="Estimated from public model pricing; actual cost may vary (provider and cache rates)."
-                          description="Disclaimer clarifying that the displayed assistant cost is an estimate"
-                        />
-                      ) : (
-                        <FormattedMessage
-                          defaultMessage="Cost estimate unavailable for this model."
-                          description="Shown when the assistant's model is not in the pricing catalog so cost cannot be estimated"
-                        />
-                      )}
-                    </span>
-                  </div>
-                }
-              />
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -694,6 +689,10 @@ export const AssistantChatPanel = () => {
     setCurrentView('settings');
   }, []);
 
+  const handleOpenModelSettings = useCallback(() => {
+    setCurrentView('model-settings');
+  }, []);
+
   const handleBackFromSettings = useCallback(() => {
     setCurrentView('chat');
   }, []);
@@ -721,17 +720,21 @@ export const AssistantChatPanel = () => {
             onBack={handleBackFromSettings}
           />
         );
+      case 'model-settings':
+        return <AssistantModelSettings experimentId={experimentId} onClose={handleBackFromSettings} />;
       case 'chat':
       default:
         if (!setupComplete) {
           return <SetupPrompt onSetup={handleStartSetup} />;
         }
-        return <ChatPanelContent />;
+        return <ChatPanelContent onChangeModel={handleOpenModelSettings} />;
     }
   };
 
   // Determine if we should show the chat controls (new chat button)
   const showChatControls = setupComplete && currentView === 'chat';
+  // Settings / model-settings are sub-views reached from chat: show a Back arrow, hide the close X.
+  const isSubView = currentView === 'settings' || currentView === 'model-settings';
 
   return (
     <div
@@ -761,6 +764,17 @@ export const AssistantChatPanel = () => {
             fontSize: theme.typography.fontSizeMd + 2,
           }}
         >
+          {isSubView && (
+            <Tooltip componentId="mlflow.assistant.chat_panel.back.tooltip" content="Back to chat">
+              <Button
+                componentId="mlflow.assistant.chat_panel.back"
+                size="small"
+                icon={<ArrowLeftIcon />}
+                onClick={handleBackFromSettings}
+                aria-label="Back to chat"
+              />
+            </Tooltip>
+          )}
           <SparkleDoubleIcon color="ai" css={{ fontSize: 20 }} />
           <FormattedMessage defaultMessage="MLflow Assistant" description="Title for the global Assistant chat panel" />
           <Tag componentId="mlflow.assistant.chat_panel.beta" color="turquoise">
@@ -790,15 +804,17 @@ export const AssistantChatPanel = () => {
               </Tooltip>
             </>
           )}
-          <Tooltip componentId="mlflow.assistant.chat_panel.close.tooltip" content="Close">
-            <Button
-              componentId="mlflow.assistant.chat_panel.close"
-              size="small"
-              icon={<CloseIcon />}
-              onClick={handleClose}
-              aria-label="Close"
-            />
-          </Tooltip>
+          {!isSubView && (
+            <Tooltip componentId="mlflow.assistant.chat_panel.close.tooltip" content="Close">
+              <Button
+                componentId="mlflow.assistant.chat_panel.close"
+                size="small"
+                icon={<CloseIcon />}
+                onClick={handleClose}
+                aria-label="Close"
+              />
+            </Tooltip>
+          )}
         </div>
       </div>
       {renderContent()}

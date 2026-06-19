@@ -3067,6 +3067,10 @@
     "defaultMessage": "Request",
     "description": "Column label for request"
   },
+  "F+8+Xo": {
+    "defaultMessage": "Estimated cost ~{cost} — from public model pricing; actual may vary (provider and cache rates).",
+    "description": "Estimated session cost with a disclaimer that it is approximate"
+  },
   "F16DNA": {
     "defaultMessage": "Version {versionNum}",
     "description": "Title text for model version page"
@@ -3102,6 +3106,10 @@
   "FC9mcS": {
     "defaultMessage": "Parallel coordinates",
     "description": "Experiment tracking > runs charts > add chart menu > parallel coordinates"
+  },
+  "FE2GfX": {
+    "defaultMessage": "Model settings",
+    "description": "Title for the in-chat assistant model/provider settings flow"
   },
   "FFe+Ug": {
     "defaultMessage": "Type a value",
@@ -3974,6 +3982,10 @@
   "Ka1jM2": {
     "defaultMessage": "Disabled",
     "description": "Runs charts > line chart > ignore outliers > disabled label"
+  },
+  "KblJpp": {
+    "defaultMessage": "Change model in Settings",
+    "description": "Tooltip/label on the assistant model pill; opens the Model settings view to change the model"
   },
   "KcGozs": {
     "defaultMessage": "Endpoint:",
@@ -4947,10 +4959,6 @@
     "defaultMessage": "Close",
     "description": "Close button"
   },
-  "PzthYE": {
-    "defaultMessage": "Estimated from public model pricing; actual cost may vary (provider and cache rates).",
-    "description": "Disclaimer clarifying that the displayed assistant cost is an estimate"
-  },
   "Q/QcTS": {
     "defaultMessage": "Save",
     "description": "Save guardrail changes button"
@@ -5510,6 +5518,10 @@
   "TCAbKZ": {
     "defaultMessage": "Save",
     "description": "Save webhook button"
+  },
+  "TFQn0B": {
+    "defaultMessage": "Read-only",
+    "description": "Assistant execution mode restricting the assistant to read-only/limited commands"
   },
   "TKtJIK": {
     "defaultMessage": "Page not found",
@@ -7507,10 +7519,6 @@
     "defaultMessage": "You cannot select rows when comparing runs",
     "description": "Tooltip message for the select button when comparing runs"
   },
-  "dstY0o": {
-    "defaultMessage": "{total} tokens",
-    "description": "Compact per-session assistant token count shown near the chat input"
-  },
   "dt3hj5": {
     "defaultMessage": "Add tags",
     "description": "Run page > Overview > Tags cell > 'Add' button label"
@@ -9039,6 +9047,10 @@
     "defaultMessage": "Admin",
     "description": "Users table admin header"
   },
+  "lkylag": {
+    "defaultMessage": "Full access",
+    "description": "Assistant execution mode granting full tool, file, and command access"
+  },
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
@@ -9922,10 +9934,6 @@
   "qNCHNh": {
     "defaultMessage": "Select model",
     "description": "Model selector modal title"
-  },
-  "qNOKur": {
-    "defaultMessage": "~{cost}",
-    "description": "Estimated session cost; the leading tilde marks it as an approximate estimate"
   },
   "qNaoD5": {
     "defaultMessage": "Cannot be changed after creation.",
