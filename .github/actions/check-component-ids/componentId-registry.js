@@ -1965,6 +1965,7 @@ module.exports = {
   "mlflow.playground.submit": "",
   "mlflow.playground.tools.add": "",
   "mlflow.playground.tools.input": "",
+  "mlflow.playground.tools.remove": "",
   "mlflow.playground.tools.tool_choice": "",
   "mlflow.playground.variables.drawer": "",
   "mlflow.playground.variables.drawer.trigger": "",

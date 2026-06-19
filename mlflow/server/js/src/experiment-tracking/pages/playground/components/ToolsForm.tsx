@@ -122,25 +122,21 @@ export const ToolsForm = ({
               description="Label above the tool choice segmented picker inside the Tools card"
             />
           </FormUI.Label>
-          <button
-            type="button"
+          <Button
+            componentId="mlflow.playground.tools.remove"
+            type="tertiary"
+            size="small"
+            icon={<TrashIcon />}
             onClick={() => onToolsAddedChange(false)}
             aria-label={intl.formatMessage({
               defaultMessage: 'Remove tools',
               description: 'Aria label for the trash button that removes the playground tools from the request',
             })}
             css={{
-              border: 0,
-              background: 'none',
-              padding: theme.spacing.xs,
-              display: 'inline-flex',
-              cursor: 'pointer',
-              color: theme.colors.textSecondary,
-              '&:hover': { color: theme.colors.textPrimary },
+              '& svg': { color: theme.colors.textSecondary },
+              '&:hover svg': { color: theme.colors.textPrimary },
             }}
-          >
-            <TrashIcon />
-          </button>
+          />
         </div>
         <SegmentedControlGroup
           componentId="mlflow.playground.tools.tool_choice"
