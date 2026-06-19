@@ -83,12 +83,19 @@ jobs:
       contents: read
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           # For PRs, check out the merge ref so the preview reflects what the UI
           # will look like after merge. For push events, falls back to github.sha.
           ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/merge', github.event.pull_request.number) || github.sha }}
+          # This job runs on `pull_request_target` and intentionally checks out
+          # fork PR code to build the UI preview. checkout v7 blocks this by
+          # default; opt in explicitly. Safe here because this `build` job only
+          # has `contents: read`, holds no secrets, and sets
+          # `persist-credentials: false`. The secrets live in the `deploy` job,
+          # which only consumes the uploaded artifact and never checks out PR code.
+          allow-unsafe-pr-checkout: true
 
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-node
