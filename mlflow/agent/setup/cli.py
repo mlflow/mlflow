@@ -158,7 +158,7 @@ def _run_setup(
             case 1:
                 profile = click.prompt(
                     click.style(
-                        "Databricks configuration profile, or empty for default",
+                        "Add a Databricks configuration profile, or leave empty for default",
                         fg="cyan",
                         bold=True,
                     ),
