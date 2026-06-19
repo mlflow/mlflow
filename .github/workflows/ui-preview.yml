@@ -89,12 +89,10 @@ jobs:
           # For PRs, check out the merge ref so the preview reflects what the UI
           # will look like after merge. For push events, falls back to github.sha.
           ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/merge', github.event.pull_request.number) || github.sha }}
-          # This job runs on `pull_request_target` and intentionally checks out
-          # fork PR code to build the UI preview. checkout v7 blocks this by
-          # default; opt in explicitly. Safe here because this `build` job only
-          # has `contents: read`, holds no secrets, and sets
-          # `persist-credentials: false`. The secrets live in the `deploy` job,
-          # which only consumes the uploaded artifact and never checks out PR code.
+          # checkout v7 blocks fork PR checkout on `pull_request_target` by
+          # default; opt in since this job builds the UI preview from fork code.
+          # Safe: it has no secrets (only `contents: read`), and the `author_association`
+          # guard above restricts it to OWNER/MEMBER/COLLABORATOR PRs.
           allow-unsafe-pr-checkout: true
 
       - uses: ./.github/actions/setup-python
