@@ -274,6 +274,20 @@ async def test_astream_emits_content_deltas(provider):
 
 
 @pytest.mark.asyncio
+async def test_astream_requests_usage_via_stream_options(provider):
+    lines = [_sse(_delta(content="hi")), b"data: [DONE]\n"]
+    session, calls = _make_aiohttp_session([lines])
+
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=session,
+    ):
+        _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert calls[0]["json"]["stream_options"] == {"include_usage": True}
+
+
+@pytest.mark.asyncio
 async def test_astream_tolerates_done_terminator_and_blank_lines(provider):
     lines = [
         b"\n",

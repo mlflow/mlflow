@@ -464,6 +464,12 @@ class OpenAICompatibleProvider(AssistantProvider):
                             "messages": messages,
                             "tools": tools,
                             "stream": True,
+                            # Strict OpenAI-compatible servers (vLLM, LM Studio, raw
+                            # OpenAI) only emit the final usage chunk when asked;
+                            # without this they stream no token counts at all. Servers
+                            # that already report usage (the MLflow gateway, Ollama)
+                            # ignore or harmlessly echo the option.
+                            "stream_options": {"include_usage": True},
                         }
                         async with session.post(
                             chat_url,
