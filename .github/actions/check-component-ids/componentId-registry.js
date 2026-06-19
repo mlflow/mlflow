@@ -1350,6 +1350,7 @@ module.exports = {
   "mlflow.experiment_page.scorers.filter_string_input": "",
   "mlflow.experiment_page.scorers.filter_string_syntax_link": "",
   "mlflow.experiment_page.scorers.search_traces_syntax_link": "",
+  "mlflow.experiment_page.share_link.simplified_warning": "",
   "mlflow.experiment_page.sort_dropdown.search": "",
   "mlflow.experiment_page.sort_dropdown.sort_asc": "",
   "mlflow.experiment_page.sort_dropdown.sort_desc": "",

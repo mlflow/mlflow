@@ -11335,6 +11335,10 @@
     "defaultMessage": "Duplicate",
     "description": "Gateway > Endpoints list > Duplicate button"
   },
+  "r9EsGo": {
+    "defaultMessage": "This view is too large to fit in a link. The link will open the experiment with your filters and sorting, but without the saved column layout and charts.",
+    "description": "Warning shown in the experiment share-link modal when the view is too large to embed in the URL and a simplified link is shared instead"
+  },
   "rAAy4b": {
     "defaultMessage": "Open dataset record {recordId}",
     "description": "Aria label for the record-id activator in the V2 dataset records table"

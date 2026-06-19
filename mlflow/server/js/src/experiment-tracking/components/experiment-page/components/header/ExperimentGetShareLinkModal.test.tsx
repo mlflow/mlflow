@@ -1,16 +1,20 @@
 import { jest, describe, beforeAll, afterAll, test, expect } from '@jest/globals';
+import { omit } from 'lodash';
 import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
-import { createExperimentPageUIState } from '../../models/ExperimentPageUIState';
-import { ExperimentGetShareLinkModal } from './ExperimentGetShareLinkModal';
+import { createExperimentPageUIState, NON_SHAREABLE_UI_STATE_FIELDS } from '../../models/ExperimentPageUIState';
+import { ExperimentGetShareLinkModal, stripShareKeyFromUrl } from './ExperimentGetShareLinkModal';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
 import { render, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { setExperimentTagApi } from '../../../../actions';
 import { shouldUseCompressedExperimentViewSharedState } from '../../../../../common/utils/FeatureUtils';
-import { textDecompressDeflate } from '../../../../../common/utils/StringUtils';
+import {
+  isTextCompressedDeflate,
+  textCompressDeflate,
+  textDecompressDeflate,
+} from '../../../../../common/utils/StringUtils';
 import { IntlProvider } from 'react-intl';
 import { setupTestRouter, testRoute, TestRouter } from '../../../../../common/utils/RoutingTestUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -22,40 +26,73 @@ jest.mock('../../../../../common/utils/FeatureUtils', () => ({
   shouldUseCompressedExperimentViewSharedState: jest.fn(),
 }));
 
+// Keep the real compression impls (decodeShareUrl relies on them) but make textCompressDeflate
+// spy-able so a single test can force a serialization failure.
 jest.mock('../../../../../common/utils/StringUtils', () => {
-  const windowCryptoSupported = Boolean(global.crypto?.subtle);
-  // If window.crypto is not supported, provide a simple hex hashing function instead of SHA256
-  if (!windowCryptoSupported) {
-    return {
-      ...jest.requireActual<typeof import('../../../../../common/utils/StringUtils')>(
-        '../../../../../common/utils/StringUtils',
-      ),
-      getStringSHA256: (val: string) =>
-        val.split('').reduce((hex, c) => hex + c.charCodeAt(0).toString(16).padStart(2, '0'), ''),
-    };
-  }
-  return jest.requireActual<typeof import('../../../../../common/utils/StringUtils')>(
+  const actual = jest.requireActual<typeof import('../../../../../common/utils/StringUtils')>(
     '../../../../../common/utils/StringUtils',
   );
+  return { ...actual, textCompressDeflate: jest.fn(actual.textCompressDeflate) };
 });
 
-jest.mock('../../../../actions', () => ({
-  ...jest.requireActual<typeof import('../../../../actions')>('../../../../actions'),
-  setExperimentTagApi: jest.fn(() => ({ type: 'SET_EXPERIMENT_TAG_API', payload: Promise.resolve() })),
-}));
-
 const experimentIds = ['experiment-1'];
+
+// Extract and decode the viewStateShareKey blob from a copied share URL.
+const decodeShareUrl = async (shareUrl: string) => {
+  const hash = shareUrl.slice(shareUrl.indexOf('#') + 1);
+  const query = hash.slice(hash.indexOf('?') + 1);
+  const shareState = new URLSearchParams(query).get('viewStateShareKey') ?? '';
+  const json = isTextCompressedDeflate(shareState) ? await textDecompressDeflate(shareState) : shareState;
+  return JSON.parse(json);
+};
+
+describe('stripShareKeyFromUrl', () => {
+  const origin = 'https://example.com/ml';
+
+  test('removes viewStateShareKey while preserving the route and other params', () => {
+    const input = `${origin}#/experiments/1/runs?viewStateShareKey=%7B%22a%22%3A1%7D&searchFilter=metrics.m%20%3E%201&orderByAsc=false`;
+    expect(stripShareKeyFromUrl(input)).toBe(
+      `${origin}#/experiments/1/runs?searchFilter=metrics.m+%3E+1&orderByAsc=false`,
+    );
+  });
+
+  test('drops the trailing question mark when viewStateShareKey was the only param', () => {
+    const input = `${origin}#/experiments/1/runs?viewStateShareKey=%7B%22a%22%3A1%7D`;
+    expect(stripShareKeyFromUrl(input)).toBe(`${origin}#/experiments/1/runs`);
+  });
+
+  test('returns the url unchanged when there is no viewStateShareKey', () => {
+    const input = `${origin}#/experiments/1/runs?searchFilter=metrics.m%20%3E%201`;
+    expect(stripShareKeyFromUrl(input)).toBe(input);
+  });
+
+  test('returns the url unchanged when there is no query string', () => {
+    const input = `${origin}#/experiments/1/runs`;
+    expect(stripShareKeyFromUrl(input)).toBe(input);
+  });
+
+  test('returns the url unchanged when there is no hash', () => {
+    const input = `${origin}/experiments/1/runs`;
+    expect(stripShareKeyFromUrl(input)).toBe(input);
+  });
+});
 
 describe('ExperimentGetShareLinkModal', () => {
   const onCancel = jest.fn();
   const { history } = setupTestRouter();
 
   let navigatorClipboard: Clipboard;
+  let copiedText = '';
 
   beforeAll(() => {
     navigatorClipboard = navigator.clipboard;
     // @ts-expect-error: navigator is overridable in tests
-    navigator.clipboard = { writeText: jest.fn() };
+    navigator.clipboard = {
+      writeText: jest.fn((text: string) => {
+        copiedText = text;
+        return Promise.resolve();
+      }),
+    };
   });
 
   afterAll(() => {
@@ -108,7 +145,7 @@ describe('ExperimentGetShareLinkModal', () => {
   };
 
   test.each([true, false])(
-    'copies the shareable URL and expects to reuse the same tag for identical view state when compression enabled: %s',
+    'embeds the serialized view state directly in the share URL when compression enabled: %s',
     async (isCompressionEnabled) => {
       jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => isCompressionEnabled);
 
@@ -121,7 +158,7 @@ describe('ExperimentGetShareLinkModal', () => {
       await waitFor(() => expect(screen.getByText('get link')).toBeInTheDocument());
       await userEvent.click(screen.getByText('get link'));
 
-      // Wait for the link and tag to be processed and copy button to be visible
+      // Wait for the link to be processed and copy button to be visible
       await waitFor(() => {
         expect(screen.getByTestId('share-link-copy-button')).toBeInTheDocument();
       });
@@ -129,30 +166,46 @@ describe('ExperimentGetShareLinkModal', () => {
       // Click the copy button and assert that the URL was copied to the clipboard
       await userEvent.click(screen.getByTestId('share-link-copy-button'));
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        expect.stringMatching(/\/experiments\/experiment-1\?viewStateShareKey=([0-9a-f]+)/i),
+        expect.stringMatching(/\/experiments\/experiment-1\/runs\?viewStateShareKey=/),
       );
 
-      // Assert that the tag was created with the correct name and serialized state
-      expect(setExperimentTagApi).toHaveBeenCalledWith(
-        'experiment-1',
-        expect.stringMatching(/mlflow\.sharedViewState\.([0-9a-f]+)/),
-        // Assert serialized state in the next step
-        expect.anything(),
-      );
-      const serializedTagValue = jest.mocked(setExperimentTagApi).mock.lastCall?.[2];
-
-      const serializedState = isCompressionEnabled
-        ? JSON.parse(await textDecompressDeflate(serializedTagValue))
-        : JSON.parse(serializedTagValue);
-
-      expect(serializedState).toEqual({
-        ...initialSearchState,
-        ...initialUIState,
-      });
+      // The embedded blob should decode back to the shareable view state
+      const decoded = await decodeShareUrl(copiedText);
+      expect(decoded).toEqual(omit({ ...initialSearchState, ...initialUIState }, NON_SHAREABLE_UI_STATE_FIELDS));
     },
   );
 
+  test('does not embed per-run or personal UI state in the shared link', async () => {
+    jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+
+    const initialSearchState = createExperimentPageSearchFacetsState();
+    const initialUIState = {
+      ...createExperimentPageUIState(),
+      runsPinned: ['run-a', 'run-b'],
+      runsExpanded: { 'run-a': true },
+      runsHidden: ['run-c'],
+      autoRefreshEnabled: true,
+    };
+
+    renderExperimentGetShareLinkModal(initialSearchState, initialUIState);
+    await waitFor(() => expect(screen.getByText('get link')).toBeInTheDocument());
+    await userEvent.click(screen.getByText('get link'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('share-link-copy-button')).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByTestId('share-link-copy-button'));
+
+    const decoded = await decodeShareUrl(copiedText);
+    expect(decoded).not.toHaveProperty('runsPinned');
+    expect(decoded).not.toHaveProperty('runsExpanded');
+    expect(decoded).not.toHaveProperty('runsHidden');
+    expect(decoded).not.toHaveProperty('runsVisibilityMap');
+    expect(decoded).not.toHaveProperty('autoRefreshEnabled');
+  });
+
   test('propagate experiment page view mode', async () => {
+    jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
     const initialSearchState = { ...createExperimentPageSearchFacetsState(), searchFilter: 'metrics.m1 = 2' };
     const initialUIState = { ...createExperimentPageUIState(), viewMaximized: true };
 
@@ -165,55 +218,50 @@ describe('ExperimentGetShareLinkModal', () => {
     await waitFor(() => expect(screen.getByRole<HTMLInputElement>('textbox').value).toContain('compareRunsMode=CHART'));
   });
 
-  test('reuse the same tag for identical view state', async () => {
-    // Initial facets and UI state
+  test('produces identical links for identical view state and distinct links otherwise', async () => {
+    jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+
     const initialSearchState = { ...createExperimentPageSearchFacetsState(), searchFilter: 'metrics.m1 = 2' };
     const initialUIState = { ...createExperimentPageUIState(), viewMaximized: true };
 
-    // Render the modal and open it
     const { rerender } = renderExperimentGetShareLinkModal(initialSearchState, initialUIState);
 
     await waitFor(() => expect(screen.getByText('get link')).toBeInTheDocument());
-
     await userEvent.click(screen.getByText('get link'));
-
-    // Wait for the link and tag to be processed and copy button to be visible
-    await waitFor(() => {
-      expect(screen.getByTestId('share-link-copy-button')).toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.getByTestId('share-link-copy-button')).toBeInTheDocument());
     await userEvent.click(screen.getByTestId('share-link-copy-button'));
+    const firstUrl = copiedText;
 
-    // Save the first persisted tag name (containing serialized state hash)
-    const firstSavedTagName = jest.mocked(setExperimentTagApi).mock.lastCall?.[1];
-
-    // Update the search state and UI state, rerender the modal
+    // Update the view state and rerender; the link must change
     const updatedSearchState = { ...initialSearchState, searchFilter: 'metrics.m1 = 5' };
     const updatedUIState = { ...initialUIState, viewMaximized: false };
     rerender(updatedSearchState, updatedUIState);
-
-    // Click the copy button
-    await waitFor(() => {
-      expect(screen.getByTestId('share-link-copy-button')).toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.getByTestId('share-link-copy-button')).toBeInTheDocument());
     await userEvent.click(screen.getByTestId('share-link-copy-button'));
+    const secondUrl = copiedText;
+    expect(secondUrl).not.toEqual(firstUrl);
 
-    // Save the second persisted tag name (containing serialized state hash), should be different from the first one
-    const secondSavedTagName = jest.mocked(setExperimentTagApi).mock.lastCall?.[1];
-    expect(firstSavedTagName).not.toEqual(secondSavedTagName);
-
-    // Change the search state and UI state back to the initial values (but with new object references)
-    const revertedSearchState = { ...updatedSearchState, searchFilter: 'metrics.m1 = 2' };
-    const revertedUIState = { ...updatedUIState, viewMaximized: true };
-    rerender(revertedSearchState, revertedUIState);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('share-link-copy-button')).toBeInTheDocument();
-    });
-
+    // Revert to the initial view state (new object references); the link must match the first
+    rerender({ ...updatedSearchState, searchFilter: 'metrics.m1 = 2' }, { ...updatedUIState, viewMaximized: true });
+    await waitFor(() => expect(screen.getByTestId('share-link-copy-button')).toBeInTheDocument());
     await userEvent.click(screen.getByTestId('share-link-copy-button'));
+    expect(copiedText).toEqual(firstUrl);
+  });
 
-    // Assert the third persisted tag name, should be the same as the first one
-    const lastSavedTagName = jest.mocked(setExperimentTagApi).mock.lastCall?.[1];
-    expect(lastSavedTagName).toEqual(firstSavedTagName);
+  test('does not hang on the loading skeleton when link serialization fails', async () => {
+    jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.mocked(textCompressDeflate).mockRejectedValueOnce(new Error('compress failed'));
+
+    renderExperimentGetShareLinkModal();
+    await waitFor(() => expect(screen.getByText('get link')).toBeInTheDocument());
+    await userEvent.click(screen.getByText('get link'));
+
+    // Recovery: the URL input renders (skeleton cleared) with a plain fallback URL that is
+    // not a url-embedded share link — rather than the modal hanging forever on the skeleton.
+    await waitFor(() => expect(screen.getByRole<HTMLInputElement>('textbox')).toBeInTheDocument());
+    expect(screen.getByRole<HTMLInputElement>('textbox').value).not.toContain('viewStateShareKey');
+    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
+    jest.mocked(console.error).mockRestore();
   });
 });
