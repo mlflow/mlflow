@@ -1925,6 +1925,7 @@ module.exports = {
 
   // -- mlflow.playground --
   "mlflow.playground.clear": "",
+  "mlflow.playground.json_code_block.copy": "",
   "mlflow.playground.load_from_registry": "",
   "mlflow.playground.output.error": "",
   "mlflow.playground.params.drawer": "",
