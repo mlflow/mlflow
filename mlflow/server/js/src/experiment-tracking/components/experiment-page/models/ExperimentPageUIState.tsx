@@ -7,6 +7,8 @@ import { RunsChartsLineChartXAxisType } from '../../runs-charts/components/RunsC
 
 export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
   'selectedColumns',
+  'columnOrder',
+  'columnWidths',
   'runsExpanded',
   'runsPinned',
   'runsHidden',
@@ -96,6 +98,17 @@ export interface ExperimentPageUIState extends ExperimentRunsChartsUIConfigurati
   selectedColumns: string[];
 
   /**
+   * Full display order of column ids (canonical sort keys). Empty until the user
+   * reorders a column, in which case the grid keeps its natural columnDefs order.
+   */
+  columnOrder: string[];
+
+  /**
+   * Map of column id (canonical sort key) to persisted pixel width.
+   */
+  columnWidths: Record<string, number>;
+
+  /**
    * Object mapping run UUIDs (strings) to booleans, where a boolean value of true indicates that
    * a run has been expanded (its child runs are visible).
    */
@@ -159,6 +172,8 @@ export interface ExperimentPageUIState extends ExperimentRunsChartsUIConfigurati
  */
 export const createExperimentPageUIState = (): ExperimentPageUIState => ({
   selectedColumns: getDefaultSelectedColumns(),
+  columnOrder: [],
+  columnWidths: {},
   runsExpanded: {},
   runsPinned: [],
   runsHidden: [],

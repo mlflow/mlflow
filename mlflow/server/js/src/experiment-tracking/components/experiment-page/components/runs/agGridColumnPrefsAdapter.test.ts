@@ -7,42 +7,36 @@ const ALL = ['a', 'b', 'c', 'd'] as const;
 
 describe('agGridColumnPrefsAdapter', () => {
   describe('prefsToColumnState', () => {
-    test('maps order, width, and hide (from visibleColumns)', () => {
-      const state = prefsToColumnState({
-        visibleColumns: ['a', 'c'],
-        columnOrder: ['c', 'a', 'b'],
-        columnWidths: { c: 200 },
-      });
+    test('maps order and width; undefined width keeps ag-grid default', () => {
+      const state = prefsToColumnState(['c', 'a', 'b'], { c: 200 });
       expect(state).toEqual([
-        { colId: 'c', hide: false, width: 200 },
-        { colId: 'a', hide: false, width: undefined },
-        { colId: 'b', hide: true, width: undefined },
+        { colId: 'c', width: 200 },
+        { colId: 'a', width: undefined },
+        { colId: 'b', width: undefined },
       ]);
     });
   });
 
   describe('columnStateToPrefs', () => {
-    test('captures order, visibility (from !hide), and numeric widths; drops unknown ids', () => {
+    test('captures order and sane widths; drops unknown ids and corrupt widths', () => {
       const state: ColumnState[] = [
-        { colId: 'c', hide: false, width: 120 },
-        { colId: 'ghost', hide: false, width: 80 },
-        { colId: 'a', hide: true, width: 90 },
-        { colId: 'b', hide: false },
+        { colId: 'c', width: 120 },
+        { colId: 'ghost', width: 80 },
+        { colId: 'a', width: 90 },
+        { colId: 'b', width: 0 },
+        { colId: 'd', width: -5 },
       ] as ColumnState[];
 
       expect(columnStateToPrefs(state, ALL)).toEqual({
-        columnOrder: ['c', 'a', 'b'],
-        visibleColumns: ['c', 'b'],
+        columnOrder: ['c', 'a', 'b', 'd'],
         columnWidths: { c: 120, a: 90 },
       });
     });
   });
 
-  test('round-trips a visible/ordered/sized snapshot', () => {
-    const prefs = { visibleColumns: ['b', 'a'], columnOrder: ['b', 'a', 'c', 'd'], columnWidths: { b: 150 } };
-    const restored = columnStateToPrefs(prefsToColumnState(prefs) as ColumnState[], ALL);
+  test('round-trips an ordered/sized snapshot', () => {
+    const restored = columnStateToPrefs(prefsToColumnState(['b', 'a', 'c', 'd'], { b: 150 }) as ColumnState[], ALL);
     expect(restored.columnOrder).toEqual(['b', 'a', 'c', 'd']);
-    expect(new Set(restored.visibleColumns)).toEqual(new Set(['b', 'a']));
     expect(restored.columnWidths).toEqual({ b: 150 });
   });
 });

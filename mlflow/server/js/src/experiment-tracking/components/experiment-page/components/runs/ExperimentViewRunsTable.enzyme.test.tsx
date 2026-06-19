@@ -49,7 +49,11 @@ const mockGridApi = {
 };
 
 jest.mock('../../../../../common/components/ag-grid/AgGridLoader', () => {
-  const columnApiMock = {};
+  const columnApiMock = {
+    getAllGridColumns: () => [],
+    getColumnState: () => [],
+    applyColumnState: () => {},
+  };
   return {
     MLFlowAgGridLoader: ({ onGridReady }: any) => {
       onGridReady({

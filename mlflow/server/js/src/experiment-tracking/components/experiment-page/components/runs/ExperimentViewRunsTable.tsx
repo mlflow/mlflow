@@ -53,7 +53,6 @@ import { useToggleRowVisibilityCallback } from '../../hooks/useToggleRowVisibili
 import { ExperimentViewRunsTableHeaderContextProvider } from './ExperimentViewRunsTableHeaderContext';
 import { useRunsHighlightTableRow } from '../../../runs-charts/hooks/useRunsHighlightTableRow';
 import { debounce, isEmpty, isEqual } from 'lodash';
-import { useColumnPreferences } from '@databricks/web-shared/table-prefs';
 import { columnStateToPrefs, prefsToColumnState } from './agGridColumnPrefsAdapter';
 
 const ROW_BUFFER = 101; // How many rows to keep rendered, even ones not visible
@@ -246,33 +245,15 @@ export const ExperimentViewRunsTable = React.memo(
       setAllColumns((prev) => (isEqual(prev, ids) ? prev : ids));
     }, [columnApi, columnDefs]);
 
-    const columnPrefsStorageKey = useMemo(
-      () => `mlflow.experiment-runs.column-prefs.${[...experiments.map((e) => e.experimentId)].sort().join(',')}`,
-      [experiments],
-    );
-
-    // Persists column order + width across sessions. Visibility stays on the
-    // existing `selectedColumns` path, so `defaultVisible` is the full set here.
-    const {
-      preferences: columnPreferences,
-      isCustomized: hasCustomColumnPrefs,
-      setColumnOrder,
-      setColumnWidths,
-    } = useColumnPreferences({
-      storageKey: columnPrefsStorageKey,
-      version: 1,
-      allColumns,
-      defaultVisible: allColumns,
-    });
-
+    // Column order + width persist via uiState, riding the existing localStorage
+    // and share path. Visibility stays on the separate `selectedColumns` path.
     const captureColumnState = useMemo(
       () =>
         debounce((api: ColumnApi) => {
-          const prefs = columnStateToPrefs(api.getColumnState(), allColumns);
-          setColumnOrder(prefs.columnOrder);
-          setColumnWidths(prefs.columnWidths);
+          const { columnOrder, columnWidths } = columnStateToPrefs(api.getColumnState(), allColumns);
+          updateUIState((state: ExperimentPageUIState) => ({ ...state, columnOrder, columnWidths }));
         }, 250),
-      [allColumns, setColumnOrder, setColumnWidths],
+      [allColumns, updateUIState],
     );
 
     // Cancel any pending capture on unmount/navigation so we don't write state
@@ -306,22 +287,24 @@ export const ExperimentViewRunsTable = React.memo(
       [captureColumnState, isComparingRuns],
     );
 
-    // Read latest prefs without re-applying on every capture (which would fight
-    // an in-progress drag and revert the user's move mid-gesture).
-    const columnPreferencesRef = useRef(columnPreferences);
-    columnPreferencesRef.current = columnPreferences;
-    const hasCustomColumnPrefsRef = useRef(hasCustomColumnPrefs);
-    hasCustomColumnPrefsRef.current = hasCustomColumnPrefs;
+    // Read latest persisted layout without re-applying on every capture (which
+    // would fight an in-progress drag and revert the user's move mid-gesture).
+    const columnLayoutRef = useRef({ columnOrder: uiState.columnOrder, columnWidths: uiState.columnWidths });
+    columnLayoutRef.current = { columnOrder: uiState.columnOrder, columnWidths: uiState.columnWidths };
 
     // Apply persisted order + width only on grid-ready and when the column set
     // structurally changes — and only once the user has actually customized,
     // so the grid keeps its natural columnDefs order by default. Visibility
-    // stays on the selectedColumns effect, so `hide` is stripped here.
+    // stays on the selectedColumns effect, so only order + width are applied.
     useEffect(() => {
-      if (!columnApi || isComparingRuns || !hasCustomColumnPrefsRef.current) {
+      if (!columnApi || isComparingRuns) {
         return;
       }
-      const state = prefsToColumnState(columnPreferencesRef.current).map(({ hide, ...rest }) => rest);
+      const { columnOrder, columnWidths } = columnLayoutRef.current;
+      if (columnOrder.length === 0 && isEmpty(columnWidths)) {
+        return;
+      }
+      const state = prefsToColumnState(columnOrder, columnWidths);
       if (state.length > 0) {
         columnApi.applyColumnState({ state, applyOrder: true });
       }
