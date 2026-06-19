@@ -136,7 +136,9 @@ class GeminiAdapter(ProviderAdapter):
                                 "args": json.loads(tool_call["function"]["arguments"]),
                             }
                             if tool_call["id"] in call_id_to_thought_signature_map:
-                                fc["thoughtSignature"] = call_id_to_thought_signature_map[tool_call["id"]]
+                                fc["thoughtSignature"] = call_id_to_thought_signature_map[
+                                    tool_call["id"]
+                                ]
 
                             gemini_function_calls.append({"functionCall": fc})
                 if gemini_function_calls:
@@ -226,7 +228,9 @@ class GeminiAdapter(ProviderAdapter):
             func_name = function_call["name"]
             func_arguments = json.dumps(function_call["args"])
             call_id = function_call.get("id")
-            thought_sig = function_call.get("thoughtSignature") or function_call.get("thought_signature")
+            thought_sig = function_call.get("thoughtSignature") or function_call.get(
+                "thought_signature"
+            )
             if call_id is None:
                 # Gemini model response might not contain function call id,
                 # in order to make it compatible with Openai chat protocol,
