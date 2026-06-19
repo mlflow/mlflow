@@ -1963,6 +1963,7 @@ module.exports = {
   "mlflow.playground.save_prompt_version.target": "",
   "mlflow.playground.save_to_registry": "",
   "mlflow.playground.submit": "",
+  "mlflow.playground.tools.add": "",
   "mlflow.playground.tools.input": "",
   "mlflow.playground.tools.tool_choice": "",
   "mlflow.playground.variables.drawer": "",

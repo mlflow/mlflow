@@ -9,11 +9,13 @@ import { ToolsForm } from './ToolsForm';
 interface RenderProps {
   value?: string;
   error?: string | null;
+  toolsAdded?: boolean;
   toolChoice?: ToolChoice;
 }
 
-const renderForm = ({ value = '', error, toolChoice = 'none' }: RenderProps = {}) => {
+const renderForm = ({ value = '', error, toolsAdded = false, toolChoice = 'auto' }: RenderProps = {}) => {
   const onChange = jest.fn<(next: string) => void>();
+  const onToolsAddedChange = jest.fn<(next: boolean) => void>();
   const onToolChoiceChange = jest.fn<(next: ToolChoice) => void>();
   render(
     <IntlProvider locale="en">
@@ -22,54 +24,72 @@ const renderForm = ({ value = '', error, toolChoice = 'none' }: RenderProps = {}
           value={value}
           onChange={onChange}
           error={error}
+          toolsAdded={toolsAdded}
+          onToolsAddedChange={onToolsAddedChange}
           toolChoice={toolChoice}
           onToolChoiceChange={onToolChoiceChange}
         />
       </DesignSystemProvider>
     </IntlProvider>,
   );
-  return { onChange, onToolChoiceChange };
+  return { onChange, onToolsAddedChange, onToolChoiceChange };
 };
 
 describe('ToolsForm', () => {
-  it('hides the JSON textarea when toolChoice is none', () => {
-    renderForm({ toolChoice: 'none' });
-    expect(screen.queryByLabelText('JSON Tool Definition')).not.toBeInTheDocument();
+  it('shows the Add tools button and hides the JSON textarea before tools are added', () => {
+    renderForm({ toolsAdded: false });
+    expect(screen.getByRole('button', { name: 'Add tools' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('JSON tool definitions')).not.toBeInTheDocument();
   });
 
-  it('shows the JSON textarea when toolChoice is auto or required', () => {
-    renderForm({ toolChoice: 'auto' });
-    expect(screen.getByLabelText('JSON Tool Definition')).toBeInTheDocument();
+  it('fires onToolsAddedChange(true) when Add tools is clicked', async () => {
+    const { onToolsAddedChange } = renderForm({ toolsAdded: false });
+    await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
+    expect(onToolsAddedChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it('shows the JSON textarea and the Auto/Required selector once tools are added', () => {
+    renderForm({ toolsAdded: true });
+    expect(screen.getByLabelText('JSON tool definitions')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Auto' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Required' })).toBeInTheDocument();
   });
 
   it('forwards picker changes via onToolChoiceChange', async () => {
-    const { onToolChoiceChange } = renderForm({ toolChoice: 'none' });
-    await userEvent.click(screen.getByRole('radio', { name: 'Auto' }));
-    expect(onToolChoiceChange).toHaveBeenLastCalledWith('auto');
+    const { onToolChoiceChange } = renderForm({ toolsAdded: true, toolChoice: 'auto' });
+    await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
+    expect(onToolChoiceChange).toHaveBeenLastCalledWith('required');
   });
 
-  it('renders an inline error when error is non-null and toolChoice is not none', () => {
-    renderForm({ toolChoice: 'auto', value: '{not-json', error: 'Invalid JSON' });
+  it('returns to the empty state without clearing the JSON when the trash icon is clicked', async () => {
+    const { onChange, onToolsAddedChange } = renderForm({ toolsAdded: true, value: '[{"x":1}]' });
+    await userEvent.click(screen.getByRole('button', { name: 'Remove tools' }));
+    expect(onToolsAddedChange).toHaveBeenLastCalledWith(false);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('renders an inline error when error is non-null and tools are added', () => {
+    renderForm({ toolsAdded: true, value: '{not-json', error: 'Invalid JSON' });
     expect(screen.getByText('Invalid JSON')).toBeInTheDocument();
   });
 
-  it('does not render the inline error when toolChoice is none', () => {
-    renderForm({ toolChoice: 'none', error: 'Invalid JSON' });
+  it('does not render the inline error before tools are added', () => {
+    renderForm({ toolsAdded: false, error: 'Invalid JSON' });
     expect(screen.queryByText('Invalid JSON')).not.toBeInTheDocument();
   });
 
-  it('shows an empty-required inline error when toolChoice is not none and the textarea is empty', () => {
-    renderForm({ toolChoice: 'auto', value: '' });
+  it('shows an empty-required inline error when tools are added and the textarea is empty', () => {
+    renderForm({ toolsAdded: true, value: '' });
     expect(screen.getByText('Add at least one tool definition')).toBeInTheDocument();
   });
 
-  it('shows the empty-required inline error when toolChoice is not none and the value parses to []', () => {
-    renderForm({ toolChoice: 'required', value: '[]' });
+  it('shows the empty-required inline error when tools are added and the value parses to []', () => {
+    renderForm({ toolsAdded: true, value: '[]' });
     expect(screen.getByText('Add at least one tool definition')).toBeInTheDocument();
   });
 
   it('prefers the empty-required error over a stale parse-error prop when the value is empty', () => {
-    renderForm({ toolChoice: 'auto', value: '', error: 'Invalid JSON' });
+    renderForm({ toolsAdded: true, value: '', error: 'Invalid JSON' });
     expect(screen.getByText('Add at least one tool definition')).toBeInTheDocument();
     expect(screen.queryByText('Invalid JSON')).not.toBeInTheDocument();
   });
