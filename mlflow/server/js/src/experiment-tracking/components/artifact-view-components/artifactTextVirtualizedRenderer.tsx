@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import createElement from 'react-syntax-highlighter/dist/cjs/create-element';
 
@@ -18,18 +18,24 @@ export const ARTIFACT_TEXT_VIRTUALIZED_SPACER_TESTID = 'artifact-text-virtualize
 export const ARTIFACT_TEXT_VIRTUALIZED_ROW_TESTID = 'artifact-text-virtualized-row';
 
 function VirtualizedRows({ rows, stylesheet, useInlineStyles }: RendererProps) {
-  const parentRef = useRef<HTMLDivElement>(null);
+  // Track the scroll element in state (not a plain ref) so attaching it triggers a re-render.
+  // This renderer's subtree mounts inside react-syntax-highlighter's <pre> before the scroll
+  // container's ref attaches; useVirtualizer reads getScrollElement() during a layout effect and
+  // only re-reads it on a later render, so a ref read directly would resolve to null on the first
+  // pass and leave the virtualizer permanently unmeasured (visible only in a real browser, not in
+  // jsdom tests that mock the virtualizer).
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize: () => ESTIMATED_ROW_HEIGHT,
     overscan: OVERSCAN,
   });
 
   return (
     <div
-      ref={parentRef}
+      ref={setScrollElement}
       style={{
         width: '100%',
         height: '100%',
