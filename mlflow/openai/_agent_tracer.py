@@ -238,7 +238,7 @@ def _parse_span_data(span_data: oai.SpanData) -> tuple[Any, Any, dict[str, Any]]
         attributes = {
             "model": span_data.model,
             "model_config": span_data.model_config,
-            "usage": span_data.usage,
+            SpanAttributeKey.CHAT_USAGE: span_data.usage,
         }
 
     elif span_data.type == OpenAISpanType.RESPONSE:
