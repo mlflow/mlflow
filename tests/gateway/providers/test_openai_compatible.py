@@ -212,8 +212,8 @@ async def test_chat_stream_missing_finish_reason():
     # model_to_chat_streaming should not raise KeyError when the key is absent.
     provider = _make_provider()
     chunk_data = (
-        b'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,'  
-        b'"model":"test-model","choices":[{"index":0,"delta":{"role":"assistant",'  
+        b'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,'
+        b'"model":"test-model","choices":[{"index":0,"delta":{"role":"assistant",'
         b'"content":"Hi"}}]}\x0a\x0a'
     )
     chunks = [chunk_data, b"data: [DONE]\x0a\x0a"]
