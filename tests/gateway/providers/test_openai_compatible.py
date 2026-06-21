@@ -204,6 +204,30 @@ async def test_chat_stream():
     result = jsonable_encoder(responses[0])
     assert result["choices"][0]["delta"]["content"] == "Hi"
 
+@pytest.mark.asyncio
+async def test_chat_stream_missing_finish_reason():
+    # Anthropic-compatible upstreams omit finish_reason on intermediate streaming chunks.
+    # model_to_chat_streaming should not raise KeyError when the key is absent.
+    provider = _make_provider()
+    chunk_data = (
+        b'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,'
+        b'"model":"test-model","choices":[{"index":0,"delta":{"role":"assistant",'
+        b'"content":"Hi"}}]}\n\n'
+    )
+    chunks = [chunk_data, b"data: [DONE]\n\n"]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(chunks))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = chat.RequestPayload(
+            messages=[{"role": "user", "content": "Hello"}],
+        )
+        responses = [chunk async for chunk in provider.chat_stream(payload)]
+
+    assert len(responses) == 1
+    result = jsonable_encoder(responses[0])
+    assert result["choices"][0]["delta"]["content"] == "Hi"
+    assert result["choices"][0]["finish_reason"] is None
+
 
 @pytest.mark.asyncio
 async def test_embeddings():
