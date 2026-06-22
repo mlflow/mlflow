@@ -115,10 +115,6 @@
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
     "description": "Queue settings: questions dropdown selected-count summary"
   },
-  "+asYF/": {
-    "defaultMessage": "Have the model call functions you define. Tool choice strategies:",
-    "description": "Intro line of the info popover next to the Tools section header"
-  },
   "+d9nXK": {
     "defaultMessage": "Output cost",
     "description": "Label for output cost"
@@ -130,10 +126,6 @@
   "+dbgRR": {
     "defaultMessage": "{numUniqueValues} values",
     "description": "Text for number of unique values for categorical assessment"
-  },
-  "+dueuC": {
-    "defaultMessage": "JSON Tool Definition",
-    "description": "Label for the JSON tool definitions textarea inside the Tools card"
   },
   "+erxn2": {
     "defaultMessage": "Optimize prompts",
@@ -402,6 +394,10 @@
   "/m44jJ": {
     "defaultMessage": "View docs",
     "description": "Text for docs link button on experiment view page header"
+  },
+  "/mU2Ud": {
+    "defaultMessage": "JSON tool definitions",
+    "description": "Label for the JSON tool definitions textarea inside the Tools card"
   },
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
@@ -1567,10 +1563,6 @@
     "defaultMessage": "Detailed assessments",
     "description": "Evaluation review > assessments > detailed assessments > title"
   },
-  "5kc6dO": {
-    "defaultMessage": "— model decides whether to call a tool.",
-    "description": "Description of the Auto tool choice in the Tools info popover"
-  },
   "5lsHqm": {
     "defaultMessage": "Cancel",
     "description": "Cancel button for the edit model config modal"
@@ -2091,6 +2083,10 @@
     "defaultMessage": "None",
     "description": "Cell value when there's no content"
   },
+  "8Glngx": {
+    "defaultMessage": "Provide one or more function definitions in a JSON array. Choose how the model invokes them:",
+    "description": "Intro line of the info popover next to the Tools section header"
+  },
   "8GmtjT": {
     "defaultMessage": "Clear the search",
     "description": "Link text to clear the search filter on the V2 dataset records list"
@@ -2110,6 +2106,10 @@
   "8Mwwrq": {
     "defaultMessage": "No matching users",
     "description": "Review queue: no users match the owner search"
+  },
+  "8Rlf8s": {
+    "defaultMessage": "— The model decides whether to call one or more tools (default).",
+    "description": "Description of the Auto tool choice in the Tools info popover"
   },
   "8Uwpjw": {
     "defaultMessage": "Create run",
@@ -2875,6 +2875,10 @@
     "defaultMessage": "Description",
     "description": "Workspaces table description column header"
   },
+  "BunFCp": {
+    "defaultMessage": "Provide one or more function definitions in a JSON array for the model to call.",
+    "description": "Help text shown under the Add tools button in the playground settings drawer before any tools are added"
+  },
   "BuykLs": {
     "defaultMessage": "Delete judge",
     "description": "Title for the delete judge confirmation modal"
@@ -3454,10 +3458,6 @@
   "F4K195": {
     "defaultMessage": "No evaluation datasets found",
     "description": "Empty state for the evaluation datasets page"
-  },
-  "F6YQTG": {
-    "defaultMessage": "Pick Auto or Required to enter the JSON tool definitions.",
-    "description": "Closing line of the Tools info popover hinting at the conditional definitions input"
   },
   "F8MqzZ": {
     "defaultMessage": "Path",
@@ -4531,6 +4531,10 @@
     "defaultMessage": "Trace status: OK, ERROR, or IN_PROGRESS",
     "description": "Tooltip description for the State column in the traces table"
   },
+  "Kzrwuh": {
+    "defaultMessage": "Remove tools",
+    "description": "Aria label for the trash button that removes the playground tools from the request"
+  },
   "L/4iQO": {
     "defaultMessage": "Delete",
     "description": "Label for the delete experiments action on the experiments list page"
@@ -4586,6 +4590,10 @@
   "LK+UHk": {
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 20 first runs in the evaluation runs table"
+  },
+  "LKA/ko": {
+    "defaultMessage": "Add tools",
+    "description": "Label for the button that reveals the playground tool definitions input and tool choice selector"
   },
   "LKAZ2n": {
     "defaultMessage": "Disable grouped runs to compare",
@@ -5198,6 +5206,10 @@
   "OH7mDs": {
     "defaultMessage": "Expectations",
     "description": "Column selector label for the expectations column"
+  },
+  "OHDirZ": {
+    "defaultMessage": "Use the trash icon to remove the tools from the request.",
+    "description": "Closing line of the Tools info popover explaining how the trash icon removes tools"
   },
   "OLZyxe": {
     "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
@@ -8463,6 +8475,10 @@
     "defaultMessage": "Account",
     "description": "Accessible label for the account-page icon avatar"
   },
+  "eCMHlc": {
+    "defaultMessage": "— The model must call at least one tool.",
+    "description": "Description of the Required tool choice in the Tools info popover"
+  },
   "eCleLG": {
     "defaultMessage": "Failed to load API keys. Please check your connection and try again.",
     "description": "Gateway > API keys list > Error loading API keys"
@@ -9843,6 +9859,10 @@
     "defaultMessage": "Correctness",
     "description": "LLM template option"
   },
+  "kD2Vww": {
+    "defaultMessage": "The model decides whether to call one or more tools.",
+    "description": "Hint shown under the tool choice selector when Auto is selected"
+  },
   "kEmVw4": {
     "defaultMessage": "Trace Archival Retention",
     "description": "Label for workspace trace archival retention field"
@@ -9974,6 +9994,10 @@
   "knJfuf": {
     "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",
     "description": "AI Gateway setup guide > Documentation link"
+  },
+  "knNmQq": {
+    "defaultMessage": "Add at least one tool definition",
+    "description": "Inline error shown in the Tools card when tools are added but no tool definitions are provided"
   },
   "ktiuki": {
     "defaultMessage": "Get Link",
@@ -10670,10 +10694,6 @@
   "oHW+ks": {
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
-  },
-  "oJg/Kk": {
-    "defaultMessage": "— model must call a tool.",
-    "description": "Description of the Required tool choice in the Tools info popover"
   },
   "oKNOju": {
     "defaultMessage": "Conversational tool call efficiency",
@@ -11971,10 +11991,6 @@
     "defaultMessage": "Edit Workspace",
     "description": "Title for edit workspace modal"
   },
-  "um/4MQ": {
-    "defaultMessage": "Add at least one tool definition",
-    "description": "Inline error shown in the Tools card when tool choice is not none but no tool definitions are provided"
-  },
   "umeTwG": {
     "defaultMessage": "Latest",
     "description": "Column title for the column displaying the latest metric values for a metric"
@@ -12426,6 +12442,10 @@
   "x7NsCC": {
     "defaultMessage": "Reasoning",
     "description": "Label for the collapsible reasoning section in chat message"
+  },
+  "x90XmL": {
+    "defaultMessage": "The model must call at least one tool.",
+    "description": "Hint shown under the tool choice selector when Required is selected"
   },
   "xBIlD4": {
     "defaultMessage": "Expectation",
@@ -12934,10 +12954,6 @@
   "ze1m7Z": {
     "defaultMessage": "Run name cannot consist only of whitespace!",
     "description": "An error shown when user sets the run's name to whitespace characters only"
-  },
-  "zehip9": {
-    "defaultMessage": "— never call a tool (default).",
-    "description": "Description of the None tool choice in the Tools info popover"
   },
   "zfpA2q": {
     "defaultMessage": "Source run",

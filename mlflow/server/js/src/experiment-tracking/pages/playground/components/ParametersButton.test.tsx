@@ -13,19 +13,22 @@ interface RenderProps {
   toolChoice?: ToolChoice;
   toolsText?: string;
   toolsError?: string | null;
+  toolsAdded?: boolean;
   params?: PlaygroundParams;
   responseFormatType?: ResponseFormatType;
 }
 
 const renderButton = ({
-  toolChoice = 'none',
+  toolChoice = 'auto',
   toolsText = '',
   toolsError = null,
+  toolsAdded = false,
   params = {},
   responseFormatType = 'text',
 }: RenderProps = {}) => {
   const onChange = jest.fn();
   const onToolsChange = jest.fn();
+  const onToolsAddedChange = jest.fn<(next: boolean) => void>();
   const onToolChoiceChange = jest.fn<(next: ToolChoice) => void>();
   const onResponseFormatTypeChange = jest.fn();
   const onResponseFormatSchemaChange = jest.fn();
@@ -38,6 +41,8 @@ const renderButton = ({
           toolsText={toolsText}
           onToolsChange={onToolsChange}
           toolsError={toolsError}
+          toolsAdded={toolsAdded}
+          onToolsAddedChange={onToolsAddedChange}
           toolChoice={toolChoice}
           onToolChoiceChange={onToolChoiceChange}
           responseFormatType={responseFormatType}
@@ -48,7 +53,7 @@ const renderButton = ({
       </DesignSystemProvider>
     </IntlProvider>,
   );
-  return { onChange, onToolsChange, onToolChoiceChange, onResponseFormatTypeChange };
+  return { onChange, onToolsChange, onToolsAddedChange, onToolChoiceChange, onResponseFormatTypeChange };
 };
 
 const openDrawer = async () => {
@@ -64,18 +69,18 @@ describe('ParametersButton', () => {
     expect(screen.getByText('Response format')).toBeInTheDocument();
   });
 
-  it('renders the Tool choice picker defaulting to None and hides the JSON textarea', async () => {
-    renderButton({ toolChoice: 'none' });
+  it('shows the Add tools button and hides the JSON textarea before tools are added', async () => {
+    renderButton({ toolsAdded: false });
     await openDrawer();
-    expect(screen.getByRole('radio', { name: 'None' })).toBeChecked();
-    expect(screen.queryByLabelText('JSON Tool Definition')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add tools' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('JSON tool definitions')).not.toBeInTheDocument();
   });
 
-  it('reveals the JSON textarea and fires onToolChoiceChange when picker switches to Auto', async () => {
-    const { onToolChoiceChange } = renderButton({ toolChoice: 'none' });
+  it('fires onToolsAddedChange(true) when Add tools is clicked', async () => {
+    const { onToolsAddedChange } = renderButton({ toolsAdded: false });
     await openDrawer();
-    await userEvent.click(screen.getByRole('radio', { name: 'Auto' }));
-    expect(onToolChoiceChange).toHaveBeenLastCalledWith('auto');
+    await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
+    expect(onToolsAddedChange).toHaveBeenLastCalledWith(true);
   });
 
   it('opens the Parameters info popover and shows the provider-disclaimer line', async () => {

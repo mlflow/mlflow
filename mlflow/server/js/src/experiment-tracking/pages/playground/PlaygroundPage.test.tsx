@@ -166,6 +166,7 @@ describe('PlaygroundPage', () => {
     expect(screen.getByRole('button', { name: /submit/i })).toBeEnabled();
 
     await openSettingsDrawer();
+    await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
     await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
     await closeDrawer();
 
@@ -180,8 +181,9 @@ describe('PlaygroundPage', () => {
     await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
 
     await openSettingsDrawer();
+    await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
     await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
-    fireEvent.change(screen.getByLabelText('JSON Tool Definition'), { target: { value: '[]' } });
+    fireEvent.change(screen.getByLabelText('JSON tool definitions'), { target: { value: '[]' } });
     await closeDrawer();
 
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
@@ -251,9 +253,10 @@ describe('PlaygroundPage', () => {
     await userEvent.type(screen.getByLabelText('Frequency penalty'), '0.5');
     fireEvent.change(screen.getByLabelText('Stop sequences'), { target: { value: 'STOP\nFIN' } });
 
-    // Switch tool_choice to required and supply a valid tools array.
+    // Add tools, switch tool_choice to required and supply a valid tools array.
+    await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
     await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
-    fireEvent.change(screen.getByLabelText('JSON Tool Definition'), {
+    fireEvent.change(screen.getByLabelText('JSON tool definitions'), {
       target: { value: '[{"type":"function","function":{"name":"echo"}}]' },
     });
 
@@ -315,7 +318,7 @@ describe('PlaygroundPage', () => {
     });
   });
 
-  it('omits tools and tool_choice when toolChoice stays at none, even with tool text typed', async () => {
+  it('omits tools and tool_choice when the tools are removed, even after tool text was typed', async () => {
     const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
       choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
     });
@@ -326,13 +329,13 @@ describe('PlaygroundPage', () => {
     await userEvent.type(endpointInput, 'my-endpoint');
     await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello there');
 
-    // Pick Required just to reveal the textarea, type something, then revert to None.
+    // Add tools and type a definition, then remove them with the trash icon.
     await openSettingsDrawer();
-    await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
-    fireEvent.change(screen.getByLabelText('JSON Tool Definition'), {
+    await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
+    fireEvent.change(screen.getByLabelText('JSON tool definitions'), {
       target: { value: '[{"type":"function","function":{"name":"echo"}}]' },
     });
-    await userEvent.click(screen.getByRole('radio', { name: 'None' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove tools' }));
 
     await closeDrawer();
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));

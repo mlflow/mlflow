@@ -40,7 +40,7 @@ export type ResponseFormat =
       json_schema: { name: string; schema: unknown; strict?: boolean };
     };
 
-export type ToolChoice = 'auto' | 'none' | 'required';
+export type ToolChoice = 'auto' | 'required';
 
 export interface ChatCompletionRequest {
   model: string;
