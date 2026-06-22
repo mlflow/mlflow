@@ -22,7 +22,7 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.types import Event, Message, ToolUseBlock
 from mlflow.server.assistant.api import (
-    ResumeRequest,
+    PermissionDecision,
     _require_localhost,
     assistant_router,
 )
@@ -431,7 +431,7 @@ async def test_stream_pauses_then_resumes(decision, expected_text):
     """The turn ENDS at the permission prompt (no hang, no cross-request state);
     a resume request then drives a fresh stream to completion.
     """
-    from mlflow.server.assistant.api import resume_session, stream_response
+    from mlflow.server.assistant.api import resolve_permission, stream_response
 
     session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
     session = SessionManager.create()
@@ -450,7 +450,9 @@ async def test_stream_pauses_then_resumes(decision, expected_text):
     assert "event: done" in first
 
     # Deliver the decision, then a fresh stream resumes to completion.
-    res = await resume_session(session_id, ResumeRequest(request_id="t1", decision=decision))
+    res = await resolve_permission(
+        session_id, PermissionDecision(request_id="t1", decision=decision)
+    )
     assert res.session_id == session_id
 
     with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
@@ -460,18 +462,18 @@ async def test_stream_pauses_then_resumes(decision, expected_text):
     assert "event: done" in second
 
 
-def test_resume_rejects_invalid_session(client):
+def test_resolve_permission_rejects_invalid_session(client):
     response = client.post(
-        "/ajax-api/3.0/mlflow/assistant/sessions/not-a-uuid/resume",
+        "/ajax-api/3.0/mlflow/assistant/sessions/not-a-uuid/permission",
         json={"request_id": "t1", "decision": "allow"},
     )
     assert response.status_code == 400
 
 
-def test_resume_returns_404_for_unknown_session(client):
+def test_resolve_permission_returns_404_for_unknown_session(client):
     # Well-formed UUID, but no such session exists.
     response = client.post(
-        "/ajax-api/3.0/mlflow/assistant/sessions/f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47/resume",
+        "/ajax-api/3.0/mlflow/assistant/sessions/f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47/permission",
         json={"request_id": "t1", "decision": "allow"},
     )
     assert response.status_code == 404

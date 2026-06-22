@@ -102,7 +102,7 @@ class SessionPatchResponse(BaseModel):
     message: str
 
 
-class ResumeRequest(BaseModel):
+class PermissionDecision(BaseModel):
     request_id: str  # the paused tool_call's id
     decision: Literal["allow", "deny"]
 
@@ -262,13 +262,13 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
     raise HTTPException(status_code=400, detail=f"Unknown status: {request.status}")
 
 
-@assistant_router.post("/sessions/{session_id}/resume")
-async def resume_session(session_id: str, request: ResumeRequest) -> MessageResponse:
-    """Deliver a tool-call decision and resume the paused turn on a new stream.
+@assistant_router.post("/sessions/{session_id}/permission")
+async def resolve_permission(session_id: str, request: PermissionDecision) -> MessageResponse:
+    """Deliver a tool-call permission decision and resume the paused turn on a new stream.
 
     The decision is stored on the session and consumed by the next stream, which
     re-enters the provider with the choice in context. Stateless across requests:
-    any worker can serve the resume because the pending state lives in the
+    any worker can serve the decision because the pending state lives in the
     session, not process memory.
     """
     try:

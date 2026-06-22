@@ -275,7 +275,7 @@ export const resumeStream = async (
   callbacks: SendMessageStreamCallbacks,
 ): Promise<SendMessageStreamResult> => {
   try {
-    await fetchAPI(getAjaxUrl(`${API_BASE}/sessions/${sessionId}/resume`), {
+    await fetchAPI(getAjaxUrl(`${API_BASE}/sessions/${sessionId}/permission`), {
       method: 'POST',
       body: JSON.stringify({ request_id: requestId, decision }),
     });

@@ -49,7 +49,7 @@ describe('AssistantService permissions', () => {
       onError: jest.fn(),
       onDone: jest.fn(),
     });
-    expect(mockedFetchAPI).toHaveBeenCalledWith('ajax-api/3.0/mlflow/assistant/sessions/sess-1/resume', {
+    expect(mockedFetchAPI).toHaveBeenCalledWith('ajax-api/3.0/mlflow/assistant/sessions/sess-1/permission', {
       method: 'POST',
       body: JSON.stringify({ request_id: 'req-1', decision: 'allow' }),
     });

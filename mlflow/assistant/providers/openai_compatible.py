@@ -374,14 +374,13 @@ class OpenAICompatibleProvider(AssistantProvider):
             sys_content = ASSISTANT_SYSTEM_PROMPT.format(tracking_uri=tracking_uri)
             messages.append({"role": "system", "content": sys_content})
 
-        # Resume mode: a history whose last assistant turn carries tool_calls
-        # without results is a turn paused at a permission prompt. The request
-        # then delivers the user's choice in `context["tool_decisions"]` rather
-        # than a new user message, so we process the pending batch instead of
-        # starting a fresh turn.
         tool_decisions = (context or {}).get("tool_decisions") or {}
-        resume_batch = _pending_tool_calls(messages)
-        if not resume_batch:
+        # A history whose last assistant turn carries tool_calls without results
+        # is a turn paused at a permission prompt. Resuming applies the decision(s)
+        # in `tool_decisions` to those calls instead of starting a new user turn.
+        tool_calls_awaiting_decision = _pending_tool_calls(messages)
+        is_resuming = bool(tool_calls_awaiting_decision)
+        if not is_resuming:
             messages.append({"role": "user", "content": user_text})
         tools = build_tools_schema()
 
@@ -390,12 +389,11 @@ class OpenAICompatibleProvider(AssistantProvider):
         try:
             async with aiohttp.ClientSession() as session:
                 while True:
-                    if resume_batch is not None:
-                        # Resuming a paused turn: the pending tool_calls are
-                        # already in history. Apply the user's decision(s)
-                        # instead of calling the model again.
-                        assistant_tool_calls = resume_batch
-                        resume_batch = None
+                    if is_resuming:
+                        # The pending tool_calls are already in history; apply the
+                        # user's decision(s) instead of calling the model again.
+                        assistant_tool_calls = tool_calls_awaiting_decision
+                        is_resuming = False
                     else:
                         # `visible_text` accumulates the post-<think>-strip text
                         # that gets persisted into `messages`. Storing the raw
