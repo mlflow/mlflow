@@ -1,6 +1,6 @@
 import { describe, test, expect, jest, beforeEach } from '@jest/globals';
 import { fetchAPI } from '@mlflow/mlflow/src/common/utils/FetchUtils';
-import { respondToPermission, sendMessageStream } from './AssistantService';
+import { resumeStream, sendMessageStream } from './AssistantService';
 
 // jest.mock is hoisted above imports by babel-jest, so the mock still applies.
 jest.mock('@mlflow/mlflow/src/common/utils/FetchUtils', () => ({
@@ -39,14 +39,22 @@ class FakeEventSource {
 describe('AssistantService permissions', () => {
   beforeEach(() => {
     mockedFetchAPI.mockClear();
+    FakeEventSource.instances = [];
+    (global as any).EventSource = FakeEventSource;
   });
 
-  test('respondToPermission POSTs the decision to the request endpoint', async () => {
-    await respondToPermission('sess-1', 'req-1', 'allow');
-    expect(mockedFetchAPI).toHaveBeenCalledWith('ajax-api/3.0/mlflow/assistant/sessions/sess-1/permissions/req-1', {
-      method: 'POST',
-      body: JSON.stringify({ decision: 'allow' }),
+  test('resumeStream POSTs the decision then opens a fresh stream', async () => {
+    const result = await resumeStream('sess-1', 'req-1', 'allow', {
+      onMessage: jest.fn(),
+      onError: jest.fn(),
+      onDone: jest.fn(),
     });
+    expect(mockedFetchAPI).toHaveBeenCalledWith('ajax-api/3.0/mlflow/assistant/sessions/sess-1/resume', {
+      method: 'POST',
+      body: JSON.stringify({ request_id: 'req-1', decision: 'allow' }),
+    });
+    expect(result.eventSource).toBeDefined();
+    expect(FakeEventSource.instances).toHaveLength(1);
   });
 });
 
@@ -59,7 +67,7 @@ describe('sendMessageStream permission_request event', () => {
     );
   });
 
-  test('a permission_request SSE event invokes onPermissionRequest with camelCased fields', async () => {
+  test('a permission_request SSE event invokes onPermissionRequest and closes the stream', async () => {
     const onPermissionRequest = jest.fn();
     await sendMessageStream(
       { message: 'hi' },
@@ -76,9 +84,12 @@ describe('sendMessageStream permission_request event', () => {
     es.emit('permission_request', { request_id: 'req-1', tool_name: 'Bash', tool_input: { command: 'ls' } });
 
     expect(onPermissionRequest).toHaveBeenCalledWith({
+      sessionId: 'sess-1',
       requestId: 'req-1',
       toolName: 'Bash',
       toolInput: { command: 'ls' },
     });
+    // The turn ends at the prompt: the stream is closed, the decision arrives via resumeStream.
+    expect(es.readyState).toBe(FakeEventSource.CLOSED);
   });
 });

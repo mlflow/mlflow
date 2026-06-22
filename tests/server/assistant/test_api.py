@@ -1,4 +1,3 @@
-import asyncio
 import os
 import shutil
 import subprocess
@@ -23,8 +22,7 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.types import Event, Message, ToolUseBlock
 from mlflow.server.assistant.api import (
-    PermissionDecisionRequest,
-    SessionPatchRequest,
+    ResumeRequest,
     _require_localhost,
     assistant_router,
 )
@@ -397,125 +395,86 @@ def test_patch_session_cancel_with_process(client):
             assert not _is_process_running(proc.pid)
 
 
-@pytest.mark.parametrize(("decision", "expected"), [("allow", True), ("deny", False)])
-@pytest.mark.asyncio
-async def test_respond_to_permission_resolves_pending_request(decision, expected):
-    # Call the endpoint coroutine directly so the future and its resolver share
-    # one event loop (TestClient would dispatch the route to a separate loop).
-    from mlflow.server.assistant.api import respond_to_permission
-    from mlflow.server.assistant.permissions import permission_broker
+class _DeferredProvider(MockProvider):
+    """Pauses at the prompt on the first turn; resumes from the decision in context."""
 
-    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
-    request_id = "req-1"
-    permission_broker.clear(session_id)
-
-    future = permission_broker.register(session_id, request_id)
-    result = await respond_to_permission(
-        session_id, request_id, PermissionDecisionRequest(decision=decision)
-    )
-    assert result == {"status": "ok"}
-    assert await asyncio.wait_for(future, timeout=1) is expected
-    permission_broker.clear(session_id)
-
-
-def test_respond_to_permission_rejects_invalid_session(client):
-    response = client.post(
-        "/ajax-api/3.0/mlflow/assistant/sessions/not-a-uuid/permissions/req-1",
-        json={"decision": "allow"},
-    )
-    assert response.status_code == 400
-
-
-@pytest.mark.asyncio
-async def test_patch_session_cancel_denies_pending_permissions():
-    from mlflow.server.assistant.api import patch_session
-    from mlflow.server.assistant.permissions import permission_broker
-
-    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
-    permission_broker.clear(session_id)
-    SessionManager.save(session_id, SessionManager.create())
-
-    future = permission_broker.register(session_id, "req-1")
-    await patch_session(session_id, SessionPatchRequest(status="cancelled"))
-    assert await asyncio.wait_for(future, timeout=1) is False
-    permission_broker.clear(session_id)
-
-
-@pytest.mark.parametrize(("decision", "expected_text"), [("allow", "ran"), ("deny", "denied")])
-@pytest.mark.asyncio
-async def test_stream_pauses_for_permission_then_resumes(decision, expected_text):
-    """End-to-end through the real SSE endpoint: the stream emits a
-    permission_request and blocks; resolving the decision (via the real respond
-    endpoint) unblocks it and the stream resumes to completion.
-    """
-    from mlflow.server.assistant.api import respond_to_permission, stream_response
-    from mlflow.server.assistant.permissions import permission_broker
-
-    class PausingProvider(MockProvider):
-        async def astream(
-            self,
-            prompt,
-            tracking_uri,
-            session_id=None,
-            mlflow_session_id=None,
-            cwd=None,
-            context=None,
-        ):
+    async def astream(
+        self,
+        prompt,
+        tracking_uri,
+        session_id=None,
+        mlflow_session_id=None,
+        cwd=None,
+        context=None,
+    ):
+        decisions = (context or {}).get("tool_decisions") or {}
+        if not decisions:
+            # First turn: surface the tool, emit the prompt, and end the turn.
             yield Event.from_message(
                 Message(
                     role="assistant",
                     content=[ToolUseBlock(id="t1", name="Bash", input={"command": "echo hi"})],
                 )
             )
-            permission_broker.register(mlflow_session_id, "rq-1")
-            yield Event.from_permission_request("rq-1", "Bash", {"command": "echo hi"})
-            allowed = await permission_broker.wait(mlflow_session_id, "rq-1")
-            yield Event.from_message(
-                Message(role="assistant", content="ran" if allowed else "denied")
-            )
-            yield Event.from_result(result=None, session_id="prov-1")
+            yield Event.from_permission_request("t1", "Bash", {"command": "echo hi"})
+            yield Event.from_result(result=None, session_id="prov-paused")
+            return
+        # Resume: apply the delivered decision.
+        allowed = decisions.get("t1") == "allow"
+        yield Event.from_message(Message(role="assistant", content="ran" if allowed else "denied"))
+        yield Event.from_result(result=None, session_id="prov-done")
+
+
+@pytest.mark.parametrize(("decision", "expected_text"), [("allow", "ran"), ("deny", "denied")])
+@pytest.mark.asyncio
+async def test_stream_pauses_then_resumes(decision, expected_text):
+    """The turn ENDS at the permission prompt (no hang, no cross-request state);
+    a resume request then drives a fresh stream to completion.
+    """
+    from mlflow.server.assistant.api import resume_session, stream_response
 
     session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
-    permission_broker.clear(session_id)
     session = SessionManager.create()
     session.set_pending_message(role="user", content="hi")
     SessionManager.save(session_id, session)
 
     mock_request = MagicMock()
     mock_request.base_url = "http://localhost:5000/"
+    provider = _DeferredProvider()
 
-    chunks: list[str] = []
-    provider = PausingProvider()
-
+    # First turn: the stream completes immediately at the prompt (no await).
     with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
         response = await stream_response(mock_request, session_id)
+        first = "".join([c async for c in response.body_iterator])
+    assert "permission_request" in first
+    assert "event: done" in first
 
-        async def consume():
-            async for chunk in response.body_iterator:
-                chunks.append(chunk)  # noqa: PERF401
+    # Deliver the decision, then a fresh stream resumes to completion.
+    res = await resume_session(session_id, ResumeRequest(request_id="t1", decision=decision))
+    assert res.session_id == session_id
 
-        reader = asyncio.create_task(consume())
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response2 = await stream_response(mock_request, session_id)
+        second = "".join([c async for c in response2.body_iterator])
+    assert expected_text in second
+    assert "event: done" in second
 
-        for _ in range(100):
-            if any("rq-1" in c for c in chunks) or reader.done():
-                break
-            await asyncio.sleep(0.02)
-        if reader.done() and reader.exception():
-            raise reader.exception()
-        assert any("permission_request" in c for c in chunks)
-        assert not reader.done(), "stream should be paused awaiting the decision"
 
-        result = await respond_to_permission(
-            session_id, "rq-1", PermissionDecisionRequest(decision=decision)
-        )
-        assert result == {"status": "ok"}
+def test_resume_rejects_invalid_session(client):
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/sessions/not-a-uuid/resume",
+        json={"request_id": "t1", "decision": "allow"},
+    )
+    assert response.status_code == 400
 
-        await asyncio.wait_for(reader, timeout=5)
 
-    transcript = "".join(chunks)
-    assert expected_text in transcript
-    assert "event: done" in transcript
-    permission_broker.clear(session_id)
+def test_resume_returns_404_for_unknown_session(client):
+    # Well-formed UUID, but no such session exists.
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/sessions/f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47/resume",
+        json={"request_id": "t1", "decision": "allow"},
+    )
+    assert response.status_code == 404
 
 
 def test_install_skills_success(client):

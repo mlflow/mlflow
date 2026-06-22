@@ -22,6 +22,8 @@ export interface ToolUseInfo {
  * decision when the session is not in full-access mode.
  */
 export interface PermissionRequest {
+  /** The session that produced this request, so a decision targets the right session */
+  sessionId: string;
   requestId: string;
   toolName: string;
   toolInput: Record<string, any>;

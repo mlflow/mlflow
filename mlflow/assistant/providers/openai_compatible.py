@@ -28,7 +28,6 @@ from mlflow.assistant.providers.base import (
 from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
 from mlflow.assistant.providers.tool_executor import build_tools_schema, execute_tool
 from mlflow.assistant.types import Event, Message, ToolResultBlock, ToolUseBlock
-from mlflow.server.assistant.permissions import permission_broker
 
 _logger = logging.getLogger(__name__)
 
@@ -102,6 +101,31 @@ def _trim_session(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
             _MAX_SESSION_BYTES,
         )
     return messages
+
+
+def _tool_result_ids(messages: list[dict[str, Any]]) -> set[str]:
+    """IDs of tool_calls that already have a `tool` result message."""
+    return {
+        m["tool_call_id"] for m in messages if m.get("role") == "tool" and m.get("tool_call_id")
+    }
+
+
+def _pending_tool_calls(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Tool calls awaiting a decision in the most recent assistant turn.
+
+    A history whose last assistant message carries `tool_calls` without matching
+    `tool` results is a turn paused at a permission prompt. Returning a non-empty
+    list signals *resume mode*: apply the user's decision(s) and continue instead
+    of starting a new user turn.
+    """
+    last_assistant = next(
+        (m for m in reversed(messages) if m.get("role") == "assistant" and m.get("tool_calls")),
+        None,
+    )
+    if last_assistant is None:
+        return []
+    resolved = _tool_result_ids(messages)
+    return [tc for tc in last_assistant["tool_calls"] if tc["id"] not in resolved]
 
 
 def _trailing_partial_tag_len(buf: str, tag: str) -> int:
@@ -350,7 +374,15 @@ class OpenAICompatibleProvider(AssistantProvider):
             sys_content = ASSISTANT_SYSTEM_PROMPT.format(tracking_uri=tracking_uri)
             messages.append({"role": "system", "content": sys_content})
 
-        messages.append({"role": "user", "content": user_text})
+        # Resume mode: a history whose last assistant turn carries tool_calls
+        # without results is a turn paused at a permission prompt. The request
+        # then delivers the user's choice in `context["tool_decisions"]` rather
+        # than a new user message, so we process the pending batch instead of
+        # starting a fresh turn.
+        tool_decisions = (context or {}).get("tool_decisions") or {}
+        resume_batch = _pending_tool_calls(messages)
+        if not resume_batch:
+            messages.append({"role": "user", "content": user_text})
         tools = build_tools_schema()
 
         headers = self._auth_headers(api_key)
@@ -358,95 +390,105 @@ class OpenAICompatibleProvider(AssistantProvider):
         try:
             async with aiohttp.ClientSession() as session:
                 while True:
-                    # `visible_text` accumulates the post-<think>-strip text
-                    # that gets persisted into `messages`. Storing the raw
-                    # pre-strip stream would re-feed the model's own
-                    # reasoning back to it on the next turn.
-                    visible_text = ""
-                    tool_calls_acc: list[dict[str, Any]] = []
-                    in_think = False
-                    think_buf = ""
+                    if resume_batch is not None:
+                        # Resuming a paused turn: the pending tool_calls are
+                        # already in history. Apply the user's decision(s)
+                        # instead of calling the model again.
+                        assistant_tool_calls = resume_batch
+                        resume_batch = None
+                    else:
+                        # `visible_text` accumulates the post-<think>-strip text
+                        # that gets persisted into `messages`. Storing the raw
+                        # pre-strip stream would re-feed the model's own
+                        # reasoning back to it on the next turn.
+                        visible_text = ""
+                        tool_calls_acc: list[dict[str, Any]] = []
+                        in_think = False
+                        think_buf = ""
 
-                    payload = {
-                        "model": model,
-                        "messages": messages,
-                        "tools": tools,
-                        "stream": True,
-                    }
-                    async with session.post(
-                        chat_url,
-                        json=payload,
-                        headers=headers,
-                        timeout=aiohttp.ClientTimeout(total=300),
-                    ) as resp:
-                        if resp.status != 200:
-                            body = await resp.text()
-                            yield Event.from_error(
-                                f"{self._display_name} error {resp.status}: {body}"
-                            )
-                            return
-
-                        async for raw_line in resp.content:
-                            line = raw_line.strip()
-                            if not line:
-                                continue
-                            # SSE frames start with `data: `. Skip event-name lines
-                            # and comments, tolerate vanilla JSONL too.
-                            if line.startswith(b"data:"):
-                                line = line[len(b"data:") :].strip()
-                            if line == b"[DONE]":
-                                continue
-                            if not line or line.startswith(b":"):
-                                continue
-                            try:
-                                chunk = json.loads(line)
-                            except json.JSONDecodeError:
-                                _logger.debug("Skipping non-JSON stream line: %r", line)
-                                continue
-
-                            choices = chunk.get("choices") or []
-                            if not choices:
-                                continue
-                            delta = choices[0].get("delta") or {}
-
-                            if text := delta.get("content") or "":
-                                think_buf += text
-                                emit, think_buf, in_think = _strip_think_blocks(think_buf, in_think)
-                                if emit:
-                                    visible_text += emit
-                                    yield Event.from_stream_event({
-                                        "type": "content_delta",
-                                        "delta": {"text": emit},
-                                    })
-
-                            if tcs := delta.get("tool_calls"):
-                                for tc in tcs:
-                                    _merge_tool_call_chunk(tool_calls_acc, tc)
-
-                    if not tool_calls_acc:
-                        if visible_text:
-                            messages.append({"role": "assistant", "content": visible_text})
-                        break
-
-                    # Normalize accumulated tool calls into the OpenAI assistant
-                    # message format expected on the next turn.
-                    assistant_tool_calls = [
-                        {
-                            "id": tc["id"] or str(uuid.uuid4()),
-                            "type": "function",
-                            "function": {
-                                "name": tc["function"]["name"],
-                                "arguments": tc["function"]["arguments"],
-                            },
+                        payload = {
+                            "model": model,
+                            "messages": messages,
+                            "tools": tools,
+                            "stream": True,
                         }
-                        for tc in tool_calls_acc
-                    ]
-                    messages.append({
-                        "role": "assistant",
-                        "content": visible_text or None,
-                        "tool_calls": assistant_tool_calls,
-                    })
+                        async with session.post(
+                            chat_url,
+                            json=payload,
+                            headers=headers,
+                            timeout=aiohttp.ClientTimeout(total=300),
+                        ) as resp:
+                            if resp.status != 200:
+                                body = await resp.text()
+                                yield Event.from_error(
+                                    f"{self._display_name} error {resp.status}: {body}"
+                                )
+                                return
 
+                            async for raw_line in resp.content:
+                                line = raw_line.strip()
+                                if not line:
+                                    continue
+                                # SSE frames start with `data: `. Skip event-name
+                                # lines and comments, tolerate vanilla JSONL too.
+                                if line.startswith(b"data:"):
+                                    line = line[len(b"data:") :].strip()
+                                if line == b"[DONE]":
+                                    continue
+                                if not line or line.startswith(b":"):
+                                    continue
+                                try:
+                                    chunk = json.loads(line)
+                                except json.JSONDecodeError:
+                                    _logger.debug("Skipping non-JSON stream line: %r", line)
+                                    continue
+
+                                choices = chunk.get("choices") or []
+                                if not choices:
+                                    continue
+                                delta = choices[0].get("delta") or {}
+
+                                if text := delta.get("content") or "":
+                                    think_buf += text
+                                    emit, think_buf, in_think = _strip_think_blocks(
+                                        think_buf, in_think
+                                    )
+                                    if emit:
+                                        visible_text += emit
+                                        yield Event.from_stream_event({
+                                            "type": "content_delta",
+                                            "delta": {"text": emit},
+                                        })
+
+                                if tcs := delta.get("tool_calls"):
+                                    for tc in tcs:
+                                        _merge_tool_call_chunk(tool_calls_acc, tc)
+
+                        if not tool_calls_acc:
+                            if visible_text:
+                                messages.append({"role": "assistant", "content": visible_text})
+                            break
+
+                        # Normalize accumulated tool calls into the OpenAI
+                        # assistant message format expected on the next turn.
+                        assistant_tool_calls = [
+                            {
+                                "id": tc["id"] or str(uuid.uuid4()),
+                                "type": "function",
+                                "function": {
+                                    "name": tc["function"]["name"],
+                                    "arguments": tc["function"]["arguments"],
+                                },
+                            }
+                            for tc in tool_calls_acc
+                        ]
+                        messages.append({
+                            "role": "assistant",
+                            "content": visible_text or None,
+                            "tool_calls": assistant_tool_calls,
+                        })
+
+                    paused = False
                     for tc in assistant_tool_calls:
                         fn = tc["function"]
                         tool_name = fn["name"]
@@ -458,50 +500,59 @@ class OpenAICompatibleProvider(AssistantProvider):
                         except json.JSONDecodeError:
                             tool_input = {}
 
-                        yield Event.from_message(
-                            Message(
-                                role="assistant",
-                                content=[
-                                    ToolUseBlock(id=tc["id"], name=tool_name, input=tool_input)
-                                ],
-                            )
-                        )
+                        # Permission gating. With full access (config) tools run
+                        # without prompting. Otherwise a session pauses the turn
+                        # at a per-call Yes/No prompt and a later resume request
+                        # delivers the choice via `tool_decisions`; an explicit
+                        # allow overrides the static allowlist for that call.
+                        # With no session, fall back to static permissions.
+                        gated = not config.permissions.full_access and bool(mlflow_session_id)
+                        decision = tool_decisions.get(tc["id"])
 
-                        # Permission gating. With full access (set in the
-                        # config) tools run without prompting. Otherwise a
-                        # session surfaces a per-call Yes/No prompt and blocks
-                        # until the user answers; an explicit allow overrides
-                        # the static tool allowlist for that call. With no
-                        # session (e.g. direct astream use) fall back to the
-                        # static config permissions.
-                        effective_permissions = config.permissions
-                        if not config.permissions.full_access and mlflow_session_id:
-                            request_id = str(uuid.uuid4())
-                            permission_broker.register(mlflow_session_id, request_id)
-                            yield Event.from_permission_request(request_id, tool_name, tool_input)
-                            allowed = await permission_broker.wait(mlflow_session_id, request_id)
-                            if not allowed:
-                                denied = "Permission denied by user."
-                                yield Event.from_message(
-                                    Message(
-                                        role="user",
-                                        content=[
-                                            ToolResultBlock(
-                                                tool_use_id=tc["id"],
-                                                content=denied,
-                                                is_error=True,
-                                            )
-                                        ],
-                                    )
+                        # Emit the tool-use block when a call is first surfaced
+                        # (about to prompt or run) — but not for a call we are
+                        # resuming, whose block was emitted on the paused turn.
+                        if not (gated and decision is not None):
+                            yield Event.from_message(
+                                Message(
+                                    role="assistant",
+                                    content=[
+                                        ToolUseBlock(id=tc["id"], name=tool_name, input=tool_input)
+                                    ],
                                 )
-                                messages.append({
-                                    "role": "tool",
-                                    "tool_call_id": tc["id"],
-                                    "content": denied,
-                                })
-                                continue
-                            effective_permissions = PermissionsConfig(full_access=True)
+                            )
 
+                        if gated and decision is None:
+                            # End the turn at the prompt; a resume request will
+                            # deliver the decision and continue from here.
+                            yield Event.from_permission_request(tc["id"], tool_name, tool_input)
+                            paused = True
+                            break
+
+                        if gated and decision != "allow":
+                            denied = "Permission denied by user."
+                            yield Event.from_message(
+                                Message(
+                                    role="user",
+                                    content=[
+                                        ToolResultBlock(
+                                            tool_use_id=tc["id"],
+                                            content=denied,
+                                            is_error=True,
+                                        )
+                                    ],
+                                )
+                            )
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tc["id"],
+                                "content": denied,
+                            })
+                            continue
+
+                        effective_permissions = (
+                            PermissionsConfig(full_access=True) if gated else config.permissions
+                        )
                         result_str, is_error = await execute_tool(
                             tool_name,
                             tool_input,
@@ -528,6 +579,9 @@ class OpenAICompatibleProvider(AssistantProvider):
                             "tool_call_id": tc["id"],
                             "content": result_str,
                         })
+
+                    if paused:
+                        break
 
             new_session_id = json.dumps(_trim_session(messages))
             yield Event.from_result(result=None, session_id=new_session_id)

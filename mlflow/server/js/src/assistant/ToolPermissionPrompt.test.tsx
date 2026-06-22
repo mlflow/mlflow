@@ -8,7 +8,10 @@ import { ToolPermissionPrompt } from './ToolPermissionPrompt';
 const renderPrompt = (toolInput: Record<string, any>, onRespond = jest.fn()) => {
   renderWithIntl(
     <DesignSystemProvider>
-      <ToolPermissionPrompt request={{ requestId: 'req-1', toolName: 'Bash', toolInput }} onRespond={onRespond} />
+      <ToolPermissionPrompt
+        request={{ sessionId: 'sess-1', requestId: 'req-1', toolName: 'Bash', toolInput }}
+        onRespond={onRespond}
+      />
     </DesignSystemProvider>,
   );
   return onRespond;

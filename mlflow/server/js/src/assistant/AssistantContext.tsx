@@ -16,7 +16,7 @@ import {
   cancelSession as cancelSessionApi,
   sendMessageStream,
   getConfig,
-  respondToPermission as respondToPermissionApi,
+  resumeStream,
   type SendMessageStreamCallbacks,
   type SendMessageStreamResult,
 } from './AssistantService';
@@ -175,18 +175,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const handlePermissionRequest = useCallback((request: PermissionRequest) => {
     setPendingPermission(request);
   }, []);
-
-  const respondToPermission = useCallback(
-    (allow: boolean) => {
-      setPendingPermission((pending) => {
-        if (pending && sessionId) {
-          respondToPermissionApi(sessionId, pending.requestId, allow ? 'allow' : 'deny').catch(() => {});
-        }
-        return null;
-      });
-    },
-    [sessionId],
-  );
 
   // Setup actions
   const refreshConfig = useCallback(async () => {
@@ -401,6 +389,60 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     ],
   );
 
+  const respondToPermission = useCallback(
+    (allow: boolean) => {
+      if (!pendingPermission) {
+        return;
+      }
+      // Target the request's originating session, not the current one, so a
+      // session change while the prompt was shown can't resolve the wrong turn.
+      const { sessionId: requestSessionId, requestId } = pendingPermission;
+      setPendingPermission(null);
+      setError(null);
+      setIsStreaming(true);
+
+      // The paused assistant placeholder keeps streaming — no new message; the
+      // resume stream continues accumulating into it until done.
+      const isCurrent = beginRequest();
+      resumeStream(
+        requestSessionId,
+        requestId,
+        allow ? 'allow' : 'deny',
+        withGuard(isCurrent, {
+          onMessage: appendToStreamingMessage,
+          onError: handleStreamError,
+          onDone: finalizeStreamingMessage,
+          onStatus: handleStatus,
+          onSessionId: handleSessionId,
+          onToolUse: handleToolUse,
+          onInterrupted: handleInterrupted,
+          onPermissionRequest: handlePermissionRequest,
+        }),
+      )
+        .then((result) => {
+          attachStreamIfCurrent(isCurrent, result);
+        })
+        .catch((err) => {
+          if (isCurrent()) {
+            handleStreamError(err instanceof Error ? err.message : 'Failed to resume');
+          }
+        });
+    },
+    [
+      pendingPermission,
+      beginRequest,
+      attachStreamIfCurrent,
+      appendToStreamingMessage,
+      handleStreamError,
+      finalizeStreamingMessage,
+      handleStatus,
+      handleSessionId,
+      handleToolUse,
+      handleInterrupted,
+      handlePermissionRequest,
+    ],
+  );
+
   const handleSendMessage = useCallback(
     async (message: string) => {
       if (!sessionId) {
@@ -573,6 +615,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         onSessionId: handleSessionId,
         onToolUse: handleToolUse,
         onInterrupted: handleInterrupted,
+        onPermissionRequest: handlePermissionRequest,
       }),
     );
     attachStreamIfCurrent(isCurrent, result);
@@ -590,6 +633,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     handleSessionId,
     handleToolUse,
     handleInterrupted,
+    handlePermissionRequest,
   ]);
 
   const value: AssistantAgentContextType = {
