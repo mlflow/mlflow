@@ -13,7 +13,11 @@ from mlflow.pydantic_ai.autolog import (
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
-from mlflow.utils.autologging_utils.safety import _store_patch, _wrap_patch
+from mlflow.utils.autologging_utils.safety import (
+    _AUTOLOGGING_CLEANUP_CALLBACKS,
+    _store_patch,
+    _wrap_patch,
+)
 
 FLAVOR_NAME = "pydantic_ai"
 _logger = logging.getLogger(__name__)
@@ -150,21 +154,38 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
     except ImportError:
         pass
 
-    # Patch Agent.__init__ to auto-enable instrument=True so LLM spans
-    # are captured without requiring users to explicitly set it
+    # Auto-enable instrument=True so LLM spans are captured without requiring users
+    # to explicitly set it. pydantic-ai >= 1.0 exposes Agent.instrument_all() to toggle
+    # instrumentation globally, which also restores request/tool spans that the older
+    # per-instance Agent.__init__ patch no longer captures. Fall back to patching
+    # Agent.__init__ on older versions that don't have instrument_all.
     try:
         from pydantic_ai import Agent
 
-        original_init = Agent.__init__
+        if hasattr(Agent, "instrument_all"):
+            if log_traces:
+                # Capture the prior global instrumentation default so disabling
+                # autologging restores it instead of unconditionally turning it off.
+                previous_state = Agent._instrument_default
+                Agent.instrument_all(True)
 
-        @functools.wraps(original_init)
-        def patched_init(self, *args, **kwargs):
-            return patched_agent_init(original_init, self, *args, **kwargs)
+                def cleanup_instrumentation():
+                    Agent.instrument_all(previous_state)
 
-        patch = _wrap_patch(Agent, "__init__", patched_init)
-        _store_patch(FLAVOR_NAME, patch)
+                _AUTOLOGGING_CLEANUP_CALLBACKS.setdefault(FLAVOR_NAME, []).append(
+                    cleanup_instrumentation
+                )
+        else:
+            original_init = Agent.__init__
+
+            @functools.wraps(original_init)
+            def patched_init(self, *args, **kwargs):
+                return patched_agent_init(original_init, self, *args, **kwargs)
+
+            patch = _wrap_patch(Agent, "__init__", patched_init)
+            _store_patch(FLAVOR_NAME, patch)
     except (ImportError, AttributeError) as e:
-        _logger.error("Error patching Agent.__init__: %s", e)
+        _logger.error("Error enabling Agent instrumentation: %s", e)
 
     for cls_path, methods in class_map.items():
         module_name, class_name = cls_path.rsplit(".", 1)

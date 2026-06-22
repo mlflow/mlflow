@@ -712,8 +712,13 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     except ImportError:
         pass
     else:
-        current_process = psutil.Process()
-        if children := current_process.children(recursive=True):
+        try:
+            current_process = psutil.Process()
+            children = current_process.children(recursive=True)
+        except (PermissionError, psutil.Error):
+            children = []
+
+        if children:
             terminalreporter.section("Remaining child processes", yellow=True)
             for idx, child in enumerate(children, start=1):
                 terminalreporter.write(f"{idx}: {child}\n")

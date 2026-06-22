@@ -352,8 +352,18 @@ def detach_span_from_context(token: contextvars.Token):
         token: The token returned by `_set_span_to_active` function.
     """
     if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
-        mlflow_runtime_context.detach(token)
+        try:
+            mlflow_runtime_context.detach(token)
+        except ValueError as e:
+            # mlflow_runtime_context.detach() calls ContextVar.reset(), which raises
+            # ValueError when a span is detached in a different async context than where
+            # it was attached. This can happen with integrations like pydantic-ai that
+            # span async boundaries. Ignore only that cross-context error.
+            if "different Context" not in str(e):
+                raise
     else:
+        # OpenTelemetry's context_api.detach() catches and logs exceptions internally,
+        # so it never propagates ValueError here.
         context_api.detach(token)
 
 
