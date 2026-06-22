@@ -1,3 +1,4 @@
+import enum
 import ipaddress
 import logging
 import uuid
@@ -48,7 +49,13 @@ def _get_selected_provider(config: AssistantConfig | None = None):
 _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
     "Assistant API is only accessible from the same host where the MLflow server is running."
 )
-_REMOTE_ACCESS_MODES = ("off", "api-only")
+
+
+class _RemoteAccessMode(str, enum.Enum):
+    OFF = "off"
+    API_ONLY = "api-only"
+
+
 _INVALID_REMOTE_ACCESS_MODES_WARNED: set[str] = set()
 
 
@@ -63,25 +70,26 @@ def _is_localhost(request: Request) -> bool:
     return ip.is_loopback
 
 
-def _get_remote_access_mode() -> str:
-    mode = MLFLOW_ALLOW_REMOTE_ASSISTANT.get()
-    if mode not in _REMOTE_ACCESS_MODES:
-        if mode not in _INVALID_REMOTE_ACCESS_MODES_WARNED:
+def _get_remote_access_mode() -> _RemoteAccessMode:
+    raw = MLFLOW_ALLOW_REMOTE_ASSISTANT.get()
+    try:
+        return _RemoteAccessMode(raw)
+    except ValueError:
+        if raw not in _INVALID_REMOTE_ACCESS_MODES_WARNED:
             _logger.warning(
                 "Invalid value %r for %s, falling back to 'off'. Valid values are: %s",
-                mode,
+                raw,
                 MLFLOW_ALLOW_REMOTE_ASSISTANT.name,
-                _REMOTE_ACCESS_MODES,
+                [m.value for m in _RemoteAccessMode],
             )
-            _INVALID_REMOTE_ACCESS_MODES_WARNED.add(mode)
-        return "off"
-    return mode
+            _INVALID_REMOTE_ACCESS_MODES_WARNED.add(raw)
+        return _RemoteAccessMode.OFF
 
 
 def _provider_allows_remote_access(provider: AssistantProvider | None) -> bool:
     mode = _get_remote_access_mode()
-    if mode == "api-only":
-        return provider is not None and not provider.requires_local_execution
+    if mode == _RemoteAccessMode.API_ONLY:
+        return provider is not None and provider.allows_remote_execution
     return False
 
 
@@ -92,6 +100,11 @@ def _enforce_remote_access(request: Request, provider: AssistantProvider | None)
         raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
 
 
+# Per-route remote-access policy:
+#   "selected_provider" — gate on whichever provider the user has currently selected
+#   "path_provider"     — gate on the provider identified by a {provider} path parameter
+#   "config_write"      — always block remote access (config writes stay localhost-only)
+#   "none"              — no gating (e.g. GET /config, which redacts secrets instead)
 _RemoteAccessPolicy = Literal["selected_provider", "path_provider", "config_write", "none"]
 _REMOTE_ACCESS_POLICY_ATTR = "_assistant_remote_access_policy"
 
@@ -120,7 +133,9 @@ def _get_route_provider(request: Request, policy: _RemoteAccessPolicy) -> Assist
 class _AssistantAPIRoute(APIRoute):
     def get_route_handler(self) -> Callable[[Request], Awaitable[Response]]:
         original_route_handler = super().get_route_handler()
-        policy = getattr(self.endpoint, _REMOTE_ACCESS_POLICY_ATTR, "selected_provider")
+        policy: _RemoteAccessPolicy = getattr(
+            self.endpoint, _REMOTE_ACCESS_POLICY_ATTR, "selected_provider"
+        )
 
         async def route_handler(request: Request) -> Response:
             if policy != "none":
@@ -189,12 +204,11 @@ class SkillsInstallResponse(BaseModel):
 
 
 @assistant_router.post("/message")
-async def send_message(http_request: Request, request: MessageRequest) -> MessageResponse:
+async def send_message(request: MessageRequest) -> MessageResponse:
     """
     Send a message to the assistant and get a session for streaming the response.
 
     Args:
-        http_request: The FastAPI request object, used for remote-access gating
         request: MessageRequest with message, context, and optional session_id
 
     Returns:
@@ -306,9 +320,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
 
 
 @assistant_router.patch("/sessions/{session_id}")
-async def patch_session(
-    http_request: Request, session_id: str, request: SessionPatchRequest
-) -> SessionPatchResponse:
+async def patch_session(session_id: str, request: SessionPatchRequest) -> SessionPatchResponse:
     """
     Update session status.
 
@@ -316,7 +328,6 @@ async def patch_session(
     the running assistant process.
 
     Args:
-        http_request: The FastAPI request object, used for remote-access gating
         session_id: The session ID
         request: SessionPatchRequest with status to set
 
@@ -370,7 +381,7 @@ async def resolve_permission(session_id: str, request: PermissionDecision) -> Me
 
 @assistant_router.get("/providers/{provider}/health")
 @_remote_access_policy("path_provider")
-async def provider_health_check(http_request: Request, provider: str) -> dict[str, str]:
+async def provider_health_check(provider: str) -> dict[str, str]:
     p = _get_provider(provider)
     if p is None:
         raise HTTPException(status_code=404, detail=f"Provider '{provider}' not found")
@@ -392,7 +403,7 @@ async def provider_health_check(http_request: Request, provider: str) -> dict[st
 
 @assistant_router.get("/config")
 @_remote_access_policy("none")
-async def get_config(request: Request) -> ConfigResponse:
+async def get_config() -> ConfigResponse:
     """
     Get the current assistant configuration.
 
@@ -401,9 +412,8 @@ async def get_config(request: Request) -> ConfigResponse:
     """
     config = AssistantConfig.load()
     providers = {name: p.model_dump() for name, p in config.providers.items()}
-    if not _is_localhost(request):
-        for provider_data in providers.values():
-            provider_data.pop("api_key", None)
+    for provider_data in providers.values():
+        provider_data.pop("api_key", None)
 
     return ConfigResponse(
         providers=providers,
@@ -414,12 +424,11 @@ async def get_config(request: Request) -> ConfigResponse:
 
 @assistant_router.put("/config")
 @_remote_access_policy("config_write")
-async def update_config(http_request: Request, request: ConfigUpdateRequest) -> ConfigResponse:
+async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
     """
     Update the assistant configuration.
 
     Args:
-        http_request: The FastAPI request object, used for remote-access gating
         request: Partial configuration update.
 
     Returns:
@@ -479,23 +488,24 @@ async def update_config(http_request: Request, request: ConfigUpdateRequest) -> 
     clear_config_cache()
     clear_project_path_cache()
 
+    providers = {name: p.model_dump() for name, p in config.providers.items()}
+    for provider_data in providers.values():
+        provider_data.pop("api_key", None)
+
     return ConfigResponse(
-        providers={name: p.model_dump() for name, p in config.providers.items()},
+        providers=providers,
         projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
         remote_chat_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
     )
 
 
 @assistant_router.post("/skills/install")
-async def install_skills_endpoint(
-    http_request: Request, request: SkillsInstallRequest
-) -> SkillsInstallResponse:
+async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstallResponse:
     """
     Install skills bundled with MLflow.
     This endpoint only handles installation. Config updates should be done via PUT /config.
 
     Args:
-        http_request: The FastAPI request object, used for remote-access gating
         request: SkillsInstallRequest with type, custom_path, and experiment_id.
 
     Returns:
@@ -553,7 +563,6 @@ async def install_skills_endpoint(
 @assistant_router.get("/providers/{provider}/models")
 @_remote_access_policy("path_provider")
 async def list_provider_models(
-    http_request: Request,
     provider: str,
     base_url: str | None = None,
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
