@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   ArrowDownIcon,
@@ -8,6 +8,7 @@ import {
   PlusIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
+  Spinner,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -15,6 +16,7 @@ import { useQueries } from '@databricks/web-shared/query-client';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import { useIsAuthAvailable } from '../../../account/hooks';
+import { useInfiniteScrollFetch } from '../experiment-evaluation-datasets/hooks/useInfiniteScrollFetch';
 import { buildReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
 import { displayUser } from './hooks/useReviewer';
 import { canInspectQueue, isQueueOwner } from './queuePermissions';
@@ -26,50 +28,71 @@ const CID = 'mlflow.experiment-review-queue.sidebar';
 const OWNER_COL_WIDTH = 120;
 const COUNT_COL_WIDTH = 48;
 
-type SortKey = 'name' | 'owner' | 'todo';
 type SortDir = 'asc' | 'desc';
+
+/** Server-sortable queue columns (must match the backend `order_by` whitelist). */
+export type ReviewQueueSortField = 'name' | 'created_by' | 'creation_time_ms';
+export type ReviewQueueSort = { field: ReviewQueueSortField; direction: SortDir };
+
+// Default: newest created first, matching the server's default order. The "To do"
+// count column is intentionally not sortable — it's derived client-side from the
+// per-queue count fetches, so it can't drive a server-side (whole-list) sort.
+export const DEFAULT_REVIEW_QUEUE_SORT: ReviewQueueSort = { field: 'creation_time_ms', direction: 'desc' };
+
+// Serialize the sidebar sort into backend `order_by` clauses. Sorting is done
+// server-side so it spans the entire queue list, not just the loaded pages
+// (client-side sorting a paginated list only orders the loaded window).
+export const reviewQueueSortToOrderBy = (sort: ReviewQueueSort): string[] => [
+  `${sort.field} ${sort.direction.toUpperCase()}`,
+];
 
 const SortHeader = ({
   label,
-  active,
-  dir,
+  active = false,
+  dir = 'asc',
   width,
   align,
   onClick,
 }: {
   label: React.ReactNode;
-  active: boolean;
-  dir: SortDir;
+  active?: boolean;
+  dir?: SortDir;
   /** Fixed pixel width; omit to flex-fill the remaining space. */
   width?: number;
   align: 'left' | 'right';
-  onClick: () => void;
+  /** Omit to render a plain, non-sortable column header (no arrow, not clickable). */
+  onClick?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const sortable = Boolean(onClick);
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick();
-        }
-      }}
+      {...(sortable
+        ? {
+            role: 'button',
+            tabIndex: 0,
+            onClick,
+            onKeyDown: (e: React.KeyboardEvent) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick?.();
+              }
+            },
+          }
+        : {})}
       css={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
         gap: theme.spacing.xs,
-        cursor: 'pointer',
+        cursor: sortable ? 'pointer' : 'default',
         ...(width != null ? { width, flexShrink: 0 } : { flex: 1, minWidth: 0 }),
       }}
     >
       <Typography.Text size="sm" color="secondary" bold ellipsis>
         {label}
       </Typography.Text>
-      {active && (dir === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />)}
+      {sortable && active && (dir === 'asc' ? <ArrowUpIcon /> : <ArrowDownIcon />)}
     </div>
   );
 };
@@ -163,6 +186,11 @@ export const ReviewQueueSidebar = ({
   onSelect,
   onNewQueue,
   onManageQuestions,
+  sort,
+  onSortChange,
+  onLoadMore,
+  hasMore,
+  isLoadingMore,
 }: {
   queues: ReviewQueue[];
   selectedQueueId: string | undefined;
@@ -173,12 +201,20 @@ export const ReviewQueueSidebar = ({
   onSelect: (queueId: string) => void;
   onNewQueue: () => void;
   onManageQuestions: () => void;
+  /** Current server-side sort, and a setter for it. Changing it refetches the
+   *  list from page 1 in the new order (sorting is done by the backend). */
+  sort: ReviewQueueSort;
+  onSortChange: (sort: ReviewQueueSort) => void;
+  /** Fetch the next page of queues; drives infinite scroll. `queues` only holds
+   *  the pages loaded so far, so the filter/sort and per-queue counts reflect
+   *  the loaded window. */
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const authAvailable = useIsAuthAvailable();
-  const [sortKey, setSortKey] = useState<SortKey>('name');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [mineOnly, setMineOnly] = useState(false);
 
   // Owner is only meaningful on an auth server; the filter only helps users who
@@ -208,45 +244,49 @@ export const ReviewQueueSidebar = ({
   const labelOf = (q: ReviewQueue) => (q.queue_type === 'USER' ? displayUser(q.name, intl) : q.name);
   const ownerOf = (q: ReviewQueue) => q.created_by ?? '';
 
-  const toggleSort = (key: SortKey) => {
-    if (key === sortKey) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortDir('asc');
-    }
-  };
-
-  const dirMul = sortDir === 'asc' ? 1 : -1;
-  const byLabel = (a: ReviewQueue, b: ReviewQueue) =>
-    labelOf(a).localeCompare(labelOf(b), undefined, { sensitivity: 'base' });
-  const compare = (a: ReviewQueue, b: ReviewQueue): number => {
-    if (sortKey === 'todo') {
-      const pa = pendingByQueueId.get(a.queue_id);
-      const pb = pendingByQueueId.get(b.queue_id);
-      // Unknown counts (loading or not inspectable) always sort last.
-      if (pa == null && pb == null) return byLabel(a, b);
-      if (pa == null) return 1;
-      if (pb == null) return -1;
-      return pa !== pb ? dirMul * (pa - pb) : byLabel(a, b);
-    }
-    const va = sortKey === 'owner' ? ownerOf(a) : labelOf(a);
-    const vb = sortKey === 'owner' ? ownerOf(b) : labelOf(b);
-    const d = va.localeCompare(vb, undefined, { sensitivity: 'base' });
-    return d !== 0 ? dirMul * d : byLabel(a, b);
+  // Toggle direction when re-clicking the active column, else sort that column
+  // ascending. The backend performs the sort, so this only updates the request.
+  const requestSort = (field: ReviewQueueSortField) => {
+    onSortChange(
+      sort.field === field
+        ? { field, direction: sort.direction === 'asc' ? 'desc' : 'asc' }
+        : { field, direction: 'asc' },
+    );
   };
 
   // Ignore a stale `mineOnly` once the filter is hidden (can't get stuck filtered),
   // and always keep the selected queue visible even when it isn't owned.
   const effectiveMineOnly = showFilter && mineOnly;
-  const visible = (
-    effectiveMineOnly ? queues.filter((q) => isQueueOwner(q, reviewer) || q.queue_id === selectedQueueId) : queues
-  )
-    .slice()
-    .sort(compare);
+  const filtered = effectiveMineOnly
+    ? queues.filter((q) => isQueueOwner(q, reviewer) || q.queue_id === selectedQueueId)
+    : queues;
+  // The server returns queues already in `sort` order; render them as-is. (Client
+  // re-sorting would only reorder the loaded window, not the whole list.)
+  const visible = filtered;
+
+  // Infinite scroll: pull the next page when the list nears the bottom, and keep
+  // pulling while the loaded queues don't fill the scroll area (short first page
+  // or a tall pane).
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const fetchMoreOnBottomReached = useInfiniteScrollFetch({
+    isFetching: Boolean(isLoadingMore),
+    hasNextPage: Boolean(hasMore),
+    fetchNextPage: onLoadMore ?? (() => {}),
+  });
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || !onLoadMore || !hasMore || isLoadingMore) {
+      return;
+    }
+    if (el.scrollHeight - el.clientHeight < 200) {
+      onLoadMore();
+    }
+  }, [onLoadMore, hasMore, isLoadingMore, visible.length]);
 
   return (
     <div
+      ref={scrollContainerRef}
+      onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget)}
       css={{
         display: 'flex',
         flexDirection: 'column',
@@ -309,21 +349,24 @@ export const ReviewQueueSidebar = ({
         >
           <SortHeader
             label={<FormattedMessage defaultMessage="Queue" description="Review queue sidebar: queue-name column" />}
-            active={sortKey === 'name'}
-            dir={sortDir}
+            active={sort.field === 'name'}
+            dir={sort.direction}
             align="left"
-            onClick={() => toggleSort('name')}
+            onClick={() => requestSort('name')}
           />
           {showOwner && (
             <SortHeader
               label={<FormattedMessage defaultMessage="Owner" description="Review queue sidebar: queue-owner column" />}
-              active={sortKey === 'owner'}
-              dir={sortDir}
+              active={sort.field === 'created_by'}
+              dir={sort.direction}
               width={OWNER_COL_WIDTH}
               align="left"
-              onClick={() => toggleSort('owner')}
+              onClick={() => requestSort('created_by')}
             />
           )}
+          {/* The "To do" count is derived client-side from the per-queue count
+              fetches, so it can't drive a server-side sort — render it as a plain,
+              non-sortable column header. */}
           <SortHeader
             label={
               <FormattedMessage
@@ -331,11 +374,8 @@ export const ReviewQueueSidebar = ({
                 description="Review queue sidebar: still-to-review count column"
               />
             }
-            active={sortKey === 'todo'}
-            dir={sortDir}
             width={COUNT_COL_WIDTH}
             align="right"
-            onClick={() => toggleSort('todo')}
           />
         </div>
       )}
@@ -365,6 +405,12 @@ export const ReviewQueueSidebar = ({
             />
           </Typography.Text>
         )
+      )}
+
+      {isLoadingMore && (
+        <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.sm }}>
+          <Spinner size="small" />
+        </div>
       )}
     </div>
   );

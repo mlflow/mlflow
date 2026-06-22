@@ -5,7 +5,7 @@ import React from 'react';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
-import { ReviewQueueSidebar } from './ReviewQueueSidebar';
+import { DEFAULT_REVIEW_QUEUE_SORT, ReviewQueueSidebar } from './ReviewQueueSidebar';
 import type { ReviewQueue } from './types';
 
 let mockAuthAvailable = true;
@@ -49,6 +49,8 @@ const renderSidebar = (props: Partial<React.ComponentProps<typeof ReviewQueueSid
           onSelect={jest.fn()}
           onNewQueue={jest.fn()}
           onManageQuestions={jest.fn()}
+          sort={DEFAULT_REVIEW_QUEUE_SORT}
+          onSortChange={jest.fn()}
           {...props}
         />
       </DesignSystemProvider>
@@ -81,12 +83,27 @@ describe('ReviewQueueSidebar', () => {
     expect(screen.queryByText('Beta')).toBeNull();
   });
 
-  it('sorts by name and toggles direction when the Queue header is clicked', () => {
-    renderSidebar();
-    const order = () => screen.getAllByText(/^(Alpha|Beta|Gamma)$/).map((el) => el.textContent);
-    expect(order()).toEqual(['Alpha', 'Beta', 'Gamma']);
+  // Sorting is server-side: clicking a header requests a new sort (the parent
+  // refetches the whole list in that order) rather than reordering the loaded rows.
+  it('requests a name sort when the Queue header is clicked', () => {
+    const onSortChange = jest.fn();
+    renderSidebar({ onSortChange });
     fireEvent.click(screen.getByText('Queue'));
-    expect(order()).toEqual(['Gamma', 'Beta', 'Alpha']);
+    expect(onSortChange).toHaveBeenCalledWith({ field: 'name', direction: 'asc' });
+  });
+
+  it('toggles direction when the active sort column is re-clicked', () => {
+    const onSortChange = jest.fn();
+    renderSidebar({ sort: { field: 'name', direction: 'asc' }, onSortChange });
+    fireEvent.click(screen.getByText('Queue'));
+    expect(onSortChange).toHaveBeenCalledWith({ field: 'name', direction: 'desc' });
+  });
+
+  it('does not sort by the To do column (count is client-derived, not server-sortable)', () => {
+    const onSortChange = jest.fn();
+    renderSidebar({ onSortChange });
+    fireEvent.click(screen.getByText('To do'));
+    expect(onSortChange).not.toHaveBeenCalled();
   });
 
   it('does not fire onSelect when a non-inspectable (greyed) row is clicked', () => {

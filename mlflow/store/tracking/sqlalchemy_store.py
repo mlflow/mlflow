@@ -8636,8 +8636,55 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
             return self._hydrate_review_queues(session, [sql_queue])[0]
 
+    def _review_queue_order_by_clauses(self, order_by):
+        # Whitelisted sort columns. `name` sorts on the case-folded `name_key` so
+        # ordering is case-insensitive (matching the UI's name sort).
+        columns = {
+            "name": SqlReviewQueue.name_key,
+            "created_by": SqlReviewQueue.created_by,
+            "creation_time_ms": SqlReviewQueue.creation_time_ms,
+        }
+        # A unique, stable tiebreaker is always appended so offset paging stays
+        # deterministic even when the sort key has ties.
+        tiebreaker = SqlReviewQueue.queue_id.asc()
+        if not order_by:
+            return [SqlReviewQueue.creation_time_ms.desc(), tiebreaker]
+        clauses = []
+        for clause in order_by:
+            match clause.split():
+                case [field]:
+                    direction = "ASC"
+                case [field, direction]:
+                    direction = direction.upper()
+                case _:
+                    raise MlflowException(
+                        f"Invalid order_by clause: {clause!r}. Expected '<field> [ASC|DESC]'.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+            column = columns.get(field)
+            if column is None:
+                raise MlflowException(
+                    f"Invalid order_by field: {field!r}. Supported fields: {', '.join(columns)}.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if direction not in ("ASC", "DESC"):
+                raise MlflowException(
+                    f"Invalid order_by direction: {direction!r}. Expected 'ASC' or 'DESC'.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            clauses.append(column.asc() if direction == "ASC" else column.desc())
+        clauses.append(tiebreaker)
+        return clauses
+
     def list_review_queues(
-        self, experiment_id, *, user=None, item_id=None, max_results=None, page_token=None
+        self,
+        experiment_id,
+        *,
+        user=None,
+        item_id=None,
+        max_results=None,
+        page_token=None,
+        order_by=None,
     ):
         from mlflow.genai.review_queues.validation import normalize_user
 
@@ -8646,6 +8693,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         else:
             self._validate_max_results_param(max_results)
         offset = SearchUtils.parse_start_offset_from_page_token(page_token) if page_token else 0
+        order_clauses = self._review_queue_order_by_clauses(order_by)
 
         with self.ManagedSessionMaker() as session:
             self._validate_experiment_exists(session, experiment_id)
@@ -8668,16 +8716,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 query = query.filter(SqlReviewQueue.queue_id.in_(containing_queue_ids))
 
-            results = (
-                query
-                .order_by(
-                    SqlReviewQueue.creation_time_ms.desc(),
-                    SqlReviewQueue.queue_id.asc(),
-                )
-                .offset(offset)
-                .limit(max_results + 1)
-                .all()
-            )
+            results = query.order_by(*order_clauses).offset(offset).limit(max_results + 1).all()
 
             next_token = None
             if len(results) > max_results:

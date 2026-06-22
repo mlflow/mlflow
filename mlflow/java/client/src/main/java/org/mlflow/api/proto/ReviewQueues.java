@@ -10798,6 +10798,59 @@ public final class ReviewQueues {
      */
     com.google.protobuf.ByteString
         getItemIdBytes();
+
+    /**
+     * <pre>
+     * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+     * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+     * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+     * always appended so offset paging is deterministic.
+     * </pre>
+     *
+     * <code>repeated string order_by = 7;</code>
+     * @return A list containing the orderBy.
+     */
+    java.util.List<java.lang.String>
+        getOrderByList();
+    /**
+     * <pre>
+     * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+     * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+     * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+     * always appended so offset paging is deterministic.
+     * </pre>
+     *
+     * <code>repeated string order_by = 7;</code>
+     * @return The count of orderBy.
+     */
+    int getOrderByCount();
+    /**
+     * <pre>
+     * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+     * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+     * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+     * always appended so offset paging is deterministic.
+     * </pre>
+     *
+     * <code>repeated string order_by = 7;</code>
+     * @param index The index of the element to return.
+     * @return The orderBy at the given index.
+     */
+    java.lang.String getOrderBy(int index);
+    /**
+     * <pre>
+     * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+     * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+     * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+     * always appended so offset paging is deterministic.
+     * </pre>
+     *
+     * <code>repeated string order_by = 7;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the orderBy at the given index.
+     */
+    com.google.protobuf.ByteString
+        getOrderByBytes(int index);
   }
   /**
    * <pre>
@@ -10821,6 +10874,7 @@ public final class ReviewQueues {
       user_ = "";
       pageToken_ = "";
       itemId_ = "";
+      orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
     }
 
     @java.lang.Override
@@ -10883,6 +10937,15 @@ public final class ReviewQueues {
               itemId_ = bs;
               break;
             }
+            case 58: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000020) != 0)) {
+                orderBy_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000020;
+              }
+              orderBy_.add(bs);
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -10898,6 +10961,9 @@ public final class ReviewQueues {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
+        if (((mutable_bitField0_ & 0x00000020) != 0)) {
+          orderBy_ = orderBy_.getUnmodifiableView();
+        }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
       }
@@ -12126,6 +12192,69 @@ public final class ReviewQueues {
       }
     }
 
+    public static final int ORDER_BY_FIELD_NUMBER = 7;
+    private com.google.protobuf.LazyStringList orderBy_;
+    /**
+     * <pre>
+     * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+     * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+     * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+     * always appended so offset paging is deterministic.
+     * </pre>
+     *
+     * <code>repeated string order_by = 7;</code>
+     * @return A list containing the orderBy.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getOrderByList() {
+      return orderBy_;
+    }
+    /**
+     * <pre>
+     * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+     * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+     * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+     * always appended so offset paging is deterministic.
+     * </pre>
+     *
+     * <code>repeated string order_by = 7;</code>
+     * @return The count of orderBy.
+     */
+    public int getOrderByCount() {
+      return orderBy_.size();
+    }
+    /**
+     * <pre>
+     * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+     * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+     * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+     * always appended so offset paging is deterministic.
+     * </pre>
+     *
+     * <code>repeated string order_by = 7;</code>
+     * @param index The index of the element to return.
+     * @return The orderBy at the given index.
+     */
+    public java.lang.String getOrderBy(int index) {
+      return orderBy_.get(index);
+    }
+    /**
+     * <pre>
+     * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+     * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+     * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+     * always appended so offset paging is deterministic.
+     * </pre>
+     *
+     * <code>repeated string order_by = 7;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the orderBy at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getOrderByBytes(int index) {
+      return orderBy_.getByteString(index);
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -12155,6 +12284,9 @@ public final class ReviewQueues {
       if (((bitField0_ & 0x00000010) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 6, itemId_);
       }
+      for (int i = 0; i < orderBy_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 7, orderBy_.getRaw(i));
+      }
       unknownFields.writeTo(output);
     }
 
@@ -12179,6 +12311,14 @@ public final class ReviewQueues {
       }
       if (((bitField0_ & 0x00000010) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, itemId_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < orderBy_.size(); i++) {
+          dataSize += computeStringSizeNoTag(orderBy_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getOrderByList().size();
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -12220,6 +12360,8 @@ public final class ReviewQueues {
         if (!getItemId()
             .equals(other.getItemId())) return false;
       }
+      if (!getOrderByList()
+          .equals(other.getOrderByList())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -12250,6 +12392,10 @@ public final class ReviewQueues {
       if (hasItemId()) {
         hash = (37 * hash) + ITEM_ID_FIELD_NUMBER;
         hash = (53 * hash) + getItemId().hashCode();
+      }
+      if (getOrderByCount() > 0) {
+        hash = (37 * hash) + ORDER_BY_FIELD_NUMBER;
+        hash = (53 * hash) + getOrderByList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -12399,6 +12545,8 @@ public final class ReviewQueues {
         bitField0_ = (bitField0_ & ~0x00000008);
         itemId_ = "";
         bitField0_ = (bitField0_ & ~0x00000010);
+        orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000020);
         return this;
       }
 
@@ -12447,6 +12595,11 @@ public final class ReviewQueues {
           to_bitField0_ |= 0x00000010;
         }
         result.itemId_ = itemId_;
+        if (((bitField0_ & 0x00000020) != 0)) {
+          orderBy_ = orderBy_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000020);
+        }
+        result.orderBy_ = orderBy_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -12517,6 +12670,16 @@ public final class ReviewQueues {
         if (other.hasItemId()) {
           bitField0_ |= 0x00000010;
           itemId_ = other.itemId_;
+          onChanged();
+        }
+        if (!other.orderBy_.isEmpty()) {
+          if (orderBy_.isEmpty()) {
+            orderBy_ = other.orderBy_;
+            bitField0_ = (bitField0_ & ~0x00000020);
+          } else {
+            ensureOrderByIsMutable();
+            orderBy_.addAll(other.orderBy_);
+          }
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -12962,6 +13125,178 @@ public final class ReviewQueues {
   }
   bitField0_ |= 0x00000010;
         itemId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureOrderByIsMutable() {
+        if (!((bitField0_ & 0x00000020) != 0)) {
+          orderBy_ = new com.google.protobuf.LazyStringArrayList(orderBy_);
+          bitField0_ |= 0x00000020;
+         }
+      }
+      /**
+       * <pre>
+       * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+       * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+       * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+       * always appended so offset paging is deterministic.
+       * </pre>
+       *
+       * <code>repeated string order_by = 7;</code>
+       * @return A list containing the orderBy.
+       */
+      public com.google.protobuf.ProtocolStringList
+          getOrderByList() {
+        return orderBy_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+       * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+       * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+       * always appended so offset paging is deterministic.
+       * </pre>
+       *
+       * <code>repeated string order_by = 7;</code>
+       * @return The count of orderBy.
+       */
+      public int getOrderByCount() {
+        return orderBy_.size();
+      }
+      /**
+       * <pre>
+       * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+       * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+       * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+       * always appended so offset paging is deterministic.
+       * </pre>
+       *
+       * <code>repeated string order_by = 7;</code>
+       * @param index The index of the element to return.
+       * @return The orderBy at the given index.
+       */
+      public java.lang.String getOrderBy(int index) {
+        return orderBy_.get(index);
+      }
+      /**
+       * <pre>
+       * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+       * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+       * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+       * always appended so offset paging is deterministic.
+       * </pre>
+       *
+       * <code>repeated string order_by = 7;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the orderBy at the given index.
+       */
+      public com.google.protobuf.ByteString
+          getOrderByBytes(int index) {
+        return orderBy_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+       * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+       * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+       * always appended so offset paging is deterministic.
+       * </pre>
+       *
+       * <code>repeated string order_by = 7;</code>
+       * @param index The index to set the value at.
+       * @param value The orderBy to set.
+       * @return This builder for chaining.
+       */
+      public Builder setOrderBy(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+       * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+       * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+       * always appended so offset paging is deterministic.
+       * </pre>
+       *
+       * <code>repeated string order_by = 7;</code>
+       * @param value The orderBy to add.
+       * @return This builder for chaining.
+       */
+      public Builder addOrderBy(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+       * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+       * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+       * always appended so offset paging is deterministic.
+       * </pre>
+       *
+       * <code>repeated string order_by = 7;</code>
+       * @param values The orderBy to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllOrderBy(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureOrderByIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, orderBy_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+       * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+       * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+       * always appended so offset paging is deterministic.
+       * </pre>
+       *
+       * <code>repeated string order_by = 7;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearOrderBy() {
+        orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000020);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Sort order, as `"&lt;field&gt; [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+       * fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+       * `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+       * always appended so offset paging is deterministic.
+       * </pre>
+       *
+       * <code>repeated string order_by = 7;</code>
+       * @param value The bytes of the orderBy to add.
+       * @return This builder for chaining.
+       */
+      public Builder addOrderByBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.add(value);
         onChanged();
         return this;
       }
@@ -23207,53 +23542,53 @@ public final class ReviewQueues {
       "id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\032C\n\010Re" +
       "sponse\0227\n\014review_queue\030\001 \001(\0132!.mlflow.re" +
       "view_queues.ReviewQueue:+\342?(\n&com.databr" +
-      "icks.rpc.RPC[$this.Response]\"\231\002\n\020ListRev" +
+      "icks.rpc.RPC[$this.Response]\"\253\002\n\020ListRev" +
       "iewQueues\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\014" +
       "\n\004user\030\002 \001(\t\022\023\n\013max_results\030\003 \001(\005\022\022\n\npag" +
-      "e_token\030\004 \001(\t\022\017\n\007item_id\030\006 \001(\t\032]\n\010Respon" +
-      "se\0228\n\rreview_queues\030\001 \003(\0132!.mlflow.revie" +
-      "w_queues.ReviewQueue\022\027\n\017next_page_token\030" +
-      "\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$this" +
-      ".Response]J\004\010\005\020\006R\016ensure_default\"\222\002\n\021Upd" +
-      "ateReviewQueue\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\022\024" +
-      "\n\014update_users\030\002 \001(\010\022\r\n\005users\030\003 \003(\t\022\031\n\021u" +
-      "pdate_schema_ids\030\004 \001(\010\022\022\n\nschema_ids\030\005 \003" +
-      "(\t\022\014\n\004name\030\006 \001(\t\022\021\n\tnew_owner\030\007 \001(\t\032C\n\010R" +
-      "esponse\0227\n\014review_queue\030\001 \001(\0132!.mlflow.r" +
-      "eview_queues.ReviewQueue:+\342?(\n&com.datab" +
-      "ricks.rpc.RPC[$this.Response]\"d\n\021DeleteR" +
-      "eviewQueue\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Re" +
-      "sponse:+\342?(\n&com.databricks.rpc.RPC[$thi" +
-      "s.Response]\"\351\001\n\025AddItemsToReviewQueue\022\026\n" +
-      "\010queue_id\030\001 \001(\tB\004\370\206\031\001\0227\n\titem_type\030\002 \001(\016" +
-      "2$.mlflow.review_queues.ReviewItemType\022\020" +
-      "\n\010item_ids\030\003 \003(\t\032@\n\010Response\0224\n\005items\030\001 " +
+      "e_token\030\004 \001(\t\022\017\n\007item_id\030\006 \001(\t\022\020\n\010order_" +
+      "by\030\007 \003(\t\032]\n\010Response\0228\n\rreview_queues\030\001 " +
+      "\003(\0132!.mlflow.review_queues.ReviewQueue\022\027" +
+      "\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.databr" +
+      "icks.rpc.RPC[$this.Response]J\004\010\005\020\006R\016ensu" +
+      "re_default\"\222\002\n\021UpdateReviewQueue\022\026\n\010queu" +
+      "e_id\030\001 \001(\tB\004\370\206\031\001\022\024\n\014update_users\030\002 \001(\010\022\r" +
+      "\n\005users\030\003 \003(\t\022\031\n\021update_schema_ids\030\004 \001(\010" +
+      "\022\022\n\nschema_ids\030\005 \003(\t\022\014\n\004name\030\006 \001(\t\022\021\n\tne" +
+      "w_owner\030\007 \001(\t\032C\n\010Response\0227\n\014review_queu" +
+      "e\030\001 \001(\0132!.mlflow.review_queues.ReviewQue" +
+      "ue:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
+      "sponse]\"d\n\021DeleteReviewQueue\022\026\n\010queue_id" +
+      "\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.datab" +
+      "ricks.rpc.RPC[$this.Response]\"\351\001\n\025AddIte" +
+      "msToReviewQueue\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\022" +
+      "7\n\titem_type\030\002 \001(\0162$.mlflow.review_queue" +
+      "s.ReviewItemType\022\020\n\010item_ids\030\003 \003(\t\032@\n\010Re" +
+      "sponse\0224\n\005items\030\001 \003(\0132%.mlflow.review_qu" +
+      "eues.ReviewQueueItem:+\342?(\n&com.databrick" +
+      "s.rpc.RPC[$this.Response]\"\177\n\032RemoveItems" +
+      "FromReviewQueue\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\022" +
+      "\020\n\010item_ids\030\002 \003(\t\032\n\n\010Response:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]\"\223\002\n\024L" +
+      "istReviewQueueItems\022\026\n\010queue_id\030\001 \001(\tB\004\370" +
+      "\206\031\001\0222\n\006status\030\002 \001(\0162\".mlflow.review_queu" +
+      "es.ReviewStatus\022\023\n\013max_results\030\003 \001(\005\022\022\n\n" +
+      "page_token\030\004 \001(\t\032Y\n\010Response\0224\n\005items\030\001 " +
       "\003(\0132%.mlflow.review_queues.ReviewQueueIt" +
-      "em:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"\177\n\032RemoveItemsFromReviewQueue\022\026\n" +
-      "\010queue_id\030\001 \001(\tB\004\370\206\031\001\022\020\n\010item_ids\030\002 \003(\t\032" +
-      "\n\n\010Response:+\342?(\n&com.databricks.rpc.RPC" +
-      "[$this.Response]\"\223\002\n\024ListReviewQueueItem" +
-      "s\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\0222\n\006status\030\002 \001(" +
-      "\0162\".mlflow.review_queues.ReviewStatus\022\023\n" +
-      "\013max_results\030\003 \001(\005\022\022\n\npage_token\030\004 \001(\t\032Y" +
-      "\n\010Response\0224\n\005items\030\001 \003(\0132%.mlflow.revie" +
-      "w_queues.ReviewQueueItem\022\027\n\017next_page_to" +
-      "ken\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$" +
-      "this.Response]\"\207\002\n\030SetReviewQueueItemSta" +
-      "tus\022\026\n\010queue_id\030\001 \001(\tB\004\370\206\031\001\022\025\n\007item_id\030\002" +
-      " \001(\tB\004\370\206\031\001\0228\n\006status\030\003 \001(\0162\".mlflow.revi" +
-      "ew_queues.ReviewStatusB\004\370\206\031\001\022\024\n\014complete" +
-      "d_by\030\004 \001(\t\032?\n\010Response\0223\n\004item\030\001 \001(\0132%.m" +
-      "lflow.review_queues.ReviewQueueItem:+\342?(" +
-      "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "*=\n\016ReviewItemType\022 \n\034REVIEW_ITEM_TYPE_U" +
-      "NSPECIFIED\020\000\022\t\n\005TRACE\020\001*J\n\017ReviewQueueTy" +
-      "pe\022!\n\035REVIEW_QUEUE_TYPE_UNSPECIFIED\020\000\022\010\n" +
-      "\004USER\020\001\022\n\n\006CUSTOM\020\002*V\n\014ReviewStatus\022\035\n\031R" +
-      "EVIEW_STATUS_UNSPECIFIED\020\000\022\013\n\007PENDING\020\001\022" +
-      "\014\n\010COMPLETE\020\002\022\014\n\010DECLINED\020\003B\031\n\024org.mlflo" +
-      "w.api.proto\220\001\001"
+      "em\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.da" +
+      "tabricks.rpc.RPC[$this.Response]\"\207\002\n\030Set" +
+      "ReviewQueueItemStatus\022\026\n\010queue_id\030\001 \001(\tB" +
+      "\004\370\206\031\001\022\025\n\007item_id\030\002 \001(\tB\004\370\206\031\001\0228\n\006status\030\003" +
+      " \001(\0162\".mlflow.review_queues.ReviewStatus" +
+      "B\004\370\206\031\001\022\024\n\014completed_by\030\004 \001(\t\032?\n\010Response" +
+      "\0223\n\004item\030\001 \001(\0132%.mlflow.review_queues.Re" +
+      "viewQueueItem:+\342?(\n&com.databricks.rpc.R" +
+      "PC[$this.Response]*=\n\016ReviewItemType\022 \n\034" +
+      "REVIEW_ITEM_TYPE_UNSPECIFIED\020\000\022\t\n\005TRACE\020" +
+      "\001*J\n\017ReviewQueueType\022!\n\035REVIEW_QUEUE_TYP" +
+      "E_UNSPECIFIED\020\000\022\010\n\004USER\020\001\022\n\n\006CUSTOM\020\002*V\n" +
+      "\014ReviewStatus\022\035\n\031REVIEW_STATUS_UNSPECIFI" +
+      "ED\020\000\022\013\n\007PENDING\020\001\022\014\n\010COMPLETE\020\002\022\014\n\010DECLI" +
+      "NED\020\003B\031\n\024org.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -23326,7 +23661,7 @@ public final class ReviewQueues {
     internal_static_mlflow_review_queues_ListReviewQueues_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_review_queues_ListReviewQueues_descriptor,
-        new java.lang.String[] { "ExperimentId", "User", "MaxResults", "PageToken", "ItemId", });
+        new java.lang.String[] { "ExperimentId", "User", "MaxResults", "PageToken", "ItemId", "OrderBy", });
     internal_static_mlflow_review_queues_ListReviewQueues_Response_descriptor =
       internal_static_mlflow_review_queues_ListReviewQueues_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_review_queues_ListReviewQueues_Response_fieldAccessorTable = new

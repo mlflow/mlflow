@@ -17,12 +17,17 @@ import { ManageQuestionsModal } from './ManageQuestionsModal';
 import { QueueSettingsModal } from './QueueSettingsModal';
 import { ReviewQueueEmptyState } from './ReviewQueueEmptyState';
 import { ReviewQueueList } from './ReviewQueueList';
-import { ReviewQueueSidebar } from './ReviewQueueSidebar';
+import {
+  DEFAULT_REVIEW_QUEUE_SORT,
+  ReviewQueueSidebar,
+  reviewQueueSortToOrderBy,
+  type ReviewQueueSort,
+} from './ReviewQueueSidebar';
 import { useCanEditReviews, useCanManageReviews } from './hooks/useCanManageReviews';
 import { useDeleteReviewQueueMutation } from './hooks/useDeleteReviewQueueMutation';
 import { useGetOrCreateUserQueueMutation } from './hooks/useGetOrCreateUserQueueMutation';
 import { useListReviewQueueItemsQuery } from './hooks/useListReviewQueueItemsQuery';
-import { useListReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
+import { useGetReviewQueueQuery, useInfiniteReviewQueuesQuery } from './hooks/useListReviewQueuesQuery';
 import { getReviewQueuePageRoute, useReviewQueueSearchParams } from './hooks/useReviewQueueSearchParams';
 import { useUpdateReviewQueueMutation } from './hooks/useUpdateReviewQueueMutation';
 import { useRemoveItemsFromReviewQueueMutation } from './hooks/useRemoveItemsFromReviewQueueMutation';
@@ -65,9 +70,20 @@ const ExperimentReviewQueuePage = () => {
   // The queue pending delete confirmation, from the right-pane gear.
   const [confirmDeleteQueueId, setConfirmDeleteQueueId] = useState<string>();
   const [paneWidth, setPaneWidth] = useState(320);
+  // Server-side sort for the queues list. Changing it refetches the list from
+  // page 1 in the new order (sorting the whole list, not just loaded pages).
+  const [queueSort, setQueueSort] = useState<ReviewQueueSort>(DEFAULT_REVIEW_QUEUE_SORT);
+  const queueOrderBy = useMemo(() => reviewQueueSortToOrderBy(queueSort), [queueSort]);
 
-  const { reviewQueues, isLoading: queuesLoading } = useListReviewQueuesQuery({
+  const {
+    reviewQueues,
+    isLoading: queuesLoading,
+    fetchNextPage: fetchMoreQueues,
+    hasNextPage: hasMoreQueues,
+    isFetchingNextPage: isFetchingMoreQueues,
+  } = useInfiniteReviewQueuesQuery({
     experimentId: experimentId ?? '',
+    orderBy: queueOrderBy,
     // Unscoped by reviewer on purpose: the server's `filter_list_review_queues`
     // narrows the list for non-managers.
   });
@@ -114,10 +130,18 @@ const ExperimentReviewQueuePage = () => {
       selectQueue(userQueue.queue_id, { preserveStartReview: true });
     }
   }, [selectedQueueId, queuesLoading, reviewerResolved, reviewQueues, reviewer, selectQueue]);
-  const selectedQueue = useMemo(
+  const selectedQueueInList = useMemo(
     () => reviewQueues.find((q) => q.queue_id === selectedQueueId) ?? null,
     [reviewQueues, selectedQueueId],
   );
+  // A selected/deep-linked queue may live past the loaded window (queues are
+  // paginated). Resolve it with a single fetch-by-id rather than paging through
+  // the whole list, so opening a queue never has to load every page.
+  const { reviewQueue: fetchedSelectedQueue } = useGetReviewQueueQuery({
+    queueId: selectedQueueId,
+    enabled: Boolean(selectedQueueId) && !selectedQueueInList,
+  });
+  const selectedQueue = selectedQueueInList ?? fetchedSelectedQueue ?? null;
   const editingQueue = useMemo(
     () => (editingQueueId ? (reviewQueues.find((q) => q.queue_id === editingQueueId) ?? null) : null),
     [reviewQueues, editingQueueId],
@@ -485,6 +509,12 @@ const ExperimentReviewQueuePage = () => {
                   onSelect={selectQueue}
                   onNewQueue={() => setCreateOpen(true)}
                   onManageQuestions={() => setManageOpen(true)}
+                  sort={queueSort}
+                  onSortChange={setQueueSort}
+                  // Infinite scroll: load the next page of queues on scroll.
+                  onLoadMore={fetchMoreQueues}
+                  hasMore={hasMoreQueues ?? false}
+                  isLoadingMore={isFetchingMoreQueues}
                 />
               </div>
             }

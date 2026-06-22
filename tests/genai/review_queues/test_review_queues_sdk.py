@@ -119,9 +119,14 @@ def test_get_review_queue_requires_exactly_one_selector(kwargs):
 
 def test_list_review_queues_delegates():
     with patch(f"{_BASE}._list_review_queues", return_value=PagedList([_queue()], None)) as m:
-        list_review_queues(user="bob", experiment_id="1", max_results=5)
+        list_review_queues(user="bob", experiment_id="1", max_results=5, order_by=["name ASC"])
     assert m.call_args[0] == ("1",)
-    assert m.call_args[1] == {"user": "bob", "max_results": 5, "page_token": None}
+    assert m.call_args[1] == {
+        "user": "bob",
+        "max_results": 5,
+        "page_token": None,
+        "order_by": ["name ASC"],
+    }
 
 
 def test_update_review_queue_delegates():

@@ -4757,12 +4757,14 @@ def _list_review_queues():
     page_token = request_message.page_token if request_message.HasField("page_token") else None
     user = request_message.user if request_message.HasField("user") else None
     item_id = request_message.item_id if request_message.HasField("item_id") else None
+    order_by = list(request_message.order_by) or None
     queues = _get_tracking_store().list_review_queues(
         request_message.experiment_id,
         user=user,
         item_id=item_id,
         max_results=max_results,
         page_token=page_token,
+        order_by=order_by,
     )
     response = ListReviewQueues.Response(
         review_queues=[q.to_proto() for q in queues],

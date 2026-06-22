@@ -1017,9 +1017,14 @@ class TracingClient:
         user: str | None = None,
         max_results: int | None = None,
         page_token: str | None = None,
+        order_by: list[str] | None = None,
     ) -> "PagedList[ReviewQueue]":
         return self.store.list_review_queues(
-            experiment_id, user=user, max_results=max_results, page_token=page_token
+            experiment_id,
+            user=user,
+            max_results=max_results,
+            page_token=page_token,
+            order_by=order_by,
         )
 
     def _update_review_queue(

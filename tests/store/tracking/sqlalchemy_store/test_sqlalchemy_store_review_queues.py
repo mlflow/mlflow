@@ -408,6 +408,55 @@ def test_list_review_queues_pagination(store):
     assert len(all_ids) == 5
 
 
+def test_list_review_queues_order_by_name(store):
+    exp_id = _create_experiments(store, "list_order_name")
+    for nm in ["Charlie", "alpha", "Bravo"]:
+        store.create_review_queue(exp_id, name=nm, queue_type="custom")
+    # `name` sorts case-insensitively (on the folded name_key).
+    assert [q.name for q in store.list_review_queues(exp_id, order_by=["name ASC"])] == [
+        "alpha",
+        "Bravo",
+        "Charlie",
+    ]
+    assert [q.name for q in store.list_review_queues(exp_id, order_by=["name DESC"])] == [
+        "Charlie",
+        "Bravo",
+        "alpha",
+    ]
+
+
+def test_list_review_queues_order_by_defaults_to_creation_desc(store):
+    exp_id = _create_experiments(store, "list_order_default")
+    q1 = store.create_review_queue(exp_id, name="first", queue_type="custom")
+    time.sleep(0.005)
+    q2 = store.create_review_queue(exp_id, name="second", queue_type="custom")
+    # Omitting order_by keeps the historical newest-first default.
+    assert [q.queue_id for q in store.list_review_queues(exp_id)] == [q2.queue_id, q1.queue_id]
+
+
+def test_list_review_queues_order_by_paginates_stably(store):
+    exp_id = _create_experiments(store, "list_order_paginate")
+    for nm in ["d", "b", "e", "a", "c"]:
+        store.create_review_queue(exp_id, name=nm, queue_type="custom")
+    page1 = store.list_review_queues(exp_id, order_by=["name ASC"], max_results=2)
+    page2 = store.list_review_queues(
+        exp_id, order_by=["name ASC"], max_results=2, page_token=page1.token
+    )
+    page3 = store.list_review_queues(
+        exp_id, order_by=["name ASC"], max_results=2, page_token=page2.token
+    )
+    assert [q.name for q in [*page1, *page2, *page3]] == ["a", "b", "c", "d", "e"]
+
+
+@pytest.mark.parametrize("order_by", [["bogus ASC"], ["name SIDEWAYS"], ["a b c"]])
+def test_list_review_queues_order_by_invalid(store, order_by):
+    exp_id = _create_experiments(store, "list_order_invalid")
+    store.create_review_queue(exp_id, name="q", queue_type="custom")
+    with pytest.raises(MlflowException, match="order_by") as exc:
+        store.list_review_queues(exp_id, order_by=order_by)
+    _assert_error_code(exc, INVALID_PARAMETER_VALUE)
+
+
 # --------------------------------------------------------------------------
 # Update
 # --------------------------------------------------------------------------

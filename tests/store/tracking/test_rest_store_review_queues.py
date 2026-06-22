@@ -191,6 +191,18 @@ def test_list_review_queues_sends_item_filter():
     assert page[0].queue_id == "rq-1"
 
 
+def test_list_review_queues_sends_order_by():
+    resp = pb.ListReviewQueues.Response(
+        review_queues=[pb.ReviewQueue(queue_id="rq-1", name="q", queue_type=pb.CUSTOM)],
+        next_page_token="",
+    )
+    patcher, captured = _capture(resp)
+    with patcher:
+        _store().list_review_queues("1", order_by=["name ASC"])
+    assert captured["endpoint"] == "/api/3.0/mlflow/review-queues/list"
+    assert captured["body"]["order_by"] == ["name ASC"]
+
+
 def test_delete_review_queue_endpoint():
     patcher, captured = _capture(pb.DeleteReviewQueue.Response())
     with patcher:

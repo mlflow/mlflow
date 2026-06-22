@@ -221,6 +221,22 @@ def test_list_review_queues_passes_item_filter():
     assert store.list_review_queues.call_args[1]["item_id"] == "tr-1"
 
 
+def test_list_review_queues_passes_order_by():
+    request_message = ListReviewQueues(experiment_id="1", order_by=["name ASC"])
+    store, _ = _run_handler(
+        _list_review_queues, request_message, "list_review_queues", PagedList([], token=None)
+    )
+    assert store.list_review_queues.call_args[1]["order_by"] == ["name ASC"]
+
+
+def test_list_review_queues_order_by_defaults_to_none():
+    request_message = ListReviewQueues(experiment_id="1")
+    store, _ = _run_handler(
+        _list_review_queues, request_message, "list_review_queues", PagedList([], token=None)
+    )
+    assert store.list_review_queues.call_args[1]["order_by"] is None
+
+
 @pytest.mark.parametrize(
     ("update_users", "users", "update_schema_ids", "schema_ids", "exp_users", "exp_schema_ids"),
     [

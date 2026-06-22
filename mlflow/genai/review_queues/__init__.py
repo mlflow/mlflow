@@ -161,15 +161,21 @@ def list_review_queues(
     experiment_id: str | None = None,
     max_results: int | None = None,
     page_token: str | None = None,
+    order_by: list[str] | None = None,
 ) -> "PagedList[ReviewQueue]":
     """
-    List an experiment's review queues, newest first.
+    List an experiment's review queues.
 
     Args:
         user: If set, return only queues this user is assigned to.
         experiment_id: Parent experiment; defaults to the current experiment.
         max_results: Page size.
         page_token: Continuation token from a previous call.
+        order_by: Sort clauses, each ``"<field> [ASC|DESC]"`` (e.g.
+            ``["name ASC"]``). Supported fields: ``name``, ``created_by``,
+            ``creation_time_ms``. Defaults to ``["creation_time_ms DESC"]``
+            (newest first). A stable tiebreaker is always applied so paging is
+            deterministic.
 
     Returns:
         A :py:class:`PagedList` of :py:class:`ReviewQueue`.
@@ -179,6 +185,7 @@ def list_review_queues(
         user=user,
         max_results=max_results,
         page_token=page_token,
+        order_by=order_by,
     )
 
 

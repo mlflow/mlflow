@@ -165,6 +165,12 @@ message ListReviewQueues {
   // which queues a trace is already a member of.
   optional string item_id = 6;
 
+  // Sort order, as `"<field> [ASC|DESC]"` clauses (e.g. `"name ASC"`). Supported
+  // fields: `name`, `created_by`, `creation_time_ms`. Defaults to
+  // `"creation_time_ms DESC"` (newest first). A stable `queue_id` tiebreaker is
+  // always appended so offset paging is deterministic.
+  repeated string order_by = 7;
+
   // Field 5 was `ensure_default` (no-auth default-queue seeding); removed with
   // the default queue. The no-auth catch-all is the reserved `default` USER
   // queue, seeded via GetOrCreateUserQueue.
