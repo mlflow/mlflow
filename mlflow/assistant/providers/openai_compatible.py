@@ -375,12 +375,25 @@ class OpenAICompatibleProvider(AssistantProvider):
             messages.append({"role": "system", "content": sys_content})
 
         tool_decisions = (context or {}).get("tool_decisions") or {}
-        # A history whose last assistant turn carries tool_calls without results
-        # is a turn paused at a permission prompt. Resuming applies the decision(s)
-        # in `tool_decisions` to those calls instead of starting a new user turn.
+        # A history whose last assistant turn carries tool_calls without results is
+        # a turn paused at a permission prompt. We resume it (applying the decisions
+        # in `tool_decisions`) ONLY when a decision was actually delivered. Deriving
+        # this from history alone is unsafe: if the user cancels at the prompt (a
+        # no-op for this provider, so the unresolved tool_calls stay in history) and
+        # then sends a new message, we must start a fresh turn — not silently
+        # re-resume the abandoned calls and drop their message.
         tool_calls_awaiting_decision = _pending_tool_calls(messages)
-        is_resuming = bool(tool_calls_awaiting_decision)
+        is_resuming = bool(tool_decisions) and bool(tool_calls_awaiting_decision)
         if not is_resuming:
+            # Close out any orphaned tool_calls (e.g. cancelled at a prompt) before
+            # the new user message: OpenAI requires a result for every tool_call, so
+            # an unanswered one would make the gateway reject the next request.
+            for tc in tool_calls_awaiting_decision:
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "content": "Tool call cancelled by user.",
+                })
             messages.append({"role": "user", "content": user_text})
         tools = build_tools_schema()
 

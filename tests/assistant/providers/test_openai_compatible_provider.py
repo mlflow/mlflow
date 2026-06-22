@@ -608,6 +608,72 @@ async def test_astream_resume_deny_skips_execution(provider):
 
 
 @pytest.mark.asyncio
+async def test_astream_fresh_message_after_abandoned_tool_call(provider):
+    # A turn paused at a prompt, then cancelled (a no-op for this provider, so the
+    # unresolved tool_call stays in history). A NEW user message must start a fresh
+    # turn — NOT silently re-resume the abandoned call and drop the message.
+    s1, _ = _make_aiohttp_session([_tool_call_turns()[0]])
+    with (
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=s1,
+        ),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.execute_tool",
+            AsyncMock(return_value=("x", False)),
+        ),
+    ):
+        ev1 = [
+            e
+            async for e in provider.astream(
+                "ls", "http://localhost:5000", mlflow_session_id=_SESSION_ID
+            )
+        ]
+    history = _done_session_id(ev1)
+
+    # New message, NO tool_decisions: the abandoned call must be closed out and the
+    # new message must reach the model (turn 2 returns plain text, no tool calls).
+    s2, _ = _make_aiohttp_session([_tool_call_turns()[1]])
+    with (
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=s2,
+        ),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.execute_tool",
+            AsyncMock(return_value=("file1.py\n", False)),
+        ) as mt2,
+    ):
+        ev2 = [
+            e
+            async for e in provider.astream(
+                "what is 2+2",
+                "http://localhost:5000",
+                mlflow_session_id=_SESSION_ID,
+                session_id=history,
+            )
+        ]
+
+    # No duplicate prompt for the old call, and the old call is never executed.
+    assert not any(e.type == EventType.PERMISSION_REQUEST for e in ev2)
+    mt2.assert_not_awaited()
+    # The stream completes with the model's reply to the NEW message.
+    assert any(
+        e.type == EventType.STREAM_EVENT and e.data["event"]["delta"]["text"] == "Done" for e in ev2
+    )
+    # History: the orphaned call is closed with a cancellation result, and the new
+    # user message is present.
+    final = json.loads(_done_session_id(ev2))
+    assert any(
+        m.get("role") == "tool"
+        and m.get("tool_call_id") == "call_1"
+        and m.get("content") == "Tool call cancelled by user."
+        for m in final
+    )
+    assert any(m.get("role") == "user" and m.get("content") == "what is 2+2" for m in final)
+
+
+@pytest.mark.asyncio
 async def test_astream_global_full_access_skips_prompt(tmp_path):
     # When full access is enabled in the global config, no per-call prompt fires
     # even for a session — this preserves the pre-existing "run freely" setting.
