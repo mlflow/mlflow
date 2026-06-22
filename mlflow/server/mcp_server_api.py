@@ -148,6 +148,16 @@ class UpdateMCPAccessBindingRequest(BaseModel):
     transport_type: str | None = None
 
 
+class MCPServerVersionRef(BaseModel):
+    name: str
+    version: str
+
+
+class LinkMCPServerVersionsToTraceRequest(BaseModel):
+    trace_id: str
+    mcp_server_versions: list[MCPServerVersionRef]
+
+
 class SetAliasRequest(BaseModel):
     alias: str
     version: str
@@ -168,9 +178,14 @@ class MCPAccessBindingSummaryResponse(BaseModel):
     server_name: str
     endpoint_url: str
     transport_type: str = "streamable-http"
+    workspace: str | None = None
     server_version: str | None = None
     server_alias: str | None = None
     resolved_version: MCPServerVersionResponse | None = None
+    created_by: str | None = None
+    last_updated_by: str | None = None
+    creation_timestamp: int | None = None
+    last_updated_timestamp: int | None = None
 
     @classmethod
     def from_entity(cls, entity: MCPAccessBinding) -> MCPAccessBindingSummaryResponse:
@@ -179,6 +194,7 @@ class MCPAccessBindingSummaryResponse(BaseModel):
             server_name=entity.server_name,
             endpoint_url=entity.endpoint_url,
             transport_type=str(entity.transport_type),
+            workspace=entity.workspace,
             server_version=entity.server_version,
             server_alias=entity.server_alias,
             resolved_version=(
@@ -186,6 +202,10 @@ class MCPAccessBindingSummaryResponse(BaseModel):
                 if entity.resolved_version is None
                 else MCPServerVersionResponse.from_entity(entity.resolved_version)
             ),
+            created_by=entity.created_by,
+            last_updated_by=entity.last_updated_by,
+            creation_timestamp=entity.creation_timestamp,
+            last_updated_timestamp=entity.last_updated_timestamp,
         )
 
 
@@ -194,6 +214,7 @@ class MCPServerResponse(BaseModel):
     display_name: str | None = None
     description: str | None = None
     icons: list[MCPIconPayload] | None = None
+    workspace: str | None = None
     status: str | None = None
     access_bindings: list[MCPAccessBindingSummaryResponse] = Field(default_factory=list)
     latest_version: str | None = None
@@ -211,6 +232,7 @@ class MCPServerResponse(BaseModel):
             display_name=entity.display_name,
             description=entity.description,
             icons=entity.icons,
+            workspace=entity.workspace,
             status=str(entity.status) if entity.status else None,
             access_bindings=[
                 MCPAccessBindingSummaryResponse.from_entity(b) for b in entity.access_bindings
@@ -230,6 +252,7 @@ class MCPServerVersionResponse(BaseModel):
     version: str
     server_json: dict[str, Any]
     display_name: str | None = None
+    workspace: str | None = None
     status: str = "draft"
     tools: list[MCPToolPayload] | None = None
     aliases: list[str] = Field(default_factory=list)
@@ -250,6 +273,7 @@ class MCPServerVersionResponse(BaseModel):
             version=entity.version,
             server_json=entity.server_json,
             display_name=entity.display_name,
+            workspace=entity.workspace,
             status=str(entity.status),
             tools=tools,
             aliases=entity.aliases,
@@ -267,6 +291,7 @@ class MCPAccessBindingResponse(BaseModel):
     server_name: str
     endpoint_url: str
     transport_type: str = "streamable-http"
+    workspace: str | None = None
     tools: list[MCPToolPayload] | None = None
     server_version: str | None = None
     server_alias: str | None = None
@@ -286,6 +311,7 @@ class MCPAccessBindingResponse(BaseModel):
             server_name=entity.server_name,
             endpoint_url=entity.endpoint_url,
             transport_type=str(entity.transport_type),
+            workspace=entity.workspace,
             tools=tools,
             server_version=entity.server_version,
             server_alias=entity.server_alias,
@@ -483,6 +509,39 @@ def search_all_access_bindings(
     return SearchMCPAccessBindingsResponse(
         mcp_access_bindings=bindings,
         next_page_token=results.token,
+    )
+
+
+# Static routes — must be registered before /{name:path} routes
+@mcp_server_router.post("/traces/link-versions")
+def link_mcp_server_versions_to_trace(
+    request: LinkMCPServerVersionsToTraceRequest,
+) -> dict[str, Any]:
+    from mlflow.server.handlers import _get_tracking_store
+
+    refs = [
+        MCPServerVersion(name=ref.name, version=ref.version, server_json={})
+        for ref in request.mcp_server_versions
+    ]
+    _get_tracking_store().link_mcp_server_versions_to_trace(
+        trace_id=request.trace_id,
+        mcp_servers=refs,
+    )
+    return {}
+
+
+@mcp_server_router.get(
+    "/traces/mcp-server-versions", response_model=SearchMCPServerVersionsResponse
+)
+def get_mcp_server_versions_for_trace(
+    trace_id: str = Query(...),
+) -> SearchMCPServerVersionsResponse:
+    from mlflow.server.handlers import _get_tracking_store
+
+    versions = _get_tracking_store().get_mcp_server_versions_for_trace(trace_id=trace_id)
+    return SearchMCPServerVersionsResponse(
+        mcp_server_versions=[MCPServerVersionResponse.from_entity(v) for v in versions],
+        next_page_token=None,
     )
 
 
