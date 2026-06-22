@@ -59,18 +59,33 @@ export const prettyPrintJson = (raw: string): string => {
 };
 
 /**
- * Returns true when the JSON tool-definitions text has no usable tools — either
- * empty/whitespace or parses to an empty array. Parse errors return false so
- * they flow to the separate parse-error path.
+ * Bare-minimum JSON Schema used to pre-populate a freshly added tool's
+ * parameters editor and the response-format schema editor, mirroring the
+ * "blank" template in the design spec.
  */
-export const isToolsValueEmpty = (text: string): boolean => {
+export const BLANK_JSON_SCHEMA = `{
+  "type": "object",
+  "properties": {},
+  "required": []
+}`;
+
+/**
+ * Validates a tool's parameters JSON Schema text. Returns `null` when it parses
+ * to a JSON object, or a short reason otherwise: empty, a JSON parse error, or a
+ * non-object value. Used to flag the parameters editor and gate submission.
+ */
+export const getToolParametersError = (text: string): string | null => {
   if (!text.trim()) {
-    return true;
+    return 'Add a parameters schema';
   }
+  let parsed: unknown;
   try {
-    const parsed = JSON.parse(text);
-    return Array.isArray(parsed) && parsed.length === 0;
-  } catch {
-    return false;
+    parsed = JSON.parse(text);
+  } catch (e) {
+    return e instanceof Error ? e.message : 'Invalid JSON';
   }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return 'Parameters must be a JSON object';
+  }
+  return null;
 };

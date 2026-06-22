@@ -91,6 +91,10 @@
     "defaultMessage": "Select baseline run",
     "description": "Placeholder text for the baseline run selector dropdown"
   },
+  "+UM7um": {
+    "defaultMessage": "Tool {number} parameters",
+    "description": "Accessible label for an individual tool parameters JSON editor in the playground"
+  },
   "+VGmLL": {
     "defaultMessage": "Optional description",
     "description": "Webhook description placeholder"
@@ -394,10 +398,6 @@
   "/m44jJ": {
     "defaultMessage": "View docs",
     "description": "Text for docs link button on experiment view page header"
-  },
-  "/mU2Ud": {
-    "defaultMessage": "JSON tool definitions",
-    "description": "Label for the JSON tool definitions textarea inside the Tools card"
   },
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
@@ -1475,6 +1475,10 @@
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
   },
+  "5JG/xb": {
+    "defaultMessage": "Fix the tool definitions: {error}",
+    "description": "Reason shown when the playground Submit button is disabled because a tool definition is empty or invalid"
+  },
   "5LORfM": {
     "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",
     "description": "Tooltip explaining why key name field is disabled in drawer edit"
@@ -2027,6 +2031,10 @@
     "defaultMessage": "Artifact Location",
     "description": "Label for displaying the experiment artifact location"
   },
+  "8/M7+2": {
+    "defaultMessage": "Provide one or more function definitions for the model to call.",
+    "description": "Help text shown under the Add tools button in the playground settings drawer before any tools are added"
+  },
   "801Xh4": {
     "defaultMessage": "Save tags",
     "description": "Key-value tag editor modal > Manage Tag save button"
@@ -2082,10 +2090,6 @@
   "8EQFzg": {
     "defaultMessage": "None",
     "description": "Cell value when there's no content"
-  },
-  "8Glngx": {
-    "defaultMessage": "Provide one or more function definitions in a JSON array. Choose how the model invokes them:",
-    "description": "Intro line of the info popover next to the Tools section header"
   },
   "8GmtjT": {
     "defaultMessage": "Clear the search",
@@ -2319,6 +2323,10 @@
     "defaultMessage": "Tags",
     "description": "Row group title for tags of runs on the experiment compare runs page"
   },
+  "9Klofr": {
+    "defaultMessage": "Add tool",
+    "description": "Label for the button that appends another tool definition card in the playground Tools section"
+  },
   "9MHcPE": {
     "defaultMessage": "Overview",
     "description": "Tab label for endpoint overview"
@@ -2542,6 +2550,10 @@
   "AHaom4": {
     "defaultMessage": "No assessments available",
     "description": "Message shown when there are no assessments to display"
+  },
+  "AIun3p": {
+    "defaultMessage": "e.g. get_weather",
+    "description": "Placeholder for the tool function name input in the playground Tools card"
   },
   "AM8DuO": {
     "defaultMessage": "Failed",
@@ -2874,10 +2886,6 @@
   "Bsuyal": {
     "defaultMessage": "Description",
     "description": "Workspaces table description column header"
-  },
-  "BunFCp": {
-    "defaultMessage": "Provide one or more function definitions in a JSON array for the model to call.",
-    "description": "Help text shown under the Add tools button in the playground settings drawer before any tools are added"
   },
   "BuykLs": {
     "defaultMessage": "Delete judge",
@@ -4243,10 +4251,6 @@
     "defaultMessage": "Time created",
     "description": "Header for the time created column in the experiments table"
   },
-  "JUuOks": {
-    "defaultMessage": "e.g. {example}",
-    "description": "Placeholder shown inside the playground response_format JSON schema textarea"
-  },
   "JW0GbU": {
     "defaultMessage": "You can set a maximum of {maxLength} values",
     "description": "Error message when trying to submit a key-value pair form with more than the maximum allowed values"
@@ -4531,10 +4535,6 @@
     "defaultMessage": "Trace status: OK, ERROR, or IN_PROGRESS",
     "description": "Tooltip description for the State column in the traces table"
   },
-  "Kzrwuh": {
-    "defaultMessage": "Remove tools",
-    "description": "Aria label for the trash button that removes the playground tools from the request"
-  },
   "L/4iQO": {
     "defaultMessage": "Delete",
     "description": "Label for the delete experiments action on the experiments list page"
@@ -4762,6 +4762,10 @@
   "MBNIRk": {
     "defaultMessage": "Attributes",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading"
+  },
+  "MGcWqh": {
+    "defaultMessage": "Schema",
+    "description": "Accessible label for the playground response_format JSON schema editor"
   },
   "MHWark": {
     "defaultMessage": "Year",
@@ -5211,6 +5215,10 @@
     "defaultMessage": "Use the trash icon to remove the tools from the request.",
     "description": "Closing line of the Tools info popover explaining how the trash icon removes tools"
   },
+  "OIJAhv": {
+    "defaultMessage": "Function name is required",
+    "description": "Inline error shown when a tool is missing its function name"
+  },
   "OLZyxe": {
     "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
     "description": "Error count in tooltip"
@@ -5510,10 +5518,6 @@
   "Pts/gW": {
     "defaultMessage": "Select endpoint",
     "description": "Placeholder for endpoint selector"
-  },
-  "PuVisU": {
-    "defaultMessage": "Schema",
-    "description": "Label for the playground response_format JSON schema textarea"
   },
   "PuXTcZ": {
     "defaultMessage": "Welcome to MLflow",
@@ -5978,6 +5982,10 @@
   "SG4oPe": {
     "defaultMessage": "— instructions or persona for the model (e.g. {example}).",
     "description": "Description of the system role in the playground role-selector help popover"
+  },
+  "SG6cpK": {
+    "defaultMessage": "e.g. Get the weather in a given location",
+    "description": "Placeholder for the tool description input in the playground Tools card"
   },
   "SHoy6d": {
     "defaultMessage": "Open full trace viewer",
@@ -7947,6 +7955,10 @@
     "defaultMessage": "Collapse description",
     "description": "Aria label for button that collapses a long description"
   },
+  "bgk51B": {
+    "defaultMessage": "Give every tool a function name",
+    "description": "Submit blocker detail shown when a playground tool is missing its function name"
+  },
   "bi26D5": {
     "defaultMessage": "Run ID:",
     "description": "Text for run ID header in the main table in the model comparison page"
@@ -8687,6 +8699,10 @@
     "defaultMessage": "(edited)",
     "description": "Link text in an edited assessment that allows the user to click to see the previous value"
   },
+  "f5cp11": {
+    "defaultMessage": "Provide one or more function definitions the model can call. Choose how the model invokes them:",
+    "description": "Intro line of the info popover next to the Tools section header"
+  },
   "f6B8LJ": {
     "defaultMessage": "Numeric",
     "description": "Review question input type: numeric"
@@ -8934,6 +8950,10 @@
   "gFYM0j": {
     "defaultMessage": "Cancel",
     "description": "Delete assessment modal cancel button text"
+  },
+  "gH6GGr": {
+    "defaultMessage": "Function name",
+    "description": "Label for the tool function name input in the playground Tools card"
   },
   "gIc8Lp": {
     "defaultMessage": "Stages have been deprecated in the new Model Registry UI. Learn how to migrate models <link>here</link>.",
@@ -9699,6 +9719,10 @@
     "defaultMessage": "AI Gateway",
     "description": "Home page quick action title for AI Gateway"
   },
+  "jSuw00": {
+    "defaultMessage": "Tool {number}",
+    "description": "Header label for an individual tool card in the playground Tools section"
+  },
   "jTqRO+": {
     "defaultMessage": "None",
     "description": "A short label for experiments with no automatically inferred experiment type"
@@ -9726,6 +9750,10 @@
   "jcg8zG": {
     "defaultMessage": "Models",
     "description": "Models column header"
+  },
+  "jeQmEj": {
+    "defaultMessage": "Function description",
+    "description": "Label for the tool description input in the playground Tools card"
   },
   "jhgu6C": {
     "defaultMessage": "A unique identifier for the session or conversation for grouping traces",
@@ -9867,10 +9895,6 @@
     "defaultMessage": "Trace Archival Retention",
     "description": "Label for workspace trace archival retention field"
   },
-  "kGVN6k": {
-    "defaultMessage": "e.g. {example}",
-    "description": "Placeholder shown above the playground tools JSON textarea"
-  },
   "kHDQiE": {
     "defaultMessage": "Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.",
     "description": "Placeholder text for session level instructions textarea. {br} is a newline."
@@ -9994,10 +10018,6 @@
   "knJfuf": {
     "defaultMessage": "Learn more about the AI Gateway in the {gatewayDocs}.",
     "description": "AI Gateway setup guide > Documentation link"
-  },
-  "knNmQq": {
-    "defaultMessage": "Add at least one tool definition",
-    "description": "Inline error shown in the Tools card when tools are added but no tool definitions are provided"
   },
   "ktiuki": {
     "defaultMessage": "Get Link",
@@ -11010,6 +11030,10 @@
   "pvvUpM": {
     "defaultMessage": "Are you sure you want to delete the dataset \"{name}\"? This action cannot be undone.",
     "description": "Body for the V2 evaluation dataset delete confirmation modal on the detail page"
+  },
+  "pxRaW6": {
+    "defaultMessage": "Schema",
+    "description": "Label for the playground response_format JSON schema editor"
   },
   "pye4NE": {
     "defaultMessage": "Select an endpoint",
@@ -12183,10 +12207,6 @@
     "defaultMessage": "Rationale",
     "description": "Label for the rationale of an issue assessment"
   },
-  "vwvhCa": {
-    "defaultMessage": "Fix the Tools JSON: {error}",
-    "description": "Reason shown when the playground Submit button is disabled because the tools JSON is invalid"
-  },
   "vxY1CI": {
     "defaultMessage": "Status",
     "description": "Run page > Overview > Run status section label"
@@ -12350,10 +12370,6 @@
   "wq+WyH": {
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the prompt content in the prompt creation modal"
-  },
-  "wqI7on": {
-    "defaultMessage": "Add at least one tool definition",
-    "description": "Reason shown when the playground Submit button is disabled because tool choice requires tools but none are provided"
   },
   "wqv2gd": {
     "defaultMessage": "Redact or mask flagged content, then allow the request to continue.",
@@ -12550,6 +12566,10 @@
   "xc+tL4": {
     "defaultMessage": "Filters{numFilters}",
     "description": "Usage overview > metrics filter dropdown button"
+  },
+  "xczUnJ": {
+    "defaultMessage": "Function parameters schema",
+    "description": "Label for the tool parameters JSON schema editor in the playground Tools card"
   },
   "xdFMIN": {
     "defaultMessage": "Dataset name",
@@ -12902,6 +12922,10 @@
   "zOe0KV": {
     "defaultMessage": "Run judge on {count} traces",
     "description": "Title for run judge modal when running on multiple traces"
+  },
+  "zPxoze": {
+    "defaultMessage": "Remove tool {number}",
+    "description": "Aria label for the trash button that removes a single tool from the playground request"
   },
   "zRKlAL": {
     "defaultMessage": "Metadata",

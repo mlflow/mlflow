@@ -10,18 +10,17 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import type { ChangeEvent } from 'react';
+import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import type { ToolChoice } from '../types';
-import { isToolsValueEmpty } from '../utils';
-
-const { TextArea } = Input;
+import type { PlaygroundTool, ToolChoice } from '../types';
+import { getToolParametersError } from '../utils';
+import { JsonEditor } from './JsonEditor';
 
 interface Props {
-  value: string;
-  onChange: (next: string) => void;
-  error?: string | null;
-  toolsAdded: boolean;
-  onToolsAddedChange: (next: boolean) => void;
+  tools: PlaygroundTool[];
+  onAddTool: () => void;
+  onRemoveTool: (id: string) => void;
+  onUpdateTool: (id: string, patch: Partial<PlaygroundTool>) => void;
   toolChoice: ToolChoice;
   onToolChoiceChange: (next: ToolChoice) => void;
 }
@@ -31,36 +30,22 @@ const TOOL_CHOICE_OPTIONS: { value: ToolChoice; label: string }[] = [
   { value: 'required', label: 'Required' },
 ];
 
-const TOOLS_PLACEHOLDER = `[
-  {
-    "type": "function",
-    "function": {
-      "name": "get_weather",
-      "description": "Get the weather in a given location",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "location": { "type": "string" }
-        },
-        "required": ["location"]
-      }
-    }
-  }
-]`;
+const PARAMS_PLACEHOLDER = `{
+  "type": "object",
+  "properties": {
+    "location": { "type": "string" }
+  },
+  "required": ["location"]
+}`;
 
-export const ToolsForm = ({
-  value,
-  onChange,
-  error,
-  toolsAdded,
-  onToolsAddedChange,
-  toolChoice,
-  onToolChoiceChange,
-}: Props) => {
+export const ToolsForm = ({ tools, onAddTool, onRemoveTool, onUpdateTool, toolChoice, onToolChoiceChange }: Props) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  // Track which tool name fields have been blurred so a freshly added tool does
+  // not flash a "required" error before the user has touched it.
+  const [touchedNames, setTouchedNames] = useState<Record<string, boolean>>({});
 
-  if (!toolsAdded) {
+  if (tools.length === 0) {
     return (
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
         <div
@@ -74,11 +59,7 @@ export const ToolsForm = ({
             minHeight: 104,
           }}
         >
-          <Button
-            componentId="mlflow.playground.tools.add"
-            icon={<PlusIcon />}
-            onClick={() => onToolsAddedChange(true)}
-          >
+          <Button componentId="mlflow.playground.tools.add" icon={<PlusIcon />} onClick={onAddTool}>
             <FormattedMessage
               defaultMessage="Add tools"
               description="Label for the button that reveals the playground tool definitions input and tool choice selector"
@@ -87,7 +68,7 @@ export const ToolsForm = ({
         </div>
         <Typography.Hint>
           <FormattedMessage
-            defaultMessage="Provide one or more function definitions in a JSON array for the model to call."
+            defaultMessage="Provide one or more function definitions for the model to call."
             description="Help text shown under the Add tools button in the playground settings drawer before any tools are added"
           />
         </Typography.Hint>
@@ -96,53 +77,18 @@ export const ToolsForm = ({
   }
 
   return (
-    <div
-      css={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: theme.spacing.md,
-        border: `1px solid ${theme.colors.border}`,
-        borderRadius: theme.general.borderRadiusBase,
-        padding: theme.spacing.md,
-      }}
-    >
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div>
-        <div
-          css={{
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'space-between',
-            marginBottom: theme.spacing.sm,
-            '& label': { marginBottom: 0 },
-          }}
-        >
-          <FormUI.Label htmlFor="mlflow.playground.tools.tool_choice">
-            <FormattedMessage
-              defaultMessage="Tool choice"
-              description="Label above the tool choice segmented picker inside the Tools card"
-            />
-          </FormUI.Label>
-          <Button
-            componentId="mlflow.playground.tools.remove"
-            type="tertiary"
-            size="small"
-            icon={<TrashIcon />}
-            onClick={() => onToolsAddedChange(false)}
-            aria-label={intl.formatMessage({
-              defaultMessage: 'Remove tools',
-              description: 'Aria label for the trash button that removes the playground tools from the request',
-            })}
-            css={{
-              '& svg': { color: theme.colors.textSecondary },
-              '&:hover svg': { color: theme.colors.textPrimary },
-            }}
+        <FormUI.Label htmlFor="mlflow.playground.tools.tool_choice" css={{ marginBottom: theme.spacing.sm }}>
+          <FormattedMessage
+            defaultMessage="Tool choice"
+            description="Label above the tool choice segmented picker inside the Tools card"
           />
-        </div>
+        </FormUI.Label>
         <SegmentedControlGroup
           componentId="mlflow.playground.tools.tool_choice"
           id="mlflow.playground.tools.tool_choice"
           name="mlflow.playground.tools.tool_choice"
-          size="small"
           value={toolChoice}
           onChange={(event) => onToolChoiceChange(event.target.value as ToolChoice)}
         >
@@ -167,44 +113,144 @@ export const ToolsForm = ({
         </Typography.Hint>
       </div>
 
-      <div>
-        <FormUI.Label htmlFor="mlflow.playground.tools.input">
-          <FormattedMessage
-            defaultMessage="JSON tool definitions"
-            description="Label for the JSON tool definitions textarea inside the Tools card"
-          />
-        </FormUI.Label>
-        <TextArea
-          componentId="mlflow.playground.tools.input"
-          id="mlflow.playground.tools.input"
-          value={value}
-          onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value)}
-          autoSize={{ minRows: 4, maxRows: 16 }}
-          placeholder={intl.formatMessage(
-            {
-              defaultMessage: 'e.g. {example}',
-              description: 'Placeholder shown above the playground tools JSON textarea',
-            },
-            { example: TOOLS_PLACEHOLDER },
-          )}
-          css={{
-            fontFamily: 'monospace',
-            fontSize: theme.typography.fontSizeSm,
-          }}
+      {tools.map((tool, index) => {
+        const toolNumber = index + 1;
+        const nameMissing = tool.name.trim().length === 0;
+        const showNameError = nameMissing && (touchedNames[tool.id] ?? false);
+        const paramsError = getToolParametersError(tool.params);
+        const nameId = `mlflow.playground.tools.name.${tool.id}`;
+        const descriptionId = `mlflow.playground.tools.description.${tool.id}`;
+        const paramsId = `mlflow.playground.tools.params.${tool.id}`;
+        return (
+          <div
+            key={tool.id}
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.sm,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.general.borderRadiusBase,
+              padding: theme.spacing.md,
+            }}
+          >
+            <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Typography.Text bold>
+                <FormattedMessage
+                  defaultMessage="Tool {number}"
+                  description="Header label for an individual tool card in the playground Tools section"
+                  values={{ number: toolNumber }}
+                />
+              </Typography.Text>
+              <Button
+                componentId="mlflow.playground.tools.remove"
+                type="tertiary"
+                size="small"
+                icon={<TrashIcon />}
+                onClick={() => onRemoveTool(tool.id)}
+                aria-label={intl.formatMessage(
+                  {
+                    defaultMessage: 'Remove tool {number}',
+                    description:
+                      'Aria label for the trash button that removes a single tool from the playground request',
+                  },
+                  { number: toolNumber },
+                )}
+                css={{
+                  '& svg': { color: theme.colors.textSecondary },
+                  '&:hover svg': { color: theme.colors.textPrimary },
+                }}
+              />
+            </div>
+
+            <div>
+              <FormUI.Label htmlFor={nameId}>
+                <FormattedMessage
+                  defaultMessage="Function name"
+                  description="Label for the tool function name input in the playground Tools card"
+                />
+              </FormUI.Label>
+              <Input
+                componentId="mlflow.playground.tools.name"
+                id={nameId}
+                value={tool.name}
+                onChange={(event: ChangeEvent<HTMLInputElement>) => onUpdateTool(tool.id, { name: event.target.value })}
+                onBlur={() => setTouchedNames((prev) => ({ ...prev, [tool.id]: true }))}
+                validationState={showNameError ? 'error' : undefined}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'e.g. get_weather',
+                  description: 'Placeholder for the tool function name input in the playground Tools card',
+                })}
+              />
+              {showNameError && (
+                <FormUI.Message
+                  type="error"
+                  message={intl.formatMessage({
+                    defaultMessage: 'Function name is required',
+                    description: 'Inline error shown when a tool is missing its function name',
+                  })}
+                />
+              )}
+            </div>
+
+            <div>
+              <FormUI.Label htmlFor={descriptionId}>
+                <FormattedMessage
+                  defaultMessage="Function description"
+                  description="Label for the tool description input in the playground Tools card"
+                />
+              </FormUI.Label>
+              <Input
+                componentId="mlflow.playground.tools.description"
+                id={descriptionId}
+                value={tool.description}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  onUpdateTool(tool.id, { description: event.target.value })
+                }
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'e.g. Get the weather in a given location',
+                  description: 'Placeholder for the tool description input in the playground Tools card',
+                })}
+              />
+            </div>
+
+            <div>
+              <FormUI.Label htmlFor={paramsId} css={{ marginBottom: theme.spacing.sm }}>
+                <FormattedMessage
+                  defaultMessage="Function parameters schema"
+                  description="Label for the tool parameters JSON schema editor in the playground Tools card"
+                />
+              </FormUI.Label>
+              <JsonEditor
+                id={paramsId}
+                ariaLabel={intl.formatMessage(
+                  {
+                    defaultMessage: 'Tool {number} parameters',
+                    description: 'Accessible label for an individual tool parameters JSON editor in the playground',
+                  },
+                  { number: toolNumber },
+                )}
+                value={tool.params}
+                onChange={(next) => onUpdateTool(tool.id, { params: next })}
+                placeholder={PARAMS_PLACEHOLDER}
+                invalid={Boolean(tool.params.trim()) && paramsError !== null}
+              />
+              {paramsError && <FormUI.Message type="error" message={paramsError} />}
+            </div>
+          </div>
+        );
+      })}
+
+      <Button
+        componentId="mlflow.playground.tools.add_tool"
+        icon={<PlusIcon />}
+        onClick={onAddTool}
+        css={{ width: '100%', borderStyle: 'dotted' }}
+      >
+        <FormattedMessage
+          defaultMessage="Add tool"
+          description="Label for the button that appends another tool definition card in the playground Tools section"
         />
-        {isToolsValueEmpty(value) ? (
-          <FormUI.Message
-            type="error"
-            message={intl.formatMessage({
-              defaultMessage: 'Add at least one tool definition',
-              description:
-                'Inline error shown in the Tools card when tools are added but no tool definitions are provided',
-            })}
-          />
-        ) : (
-          error && <FormUI.Message type="error" message={error} />
-        )}
-      </div>
+      </Button>
     </div>
   );
 };

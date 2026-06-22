@@ -1,15 +1,7 @@
-import {
-  FormUI,
-  Input,
-  SegmentedControlButton,
-  SegmentedControlGroup,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
-import type { ChangeEvent } from 'react';
+import { FormUI, SegmentedControlButton, SegmentedControlGroup, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { ResponseFormatType } from '../types';
-
-const { TextArea } = Input;
+import { JsonEditor } from './JsonEditor';
 
 interface Props {
   type: ResponseFormatType;
@@ -26,16 +18,12 @@ const TYPE_OPTIONS: { value: ResponseFormatType; label: string }[] = [
 ];
 
 const SCHEMA_PLACEHOLDER = `{
-  "name": "weather_report",
-  "schema": {
-    "type": "object",
-    "properties": {
-      "location": { "type": "string" },
-      "temperature": { "type": "number" }
-    },
-    "required": ["location", "temperature"]
+  "type": "object",
+  "properties": {
+    "location": { "type": "string" },
+    "temperature": { "type": "number" }
   },
-  "strict": true
+  "required": ["location", "temperature"]
 }`;
 
 export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaChange, schemaError }: Props) => {
@@ -47,7 +35,6 @@ export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaCha
       <SegmentedControlGroup
         componentId="mlflow.playground.response_format.type"
         name="mlflow.playground.response_format.type"
-        size="small"
         value={type}
         onChange={(event) => onTypeChange(event.target.value as ResponseFormatType)}
       >
@@ -62,26 +49,19 @@ export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaCha
           <FormUI.Label htmlFor="mlflow.playground.response_format.schema">
             <FormattedMessage
               defaultMessage="Schema"
-              description="Label for the playground response_format JSON schema textarea"
+              description="Label for the playground response_format JSON schema editor"
             />
           </FormUI.Label>
-          <TextArea
-            componentId="mlflow.playground.response_format.schema"
+          <JsonEditor
             id="mlflow.playground.response_format.schema"
+            ariaLabel={intl.formatMessage({
+              defaultMessage: 'Schema',
+              description: 'Accessible label for the playground response_format JSON schema editor',
+            })}
             value={schemaText}
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onSchemaChange(event.target.value)}
-            autoSize={{ minRows: 4, maxRows: 16 }}
-            placeholder={intl.formatMessage(
-              {
-                defaultMessage: 'e.g. {example}',
-                description: 'Placeholder shown inside the playground response_format JSON schema textarea',
-              },
-              { example: SCHEMA_PLACEHOLDER },
-            )}
-            css={{
-              fontFamily: 'monospace',
-              fontSize: theme.typography.fontSizeSm,
-            }}
+            onChange={onSchemaChange}
+            placeholder={SCHEMA_PLACEHOLDER}
+            invalid={Boolean(schemaError)}
           />
           {schemaError && <FormUI.Message type="error" message={schemaError} />}
         </div>

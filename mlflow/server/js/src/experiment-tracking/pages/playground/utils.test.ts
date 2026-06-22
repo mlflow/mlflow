@@ -3,7 +3,7 @@ import type { ChatMessage } from './types';
 import {
   extractTemplateVariables,
   getEmptyVariables,
-  isToolsValueEmpty,
+  getToolParametersError,
   prettyPrintJson,
   substituteVariables,
 } from './utils';
@@ -89,33 +89,28 @@ describe('getEmptyVariables', () => {
   });
 });
 
-describe('isToolsValueEmpty', () => {
-  it('treats empty and whitespace-only text as empty', () => {
-    expect(isToolsValueEmpty('')).toBe(true);
-    expect(isToolsValueEmpty('   ')).toBe(true);
-    expect(isToolsValueEmpty('\n\t')).toBe(true);
+describe('getToolParametersError', () => {
+  it('flags empty or whitespace-only text', () => {
+    expect(getToolParametersError('')).toBe('Add a parameters schema');
+    expect(getToolParametersError('   ')).toBe('Add a parameters schema');
+    expect(getToolParametersError('\n\t')).toBe('Add a parameters schema');
   });
 
-  it('treats an empty JSON array as empty', () => {
-    expect(isToolsValueEmpty('[]')).toBe(true);
-    expect(isToolsValueEmpty('[ ]')).toBe(true);
-    expect(isToolsValueEmpty('[\n]')).toBe(true);
+  it('returns a parse error for unparseable text', () => {
+    expect(getToolParametersError('{not-json')).toBeTruthy();
+    expect(getToolParametersError('not-json')).toBeTruthy();
   });
 
-  it('treats a non-empty array as not empty', () => {
-    expect(isToolsValueEmpty('[{}]')).toBe(false);
-    expect(isToolsValueEmpty('[{"type":"function"}]')).toBe(false);
+  it('flags JSON that is not an object', () => {
+    expect(getToolParametersError('[]')).toBe('Parameters must be a JSON object');
+    expect(getToolParametersError('"foo"')).toBe('Parameters must be a JSON object');
+    expect(getToolParametersError('42')).toBe('Parameters must be a JSON object');
+    expect(getToolParametersError('null')).toBe('Parameters must be a JSON object');
   });
 
-  it('returns false for non-array JSON so the parse-error path can claim it', () => {
-    expect(isToolsValueEmpty('{}')).toBe(false);
-    expect(isToolsValueEmpty('"foo"')).toBe(false);
-    expect(isToolsValueEmpty('42')).toBe(false);
-  });
-
-  it('returns false for unparseable text so the parse-error path can claim it', () => {
-    expect(isToolsValueEmpty('[not-json')).toBe(false);
-    expect(isToolsValueEmpty('not-json')).toBe(false);
+  it('returns null for a valid JSON object', () => {
+    expect(getToolParametersError('{}')).toBeNull();
+    expect(getToolParametersError('{"type":"object","properties":{}}')).toBeNull();
   });
 });
 
