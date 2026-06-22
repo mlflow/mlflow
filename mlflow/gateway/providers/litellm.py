@@ -215,7 +215,7 @@ class LiteLLMProvider(BaseProvider):
             # litellm reports token usage only on the final chunk (when
             # include_usage is set); forward it so clients can track usage/cost.
             usage = getattr(chunk, "usage", None)
-            if usage is not None and getattr(usage, "total_tokens", None):
+            if usage is not None and getattr(usage, "total_tokens", None) is not None:
                 resp_dict["usage"] = {
                     "prompt_tokens": getattr(usage, "prompt_tokens", None),
                     "completion_tokens": getattr(usage, "completion_tokens", None),

@@ -255,6 +255,32 @@ async def test_chat_stream():
 
 
 @pytest.mark.asyncio
+async def test_chat_stream_forwards_zero_token_usage():
+    config = chat_config()
+
+    async def mock_stream():
+        chunk = mock.MagicMock()
+        chunk.id = "chunk-1"
+        chunk.object = "chat.completion.chunk"
+        chunk.created = 1234567890
+        chunk.model = "claude-3-5-sonnet-20241022"
+        chunk.choices = []
+        chunk.usage = mock.MagicMock()
+        chunk.usage.prompt_tokens = 0
+        chunk.usage.completion_tokens = 0
+        chunk.usage.total_tokens = 0
+        yield chunk
+
+    with mock.patch("litellm.acompletion", return_value=mock_stream()):
+        provider = LiteLLMProvider(EndpointConfig(**config), enable_tracing=True)
+        payload = {"messages": [{"role": "user", "content": "Hi"}], "stream": True}
+        chunks = [chunk async for chunk in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    # A valid all-zero usage payload must still be forwarded, not dropped.
+    assert chunks[-1].usage.total_tokens == 0
+
+
+@pytest.mark.asyncio
 async def test_embeddings():
     config = embeddings_config()
     mock_response = mock_litellm_embeddings_response()
