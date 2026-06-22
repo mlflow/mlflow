@@ -146,7 +146,7 @@ def _run_setup(
             "Tracking backend:",
             [
                 "Start a new local server",
-                "Configure the Databricks workspace",
+                "Connect to a Databricks workspace",
                 "Enter an existing server URL (e.g. http://localhost:5000)",
             ],
         )
