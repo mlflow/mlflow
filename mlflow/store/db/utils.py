@@ -84,6 +84,16 @@ def _is_empty_database(engine):
 
 
 def _initialize_tables(engine):
+    # Check if alembic_version table exists, indicating a prior migration attempt
+    inspector = sqlalchemy.inspect(engine)
+    if "alembic_version" in inspector.get_table_names():
+        _logger.info("Alembic version table found, skipping initial table creation and stamping head.")
+        # Stamp the current head to avoid re-running already executed migrations
+        from alembic.command import stamp
+        config = _get_alembic_config(engine.url)
+        stamp(config, "head")
+        _upgrade_db(engine)
+        return
     _logger.info("Creating initial MLflow database tables...")
     InitialBase.metadata.create_all(engine)
     _upgrade_db(engine)
