@@ -114,7 +114,7 @@ mlflow_validate_server <- function(client) {
         max_results = 1
       )
     ),
-    getOption("mlflow.connect.wait", 10),
+    getOption("mlflow.connect.wait", 30),
     getOption("mlflow.connect.sleep", 1)
   )
 }
