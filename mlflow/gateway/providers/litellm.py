@@ -166,17 +166,11 @@ class LiteLLMProvider(BaseProvider):
         )
         kwargs["stream"] = True
 
-        # Always request the final usage chunk (litellm only emits it when
-        # asked). Intentionally not gated on self._enable_tracing: usage has two
-        # independent consumers — the tracing span (which reads last_chunk.usage
-        # to record CHAT_USAGE in _maybe_trace_stream_method) and streaming
-        # clients that surface token/cost. Gating on tracing would hide usage
-        # from clients on non-traced endpoints, and the extra usage-only chunk
-        # is cheap and part of the standard OpenAI streaming contract.
-        if kwargs.get("stream_options") is None:
-            kwargs["stream_options"] = {"include_usage": True}
-        elif "include_usage" not in kwargs["stream_options"]:
-            kwargs["stream_options"]["include_usage"] = True
+        if self._enable_tracing:
+            if kwargs.get("stream_options") is None:
+                kwargs["stream_options"] = {"include_usage": True}
+            elif "include_usage" not in kwargs["stream_options"]:
+                kwargs["stream_options"]["include_usage"] = True
 
         response = await litellm.acompletion(**kwargs)
 

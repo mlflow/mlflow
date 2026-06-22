@@ -255,34 +255,6 @@ async def test_chat_stream():
 
 
 @pytest.mark.asyncio
-async def test_chat_stream_requests_usage_without_tracing():
-    config = chat_config()
-
-    async def mock_stream():
-        chunk = mock.MagicMock()
-        chunk.id = "chunk-1"
-        chunk.object = "chat.completion.chunk"
-        chunk.created = 1234567890
-        chunk.model = "claude-3-5-sonnet-20241022"
-        chunk.usage = None
-        choice = mock.MagicMock()
-        choice.index = 0
-        choice.delta = mock.MagicMock(spec=["content"])
-        choice.delta.content = "Hi"
-        choice.finish_reason = "stop"
-        chunk.choices = [choice]
-        yield chunk
-
-    with mock.patch("litellm.acompletion", return_value=mock_stream()) as mock_completion:
-        provider = LiteLLMProvider(EndpointConfig(**config), enable_tracing=False)
-        payload = {"messages": [{"role": "user", "content": "Hello"}], "stream": True}
-        _ = [chunk async for chunk in provider.chat_stream(chat.RequestPayload(**payload))]
-
-        call_kwargs = mock_completion.call_args[1]
-        assert call_kwargs["stream_options"]["include_usage"] is True
-
-
-@pytest.mark.asyncio
 async def test_embeddings():
     config = embeddings_config()
     mock_response = mock_litellm_embeddings_response()
