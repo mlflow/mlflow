@@ -257,24 +257,7 @@ def test_get_config_returns_existing_config(client, tmp_path):
     assert data["projects"]["exp-123"]["location"] == str(project_dir)
 
 
-def test_get_config_redacts_api_key_for_remote_clients(client, tmp_path):
-    config = AssistantConfig(
-        providers={
-            "claude_code": AssistantProviderConfig(
-                model="default", selected=True, api_key="sk-secret"
-            )
-        },
-    )
-    config.save()
-
-    with patch("mlflow.server.assistant.api._is_localhost", return_value=False):
-        response = client.get("/ajax-api/3.0/mlflow/assistant/config")
-
-    assert response.status_code == 200
-    assert "api_key" not in response.json()["providers"]["claude_code"]
-
-
-def test_get_config_keeps_api_key_for_localhost(client):
+def test_get_config_always_redacts_api_key(client):
     config = AssistantConfig(
         providers={
             "claude_code": AssistantProviderConfig(
@@ -287,7 +270,7 @@ def test_get_config_keeps_api_key_for_localhost(client):
     response = client.get("/ajax-api/3.0/mlflow/assistant/config")
 
     assert response.status_code == 200
-    assert response.json()["providers"]["claude_code"]["api_key"] == "sk-secret"
+    assert "api_key" not in response.json()["providers"]["claude_code"]
 
 
 def test_get_config_loads_config_once(client):
@@ -299,20 +282,20 @@ def test_get_config_loads_config_once(client):
 
 
 @pytest.mark.parametrize(
-    ("mode", "requires_local_execution", "expected"),
+    ("mode", "allows_remote_execution", "expected"),
     [
-        ("off", True, False),
-        ("api-only", True, False),
-        ("api-only", False, True),
-        ("all", False, False),
+        ("off", False, False),
+        ("api-only", False, False),
+        ("api-only", True, True),
+        ("all", True, False),
     ],
 )
 def test_get_config_remote_chat_allowed(
-    client, monkeypatch, mode, requires_local_execution, expected
+    client, monkeypatch, mode, allows_remote_execution, expected
 ):
     monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", mode)
     with patch("mlflow.server.assistant.api._get_selected_provider") as mock_get_selected_provider:
-        mock_get_selected_provider.return_value.requires_local_execution = requires_local_execution
+        mock_get_selected_provider.return_value.allows_remote_execution = allows_remote_execution
         response = client.get("/ajax-api/3.0/mlflow/assistant/config")
 
     assert response.status_code == 200
@@ -370,8 +353,8 @@ def test_message_allowed_for_remote_client_when_provider_allows_remote_access(mo
 
     class RemoteAllowedProvider(MockProvider):
         @property
-        def requires_local_execution(self) -> bool:
-            return False
+        def allows_remote_execution(self) -> bool:
+            return True
 
     mock_provider = RemoteAllowedProvider()
     with (
@@ -461,20 +444,20 @@ def test_is_localhost_blocks_when_no_client():
 
 
 @pytest.mark.parametrize(
-    ("mode", "requires_local_execution", "expected"),
+    ("mode", "allows_remote_execution", "expected"),
     [
-        ("off", True, False),
         ("off", False, False),
-        ("api-only", True, False),
-        ("api-only", False, True),
-        ("all", True, False),
+        ("off", True, False),
+        ("api-only", False, False),
+        ("api-only", True, True),
         ("all", False, False),
+        ("all", True, False),
     ],
 )
-def test_provider_allows_remote_access(mode, requires_local_execution, expected, monkeypatch):
+def test_provider_allows_remote_access(mode, allows_remote_execution, expected, monkeypatch):
     monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", mode)
     provider = MagicMock()
-    provider.requires_local_execution = requires_local_execution
+    provider.allows_remote_execution = allows_remote_execution
     assert _provider_allows_remote_access(provider) is expected
 
 
@@ -486,7 +469,7 @@ def test_provider_allows_remote_access_no_provider_selected(monkeypatch):
 def test_invalid_remote_access_mode_falls_back_to_off(monkeypatch):
     monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "bogus")
     provider = MagicMock()
-    provider.requires_local_execution = False
+    provider.allows_remote_execution = True
     assert _provider_allows_remote_access(provider) is False
 
 
@@ -494,7 +477,7 @@ def test_invalid_remote_access_mode_logs_warning_once(monkeypatch, caplog):
     monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "bogus")
     _INVALID_REMOTE_ACCESS_MODES_WARNED.clear()
     provider = MagicMock()
-    provider.requires_local_execution = False
+    provider.allows_remote_execution = True
     assistant_logger = logging.getLogger("mlflow.server.assistant.api")
     assistant_logger.addHandler(caplog.handler)
 
