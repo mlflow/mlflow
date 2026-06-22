@@ -292,7 +292,6 @@ let the server handle storage. Specifically:
 - Never combine two bash commands with `&&` or `||` in a single tool call.
 - If the CLI cannot accomplish the task, fall back to Python one-liners using the MLflow SDK.
 - When working with large output, write it to files in /tmp and use bash commands to analyze them.
-  Check a file's size first with `wc -c <file>` or `stat` before loading it into context.
   Never mention temp file paths to the user.
 - If a command fails due to missing permissions or a sandbox restriction, do NOT prompt the user
   interactively for approval. Instead, tell the user exactly what permission is needed and suggest

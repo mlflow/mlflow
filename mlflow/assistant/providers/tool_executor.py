@@ -10,9 +10,8 @@ from mlflow.assistant.config import PermissionsConfig
 _logger = logging.getLogger(__name__)
 
 _FILE_TOOLS = {"Read", "Write", "Edit"}
-# mlflow/python for MLflow ops; wc/stat/ls/du are read-only and let the model
-# cheaply check file sizes (e.g. of /tmp dumps) before loading large output.
-_ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python", "wc", "stat", "ls", "du"}
+# Restricted mode only permits MLflow CLI and Python; anything else needs Full Access.
+_ALLOWED_BASH_COMMANDS = {"mlflow", "python3", "python"}
 
 
 def _is_path_within(path: Path, root: Path) -> bool:

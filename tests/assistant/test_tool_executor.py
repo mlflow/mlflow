@@ -101,10 +101,3 @@ def test_full_access_bypasses_permission_checks(workspace):
     )
     # Should not get "Permission denied" (may get file not found depending on OS)
     assert "Permission denied" not in result
-
-
-@pytest.mark.parametrize("cmd", ["wc -c {f}", "ls {d}", "stat {f}", "du {f}"])
-def test_bash_allows_file_size_commands(workspace, cmd):
-    command = cmd.format(f=workspace / "README.md", d=workspace)
-    result, is_error = _run(execute_tool("Bash", {"command": command}))
-    assert "Permission denied" not in result

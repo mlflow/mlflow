@@ -217,9 +217,9 @@ class LiteLLMProvider(BaseProvider):
             usage = getattr(chunk, "usage", None)
             if usage is not None and getattr(usage, "total_tokens", None):
                 resp_dict["usage"] = {
-                    "prompt_tokens": usage.prompt_tokens,
-                    "completion_tokens": usage.completion_tokens,
-                    "total_tokens": usage.total_tokens,
+                    "prompt_tokens": getattr(usage, "prompt_tokens", None),
+                    "completion_tokens": getattr(usage, "completion_tokens", None),
+                    "total_tokens": getattr(usage, "total_tokens", None),
                 }
 
             yield self.adapter_class.model_to_chat_streaming(resp_dict, self.config)
