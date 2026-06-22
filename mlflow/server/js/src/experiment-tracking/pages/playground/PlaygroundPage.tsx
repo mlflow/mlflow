@@ -240,6 +240,7 @@ const PlaygroundPage = () => {
             ...assistant,
             content: assistant.content ?? '',
             ...(hasToolCalls && { tool_calls: assistant.tool_calls }),
+            ...(response_format && { contentIsJson: true }),
             usage: response.usage,
           };
           setMessages((current) => [...current, appended, { ...EMPTY_USER_MESSAGE }]);

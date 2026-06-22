@@ -1,6 +1,12 @@
 import { describe, it, expect } from '@jest/globals';
 import type { ChatMessage } from './types';
-import { extractTemplateVariables, getEmptyVariables, isToolsValueEmpty, substituteVariables } from './utils';
+import {
+  extractTemplateVariables,
+  getEmptyVariables,
+  isToolsValueEmpty,
+  prettyPrintJson,
+  substituteVariables,
+} from './utils';
 
 describe('extractTemplateVariables', () => {
   it('returns an empty list when there are no placeholders', () => {
@@ -110,5 +116,20 @@ describe('isToolsValueEmpty', () => {
   it('returns false for unparseable text so the parse-error path can claim it', () => {
     expect(isToolsValueEmpty('[not-json')).toBe(false);
     expect(isToolsValueEmpty('not-json')).toBe(false);
+  });
+});
+
+describe('prettyPrintJson', () => {
+  it('pretty-prints valid JSON with 2-space indentation', () => {
+    expect(prettyPrintJson('{"city":"San Francisco"}')).toBe('{\n  "city": "San Francisco"\n}');
+  });
+
+  it('re-stringifies regardless of input whitespace so output is canonical', () => {
+    expect(prettyPrintJson('{ "a" : 1 ,"b":2 }')).toBe('{\n  "a": 1,\n  "b": 2\n}');
+  });
+
+  it('falls back to the raw string for invalid/partial JSON', () => {
+    expect(prettyPrintJson('{"city":"San Francisco"')).toBe('{"city":"San Francisco"');
+    expect(prettyPrintJson('not json at all')).toBe('not json at all');
   });
 });

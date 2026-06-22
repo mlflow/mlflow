@@ -25,6 +25,26 @@ const openVariablesDrawer = () => userEvent.click(screen.getByRole('button', { n
 // Drawers are focus-trapping Radix dialogs — Submit isn't reachable until the drawer is closed.
 const closeDrawer = () => userEvent.keyboard('{Escape}');
 
+// Tool-call arguments and JSON-format responses render through GenAIMarkdownRenderer's
+// CodeSnippet, which splits tokens across spans and prepends a line number to each line.
+// Collapse a <pre>'s text to just its JSON payload (drop the leading per-line digits and
+// all whitespace) so we can compare against an expected JSON string structurally.
+const normalizeCodeBlock = (text: string | null): string =>
+  (text ?? '')
+    .split('\n')
+    .map((line) => line.replace(/^\d+/, ''))
+    .join('')
+    .replace(/\s+/g, '');
+
+// Returns the <pre> code block whose normalized JSON payload equals the expected
+// (whitespace-insensitive) JSON, or undefined when none matches.
+const findJsonCodeBlock = (expectedJson: string): HTMLPreElement | undefined => {
+  const want = expectedJson.replace(/\s+/g, '');
+  return Array.from(document.querySelectorAll('pre')).find((pre) => normalizeCodeBlock(pre.textContent) === want) as
+    | HTMLPreElement
+    | undefined;
+};
+
 jest.mock('../../components/EndpointSelector', () => ({
   EndpointSelector: ({
     currentEndpointName,
@@ -572,16 +592,18 @@ describe('PlaygroundPage', () => {
       expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
     });
 
-    // Exactly one tool-call card holds the bold header + verbatim args; no text card.
+    // Exactly one tool-call card holds the bold header + args as a JSON code block; no text card.
     const toolCards = screen.getAllByTestId('mlflow.playground.assistant.tool_call_card');
     expect(toolCards).toHaveLength(1);
     expect(screen.queryByTestId('mlflow.playground.assistant.text_card')).not.toBeInTheDocument();
     expect(toolCards[0]).toContainElement(screen.getByText('get_weather'));
-    const weatherArgs = screen.getByText('{"city":"San Francisco"}');
-    expect(weatherArgs).toBeInTheDocument();
-    expect(toolCards[0]).toContainElement(weatherArgs);
+    // Arguments render inside a CodeSnippet <pre> whose JSON payload matches verbatim.
+    const weatherArgs = findJsonCodeBlock('{"city":"San Francisco"}');
+    expect(weatherArgs).toBeDefined();
+    expect(toolCards[0]).toContainElement(weatherArgs!);
+    // The JSON code block exposes a copy button.
+    expect(toolCards[0].querySelector('[data-testid="mlflow.playground.json_code_block"] button')).toBeInTheDocument();
     expect(screen.queryByText('Tools — get_weather')).not.toBeInTheDocument();
-    expect(screen.queryByText(/"city": "San Francisco"/)).not.toBeInTheDocument();
     expect(screen.queryByText('(no text content)')).not.toBeInTheDocument();
   });
 
@@ -618,8 +640,8 @@ describe('PlaygroundPage', () => {
       expect(screen.getByText('Checking the weather.')).toBeInTheDocument();
     });
     expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
-    const weatherArgs = screen.getByText('{"city":"San Francisco"}');
-    expect(weatherArgs).toBeInTheDocument();
+    const weatherArgs = findJsonCodeBlock('{"city":"San Francisco"}');
+    expect(weatherArgs).toBeDefined();
 
     // Assistant text gets its own first card, separate from the tool-call card.
     const textCard = screen.getByTestId('mlflow.playground.assistant.text_card');
@@ -628,7 +650,7 @@ describe('PlaygroundPage', () => {
     expect(textCard).not.toBe(toolCard);
     expect(textCard).not.toContainElement(screen.getByText('get_weather'));
     expect(toolCard).toContainElement(screen.getByText('get_weather'));
-    expect(toolCard).toContainElement(weatherArgs);
+    expect(toolCard).toContainElement(weatherArgs!);
   });
 
   it('renders tool names as bold body headers with token usage footer unchanged', async () => {
@@ -668,16 +690,18 @@ describe('PlaygroundPage', () => {
       expect(screen.getByText('Tokens — input: 340, output: 40, total: 380')).toBeInTheDocument();
     });
     expect(screen.getByText('search_jobs').tagName.toLowerCase()).toBe('strong');
-    expect(
-      screen.getByText('{"currency":"USD","minimum_salary":4000,"maximum_salary":6000,"pay_period":"MONTH"}'),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/"currency": "USD"/)).not.toBeInTheDocument();
+    // Arguments render verbatim inside a JSON code block (whitespace-insensitive match).
+    const jobArgs = findJsonCodeBlock(
+      '{"currency":"USD","minimum_salary":4000,"maximum_salary":6000,"pay_period":"MONTH"}',
+    );
+    expect(jobArgs).toBeDefined();
 
     // The token usage footer renders exactly once and lives outside (below) the cards.
     const footer = screen.getByText('Tokens — input: 340, output: 40, total: 380');
     expect(screen.getAllByText(/^Tokens —/)).toHaveLength(1);
     const toolCard = screen.getByTestId('mlflow.playground.assistant.tool_call_card');
     expect(toolCard).not.toContainElement(footer);
+    expect(toolCard).toContainElement(jobArgs!);
     expect(screen.queryByTestId('mlflow.playground.assistant.text_card')).not.toBeInTheDocument();
   });
 
@@ -726,10 +750,11 @@ describe('PlaygroundPage', () => {
     // No leading text card when the assistant returned no content.
     expect(screen.queryByTestId('mlflow.playground.assistant.text_card')).not.toBeInTheDocument();
 
-    const weatherArgs = screen.getByText('{"city":"San Francisco"}');
-    const timeArgs = screen.getByText('{"timezone": "America/Los_Angeles"}');
-    expect(weatherArgs).toBeInTheDocument();
-    expect(timeArgs).toBeInTheDocument();
+    // Each call's arguments render as their own JSON code block (whitespace-insensitive match).
+    const weatherArgs = findJsonCodeBlock('{"city":"San Francisco"}');
+    const timeArgs = findJsonCodeBlock('{"timezone":"America/Los_Angeles"}');
+    expect(weatherArgs).toBeDefined();
+    expect(timeArgs).toBeDefined();
 
     // get_weather's header + args live in one card; get_time's in a different card.
     const weatherCard = toolCards.find((card) => card.contains(screen.getByText('get_weather')));
@@ -737,13 +762,101 @@ describe('PlaygroundPage', () => {
     expect(weatherCard).toBeDefined();
     expect(timeCard).toBeDefined();
     expect(weatherCard).not.toBe(timeCard);
-    expect(weatherCard).toContainElement(weatherArgs);
-    expect(weatherCard).not.toContainElement(timeArgs);
-    expect(timeCard).toContainElement(timeArgs);
-    expect(timeCard).not.toContainElement(weatherArgs);
+    expect(weatherCard).toContainElement(weatherArgs!);
+    expect(weatherCard).not.toContainElement(timeArgs!);
+    expect(timeCard).toContainElement(timeArgs!);
+    expect(timeCard).not.toContainElement(weatherArgs!);
 
     expect(screen.queryByText('Tools — get_weather, get_time')).not.toBeInTheDocument();
-    expect(screen.queryByText(/"city": "San Francisco"/)).not.toBeInTheDocument();
+  });
+
+  it('renders the assistant reply as a JSON code block when response format is JSON', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: '{"user_name":"a_b","score":42}' },
+          finish_reason: 'stop',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Give me JSON');
+
+    await openSettingsDrawer();
+    await userEvent.click(screen.getByRole('radio', { name: 'JSON' }));
+    await closeDrawer();
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    // The reply renders inside the text card as a JSON code block (CodeSnippet <pre>),
+    // pretty-printed and verbatim — not as a markdown paragraph where `a_b` would italicize.
+    await waitFor(() => {
+      expect(findJsonCodeBlock('{"user_name":"a_b","score":42}')).toBeDefined();
+    });
+    const textCard = screen.getByTestId('mlflow.playground.assistant.text_card');
+    expect(textCard).toContainElement(findJsonCodeBlock('{"user_name":"a_b","score":42}')!);
+  });
+
+  it('renders the assistant reply as a JSON code block when response format is JSON schema', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: '{"title":"hello_world"}' },
+          finish_reason: 'stop',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Give me JSON');
+
+    await openSettingsDrawer();
+    await userEvent.click(screen.getByRole('radio', { name: 'JSON schema' }));
+    fireEvent.change(screen.getByLabelText('Schema'), {
+      target: { value: '{"type":"object","properties":{"title":{"type":"string"}}}' },
+    });
+    await closeDrawer();
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(findJsonCodeBlock('{"title":"hello_world"}')).toBeDefined();
+    });
+    const textCard = screen.getByTestId('mlflow.playground.assistant.text_card');
+    expect(textCard).toContainElement(findJsonCodeBlock('{"title":"hello_world"}')!);
+  });
+
+  it('does not reformat a plain-text reply as JSON when no response format is set', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: '{"user_name":"a_b"}' },
+          finish_reason: 'stop',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    // Without a response format the content stays a markdown paragraph (no code block).
+    await waitFor(() => {
+      expect(screen.getByTestId('mlflow.playground.assistant.text_card')).toBeInTheDocument();
+    });
+    expect(findJsonCodeBlock('{"user_name":"a_b"}')).toBeUndefined();
   });
 
   it('strips tool calls from outbound follow-up conversation history', async () => {

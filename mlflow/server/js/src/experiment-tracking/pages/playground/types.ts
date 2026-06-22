@@ -22,6 +22,11 @@ export interface ToolCall {
 // Stripped to `{role, content}` before being sent to the gateway.
 export interface ConversationMessage extends ChatMessage {
   usage?: ChatCompletionUsage;
+  // True when this assistant reply was generated under a JSON / JSON-schema
+  // response format, so its content should render as a JSON code block. Captured
+  // at generation time so toggling the response-format control afterward does not
+  // retroactively reformat past replies. Display-only; stripped before sending.
+  contentIsJson?: boolean;
 }
 
 export type ResponseFormatType = 'text' | 'json_object' | 'json_schema';
