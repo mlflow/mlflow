@@ -146,8 +146,8 @@ def _run_setup(
             "Tracking backend:",
             [
                 "Start a new local server",
-                "Databricks workspace",
-                "Existing server URL (e.g. http://localhost:5000)",
+                "Connect to a Databricks workspace",
+                "Enter an existing server URL (e.g. http://localhost:5000)",
             ],
         )
         match backend_choice:
@@ -158,7 +158,7 @@ def _run_setup(
             case 1:
                 profile = click.prompt(
                     click.style(
-                        "Databricks configuration profile, or empty for default",
+                        "Select a Databricks configuration profile, or leave empty for default",
                         fg="cyan",
                         bold=True,
                     ),
