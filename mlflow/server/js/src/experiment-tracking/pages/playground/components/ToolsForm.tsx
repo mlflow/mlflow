@@ -1,5 +1,6 @@
 import {
   Button,
+  CodeIcon,
   FormUI,
   Input,
   PlusIcon,
@@ -223,8 +224,8 @@ export const ToolsForm = ({ tools, onAddTool, onRemoveTool, onUpdateTool, toolCh
                 </FormUI.Label>
                 <Button
                   componentId="mlflow.playground.tools.format"
-                  type="tertiary"
                   size="small"
+                  icon={<CodeIcon />}
                   disabled={paramsError !== null}
                   onClick={() => {
                     const formatted = formatJson(tool.params);

@@ -1,5 +1,6 @@
 import {
   Button,
+  CodeIcon,
   FormUI,
   SegmentedControlButton,
   SegmentedControlGroup,
@@ -61,8 +62,8 @@ export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaCha
             </FormUI.Label>
             <Button
               componentId="mlflow.playground.response_format.format"
-              type="tertiary"
               size="small"
+              icon={<CodeIcon />}
               disabled={Boolean(schemaError)}
               onClick={() => {
                 const formatted = formatJson(schemaText);
