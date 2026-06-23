@@ -1,7 +1,7 @@
 import {
   Button,
-  CodeIcon,
   FormUI,
+  IndentIncreaseIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
   useDesignSystemTheme,
@@ -63,7 +63,7 @@ export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaCha
             <Button
               componentId="mlflow.playground.response_format.format"
               size="small"
-              icon={<CodeIcon />}
+              icon={<IndentIncreaseIcon />}
               disabled={Boolean(schemaError)}
               onClick={() => {
                 const formatted = formatJson(schemaText);
