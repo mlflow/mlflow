@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { Button, type ButtonProps, Tooltip } from '@databricks/design-system';
 import { copyToClipboard } from '../../common/utils/copyToClipboard';
@@ -12,15 +12,19 @@ interface CopyButtonProps extends Partial<ButtonProps> {
 export const CopyButton = ({ copyText, showLabel = true, componentId, ...buttonProps }: CopyButtonProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [showCopyError, setShowCopyError] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   const handleClick = async () => {
     const success = await copyToClipboard(copyText);
+    clearTimeout(timerRef.current);
     if (success) {
       setShowTooltip(true);
-      setTimeout(() => setShowTooltip(false), 3000);
+      timerRef.current = setTimeout(() => setShowTooltip(false), 3000);
     } else {
       setShowCopyError(true);
-      setTimeout(() => setShowCopyError(false), 3000);
+      timerRef.current = setTimeout(() => setShowCopyError(false), 3000);
     }
   };
 
