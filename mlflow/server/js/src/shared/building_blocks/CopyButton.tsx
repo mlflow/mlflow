@@ -12,19 +12,27 @@ interface CopyButtonProps extends Partial<ButtonProps> {
 export const CopyButton = ({ copyText, showLabel = true, componentId, ...buttonProps }: CopyButtonProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [showCopyError, setShowCopyError] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const tooltipTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  useEffect(() => () => clearTimeout(timerRef.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(tooltipTimerRef.current);
+      clearTimeout(errorTimerRef.current);
+    },
+    [],
+  );
 
   const handleClick = async () => {
     const success = await copyToClipboard(copyText);
-    clearTimeout(timerRef.current);
     if (success) {
       setShowTooltip(true);
-      timerRef.current = setTimeout(() => setShowTooltip(false), 3000);
+      clearTimeout(tooltipTimerRef.current);
+      tooltipTimerRef.current = setTimeout(() => setShowTooltip(false), 3000);
     } else {
       setShowCopyError(true);
-      timerRef.current = setTimeout(() => setShowCopyError(false), 3000);
+      clearTimeout(errorTimerRef.current);
+      errorTimerRef.current = setTimeout(() => setShowCopyError(false), 3000);
     }
   };
 
