@@ -1895,6 +1895,10 @@
     "defaultMessage": "Tags",
     "description": "Column title text for model version tags in model version table"
   },
+  "7NadFN": {
+    "defaultMessage": "Format",
+    "description": "Button that pretty-prints the response format JSON schema in the playground"
+  },
   "7O0x9Q": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. All parameters ({inputs}, {outputs}, {expectations}, {trace}) are optional — include only the ones your logic needs. {link}",
     "description": "Step 1 description for defining judge function"
@@ -3970,6 +3974,10 @@
   "HrDWRj": {
     "defaultMessage": "Compare",
     "description": "Compare traces button"
+  },
+  "HrQbGZ": {
+    "defaultMessage": "Format",
+    "description": "Button that pretty-prints the tool parameters JSON in the playground"
   },
   "Hvznjh": {
     "defaultMessage": "Assistant",

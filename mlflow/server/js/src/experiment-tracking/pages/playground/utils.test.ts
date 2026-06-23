@@ -2,6 +2,7 @@ import { describe, it, expect } from '@jest/globals';
 import type { ChatMessage } from './types';
 import {
   extractTemplateVariables,
+  formatJson,
   getEmptyVariables,
   getToolParametersError,
   prettyPrintJson,
@@ -86,6 +87,17 @@ describe('getEmptyVariables', () => {
       { role: 'user', content: 'Translate {{ text }} into {{ language }}; keep tone {{ tone }}.' },
     ];
     expect(getEmptyVariables(messages, { language: 'fr' })).toEqual(['tone', 'text']);
+  });
+});
+
+describe('formatJson', () => {
+  it('pretty-prints valid JSON with 2-space indentation', () => {
+    expect(formatJson('{"a":1,"b":[2,3]}')).toBe('{\n  "a": 1,\n  "b": [\n    2,\n    3\n  ]\n}');
+  });
+
+  it('returns null for invalid JSON', () => {
+    expect(formatJson('{not json')).toBeNull();
+    expect(formatJson('')).toBeNull();
   });
 });
 

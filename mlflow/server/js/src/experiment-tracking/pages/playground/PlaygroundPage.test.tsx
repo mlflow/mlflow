@@ -12,6 +12,26 @@ import { PlaygroundApi } from './api';
 import PlaygroundPage from './PlaygroundPage';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
 
+// Monaco does not render in jsdom; stand the editor in with a labelled textarea.
+jest.mock('../experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor', () => ({
+  LazyJsonRecordEditor: ({
+    ariaLabel,
+    value,
+    onChange,
+    errorMessage,
+  }: {
+    ariaLabel: string;
+    value: string;
+    onChange: (next: string) => void;
+    errorMessage?: string;
+  }) => (
+    <div>
+      <textarea aria-label={ariaLabel} value={value} onChange={(event) => onChange(event.target.value)} />
+      {errorMessage ? <div role="alert">{errorMessage}</div> : null}
+    </div>
+  ),
+}));
+
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
 

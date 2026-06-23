@@ -13,8 +13,8 @@ import type { ChangeEvent } from 'react';
 import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { PlaygroundTool, ToolChoice } from '../types';
-import { getToolParametersError } from '../utils';
-import { JsonEditor } from './JsonEditor';
+import { formatJson, getToolParametersError } from '../utils';
+import { LazyJsonRecordEditor } from '../../experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor';
 
 interface Props {
   tools: PlaygroundTool[];
@@ -29,14 +29,6 @@ const TOOL_CHOICE_OPTIONS: { value: ToolChoice; label: string }[] = [
   { value: 'auto', label: 'Auto' },
   { value: 'required', label: 'Required' },
 ];
-
-const PARAMS_PLACEHOLDER = `{
-  "type": "object",
-  "properties": {
-    "location": { "type": "string" }
-  },
-  "required": ["location"]
-}`;
 
 export const ToolsForm = ({ tools, onAddTool, onRemoveTool, onUpdateTool, toolChoice, onToolChoiceChange }: Props) => {
   const { theme } = useDesignSystemTheme();
@@ -214,14 +206,40 @@ export const ToolsForm = ({ tools, onAddTool, onRemoveTool, onUpdateTool, toolCh
             </div>
 
             <div>
-              <FormUI.Label htmlFor={paramsId} css={{ marginBottom: theme.spacing.sm }}>
-                <FormattedMessage
-                  defaultMessage="Function parameters schema"
-                  description="Label for the tool parameters JSON schema editor in the playground Tools card"
-                />
-              </FormUI.Label>
-              <JsonEditor
-                id={paramsId}
+              <div
+                css={{
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  justifyContent: 'space-between',
+                  marginBottom: theme.spacing.sm,
+                  '& label': { marginBottom: 0 },
+                }}
+              >
+                <FormUI.Label htmlFor={paramsId}>
+                  <FormattedMessage
+                    defaultMessage="Function parameters schema"
+                    description="Label for the tool parameters JSON schema editor in the playground Tools card"
+                  />
+                </FormUI.Label>
+                <Button
+                  componentId="mlflow.playground.tools.format"
+                  type="tertiary"
+                  size="small"
+                  disabled={paramsError !== null}
+                  onClick={() => {
+                    const formatted = formatJson(tool.params);
+                    if (formatted !== null) {
+                      onUpdateTool(tool.id, { params: formatted });
+                    }
+                  }}
+                >
+                  <FormattedMessage
+                    defaultMessage="Format"
+                    description="Button that pretty-prints the tool parameters JSON in the playground"
+                  />
+                </Button>
+              </div>
+              <LazyJsonRecordEditor
                 ariaLabel={intl.formatMessage(
                   {
                     defaultMessage: 'Tool {number} parameters',
@@ -231,10 +249,11 @@ export const ToolsForm = ({ tools, onAddTool, onRemoveTool, onUpdateTool, toolCh
                 )}
                 value={tool.params}
                 onChange={(next) => onUpdateTool(tool.id, { params: next })}
-                placeholder={PARAMS_PLACEHOLDER}
-                invalid={Boolean(tool.params.trim()) && paramsError !== null}
+                height="160px"
+                maxHeight="360px"
+                transparentBackground
+                errorMessage={tool.params.trim() && paramsError ? paramsError : undefined}
               />
-              {paramsError && <FormUI.Message type="error" message={paramsError} />}
             </div>
           </div>
         );

@@ -70,6 +70,19 @@ export const BLANK_JSON_SCHEMA = `{
 }`;
 
 /**
+ * Pretty-prints JSON text with 2-space indentation. Returns `null` when the text
+ * is not valid JSON so callers can leave the input untouched (and keep showing the
+ * parse error). Used by the editor's Format action.
+ */
+export const formatJson = (text: string): string | null => {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Validates a tool's parameters JSON Schema text. Returns `null` when it parses
  * to a JSON object, or a short reason otherwise: empty, a JSON parse error, or a
  * non-object value. Used to flag the parameters editor and gate submission.

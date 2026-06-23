@@ -6,6 +6,26 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import type { PlaygroundTool, ToolChoice } from '../types';
 import { ToolsForm } from './ToolsForm';
 
+// Monaco does not render in jsdom; stand the editor in with a labelled textarea.
+jest.mock('../../experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor', () => ({
+  LazyJsonRecordEditor: ({
+    ariaLabel,
+    value,
+    onChange,
+    errorMessage,
+  }: {
+    ariaLabel: string;
+    value: string;
+    onChange: (next: string) => void;
+    errorMessage?: string;
+  }) => (
+    <div>
+      <textarea aria-label={ariaLabel} value={value} onChange={(event) => onChange(event.target.value)} />
+      {errorMessage ? <div role="alert">{errorMessage}</div> : null}
+    </div>
+  ),
+}));
+
 interface RenderProps {
   tools?: PlaygroundTool[];
   toolChoice?: ToolChoice;

@@ -1,7 +1,14 @@
-import { FormUI, SegmentedControlButton, SegmentedControlGroup, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  FormUI,
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { ResponseFormatType } from '../types';
-import { JsonEditor } from './JsonEditor';
+import { formatJson } from '../utils';
+import { LazyJsonRecordEditor } from '../../experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor';
 
 interface Props {
   type: ResponseFormatType;
@@ -16,15 +23,6 @@ const TYPE_OPTIONS: { value: ResponseFormatType; label: string }[] = [
   { value: 'json_object', label: 'JSON' },
   { value: 'json_schema', label: 'JSON schema' },
 ];
-
-const SCHEMA_PLACEHOLDER = `{
-  "type": "object",
-  "properties": {
-    "location": { "type": "string" },
-    "temperature": { "type": "number" }
-  },
-  "required": ["location", "temperature"]
-}`;
 
 export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaChange, schemaError }: Props) => {
   const { theme } = useDesignSystemTheme();
@@ -46,24 +44,51 @@ export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaCha
       </SegmentedControlGroup>
       {type === 'json_schema' && (
         <div>
-          <FormUI.Label htmlFor="mlflow.playground.response_format.schema">
-            <FormattedMessage
-              defaultMessage="Schema"
-              description="Label for the playground response_format JSON schema editor"
-            />
-          </FormUI.Label>
-          <JsonEditor
-            id="mlflow.playground.response_format.schema"
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'space-between',
+              marginBottom: theme.spacing.sm,
+              '& label': { marginBottom: 0 },
+            }}
+          >
+            <FormUI.Label htmlFor="mlflow.playground.response_format.schema">
+              <FormattedMessage
+                defaultMessage="Schema"
+                description="Label for the playground response_format JSON schema editor"
+              />
+            </FormUI.Label>
+            <Button
+              componentId="mlflow.playground.response_format.format"
+              type="tertiary"
+              size="small"
+              disabled={Boolean(schemaError)}
+              onClick={() => {
+                const formatted = formatJson(schemaText);
+                if (formatted !== null) {
+                  onSchemaChange(formatted);
+                }
+              }}
+            >
+              <FormattedMessage
+                defaultMessage="Format"
+                description="Button that pretty-prints the response format JSON schema in the playground"
+              />
+            </Button>
+          </div>
+          <LazyJsonRecordEditor
             ariaLabel={intl.formatMessage({
               defaultMessage: 'Schema',
               description: 'Accessible label for the playground response_format JSON schema editor',
             })}
             value={schemaText}
             onChange={onSchemaChange}
-            placeholder={SCHEMA_PLACEHOLDER}
-            invalid={Boolean(schemaError)}
+            height="160px"
+            maxHeight="360px"
+            transparentBackground
+            errorMessage={schemaError ?? undefined}
           />
-          {schemaError && <FormUI.Message type="error" message={schemaError} />}
         </div>
       )}
     </div>
