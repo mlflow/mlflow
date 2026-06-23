@@ -1,4 +1,4 @@
-import { jest, describe, beforeAll, afterAll, test, expect } from '@jest/globals';
+import { jest, describe, beforeAll, beforeEach, afterAll, test, expect } from '@jest/globals';
 import { mount } from 'enzyme';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
@@ -8,6 +8,7 @@ import { ExperimentViewRunsTable } from './ExperimentViewRunsTable';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { createExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { ExperimentPageUIStateContextProvider } from '../../contexts/ExperimentPageUIStateContext';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
 import { COLUMN_TYPES } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { makeCanonicalSortKey } from '../../utils/experimentPage.common-utils';
@@ -48,23 +49,27 @@ const mockGridApi = {
   resetRowHeights: jest.fn(),
 };
 
-jest.mock('../../../../../common/components/ag-grid/AgGridLoader', () => {
-  const columnApiMock = {
-    getAllGridColumns: () => [],
-    getAllDisplayedColumns: () => [],
-    getColumnState: () => [],
-    applyColumnState: () => {},
-  };
-  return {
-    MLFlowAgGridLoader: ({ onGridReady }: any) => {
-      onGridReady({
-        api: mockGridApi,
-        columnApi: columnApiMock,
-      });
-      return <div />;
-    },
-  };
-});
+const mockColumnApi: any = {
+  getAllGridColumns: jest.fn(() => []),
+  getAllDisplayedColumns: jest.fn(() => []),
+  getColumnState: jest.fn(() => []),
+  applyColumnState: jest.fn(),
+  resetColumnState: jest.fn(),
+};
+
+// Captures the latest props passed to the grid so tests can fire column events.
+const mockAgGridProps: { current: any } = { current: null };
+
+jest.mock('../../../../../common/components/ag-grid/AgGridLoader', () => ({
+  MLFlowAgGridLoader: (props: any) => {
+    mockAgGridProps.current = props;
+    props.onGridReady({
+      api: mockGridApi,
+      columnApi: mockColumnApi,
+    });
+    return <div />;
+  },
+}));
 
 /**
  * Mock <FormattedMessage /> instead of providing intl context to make
@@ -85,6 +90,14 @@ describe('ExperimentViewRunsTable', () => {
 
   afterAll(() => {
     jest.useRealTimers();
+  });
+
+  beforeEach(() => {
+    mockColumnApi.getAllGridColumns.mockReturnValue([]);
+    mockColumnApi.getAllDisplayedColumns.mockReturnValue([]);
+    mockColumnApi.getColumnState.mockReturnValue([]);
+    mockColumnApi.applyColumnState.mockClear();
+    mockColumnApi.resetColumnState.mockClear();
   });
 
   const defaultProps: ExperimentViewRunsTableProps = {
@@ -121,6 +134,26 @@ describe('ExperimentViewRunsTable', () => {
         </MemoryRouter>
       ),
     });
+
+  // Wraps the table with a UI-state context whose setter is a spy, so tests can
+  // assert what column persistence writes via `updateUIState`.
+  const createWrapperWithUIStateSpy = (
+    setUIState: jest.Mock,
+    additionalProps: Partial<ExperimentViewRunsTableProps> = {},
+  ) =>
+    mount(<ExperimentViewRunsTable {...defaultProps} {...additionalProps} />, {
+      wrappingComponent: ({ children }: React.PropsWithChildren<unknown>) => (
+        <MemoryRouter>
+          <MockedReduxStoreProvider>
+            <ExperimentPageUIStateContextProvider setUIState={setUIState}>
+              {children}
+            </ExperimentPageUIStateContextProvider>
+          </MockedReduxStoreProvider>
+        </MemoryRouter>
+      ),
+    });
+
+  const mockColumn = (colId: string) => ({ getColId: () => colId, getColDef: () => ({}) });
 
   const createLargeDatasetProps = (selectedKey: string, columnType: string) => {
     const largeParamKeyList = Array.from({ length: 400 }, (_, i) => `p${i}`);
@@ -364,5 +397,87 @@ describe('ExperimentViewRunsTable', () => {
 
     // Expect CTA to be displayed after unselecting
     expect(wrapper.find('ExperimentViewRunsTableAddColumnCTA').length).toBe(1);
+  });
+
+  describe('column order/width persistence', () => {
+    test('persists order and widths on a user-driven column move (debounced)', () => {
+      const setUIState = jest.fn();
+      mockColumnApi.getAllDisplayedColumns.mockReturnValue([mockColumn('a'), mockColumn('b')]);
+      mockColumnApi.getColumnState.mockReturnValue([
+        { colId: 'b', width: 120 },
+        { colId: 'a', width: 90 },
+      ]);
+
+      createWrapperWithUIStateSpy(setUIState);
+      setUIState.mockClear();
+
+      mockAgGridProps.current.onColumnMoved({ columnApi: mockColumnApi, source: 'uiColumnMoved' });
+      // Nothing persisted until the debounce window elapses.
+      expect(setUIState).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(250);
+
+      expect(setUIState).toHaveBeenCalledTimes(1);
+      const updater = setUIState.mock.calls[0][0] as (s: any) => any;
+      const next = updater({ columnOrder: [], columnWidths: {} });
+      expect(next.columnOrder).toEqual(['b', 'a']);
+      expect(next.columnWidths).toEqual({ b: 120, a: 90 });
+    });
+
+    test('persists widths on a user-driven column resize once the gesture finishes', () => {
+      const setUIState = jest.fn();
+      mockColumnApi.getAllDisplayedColumns.mockReturnValue([mockColumn('a')]);
+      mockColumnApi.getColumnState.mockReturnValue([{ colId: 'a', width: 200 }]);
+
+      createWrapperWithUIStateSpy(setUIState);
+      setUIState.mockClear();
+
+      mockAgGridProps.current.onColumnResized({ columnApi: mockColumnApi, source: 'uiColumnResized', finished: true });
+      jest.advanceTimersByTime(250);
+
+      expect(setUIState).toHaveBeenCalledTimes(1);
+      const next = (setUIState.mock.calls[0][0] as (s: any) => any)({ columnOrder: [], columnWidths: {} });
+      expect(next.columnOrder).toEqual(['a']);
+      expect(next.columnWidths).toEqual({ a: 200 });
+    });
+
+    test('does not persist on non-user column events or unfinished resizes', () => {
+      const setUIState = jest.fn();
+      mockColumnApi.getAllDisplayedColumns.mockReturnValue([mockColumn('a')]);
+      mockColumnApi.getColumnState.mockReturnValue([{ colId: 'a', width: 200 }]);
+
+      createWrapperWithUIStateSpy(setUIState);
+      setUIState.mockClear();
+
+      // Programmatic move/resize (e.g. our own applyColumnState, flex sizing).
+      mockAgGridProps.current.onColumnMoved({ columnApi: mockColumnApi, source: 'api' });
+      mockAgGridProps.current.onColumnResized({ columnApi: mockColumnApi, source: 'flex', finished: true });
+      // Intermediate frame of a live resize drag.
+      mockAgGridProps.current.onColumnResized({ columnApi: mockColumnApi, source: 'uiColumnResized', finished: false });
+      jest.advanceTimersByTime(250);
+
+      expect(setUIState).not.toHaveBeenCalled();
+    });
+
+    test('restores persisted order and widths on grid-ready', () => {
+      createWrapper({
+        uiState: Object.assign(createExperimentPageUIState(), {
+          columnOrder: ['a', 'b'],
+          columnWidths: { a: 90 },
+        }),
+      });
+
+      expect(mockColumnApi.applyColumnState).toHaveBeenCalledWith({
+        state: [
+          { colId: 'a', width: 90 },
+          { colId: 'b', width: undefined },
+        ],
+        applyOrder: true,
+      });
+    });
+
+    test('does not apply column state when nothing has been persisted', () => {
+      createWrapper({ uiState: createExperimentPageUIState() });
+      expect(mockColumnApi.applyColumnState).not.toHaveBeenCalled();
+    });
   });
 });

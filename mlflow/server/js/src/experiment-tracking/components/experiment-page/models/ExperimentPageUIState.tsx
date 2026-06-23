@@ -98,8 +98,8 @@ export interface ExperimentPageUIState extends ExperimentRunsChartsUIConfigurati
   selectedColumns: string[];
 
   /**
-   * Full display order of column ids (canonical sort keys). Empty until the user
-   * reorders a column, in which case the grid keeps its natural columnDefs order.
+   * Full display order of column ids (canonical sort keys).
+   * If empty, grid keeps its natural columnDefs order.
    */
   columnOrder: string[];
 

@@ -264,20 +264,27 @@ export const ExperimentViewRunsTable = React.memo(
 
     // Column order + width persist via uiState, riding the existing localStorage
     // and share path. Visibility stays on the separate `selectedColumns` path.
-    const captureColumnState = useMemo(
-      () =>
-        debounce((api: ColumnApi) => {
-          const { columnOrder, columnWidths } = columnStateToPrefs(api.getColumnState(), allColumns);
-          updateUIState((state: ExperimentPageUIState) => ({ ...state, columnOrder, columnWidths }));
-        }, 250),
-      [allColumns, updateUIState],
-    );
+    //
+    // The debounce owns a live timer, so it must be one stable instance — held in
+    // a ref, built once. allColumns is read through a ref so a column toggle can't
+    // rebuild the debounce and cancel an in-flight drag capture. updateUIState is a
+    // stable setter, so depending on it doesn't cause a rebuild.
+    const allColumnsRef = useRef(allColumns);
+    allColumnsRef.current = allColumns;
 
-    // Cancel any pending capture on unmount/navigation so we don't write state
-    // after the grid is gone.
-    useEffect(() => () => captureColumnState.cancel(), [captureColumnState]);
+    const captureColumnStateRef = useRef<((api: ColumnApi) => void) & { cancel(): void }>();
+    useEffect(() => {
+      const fn = debounce((api: ColumnApi) => {
+        const { columnOrder, columnWidths } = columnStateToPrefs(api.getColumnState(), allColumnsRef.current);
+        updateUIState((state: ExperimentPageUIState) => ({ ...state, columnOrder, columnWidths }));
+      }, 250);
+      captureColumnStateRef.current = fn;
+      // Cancel any pending capture on unmount so we don't write state after the grid is gone.
+      return () => fn.cancel();
+    }, [updateUIState]);
+    const captureColumnState = useCallback((api: ColumnApi) => captureColumnStateRef.current?.(api), []);
 
-    // Only capture genuine user gestures. Whitelisting (rather than excluding
+    // Only capture genuine user gestures. Allowlisting (rather than excluding
     // 'api'/'flex'/etc.) keeps initial layout, compare-mode auto-fit, and our
     // own applyColumnState from being persisted or causing a feedback loop.
     const handleColumnMoved = useCallback(
