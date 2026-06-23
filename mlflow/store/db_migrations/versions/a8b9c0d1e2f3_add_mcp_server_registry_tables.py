@@ -189,7 +189,13 @@ def upgrade():
     op.create_index(
         "idx_mcp_server_versions_latest",
         "mcp_server_versions",
-        ["workspace", "name", "status", sa.text("created_at DESC"), sa.text("version DESC")],
+        [
+            "workspace",
+            "name",
+            "status",
+            sa.text("created_at DESC"),
+            sa.text("version DESC"),
+        ],
     )
 
     op.create_index(

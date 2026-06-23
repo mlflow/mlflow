@@ -127,7 +127,7 @@ def test_search_servers(client):
 
 
 def test_server_responses_include_nested_binding_server_name(client):
-    sj = _server_json("com.example/nested-bind-srv", "1.0")
+    sj = _server_json("com.example/nested-bind-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/nested-bind-srv')}/versions",
         json={"server_json": sj, "status": "active"},
@@ -136,7 +136,7 @@ def test_server_responses_include_nested_binding_server_name(client):
         f"{PREFIX}/{_encode_path_param('com.example/nested-bind-srv')}/bindings",
         json={
             "endpoint_url": "https://mcp.example.com/nested-bind-srv",
-            "server_version": "1.0",
+            "server_version": "1.0.0",
         },
     )
 
@@ -163,6 +163,17 @@ def test_update_server(client):
     assert data["display_name"] == "Upd"
 
 
+def test_update_server_rejects_latest_version_field(client):
+    client.post(PREFIX, json={"name": "com.example/upd-latest"})
+    r = client.patch(
+        f"{PREFIX}/{_encode_path_param('com.example/upd-latest')}",
+        json={"latest_version": "2.0.0"},
+    )
+    assert r.status_code == 400
+    assert r.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert "latest_version is read-only" in r.json()["message"]
+
+
 def test_delete_server(client):
     client.post(PREFIX, json={"name": "com.example/del"})
     r = client.delete(f"{PREFIX}/{_encode_path_param('com.example/del')}")
@@ -180,45 +191,33 @@ def test_server_crud_with_slashed_name(client):
 
 def test_version_crud_with_slashed_name(client):
     name = "io.github.org/server"
-    sj = _server_json(name, "1.0")
+    sj = _server_json(name, "1.0.0")
     encoded_name = _encode_path_param(name)
     r = client.post(PREFIX + f"/{encoded_name}/versions", json={"server_json": sj})
     assert r.status_code == 200
     assert r.json()["name"] == name
-    assert r.json()["version"] == "1.0"
+    assert r.json()["version"] == "1.0.0"
 
-    r = client.get(PREFIX + f"/{encoded_name}/versions/1.0")
+    r = client.get(PREFIX + f"/{encoded_name}/versions/1.0.0")
     assert r.status_code == 200
-    assert r.json()["version"] == "1.0"
+    assert r.json()["version"] == "1.0.0"
 
 
 def test_version_crud_with_slashed_name_and_version(client):
     name = "io.github.org/slash-server"
     version = "2025/06"
     encoded_name = _encode_path_param(name)
-    encoded_version = _encode_path_param(version)
     sj = _server_json(name, version)
     r = client.post(
         PREFIX + f"/{encoded_name}/versions",
         json={"server_json": sj, "status": "active"},
     )
-    assert r.status_code == 200
-    assert r.json()["version"] == version
-
-    r = client.get(PREFIX + f"/{encoded_name}/versions/{encoded_version}")
-    assert r.status_code == 200
-    assert r.json()["version"] == version
-
-    r = client.patch(
-        PREFIX + f"/{encoded_name}/versions/{encoded_version}",
-        json={"display_name": "June 2025"},
-    )
-    assert r.status_code == 200
-    assert r.json()["display_name"] == "June 2025"
+    assert r.status_code == 400
+    assert "server_json.version" in r.json()["message"]
 
 
 def test_create_version(client):
-    sj = _server_json("com.example/v-server", "1.0", title="Test")
+    sj = _server_json("com.example/v-server", "1.0.0", title="Test")
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/v-server')}" + "/versions",
         json={"server_json": sj, "status": "active"},
@@ -226,13 +225,13 @@ def test_create_version(client):
     assert r.status_code == 200
     data = r.json()
     assert data["name"] == "com.example/v-server"
-    assert data["version"] == "1.0"
+    assert data["version"] == "1.0.0"
     assert data["status"] == "active"
     assert data["server_json"]["title"] == "Test"
 
 
 def test_create_version_name_mismatch(client):
-    sj = _server_json("com.example/wrong-name", "1.0")
+    sj = _server_json("com.example/wrong-name", "1.0.0")
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/v-server')}" + "/versions",
         json={"server_json": sj},
@@ -252,13 +251,34 @@ def test_create_version_missing_required_field_returns_mlflow_error(client):
     assert "server_json.version" in r.json()["message"]
 
 
+def test_create_version_invalid_semver_returns_mlflow_error(client):
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/v-server')}" + "/versions",
+        json={"server_json": {"name": "com.example/v-server", "version": "1.0"}},
+    )
+    assert r.status_code == 400
+    assert r.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert "server_json.version" in r.json()["message"]
+
+
+def test_create_version_rejects_semver_component_exceeding_db_integer_limit(client):
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/v-server')}" + "/versions",
+        json={"server_json": {"name": "com.example/v-server", "version": "2147483648.0.0"}},
+    )
+    assert r.status_code == 400
+    assert r.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert "server_json.version" in r.json()["message"]
+    assert "2147483647" in r.json()["message"]
+
+
 def test_create_version_invalid_package_shape_returns_mlflow_error(client):
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/pkg-server')}" + "/versions",
         json={
             "server_json": {
                 "name": "com.example/pkg-server",
-                "version": "1.0",
+                "version": "1.0.0",
                 "packages": [{}],
             }
         },
@@ -271,7 +291,7 @@ def test_create_version_invalid_package_shape_returns_mlflow_error(client):
 def test_create_version_invalid_server_name_rejected(client):
     r = client.post(
         PREFIX + "/my-server/versions",
-        json={"server_json": {"name": "my-server", "version": "1.0"}},
+        json={"server_json": {"name": "my-server", "version": "1.0.0"}},
     )
     assert r.status_code == 400
     assert r.json()["error_code"] == "INVALID_PARAMETER_VALUE"
@@ -291,7 +311,7 @@ def test_create_version_reserved_suffix_server_name_rejected(client, invalid_nam
     encoded_name = _encode_path_param(invalid_name)
     r = client.post(
         f"{PREFIX}/{encoded_name}/versions",
-        json={"server_json": {"name": invalid_name, "version": "1.0"}},
+        json={"server_json": {"name": invalid_name, "version": "1.0.0"}},
     )
     assert r.status_code == 400
     assert r.json()["error_code"] == "INVALID_PARAMETER_VALUE"
@@ -299,7 +319,7 @@ def test_create_version_reserved_suffix_server_name_rejected(client, invalid_nam
 
 
 def test_create_version_with_tools(client):
-    sj = _server_json("com.example/tools-server", "1.0")
+    sj = _server_json("com.example/tools-server", "1.0.0")
     tools = [{"name": "web_search", "description": "Search the web"}]
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/tools-server')}" + "/versions",
@@ -312,7 +332,7 @@ def test_create_version_with_tools(client):
 
 
 def test_create_version_with_tool_icons_preserves_extra_fields(client):
-    sj = _server_json("com.example/tool-icons-server", "1.0")
+    sj = _server_json("com.example/tool-icons-server", "1.0.0")
     tools = [
         {
             "name": "web_search",
@@ -335,7 +355,7 @@ def test_create_version_with_tool_icons_preserves_extra_fields(client):
 
 
 def test_create_version_preserves_empty_tools_list(client):
-    sj = _server_json("com.example/empty-tools-server", "1.0")
+    sj = _server_json("com.example/empty-tools-server", "1.0.0")
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/empty-tools-server')}" + "/versions",
         json={"server_json": sj, "tools": [], "status": "active"},
@@ -347,7 +367,7 @@ def test_create_version_preserves_empty_tools_list(client):
 def test_create_version_accepts_repository_object(client):
     sj = _server_json(
         "com.example/repo-srv",
-        "1.0",
+        "1.0.0",
         repository={
             "url": "https://github.com/modelcontextprotocol/servers",
             "source": "github",
@@ -364,44 +384,118 @@ def test_create_version_accepts_repository_object(client):
 
 
 def test_get_version(client):
-    sj = _server_json("com.example/gv", "2.0")
+    sj = _server_json("com.example/gv", "2.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/gv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
-    r = client.get(f"{PREFIX}/{_encode_path_param('com.example/gv')}" + "/versions/2.0")
+    r = client.get(f"{PREFIX}/{_encode_path_param('com.example/gv')}" + "/versions/2.0.0")
     assert r.status_code == 200
-    assert r.json()["version"] == "2.0"
+    assert r.json()["version"] == "2.0.0"
 
 
-def test_version_named_latest_round_trips_via_version_route(client):
+def test_latest_alias_does_not_override_literal_version_route(client):
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/lat')}" + "/versions",
-        json={"server_json": _server_json("com.example/lat", "latest"), "status": "active"},
+        json={"server_json": _server_json("com.example/lat", "1.0.0"), "status": "active"},
     )
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/lat')}" + "/versions",
-        json={"server_json": _server_json("com.example/lat", "2.0"), "status": "active"},
-    )
-    client.patch(
-        f"{PREFIX}/{_encode_path_param('com.example/lat')}", json={"latest_version": "2.0"}
+        json={"server_json": _server_json("com.example/lat", "2.0.0"), "status": "active"},
     )
 
     latest_version_r = client.get(
         f"{PREFIX}/{_encode_path_param('com.example/lat')}" + "/versions/latest"
     )
-    assert latest_version_r.status_code == 200
-    assert latest_version_r.json()["version"] == "latest"
+    assert latest_version_r.status_code == 404
 
     latest_alias_r = client.get(
         f"{PREFIX}/{_encode_path_param('com.example/lat')}" + "/aliases/latest"
     )
     assert latest_alias_r.status_code == 200
-    assert latest_alias_r.json()["version"] == "2.0"
+    assert latest_alias_r.json()["version"] == "2.0.0"
+
+
+def test_latest_alias_returns_highest_active_semver(client):
+    for version in ("1.2.0", "1.10.0"):
+        client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/semver-lat')}" + "/versions",
+            json={
+                "server_json": _server_json("com.example/semver-lat", version),
+                "status": "active",
+            },
+        )
+
+    alias_r = client.get(
+        f"{PREFIX}/{_encode_path_param('com.example/semver-lat')}" + "/aliases/latest"
+    )
+    assert alias_r.status_code == 200
+    assert alias_r.json()["version"] == "1.10.0"
+
+    literal_r = client.get(
+        f"{PREFIX}/{_encode_path_param('com.example/semver-lat')}" + "/versions/1.10.0"
+    )
+    assert literal_r.status_code == 200
+    assert literal_r.json()["version"] == "1.10.0"
+
+
+def test_latest_alias_uses_full_version_string_as_final_tiebreaker(client):
+    for version in ("1.0.0+abc", "1.0.0+xyz"):
+        client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/build-meta-lat')}" + "/versions",
+            json={
+                "server_json": _server_json("com.example/build-meta-lat", version),
+                "status": "active",
+            },
+        )
+
+    alias_r = client.get(
+        f"{PREFIX}/{_encode_path_param('com.example/build-meta-lat')}" + "/aliases/latest"
+    )
+    assert alias_r.status_code == 200
+    assert alias_r.json()["version"] == "1.0.0+xyz"
+
+    server_r = client.get(f"{PREFIX}/{_encode_path_param('com.example/build-meta-lat')}")
+    assert server_r.status_code == 200
+    assert server_r.json()["latest_version"] == "1.0.0+xyz"
+
+
+def test_latest_alias_handles_alphanumeric_prefix_prerelease_ordering(client):
+    for version in ("1.0.0-alpha", "1.0.0-alpha1"):
+        client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/prefix-prerelease-lat')}" + "/versions",
+            json={
+                "server_json": _server_json("com.example/prefix-prerelease-lat", version),
+                "status": "active",
+            },
+        )
+
+    alias_r = client.get(
+        f"{PREFIX}/{_encode_path_param('com.example/prefix-prerelease-lat')}" + "/aliases/latest"
+    )
+    assert alias_r.status_code == 200
+    assert alias_r.json()["version"] == "1.0.0-alpha1"
+
+
+def test_latest_alias_handles_prerelease_tuple_length_and_numeric_rules(client):
+    for version in ("1.0.0-alpha", "1.0.0-alpha.1", "1.0.0-1"):
+        client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/prerelease-tuple-lat')}" + "/versions",
+            json={
+                "server_json": _server_json("com.example/prerelease-tuple-lat", version),
+                "status": "active",
+            },
+        )
+
+    alias_r = client.get(
+        f"{PREFIX}/{_encode_path_param('com.example/prerelease-tuple-lat')}" + "/aliases/latest"
+    )
+    assert alias_r.status_code == 200
+    assert alias_r.json()["version"] == "1.0.0-alpha.1"
 
 
 def test_search_versions(client):
-    for v in ["1.0", "2.0", "3.0"]:
+    for v in ["1.0.0", "2.0.0", "3.0.0"]:
         sj = _server_json("com.example/sv", v)
         client.post(
             f"{PREFIX}/{_encode_path_param('com.example/sv')}" + "/versions",
@@ -416,26 +510,130 @@ def test_search_versions(client):
 
 
 def test_update_version_status(client):
-    sj = _server_json("com.example/uv", "1.0")
+    sj = _server_json("com.example/uv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/uv')}" + "/versions", json={"server_json": sj}
     )
     r = client.patch(
-        f"{PREFIX}/{_encode_path_param('com.example/uv')}" + "/versions/1.0",
+        f"{PREFIX}/{_encode_path_param('com.example/uv')}" + "/versions/1.0.0",
         json={"status": "active"},
     )
     assert r.status_code == 200
     assert r.json()["status"] == "active"
 
 
+def test_server_response_recomputes_status_and_latest_after_transitions(client):
+    for version in ("1.0.0", "2.0.0"):
+        client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/status-lat')}" + "/versions",
+            json={
+                "server_json": _server_json("com.example/status-lat", version),
+                "status": "active",
+            },
+        )
+
+    server = client.get(f"{PREFIX}/{_encode_path_param('com.example/status-lat')}").json()
+    assert server["status"] == "active"
+    assert server["latest_version"] == "2.0.0"
+
+    r = client.patch(
+        f"{PREFIX}/{_encode_path_param('com.example/status-lat')}" + "/versions/2.0.0",
+        json={"status": "deprecated"},
+    )
+    assert r.status_code == 200
+
+    server = client.get(f"{PREFIX}/{_encode_path_param('com.example/status-lat')}").json()
+    assert server["status"] == "active"
+    assert server["latest_version"] == "1.0.0"
+
+    r = client.patch(
+        f"{PREFIX}/{_encode_path_param('com.example/status-lat')}" + "/versions/1.0.0",
+        json={"status": "draft"},
+    )
+    assert r.status_code == 200
+
+    server = client.get(f"{PREFIX}/{_encode_path_param('com.example/status-lat')}").json()
+    assert server["status"] == "deprecated"
+    assert server["latest_version"] == "2.0.0"
+
+
+def test_server_response_description_falls_back_to_parent_resolved_version(client):
+    client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/description-fallback')}" + "/versions",
+        json={
+            "server_json": _server_json(
+                "com.example/description-fallback",
+                "1.0.0",
+                description="active description",
+            ),
+            "status": "active",
+        },
+    )
+    client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/description-fallback')}" + "/versions",
+        json={
+            "server_json": _server_json(
+                "com.example/description-fallback",
+                "2.0.0",
+                description="deprecated description",
+            ),
+            "status": "deprecated",
+        },
+    )
+
+    server = client.get(f"{PREFIX}/{_encode_path_param('com.example/description-fallback')}").json()
+    assert server["description"] == "active description"
+    assert server["latest_version"] == "1.0.0"
+    assert server["status"] == "active"
+
+    r = client.patch(
+        f"{PREFIX}/{_encode_path_param('com.example/description-fallback')}" + "/versions/1.0.0",
+        json={"status": "draft"},
+    )
+    assert r.status_code == 200
+
+    server = client.get(f"{PREFIX}/{_encode_path_param('com.example/description-fallback')}").json()
+    assert server["description"] == "deprecated description"
+    assert server["latest_version"] == "2.0.0"
+    assert server["status"] == "deprecated"
+
+
+def test_latest_alias_falls_back_to_non_active_version(client):
+    client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/latest-fallback')}" + "/versions",
+        json={
+            "server_json": _server_json("com.example/latest-fallback", "1.2.0"),
+            "status": "deprecated",
+        },
+    )
+    client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/latest-fallback')}" + "/versions",
+        json={
+            "server_json": _server_json("com.example/latest-fallback", "1.3.0"),
+            "status": "draft",
+        },
+    )
+
+    alias_r = client.get(
+        f"{PREFIX}/{_encode_path_param('com.example/latest-fallback')}" + "/aliases/latest"
+    )
+    assert alias_r.status_code == 200
+    assert alias_r.json()["version"] == "1.3.0"
+
+    server_r = client.get(f"{PREFIX}/{_encode_path_param('com.example/latest-fallback')}")
+    assert server_r.status_code == 200
+    assert server_r.json()["latest_version"] == "1.3.0"
+    assert server_r.json()["status"] == "draft"
+
+
 def test_update_version_rejects_null_status(client):
-    sj = _server_json("com.example/null-status", "1.0")
+    sj = _server_json("com.example/null-status", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/null-status')}" + "/versions",
         json={"server_json": sj},
     )
     r = client.patch(
-        f"{PREFIX}/{_encode_path_param('com.example/null-status')}" + "/versions/1.0",
+        f"{PREFIX}/{_encode_path_param('com.example/null-status')}" + "/versions/1.0.0",
         json={"status": None},
     )
     assert r.status_code == 400
@@ -444,16 +642,16 @@ def test_update_version_rejects_null_status(client):
 
 
 def test_delete_version(client):
-    sj = _server_json("com.example/dv", "1.0")
+    sj = _server_json("com.example/dv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/dv')}" + "/versions", json={"server_json": sj}
     )
-    r = client.delete(f"{PREFIX}/{_encode_path_param('com.example/dv')}" + "/versions/1.0")
+    r = client.delete(f"{PREFIX}/{_encode_path_param('com.example/dv')}" + "/versions/1.0.0")
     assert r.status_code == 200
 
 
 def test_create_binding_with_version(client):
-    sj = _server_json("com.example/bind-srv", "1.0")
+    sj = _server_json("com.example/bind-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/bind-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
@@ -462,25 +660,25 @@ def test_create_binding_with_version(client):
         f"{PREFIX}/{_encode_path_param('com.example/bind-srv')}" + "/bindings",
         json={
             "endpoint_url": "https://mcp.example.com/bind-srv",
-            "server_version": "1.0",
+            "server_version": "1.0.0",
         },
     )
     assert r.status_code == 200
     data = r.json()
     assert data["server_name"] == "com.example/bind-srv"
     assert data["endpoint_url"] == "https://mcp.example.com/bind-srv"
-    assert data["server_version"] == "1.0"
+    assert data["server_version"] == "1.0.0"
 
 
 def test_create_binding_with_alias(client):
-    sj = _server_json("com.example/alias-bind-srv", "1.0")
+    sj = _server_json("com.example/alias-bind-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/alias-bind-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/alias-bind-srv')}" + "/aliases",
-        json={"alias": "prod", "version": "1.0"},
+        json={"alias": "prod", "version": "1.0.0"},
     )
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/alias-bind-srv')}" + "/bindings",
@@ -494,7 +692,7 @@ def test_create_binding_with_alias(client):
 
 
 def test_get_binding_with_tools(client):
-    sj = _server_json("com.example/bt-srv", "1.0")
+    sj = _server_json("com.example/bt-srv", "1.0.0")
     tools = [{"name": "tool1", "description": "A tool"}]
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/bt-srv')}" + "/versions",
@@ -502,7 +700,7 @@ def test_get_binding_with_tools(client):
     )
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/bt-srv')}" + "/bindings",
-        json={"endpoint_url": "https://mcp.example.com/bt-srv", "server_version": "1.0"},
+        json={"endpoint_url": "https://mcp.example.com/bt-srv", "server_version": "1.0.0"},
     )
     r = client.get(f"{PREFIX}/{_encode_path_param('com.example/bt-srv')}" + "/bindings")
     assert r.status_code == 200
@@ -512,31 +710,31 @@ def test_get_binding_with_tools(client):
 
 
 def test_get_binding_includes_resolved_version(client):
-    sj = _server_json("com.example/brv-srv", "1.0")
+    sj = _server_json("com.example/brv-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/brv-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     create_r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/brv-srv')}" + "/bindings",
-        json={"endpoint_url": "https://mcp.example.com/brv-srv", "server_version": "1.0"},
+        json={"endpoint_url": "https://mcp.example.com/brv-srv", "server_version": "1.0.0"},
     )
     bid = create_r.json()["binding_id"]
     r = client.get(f"{PREFIX}/{_encode_path_param('com.example/brv-srv')}" + f"/bindings/{bid}")
     assert r.status_code == 200
     assert r.json()["resolved_version"]["name"] == "com.example/brv-srv"
-    assert r.json()["resolved_version"]["version"] == "1.0"
+    assert r.json()["resolved_version"]["version"] == "1.0.0"
 
 
 def test_get_binding_preserves_empty_tools_list(client):
-    sj = _server_json("com.example/bt-empty-srv", "1.0")
+    sj = _server_json("com.example/bt-empty-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/bt-empty-srv')}" + "/versions",
         json={"server_json": sj, "status": "active", "tools": []},
     )
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/bt-empty-srv')}" + "/bindings",
-        json={"endpoint_url": "https://mcp.example.com/bt-empty-srv", "server_version": "1.0"},
+        json={"endpoint_url": "https://mcp.example.com/bt-empty-srv", "server_version": "1.0.0"},
     )
     r = client.get(f"{PREFIX}/{_encode_path_param('com.example/bt-empty-srv')}" + "/bindings")
     assert r.status_code == 200
@@ -547,14 +745,14 @@ def test_get_binding_preserves_empty_tools_list(client):
 
 def test_search_bindings_workspace_wide(client):
     for name in ["ws-a", "ws-b"]:
-        sj = _server_json(f"com.example/{name}", "1.0")
+        sj = _server_json(f"com.example/{name}", "1.0.0")
         client.post(
             f"{PREFIX}/{_encode_path_param(f'com.example/{name}')}/versions",
             json={"server_json": sj, "status": "active"},
         )
         client.post(
             f"{PREFIX}/{_encode_path_param(f'com.example/{name}')}/bindings",
-            json={"endpoint_url": f"https://mcp.example.com/{name}", "server_version": "1.0"},
+            json={"endpoint_url": f"https://mcp.example.com/{name}", "server_version": "1.0.0"},
         )
     r = client.get(PREFIX + "/bindings")
     assert r.status_code == 200
@@ -563,14 +761,14 @@ def test_search_bindings_workspace_wide(client):
 
 def test_search_bindings_server_scoped(client):
     for name in ["sc-a", "sc-b"]:
-        sj = _server_json(f"com.example/{name}", "1.0")
+        sj = _server_json(f"com.example/{name}", "1.0.0")
         client.post(
             f"{PREFIX}/{_encode_path_param(f'com.example/{name}')}/versions",
             json={"server_json": sj, "status": "active"},
         )
         client.post(
             f"{PREFIX}/{_encode_path_param(f'com.example/{name}')}/bindings",
-            json={"endpoint_url": f"https://mcp.example.com/{name}", "server_version": "1.0"},
+            json={"endpoint_url": f"https://mcp.example.com/{name}", "server_version": "1.0.0"},
         )
     r = client.get(f"{PREFIX}/{_encode_path_param('com.example/sc-a')}/bindings")
     assert r.status_code == 200
@@ -579,14 +777,14 @@ def test_search_bindings_server_scoped(client):
 
 
 def test_update_binding(client):
-    sj = _server_json("com.example/ub-srv", "1.0")
+    sj = _server_json("com.example/ub-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/ub-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     create_r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/ub-srv')}" + "/bindings",
-        json={"endpoint_url": "https://old.example.com", "server_version": "1.0"},
+        json={"endpoint_url": "https://old.example.com", "server_version": "1.0.0"},
     )
     bid = create_r.json()["binding_id"]
     r = client.patch(
@@ -598,14 +796,14 @@ def test_update_binding(client):
 
 
 def test_delete_binding(client):
-    sj = _server_json("com.example/db-srv", "1.0")
+    sj = _server_json("com.example/db-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/db-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     create_r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/db-srv')}" + "/bindings",
-        json={"endpoint_url": "https://mcp.example.com/db", "server_version": "1.0"},
+        json={"endpoint_url": "https://mcp.example.com/db", "server_version": "1.0.0"},
     )
     bid = create_r.json()["binding_id"]
     r = client.delete(f"{PREFIX}/{_encode_path_param('com.example/db-srv')}" + f"/bindings/{bid}")
@@ -650,72 +848,72 @@ def test_delete_server_tag_with_slash_key(client):
 
 
 def test_set_and_delete_version_tag(client):
-    sj = _server_json("com.example/vt-srv", "1.0")
+    sj = _server_json("com.example/vt-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/vt-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     r = client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/vt-srv')}" + "/versions/1.0/tags",
+        f"{PREFIX}/{_encode_path_param('com.example/vt-srv')}" + "/versions/1.0.0/tags",
         json={"key": "stage", "value": "beta"},
     )
     assert r.status_code == 200
     ver = client.get(
-        f"{PREFIX}/{_encode_path_param('com.example/vt-srv')}" + "/versions/1.0"
+        f"{PREFIX}/{_encode_path_param('com.example/vt-srv')}" + "/versions/1.0.0"
     ).json()
     assert ver["tags"]["stage"] == "beta"
 
     r = client.delete(
-        f"{PREFIX}/{_encode_path_param('com.example/vt-srv')}" + "/versions/1.0/tags/stage"
+        f"{PREFIX}/{_encode_path_param('com.example/vt-srv')}" + "/versions/1.0.0/tags/stage"
     )
     assert r.status_code == 200
     ver = client.get(
-        f"{PREFIX}/{_encode_path_param('com.example/vt-srv')}" + "/versions/1.0"
+        f"{PREFIX}/{_encode_path_param('com.example/vt-srv')}" + "/versions/1.0.0"
     ).json()
     assert "stage" not in ver["tags"]
 
 
 def test_delete_version_tag_with_slash_key(client):
-    sj = _server_json("com.example/slash-vt-srv", "1.0")
+    sj = _server_json("com.example/slash-vt-srv", "1.0.0")
     encoded_key = _encode_path_param("team/platform")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/slash-vt-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/slash-vt-srv')}" + "/versions/1.0/tags",
+        f"{PREFIX}/{_encode_path_param('com.example/slash-vt-srv')}" + "/versions/1.0.0/tags",
         json={"key": "team/platform", "value": "beta"},
     )
     r = client.delete(
         f"{PREFIX}/{_encode_path_param('com.example/slash-vt-srv')}"
-        + f"/versions/1.0/tags/{encoded_key}"
+        + f"/versions/1.0.0/tags/{encoded_key}"
     )
     assert r.status_code == 200
     ver = client.get(
-        f"{PREFIX}/{_encode_path_param('com.example/slash-vt-srv')}" + "/versions/1.0"
+        f"{PREFIX}/{_encode_path_param('com.example/slash-vt-srv')}" + "/versions/1.0.0"
     ).json()
     assert "team/platform" not in ver["tags"]
 
 
 def test_set_and_resolve_alias(client):
-    sj = _server_json("com.example/alias-srv", "1.0")
+    sj = _server_json("com.example/alias-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/alias-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/alias-srv')}" + "/aliases",
-        json={"alias": "prod", "version": "1.0"},
+        json={"alias": "prod", "version": "1.0.0"},
     )
     assert r.status_code == 200
 
     r = client.get(f"{PREFIX}/{_encode_path_param('com.example/alias-srv')}" + "/aliases/prod")
     assert r.status_code == 200
-    assert r.json()["version"] == "1.0"
+    assert r.json()["version"] == "1.0.0"
 
 
 def test_alias_with_slash_round_trips(client):
-    sj = _server_json("com.example/slash-alias-srv", "1.0")
+    sj = _server_json("com.example/slash-alias-srv", "1.0.0")
     encoded_alias = _encode_path_param("team/prod")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/slash-alias-srv')}" + "/versions",
@@ -723,14 +921,14 @@ def test_alias_with_slash_round_trips(client):
     )
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/slash-alias-srv')}" + "/aliases",
-        json={"alias": "team/prod", "version": "1.0"},
+        json={"alias": "team/prod", "version": "1.0.0"},
     )
     r = client.get(
         f"{PREFIX}/{_encode_path_param('com.example/slash-alias-srv')}"
         + f"/aliases/{encoded_alias}"
     )
     assert r.status_code == 200
-    assert r.json()["version"] == "1.0"
+    assert r.json()["version"] == "1.0.0"
 
     r = client.delete(
         f"{PREFIX}/{_encode_path_param('com.example/slash-alias-srv')}"
@@ -740,7 +938,7 @@ def test_alias_with_slash_round_trips(client):
 
 
 def test_resolve_latest_alias(client):
-    for v in ["1.0", "2.0"]:
+    for v in ["1.0.0", "2.0.0"]:
         sj = _server_json("com.example/latest-srv", v)
         client.post(
             f"{PREFIX}/{_encode_path_param('com.example/latest-srv')}" + "/versions",
@@ -748,18 +946,18 @@ def test_resolve_latest_alias(client):
         )
     r = client.get(f"{PREFIX}/{_encode_path_param('com.example/latest-srv')}" + "/aliases/latest")
     assert r.status_code == 200
-    assert r.json()["version"] == "2.0"
+    assert r.json()["version"] == "2.0.0"
 
 
 def test_delete_alias(client):
-    sj = _server_json("com.example/da-srv", "1.0")
+    sj = _server_json("com.example/da-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/da-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/da-srv')}" + "/aliases",
-        json={"alias": "staging", "version": "1.0"},
+        json={"alias": "staging", "version": "1.0.0"},
     )
     r = client.delete(f"{PREFIX}/{_encode_path_param('com.example/da-srv')}" + "/aliases/staging")
     assert r.status_code == 200
@@ -781,20 +979,20 @@ def test_invalid_server_json(client):
 
 
 def test_invalid_status_transition(client):
-    sj = _server_json("com.example/is-srv", "1.0")
+    sj = _server_json("com.example/is-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/is-srv')}" + "/versions",
         json={"server_json": sj},
     )
     r = client.patch(
-        f"{PREFIX}/{_encode_path_param('com.example/is-srv')}" + "/versions/1.0",
+        f"{PREFIX}/{_encode_path_param('com.example/is-srv')}" + "/versions/1.0.0",
         json={"status": "deprecated"},
     )
     assert r.status_code == 400
 
 
 def test_invalid_status_value(client):
-    sj = _server_json("com.example/bad-status", "1.0")
+    sj = _server_json("com.example/bad-status", "1.0.0")
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/bad-status')}" + "/versions",
         json={"server_json": sj, "status": "bogus"},
@@ -805,7 +1003,7 @@ def test_invalid_status_value(client):
 
 
 def test_invalid_transport_type(client):
-    sj = _server_json("com.example/bad-transport", "1.0")
+    sj = _server_json("com.example/bad-transport", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/bad-transport')}" + "/versions",
         json={"server_json": sj, "status": "active"},
@@ -815,7 +1013,7 @@ def test_invalid_transport_type(client):
         json={
             "endpoint_url": "https://example.com",
             "transport_type": "ftp",
-            "server_version": "1.0",
+            "server_version": "1.0.0",
         },
     )
     assert r.status_code == 400
@@ -824,30 +1022,30 @@ def test_invalid_transport_type(client):
 
 
 def test_server_response_has_aliases_as_list(client):
-    sj = _server_json("com.example/shape-srv", "1.0")
+    sj = _server_json("com.example/shape-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/shape-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/shape-srv')}" + "/aliases",
-        json={"alias": "prod", "version": "1.0"},
+        json={"alias": "prod", "version": "1.0.0"},
     )
     server = client.get(f"{PREFIX}/{_encode_path_param('com.example/shape-srv')}").json()
     assert isinstance(server["aliases"], list)
     assert server["aliases"][0]["alias"] == "prod"
-    assert server["aliases"][0]["version"] == "1.0"
+    assert server["aliases"][0]["version"] == "1.0.0"
 
 
 def test_server_response_includes_bindings(client):
-    sj = _server_json("com.example/sb-srv", "1.0")
+    sj = _server_json("com.example/sb-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/sb-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/sb-srv')}" + "/bindings",
-        json={"endpoint_url": "https://example.com/sb", "server_version": "1.0"},
+        json={"endpoint_url": "https://example.com/sb", "server_version": "1.0.0"},
     )
     server = client.get(f"{PREFIX}/{_encode_path_param('com.example/sb-srv')}").json()
     assert len(server["access_bindings"]) == 1
@@ -855,22 +1053,22 @@ def test_server_response_includes_bindings(client):
 
 
 def test_server_response_includes_binding_resolved_version(client):
-    sj = _server_json("com.example/sbrv-srv", "1.0")
+    sj = _server_json("com.example/sbrv-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/sbrv-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/sbrv-srv')}" + "/bindings",
-        json={"endpoint_url": "https://example.com/sbrv", "server_version": "1.0"},
+        json={"endpoint_url": "https://example.com/sbrv", "server_version": "1.0.0"},
     )
     server = client.get(f"{PREFIX}/{_encode_path_param('com.example/sbrv-srv')}").json()
     assert len(server["access_bindings"]) == 1
-    assert server["access_bindings"][0]["resolved_version"]["version"] == "1.0"
+    assert server["access_bindings"][0]["resolved_version"]["version"] == "1.0.0"
 
 
 def test_server_json_extra_fields_preserved(client):
-    sj = _server_json("com.example/extra-srv", "1.0", custom_field="preserved")
+    sj = _server_json("com.example/extra-srv", "1.0.0", custom_field="preserved")
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/extra-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
@@ -880,7 +1078,7 @@ def test_server_json_extra_fields_preserved(client):
 
 
 def test_server_json_explicit_nulls_preserved(client):
-    sj = _server_json("com.example/null-srv", "1.0", description=None, custom_field=None)
+    sj = _server_json("com.example/null-srv", "1.0.0", description=None, custom_field=None)
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/null-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
