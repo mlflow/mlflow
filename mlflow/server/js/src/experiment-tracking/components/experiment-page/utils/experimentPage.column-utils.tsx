@@ -280,6 +280,12 @@ export const useRunsColumnDefinitions = ({
       width: getActionsColumnWidth(isComparingRuns),
       maxWidth: getActionsColumnWidth(isComparingRuns),
       resizable: false,
+      // Structural selection column: must stay pinned far-left and never reorder.
+      // `lockPosition` anchors it to the first (leftmost) slot so neither applyColumnState nor
+      // resetColumnState can shuffle it (it has no colId and would otherwise get
+      // pushed after the listed pinned columns). suppressMovable blocks user drag.
+      lockPosition: true,
+      suppressMovable: true,
       suppressKeyboardEvent: RowActionsCellRendererSuppressKeyboardEvents,
     });
 
@@ -305,6 +311,8 @@ export const useRunsColumnDefinitions = ({
       initialWidth: isRunColumnDynamicSized ? undefined : RUN_NAME_COLUMN_WIDTH,
       flex: isRunColumnDynamicSized ? 1 : undefined,
       resizable: !isComparingRuns,
+      // Always-visible anchor column: allow resize but lock its position.
+      suppressMovable: true,
       suppressKeyboardEvent: defaultKeyboardNavigationSuppressor,
     });
 
@@ -331,6 +339,8 @@ export const useRunsColumnDefinitions = ({
         'is-ordered-by': cellClassIsOrderedBy,
       },
       initialWidth: 150,
+      // Always-visible anchor column: allow resize but lock its position.
+      suppressMovable: true,
     });
 
     // Datasets column - guarded by a feature flag
@@ -352,6 +362,8 @@ export const useRunsColumnDefinitions = ({
       headerName: ATTRIBUTE_COLUMN_LABELS.DURATION,
       field: 'duration',
       initialWidth: 80,
+      // Always-visible anchor column: allow resize but lock its position.
+      suppressMovable: true,
     });
 
     // Experiment name column
