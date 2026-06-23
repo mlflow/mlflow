@@ -458,6 +458,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
       setError(null);
       setIsStreaming(true);
+      setPendingPermission(null);
 
       // Add user message
       setMessages((prev) => [

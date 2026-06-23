@@ -333,28 +333,51 @@ describe('AssistantProvider setup completeness', () => {
 });
 
 describe('AssistantContext — a new message supersedes a pending permission prompt', () => {
-  it('clears pendingPermission when the user sends another message', async () => {
+  // The pause path surfaces the request and closes the stream WITHOUT a done event,
+  // so the Allow/Deny prompt is left showing.
+  const pausePrompt = () => {
+    capturedCallbacks?.onPermissionRequest?.({
+      sessionId: 'session-1',
+      requestId: 'req-1',
+      toolName: 'bash',
+      toolInput: { command: 'ls' },
+    });
+  };
+
+  it('clears pendingPermission on the cold-start path (startChat, no session yet)', async () => {
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('run the tool');
+    });
+    act(pausePrompt);
+    expect(result.current.pendingPermission).not.toBeNull();
+
+    // No session was established, so this send falls through to startChat.
+    await act(async () => {
+      result.current.sendMessage('never mind, what is 2+2');
+    });
+
+    expect(result.current.pendingPermission).toBeNull();
+  });
+
+  it('clears pendingPermission on the established-session path (handleSendMessage)', async () => {
     const { result } = await renderAssistant();
 
     await act(async () => {
       result.current.sendMessage('run the tool');
     });
 
-    // Backend pauses the turn at a permission prompt. The pause path surfaces the
-    // request and closes the stream WITHOUT a done event, so the Allow/Deny prompt
-    // is left showing.
+    // The first turn returns a session id, so subsequent sends route through
+    // handleSendMessage's own branch rather than startChat. Then the turn pauses.
     act(() => {
-      capturedCallbacks?.onPermissionRequest?.({
-        sessionId: 'session-1',
-        requestId: 'req-1',
-        toolName: 'bash',
-        toolInput: { command: 'ls' },
-      });
+      capturedCallbacks?.onSessionId?.('session-1');
+      pausePrompt();
     });
+    expect(result.current.sessionId).toBe('session-1');
     expect(result.current.pendingPermission).not.toBeNull();
 
-    // The user ignores the prompt and types a new message instead. The stale prompt
-    // must clear so a later Allow/Deny can't resume the abandoned turn.
+    // This send exercises handleSendMessage (sessionId is set); the stale prompt must clear.
     await act(async () => {
       result.current.sendMessage('never mind, what is 2+2');
     });
