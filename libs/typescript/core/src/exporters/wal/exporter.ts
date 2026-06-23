@@ -12,7 +12,7 @@ function decodeMlflowSpanAttributes(
 ): Record<string, unknown> {
   const decoded: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(attributes)) {
-    if (typeof value === 'string') {
+    if (typeof value === 'string' && value.startsWith('"')) {
       try {
         decoded[key] = JSON.parse(value);
       } catch {

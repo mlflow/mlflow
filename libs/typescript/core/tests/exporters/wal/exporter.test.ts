@@ -562,4 +562,33 @@ describe('wal/exporter', () => {
     expect(decoded.includes(Buffer.from('"TOOL"'))).toBe(false);
     expect(decoded.includes(Buffer.from('"WebSearch"'))).toBe(false);
   });
+
+  it('still serializes OTLP when spans carry JSON object attributes (inputs/outputs)', async () => {
+    const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
+    const exporter = new MlflowWalSpanExporter({ submit });
+
+    const inputsJson = JSON.stringify({ prompt: 'hello' });
+    const outputsJson = JSON.stringify({ response: 'world' });
+    popTraceSpy.mockReturnValue(
+      makeTraceWithSpans('tr-obj-attrs', {
+        [SpanAttributeKey.SPAN_TYPE]: JSON.stringify('TOOL'),
+        [SpanAttributeKey.INPUTS]: inputsJson,
+        [SpanAttributeKey.OUTPUTS]: outputsJson,
+      }),
+    );
+    const span = makeSpan({ traceId: 'otel-1', rootSpan: true });
+
+    const { callback, promise } = captureExportResult();
+    exporter.export([span], callback);
+
+    expect((await promise).code).toBe(ExportResultCode.SUCCESS);
+    await exporter.forceFlush();
+
+    const record = submit.mock.calls[0][0];
+    expect(record.otlpSpans).toBeDefined();
+    const decoded = Buffer.from(record.otlpSpans as string, 'base64');
+    expect(decoded.includes(Buffer.from(inputsJson))).toBe(true);
+    expect(decoded.includes(Buffer.from(outputsJson))).toBe(true);
+    expect(decoded.includes(Buffer.from('TOOL'))).toBe(true);
+  });
 });
