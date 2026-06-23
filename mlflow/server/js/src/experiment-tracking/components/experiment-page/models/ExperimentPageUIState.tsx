@@ -28,7 +28,7 @@ export const EXPERIMENT_PAGE_UI_STATE_FIELDS = [
   'chartsSearchFilter',
 ];
 
-const getDefaultSelectedColumns = () => {
+export const getDefaultSelectedColumns = () => {
   const result = [
     // "Source" and "Model" columns are visible by default
     makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.SOURCE),

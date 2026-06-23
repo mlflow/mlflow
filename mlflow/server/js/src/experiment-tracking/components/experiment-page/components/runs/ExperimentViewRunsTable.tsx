@@ -81,6 +81,12 @@ export interface ExperimentViewRunsTableProps {
   expandRows: boolean;
   uiState: ExperimentPageUIState;
   compareRunsMode: ExperimentViewRunsCompareMode;
+
+  /**
+   * Published on grid-ready so sibling controls (e.g. the column selector's
+   * "Reset to defaults") can imperatively reset ag-grid's column state.
+   */
+  columnApiRef?: React.MutableRefObject<ColumnApi | null>;
 }
 
 export const ExperimentViewRunsTable = React.memo(
@@ -100,6 +106,7 @@ export const ExperimentViewRunsTable = React.memo(
     viewState,
     uiState,
     compareRunsMode,
+    columnApiRef,
   }: ExperimentViewRunsTableProps) => {
     const { theme } = useDesignSystemTheme();
     const updateUIState = useUpdateExperimentViewUIState();
@@ -199,10 +206,16 @@ export const ExperimentViewRunsTable = React.memo(
     // A modern version of row visibility toggle function, supports "show all", "show first n runs" options
     const toggleRowVisibility = useToggleRowVisibilityCallback(rowsData, uiState.useGroupedValuesInCharts);
 
-    const gridReadyHandler = useCallback((params: GridReadyEvent) => {
-      setGridApi(params.api);
-      setColumnApi(params.columnApi);
-    }, []);
+    const gridReadyHandler = useCallback(
+      (params: GridReadyEvent) => {
+        setGridApi(params.api);
+        setColumnApi(params.columnApi);
+        if (columnApiRef) {
+          columnApiRef.current = params.columnApi;
+        }
+      },
+      [columnApiRef],
+    );
 
     const { handleRowSelected, onSelectionChange } = useExperimentTableSelectRowHandler(updateViewState);
 

@@ -8487,6 +8487,10 @@
     "defaultMessage": "MLflow assistant",
     "description": "Tab label for the in-UI MLflow assistant path in the agent action card"
   },
+  "gMflIB": {
+    "defaultMessage": "Reset to defaults",
+    "description": "Button in the experiment runs table column selector that resets column visibility, order and width back to defaults"
+  },
   "gOH/XL": {
     "defaultMessage": "No additional metadata is available for this dataset.",
     "description": "Body shown in the V2 evaluation dataset metadata modal when digest/schema/profile are all empty"
