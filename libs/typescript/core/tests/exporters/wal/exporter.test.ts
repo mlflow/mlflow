@@ -563,7 +563,7 @@ describe('wal/exporter', () => {
     expect(decoded.includes(Buffer.from('"WebSearch"'))).toBe(false);
   });
 
-  it('still serializes OTLP when spans carry JSON object attributes (inputs/outputs)', async () => {
+  it('keeps JSON object attributes as single-encoded strings in OTLP output', async () => {
     const submit = jest.fn<Promise<void>, [WalRecord]>().mockResolvedValue(undefined);
     const exporter = new MlflowWalSpanExporter({ submit });
 
@@ -587,8 +587,12 @@ describe('wal/exporter', () => {
     const record = submit.mock.calls[0][0];
     expect(record.otlpSpans).toBeDefined();
     const decoded = Buffer.from(record.otlpSpans as string, 'base64');
+
+    // Single-encoded JSON text is present...
     expect(decoded.includes(Buffer.from(inputsJson))).toBe(true);
     expect(decoded.includes(Buffer.from(outputsJson))).toBe(true);
-    expect(decoded.includes(Buffer.from('TOOL'))).toBe(true);
+    // ...but not wrapped again as a JSON string scalar (the naive JSON.parse-all bug).
+    expect(decoded.includes(Buffer.from(JSON.stringify(inputsJson)))).toBe(false);
+    expect(decoded.includes(Buffer.from(JSON.stringify(outputsJson)))).toBe(false);
   });
 });
