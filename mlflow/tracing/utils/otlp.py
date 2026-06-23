@@ -1,6 +1,7 @@
 import base64
 import gzip
 import os
+import re
 import zlib
 from typing import Any
 
@@ -156,6 +157,23 @@ def _otel_proto_bytes_to_id(id_bytes: bytes) -> int:
     return int.from_bytes(id_bytes, byteorder="big", signed=False)
 
 
+# Matches lone UTF-16 surrogate code points (U+D800-U+DFFF). A valid Python str never
+# contains surrogate pairs (astral characters are stored as single code points), so any
+# code point in this range is necessarily a lone surrogate that cannot be encoded as UTF-8.
+_LONE_SURROGATE_RE = re.compile(r"[\ud800-\udfff]")
+
+
+def _sanitize_proto_str(value: str) -> str:
+    """Replace lone UTF-16 surrogates so the string can be assigned to a protobuf field.
+
+    Protobuf ``string`` fields require valid UTF-8. A span attribute coming from bad upstream
+    data may hold a lone surrogate (e.g. ``"\\ud83e"``), which round-trips through JSON storage
+    but raises ``UnicodeEncodeError`` when assigned to a protobuf ``string_value``. Each lone
+    surrogate is replaced with the Unicode replacement character (U+FFFD).
+    """
+    return _LONE_SURROGATE_RE.sub("�", value)
+
+
 def _set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
     """Set a value on an OTel protobuf AnyValue message.
 
@@ -169,7 +187,7 @@ def _set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
     elif isinstance(value, bool):
         pb_any_value.bool_value = value
     elif isinstance(value, str):
-        pb_any_value.string_value = value
+        pb_any_value.string_value = _sanitize_proto_str(value)
     elif isinstance(value, int):
         pb_any_value.int_value = value
     elif isinstance(value, float):
@@ -192,7 +210,7 @@ def _set_otel_proto_anyvalue(pb_any_value: AnyValue, value: Any) -> None:
         pb_any_value.kvlist_value.CopyFrom(kvlist_value)
     else:
         # For unknown types, convert to string
-        pb_any_value.string_value = str(value)
+        pb_any_value.string_value = _sanitize_proto_str(str(value))
 
 
 def _decode_otel_proto_anyvalue(pb_any_value: AnyValue) -> Any:

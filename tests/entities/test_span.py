@@ -399,6 +399,52 @@ def test_otel_attribute_conversion(attributes):
     assert decoded == attributes
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        # Lone leading surrogate (e.g. the high half of a 4-byte emoji from bad upstream data)
+        ("x" * 149 + "\ud83e", "x" * 149 + "�"),
+        # Lone trailing surrogate
+        ("\udc00bad", "�bad"),
+        # Multiple lone surrogates
+        ("\ud800\ud801", "��"),
+        # Nested inside a list and dict
+        (["ok", "\ud83e"], ["ok", "�"]),
+        ({"k": "\ud83e"}, {"k": "�"}),
+        # Valid astral characters (stored as single code points) are left untouched
+        ("hello 🦾", "hello 🦾"),
+    ],
+)
+def test_otel_attribute_conversion_lone_surrogate(value, expected):
+    from opentelemetry.proto.common.v1.common_pb2 import KeyValue
+
+    from mlflow.tracing.utils.otlp import _decode_otel_proto_anyvalue, _set_otel_proto_anyvalue
+
+    kv = KeyValue()
+    kv.key = "bad"
+    # Must not raise UnicodeEncodeError when assigning the lone surrogate to the proto field
+    _set_otel_proto_anyvalue(kv.value, value)
+    assert _decode_otel_proto_anyvalue(kv.value) == expected
+
+
+def test_span_to_otel_proto_with_lone_surrogate_attribute():
+    # Reproduces #24123: a span attribute holding a lone surrogate must not crash to_otel_proto.
+    otel_span = OTelReadableSpan(
+        name="s",
+        context=build_otel_context(
+            trace_id=0x12345678901234567890123456789012,
+            span_id=0x1234567890123456,
+        ),
+        start_time=1000000000,
+        end_time=2000000000,
+        attributes={"bad": "x" * 149 + "\ud83e"},
+    )
+    otel_proto = Span(otel_span).to_otel_proto()
+
+    bad_attr = next(attr for attr in otel_proto.attributes if attr.key == "bad")
+    assert bad_attr.value.string_value == "x" * 149 + "�"
+
+
 def test_span_to_otel_proto_conversion(sample_otel_span_for_conversion):
     # Create MLflow span from OTel span
     mlflow_span = Span(sample_otel_span_for_conversion)
