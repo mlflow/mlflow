@@ -278,7 +278,7 @@ describe('PlaygroundPage', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
     fireEvent.change(screen.getByLabelText('Function name'), { target: { value: 'echo' } });
     fireEvent.change(screen.getByLabelText('Tool 1 parameters'), {
-      target: { value: '{"type":"object"}' },
+      target: { value: '{"type":"object","properties":{}}' },
     });
 
     // Switch response format to json_object.
@@ -296,7 +296,7 @@ describe('PlaygroundPage', () => {
           presence_penalty: 0.5,
           frequency_penalty: 0.5,
           stop: ['STOP', 'FIN'],
-          tools: [{ type: 'function', function: { name: 'echo', parameters: { type: 'object' } } }],
+          tools: [{ type: 'function', function: { name: 'echo', parameters: { type: 'object', properties: {} } } }],
           tool_choice: 'required',
           response_format: { type: 'json_object' },
         }),

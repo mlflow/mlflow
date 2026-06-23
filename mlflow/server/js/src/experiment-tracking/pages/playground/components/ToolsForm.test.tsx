@@ -35,7 +35,7 @@ const tool = (overrides: Partial<PlaygroundTool> = {}): PlaygroundTool => ({
   id: 't1',
   name: 'get_weather',
   description: '',
-  params: '{}',
+  params: '{"type":"object","properties":{}}',
   ...overrides,
 });
 
@@ -136,10 +136,16 @@ describe('ToolsForm', () => {
     expect(screen.getByText('Parameters must be a JSON object')).toBeInTheDocument();
   });
 
+  it('shows a parameters error when the schema is missing a properties map', () => {
+    renderForm({ tools: [tool({ params: '{"type":"object"}' })] });
+    expect(screen.getByText('Parameters schema must include a "properties" object')).toBeInTheDocument();
+  });
+
   it('shows no errors for a named tool with a valid parameters object', () => {
-    renderForm({ tools: [tool({ name: 'get_weather', params: '{"type":"object"}' })] });
+    renderForm({ tools: [tool({ name: 'get_weather', params: '{"type":"object","properties":{}}' })] });
     expect(screen.queryByText('Function name is required')).not.toBeInTheDocument();
     expect(screen.queryByText('Parameters must be a JSON object')).not.toBeInTheDocument();
+    expect(screen.queryByText('Parameters schema must include a "properties" object')).not.toBeInTheDocument();
   });
 
   it('numbers and labels multiple tool cards independently', () => {

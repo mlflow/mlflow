@@ -120,9 +120,15 @@ describe('getToolParametersError', () => {
     expect(getToolParametersError('null')).toBe('Parameters must be a JSON object');
   });
 
-  it('returns null for a valid JSON object', () => {
-    expect(getToolParametersError('{}')).toBeNull();
+  it('flags an object schema without a properties map', () => {
+    expect(getToolParametersError('{}')).toBe('Parameters schema must include a "properties" object');
+    expect(getToolParametersError('{"type":"object"}')).toBe('Parameters schema must include a "properties" object');
+    expect(getToolParametersError('{"properties":[]}')).toBe('Parameters schema must include a "properties" object');
+  });
+
+  it('returns null for a valid object schema with properties', () => {
     expect(getToolParametersError('{"type":"object","properties":{}}')).toBeNull();
+    expect(getToolParametersError('{"properties":{"a":{"type":"string"}}}')).toBeNull();
   });
 });
 

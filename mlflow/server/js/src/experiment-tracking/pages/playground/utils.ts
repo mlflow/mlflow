@@ -100,5 +100,11 @@ export const getToolParametersError = (text: string): string | null => {
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     return 'Parameters must be a JSON object';
   }
+  // The gateway requires the function parameters to be a JSON Schema object with a
+  // `properties` map; flag a missing/invalid one here instead of surfacing a 400.
+  const properties = (parsed as Record<string, unknown>)['properties'];
+  if (typeof properties !== 'object' || properties === null || Array.isArray(properties)) {
+    return 'Parameters schema must include a "properties" object';
+  }
   return null;
 };
