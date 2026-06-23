@@ -14,6 +14,8 @@ interface Props {
   toolsText: string;
   onToolsChange: (next: string) => void;
   toolsError?: string | null;
+  toolsAdded: boolean;
+  onToolsAddedChange: (next: boolean) => void;
   toolChoice: ToolChoice;
   onToolChoiceChange: (next: ToolChoice) => void;
   responseFormatType: ResponseFormatType;
@@ -37,6 +39,8 @@ export const PlaygroundTopBar = ({
   toolsText,
   onToolsChange,
   toolsError,
+  toolsAdded,
+  onToolsAddedChange,
   toolChoice,
   onToolChoiceChange,
   responseFormatType,
@@ -75,6 +79,8 @@ export const PlaygroundTopBar = ({
         toolsText={toolsText}
         onToolsChange={onToolsChange}
         toolsError={toolsError}
+        toolsAdded={toolsAdded}
+        onToolsAddedChange={onToolsAddedChange}
         toolChoice={toolChoice}
         onToolChoiceChange={onToolChoiceChange}
         responseFormatType={responseFormatType}
