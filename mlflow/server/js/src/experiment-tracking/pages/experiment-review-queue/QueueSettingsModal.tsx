@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   ApplyDesignSystemContextOverrides,
@@ -79,7 +79,7 @@ export const QueueSettingsModal = ({
   // member set, then re-add on save — consistent with the create flow, where the
   // creator is auto-assigned and hidden from the picker.
   const owner = queue.created_by;
-  const withoutOwner = (users: string[]) => users.filter((u) => !owner || !sameUser(u, owner));
+  const withoutOwner = useCallback((users: string[]) => users.filter((u) => !owner || !sameUser(u, owner)), [owner]);
   // Owner reassignment is manager-only; a free-text new owner pre-filled with
   // the current one. Distinct from `owner` above, which is the immutable key
   // used to filter the reviewer picker.
@@ -136,8 +136,7 @@ export const QueueSettingsModal = ({
   // are chosen from the roster rather than free text.
   const usernames = useMemo(
     () => withoutOwner(assignableUsers.map((u) => u.username).filter((u): u is string => Boolean(u))),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [assignableUsers, owner],
+    [assignableUsers, withoutOwner],
   );
   // Owner picker spans the whole roster (anyone with experiment EDIT can own a
   // queue), unlike the reviewers list which hides the current owner.
@@ -180,11 +179,7 @@ export const QueueSettingsModal = ({
   const canSave = trimmedName !== '';
   // Dedupe the stored members before diffing so a duplicate in `queue.users`
   // can't read as a spurious change (and trigger a needless update_users write).
-  const originalMembers = useMemo(
-    () => new Set(withoutOwner(queue.users ?? [])),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [queue.users, owner],
-  );
+  const originalMembers = useMemo(() => new Set(withoutOwner(queue.users ?? [])), [queue.users, withoutOwner]);
   const membersChanged = members.size !== originalMembers.size || [...originalMembers].some((m) => !members.has(m));
   const originalSchemaIds = useMemo(() => new Set(queue.schema_ids ?? []), [queue.schema_ids]);
   const questionsChanged =
