@@ -19,6 +19,7 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_UPLOAD_IGNORE_TLS,
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
 from mlflow.exceptions import (
@@ -30,7 +31,10 @@ from mlflow.store.artifact.artifact_repo import (
     MultipartUploadMixin,
     verify_artifact_path,
 )
-from mlflow.store.artifact.cloud_artifact_repo import _complete_futures, _compute_num_chunks
+from mlflow.store.artifact.cloud_artifact_repo import (
+    _complete_futures,
+    _compute_num_chunks,
+)
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.file_utils import (
     ArtifactProgressBar,
@@ -323,7 +327,12 @@ class HttpArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     @staticmethod
     def _upload_part(credential: MultipartUploadCredential, local_file, size, start_byte):
         data = read_chunk(local_file, size, start_byte)
-        response = requests.put(credential.url, data=data, headers=credential.headers)
+        response = requests.put(
+            credential.url,
+            data=data,
+            headers=credential.headers,
+            verify=not MLFLOW_MULTIPART_UPLOAD_IGNORE_TLS.get(),
+        )
         augmented_raise_for_status(response)
         return MultipartUploadPart(
             part_number=credential.part_number,

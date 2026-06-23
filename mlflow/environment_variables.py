@@ -607,6 +607,10 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
     "MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE", int, 100 * 1024**2
 )
 
+MLFLOW_MULTIPART_UPLOAD_IGNORE_TLS = _BooleanEnvironmentVariable(
+    "MLFLOW_MULTIPART_UPLOAD_IGNORE_TLS", False
+)
+
 #: Specifies whether or not to allow the MLflow server to follow redirects when
 #: making HTTP requests. If set to False, the server will throw an exception if it
 #: encounters a redirect response.
