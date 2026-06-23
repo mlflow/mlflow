@@ -316,6 +316,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
       setError(null);
       setIsStreaming(true);
+      // A new message supersedes any prompt the user was deciding on. Clearing it
+      // here drops the stale Allow/Deny so it can't resume the abandoned turn; the
+      // backend closes the orphaned tool call out as cancelled.
+      setPendingPermission(null);
 
       // Add user message if prompt provided
       if (prompt) {

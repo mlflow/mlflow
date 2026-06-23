@@ -462,6 +462,76 @@ async def test_stream_pauses_then_resumes(decision, expected_text):
     assert "event: done" in second
 
 
+class _CaptureProvider(MockProvider):
+    """Records the prompt and context astream is called with, then completes."""
+
+    def __init__(self):
+        self.captured: dict[str, Any] = {}
+
+    async def astream(
+        self,
+        prompt,
+        tracking_uri,
+        session_id=None,
+        mlflow_session_id=None,
+        cwd=None,
+        context=None,
+    ):
+        self.captured = {"prompt": prompt, "context": context or {}}
+        yield Event.from_result(result=None, session_id="prov-done")
+
+
+@pytest.mark.asyncio
+async def test_stream_prefers_new_message_over_stale_tool_decision():
+    """A pending message and a stale decision can coexist if a resume stream never
+    consumed the decision and the user typed again. The new message must win: the
+    provider sees the prompt and NOT the stale tool_decisions (which would otherwise
+    resume the abandoned turn and silently drop the message).
+    """
+    from mlflow.server.assistant.api import stream_response
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.set_pending_message(role="user", content="what is 2+2")
+    session.pending_tool_decisions = {"t1": "allow"}
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    provider = _CaptureProvider()
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        _ = "".join([c async for c in response.body_iterator])
+
+    assert provider.captured["prompt"] == "what is 2+2"
+    assert "tool_decisions" not in provider.captured["context"]
+
+
+@pytest.mark.asyncio
+async def test_stream_forwards_tool_decision_when_no_pending_message():
+    """A genuine resume (decision delivered, no new message) still forwards the
+    tool_decisions so the provider can continue the paused turn.
+    """
+    from mlflow.server.assistant.api import stream_response
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.pending_tool_decisions = {"t1": "allow"}
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    provider = _CaptureProvider()
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        _ = "".join([c async for c in response.body_iterator])
+
+    assert provider.captured["prompt"] == ""
+    assert provider.captured["context"]["tool_decisions"] == {"t1": "allow"}
+
+
 def test_resolve_permission_rejects_invalid_session(client):
     response = client.post(
         "/ajax-api/3.0/mlflow/assistant/sessions/not-a-uuid/permission",

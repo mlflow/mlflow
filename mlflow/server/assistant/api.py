@@ -184,8 +184,12 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     prompt = pending_message.content if pending_message else ""
     # On resume the decision rides in the context; the provider detects the
     # pending tool_calls in history and applies it instead of starting a turn.
+    # A new message supersedes a pending decision: if both are present (e.g. a
+    # resume stream never consumed the decision and the user typed again),
+    # forwarding the stale tool_decisions would make the provider resume the
+    # abandoned turn and silently drop the new message. Prefer the message.
     context = dict(session.context)
-    if tool_decisions:
+    if tool_decisions and not pending_message:
         context["tool_decisions"] = tool_decisions
 
     # Extract the MLflow server URL from the request for the assistant to use.
@@ -254,6 +258,9 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
     if request.status == "cancelled":
         # Terminate any associated subprocess. The OpenAI-compatible provider
         # holds no in-process state to release (the turn ends at each prompt).
+        # Drop any tool permissions so later stream doesn't see stale decisions.
+        session.pending_tool_decisions = {}
+        SessionManager.save(session_id, session)
         terminated = terminate_session_process(session_id)
         msg = "Session cancelled and process terminated" if terminated else "Session cancelled"
         return SessionPatchResponse(message=msg)

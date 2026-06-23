@@ -5,7 +5,7 @@ import tempfile
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from mlflow.assistant.types import Message
 
@@ -24,7 +24,7 @@ class Session:
     # tool_call_id -> "allow" | "deny": a decision awaiting the next stream so a
     # turn paused at a permission prompt can resume. Set by the resume endpoint,
     # consumed (and cleared) by the stream.
-    pending_tool_decisions: dict[str, str] = field(default_factory=dict)
+    pending_tool_decisions: dict[str, Literal["allow", "deny"]] = field(default_factory=dict)
 
     def add_message(self, role: str, content: str) -> None:
         """Add a message to the session history.

@@ -383,6 +383,8 @@ class OpenAICompatibleProvider(AssistantProvider):
         # then sends a new message, we must start a fresh turn — not silently
         # re-resume the abandoned calls and drop their message.
         tool_calls_awaiting_decision = _pending_tool_calls(messages)
+        # TODO (joshuawong-db) This should be refactored into a helper function when
+        # more providers support tool calls as it has a close coupling with api.py logic.
         is_resuming = bool(tool_decisions) and bool(tool_calls_awaiting_decision)
         if not is_resuming:
             # Close out any orphaned tool_calls (e.g. cancelled at a prompt) before
@@ -405,6 +407,8 @@ class OpenAICompatibleProvider(AssistantProvider):
                     if is_resuming:
                         # The pending tool_calls are already in history; apply the
                         # user's decision(s) instead of calling the model again.
+                        # Implicit assumption: if user text and permission decisions
+                        # are both present, the user message is being dropped by the backend.
                         assistant_tool_calls = tool_calls_awaiting_decision
                         is_resuming = False
                     else:
