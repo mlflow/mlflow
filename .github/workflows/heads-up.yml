@@ -1,0 +1,57 @@
+name: Heads-Up
+
+# Flag external PRs that touch files coding agents auto-load as instructions
+# (AGENTS.md, CLAUDE.md, .claude/, .agents/). Running an agent against such a
+# checkout silently obeys these files, so a malicious one can steer it without
+# approval. The 'heads-up' label warns reviewers to read them first.
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  label-heads-up:
+    # Only flag external contributors. Internal edits to these files are routine
+    # and don't need a review signal.
+    if: >
+      github.repository == 'mlflow/mlflow'
+      && github.event.pull_request.user.type != 'Bot'
+      && !contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Watched paths. Add new entries here to widen coverage.
+          PATTERN='(^|/)(AGENTS|CLAUDE)\.md$'
+          PATTERN+='|(^|/)\.agents/'
+          PATTERN+='|(^|/)\.claude/'
+
+          CHANGED=$(gh pr diff "$PR_NUMBER" --repo "$REPO" --name-only)
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          if ! echo "$CHANGED" | grep -qE "$PATTERN"; then
+            echo "No watched files touched, skipping"
+            exit 0
+          fi
+
+          echo "Matched watched files:"
+          echo "$CHANGED" | grep -E "$PATTERN"
+
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "heads-up"
+          echo "Added 'heads-up' label to PR #$PR_NUMBER"
