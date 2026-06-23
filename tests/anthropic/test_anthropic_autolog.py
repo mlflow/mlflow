@@ -204,6 +204,7 @@ def test_messages_autolog(is_async, mock_litellm_cost):
         "total_tokens": 28,
     }
     assert span.model_name == "test_model"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == "anthropic"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     if not IS_TRACING_SDK_ONLY:
@@ -269,6 +270,7 @@ def test_messages_autolog_multi_modal(is_async):
         "total_tokens": 28,
     }
     assert span.model_name == "test_model"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == "anthropic"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     assert traces[0].info.token_usage == {
@@ -395,6 +397,7 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
         "total_tokens": 28,
     }
     assert span.model_name == "test_model"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == "anthropic"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     if not IS_TRACING_SDK_ONLY:

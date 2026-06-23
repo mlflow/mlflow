@@ -5,17 +5,28 @@ import {
   Button,
   ChevronLeftIcon,
   ChevronRightIcon,
+  FlagPointerIcon,
   PlusIcon,
   Notification,
   Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import { Global } from '@emotion/react';
 
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
 import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
 import { copyToClipboard } from '../../../common/utils/copyToClipboard';
+import { useLocalStorage } from '../hooks/useLocalStorage';
+
+const FLAG_FOR_REVIEW_GUIDANCE_STORAGE_KEY = 'mlflow.flagForReview.guidanceShown';
+
+// Targets the Radix popper wrapper that contains the tooltip background, arrow,
+// and content so the entire tooltip fades in together. If Radix renames this
+// internal attribute the animation silently stops — no functional breakage.
+const RADIX_POPPER_WRAPPER_SELECTOR = '[data-radix-popper-content-wrapper]:has([data-flag-guidance])';
+const FLAG_FOR_REVIEW_GUIDANCE_STORAGE_VERSION = 1;
 
 export interface ModelTraceExplorerDrawerProps {
   children: React.ReactNode;
@@ -46,7 +57,34 @@ export const ModelTraceExplorerDrawer = ({
   const [showDatasetModal, setShowDatasetModal] = useState(false);
   const [showCopiedNotification, setShowCopiedNotification] = useState(false);
   const [showCopyError, setShowCopyError] = useState(false);
-  const { renderExportTracesToDatasetsModal, DrawerComponent, drawerWidth = '60vw' } = useModelTraceExplorerContext();
+  const {
+    renderExportTracesToDatasetsModal,
+    renderAddToReviewQueueDropdown,
+    DrawerComponent,
+    drawerWidth = '60vw',
+  } = useModelTraceExplorerContext();
+
+  const [hasSeenFlagGuidance, setHasSeenFlagGuidance] = useLocalStorage({
+    key: FLAG_FOR_REVIEW_GUIDANCE_STORAGE_KEY,
+    version: FLAG_FOR_REVIEW_GUIDANCE_STORAGE_VERSION,
+    initialValue: false,
+  });
+
+  const [isDrawerAnimationDone, setIsDrawerAnimationDone] = useState(false);
+
+  const showFlagForReviewButton = Boolean(renderAddToReviewQueueDropdown && experimentId && traceInfo);
+
+  useEffect(() => {
+    if (!showFlagForReviewButton || hasSeenFlagGuidance) {
+      return;
+    }
+    const timer = setTimeout(() => setIsDrawerAnimationDone(true), 500);
+    return () => clearTimeout(timer);
+  }, [showFlagForReviewButton, hasSeenFlagGuidance]);
+
+  const handleDismissFlagGuidance = useCallback(() => {
+    setHasSeenFlagGuidance(true);
+  }, [setHasSeenFlagGuidance]);
 
   const handleShareClick = useCallback(async () => {
     const success = await copyToClipboard(window.location.href);
@@ -91,6 +129,29 @@ export const ModelTraceExplorerDrawer = ({
   const showAddToDatasetButton = Boolean(renderExportTracesToDatasetsModal && experimentId && traceInfo);
   const handleAddToDatasetClick = useCallback(() => setShowDatasetModal(true), []);
 
+  const showFlagGuidance = showFlagForReviewButton && !hasSeenFlagGuidance && isDrawerAnimationDone;
+
+  const flagForReviewButton =
+    showFlagForReviewButton && renderAddToReviewQueueDropdown
+      ? React.createElement(renderAddToReviewQueueDropdown, {
+          selectedTraceInfos: traceInfo ? [traceInfo] : [],
+          experimentId: experimentId ?? '',
+          onOpenChange: (open: boolean) => {
+            if (open && !hasSeenFlagGuidance) {
+              handleDismissFlagGuidance();
+            }
+          },
+          children: (
+            <Button componentId="mlflow.evaluations_review.modal.flag_for_review" icon={<FlagPointerIcon />}>
+              <FormattedMessage
+                defaultMessage="Flag for review"
+                description="Button text for assigning a trace to reviewers via a review queue"
+              />
+            </Button>
+          ),
+        })
+      : null;
+
   return (
     <DrawerComponent.Root
       open
@@ -131,6 +192,37 @@ export const ModelTraceExplorerDrawer = ({
                   description="Button text for adding a trace to a dataset"
                 />
               </Button>
+            )}
+            {showFlagForReviewButton && (
+              <>
+                {showFlagGuidance && (
+                  <Global
+                    styles={{
+                      '@keyframes flagGuidanceFadeIn': {
+                        from: { opacity: 0 },
+                        to: { opacity: 1 },
+                      },
+                      [RADIX_POPPER_WRAPPER_SELECTOR]: {
+                        animation: 'flagGuidanceFadeIn 300ms ease-in',
+                      },
+                    }}
+                  />
+                )}
+                <Tooltip
+                  componentId="mlflow.evaluations_review.modal.flag_for_review.guidance"
+                  open={showFlagGuidance}
+                  content={
+                    <div data-flag-guidance onClick={handleDismissFlagGuidance} css={{ cursor: 'pointer' }}>
+                      <FormattedMessage
+                        defaultMessage="New! Flag traces for review and add them to a review queue."
+                        description="Guidance tooltip message for the flag for review button in the trace drawer"
+                      />
+                    </div>
+                  }
+                >
+                  <div>{flagForReviewButton}</div>
+                </Tooltip>
+              </>
             )}
             <Tooltip
               componentId="mlflow.evaluations_review.modal.share-tooltip"

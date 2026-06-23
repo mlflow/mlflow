@@ -132,6 +132,12 @@ class TracingSession:
                 self.span.record_exception(exc_val)
 
             set_span_model_attribute(self.span, self.inputs)
+            # Client-side cost computation (used for Databricks backends) resolves
+            # litellm pricing by provider; without it, Claude model names don't
+            # match and cost is silently dropped while token usage is still
+            # recorded. This autolog patches the Anthropic SDK, so the provider
+            # is always Anthropic.
+            self.span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, "anthropic")
             _set_token_usage_attribute(self.span, self.output)
             self.span.end(outputs=self.output)
 

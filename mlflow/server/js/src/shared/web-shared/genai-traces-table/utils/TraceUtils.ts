@@ -20,7 +20,12 @@ import {
   MLFLOW_ASSESSMENT_SOURCE_RUN_ID,
   MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG,
 } from '../../model-trace-explorer/constants';
-import { stringifyValue, tryExtractUserMessageContent } from '../components/GenAiEvaluationTracesReview.utils';
+import {
+  getEvaluationResultAssessmentValue,
+  KnownEvaluationResultAssessmentStringValue,
+  stringifyValue,
+  tryExtractUserMessageContent,
+} from '../components/GenAiEvaluationTracesReview.utils';
 import { KnownEvaluationResultAssessmentName } from '../enum';
 import { CUSTOM_METADATA_COLUMN_ID, TAGS_COLUMN_ID } from '../hooks/useTableColumns';
 import type {
@@ -262,7 +267,32 @@ export const convertFeedbackAssessmentToRunEvalAssessment = (
   };
 };
 
-export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): RunEvaluationTracesDataEntry => {
+// Name of the synthetic per-test "Result" assessment used by the regression-test
+// view. Kept here so the data layer, the cell renderer, and the detail drawer
+// agree on the single column name.
+export const RESULT_ASSESSMENT_NAME = 'Result';
+
+// `mlflow.runType` tag value for an @mlflow.test regression-test run. The table
+// enters regression-test mode when the caller passes this run type.
+export const REGRESSION_TEST_RUN_TYPE = 'test';
+
+/**
+ * Read an `mlflow.*` tag from a trace info, tolerating both the tracking-store
+ * array-of-`{key, value}` shape and the trace-server record / `trace_metadata`
+ * shapes.
+ */
+export const readTraceTag = (info: any, key: string): string | undefined => {
+  const tags = info?.tags;
+  if (Array.isArray(tags)) return tags.find((t: any) => t?.key === key)?.value;
+  if (tags && typeof tags === 'object' && tags[key] != null) return String(tags[key]);
+  const meta = info?.trace_metadata?.[key];
+  return meta != null ? String(meta) : undefined;
+};
+
+export const convertTraceInfoV3ToRunEvalEntry = (
+  traceInfo: ModelTraceInfoV3,
+  options?: { synthesizeResult?: boolean },
+): RunEvaluationTracesDataEntry => {
   const evaluationId = getRowIdFromTrace(traceInfo);
 
   // Prepare containers for our assessments.
@@ -292,6 +322,33 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
       issues.push({ id: assessmentName, name: issueName });
     }
   });
+
+  // Synthesize a single "Result" assessment per trace (pass iff all assertions
+  // pass), rendered as one pass-fail column. Gated behind `synthesizeResult`.
+  if (options?.synthesizeResult) {
+    const scorerResults = Object.entries(responseAssessmentsByName)
+      .filter(([name]) => name !== KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT)
+      // Count every assertion (a scorer name can carry multiple), so the N/M
+      // header count matches the per-assertion hover-card breakdown.
+      .flatMap(([, arr]) => arr)
+      .filter(Boolean);
+    if (scorerResults.length > 0) {
+      const passedCount = scorerResults.filter((a) => {
+        const value = getEvaluationResultAssessmentValue(a);
+        return value === KnownEvaluationResultAssessmentStringValue.YES || value === true;
+      }).length;
+      responseAssessmentsByName[RESULT_ASSESSMENT_NAME] = [
+        {
+          name: RESULT_ASSESSMENT_NAME,
+          // 'yes'/'no' so the column is treated as a pass-fail assessment.
+          stringValue: passedCount === scorerResults.length ? 'yes' : 'no',
+          rationale: `${passedCount}/${scorerResults.length} assertions passed`,
+          source: scorerResults[0].source,
+          timestamp: scorerResults[0].timestamp,
+        },
+      ];
+    }
+  }
 
   // trace server has input/output in request/response field, and mlflow tracking server has it in the metadata
   const rawInputs = getTraceInfoInputs(traceInfo);
@@ -342,6 +399,7 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
 
 export const applyTraceInfoV3ToEvalEntry = (
   evalResults: RunEvaluationTracesDataEntry[],
+  options?: { synthesizeResult?: boolean },
 ): RunEvaluationTracesDataEntry[] => {
   if (!shouldUseTraceInfoV3(evalResults)) {
     return evalResults;
@@ -351,7 +409,7 @@ export const applyTraceInfoV3ToEvalEntry = (
       return result;
     }
     // Convert the single TraceInfo to a single RunEvaluationTracesDataEntry
-    const converted = convertTraceInfoV3ToRunEvalEntry(result.traceInfo);
+    const converted = convertTraceInfoV3ToRunEvalEntry(result.traceInfo, options);
     // Merge the newly converted fields with the existing data
     return {
       ...result,

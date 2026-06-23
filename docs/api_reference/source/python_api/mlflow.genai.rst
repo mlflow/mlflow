@@ -52,6 +52,11 @@ mlflow.genai
     :undoc-members:
     :show-inheritance:
 
+.. automodule:: mlflow.genai.review_queues
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 .. automodule:: mlflow.genai.optimize
     :members:
     :undoc-members:
