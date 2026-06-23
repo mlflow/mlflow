@@ -3,8 +3,9 @@ import type { ColumnState } from '@ag-grid-community/core';
 /**
  * Adapter between the library-neutral column layout persisted in
  * `ExperimentPageUIState` (`columnOrder` + `columnWidths`) and ag-grid's
- * `ColumnState`. Keeps ag-grid types out of the persisted model: if the runs
- * table ever migrates off ag-grid, only this file changes.
+ * `ColumnState`.
+ *
+ * GenAi MLflow uses Tanstack, when we do move to Tanstack, we can swap out the adapter here
  */
 
 /** Model -> ag-grid. Feed into `columnApi.applyColumnState({ state, applyOrder: true })`. */
