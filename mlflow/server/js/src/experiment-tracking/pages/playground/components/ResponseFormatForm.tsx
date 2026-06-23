@@ -54,7 +54,7 @@ export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaCha
               '& label': { marginBottom: 0 },
             }}
           >
-            <FormUI.Label htmlFor="mlflow.playground.response_format.schema">
+            <FormUI.Label id="mlflow.playground.response_format.schema">
               <FormattedMessage
                 defaultMessage="Schema"
                 description="Label for the playground response_format JSON schema editor"
@@ -85,6 +85,7 @@ export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaCha
             })}
             value={schemaText}
             onChange={onSchemaChange}
+            labelledById="mlflow.playground.response_format.schema"
             height="160px"
             maxHeight="360px"
             transparentBackground

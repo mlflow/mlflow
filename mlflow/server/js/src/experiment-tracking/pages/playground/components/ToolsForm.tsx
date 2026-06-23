@@ -216,7 +216,7 @@ export const ToolsForm = ({ tools, onAddTool, onRemoveTool, onUpdateTool, toolCh
                   '& label': { marginBottom: 0 },
                 }}
               >
-                <FormUI.Label htmlFor={paramsId}>
+                <FormUI.Label id={paramsId}>
                   <FormattedMessage
                     defaultMessage="Function parameters schema"
                     description="Label for the tool parameters JSON schema editor in the playground Tools card"
@@ -250,10 +250,11 @@ export const ToolsForm = ({ tools, onAddTool, onRemoveTool, onUpdateTool, toolCh
                 )}
                 value={tool.params}
                 onChange={(next) => onUpdateTool(tool.id, { params: next })}
+                labelledById={paramsId}
                 height="160px"
                 maxHeight="360px"
                 transparentBackground
-                errorMessage={tool.params.trim() && paramsError ? paramsError : undefined}
+                errorMessage={paramsError ?? undefined}
               />
             </div>
           </div>

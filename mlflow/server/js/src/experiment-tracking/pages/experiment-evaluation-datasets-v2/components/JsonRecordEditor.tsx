@@ -132,7 +132,6 @@ export const JsonRecordEditor = ({
           border: `1px solid ${hasError ? theme.colors.borderDanger : theme.colors.border}`,
           borderRadius: theme.borders.borderRadiusSm,
           overflow: 'hidden',
-          ...(transparentBackground && { background: theme.colors.backgroundPrimary }),
         }}
       >
         <Editor
