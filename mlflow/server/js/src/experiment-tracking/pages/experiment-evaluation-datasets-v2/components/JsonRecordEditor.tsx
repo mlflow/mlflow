@@ -53,6 +53,9 @@ const transparentColors = {
   'editor.background': '#00000000',
   'editorGutter.background': '#00000000',
   'minimap.background': '#00000000',
+  // The default themes draw a top/bottom border around the current line, which is
+  // invisible on their opaque background but shows through ours — hide it.
+  'editor.lineHighlightBorder': '#00000000',
 };
 monaco.editor.defineTheme(TRANSPARENT_THEME.dark, {
   base: 'vs-dark',
