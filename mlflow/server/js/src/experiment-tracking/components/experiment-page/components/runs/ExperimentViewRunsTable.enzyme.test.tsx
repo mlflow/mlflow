@@ -51,6 +51,7 @@ const mockGridApi = {
 jest.mock('../../../../../common/components/ag-grid/AgGridLoader', () => {
   const columnApiMock = {
     getAllGridColumns: () => [],
+    getAllDisplayedColumns: () => [],
     getColumnState: () => [],
     applyColumnState: () => {},
   };

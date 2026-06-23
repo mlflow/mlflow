@@ -232,18 +232,22 @@ export const ExperimentViewRunsTable = React.memo(
       runsHiddenMode: uiState.runsHiddenMode,
     });
 
-    // Universe of persistable colIds, taken from the live grid so order restores
-    // exactly. Excludes the auto-generated checkbox column (numeric colId).
+    // Persistable colIds = the columns currently shown in the grid — the always-on
+    // columns (Run Name, Created, Duration) plus the user's selected columns, in
+    // display order. Excludes the selection checkbox and any hidden columns, so we
+    // only persist what's actually on screen. Re-derived on visibility changes
+    // (selectedColumns) since columnDefs alone doesn't reflect show/hide.
     const [allColumns, setAllColumns] = useState<string[]>([]);
     useEffect(() => {
       if (!columnApi) {
         return;
       }
-      const ids = (columnApi.getAllGridColumns() ?? [])
+      const ids = (columnApi.getAllDisplayedColumns() ?? [])
+        .filter((column) => !column.getColDef().checkboxSelection)
         .map((column) => column.getColId())
-        .filter((id): id is string => Boolean(id) && !/^\d+$/.test(id));
+        .filter((id): id is string => Boolean(id));
       setAllColumns((prev) => (isEqual(prev, ids) ? prev : ids));
-    }, [columnApi, columnDefs]);
+    }, [columnApi, columnDefs, selectedColumns, isComparingRuns]);
 
     // Column order + width persist via uiState, riding the existing localStorage
     // and share path. Visibility stays on the separate `selectedColumns` path.
@@ -483,6 +487,7 @@ export const ExperimentViewRunsTable = React.memo(
                 columnDefs={columnDefs}
                 rowSelection="multiple"
                 maintainColumnOrder
+                suppressDragLeaveHidesColumns
                 onGridReady={gridReadyHandler}
                 onColumnMoved={handleColumnMoved}
                 onColumnResized={handleColumnResized}
