@@ -83,28 +83,41 @@ export const formatJson = (text: string): string | null => {
 };
 
 /**
- * Validates a tool's parameters JSON Schema text. Returns `null` when it parses
- * to a JSON object, or a short reason otherwise: empty, a JSON parse error, or a
- * non-object value. Used to flag the parameters editor and gate submission.
+ * Structured validation result for a tool's parameters JSON Schema. Returning a
+ * code (rather than a display string) keeps `getToolParametersError` framework- and
+ * locale-agnostic; the UI maps each code to a localized message via `react-intl`.
+ * `parseError` carries the raw (non-localizable) JSON parser message as `detail`.
  */
-export const getToolParametersError = (text: string): string | null => {
+export type ToolParametersError =
+  | { code: 'empty' }
+  | { code: 'parseError'; detail: string }
+  | { code: 'notObject' }
+  | { code: 'missingProperties' };
+
+/**
+ * Validates a tool's parameters JSON Schema text. Returns `null` when it parses to
+ * a JSON object containing a `properties` map (what the gateway requires), or a
+ * structured {@link ToolParametersError} otherwise. Used to flag the parameters
+ * editor and gate submission; the caller localizes the returned code.
+ */
+export const getToolParametersError = (text: string): ToolParametersError | null => {
   if (!text.trim()) {
-    return 'Add a parameters schema';
+    return { code: 'empty' };
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch (e) {
-    return e instanceof Error ? e.message : 'Invalid JSON';
+    return { code: 'parseError', detail: e instanceof Error ? e.message : 'Invalid JSON' };
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    return 'Parameters must be a JSON object';
+    return { code: 'notObject' };
   }
   // The gateway requires the function parameters to be a JSON Schema object with a
   // `properties` map; flag a missing/invalid one here instead of surfacing a 400.
   const properties = (parsed as Record<string, unknown>)['properties'];
   if (typeof properties !== 'object' || properties === null || Array.isArray(properties)) {
-    return 'Parameters schema must include a "properties" object';
+    return { code: 'missingProperties' };
   }
   return null;
 };

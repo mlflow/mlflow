@@ -12,10 +12,40 @@ import {
 } from '@databricks/design-system';
 import type { ChangeEvent } from 'react';
 import { useState } from 'react';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage, useIntl, type IntlShape } from 'react-intl';
 import type { PlaygroundTool, ToolChoice } from '../types';
+import type { ToolParametersError } from '../utils';
 import { formatJson, getToolParametersError } from '../utils';
 import { LazyJsonRecordEditor } from '../../experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor';
+
+// Maps a structured parameters-validation result to a localized, user-visible string.
+const formatToolParametersError = (error: ToolParametersError, intl: IntlShape): string => {
+  switch (error.code) {
+    case 'empty':
+      return intl.formatMessage({
+        defaultMessage: 'Add a parameters schema',
+        description: 'Inline error shown when a tool parameters editor is empty',
+      });
+    case 'parseError':
+      return intl.formatMessage(
+        {
+          defaultMessage: 'Invalid JSON: {detail}',
+          description: 'Inline error shown when a tool parameters editor contains unparseable JSON',
+        },
+        { detail: error.detail },
+      );
+    case 'notObject':
+      return intl.formatMessage({
+        defaultMessage: 'Parameters must be a JSON object',
+        description: 'Inline error shown when tool parameters are valid JSON but not an object',
+      });
+    case 'missingProperties':
+      return intl.formatMessage({
+        defaultMessage: 'Parameters schema must include a "properties" object',
+        description: 'Inline error shown when a tool parameters schema is missing its properties map',
+      });
+  }
+};
 
 interface Props {
   tools: PlaygroundTool[];
@@ -254,7 +284,7 @@ export const ToolsForm = ({ tools, onAddTool, onRemoveTool, onUpdateTool, toolCh
                 height="160px"
                 maxHeight="360px"
                 transparentBackground
-                errorMessage={paramsError ?? undefined}
+                errorMessage={paramsError ? formatToolParametersError(paramsError, intl) : undefined}
               />
             </div>
           </div>

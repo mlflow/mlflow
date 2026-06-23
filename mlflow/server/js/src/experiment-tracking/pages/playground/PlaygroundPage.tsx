@@ -128,9 +128,11 @@ const PlaygroundPage = () => {
           description: 'Submit blocker detail shown when a playground tool is missing its function name',
         });
       }
-      const paramsError = getToolParametersError(tool.params);
-      if (paramsError) {
-        return paramsError;
+      if (getToolParametersError(tool.params)) {
+        return intl.formatMessage({
+          defaultMessage: 'Fix the tool parameters schema',
+          description: 'Submit blocker shown when a playground tool has an invalid parameters schema',
+        });
       }
     }
     return null;
@@ -174,16 +176,7 @@ const PlaygroundPage = () => {
       );
     }
     if (tools.length > 0 && firstToolError) {
-      blockers.push(
-        intl.formatMessage(
-          {
-            defaultMessage: 'Fix the tool definitions: {error}',
-            description:
-              'Reason shown when the playground Submit button is disabled because a tool definition is empty or invalid',
-          },
-          { error: firstToolError },
-        ),
-      );
+      blockers.push(firstToolError);
     }
     if (responseFormatSchemaError) {
       blockers.push(

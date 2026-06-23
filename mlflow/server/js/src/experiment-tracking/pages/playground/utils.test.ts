@@ -103,27 +103,28 @@ describe('formatJson', () => {
 
 describe('getToolParametersError', () => {
   it('flags empty or whitespace-only text', () => {
-    expect(getToolParametersError('')).toBe('Add a parameters schema');
-    expect(getToolParametersError('   ')).toBe('Add a parameters schema');
-    expect(getToolParametersError('\n\t')).toBe('Add a parameters schema');
+    expect(getToolParametersError('')).toEqual({ code: 'empty' });
+    expect(getToolParametersError('   ')).toEqual({ code: 'empty' });
+    expect(getToolParametersError('\n\t')).toEqual({ code: 'empty' });
   });
 
-  it('returns a parse error for unparseable text', () => {
-    expect(getToolParametersError('{not-json')).toBeTruthy();
-    expect(getToolParametersError('not-json')).toBeTruthy();
+  it('returns a parse error with the parser detail for unparseable text', () => {
+    const result = getToolParametersError('{not-json');
+    expect(result?.code).toBe('parseError');
+    expect(result).toMatchObject({ code: 'parseError', detail: expect.any(String) });
   });
 
   it('flags JSON that is not an object', () => {
-    expect(getToolParametersError('[]')).toBe('Parameters must be a JSON object');
-    expect(getToolParametersError('"foo"')).toBe('Parameters must be a JSON object');
-    expect(getToolParametersError('42')).toBe('Parameters must be a JSON object');
-    expect(getToolParametersError('null')).toBe('Parameters must be a JSON object');
+    expect(getToolParametersError('[]')).toEqual({ code: 'notObject' });
+    expect(getToolParametersError('"foo"')).toEqual({ code: 'notObject' });
+    expect(getToolParametersError('42')).toEqual({ code: 'notObject' });
+    expect(getToolParametersError('null')).toEqual({ code: 'notObject' });
   });
 
   it('flags an object schema without a properties map', () => {
-    expect(getToolParametersError('{}')).toBe('Parameters schema must include a "properties" object');
-    expect(getToolParametersError('{"type":"object"}')).toBe('Parameters schema must include a "properties" object');
-    expect(getToolParametersError('{"properties":[]}')).toBe('Parameters schema must include a "properties" object');
+    expect(getToolParametersError('{}')).toEqual({ code: 'missingProperties' });
+    expect(getToolParametersError('{"type":"object"}')).toEqual({ code: 'missingProperties' });
+    expect(getToolParametersError('{"properties":[]}')).toEqual({ code: 'missingProperties' });
   });
 
   it('returns null for a valid object schema with properties', () => {

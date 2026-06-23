@@ -1475,10 +1475,6 @@
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
   },
-  "5JG/xb": {
-    "defaultMessage": "Fix the tool definitions: {error}",
-    "description": "Reason shown when the playground Submit button is disabled because a tool definition is empty or invalid"
-  },
   "5LORfM": {
     "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",
     "description": "Tooltip explaining why key name field is disabled in drawer edit"
@@ -1926,6 +1922,10 @@
   "7WkP1e": {
     "defaultMessage": "Delete",
     "description": "Menu item to delete an experiment run"
+  },
+  "7X4zhx": {
+    "defaultMessage": "Parameters schema must include a \"properties\" object",
+    "description": "Inline error shown when a tool parameters schema is missing its properties map"
   },
   "7Y0hIS": {
     "defaultMessage": "Run the following code to validate model inference works on the example input data and logged model dependencies, prior to deploying it to a serving endpoint",
@@ -6647,6 +6647,10 @@
     "defaultMessage": "Compare parameter importance",
     "description": "Experiment page > compare runs > parallel coordinates chart > chart not configured warning > title"
   },
+  "VS9L0H": {
+    "defaultMessage": "Add a parameters schema",
+    "description": "Inline error shown when a tool parameters editor is empty"
+  },
   "VSitCY": {
     "defaultMessage": "Top K",
     "description": "Label for top K input"
@@ -6974,6 +6978,10 @@
   "Wum+Hu": {
     "defaultMessage": "<link>Learn more about budget time windows.</link>",
     "description": "Tooltip with link to budget time windows documentation"
+  },
+  "Wv+BbS": {
+    "defaultMessage": "Parameters must be a JSON object",
+    "description": "Inline error shown when tool parameters are valid JSON but not an object"
   },
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
@@ -7594,6 +7602,10 @@
   "ZqHpEG": {
     "defaultMessage": "Experiments",
     "description": "Header title for the experiments page"
+  },
+  "ZqOagL": {
+    "defaultMessage": "Invalid JSON: {detail}",
+    "description": "Inline error shown when a tool parameters editor contains unparseable JSON"
   },
   "Zqj4VA": {
     "defaultMessage": "New run name",
@@ -12170,6 +12182,10 @@
   "vgfy8y": {
     "defaultMessage": "Add assessment",
     "description": "Evaluation review > assessments > add assessment button label"
+  },
+  "vhChCU": {
+    "defaultMessage": "Fix the tool parameters schema",
+    "description": "Submit blocker shown when a playground tool has an invalid parameters schema"
   },
   "vi2MM7": {
     "defaultMessage": "All",
