@@ -28,6 +28,8 @@ const TYPE_OPTIONS: { value: ResponseFormatType; label: string }[] = [
 export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaChange, schemaError }: Props) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  // Format is a purely syntactic action: enable it whenever the JSON parses.
+  const formattedSchema = formatJson(schemaText);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -64,11 +66,10 @@ export const ResponseFormatForm = ({ type, onTypeChange, schemaText, onSchemaCha
               componentId="mlflow.playground.response_format.format"
               size="small"
               icon={<IndentIncreaseIcon />}
-              disabled={Boolean(schemaError)}
+              disabled={formattedSchema === null}
               onClick={() => {
-                const formatted = formatJson(schemaText);
-                if (formatted !== null) {
-                  onSchemaChange(formatted);
+                if (formattedSchema !== null) {
+                  onSchemaChange(formattedSchema);
                 }
               }}
             >

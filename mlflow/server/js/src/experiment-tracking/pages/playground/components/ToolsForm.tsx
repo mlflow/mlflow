@@ -141,6 +141,9 @@ export const ToolsForm = ({ tools, onAddTool, onRemoveTool, onUpdateTool, toolCh
         const nameMissing = tool.name.trim().length === 0;
         const showNameError = nameMissing && (touchedNames[tool.id] ?? false);
         const paramsError = getToolParametersError(tool.params);
+        // Format is a purely syntactic action: enable it whenever the JSON parses,
+        // even if the schema shape is still wrong (e.g. missing `properties`).
+        const formattedParams = formatJson(tool.params);
         const nameId = `mlflow.playground.tools.name.${tool.id}`;
         const descriptionId = `mlflow.playground.tools.description.${tool.id}`;
         const paramsId = `mlflow.playground.tools.params.${tool.id}`;
@@ -256,11 +259,10 @@ export const ToolsForm = ({ tools, onAddTool, onRemoveTool, onUpdateTool, toolCh
                   componentId="mlflow.playground.tools.format"
                   size="small"
                   icon={<IndentIncreaseIcon />}
-                  disabled={paramsError !== null}
+                  disabled={formattedParams === null}
                   onClick={() => {
-                    const formatted = formatJson(tool.params);
-                    if (formatted !== null) {
-                      onUpdateTool(tool.id, { params: formatted });
+                    if (formattedParams !== null) {
+                      onUpdateTool(tool.id, { params: formattedParams });
                     }
                   }}
                 >

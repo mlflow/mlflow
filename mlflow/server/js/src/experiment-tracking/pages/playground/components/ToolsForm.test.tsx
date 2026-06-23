@@ -148,6 +148,17 @@ describe('ToolsForm', () => {
     expect(screen.queryByText('Parameters schema must include a "properties" object')).not.toBeInTheDocument();
   });
 
+  it('enables Format for parseable JSON even when the schema shape is invalid', () => {
+    // Valid JSON, but missing the `properties` map — Format can still pretty-print it.
+    renderForm({ tools: [tool({ params: '{"type":"object"}' })] });
+    expect(screen.getByRole('button', { name: 'Format' })).toBeEnabled();
+  });
+
+  it('disables Format when the JSON cannot be parsed', () => {
+    renderForm({ tools: [tool({ params: '{ not json' })] });
+    expect(screen.getByRole('button', { name: 'Format' })).toBeDisabled();
+  });
+
   it('numbers and labels multiple tool cards independently', () => {
     renderForm({ tools: [tool({ id: 't1' }), tool({ id: 't2' })] });
     expect(screen.getByLabelText('Tool 1 parameters')).toBeInTheDocument();
