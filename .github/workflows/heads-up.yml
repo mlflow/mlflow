@@ -11,6 +11,14 @@ on:
       - opened
       - synchronize
       - reopened
+    # Watched paths. Add new entries here to widen coverage.
+    paths:
+      - "AGENTS.md"
+      - "**/AGENTS.md"
+      - "CLAUDE.md"
+      - "**/CLAUDE.md"
+      - ".agents/**"
+      - ".claude/**"
 
 defaults:
   run:
@@ -35,23 +43,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-        run: |
-          # Watched paths. Add new entries here to widen coverage.
-          PATTERN='(^|/)(AGENTS|CLAUDE)\.md$'
-          PATTERN+='|(^|/)\.agents/'
-          PATTERN+='|(^|/)\.claude/'
-
-          CHANGED=$(gh pr diff "$PR_NUMBER" --repo "$REPO" --name-only)
-          echo "Changed files:"
-          echo "$CHANGED"
-
-          if ! echo "$CHANGED" | grep -qE "$PATTERN"; then
-            echo "No watched files touched, skipping"
-            exit 0
-          fi
-
-          echo "Matched watched files:"
-          echo "$CHANGED" | grep -E "$PATTERN"
-
-          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "heads-up"
-          echo "Added 'heads-up' label to PR #$PR_NUMBER"
+        run: gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "heads-up"
