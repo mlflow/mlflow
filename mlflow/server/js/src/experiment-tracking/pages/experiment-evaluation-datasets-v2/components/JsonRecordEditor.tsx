@@ -17,6 +17,17 @@ export interface JsonRecordEditorProps {
   readOnly?: boolean;
   /** CSS length (e.g. "240px") for the minimum editor height. */
   height?: string;
+  /**
+   * CSS length capping the editor height. The editor grows with its content up to
+   * this height, then scrolls internally instead of growing further. Omit for
+   * unbounded growth (the default).
+   */
+  maxHeight?: string;
+  /**
+   * When true, the editor paints no background of its own so the surrounding
+   * surface shows through (useful when embedding inside a card/panel).
+   */
+  transparentBackground?: boolean;
   ariaLabel: string;
   /** Localized error string; renders below the editor and tints the border red. */
   errorMessage?: string;
@@ -35,6 +46,25 @@ export interface JsonRecordEditorProps {
 // chunking + workers, the loader just consumes the module directly.
 loader.config({ monaco });
 
+// Transparent variants of the built-in themes so the editor can blend into a
+// surrounding card/panel surface. Registered once at module load (idempotent).
+const TRANSPARENT_THEME = { dark: 'mlflow-json-dark-transparent', light: 'mlflow-json-light-transparent' };
+const transparentColors = {
+  'editor.background': '#00000000',
+  'editorGutter.background': '#00000000',
+  'minimap.background': '#00000000',
+  // The default themes draw a top/bottom border around the current line, which is
+  // invisible on their opaque background but shows through ours — hide it.
+  'editor.lineHighlightBorder': '#00000000',
+};
+monaco.editor.defineTheme(TRANSPARENT_THEME.dark, {
+  base: 'vs-dark',
+  inherit: true,
+  rules: [],
+  colors: transparentColors,
+});
+monaco.editor.defineTheme(TRANSPARENT_THEME.light, { base: 'vs', inherit: true, rules: [], colors: transparentColors });
+
 const heightToPx = (h: string): number => {
   const n = parseInt(h, 10);
   return Number.isNaN(n) ? 240 : n;
@@ -51,6 +81,8 @@ export const JsonRecordEditor = ({
   onChange,
   readOnly = false,
   height = '240px',
+  maxHeight,
+  transparentBackground = false,
   ariaLabel,
   errorMessage,
   labelledById,
@@ -59,6 +91,7 @@ export const JsonRecordEditor = ({
 }: JsonRecordEditorProps) => {
   const { theme } = useDesignSystemTheme();
   const hasError = errorMessage !== undefined;
+  const maxHeightPx = maxHeight ? heightToPx(maxHeight) : Infinity;
   const editorRef = useRef<Monaco_.editor.IStandaloneCodeEditor | null>(null);
   const [contentHeight, setContentHeight] = useState<number>(heightToPx(height));
 
@@ -78,15 +111,16 @@ export const JsonRecordEditor = ({
         keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
         run: () => onSaveShortcutRef.current?.(),
       });
-      // Grow the wrapper to fit the document; the side panel itself handles scrolling.
+      // Grow the wrapper to fit the document, capped at maxHeight (after which the
+      // editor scrolls internally). Without maxHeight it grows unbounded.
       const updateHeight = () => {
-        const next = Math.max(heightToPx(height), editor.getContentHeight());
+        const next = Math.min(maxHeightPx, Math.max(heightToPx(height), editor.getContentHeight()));
         setContentHeight(next);
       };
       updateHeight();
       editor.onDidContentSizeChange(updateHeight);
     },
-    [height],
+    [height, maxHeightPx],
   );
 
   return (
@@ -107,7 +141,15 @@ export const JsonRecordEditor = ({
           language="json"
           value={value}
           onChange={(next) => onChange(next ?? '')}
-          theme={theme.isDarkMode ? 'vs-dark' : 'light'}
+          theme={
+            transparentBackground
+              ? theme.isDarkMode
+                ? TRANSPARENT_THEME.dark
+                : TRANSPARENT_THEME.light
+              : theme.isDarkMode
+                ? 'vs-dark'
+                : 'light'
+          }
           onMount={handleMount}
           options={{
             readOnly,
@@ -125,11 +167,11 @@ export const JsonRecordEditor = ({
             formatOnPaste: true,
             formatOnType: true,
             lineNumbersMinChars: 3,
-            // Wrapper grows to fit content via the onDidContentSizeChange listener above;
-            // keep Monaco's own scrollbars hidden and let mousewheel bubble to the side panel.
             scrollBeyondLastLine: false,
             scrollbar: {
-              vertical: 'hidden',
+              // Show a vertical scrollbar only when the height is capped; otherwise the
+              // wrapper grows to fit and the surrounding container scrolls.
+              vertical: maxHeight ? 'auto' : 'hidden',
               horizontal: 'hidden',
               alwaysConsumeMouseWheel: false,
             },

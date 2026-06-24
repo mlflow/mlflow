@@ -12,6 +12,26 @@ import { PlaygroundApi } from './api';
 import PlaygroundPage from './PlaygroundPage';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
 
+// Monaco does not render in jsdom; stand the editor in with a labelled textarea.
+jest.mock('../experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor', () => ({
+  LazyJsonRecordEditor: ({
+    ariaLabel,
+    value,
+    onChange,
+    errorMessage,
+  }: {
+    ariaLabel: string;
+    value: string;
+    onChange: (next: string) => void;
+    errorMessage?: string;
+  }) => (
+    <div>
+      <textarea aria-label={ariaLabel} value={value} onChange={(event) => onChange(event.target.value)} />
+      {errorMessage ? <div role="alert">{errorMessage}</div> : null}
+    </div>
+  ),
+}));
+
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
 
@@ -156,7 +176,7 @@ describe('PlaygroundPage', () => {
     expect(screen.getByRole('button', { name: /submit/i })).toBeEnabled();
   });
 
-  it('keeps Submit disabled when tool choice is required but no tool definition is provided', async () => {
+  it('keeps Submit disabled when a tool is added but its function name is empty', async () => {
     renderPlayground();
 
     const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
@@ -165,15 +185,15 @@ describe('PlaygroundPage', () => {
 
     expect(screen.getByRole('button', { name: /submit/i })).toBeEnabled();
 
+    // Adding a tool leaves its function name empty, which blocks submission.
     await openSettingsDrawer();
     await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
-    await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
     await closeDrawer();
 
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
   });
 
-  it('keeps Submit disabled when tool choice is required and tools parses to an empty array', async () => {
+  it('keeps Submit disabled when a tool parameters schema is not a JSON object', async () => {
     renderPlayground();
 
     const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
@@ -182,8 +202,8 @@ describe('PlaygroundPage', () => {
 
     await openSettingsDrawer();
     await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
-    await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
-    fireEvent.change(screen.getByLabelText('JSON tool definitions'), { target: { value: '[]' } });
+    fireEvent.change(screen.getByLabelText('Function name'), { target: { value: 'echo' } });
+    fireEvent.change(screen.getByLabelText('Tool 1 parameters'), { target: { value: '[]' } });
     await closeDrawer();
 
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
@@ -253,11 +273,12 @@ describe('PlaygroundPage', () => {
     await userEvent.type(screen.getByLabelText('Frequency penalty'), '0.5');
     fireEvent.change(screen.getByLabelText('Stop sequences'), { target: { value: 'STOP\nFIN' } });
 
-    // Add tools, switch tool_choice to required and supply a valid tools array.
+    // Add a tool, switch tool_choice to required and supply a name + parameters schema.
     await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
     await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
-    fireEvent.change(screen.getByLabelText('JSON tool definitions'), {
-      target: { value: '[{"type":"function","function":{"name":"echo"}}]' },
+    fireEvent.change(screen.getByLabelText('Function name'), { target: { value: 'echo' } });
+    fireEvent.change(screen.getByLabelText('Tool 1 parameters'), {
+      target: { value: '{"type":"object","properties":{}}' },
     });
 
     // Switch response format to json_object.
@@ -275,7 +296,7 @@ describe('PlaygroundPage', () => {
           presence_penalty: 0.5,
           frequency_penalty: 0.5,
           stop: ['STOP', 'FIN'],
-          tools: [{ type: 'function', function: { name: 'echo' } }],
+          tools: [{ type: 'function', function: { name: 'echo', parameters: { type: 'object', properties: {} } } }],
           tool_choice: 'required',
           response_format: { type: 'json_object' },
         }),
@@ -329,13 +350,11 @@ describe('PlaygroundPage', () => {
     await userEvent.type(endpointInput, 'my-endpoint');
     await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello there');
 
-    // Add tools and type a definition, then remove them with the trash icon.
+    // Add a tool and fill its name, then remove it with the trash icon.
     await openSettingsDrawer();
     await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
-    fireEvent.change(screen.getByLabelText('JSON tool definitions'), {
-      target: { value: '[{"type":"function","function":{"name":"echo"}}]' },
-    });
-    await userEvent.click(screen.getByRole('button', { name: 'Remove tools' }));
+    fireEvent.change(screen.getByLabelText('Function name'), { target: { value: 'echo' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Remove tool 1' }));
 
     await closeDrawer();
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));

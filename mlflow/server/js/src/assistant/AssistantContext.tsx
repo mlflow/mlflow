@@ -5,7 +5,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type { AssistantAgentContextType, ChatMessage, ToolUseInfo } from './types';
+import type { AssistantAgentContextType, AssistantConfig, ChatMessage, ToolUseInfo } from './types';
 import {
   cancelSession as cancelSessionApi,
   sendMessageStream,
@@ -15,6 +15,8 @@ import {
 } from './AssistantService';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useAssistantPageContextActions } from './AssistantPageContext';
+import { GatewayApi } from '../gateway/api';
+import { GATEWAY_PROVIDER_ID } from './constants';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
 
@@ -49,6 +51,21 @@ const checkIsLocalServer = (): boolean => {
 const generateMessageId = (): string => {
   return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
+
+async function resolveSetupComplete(config: AssistantConfig): Promise<boolean> {
+  const selectedProvider = Object.entries(config.providers ?? {}).find(
+    ([, providerConfig]) => providerConfig.selected === true,
+  );
+  if (!selectedProvider) return false;
+
+  const [providerId, providerConfig] = selectedProvider;
+  if (providerId !== GATEWAY_PROVIDER_ID) {
+    return true;
+  }
+  // The endpoint must be the same as the model name
+  const { endpoints } = await GatewayApi.listEndpoints();
+  return endpoints.some((endpoint) => endpoint.name === providerConfig.model);
+}
 
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Detect if server is local - memoized since hostname doesn't change
@@ -151,7 +168,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setIsLoadingConfig(true);
     try {
       const config = await getConfig();
-      const isComplete = Object.values(config.providers ?? {}).some((p) => p.selected === true);
+      const isComplete = await resolveSetupComplete(config);
       setSetupComplete(isComplete);
     } catch {
       // On error, assume setup is not complete
