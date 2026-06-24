@@ -3971,7 +3971,7 @@ class SqlMCPServerVersion(Base):
     version_major = Column(Integer, nullable=False)
     version_minor = Column(Integer, nullable=False)
     version_patch = Column(Integer, nullable=False)
-    version_prerelease_sort_key = Column(String(512), nullable=True)
+    version_prerelease_sort_key = Column(String(512), nullable=False)
     server_json = Column(JSON, nullable=False)
     display_name = Column(String(256), nullable=True)
     status = Column(

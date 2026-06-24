@@ -553,6 +553,26 @@ def test_search_versions_order_by_version_uses_semver_asc(client):
     ]
 
 
+def test_search_versions_order_by_version_ignores_build_metadata_precedence(client):
+    for version in ("1.0.1", "1.0.0+aaa", "1.0.0+zzz"):
+        client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/semver-order-build')}/versions",
+            json={
+                "server_json": _server_json("com.example/semver-order-build", version),
+                "status": "active",
+            },
+        )
+
+    r = client.get(
+        f"{PREFIX}/{_encode_path_param('com.example/semver-order-build')}/versions",
+        params=[("order_by", "`version` DESC")],
+    )
+    assert r.status_code == 200
+    versions = [v["version"] for v in r.json()["mcp_server_versions"]]
+    assert versions[0] == "1.0.1"
+    assert set(versions[1:]) == {"1.0.0+aaa", "1.0.0+zzz"}
+
+
 def test_update_version_status(client):
     sj = _server_json("com.example/uv", "1.0.0")
     client.post(

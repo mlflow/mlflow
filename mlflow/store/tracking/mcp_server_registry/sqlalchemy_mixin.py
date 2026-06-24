@@ -1307,14 +1307,12 @@ def _semver_version_order_clauses(is_ascending: bool):
             SqlMCPServerVersion.version_minor.asc(),
             SqlMCPServerVersion.version_patch.asc(),
             SqlMCPServerVersion.version_prerelease_sort_key.asc(),
-            SqlMCPServerVersion.version.asc(),
         )
     return (
         SqlMCPServerVersion.version_major.desc(),
         SqlMCPServerVersion.version_minor.desc(),
         SqlMCPServerVersion.version_patch.desc(),
         SqlMCPServerVersion.version_prerelease_sort_key.desc(),
-        SqlMCPServerVersion.version.desc(),
     )
 
 
