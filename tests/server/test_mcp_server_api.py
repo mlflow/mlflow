@@ -578,6 +578,62 @@ def test_search_versions_order_by_version_ignores_build_metadata_precedence(clie
     assert set(versions[1:]) == {"1.0.0+aaa", "1.0.0+zzz"}
 
 
+def test_search_versions_filter_by_version_equality_uses_semver_equivalence(client):
+    for version in ("1.0.0-alpha+aaa", "1.0.0-alpha+zzz", "1.0.0"):
+        client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/semver-filter-eq')}/versions",
+            json={
+                "server_json": _server_json("com.example/semver-filter-eq", version),
+                "status": "active",
+            },
+        )
+
+    r = client.get(
+        f"{PREFIX}/{_encode_path_param('com.example/semver-filter-eq')}/versions",
+        params={"filter_string": "version = '1.0.0-alpha+aaa'"},
+    )
+    assert r.status_code == 200
+    versions = {v["version"] for v in r.json()["mcp_server_versions"]}
+    assert versions == {"1.0.0-alpha+aaa", "1.0.0-alpha+zzz"}
+
+
+def test_search_versions_filter_by_version_inequality_uses_semver_precedence(client):
+    for version in ("1.2.0-alpha", "1.2.0", "1.10.0"):
+        client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/semver-filter-gt')}/versions",
+            json={
+                "server_json": _server_json("com.example/semver-filter-gt", version),
+                "status": "active",
+            },
+        )
+
+    r = client.get(
+        f"{PREFIX}/{_encode_path_param('com.example/semver-filter-gt')}/versions",
+        params={"filter_string": "version > '1.2.0-alpha'"},
+    )
+    assert r.status_code == 200
+    versions = {v["version"] for v in r.json()["mcp_server_versions"]}
+    assert versions == {"1.2.0", "1.10.0"}
+
+
+def test_search_versions_filter_by_version_rejects_like(client):
+    client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/semver-filter-like')}/versions",
+        json={
+            "server_json": _server_json("com.example/semver-filter-like", "1.2.3"),
+            "status": "active",
+        },
+    )
+
+    r = client.get(
+        f"{PREFIX}/{_encode_path_param('com.example/semver-filter-like')}/versions",
+        params={"filter_string": "version LIKE '1.%'"},
+    )
+    assert r.status_code == 400
+    assert r.json()["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert "version only supports semantic comparators" in r.json()["message"]
+
+
 def test_update_version_status(client):
     sj = _server_json("com.example/uv", "1.0.0")
     client.post(

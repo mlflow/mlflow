@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import sqlalchemy as sa
@@ -1348,7 +1349,9 @@ def _parse_search_mcp_access_bindings_order_by(order_by_list):
 
 
 def _apply_mcp_server_version_filter(query, filter_string, dialect):
-    parsed = SearchMCPServerVersionUtils.parse_search_filter(filter_string)
+    parsed = SearchMCPServerVersionUtils.parse_search_filter(
+        _normalize_mcp_server_version_filter_string(filter_string)
+    )
     for f in parsed:
         type_ = f["type"]
         key = f["key"]
@@ -1364,6 +1367,72 @@ def _apply_mcp_server_version_filter(query, filter_string, dialect):
                 f"Invalid comparator '{comparator}' for attribute '{key}'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        attr = getattr(SqlMCPServerVersion, key)
-        query = query.filter(SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value))
+        if key == "version":
+            query = query.filter(_get_semver_version_filter_expression(comparator, value))
+        else:
+            attr = getattr(SqlMCPServerVersion, key)
+            query = query.filter(
+                SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+            )
     return query
+
+
+def _normalize_mcp_server_version_filter_string(filter_string: str) -> str:
+    return re.sub(
+        r"(?<![`\w.])version(?=\s*(?:=|!=|<=|>=|<|>|LIKE|ILIKE))",
+        "`version`",
+        filter_string,
+    )
+
+
+def _get_semver_version_filter_expression(comparator: str, version: str):
+    if comparator not in {"=", "!=", "<", "<=", ">", ">="}:
+        raise MlflowException.invalid_parameter_value(
+            "version only supports semantic comparators '=', '!=', '<', '<=', '>', and '>='"
+        )
+
+    parsed = parse_semver(version, param_name="filter_string version")
+    target = (
+        parsed.major,
+        parsed.minor,
+        parsed.patch,
+        encode_prerelease_sort_key(parsed),
+    )
+    columns = (
+        SqlMCPServerVersion.version_major,
+        SqlMCPServerVersion.version_minor,
+        SqlMCPServerVersion.version_patch,
+        SqlMCPServerVersion.version_prerelease_sort_key,
+    )
+
+    equal_expr = sa.and_(*(column == value for column, value in zip(columns, target)))
+    less_expr = _lexicographic_lt(columns, target)
+    greater_expr = _lexicographic_gt(columns, target)
+
+    if comparator == "=":
+        return equal_expr
+    if comparator == "!=":
+        return ~equal_expr
+    if comparator == "<":
+        return less_expr
+    if comparator == "<=":
+        return sa.or_(less_expr, equal_expr)
+    if comparator == ">":
+        return greater_expr
+    return sa.or_(greater_expr, equal_expr)
+
+
+def _lexicographic_lt(columns, target_values):
+    clauses = []
+    for idx, (column, value) in enumerate(zip(columns, target_values)):
+        prefix_equal = [columns[i] == target_values[i] for i in range(idx)]
+        clauses.append(sa.and_(*prefix_equal, column < value) if prefix_equal else column < value)
+    return sa.or_(*clauses)
+
+
+def _lexicographic_gt(columns, target_values):
+    clauses = []
+    for idx, (column, value) in enumerate(zip(columns, target_values)):
+        prefix_equal = [columns[i] == target_values[i] for i in range(idx)]
+        clauses.append(sa.and_(*prefix_equal, column > value) if prefix_equal else column > value)
+    return sa.or_(*clauses)
