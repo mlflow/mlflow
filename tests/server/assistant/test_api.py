@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from mlflow.assistant.config import AssistantConfig, ProjectConfig
 from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
+from mlflow.assistant.providers import OllamaProvider
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -429,11 +430,12 @@ def test_install_skills_skips_when_already_installed(client):
 
 
 def test_update_config_partial_update_preserves_selected_provider(client):
+    ollama = OllamaProvider.OLLAMA_PROVIDER_NAME
     # Pre-populate config: claude_code selected, ollama exists but not selected
     config = AssistantConfig(
         providers={
             "claude_code": AssistantProviderConfig(model="opus", selected=True),
-            "ollama": AssistantProviderConfig(
+            ollama: AssistantProviderConfig(
                 model="llama3", selected=False, base_url="http://localhost:11434"
             ),
         }
@@ -443,14 +445,14 @@ def test_update_config_partial_update_preserves_selected_provider(client):
     # Partially update ollama base_url without a selected flag
     response = client.put(
         "/ajax-api/3.0/mlflow/assistant/config",
-        json={"providers": {"ollama": {"base_url": "http://localhost:12345"}}},
+        json={"providers": {ollama: {"base_url": "http://localhost:12345"}}},
     )
 
     assert response.status_code == 200
     data = response.json()
     assert data["providers"]["claude_code"]["selected"] is True
-    assert data["providers"]["ollama"]["selected"] is False
-    assert data["providers"]["ollama"]["base_url"] == "http://localhost:12345"
+    assert data["providers"][ollama]["selected"] is False
+    assert data["providers"][ollama]["base_url"] == "http://localhost:12345"
 
 
 def test_list_ollama_models_returns_model_list(client):

@@ -1,8 +1,9 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mlflow.assistant.providers import list_providers
+from mlflow.assistant.providers import OllamaProvider, list_providers
 from mlflow.assistant.providers.base import (
     ProviderNotConfiguredError,
     clear_config_cache,
@@ -11,7 +12,7 @@ from mlflow.assistant.providers.base import (
 
 def _ollama_provider():
     for p in list_providers():
-        if p.name == "ollama":
+        if p.name == OllamaProvider.OLLAMA_PROVIDER_NAME:
             return p
     raise AssertionError("ollama provider not registered")
 
@@ -19,7 +20,9 @@ def _ollama_provider():
 @pytest.fixture(autouse=True)
 def config(tmp_path):
     config_file = tmp_path / "config.json"
-    config_file.write_text('{"providers": {"ollama": {"model": "llama3.2"}}}')
+    config_file.write_text(
+        json.dumps({"providers": {OllamaProvider.OLLAMA_PROVIDER_NAME: {"model": "llama3.2"}}})
+    )
     clear_config_cache()
     with patch("mlflow.assistant.config.CONFIG_PATH", config_file):
         yield config_file
@@ -28,6 +31,9 @@ def config(tmp_path):
 
 def test_provider_identity():
     p = _ollama_provider()
+    # Literal "ollama" pins the wire-format contract: this is the on-disk
+    # provider id stored in user config files, so changing it would break
+    # backwards compatibility.
     assert p.name == "ollama"
     assert p.display_name == "Ollama"
     assert p.is_available() is True
@@ -38,7 +44,9 @@ def test_list_models_returns_model_names():
     mock_resp.json.return_value = {"models": [{"model": "llama3"}, {"model": "mistral"}]}
     mock_resp.raise_for_status = MagicMock()
 
-    with patch("mlflow.assistant.providers.requests.get", return_value=mock_resp) as mock_get:
+    with patch(
+        "mlflow.assistant.providers.ollama.requests.get", return_value=mock_resp
+    ) as mock_get:
         models = _ollama_provider().list_models("http://localhost:11434")
 
     assert models == ["llama3", "mistral"]
@@ -50,7 +58,9 @@ def test_list_models_forwards_api_key_as_bearer():
     mock_resp.json.return_value = {"models": [{"model": "llama3"}]}
     mock_resp.raise_for_status = MagicMock()
 
-    with patch("mlflow.assistant.providers.requests.get", return_value=mock_resp) as mock_get:
+    with patch(
+        "mlflow.assistant.providers.ollama.requests.get", return_value=mock_resp
+    ) as mock_get:
         _ollama_provider().list_models("http://localhost:11434", api_key="secret")
 
     mock_get.assert_called_once_with(
@@ -62,7 +72,7 @@ def test_list_models_forwards_api_key_as_bearer():
 
 def test_list_models_raises_on_connection_error():
     with patch(
-        "mlflow.assistant.providers.requests.get",
+        "mlflow.assistant.providers.ollama.requests.get",
         side_effect=Exception("Connection refused"),
     ):
         with pytest.raises(ProviderNotConfiguredError, match="Connection refused"):
@@ -77,7 +87,7 @@ def test_default_base_url_used_when_unconfigured(tmp_path):
     mock_resp.json.return_value = {"models": [{"model": "llama3"}]}
     with (
         patch("mlflow.assistant.config.CONFIG_PATH", config_file),
-        patch("mlflow.assistant.providers.requests.get", return_value=mock_resp) as mock_get,
+        patch("mlflow.assistant.providers.ollama.requests.get", return_value=mock_resp) as mock_get,
     ):
         models = _ollama_provider().list_models()
     assert models == ["llama3"]

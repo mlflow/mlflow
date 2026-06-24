@@ -1,6 +1,13 @@
 import { describe, it, expect } from '@jest/globals';
 import type { ChatMessage } from './types';
-import { extractTemplateVariables, getEmptyVariables, isToolsValueEmpty, substituteVariables } from './utils';
+import {
+  extractTemplateVariables,
+  formatJson,
+  getEmptyVariables,
+  getToolParametersError,
+  prettyPrintJson,
+  substituteVariables,
+} from './utils';
 
 describe('extractTemplateVariables', () => {
   it('returns an empty list when there are no placeholders', () => {
@@ -83,32 +90,60 @@ describe('getEmptyVariables', () => {
   });
 });
 
-describe('isToolsValueEmpty', () => {
-  it('treats empty and whitespace-only text as empty', () => {
-    expect(isToolsValueEmpty('')).toBe(true);
-    expect(isToolsValueEmpty('   ')).toBe(true);
-    expect(isToolsValueEmpty('\n\t')).toBe(true);
+describe('formatJson', () => {
+  it('pretty-prints valid JSON with 2-space indentation', () => {
+    expect(formatJson('{"a":1,"b":[2,3]}')).toBe('{\n  "a": 1,\n  "b": [\n    2,\n    3\n  ]\n}');
   });
 
-  it('treats an empty JSON array as empty', () => {
-    expect(isToolsValueEmpty('[]')).toBe(true);
-    expect(isToolsValueEmpty('[ ]')).toBe(true);
-    expect(isToolsValueEmpty('[\n]')).toBe(true);
+  it('returns null for invalid JSON', () => {
+    expect(formatJson('{not json')).toBeNull();
+    expect(formatJson('')).toBeNull();
+  });
+});
+
+describe('getToolParametersError', () => {
+  it('flags empty or whitespace-only text', () => {
+    expect(getToolParametersError('')).toEqual({ code: 'empty' });
+    expect(getToolParametersError('   ')).toEqual({ code: 'empty' });
+    expect(getToolParametersError('\n\t')).toEqual({ code: 'empty' });
   });
 
-  it('treats a non-empty array as not empty', () => {
-    expect(isToolsValueEmpty('[{}]')).toBe(false);
-    expect(isToolsValueEmpty('[{"type":"function"}]')).toBe(false);
+  it('returns a parse error with the parser detail for unparseable text', () => {
+    const result = getToolParametersError('{not-json');
+    expect(result?.code).toBe('parseError');
+    expect(result).toMatchObject({ code: 'parseError', detail: expect.any(String) });
   });
 
-  it('returns false for non-array JSON so the parse-error path can claim it', () => {
-    expect(isToolsValueEmpty('{}')).toBe(false);
-    expect(isToolsValueEmpty('"foo"')).toBe(false);
-    expect(isToolsValueEmpty('42')).toBe(false);
+  it('flags JSON that is not an object', () => {
+    expect(getToolParametersError('[]')).toEqual({ code: 'notObject' });
+    expect(getToolParametersError('"foo"')).toEqual({ code: 'notObject' });
+    expect(getToolParametersError('42')).toEqual({ code: 'notObject' });
+    expect(getToolParametersError('null')).toEqual({ code: 'notObject' });
   });
 
-  it('returns false for unparseable text so the parse-error path can claim it', () => {
-    expect(isToolsValueEmpty('[not-json')).toBe(false);
-    expect(isToolsValueEmpty('not-json')).toBe(false);
+  it('flags an object schema without a properties map', () => {
+    expect(getToolParametersError('{}')).toEqual({ code: 'missingProperties' });
+    expect(getToolParametersError('{"type":"object"}')).toEqual({ code: 'missingProperties' });
+    expect(getToolParametersError('{"properties":[]}')).toEqual({ code: 'missingProperties' });
+  });
+
+  it('returns null for a valid object schema with properties', () => {
+    expect(getToolParametersError('{"type":"object","properties":{}}')).toBeNull();
+    expect(getToolParametersError('{"properties":{"a":{"type":"string"}}}')).toBeNull();
+  });
+});
+
+describe('prettyPrintJson', () => {
+  it('pretty-prints valid JSON with 2-space indentation', () => {
+    expect(prettyPrintJson('{"city":"San Francisco"}')).toBe('{\n  "city": "San Francisco"\n}');
+  });
+
+  it('re-stringifies regardless of input whitespace so output is canonical', () => {
+    expect(prettyPrintJson('{ "a" : 1 ,"b":2 }')).toBe('{\n  "a": 1,\n  "b": 2\n}');
+  });
+
+  it('falls back to the raw string for invalid/partial JSON', () => {
+    expect(prettyPrintJson('{"city":"San Francisco"')).toBe('{"city":"San Francisco"');
+    expect(prettyPrintJson('not json at all')).toBe('not json at all');
   });
 });
