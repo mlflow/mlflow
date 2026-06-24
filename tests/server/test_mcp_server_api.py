@@ -509,6 +509,50 @@ def test_search_versions(client):
     assert len(data["mcp_server_versions"]) == 2
 
 
+def test_search_versions_order_by_version_uses_semver_desc(client):
+    for version in ("1.2.0-alpha", "1.2.0", "1.10.0"):
+        client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/semver-order-desc')}/versions",
+            json={
+                "server_json": _server_json("com.example/semver-order-desc", version),
+                "status": "active",
+            },
+        )
+
+    r = client.get(
+        f"{PREFIX}/{_encode_path_param('com.example/semver-order-desc')}/versions",
+        params=[("order_by", "`version` DESC")],
+    )
+    assert r.status_code == 200
+    assert [v["version"] for v in r.json()["mcp_server_versions"]] == [
+        "1.10.0",
+        "1.2.0",
+        "1.2.0-alpha",
+    ]
+
+
+def test_search_versions_order_by_version_uses_semver_asc(client):
+    for version in ("1.2.0-alpha", "1.2.0", "1.10.0"):
+        client.post(
+            f"{PREFIX}/{_encode_path_param('com.example/semver-order-asc')}/versions",
+            json={
+                "server_json": _server_json("com.example/semver-order-asc", version),
+                "status": "active",
+            },
+        )
+
+    r = client.get(
+        f"{PREFIX}/{_encode_path_param('com.example/semver-order-asc')}/versions",
+        params=[("order_by", "`version` ASC")],
+    )
+    assert r.status_code == 200
+    assert [v["version"] for v in r.json()["mcp_server_versions"]] == [
+        "1.2.0-alpha",
+        "1.2.0",
+        "1.10.0",
+    ]
+
+
 def test_update_version_status(client):
     sj = _server_json("com.example/uv", "1.0.0")
     client.post(

@@ -416,7 +416,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             sv.last_updated_at = get_current_time_millis()
             session.add(sv)
             session.flush()
-            if status in {MCPStatus.DRAFT, MCPStatus.DEPRECATED}:
+            if status is not NOT_SET:
                 self._delete_latest_alias_bindings_if_unresolvable(session, name)
             return sv.to_mlflow_entity()
 
@@ -1268,7 +1268,6 @@ def _parse_search_mcp_servers_order_by(order_by_list):
 def _parse_search_mcp_server_versions_order_by(order_by_list):
     valid_keys = {"version", "created_at", "last_updated_at"}
     column_map = {
-        "version": SqlMCPServerVersion.version,
         "created_at": SqlMCPServerVersion.created_at,
         "last_updated_at": SqlMCPServerVersion.last_updated_at,
     }
@@ -1289,13 +1288,34 @@ def _parse_search_mcp_server_versions_order_by(order_by_list):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             observed.add(key)
-            clauses.append(column_map[key].asc() if is_ascending else column_map[key].desc())
+            if key == "version":
+                clauses.extend(_semver_version_order_clauses(is_ascending))
+            else:
+                clauses.append(column_map[key].asc() if is_ascending else column_map[key].desc())
     if "created_at" not in observed:
         clauses.append(SqlMCPServerVersion.created_at.asc())
     # Offset pagination needs a deterministic tie-breaker for same-timestamp rows.
     if "version" not in observed:
         clauses.append(SqlMCPServerVersion.version.asc())
     return clauses
+
+
+def _semver_version_order_clauses(is_ascending: bool):
+    if is_ascending:
+        return (
+            SqlMCPServerVersion.version_major.asc(),
+            SqlMCPServerVersion.version_minor.asc(),
+            SqlMCPServerVersion.version_patch.asc(),
+            SqlMCPServerVersion.version_prerelease_sort_key.asc(),
+            SqlMCPServerVersion.version.asc(),
+        )
+    return (
+        SqlMCPServerVersion.version_major.desc(),
+        SqlMCPServerVersion.version_minor.desc(),
+        SqlMCPServerVersion.version_patch.desc(),
+        SqlMCPServerVersion.version_prerelease_sort_key.desc(),
+        SqlMCPServerVersion.version.desc(),
+    )
 
 
 def _parse_search_mcp_access_bindings_order_by(order_by_list):

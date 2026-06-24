@@ -3834,22 +3834,6 @@ class SqlMCPServer(Base):
         )
 
     @classmethod
-    def _latest_active_candidates_query(cls):
-        return sa.select(
-            SqlMCPServerVersion.workspace.label("workspace"),
-            SqlMCPServerVersion.name.label("name"),
-            SqlMCPServerVersion.version.label("version"),
-            SqlMCPServerVersion.status.label("status"),
-            sa.func
-            .row_number()
-            .over(
-                partition_by=(SqlMCPServerVersion.workspace, SqlMCPServerVersion.name),
-                order_by=cls._version_order_by(),
-            )
-            .label("row_num"),
-        ).where(SqlMCPServerVersion.status == MCPStatus.ACTIVE.value)
-
-    @classmethod
     def _resolved_latest_candidates_query(cls):
         status_priority = sa.case(
             (SqlMCPServerVersion.status == MCPStatus.ACTIVE.value, 0),

@@ -1608,6 +1608,30 @@ def test_search_mcp_server_versions_order_by(store):
     assert versions == ["1.0.0-gamma", "1.0.0-beta", "1.0.0-alpha"]
 
 
+def test_search_mcp_server_versions_order_by_version_uses_semver_desc(store):
+    for version in ("1.2.0-alpha", "1.2.0", "1.10.0"):
+        store.create_mcp_server_version(_server_json("io.github.test/semver-desc", version))
+
+    result = store.search_mcp_server_versions(
+        "io.github.test/semver-desc",
+        order_by=["`version` DESC"],
+    )
+    versions = [v.version for v in result]
+    assert versions == ["1.10.0", "1.2.0", "1.2.0-alpha"]
+
+
+def test_search_mcp_server_versions_order_by_version_uses_semver_asc(store):
+    for version in ("1.2.0-alpha", "1.2.0", "1.10.0"):
+        store.create_mcp_server_version(_server_json("io.github.test/semver-asc", version))
+
+    result = store.search_mcp_server_versions(
+        "io.github.test/semver-asc",
+        order_by=["`version` ASC"],
+    )
+    versions = [v.version for v in result]
+    assert versions == ["1.2.0-alpha", "1.2.0", "1.10.0"]
+
+
 def test_create_mcp_access_binding_with_latest_alias(store):
     # Create server with an active version
     store.create_mcp_server_version(
