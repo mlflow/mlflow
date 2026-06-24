@@ -1344,6 +1344,7 @@ module.exports = {
   "mlflow.experiment_page.mode.artifact": "",
   "mlflow.experiment_page.runs.add_new_tag": "",
   "mlflow.experiment_page.runs.add_tags": "",
+  "mlflow.experiment_page.runs_table.column_selector.reset_to_defaults": "",
   "mlflow.experiment_page.scorers.advanced_settings_toggle": "",
   "mlflow.experiment_page.scorers.auto_evaluate_toggle": "",
   "mlflow.experiment_page.scorers.filter_string_input": "",
