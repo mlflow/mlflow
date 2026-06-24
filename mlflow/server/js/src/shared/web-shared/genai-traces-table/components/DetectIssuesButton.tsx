@@ -5,7 +5,10 @@ import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // Default storage key for tracking first-time user guidance
 export const DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY = 'mlflow.detectIssues.guidanceShown';
-const DETECT_ISSUES_GUIDANCE_STORAGE_VERSION = 1;
+export const DETECT_ISSUES_GUIDANCE_STORAGE_VERSION = 1;
+// Broadcast on dismiss so a follow-on first-visit nudge (e.g. Analyze with Assistant) can reveal
+// itself in the same session instead of waiting for a remount to re-read the storage flag.
+export const DETECT_ISSUES_GUIDANCE_DISMISSED_EVENT = 'mlflow.detectIssues.guidanceDismissed';
 
 interface DetectIssuesButtonProps {
   componentId: string;
@@ -25,6 +28,7 @@ export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({ componen
 
   const handleDismissGuidance = () => {
     setHasSeenGuidance(true);
+    window.dispatchEvent(new Event(DETECT_ISSUES_GUIDANCE_DISMISSED_EVENT));
   };
 
   const buttonContent = (

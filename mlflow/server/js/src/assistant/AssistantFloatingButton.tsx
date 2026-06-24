@@ -104,9 +104,9 @@ export const AssistantFloatingButton = () => {
   // Standard DuBois control height, so the bubble stays in step with other UI controls.
   const fabSize = theme.general.heightBase;
   const iconSize = theme.typography.fontSizeXl;
-  // Inverted high-contrast surface: near-black in light mode, white in dark mode.
-  const bubbleBackground = theme.isDarkMode ? theme.colors.white : theme.colors.grey800;
-  const labelColor = theme.isDarkMode ? theme.colors.grey800 : theme.colors.white;
+  // Keep the page's own surface color and earn prominence from an AI-gradient border +
+  // elevation, mirroring the Detect Issues button so the two AI affordances read alike.
+  const bubbleBackground = `linear-gradient(${theme.colors.backgroundPrimary}, ${theme.colors.backgroundPrimary}) padding-box, ${theme.gradients.aiBorderGradient} border-box`;
 
   // Plain button (not the DuBois Button) so we fully control the background and the
   // hover-to-expand pill behaviour without fighting the component's own styles.
@@ -123,12 +123,12 @@ export const AssistantFloatingButton = () => {
         maxWidth: fabSize,
         paddingInline: (fabSize - iconSize) / 2,
         paddingBlock: 0,
-        border: 'none',
+        border: '1px solid transparent',
         borderRadius: fabSize / 2,
         cursor: 'pointer',
         appearance: 'none',
         background: bubbleBackground,
-        color: labelColor,
+        color: theme.colors.textPrimary,
         boxShadow: theme.general.shadowHigh,
         overflow: 'hidden',
         whiteSpace: 'nowrap',
