@@ -577,21 +577,26 @@ def test_prerelease_numeric_identifier_sorts_lower_than_nonnumeric_end_to_end(st
     assert server.latest_version == "1.0.0-alpha"
 
 
-def test_build_metadata_uses_full_version_string_as_final_tiebreaker(store):
-    for version in ("1.0.0+abc", "1.0.0+xyz"):
+def test_build_metadata_uses_created_at_before_raw_version_as_latest_tiebreaker(store, monkeypatch):
+    times = iter((1000, 2000, 3000))
+    monkeypatch.setattr(
+        "mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin.get_current_time_millis",
+        lambda: next(times),
+    )
+    for version in ("1.0.0+xyz", "1.0.0+abc"):
         store.create_mcp_server_version(
             _server_json("io.github.test/s", version), status=MCPStatus.ACTIVE
         )
 
     latest = store.get_latest_mcp_server_version("io.github.test/s")
-    assert latest.version == "1.0.0+xyz"
+    assert latest.version == "1.0.0+abc"
 
     server = store.get_mcp_server("io.github.test/s")
-    assert server.latest_version == "1.0.0+xyz"
+    assert server.latest_version == "1.0.0+abc"
     assert server.status == MCPStatus.ACTIVE
 
     aliased = store.get_mcp_server_version_by_alias("io.github.test/s", "latest")
-    assert aliased.version == "1.0.0+xyz"
+    assert aliased.version == "1.0.0+abc"
 
     binding = store.create_mcp_access_binding(
         "io.github.test/s",
@@ -599,7 +604,7 @@ def test_build_metadata_uses_full_version_string_as_final_tiebreaker(store):
         server_alias="latest",
     )
     assert binding.resolved_version is not None
-    assert binding.resolved_version.version == "1.0.0+xyz"
+    assert binding.resolved_version.version == "1.0.0+abc"
 
 
 def test_get_latest_mcp_server_version_ignores_non_active_versions(store):
@@ -611,7 +616,7 @@ def test_get_latest_mcp_server_version_ignores_non_active_versions(store):
 
 
 def test_get_latest_mcp_server_version_same_timestamp_tiebreaker(store, monkeypatch):
-    """When two versions share the same created_at, version DESC breaks the tie.
+    """When two versions share the same created_at, raw version breaks the tie.
 
     This must match the ordering in _latest_candidates_query to keep
     get_latest_mcp_server_version and resolved_status consistent.

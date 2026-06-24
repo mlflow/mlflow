@@ -190,9 +190,9 @@ def upgrade():
     )
 
     # Keep this support index narrow enough for MySQL's 3072-byte key limit.
-    # Latest resolution still orders by prerelease sort key and raw version in
-    # SQL; they are just not part of the index because the coarse candidate
-    # pruning and major/minor/patch ordering are the important indexed portion.
+    # Latest resolution still orders in SQL by semver core, prerelease sort
+    # key, created_at, and finally raw version; only the coarse prefix is
+    # indexed here because that is the most important pruning portion.
     op.create_index(
         "idx_mcp_server_versions_latest",
         "mcp_server_versions",

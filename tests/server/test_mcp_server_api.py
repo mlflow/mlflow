@@ -439,8 +439,13 @@ def test_latest_alias_returns_highest_active_semver(client):
     assert literal_r.json()["version"] == "1.10.0"
 
 
-def test_latest_alias_uses_full_version_string_as_final_tiebreaker(client):
-    for version in ("1.0.0+abc", "1.0.0+xyz"):
+def test_latest_alias_uses_created_at_before_raw_version_as_tiebreaker(client, monkeypatch):
+    times = iter((1000, 2000))
+    monkeypatch.setattr(
+        "mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin.get_current_time_millis",
+        lambda: next(times),
+    )
+    for version in ("1.0.0+xyz", "1.0.0+abc"):
         client.post(
             f"{PREFIX}/{_encode_path_param('com.example/build-meta-lat')}" + "/versions",
             json={
@@ -453,11 +458,11 @@ def test_latest_alias_uses_full_version_string_as_final_tiebreaker(client):
         f"{PREFIX}/{_encode_path_param('com.example/build-meta-lat')}" + "/aliases/latest"
     )
     assert alias_r.status_code == 200
-    assert alias_r.json()["version"] == "1.0.0+xyz"
+    assert alias_r.json()["version"] == "1.0.0+abc"
 
     server_r = client.get(f"{PREFIX}/{_encode_path_param('com.example/build-meta-lat')}")
     assert server_r.status_code == 200
-    assert server_r.json()["latest_version"] == "1.0.0+xyz"
+    assert server_r.json()["latest_version"] == "1.0.0+abc"
 
 
 def test_latest_alias_handles_alphanumeric_prefix_prerelease_ordering(client):

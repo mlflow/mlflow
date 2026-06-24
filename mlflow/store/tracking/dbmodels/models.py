@@ -3821,15 +3821,15 @@ class SqlMCPServer(Base):
     def _version_order_by():
         """Return DESC clauses for semantic ordering plus deterministic tie-breaks.
 
-        The final raw-version tie-break keeps semver-equal builds, such as
-        versions differing only by ``+metadata``, ordered consistently across
-        imports.
+        For semver-equal builds, prefer newer-created rows before using the raw
+        version string as a final deterministic fallback.
         """
         return (
             SqlMCPServerVersion.version_major.desc(),
             SqlMCPServerVersion.version_minor.desc(),
             SqlMCPServerVersion.version_patch.desc(),
             SqlMCPServerVersion.version_prerelease_sort_key.desc(),
+            SqlMCPServerVersion.created_at.desc(),
             SqlMCPServerVersion.version.desc(),
         )
 
@@ -4003,10 +4003,10 @@ class SqlMCPServerVersion(Base):
             name="mcp_server_versions_server_fkey",
         ),
         # Keep this support index narrow enough for MySQL's 3072-byte key
-        # limit. Latest resolution still orders by prerelease sort key and raw
-        # version in SQL; they are just not part of the index because the
-        # coarse candidate pruning and major/minor/patch ordering are the
-        # important indexed portion.
+        # limit. Latest resolution still orders in SQL by semver core,
+        # prerelease sort key, created_at, and finally raw version; only the
+        # coarse prefix is indexed here because that is the most important
+        # pruning portion.
         Index(
             "idx_mcp_server_versions_latest",
             "workspace",

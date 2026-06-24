@@ -39,18 +39,23 @@ def test_db_backend_mcp_latest_prefers_semver_prerelease_ordering(store):
     assert server.status == MCPStatus.ACTIVE
 
 
-def test_db_backend_mcp_latest_uses_build_metadata_as_final_tiebreaker(store):
-    for version in ("1.0.0+abc", "1.0.0+xyz"):
+def test_db_backend_mcp_latest_uses_created_at_before_raw_version_as_tiebreaker(store, monkeypatch):
+    times = iter((1000, 2000, 3000))
+    monkeypatch.setattr(
+        "mlflow.store.tracking.mcp_server_registry.sqlalchemy_mixin.get_current_time_millis",
+        lambda: next(times),
+    )
+    for version in ("1.0.0+xyz", "1.0.0+abc"):
         store.create_mcp_server_version(
             _server_json("io.github.test/backend-build-meta", version),
             status=MCPStatus.ACTIVE,
         )
 
     latest = store.get_latest_mcp_server_version("io.github.test/backend-build-meta")
-    assert latest.version == "1.0.0+xyz"
+    assert latest.version == "1.0.0+abc"
 
     server = store.get_mcp_server("io.github.test/backend-build-meta")
-    assert server.latest_version == "1.0.0+xyz"
+    assert server.latest_version == "1.0.0+abc"
 
 
 def test_db_backend_mcp_latest_respects_ascii_prerelease_order(store):
