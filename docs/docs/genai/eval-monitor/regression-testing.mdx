@@ -1,6 +1,6 @@
 ---
-title: Regression Testing and CI/CD
-description: Write agent behavioral and regression tests as plain pytest functions with @mlflow.test, and gate them in CI to prevent quality regressions.
+title: Self-Evolving Test Suite
+description: A hands-on tutorial. Grow an agent regression suite from inside your normal vibe-check loop, where every piece of feedback becomes a @mlflow.test and a later change that breaks an old behavior gets caught before you ship.
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -10,150 +10,283 @@ import TileCard from '@site/src/components/TileCard';
 import ImageBox from '@site/src/components/ImageBox';
 import { Bot, Activity, MessageSquare, TestTube, ShieldCheck, Gauge, ScrollText } from 'lucide-react';
 
-# Regression Testing and CI/CD
+# Self-Evolving Test Suite
 
-As you ship changes to an agent (a new prompt, a model swap, a refactored tool), you need confidence that you did not silently break behavior that used to work. The most effective way to get that confidence is the same one you already use for the rest of your code: **write a test, and run it in CI.**
+Have you ever fixed one thing in your agent only to break something else? You shorten a verbose answer, a stakeholder asks for another tweak, and the new fix quietly clobbers the answer that used to work. Every fix can revive an old bug, and coding agents make it worse: they rewrite your whole agent in seconds while your verification stays manual. Your fixes end up competing instead of compounding, and you never quite feel ready to ship.
 
-MLflow lets you write agent behavioral and regression tests as ordinary `pytest` functions. You mark a test with `@mlflow.test`, run scorers (built-in or custom, code-based or LLM judges) against your agent's output with <APILink fn="mlflow.genai.evaluate" />, and assert that they pass. Every test in the session is recorded under a single MLflow run, so a green CI check and a browsable record of what passed and what failed come from the exact same source.
+A **self-evolving test suite** breaks that cycle by putting MLflow inside the loop you already run. You keep vibe-checking your agent and handing feedback to your coding agent, but now every piece of feedback becomes a permanent test, and every later change runs against every failure you have ever recorded. Old fixes stay green, fixes compound instead of competing, and by the time the agent is ready to ship you have a real regression suite. When the suite is green, you are ready to ship.
 
-<ImageBox src="/images/mlflow-3/eval-monitor/regression-test-result-table.png" alt="MLflow regression test run showing each test case as a row with a consolidated pass/fail result" width="90%" />
+This tutorial builds that suite end to end on a small support agent. You will trace the agent, lock a behavior in as a test, make a well-meaning change that silently breaks it, watch the suite catch the regression, and then gate the suite in CI. The finished product is a suite that makes regressions impossible to miss:
 
-```python
-# tests/regression/test_support_agent.py
-import mlflow
-from mlflow.genai.scorers import Guidelines
+<ImageBox src="/images/mlflow-3/eval-monitor/self-evolving-eval-runs.png" alt="MLflow Evaluation runs page comparing two runs of a regression suite, where the is_concise score drops from 1 to 0 after a change" width="100%" />
 
+## How the loop works
 
-@mlflow.test
-def test_answers_concisely_in_english(agent):
-    result = mlflow.genai.evaluate(
-        predict_fn=agent.invoke,
-        data=[{"inputs": {"question": "What are your support hours?"}}],
-        scorers=[
-            Guidelines(name="is_english", guidelines="The answer must be written in English."),
-            Guidelines(name="is_concise", guidelines="The answer must be a single sentence."),
-        ],
-    )
-    assert result.passed, result.reason
-```
-
-```bash
-pytest tests/regression/test_support_agent.py
-```
-
-## Regression test vs a dataset evaluation
-
-[Running an evaluation](/genai/eval-monitor/running-evaluation/agents) against a dataset answers a _measurement_ question: "what is my agent's correctness/safety/relevance score across this dataset?" The output is aggregate metrics (correctness is 82%, safety is 95%).
-
-A regression test answers a _gating_ question: "did this specific behavior break?" Each test starts from a particular failure mode you have already seen and turns it into a binary pass/fail check you run on every change, so that exact issue can never silently come back. You are not tracking a score trend; you are gating against known failures, like a prompt injection that once leaked the system prompt, or the three questions a customer reported last week.
-
-`@mlflow.test` is built for that gating workflow. It reuses the same scorers and the same `evaluate()` engine, but shapes the result for pass/fail assertions and CI.
-
-## The testing loop
-
-The best regression suites are not written up front, they are grown from real failures. Each time your agent does something wrong, you capture that case as a test so it can never regress silently again. MLflow supports the whole loop:
+The best suites are not written up front, they grow from real failures. You keep doing exactly what you already do, vibe-checking your agent and telling your coding agent what went wrong, and MLflow turns each piece of feedback into a test underneath you.
 
 <WorkflowSteps
   steps={[
     {
       icon: Bot,
-      title: "Set up",
-      description: "Run `mlflow agent setup` to install the MLflow skills into your coding agent and wire up tracing, so every agent run is captured."
+      title: "Set up the loop",
+      description: "Run `mlflow agent setup` once to install the MLflow skills into your coding agent and wire up tracing, so it learns how to read traces, score outputs, and write @mlflow.test tests."
     },
     {
       icon: Activity,
-      title: "Run & observe",
-      description: "Run your agent and review the resulting traces in the MLflow UI to find where it misbehaves."
+      title: "Vibe-check and observe",
+      description: "Run your agent the way you already do. When an answer is off, open its trace in MLflow to see exactly what happened, every tool call, input, and output, instead of guessing."
     },
     {
       icon: MessageSquare,
-      title: "Capture failures",
-      description: "A failure in production, a thumbs-down, or feedback logged on a trace is the raw material for your next test."
+      title: "Hand off the failure",
+      description: "Give your coding agent the same feedback you always would. It runs a disciplined explore, plan, implement, verify loop: read the trace, root-cause the issue, write the test first, then fix the agent until it passes."
     },
     {
       icon: TestTube,
-      title: "Write a regression test",
-      description: "Turn the failing case into a @mlflow.test: pin its input and assert the behavior you actually wanted."
+      title: "Lock it in as a test",
+      description: "The fix is captured as a @mlflow.test that pins the failing input and asserts the behavior you wanted, so that exact failure can never silently return."
     },
     {
       icon: ShieldCheck,
       title: "Gate in CI",
-      description: "Run the suite on every pull request so the regression can never come back unnoticed."
+      description: "Every later change runs the whole accumulated suite on each pull request. Old fixes stay green, and a green suite means you are ready to ship."
     }
   ]}
 />
 
-## Quickstart
+:::tip[Let your coding agent run the loop]
 
-:::tip[Let your coding agent set things up]
-
-Run `mlflow agent setup` once from inside your project to install the **MLflow skills** into your coding agent (Claude Code, Codex, and more). The skills teach the agent how MLflow tracing, scorers, and `@mlflow.test` work, so it can wire up tracing and write regression tests for you.
+Run `mlflow agent setup` once from inside your project to install the **MLflow skills** into your coding agent (Claude Code, Codex, and OpenCode). The skills include [`fix-agent-issue`](https://github.com/mlflow/skills/tree/main/fix-agent-issue), which drives the loop for you: it grounds the diagnosis in the agent's trace, writes the `@mlflow.test`, and iterates the agent until the suite is green.
 
 ```bash
 uvx mlflow@latest agent setup
 ```
 
+This tutorial runs the same loop **by hand** so you can see each piece. Once you understand it, `mlflow agent setup` automates it.
+
 :::
 
-### Step 1: Enable the pytest plugin
+## Prerequisites
 
-`@mlflow.test` runs through a pytest plugin. Enable it once by adding it to your `pyproject.toml`:
+Install MLflow 3.14 or newer (when `@mlflow.test` shipped) along with the OpenAI SDK:
 
-```toml
-[tool.pytest.ini_options]
-addopts = ["-p", "mlflow.pytest.plugin"]
+```bash
+pip install --upgrade "mlflow>=3.14" openai
 ```
 
-Or enable it for a single run with `pytest -p mlflow.pytest.plugin`.
+Set your API key, pin the judge model so every run grades the same way, and point at a local tracking server:
 
-### Step 2: Write a test
+```bash
+export OPENAI_API_KEY="your-api-key"
+export MLFLOW_GENAI_JUDGE_DEFAULT_MODEL="openai:/gpt-5-mini"
+export MLFLOW_TRACKING_URI="http://localhost:5000"
+```
 
-Mark the test with `@mlflow.test`, call <APILink fn="mlflow.genai.evaluate" /> with your agent and the scorers that encode the behavior you care about, then assert on the result.
+Then start that server in a separate terminal (you installed MLflow above) so your traces and runs are recorded and reviewable:
 
-Here `agent` is a `pytest` fixture you define that returns your application, so `agent.invoke` is the entrypoint MLflow calls for each input.
+```bash
+mlflow server
+```
+
+## Step 1: Build an agent you can trace
+
+Create `agent.py`. It is a tiny customer support assistant: a single OpenAI call with a system prompt. The one MLflow-specific line is <APILink fn="mlflow.openai.autolog" />, which traces every call automatically.
+
+```python
+# agent.py
+import mlflow
+import openai
+
+mlflow.openai.autolog()
+mlflow.set_experiment("support-agent")
+
+SYSTEM_PROMPT = (
+    "You are a customer support assistant. "
+    "Our support team is available 9 AM to 5 PM Eastern Time, Monday through Friday. "
+    "To reset a password, click 'Forgot password' on the sign-in page. "
+    "Answer the customer's question concisely, in one short sentence."
+)
+
+
+def invoke(question: str) -> str:
+    client = openai.OpenAI()
+    completion = client.chat.completions.create(
+        model="gpt-5.5",
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": question},
+        ],
+    )
+    return completion.choices[0].message.content
+```
+
+Try it:
+
+```python
+import agent
+
+print(agent.invoke("What are your support hours?"))
+# Our support hours are Monday through Friday, 9 AM to 5 PM Eastern Time.
+```
+
+Open the MLflow UI and select the **support-agent** experiment. Every call shows up under the **Traces** tab with its inputs, outputs, and token counts, so when an answer is wrong you inspect the real trace instead of guessing. This is the foundation everything else builds on.
+
+## Step 2: Turn a behavior into a test
+
+The answer above is concise, exactly what you want. Lock that in so it can never silently regress.
+
+A test is an ordinary `pytest` function. You mark it with `@mlflow.test`, call <APILink fn="mlflow.genai.evaluate" /> with your agent and the scorers that encode the behavior you care about, then assert on the result. By the end of this step your project looks like this:
+
+```
+support-agent/
+  agent.py
+  pyproject.toml
+  tests/regression/
+    test_support_agent.py
+```
+
+Keep `agent.py` at the project root and create the `tests/regression/` directory for the test. The test imports the agent directly. Here the two [`Guidelines`](/genai/eval-monitor/scorers/llm-judge/guidelines) scorers are LLM judges that check the answer in plain language:
 
 ```python
 # tests/regression/test_support_agent.py
 import mlflow
 from mlflow.genai.scorers import Guidelines
 
+import agent
+
 
 @mlflow.test
-def test_answers_concisely_in_english(agent):
+def test_support_hours_is_concise():
     result = mlflow.genai.evaluate(
         predict_fn=agent.invoke,
         data=[{"inputs": {"question": "What are your support hours?"}}],
         scorers=[
+            Guidelines(
+                name="is_concise", guidelines="The answer must be concise: at most three sentences."
+            ),
             Guidelines(name="is_english", guidelines="The answer must be written in English."),
-            Guidelines(name="is_concise", guidelines="The answer must be a single sentence."),
         ],
     )
     assert result.passed, result.reason
 ```
 
-`result.passed` is `True` only when every scorer passed for every row. `result.reason` names the failing scorers and their rationales, so when the assertion fails, pytest shows you _why_ without a second run.
+`@mlflow.test` runs through a pytest plugin. Enable it once in your `pyproject.toml` so every `pytest` run picks it up. The `pythonpath` entry puts the project root on the import path so the test can `import agent` under the bare `pytest` command:
 
-You can use the full range of MLflow scorers here, including [built-in LLM judges](/genai/eval-monitor/scorers/llm-judge/predefined), [custom judges](/genai/eval-monitor/scorers/llm-judge/custom-judges), and [code-based scorers](/genai/eval-monitor/scorers/custom).
+```toml
+[tool.pytest.ini_options]
+addopts = ["-p", "mlflow.pytest.plugin"]
+pythonpath = ["."]
+```
 
-### Step 3: Run it
+For a one-off run without editing `pyproject.toml`, pass `pytest -p mlflow.pytest.plugin` instead. Run it like any other pytest suite:
 
 ```bash
 pytest tests/regression/test_support_agent.py
 ```
 
-Run it like any other pytest suite. The whole session is recorded as a single MLflow run. Open the **Evaluation runs** page in the MLflow UI and select the run to inspect each test case, including its conversation, trace, and per-assertion results.
+`result.passed` is `True` only when every scorer passed for every row. `result.reason` names the failing scorers and their rationales, so a failed assertion tells you _why_ without a second run. The whole session is recorded as a single MLflow run; open the **Evaluation runs** page and select it to inspect each test case, its conversation, and per-assertion results.
 
-<ImageBox src="/images/mlflow-3/eval-monitor/regression-test-case-detail.png" alt="Regression test run detail showing a test case's conversation and per-assertion pass/fail results" width="100%" />
+## Step 3: Watch a change get caught
 
-## Run the suite in parallel
+Now a new requirement arrives: customers find the agent terse, so you are asked to make it friendlier. First, capture that as its own test, so "friendly" is also a behavior you guard:
 
-Agent tests are slow: each one runs your real agent and its LLM-judge scorers. `pytest` runs tests sequentially by default, so even a modest suite quickly adds up to minutes. [pytest-xdist](https://pytest-xdist.readthedocs.io/) spreads the tests across worker processes to cut that down.
+```python
+@mlflow.test
+def test_greeting_is_friendly():
+    result = mlflow.genai.evaluate(
+        predict_fn=agent.invoke,
+        data=[{"inputs": {"question": "Hi, I need some help."}}],
+        scorers=[
+            Guidelines(
+                name="is_friendly",
+                guidelines="The answer must greet the customer warmly and politely.",
+            ),
+        ],
+    )
+    assert result.passed, result.reason
+```
 
-First, install it and add a hook to your `conftest.py` so every worker reports to a single MLflow run. Without this hook, each worker records its own run and your results scatter across one run per worker:
+Then make the change. Edit the system prompt in `agent.py` to be warm and thorough:
+
+```python
+SYSTEM_PROMPT = (
+    "You are a customer support assistant. "
+    "Our support team is available 9 AM to 5 PM Eastern Time, Monday through Friday. "
+    "To reset a password, click 'Forgot password' on the sign-in page. "
+    "Always greet the customer warmly, thank them for reaching out, explain your answer "
+    "thoroughly with background, and end with a friendly offer to help further."
+)
+```
+
+Run the whole suite:
 
 ```bash
-pip install pytest-xdist
+pytest tests/regression
 ```
+
+The greeting test passes, but `test_support_hours_is_concise` now **fails**. Making the agent friendlier made it verbose, which broke the conciseness you locked in two steps ago. Without the suite, nobody would have noticed until a customer complained. Open the failing case in the UI to see exactly what happened: the conversation, and the `is_concise` assertion flipped to **Fail** with the judge's rationale.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/self-evolving-regression-failure.png" alt="A failing test case: a verbose support reply, where the is_english assertion passes but the is_concise assertion fails" width="50%" />
+
+This is the doom loop made visible. The fix for friendliness competed with the fix for conciseness.
+
+## Step 4: Make the fixes compound
+
+Reconcile the two requirements. Edit the system prompt once more so the agent is both friendly _and_ concise:
+
+```python
+SYSTEM_PROMPT = (
+    "You are a customer support assistant. "
+    "Our support team is available 9 AM to 5 PM Eastern Time, Monday through Friday. "
+    "To reset a password, click 'Forgot password' on the sign-in page. "
+    "Open with a brief friendly greeting, then answer the question in a single short sentence."
+)
+```
+
+Run the suite again:
+
+```bash
+pytest tests/regression
+```
+
+Everything is green. The same change that satisfies the friendliness requirement now keeps the conciseness one too. Open the previously failing case and both assertions pass:
+
+<ImageBox src="/images/mlflow-3/eval-monitor/self-evolving-test-passed.png" alt="The same test case after the fix: a concise, friendly reply where both the is_concise and is_english assertions pass" width="50%" />
+
+That is the difference between the old loop and the new one. In the old loop your fixes compete and you move backwards. Here every change runs against everything you have ever locked in, so fixes compound and the suite only grows greener. The **Evaluation runs** page makes the trend obvious (the comparison at the top of this page): `is_concise` dropped to 0 on the friendlier rewrite and is back to 1 once both behaviors hold.
+
+## Step 5: Gate the suite in CI
+
+Because these are plain pytest tests, running them in CI is just running pytest. Point `MLFLOW_TRACKING_URI` at a persistent tracking server (or a Databricks workspace) so the run and its traces are recorded and reviewable after the job finishes, and pin the judge model so every run grades the same way.
+
+```yaml
+# .github/workflows/agent-regression.yml
+name: Agent regression tests
+on: [pull_request]
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install "mlflow>=3.14" pytest openai
+      - name: Run regression tests
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          # Judge model for the LLM-judge scorers.
+          MLFLOW_GENAI_JUDGE_DEFAULT_MODEL: "openai:/gpt-5-mini"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: pytest -p mlflow.pytest.plugin tests/regression
+```
+
+A failing assertion fails the pytest job, which fails the check, which blocks the pull request, exactly like a unit test. The `result.reason` in the pytest output tells you which scorer flagged the output and why, and the recorded MLflow run lets you open the full trace to debug.
+
+### Run a large suite in parallel
+
+Agent tests are slow: each one runs your real agent and its LLM-judge scorers. As your suite grows, spread the tests across processes with [pytest-xdist](https://pytest-xdist.readthedocs.io/). Add a hook to `conftest.py` so every worker reports to a single MLflow run instead of scattering one run per worker:
 
 ```python
 # conftest.py
@@ -169,41 +302,13 @@ def pytest_configure(config):
         os.environ["MLFLOW_RUN_ID"] = run.info.run_id
 ```
 
-Then run the suite in parallel:
+Then run with `pytest -n auto` (one worker per CPU core) or `pytest -n 4` for a fixed number.
 
-```bash
-pytest -n auto        # one worker per CPU core
-pytest -n 4           # fixed number of workers
-```
+## This is eval, just not the eval you are dreading
 
-## Running in CI
+What you just did is evaluation, just not the version most teams dread. Traditional eval asks you to build a golden dataset, write custom judges, and align them to human experts before you get any value back. That work is real and it matters, but the upfront cost is why so many teams stall in the vibe-check loop and never start.
 
-Because these are plain pytest tests, running them in CI is just running pytest. Point `MLFLOW_TRACKING_URI` at a persistent tracking server (or a Databricks workspace) so the run and its traces are recorded and reviewable after the job finishes. If your tests use LLM-judge scorers, pin the judge model with `MLFLOW_GENAI_JUDGE_DEFAULT_MODEL` so every run grades against the same model. The `-n auto` flag runs the suite in parallel, using the `conftest.py` from the previous section to keep all results on one run.
-
-```yaml
-# .github/workflows/agent-regression.yml
-name: Agent regression tests
-on: [pull_request]
-
-jobs:
-  regression:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: pip install "mlflow>=3.14" pytest pytest-xdist
-      - name: Run regression tests
-        env:
-          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-          # Judge model for built-in / LLM-judge scorers (or pass model= to each scorer).
-          MLFLOW_GENAI_JUDGE_DEFAULT_MODEL: "openai:/gpt-5-mini"
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: pytest -n auto tests/regression
-```
-
-A failing assertion fails the pytest job, which fails the check, which blocks the pull request, exactly like a unit test. When a test fails, the `result.reason` message in the pytest output tells you which scorer flagged the output and why, and the recorded MLflow run lets you open the full trace to debug.
+This inverts the order. You started evaluating from the first answer you checked, using feedback you were already going to give. No golden dataset or judge alignment on day one. Each test is a real `pytest` backed by real MLflow scoring, and later, as you learn what matters, you can layer in [built-in judges](/genai/eval-monitor/scorers/llm-judge/predefined), [custom judges](/genai/eval-monitor/scorers/llm-judge/custom-judges), and [judge alignment](/genai/eval-monitor/scorers/llm-judge/alignment). You are not skipping eval, you are bootstrapping it, so the suite grows into eval instead of eval gating your progress.
 
 ## Next steps
 

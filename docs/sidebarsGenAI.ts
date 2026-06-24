@@ -640,6 +640,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'eval-monitor/regression-testing',
+          label: 'Self-Evolving Test Suite',
+        },
+        {
+          type: 'doc',
           id: 'eval-monitor/ai-insights/detect-issues',
           label: 'Automatic Issue Detection',
         },
@@ -683,11 +688,6 @@ const sidebarsGenAI: SidebarsConfig = {
               },
             },
           ],
-        },
-        {
-          type: 'doc',
-          id: 'eval-monitor/regression-testing',
-          label: 'Regression Testing and CI/CD',
         },
         {
           type: 'doc',
