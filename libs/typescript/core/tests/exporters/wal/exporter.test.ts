@@ -90,6 +90,33 @@ function captureExportResult(): {
   return { callback: resolveFn, promise };
 }
 
+/**
+ * In OTLP protobuf wire format, each attribute's key and value strings are
+ * emitted close together. Require `expectedValue` to appear after `attributeKey`
+ * so a bare substring scan cannot false-positive on unrelated fields.
+ */
+function expectOtlpAttributeValue(
+  decoded: Buffer,
+  attributeKey: string,
+  expectedValue: string,
+): void {
+  const keyOffset = decoded.indexOf(attributeKey);
+  expect(keyOffset).toBeGreaterThanOrEqual(0);
+  const valueOffset = decoded.indexOf(expectedValue, keyOffset + attributeKey.length);
+  expect(valueOffset).toBeGreaterThan(keyOffset);
+}
+
+function expectOtlpAttributeValueAbsent(
+  decoded: Buffer,
+  attributeKey: string,
+  unexpectedValue: string,
+): void {
+  const keyOffset = decoded.indexOf(attributeKey);
+  expect(keyOffset).toBeGreaterThanOrEqual(0);
+  const valueOffset = decoded.indexOf(unexpectedValue, keyOffset + attributeKey.length);
+  expect(valueOffset).toBe(-1);
+}
+
 describe('wal/exporter', () => {
   let walDir: string;
   let popTraceSpy: jest.SpyInstance;
@@ -555,12 +582,10 @@ describe('wal/exporter', () => {
     const record = submit.mock.calls[0][0];
     const decoded = Buffer.from(record.otlpSpans as string, 'base64');
 
-    // Decoded native values are present...
-    expect(decoded.includes(Buffer.from('TOOL'))).toBe(true);
-    expect(decoded.includes(Buffer.from('WebSearch'))).toBe(true);
-    // ...and the double-encoded (quoted) forms are NOT.
-    expect(decoded.includes(Buffer.from('"TOOL"'))).toBe(false);
-    expect(decoded.includes(Buffer.from('"WebSearch"'))).toBe(false);
+    expectOtlpAttributeValue(decoded, SpanAttributeKey.SPAN_TYPE, 'TOOL');
+    expectOtlpAttributeValue(decoded, 'tool_name', 'WebSearch');
+    expectOtlpAttributeValueAbsent(decoded, SpanAttributeKey.SPAN_TYPE, '"TOOL"');
+    expectOtlpAttributeValueAbsent(decoded, 'tool_name', '"WebSearch"');
   });
 
   it('keeps JSON object attributes as single-encoded strings in OTLP output', async () => {
@@ -588,11 +613,9 @@ describe('wal/exporter', () => {
     expect(record.otlpSpans).toBeDefined();
     const decoded = Buffer.from(record.otlpSpans as string, 'base64');
 
-    // Single-encoded JSON text is present...
-    expect(decoded.includes(Buffer.from(inputsJson))).toBe(true);
-    expect(decoded.includes(Buffer.from(outputsJson))).toBe(true);
-    // ...but not wrapped again as a JSON string scalar (the naive JSON.parse-all bug).
-    expect(decoded.includes(Buffer.from(JSON.stringify(inputsJson)))).toBe(false);
-    expect(decoded.includes(Buffer.from(JSON.stringify(outputsJson)))).toBe(false);
+    expectOtlpAttributeValue(decoded, SpanAttributeKey.INPUTS, inputsJson);
+    expectOtlpAttributeValue(decoded, SpanAttributeKey.OUTPUTS, outputsJson);
+    expectOtlpAttributeValueAbsent(decoded, SpanAttributeKey.INPUTS, JSON.stringify(inputsJson));
+    expectOtlpAttributeValueAbsent(decoded, SpanAttributeKey.OUTPUTS, JSON.stringify(outputsJson));
   });
 });
