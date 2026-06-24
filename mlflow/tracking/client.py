@@ -29,6 +29,7 @@ from mlflow.entities import (
     EvaluationDataset,
     Experiment,
     FileInfo,
+    Link,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -1486,6 +1487,7 @@ class MlflowClient:
         experiment_id: str | None = None,
         start_time_ns: int | None = None,
         run_id: str | None = None,
+        links: list[Link] | None = None,
     ) -> Span:
         """
         Create a new trace object and start a root span under it.
@@ -1516,6 +1518,8 @@ class MlflowClient:
             start_time_ns: The start time of the trace in nanoseconds since the UNIX epoch.
             run_id: The ID of the MLflow run to associate with the trace. If provided, the
                 trace will be linked to this run.
+            links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
+                the root span.
 
         Returns:
             An :py:class:`Span <mlflow.entities.Span>` object
@@ -1570,6 +1574,7 @@ class MlflowClient:
             metadata=metadata,
             experiment_id=experiment_id,
             start_time_ns=start_time_ns,
+            links=links,
         )
 
     @deprecated_parameter("request_id", "trace_id", version="3.0.0")
@@ -1653,6 +1658,7 @@ class MlflowClient:
         inputs: Any | None = None,
         attributes: dict[str, Any] | None = None,
         start_time_ns: int | None = None,
+        links: list[Link] | None = None,
     ) -> Span:
         """
         Create a new span and start it without attaching it to the global trace context.
@@ -1728,6 +1734,8 @@ class MlflowClient:
             attributes: A dictionary of attributes to set on the span.
             start_time_ns: The start time of the span in nano seconds since the UNIX epoch.
                 If not provided, the current time will be used.
+            links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
+                the span.
 
         Returns:
             An :py:class:`mlflow.entities.Span` object representing the span.
@@ -1795,6 +1803,7 @@ class MlflowClient:
             inputs=inputs,
             attributes=attributes,
             start_time_ns=start_time_ns,
+            links=links,
         )
 
     @deprecated_parameter("request_id", "trace_id", version="3.0.0")

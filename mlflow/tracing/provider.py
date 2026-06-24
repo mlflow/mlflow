@@ -218,7 +218,9 @@ def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
     span = _get_tracer(__name__).start_span(
-        name, attributes=attributes, context=get_current_context()
+        name,
+        attributes=attributes,
+        context=get_current_context(),
     )
 
     if experiment_id and getattr(span, "_parent", None):
@@ -285,7 +287,12 @@ def start_detached_span(
         attributes[SpanAttributeKey.START_TIME_NS] = json.dumps(start_time_ns)
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
-    span = tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
+    span = tracer.start_span(
+        name,
+        context=context,
+        attributes=attributes,
+        start_time=start_time_ns,
+    )
 
     if experiment_id and getattr(span, "_parent", None):
         _logger.warning(
