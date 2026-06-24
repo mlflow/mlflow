@@ -5,13 +5,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type {
-  AssistantAgentContextType,
-  AssistantConfig,
-  ChatMessage,
-  PermissionRequest,
-  ToolUseInfo,
-} from './types';
+import type { AssistantAgentContextType, AssistantConfig, ChatMessage, PermissionRequest, ToolUseInfo } from './types';
 import {
   cancelSession as cancelSessionApi,
   sendMessageStream,
