@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782264854679,
+  "lastUpdate": 1782275448740,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -11555,6 +11555,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 39.700481600002036,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "joshua.wong@databricks.com",
+            "name": "joshuawong-db",
+            "username": "joshuawong-db"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1e28d75a96983eb57e19e930b87ef5ee90538bdf",
+          "message": "[bugfix] Fix `isSetupComplete` check in MLFlow assistant to deal with missing AI Gateway endpoints (#23939)\n\nSigned-off-by: Joshua Wong <joshua.wong@databricks.com>\nSigned-off-by: joshuawong-db <joshua.wong@databricks.com>\nCo-authored-by: mlflow-app[bot] <191841109+mlflow-app[bot]@users.noreply.github.com>",
+          "timestamp": "2026-06-24T04:26:57Z",
+          "tree_id": "845b866cb8339d04bf791f173a22db6fe84945de",
+          "url": "https://github.com/mlflow/mlflow/commit/1e28d75a96983eb57e19e930b87ef5ee90538bdf"
+        },
+        "date": 1782275447239,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 47.69980729999901,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 25.148852735293136,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 22.03159829999824,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 23.488694381819126,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 24.583218482756163,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 32.03060659999437,
             "unit": "ms"
           }
         ]
