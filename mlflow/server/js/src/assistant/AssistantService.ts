@@ -127,6 +127,7 @@ const attachStreamListeners = (
   const { onMessage, onError, onDone, onStatus, onToolUse, onInterrupted, onPermissionRequest } = callbacks;
 
   // Listen for 'message' events (contains assistant's response)
+  // Backend sends: {"message": {"role": "assistant", "content": "..."}}
   eventSource.addEventListener('message', (event) => {
     try {
       const data = JSON.parse(event.data);
@@ -144,6 +145,7 @@ const attachStreamListeners = (
   });
 
   // Listen for 'stream_event' events (streaming updates)
+  // Backend sends: {"event": {...}}
   eventSource.addEventListener('stream_event', (event) => {
     try {
       const data = JSON.parse(event.data);
@@ -181,6 +183,7 @@ const attachStreamListeners = (
   });
 
   // Listen for 'done' event (completion)
+  // Backend sends: {"result": null, "session_id": "..."}
   eventSource.addEventListener('done', () => {
     onToolUse?.([]);
     onDone();
