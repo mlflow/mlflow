@@ -19,6 +19,7 @@ import { useAssistant } from '@mlflow/mlflow/src/assistant';
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
 import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
+import { getAiGradientBorderStyle } from '../design-system/aiGradientBorderStyle';
 import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 
@@ -192,14 +193,10 @@ export const ModelTraceExplorerDrawer = ({
                 data-assistant-ui="true"
                 icon={<SparkleIcon color="ai" />}
                 onClick={openPanel}
-                css={{
-                  flexShrink: 0,
-                  border: '1px solid transparent !important',
-                  background: `linear-gradient(${theme.colors.backgroundPrimary}, ${theme.colors.backgroundPrimary}) padding-box, ${theme.gradients.aiBorderGradient} border-box`,
-                }}
+                css={{ flexShrink: 0, ...getAiGradientBorderStyle(theme) }}
               >
                 <FormattedMessage
-                  defaultMessage="Analyze in Assistant"
+                  defaultMessage="Analyze with Assistant"
                   description="Button that opens the MLflow assistant side panel to analyze the current trace"
                 />
               </Button>

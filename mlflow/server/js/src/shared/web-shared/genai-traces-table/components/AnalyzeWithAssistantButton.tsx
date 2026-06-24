@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Button, CloseIcon, Popover, SparkleIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { getLocalStorageItemByParams, useLocalStorage } from '../../hooks/useLocalStorage';
+import { getAiGradientBorderStyle } from '../../design-system/aiGradientBorderStyle';
 import { shouldEnableIssueDetection } from '../../../../common/utils/FeatureUtils';
 import {
   DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY,
@@ -63,12 +64,9 @@ export const AnalyzeWithAssistantButton: React.FC<AnalyzeWithAssistantButtonProp
         defaultMessage: 'Analyze traces with the MLflow assistant',
         description: 'Aria label for the analyze with assistant button',
       })}
-      css={{
-        // AI-gradient border on the page surface signals this is an AI-powered action,
-        // matching the Detect Issues button and the assistant floating button.
-        border: '1px solid transparent !important',
-        background: `linear-gradient(${theme.colors.backgroundPrimary}, ${theme.colors.backgroundPrimary}) padding-box, ${theme.gradients.aiBorderGradient} border-box`,
-      }}
+      // AI-gradient border signals this is an AI-powered action, matching the Detect Issues
+      // button and the trace drawer's assistant button.
+      css={getAiGradientBorderStyle(theme)}
     >
       <FormattedMessage
         defaultMessage="Analyze with Assistant"

@@ -627,10 +627,6 @@
     "defaultMessage": "Alerts",
     "description": "Tab label for budget alerts"
   },
-  "0vkexV": {
-    "defaultMessage": "Analyze in Assistant",
-    "description": "Button that opens the MLflow assistant side panel to analyze the current trace"
-  },
   "0vwlO5": {
     "defaultMessage": "Each message has a role that tells the model who is speaking:",
     "description": "Intro line for the playground role-selector help popover"
@@ -1494,6 +1490,10 @@
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
+  },
+  "5K6npM": {
+    "defaultMessage": "Analyze with Assistant",
+    "description": "Button that opens the MLflow assistant side panel to analyze the current trace"
   },
   "5LORfM": {
     "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",

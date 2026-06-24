@@ -2,6 +2,7 @@ import React from 'react';
 import { Button, CloseIcon, Popover, SparkleIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { getAiGradientBorderStyle } from '../../design-system/aiGradientBorderStyle';
 
 // Default storage key for tracking first-time user guidance
 export const DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY = 'mlflow.detectIssues.guidanceShown';
@@ -40,10 +41,7 @@ export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({ componen
         description: 'Aria label for the detect issues button',
       })}
       icon={<SparkleIcon color="ai" />}
-      css={{
-        border: '1px solid transparent !important',
-        background: `linear-gradient(${theme.colors.backgroundPrimary}, ${theme.colors.backgroundPrimary}) padding-box, ${theme.gradients.aiBorderGradient} border-box`,
-      }}
+      css={getAiGradientBorderStyle(theme)}
     >
       <FormattedMessage defaultMessage="Detect Issues" description="Label for the detect issues button" />
     </Button>
