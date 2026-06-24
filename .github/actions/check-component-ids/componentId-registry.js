@@ -1859,6 +1859,23 @@ module.exports = {
   "mlflow.logged_models.table.registered_model_link": "",
   "mlflow.logged_models.table.source_run_link": "",
 
+  // -- mlflow.mcp_registry --
+  "mlflow.mcp_registry.bindings.empty_state.create": "",
+  "mlflow.mcp_registry.bindings.header.endpoint": "",
+  "mlflow.mcp_registry.bindings.header.last_updated": "",
+  "mlflow.mcp_registry.bindings.header.server": "",
+  "mlflow.mcp_registry.bindings.header.transport": "",
+  "mlflow.mcp_registry.bindings.header.version": "",
+  "mlflow.mcp_registry.bindings.search": "",
+  "mlflow.mcp_registry.create_server_button": "",
+  "mlflow.mcp_registry.empty_state.create_server": "",
+  "mlflow.mcp_registry.search": "",
+  "mlflow.mcp_registry.table.header.description": "",
+  "mlflow.mcp_registry.table.header.last_modified": "",
+  "mlflow.mcp_registry.table.header.name": "",
+  "mlflow.mcp_registry.tabs": "",
+  "mlflow.mcp_registry.view_toggle": "",
+
   // -- mlflow.model-registry --
   "mlflow.model-registry.model-list.model-name.tooltip": "",
   "mlflow.model-registry.model-list.model-tag.tooltip": "",
@@ -2150,6 +2167,7 @@ module.exports = {
   "mlflow.sidebar.logo_home_link": "",
   "mlflow.sidebar.logout": "",
   "mlflow.sidebar.manage": "",
+  "mlflow.sidebar.mcp_registry_tab_link": "",
   "mlflow.sidebar.models_tab_link": "",
   "mlflow.sidebar.prompts_tab_link": "",
   "mlflow.sidebar.settings_back_link": "",
