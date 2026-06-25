@@ -730,3 +730,36 @@ def test_model_log_with_metadata(onnx_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+@pytest.mark.parametrize(
+    "providers",
+    [
+        None,
+        ["CPUExecutionProvider"],
+        ["CUDAExecutionProvider", "CPUExecutionProvider"],
+    ],
+)
+def test_inference_session_always_receives_providers(onnx_model, model_path, providers):
+    save_kwargs = {}
+    if providers is not None:
+        save_kwargs["onnx_execution_providers"] = providers
+
+    mlflow.onnx.save_model(onnx_model, model_path, **save_kwargs)
+
+    expected_providers = providers or mlflow.onnx.ONNX_EXECUTION_PROVIDERS
+
+    import onnxruntime
+
+    original_init = onnxruntime.InferenceSession.__init__
+
+    captured = {}
+
+    def capturing_init(self, path, providers=None, sess_options=None, **kwargs):
+        captured["providers"] = providers
+        return original_init(self, path, providers=providers, sess_options=sess_options, **kwargs)
+
+    with mock.patch.object(onnxruntime.InferenceSession, "__init__", capturing_init):
+        mlflow.pyfunc.load_model(model_path)
+
+    assert captured["providers"] == expected_providers
