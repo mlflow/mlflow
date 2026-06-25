@@ -257,6 +257,24 @@ def test_get_config_returns_existing_config(client, tmp_path):
     assert data["projects"]["exp-123"]["location"] == str(project_dir)
 
 
+def test_get_config_redacts_project_location_for_remote_clients(tmp_path):
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    config = AssistantConfig(
+        projects={"exp-123": ProjectConfig(type="local", location=str(project_dir))},
+    )
+    config.save()
+
+    with patch("mlflow.server.assistant.api._is_localhost", return_value=False):
+        response = TestClient(app).get("/ajax-api/3.0/mlflow/assistant/config")
+
+    assert response.status_code == 200
+    assert "location" not in response.json()["projects"]["exp-123"]
+
+
 def test_get_config_always_redacts_api_key(client):
     config = AssistantConfig(
         providers={
@@ -464,6 +482,24 @@ def test_provider_allows_remote_access(mode, allows_remote_execution, expected, 
 def test_provider_allows_remote_access_no_provider_selected(monkeypatch):
     monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "api-only")
     assert _provider_allows_remote_access(None) is False
+
+
+def test_remote_request_blocked_without_loading_provider_when_mode_is_off(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "off")
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    with (
+        patch("mlflow.server.assistant.api._is_localhost", return_value=False),
+        patch("mlflow.server.assistant.api._get_route_provider") as mock_get_provider,
+    ):
+        response = TestClient(app).post(
+            "/ajax-api/3.0/mlflow/assistant/message",
+            json={"message": "hi"},
+        )
+
+    assert response.status_code == 403
+    mock_get_provider.assert_not_called()
 
 
 def test_invalid_remote_access_mode_falls_back_to_off(monkeypatch):
