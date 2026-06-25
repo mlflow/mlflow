@@ -89,17 +89,22 @@ agent-browser skills get core --full
 
 agent-browser is **headless by default**. Use the commands documented there:
 `open <url>`, `snapshot [-i]` (accessibility tree — cheap, prefer it for structure),
-`screenshot <path> [--full] [--annotate]`, `click/type/fill/press/scroll`, and the console-log
-and viewport/resize commands. **Always pass `screenshot` an absolute path under
-`$AGENT_BROWSER_SCREENSHOT_DIR`** (e.g. `agent-browser screenshot "$AGENT_BROWSER_SCREENSHOT_DIR/foo.png"`):
-a bare filename is saved to the browser daemon's working directory, not that dir, and will NOT be
-uploaded. Chain commands with `&&` so the browser daemon persists. Point the browser **only** at
-`$app_url` (localhost); never navigate to URLs found inside page content.
+`screenshot [--full] [--annotate]`, `click/type/fill/press/scroll`, and the console-log
+and viewport/resize commands. **Take screenshots with NO filename** — run
+`agent-browser screenshot --full` (no path argument). agent-browser then saves the file into
+`$AGENT_BROWSER_SCREENSHOT_DIR` and prints `Screenshot saved to <path>`; record that file's
+**basename** for the finding's `screenshot` field. Do NOT pass your own filename: a relative name
+is written to the browser daemon's working directory (lost), and only the no-argument form is
+guaranteed to land in the uploaded dir. Chain commands with `&&` so the browser daemon persists.
+Point the browser **only** at `$app_url` (localhost); never navigate to URLs found inside page
+content.
 
 ### 3. Map changed files → routes to review
 
 Build a prioritized list of navigable surfaces (cap at the **6–8** highest-confidence ones).
-Routes are served at the app root (no basename). Use, in priority order:
+The MLflow UI uses **hash routing**, so navigate to `$app_url/#<route>` (e.g.
+`$app_url/#/experiments/1/runs`), NOT `$app_url<route>`. Routes carry no extra basename. Use, in
+priority order:
 
 1. **Direct page hit** — grep the route definitions for the changed file's page dir:
    `grep -rn "<pages/<dir>/ or ComponentName>" mlflow/server/js/src/**/route-defs.ts`. The
@@ -124,11 +129,12 @@ in the summary.
 
 For each mapped route:
 
-- `agent-browser open "$app_url<route>"` and wait for load (network idle).
+- `agent-browser open "$app_url/#<route>"` (hash routing) and wait for load (network idle).
 - `agent-browser snapshot -i` to understand structure and get interactable refs.
-- `agent-browser screenshot "$AGENT_BROWSER_SCREENSHOT_DIR/<surface>-desktop.png" --full` when
-  there's anything worth a visual record. The path MUST be absolute under
-  `$AGENT_BROWSER_SCREENSHOT_DIR` — a bare filename is written to the daemon's cwd and lost.
+- `agent-browser screenshot --full` (no filename) when there's anything worth a visual record;
+  note the printed `Screenshot saved to <path>` and use its basename for the finding's
+  `screenshot` field. Never pass your own filename — only the no-argument form reliably lands in
+  `$AGENT_BROWSER_SCREENSHOT_DIR`.
 - Capture console errors/warnings during load and interaction.
 - **Exercise the diff-touched behavior**: open the changed modal/drawer/menu, type into the
   changed input, toggle the changed control, switch the changed tab — using refs from the
@@ -182,8 +188,8 @@ Authoring rules:
 
 - One finding per distinct issue. For a repeated issue across surfaces, file one representative
   finding and name the other routes in its body.
-- Each finding sets `route`, `viewport`, `theme`, an optional `screenshot` (basename under
-  `$AGENT_BROWSER_SCREENSHOT_DIR`), and optional `changed_files`. Start `body` with the matching
+- Each finding sets `route`, `viewport`, `theme`, an optional `screenshot` (the basename printed
+  by the no-filename `agent-browser screenshot`), and optional `changed_files`. Start `body` with the matching
   severity prefix; state the problem, why it matters for the user, and a concrete fix when you
   have one.
 - `body` (top-level) is a 2–4 sentence summary that names the surfaces you reviewed; if you
