@@ -87,10 +87,11 @@ def _get_remote_access_mode() -> _RemoteAccessMode:
 
 
 def _provider_allows_remote_access(provider: AssistantProvider | None) -> bool:
-    mode = _get_remote_access_mode()
-    if mode == _RemoteAccessMode.API_ONLY:
-        return provider is not None and provider.allows_remote_execution
-    return False
+    if provider is None:
+        return False
+    return (
+        _get_remote_access_mode() == _RemoteAccessMode.API_ONLY and provider.allows_remote_execution
+    )
 
 
 def _enforce_remote_access(request: Request, provider: AssistantProvider | None) -> None:
@@ -101,11 +102,17 @@ def _enforce_remote_access(request: Request, provider: AssistantProvider | None)
 
 
 # Per-route remote-access policy:
-#   "selected_provider" — gate on whichever provider the user has currently selected
-#   "path_provider"     — gate on the provider identified by a {provider} path parameter
-#   "config_write"      — always block remote access (config writes stay localhost-only)
-#   "none"              — no gating (e.g. GET /config, which redacts secrets instead)
-_RemoteAccessPolicy = Literal["selected_provider", "path_provider", "config_write", "none"]
+#   SELECTED_PROVIDER — gate on whichever provider the user has currently selected
+#   PATH_PROVIDER     — gate on the provider identified by a {provider} path parameter
+#   LOCALHOST_ONLY    — always block remote access (stays localhost-only regardless of mode)
+#   NONE              — no gating (e.g. GET /config, which redacts secrets instead)
+class _RemoteAccessPolicy(str, enum.Enum):
+    SELECTED_PROVIDER = "selected_provider"
+    PATH_PROVIDER = "path_provider"
+    LOCALHOST_ONLY = "localhost_only"
+    NONE = "none"
+
+
 _REMOTE_ACCESS_POLICY_ATTR = "_assistant_remote_access_policy"
 
 
@@ -119,33 +126,36 @@ def _remote_access_policy(policy: _RemoteAccessPolicy):
 
 def _get_route_provider(request: Request, policy: _RemoteAccessPolicy) -> AssistantProvider | None:
     match policy:
-        case "selected_provider":
+        case _RemoteAccessPolicy.SELECTED_PROVIDER:
             return _get_selected_provider()
-        case "path_provider":
+        case _RemoteAccessPolicy.PATH_PROVIDER:
             provider_name = request.path_params.get("provider")
             return _get_provider(provider_name) if provider_name else None
-        case "config_write":
-            return None
-        case "none":
+        case _RemoteAccessPolicy.LOCALHOST_ONLY | _RemoteAccessPolicy.NONE:
             return None
 
 
 class _AssistantAPIRoute(APIRoute):
     def get_route_handler(self) -> Callable[[Request], Awaitable[Response]]:
         original_route_handler = super().get_route_handler()
-        policy: _RemoteAccessPolicy = getattr(
-            self.endpoint, _REMOTE_ACCESS_POLICY_ATTR, "selected_provider"
+        policy: _RemoteAccessPolicy | None = getattr(
+            self.endpoint, _REMOTE_ACCESS_POLICY_ATTR, None
         )
+        if policy is None:
+            raise RuntimeError(
+                f"Assistant route {self.path!r} ({self.endpoint.__name__}) is missing a "
+                f"remote-access policy. Add @_remote_access_policy(...) to the endpoint."
+            )
 
         async def route_handler(request: Request) -> Response:
-            if policy != "none":
+            if policy != _RemoteAccessPolicy.NONE:
                 if (
                     not _is_localhost(request)
                     and _get_remote_access_mode() == _RemoteAccessMode.OFF
                 ):
                     raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
                 provider = _get_route_provider(request, policy)
-                if policy != "path_provider" or provider is not None:
+                if policy != _RemoteAccessPolicy.PATH_PROVIDER or provider is not None:
                     _enforce_remote_access(request, provider)
             return await original_route_handler(request)
 
@@ -209,6 +219,7 @@ class SkillsInstallResponse(BaseModel):
 
 
 @assistant_router.post("/message")
+@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
 async def send_message(request: MessageRequest) -> MessageResponse:
     """
     Send a message to the assistant and get a session for streaming the response.
@@ -245,6 +256,7 @@ async def send_message(request: MessageRequest) -> MessageResponse:
 
 
 @assistant_router.get("/sessions/{session_id}/stream")
+@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
 async def stream_response(request: Request, session_id: str) -> StreamingResponse:
     """
     Stream the assistant's response via Server-Sent Events.
@@ -325,6 +337,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
 
 
 @assistant_router.patch("/sessions/{session_id}")
+@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
 async def patch_session(session_id: str, request: SessionPatchRequest) -> SessionPatchResponse:
     """
     Update session status.
@@ -358,6 +371,7 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
 
 
 @assistant_router.post("/sessions/{session_id}/permission")
+@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
 async def resolve_permission(session_id: str, request: PermissionDecision) -> MessageResponse:
     """Deliver a tool-call permission decision and resume the paused turn on a new stream.
 
@@ -385,7 +399,7 @@ async def resolve_permission(session_id: str, request: PermissionDecision) -> Me
 
 
 @assistant_router.get("/providers/{provider}/health")
-@_remote_access_policy("path_provider")
+@_remote_access_policy(_RemoteAccessPolicy.PATH_PROVIDER)
 async def provider_health_check(provider: str) -> dict[str, str]:
     p = _get_provider(provider)
     if p is None:
@@ -407,7 +421,7 @@ async def provider_health_check(provider: str) -> dict[str, str]:
 
 
 @assistant_router.get("/config")
-@_remote_access_policy("none")
+@_remote_access_policy(_RemoteAccessPolicy.NONE)
 async def get_config(request: Request) -> ConfigResponse:
     """
     Get the current assistant configuration.
@@ -433,7 +447,7 @@ async def get_config(request: Request) -> ConfigResponse:
 
 
 @assistant_router.put("/config")
-@_remote_access_policy("config_write")
+@_remote_access_policy(_RemoteAccessPolicy.LOCALHOST_ONLY)
 async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
     """
     Update the assistant configuration.
@@ -510,6 +524,7 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
 
 
 @assistant_router.post("/skills/install")
+@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
 async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstallResponse:
     """
     Install skills bundled with MLflow.
@@ -571,7 +586,7 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
 
 
 @assistant_router.get("/providers/{provider}/models")
-@_remote_access_policy("path_provider")
+@_remote_access_policy(_RemoteAccessPolicy.PATH_PROVIDER)
 async def list_provider_models(
     provider: str,
     base_url: str | None = None,
