@@ -1,0 +1,480 @@
+name: ui-review
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    paths:
+      - ".github/workflows/ui-review.yml"
+      - ".claude/skills/ui-review/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  # Auth gate: only users with admin or maintain role on the repo can trigger
+  # the UI review (plus the Copilot bot). For issue_comment, BOTH the PR author
+  # and the commenter are checked, so the bot never runs for external
+  # contributors (neither author nor commenter).
+  gate:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    # Cheap author_association prefilter so random users can't spawn workflow
+    # runs. The gate step below does the authoritative admin/maintain role check.
+    if: >
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.draft == false &&
+       (contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) ||
+        (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')))
+      ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       (
+        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) ||
+        (github.event.issue.user.login == 'Copilot' && github.event.issue.user.type == 'Bot')
+       ) &&
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
+       startsWith(github.event.comment.body, '/ui-review'))
+    steps:
+      - name: Check user permission
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login || github.event.issue.user.login }}
+          PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type || github.event.issue.user.type }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+        run: |
+          check_user() {
+            local user=$1
+            local type=$2
+            if [ "$user" = "Copilot" ] && [ "$type" = "Bot" ]; then
+              echo "Allowing Copilot bot: $user"
+              return 0
+            fi
+            local role
+            role=$(gh api "repos/$REPO/collaborators/$user/permission" --jq .role_name) \
+              || { echo "Failed to fetch permission for $user"; exit 1; }
+            case "$role" in
+              admin|maintain)
+                echo "User $user is allowed (admin or maintain role)"
+                ;;
+              *)
+                echo "User $user is not allowed (admin or maintain role required)"
+                exit 1
+                ;;
+            esac
+          }
+          check_user "$PR_AUTHOR" "$PR_AUTHOR_TYPE"
+          if [ "$EVENT_NAME" = "issue_comment" ]; then
+            check_user "$COMMENTER" "User"
+          fi
+
+  review:
+    needs: gate
+    runs-on: ubuntu-latest
+    # GITHUB_TOKEN is unused — all GitHub API calls go through the app tokens
+    # minted below. Grant nothing so any future accidental use of GITHUB_TOKEN
+    # fails closed.
+    permissions: {}
+    # Heavy: yarn install + dev server boot + Chrome download + a vision/browser
+    # review loop. The Claude step is capped at 30m within this budget.
+    timeout-minutes: 45
+    steps:
+      # Two app tokens with split scopes:
+      # - app-token-read (read-only): the ONLY GitHub token exposed to Claude /
+      #   agent-browser, so prompt-injection in the diff or a rendered page can't
+      #   trigger comments, approvals, or any PR mutation.
+      # - app-token-write (write): used only by the React/Post/Report steps we control.
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        id: app-token-read
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: read
+          permission-pull-requests: read
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        if: github.event_name == 'issue_comment'
+        id: app-token-write
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-actions: read
+          permission-contents: read
+          permission-pull-requests: write
+
+      - name: Resolve job URL
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ steps.app-token-write.outputs.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # first(...) // empty: pick exactly one id, or output nothing if no match.
+          JOB_ID=$(gh api "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs" \
+            --jq 'first(.jobs[] | select(.name == "review") | .id) // empty')
+          if [ -n "$JOB_ID" ]; then
+            JOB_RUN_URL="https://github.com/$REPO/actions/runs/$RUN_ID/job/$JOB_ID?pr=$PR_NUMBER"
+          else
+            JOB_RUN_URL="https://github.com/$REPO/actions/runs/$RUN_ID?pr=$PR_NUMBER"
+          fi
+          echo "JOB_RUN_URL=$JOB_RUN_URL" >> "$GITHUB_ENV"
+
+      - name: React to comment
+        if: github.event_name == 'issue_comment'
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          github-token: ${{ steps.app-token-write.outputs.token }}
+          retries: 3
+          script: |
+            const { comment } = context.payload;
+            const message = `🎨 [UI Review running...](${process.env.JOB_RUN_URL})`;
+            const updatedBody = `${comment.body}\n\n---\n\n${message}`;
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: comment.id,
+              body: updatedBody,
+            });
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          token: ${{ steps.app-token-read.outputs.token }}
+          # Review the post-merge UI. Depth 2 so HEAD^1 (the merge base parent)
+          # is reachable for the skill's `git diff HEAD^1` and `git show HEAD^1:`.
+          ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/merge
+          fetch-depth: 2
+
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
+      - uses: ./.github/actions/setup-node
+
+      - name: Parse review arguments
+        id: prompt
+        env:
+          COMMENT_BODY: ${{ github.event_name == 'issue_comment' && github.event.comment.body || '' }}
+        run: |
+          cat > /tmp/parse_args.py <<'EOF'
+          import argparse
+          import os
+          import shlex
+          import sys
+          from pathlib import Path
+
+          MODEL_CHOICES = [
+              "fable",
+              "opus",
+              "sonnet",
+              "haiku",
+              "claude-fable-5",
+              "claude-opus-4-7",
+              "claude-sonnet-4-6",
+              "claude-haiku-4-5",
+          ]
+          EFFORT_CHOICES = ["low", "medium", "high", "xhigh", "max"]
+
+          body = sys.stdin.read().strip().removeprefix("/ui-review")
+          try:
+              tokens = shlex.split(body)
+          except ValueError:
+              tokens = []
+
+          parser = argparse.ArgumentParser(add_help=False)
+          # -m/--model and -e/--effort mirror the /review command. -i/--instructions
+          # is ui-review-specific free-text guidance for the agent.
+          parser.add_argument("-m", "--model", choices=MODEL_CHOICES, default="claude-opus-4-7")
+          parser.add_argument("-e", "--effort", choices=EFFORT_CHOICES, default="high")
+          parser.add_argument("-i", "--instructions", default="")
+          args = parser.parse_args(tokens)
+
+          # Pass free-text instructions via a file (not a shell arg) to avoid injection.
+          Path("/tmp/ui-review-instructions.txt").write_text(args.instructions)
+          sys.stdout.write(f"model={args.model}\neffort={args.effort}\n")
+          EOF
+
+          echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
+
+      - name: Build PR frontend
+        env:
+          # CRA treats warnings as errors when CI=true; the PR's lint warnings must
+          # not fail the build (matches ui-preview.yml's build step).
+          CI: "false"
+        run: |
+          # The MLflow server serves the static UI from mlflow/server/js/build, so
+          # build the PR's frontend into it first — otherwise the bot would review a
+          # stale/missing UI instead of the PR's changes.
+          (cd mlflow/server/js && yarn install && yarn build)
+
+      - name: Launch MLflow server with demo data
+        env:
+          # Generation (client) and the server (--backend-store-uri below) share this
+          # store. Same generate-then-serve approach as .github/ui-preview/app.py.
+          MLFLOW_TRACKING_URI: sqlite:////tmp/ui-review/mlflow.db
+        run: |
+          mkdir -p /tmp/ui-review/mlartifacts
+          # 1) Pre-populate the official GenAI demo dataset (prompts, traces,
+          #    evaluation, judges, issues) into the "MLflow Demo" experiment.
+          #    Offline + deterministic — no API key, no network. refresh=True
+          #    guarantees fresh data. (This is what `mlflow demo` calls internally,
+          #    invoked directly to avoid its interactive prompt.)
+          uv run --frozen python -c "from mlflow.demo import generate_all_demos; generate_all_demos(refresh=True)"
+          # 2) Serve the pre-populated store. Pick the port up front so APP_URL is known.
+          PORT=$(uv run --frozen python -c "from mlflow.utils import find_free_port; print(find_free_port())")
+          APP_URL="http://127.0.0.1:$PORT"
+          uv run --frozen mlflow server \
+            --backend-store-uri "$MLFLOW_TRACKING_URI" \
+            --default-artifact-root /tmp/ui-review/mlartifacts \
+            --serve-artifacts \
+            --host 127.0.0.1 \
+            --port "$PORT" \
+            --workers 1 > /tmp/mlflow-server.log 2>&1 &
+          echo "SERVER_PID=$!" >> "$GITHUB_ENV"
+          for _ in $(seq 1 60); do
+            curl -fsS "$APP_URL/health" >/dev/null 2>&1 && break
+            sleep 3
+          done
+          if ! curl -fsS "$APP_URL/health" >/dev/null 2>&1; then
+            echo "::error::MLflow server did not become ready"
+            tail -80 /tmp/mlflow-server.log || true
+            exit 1
+          fi
+          echo "MLflow server ready at $APP_URL"
+          echo "APP_URL=$APP_URL" >> "$GITHUB_ENV"
+
+      - name: Set up agent-browser
+        run: |
+          # Use `npx` to run this npm-distributed CLI — the repo pattern (see
+          # preview-docs.yml); policy.rego forbids mutable package installs in
+          # workflows. Prime the package (+ download Chrome, headless by default),
+          # then drop a thin `agent-browser` shim on PATH so the skill calls it directly.
+          npx --min-release-age=7 --yes agent-browser install
+          mkdir -p "$HOME/.local/bin"
+          cat > "$HOME/.local/bin/agent-browser" <<'SH'
+          #!/usr/bin/env bash
+          exec npx --min-release-age=7 --yes agent-browser "$@"
+          SH
+          chmod +x "$HOME/.local/bin/agent-browser"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/agent-browser" --version
+
+      - name: Install Claude CLI
+        run: |
+          .claude/scripts/install-claude.sh
+      - name: Verify Claude CLI
+        run: |
+          claude --version
+
+      - name: UI Review
+        id: review
+        env:
+          # Read-only token: Claude / agent-browser can read the PR but cannot post anything.
+          GH_TOKEN: ${{ steps.app-token-read.outputs.token }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          APP_URL: ${{ env.APP_URL }}
+          MODEL: ${{ steps.prompt.outputs.model }}
+          EFFORT: ${{ steps.prompt.outputs.effort }}
+          EXTRA_CONTEXT_FILE: /tmp/ui-review-instructions.txt
+          AGENT_BROWSER_SCREENSHOT_DIR: /tmp/ui-review-shots
+          AGENT_BROWSER_DEFAULT_TIMEOUT: "30000"
+        run: |
+          mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
+          OUTPUT_FILE="/tmp/ui-output.jsonl"
+
+          # Both event paths run /ui-review end-to-end; on pull_request (smoke),
+          # the Post/Report steps are gated off so nothing is posted.
+          EXIT_CODE=0
+          timeout 30m claude \
+            --model "$MODEL" \
+            --effort "$EFFORT" \
+            --max-budget-usd 8 \
+            --print \
+            --verbose \
+            --output-format stream-json \
+            "/ui-review $REPO $PR_NUMBER $APP_URL" \
+            | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
+          if [ "${EXIT_CODE:-0}" -eq 124 ]; then
+            echo "Warning: Claude command timed out after 30 minutes"
+          elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
+            echo "Error: Claude command failed with exit code $EXIT_CODE"
+            cat "$OUTPUT_FILE"
+            exit $EXIT_CODE
+          fi
+
+      - name: Validate UI review payload
+        run: |
+          if [ ! -f /tmp/ui-review-payload.json ]; then
+            echo "::error::Claude did not produce /tmp/ui-review-payload.json"
+            exit 1
+          fi
+          uv run --frozen --package skills skills validate-ui-review /tmp/ui-review-payload.json
+          echo "::group::UI review payload"
+          jq . /tmp/ui-review-payload.json
+          echo "::endgroup::"
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: ui-review-screenshots-${{ github.run_id }}
+          path: /tmp/ui-review-shots
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Post UI review comment
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ steps.app-token-write.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          ARTIFACT_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python > /tmp/ui-review-comment.md <<'EOF'
+          import json
+          import os
+          from pathlib import Path
+
+          payload = json.loads(Path("/tmp/ui-review-payload.json").read_text())
+          findings = payload.get("findings", [])
+          order = {"🔴": 0, "🟡": 1, "🟢": 2}
+
+          lines = ["## 🎨 UI Review", "", payload["body"], ""]
+          if findings:
+              for f in sorted(findings, key=lambda x: order.get(x["body"][:1], 3)):
+                  meta = [f"route `{f['route']}`", f["viewport"], f["theme"]]
+                  if shot := f.get("screenshot"):
+                      meta.append(f"screenshot `{shot}`")
+                  lines.append(f"- {f['body']}")
+                  lines.append(f"  <sub>{' · '.join(meta)}</sub>")
+              lines.append("")
+              lines.append(f"📎 Screenshots: see the **ui-review-screenshots** artifact on "
+                           f"[this run]({os.environ['ARTIFACT_URL']}).")
+          else:
+              lines.append("_No UI/UX issues found._")
+          print("\n".join(lines))
+          EOF
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file /tmp/ui-review-comment.md
+
+      - name: Report review results
+        if: always() && github.event_name == 'issue_comment'
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        env:
+          JOB_STATUS: ${{ job.status }}
+          MODEL: ${{ steps.prompt.outputs.model }}
+        with:
+          github-token: ${{ steps.app-token-write.outputs.token }}
+          retries: 3
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const { comment } = context.payload;
+            const jobStatus = process.env.JOB_STATUS;
+            const model = process.env.MODEL;
+
+            const outputPath = '/tmp/ui-output.jsonl';
+            let claudeOutput = '';
+            try {
+              if (fs.existsSync(outputPath)) {
+                claudeOutput = fs.readFileSync(outputPath, 'utf8');
+              }
+            } catch (e) {
+              console.log('Failed to read Claude output file:', e);
+            }
+
+            let resultEvent = null;
+            if (claudeOutput) {
+              try {
+                const events = claudeOutput.trim().split('\n').filter(Boolean).map(JSON.parse);
+                resultEvent = events.findLast(({ type }) => type === 'result');
+              } catch (e) {
+                console.log('Failed to parse Claude output as JSON:', e);
+              }
+            }
+
+            const jobRunUrl = process.env.JOB_RUN_URL;
+            const failed = jobStatus !== 'success' || resultEvent?.is_error;
+            const icon = failed ? '❌' : '✅';
+            const verb = failed ? 'failed' : 'completed';
+            let resultLine = `${icon} [UI Review](${jobRunUrl}) ${verb}`;
+
+            if (resultEvent) {
+              const seconds = (resultEvent.duration_ms / 1000).toFixed(1);
+              const tokens = (resultEvent.usage?.input_tokens ?? 0) + (resultEvent.usage?.output_tokens ?? 0);
+              const cost = (Math.round(resultEvent.total_cost_usd * 100) / 100).toFixed(2);
+              resultLine += ` (${model}, ${seconds}s, ${resultEvent.num_turns} turns, ${tokens} tokens, $${cost})`;
+              if (resultEvent.is_error && /529|Overloaded/i.test(resultEvent.result || '')) {
+                resultLine += `\n\nThe Claude API is overloaded. Check [status.claude.com](https://status.claude.com/) and retry.`;
+              }
+            } else if (failed) {
+              resultLine += `\n\nSee [workflow logs](${jobRunUrl}) for details.`;
+            }
+
+            const { data: currentComment } = await github.rest.issues.getComment({
+              owner,
+              repo,
+              comment_id: comment.id,
+            });
+
+            const originalBody = currentComment.body.split('\n\n---\n\n🎨 ')[0];
+            const updatedBody = `${originalBody}\n\n---\n\n${resultLine}`;
+
+            await github.rest.issues.updateComment({
+              owner,
+              repo,
+              comment_id: comment.id,
+              body: updatedBody,
+            });
+
+      - name: Redact secrets from transcript
+        if: always()
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN_READ: ${{ steps.app-token-read.outputs.token }}
+          GH_TOKEN_WRITE: ${{ steps.app-token-write.outputs.token }}
+        run: |
+          python <<'PY'
+          import os
+          import sys
+          from pathlib import Path
+
+          path = Path("/tmp/ui-output.jsonl")
+          if not path.exists():
+              sys.exit(0)
+          data = path.read_text()
+          for name in ("ANTHROPIC_API_KEY", "GH_TOKEN_READ", "GH_TOKEN_WRITE"):
+              if val := os.environ.get(name):
+                  data = data.replace(val, "***")
+          path.write_text(data)
+          PY
+
+      - name: Upload Claude stream transcript
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: ui-review-stream-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/ui-output.jsonl
+          retention-days: 1
+          if-no-files-found: ignore
+
+      - name: Stop MLflow server
+        if: always()
+        run: |
+          kill "${SERVER_PID:-0}" 2>/dev/null || true

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UI Review Payload",
+  "description": "Payload emitted by the ui-review skill. The ui-review workflow renders it into a summary PR comment (it is NOT posted as an inline PR review and NEVER approves the PR), so findings carry route/viewport/theme/screenshot context instead of diff-line anchors. There is intentionally no `event`/approval field — this bot is advisory-only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["body", "findings"],
+  "properties": {
+    "body": {
+      "description": "Concise top-level UI/UX summary in 2-4 sentences (overall assessment, surfaces reviewed). Do not restate individual findings (those go in `findings`). Must end with the '🤖 Generated with Claude' footer on its own line.",
+      "type": "string",
+      "minLength": 1,
+      "pattern": "(^|\\n)🤖 Generated with Claude\\s*$"
+    },
+    "findings": {
+      "description": "UI/UX findings observed in the running app. Empty array is allowed (no issues found).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/finding" }
+    }
+  },
+  "$defs": {
+    "criticalPrefix": {
+      "type": "string",
+      "pattern": "^🔴 \\*\\*CRITICAL:\\*\\* "
+    },
+    "moderatePrefix": {
+      "type": "string",
+      "pattern": "^🟡 \\*\\*MODERATE:\\*\\* "
+    },
+    "nitPrefix": {
+      "type": "string",
+      "pattern": "^🟢 \\*\\*NIT:\\*\\* "
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["body", "route", "viewport", "theme"],
+      "properties": {
+        "body": {
+          "description": "Finding text. Must start with '🔴 **CRITICAL:** ', '🟡 **MODERATE:** ', or '🟢 **NIT:** '. State what is wrong, why it matters for the user, and (when known) a concrete fix.",
+          "anyOf": [
+            { "$ref": "#/$defs/criticalPrefix" },
+            { "$ref": "#/$defs/moderatePrefix" },
+            { "$ref": "#/$defs/nitPrefix" }
+          ]
+        },
+        "route": {
+          "description": "The navigable path where the issue was observed, relative to the app root (e.g. '/experiments/1/traces'). Use '/' for the home page.",
+          "type": "string",
+          "minLength": 1
+        },
+        "viewport": {
+          "description": "Viewport the issue was observed at.",
+          "type": "string",
+          "enum": ["desktop", "tablet", "mobile"]
+        },
+        "theme": {
+          "description": "Color theme the issue was observed under.",
+          "type": "string",
+          "enum": ["light", "dark"]
+        },
+        "screenshot": {
+          "description": "Optional. Filename (basename only) of the evidence screenshot under the screenshots directory ($AGENT_BROWSER_SCREENSHOT_DIR), e.g. 'traces-desktop.png'. Referenced from the rendered comment and uploaded as a workflow artifact.",
+          "type": "string"
+        },
+        "changed_files": {
+          "description": "Optional. PR-changed files this finding relates to, for the reader's context.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}
