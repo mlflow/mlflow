@@ -399,9 +399,15 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         invocation_params = kwargs.get("invocation_params", {})
         if model := invocation_params.get("model"):
             span.set_attribute(SpanAttributeKey.MODEL, model)
-        if _type := invocation_params.get("_type"):
-            # LangChain's _type field follows the pattern "<provider>" or "<provider>-chat"
-            provider = _type.removesuffix("-chat")
+        # `ls_provider` is LangChain's standardized provider field, so prefer it. `_type` is a
+        # free-form model-type label that does not reliably encode the provider; it is a
+        # best-effort fallback where stripping a leading "chat-" or trailing "-chat" recovers the
+        # common "chat-<provider>" and "<provider>-chat" forms but not other shapes.
+        metadata = kwargs.get("metadata") or {}
+        if provider := metadata.get("ls_provider"):
+            span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
+        elif _type := invocation_params.get("_type"):
+            provider = _type.removesuffix("-chat").removeprefix("chat-")
             span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
     def _extract_tool_definitions(self, kwargs: dict[str, Any]) -> list[ChatTool]:
