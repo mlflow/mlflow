@@ -843,9 +843,28 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setIsStreaming(true);
 
       // The paused assistant placeholder keeps streaming — no new message; the
-      // resume stream continues accumulating into it until done.
+      // resume continues accumulating into it until done.
       const isCurrent = beginRequest();
-      resumeStream(requestSessionId, requestId, allow ? 'allow' : 'deny', withGuard(isCurrent, streamCallbacks))
+      const decision = allow ? 'allow' : 'deny';
+      const guarded = withGuard(isCurrent, streamCallbacks);
+      // Stateless (client-carried-history) providers have no server session to resume against:
+      // replay the decision with the carried history — which already holds the unresolved
+      // tool_call — via a fresh /chat POST (no new user message). Legacy providers resume their
+      // server session via POST /sessions/{id}/permission.
+      const pageContext = getPageContext();
+      const resumed = clientCarriesHistory
+        ? streamChatViaFetch(
+            {
+              message: '',
+              experiment_id: pageContext['experimentId'] as string | undefined,
+              context: pageContext,
+              conversation_history: conversationHistory ?? undefined,
+              tool_decisions: { [requestId]: decision },
+            },
+            guarded,
+          )
+        : resumeStream(requestSessionId ?? '', requestId, decision, guarded);
+      resumed
         .then((result) => {
           attachStreamIfCurrent(isCurrent, result);
         })
@@ -855,7 +874,16 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           }
         });
     },
-    [pendingPermission, beginRequest, attachStreamIfCurrent, streamCallbacks, failStreamingTurn],
+    [
+      pendingPermission,
+      clientCarriesHistory,
+      conversationHistory,
+      beginRequest,
+      attachStreamIfCurrent,
+      getPageContext,
+      streamCallbacks,
+      failStreamingTurn,
+    ],
   );
 
   const handleSendMessage = useCallback(

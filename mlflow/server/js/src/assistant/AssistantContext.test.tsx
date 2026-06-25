@@ -56,6 +56,7 @@ jest.mock('./AssistantService', () => ({
   __esModule: true,
   sendMessageStream: jest.fn(),
   streamChatViaFetch: jest.fn(),
+  resumeStream: jest.fn(),
   getConfig: jest.fn(),
   getProviders: jest.fn(),
   updateConfig: jest.fn(() => Promise.resolve({})),
@@ -990,5 +991,65 @@ describe('AssistantContext — buffered text survives a tool call', () => {
       { type: 'text', text: 'Looking into it. ' },
       expect.objectContaining({ type: 'toolCall', toolUseId: 'tool-1', name: 'Bash' }),
     ]);
+  });
+});
+
+describe('AssistantContext — respondToPermission on the stateless gateway path', () => {
+  beforeEach(() => {
+    mockGetConfig.mockResolvedValue(gatewayConfig);
+  });
+
+  // Drive a gateway turn to a paused permission prompt: surface the request, then deliver the
+  // paused history blob the way the transport does on the done-after-pause.
+  const pauseGatewayTurn = async (result: any) => {
+    await act(async () => {
+      result.current.sendMessage('run the tool');
+    });
+    act(() => {
+      capturedCallbacks?.onPermissionRequest?.({
+        requestId: 'call-1',
+        toolName: 'bash',
+        toolInput: { command: 'ls' },
+      });
+      capturedCallbacks?.onConversationHistory?.('[{"role":"assistant","tool_calls":[]}]');
+    });
+  };
+
+  it('replays an allow decision via /chat with tool_decisions and the carried history (no new message)', async () => {
+    const { result } = await renderAssistant();
+    await pauseGatewayTurn(result);
+    expect(result.current.pendingPermission).not.toBeNull();
+    mockStreamChatViaFetch.mockClear();
+
+    await act(async () => {
+      result.current.respondToPermission(true);
+    });
+
+    expect(mockSendMessageStream).not.toHaveBeenCalled();
+    expect(mockStreamChatViaFetch).toHaveBeenCalledTimes(1);
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        message: '',
+        tool_decisions: { 'call-1': 'allow' },
+        conversation_history: '[{"role":"assistant","tool_calls":[]}]',
+      }),
+      expect.any(Object),
+    );
+    expect(result.current.pendingPermission).toBeNull();
+  });
+
+  it('replays a deny decision via /chat with tool_decisions = deny', async () => {
+    const { result } = await renderAssistant();
+    await pauseGatewayTurn(result);
+    mockStreamChatViaFetch.mockClear();
+
+    await act(async () => {
+      result.current.respondToPermission(false);
+    });
+
+    expect(mockStreamChatViaFetch).toHaveBeenLastCalledWith(
+      expect.objectContaining({ tool_decisions: { 'call-1': 'deny' } }),
+      expect.any(Object),
+    );
   });
 });
