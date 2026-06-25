@@ -5,11 +5,12 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type { AssistantAgentContextType, AssistantConfig, ChatMessage, ToolUseInfo } from './types';
+import type { AssistantAgentContextType, AssistantConfig, ChatMessage, PermissionRequest, ToolUseInfo } from './types';
 import {
   cancelSession as cancelSessionApi,
   sendMessageStream,
   getConfig,
+  resumeStream,
   type SendMessageStreamCallbacks,
   type SendMessageStreamResult,
 } from './AssistantService';
@@ -85,6 +86,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
+  const [pendingPermission, setPendingPermission] = useState<PermissionRequest | null>(null);
 
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
@@ -149,6 +151,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
+    setPendingPermission(null);
   }, []);
 
   const handleStatus = useCallback((status: string) => {
@@ -161,6 +164,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const handleToolUse = useCallback((tools: ToolUseInfo[]) => {
     setActiveTools(tools);
+  }, []);
+
+  const handlePermissionRequest = useCallback((request: PermissionRequest) => {
+    setPendingPermission(request);
   }, []);
 
   // Setup actions
@@ -210,6 +217,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     eventSourceRef.current = null;
     setActiveTools([]);
+    setPendingPermission(null);
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
@@ -223,6 +231,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
+    setPendingPermission(null);
     eventSourceRef.current = null;
     streamingMessageRef.current = '';
     setMessages((prev) => {
@@ -272,6 +281,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     streamingMessageRef.current = '';
+    setPendingPermission(null);
   }, []);
 
   // Begin a new in-flight send: stamp a fresh token in closure,
@@ -300,6 +310,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
       setError(null);
       setIsStreaming(true);
+      // A new message supersedes any prompt the user was deciding on. Clearing it
+      // here drops the stale Allow/Deny so it can't resume the abandoned turn; the
+      // backend closes the orphaned tool call out as cancelled.
+      setPendingPermission(null);
 
       // Add user message if prompt provided
       if (prompt) {
@@ -344,6 +358,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
             onSessionId: handleSessionId,
             onToolUse: handleToolUse,
             onInterrupted: handleInterrupted,
+            onPermissionRequest: handlePermissionRequest,
           }),
         );
         if (!attachStreamIfCurrent(isCurrent, result)) {
@@ -368,6 +383,61 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       handleSessionId,
       handleToolUse,
       handleInterrupted,
+      handlePermissionRequest,
+    ],
+  );
+
+  const respondToPermission = useCallback(
+    (allow: boolean) => {
+      if (!pendingPermission) {
+        return;
+      }
+      // Target the request's originating session, not the current one, so a
+      // session change while the prompt was shown can't resolve the wrong turn.
+      const { sessionId: requestSessionId, requestId } = pendingPermission;
+      setPendingPermission(null);
+      setError(null);
+      setIsStreaming(true);
+
+      // The paused assistant placeholder keeps streaming — no new message; the
+      // resume stream continues accumulating into it until done.
+      const isCurrent = beginRequest();
+      resumeStream(
+        requestSessionId,
+        requestId,
+        allow ? 'allow' : 'deny',
+        withGuard(isCurrent, {
+          onMessage: appendToStreamingMessage,
+          onError: handleStreamError,
+          onDone: finalizeStreamingMessage,
+          onStatus: handleStatus,
+          onSessionId: handleSessionId,
+          onToolUse: handleToolUse,
+          onInterrupted: handleInterrupted,
+          onPermissionRequest: handlePermissionRequest,
+        }),
+      )
+        .then((result) => {
+          attachStreamIfCurrent(isCurrent, result);
+        })
+        .catch((err) => {
+          if (isCurrent()) {
+            handleStreamError(err instanceof Error ? err.message : 'Failed to resume');
+          }
+        });
+    },
+    [
+      pendingPermission,
+      beginRequest,
+      attachStreamIfCurrent,
+      appendToStreamingMessage,
+      handleStreamError,
+      finalizeStreamingMessage,
+      handleStatus,
+      handleSessionId,
+      handleToolUse,
+      handleInterrupted,
+      handlePermissionRequest,
     ],
   );
 
@@ -382,6 +452,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
       setError(null);
       setIsStreaming(true);
+      setPendingPermission(null);
 
       // Add user message
       setMessages((prev) => [
@@ -424,6 +495,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           onSessionId: handleSessionId,
           onToolUse: handleToolUse,
           onInterrupted: handleInterrupted,
+          onPermissionRequest: handlePermissionRequest,
         }),
       );
       attachStreamIfCurrent(isCurrent, result);
@@ -441,6 +513,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       handleSessionId,
       handleToolUse,
       handleInterrupted,
+      handlePermissionRequest,
     ],
   );
 
@@ -475,6 +548,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
+    setPendingPermission(null);
     streamingMessageRef.current = '';
   }, [sessionId, isStreaming]);
 
@@ -540,6 +614,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         onSessionId: handleSessionId,
         onToolUse: handleToolUse,
         onInterrupted: handleInterrupted,
+        onPermissionRequest: handlePermissionRequest,
       }),
     );
     attachStreamIfCurrent(isCurrent, result);
@@ -557,6 +632,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     handleSessionId,
     handleToolUse,
     handleInterrupted,
+    handlePermissionRequest,
   ]);
 
   const value: AssistantAgentContextType = {
@@ -572,6 +648,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     isLoadingConfig,
     isLocalServer,
     pendingPrompt,
+    pendingPermission,
     // Actions
     openPanel,
     closePanel,
@@ -583,6 +660,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     cancelSession: handleCancelSession,
     refreshConfig,
     completeSetup,
+    respondToPermission,
   };
 
   return <AssistantReactContext.Provider value={value}>{children}</AssistantReactContext.Provider>;
@@ -601,6 +679,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   isLoadingConfig: false,
   isLocalServer: false,
   pendingPrompt: null,
+  pendingPermission: null,
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},
@@ -611,6 +690,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   cancelSession: () => {},
   refreshConfig: () => Promise.resolve(),
   completeSetup: () => {},
+  respondToPermission: () => {},
 };
 
 /**

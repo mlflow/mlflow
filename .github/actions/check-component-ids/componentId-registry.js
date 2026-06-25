@@ -833,6 +833,8 @@ module.exports = {
   "mlflow.assistant.fab": "",
   "mlflow.assistant.icon_button": "",
   "mlflow.assistant.icon_button.tooltip": "",
+  "mlflow.assistant.permission.allow": "",
+  "mlflow.assistant.permission.deny": "",
   "mlflow.assistant.setup.codex.api_keys": "",
   "mlflow.assistant.setup.codex.back": "",
   "mlflow.assistant.setup.codex.check_again": "",

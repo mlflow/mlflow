@@ -2987,6 +2987,10 @@
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
   },
+  "CIpiSM": {
+    "defaultMessage": "Allow",
+    "description": "Button to allow a tool-call permission request"
+  },
   "CKwhUr": {
     "defaultMessage": "Move to Todo",
     "description": "Review focused view: send a completed/declined trace back to the to-do list"
@@ -6567,6 +6571,10 @@
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
     "description": "Tooltip message for the export button when the trace is not exportable"
   },
+  "V0IJuy": {
+    "defaultMessage": "Allow the assistant to run {toolName}?",
+    "description": "Title of the prompt asking the user to approve a tool call"
+  },
   "V1kYC+": {
     "defaultMessage": "Select element type",
     "description": "Placeholder for list element type"
@@ -8442,6 +8450,10 @@
   "dft8gv": {
     "defaultMessage": "Permanently delete \"{name}\" and remove its traces from review? This cannot be undone.",
     "description": "Delete review queue: confirm body"
+  },
+  "dkw8bG": {
+    "defaultMessage": "Deny",
+    "description": "Button to deny a tool-call permission request"
   },
   "dl0TeT": {
     "defaultMessage": "Save",
