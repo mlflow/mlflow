@@ -25,6 +25,7 @@ import {
 import {
   cancelSession as cancelSessionApi,
   sendMessageStream,
+  streamChatViaFetch,
   getConfig,
   getProviders,
   resumeStream,
@@ -295,6 +296,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   // Chat state - messages/tokenUsage seeded once from the persisted conversation on first mount.
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [conversationHistory, setConversationHistory] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(() => reviveMessages(persistedChat.messages));
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -315,6 +317,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [remoteAccessAllowed, setRemoteAccessAllowed] = useState(false);
+  const [clientCarriesHistory, setClientCarriesHistory] = useState(false);
   const canUseAssistant = isLocalServer || remoteAccessAllowed;
 
   // Whether the (possibly optimistically-picked) provider still needs an API key
@@ -346,6 +349,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   // Use ref to track active EventSource for cancellation
   const eventSourceRef = useRef<EventSource | null>(null);
+  const fetchCancelRef = useRef<(() => void) | null>(null);
 
   // Token identifying the in-flight send; reset/cancel invalidates it so a late POST's
   // guarded callbacks no-op and its stream is closed instead of leaking into new state.
@@ -478,6 +482,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const handleSessionId = useCallback((newSessionId: string) => {
     setSessionId(newSessionId);
+  }, []);
+
+  const handleConversationHistory = useCallback((history: string) => {
+    setConversationHistory(history);
   }, []);
 
   const addToolCalls = useCallback(
@@ -947,9 +955,28 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setIsStreaming(true);
 
       // The paused assistant placeholder keeps streaming — no new message; the
-      // resume stream continues accumulating into it until done.
+      // resume continues accumulating into it until done.
       const isCurrent = beginRequest();
-      resumeStream(requestSessionId, requestId, allow ? 'allow' : 'deny', withGuard(isCurrent, streamCallbacks))
+      const decision = allow ? 'allow' : 'deny';
+      const guarded = withGuard(isCurrent, streamCallbacks);
+      // Stateless (client-carried-history) providers have no server session to resume against:
+      // replay the decision with the carried history — which already holds the unresolved
+      // tool_call — via a fresh /chat POST (no new user message). Legacy providers resume their
+      // server session via POST /sessions/{id}/permission.
+      const pageContext = getPageContext();
+      const resumed = clientCarriesHistory
+        ? streamChatViaFetch(
+            {
+              message: '',
+              experiment_id: pageContext['experimentId'] as string | undefined,
+              context: pageContext,
+              conversation_history: conversationHistory ?? undefined,
+              tool_decisions: { [requestId]: decision },
+            },
+            guarded,
+          )
+        : resumeStream(requestSessionId ?? '', requestId, decision, guarded);
+      resumed
         .then((result) => {
           attachStreamIfCurrent(isCurrent, result);
         })
@@ -959,7 +986,16 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           }
         });
     },
-    [pendingPermission, beginRequest, attachStreamIfCurrent, streamCallbacks, failStreamingTurn],
+    [
+      pendingPermission,
+      clientCarriesHistory,
+      conversationHistory,
+      beginRequest,
+      attachStreamIfCurrent,
+      getPageContext,
+      streamCallbacks,
+      failStreamingTurn,
+    ],
   );
 
   const submitClientToolResult = useCallback(

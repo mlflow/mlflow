@@ -213,3 +213,33 @@ export const resumeStream = async (
   attachStreamListeners(eventSource, sessionId, callbacks);
   return { cancel: () => eventSource.close() };
 };
+
+export const submitClientToolResult = async (
+  sessionId: string,
+  requestId: string,
+  content: string,
+  isError: boolean,
+  callbacks: SendMessageStreamCallbacks,
+): Promise<SendMessageStreamResult> => {
+  try {
+    const response = await fetch(`${API_BASE}/sessions/${sessionId}/tool-result`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getDefaultHeaders(document.cookie),
+      },
+      body: JSON.stringify({ request_id: requestId, content, is_error: isError }),
+    });
+    if (!response.ok) {
+      callbacks.onError('Failed to send the client tool result. Please try again.');
+      return NOOP_STREAM_RESULT;
+    }
+  } catch {
+    callbacks.onError('Failed to send the client tool result. Please try again.');
+    return NOOP_STREAM_RESULT;
+  }
+
+  const eventSource = createEventSource(sessionId);
+  attachStreamListeners(eventSource, sessionId, callbacks);
+  return { cancel: () => eventSource.close() };
+};
