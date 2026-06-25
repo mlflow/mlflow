@@ -11,6 +11,7 @@ class ErrorUtils {
     CHAT_SESSIONS: 'Chat Sessions',
     MODEL_SERVING: 'Model Serving',
     RUN_TRACKING: 'Run Tracking',
+    MCP_REGISTRY: 'MCP Registry',
   };
 }
 
