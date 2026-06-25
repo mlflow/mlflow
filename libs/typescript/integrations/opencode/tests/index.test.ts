@@ -684,6 +684,52 @@ describe('MLflowTracingPlugin', () => {
       expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'tool_Edit' }),
       );
+
+      // LLM spans must be created for every assistant message, including
+      // tool-call-only responses (Read, Edit) and the final text response.
+      const llmCalls = (mlflowTracing.startSpan as jest.Mock).mock.calls.filter(
+        ([opts]: [{ spanType?: string }]) => opts.spanType === 'LLM',
+      );
+      expect(llmCalls.length).toBe(3);
+    });
+
+    it('should create LLM span for tool-call-only assistant messages', async () => {
+      // Reproduces: LLM calls with no text output (only tool calls) were silently
+      // dropped, causing empty traces when agents like prometheus issue many
+      // back-to-back tool calls without intermediate text.
+      const messages = [
+        createUserMessage('Create a complex plan'),
+        createToolCallMessage('Read', {
+          callID: 'read-1',
+          input: { file_path: '/src/plan.ts' },
+          output: 'current content',
+        }),
+        createToolCallMessage('Bash', {
+          callID: 'bash-1',
+          input: { command: 'ls -la' },
+          output: 'file list',
+        }),
+      ];
+
+      const mockClient = createMockClient({}, messages);
+      const hooks = await MLflowTracingPlugin(createPluginInput(mockClient));
+
+      await hooks.event!(createSessionIdleEvent('tool-only-session'));
+
+      // Each tool-call-only assistant message must produce an LLM span
+      const llmCalls = (mlflowTracing.startSpan as jest.Mock).mock.calls.filter(
+        ([opts]: [{ spanType?: string }]) => opts.spanType === 'LLM',
+      );
+      expect(llmCalls.length).toBe(2);
+
+      // The LLM span outputs should include tool_calls
+      expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'llm_call',
+          spanType: 'LLM',
+          inputs: expect.objectContaining({ model: 'anthropic/claude-3-opus' }),
+        }),
+      );
     });
   });
 

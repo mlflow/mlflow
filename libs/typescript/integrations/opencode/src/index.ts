@@ -306,8 +306,11 @@ function createLlmAndToolSpans(
     const textParts = parts.filter((p) => p.type === PART_TYPE_TEXT);
     const toolParts = parts.filter((p) => p.type === PART_TYPE_TOOL);
 
-    // Create LLM span for text responses
-    if (textParts.length > 0) {
+    // Create LLM span for all assistant messages with content.
+    // Tool-call-only responses (no text) are still LLM calls and must be traced;
+    // omitting them causes missing spans when agents like prometheus issue many
+    // back-to-back tool calls without intermediate text.
+    if (textParts.length > 0 || toolParts.length > 0) {
       const conversationMessages = reconstructConversationMessages(messages, i);
       const textContent = textParts.map((p) => p.text || '').join('\n');
 
@@ -332,9 +335,20 @@ function createLlmAndToolSpans(
         llmSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, tokenUsage);
       }
 
-      llmSpan.setOutputs({
-        choices: [{ message: { role: 'assistant', content: textContent } }],
-      });
+      const outputMessage: {
+        role: string;
+        content: string;
+        tool_calls?: Array<{ id: string; name: string; input: Record<string, unknown> }>;
+      } = { role: 'assistant', content: textContent };
+      if (toolParts.length > 0) {
+        outputMessage.tool_calls = toolParts.map((p) => ({
+          id: p.callID || '',
+          name: p.tool || 'unknown',
+          input: p.state?.input || {},
+        }));
+      }
+
+      llmSpan.setOutputs({ choices: [{ message: outputMessage }] });
       llmSpan.end({ endTimeNs: completedNs });
     }
 
