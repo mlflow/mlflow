@@ -139,6 +139,11 @@ class _AssistantAPIRoute(APIRoute):
 
         async def route_handler(request: Request) -> Response:
             if policy != "none":
+                if (
+                    not _is_localhost(request)
+                    and _get_remote_access_mode() == _RemoteAccessMode.OFF
+                ):
+                    raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
                 provider = _get_route_provider(request, policy)
                 if policy != "path_provider" or provider is not None:
                     _enforce_remote_access(request, provider)
@@ -403,7 +408,7 @@ async def provider_health_check(provider: str) -> dict[str, str]:
 
 @assistant_router.get("/config")
 @_remote_access_policy("none")
-async def get_config() -> ConfigResponse:
+async def get_config(request: Request) -> ConfigResponse:
     """
     Get the current assistant configuration.
 
@@ -415,9 +420,14 @@ async def get_config() -> ConfigResponse:
     for provider_data in providers.values():
         provider_data.pop("api_key", None)
 
+    projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
+    if not _is_localhost(request):
+        for project_data in projects.values():
+            project_data.pop("location", None)
+
     return ConfigResponse(
         providers=providers,
-        projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
+        projects=projects,
         remote_chat_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
     )
 
