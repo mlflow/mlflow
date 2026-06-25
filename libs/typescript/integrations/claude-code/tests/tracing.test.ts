@@ -87,6 +87,7 @@ jest.mock('@mlflow/core', () => {
     SpanAttributeKey: {
       TOKEN_USAGE: 'mlflow.chat.tokenUsage',
       MESSAGE_FORMAT: 'mlflow.message.format',
+      SKILL_NAME: 'mlflow.skill.name',
     },
     TraceMetadataKey: {
       TRACE_SESSION: 'mlflow.trace.session',
@@ -567,6 +568,338 @@ describe('processTranscript', () => {
       const steerMessages = inputMessages.filter((m) => m.content === 'also tell me about Java');
       expect(steerMessages).toHaveLength(1);
       expect(steerMessages[0].role).toBe('user');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Skill propagation (createLlmAndToolSpans + findToolResults)
+  // --------------------------------------------------------------------------
+  //
+  // Canonical Skill wire format (shared with the Python tests and the TS-live
+  // tests). When the user invokes a Skill, the Claude Code CLI writes TWO
+  // distinct user-role JSONL entries on the happy path:
+  //
+  //   [assistant] tool_use(id=X, name="Skill", ...)
+  //   [user]      tool_result(tool_use_id=X)           ← success result
+  //                 + toolUseResult.commandName = "<name>"
+  //                 + toolUseResult.success    = true
+  //   [user]      text "<skill body>"                  ← synthetic body injection
+  //   [assistant] ... continuation (work inside the skill body) ...
+  //
+  // At the API layer the SDK merges the two user entries into one message
+  // with two content blocks; at the transcript layer they remain two
+  // consecutive user entries, which is what the fixtures below reflect.
+  //
+  // On the FAILED path (is_error=true), the CLI does NOT emit a body
+  // injection (the skill never boots), so failed fixtures stop at the
+  // tool_result and the assistant's next event is recovery work.
+  //
+  // Keep new fixtures in this shape — happy paths always include the body
+  // injection entry, failed paths never do.
+
+  describe('skill propagation', () => {
+    // Happy-path transcript: pre-skill bash, successful skill, body injection,
+    // post-skill body (LLM + child bash) — all post-skill spans inherit.
+    function buildHappySkillTranscript() {
+      return [
+        {
+          type: 'user',
+          message: { role: 'user', content: 'do the thing' },
+          timestamp: '2025-01-15T10:00:00.000Z',
+        },
+        // Pre-skill bash — must NOT be tagged with the skill name.
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'tool_use', id: 'pre_bash', name: 'Bash', input: {} }],
+          },
+          timestamp: '2025-01-15T10:00:01.000Z',
+        },
+        {
+          type: 'user',
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', tool_use_id: 'pre_bash', content: 'ok' }],
+          },
+          timestamp: '2025-01-15T10:00:02.000Z',
+        },
+        // Skill invocation.
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [
+              { type: 'tool_use', id: 'skill_tool', name: 'Skill', input: { skill: 'my-skill' } },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:03.000Z',
+        },
+        {
+          type: 'user',
+          toolUseResult: { success: true, commandName: 'my-skill' },
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', tool_use_id: 'skill_tool', content: 'launched' }],
+          },
+          timestamp: '2025-01-15T10:00:04.000Z',
+        },
+        // Synthetic body injection emitted by the CLI on the happy path.
+        {
+          type: 'user',
+          message: {
+            role: 'user',
+            content: [{ type: 'text', text: '<my-skill body>' }],
+          },
+          timestamp: '2025-01-15T10:00:04.500Z',
+        },
+        // Post-skill LLM turn — runs inside the skill body, should inherit.
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'inside the skill' }],
+            model: 'claude-test',
+          },
+          timestamp: '2025-01-15T10:00:05.000Z',
+        },
+        // Post-skill bash — also runs inside the skill body, should inherit.
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'tool_use', id: 'child_bash', name: 'Bash', input: {} }],
+          },
+          timestamp: '2025-01-15T10:00:06.000Z',
+        },
+        {
+          type: 'user',
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', tool_use_id: 'child_bash', content: 'done' }],
+          },
+          timestamp: '2025-01-15T10:00:07.000Z',
+        },
+      ];
+    }
+
+    // Failed-skill transcript: skill fails to load (is_error=true). Realistic
+    // continuation: no body injection, assistant emits recovery text instead
+    // of "inside the skill", then attempts a recovery tool call.
+    function buildFailedSkillTranscript() {
+      return [
+        {
+          type: 'user',
+          message: { role: 'user', content: 'do the thing' },
+          timestamp: '2025-01-15T10:00:00.000Z',
+        },
+        // Skill invocation that will fail.
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [
+              { type: 'tool_use', id: 'skill_tool', name: 'Skill', input: { skill: 'my-skill' } },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:01.000Z',
+        },
+        {
+          type: 'user',
+          toolUseResult: { success: false, commandName: 'my-skill' },
+          message: {
+            role: 'user',
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'skill_tool',
+                content: 'Skill failed to launch',
+                is_error: true,
+              },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:02.000Z',
+        },
+        // Recovery LLM — must NOT inherit the failed skill name.
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'The skill failed; trying a different approach.' }],
+            model: 'claude-test',
+          },
+          timestamp: '2025-01-15T10:00:03.000Z',
+        },
+        // Recovery bash — must also NOT inherit.
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'tool_use', id: 'recovery_bash', name: 'Bash', input: {} }],
+          },
+          timestamp: '2025-01-15T10:00:04.000Z',
+        },
+        {
+          type: 'user',
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', tool_use_id: 'recovery_bash', content: 'ok' }],
+          },
+          timestamp: '2025-01-15T10:00:05.000Z',
+        },
+      ];
+    }
+
+    async function writeAndProcess(entries: any[]): Promise<void> {
+      const tmpDir = mkdtempSync(resolve(tmpdir(), 'cc-skill-'));
+      const file = resolve(tmpDir, 't.jsonl');
+      writeFileSync(file, entries.map((e) => JSON.stringify(e)).join('\n') + '\n');
+      await processTranscript(file, `sess-${Date.now()}`);
+    }
+
+    const findByToolId = (id: string) =>
+      getSpans().find((s) => s.spanType === 'TOOL' && s.attributes.tool_id === id);
+
+    it('stamps SKILL_NAME on the Skill TOOL span itself', async () => {
+      await writeAndProcess(buildHappySkillTranscript());
+      expect(findByToolId('skill_tool')?.attributes['mlflow.skill.name']).toBe('my-skill');
+    });
+
+    it('propagates SKILL_NAME to post-skill LLM spans', async () => {
+      await writeAndProcess(buildHappySkillTranscript());
+      const llmSpans = getSpansByType('LLM');
+      const tagged = llmSpans.filter((s) => s.attributes['mlflow.skill.name'] === 'my-skill');
+      expect(tagged.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('propagates SKILL_NAME to post-skill child TOOL spans', async () => {
+      await writeAndProcess(buildHappySkillTranscript());
+      expect(findByToolId('child_bash')?.attributes['mlflow.skill.name']).toBe('my-skill');
+    });
+
+    it('does NOT tag pre-skill TOOL spans', async () => {
+      await writeAndProcess(buildHappySkillTranscript());
+      const preBash = findByToolId('pre_bash');
+      expect(preBash).toBeDefined();
+      expect(preBash?.attributes['mlflow.skill.name']).toBeUndefined();
+    });
+
+    it('does NOT propagate when the Skill tool_result is_error=true', async () => {
+      await writeAndProcess(buildFailedSkillTranscript());
+
+      // The failed Skill's OWN span IS stamped with its commandName so
+      // operators can attribute the failure to a specific skill.
+      expect(findByToolId('skill_tool')?.attributes['mlflow.skill.name']).toBe('my-skill');
+
+      // Recovery spans must NOT inherit the failed skill name.
+      const llmSpans = getSpansByType('LLM');
+      for (const s of llmSpans) {
+        expect(s.attributes['mlflow.skill.name']).toBeUndefined();
+      }
+      expect(findByToolId('recovery_bash')?.attributes['mlflow.skill.name']).toBeUndefined();
+    });
+
+    it('a failed Skill clears the prior skill scope (no leak to recovery spans)', async () => {
+      // Skill A succeeds, then Skill B fails. Recovery work after B must NOT
+      // inherit Skill A's name.
+      const transcript = [
+        {
+          type: 'user',
+          message: { role: 'user', content: 'do' },
+          timestamp: '2025-01-15T10:00:00.000Z',
+        },
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [
+              { type: 'tool_use', id: 'skill_a', name: 'Skill', input: { skill: 'skill-a' } },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:01.000Z',
+        },
+        {
+          type: 'user',
+          toolUseResult: { success: true, commandName: 'skill-a' },
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', tool_use_id: 'skill_a', content: 'launched' }],
+          },
+          timestamp: '2025-01-15T10:00:02.000Z',
+        },
+        // Synthetic body injection for skill-a's happy-path boot.
+        {
+          type: 'user',
+          message: {
+            role: 'user',
+            content: [{ type: 'text', text: '<skill-a body>' }],
+          },
+          timestamp: '2025-01-15T10:00:02.500Z',
+        },
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [
+              { type: 'tool_use', id: 'skill_b', name: 'Skill', input: { skill: 'skill-b' } },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:03.000Z',
+        },
+        {
+          type: 'user',
+          toolUseResult: { success: false, commandName: 'skill-b' },
+          message: {
+            role: 'user',
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'skill_b',
+                content: 'failed',
+                is_error: true,
+              },
+            ],
+          },
+          timestamp: '2025-01-15T10:00:04.000Z',
+        },
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'recovering' }],
+            model: 'claude-test',
+          },
+          timestamp: '2025-01-15T10:00:05.000Z',
+        },
+        {
+          type: 'assistant',
+          message: {
+            role: 'assistant',
+            content: [{ type: 'tool_use', id: 'recovery_bash', name: 'Bash', input: {} }],
+          },
+          timestamp: '2025-01-15T10:00:06.000Z',
+        },
+        {
+          type: 'user',
+          message: {
+            role: 'user',
+            content: [{ type: 'tool_result', tool_use_id: 'recovery_bash', content: 'ok' }],
+          },
+          timestamp: '2025-01-15T10:00:07.000Z',
+        },
+      ];
+
+      await writeAndProcess(transcript);
+
+      expect(findByToolId('skill_a')?.attributes['mlflow.skill.name']).toBe('skill-a');
+      expect(findByToolId('skill_b')?.attributes['mlflow.skill.name']).toBe('skill-b');
+
+      // Recovery LLM must NOT carry skill-a (or skill-b).
+      const llmSpans = getSpansByType('LLM');
+      for (const s of llmSpans) {
+        expect(s.attributes['mlflow.skill.name']).toBeUndefined();
+      }
+      expect(findByToolId('recovery_bash')?.attributes['mlflow.skill.name']).toBeUndefined();
     });
   });
 });

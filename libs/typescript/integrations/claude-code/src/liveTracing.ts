@@ -74,10 +74,19 @@ export interface SDKAssistantLike {
   parent_tool_use_id?: string | null;
 }
 
+/**
+ * Minimal duck-type for SDK user messages. We deliberately under-declare vs
+ * the full SDKUserMessage (sdk.d.ts:3657-3676) — only the fields the live
+ * tracing path reads. Fields added here must reflect real wire properties.
+ */
 export interface SDKUserLike {
   type: 'user';
   message: { role: 'user'; content: string | ContentBlock[] };
   parent_tool_use_id?: string | null;
+  tool_use_result?: { commandName?: string } | null;
+  origin?: { kind?: string }; // sdk.d.ts:3664; values from SDKMessageOrigin sdk.d.ts:3138-3151
+  isSynthetic?: boolean; // sdk.d.ts:3661
+  shouldQuery?: boolean; // sdk.d.ts:3669; false = don't trigger an assistant turn
 }
 
 export interface SDKResultLike {
@@ -100,6 +109,12 @@ export class LiveTracingContext {
   private model: string | undefined;
   private permissionMode: string | undefined;
   private claudeCodeVersion: string | undefined;
+  private activeSkillName: string | undefined;
+  // Tracks whether the previous user message carried a Skill tool_use_result so
+  // we can detect skill content injections (which always follow such a result
+  // and look structurally identical to a real user prompt). Mirrors the
+  // look-back used by findLastUserMessageIndex in transcript.ts:109-121.
+  private prevUserHadCommandName = false;
   private ended = false;
   private readonly spanOptions: unknown;
 
@@ -136,6 +151,11 @@ export class LiveTracingContext {
     this.model = msg.model ?? this.model;
     this.permissionMode = msg.permissionMode ?? this.permissionMode;
     this.claudeCodeVersion = msg.claude_code_version ?? this.claudeCodeVersion;
+    // Reset both skill-scope state fields together: clearing activeSkillName
+    // without also clearing prevUserHadCommandName would leave the next user
+    // message classified as a skill body injection.
+    this.activeSkillName = undefined;
+    this.prevUserHadCommandName = false;
   }
 
   /**
@@ -163,6 +183,7 @@ export class LiveTracingContext {
           model,
           'mlflow.llm.model': model,
           [SpanAttributeKey.MESSAGE_FORMAT]: 'anthropic',
+          ...(this.activeSkillName ? { [SpanAttributeKey.SKILL_NAME]: this.activeSkillName } : {}),
         },
       });
       if (msg.message.usage) {
@@ -182,7 +203,11 @@ export class LiveTracingContext {
         spanType: SpanType.TOOL,
         parent: parentSpan,
         inputs: toolUse.input ?? {},
-        attributes: { tool_name: toolUse.name, tool_id: toolUse.id },
+        attributes: {
+          tool_name: toolUse.name,
+          tool_id: toolUse.id,
+          ...(this.activeSkillName ? { [SpanAttributeKey.SKILL_NAME]: this.activeSkillName } : {}),
+        },
       });
       this.openToolSpans.set(toolUse.id, toolSpan);
 
@@ -200,73 +225,176 @@ export class LiveTracingContext {
             description: toolUse.input?.description,
             subagent_type: subagentType,
           },
-          attributes: { subagent_type: subagentType },
+          attributes: {
+            subagent_type: subagentType,
+            ...(this.activeSkillName
+              ? { [SpanAttributeKey.SKILL_NAME]: this.activeSkillName }
+              : {}),
+          },
         });
         this.subagentSpans.set(toolUse.id, subagentSpan);
       }
     }
   }
 
-  /** Close any TOOL spans whose tool_use_id matches a tool_result block. */
-  onUserMessage(msg: SDKUserLike): void {
-    const parentKey: ConversationKey = msg.parent_tool_use_id ?? null;
-    const conversation = this.getConversation(parentKey);
-    conversation.push({ role: 'user', content: msg.message.content });
-
-    const content = msg.message.content;
-    if (!Array.isArray(content)) {
-      return;
+  /**
+   * Returns true if `msg` is a fresh, human-originated prompt — as opposed to
+   * a tool-result echo, sub-agent inner turn, skill content injection, or any
+   * other SDK-emitted non-prompt user-role message.
+   *
+   * Used to decide whether to clear `activeSkillName` so that work triggered
+   * by a *new* user prompt isn't mis-attributed to a previously active skill.
+   * Relevant to the AsyncIterable multi-prompt case: `query()` accepts
+   * `AsyncIterable<SDKUserMessage>`, which streams multiple prompts through
+   * a single LiveTracingContext. See
+   * https://docs.claude.com/en/api/agent-sdk/python.
+   *
+   * The check is layered: strong SDK-stamped signal first, then fallbacks for
+   * older SDK versions and programmatic emitters that may not set it.
+   *
+   * Wire-level field references from
+   * @anthropic-ai/claude-agent-sdk/sdk.d.ts (v0.2.0):
+   *   - SDKMessageOrigin: sdk.d.ts:3138-3151
+   *   - SDKUserMessage:   sdk.d.ts:3657-3676
+   *
+   * NOTE: we intentionally do NOT check for a leading `tool_result` block in
+   * `content` (as transcript.ts:130-137 does for the on-disk transcript)
+   * because in the live SDK stream tool-result echoes always carry
+   * `tool_use_result != null` (caught below). Verified by reading the SDK
+   * parser at @anthropic-ai/claude-agent-sdk/_internal/message_parser.py.
+   */
+  private isRealUserPrompt(msg: SDKUserLike): boolean {
+    // Strong signal: SDK-stamped origin (sdk.d.ts:3664).
+    if (msg.origin?.kind === 'human') {
+      return true;
+    }
+    if (msg.origin?.kind != null) {
+      return false;
     }
 
-    for (const block of content) {
-      if (
-        typeof block !== 'object' ||
-        block == null ||
-        !('type' in block) ||
-        block.type !== 'tool_result'
-      ) {
-        continue;
-      }
-      const toolResult = block as {
-        type: 'tool_result';
-        tool_use_id?: string;
-        content?: unknown;
-        is_error?: boolean;
-      };
-      const toolUseId = toolResult.tool_use_id;
-      if (!toolUseId) {
-        continue;
+    // SDK metadata that explicitly says "not a real prompt".
+    if (msg.isSynthetic) {
+      return false;
+    }
+    if (msg.shouldQuery === false) {
+      return false;
+    }
+
+    // Fallback heuristics for older emitters with no `origin`.
+    if (msg.tool_use_result != null) {
+      return false;
+    }
+    if (msg.parent_tool_use_id != null) {
+      return false;
+    }
+
+    // Skill content injection: Claude Code injects the skill body as a `user`
+    // message immediately after a Skill tool_result. Structurally identical
+    // to a real prompt — only position distinguishes it. Mirrors the
+    // transcript-path heuristic at transcript.ts:109-121 and
+    // mlflow/claude_code/tracing.py:245-254.
+    if (this.prevUserHadCommandName) {
+      return false;
+    }
+
+    // Empty / whitespace-only string content is never a prompt. Also treat
+    // an empty content array as empty (no text or blocks to act on).
+    const content = msg.message.content;
+    if (typeof content === 'string' && !content.trim()) {
+      return false;
+    }
+    if (Array.isArray(content) && content.length === 0) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /** Close any TOOL spans whose tool_use_id matches a tool_result block. */
+  onUserMessage(msg: SDKUserLike): void {
+    // A new human prompt arriving mid-stream (e.g. AsyncIterable prompts to
+    // query()) means any previously active skill scope is over. Read
+    // hadCommandName from this message up-front, but defer mutating
+    // prevUserHadCommandName until after the tool-result loop runs so an
+    // exception there can't leave the look-back state inconsistent.
+    const hadCommandName = !!msg.tool_use_result?.commandName;
+    try {
+      if (this.isRealUserPrompt(msg)) {
+        this.activeSkillName = undefined;
       }
 
-      // If this tool result closes a Task/Agent call, finalize its sub-agent
-      // wrapper span first so it nests under the TOOL span correctly.
-      const subagentSpan = this.subagentSpans.get(toolUseId);
-      if (subagentSpan) {
-        const lastText = this.lastAssistantText.get(toolUseId);
-        if (lastText) {
-          subagentSpan.setOutputs({ response: lastText });
+      const parentKey: ConversationKey = msg.parent_tool_use_id ?? null;
+      const conversation = this.getConversation(parentKey);
+      conversation.push({ role: 'user', content: msg.message.content });
+
+      const content = msg.message.content;
+      if (!Array.isArray(content)) {
+        return;
+      }
+
+      for (const block of content) {
+        if (
+          typeof block !== 'object' ||
+          block == null ||
+          !('type' in block) ||
+          block.type !== 'tool_result'
+        ) {
+          continue;
         }
-        subagentSpan.end();
-        this.subagentSpans.delete(toolUseId);
-        this.conversations.delete(toolUseId);
-        this.lastAssistantText.delete(toolUseId);
-      }
+        const toolResult = block as {
+          type: 'tool_result';
+          tool_use_id?: string;
+          content?: unknown;
+          is_error?: boolean;
+        };
+        const toolUseId = toolResult.tool_use_id;
+        if (!toolUseId) {
+          continue;
+        }
 
-      const toolSpan = this.openToolSpans.get(toolUseId);
-      if (!toolSpan) {
-        continue;
-      }
+        // If this tool result closes a Task/Agent call, finalize its sub-agent
+        // wrapper span first so it nests under the TOOL span correctly.
+        const subagentSpan = this.subagentSpans.get(toolUseId);
+        if (subagentSpan) {
+          const lastText = this.lastAssistantText.get(toolUseId);
+          if (lastText) {
+            subagentSpan.setOutputs({ response: lastText });
+          }
+          subagentSpan.end();
+          this.subagentSpans.delete(toolUseId);
+          this.conversations.delete(toolUseId);
+          this.lastAssistantText.delete(toolUseId);
+        }
 
-      toolSpan.setOutputs({ result: toolResult.content ?? '' });
-      if (toolResult.is_error) {
-        const errorText =
-          typeof toolResult.content === 'string'
-            ? toolResult.content
-            : JSON.stringify(toolResult.content);
-        toolSpan.setStatus(SpanStatusCode.ERROR, errorText || 'Tool execution failed');
+        const toolSpan = this.openToolSpans.get(toolUseId);
+        if (!toolSpan) {
+          continue;
+        }
+
+        toolSpan.setOutputs({ result: toolResult.content ?? '' });
+        if (toolResult.is_error) {
+          const errorText =
+            typeof toolResult.content === 'string'
+              ? toolResult.content
+              : JSON.stringify(toolResult.content);
+          toolSpan.setStatus(SpanStatusCode.ERROR, errorText || 'Tool execution failed');
+        }
+        // Always stamp the Skill TOOL span with its own commandName for
+        // identification (failed Skills are still attributable).
+        // Propagation:
+        //   - success: activeSkillName = commandName (child spans inherit)
+        //   - failure: activeSkillName = undefined (prior skill must not leak
+        //     into recovery spans, and the failed skill never injected its body
+        //     so it shouldn't propagate either)
+        if (msg.tool_use_result?.commandName) {
+          toolSpan.setAttribute(SpanAttributeKey.SKILL_NAME, msg.tool_use_result.commandName);
+          this.activeSkillName = toolResult.is_error ? undefined : msg.tool_use_result.commandName;
+        }
+        toolSpan.end();
+        this.openToolSpans.delete(toolUseId);
       }
-      toolSpan.end();
-      this.openToolSpans.delete(toolUseId);
+    } finally {
+      this.prevUserHadCommandName = hadCommandName;
     }
   }
 
