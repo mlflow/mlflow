@@ -9,11 +9,13 @@ from databricks.sdk.service.files import DirectoryEntry, DownloadResponse
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.model_registry import ModelVersion
+from mlflow.environment_variables import MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE
 from mlflow.store._unity_catalog.registry.rest_store import (
     UcModelRegistryStore,
 )
 from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
     DatabricksSDKModelsArtifactRepository,
+    _get_databricks_workspace_client,
 )
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
@@ -228,3 +230,31 @@ def test_mlflow_use_databricks_sdk_model_artifacts_repo_for_uc_seg(tmp_path, mon
             ),
             DatabricksSDKModelsArtifactRepository,
         )
+
+
+def test_workspace_client_enables_multipart_uploads():
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
+        mock.patch("databricks.sdk.config.Config") as mock_config,
+    ):
+        client = _get_databricks_workspace_client()
+
+    mock_config.assert_called_once_with(enable_experimental_files_api_client=True)
+    mock_workspace_client.assert_called_once_with(config=mock_config.return_value)
+    assert client is mock_workspace_client.return_value
+    assert (
+        client.files._config.multipart_upload_chunk_size == MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+    )
+
+
+def test_workspace_client_plain_on_old_sdk():
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
+        mock.patch(
+            "mlflow.store.artifact.databricks_sdk_artifact_repo._sdk_supports_large_file_uploads",
+            return_value=False,
+        ),
+    ):
+        _get_databricks_workspace_client()
+
+    mock_workspace_client.assert_called_once_with(config=None)
