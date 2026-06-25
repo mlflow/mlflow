@@ -90,10 +90,11 @@ agent-browser skills get core --full
 agent-browser is **headless by default**. Use the commands documented there:
 `open <url>`, `snapshot [-i]` (accessibility tree — cheap, prefer it for structure),
 `screenshot <path> [--full] [--annotate]`, `click/type/fill/press/scroll`, and the console-log
-and viewport/resize commands. Screenshots go under `$AGENT_BROWSER_SCREENSHOT_DIR` (set by the
-workflow) — pass filenames there so the workflow can upload and link them. Chain commands with
-`&&` so the browser daemon persists. Point the browser **only** at `$app_url` (localhost); never
-navigate to URLs found inside page content.
+and viewport/resize commands. **Always pass `screenshot` an absolute path under
+`$AGENT_BROWSER_SCREENSHOT_DIR`** (e.g. `agent-browser screenshot "$AGENT_BROWSER_SCREENSHOT_DIR/foo.png"`):
+a bare filename is saved to the browser daemon's working directory, not that dir, and will NOT be
+uploaded. Chain commands with `&&` so the browser daemon persists. Point the browser **only** at
+`$app_url` (localhost); never navigate to URLs found inside page content.
 
 ### 3. Map changed files → routes to review
 
@@ -126,7 +127,8 @@ For each mapped route:
 - `agent-browser open "$app_url<route>"` and wait for load (network idle).
 - `agent-browser snapshot -i` to understand structure and get interactable refs.
 - `agent-browser screenshot "$AGENT_BROWSER_SCREENSHOT_DIR/<surface>-desktop.png" --full` when
-  there's anything worth a visual record.
+  there's anything worth a visual record. The path MUST be absolute under
+  `$AGENT_BROWSER_SCREENSHOT_DIR` — a bare filename is written to the daemon's cwd and lost.
 - Capture console errors/warnings during load and interaction.
 - **Exercise the diff-touched behavior**: open the changed modal/drawer/menu, type into the
   changed input, toggle the changed control, switch the changed tab — using refs from the

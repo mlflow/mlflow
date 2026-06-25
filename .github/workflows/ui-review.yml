@@ -341,6 +341,16 @@ jobs:
           jq . /tmp/ui-review-payload.json
           echo "::endgroup::"
 
+      - name: Collect stray screenshots
+        if: always()
+        run: |
+          # Safety net: agent-browser writes a bare-filename screenshot to the
+          # browser daemon's cwd (the workspace root), not $AGENT_BROWSER_SCREENSHOT_DIR.
+          # The skill is instructed to use absolute paths, but sweep any depth-1
+          # PNGs into the shots dir so evidence is never silently dropped.
+          mkdir -p /tmp/ui-review-shots
+          find "$GITHUB_WORKSPACE" -maxdepth 1 -name '*.png' -exec mv -f {} /tmp/ui-review-shots/ \; 2>/dev/null || true
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
