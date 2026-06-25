@@ -16,6 +16,8 @@ import type {
 } from './types';
 import { fetchAPI, getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
+export { streamChatViaFetch } from './transports/fetchStreamTransport';
+
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
 
 /** Tool-result `content` is string | list[dict] | null on the wire; collapse to a string. */
