@@ -30,7 +30,24 @@ from mlflow.utils.validation import _validate_mcp_icon_url
 if TYPE_CHECKING:
     from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
 
-_MCP_SERVER_API_PREFIX = "/ajax-api/3.0/mlflow/mcp-servers"
+_MCP_SERVER_AJAX_API_PREFIX = "/ajax-api/3.0/mlflow/mcp-servers"
+_MCP_SERVER_API_PREFIX = "/api/3.0/mlflow/mcp-servers"
+
+
+def get_mcp_server_api_route_prefixes() -> tuple[str, ...]:
+    from mlflow.server.handlers import _add_static_prefix
+
+    return (
+        _add_static_prefix(_MCP_SERVER_AJAX_API_PREFIX),
+        _add_static_prefix(_MCP_SERVER_API_PREFIX),
+    )
+
+
+def is_mcp_server_api_path(path: str) -> bool:
+    return any(
+        path == prefix or path.startswith(f"{prefix}/")
+        for prefix in get_mcp_server_api_route_prefixes()
+    )
 
 
 class _BaseMCPIconPayload(BaseModel):
@@ -222,9 +239,14 @@ class MCPAccessBindingSummaryResponse(BaseModel):
     server_name: str
     endpoint_url: str
     transport_type: str = "streamable-http"
+    workspace: str | None = None
     server_version: str | None = None
     server_alias: str | None = None
     resolved_version: MCPServerVersionResponse | None = None
+    created_by: str | None = None
+    last_updated_by: str | None = None
+    creation_timestamp: int | None = None
+    last_updated_timestamp: int | None = None
 
     @classmethod
     def from_entity(cls, entity: MCPAccessBinding) -> MCPAccessBindingSummaryResponse:
@@ -233,6 +255,7 @@ class MCPAccessBindingSummaryResponse(BaseModel):
             server_name=entity.server_name,
             endpoint_url=entity.endpoint_url,
             transport_type=str(entity.transport_type),
+            workspace=entity.workspace,
             server_version=entity.server_version,
             server_alias=entity.server_alias,
             resolved_version=(
@@ -240,6 +263,10 @@ class MCPAccessBindingSummaryResponse(BaseModel):
                 if entity.resolved_version is None
                 else MCPServerVersionResponse.from_entity(entity.resolved_version)
             ),
+            created_by=entity.created_by,
+            last_updated_by=entity.last_updated_by,
+            creation_timestamp=entity.creation_timestamp,
+            last_updated_timestamp=entity.last_updated_timestamp,
         )
 
 
@@ -248,6 +275,7 @@ class MCPServerResponse(BaseModel):
     display_name: str | None = None
     description: str | None = None
     icons: list[MCPIconResponsePayload] | None = None
+    workspace: str | None = None
     status: str | None = None
     access_bindings: list[MCPAccessBindingSummaryResponse] = Field(default_factory=list)
     latest_version: str | None = None
@@ -265,6 +293,7 @@ class MCPServerResponse(BaseModel):
             display_name=entity.display_name,
             description=entity.description,
             icons=entity.icons,
+            workspace=entity.workspace,
             status=str(entity.status) if entity.status else None,
             access_bindings=[
                 MCPAccessBindingSummaryResponse.from_entity(b) for b in entity.access_bindings
@@ -284,6 +313,7 @@ class MCPServerVersionResponse(BaseModel):
     version: str
     server_json: dict[str, Any]
     display_name: str | None = None
+    workspace: str | None = None
     status: str = "draft"
     tools: list[MCPToolResponsePayload] = Field(default_factory=list)
     aliases: list[str] = Field(default_factory=list)
@@ -301,6 +331,7 @@ class MCPServerVersionResponse(BaseModel):
             version=entity.version,
             server_json=entity.server_json,
             display_name=entity.display_name,
+            workspace=entity.workspace,
             status=str(entity.status),
             # Normalize unset tools to [] so clients can iterate without null guards.
             tools=[MCPToolResponsePayload(**t.to_dict()) for t in (entity.tools or [])],
@@ -319,6 +350,7 @@ class MCPAccessBindingResponse(BaseModel):
     server_name: str
     endpoint_url: str
     transport_type: str = "streamable-http"
+    workspace: str | None = None
     tools: list[MCPToolResponsePayload] | None = None
     server_version: str | None = None
     server_alias: str | None = None
@@ -338,6 +370,7 @@ class MCPAccessBindingResponse(BaseModel):
             server_name=entity.server_name,
             endpoint_url=entity.endpoint_url,
             transport_type=str(entity.transport_type),
+            workspace=entity.workspace,
             tools=tools,
             server_version=entity.server_version,
             server_alias=entity.server_alias,
