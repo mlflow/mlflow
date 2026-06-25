@@ -130,6 +130,19 @@ export interface MessageRequest {
 }
 
 /**
+ * Request body for the stateless POST /chat endpoint (client-carried history).
+ * The full conversation history travels with the client and is resent each turn,
+ * so the server holds no per-session state.
+ */
+export interface ChatRequest {
+  message: string;
+  experiment_id?: string;
+  context?: KnownAssistantContext & Record<string, unknown>;
+  /** JSON-encoded conversation history carried by the client; omitted on the first turn. */
+  conversation_history?: string;
+}
+
+/**
  * Result from the /health endpoint.
  * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
  */
@@ -153,6 +166,8 @@ export interface ProviderConfig {
   permissions: PermissionsConfig;
   base_url?: string;
   api_key?: string;
+  /** Whether this provider carries conversation history client-side and streams statelessly via POST /chat. */
+  client_carries_history?: boolean;
 }
 
 /**
