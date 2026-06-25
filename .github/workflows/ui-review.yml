@@ -47,7 +47,7 @@ jobs:
         (github.event.issue.user.login == 'Copilot' && github.event.issue.user.type == 'Bot')
        ) &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
-       startsWith(github.event.comment.body, '/ui-review'))
+       (github.event.comment.body == '/ui-review' || startsWith(github.event.comment.body, '/ui-review ')))
     steps:
       - name: Check user permission
         env:
@@ -307,6 +307,11 @@ jobs:
 
           # Both event paths run /ui-review end-to-end; on pull_request (smoke),
           # the Post/Report steps are gated off so nothing is posted.
+          # $REPO/$PR_NUMBER/$APP_URL are all workflow-controlled (GitHub context +
+          # the find_free_port localhost URL), not external input, so interpolating
+          # them into the skill args is safe.
+          # Capture timeout/claude's own exit via PIPESTATUS[0], not the pipeline's
+          # last stage (stream.sh) — otherwise a 124 timeout could be masked.
           EXIT_CODE=0
           timeout 30m claude \
             --model "$MODEL" \
@@ -316,13 +321,13 @@ jobs:
             --verbose \
             --output-format stream-json \
             "/ui-review $REPO $PR_NUMBER $APP_URL" \
-            | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
+            | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE="${PIPESTATUS[0]}"
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 30 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
             echo "Error: Claude command failed with exit code $EXIT_CODE"
             cat "$OUTPUT_FILE"
-            exit $EXIT_CODE
+            exit "$EXIT_CODE"
           fi
 
       - name: Validate UI review payload
@@ -365,7 +370,9 @@ jobs:
           findings = payload.get("findings", [])
           order = {"🔴": 0, "🟡": 1, "🟢": 2}
 
-          lines = ["## 🎨 UI Review", "", payload["body"], ""]
+          # Leading marker lets the post step find-and-update this comment on
+          # re-runs instead of appending a duplicate.
+          lines = ["<!-- ui-review-summary -->", "## 🎨 UI Review", "", payload["body"], ""]
           if findings:
               for f in sorted(findings, key=lambda x: order.get(x["body"][:1], 3)):
                   meta = [f"route `{f['route']}`", f["viewport"], f["theme"]]
@@ -380,7 +387,16 @@ jobs:
               lines.append("_No UI/UX issues found._")
           print("\n".join(lines))
           EOF
-          gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file /tmp/ui-review-comment.md
+          # Find-and-update an existing summary comment (by marker) so workflow
+          # re-runs replace it instead of appending a duplicate; create if none.
+          MARKER="<!-- ui-review-summary -->"
+          CID=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq "[.[] | select(.body | startswith(\"$MARKER\")) | .id] | last // empty")
+          if [ -n "$CID" ]; then
+            gh api "repos/$REPO/issues/comments/$CID" -X PATCH -F body=@/tmp/ui-review-comment.md
+          else
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body-file /tmp/ui-review-comment.md
+          fi
 
       - name: Report review results
         if: always() && github.event_name == 'issue_comment'
