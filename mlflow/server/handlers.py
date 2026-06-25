@@ -2493,7 +2493,11 @@ def _search_experiments():
 
     experiment_entities = _get_tracking_store().search_experiments(
         view_type=request_message.view_type,
-        max_results=request_message.max_results,
+        max_results=(
+            request_message.max_results
+            if request_message.HasField("max_results")
+            else SEARCH_MAX_RESULTS_DEFAULT
+        ),
         order_by=request_message.order_by,
         filter_string=request_message.filter,
         page_token=request_message.page_token or None,
