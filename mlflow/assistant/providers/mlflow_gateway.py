@@ -35,4 +35,5 @@ class MlflowGatewayProvider(OpenAICompatibleProvider):
                 "Configure an LLM chat endpoint on the MLflow AI Gateway and select it."
             ),
             chat_url_builder=self._build_chat_url,
+            allows_remote_execution=True,
         )
