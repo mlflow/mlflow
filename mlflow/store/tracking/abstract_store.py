@@ -42,7 +42,6 @@ from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
-    MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
@@ -984,16 +983,24 @@ class AbstractStore(GatewayStoreMixin):
             sampled_steps.add(all_steps[end_idx - 1])
 
         steps = sorted(sampled_steps.union(all_mins_and_maxes))
+        steps_set = set(steps)
+        # Cap the rows returned per (run, step) at ``max_results`` so a single step
+        # that accumulated many values (e.g. metrics logged without an explicit step
+        # all land on step 0) can't dominate the response. Every sampled step -
+        # including the min/max boundaries - is preserved because the cap is applied
+        # independently per step.
         metrics_with_run_ids = []
         for run_id in run_ids:
-            metrics_with_run_ids.extend(
-                self.get_metric_history_bulk_interval_from_steps(
-                    run_id=run_id,
-                    metric_key=metric_key,
-                    steps=steps,
-                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
-                )
+            run_metrics = sorted(
+                (m for m in self.get_metric_history(run_id, metric_key) if m.step in steps_set),
+                key=lambda metric: (metric.step, metric.timestamp),
             )
+            per_step_counts = {}
+            for metric in run_metrics:
+                count = per_step_counts.get(metric.step, 0)
+                if count < max_results:
+                    per_step_counts[metric.step] = count + 1
+                    metrics_with_run_ids.append(MetricWithRunId(run_id=run_id, metric=metric))
         return metrics_with_run_ids
 
     def search_runs(

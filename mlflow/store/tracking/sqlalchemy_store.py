@@ -118,7 +118,6 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
-    MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
     MAX_TRACE_LINKS_PER_REQUEST,
     SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
@@ -1674,17 +1673,54 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             steps = sorted(sampled_steps.union(all_mins_and_maxes))
 
-        metrics_with_run_ids = []
-        for run_id in run_ids:
-            metrics_with_run_ids.extend(
-                self.get_metric_history_bulk_interval_from_steps(
-                    run_id=run_id,
-                    metric_key=metric_key,
-                    steps=steps,
-                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
+        # Bound the number of rows returned per (run, step) at ``max_results`` so a
+        # single step that accumulates many values (e.g. metrics logged without an
+        # explicit step all land on step 0) can't return tens of thousands of rows.
+        # A row_number() window applies the cap in SQL, so every sampled step -
+        # including the min/max boundaries - is preserved while no single step can
+        # dominate the response.
+        with self.ManagedSessionMaker() as session:
+            step_rank = (
+                func
+                .row_number()
+                .over(
+                    partition_by=[SqlMetric.run_uuid, SqlMetric.step],
+                    order_by=[SqlMetric.timestamp, SqlMetric.value],
                 )
+                .label("step_rank")
             )
-        return metrics_with_run_ids
+            ranked = (
+                session
+                .query(SqlMetric, step_rank)
+                .filter(
+                    SqlMetric.key == metric_key,
+                    SqlMetric.run_uuid.in_(run_ids),
+                    SqlMetric.step.in_(steps),
+                )
+                .subquery()
+            )
+            ranked_metric = aliased(SqlMetric, ranked)
+            metrics = (
+                session
+                .query(ranked_metric)
+                .filter(ranked.c.step_rank <= max_results)
+                .order_by(
+                    ranked_metric.step,
+                    ranked_metric.timestamp,
+                    ranked_metric.value,
+                )
+                .all()
+            )
+            # Group by run and emit runs in the caller-provided ``run_ids`` order;
+            # the query can't be ordered by run because that would sort by uuid.
+            metrics_by_run = defaultdict(list)
+            for metric in metrics:
+                metrics_by_run[metric.run_uuid].append(metric)
+            return [
+                MetricWithRunId(run_id=run_id, metric=metric.to_mlflow_entity())
+                for run_id in run_ids
+                for metric in metrics_by_run[run_id]
+            ]
 
     def _search_datasets(self, experiment_ids):
         """
