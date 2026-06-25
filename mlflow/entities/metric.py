@@ -1,3 +1,5 @@
+import numbers
+
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -30,7 +32,11 @@ class Metric(_MlflowObject):
         self._key = key
         self._value = value
         self._timestamp = timestamp
-        self._step = step
+        self._step = (
+            int(step)
+            if isinstance(step, numbers.Real) and not isinstance(step, numbers.Integral)
+            else step
+        )
         self._model_id = model_id
         self._dataset_name = dataset_name
         self._dataset_digest = dataset_digest
