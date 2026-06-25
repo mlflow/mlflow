@@ -148,12 +148,16 @@ export const streamChatViaFetch = async (
       watchdog = undefined;
     };
     // Aborting the request rejects the in-flight read; the catch below sees signal.aborted and
-    // stays quiet, so the error we raise here is the one the UI shows.
-    const armWatchdog = () =>
-      (watchdog = setTimeout(() => {
+    // stays quiet, so the error we raise here is the one the UI shows. Clear any prior timer first
+    // so re-arming on each frame truly *resets* the clock rather than stacking timers (a leaked
+    // older timer would abort an otherwise-active stream ~60s after it started).
+    const armWatchdog = () => {
+      clearWatchdog();
+      watchdog = setTimeout(() => {
         callbacks.onError('The response stalled. Please try again.');
         controller.abort();
-      }, INACTIVITY_MS));
+      }, INACTIVITY_MS);
+    };
 
     let sawTerminal = false;
     const turnState: TurnState = { sawPermissionRequest: false };

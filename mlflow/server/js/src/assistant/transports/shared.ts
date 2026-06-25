@@ -72,6 +72,15 @@ export async function* readSseFrames(stream: ReadableStream<Uint8Array>): AsyncG
   for (;;) {
     const { value, done } = await reader.read();
     if (done) {
+      // Flush the decoder and try to parse any leftover buffer: a stream that ends without a
+      // trailing blank line (e.g. a proxy truncated right after the data line) would otherwise
+      // drop a final terminal `done`/`error` frame. parseSseFrame returns null for an empty or
+      // incomplete buffer, so this is a no-op in the normal case.
+      buffer += decoder.decode();
+      const parsed = parseSseFrame(buffer);
+      if (parsed) {
+        yield parsed;
+      }
       break;
     }
     buffer += decoder.decode(value, { stream: true });

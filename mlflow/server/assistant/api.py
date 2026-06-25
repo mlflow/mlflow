@@ -1,4 +1,5 @@
 import ipaddress
+import logging
 import uuid
 from pathlib import Path
 from typing import Any, AsyncGenerator, Literal
@@ -19,6 +20,8 @@ from mlflow.assistant.providers.base import (
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import Event, EventType
 from mlflow.server.assistant.session import SessionManager, terminate_session_process
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_provider(name: str):
@@ -196,11 +199,14 @@ async def stream_provider_events(
             context=context,
         ):
             yield event
-    except Exception as e:
+    except Exception:
         # A provider blowing up mid-stream would otherwise drop the connection with no terminal
         # event, leaving the client spinning forever. Emit a clean error event instead so every
-        # turn ends with either a done or an error frame.
-        yield Event.from_error(str(e))
+        # turn ends with either a done or an error frame. This path is reachable by a remote
+        # client (the stateless backend is meant for remotely hosted MLflow), so don't leak the
+        # raw exception — log the full detail server-side and return a generic message.
+        _logger.exception("Assistant provider stream failed")
+        yield Event.from_error("The assistant encountered an unexpected error. Please try again.")
 
 
 _SSE_HEADERS = {
