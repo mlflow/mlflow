@@ -2820,6 +2820,36 @@ def test_get_metric_history_bulk_interval_with_step_range(store: SqlAlchemyStore
     assert returned_steps == set(range(20, 31))
 
 
+def test_get_metric_history_bulk_interval_many_values_same_step(store: SqlAlchemyStore):
+    # Metrics logged without an explicit step all land on step 0. Step-based
+    # downsampling collapses to a single step, so the final per-run fetch must
+    # still honor max_results instead of returning every row for that step.
+    run = _run_factory(store)
+    run_id = run.info.run_id
+
+    metric_key = "test_metric"
+    for i in range(5000):
+        store.log_metric(
+            run_id,
+            models.SqlMetric(
+                key=metric_key, value=float(i), timestamp=1000 + i, step=0
+            ).to_mlflow_entity(),
+        )
+
+    max_results = 320
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run_id],
+        metric_key=metric_key,
+        max_results=max_results,
+        start_step=None,
+        end_step=None,
+    )
+
+    # The single collapsed step must not blow past the requested budget.
+    assert len(result) == max_results
+    assert all(m.step == 0 for m in result)
+
+
 def test_insert_large_text_in_dataset_table(store: SqlAlchemyStore):
     with store.engine.begin() as conn:
         # cursor = conn.cursor()
