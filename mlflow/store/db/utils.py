@@ -85,7 +85,13 @@ def _is_empty_database(engine):
 
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
-    InitialBase.metadata.create_all(engine)
+    existing_tables = set(sqlalchemy.inspect(engine).get_table_names())
+    tables_to_create = [
+        table for name, table in InitialBase.metadata.tables.items()
+        if name not in existing_tables
+    ]
+    if tables_to_create:
+        InitialBase.metadata.create_all(engine, tables=tables_to_create)
     _upgrade_db(engine)
 
 
