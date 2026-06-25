@@ -903,3 +903,29 @@ def test_chat_multiturn_roundtrip(make_client):
     _ = r2.text
 
     assert provider.calls[1]["session_id"] == blob
+
+
+def test_chat_threads_tool_decisions_into_context(make_client):
+    provider = CapturingProvider()
+    tc = make_client(provider)
+    blob = json.dumps([{"role": "system", "content": "sys"}])
+
+    response = tc.post(
+        "/ajax-api/3.0/mlflow/assistant/chat",
+        json={"message": "", "conversation_history": blob, "tool_decisions": {"call_1": "allow"}},
+    )
+    assert response.status_code == 200
+    _ = response.text
+
+    assert provider.calls[0]["context"]["tool_decisions"] == {"call_1": "allow"}
+
+
+def test_chat_omits_tool_decisions_when_absent(make_client):
+    provider = CapturingProvider()
+    tc = make_client(provider)
+
+    response = tc.post("/ajax-api/3.0/mlflow/assistant/chat", json={"message": "Hi"})
+    assert response.status_code == 200
+    _ = response.text
+
+    assert "tool_decisions" not in provider.calls[0]["context"]
