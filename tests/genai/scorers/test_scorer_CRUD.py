@@ -11,6 +11,7 @@ from mlflow.genai.scorers import Guidelines, Scorer, scorer
 from mlflow.genai.scorers.base import ScorerSamplingConfig, ScorerStatus
 from mlflow.genai.scorers.registry import (
     DatabricksStore,
+    _is_duplicate_scorer_name_error,
     delete_scorer,
     get_scorer,
     list_scorer_versions,
@@ -168,13 +169,30 @@ def test_databricks_backend_scorer_operations():
         mock_delete.assert_called_once_with("exp_123", "test_databricks_scorer")
 
 
+# Upstream-contract note for the tests below: `databricks-rag-eval` raises the
+# duplicate-name `ValueError` from `databricks/rag_eval/monitoring/scheduled_scorers.py`
+# with the message "A scorer with name '<name>' has already been registered."
+# These tests fake that upstream behavior. If `databricks-rag-eval` changes the
+# wording, update `_DUPLICATE_SCORER_NAME_PATTERN` in
+# `mlflow/genai/scorers/registry.py` and adjust the parametrized cases in
+# `test_is_duplicate_scorer_name_error_pattern` below.
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        ("A scorer with name 'foo' has already been registered.", True),
+        ("Scorer 'foo' is already registered", True),
+        ("scorer name 'foo' already exists in workspace", True),
+        ("A scorer with name 'foo' HAS ALREADY BEEN REGISTERED.", True),
+        ("invalid filter_string for scorer 'foo'", False),
+        ("permission denied for experiment", False),
+        ("", False),
+    ],
+)
+def test_is_duplicate_scorer_name_error_pattern(message: str, expected: bool):
+    assert _is_duplicate_scorer_name_error(ValueError(message)) is expected
+
+
 def test_databricks_backend_register_duplicate_name_raises_mlflow_exception():
-    """Re-registering the same name on the Databricks backend wraps the underlying
-    ValueError from `databricks-rag-eval` into an `MlflowException` that points
-    at the supported workarounds (`Scorer.update()`, `delete_scorer()`, Prompt
-    Registry). The MLflow API surface shouldn't leak a bare `ValueError` from a
-    transitive package.
-    """
     duplicate_value_error = ValueError(
         "A scorer with name 'dup_scorer' has already been registered. "
         "Update the scorer using '.update()' or choose a different name."
@@ -196,7 +214,7 @@ def test_databricks_backend_register_duplicate_name_raises_mlflow_exception():
             return True
 
         with pytest.raises(
-            MlflowException, match="Databricks scorer backend doesn't support versioning"
+            MlflowException, match="Databricks scorer backend does not support versioning"
         ) as exc_info:
             dup_scorer.register(experiment_id="exp_456")
 
@@ -205,15 +223,11 @@ def test_databricks_backend_register_duplicate_name_raises_mlflow_exception():
         assert "Scorer.update" in message
         assert "delete_scorer" in message
         assert "MLflow Prompt Registry" in message
-        # The original ValueError is chained via __cause__ for traceback fidelity.
+        assert "mlflow.org/docs" in message
         assert exc_info.value.__cause__ is duplicate_value_error
 
 
 def test_databricks_backend_register_other_value_error_propagates():
-    """Only the duplicate-name `ValueError` is wrapped. Other `ValueError`s from
-    the underlying scheduled-scorer API propagate unchanged so callers see the
-    original error (e.g. validation failures).
-    """
     unrelated_value_error = ValueError("some other validation failure unrelated to versioning")
 
     with (
