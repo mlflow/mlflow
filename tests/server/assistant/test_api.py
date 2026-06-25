@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 import subprocess
@@ -7,7 +8,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from mlflow.assistant.config import AssistantConfig, ProjectConfig
@@ -22,8 +23,12 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.types import Event, Message, ToolUseBlock
 from mlflow.server.assistant.api import (
+    _INVALID_REMOTE_ACCESS_MODES_WARNED,
     PermissionDecision,
-    _require_localhost,
+    _AssistantAPIRoute,
+    _enforce_remote_access,
+    _is_localhost,
+    _provider_allows_remote_access,
     assistant_router,
 )
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager, save_process_pid
@@ -103,20 +108,15 @@ def clear_sessions():
 
 @pytest.fixture
 def client():
-    """Create test client with mock provider and bypassed localhost check."""
+    """Create test client with mock provider, treated as a localhost caller."""
     app = FastAPI()
     app.include_router(assistant_router)
-
-    # Override localhost dependency to allow TestClient requests
-    async def mock_require_localhost():
-        pass
-
-    app.dependency_overrides[_require_localhost] = mock_require_localhost
 
     mock_provider = MockProvider()
     with (
         patch("mlflow.server.assistant.api.list_providers", return_value=[mock_provider]),
         patch("mlflow.server.assistant.api._get_selected_provider", return_value=mock_provider),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
     ):
         yield TestClient(app)
 
@@ -196,17 +196,15 @@ def test_health_check_returns_412_when_cli_not_installed():
     app = FastAPI()
     app.include_router(assistant_router)
 
-    async def mock_require_localhost():
-        pass
-
-    app.dependency_overrides[_require_localhost] = mock_require_localhost
-
     class CLINotInstalledProvider(MockProvider):
         def check_connection(self, echo=None):
             raise CLINotInstalledError("CLI not installed")
 
     provider = CLINotInstalledProvider()
-    with patch("mlflow.server.assistant.api.list_providers", return_value=[provider]):
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[provider]),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
         client = TestClient(app)
         response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
         assert response.status_code == 412
@@ -217,17 +215,15 @@ def test_health_check_returns_401_when_not_authenticated():
     app = FastAPI()
     app.include_router(assistant_router)
 
-    async def mock_require_localhost():
-        pass
-
-    app.dependency_overrides[_require_localhost] = mock_require_localhost
-
     class NotAuthenticatedProvider(MockProvider):
         def check_connection(self, echo=None):
             raise NotAuthenticatedError("Not authenticated")
 
     provider = NotAuthenticatedProvider()
-    with patch("mlflow.server.assistant.api.list_providers", return_value=[provider]):
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[provider]),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=True),
+    ):
         client = TestClient(app)
         response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
         assert response.status_code == 401
@@ -259,6 +255,124 @@ def test_get_config_returns_existing_config(client, tmp_path):
     assert data["providers"]["claude_code"]["model"] == "default"
     assert data["providers"]["claude_code"]["selected"] is True
     assert data["projects"]["exp-123"]["location"] == str(project_dir)
+
+
+def test_get_config_redacts_project_location_for_remote_clients(tmp_path):
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    config = AssistantConfig(
+        projects={"exp-123": ProjectConfig(type="local", location=str(project_dir))},
+    )
+    config.save()
+
+    with patch("mlflow.server.assistant.api._is_localhost", return_value=False):
+        response = TestClient(app).get("/ajax-api/3.0/mlflow/assistant/config")
+
+    assert response.status_code == 200
+    assert "location" not in response.json()["projects"]["exp-123"]
+
+
+def test_get_config_always_redacts_api_key(client):
+    config = AssistantConfig(
+        providers={
+            "claude_code": AssistantProviderConfig(
+                model="default", selected=True, api_key="sk-secret"
+            )
+        },
+    )
+    config.save()
+
+    response = client.get("/ajax-api/3.0/mlflow/assistant/config")
+
+    assert response.status_code == 200
+    assert "api_key" not in response.json()["providers"]["claude_code"]
+
+
+def test_get_config_loads_config_once(client):
+    with patch.object(AssistantConfig, "load", wraps=AssistantConfig.load) as mock_load:
+        response = client.get("/ajax-api/3.0/mlflow/assistant/config")
+
+    assert response.status_code == 200
+    assert mock_load.call_count == 1
+
+
+@pytest.mark.parametrize(
+    ("mode", "allows_remote_execution", "expected"),
+    [
+        ("off", False, False),
+        ("api-only", False, False),
+        ("api-only", True, True),
+    ],
+)
+def test_get_config_remote_chat_allowed(
+    client, monkeypatch, mode, allows_remote_execution, expected
+):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", mode)
+    with patch("mlflow.server.assistant.api._get_selected_provider") as mock_get_selected_provider:
+        mock_get_selected_provider.return_value.allows_remote_execution = allows_remote_execution
+        response = client.get("/ajax-api/3.0/mlflow/assistant/config")
+
+    assert response.status_code == 200
+    assert response.json()["remote_chat_allowed"] is expected
+
+
+def test_message_blocked_for_remote_client_when_remote_access_off(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "off")
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    mock_provider = MockProvider()
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[mock_provider]),
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=mock_provider),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=False),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/message",
+            json={"message": "Hello"},
+        )
+
+    assert response.status_code == 403
+    assert "same host" in response.json()["detail"]
+
+
+def test_assistant_route_without_policy_raises_at_startup():
+    router = APIRouter(prefix="/assistant", route_class=_AssistantAPIRoute)
+
+    async def unguarded_route():
+        return {"status": "ok"}
+
+    with pytest.raises(RuntimeError, match="missing a remote-access policy"):
+        router.add_api_route("/unguarded", unguarded_route, methods=["GET"])
+
+
+def test_message_allowed_for_remote_client_when_provider_allows_remote_access(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "api-only")
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    class RemoteAllowedProvider(MockProvider):
+        @property
+        def allows_remote_execution(self) -> bool:
+            return True
+
+    mock_provider = RemoteAllowedProvider()
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[mock_provider]),
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=mock_provider),
+        patch("mlflow.server.assistant.api._is_localhost", return_value=False),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/message",
+            json={"message": "Hello"},
+        )
+
+    assert response.status_code == 200
 
 
 def test_update_config_sets_provider(client):
@@ -303,45 +417,113 @@ def test_update_config_expand_user_home(client, tmp_path):
         assert data["projects"]["exp-456"]["location"] == str(project_dir)
 
 
-@pytest.mark.asyncio
-async def test_localhost_allows_ipv4():
+def test_is_localhost_allows_ipv4():
     mock_request = MagicMock()
     mock_request.client.host = "127.0.0.1"
-    await _require_localhost(mock_request)
+    assert _is_localhost(mock_request)
 
 
-@pytest.mark.asyncio
-async def test_localhost_allows_ipv6():
+def test_is_localhost_allows_ipv6():
     mock_request = MagicMock()
     mock_request.client.host = "::1"
-    await _require_localhost(mock_request)
+    assert _is_localhost(mock_request)
 
 
-@pytest.mark.asyncio
-async def test_localhost_blocks_external_ip():
+def test_is_localhost_blocks_external_ip():
     mock_request = MagicMock()
     mock_request.client.host = "192.168.1.100"
-
-    with pytest.raises(HTTPException, match="same host"):
-        await _require_localhost(mock_request)
+    assert not _is_localhost(mock_request)
 
 
-@pytest.mark.asyncio
-async def test_localhost_blocks_external_hostname():
+def test_is_localhost_blocks_external_hostname():
     mock_request = MagicMock()
     mock_request.client.host = "external.example.com"
-
-    with pytest.raises(HTTPException, match="same host"):
-        await _require_localhost(mock_request)
+    assert not _is_localhost(mock_request)
 
 
-@pytest.mark.asyncio
-async def test_localhost_blocks_when_no_client():
+def test_is_localhost_blocks_when_no_client():
     mock_request = MagicMock()
     mock_request.client = None
+    assert not _is_localhost(mock_request)
 
+
+@pytest.mark.parametrize(
+    ("mode", "allows_remote_execution", "expected"),
+    [
+        ("off", False, False),
+        ("off", True, False),
+        ("api-only", False, False),
+        ("api-only", True, True),
+    ],
+)
+def test_provider_allows_remote_access(mode, allows_remote_execution, expected, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", mode)
+    provider = MagicMock()
+    provider.allows_remote_execution = allows_remote_execution
+    assert _provider_allows_remote_access(provider) is expected
+
+
+def test_provider_allows_remote_access_no_provider_selected(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "api-only")
+    assert _provider_allows_remote_access(None) is False
+
+
+def test_remote_request_blocked_without_loading_provider_when_mode_is_off(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "off")
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    with (
+        patch("mlflow.server.assistant.api._is_localhost", return_value=False),
+        patch("mlflow.server.assistant.api._get_route_provider") as mock_get_provider,
+    ):
+        response = TestClient(app).post(
+            "/ajax-api/3.0/mlflow/assistant/message",
+            json={"message": "hi"},
+        )
+
+    assert response.status_code == 403
+    mock_get_provider.assert_not_called()
+
+
+def test_invalid_remote_access_mode_falls_back_to_off(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "bogus")
+    provider = MagicMock()
+    provider.allows_remote_execution = True
+    assert _provider_allows_remote_access(provider) is False
+
+
+def test_invalid_remote_access_mode_logs_warning_once(monkeypatch, caplog):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "bogus")
+    _INVALID_REMOTE_ACCESS_MODES_WARNED.clear()
+    provider = MagicMock()
+    provider.allows_remote_execution = True
+    assistant_logger = logging.getLogger("mlflow.server.assistant.api")
+    assistant_logger.addHandler(caplog.handler)
+
+    try:
+        with caplog.at_level("WARNING", logger="mlflow.server.assistant.api"):
+            assert _provider_allows_remote_access(provider) is False
+            assert _provider_allows_remote_access(provider) is False
+    finally:
+        assistant_logger.removeHandler(caplog.handler)
+
+    assert sum("Invalid value 'bogus'" in record.message for record in caplog.records) == 1
+
+
+def test_enforce_remote_access_allows_localhost_regardless_of_mode(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "off")
+    mock_request = MagicMock()
+    mock_request.client.host = "127.0.0.1"
+    _enforce_remote_access(mock_request, None)  # should not raise
+
+
+def test_enforce_remote_access_blocks_remote_when_off(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "off")
+    mock_request = MagicMock()
+    mock_request.client.host = "192.168.1.100"
     with pytest.raises(HTTPException, match="same host"):
-        await _require_localhost(mock_request)
+        _enforce_remote_access(mock_request, None)
 
 
 def test_validate_session_id_accepts_valid_uuid():
@@ -585,6 +767,22 @@ def test_install_skills_skips_when_already_installed(client):
         assert data["installed_skills"] == ["existing_skill"]
         mock_install.assert_not_called()
         mock_list.assert_called_once()
+
+
+def test_install_skills_blocked_for_remote_client(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "api-only")
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    with patch("mlflow.server.assistant.api._is_localhost", return_value=False):
+        client = TestClient(app)
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/skills/install",
+            json={"type": "global"},
+        )
+
+    assert response.status_code == 403
+    assert "same host" in response.json()["detail"]
 
 
 def test_update_config_partial_update_preserves_selected_provider(client):

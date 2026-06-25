@@ -8203,10 +8203,6 @@
     "defaultMessage": "API key",
     "description": "Label for API key selector"
   },
-  "cQNKMv": {
-    "defaultMessage": "MLflow Assistant is only available when the server is running locally. Remote server support is coming soon.",
-    "description": "Message explaining that Assistant only works with local servers"
-  },
   "cQQnzX": {
     "defaultMessage": "Hide assessments",
     "description": "Tooltip for a button that closes the assessments pane"
@@ -8767,10 +8763,6 @@
     "defaultMessage": "Numeric",
     "description": "Review question input type: numeric"
   },
-  "fBB0xR": {
-    "defaultMessage": "Assistant Not Available",
-    "description": "Title shown when Assistant is not available for remote servers"
-  },
   "fHI22G": {
     "defaultMessage": "JSON",
     "description": "Label for the JSON render mode in the model trace explorer inputs/outputs tab"
@@ -8990,6 +8982,10 @@
   "g7xNvF": {
     "defaultMessage": "Display points",
     "description": "Runs charts > line chart > display points > label"
+  },
+  "gBORqQ": {
+    "defaultMessage": "MLflow Assistant is not available from this client. Ask your MLflow server administrator to enable remote access if you need to use it remotely.",
+    "description": "Message explaining that the Assistant is blocked by the server's remote-access settings"
   },
   "gC2Kxm": {
     "defaultMessage": "Give instructions to the model. Use '{{ }}' or the \"Add new variable\" button to add variables to your prompt.",
@@ -9566,6 +9562,10 @@
   "iVeCOa": {
     "defaultMessage": "My webhook",
     "description": "Webhook name placeholder"
+  },
+  "iWqITG": {
+    "defaultMessage": "Assistant Not Available",
+    "description": "Title shown when Assistant is not available for this client"
   },
   "iX9mZm": {
     "defaultMessage": "Saved {name} v{version} to the registry",
