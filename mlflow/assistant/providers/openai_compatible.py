@@ -215,7 +215,9 @@ class OpenAICompatibleProvider(AssistantProvider):
         chat_url_builder: ChatUrlBuilder = _default_chat_url_builder,
         default_base_url: str | None = None,
         skills_dirname: str | None = None,
+        client_carries_history: bool = False,
     ):
+        self.client_carries_history = client_carries_history
         self._name = name
         self._display_name = display_name
         self._description = description

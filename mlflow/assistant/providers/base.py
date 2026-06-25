@@ -35,6 +35,11 @@ class NotAuthenticatedError(ProviderNotConfiguredError):
 class AssistantProvider(ABC):
     """Abstract base class for assistant providers."""
 
+    # Whether conversation history lives on the client and the provider can stream
+    # statelessly (no server-side session persistence). Remote/deployable providers
+    # opt in; local/single-host providers leave it False and keep server-side sessions.
+    client_carries_history: bool = False
+
     @property
     @abstractmethod
     def name(self) -> str:

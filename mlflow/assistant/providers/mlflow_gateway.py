@@ -35,4 +35,8 @@ class MlflowGatewayProvider(OpenAICompatibleProvider):
                 "Configure an LLM chat endpoint on the MLflow AI Gateway and select it."
             ),
             chat_url_builder=self._build_chat_url,
+            # Deployable/remote: history rides with the client so the server stays stateless
+            # and any replica can serve any turn. Ollama is localhost-only and keeps the
+            # stateful server-side session path.
+            client_carries_history=True,
         )

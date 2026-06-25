@@ -782,3 +782,44 @@ async def test_astream_allowlisted_command_runs_without_prompt(provider):
     assert not any(e.type == EventType.PERMISSION_REQUEST for e in events)
     mock_tool.assert_awaited_once()
     assert events[-1].type == EventType.DONE
+
+
+@pytest.mark.asyncio
+async def test_astream_done_blob_encodes_tool_turn_for_resume(provider):
+    """The DONE session_id blob must capture the full tool turn in order so a fresh,
+    stateless request can resume the conversation by feeding the blob back as session_id.
+    """
+    lines_turn1 = [
+        _sse(
+            _delta(
+                tool_calls=[
+                    {
+                        "index": 0,
+                        "id": "call_1",
+                        "function": {"name": "Bash", "arguments": '{"command": "ls"}'},
+                    }
+                ]
+            )
+        ),
+        b"data: [DONE]\n",
+    ]
+    lines_turn2 = [_sse(_delta(content="Done")), b"data: [DONE]\n"]
+    session, _calls = _make_aiohttp_session([lines_turn1, lines_turn2])
+
+    with (
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=session,
+        ),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.execute_tool",
+            AsyncMock(return_value=("file1.py\n", False)),
+        ),
+    ):
+        events = [e async for e in provider.astream("ls", "http://localhost:5000")]
+
+    done = next(e for e in events if e.type == EventType.DONE)
+    history = json.loads(done.data["session_id"])
+    assert [m["role"] for m in history] == ["system", "user", "assistant", "tool", "assistant"]
+    assert history[2].get("tool_calls")  # assistant message that requested the tool
+    assert history[-1]["content"] == "Done"  # final assistant reply

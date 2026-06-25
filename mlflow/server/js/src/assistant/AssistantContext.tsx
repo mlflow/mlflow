@@ -9,6 +9,7 @@ import type { AssistantAgentContextType, AssistantConfig, ChatMessage, Permissio
 import {
   cancelSession as cancelSessionApi,
   sendMessageStream,
+  streamChatViaFetch,
   getConfig,
   resumeStream,
   type SendMessageStreamCallbacks,
@@ -81,6 +82,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   // Chat state
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [conversationHistory, setConversationHistory] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +94,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [setupComplete, setSetupComplete] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
 
+  // True when the selected provider carries conversation history client-side (e.g. MLflow AI
+  // Gateway). Routes sends to the stateless POST /chat transport instead of the legacy
+  // POST /message + EventSource flow used by local/single-host providers.
+  const [clientCarriesHistory, setClientCarriesHistory] = useState(false);
+
   // A prompt queued by an onboarding card to seed the chat input the next time it's visible.
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
 
@@ -101,8 +108,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // NB: Using the actions hook to avoid re-rendering the component when the context changes.
   const { getContext: getPageContext } = useAssistantPageContextActions();
 
-  // Use ref to track active EventSource for cancellation
-  const eventSourceRef = useRef<EventSource | null>(null);
+  // Use ref to track the active stream handle for cancellation (EventSource close or fetch abort)
+  const streamHandleRef = useRef<SendMessageStreamResult | null>(null);
 
   // Identity token for the in-flight send. Each send captures its own token; reset()/cancel set
   // this to null, which invalidates a send still awaiting its POST so its callbacks (fired from
@@ -147,7 +154,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       return prev;
     });
     streamingMessageRef.current = '';
-    eventSourceRef.current = null;
+    streamHandleRef.current = null;
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
@@ -160,6 +167,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const handleSessionId = useCallback((newSessionId: string) => {
     setSessionId(newSessionId);
+  }, []);
+
+  const handleConversationHistory = useCallback((history: string) => {
+    setConversationHistory(history);
   }, []);
 
   const handleToolUse = useCallback((tools: ToolUseInfo[]) => {
@@ -177,9 +188,12 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       const config = await getConfig();
       const isComplete = await resolveSetupComplete(config);
       setSetupComplete(isComplete);
+      const selected = Object.values(config.providers ?? {}).find((p) => p.selected === true);
+      setClientCarriesHistory(selected?.client_carries_history === true);
     } catch {
       // On error, assume setup is not complete
       setSetupComplete(false);
+      setClientCarriesHistory(false);
     } finally {
       setIsLoadingConfig(false);
     }
@@ -204,9 +218,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         cancelAnimationFrame(rafPendingRef.current);
         rafPendingRef.current = null;
       }
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-        eventSourceRef.current = null;
+      if (streamHandleRef.current) {
+        streamHandleRef.current.cancel();
+        streamHandleRef.current = null;
       }
     };
   }, []);
@@ -215,7 +229,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setError(errorMsg);
     setIsStreaming(false);
     setCurrentStatus(null);
-    eventSourceRef.current = null;
+    streamHandleRef.current = null;
     setActiveTools([]);
     setPendingPermission(null);
     setMessages((prev) => {
@@ -232,7 +246,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
-    eventSourceRef.current = null;
+    streamHandleRef.current = null;
     streamingMessageRef.current = '';
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
@@ -266,15 +280,16 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     // so its guarded callbacks no-op and its EventSource is closed when the await resolves.
     activeRequestRef.current = null;
     // Tear down any active stream so its callbacks can't leak into the reset state
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+    if (streamHandleRef.current) {
+      streamHandleRef.current.cancel();
+      streamHandleRef.current = null;
     }
     if (rafPendingRef.current !== null) {
       cancelAnimationFrame(rafPendingRef.current);
       rafPendingRef.current = null;
     }
     setSessionId(null);
+    setConversationHistory(null);
     setMessages([]);
     setIsStreaming(false);
     setError(null);
@@ -297,10 +312,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // whether it was attached
   const attachStreamIfCurrent = useCallback((isCurrent: () => boolean, result: SendMessageStreamResult): boolean => {
     if (!isCurrent()) {
-      result.eventSource?.close();
+      result.cancel();
       return false;
     }
-    eventSourceRef.current = result.eventSource;
+    streamHandleRef.current = result;
     return true;
   }, []);
 
@@ -343,24 +358,37 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
       try {
         const pageContext = getPageContext();
-        const result = await sendMessageStream(
-          {
-            message: prompt || '',
-            session_id: sessionId ?? undefined,
-            experiment_id: pageContext['experimentId'] as string | undefined,
-            context: pageContext,
-          },
-          withGuard(isCurrent, {
-            onMessage: appendToStreamingMessage,
-            onError: handleStreamError,
-            onDone: finalizeStreamingMessage,
-            onStatus: handleStatus,
-            onSessionId: handleSessionId,
-            onToolUse: handleToolUse,
-            onInterrupted: handleInterrupted,
-            onPermissionRequest: handlePermissionRequest,
-          }),
-        );
+        const experimentId = pageContext['experimentId'] as string | undefined;
+        const guarded = withGuard(isCurrent, {
+          onMessage: appendToStreamingMessage,
+          onError: handleStreamError,
+          onDone: finalizeStreamingMessage,
+          onStatus: handleStatus,
+          onSessionId: handleSessionId,
+          onToolUse: handleToolUse,
+          onInterrupted: handleInterrupted,
+          onConversationHistory: handleConversationHistory,
+          onPermissionRequest: handlePermissionRequest,
+        });
+        const result = clientCarriesHistory
+          ? await streamChatViaFetch(
+              {
+                message: prompt || '',
+                experiment_id: experimentId,
+                context: pageContext,
+                conversation_history: conversationHistory ?? undefined,
+              },
+              guarded,
+            )
+          : await sendMessageStream(
+              {
+                message: prompt || '',
+                session_id: sessionId ?? undefined,
+                experiment_id: experimentId,
+                context: pageContext,
+              },
+              guarded,
+            );
         if (!attachStreamIfCurrent(isCurrent, result)) {
           return;
         }
@@ -373,6 +401,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     },
     [
       sessionId,
+      conversationHistory,
+      clientCarriesHistory,
       beginRequest,
       attachStreamIfCurrent,
       getPageContext,
@@ -383,6 +413,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       handleSessionId,
       handleToolUse,
       handleInterrupted,
+      handleConversationHistory,
       handlePermissionRequest,
     ],
   );
@@ -480,28 +511,43 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
       // Send message and stream response
       const pageContext = getPageContext();
-      const result = await sendMessageStream(
-        {
-          session_id: sessionId,
-          message,
-          experiment_id: pageContext['experimentId'] as string | undefined,
-          context: pageContext,
-        },
-        withGuard(isCurrent, {
-          onMessage: appendToStreamingMessage,
-          onError: handleStreamError,
-          onDone: finalizeStreamingMessage,
-          onStatus: handleStatus,
-          onSessionId: handleSessionId,
-          onToolUse: handleToolUse,
-          onInterrupted: handleInterrupted,
-          onPermissionRequest: handlePermissionRequest,
-        }),
-      );
+      const experimentId = pageContext['experimentId'] as string | undefined;
+      const guarded = withGuard(isCurrent, {
+        onMessage: appendToStreamingMessage,
+        onError: handleStreamError,
+        onDone: finalizeStreamingMessage,
+        onStatus: handleStatus,
+        onSessionId: handleSessionId,
+        onToolUse: handleToolUse,
+        onInterrupted: handleInterrupted,
+        onConversationHistory: handleConversationHistory,
+        onPermissionRequest: handlePermissionRequest,
+      });
+      const result = clientCarriesHistory
+        ? await streamChatViaFetch(
+            {
+              message,
+              experiment_id: experimentId,
+              context: pageContext,
+              conversation_history: conversationHistory ?? undefined,
+            },
+            guarded,
+          )
+        : await sendMessageStream(
+            {
+              session_id: sessionId,
+              message,
+              experiment_id: experimentId,
+              context: pageContext,
+            },
+            guarded,
+          );
       attachStreamIfCurrent(isCurrent, result);
     },
     [
       sessionId,
+      conversationHistory,
+      clientCarriesHistory,
       startChat,
       beginRequest,
       attachStreamIfCurrent,
@@ -513,28 +559,31 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       handleSessionId,
       handleToolUse,
       handleInterrupted,
+      handleConversationHistory,
       handlePermissionRequest,
     ],
   );
 
   const handleCancelSession = useCallback(() => {
-    if (!sessionId || !isStreaming) return;
+    // Gate on the live stream handle, not sessionId: the stateless (client-carried-history) path
+    // never sets a sessionId, so gating on it made Stop a no-op there. Any active stream — legacy
+    // or stateless — has a handle, and cancelling it aborts the fetch or closes the EventSource.
+    if (!isStreaming || !streamHandleRef.current) return;
 
     // Invalidate any in-flight send so a stream still awaiting its POST can't attach after cancel.
     activeRequestRef.current = null;
 
-    // Close EventSource immediately to stop receiving data
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
+    // Tear down the active stream immediately to stop receiving data.
+    streamHandleRef.current.cancel();
+    streamHandleRef.current = null;
 
-    // Send cancel request to backend
-    cancelSessionApi(sessionId).catch((err) => {
-      if (err) {
+    // Only the legacy path has a server-side process to terminate. The stateless path holds no
+    // server session, so aborting the fetch above is the whole cancellation.
+    if (sessionId) {
+      cancelSessionApi(sessionId).catch(() => {
         // fail silently
-      }
-    });
+      });
+    }
 
     // Mark the current streaming message as interrupted
     setMessages((prev) => {
@@ -599,28 +648,43 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
     // Re-send the last user message
     const pageContext = getPageContext();
-    const result = await sendMessageStream(
-      {
-        session_id: sessionId ?? undefined,
-        message: userMessageContent,
-        experiment_id: pageContext['experimentId'] as string | undefined,
-        context: pageContext,
-      },
-      withGuard(isCurrent, {
-        onMessage: appendToStreamingMessage,
-        onError: handleStreamError,
-        onDone: finalizeStreamingMessage,
-        onStatus: handleStatus,
-        onSessionId: handleSessionId,
-        onToolUse: handleToolUse,
-        onInterrupted: handleInterrupted,
-        onPermissionRequest: handlePermissionRequest,
-      }),
-    );
+    const experimentId = pageContext['experimentId'] as string | undefined;
+    const guarded = withGuard(isCurrent, {
+      onMessage: appendToStreamingMessage,
+      onError: handleStreamError,
+      onDone: finalizeStreamingMessage,
+      onStatus: handleStatus,
+      onSessionId: handleSessionId,
+      onToolUse: handleToolUse,
+      onInterrupted: handleInterrupted,
+      onConversationHistory: handleConversationHistory,
+      onPermissionRequest: handlePermissionRequest,
+    });
+    const result = clientCarriesHistory
+      ? await streamChatViaFetch(
+          {
+            message: userMessageContent,
+            experiment_id: experimentId,
+            context: pageContext,
+            conversation_history: conversationHistory ?? undefined,
+          },
+          guarded,
+        )
+      : await sendMessageStream(
+          {
+            session_id: sessionId ?? undefined,
+            message: userMessageContent,
+            experiment_id: experimentId,
+            context: pageContext,
+          },
+          guarded,
+        );
     attachStreamIfCurrent(isCurrent, result);
   }, [
     messages,
     sessionId,
+    conversationHistory,
+    clientCarriesHistory,
     isStreaming,
     beginRequest,
     attachStreamIfCurrent,
@@ -632,6 +696,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     handleSessionId,
     handleToolUse,
     handleInterrupted,
+    handleConversationHistory,
     handlePermissionRequest,
   ]);
 
