@@ -1386,10 +1386,22 @@ def _normalize_mcp_server_version_filter_string(filter_string: str) -> str:
 
 
 def _get_semver_version_filter_expression(comparator: str, version: str):
+    """Build the SQL filter expression for MCP server version comparisons.
+
+    Ordering-style comparators (``<``, ``<=``, ``>``, ``>=``) use SemVer
+    precedence so they stay consistent with ``order_by=version``. Equality
+    operators intentionally use the stored raw version string so build-metadata
+    variants remain distinguishable in exact-match filters.
+    """
     if comparator not in {"=", "!=", "<", "<=", ">", ">="}:
         raise MlflowException.invalid_parameter_value(
             "version only supports semantic comparators '=', '!=', '<', '<=', '>', and '>='"
         )
+
+    if comparator == "=":
+        return SqlMCPServerVersion.version == version
+    if comparator == "!=":
+        return SqlMCPServerVersion.version != version
 
     parsed = parse_semver(version, param_name="filter_string version")
     target = (
@@ -1409,10 +1421,6 @@ def _get_semver_version_filter_expression(comparator: str, version: str):
     less_expr = _lexicographic_lt(columns, target)
     greater_expr = _lexicographic_gt(columns, target)
 
-    if comparator == "=":
-        return equal_expr
-    if comparator == "!=":
-        return ~equal_expr
     if comparator == "<":
         return less_expr
     if comparator == "<=":

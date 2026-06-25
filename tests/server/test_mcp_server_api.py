@@ -578,7 +578,7 @@ def test_search_versions_order_by_version_ignores_build_metadata_precedence(clie
     assert set(versions[1:]) == {"1.0.0+aaa", "1.0.0+zzz"}
 
 
-def test_search_versions_filter_by_version_equality_uses_semver_equivalence(client):
+def test_search_versions_filter_by_version_equality_uses_exact_string_match(client):
     for version in ("1.0.0-alpha+aaa", "1.0.0-alpha+zzz", "1.0.0"):
         client.post(
             f"{PREFIX}/{_encode_path_param('com.example/semver-filter-eq')}/versions",
@@ -594,7 +594,7 @@ def test_search_versions_filter_by_version_equality_uses_semver_equivalence(clie
     )
     assert r.status_code == 200
     versions = {v["version"] for v in r.json()["mcp_server_versions"]}
-    assert versions == {"1.0.0-alpha+aaa", "1.0.0-alpha+zzz"}
+    assert versions == {"1.0.0-alpha+aaa"}
 
 
 def test_search_versions_filter_by_version_inequality_uses_semver_precedence(client):

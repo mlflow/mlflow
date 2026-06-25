@@ -1650,7 +1650,7 @@ def test_search_mcp_server_versions_order_by_version_ignores_build_metadata_prec
     assert set(versions[1:]) == {"1.0.0+aaa", "1.0.0+zzz"}
 
 
-def test_search_mcp_server_versions_filter_by_version_equality_uses_semver_equivalence(store):
+def test_search_mcp_server_versions_filter_by_version_equality_uses_exact_string_match(store):
     for version in ("1.0.0-alpha+aaa", "1.0.0-alpha+zzz", "1.0.0"):
         store.create_mcp_server_version(_server_json("io.github.test/semver-eq", version))
 
@@ -1659,7 +1659,7 @@ def test_search_mcp_server_versions_filter_by_version_equality_uses_semver_equiv
         filter_string="version = '1.0.0-alpha+aaa'",
     )
     versions = {v.version for v in result}
-    assert versions == {"1.0.0-alpha+aaa", "1.0.0-alpha+zzz"}
+    assert versions == {"1.0.0-alpha+aaa"}
 
 
 def test_search_mcp_server_versions_filter_by_version_inequality_uses_semver_precedence(store):
