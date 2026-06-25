@@ -829,7 +829,7 @@ async def test_response_format(client):
     span = trace.data.spans[0]
     assert span.outputs["choices"][0]["message"]["content"] == '{"name":"Angelo","age":42}'
     assert span.span_type == SpanType.CHAT_MODEL
-    assert span.model_name == "gpt-4o"
+    assert span.model_name == "gpt-4o-2024-08-06"
 
     assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps({
         TokenUsageKey.INPUT_TOKENS: 68,
