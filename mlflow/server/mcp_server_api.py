@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi import APIRouter, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 
 from mlflow.entities.mcp_access_binding import MCPAccessBinding
 from mlflow.entities.mcp_server import (
@@ -117,7 +117,16 @@ class UpdateMCPServerRequest(BaseModel):
     display_name: str | None = None
     description: str | None = None
     icons: list[MCPIconPayload] | None = None
-    latest_version: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_latest_version_field(cls, value):
+        if isinstance(value, dict) and "latest_version" in value:
+            raise ValueError(
+                "latest_version is read-only; it is resolved automatically "
+                "from semantic-version ordering"
+            )
+        return value
 
 
 class CreateMCPServerVersionRequest(BaseModel):
@@ -376,7 +385,7 @@ def _icon_payloads_to_entities(
 def _update_mcp_server_kwargs(name: str, request: UpdateMCPServerRequest) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"name": name}
     provided_fields = request.model_fields_set
-    for field_name in ("description", "display_name", "icons", "latest_version"):
+    for field_name in ("description", "display_name", "icons"):
         if field_name in provided_fields:
             kwargs[field_name] = (
                 _icon_payloads_to_entities(request.icons)

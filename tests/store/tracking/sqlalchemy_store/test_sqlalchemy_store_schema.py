@@ -22,6 +22,7 @@ from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.db.workspace_migration import migrate_to_default_workspace
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.utils.semver_utils import encode_prerelease_sort_key, parse_semver
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.integration.utils import invoke_cli_runner
@@ -295,6 +296,7 @@ def test_workspace_migration_tables_include_all_workspace_tables(tmp_path, db_ur
 
 def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
     table = sqlalchemy.Table(table_name, sqlalchemy.MetaData(), autoload_with=conn)
+    mcp_server_version = f"{seed}.0.0"
     base_values = {
         "experiments": {
             "name": f"experiment_{seed}",
@@ -417,7 +419,7 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
         "mcp_server_versions": {
             "workspace": workspace,
             "name": f"mcp_server_{seed}",
-            "version": f"v{seed}",
+            "version": mcp_server_version,
             "server_json": "{}",
             "status": "draft",
             "created_at": seed,
@@ -432,7 +434,7 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
         "mcp_server_version_tags": {
             "workspace": workspace,
             "name": f"mcp_server_{seed}",
-            "version": f"v{seed}",
+            "version": mcp_server_version,
             "key": f"vtag_{seed}",
             "value": f"value_{seed}",
         },
@@ -440,7 +442,7 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "workspace": workspace,
             "name": f"mcp_server_{seed}",
             "alias": f"alias_{seed}",
-            "version": f"v{seed}",
+            "version": mcp_server_version,
         },
         "mcp_access_bindings": {
             "binding_id": seed,
@@ -458,6 +460,16 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
     overrides = overrides or {}
     unknown = set(overrides) - set(table.c.keys())
     assert not unknown, f"Unknown columns for {table_name}: {unknown}"
+    if table_name == "mcp_server_versions":
+        parsed = parse_semver(values["version"])
+        if "version_major" in table.c:
+            values["version_major"] = parsed.major
+        if "version_minor" in table.c:
+            values["version_minor"] = parsed.minor
+        if "version_patch" in table.c:
+            values["version_patch"] = parsed.patch
+        if "version_prerelease_sort_key" in table.c:
+            values["version_prerelease_sort_key"] = encode_prerelease_sort_key(parsed)
     values.update(overrides)
     conn.execute(table.insert().values(**values))
 

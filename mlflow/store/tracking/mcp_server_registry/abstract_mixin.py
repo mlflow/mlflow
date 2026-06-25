@@ -91,7 +91,6 @@ class MCPServerRegistryMixin:
         description: str | None = NOT_SET,
         display_name: str | None = NOT_SET,
         icons: list[MCPIcon] | None = NOT_SET,
-        latest_version: str | None = NOT_SET,
     ) -> MCPServer:
         """Update an existing MCP server's metadata.
 
@@ -100,8 +99,6 @@ class MCPServerRegistryMixin:
             description: New description. Omit to leave unchanged; pass None to set null.
             display_name: New display name. Omit to leave unchanged; pass None to set null.
             icons: New icon variants. Omit to leave unchanged; pass None to set null.
-            latest_version: New pinned latest version. Omit to leave unchanged; pass None to
-                set null.
 
         Returns:
             The updated MCPServer entity.
@@ -170,12 +167,10 @@ class MCPServerRegistryMixin:
     def get_latest_mcp_server_version(self, name: str) -> MCPServerVersion:
         """Retrieve the latest version of an MCP server.
 
-        If latest_version is explicitly pinned, resolves to that version only.
-        A stale pin (version no longer exists or is deleted) raises
-        RESOURCE_DOES_NOT_EXIST rather than silently falling back.
-
-        If latest_version is unset, falls back to the most recently created
-        non-draft, non-deleted version.
+        Resolves using the shared latest-resolution rule: highest semantic
+        version among ACTIVE versions if one exists, otherwise highest semantic
+        version among non-DELETED non-ACTIVE versions. If no version resolves,
+        implementations should raise RESOURCE_DOES_NOT_EXIST.
 
         Args:
             name: Server name.
@@ -184,8 +179,7 @@ class MCPServerRegistryMixin:
             The latest MCPServerVersion entity.
 
         Raises:
-            MlflowException: If the pinned version is stale or no eligible
-                version exists.
+            MlflowException: If no version resolves.
         """
         raise NotImplementedError(self.__class__.__name__)
 

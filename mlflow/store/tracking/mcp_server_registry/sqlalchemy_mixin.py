@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import sqlalchemy as sa
@@ -40,6 +41,7 @@ from mlflow.utils.search_utils import (
     SearchMCPServerVersionUtils,
     SearchUtils,
 )
+from mlflow.utils.semver_utils import encode_prerelease_sort_key, parse_semver
 from mlflow.utils.time import get_current_time_millis
 
 SEARCH_MCP_SERVER_MAX_RESULTS_THRESHOLD = 1000
@@ -97,6 +99,22 @@ class SqlAlchemyMCPServerRegistryMixin:
         )
         return SqlMCPServer.with_resolved_latest(query)
 
+    def _resolve_binding_target_orm(
+        self, session, binding: SqlMCPAccessBinding
+    ) -> SqlMCPServerVersion:
+        if binding.server_version is not None:
+            return self._get_live_mcp_server_version_or_raise(
+                session, binding.server_name, binding.server_version
+            )
+        if binding.server_alias is not None:
+            return self._get_alias_target_version_or_raise(
+                session, binding.server_name, binding.server_alias
+            )
+        raise MlflowException(
+            f"MCPAccessBinding {binding.binding_id} has no target version or alias",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     def _get_nested_binding_resolved_versions(
         self, session, servers
     ) -> dict[int, MCPServerVersion | None]:
@@ -146,7 +164,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             query = query.order_by(*order_clauses).offset(offset).limit(max_results + 1)
             server_rows = query.all()
             resolved_versions = self._get_nested_binding_resolved_versions(session, server_rows)
-            servers = [s.to_mlflow_entity(resolved_versions) for s in server_rows]
+            servers = [server.to_mlflow_entity(resolved_versions) for server in server_rows]
             next_token = None
             if len(servers) > max_results:
                 next_token = SearchUtils.create_page_token(offset + max_results)
@@ -158,7 +176,6 @@ class SqlAlchemyMCPServerRegistryMixin:
         description: str | None = NOT_SET,
         display_name: str | None = NOT_SET,
         icons: list[MCPIcon] | None = NOT_SET,
-        latest_version: str | None = NOT_SET,
     ) -> MCPServer:
         with self.ManagedSessionMaker(read_only=False) as session:
             server = self._get_entity_or_raise(session, SqlMCPServer, {"name": name}, "MCPServer")
@@ -168,29 +185,6 @@ class SqlAlchemyMCPServerRegistryMixin:
                 server.display_name = display_name
             if icons is not NOT_SET:
                 server.icons = icons
-            if latest_version is not NOT_SET:
-                if latest_version is not None:
-                    sv = (
-                        self
-                        ._get_query(session, SqlMCPServerVersion)
-                        .filter(
-                            SqlMCPServerVersion.name == name,
-                            SqlMCPServerVersion.version == latest_version,
-                        )
-                        .one_or_none()
-                    )
-                    if not sv:
-                        raise MlflowException(
-                            f"Version '{latest_version}' not found on server '{name}'",
-                            error_code=RESOURCE_DOES_NOT_EXIST,
-                        )
-                    if sv.status in (MCPStatus.DRAFT.value, MCPStatus.DELETED.value):
-                        raise MlflowException(
-                            f"Cannot pin latest_version to '{latest_version}' "
-                            f"with status '{sv.status}'",
-                            error_code=INVALID_PARAMETER_VALUE,
-                        )
-                server.latest_version = latest_version
             server.last_updated_at = get_current_time_millis()
             session.flush()
             server = self._mcp_server_query(session).filter(SqlMCPServer.name == name).one()
@@ -221,6 +215,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                 error_code=INVALID_PARAMETER_VALUE,
             )
         validate_mcp_server_name(name)
+        parsed_version = parse_semver(version, param_name="server_json.version")
 
         now = get_current_time_millis()
         status = status or MCPStatus.DRAFT
@@ -258,6 +253,10 @@ class SqlAlchemyMCPServerRegistryMixin:
                     SqlMCPServerVersion(
                         name=name,
                         version=version,
+                        version_major=parsed_version.major,
+                        version_minor=parsed_version.minor,
+                        version_patch=parsed_version.patch,
+                        version_prerelease_sort_key=encode_prerelease_sort_key(parsed_version),
                         server_json=server_json,
                         display_name=display_name,
                         status=status.value,
@@ -328,41 +327,12 @@ class SqlAlchemyMCPServerRegistryMixin:
             return self.get_mcp_server_version(name, alias_row.version)
 
     def _resolve_latest_version_orm(self, session, server_name: str) -> SqlMCPServerVersion:
-        """Resolve 'latest' to a SqlMCPServerVersion within an existing session.
-
-        If latest_version is explicitly pinned, resolve to that version only —
-        a stale pin resolves to an error rather than silently falling back to
-        the next candidate (matching resolved_status_expression / with_resolved_latest
-        SQL-level behavior).
-
-        If latest_version is unset, falls back to the most recent non-DRAFT/non-DELETED
-        version (matching _latest_candidates_query ordering for consistency).
-        """
-        server = self._get_entity_or_raise(
-            session, SqlMCPServer, {"name": server_name}, "MCPServer"
-        )
-        if server.latest_version:
-            sv = (
-                self
-                ._mcp_server_version_query(session)
-                .filter(
-                    SqlMCPServerVersion.name == server_name,
-                    SqlMCPServerVersion.version == server.latest_version,
-                )
-                .one_or_none()
-            )
-            if sv:
-                return sv
-            raise MlflowException(
-                f"Pinned latest_version '{server.latest_version}' not found "
-                f"for MCP server '{server_name}'",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
-
-        sv = self._latest_eligible_version_query(session, server_name).first()
+        """Resolve 'latest' to a SqlMCPServerVersion within an existing session."""
+        self._get_entity_or_raise(session, SqlMCPServer, {"name": server_name}, "MCPServer")
+        sv = self._latest_resolved_version_query(session, server_name).first()
         if not sv:
             raise MlflowException(
-                f"No eligible latest version found for MCP server '{server_name}'",
+                f"No resolved latest version found for MCP server '{server_name}'",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
         return sv
@@ -371,26 +341,23 @@ class SqlAlchemyMCPServerRegistryMixin:
         with self.ManagedSessionMaker() as session:
             return self._resolve_latest_version_orm(session, name).to_mlflow_entity()
 
-    def _latest_eligible_version_query(self, session, server_name: str):
+    def _latest_resolved_version_query(self, session, server_name: str):
+        status_priority = sa.case(
+            (SqlMCPServerVersion.status == MCPStatus.ACTIVE.value, 0),
+            else_=1,
+        )
         return (
             self
             ._mcp_server_version_query(session)
             .filter(
                 SqlMCPServerVersion.name == server_name,
-                SqlMCPServerVersion.status.notin_([
-                    MCPStatus.DRAFT.value,
-                    MCPStatus.DELETED.value,
-                ]),
             )
-            .order_by(
-                SqlMCPServerVersion.created_at.desc(),
-                SqlMCPServerVersion.version.desc(),
-            )
+            .order_by(status_priority.asc(), *SqlMCPServer._version_order_by())
         )
 
     def _delete_latest_alias_bindings_if_unresolvable(self, session, server_name: str) -> None:
-        """Delete "latest" bindings when no eligible target version remains."""
-        remaining_versions = self._latest_eligible_version_query(session, server_name).first()
+        """Delete "latest" bindings when latest no longer resolves."""
+        remaining_versions = self._latest_resolved_version_query(session, server_name).first()
         if not remaining_versions:
             (
                 self
@@ -442,8 +409,6 @@ class SqlAlchemyMCPServerRegistryMixin:
             if status is not NOT_SET:
                 _validate_status_transition(MCPStatus(sv.status), status)
                 sv.status = status.value
-                if status == MCPStatus.DRAFT and sv.server.latest_version == version:
-                    sv.server.latest_version = None
             if display_name is not NOT_SET:
                 sv.display_name = display_name
             if tools is not NOT_SET:
@@ -452,7 +417,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             sv.last_updated_at = get_current_time_millis()
             session.add(sv)
             session.flush()
-            if status == MCPStatus.DRAFT:
+            if status is not NOT_SET:
                 self._delete_latest_alias_bindings_if_unresolvable(session, name)
             return sv.to_mlflow_entity()
 
@@ -502,8 +467,6 @@ class SqlAlchemyMCPServerRegistryMixin:
                 )
                 .delete(synchronize_session=False)
             )
-            if sv.server.latest_version == version:
-                sv.server.latest_version = None
             _validate_status_transition(MCPStatus(sv.status), MCPStatus.DELETED)
             sv.status = MCPStatus.DELETED.value
             sv.last_updated_at = get_current_time_millis()
@@ -1019,9 +982,9 @@ def _resolved_binding_targets_subquery(
 
     # All branches include a defensive `status != DELETED` filter on the final
     # SqlMCPServerVersion join. Under normal operation deleted versions cannot
-    # appear here (delete_mcp_server_version cascade-deletes affected bindings
-    # and clears latest_version pins), but the filter keeps the branches
-    # consistent and guards against data-integrity edge cases.
+    # appear here because deleting a version also removes affected bindings and
+    # aliases, but the filter keeps the branches consistent and guards against
+    # data-integrity edge cases.
 
     branches = []
 
@@ -1098,8 +1061,7 @@ def _resolved_binding_targets_subquery(
 
         if server_alias is None or server_alias == "latest":
             # "latest" alias resolution - only construct when needed
-            pinned_version = sa.orm.aliased(SqlMCPServerVersion, name="pinned_latest")
-            latest_candidates = SqlMCPServer._latest_candidates_query().subquery(
+            latest_candidates = SqlMCPServer._resolved_latest_candidates_query().subquery(
                 "latest_candidates"
             )
             latest_alias_stmt = _apply_common_filters(
@@ -1114,25 +1076,10 @@ def _resolved_binding_targets_subquery(
                 )
                 .select_from(SqlMCPAccessBinding)
                 .join(
-                    SqlMCPServer,
-                    sa.and_(
-                        SqlMCPAccessBinding.workspace == SqlMCPServer.workspace,
-                        SqlMCPAccessBinding.server_name == SqlMCPServer.name,
-                    ),
-                )
-                .outerjoin(
-                    pinned_version,
-                    sa.and_(
-                        pinned_version.workspace == SqlMCPServer.workspace,
-                        pinned_version.name == SqlMCPServer.name,
-                        pinned_version.version == SqlMCPServer.latest_version,
-                    ),
-                )
-                .outerjoin(
                     latest_candidates,
                     sa.and_(
-                        latest_candidates.c.workspace == SqlMCPServer.workspace,
-                        latest_candidates.c.name == SqlMCPServer.name,
+                        latest_candidates.c.workspace == SqlMCPAccessBinding.workspace,
+                        latest_candidates.c.name == SqlMCPAccessBinding.server_name,
                         latest_candidates.c.row_num == 1,
                     ),
                 )
@@ -1141,11 +1088,7 @@ def _resolved_binding_targets_subquery(
                     sa.and_(
                         SqlMCPServerVersion.workspace == SqlMCPAccessBinding.workspace,
                         SqlMCPServerVersion.name == SqlMCPAccessBinding.server_name,
-                        SqlMCPServerVersion.version
-                        == sa.case(
-                            (SqlMCPServer.latest_version.is_not(None), pinned_version.version),
-                            else_=latest_candidates.c.version,
-                        ),
+                        SqlMCPServerVersion.version == latest_candidates.c.version,
                         SqlMCPServerVersion.status != MCPStatus.DELETED.value,
                     ),
                 )
@@ -1187,8 +1130,6 @@ def _apply_mcp_server_filter(query, filter_string, dialect):
     parsed = SearchMCPServerUtils.parse_search_filter(filter_string)
     attribute_filters = []
     tag_filters = {}
-    status_conditions = []
-    has_bindings_filter = None
     for f in parsed:
         type_ = f["type"]
         key = f["key"]
@@ -1201,19 +1142,28 @@ def _apply_mcp_server_filter(query, filter_string, dialect):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if key == "status":
-                status_conditions.append((comparator, value))
+                resolved_status = SqlMCPServer.resolved_status_expression()
+                attribute_filters.append(
+                    _get_expression_comparison_func(comparator, dialect)(resolved_status, value)
+                )
             elif key == "has_access_bindings":
                 if comparator != "=" or value.lower() not in ("true", "false"):
                     raise MlflowException(
                         "has_access_bindings only supports '= true' or '= false'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                if has_bindings_filter is not None:
-                    raise MlflowException(
-                        "has_access_bindings can only appear once in a filter",
-                        error_code=INVALID_PARAMETER_VALUE,
+                resolved_binding_targets = _resolved_binding_targets_subquery()
+                live_binding_exists = sa.exists(
+                    sa.select(resolved_binding_targets.c.binding_id).where(
+                        sa.and_(
+                            resolved_binding_targets.c.binding_workspace == SqlMCPServer.workspace,
+                            resolved_binding_targets.c.binding_server_name == SqlMCPServer.name,
+                        )
                     )
-                has_bindings_filter = value.lower() == "true"
+                )
+                attribute_filters.append(
+                    live_binding_exists if value.lower() == "true" else ~live_binding_exists
+                )
             else:
                 attr = getattr(SqlMCPServer, key)
                 attribute_filters.append(
@@ -1242,28 +1192,6 @@ def _apply_mcp_server_filter(query, filter_string, dialect):
 
     if attribute_filters:
         query = query.filter(*attribute_filters)
-
-    if status_conditions:
-        resolved_status = SqlMCPServer.resolved_status_expression()
-        for comparator, value in status_conditions:
-            query = query.filter(
-                _get_expression_comparison_func(comparator, dialect)(resolved_status, value)
-            )
-
-    if has_bindings_filter is not None:
-        resolved_binding_targets = _resolved_binding_targets_subquery()
-        live_binding_exists = sa.exists(
-            sa.select(resolved_binding_targets.c.binding_id).where(
-                sa.and_(
-                    resolved_binding_targets.c.binding_workspace == SqlMCPServer.workspace,
-                    resolved_binding_targets.c.binding_server_name == SqlMCPServer.name,
-                )
-            )
-        )
-        if has_bindings_filter:
-            query = query.filter(live_binding_exists)
-        else:
-            query = query.filter(~live_binding_exists)
 
     if tag_filters:
         sql_tag_filters = (sa.and_(*clauses) for clauses in tag_filters.values())
@@ -1341,7 +1269,6 @@ def _parse_search_mcp_servers_order_by(order_by_list):
 def _parse_search_mcp_server_versions_order_by(order_by_list):
     valid_keys = {"version", "created_at", "last_updated_at"}
     column_map = {
-        "version": SqlMCPServerVersion.version,
         "created_at": SqlMCPServerVersion.created_at,
         "last_updated_at": SqlMCPServerVersion.last_updated_at,
     }
@@ -1362,13 +1289,32 @@ def _parse_search_mcp_server_versions_order_by(order_by_list):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             observed.add(key)
-            clauses.append(column_map[key].asc() if is_ascending else column_map[key].desc())
+            if key == "version":
+                clauses.extend(_semver_version_order_clauses(is_ascending))
+            else:
+                clauses.append(column_map[key].asc() if is_ascending else column_map[key].desc())
     if "created_at" not in observed:
         clauses.append(SqlMCPServerVersion.created_at.asc())
     # Offset pagination needs a deterministic tie-breaker for same-timestamp rows.
     if "version" not in observed:
         clauses.append(SqlMCPServerVersion.version.asc())
     return clauses
+
+
+def _semver_version_order_clauses(is_ascending: bool):
+    if is_ascending:
+        return (
+            SqlMCPServerVersion.version_major.asc(),
+            SqlMCPServerVersion.version_minor.asc(),
+            SqlMCPServerVersion.version_patch.asc(),
+            SqlMCPServerVersion.version_prerelease_sort_key.asc(),
+        )
+    return (
+        SqlMCPServerVersion.version_major.desc(),
+        SqlMCPServerVersion.version_minor.desc(),
+        SqlMCPServerVersion.version_patch.desc(),
+        SqlMCPServerVersion.version_prerelease_sort_key.desc(),
+    )
 
 
 def _parse_search_mcp_access_bindings_order_by(order_by_list):
@@ -1403,7 +1349,9 @@ def _parse_search_mcp_access_bindings_order_by(order_by_list):
 
 
 def _apply_mcp_server_version_filter(query, filter_string, dialect):
-    parsed = SearchMCPServerVersionUtils.parse_search_filter(filter_string)
+    parsed = SearchMCPServerVersionUtils.parse_search_filter(
+        _normalize_mcp_server_version_filter_string(filter_string)
+    )
     for f in parsed:
         type_ = f["type"]
         key = f["key"]
@@ -1419,6 +1367,80 @@ def _apply_mcp_server_version_filter(query, filter_string, dialect):
                 f"Invalid comparator '{comparator}' for attribute '{key}'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        attr = getattr(SqlMCPServerVersion, key)
-        query = query.filter(SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value))
+        if key == "version":
+            query = query.filter(_get_semver_version_filter_expression(comparator, value))
+        else:
+            attr = getattr(SqlMCPServerVersion, key)
+            query = query.filter(
+                SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+            )
     return query
+
+
+def _normalize_mcp_server_version_filter_string(filter_string: str) -> str:
+    return re.sub(
+        r"(?<![`\w.])version(?=\s*(?:=|!=|<=|>=|<|>|LIKE|ILIKE))",
+        "`version`",
+        filter_string,
+    )
+
+
+def _get_semver_version_filter_expression(comparator: str, version: str):
+    """Build the SQL filter expression for MCP server version comparisons.
+
+    Ordering-style comparators (``<``, ``<=``, ``>``, ``>=``) use SemVer
+    precedence so they stay consistent with ``order_by=version``. Equality
+    operators intentionally use the stored raw version string so build-metadata
+    variants remain distinguishable in exact-match filters.
+    """
+    if comparator not in {"=", "!=", "<", "<=", ">", ">="}:
+        raise MlflowException.invalid_parameter_value(
+            "version only supports semantic comparators '=', '!=', '<', '<=', '>', and '>='"
+        )
+
+    if comparator == "=":
+        return SqlMCPServerVersion.version == version
+    if comparator == "!=":
+        return SqlMCPServerVersion.version != version
+
+    parsed = parse_semver(version, param_name="filter_string version")
+    target = (
+        parsed.major,
+        parsed.minor,
+        parsed.patch,
+        encode_prerelease_sort_key(parsed),
+    )
+    columns = (
+        SqlMCPServerVersion.version_major,
+        SqlMCPServerVersion.version_minor,
+        SqlMCPServerVersion.version_patch,
+        SqlMCPServerVersion.version_prerelease_sort_key,
+    )
+
+    equal_expr = sa.and_(*(column == value for column, value in zip(columns, target)))
+    less_expr = _lexicographic_lt(columns, target)
+    greater_expr = _lexicographic_gt(columns, target)
+
+    if comparator == "<":
+        return less_expr
+    if comparator == "<=":
+        return sa.or_(less_expr, equal_expr)
+    if comparator == ">":
+        return greater_expr
+    return sa.or_(greater_expr, equal_expr)
+
+
+def _lexicographic_lt(columns, target_values):
+    clauses = []
+    for idx, (column, value) in enumerate(zip(columns, target_values)):
+        prefix_equal = [columns[i] == target_values[i] for i in range(idx)]
+        clauses.append(sa.and_(*prefix_equal, column < value) if prefix_equal else column < value)
+    return sa.or_(*clauses)
+
+
+def _lexicographic_gt(columns, target_values):
+    clauses = []
+    for idx, (column, value) in enumerate(zip(columns, target_values)):
+        prefix_equal = [columns[i] == target_values[i] for i in range(idx)]
+        clauses.append(sa.and_(*prefix_equal, column > value) if prefix_equal else column > value)
+    return sa.or_(*clauses)

@@ -2792,6 +2792,7 @@ class SearchMCPServerVersionUtils(SearchUtils):
 
     VALID_SEARCH_ATTRIBUTE_KEYS = {"name", "version", "status", "created_at", "last_updated_at"}
     NUMERIC_ATTRIBUTES = {"created_at", "last_updated_at"}
+    VALID_SEMVER_ATTRIBUTE_COMPARATORS = {"!=", "=", ">", ">=", "<", "<="}
 
     @classmethod
     def validate_list_supported(cls, key: str) -> None:
@@ -2800,6 +2801,18 @@ class SearchMCPServerVersionUtils(SearchUtils):
                 f"Only 'status' supports IN comparisons for MCP server versions, got '{key}'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    @classmethod
+    def is_string_attribute(cls, key_type, key_name, comparator):
+        if key_type == cls._ATTRIBUTE_IDENTIFIER and key_name == "version":
+            if comparator not in cls.VALID_SEMVER_ATTRIBUTE_COMPARATORS:
+                raise MlflowException(
+                    f"Invalid comparator '{comparator}' not one of "
+                    f"'{cls.VALID_SEMVER_ATTRIBUTE_COMPARATORS}'",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            return True
+        return super().is_string_attribute(key_type, key_name, comparator)
 
 
 class SearchMCPAccessBindingUtils(SearchUtils):
