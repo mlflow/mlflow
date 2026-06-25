@@ -318,13 +318,16 @@ Request Structure
 Response Structure
 ------------------
 
-+------------+------------+------------------------------+
-| Field Name |    Type    |         Description          |
-+============+============+==============================+
-| permission | ``STRING`` | The effective permission     |
-|            |            | for the user on the          |
-|            |            | specified resource.          |
-+------------+------------+------------------------------+
++------------+-------------+------------------------------+
+| Field Name |    Type     |         Description          |
++============+=============+==============================+
+| allowed    | ``BOOLEAN`` | Whether the user is allowed  |
+|            |             | to access the resource.      |
++------------+-------------+------------------------------+
+| permission | ``STRING``  | The effective permission     |
+|            |             | for the user on the          |
+|            |             | specified resource.          |
++------------+-------------+------------------------------+
 
 ===========================
 
@@ -412,6 +415,9 @@ Request Structure
 +-------------+------------+----------------------+
 | description | ``STRING`` | Role description.    |
 +-------------+------------+----------------------+
+| workspace   | ``STRING`` | Workspace the role   |
+|             |            | belongs to.          |
++-------------+------------+----------------------+
 
 .. _mlflowCreateRoleResponse:
 
@@ -442,11 +448,11 @@ Get Role
 Request Structure
 -----------------
 
-+------------+------------+-------------+
-| Field Name |    Type    | Description |
-+============+============+=============+
-| name       | ``STRING`` | Role name.  |
-+------------+------------+-------------+
++------------+-------------+-------------+
+| Field Name |    Type     | Description |
++============+=============+=============+
+| role_id    | ``INTEGER`` | Role ID.    |
++------------+-------------+-------------+
 
 .. _mlflowGetRoleResponse:
 
@@ -502,13 +508,25 @@ Update Role
 Request Structure
 -----------------
 
-+-------------+------------+----------------------+
-| Field Name  |    Type    |     Description      |
-+=============+============+======================+
-| name        | ``STRING`` | Role name.           |
-+-------------+------------+----------------------+
-| description | ``STRING`` | New role description.|
-+-------------+------------+----------------------+
++-------------+-------------+----------------------+
+| Field Name  |    Type     |     Description      |
++=============+=============+======================+
+| role_id     | ``INTEGER`` | Role ID.             |
++-------------+-------------+----------------------+
+| description | ``STRING``  | New role description.|
++-------------+-------------+----------------------+
+
+.. _mlflowUpdateRoleResponse:
+
+Response Structure
+------------------
+
++------------+--------------------+----------------+
+| Field Name |        Type        |  Description   |
++============+====================+================+
+| role       | :ref:`mlflowRole`  | The updated    |
+|            |                    | role object.   |
++------------+--------------------+----------------+
 
 ===========================
 
@@ -528,11 +546,11 @@ Delete Role
 Request Structure
 -----------------
 
-+------------+------------+-------------+
-| Field Name |    Type    | Description |
-+============+============+=============+
-| name       | ``STRING`` | Role name.  |
-+------------+------------+-------------+
++------------+-------------+-------------+
+| Field Name |    Type     | Description |
++============+=============+=============+
+| role_id    | ``INTEGER`` | Role ID.    |
++------------+-------------+-------------+
 
 ===========================
 
@@ -552,13 +570,28 @@ Assign Role
 Request Structure
 -----------------
 
-+------------+------------+-------------------+
-| Field Name |    Type    |    Description    |
-+============+============+===================+
-| username   | ``STRING`` | Username.         |
-+------------+------------+-------------------+
-| role_name  | ``STRING`` | Role to assign.   |
-+------------+------------+-------------------+
++------------+-------------+-------------------+
+| Field Name |    Type     |    Description    |
++============+=============+===================+
+| username   | ``STRING``  | Username.         |
++------------+-------------+-------------------+
+| role_id    | ``INTEGER`` | Role ID to assign.|
++------------+-------------+-------------------+
+| workspace  | ``STRING``  | Workspace context.|
++------------+-------------+-------------------+
+
+.. _mlflowAssignRoleResponse:
+
+Response Structure
+------------------
+
++------------+-------------+--------------------------+
+| Field Name |    Type     |       Description        |
++============+=============+==========================+
+| assignment | ``OBJECT``  | The assignment object,   |
+|            |             | containing id, role_id,  |
+|            |             | and user_id.             |
++------------+-------------+--------------------------+
 
 ===========================
 
@@ -570,7 +603,7 @@ Unassign Role
 +--------------------------------+-------------+
 |           Endpoint             | HTTP Method |
 +================================+=============+
-| ``3.0/mlflow/roles/unassign``  | ``POST``    |
+| ``3.0/mlflow/roles/unassign``  | ``DELETE``  |
 +--------------------------------+-------------+
 
 .. _mlflowUnassignRole:
@@ -578,13 +611,14 @@ Unassign Role
 Request Structure
 -----------------
 
-+------------+------------+--------------------+
-| Field Name |    Type    |    Description     |
-+============+============+====================+
-| username   | ``STRING`` | Username.          |
-+------------+------------+--------------------+
-| role_name  | ``STRING`` | Role to unassign.  |
-+------------+------------+--------------------+
++------------+-------------+--------------------+
+| Field Name |    Type     |    Description     |
++============+=============+====================+
+| username   | ``STRING``  | Username.          |
++------------+-------------+--------------------+
+| role_id    | ``INTEGER`` | Role ID to         |
+|            |             | unassign.          |
++------------+-------------+--------------------+
 
 ===========================
 
@@ -604,19 +638,36 @@ Add Role Permission
 Request Structure
 -----------------
 
-+---------------+------------+---------------------------+
-|  Field Name   |    Type    |        Description        |
-+===============+============+===========================+
-| role_name     | ``STRING`` | Role name.                |
-+---------------+------------+---------------------------+
-| resource_type | ``STRING`` | Resource type             |
-|               |            | (``experiment`` or        |
-|               |            | ``registered_model``).    |
-+---------------+------------+---------------------------+
-| resource_id   | ``STRING`` | Resource ID or name.      |
-+---------------+------------+---------------------------+
-| permission    | ``STRING`` | Permission to add.        |
-+---------------+------------+---------------------------+
++------------------+-------------+---------------------------+
+|    Field Name    |    Type     |        Description        |
++==================+=============+===========================+
+| role_id          | ``INTEGER`` | Role ID.                  |
++------------------+-------------+---------------------------+
+| resource_type    | ``STRING``  | Resource type             |
+|                  |             | (``experiment`` or        |
+|                  |             | ``registered_model``).    |
++------------------+-------------+---------------------------+
+| resource_pattern | ``STRING``  | Resource pattern. Use     |
+|                  |             | ``*`` to match all        |
+|                  |             | resources of this type.   |
++------------------+-------------+---------------------------+
+| permission       | ``STRING``  | Permission to add.        |
++------------------+-------------+---------------------------+
+
+.. _mlflowAddRolePermissionResponse:
+
+Response Structure
+------------------
+
++----------------+--------------------------+-------------------------+
+|   Field Name   |          Type            |       Description       |
++================+==========================+=========================+
+| role_permission| ``OBJECT``               | The created permission, |
+|                |                          | containing id, role_id, |
+|                |                          | resource_type,          |
+|                |                          | resource_pattern, and   |
+|                |                          | permission.             |
++----------------+--------------------------+-------------------------+
 
 ===========================
 
@@ -628,7 +679,7 @@ Remove Role Permission
 +------------------------------------------+-------------+
 |                 Endpoint                 | HTTP Method |
 +==========================================+=============+
-| ``3.0/mlflow/roles/permissions/remove``  | ``POST``    |
+| ``3.0/mlflow/roles/permissions/remove``  | ``DELETE``  |
 +------------------------------------------+-------------+
 
 .. _mlflowRemoveRolePermission:
@@ -636,15 +687,11 @@ Remove Role Permission
 Request Structure
 -----------------
 
-+---------------+------------+---------------------------+
-|  Field Name   |    Type    |        Description        |
-+===============+============+===========================+
-| role_name     | ``STRING`` | Role name.                |
-+---------------+------------+---------------------------+
-| resource_type | ``STRING`` | Resource type.            |
-+---------------+------------+---------------------------+
-| resource_id   | ``STRING`` | Resource ID or name.      |
-+---------------+------------+---------------------------+
++---------------------+-------------+----------------------+
+|     Field Name      |    Type     |     Description      |
++=====================+=============+======================+
+| role_permission_id  | ``INTEGER`` | Role permission ID.  |
++---------------------+-------------+----------------------+
 
 ===========================
 
@@ -664,23 +711,23 @@ List Role Permissions
 Request Structure
 -----------------
 
-+------------+------------+-------------+
-| Field Name |    Type    | Description |
-+============+============+=============+
-| role_name  | ``STRING`` | Role name.  |
-+------------+------------+-------------+
++------------+-------------+-------------+
+| Field Name |    Type     | Description |
++============+=============+=============+
+| role_id    | ``INTEGER`` | Role ID.    |
++------------+-------------+-------------+
 
 .. _mlflowListRolePermissionsResponse:
 
 Response Structure
 ------------------
 
-+-------------+-----------+----------------------------------+
-|  Field Name |   Type    |           Description            |
-+=============+===========+==================================+
-| permissions | ``ARRAY`` | List of permissions for the      |
-|             |           | role across all resources.       |
-+-------------+-----------+----------------------------------+
++-------------------+-----------+----------------------------------+
+|    Field Name     |   Type    |           Description            |
++===================+===========+==================================+
+| role_permissions  | ``ARRAY`` | List of permissions for the      |
+|                   |           | role across all resources.       |
++-------------------+-----------+----------------------------------+
 
 ===========================
 
@@ -700,17 +747,28 @@ Update Role Permission
 Request Structure
 -----------------
 
-+---------------+------------+---------------------------+
-|  Field Name   |    Type    |        Description        |
-+===============+============+===========================+
-| role_name     | ``STRING`` | Role name.                |
-+---------------+------------+---------------------------+
-| resource_type | ``STRING`` | Resource type.            |
-+---------------+------------+---------------------------+
-| resource_id   | ``STRING`` | Resource ID or name.      |
-+---------------+------------+---------------------------+
-| permission    | ``STRING`` | New permission.           |
-+---------------+------------+---------------------------+
++---------------------+-------------+---------------------+
+|     Field Name      |    Type     |     Description     |
++=====================+=============+=====================+
+| role_permission_id  | ``INTEGER`` | Role permission ID. |
++---------------------+-------------+---------------------+
+| permission          | ``STRING``  | New permission.     |
++---------------------+-------------+---------------------+
+
+.. _mlflowUpdateRolePermissionResponse:
+
+Response Structure
+------------------
+
++-----------------+------------+-------------------------+
+|   Field Name    |    Type    |       Description       |
++=================+============+=========================+
+| role_permission | ``OBJECT`` | The updated permission, |
+|                 |            | containing id, role_id, |
+|                 |            | resource_type,          |
+|                 |            | resource_pattern, and   |
+|                 |            | permission.             |
++-----------------+------------+-------------------------+
 
 ===========================
 
@@ -766,23 +824,24 @@ List Role Users
 Request Structure
 -----------------
 
-+------------+------------+-------------+
-| Field Name |    Type    | Description |
-+============+============+=============+
-| role_name  | ``STRING`` | Role name.  |
-+------------+------------+-------------+
++------------+-------------+-------------+
+| Field Name |    Type     | Description |
++============+=============+=============+
+| role_id    | ``INTEGER`` | Role ID.    |
++------------+-------------+-------------+
 
 .. _mlflowListRoleUsersResponse:
 
 Response Structure
 ------------------
 
-+------------+---------------------------+----------------------+
-| Field Name |           Type            |     Description      |
-+============+===========================+======================+
-| users      | An array of               | List of users        |
-|            | :ref:`mlflowUser`         | assigned to role.    |
-+------------+---------------------------+----------------------+
++-------------+-----------+----------------------------------+
+| Field Name  |   Type    |           Description            |
++=============+===========+==================================+
+| assignments | ``ARRAY`` | List of role assignments,        |
+|             |           | each containing id, role_id,     |
+|             |           | and user_id.                     |
++-------------+-----------+----------------------------------+
 
 ===========================
 
@@ -809,6 +868,12 @@ User
 | roles                        | An array of :ref:`mlflowRole`                      | Roles assigned to the user.                                      |
 +------------------------------+----------------------------------------------------+------------------------------------------------------------------+
 
+.. note::
+    The ``roles`` field is only included in the response from
+    ``users/list``. It is not present when calling ``users/get``
+    or ``users/current``. The ``users/current`` endpoint also
+    includes an additional ``is_basic_auth`` boolean field.
+
 .. _mlflowPermission:
 
 Permission
@@ -833,13 +898,19 @@ Permission level for a user on a resource.
 Role
 ----
 
-+-------------+------------+---------------------------+
-| Field Name  |    Type    |        Description        |
-+=============+============+===========================+
-| name        | ``STRING`` | Role name.                |
-+-------------+------------+---------------------------+
-| description | ``STRING`` | Role description.         |
-+-------------+------------+---------------------------+
-| permissions | ``ARRAY``  | List of permissions       |
-|             |            | associated with the role. |
-+-------------+------------+---------------------------+
++-------------+-------------+---------------------------+
+| Field Name  |    Type     |        Description        |
++=============+=============+===========================+
+| id          | ``INTEGER`` | Role ID.                  |
++-------------+-------------+---------------------------+
+| name        | ``STRING``  | Role name.                |
++-------------+-------------+---------------------------+
+| description | ``STRING``  | Role description.         |
++-------------+-------------+---------------------------+
+| workspace   | ``STRING``  | Workspace the role        |
+|             |             | belongs to.               |
++-------------+-------------+---------------------------+
+| permissions | ``ARRAY``   | List of permissions       |
+|             |             | associated with the role. |
++-------------+-------------+---------------------------+
+
