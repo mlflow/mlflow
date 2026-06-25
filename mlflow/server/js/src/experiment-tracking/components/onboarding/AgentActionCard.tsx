@@ -124,7 +124,7 @@ export const AgentActionCard = ({
             />
           </Tabs.Trigger>
           {codeSnippet && <Tabs.Trigger value="code-snippet">{codeSnippet.label}</Tabs.Trigger>}
-          {/* The in-UI assistant only runs against a local MLflow server, so hide it otherwise. */}
+          {/* Show assistant actions only when the assistant is available (local server or server-enabled remote access). */}
           {canUseAssistant && (
             <Tabs.Trigger value="assistant">
               <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>

@@ -769,6 +769,22 @@ def test_install_skills_skips_when_already_installed(client):
         mock_list.assert_called_once()
 
 
+def test_install_skills_blocked_for_remote_client(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "api-only")
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    with patch("mlflow.server.assistant.api._is_localhost", return_value=False):
+        client = TestClient(app)
+        response = client.post(
+            "/ajax-api/3.0/mlflow/assistant/skills/install",
+            json={"type": "global"},
+        )
+
+    assert response.status_code == 403
+    assert "same host" in response.json()["detail"]
+
+
 def test_update_config_partial_update_preserves_selected_provider(client):
     ollama = OllamaProvider.OLLAMA_PROVIDER_NAME
     # Pre-populate config: claude_code selected, ollama exists but not selected
