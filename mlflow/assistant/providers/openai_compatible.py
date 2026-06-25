@@ -26,7 +26,11 @@ from mlflow.assistant.providers.base import (
     load_config,
 )
 from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
-from mlflow.assistant.providers.tool_executor import build_tools_schema, execute_tool
+from mlflow.assistant.providers.tool_executor import (
+    build_tools_schema,
+    execute_tool,
+    static_permission_error,
+)
 from mlflow.assistant.types import Event, Message, ToolResultBlock, ToolUseBlock
 
 _logger = logging.getLogger(__name__)
@@ -515,13 +519,26 @@ class OpenAICompatibleProvider(AssistantProvider):
                         except json.JSONDecodeError:
                             tool_input = {}
 
-                        # Permission gating. With full access (config) tools run
-                        # without prompting. Otherwise a session pauses the turn
-                        # at a per-call Yes/No prompt and a later resume request
-                        # delivers the choice via `tool_decisions`; an explicit
-                        # allow overrides the static allowlist for that call.
-                        # With no session, fall back to static permissions.
-                        gated = not config.permissions.full_access and bool(mlflow_session_id)
+                        # Permission gating. With full access (config) tools run without
+                        # prompting. Otherwise we prompt only for a call that BOTH has a session
+                        # (so a decision can be delivered on resume) AND isn't already permitted by
+                        # the static policy: allowlisted Bash commands (e.g. `mlflow`) and
+                        # in-workspace file ops run without a prompt, as they did before tool-call
+                        # permissions existed; the prompt is kept as an override for the previously
+                        # hard-denied calls. The session pauses the turn at a per-call Yes/No
+                        # prompt; a later resume delivers the choice via `tool_decisions`, and an
+                        # explicit allow overrides the static allowlist for that call. Anything not
+                        # gated (no session, or a statically-allowed call) is left to the static
+                        # policy enforced by execute_tool.
+                        needs_prompt = (
+                            static_permission_error(tool_name, tool_input, config.permissions, cwd)
+                            is not None
+                        )
+                        gated = (
+                            not config.permissions.full_access
+                            and bool(mlflow_session_id)
+                            and needs_prompt
+                        )
                         decision = tool_decisions.get(tc["id"])
 
                         # Emit the tool-use block when a call is first surfaced

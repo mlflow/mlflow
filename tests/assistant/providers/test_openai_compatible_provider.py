@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from mlflow.assistant.config import PermissionsConfig
 from mlflow.assistant.providers.base import clear_config_cache
 from mlflow.assistant.providers.openai_compatible import (
     _MAX_SESSION_BYTES,
@@ -12,6 +13,7 @@ from mlflow.assistant.providers.openai_compatible import (
     _strip_think_blocks,
     _trim_session,
 )
+from mlflow.assistant.providers.tool_executor import static_permission_error
 from mlflow.assistant.types import EventType
 
 # ---------------------------------------------------------------------------
@@ -713,3 +715,70 @@ async def test_astream_global_full_access_skips_prompt(tmp_path):
     clear_config_cache()
     assert not any(e.type == EventType.PERMISSION_REQUEST for e in events)
     mock_tool.assert_awaited_once()
+
+
+@pytest.mark.parametrize(
+    ("tool_name", "tool_input", "allowed"),
+    [
+        ("Bash", {"command": "mlflow experiments search"}, True),
+        ("Bash", {"command": "python script.py"}, True),
+        ("Bash", {"command": "rm -rf /"}, False),
+        ("Bash", {"command": "ls"}, False),
+    ],
+)
+def test_static_permission_error_bash_allowlist(tool_name, tool_input, allowed):
+    err = static_permission_error(tool_name, tool_input, PermissionsConfig(full_access=False), None)
+    assert (err is None) == allowed
+
+
+def test_static_permission_error_full_access_allows_everything():
+    assert (
+        static_permission_error(
+            "Bash", {"command": "rm -rf /"}, PermissionsConfig(full_access=True), None
+        )
+        is None
+    )
+
+
+@pytest.mark.asyncio
+async def test_astream_allowlisted_command_runs_without_prompt(provider):
+    # Regression guard for #24084: an `mlflow` CLI command is on the static allowlist, so even with
+    # full access off and a session present it must run WITHOUT a per-call permission prompt.
+    turn1 = [
+        _sse(
+            _delta(
+                tool_calls=[
+                    {
+                        "index": 0,
+                        "id": "call_1",
+                        "function": {
+                            "name": "Bash",
+                            "arguments": '{"command": "mlflow experiments search"}',
+                        },
+                    }
+                ]
+            )
+        ),
+        b"data: [DONE]\n",
+    ]
+    turn2 = [_sse(_delta(content="Done")), b"data: [DONE]\n"]
+    session, _ = _make_aiohttp_session([turn1, turn2])
+    with (
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=session,
+        ),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.execute_tool",
+            AsyncMock(return_value=("ok", False)),
+        ) as mock_tool,
+    ):
+        events = [
+            e
+            async for e in provider.astream(
+                "go", "http://localhost:5000", mlflow_session_id=_SESSION_ID
+            )
+        ]
+    assert not any(e.type == EventType.PERMISSION_REQUEST for e in events)
+    mock_tool.assert_awaited_once()
+    assert events[-1].type == EventType.DONE
