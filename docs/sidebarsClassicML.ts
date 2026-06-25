@@ -183,6 +183,11 @@ const sidebarsClassicML: SidebarsConfig = {
           items: [
             {
               type: 'doc',
+              id: 'deep-learning/diffusers/index',
+              label: 'Diffusers',
+            },
+            {
+              type: 'doc',
               id: 'deep-learning/pytorch/index',
               label: 'PyTorch',
             },

@@ -662,10 +662,6 @@ const config: Config = {
             from: ['/llms/langchain'],
           },
           {
-            to: '/genai/flavors/langchain/autologging',
-            from: ['/llms/langchain/autologging'],
-          },
-          {
             to: '/genai/flavors/langchain/guide',
             from: ['/llms/langchain/guide'],
           },
@@ -1162,14 +1158,6 @@ const config: Config = {
           {
             to: '/ml/tracking/tracking-api',
             from: ['/tracking/tracking-api'],
-          },
-          {
-            to: '/ml/tracking/tutorials/local-database',
-            from: ['/tracking/tutorials/local-database'],
-          },
-          {
-            to: '/ml/tracking/tutorials/remote-server',
-            from: ['/tracking/tutorials/remote-server'],
           },
           {
             to: '/ml/traditional-ml',

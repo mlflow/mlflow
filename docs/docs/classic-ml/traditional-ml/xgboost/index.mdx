@@ -10,7 +10,7 @@ import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
-import { Zap, Package, TrendingUp, GitBranch, BarChart3, Rocket, Server } from "lucide-react";
+import { Zap, Package, TrendingUp, GitBranch, BarChart3, Rocket } from "lucide-react";
 
 # MLflow XGBoost Integration
 
@@ -85,7 +85,7 @@ with mlflow.start_run():
 Autologging captures parameters, metrics per iteration, feature importance with visualizations, and the trained model.
 
 :::tip[Tracking Server Setup]
-Running locally? MLflow stores experiments in the current directory by default. For team collaboration or remote tracking, **[set up a tracking server](/ml/tracking/tutorials/remote-server)**.
+Running locally? MLflow stores experiments in the current directory by default. For team collaboration or remote tracking, **set up a tracking server**.
 :::
 
 ## Autologging
@@ -390,12 +390,6 @@ mlflow deployments create \
 ## Learn More
 
 <TilesGrid>
-  <TileCard
-    icon={Server}
-    title="Tracking Server Setup"
-    description="Set up a self-hosted MLflow tracking server for team collaboration and remote experiment tracking."
-    href="/ml/tracking/tutorials/remote-server"
-  />
   <TileCard
     icon={BarChart3}
     title="Model Evaluation"

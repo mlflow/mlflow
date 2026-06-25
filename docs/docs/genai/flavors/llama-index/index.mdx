@@ -280,7 +280,7 @@ pyfunc.predict({"input": "What is MLflow?"})
 
 :::warning
 The MLflow PyFunc Model does not support async inference. When you load the workflow with <APILink fn="mlflow.pyfunc.load_model" />, the `predict` method becomes **synchronous** and will block until the workflow execution is completed.
-This also applies when deploying the logged LlamaIndex workflow to a production endpoint using [MLflow Deployment](/genai/serving) or Databricks [Model Serving](https://docs.databricks.com/en/machine-learning/model-serving/index.html).
+This also applies when deploying the logged LlamaIndex workflow to a production endpoint using MLflow Deployment or Databricks [Model Serving](https://docs.databricks.com/en/machine-learning/model-serving/index.html).
 :::
 
 ### I have an index logged with `query` engine type. Can I load it back a `chat` engine?
