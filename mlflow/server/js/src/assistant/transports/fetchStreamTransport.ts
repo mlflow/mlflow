@@ -16,13 +16,28 @@ import {
 import { getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 /**
+ * Per-turn state threaded through dispatchSseFrame. The provider emits a `permission_request`
+ * followed by a `done` carrying the paused history, so the done handler needs to know a pause
+ * happened this turn to avoid finalizing it.
+ */
+interface TurnState {
+  sawPermissionRequest: boolean;
+}
+
+/**
  * Dispatch one SSE frame to the matching callback. Returns true when the frame is a *terminal*
- * event — one that finalizes the turn (done/error/interrupted) and after which the server sends
+ * event — one that ends this stream (done/error/interrupted) and after which the server sends
  * nothing more. This is the single source of truth for "what is terminal": callers read the
  * return value instead of re-listing event names, so the two can't drift.
  */
-const dispatchSseFrame = (event: string, data: any, callbacks: SendMessageStreamCallbacks): boolean => {
-  const { onMessage, onError, onDone, onStatus, onToolUse, onInterrupted, onConversationHistory } = callbacks;
+const dispatchSseFrame = (
+  event: string,
+  data: any,
+  callbacks: SendMessageStreamCallbacks,
+  state: TurnState,
+): boolean => {
+  const { onMessage, onError, onDone, onStatus, onToolUse, onInterrupted, onConversationHistory, onPermissionRequest } =
+    callbacks;
   switch (event) {
     case 'message': {
       const content = data.message?.content;
@@ -41,10 +56,30 @@ const dispatchSseFrame = (event: string, data: any, callbacks: SendMessageStream
       }
       return false;
     }
+    case 'permission_request': {
+      onPermissionRequest?.({
+        // No sessionId: the stateless path replays the decision with the client-carried history,
+        // not against a server session.
+        requestId: data.request_id,
+        toolName: data.tool_name,
+        toolInput: data.tool_input ?? {},
+      });
+      state.sawPermissionRequest = true;
+      // Not terminal: the provider still emits a DONE carrying the paused history (with the
+      // unresolved tool_call) so a later resume can continue from it.
+      return false;
+    }
     case 'done': {
       // For client-carried-history providers the DONE session_id is the updated history blob.
       if (data.session_id) {
         onConversationHistory?.(data.session_id);
+      }
+      // A DONE that follows a permission_request is a *pause*, not a completion: skip onDone so
+      // the Allow/Deny prompt stays up and isStreaming stays true. The decision is replayed via a
+      // fresh /chat POST carrying the history + tool_decisions. The stream still ends here (the
+      // socket closes), so this is terminal for the read loop.
+      if (state.sawPermissionRequest) {
+        return true;
       }
       onToolUse?.([]);
       onDone();
@@ -121,10 +156,11 @@ export const streamChatViaFetch = async (
       }, INACTIVITY_MS));
 
     let sawTerminal = false;
+    const turnState: TurnState = { sawPermissionRequest: false };
     try {
       armWatchdog();
       for await (const { event, data } of readSseFrames(body)) {
-        if (dispatchSseFrame(event, data, callbacks)) {
+        if (dispatchSseFrame(event, data, callbacks, turnState)) {
           sawTerminal = true;
           clearWatchdog(); // turn is done; a slow socket close shouldn't trip the watchdog
         } else {

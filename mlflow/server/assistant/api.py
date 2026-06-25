@@ -90,6 +90,10 @@ class ChatRequest(BaseModel):
     # Full conversation history as a JSON blob carried by the client (None on the
     # first turn). Passed straight to the provider; never persisted server-side.
     conversation_history: str | None = None
+    # tool_call_id -> "allow" | "deny". Carried by the client when resuming a turn paused at a
+    # permission prompt; the provider applies it to the matching pending tool_call already in the
+    # carried history. Keeps permission state off the server on the stateless path.
+    tool_decisions: dict[str, Literal["allow", "deny"]] | None = None
 
 
 # Config-related models
@@ -289,6 +293,12 @@ async def chat(request: Request, body: ChatRequest) -> StreamingResponse:
     cwd = Path(project_path) if project_path else None
     tracking_uri = str(request.base_url).rstrip("/")
 
+    # On resume the decision rides in the context; the provider detects the pending tool_calls in
+    # the carried history and applies it instead of starting a new turn.
+    context = dict(body.context)
+    if body.tool_decisions:
+        context["tool_decisions"] = body.tool_decisions
+
     async def event_generator() -> AsyncGenerator[str, None]:
         async for event in stream_provider_events(
             provider,
@@ -297,7 +307,7 @@ async def chat(request: Request, body: ChatRequest) -> StreamingResponse:
             session_id=body.conversation_history,
             mlflow_session_id=str(uuid.uuid4()),
             cwd=cwd,
-            context=body.context,
+            context=context,
         ):
             yield event.to_sse_event()
 

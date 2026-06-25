@@ -141,4 +141,43 @@ describe('streamChatViaFetch', () => {
     expect(callbacks.onMessage).toHaveBeenCalledWith('hi');
     expect(callbacks.onError).not.toHaveBeenCalled();
   });
+
+  it('treats a done after a permission_request as a pause: captures history without finalizing', async () => {
+    // The provider emits permission_request then a done carrying the paused history (with the
+    // unresolved tool_call). The turn must NOT finalize — the prompt stays up for an allow/deny.
+    const frames =
+      'event: permission_request\ndata: {"request_id":"req-1","tool_name":"Bash","tool_input":{"command":"ls"}}\n\n' +
+      'event: done\ndata: {"session_id":"[PAUSED]"}\n\n';
+    mockFetch.mockResolvedValue({ ok: true, body: { getReader: () => makeReader([frames]) } });
+
+    const onPermissionRequest = jest.fn();
+    const callbacks = makeCallbacks({ onPermissionRequest });
+    await streamChatViaFetch({ message: 'run tool' }, callbacks);
+    await tick();
+
+    expect(onPermissionRequest).toHaveBeenCalledWith({
+      requestId: 'req-1',
+      toolName: 'Bash',
+      toolInput: { command: 'ls' },
+    });
+    // The paused history blob is captured for the resume...
+    expect(callbacks.onConversationHistory).toHaveBeenCalledWith('[PAUSED]');
+    // ...but the turn is NOT finalized (no onDone), so the prompt stays and isStreaming holds.
+    expect(callbacks.onDone).not.toHaveBeenCalled();
+    // The pause is still terminal for the read loop, so no "ended unexpectedly" error.
+    expect(callbacks.onError).not.toHaveBeenCalled();
+  });
+
+  it('sends tool_decisions in the POST body when resuming a paused turn', async () => {
+    mockFetch.mockResolvedValue({ ok: true, body: { getReader: () => makeReader(['event: done\ndata: {}\n\n']) } });
+
+    await streamChatViaFetch(
+      { message: '', conversation_history: '[]', tool_decisions: { 'call-1': 'allow' } },
+      makeCallbacks(),
+    );
+    await tick();
+
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toMatchObject({ tool_decisions: { 'call-1': 'allow' } });
+  });
 });
