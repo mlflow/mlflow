@@ -152,6 +152,27 @@ def test_convert_lc_message_to_chat_message_audio_mpeg():
     assert result.content[0].input_audio.format == "mp3"
 
 
+def test_convert_lc_message_to_chat_message_reasoning_content():
+    # GPT-OSS / Harmony-format models surface their reasoning ("analysis") channel as a
+    # content block alongside the text response. See ES-2017370.
+    message = AIMessage(
+        content=[
+            {
+                "type": "reasoning",
+                "summary": [{"type": "summary_text", "text": "No need to retrieve."}],
+            },
+            {"type": "text", "text": "How can I help you today?"},
+        ]
+    )
+    result = convert_lc_message_to_chat_message(message)
+    assert result.role == "assistant"
+    assert len(result.content) == 2
+    assert result.content[0].type == "reasoning"
+    assert result.content[0].summary[0].text == "No need to retrieve."
+    assert result.content[1].type == "text"
+    assert result.content[1].text == "How can I help you today?"
+
+
 def test_convert_lc_message_to_chat_message_string_content_unchanged():
     message = HumanMessage(content="just text")
     result = convert_lc_message_to_chat_message(message)
