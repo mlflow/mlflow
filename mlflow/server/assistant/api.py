@@ -33,7 +33,7 @@ from mlflow.assistant.providers.base import (
     clear_config_cache,
 )
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
-from mlflow.assistant.types import EventType
+from mlflow.assistant.types import Event, EventType
 from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
 from mlflow.server.assistant.session import SessionManager, terminate_session_process
 
@@ -170,6 +170,15 @@ class MessageRequest(BaseModel):
 class MessageResponse(BaseModel):
     session_id: str
     stream_url: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    experiment_id: str | None = None
+    context: dict[str, Any] = Field(default_factory=dict)
+    # Full conversation history as a JSON blob carried by the client. It is passed
+    # to the provider as the provider session ID and is not persisted server-side.
+    conversation_history: str | None = None
 
 
 # Config-related models
@@ -359,6 +368,43 @@ async def send_message(request: MessageRequest) -> MessageResponse:
     )
 
 
+async def stream_provider_events(
+    provider: AssistantProvider | None,
+    *,
+    prompt: str,
+    tracking_uri: str,
+    session_id: str | None,
+    mlflow_session_id: str | None,
+    cwd: Path | None,
+    context: dict[str, Any],
+) -> AsyncGenerator[Event, None]:
+    """Stream events from the selected provider, or a single error event if none is configured."""
+    if provider is None:
+        yield Event.from_error("No assistant provider is configured or available.")
+        return
+    try:
+        async for event in provider.astream(
+            prompt=prompt,
+            tracking_uri=tracking_uri,
+            session_id=session_id,
+            mlflow_session_id=mlflow_session_id,
+            cwd=cwd,
+            context=context,
+        ):
+            yield event
+    except Exception as e:
+        # Always terminate the stream with a structured event instead of dropping
+        # the connection and leaving the client in a perpetual loading state.
+        yield Event.from_error(str(e))
+
+
+_SSE_HEADERS = {
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+}
+
+
 @assistant_router.get("/sessions/{session_id}/stream")
 @_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
 async def stream_response(request: Request, session_id: str) -> StreamingResponse:
@@ -406,14 +452,8 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     async def event_generator() -> AsyncGenerator[str, None]:
         nonlocal session
         provider = await asyncio.to_thread(_resolve_provider, remote=is_remote)
-        if provider is None:
-            from mlflow.assistant.types import Event
-
-            yield Event.from_error(
-                "No assistant provider is configured or available."
-            ).to_sse_event()
-            return
-        async for event in provider.astream(
+        async for event in stream_provider_events(
+            provider,
             prompt=prompt,
             tracking_uri=tracking_uri,
             session_id=session.provider_session_id,
@@ -433,11 +473,35 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
+        headers=_SSE_HEADERS,
+    )
+
+
+@assistant_router.post("/chat")
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
+async def chat(request: Request, body: ChatRequest) -> StreamingResponse:
+    """Stateless streaming chat for client-carried-history providers."""
+    provider = await asyncio.to_thread(_resolve_provider, remote=not _is_localhost(request))
+    project_path = get_project_path(body.experiment_id) if body.experiment_id else None
+    cwd = Path(project_path) if project_path else None
+    tracking_uri = str(request.base_url).rstrip("/")
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        async for event in stream_provider_events(
+            provider,
+            prompt=body.message,
+            tracking_uri=tracking_uri,
+            session_id=body.conversation_history,
+            mlflow_session_id=str(uuid.uuid4()),
+            cwd=cwd,
+            context=body.context,
+        ):
+            yield event.to_sse_event()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers=_SSE_HEADERS,
     )
 
 
@@ -562,6 +626,7 @@ async def get_config(request: Request) -> ConfigResponse:
         Current configuration including providers and projects.
     """
     config = AssistantConfig.load()
+    capabilities = {p.name: p.client_carries_history for p in list_providers()}
     providers = {name: p.model_dump() for name, p in config.providers.items()}
     is_remote = not _is_localhost(request)
     selected_provider = _get_selected_provider(config)
@@ -573,6 +638,8 @@ async def get_config(request: Request) -> ConfigResponse:
         provider_data = provider_config.model_dump()
         provider_data["selected"] = True
         providers[provider.name] = provider_data
+    for name, provider_data in providers.items():
+        provider_data["client_carries_history"] = capabilities.get(name, False)
     for provider_data in providers.values():
         provider_data.pop("api_key", None)
 

@@ -258,7 +258,9 @@ class OpenAICompatibleProvider(AssistantProvider):
         default_base_url: str | None = None,
         skills_dirname: str | None = None,
         allows_remote_access: bool = False,
+        client_carries_history: bool = False,
     ):
+        self.client_carries_history = client_carries_history
         self._name = name
         self._display_name = display_name
         self._description = description
