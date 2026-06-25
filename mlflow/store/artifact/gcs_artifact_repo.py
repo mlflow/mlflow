@@ -160,10 +160,15 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             # returns subdirectories as well
             if result.name == prefix:
                 continue
+            # Skip GCS directory marker objects (0-byte blobs ending with "/")
+            # These are created by some GCS-compatible backends and should not
+            # be treated as regular files in artifact listings.
+            if result.name.endswith("/") and result.size == 0:
+                continue
             blob_path = result.name[len(artifact_path) + 1 :]
             infos.append(FileInfo(blob_path, False, result.size))
-
         return sorted(infos, key=lambda f: f.path)
+
 
     def _list_folders(self, bkt, prefix, artifact_path):
         results = bkt.list_blobs(prefix=prefix, delimiter="/")
