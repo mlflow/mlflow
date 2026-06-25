@@ -59,9 +59,8 @@ class ReasoningContentPart(BaseModel):
 
         {"type": "reasoning", "summary": [{"type": "summary_text", "text": "..."}]}
 
-    This mirrors the reasoning item in the OpenAI Responses API. Providers may attach
-    additional metadata (e.g. ``id``, ``encrypted_content``, ``status``), so extra fields
-    are allowed to keep validation forward-compatible.
+    Providers may attach additional metadata (e.g. ``id``, ``encrypted_content``, ``status``),
+    so extra fields are allowed to keep validation forward-compatible.
     """
 
     model_config = ConfigDict(extra="allow")

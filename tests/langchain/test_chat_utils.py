@@ -153,8 +153,6 @@ def test_convert_lc_message_to_chat_message_audio_mpeg():
 
 
 def test_convert_lc_message_to_chat_message_reasoning_content():
-    # GPT-OSS / Harmony-format models surface their reasoning ("analysis") channel as a
-    # content block alongside the text response. See ES-2017370.
     message = AIMessage(
         content=[
             {
