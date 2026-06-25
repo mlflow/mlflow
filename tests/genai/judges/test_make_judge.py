@@ -27,6 +27,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai import make_judge
+from mlflow.genai.judges.adapters.gateway_adapter import InvokeOutput
 from mlflow.genai.judges.constants import _RESULT_FIELD_DESCRIPTION
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
@@ -2431,7 +2432,7 @@ def test_make_judge_with_trace_invokes_adapter(mock_trace):
 
 def test_non_context_error_does_not_trigger_pruning():
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
         side_effect=MlflowException("some other error"),
     ):
         judge = make_judge(
@@ -2665,9 +2666,8 @@ def test_trace_only_template_uses_two_messages_with_empty_user(mock_invoke_judge
 
     user_msg = prompt[1]
     assert user_msg.role == "user"
-    assert (
-        user_msg.content == "Follow the instructions from the first message"
-    )  # Placeholder user message for trace-only
+    # Must disclaim the chat as input/response, or the LLM self-grades.
+    assert "not the input or response being judged" in user_msg.content
 
 
 def test_no_warning_when_extracting_fields_from_trace(mock_invoke_judge_model):
@@ -2824,10 +2824,16 @@ def test_instructions_judge_repr():
 
 def test_make_judge_with_feedback_value_type():
     mock_content = '{"result": 5, "rationale": "Excellent quality work"}'
+    mock_output = InvokeOutput(
+        response=mock_content,
+        request_id=None,
+        num_prompt_tokens=None,
+        num_completion_tokens=None,
+    )
 
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
-        return_value=mock_content,
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=mock_output,
     ):
         judge = make_judge(
             name="test_judge",
@@ -3113,9 +3119,15 @@ def test_make_judge_with_default_feedback_value_type():
     # Verify execution with default str type
     mock_content = '{"result": "Good quality", "rationale": "The response is clear and accurate"}'
 
+    mock_output = InvokeOutput(
+        response=mock_content,
+        request_id=None,
+        num_prompt_tokens=None,
+        num_completion_tokens=None,
+    )
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
-        return_value=mock_content,
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=mock_output,
     ):
         result = judge(outputs={"text": "Great work!"})
 
@@ -4118,3 +4130,24 @@ def test_conversation_with_timing_parameter(mock_invoke_judge_model, include_tim
 
     assert ("Response duration:" in conversation_content) is include_timing
     assert ("slowest spans:" in conversation_content) is include_timing
+
+
+def test_make_judge_preserves_non_ascii_in_template_variables():
+    judge = make_judge(
+        name="unicode_judge",
+        instructions="Evaluate: {{ inputs }} {{ outputs }} {{ expectations }}",
+        feedback_value_type=int,
+        model="openai:/gpt-4",
+    )
+
+    user_message = judge._build_user_message(
+        inputs={"query": "café résumé"},
+        outputs={"text": "éÉàç"},
+        expectations={"expected": "日本語テスト"},
+        conversation=None,
+    )
+
+    assert "éÉàç" in user_message
+    assert "\\u00e9" not in user_message
+    assert "café résumé" in user_message
+    assert "日本語テスト" in user_message

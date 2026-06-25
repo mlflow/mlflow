@@ -218,7 +218,11 @@ def test_signature_and_examples_are_saved_correctly(sequential_model, data, iris
             with TempDir() as tmp:
                 path = tmp.path("model")
                 mlflow.pytorch.save_model(
-                    model, path=path, signature=signature, input_example=example
+                    model,
+                    path=path,
+                    signature=signature,
+                    input_example=example,
+                    serialization_format="pickle",
                 )
                 mlflow_model = Model.load(path)
                 if signature is None and example is None:
@@ -235,7 +239,9 @@ def test_signature_and_examples_are_saved_correctly(sequential_model, data, iris
 def test_log_model(sequential_model, data, sequential_predicted):
     try:
         artifact_path = "pytorch"
-        model_info = mlflow.pytorch.log_model(sequential_model, name=artifact_path)
+        model_info = mlflow.pytorch.log_model(
+            sequential_model, name=artifact_path, serialization_format="pickle"
+        )
 
         sequential_model_loaded = mlflow.pytorch.load_model(model_uri=model_info.model_uri)
         test_predictions = _predict(sequential_model_loaded, data)
@@ -254,6 +260,7 @@ def test_log_model_calls_register_model(module_scoped_subclassed_model):
             name=artifact_path,
             pickle_module=custom_pickle_module,
             registered_model_name="AdsModel1",
+            serialization_format="pickle",
         )
         assert_register_model_called_with_local_model_path(
             register_model_mock=mlflow.tracking._model_registry.fluent._register_model,
@@ -271,6 +278,7 @@ def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
             module_scoped_subclassed_model,
             name=artifact_path,
             pickle_module=custom_pickle_module,
+            serialization_format="pickle",
         )
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
@@ -279,15 +287,15 @@ def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
 def test_raise_exception(sequential_model):
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         path = tmp.path("model")
-        with pytest.raises(IOError, match="No such file or directory"):
+        with pytest.raises(MlflowException, match="No such artifact"):
             mlflow.pytorch.load_model(path)
 
         with pytest.raises(TypeError, match="Argument 'pytorch_model' should be a torch.nn.Module"):
             mlflow.pytorch.save_model([1, 2, 3], path)
 
-        mlflow.pytorch.save_model(sequential_model, path)
+        mlflow.pytorch.save_model(sequential_model, path, serialization_format="pickle")
         with pytest.raises(MlflowException, match=f"Path '{os.path.abspath(path)}' already exists"):
-            mlflow.pytorch.save_model(sequential_model, path)
+            mlflow.pytorch.save_model(sequential_model, path, serialization_format="pickle")
 
         import sklearn.neighbors as knn
 
@@ -305,7 +313,7 @@ def test_raise_exception(sequential_model):
 
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_save_and_load_model(sequential_model, model_path, data, sequential_predicted):
-    mlflow.pytorch.save_model(sequential_model, model_path)
+    mlflow.pytorch.save_model(sequential_model, model_path, serialization_format="pickle")
 
     # Loading pytorch model
     sequential_model_loaded = mlflow.pytorch.load_model(model_path)
@@ -322,7 +330,7 @@ def test_save_and_load_model(sequential_model, model_path, data, sequential_pred
 def test_pyfunc_model_works_with_np_input_type(
     sequential_model, model_path, data, sequential_predicted
 ):
-    mlflow.pytorch.save_model(sequential_model, model_path)
+    mlflow.pytorch.save_model(sequential_model, model_path, serialization_format="pickle")
 
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
@@ -352,7 +360,7 @@ def test_pyfunc_model_works_with_np_input_type(
 def test_load_model_from_remote_uri_succeeds(
     sequential_model, model_path, mock_s3_bucket, data, sequential_predicted
 ):
-    mlflow.pytorch.save_model(sequential_model, model_path)
+    mlflow.pytorch.save_model(sequential_model, model_path, serialization_format="pickle")
 
     artifact_root = f"s3://{mock_s3_bucket}"
     artifact_path = "model"
@@ -369,7 +377,10 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     sequential_model, model_path, pytorch_custom_env
 ):
     mlflow.pytorch.save_model(
-        pytorch_model=sequential_model, path=model_path, conda_env=pytorch_custom_env
+        pytorch_model=sequential_model,
+        path=model_path,
+        conda_env=pytorch_custom_env,
+        serialization_format="pickle",
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -389,7 +400,10 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     sequential_model, model_path, pytorch_custom_env
 ):
     mlflow.pytorch.save_model(
-        pytorch_model=sequential_model, path=model_path, conda_env=pytorch_custom_env
+        pytorch_model=sequential_model,
+        path=model_path,
+        conda_env=pytorch_custom_env,
+        serialization_format="pickle",
     )
 
     saved_pip_req_path = os.path.join(model_path, "requirements.txt")
@@ -403,17 +417,29 @@ def test_save_model_with_pip_requirements(sequential_model, tmp_path):
     tmpdir1 = tmp_path.joinpath("1")
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
-    mlflow.pytorch.save_model(sequential_model, tmpdir1, pip_requirements=str(req_file))
+    mlflow.pytorch.save_model(
+        sequential_model, tmpdir1, pip_requirements=str(req_file), serialization_format="pickle"
+    )
     _assert_pip_requirements(tmpdir1, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
     tmpdir2 = tmp_path.joinpath("2")
-    mlflow.pytorch.save_model(sequential_model, tmpdir2, pip_requirements=[f"-r {req_file}", "b"])
+    mlflow.pytorch.save_model(
+        sequential_model,
+        tmpdir2,
+        pip_requirements=[f"-r {req_file}", "b"],
+        serialization_format="pickle",
+    )
     _assert_pip_requirements(tmpdir2, [expected_mlflow_version, "a", "b"], strict=True)
 
     # Constraints file
     tmpdir3 = tmp_path.joinpath("3")
-    mlflow.pytorch.save_model(sequential_model, tmpdir3, pip_requirements=[f"-c {req_file}", "b"])
+    mlflow.pytorch.save_model(
+        sequential_model,
+        tmpdir3,
+        pip_requirements=[f"-c {req_file}", "b"],
+        serialization_format="pickle",
+    )
     _assert_pip_requirements(
         tmpdir3, [expected_mlflow_version, "b", "-c constraints.txt"], ["a"], strict=True
     )
@@ -428,20 +454,31 @@ def test_save_model_with_extra_pip_requirements(sequential_model, tmp_path):
     tmpdir1 = tmp_path.joinpath("1")
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
-    mlflow.pytorch.save_model(sequential_model, tmpdir1, extra_pip_requirements=str(req_file))
+    mlflow.pytorch.save_model(
+        sequential_model,
+        tmpdir1,
+        extra_pip_requirements=str(req_file),
+        serialization_format="pickle",
+    )
     _assert_pip_requirements(tmpdir1, [expected_mlflow_version, *default_reqs, "a"])
 
     # List of requirements
     tmpdir2 = tmp_path.joinpath("2")
     mlflow.pytorch.save_model(
-        sequential_model, tmpdir2, extra_pip_requirements=[f"-r {req_file}", "b"]
+        sequential_model,
+        tmpdir2,
+        extra_pip_requirements=[f"-r {req_file}", "b"],
+        serialization_format="pickle",
     )
     _assert_pip_requirements(tmpdir2, [expected_mlflow_version, *default_reqs, "a", "b"])
 
     # Constraints file
     tmpdir3 = tmp_path.joinpath("3")
     mlflow.pytorch.save_model(
-        sequential_model, tmpdir3, extra_pip_requirements=[f"-c {req_file}", "b"]
+        sequential_model,
+        tmpdir3,
+        extra_pip_requirements=[f"-c {req_file}", "b"],
+        serialization_format="pickle",
     )
     _assert_pip_requirements(
         tmpdir3, [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"], ["a"]
@@ -452,7 +489,12 @@ def test_save_model_with_extra_pip_requirements(sequential_model, tmp_path):
 def test_model_save_accepts_conda_env_as_dict(sequential_model, model_path):
     conda_env = dict(mlflow.pytorch.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
-    mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path, conda_env=conda_env)
+    mlflow.pytorch.save_model(
+        pytorch_model=sequential_model,
+        path=model_path,
+        conda_env=conda_env,
+        serialization_format="pickle",
+    )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
@@ -473,6 +515,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
             sequential_model,
             name=artifact_path,
             conda_env=pytorch_custom_env,
+            serialization_format="pickle",
         )
         model_path = _download_artifact_from_uri(model_info.model_uri)
 
@@ -498,6 +541,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
             sequential_model,
             name=artifact_path,
             conda_env=pytorch_custom_env,
+            serialization_format="pickle",
         )
         model_path = _download_artifact_from_uri(model_info.model_uri)
 
@@ -509,7 +553,9 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
     sequential_model, model_path
 ):
-    mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path)
+    mlflow.pytorch.save_model(
+        pytorch_model=sequential_model, path=model_path, serialization_format="pickle"
+    )
     _assert_pip_requirements(model_path, mlflow.pytorch.get_default_pip_requirements())
 
 
@@ -518,14 +564,18 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     sequential_model,
 ):
     with mlflow.start_run():
-        model_info = mlflow.pytorch.log_model(sequential_model, name="model")
+        model_info = mlflow.pytorch.log_model(
+            sequential_model, name="model", serialization_format="pickle"
+        )
 
     _assert_pip_requirements(model_info.model_uri, mlflow.pytorch.get_default_pip_requirements())
 
 
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model, model_path):
-    mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path)
+    mlflow.pytorch.save_model(
+        pytorch_model=sequential_model, path=model_path, serialization_format="pickle"
+    )
     saver_pytorch_version = "1.0"
     model_config_path = os.path.join(model_path, "MLmodel")
     model_config = Model.load(model_config_path)
@@ -562,6 +612,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
             name="pytorch_model",
             code_paths=[__file__],
             input_example=data[0],
+            serialization_format="pickle",
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -599,6 +650,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
             name="pytorch_model",
             pickle_module=mlflow_pytorch_pickle_module,
             input_example=data[0],
+            serialization_format="pickle",
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -628,6 +680,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
         path=model_path,
         pytorch_model=module_scoped_subclassed_model,
         code_paths=[__file__],
+        serialization_format="pickle",
     )
 
     # Define a custom pyfunc model that loads a PyTorch model artifact using
@@ -682,6 +735,7 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
         path=model_path,
         pytorch_model=module_scoped_subclassed_model,
         pickle_module=custom_pickle_module,
+        serialization_format="pickle",
     )
 
     import_module_fn = importlib.import_module
@@ -717,6 +771,7 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
             module_scoped_subclassed_model,
             name=artifact_path,
             pickle_module=custom_pickle_module,
+            serialization_format="pickle",
         )
         model_uri = model_info.model_uri
 
@@ -751,7 +806,9 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
     serialized PyTorch model file, as opposed to the current format: a directory containing a
     serialized model file and pickle module information.
     """
-    mlflow.pytorch.save_model(path=model_path, pytorch_model=module_scoped_subclassed_model)
+    mlflow.pytorch.save_model(
+        path=model_path, pytorch_model=module_scoped_subclassed_model, serialization_format="pickle"
+    )
 
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
@@ -785,7 +842,9 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
     """
     artifact_path = "pytorch_model"
     with mlflow.start_run():
-        model_info = mlflow.pytorch.log_model(module_scoped_subclassed_model, name=artifact_path)
+        model_info = mlflow.pytorch.log_model(
+            module_scoped_subclassed_model, name=artifact_path, serialization_format="pickle"
+        )
         model_path = _download_artifact_from_uri(model_info.model_uri)
 
     model_conf_path = os.path.join(model_path, "MLmodel")
@@ -813,7 +872,10 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
     module_scoped_subclassed_model, model_path
 ):
     mlflow.pytorch.save_model(
-        path=model_path, pytorch_model=module_scoped_subclassed_model, pickle_module=pickle
+        path=model_path,
+        pytorch_model=module_scoped_subclassed_model,
+        pickle_module=pickle,
+        serialization_format="pickle",
     )
 
     with (
@@ -828,7 +890,9 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
 def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
     main_scoped_subclassed_model, model_path
 ):
-    mlflow.pytorch.save_model(path=model_path, pytorch_model=main_scoped_subclassed_model)
+    mlflow.pytorch.save_model(
+        path=model_path, pytorch_model=main_scoped_subclassed_model, serialization_format="pickle"
+    )
 
     bad_pickle_module_name = "not.a.real.module"
 
@@ -853,7 +917,9 @@ def test_pyfunc_serve_and_score(data):
     train_model(model=model, data=data)
 
     with mlflow.start_run():
-        model_info = mlflow.pytorch.log_model(model, name="model", input_example=data[0])
+        model_info = mlflow.pytorch.log_model(
+            model, name="model", input_example=data[0], serialization_format="pickle"
+        )
 
     inference_payload = load_serving_example(model_info.model_uri)
     resp = pyfunc_serve_and_score_model(
@@ -893,7 +959,10 @@ def test_pyfunc_serve_and_score_transformers():
 
     with mlflow.start_run():
         model_info = mlflow.pytorch.log_model(
-            model, name="model", input_example=np.array(input_ids.tolist())
+            model,
+            name="model",
+            input_example=np.array(input_ids.tolist()),
+            serialization_format="pickle",
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -932,7 +1001,9 @@ def create_extra_files(tmp_path):
 def test_extra_files_log_model(create_extra_files, sequential_model):
     extra_files, contents_expected = create_extra_files
     with mlflow.start_run():
-        mlflow.pytorch.log_model(sequential_model, name="models", extra_files=extra_files)
+        mlflow.pytorch.log_model(
+            sequential_model, name="models", extra_files=extra_files, serialization_format="pickle"
+        )
 
         model_uri = "runs:/{run_id}/{model_path}".format(
             run_id=mlflow.active_run().info.run_id, model_path="models"
@@ -959,7 +1030,10 @@ def test_extra_files_save_model(create_extra_files, sequential_model):
     with TempDir(remove_on_exit=True) as tmp:
         model_path = os.path.join(tmp.path(), "models")
         mlflow.pytorch.save_model(
-            pytorch_model=sequential_model, path=model_path, extra_files=extra_files
+            pytorch_model=sequential_model,
+            path=model_path,
+            extra_files=extra_files,
+            serialization_format="pickle",
         )
         model_config_path = os.path.join(model_path, "MLmodel")
         model_config = Model.load(model_config_path)
@@ -979,12 +1053,13 @@ def test_extra_files_save_model(create_extra_files, sequential_model):
 def test_log_model_invalid_extra_file_path(sequential_model):
     with (
         mlflow.start_run(),
-        pytest.raises(MlflowException, match="No such file or directory: 'non_existing_file.txt'"),
+        pytest.raises(MlflowException, match="No such artifact: 'non_existing_file.txt'"),
     ):
         mlflow.pytorch.log_model(
             sequential_model,
             name="models",
             extra_files=["non_existing_file.txt"],
+            serialization_format="pickle",
         )
 
 
@@ -998,6 +1073,7 @@ def test_log_model_invalid_extra_file_type(sequential_model):
             sequential_model,
             name="models",
             extra_files="non_existing_file.txt",
+            serialization_format="pickle",
         )
 
 
@@ -1101,7 +1177,10 @@ def test_log_model_with_code_paths(sequential_model):
         mock.patch("mlflow.pytorch._add_code_from_conf_to_system_path") as add_mock,
     ):
         model_info = mlflow.pytorch.log_model(
-            sequential_model, name=artifact_path, code_paths=[__file__]
+            sequential_model,
+            name=artifact_path,
+            code_paths=[__file__],
+            serialization_format="pickle",
         )
         _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.pytorch.FLAVOR_NAME)
         mlflow.pytorch.load_model(model_info.model_uri)
@@ -1110,7 +1189,7 @@ def test_log_model_with_code_paths(sequential_model):
 
 def test_virtualenv_subfield_points_to_correct_path(model_path):
     model = get_sequential_model()
-    mlflow.pytorch.save_model(model, path=model_path)
+    mlflow.pytorch.save_model(model, path=model_path, serialization_format="pickle")
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     python_env_path = Path(model_path, pyfunc_conf[pyfunc.ENV]["virtualenv"])
     assert python_env_path.exists()
@@ -1120,7 +1199,10 @@ def test_virtualenv_subfield_points_to_correct_path(model_path):
 @pytest.mark.parametrize("scripted_model", [True, False])
 def test_model_save_load_with_metadata(sequential_model, model_path):
     mlflow.pytorch.save_model(
-        sequential_model, path=model_path, metadata={"metadata_key": "metadata_value"}
+        sequential_model,
+        path=model_path,
+        metadata={"metadata_key": "metadata_value"},
+        serialization_format="pickle",
     )
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_path)
@@ -1136,6 +1218,7 @@ def test_model_log_with_metadata(sequential_model):
             sequential_model,
             name=artifact_path,
             metadata={"metadata_key": "metadata_value"},
+            serialization_format="pickle",
         )
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -1149,7 +1232,10 @@ def test_model_log_with_signature_inference(sequential_model, data):
 
     with mlflow.start_run():
         model_info = mlflow.pytorch.log_model(
-            sequential_model, name=artifact_path, input_example=example_
+            sequential_model,
+            name=artifact_path,
+            input_example=example_,
+            serialization_format="pickle",
         )
 
     assert model_info.signature == ModelSignature(
@@ -1176,7 +1262,9 @@ def test_model_log_with_signature_inference(sequential_model, data):
 def test_load_model_to_device(sequential_model):
     with mock.patch("mlflow.pytorch._load_model") as load_model_mock:
         with mlflow.start_run():
-            model_info = mlflow.pytorch.log_model(sequential_model, name="pytorch")
+            model_info = mlflow.pytorch.log_model(
+                sequential_model, name="pytorch", serialization_format="pickle"
+            )
             model_config = {"device": "cuda"}
             if ENABLE_LEGACY_DESERIALIZATION:
                 model_config["weights_only"] = False
@@ -1206,7 +1294,9 @@ def test_passing_params_to_model(data):
 
     signature = mlflow.models.infer_signature(x, None, {"y": 1})
     with mlflow.start_run():
-        model_info = mlflow.pytorch.log_model(model, name="model", signature=signature)
+        model_info = mlflow.pytorch.log_model(
+            model, name="model", signature=signature, serialization_format="pickle"
+        )
 
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with torch.no_grad():
@@ -1224,7 +1314,9 @@ def test_log_model_with_datetime_input():
         "z": np.random.uniform(0, 10, 5),
     })
     model = get_sequential_model()
-    model_info = mlflow.pytorch.log_model(model, name="pytorch", input_example=df)
+    model_info = mlflow.pytorch.log_model(
+        model, name="pytorch", input_example=df, serialization_format="pickle"
+    )
     assert model_info.signature.inputs.inputs[0].type == DataType.datetime
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     with torch.no_grad():

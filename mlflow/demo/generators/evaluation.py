@@ -155,7 +155,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
     """
 
     name = DemoFeature.EVALUATION
-    version = 1
+    version = 2
 
     def generate(self) -> DemoResult:
         traces_generator = TracesDemoGenerator()
@@ -280,6 +280,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
             filter_string=" AND ".join(filter_parts),
             max_results=100,
             return_type="list",
+            flush=True,
         )
 
     def _add_expectations_to_traces(self, traces: list[Trace]) -> int:
@@ -317,7 +318,9 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
         return expectation_count
 
-    def _find_expected_answer(self, query: str) -> str | None:
+    def _find_expected_answer(self, query: str | None) -> str | None:
+        if not query:
+            return None
         query_lower = query.lower().strip()
         if query_lower in EXPECTED_ANSWERS:
             return EXPECTED_ANSWERS[query_lower]

@@ -739,7 +739,10 @@ def _validate_prediction_input(data: PyFuncInput, params, input_schema, params_s
                     f"with schema '{input_schema}'. "
                     f"Error: {e}"
                 )
-            raise MlflowException.invalid_parameter_value(message)
+            # error_code is INVALID_PARAMETER_VALUE but this is a schema enforcement failure
+            raise MlflowException.invalid_parameter_value(
+                message, error_class="SCHEMA_ENFORCEMENT_FAILED"
+            )
     params = _enforce_params_schema(params, params_schema)
     if HAS_PYSPARK and isinstance(data, SparkDataFrame):
         _logger.warning(
@@ -1300,7 +1303,6 @@ def _load_model_or_server(
             port=server_port,
             host="127.0.0.1",
             timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-            enable_mlserver=False,
             synchronous=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -2664,7 +2666,6 @@ e.g., struct<a:int, b:array<int>>.
                         port=server_port,
                         host=host,
                         timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-                        enable_mlserver=False,
                         synchronous=False,
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,

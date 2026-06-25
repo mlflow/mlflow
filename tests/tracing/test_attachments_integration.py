@@ -18,6 +18,7 @@ def test_attachment_roundtrip_with_local_tracking():
         trace_id = span.trace_id
 
     # Retrieve the trace and verify reference URIs are stored
+    mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(trace_id)
     root_span = trace.data.spans[0]
 

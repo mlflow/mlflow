@@ -119,9 +119,9 @@ export interface AssessmentAggregates {
   currentCounts?: AssessmentRunCounts;
   otherCounts?: AssessmentRunCounts;
 
-  // Numeric values for the current run and other run.
-  currentNumericValues?: number[];
-  otherNumericValues?: number[];
+  // Numeric averages for the current run and other run.
+  currentNumericAverage?: number;
+  otherNumericAverage?: number;
 
   currentNumRootCause: number;
   otherNumRootCause: number;
@@ -132,6 +132,15 @@ export interface AssessmentAggregates {
   assessmentFilters: AssessmentFilter[];
 }
 
+/**
+ * Server-side assessment count data from the trace metrics API.
+ * Each entry represents one (assessmentName, value) → count tuple.
+ */
+export interface AssessmentCountMetrics {
+  data: { assessmentName: string; assessmentValue: string; count: number }[];
+  isLoading: boolean;
+}
+
 export interface EvaluationsOverviewTableSort {
   key: string;
   type: TracesTableColumnType;
@@ -140,6 +149,7 @@ export interface EvaluationsOverviewTableSort {
 
 export interface TraceActions {
   exportToEvals?: boolean;
+  addToReviewQueue?: boolean;
   deleteTracesAction?: {
     deleteTraces?: (experimentId: string, traceIds: string[]) => Promise<any>;
     isDisabled?: boolean;
@@ -163,6 +173,9 @@ export interface AssessmentFilter {
   filterValue: AssessmentValueType;
   // Only defined when filtering on an assessment for RCA values.
   filterType?: 'rca' | undefined;
+  // Optional operator for numeric comparison filters (>, <, >=, <=).
+  // Defaults to equality (=) when not specified.
+  filterOperator?: FilterOperator;
   run: string;
 }
 export type TableFilter = {
@@ -306,6 +319,7 @@ export enum TracesTableColumnType {
 // This represents columns that are grouped together.
 // For example, each assessment is its own column, but they are all grouped under the "Assessments" column group.
 export enum TracesTableColumnGroup {
+  BASE = 'BASE',
   ASSESSMENT = 'ASSESSMENT',
   EXPECTATION = 'EXPECTATION',
   TAG = 'TAG',
@@ -316,8 +330,9 @@ export const TracesTableColumnGroupToLabelMap = {
   [TracesTableColumnGroup.ASSESSMENT]: 'Assessments',
   [TracesTableColumnGroup.EXPECTATION]: 'Expectations',
   [TracesTableColumnGroup.TAG]: 'Tags',
-  // We don't show a label for the info column group
-  [TracesTableColumnGroup.INFO]: '\u00A0',
+  [TracesTableColumnGroup.INFO]: 'Other Attributes',
+  // BASE is the leading section; we don't show a label band for it in the table header
+  [TracesTableColumnGroup.BASE]: '\u00A0',
 };
 
 export interface TracesTableColumn {
@@ -356,6 +371,7 @@ export type NumericAggregate = {
   min: number;
   max: number;
   maxCount: number;
+  average: number;
   counts: NumericAggregateCount[];
 };
 

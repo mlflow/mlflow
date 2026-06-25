@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 import sys
@@ -47,7 +48,10 @@ def flask_server(
     health_endpoint: str = "/health",
 ) -> Iterator[str]:
     """Context manager to run a Flask server in a subprocess."""
-    with subprocess.Popen([sys.executable, str(server_script_path), str(port)]) as proc:
+    server_env = {**os.environ, "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING": "false"}
+    with subprocess.Popen(
+        [sys.executable, str(server_script_path), str(port)], env=server_env
+    ) as proc:
         base_url = f"http://127.0.0.1:{port}"
 
         try:

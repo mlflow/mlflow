@@ -8,7 +8,7 @@ import { shouldEnableWorkflowBasedNavigation } from '../../common/utils/FeatureU
 
 export const EXPERIMENT_KIND_TAG_KEY = 'mlflow.experimentKind';
 
-export const getExperimentKindFromTags = (
+const getExperimentKindFromTags = (
   experimentTags?:
     | ({ __typename: 'MlflowExperimentTag'; key: string | null; value: string | null }[] | null)
     | KeyValueEntity[],

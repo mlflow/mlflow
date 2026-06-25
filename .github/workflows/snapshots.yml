@@ -1,5 +1,5 @@
+# Daily uploads package snapshots to https://github.com/mlflow/mlflow/releases/tag/nightly.
 name: snapshots
-description: Daily uploads package snapshots to https://github.com/mlflow/mlflow/releases/tag/nightly.
 
 on:
   schedule:
@@ -18,6 +18,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   build:
     if: github.repository == 'mlflow/mlflow'
@@ -26,12 +28,12 @@ jobs:
     permissions:
       contents: write # Needed to create/update releases and manage assets
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
-      - uses: r-lib/actions/setup-r@bd49c52ffe281809afa6f0fecbf37483c5dd0b93 # v2.11.3
+      - uses: r-lib/actions/setup-r@a51a8012b0aab7c32ef9d19bf54da93f3254335e # v2.12.0
 
       - name: Create artifacts directory
         run: |

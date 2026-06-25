@@ -1,7 +1,12 @@
+import logging
+
 from mlflow import MlflowException
 from mlflow.gateway.config import Provider
 from mlflow.gateway.providers import BaseProvider
 from mlflow.utils.plugins import get_entry_points
+from mlflow.utils.provider_filter import is_provider_allowed
+
+_logger = logging.getLogger(__name__)
 
 
 class ProviderRegistry:
@@ -17,7 +22,16 @@ class ProviderRegistry:
 
     def get(self, name: str) -> type[BaseProvider]:
         if name not in self._providers:
-            raise MlflowException.invalid_parameter_value(f"Provider {name} not found")
+            raise MlflowException.invalid_parameter_value(f"Provider '{name}' not found")
+
+        if not is_provider_allowed(name):
+            _logger.debug(
+                "Provider '%s' blocked by MLFLOW_GATEWAY_ALLOWED_PROVIDERS",
+                name,
+            )
+            raise MlflowException.invalid_parameter_value(
+                f"Provider '{name}' is not allowed by the current gateway provider policy."
+            )
         return self._providers[name]
 
     def keys(self):
@@ -42,6 +56,7 @@ def _register_default_providers(registry: ProviderRegistry):
     from mlflow.gateway.providers.openai import OpenAIProvider
     from mlflow.gateway.providers.openrouter import OpenRouterProvider
     from mlflow.gateway.providers.palm import PaLMProvider
+    from mlflow.gateway.providers.portkey import PortkeyProvider
     from mlflow.gateway.providers.togetherai import TogetherAIProvider
     from mlflow.gateway.providers.vertex_ai import VertexAIProvider
     from mlflow.gateway.providers.xai import XAIProvider
@@ -68,6 +83,7 @@ def _register_default_providers(registry: ProviderRegistry):
     registry.register(Provider.OPENAI, OpenAIProvider)
     registry.register(Provider.OPENROUTER, OpenRouterProvider)
     registry.register(Provider.PALM, PaLMProvider)
+    registry.register(Provider.PORTKEY, PortkeyProvider)
     registry.register(Provider.TOGETHERAI, TogetherAIProvider)
     registry.register(Provider.VERTEX_AI, VertexAIProvider)
     registry.register(Provider.XAI, XAIProvider)

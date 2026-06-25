@@ -483,9 +483,7 @@ class _ScoreSubmitter:
             self._times.append(time.monotonic() - start)
         return eval_result
 
-    def run_multi_turn(
-        self, multi_turn_assessments: dict[str, list[Feedback]], progress_bar
-    ) -> None:
+    def run_multi_turn(self, multi_turn_eval_results: dict[str, EvalResult], progress_bar) -> None:
         if not self._multi_turn_scorers or not self._session_groups:
             return
         futures = [
@@ -502,7 +500,7 @@ class _ScoreSubmitter:
         for future in as_completed(futures):
             eval_result = future.result()
             trace_id = eval_result.eval_item.trace.info.trace_id
-            multi_turn_assessments[trace_id] = eval_result.assessments
+            multi_turn_eval_results[trace_id] = eval_result
             if progress_bar:
                 progress_bar.update(1)
 
@@ -516,7 +514,7 @@ def _run_pipeline(
     session_groups: dict[str, list[EvalItem]],
     run_id: str | None,
     progress_bar,
-    multi_turn_assessments: dict[str, list[Feedback]],
+    multi_turn_eval_results: dict[str, EvalResult],
     experiment_id: str | None,
 ) -> tuple[list[float], list[float]]:
     """Run the predict→score pipeline and multi-turn scoring.
@@ -591,12 +589,11 @@ def _run_pipeline(
                 if predictor.owns(future):
                     idx = predictor.on_complete(future)
                     items_predicted += 1
-                    if single_turn_scorers:
-                        pending.add(scorer_submitter.submit(idx))
-                    else:
-                        predictor.release_slot()
-                        eval_results[idx] = EvalResult(eval_item=eval_items[idx], assessments=[])
-                        items_done += 1
+                    # Submit even when there are no single-turn scorers: scoring is a
+                    # no-op then, but _run_score also persists dataset expectations
+                    # and tags on the trace, which a short-circuit here would skip
+                    # (#23746).
+                    pending.add(scorer_submitter.submit(idx))
                 else:
                     idx, result = scorer_submitter.on_complete(future)
                     _logger.debug(f"Score completed for item {idx}")
@@ -612,12 +609,39 @@ def _run_pipeline(
         # is provided (simulation mode), single-turn scoring creates the traces that
         # multi-turn scorers consume. The traces must exist before they can be grouped
         # into sessions, so the two phases cannot overlap.
-        scorer_submitter.run_multi_turn(multi_turn_assessments, progress_bar)
+        scorer_submitter.run_multi_turn(multi_turn_eval_results, progress_bar)
 
         return predictor.predict_times, scorer_submitter.score_times
     finally:
         predictor.shutdown()
         scorer_submitter.shutdown()
+
+
+def _tag_mlflow_test_traces(eval_results: list[EvalResult]) -> None:
+    """Tag each produced trace with the current ``@mlflow.test`` identity.
+
+    Lets the regression-test UI group and label the traces by test case. No-op
+    when not running inside an ``@mlflow.test``-marked test.
+    """
+    from mlflow.pytest import session as test_session
+
+    test_name, case_id = test_session.current_test()
+    if test_name is None:
+        return
+
+    tags = {test_session.TAG_TEST_NAME: test_name}
+    if case_id:
+        tags[test_session.TAG_CASE_ID] = case_id
+
+    client = MlflowClient()
+    for result in eval_results:
+        if (trace := result.eval_item.trace) is None:
+            continue
+        for key, value in tags.items():
+            try:
+                client.set_trace_tag(trace.info.trace_id, key, value)
+            except Exception as e:
+                _logger.debug("Failed to tag trace %s with %s: %s", trace.info.trace_id, key, e)
 
 
 @context.eval_context
@@ -643,7 +667,10 @@ def run(
 
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
     session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
-    total_tasks = (len(eval_items) if single_turn_scorers else 0) + len(session_groups)
+    # Every eval item goes through the score pool (even with no single-turn
+    # scorers, _run_score still logs expectations and tags), so each item
+    # contributes one progress update.
+    total_tasks = len(eval_items) + len(session_groups)
 
     progress_bar = (
         tqdm(
@@ -657,7 +684,7 @@ def run(
     )
 
     eval_results = [None] * len(eval_items)
-    multi_turn_assessments = {}
+    multi_turn_eval_results: dict[str, EvalResult] = {}
     scorer_stats: dict[str, ScorerStat] = {}
     predict_times: list[float] = []
     score_times: list[float] = []
@@ -672,7 +699,7 @@ def run(
             session_groups=session_groups,
             run_id=run_id,
             progress_bar=progress_bar,
-            multi_turn_assessments=multi_turn_assessments,
+            multi_turn_eval_results=multi_turn_eval_results,
             experiment_id=experiment_id,
         )
     finally:
@@ -694,11 +721,15 @@ def run(
         if result.eval_item.trace is None:
             continue
         trace_id = result.eval_item.trace.info.trace_id
-        if trace_id in multi_turn_assessments:
-            result.assessments.extend(multi_turn_assessments[trace_id])
+        if trace_id in multi_turn_eval_results:
+            result.assessments.extend(multi_turn_eval_results[trace_id].assessments)
 
     # Link traces to the run if the backend support it
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
+
+    # When running inside an @mlflow.test, stamp each produced trace with the test
+    # identity so the regression-test UI can group/label them. No-op otherwise.
+    _tag_mlflow_test_traces(eval_results)
 
     # Refresh traces on eval_results to include all logged assessments.
     # This is done once after all assessments (single-turn and multi-turn) are logged to the traces.
@@ -708,12 +739,11 @@ def run(
     for result in eval_results:
         if result is not None:
             _merge_scorer_stats_dicts(scorer_stats, result.scorer_stats)
-    # Aggregate scorer stats from multi-turn results
-    for feedbacks in multi_turn_assessments.values():
-        for feedback in feedbacks:
-            if feedback.name not in scorer_stats:
-                scorer_stats[feedback.name] = ScorerStat()
-            scorer_stats[feedback.name].record_invocation(failed=feedback.error is not None)
+    # Aggregate scorer stats from multi-turn results.
+    # Use EvalResult.scorer_stats so that we count one invocation per scorer call/session
+    # rather than one per emitted feedback assessment.
+    for mt_result in multi_turn_eval_results.values():
+        _merge_scorer_stats_dicts(scorer_stats, mt_result.scorer_stats)
 
     # Check for scorer failures and log a summary warning
     _log_scorer_failure_summary(scorer_stats)
@@ -744,10 +774,19 @@ def run(
     # Clean up noisy traces generated during evaluation
     clean_up_extra_traces(traces, eval_start_time, experiment_id, input_trace_ids)
 
+    # Carry each scorer's pass_if predicate so EvaluationResult.passed can decide
+    # pass/fail for non-yes/no values. In-process only; not persisted.
+    pass_criteria = {
+        scorer.name: scorer.pass_if
+        for scorer in (scorers or [])
+        if getattr(scorer, "pass_if", None) is not None
+    }
+
     return EvaluationResult(
         run_id=run_id,
         result_df=construct_eval_result_df(run_id, traces, eval_results),
         metrics=aggregated_metrics,
+        pass_criteria=pass_criteria,
     )
 
 

@@ -11,9 +11,15 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import (
     BaseProvider,
     PassthroughAction,
+    _client_provides_auth,
 )
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
-from mlflow.gateway.providers.utils import send_request, send_stream_request
+from mlflow.gateway.providers.utils import (
+    proxy_root_url,
+    send_proxy_request,
+    send_request,
+    send_stream_request,
+)
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.uc_function_utils import (
     _UC_FUNCTION,
@@ -157,6 +163,7 @@ class OpenAIProvider(BaseProvider):
         PassthroughAction.OPENAI_CHAT: "chat/completions",
         PassthroughAction.OPENAI_EMBEDDINGS: "embeddings",
         PassthroughAction.OPENAI_RESPONSES: "responses",
+        PassthroughAction.OPENAI_RESPONSES_COMPACT: "responses/compact",
     }
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
@@ -237,7 +244,11 @@ class OpenAIProvider(BaseProvider):
             client_headers = headers.copy()
             client_headers.pop("host", None)
             client_headers.pop("content-length", None)
-            # Don't override api key or organization headers
+            if _client_provides_auth(headers):
+                # Preserve the client's own credentials for subscription-based tools
+                # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
+                result_headers.pop("authorization", None)
+                result_headers.pop("api-key", None)
             result_headers = client_headers | result_headers
 
         return result_headers
@@ -549,7 +560,10 @@ class OpenAIProvider(BaseProvider):
         if not usage:
             return None
 
-        if action == PassthroughAction.OPENAI_RESPONSES:
+        if action in (
+            PassthroughAction.OPENAI_RESPONSES,
+            PassthroughAction.OPENAI_RESPONSES_COMPACT,
+        ):
             return self._extract_token_usage_from_dict(
                 usage,
                 "input_tokens",
@@ -605,6 +619,22 @@ class OpenAIProvider(BaseProvider):
             if token_usage:
                 return token_usage
         return {}
+
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        gen = send_proxy_request(
+            self._get_headers(None, headers), proxy_root_url(self.base_url), path, payload
+        )
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
 
     async def _passthrough(
         self,

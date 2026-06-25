@@ -3,6 +3,7 @@ import inspect
 import json
 import logging
 import math
+import re
 from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -360,7 +361,7 @@ class BuiltInScorer(Judge):
                 )
 
             try:
-                serialized = SerializedScorer(**obj)
+                serialized = SerializedScorer.from_dict(obj)
             except Exception as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to parse serialized scorer data: {e}"
@@ -369,8 +370,10 @@ class BuiltInScorer(Judge):
         try:
             scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
         except AttributeError:
+            # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
             raise MlflowException.invalid_parameter_value(
-                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}"
+                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}",
+                error_class="ATTRIBUTE_NOT_FOUND",
             )
 
         constructor_args = serialized.builtin_scorer_pydantic_data or {}
@@ -1295,7 +1298,14 @@ class Guidelines(BuiltInScorer):
             name=self.name,
             model=self.model,
         )
-        return _sanitize_scorer_feedback(feedback)
+        sanitized = _sanitize_scorer_feedback(feedback)
+        # Surface the guideline text in assessment metadata so the UI can show
+        # the criterion that was checked alongside each pass/fail result.
+        guidelines_text = (
+            self.guidelines if isinstance(self.guidelines, str) else "\n".join(self.guidelines)
+        )
+        sanitized.metadata = {**(sanitized.metadata or {}), "guideline": guidelines_text}
+        return sanitized
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -1453,7 +1463,12 @@ class ExpectationsGuidelines(BuiltInScorer):
             name=self.name,
             model=self.model,
         )
-        return _sanitize_scorer_feedback(feedback)
+        sanitized = _sanitize_scorer_feedback(feedback)
+        # Surface the guideline text in assessment metadata so the UI can show
+        # the criterion that was checked alongside each pass/fail result.
+        guidelines_text = guidelines if isinstance(guidelines, str) else "\n".join(guidelines)
+        sanitized.metadata = {**(sanitized.metadata or {}), "guideline": guidelines_text}
+        return sanitized
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -3167,6 +3182,396 @@ class Summarization(BuiltInScorer):
             inputs=inputs,
             outputs=outputs,
             trace=trace,
+        )
+
+
+# Regex patterns for PII detection. These prioritize recall (catching PII) over
+# precision (not flagging false positives). For serious privacy workflows,
+# pair this with a dedicated library like Guardrails AI or Presidio.
+PIIType = Literal["email", "phone", "ssn", "credit_card", "ip_address"]
+
+_PII_PATTERNS: dict[str, str] = {
+    "email": r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
+    "phone": r"(?:(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\+[1-9]\d{1,14})",
+    "ssn": r"\b\d{3}-\d{2}-\d{4}\b",
+    "credit_card": (
+        r"\b(?:"
+        r"(?:4\d{3}|5[1-5]\d{2}|6(?:011|5\d{2}))[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}"
+        r"|3[47]\d{2}[-\s]?\d{6}[-\s]?\d{5}"
+        r")\b"
+    ),
+    "ip_address": r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b",
+}
+
+
+def _resolve_output_text(
+    outputs: Any | None,
+    trace: Trace | None,
+) -> str | None:
+    """Resolve outputs from trace if needed and coerce to a string.
+
+    Returns None when no outputs are available so the caller can
+    produce a scorer-specific Feedback instead of crashing the
+    evaluation run.
+    """
+    if outputs is None and trace is not None:
+        outputs = resolve_outputs_from_trace(outputs, trace)
+
+    if outputs is None:
+        return None
+
+    if isinstance(outputs, str):
+        return outputs
+    return parse_outputs_to_str(outputs)
+
+
+@experimental(version="3.12.0")
+class RegexMatch(BuiltInScorer):
+    """
+    RegexMatch checks whether an output matches a regular expression pattern.
+
+    This is a deterministic rule-based scorer that runs without an LLM call.
+    Use it for hard format checks like "response must start with 'Answer:'",
+    "output must contain a valid order number", or "response must look like
+    valid SQL".
+
+    Args:
+        name: The name of the scorer. Defaults to ``"regex_match"``.
+        pattern: Regular expression to evaluate against the output. Required.
+        match_type: ``"search"`` (default, matches anywhere in the output) or
+            ``"fullmatch"`` (the entire output must match).
+        case_insensitive: If True, match ignoring case. Defaults to False.
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import RegexMatch
+
+        scorer = RegexMatch(pattern=r"^Answer:")
+        feedback = scorer(outputs="Answer: 42")
+        print(feedback.value)  # CategoricalRating.YES
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import RegexMatch
+
+        data = [
+            {"outputs": "Answer: 42"},
+            {"outputs": "The answer is 42"},
+        ]
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[RegexMatch(pattern=r"^Answer:")],
+        )
+    """
+
+    name: str = "regex_match"
+    pattern: str
+    match_type: Literal["search", "fullmatch"] = "search"
+    case_insensitive: bool = False
+    required_columns: set[str] = {"outputs"}
+    description: str = "Check whether output matches a regular expression pattern."
+    _compiled: re.Pattern[str] | None = pydantic.PrivateAttr(default=None)
+
+    @pydantic.model_validator(mode="after")
+    def _compile_pattern(self):
+        flags = re.IGNORECASE if self.case_insensitive else 0
+        try:
+            self._compiled = re.compile(self.pattern, flags)
+        except re.error as e:
+            raise ValueError(f"invalid regex pattern {self.pattern!r}: {e}")
+        return self
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    @property
+    def instructions(self) -> str:
+        return (
+            f"Check whether the output matches the regex pattern {self.pattern!r} "
+            f"using {self.match_type}."
+        )
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="outputs",
+                description="The output text to check against the regex pattern.",
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        outputs_str = _resolve_output_text(outputs, trace)
+        if outputs_str is None:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale="No outputs provided to evaluate.",
+            )
+
+        if self.match_type == "fullmatch":
+            matched = self._compiled.fullmatch(outputs_str) is not None
+        else:
+            matched = self._compiled.search(outputs_str) is not None
+
+        return Feedback(
+            name=self.name,
+            value=CategoricalRating.YES if matched else CategoricalRating.NO,
+            rationale=(
+                f"Output {'matches' if matched else 'does not match'} pattern {self.pattern!r}"
+            ),
+        )
+
+
+@experimental(version="3.12.0")
+class PIIDetection(BuiltInScorer):
+    """
+    PIIDetection checks whether the output contains personally identifiable information.
+
+    This is a deterministic rule-based scorer that uses regex patterns to flag common
+    PII categories. It returns ``"no"`` when PII is found (the output fails the
+    privacy check) and ``"yes"`` when the output is clean.
+
+    Supported PII types:
+
+    - ``"email"``: Email addresses (RFC 5322-ish)
+    - ``"phone"``: US phone numbers and E.164 international format
+    - ``"ssn"``: US Social Security Numbers (NNN-NN-NNNN)
+    - ``"credit_card"``: Visa, Mastercard, Amex, Discover numbers
+    - ``"ip_address"``: IPv4 addresses
+
+    This scorer trades precision for recall: it will occasionally flag
+    false positives (for example, phone-shaped numbers in documentation). Use it
+    as a first-line guardrail and follow up with a dedicated library like
+    Presidio or Guardrails AI for production privacy workflows.
+
+    Args:
+        name: The name of the scorer. Defaults to ``"pii_detection"``.
+        pii_types: List of PII types to check. Defaults to all supported types.
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import PIIDetection
+
+        scorer = PIIDetection(pii_types=["email", "phone"])
+        feedback = scorer(outputs="Contact alice@example.com or call 555-123-4567")
+        print(feedback.value)  # CategoricalRating.NO
+        print(feedback.rationale)  # 'Detected PII: email, phone'
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import PIIDetection
+
+        data = [{"outputs": "Your order confirmation is ABC-123"}]
+        result = mlflow.genai.evaluate(data=data, scorers=[PIIDetection()])
+    """
+
+    name: str = "pii_detection"
+    pii_types: list[PIIType] | None = None
+    required_columns: set[str] = {"outputs"}
+    description: str = "Detect common PII (email, phone, SSN, credit card, IP) in the output."
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    @property
+    def instructions(self) -> str:
+        types = self.pii_types if self.pii_types is not None else list(_PII_PATTERNS.keys())
+        return f"Check whether the output contains any of the PII types: {types}."
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="outputs",
+                description="The output text to scan for PII.",
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        outputs_str = _resolve_output_text(outputs, trace)
+        if outputs_str is None:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale="No outputs provided to evaluate.",
+            )
+
+        types_to_check = (
+            self.pii_types if self.pii_types is not None else list(_PII_PATTERNS.keys())
+        )
+
+        detected: list[str] = [
+            pii_type
+            for pii_type in types_to_check
+            if re.search(_PII_PATTERNS[pii_type], outputs_str)
+        ]
+
+        if detected:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale=f"Detected PII: {', '.join(detected)}",
+            )
+
+        return Feedback(
+            name=self.name,
+            value=CategoricalRating.YES,
+            rationale="No PII detected",
+        )
+
+
+@experimental(version="3.12.0")
+class ResponseLength(BuiltInScorer):
+    """
+    ResponseLength checks whether an output's length is within a specified range.
+
+    This is a deterministic rule-based scorer that counts characters or words
+    and returns ``"yes"`` when the length is within the specified bounds,
+    ``"no"`` otherwise. At least one of ``min_length`` or ``max_length`` must
+    be provided.
+
+    Args:
+        name: The name of the scorer. Defaults to ``"response_length"``.
+        min_length: Minimum allowed length (inclusive). Optional.
+        max_length: Maximum allowed length (inclusive). Optional.
+        unit: Unit of measurement: ``"chars"`` (default) or ``"words"``.
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ResponseLength
+
+        scorer = ResponseLength(min_length=10, max_length=500)
+        feedback = scorer(outputs="A short but valid answer.")
+        print(feedback.value)  # CategoricalRating.YES
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ResponseLength
+
+        data = [{"outputs": "This response is too long." * 100}]
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[ResponseLength(max_length=500)],
+        )
+    """
+
+    name: str = "response_length"
+    min_length: int | None = None
+    max_length: int | None = None
+    unit: Literal["chars", "words"] = "chars"
+    required_columns: set[str] = {"outputs"}
+    description: str = "Check whether the output length is within specified bounds."
+
+    @pydantic.model_validator(mode="after")
+    def _validate_bounds(self):
+        if self.min_length is None and self.max_length is None:
+            raise ValueError(
+                "ResponseLength requires at least one of `min_length` or `max_length`."
+            )
+        if self.min_length is not None and self.min_length < 0:
+            raise ValueError(f"`min_length` must be non-negative, got {self.min_length}.")
+        if self.max_length is not None and self.max_length < 0:
+            raise ValueError(f"`max_length` must be non-negative, got {self.max_length}.")
+        if (
+            self.min_length is not None
+            and self.max_length is not None
+            and self.min_length > self.max_length
+        ):
+            raise ValueError(
+                f"`min_length` ({self.min_length}) must be <= `max_length` ({self.max_length})."
+            )
+        return self
+
+    @property
+    def feedback_value_type(self) -> Any:
+        return Literal["yes", "no"]
+
+    @property
+    def instructions(self) -> str:
+        bounds = []
+        if self.min_length is not None:
+            bounds.append(f"min={self.min_length}")
+        if self.max_length is not None:
+            bounds.append(f"max={self.max_length}")
+        return f"Check whether the output length in {self.unit} is within [{', '.join(bounds)}]."
+
+    def get_input_fields(self) -> list[JudgeField]:
+        return [
+            JudgeField(
+                name="outputs",
+                description="The output text whose length will be measured.",
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        outputs: Any | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        outputs_str = _resolve_output_text(outputs, trace)
+        if outputs_str is None:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale="No outputs provided to evaluate.",
+            )
+
+        length = len(outputs_str.split()) if self.unit == "words" else len(outputs_str)
+
+        if self.min_length is not None and length < self.min_length:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale=(
+                    f"Output length ({length} {self.unit}) is below the minimum "
+                    f"({self.min_length} {self.unit})"
+                ),
+            )
+
+        if self.max_length is not None and length > self.max_length:
+            return Feedback(
+                name=self.name,
+                value=CategoricalRating.NO,
+                rationale=(
+                    f"Output length ({length} {self.unit}) exceeds the maximum "
+                    f"({self.max_length} {self.unit})"
+                ),
+            )
+
+        return Feedback(
+            name=self.name,
+            value=CategoricalRating.YES,
+            rationale=f"Output length ({length} {self.unit}) is within bounds",
         )
 
 

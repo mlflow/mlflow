@@ -1,5 +1,6 @@
 import { createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtils';
-import type { ExperimentPageTabName } from './constants';
+import { type ExperimentPageTabName, ExperimentPageTabName as TabName } from './constants';
+import { OverviewTab } from './pages/experiment-overview/hooks/useOverviewTab';
 
 /**
  * Page identifiers for MLflow experiment tracking pages.
@@ -20,11 +21,15 @@ export enum PageId {
   experimentPageTabRuns = 'mlflow.experiment.tab.runs',
   experimentPageTabModels = 'mlflow.experiment.tab.models',
   experimentPageTabTraces = 'mlflow.experiment.tab.traces',
+  experimentPageTabTraceDetail = 'mlflow.experiment.tab.trace-detail',
   experimentPageTabEvaluationRuns = 'mlflow.experiment.tab.evaluation-runs',
   experimentPageTabDatasets = 'mlflow.experiment.tab.datasets',
+  experimentPageTabDatasetDetail = 'mlflow.experiment.tab.dataset-detail',
   experimentPageTabChatSessions = 'mlflow.experiment.tab.chat-sessions',
   experimentPageTabSingleChatSession = 'mlflow.experiment.tab.single-chat-session',
   experimentPageTabScorers = 'mlflow.experiment.tab.scorers',
+  experimentPageTabReviewQueue = 'mlflow.experiment.tab.review-queue',
+  experimentPageTabPlayground = 'mlflow.experiment.tab.playground',
   experimentPageTabPrompts = 'mlflow.experiment.prompts.list',
   experimentPageTabPromptDetails = 'mlflow.experiment.prompt.details',
   // Child routes for experiment page - end
@@ -34,6 +39,7 @@ export enum PageId {
   runPageDirect = 'mlflow.experiment.run.details.direct',
   compareRuns = 'mlflow.experiment.run.compare',
   metricPage = 'mlflow.metric.details',
+  experimentPrompt = 'mlflow.experiment.prompt',
 }
 
 // Route path definitions (used in defining route elements)
@@ -50,10 +56,13 @@ export class RoutePaths {
   }
   // Child routes for experiment page:
   static get experimentPageTabOverview() {
-    return createMLflowRoutePath('/experiments/:experimentId/overview/:overviewTab?');
+    return createMLflowRoutePath('/experiments/:experimentId/overview/:overviewTab');
   }
   static get experimentPageTabRuns() {
     return createMLflowRoutePath('/experiments/:experimentId/runs');
+  }
+  static get experimentPageTabTraceDetail() {
+    return createMLflowRoutePath('/experiments/:experimentId/traces/:traceId');
   }
   static get experimentPageTabTraces() {
     return createMLflowRoutePath('/experiments/:experimentId/traces');
@@ -79,8 +88,14 @@ export class RoutePaths {
   static get experimentPageTabDatasets() {
     return createMLflowRoutePath('/experiments/:experimentId/datasets');
   }
+  static get experimentPageTabDatasetDetail() {
+    return createMLflowRoutePath('/experiments/:experimentId/datasets/:datasetId');
+  }
   static get experimentPageTabScorers() {
     return createMLflowRoutePath('/experiments/:experimentId/judges');
+  }
+  static get experimentPageTabReviewQueue() {
+    return createMLflowRoutePath('/experiments/:experimentId/review-queue');
   }
   // Child routes for experiment page - end
   static get experimentLoggedModelDetailsPageTab() {
@@ -138,8 +153,14 @@ export class RoutePaths {
   static get promptDetailsPage() {
     return createMLflowRoutePath('/prompts/:promptName');
   }
+  static get experimentPageTabPlayground() {
+    return createMLflowRoutePath('/experiments/:experimentId/playground');
+  }
   static get settingsPage() {
     return createMLflowRoutePath('/settings');
+  }
+  static get settingsSectionPage() {
+    return createMLflowRoutePath('/settings/:section');
   }
 }
 
@@ -166,6 +187,10 @@ class Routes {
     return RoutePaths.settingsPage;
   }
 
+  static getSettingsSectionRoute(section: string) {
+    return generatePath(RoutePaths.settingsSectionPage, { section });
+  }
+
   static getExperimentPageRoute(experimentId: string, isComparingRuns = false, shareState?: string) {
     const path = generatePath(RoutePaths.experimentPage, { experimentId });
     if (shareState) {
@@ -182,11 +207,21 @@ class Routes {
   }
 
   static getExperimentPageTabRoute(experimentId: string, tabName: ExperimentPageTabName) {
+    if (tabName === TabName.Overview) {
+      return generatePath(RoutePaths.experimentPageTabOverview, {
+        experimentId,
+        overviewTab: OverviewTab.Usage,
+      });
+    }
     return generatePath(RoutePaths.experimentPageTabbed, { experimentId, tabName });
   }
 
   static getExperimentPageTabSingleChatSessionRoute(experimentId: string, sessionId: string) {
     return generatePath(RoutePaths.experimentPageTabSingleChatSession, { experimentId, sessionId });
+  }
+
+  static getExperimentPageDatasetDetailRoute(experimentId: string, datasetId: string) {
+    return generatePath(RoutePaths.experimentPageTabDatasetDetail, { experimentId, datasetId });
   }
 
   static getExperimentLoggedModelDetailsPage(experimentId: string, loggedModelId: string) {

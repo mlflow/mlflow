@@ -14,6 +14,7 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   push:
     branches:
       - master
@@ -41,6 +42,8 @@ env:
   _MLFLOW_TESTING_TELEMETRY: "true"
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
+permissions: {}
+
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
@@ -53,7 +56,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -78,7 +81,7 @@ jobs:
         include:
           - splits: 4
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           submodules: true
@@ -94,7 +97,7 @@ jobs:
             -r requirements/test-requirements.txt \
             -r requirements/extra-ml-requirements.txt
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
+      - uses: ./.github/actions/cache-hf
       - name: Import check
         run: |
           # `-I` is used to avoid importing modules from user-specific site-packages
@@ -128,7 +131,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -148,14 +151,11 @@ jobs:
             # Set `--no-TTY` to show container logs on GitHub Actions:
             # https://github.com/actions/virtual-environments/issues/5022
             ./tests/db/compose.sh run --rm --no-TTY $service pytest \
-              tests/store/tracking/test_sqlalchemy_store.py \
-              tests/store/tracking/test_sqlalchemy_store_issues.py \
-              tests/store/tracking/test_sqlalchemy_store_query_trace_metrics.py \
+              tests/store/tracking/sqlalchemy_store \
               tests/store/tracking/test_gateway_sql_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
               tests/store/model_registry/test_sqlalchemy_workspace_store.py \
               tests/store/workspace/test_sqlalchemy_store.py \
-              tests/store/tracking/test_sqlalchemy_workspace_store.py \
               tests/db
               RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
           done
@@ -188,7 +188,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -212,7 +212,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -227,7 +227,6 @@ jobs:
             -r requirements/extra-ml-requirements.txt \
             'tensorflow<2.21'
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
           uv run --no-sync pytest \
@@ -247,7 +246,7 @@ jobs:
         include:
           - splits: 3
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -257,12 +256,11 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv sync --extra mlserver
+          uv sync
           uv pip install \
             -r requirements/test-requirements.txt \
             pyspark langchain langchain-community
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
@@ -283,7 +281,7 @@ jobs:
         include:
           - splits: 1
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -297,7 +295,6 @@ jobs:
             -r requirements/test-requirements.txt \
             torch transformers pyspark langchain langchain-experimental shap lightgbm xgboost
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
@@ -315,7 +312,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -325,20 +322,45 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --extra genai
+          # TODO: migrate mlflow/genai/scorers/phoenix to arize-phoenix-evals 3.x API
+          # (removed HallucinationEvaluator/RelevanceEvaluator/etc. and LiteLLMModel)
+          # TODO: drop the langchain-community<0.4.2 pin once ragas releases a
+          # fix for the removed `langchain_community.chat_models.vertexai`
+          # import (0.4.2 dropped the shim).
+          # https://github.com/vibrantlabsai/ragas/issues/2745
+          #
+          # guardrails-ai is intentionally omitted: it caps typer<0.20 and
+          # click<=8.2.0, which the synced env no longer satisfies, so an
+          # unpinned install backtracks to the ancient 0.1.8 (imports the
+          # removed openai.error). Restore it once upstream lifts the pins.
+          # https://github.com/guardrails-ai/guardrails/issues/1505
           uv pip install \
             -r requirements/test-requirements.txt \
-            deepeval ragas arize-phoenix-evals trulens trulens-providers-litellm guardrails-ai
+            deepeval ragas 'arize-phoenix-evals<3.0.0' 'langchain-community<0.4.2' trulens trulens-providers-litellm 'google-adk[gcp]'
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Run GenAI Tests (OSS)
         run: |
-          uv run --no-sync pytest tests/genai
+          # guardrails-ai is not installed (see the install step), so skip its
+          # tests to keep collection of the rest of tests/genai from breaking.
+          # https://github.com/guardrails-ai/guardrails/issues/1505
+          uv run --no-sync pytest tests/genai \
+            --ignore tests/genai/scorers/guardrails
 
       - name: Run GenAI Tests (Databricks)
         run: |
+          # guardrails-ai is not installed (see the install step), so skip its
+          # tests here too. https://github.com/guardrails-ai/guardrails/issues/1505
+          #
+          # test_pytest_integration.py spawns a subprocess pytest from a temp dir,
+          # which imports the published mlflow-skinny that databricks-agents pulls
+          # into this overlay rather than the local checkout. That published build
+          # lacks the new `mlflow.test` API, so the generated test fails to collect.
+          # It already runs against the local mlflow in the OSS step above.
           uv run --no-sync --with databricks-agents \
             pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
-            --ignore tests/genai/optimize --ignore tests/genai/prompts
+            --ignore tests/genai/optimize --ignore tests/genai/prompts \
+            --ignore tests/genai/scorers/guardrails \
+            --ignore tests/genai/evaluate/test_pytest_integration.py
 
   pyfunc:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
@@ -353,7 +375,7 @@ jobs:
         include:
           - splits: 4
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - uses: ./.github/actions/untracked
@@ -368,7 +390,6 @@ jobs:
             -r requirements/test-requirements.txt \
             tensorflow 'pyspark[connect]'
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}
@@ -393,7 +414,7 @@ jobs:
         include:
           - splits: 3
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           submodules: true
@@ -409,7 +430,7 @@ jobs:
             pyspark datasets tensorflow torch transformers openai \
             tests/resources/mlflow-test-plugin
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
+      - uses: ./.github/actions/cache-hf
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils /tmp/winutils
@@ -438,4 +459,9 @@ jobs:
             --ignore=tests/gateway \
             --ignore=tests/server/auth \
             --ignore=tests/data/test_spark_dataset.py \
-            --ignore=tests/docker
+            --ignore=tests/data/test_spark_dataset_source.py \
+            --ignore=tests/data/test_delta_dataset_source.py \
+            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_spark_datasource \
+            --deselect=tests/data/test_pandas_dataset.py::test_from_pandas_delta_datasource \
+            --ignore=tests/docker \
+            --ignore=tests/demo

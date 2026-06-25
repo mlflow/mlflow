@@ -50,9 +50,9 @@ module.exports = [
 
   // Disallow relative imports from 1st party packages' src folder, e.g. '../<pkg>/src/foo'.
   // This prevents scenarios like js/packages/foo/index.ts importing from js/packages/bar/src/index.ts with a relative import.
-  // All imports should use the package name, e.g. import { Bar } from '@databricks/bar'.
+  // All imports should use the package name, e.g. import { Bar } from '@mlflow/bar'.
   {
-    // Exclude @cypress-tests/ imports which are referenced in redash/managed_redash/packages/cypress/integration/*
+    // Exclude @cypress-tests/ imports
     pattern: '(?<!@cypress-tests\\/)(?<relativePath>\\.\\.\\/)(?<pkgFolder>[\\w-]+?\\/)(?<folder>src|dist)($|\\/.+)',
     message:
       "Do not import from {{relativePath}}{{pkgFolder}}{{folder}} folder. If you try to import from a package, use the package's public API.\n" +
@@ -82,7 +82,7 @@ module.exports = [
   {
     pattern: '^src(/|$)',
     message:
-      'Do not import from `src/`. Use relative imports or include the package name, e.g. `import { Foo } from "@databricks/dbsql/src/foo";`',
+      'Do not import from `src/`. Use relative imports or include the package name, e.g. `import { Foo } from "@mlflow/mlflow/src/foo";`',
   },
 
   {

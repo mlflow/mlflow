@@ -22,23 +22,26 @@ runs:
       # in 3.x on Anaconda, but it turned out `conda search` is very slow (takes 40 ~ 50 seconds).
       # This overhead sums up to a significant amount of delay in the cross version tests
       # where we trigger more than 100 GitHub Actions runs.
+      env:
+        PYTHON_VERSION_INPUT: ${{ inputs.python-version }}
+        PIN_MICRO_VERSION: ${{ inputs.pin-micro-version }}
       run: |
-        python_version="${{ inputs.python-version }}"
+        python_version="$PYTHON_VERSION_INPUT"
         if [ -z "$python_version" ]; then
           python_version=$(cat .python-version)
         fi
-        if [[ "${{ inputs.pin-micro-version }}" == "true" ]]; then
+        if [[ "$PIN_MICRO_VERSION" == "true" ]]; then
           if [[ "$python_version" == "3.10" ]]; then
-            if [ ${{ runner.os }} == "Linux" ]; then
-              python_version="3.10.19"
+            if [ "$RUNNER_OS" == "Linux" ]; then
+              python_version="3.10.20"
             else
               python_version="3.10.11"
             fi
           elif [[ "$python_version" == "3.11" ]]; then
-            if [ ${{ runner.os }} == "Windows" ]; then
+            if [ "$RUNNER_OS" == "Windows" ]; then
               python_version="3.11.9"
             else
-              python_version="3.11.14"
+              python_version="3.11.15"
             fi
           else
             echo "Invalid python version: '$python_version'. Must be '3.10', or '3.11'."
@@ -51,7 +54,9 @@ runs:
         python-version: ${{ steps.get-python-version.outputs.version }}
     - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
       with:
-        version: "0.10.12"
+        version: "0.11.14"
+        # Caching disabled to avoid cache-poisoning exposure across CI workflows.
+        enable-cache: false
     - run: |
         # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
         # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy
@@ -59,9 +64,9 @@ runs:
         # Disable progress bars and spinners to reduce CI log clutter
         # https://docs.astral.sh/uv/reference/environment/#uv_no_progress
         echo "UV_NO_PROGRESS=1" >> $GITHUB_ENV
-        # Exclude packages newer than 14 days to guard against supply chain attacks
+        # Exclude packages newer than 7 days to guard against supply chain attacks
         # https://docs.astral.sh/uv/reference/environment/#uv_exclude_newer
-        echo "UV_EXCLUDE_NEWER=P14D" >> $GITHUB_ENV
+        echo "UV_EXCLUDE_NEWER=P7D" >> $GITHUB_ENV
         # Disable Hugging Face download progress bars to reduce CI log clutter
         # https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisableprogressbars
         echo "HF_HUB_DISABLE_PROGRESS_BARS=1" >> $GITHUB_ENV

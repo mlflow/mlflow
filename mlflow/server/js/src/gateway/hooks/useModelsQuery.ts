@@ -16,6 +16,8 @@ export const useModelsQuery = ({ provider }: { provider?: string } = {}) => {
     {
       queryFn,
       retry: false,
+      staleTime: Infinity,
+      refetchOnWindowFocus: false,
       enabled: provider !== undefined,
     },
   );

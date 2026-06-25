@@ -13,7 +13,7 @@ Looking for using MLflow for LLMs/Agent development? Checkout the <ins>[MLflow f
 
 :::
 
-:::tip MLflow Assistant
+:::tip[MLflow Assistant]
 Need help setting up tracking? Try <ins>[MLflow Assistant](/genai/getting-started/try-assistant)</ins> - a powerful AI assistant that can help you set up MLflow tracking for your project.
 :::
 
@@ -101,6 +101,14 @@ To see the results of training, you can access the MLflow UI by navigating to th
 ```bash
 mlflow server --port 5000
 ```
+
+:::caution[Running on Google Colab?]
+If you are running this quickstart on Google Colab, the `mlflow server`
+command will start but the UI at `localhost:5000` will **not** be
+accessible in your browser. This is a Colab limitation — your experiment
+data is still being tracked. You can safely skip to Step 5 and return
+to the UI later when running locally.
+:::
 
 When opening the site, you will see a screen similar to the following:
 

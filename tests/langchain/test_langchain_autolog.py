@@ -911,7 +911,7 @@ def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
 
         model.invoke({"product": "MLflow"})
 
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    with ThreadPoolExecutor(max_workers=8, thread_name_prefix="test-langchain-autolog") as executor:
         futures = [executor.submit(_invoke) for _ in range(30)]
         _ = [f.result() for f in futures]
 
@@ -1152,7 +1152,9 @@ def test_langchain_tracing_multi_threads():
     temperatures = [(t + 1) / 10 for t in range(4)]
     models = [create_openai_runnable(temperature=t) for t in temperatures]
 
-    with ThreadPoolExecutor(max_workers=len(temperatures)) as executor:
+    with ThreadPoolExecutor(
+        max_workers=len(temperatures), thread_name_prefix="test-langchain-concurrent"
+    ) as executor:
         futures = [executor.submit(models[i].invoke, {"product": "MLflow"}) for i in range(4)]
         for f in futures:
             f.result()

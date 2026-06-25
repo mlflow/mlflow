@@ -47,14 +47,12 @@ interface UseToolErrorRateChartDataProps {
  */
 export function useToolErrorRateChartData({
   toolName,
-}: UseToolErrorRateChartDataProps): UseToolErrorRateChartDataResult {
+  enabled = true,
+}: UseToolErrorRateChartDataProps & { enabled?: boolean }): UseToolErrorRateChartDataResult {
   const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
 
-  // Filter for TOOL type spans with specific name
-  const toolFilters = useMemo(
-    () => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL), createSpanFilter(SpanFilterKey.NAME, toolName)],
-    [toolName],
-  );
+  // Filter for TOOL type spans (no per-tool filter — all tools share one cached query)
+  const toolFilters = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
 
   // Query span counts grouped by status and time bucket
   const { data, isLoading, error } = useTraceMetricsQuery({
@@ -65,11 +63,16 @@ export function useToolErrorRateChartData({
     metricName: SpanMetricKey.SPAN_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     filters: toolFilters,
-    dimensions: [SpanDimensionKey.SPAN_STATUS],
+    dimensions: [SpanDimensionKey.SPAN_NAME, SpanDimensionKey.SPAN_STATUS],
     timeIntervalSeconds,
+    enabled,
   });
 
-  const dataPoints = useMemo(() => data?.data_points || [], [data?.data_points]);
+  // Filter data points for this specific tool from the shared response
+  const dataPoints = useMemo(
+    () => (data?.data_points || []).filter((dp) => dp.dimensions?.[SpanDimensionKey.SPAN_NAME] === toolName),
+    [data?.data_points, toolName],
+  );
 
   // Group data by time bucket and calculate error rate for each bucket
   const errorRateByTimestamp = useMemo(() => {
@@ -88,11 +91,10 @@ export function useToolErrorRateChartData({
       }
 
       const bucket = bucketData.get(timestampMs);
-      if (bucket) {
-        bucket.total += count;
-        if (status === SpanStatus.ERROR) {
-          bucket.error += count;
-        }
+      if (!bucket) continue;
+      bucket.total += count;
+      if (status === SpanStatus.ERROR) {
+        bucket.error += count;
       }
     }
 

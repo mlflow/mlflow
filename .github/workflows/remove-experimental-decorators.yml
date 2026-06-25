@@ -5,10 +5,16 @@ on:
     # Run on the 1st day of every month at 00:00 UTC
     - cron: "0 0 1 * *"
   workflow_dispatch: # Allow manual triggering
+  pull_request:
+    paths:
+      - .github/workflows/remove-experimental-decorators.yml
+      - dev/remove_experimental_decorators.py
 
 defaults:
   run:
     shell: bash
+
+permissions: {}
 
 jobs:
   remove-decorators:
@@ -22,18 +28,19 @@ jobs:
     env:
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
-      - uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        if: github.event_name != 'pull_request'
         id: app-token
         with:
-          app-id: ${{ secrets.APP_ID }}
+          client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: true
-          token: ${{ steps.app-token.outputs.token }}
-
-      - uses: ./.github/actions/setup-python
+          token: ${{ steps.app-token.outputs.token || github.token }}
 
       - name: Run remove_experimental_decorators script
         id: remove
@@ -44,7 +51,7 @@ jobs:
           echo "has_changes=$has_changes" >> $GITHUB_OUTPUT
 
       - name: Create branch, commit and push changes
-        if: steps.remove.outputs.has_changes == 'true'
+        if: steps.remove.outputs.has_changes == 'true' && github.event_name != 'pull_request'
         id: branch
         run: |
           git config user.name 'mlflow-app[bot]'
@@ -62,7 +69,7 @@ jobs:
           git push origin $BRANCH_NAME
 
       - name: Create Pull Request
-        if: steps.remove.outputs.has_changes == 'true'
+        if: steps.remove.outputs.has_changes == 'true' && github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           BRANCH_NAME: ${{ steps.branch.outputs.branch_name }}

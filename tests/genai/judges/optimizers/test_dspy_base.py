@@ -282,6 +282,7 @@ def test_dspy_align_litellm_nonfatal_error_messages_suppressed():
         patch("dspy.LM"),
         patch(
             "mlflow.genai.judges.optimizers.dspy.trace_to_dspy_example",
+            return_value=[Mock()],
         ),
         patch("mlflow.genai.judges.optimizers.dspy.make_judge"),
         patch.object(optimizer, "_dspy_optimize", mock_dspy_optimize),
@@ -324,6 +325,7 @@ def test_align_configures_openai_lm_in_context(sample_traces_with_assessments):
     with (
         patch(
             "mlflow.genai.judges.optimizers.dspy.trace_to_dspy_example",
+            return_value=[Mock()],
         ),
         patch("mlflow.genai.judges.optimizers.dspy.make_judge"),
         patch.object(optimizer, "_dspy_optimize", side_effect=check_context),

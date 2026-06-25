@@ -50,13 +50,15 @@ show intermediate steps
 
 CRITICAL REQUIREMENT - TEMPLATE VARIABLES:
 The following variables MUST be preserved EXACTLY as shown in the original prompts.
-DO NOT modify, remove, or change the formatting of these variables in any way:
+DO NOT modify, remove, add, or change the formatting of these variables in any way:
 {template_variables}
 
 IMPORTANT: Template variables use double curly braces like {{{{variable_name}}}}.
 You MUST copy them exactly as they appear in the original prompt into your improved
 prompt. If a variable appears as {{{{question}}}} in the original, it must appear as
 {{{{question}}}} in your improvement.
+If a prompt has NO template variables (marked as 'none' above), you MUST NOT introduce
+any new {{{{...}}}} patterns. Only improve the wording and phrasing of those prompts.
 
 {custom_guidelines}
 
@@ -411,20 +413,30 @@ class MetaPromptOptimizer(BasePromptOptimizer):
     def _validate_template_variables(
         self, original_prompts: dict[str, str], new_prompts: dict[str, str]
     ) -> bool:
-        """Validate that all template variables are preserved in new prompts."""
+        """Validate that all template variables are preserved in new prompts.
+
+        Extra variables introduced by the LLM are automatically stripped from the
+        generated prompt so that optimisation can succeed even when the model
+        erroneously adds new ``{{variable}}`` patterns.
+        """
         original_vars = self._extract_template_variables(original_prompts)
         new_vars = self._extract_template_variables(new_prompts)
 
         for name in original_prompts:
-            if original_vars[name] != new_vars[name]:
-                missing = original_vars[name] - new_vars[name]
-                extra = new_vars[name] - original_vars[name]
-                msg = f"Template variables mismatch in prompt '{name}'."
-                if missing:
-                    msg += f" Missing: {missing}."
-                if extra:
-                    msg += f" Extra: {extra}."
-                raise MlflowException(msg)
+            missing = original_vars[name] - new_vars[name]
+            extra = new_vars[name] - original_vars[name]
+
+            if missing:
+                raise MlflowException(
+                    f"Template variables mismatch in prompt '{name}'. Missing: {missing}."
+                )
+
+            if extra:
+                _logger.warning(f"Stripping extra template variables {extra} from prompt '{name}'.")
+                text = new_prompts[name]
+                for var in extra:
+                    text = text.replace("{{" + var + "}}", "")
+                new_prompts[name] = text
 
         return True
 

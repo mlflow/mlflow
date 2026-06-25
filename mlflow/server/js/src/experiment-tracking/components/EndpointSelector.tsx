@@ -41,10 +41,16 @@ export interface EndpointSelectorProps {
   componentIdPrefix?: string;
   /** Called when a new endpoint is created */
   onEndpointCreated?: (endpoint: Endpoint) => void;
+  /** Whether to show the "Create new endpoint" button. Defaults to true. */
+  showCreateButton?: boolean;
   /** Whether to auto-select the first endpoint */
   autoSelectFirstEndpoint?: boolean;
   /** Called when the current endpoint name doesn't match any loaded endpoint (e.g., after a rename) */
   onEndpointNotFound?: () => void;
+  /** Endpoint IDs to exclude from the list (e.g., the guarded endpoint itself) */
+  excludeEndpointIds?: string[];
+  /** Optional max width for the trigger; long endpoint labels truncate with ellipsis when this is set. */
+  triggerMaxWidth?: number | string;
 }
 
 export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
@@ -54,8 +60,11 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   placeholder,
   componentIdPrefix = 'mlflow.endpoint-selector',
   onEndpointCreated,
+  showCreateButton = true,
   autoSelectFirstEndpoint = false,
   onEndpointNotFound,
+  excludeEndpointIds,
+  triggerMaxWidth,
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -90,16 +99,18 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
 
   // Build endpoint options for the dropdown
   const endpointOptions: EndpointOption[] = useMemo(() => {
-    return endpoints.map((endpoint) => {
-      const displayInfo = getEndpointDisplayInfo(endpoint);
-      return {
-        value: endpoint.name,
-        label: endpoint.name,
-        provider: displayInfo?.provider,
-        modelName: displayInfo?.modelName,
-      };
-    });
-  }, [endpoints]);
+    return endpoints
+      .filter((endpoint) => !excludeEndpointIds?.includes(endpoint.endpoint_id))
+      .map((endpoint) => {
+        const displayInfo = getEndpointDisplayInfo(endpoint);
+        return {
+          value: endpoint.name,
+          label: endpoint.name,
+          provider: displayInfo?.provider,
+          modelName: displayInfo?.modelName,
+        };
+      });
+  }, [endpoints, excludeEndpointIds]);
 
   const currentEndpoint = useMemo(() => {
     return endpointOptions.find((opt) => opt.value === currentEndpointName);
@@ -157,6 +168,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
           withInlineLabel={false}
           allowClear={false}
           disabled={disabled}
+          maxWidth={triggerMaxWidth}
           placeholder={placeholder || defaultPlaceholder}
           renderDisplayedValue={() => {
             // Endpoint not found in list - may have been deleted
@@ -213,23 +225,27 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
                 </DialogComboboxOptionListSelectItem>
               ))}
             </DialogComboboxOptionList>
-            <DialogComboboxFooter>
-              <DialogComboboxAddButton onClick={handleOpenCreateModal}>
-                <FormattedMessage
-                  defaultMessage="Create new endpoint"
-                  description="Button text to create a new endpoint"
-                />
-              </DialogComboboxAddButton>
-            </DialogComboboxFooter>
+            {showCreateButton && (
+              <DialogComboboxFooter>
+                <DialogComboboxAddButton onClick={handleOpenCreateModal}>
+                  <FormattedMessage
+                    defaultMessage="Create new endpoint"
+                    description="Button text to create a new endpoint"
+                  />
+                </DialogComboboxAddButton>
+              </DialogComboboxFooter>
+            )}
           </DialogComboboxContent>
         )}
       </DialogCombobox>
 
-      <CreateEndpointModal
-        open={isCreateModalOpen}
-        onClose={handleCloseCreateModal}
-        onSuccess={handleCreateEndpointSuccess}
-      />
+      {showCreateButton && (
+        <CreateEndpointModal
+          open={isCreateModalOpen}
+          onClose={handleCloseCreateModal}
+          onSuccess={handleCreateEndpointSuccess}
+        />
+      )}
     </>
   );
 };

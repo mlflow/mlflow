@@ -5,8 +5,8 @@ import pytest
 from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.togetherai import TogetherAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -115,7 +115,7 @@ async def test_completions():
                 "temperature": 1,
                 "n": 1,
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -230,7 +230,7 @@ async def test_completions_stream(resp):
                 "n": 1,
                 "prompt": "This is a test",
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -374,7 +374,7 @@ async def test_embeddings():
                 "input": "Our solar system orbits the Milky Way galaxy at about 515,000 mph.",
                 "model": "togethercomputer/m2-bert-80M-8k-retrieval",
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -429,6 +429,7 @@ async def test_chat():
             "object": "chat.completion",
             "created": 1705090115,
             "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "provider": "togetherai",
             "choices": [
                 {
                     "index": 0,
@@ -453,7 +454,7 @@ async def test_chat():
                 "temperature": 1.0,
                 "n": 1,
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -532,6 +533,7 @@ async def test_chat_stream(resp):
                 "created": 1,
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "provider": "togetherai",
                 "object": "chat.completion.chunk",
                 "usage": None,
             },
@@ -550,6 +552,7 @@ async def test_chat_stream(resp):
                 "created": 1,
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "provider": "togetherai",
                 "object": "chat.completion.chunk",
                 "usage": None,
             },
@@ -568,6 +571,7 @@ async def test_chat_stream(resp):
                 "created": 1,
                 "id": "test-id",
                 "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+                "provider": "togetherai",
                 "object": "chat.completion.chunk",
                 "usage": {
                     "prompt_tokens": 17,
@@ -590,5 +594,5 @@ async def test_chat_stream(resp):
                 ],
                 "n": 1,
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )

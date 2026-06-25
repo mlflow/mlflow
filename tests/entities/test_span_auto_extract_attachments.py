@@ -416,6 +416,38 @@ def test_extracts_gemini_inline_data():
     assert att.content_bytes == PNG_BYTES
 
 
+def test_extracts_gemini_inline_data_bytes_repr():
+    # Gemini SDK Pydantic serialization produces repr(bytes) instead of base64
+    span = _make_live_span()
+    bytes_repr = repr(PNG_BYTES)
+    span.set_outputs({
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": "A small image."},
+                        {
+                            "inline_data": {
+                                "mime_type": "image/png",
+                                "data": bytes_repr,
+                            }
+                        },
+                    ]
+                }
+            }
+        ]
+    })
+
+    parts = span.outputs["candidates"][0]["content"]["parts"]
+    assert parts[0] == {"text": "A small image."}
+    inline = parts[1]
+    assert inline["inline_data"]["data"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "image/png"
+    assert att.content_bytes == PNG_BYTES
+
+
 def test_gemini_inline_data_with_invalid_base64():
     span = _make_live_span()
     span.set_outputs({
@@ -430,6 +462,57 @@ def test_gemini_inline_data_with_invalid_base64():
     })
     inline = span.outputs["parts"][0]
     assert inline["inline_data"]["data"] == "!!!bad!!!"
+    assert len(span._attachments) == 0
+
+
+# --- Responses API image_generation_call pattern ---
+
+
+def test_extracts_responses_api_image_generation():
+    span = _make_live_span()
+    img_b64 = base64.b64encode(PNG_BYTES).decode()
+    span.set_outputs({
+        "output": [
+            {
+                "type": "image_generation_call",
+                "result": img_b64,
+                "output_format": "png",
+                "revised_prompt": "a blue square",
+            },
+            {
+                "type": "message",
+                "content": [{"type": "output_text", "text": "Here is the image."}],
+            },
+        ]
+    })
+
+    outputs = span.outputs
+    img_call = outputs["output"][0]
+    assert img_call["type"] == "image_generation_call"
+    assert img_call["result"].startswith("mlflow-attachment://")
+    assert img_call["revised_prompt"] == "a blue square"
+    assert img_call["output_format"] == "png"
+    msg = outputs["output"][1]
+    assert msg["type"] == "message"
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "image/png"
+    assert att.content_bytes == PNG_BYTES
+
+
+def test_responses_api_image_generation_with_invalid_base64():
+    span = _make_live_span()
+    span.set_outputs({
+        "output": [
+            {
+                "type": "image_generation_call",
+                "result": "!!!bad!!!",
+                "output_format": "png",
+            }
+        ]
+    })
+    img_call = span.outputs["output"][0]
+    assert img_call["result"] == "!!!bad!!!"
     assert len(span._attachments) == 0
 
 
@@ -501,5 +584,76 @@ def test_explicit_attachment_still_works_when_opted_out(monkeypatch):
     span = _make_live_span()
     att = Attachment(content_type="image/png", content_bytes=PNG_BYTES)
     span.set_inputs({"image": att})
+    assert span.inputs["image"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+
+
+# --- Attachment size limit ---
+
+
+def test_attachment_under_size_limit_is_extracted(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", str(len(PNG_BYTES) + 1))
+    span = _make_live_span()
+    span.set_inputs({"image": PNG_DATA_URI})
+
+    assert span.inputs["image"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+
+
+def test_attachment_over_size_limit_is_discarded(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", str(len(PNG_BYTES) - 1))
+    span = _make_live_span()
+    span.set_inputs({"image": PNG_DATA_URI})
+
+    assert "[Attachment too large:" in span.inputs["image"]
+    assert len(span._attachments) == 0
+
+
+def test_attachment_size_limit_unset_allows_all():
+    # Default is None (unset) — no limit enforced
+    span = _make_live_span()
+    span.set_inputs({"image": PNG_DATA_URI})
+
+    assert span.inputs["image"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+
+
+def test_structured_content_over_size_limit_is_discarded(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", "1")
+    span = _make_live_span()
+    span.set_inputs({
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "input_audio",
+                        "input_audio": {"data": WAV_B64, "format": "wav"},
+                    }
+                ],
+            }
+        ]
+    })
+
+    audio_part = span.inputs["messages"][0]["content"][0]
+    assert "[Attachment too large:" in audio_part["input_audio"]["data"]
+    assert len(span._attachments) == 0
+
+
+def test_explicit_attachment_over_size_limit_is_discarded(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", "1")
+    span = _make_live_span()
+    att = Attachment(content_type="image/png", content_bytes=PNG_BYTES)
+    span.set_inputs({"image": att})
+
+    assert "[Attachment too large:" in span.inputs["image"]
+    assert len(span._attachments) == 0
+
+
+def test_attachment_size_limit_negative_treated_as_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_MAX_ATTACHMENT_SIZE", "-1")
+    span = _make_live_span()
+    span.set_inputs({"image": PNG_DATA_URI})
+
     assert span.inputs["image"].startswith("mlflow-attachment://")
     assert len(span._attachments) == 1

@@ -172,7 +172,7 @@ def test_prompt_associate_with_run(tmp_path):
         def task():
             mlflow.genai.load_prompt("prompt_1", version=1)
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=4, thread_name_prefix="test-load-prompt") as executor:
             futures = [executor.submit(task) for _ in range(10)]
             for future in futures:
                 future.result()

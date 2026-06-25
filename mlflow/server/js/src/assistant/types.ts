@@ -18,6 +18,18 @@ export interface ToolUseInfo {
 }
 
 /**
+ * A pending tool-call permission request surfaced to the user for a Yes/No
+ * decision when the session is not in full-access mode.
+ */
+export interface PermissionRequest {
+  /** The session that produced this request, so a decision targets the right session */
+  sessionId: string;
+  requestId: string;
+  toolName: string;
+  toolInput: Record<string, any>;
+}
+
+/**
  * Known context keys for the assistant.
  * Type-safe registration for common context values.
  */
@@ -74,6 +86,10 @@ export interface AssistantAgentState {
   isLoadingConfig: boolean;
   /** Whether the server is running locally (localhost) */
   isLocalServer: boolean;
+  /** A prompt queued to seed the chat input the next time it becomes visible (null when none) */
+  pendingPrompt: string | null;
+  /** A tool call awaiting the user's Yes/No decision, or null */
+  pendingPermission: PermissionRequest | null;
 }
 
 export interface AssistantAgentActions {
@@ -83,6 +99,10 @@ export interface AssistantAgentActions {
   closePanel: () => void;
   /** Send a message to Assistant */
   sendMessage: (message: string) => void;
+  /** Queue a prompt to seed the chat input the next time it's visible (survives the setup wizard) */
+  prefillPrompt: (prompt: string) => void;
+  /** Clear any queued prompt */
+  clearPendingPrompt: () => void;
   /** Regenerate the last assistant response */
   regenerateLastMessage: () => void;
   /** Reset the conversation */
@@ -93,6 +113,8 @@ export interface AssistantAgentActions {
   refreshConfig: () => Promise<void>;
   /** Mark setup as complete (after wizard finishes) */
   completeSetup: () => void;
+  /** Answer the pending tool-call permission prompt */
+  respondToPermission: (allow: boolean) => void;
 }
 
 export type AssistantAgentContextType = AssistantAgentState & AssistantAgentActions;
@@ -129,6 +151,8 @@ export interface ProviderConfig {
   model: string;
   selected: boolean;
   permissions: PermissionsConfig;
+  base_url?: string;
+  api_key?: string;
 }
 
 /**

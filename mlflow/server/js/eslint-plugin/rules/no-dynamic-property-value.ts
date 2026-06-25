@@ -2077,7 +2077,8 @@ function validateCallExpression(
   }
 
   const config = resolvedName
-    ? FUNCTION_CONFIGS.find((cfg) => !cfg.className && cfg.functionNames.includes(resolvedName!)) ||
+    ? // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      FUNCTION_CONFIGS.find((cfg) => !cfg.className && cfg.functionNames.includes(resolvedName!)) ||
       getMatchingConfig(node)
     : getMatchingConfig(node);
 

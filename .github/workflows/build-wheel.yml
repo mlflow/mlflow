@@ -19,6 +19,7 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   workflow_dispatch:
     inputs:
       ref:
@@ -34,6 +35,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   build:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
@@ -46,7 +49,7 @@ jobs:
       matrix:
         type: ["dev", "skinny", "tracing"]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           ref: ${{ github.event.inputs.ref }}

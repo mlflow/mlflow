@@ -1,0 +1,67 @@
+---
+title: OpenAI Codex
+description: Use OpenAI Codex with the MLflow AI Gateway to get centralized observability while authenticating with your own OpenAI subscription.
+---
+
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { BarChart3, Shield, DollarSign } from "lucide-react";
+
+# OpenAI Codex + MLflow AI Gateway
+
+Route [OpenAI Codex](https://github.com/openai/codex) through the MLflow AI Gateway to get centralized tracing and observability, while each developer authenticates with their own OpenAI subscription.
+
+## Prerequisites
+
+- MLflow server running with a SQL backend (`mlflow server --port 5000`)
+- Codex installed (`npm install -g @openai/codex`)
+
+## Step 1: Create an OpenAI Endpoint
+
+Navigate to the **AI Gateway** tab at `http://localhost:5000/#/gateway` and click **OpenAI Codex** in the quick start. Then click "create" to create an endpoint. The endpoint name is pre-filled as `codex` — you can change it, but make sure to use the same name in the next step.
+
+## Step 2: Run Codex
+
+Configure Codex to point to the gateway base URL and run it.
+
+```bash
+codex --config 'openai_base_url="http://localhost:5000/gateway/proxy/codex/v1"'
+```
+
+For a persistent setup, add the same value to `~/.codex/config.toml`:
+
+```toml title="~/.codex/config.toml"
+openai_base_url = "http://localhost:5000/gateway/proxy/codex/v1
+```
+
+Note that you need to authenticate with your API key instead of ChatGPT subscription.
+
+## What You Get
+
+Every session is captured as an MLflow trace. Open the **Logs** tab in the MLflow UI to inspect inputs, outputs, token usage, and latency for every request.
+
+![Codex trace in MLflow](/images/genai/governance/ai-gateway/codex-trace.png)
+
+<TilesGrid>
+  <TileCard
+    icon={BarChart3}
+    title="Usage Tracking"
+    description="Monitor token usage and costs across all Codex sessions"
+    href="/genai/governance/ai-gateway/usage-tracking"
+    linkText="View usage tracking →"
+  />
+  <TileCard
+    icon={Shield}
+    title="Guardrails"
+    description="Add content policies to all Codex requests automatically"
+    href="/genai/governance/ai-gateway/guardrails"
+    linkText="Configure guardrails →"
+  />
+  <TileCard
+    icon={DollarSign}
+    title="Budget Alerts & Limits"
+    description="Set spending limits globally or per workspace to keep sessions within budget"
+    href="/genai/governance/ai-gateway/budget-alerts-limits"
+    linkText="Configure budget limits →"
+  />
+</TilesGrid>

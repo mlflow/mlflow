@@ -35,7 +35,7 @@ The `@mlflow.trace` decorator currently supports the following types of function
 
 The following code is a minimum example of using the decorator for tracing Python functions.
 
-:::tip Decorator Order
+:::tip[Decorator Order]
 To ensure complete observability, the `@mlflow.trace` decorator should generally be the **outermost** one if using multiple decorators. See [Using @mlflow.trace with Other Decorators](#using-mlflowtrace-with-other-decorators) for a detailed explanation and examples.
 :::
 
@@ -111,7 +111,7 @@ import math
 import mlflow
 
 
-def invocation(x, y, exp=2):
+def invocation(x, exp=2):
     # Wrap an external function from the math library
     traced_pow = mlflow.trace(math.pow)
     raised = traced_pow(x, exp)
@@ -384,7 +384,7 @@ class MyClass {
 
 By setting `request_preview` and `response_preview` on the trace (typically the root span), you control how the overall interaction is summarized in the main trace list view, making it easier to identify and understand traces at a glance.
 
-:::tip Images and Audio Content in MLflow Traces
+:::tip[Images and Audio Content in MLflow Traces]
 You can attach images and audio to spans using content parts lists in `set_inputs()` and `set_outputs()`:
 
 ```python
@@ -406,7 +406,7 @@ with mlflow.start_span(name="multimodal-call") as span:
     span.set_outputs({"content": result})
 ```
 
-See [Image and Audio (Multimodal) Content in Traces](/genai/tracing/observe-with-traces/multimodal#manual-tracing) for more examples.
+See [Multimodal Content and Attachments in Traces](/genai/tracing/observe-with-traces/multimodal#manual-tracing) for more examples.
 :::
 
 ## Code Block
@@ -581,7 +581,7 @@ If an `Exception` is raised during processing of a trace-instrumented operation,
 
 ---
 
-:::note Python Only Features
+:::note[Python Only Features]
 The below documentation applies only to the MLflow Python SDK.
 :::
 

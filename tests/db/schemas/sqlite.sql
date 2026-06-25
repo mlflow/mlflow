@@ -146,6 +146,8 @@ CREATE TABLE workspaces (
 	name VARCHAR(63) NOT NULL,
 	description TEXT,
 	default_artifact_root TEXT,
+	trace_archival_location TEXT,
+	trace_archival_retention VARCHAR(32),
 	CONSTRAINT workspaces_pk PRIMARY KEY (name)
 )
 
@@ -218,6 +220,25 @@ CREATE TABLE experiment_tags (
 	experiment_id INTEGER NOT NULL,
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id),
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE label_schemas (
+	schema_id VARCHAR(36) NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(250) NOT NULL,
+	type VARCHAR(16) NOT NULL,
+	instruction TEXT,
+	enable_comment BOOLEAN DEFAULT '0' NOT NULL,
+	input_type VARCHAR(32) NOT NULL,
+	input_config TEXT NOT NULL,
+	created_by VARCHAR(255),
+	created_time BIGINT NOT NULL,
+	last_update_time BIGINT NOT NULL,
+	is_default BOOLEAN DEFAULT 0 NOT NULL,
+	CONSTRAINT label_schemas_pk PRIMARY KEY (schema_id),
+	CONSTRAINT fk_label_schemas_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
+	CONSTRAINT uq_label_schemas_exp_name UNIQUE (experiment_id, name)
 )
 
 
@@ -296,6 +317,21 @@ CREATE TABLE registered_model_tags (
 )
 
 
+CREATE TABLE review_queues (
+	queue_id VARCHAR(36) NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(250) NOT NULL,
+	queue_type VARCHAR(16) NOT NULL,
+	created_by VARCHAR(255),
+	creation_time_ms BIGINT NOT NULL,
+	last_update_time_ms BIGINT NOT NULL,
+	name_key VARCHAR(250) NOT NULL,
+	CONSTRAINT review_queues_pk PRIMARY KEY (queue_id),
+	CONSTRAINT fk_review_queues_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
+	CONSTRAINT uq_review_queues_experiment_name_key UNIQUE (experiment_id, name_key)
+)
+
+
 CREATE TABLE runs (
 	run_uuid VARCHAR(32) NOT NULL,
 	name VARCHAR(250),
@@ -337,6 +373,7 @@ CREATE TABLE trace_info (
 	client_request_id VARCHAR(50),
 	request_preview VARCHAR(1000),
 	response_preview VARCHAR(1000),
+	db_payload_generation INTEGER DEFAULT '0' NOT NULL,
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
@@ -528,6 +565,36 @@ CREATE TABLE params (
 )
 
 
+CREATE TABLE review_queue_items (
+	queue_id VARCHAR(36) NOT NULL,
+	item_type VARCHAR(16) NOT NULL,
+	item_id VARCHAR(50) NOT NULL,
+	status VARCHAR(16) NOT NULL,
+	completed_by VARCHAR(250),
+	completed_time_ms BIGINT,
+	creation_time_ms BIGINT NOT NULL,
+	last_update_time_ms BIGINT NOT NULL,
+	CONSTRAINT review_queue_items_pk PRIMARY KEY (queue_id, item_id),
+	CONSTRAINT fk_review_queue_items_queue_id FOREIGN KEY(queue_id) REFERENCES review_queues (queue_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE review_queue_label_schemas (
+	queue_id VARCHAR(36) NOT NULL,
+	schema_id VARCHAR(36) NOT NULL,
+	CONSTRAINT review_queue_label_schemas_pk PRIMARY KEY (queue_id, schema_id),
+	CONSTRAINT fk_review_queue_label_schemas_queue_id FOREIGN KEY(queue_id) REFERENCES review_queues (queue_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE review_queue_users (
+	queue_id VARCHAR(36) NOT NULL,
+	user_id VARCHAR(250) NOT NULL,
+	CONSTRAINT review_queue_users_pk PRIMARY KEY (queue_id, user_id),
+	CONSTRAINT fk_review_queue_users_queue_id FOREIGN KEY(queue_id) REFERENCES review_queues (queue_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE scorer_versions (
 	scorer_id VARCHAR(36) NOT NULL,
 	scorer_version INTEGER NOT NULL,
@@ -633,4 +700,3 @@ CREATE TABLE guardrail_configs (
 	CONSTRAINT fk_guardrail_configs_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
 	CONSTRAINT fk_guardrail_configs_guardrail_id FOREIGN KEY(guardrail_id) REFERENCES guardrails (guardrail_id) ON DELETE CASCADE
 )
-

@@ -9,6 +9,7 @@ import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
+
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { invalidateMlflowSearchTracesCache } from '@databricks/web-shared/genai-traces-table';
 
@@ -17,7 +18,9 @@ jest.mock('../../hooks/useExperimentQuery', () => ({
 }));
 
 jest.mock('@databricks/web-shared/genai-traces-table', () => ({
-  ...(jest.requireActual('@databricks/web-shared/genai-traces-table') as Record<string, unknown>),
+  ...(jest.requireActual<typeof import('@databricks/web-shared/genai-traces-table')>(
+    '@databricks/web-shared/genai-traces-table',
+  ) as Record<string, unknown>),
   invalidateMlflowSearchTracesCache: jest.fn(),
 }));
 

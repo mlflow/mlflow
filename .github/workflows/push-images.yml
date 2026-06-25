@@ -10,15 +10,18 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   push-images:
-    if: "!contains(github.ref_name, 'rc')"
+    # Only run for version tags (vX.Y.Z); skips non-version release tags like `model-catalog/latest`.
+    if: "startsWith(github.ref_name, 'v') && !contains(github.ref_name, 'rc')"
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       packages: write # to push to ghcr.io
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 

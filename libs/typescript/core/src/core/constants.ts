@@ -20,6 +20,53 @@ export enum SpanType {
 }
 
 /**
+ * Severity level for an MLflow trace span. The public tracing API accepts a
+ * `SpanLogLevel` member or its string name (e.g. "INFO").
+ */
+export enum SpanLogLevel {
+  DEBUG = 10,
+  INFO = 20,
+  WARNING = 30,
+  ERROR = 40,
+  CRITICAL = 50,
+}
+
+/**
+ * Normalize an enum or string into a SpanLogLevel. Raw integers are not
+ * accepted at the type level; the runtime number branch exists only because
+ * `SpanLogLevel` is a numeric enum and its members arrive as primitive
+ * numbers.
+ */
+export function toSpanLogLevel(value: SpanLogLevel | string): SpanLogLevel {
+  if (typeof value === 'number') {
+    if (Object.values(SpanLogLevel).includes(value as SpanLogLevel)) {
+      return value as SpanLogLevel;
+    }
+    throw new Error(
+      `Invalid SpanLogLevel value ${value}. Expected one of ${Object.values(SpanLogLevel)
+        .filter((v) => typeof v === 'number')
+        .join(', ')}.`,
+    );
+  }
+  if (typeof value === 'string') {
+    const matched = (SpanLogLevel as Record<string, SpanLogLevel | string>)[
+      value.trim().toUpperCase()
+    ];
+    if (typeof matched === 'number') {
+      return matched;
+    }
+    throw new Error(
+      `Invalid SpanLogLevel name ${JSON.stringify(value)}. Expected one of ${Object.keys(
+        SpanLogLevel,
+      )
+        .filter((k) => isNaN(Number(k)))
+        .join(', ')}.`,
+    );
+  }
+  throw new Error(`SpanLogLevel must be a SpanLogLevel or string; got ${typeof value}.`);
+}
+
+/**
  * Constants for MLflow span attribute keys
  */
 export const SpanAttributeKey = {
@@ -28,6 +75,9 @@ export const SpanAttributeKey = {
   INPUTS: 'mlflow.spanInputs',
   OUTPUTS: 'mlflow.spanOutputs',
   SPAN_TYPE: 'mlflow.spanType',
+  // Severity level of the span (one of the `SpanLogLevel` members). Absent
+  // means the span was not classified.
+  LOG_LEVEL: 'mlflow.spanLogLevel',
   // This attribute is used to store token usage information from LLM responses.
   // Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
   TOKEN_USAGE: 'mlflow.chat.tokenUsage',
@@ -68,9 +118,27 @@ export const TraceTagKey = {
 export const TRACE_SCHEMA_VERSION = '3';
 
 /**
- * The prefix for MLflow trace IDs
+ * The prefix for MLflow trace IDs (V3 schema).
  */
 export const TRACE_ID_PREFIX = 'tr-';
+
+/**
+ * The prefix for V4 schema trace IDs (Databricks Unity Catalog backed
+ * traces). Full format: `trace:/<location>/<hex_trace_id>`.
+ */
+export const TRACE_ID_V4_PREFIX = 'trace:/';
+
+/**
+ * HTTP header used to route OTLP span uploads to a specific Databricks
+ * Unity Catalog table when sending to /api/2.0/otel/v1/traces.
+ */
+export const DATABRICKS_UC_TABLE_HEADER = 'X-Databricks-UC-Table-Name';
+
+/**
+ * HTTP header used to associate OTLP span uploads with an MLflow experiment
+ * when sending to the OSS tracking server's /v1/traces endpoint.
+ */
+export const MLFLOW_EXPERIMENT_ID_HEADER = 'x-mlflow-experiment-id';
 
 /**
  * The default name for spans if the name is not provided when starting a span

@@ -29,7 +29,7 @@ def test_flush_metrics_queue_is_thread_safe():
     # Verify that, if another thread holds a lock on the metric queue leveraged by
     # _flush_queue, _flush_queue terminates and does not modify the queue
     _metrics_queue_lock.acquire()
-    flush_thread1 = Thread(target=flush_metrics_queue)
+    flush_thread1 = Thread(name="test-autologging-flush-1", target=flush_metrics_queue)
     flush_thread1.start()
     flush_thread1.join()
     assert len(_metrics_queue) == 1
@@ -38,7 +38,7 @@ def test_flush_metrics_queue_is_thread_safe():
 
     # Verify that, if no other thread holds a lock on the metric queue leveraged by
     # _flush_queue, _flush_queue flushes the queue as expected
-    flush_thread2 = Thread(target=flush_metrics_queue)
+    flush_thread2 = Thread(name="test-autologging-flush-2", target=flush_metrics_queue)
     flush_thread2.start()
     flush_thread2.join()
     assert len(_metrics_queue) == 0

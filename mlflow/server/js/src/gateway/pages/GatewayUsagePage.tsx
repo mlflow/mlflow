@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from '../../common/utils/RoutingUtils';
 import {
+  Breadcrumb,
   ChartLineIcon,
   SimpleSelect,
   SimpleSelectOption,
@@ -9,7 +10,8 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { GatewayLabel } from '../../common/components/GatewayNewTag';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { createTraceMetadataFilter, AUTH_USER_ID_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
 import { useEndpointsQuery } from '../hooks/useEndpointsQuery';
 import { useUsersQuery } from '../hooks/useUsersQuery';
@@ -20,7 +22,15 @@ import { MonitoringConfigProvider } from '../../experiment-tracking/hooks/useMon
 import { useMonitoringFiltersTimeRange } from '../../experiment-tracking/hooks/useMonitoringFilters';
 import { TracesV3DateSelector } from '../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import type { TableFilter } from '@databricks/web-shared/genai-traces-table';
-import { FilterOperator } from '@databricks/web-shared/genai-traces-table';
+import { ExperimentViewTracesStatusLabels, FilterOperator } from '@databricks/web-shared/genai-traces-table';
+import { MetricsFilter } from '../../common/components/MetricsFilter';
+import {
+  translateToMetricsFilters,
+  translateToTracesPageFilters,
+  TRACE_STATE_VALUES,
+  type MetricFilter,
+  type MetricFilterColumnOption,
+} from '../../common/components/MetricsFilter.utils';
 
 const GatewayLogsContent = ({
   experimentIds,
@@ -59,11 +69,47 @@ const GatewayLogsContent = ({
   );
 };
 
+const UsageEmptyState = ({
+  title,
+  description,
+  componentId,
+}: {
+  title: React.ReactNode;
+  description: React.ReactNode;
+  componentId: string;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 300,
+        textAlign: 'center',
+        padding: theme.spacing.lg,
+      }}
+    >
+      <ChartLineIcon css={{ fontSize: 48, color: theme.colors.textSecondary, marginBottom: theme.spacing.md }} />
+      <Typography.Title level={3}>{title}</Typography.Title>
+      <Typography.Text color="secondary" css={{ marginBottom: theme.spacing.md }}>
+        {description}
+      </Typography.Text>
+      <Link componentId={componentId} to={GatewayRoutes.gatewayPageRoute}>
+        <FormattedMessage defaultMessage="Go to Endpoints" description="Link to endpoints page" />
+      </Link>
+    </div>
+  );
+};
+
 export const GatewayUsagePage = () => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [metricFilters, setMetricFilters] = useState<MetricFilter[]>([]);
 
   const VALID_TABS = ['usage', 'logs'] as const;
   const tabParam = searchParams.get('tab');
@@ -95,6 +141,29 @@ export const GatewayUsagePage = () => {
     return selectedEndpoint?.experiment_id ? [selectedEndpoint.experiment_id] : [];
   }, [showAllEndpoints, endpointsWithExperiments, selectedEndpoint]);
 
+  // Build chart filters from selected user ID and MetricsFilter rows.
+  const chartFilters = useMemo(() => {
+    const result: string[] = [];
+    if (selectedUserId) {
+      result.push(createTraceMetadataFilter(AUTH_USER_ID_METADATA_KEY, selectedUserId));
+    }
+    const metricFilterStrings = translateToMetricsFilters(metricFilters);
+    if (metricFilterStrings) {
+      result.push(...metricFilterStrings);
+    }
+    return result.length > 0 ? result : undefined;
+  }, [selectedUserId, metricFilters]);
+
+  const tableFilters = useMemo((): TableFilter[] | undefined => {
+    if (!selectedUserId) return undefined;
+    return [{ column: 'user', operator: FilterOperator.EQUALS, value: selectedUserId }];
+  }, [selectedUserId]);
+
+  // URL filter strings (column::operator::value) appended to chart-tooltip
+  // navigation so the Logs tab opens with the same filter set after a click on
+  // a chart bucket.
+  const tracesNavigationFilters = useMemo(() => translateToTracesPageFilters(metricFilters), [metricFilters]);
+
   const tooltipLinkUrlBuilder = useMemo(() => {
     return (_experimentId: string, timestampMs: number, timeIntervalSeconds: number) => {
       const params = new URLSearchParams();
@@ -102,59 +171,30 @@ export const GatewayUsagePage = () => {
       params.set('startTimeLabel', 'CUSTOM');
       params.set('startTime', new Date(timestampMs).toISOString());
       params.set('endTime', new Date(timestampMs + timeIntervalSeconds * 1000).toISOString());
+      tracesNavigationFilters?.forEach((f) => params.append('filter', f));
       return `${GatewayRoutes.usagePageRoute}?${params.toString()}`;
     };
-  }, []);
+  }, [tracesNavigationFilters]);
 
-  // Build chart filters from selected user ID (string format for chart APIs)
-  const chartFilters = useMemo(() => {
-    if (!selectedUserId) return undefined;
-    return [createTraceMetadataFilter(AUTH_USER_ID_METADATA_KEY, selectedUserId)];
-  }, [selectedUserId]);
+  // Column options exposed in the MetricsFilter dropdown
+  const metricsFilterColumnOptions = useMemo<MetricFilterColumnOption[]>(
+    () => [
+      {
+        value: 'state',
+        label: intl.formatMessage({
+          defaultMessage: 'State',
+          description: 'Gateway usage overview > metrics filter > state column option label',
+        }),
+        valueOptions: TRACE_STATE_VALUES.map((value) => ({
+          value,
+          label: intl.formatMessage(ExperimentViewTracesStatusLabels[value]),
+        })),
+      },
+    ],
+    [intl],
+  );
 
-  // Build table filters from selected user ID (TableFilter format for TracesV3Logs)
-  const tableFilters = useMemo((): TableFilter[] | undefined => {
-    if (!selectedUserId) return undefined;
-    return [{ column: 'user', operator: FilterOperator.EQUALS, value: selectedUserId }];
-  }, [selectedUserId]);
-
-  if (!isLoadingEndpoints && endpointsWithExperiments.length === 0) {
-    return (
-      <div
-        css={{
-          flex: 1,
-          overflow: 'auto',
-          padding: theme.spacing.md,
-        }}
-      >
-        <div
-          css={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: 300,
-            textAlign: 'center',
-            padding: theme.spacing.lg,
-          }}
-        >
-          <ChartLineIcon css={{ fontSize: 48, color: theme.colors.textSecondary, marginBottom: theme.spacing.md }} />
-          <Typography.Title level={3}>
-            <FormattedMessage defaultMessage="No usage data available" description="Empty state title" />
-          </Typography.Title>
-          <Typography.Text color="secondary" css={{ marginBottom: theme.spacing.md }}>
-            <FormattedMessage
-              defaultMessage="Enable usage tracking on your endpoints to see usage metrics here."
-              description="Empty state description"
-            />
-          </Typography.Text>
-          <Link componentId="mlflow.gateway.usage.go_to_endpoints_link" to={GatewayRoutes.gatewayPageRoute}>
-            <FormattedMessage defaultMessage="Go to Endpoints" description="Link to endpoints page" />
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const hasEndpoints = endpointsWithExperiments.length > 0;
 
   const endpointAndUserControls = (
     <>
@@ -225,38 +265,44 @@ export const GatewayUsagePage = () => {
           paddingBottom: 0,
         }}
       >
-        <div
-          css={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            marginBottom: theme.spacing.sm,
-          }}
-        >
-          <div>
-            <Typography.Title level={2} css={{ margin: 0 }}>
-              <FormattedMessage defaultMessage="Gateway Usage" description="Page title" />
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, marginBottom: theme.spacing.md }}>
+          <Breadcrumb includeTrailingCaret>
+            <Breadcrumb.Item>
+              <Link componentId="mlflow.gateway.usage.breadcrumb_gateway_link" to={GatewayRoutes.gatewayPageRoute}>
+                <GatewayLabel />
+              </Link>
+            </Breadcrumb.Item>
+          </Breadcrumb>
+          <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+            <div
+              css={{
+                borderRadius: theme.borders.borderRadiusSm,
+                backgroundColor: theme.colors.backgroundSecondary,
+                padding: theme.spacing.sm,
+                display: 'flex',
+              }}
+            >
+              <ChartLineIcon />
+            </div>
+            <Typography.Title withoutMargins level={2}>
+              <FormattedMessage defaultMessage="Usage" description="Page title" />
             </Typography.Title>
-            <Typography.Text color="secondary">
-              <FormattedMessage
-                defaultMessage="Monitor usage and performance across all endpoints"
-                description="Page subtitle"
-              />
-            </Typography.Text>
           </div>
         </div>
 
-        {/* Filters */}
-        <div
-          css={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: theme.spacing.md,
-            marginBottom: theme.spacing.sm,
-          }}
-        >
-          {endpointAndUserControls}
-        </div>
+        {/* Filters - only shown when endpoints with usage tracking exist */}
+        {hasEndpoints && (
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.md,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            {endpointAndUserControls}
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -294,10 +340,28 @@ export const GatewayUsagePage = () => {
             padding: theme.spacing.md,
           }}
         >
-          {isLoadingEndpoints || experimentIds.length > 0 ? (
+          {!isLoadingEndpoints && !hasEndpoints ? (
+            <UsageEmptyState
+              title={<FormattedMessage defaultMessage="No usage data available" description="Empty state title" />}
+              description={
+                <FormattedMessage
+                  defaultMessage="Once you have endpoints with usage tracking enabled, usage metrics will appear here."
+                  description="Empty state description for usage tab"
+                />
+              }
+              componentId="mlflow.gateway.usage.go_to_endpoints_link"
+            />
+          ) : isLoadingEndpoints || experimentIds.length > 0 ? (
             <GatewayChartsPanel
               experimentIds={experimentIds}
               showTokenStats
+              additionalControls={
+                <MetricsFilter
+                  filters={metricFilters}
+                  setFilters={setMetricFilters}
+                  columnOptions={metricsFilterColumnOptions}
+                />
+              }
               tooltipLinkUrlBuilder={tooltipLinkUrlBuilder}
               tooltipLinkText={
                 <FormattedMessage
@@ -337,7 +401,20 @@ export const GatewayUsagePage = () => {
             padding: theme.spacing.md,
           }}
         >
-          {experimentIds.length > 0 ? (
+          {!isLoadingEndpoints && !hasEndpoints ? (
+            <UsageEmptyState
+              title={
+                <FormattedMessage defaultMessage="No logs available" description="Empty state title for logs tab" />
+              }
+              description={
+                <FormattedMessage
+                  defaultMessage="Once you have endpoints with usage tracking enabled, logs will appear here."
+                  description="Empty state description for logs tab"
+                />
+              }
+              componentId="mlflow.gateway.usage.go_to_endpoints_link_logs"
+            />
+          ) : experimentIds.length > 0 ? (
             <MonitoringConfigProvider>
               <GatewayLogsContent experimentIds={experimentIds} additionalFilters={tableFilters} />
             </MonitoringConfigProvider>

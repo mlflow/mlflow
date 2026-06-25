@@ -223,7 +223,9 @@ def generate_traces(cfg: SizeConfig, experiments: list[ExperimentData]) -> list[
         mlflow.set_experiment(experiment_id=exp.experiment_id)
         for t_idx in range(cfg.traces_per_exp):
             _rag_pipeline(f"test query {t_idx}")
-
+            # Flush any pending async writes before accessing the trace.
+            if flush := getattr(mlflow, "flush_trace_async_logging", None):
+                flush()
             trace_id = mlflow.get_last_active_trace_id()
             client.set_trace_tag(trace_id, "trace_source", "synthetic")
             trace_ids.append(trace_id)

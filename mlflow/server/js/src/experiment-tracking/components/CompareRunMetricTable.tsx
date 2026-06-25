@@ -5,7 +5,7 @@ import { AutoSizer, Grid } from 'react-virtualized';
 import { Link } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
-import { LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 
 export type CompareRunMetricTableRef = {
   setScrollLeft: (scrollLeft: number) => void;
@@ -288,17 +288,15 @@ function CompareRunMetricTableBodyCell({
             : undefined,
       }}
     >
-      <LegacyTooltip
-        title={formattedMetric}
-        // @ts-expect-error TS(2322): Type '{ children: any; title: any; color: string; ... Remove this comment to see the full error message
-        color="gray"
-        placement="topLeft"
-        overlayStyle={{ maxWidth: '400px' }}
-        // mouseEnterDelay prop is not available in DuBois design system (yet)
-        dangerouslySetAntdProps={{ mouseEnterDelay: 1 }}
+      <Tooltip
+        componentId="mlflow.compare_runs.metric_table.cell"
+        content={formattedMetric}
+        side="top"
+        align="start"
+        maxWidth={400}
       >
-        {formattedMetric}
-      </LegacyTooltip>
+        <span>{formattedMetric}</span>
+      </Tooltip>
     </div>
   );
 }

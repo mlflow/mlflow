@@ -57,7 +57,10 @@ from mlflow import tracing  # noqa: F401
 from mlflow.environment_variables import MLFLOW_CONFIGURE_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.utils.lazy_load import LazyLoader
-from mlflow.utils.logging_utils import _configure_mlflow_loggers
+from mlflow.utils.logging_utils import (
+    _configure_mlflow_loggers,
+    _install_sensitive_query_param_filter,
+)
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
 anthropic = LazyLoader("mlflow.anthropic", globals(), "mlflow.anthropic")
@@ -67,6 +70,7 @@ autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 bedrock = LazyLoader("mlflow.bedrock", globals(), "mlflow.bedrock")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
+diffusers = LazyLoader("mlflow.diffusers", globals(), "mlflow.diffusers")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
 groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
@@ -78,7 +82,6 @@ langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
 lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
 litellm = LazyLoader("mlflow.litellm", globals(), "mlflow.litellm")
 llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
-llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
 mistral = LazyLoader("mlflow.mistral", globals(), "mlflow.mistral")
 onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
@@ -122,6 +125,7 @@ if TYPE_CHECKING:
         bedrock,
         catboost,
         crewai,
+        diffusers,
         dspy,
         gemini,
         groq,
@@ -133,7 +137,6 @@ if TYPE_CHECKING:
         lightgbm,
         litellm,
         llama_index,
-        llm,
         metrics,
         mistral,
         onnx,
@@ -160,6 +163,8 @@ if TYPE_CHECKING:
         transformers,
         xgboost,
     )
+
+_install_sensitive_query_param_filter()
 
 if MLFLOW_CONFIGURE_LOGGING.get() is True:
     _configure_mlflow_loggers(root_module_name=__name__)
@@ -258,6 +263,7 @@ if not IS_TRACING_SDK_ONLY:
     from mlflow.models.evaluation.deprecated import evaluate
     from mlflow.models.evaluation.validation import validate_evaluation_results
     from mlflow.projects import run
+    from mlflow.pytest import test
     from mlflow.tracking._model_registry.fluent import (
         # TODO: Prompt Registry APIs are moved to the `mlflow.genai` namespace and direct
         # imports from mlflow will be deprecated in the future.
@@ -415,6 +421,7 @@ if not IS_TRACING_SDK_ONLY:
         "set_tags",
         "set_workspace",
         "start_run",
+        "test",
         "validate_evaluation_results",
         "Image",
         # Prompt Registry APIs

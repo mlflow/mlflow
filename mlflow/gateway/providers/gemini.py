@@ -9,8 +9,14 @@ from mlflow.gateway.providers.base import (
     BaseProvider,
     PassthroughAction,
     ProviderAdapter,
+    _client_provides_auth,
 )
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
+from mlflow.gateway.providers.utils import (
+    rename_payload_keys,
+    send_proxy_request,
+    send_request,
+    send_stream_request,
+)
 from mlflow.gateway.schemas import (
     chat as chat_schema,
 )
@@ -105,6 +111,7 @@ class GeminiAdapter(ProviderAdapter):
         system_message = None
 
         call_id_to_function_name_map = {}
+        call_id_to_thought_signature_map = {}
 
         for message in payload["messages"]:
             role = message["role"]
@@ -120,13 +127,20 @@ class GeminiAdapter(ProviderAdapter):
                             call_id_to_function_name_map[tool_call["id"]] = tool_call["function"][
                                 "name"
                             ]
-                            gemini_function_calls.append({
-                                "functionCall": {
-                                    "id": tool_call["id"],
-                                    "name": tool_call["function"]["name"],
-                                    "args": json.loads(tool_call["function"]["arguments"]),
-                                }
-                            })
+                            if sig := tool_call.get("thought_signature"):
+                                call_id_to_thought_signature_map[tool_call["id"]] = sig
+
+                            fc = {
+                                "id": tool_call["id"],
+                                "name": tool_call["function"]["name"],
+                                "args": json.loads(tool_call["function"]["arguments"]),
+                            }
+                            if tool_call["id"] in call_id_to_thought_signature_map:
+                                fc["thoughtSignature"] = call_id_to_thought_signature_map[
+                                    tool_call["id"]
+                                ]
+
+                            gemini_function_calls.append({"functionCall": fc})
                 if gemini_function_calls:
                     contents.append({"role": "model", "parts": gemini_function_calls})
                 else:
@@ -161,13 +175,16 @@ class GeminiAdapter(ProviderAdapter):
 
         # Transform response_format for Gemini structured outputs
         if response_format := payload.pop("response_format", None):
-            if response_format.get("type") == "json_schema" and "json_schema" in response_format:
-                if "generationConfig" not in gemini_payload:
-                    gemini_payload["generationConfig"] = {}
-                gemini_payload["generationConfig"]["responseJsonSchema"] = response_format[
-                    "json_schema"
-                ]["schema"]
-                gemini_payload["generationConfig"]["responseMimeType"] = "application/json"
+            response_format_type = response_format.get("type")
+            if response_format_type == "json_schema" and "json_schema" in response_format:
+                generation_config = gemini_payload.setdefault("generationConfig", {})
+                generation_config["responseJsonSchema"] = response_format["json_schema"]["schema"]
+                generation_config["responseMimeType"] = "application/json"
+            elif response_format_type == "json_object":
+                # Gemini constrains output to valid JSON when responseMimeType is set,
+                # even without an explicit schema.
+                generation_config = gemini_payload.setdefault("generationConfig", {})
+                generation_config["responseMimeType"] = "application/json"
 
         # convert tool definition to Gemini format
         if tools := payload.pop("tools", None):
@@ -211,6 +228,9 @@ class GeminiAdapter(ProviderAdapter):
             func_name = function_call["name"]
             func_arguments = json.dumps(function_call["args"])
             call_id = function_call.get("id")
+            thought_sig = function_call.get("thoughtSignature") or function_call.get(
+                "thought_signature"
+            )
             if call_id is None:
                 # Gemini model response might not contain function call id,
                 # in order to make it compatible with Openai chat protocol,
@@ -232,6 +252,7 @@ class GeminiAdapter(ProviderAdapter):
                             arguments=func_arguments,
                         ),
                         type="function",
+                        thought_signature=thought_sig,
                     )
                 )
             else:
@@ -243,6 +264,7 @@ class GeminiAdapter(ProviderAdapter):
                             arguments=func_arguments,
                         ),
                         type="function",
+                        thought_signature=thought_sig,
                     )
                 )
         if stream:
@@ -657,7 +679,10 @@ class GeminiProvider(BaseProvider):
             client_headers = headers.copy()
             client_headers.pop("host", None)
             client_headers.pop("content-length", None)
-            # Don't override api key header
+            if _client_provides_auth(headers):
+                # Preserve the client's own credentials for subscription-based tools
+                # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
+                result_headers.pop("x-goog-api-key", None)
             result_headers = client_headers | result_headers
 
         return result_headers
@@ -863,6 +888,23 @@ class GeminiProvider(BaseProvider):
             pass
 
         return {}
+
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        # base_url includes /v1beta/models; the caller's path already starts with
+        # v1beta/models/..., so use the bare origin to avoid double-prefixing.
+        api_origin = "https://generativelanguage.googleapis.com"
+        gen = send_proxy_request(self._get_headers(None, headers), api_origin, path, payload)
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
 
     async def _passthrough(
         self,

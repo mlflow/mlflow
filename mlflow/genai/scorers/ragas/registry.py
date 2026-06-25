@@ -73,7 +73,7 @@ _METRIC_REGISTRY: dict[str, MetricConfig] = {
     "BleuScore": MetricConfig(
         "ragas.metrics.collections.BleuScore", requires_llm_in_constructor=False
     ),
-    "CHRFScore": MetricConfig(
+    "ChrfScore": MetricConfig(
         "ragas.metrics.collections.CHRFScore", requires_llm_in_constructor=False
     ),
     "RougeScore": MetricConfig(
@@ -124,9 +124,11 @@ def get_metric_class(metric_name: str):
             "RAGAS metrics require the 'ragas' package. Please install it with: pip install ragas"
         ) from e
     except AttributeError:
+        # error_code is INVALID_PARAMETER_VALUE but this is an attribute lookup failure
         raise MlflowException.invalid_parameter_value(
             f"Unknown RAGAS metric: '{metric_name}'. Could not find class '{class_name}' "
-            f"in module '{module_path}'."
+            f"in module '{module_path}'.",
+            error_class="ATTRIBUTE_NOT_FOUND",
         )
 
 

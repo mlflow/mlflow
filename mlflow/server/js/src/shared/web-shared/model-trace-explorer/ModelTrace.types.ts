@@ -6,7 +6,7 @@ export const MLFLOW_TRACE_SCHEMA_VERSION_KEY = 'mlflow.trace_schema.version';
 export const INFERENCE_TABLE_RESPONSE_COLUMN_KEY = 'response';
 export const INFERENCE_TABLE_TRACE_COLUMN_KEY = 'trace';
 
-export type ModelTraceExplorerRenderMode = 'default' | 'json';
+export type ModelTraceExplorerRenderMode = 'default' | 'json' | 'table';
 
 export enum ModelSpanType {
   LLM = 'LLM',
@@ -21,6 +21,16 @@ export enum ModelSpanType {
   RERANKER = 'RERANKER',
   MEMORY = 'MEMORY',
   UNKNOWN = 'UNKNOWN',
+}
+
+// Numeric values mirror Python's logging module so a value sourced from
+// the `mlflow.spanLogLevel` span attribute can be compared directly.
+export enum SpanLogLevel {
+  DEBUG = 10,
+  INFO = 20,
+  WARNING = 30,
+  ERROR = 40,
+  CRITICAL = 50,
 }
 
 export enum ModelIconType {
@@ -198,10 +208,25 @@ export type ModelTraceLocationUcSchema = {
   uc_schema: { catalog_name: string; schema_name: string };
 };
 
+export type ModelTraceLocationUcTablePrefix = {
+  type: 'UC_TABLE_PREFIX';
+  uc_table_prefix: { catalog_name: string; schema_name: string; table_prefix: string };
+};
+
 export type ModelTraceLocation =
   | ModelTraceLocationMlflowExperiment
   | ModelTraceLocationInferenceTable
-  | ModelTraceLocationUcSchema;
+  | ModelTraceLocationUcSchema
+  | ModelTraceLocationUcTablePrefix;
+
+/**
+ * Subset of ModelTraceLocation used for trace search operations.
+ * Excludes INFERENCE_TABLE which is not used in search APIs.
+ */
+export type ModelTraceSearchLocation =
+  | ModelTraceLocationMlflowExperiment
+  | ModelTraceLocationUcSchema
+  | ModelTraceLocationUcTablePrefix;
 
 export type ModelTraceInfoV3 = {
   trace_id: string;
@@ -300,6 +325,10 @@ export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpa
   modelName?: string;
   cost?: SpanCostInfo;
   linkedGatewayTraceId?: string;
+  // Severity classification, sourced from `mlflow.spanLogLevel`. Spans without
+  // an explicit level have this undefined; the trace-explorer filter treats
+  // missing as DEBUG so old/unclassified spans stay visible by default.
+  logLevel?: SpanLogLevel;
 }
 
 export type ModelTraceExplorerTab = 'chat' | 'content' | 'attributes' | 'events';
@@ -319,6 +348,10 @@ export type SpanFilterState = {
   showExceptions: boolean;
   // record of span_type: whether to show it
   spanTypeDisplayState: Record<string, boolean>;
+  // hide spans whose `mlflow.spanLogLevel` is below this threshold.
+  // Spans without an explicit level are treated as DEBUG so old/unclassified
+  // spans remain visible at the default threshold.
+  minLogLevel: SpanLogLevel;
 };
 
 export interface RetrieverDocument {
@@ -334,6 +367,7 @@ export interface RetrieverDocument {
 export enum CodeSnippetRenderMode {
   JSON = 'json',
   TEXT = 'text',
+  TABLE = 'table',
   MARKDOWN = 'markdown',
   PYTHON = 'python',
 }

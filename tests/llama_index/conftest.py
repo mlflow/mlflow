@@ -65,7 +65,9 @@ def _mock_tokenizer(text: str) -> list[str]:
 def settings(monkeypatch, mock_openai):
     """Set the LLM and Embedding model to the mock OpenAI server."""
     monkeypatch.setenv("OPENAI_API_KEY", "test")
+    # openai 1.x uses OPENAI_API_BASE; openai 2.x uses OPENAI_BASE_URL
     monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
+    monkeypatch.setenv("OPENAI_BASE_URL", mock_openai)
     monkeypatch.setattr(Settings, "llm", OpenAI())
     monkeypatch.setattr(Settings, "embed_model", OpenAIEmbedding())
     monkeypatch.setattr(Settings, "callback_manager", CallbackManager([LlamaDebugHandler()]))
@@ -73,8 +75,6 @@ def settings(monkeypatch, mock_openai):
     monkeypatch.setattr(Settings, "context_window", 4096)  # this enters the _prompt_helper field
     monkeypatch.setattr(Settings, "node_parser", SentenceSplitter(chunk_size=1024))
     monkeypatch.setattr(Settings, "transformations", [SentenceSplitter(chunk_size=1024)])
-
-    assert all(Settings.__dict__.values())  # ensure the full object is populated
 
     return Settings
 

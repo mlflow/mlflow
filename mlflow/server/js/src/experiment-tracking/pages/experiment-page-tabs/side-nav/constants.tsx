@@ -8,6 +8,7 @@ import {
   GavelIcon,
   ListIcon,
   ModelsIcon,
+  PlayIcon,
   PlusMinusSquareIcon,
   SpeechBubbleIcon,
   TextBoxIcon,
@@ -32,7 +33,7 @@ export type ExperimentPageSideNavConfig = {
 
 export type ExperimentPageSideNavSectionKey = 'top-level' | 'observability' | 'evaluation' | 'prompts-versions';
 
-export const ExperimentPageSideNavGenAIConfig = {
+const ExperimentPageSideNavGenAIConfig = {
   observability: [
     {
       label: (
@@ -61,6 +62,17 @@ export const ExperimentPageSideNavGenAIConfig = {
     {
       label: (
         <FormattedMessage
+          defaultMessage="Review"
+          description="Label for the review tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <UserGroupIcon />,
+      tabName: ExperimentPageTabName.ReviewQueue,
+      componentId: 'mlflow.experiment-side-nav.genai.review-queue',
+    },
+    {
+      label: (
+        <FormattedMessage
           defaultMessage="Datasets"
           description="Label for the datasets tab in the MLflow experiment navbar"
         />
@@ -82,6 +94,17 @@ export const ExperimentPageSideNavGenAIConfig = {
     },
   ],
   'prompts-versions': [
+    {
+      label: (
+        <FormattedMessage
+          defaultMessage="Playground"
+          description="Label for the playground tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <PlayIcon />,
+      tabName: ExperimentPageTabName.Playground,
+      componentId: 'mlflow.experiment-side-nav.genai.playground',
+    },
     {
       label: (
         <FormattedMessage
@@ -107,7 +130,7 @@ export const ExperimentPageSideNavGenAIConfig = {
   ],
 };
 
-export const ExperimentPageSideNavCustomModelConfig = {
+const ExperimentPageSideNavCustomModelConfig = {
   'top-level': [
     {
       label: (
@@ -177,9 +200,11 @@ export const getExperimentPageSideNavSectionLabel = (
 export const useExperimentPageSideNavConfig = ({
   experimentKind,
   hasTrainingRuns = false,
+  hasV4Location,
 }: {
   experimentKind: ExperimentKind;
   hasTrainingRuns?: boolean;
+  hasV4Location?: boolean;
 }): ExperimentPageSideNavConfig => {
   if (
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT ||
@@ -187,7 +212,7 @@ export const useExperimentPageSideNavConfig = ({
   ) {
     const baseConfig = {
       'top-level': [
-        ...(shouldEnableExperimentOverviewTab()
+        ...(shouldEnableExperimentOverviewTab(hasV4Location)
           ? [
               {
                 label: (

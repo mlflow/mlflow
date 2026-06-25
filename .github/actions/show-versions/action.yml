@@ -7,11 +7,15 @@ runs:
       run: |
         # Activate the virtual environment if .venv exists
         if [ -d .venv ]; then
-          if [ ${{ runner.os }} == "Windows" ]; then
+          if [ "$RUNNER_OS" == "Windows" ]; then
             source .venv/Scripts/activate
           else
             source .venv/bin/activate
           fi
         fi
-        pip --disable-pip-version-check install aiohttp > /dev/null
-        python dev/show_package_release_dates.py
+        pip --disable-pip-version-check install ./dev/pypi > /dev/null
+        echo ">>> package versions"
+        status=0
+        python dev/show_package_release_dates.py || status=$?
+        echo "<<< package versions"
+        exit $status

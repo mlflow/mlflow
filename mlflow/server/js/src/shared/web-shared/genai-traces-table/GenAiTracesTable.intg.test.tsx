@@ -7,8 +7,7 @@ import { IntlProvider } from '@databricks/i18n';
 import { getUser } from '../global-settings/getUser';
 import { QueryClient, QueryClientProvider } from '../query-client/queryClient';
 
-import { GenAiTracesTable } from './GenAITracesTable';
-// eslint-disable-next-line import/no-namespace
+import { GenAiTracesTableDeprecated } from './GenAITracesTable';
 import * as GenAiTracesTableUtils from './GenAiTracesTable.utils';
 import { createTestTraces } from './test-fixtures/EvaluatedTraceTestUtils';
 import type { RunEvaluationTracesDataEntry } from './types';
@@ -274,7 +273,7 @@ describe('Evaluations overview - integration test', () => {
   const renderTestComponent = (
     currentEvaluationResults: RunEvaluationTracesDataEntry[],
     compareToEvaluationResults: RunEvaluationTracesDataEntry[] = [],
-    additionalProps: Partial<ComponentProps<typeof GenAiTracesTable>> = {},
+    additionalProps: Partial<ComponentProps<typeof GenAiTracesTableDeprecated>> = {},
   ) => {
     const TestComponent = () => {
       return (
@@ -293,7 +292,7 @@ describe('Evaluations overview - integration test', () => {
                     })
                   }
                 >
-                  <GenAiTracesTable
+                  <GenAiTracesTableDeprecated
                     experimentId="test-experiment-id"
                     currentRunDisplayName="Test Run"
                     currentEvaluationResults={currentEvaluationResults}

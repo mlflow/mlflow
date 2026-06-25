@@ -9,6 +9,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   check-comment:
     runs-on: ubuntu-slim
@@ -27,7 +29,7 @@ jobs:
       base_repo: ${{ fromJSON(steps.judge.outputs.result).base_repo }}
       pull_number: ${{ fromJSON(steps.judge.outputs.result).pull_number }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           sparse-checkout: |
@@ -69,7 +71,7 @@ jobs:
     outputs:
       reformatted: ${{ steps.patch.outputs.reformatted }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           repository: ${{ needs.check-comment.outputs.repository }}
@@ -181,7 +183,9 @@ jobs:
       # ************************************************************************
       - if: steps.diff.outputs.api == 'true'
         run: |
-          uv run --group docs --with-requirements "$GITHUB_WORKSPACE/requirements/torch.txt" --extra gateway --directory docs/api_reference make dummy
+          uv sync --group docs --extra gateway
+          uv pip install -r requirements/torch.txt
+          uv run --directory docs/api_reference make dummy
       # ************************************************************************
       # Upload patch
       # ************************************************************************
@@ -200,6 +204,8 @@ jobs:
         with:
           name: ${{ github.run_id }}.diff
           path: ${{ github.run_id }}.diff
+          retention-days: 1
+          if-no-files-found: ignore
 
   push:
     runs-on: ubuntu-slim
@@ -211,14 +217,15 @@ jobs:
     outputs:
       head_sha: ${{ steps.push.outputs.head_sha }}
     steps:
-      - uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         id: app-token
         with:
-          app-id: ${{ secrets.APP_ID }}
+          client-id: ${{ secrets.APP_CLIENT_ID }}
           # See https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/managing-private-keys-for-github-apps
           # for how to rotate the private key
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+          permission-contents: write
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: true
           repository: ${{ needs.check-comment.outputs.repository }}
@@ -293,7 +300,7 @@ jobs:
       statuses: write # To update check statuses
       actions: write # To approve workflow runs
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           sparse-checkout: |

@@ -22,6 +22,7 @@ const MLMODEL_FILE_NAME = 'mlmodel';
 const MLFLOW_FILE_LANGUAGES = {
   [MLPROJECT_FILE_NAME.toLowerCase()]: 'yaml',
   [MLMODEL_FILE_NAME.toLowerCase()]: 'yaml',
+  jsonl: 'json',
 };
 
 export const IMAGE_EXTENSIONS = new Set(['jpg', 'bmp', 'jpeg', 'png', 'gif', 'svg']);
@@ -42,6 +43,7 @@ export const TEXT_EXTENSIONS = new Set([
   'yml',
   'xml',
   'json',
+  'jsonl',
   'js',
   'py',
   'py3',
@@ -55,7 +57,8 @@ export const HTML_EXTENSIONS = new Set(['html']);
 export const MAP_EXTENSIONS = new Set(['geojson']);
 export const PDF_EXTENSIONS = new Set(['pdf']);
 export const DATA_EXTENSIONS = new Set(['csv', 'tsv']);
-// Audio extensions supported by wavesurfer.js
-// Source https://github.com/katspaugh/wavesurfer.js/discussions/2703#discussioncomment-5259526
-export const AUDIO_EXTENSIONS = new Set(['m4a', 'mp3', 'mp4', 'wav', 'aac', 'wma', 'flac', 'opus', 'ogg']);
+// Curated subset of audio extensions supported by wavesurfer.js.
+// Source: https://github.com/katspaugh/wavesurfer.js/discussions/2703#discussioncomment-5259526
+// `mp4` is intentionally omitted here to avoid overlapping with `VIDEO_EXTENSIONS`.
+export const AUDIO_EXTENSIONS = new Set(['m4a', 'mp3', 'wav', 'aac', 'wma', 'flac', 'opus', 'ogg']);
 export const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'mkv', 'webm', 'avi']);

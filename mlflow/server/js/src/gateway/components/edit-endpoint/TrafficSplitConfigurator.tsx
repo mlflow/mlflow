@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { Button, useDesignSystemTheme, PlusIcon } from '@databricks/design-system';
+import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import type { TrafficSplitModel } from '../../hooks/useEditEndpointForm';
 import { TrafficSplitModelItem } from './TrafficSplitModelItem';
@@ -80,12 +80,17 @@ export const TrafficSplitConfigurator = ({
       ))}
 
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Button componentId={`${componentId}.add`} icon={<PlusIcon />} onClick={handleAddModel}>
-          <FormattedMessage
-            defaultMessage="Add model for traffic split"
-            description="Button to add model for traffic split"
-          />
-        </Button>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Button componentId={`${componentId}.add`} onClick={handleAddModel} css={{ alignSelf: 'flex-start' }}>
+            <FormattedMessage defaultMessage="Add model" description="Button to add model for traffic split" />
+          </Button>
+          <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+            <FormattedMessage
+              defaultMessage="Use multiple models for load balancing by splitting traffic with weights"
+              description="Gateway > Endpoint details > Description for adding more primary models"
+            />
+          </Typography.Text>
+        </div>
 
         {value.length > 0 && (
           <div

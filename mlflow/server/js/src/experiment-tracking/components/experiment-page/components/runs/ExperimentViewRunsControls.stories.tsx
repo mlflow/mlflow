@@ -60,6 +60,7 @@ const createComponentWrapper = (viewState: ExperimentPageViewState) => () => {
             uiState={createExperimentPageUIState()}
             isLoading={false}
             isComparingExperiments={false}
+            onResetColumns={() => {}}
           />
           <div
             css={{

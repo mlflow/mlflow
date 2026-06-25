@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from unittest.mock import Mock, patch
 
 import pytest
@@ -5,30 +6,55 @@ import pytest
 
 @pytest.fixture
 def mock_trace():
-    return Mock()
+    trace = Mock()
+    trace.info.trace_metadata = {}
+    trace.info.tags = {}
+    return trace
 
 
 @pytest.fixture
 def simulation_mocks(mock_trace):
     """Fixture providing common mocks for conversation simulation tests."""
+    # Use a counter to return unique trace IDs for each call
+    trace_id_counter = {"count": 0}
+
+    def unique_trace_id(*args, **kwargs):
+        trace_id_counter["count"] += 1
+        return f"trace_{trace_id_counter['count']}"
+
+    # Track metadata/tags passed to tracing.context and apply them to mock traces
+    captured_context_calls = []
+
+    @contextmanager
+    def mock_context(metadata=None, tags=None, enabled=None, session_id=None, user=None):
+        captured_context_calls.append({
+            "metadata": metadata,
+            "tags": tags,
+            "session_id": session_id,
+            "user": user,
+        })
+        # Apply metadata/tags to the mock trace so tests can assert on them
+        if metadata:
+            mock_trace.info.trace_metadata.update(metadata)
+        if session_id is not None:
+            mock_trace.info.trace_metadata["mlflow.trace.session"] = session_id
+        if tags:
+            mock_trace.info.tags.update(tags)
+        yield
+
     with (
         patch("mlflow.genai.simulators.simulator.invoke_model_without_tracing") as mock_invoke,
-        patch("mlflow.trace") as mock_trace_decorator,
-        patch("mlflow.get_last_active_trace_id") as mock_get_trace_id,
-        patch("mlflow.update_current_trace") as mock_update_trace,
+        patch("mlflow.get_last_active_trace_id", side_effect=unique_trace_id) as mock_get_trace_id,
+        patch("mlflow.tracing.context", side_effect=mock_context),
         patch(
             "mlflow.tracing.client.TracingClient",
             return_value=Mock(get_trace=lambda _: mock_trace),
         ),
     ):
-        mock_get_trace_id.return_value = "trace_123"
-        mock_trace_decorator.return_value = lambda fn: fn
-
         yield {
             "invoke": mock_invoke,
-            "trace_decorator": mock_trace_decorator,
             "get_trace_id": mock_get_trace_id,
-            "update_trace": mock_update_trace,
+            "context_calls": captured_context_calls,
             "trace": mock_trace,
         }
 

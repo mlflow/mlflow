@@ -122,11 +122,6 @@ def make_judge(
     include_timing_in_conversation: bool = False,
 ) -> Judge:
     """
-
-    .. note::
-        As of MLflow 3.4.0, this function is deprecated in favor of `mlflow.genai.make_judge`
-        and may be removed in a future version.
-
     Create a custom MLflow judge instance.
 
     Args:
@@ -266,7 +261,7 @@ def make_judge(
 
             # To see detailed optimization output during alignment, enable DEBUG logging:
             # import logging
-            # logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
+            # logging.getLogger("mlflow.genai.judges.optimizers.memalign").setLevel(logging.DEBUG)
     """
     # Default feedback_value_type to str if not specified (consistent with MLflow <= 3.5.x)
     # TODO: Implement logic to allow the LLM to choose the appropriate value type if not specified

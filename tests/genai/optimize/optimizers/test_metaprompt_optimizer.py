@@ -131,13 +131,31 @@ def test_validate_template_variables_missing_var():
         optimizer._validate_template_variables(original, new)
 
 
-def test_validate_template_variables_extra_var():
+def test_validate_template_variables_extra_var_stripped():
     optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
     original = {"instruction": "Answer {{question}}"}
-    new = {"instruction": "Answer {{question}} about {{topic}}"}  # Extra {{topic}}
+    new = {"instruction": "Answer {{question}} about {{topic}}"}
 
-    with pytest.raises(MlflowException, match="Extra.*topic"):
-        optimizer._validate_template_variables(original, new)
+    assert optimizer._validate_template_variables(original, new) is True
+    assert new["instruction"] == "Answer {{question}} about "
+
+
+def test_validate_template_variables_extra_var_no_original_vars():
+    optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
+    original = {"system": "You are a helpful assistant."}
+    new = {"system": "You are {{role}}, a helpful assistant."}
+
+    assert optimizer._validate_template_variables(original, new) is True
+    assert new["system"] == "You are , a helpful assistant."
+
+
+def test_validate_template_variables_multiple_extra_vars_stripped():
+    optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
+    original = {"instruction": "Answer {{question}}"}
+    new = {"instruction": "As a {{role}}, answer {{question}} about {{topic}}"}
+
+    assert optimizer._validate_template_variables(original, new) is True
+    assert new["instruction"] == "As a , answer {{question}} about "
 
 
 def test_validate_prompt_names_missing():
@@ -351,6 +369,34 @@ def test_optimize_few_shot_with_baseline_eval(sample_train_data, sample_target_p
         assert result.initial_eval_score is not None
         assert result.final_eval_score is not None
         assert "Better" in result.optimized_prompts["instruction"]
+
+
+def test_optimize_strips_extra_vars_from_no_variable_prompt(sample_train_data):
+    mock_response = Mock()
+    mock_response.choices = [Mock()]
+    mock_response.choices[0].message = Mock()
+    mock_response.choices[0].message.content = json.dumps({
+        "system": "You are an expert {{topic}} assistant.",
+        "instruction": "Please answer: {{question}}",
+    })
+
+    prompts = {
+        "system": "You are a helpful assistant.",
+        "instruction": "Answer {{question}}",
+    }
+
+    with patch("litellm.completion", return_value=mock_response):
+        optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
+
+        result = optimizer.optimize(
+            eval_fn=mock_eval_fn,
+            train_data=sample_train_data,
+            target_prompts=prompts,
+            enable_tracking=False,
+        )
+
+        assert result.optimized_prompts["system"] == "You are an expert  assistant."
+        assert result.optimized_prompts["instruction"] == "Please answer: {{question}}"
 
 
 def test_optimize_preserves_template_variables(sample_train_data):

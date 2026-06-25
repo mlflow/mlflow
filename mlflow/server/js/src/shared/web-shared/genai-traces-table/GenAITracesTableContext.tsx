@@ -1,10 +1,15 @@
+import { Drawer } from '@databricks/design-system';
 import type { Table } from '@tanstack/react-table';
 import { compact, isUndefined } from 'lodash';
 import React, { createContext, useCallback, useMemo, useState } from 'react';
 
 import type { EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
 import { ModelTraceExplorerPreferencesProvider } from '../model-trace-explorer/ModelTraceExplorerPreferencesContext';
-import { useModelTraceExplorerContext } from '../model-trace-explorer/ModelTraceExplorerContext';
+import {
+  useModelTraceExplorerContext,
+  type DrawerComponentType,
+  type RenderAddToReviewQueueDropdownParams,
+} from '../model-trace-explorer/ModelTraceExplorerContext';
 import type { GetTraceFunction } from './hooks/useGetTrace';
 import { getExperimentIdFromTraceLocation } from './utils/TraceUtils';
 
@@ -24,10 +29,23 @@ export interface GenAITracesTableContextValue<T> {
   isGroupedBySession: boolean;
 
   /**
+   * Drawer component to use when rendering the trace UI & comparison views.
+   * In OSS, we pass in the AssistantAwareDrawer component, but otherwise it
+   * defaults to the standard Design System Drawer component.
+   */
+  DrawerComponent: DrawerComponentType;
+
+  /**
    * Function to show the "Add to Evaluation Dataset" modal.
    * Provide traces to be added to the dataset. If `undefined` is passed, the modal is closed.
    */
   showAddToEvaluationDatasetModal?: (traces?: RunEvaluationTracesDataEntry[]) => void;
+
+  /**
+   * Render function for the "Add to review queue" dropdown.
+   * Returns a Popover-wrapped trigger element that lets the user pick queues.
+   */
+  renderAddToReviewQueueDropdown?: React.ComponentType<RenderAddToReviewQueueDropdownParams>;
 }
 export const GenAITracesTableContext = createContext<GenAITracesTableContextValue<TraceRow>>({
   table: undefined,
@@ -35,6 +53,7 @@ export const GenAITracesTableContext = createContext<GenAITracesTableContextValu
   selectedRowIds: [],
   isGroupedBySession: false,
   setSelectedRowIds: () => {},
+  DrawerComponent: Drawer,
 });
 
 interface GenAITracesTableProviderProps {
@@ -42,6 +61,7 @@ interface GenAITracesTableProviderProps {
   experimentId?: string;
   getTrace?: GetTraceFunction;
   isGroupedBySession: boolean;
+  DrawerComponent?: DrawerComponentType;
 }
 
 export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITracesTableProviderProps>> = ({
@@ -49,13 +69,14 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
   experimentId,
   getTrace,
   isGroupedBySession,
+  DrawerComponent = Drawer,
 }) => {
   const [table, setTable] = useState<Table<TraceRow> | undefined>();
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [showDatasetModal, setShowDatasetModal] = useState(false);
   const [selectedTraces, setSelectedTraces] = useState<RunEvaluationTracesDataEntry[] | undefined>(undefined);
 
-  const { renderExportTracesToDatasetsModal } = useModelTraceExplorerContext();
+  const { renderExportTracesToDatasetsModal, renderAddToReviewQueueDropdown } = useModelTraceExplorerContext();
 
   const showAddToEvaluationDatasetModal = useCallback((traces?: RunEvaluationTracesDataEntry[]) => {
     setSelectedTraces(traces);
@@ -71,8 +92,19 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
       setSelectedRowIds,
       isGroupedBySession,
       showAddToEvaluationDatasetModal,
+      renderAddToReviewQueueDropdown: renderAddToReviewQueueDropdown,
+      DrawerComponent,
     }),
-    [table, getTrace, selectedRowIds, isGroupedBySession, showAddToEvaluationDatasetModal],
+    // prettier-ignore
+    [
+      table,
+      getTrace,
+      selectedRowIds,
+      isGroupedBySession,
+      showAddToEvaluationDatasetModal,
+      renderAddToReviewQueueDropdown,
+      DrawerComponent,
+    ],
   );
 
   return (

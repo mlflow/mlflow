@@ -9,6 +9,12 @@ const sidebarsGenAI: SidebarsConfig = {
       label: 'Overview',
     },
     {
+      type: 'doc',
+      id: 'demo',
+      className: 'sidebar-overview',
+      label: 'Live Demo',
+    },
+    {
       type: 'html',
       value: '<b>Getting Started</b>',
       defaultStyle: true,
@@ -108,13 +114,18 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/observe-with-traces/archive-traces',
+                  label: 'Archive Traces',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/observe-with-traces/delete-traces',
                   label: 'Delete Traces',
                 },
                 {
                   type: 'doc',
                   id: 'tracing/observe-with-traces/multimodal',
-                  label: 'Multimodal Content',
+                  label: 'Multimodal Content & Attachments',
                 },
               ],
             },
@@ -146,6 +157,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/observe-with-traces/masking',
                   label: 'Redact Sensitive Data',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/app-instrumentation/logging',
+                  label: 'Setting Log Levels',
                 },
                 {
                   type: 'doc',
@@ -199,6 +215,16 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/autogen',
                   label: 'AutoGen',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/claude_agent_sdk_python',
+                  label: 'Claude Agent SDK (Python)',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/claude_agent_sdk_typescript',
+                  label: 'Claude Agent SDK (TS)',
                 },
                 {
                   type: 'doc',
@@ -272,6 +298,16 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/n8n',
+                  label: 'n8n',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/open-webui',
+                  label: 'Open WebUI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/openai-agent',
                   label: 'OpenAI Agent',
                 },
@@ -334,12 +370,32 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'category',
-              label: 'Coding Agents',
+              label: 'Coding Agents & Long-Running Agents',
               items: [
                 {
                   type: 'doc',
                   id: 'tracing/integrations/listing/claude_code',
                   label: 'Claude Code',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/codex',
+                  label: 'Codex CLI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/gemini_cli',
+                  label: 'Gemini CLI',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/hermes_agent',
+                  label: 'Hermes Agent',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/omnigent',
+                  label: 'Omnigent',
                 },
                 {
                   type: 'doc',
@@ -350,6 +406,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/openhands',
                   label: 'OpenHands',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/qwen_code',
+                  label: 'Qwen Code',
                 },
               ],
             },
@@ -625,6 +686,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'eval-monitor/regression-testing',
+          label: 'Regression Testing and CI/CD',
+        },
+        {
+          type: 'doc',
           id: 'eval-monitor/automatic-evaluations/index',
           label: 'Automatic Evaluation',
         },
@@ -741,6 +807,11 @@ const sidebarsGenAI: SidebarsConfig = {
                       type: 'doc',
                       id: 'eval-monitor/scorers/third-party/guardrails',
                       label: 'Guardrails AI',
+                    },
+                    {
+                      type: 'doc',
+                      id: 'eval-monitor/scorers/third-party/google-adk',
+                      label: 'Google ADK',
                     },
                   ],
                   collapsed: false,
@@ -864,6 +935,11 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'assessments/expectations',
               label: 'Annotating Ground Truth',
             },
+            {
+              type: 'doc',
+              id: 'assessments/review-queues',
+              label: 'Review Queues',
+            },
           ],
         },
         {
@@ -957,6 +1033,11 @@ const sidebarsGenAI: SidebarsConfig = {
           id: 'prompt-registry/prompt-engineering',
           label: 'Prompt Engineering UI',
         },
+        {
+          type: 'doc',
+          id: 'prompt-registry/playground',
+          label: 'LLM Playground',
+        },
       ],
       link: {
         type: 'doc',
@@ -1026,28 +1107,43 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Budget Alerts & Limits',
         },
         {
+          type: 'doc',
+          id: 'governance/ai-gateway/guardrails',
+          label: 'Guardrails',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/benchmarks',
+          label: 'Performance & Benchmarks',
+        },
+        {
           type: 'category',
-          label: 'Gateway Server (Legacy)',
+          label: 'Coding Agents & Long-Running Agents',
           items: [
             {
               type: 'doc',
-              id: 'governance/ai-gateway/legacy/setup',
-              label: 'Setup',
+              id: 'governance/ai-gateway/coding-agents/claude-code',
+              label: 'Claude Code',
             },
             {
               type: 'doc',
-              id: 'governance/ai-gateway/legacy/configuration',
-              label: 'Configuration',
+              id: 'governance/ai-gateway/coding-agents/codex',
+              label: 'OpenAI Codex',
             },
             {
               type: 'doc',
-              id: 'governance/ai-gateway/legacy/usage',
-              label: 'Usage',
+              id: 'governance/ai-gateway/coding-agents/gemini-cli',
+              label: 'Gemini CLI',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/coding-agents/hermes-agent',
+              label: 'Hermes Agent',
             },
           ],
           link: {
             type: 'doc',
-            id: 'governance/ai-gateway/legacy/index',
+            id: 'governance/ai-gateway/coding-agents/index',
           },
         },
       ],

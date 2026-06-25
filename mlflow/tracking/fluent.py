@@ -37,6 +37,7 @@ from mlflow.entities.trace_location import UnityCatalog
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
     _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
+    _MLFLOW_ENABLE_UC_TRACE_UPSELL,
     MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
@@ -58,6 +59,7 @@ from mlflow.tracing.provider import (
 )
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
+from mlflow.tracking._uc_upsell import show_existing_experiment_upsell, show_new_experiment_upsell
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -240,6 +242,17 @@ def set_experiment(
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    if (
+        _MLFLOW_ENABLE_UC_TRACE_UPSELL.get()
+        and trace_location is None
+        and is_databricks_uri(_resolve_tracking_uri())
+        and MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH not in experiment.tags
+    ):
+        if is_newly_created:
+            show_new_experiment_upsell()
+        else:
+            show_existing_experiment_upsell()
 
     if trace_location is not None and trace_location.table_prefix is None:
         trace_location = UnityCatalog(
@@ -3882,7 +3895,9 @@ def set_active_model(*, name: str | None = None, model_id: str | None = None) ->
 
 
         predict("abc")
-        traces = mlflow.search_traces(model_id=mlflow.get_active_model_id(), return_type="list")
+        traces = mlflow.search_traces(
+            model_id=mlflow.get_active_model_id(), return_type="list", flush=True
+        )
         assert len(traces) == 1
     """
     return _set_active_model(name=name, model_id=model_id, set_by_user=True)

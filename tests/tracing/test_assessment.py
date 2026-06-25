@@ -1,11 +1,11 @@
 import os
+from unittest import mock
 
 import pytest
 
 import mlflow
 from mlflow.entities.assessment import (
     AssessmentError,
-    AssessmentSource,
     Expectation,
     Feedback,
     IssueReference,
@@ -13,6 +13,11 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.issue import IssueStatus
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.distributed import (
+    get_tracing_context_headers_for_http_request,
+    set_tracing_context_from_http_request_headers,
+)
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 _HUMAN_ASSESSMENT_SOURCE = AssessmentSource(
@@ -36,12 +41,15 @@ def trace_id():
     with mlflow.start_span(name="test_span") as span:
         pass
 
+    mlflow.flush_trace_async_logging()
     return span.trace_id
 
 
 @pytest.fixture(params=["file", "sqlalchemy"], autouse=True)
 def tracking_uri(request, tmp_path, db_uri):
     """Set an MLflow Tracking URI with different type of backend."""
+    if request.param == "file":
+        pytest.skip("FileStore is no longer supported.")
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
 
@@ -549,7 +557,7 @@ def test_log_issue_with_run_id_and_span_id(tracking_uri):
             metadata={"category": "data", "priority": "high"},
             span_id=span.span_id,
         )
-
+    mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(span.trace_id)
     assert len(trace.info.assessments) == 1
     assessment = trace.info.assessments[0]
@@ -655,6 +663,8 @@ def test_log_assessment_on_in_progress_trace(trace_id, legacy_api):
         return x + y
 
     assert func(1, 2) == 3
+
+    mlflow.flush_trace_async_logging()
 
     # Two assessments should be logged as a part of StartTraceV3 call
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
@@ -776,6 +786,8 @@ def test_search_traces_with_assessments():
             name="feedback_3",
             value=1.0,
         )
+
+    mlflow.flush_trace_async_logging()
 
     traces = mlflow.search_traces(
         locations=["0"],
@@ -969,3 +981,107 @@ def test_log_multiple_assessment_types(trace_id):
     assert assessments_by_type["issue"].name == "iss-11111"
     assert assessments_by_type["issue"].issue_name == "data_quality_issue"
     assert assessments_by_type["issue"].issue_id == "iss-11111"
+
+
+def test_log_feedback_in_distributed_trace_same_process():
+    captured_headers = {}
+    tm = InMemoryTraceManager.get_instance()
+
+    @mlflow.trace(name="root")
+    def root():
+        nonlocal captured_headers
+        captured_headers = get_tracing_context_headers_for_http_request()
+        trace_id = mlflow.get_active_trace_id()
+        with tm.get_trace(trace_id) as t:
+            assert t is not None
+            assert not t.is_remote_trace
+
+    root()
+
+    root_trace_id = mlflow.get_last_active_trace_id()
+    assert root_trace_id is not None
+
+    with set_tracing_context_from_http_request_headers(captured_headers):
+
+        @mlflow.trace(name="child")
+        def child():
+            trace_id = mlflow.get_active_trace_id()
+            return mlflow.log_feedback(
+                trace_id=trace_id,
+                name="child_was_called",
+                value="yes",
+            )
+
+        child()
+
+    mlflow.flush_trace_async_logging()
+    trace = mlflow.get_trace(root_trace_id)
+    assert len(trace.info.assessments) == 1
+    assert trace.info.assessments[0].name == "child_was_called"
+    assert trace.info.assessments[0].feedback.value == "yes"
+
+
+def test_log_feedback_in_distributed_trace_cross_process():
+    captured_headers = {}
+
+    @mlflow.trace(name="root")
+    def root():
+        nonlocal captured_headers
+        captured_headers = get_tracing_context_headers_for_http_request()
+
+    root()
+    mlflow.flush_trace_async_logging()
+
+    root_trace_id = mlflow.get_last_active_trace_id()
+    tm = InMemoryTraceManager.get_instance()
+    with tm.get_trace(root_trace_id) as t:
+        assert t is None
+
+    mock_store = mock.MagicMock()
+    mock_assessment = mock.MagicMock()
+    mock_assessment.assessment_id = "a-test-assessment-id"
+    mock_store.create_assessment.return_value = mock_assessment
+
+    with mock.patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        with set_tracing_context_from_http_request_headers(captured_headers):
+
+            @mlflow.trace(name="child")
+            def child():
+                trace_id = mlflow.get_active_trace_id()
+                return mlflow.log_feedback(
+                    trace_id=trace_id,
+                    name="child_was_called",
+                    value="yes",
+                )
+
+            result = child()
+
+        mock_store.create_assessment.assert_called_once()
+        called_assessment = mock_store.create_assessment.call_args[0][0]
+        assert called_assessment.name == "child_was_called"
+        assert called_assessment.feedback.value == "yes"
+        assert result.assessment_id == "a-test-assessment-id"
+
+
+def test_log_assessment_active_trace_not_in_memory():
+    null_cm = mock.MagicMock()
+    null_cm.__enter__.return_value = None
+    null_cm.__exit__.return_value = False
+
+    mock_store = mock.MagicMock()
+
+    with mlflow.start_span(name="root"):
+        with (
+            mock.patch.object(
+                InMemoryTraceManager.get_instance(), "get_trace", return_value=null_cm
+            ),
+            mock.patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        ):
+            result = mlflow.log_feedback(
+                trace_id=mlflow.get_active_trace_id(),
+                name="test_feedback",
+                value=1.0,
+            )
+            mock_store.create_assessment.assert_not_called()
+            assert result is not None
+            assert result.assessment_id is None
