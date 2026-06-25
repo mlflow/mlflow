@@ -23,8 +23,8 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.types import Event, Message, ToolUseBlock
 from mlflow.server.assistant.api import (
-    PermissionDecision,
     _INVALID_REMOTE_ACCESS_MODES_WARNED,
+    PermissionDecision,
     _AssistantAPIRoute,
     _enforce_remote_access,
     _is_localhost,
@@ -305,7 +305,6 @@ def test_get_config_loads_config_once(client):
         ("off", False, False),
         ("api-only", False, False),
         ("api-only", True, True),
-        ("all", True, False),
     ],
 )
 def test_get_config_remote_chat_allowed(
@@ -341,27 +340,14 @@ def test_message_blocked_for_remote_client_when_remote_access_off(monkeypatch):
     assert "same host" in response.json()["detail"]
 
 
-def test_assistant_route_enforces_remote_access_by_default(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "off")
-
-    app = FastAPI()
+def test_assistant_route_without_policy_raises_at_startup():
     router = APIRouter(prefix="/assistant", route_class=_AssistantAPIRoute)
 
-    @router.get("/unguarded")
     async def unguarded_route():
         return {"status": "ok"}
 
-    app.include_router(router)
-
-    mock_provider = MockProvider()
-    with (
-        patch("mlflow.server.assistant.api._get_selected_provider", return_value=mock_provider),
-        patch("mlflow.server.assistant.api._is_localhost", return_value=False),
-    ):
-        response = TestClient(app).get("/assistant/unguarded")
-
-    assert response.status_code == 403
-    assert "same host" in response.json()["detail"]
+    with pytest.raises(RuntimeError, match="missing a remote-access policy"):
+        router.add_api_route("/unguarded", unguarded_route, methods=["GET"])
 
 
 def test_message_allowed_for_remote_client_when_provider_allows_remote_access(monkeypatch):
@@ -468,8 +454,6 @@ def test_is_localhost_blocks_when_no_client():
         ("off", True, False),
         ("api-only", False, False),
         ("api-only", True, True),
-        ("all", False, False),
-        ("all", True, False),
     ],
 )
 def test_provider_allows_remote_access(mode, allows_remote_execution, expected, monkeypatch):
