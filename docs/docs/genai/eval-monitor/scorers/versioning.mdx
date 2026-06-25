@@ -5,6 +5,32 @@ import TabItem from "@theme/TabItem";
 
 Scorers can be registered to MLflow experiments for version control and team collaboration.
 
+:::note[Backend support differs for versioning]
+
+SDK-based scorer versioning (re-registering the same name to create a new version)
+is supported on the OSS MLflow tracking backend (file-based, SQL-backed, or
+self-hosted tracking servers). The **Databricks** tracking backend doesn't
+currently support scorer versioning through the SDK. On Databricks, calling
+`Scorer.register()` with a name that already exists raises a `ValueError` from
+the underlying `databricks-rag-eval` package. If you're on a Databricks tracking
+URI, use one of the following:
+
+- **Update in place:** call `Scorer.update(...)` instead of calling
+  `Scorer.register()` again. This replaces the existing scorer's configuration.
+  No version history.
+- **Replace:** call `delete_scorer(name=..., experiment_id=..., version=None)`
+  and then re-register. No version history.
+- **Version the instructions:** version the instruction template through
+  [MLflow Prompt Registry](/genai/prompt-registry) and reference it from a
+  single judge. This preserves history of the instruction content while keeping
+  one scorer entry on the Databricks backend. It's the recommended approach when
+  you want to keep a record of how the judge has evolved.
+
+The UI-based "Edit" flow on Databricks does create a new version per the UI tab
+above.
+
+:::
+
 ## Supported Scorers
 
 | Scorer Type                                                              | Supported                                                         |
@@ -55,7 +81,8 @@ from mlflow.genai.judges import make_judge
 quality_judge = make_judge(
     name="response_quality",
     instructions=("Evaluate if {{ outputs }} is high quality for {{ inputs }}."),
-    model="anthropic:/claude-opus-4-1-20250805",
+    # `model` omitted to use the default judge model. On a Databricks tracking URI,
+    # registration requires either the default model or a `databricks:/` model URI.
     feedback_value_type=str,
 )
 ```
@@ -83,7 +110,8 @@ quality_judge_v2 = make_judge(
         "Evaluate if {{ outputs }} is high quality, accurate, and complete "
         "for the question in {{ inputs }}."
     ),
-    model="anthropic:/claude-3.5-sonnet-20241022",  # Updated model
+    # `model` omitted to use the default judge model. See the Backend support
+    # note above for the Databricks tracking URI behavior on re-registration.
     feedback_value_type=str,
 )
 

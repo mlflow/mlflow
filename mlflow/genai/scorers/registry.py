@@ -433,14 +433,33 @@ class DatabricksStore(AbstractScorerStore):
         return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
 
     def register_scorer(self, experiment_id: str | None, scorer: Scorer) -> int | None:
-        # Add the scorer to the server with sample_rate=0 (not actively sampling)
-        DatabricksStore.add_registered_scorer(
-            name=scorer.name,
-            scorer=scorer,
-            sample_rate=0.0,
-            filter_string=None,
-            experiment_id=experiment_id,
-        )
+        # Add the scorer to the server with sample_rate=0 (not actively sampling).
+        # The Databricks backend doesn't support scorer versioning. When the name
+        # already exists, the underlying `databricks-rag-eval` package raises a
+        # `ValueError` (see `databricks/rag_eval/monitoring/scheduled_scorers.py`).
+        # Wrap the duplicate-name case in `MlflowException` so the MLflow API
+        # surface returns a consistent exception type and the message points at
+        # the workarounds the Databricks backend supports.
+        try:
+            DatabricksStore.add_registered_scorer(
+                name=scorer.name,
+                scorer=scorer,
+                sample_rate=0.0,
+                filter_string=None,
+                experiment_id=experiment_id,
+            )
+        except ValueError as e:
+            if "has already been registered" in str(e):
+                raise MlflowException(
+                    f"Cannot register a new version of scorer '{scorer.name}' "
+                    f"on a Databricks tracking URI. The Databricks scorer "
+                    f"backend doesn't support versioning. To update the scorer "
+                    f"in place, call `Scorer.update(...)`. To replace it, call "
+                    f"`delete_scorer(name='{scorer.name}', experiment_id=...)` "
+                    f"and then re-register. To version the instruction "
+                    f"template, use MLflow Prompt Registry."
+                ) from e
+            raise
 
         # Set the sampling config on the new instance
         scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)

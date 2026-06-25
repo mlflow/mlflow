@@ -1,9 +1,12 @@
 from unittest.mock import ANY, Mock, patch
 
+import pytest
+
 import mlflow
 import mlflow.genai
 from mlflow.entities import GatewayEndpointModelConfig, GatewayModelLinkageType
 from mlflow.entities.gateway_endpoint import GatewayEndpoint
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Guidelines, Scorer, scorer
 from mlflow.genai.scorers.base import ScorerSamplingConfig, ScorerStatus
 from mlflow.genai.scorers.registry import (
@@ -163,6 +166,75 @@ def test_databricks_backend_scorer_operations():
         # Test delete operation
         delete_scorer(name="test_databricks_scorer", experiment_id="exp_123")
         mock_delete.assert_called_once_with("exp_123", "test_databricks_scorer")
+
+
+def test_databricks_backend_register_duplicate_name_raises_mlflow_exception():
+    """Re-registering the same name on the Databricks backend wraps the underlying
+    ValueError from `databricks-rag-eval` into an `MlflowException` that points
+    at the supported workarounds (`Scorer.update()`, `delete_scorer()`, Prompt
+    Registry). The MLflow API surface shouldn't leak a bare `ValueError` from a
+    transitive package.
+    """
+    duplicate_value_error = ValueError(
+        "A scorer with name 'dup_scorer' has already been registered. "
+        "Update the scorer using '.update()' or choose a different name."
+    )
+
+    with (
+        patch("mlflow.tracking.get_tracking_uri", return_value="databricks"),
+        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
+        patch("mlflow.genai.scorers.registry._get_scorer_store") as mock_get_store,
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer",
+            side_effect=duplicate_value_error,
+        ),
+    ):
+        mock_get_store.return_value = DatabricksStore()
+
+        @scorer
+        def dup_scorer(outputs) -> bool:
+            return True
+
+        with pytest.raises(
+            MlflowException, match="Databricks scorer backend doesn't support versioning"
+        ) as exc_info:
+            dup_scorer.register(experiment_id="exp_456")
+
+        message = str(exc_info.value)
+        assert "dup_scorer" in message
+        assert "Scorer.update" in message
+        assert "delete_scorer" in message
+        assert "MLflow Prompt Registry" in message
+        # The original ValueError is chained via __cause__ for traceback fidelity.
+        assert exc_info.value.__cause__ is duplicate_value_error
+
+
+def test_databricks_backend_register_other_value_error_propagates():
+    """Only the duplicate-name `ValueError` is wrapped. Other `ValueError`s from
+    the underlying scheduled-scorer API propagate unchanged so callers see the
+    original error (e.g. validation failures).
+    """
+    unrelated_value_error = ValueError("some other validation failure unrelated to versioning")
+
+    with (
+        patch("mlflow.tracking.get_tracking_uri", return_value="databricks"),
+        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
+        patch("mlflow.genai.scorers.registry._get_scorer_store") as mock_get_store,
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer",
+            side_effect=unrelated_value_error,
+        ),
+    ):
+        mock_get_store.return_value = DatabricksStore()
+
+        @scorer
+        def other_scorer(outputs) -> bool:
+            return True
+
+        with pytest.raises(ValueError, match="some other validation failure") as exc_info:
+            other_scorer.register(experiment_id="exp_789")
+
+        assert exc_info.value is unrelated_value_error
 
 
 def _mock_gateway_endpoint():
