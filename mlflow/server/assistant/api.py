@@ -148,11 +148,8 @@ class _AssistantAPIRoute(APIRoute):
             )
 
         async def route_handler(request: Request) -> Response:
-            if policy != _RemoteAccessPolicy.NONE:
-                if (
-                    not _is_localhost(request)
-                    and _get_remote_access_mode() == _RemoteAccessMode.OFF
-                ):
+            if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
+                if _get_remote_access_mode() == _RemoteAccessMode.OFF:
                     raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
                 provider = _get_route_provider(request, policy)
                 if policy != _RemoteAccessPolicy.PATH_PROVIDER or provider is not None:
@@ -524,7 +521,7 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
 
 
 @assistant_router.post("/skills/install")
-@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
+@_remote_access_policy(_RemoteAccessPolicy.LOCALHOST_ONLY)
 async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstallResponse:
     """
     Install skills bundled with MLflow.
