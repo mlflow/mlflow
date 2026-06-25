@@ -249,6 +249,17 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                     # We still need to detach the span from the context, otherwise it will
                     # be considered as "active"
                     detach_span_from_context(token)
+                    # For StreamingResponse wrappers, also resolve the span when the
+                    # user-facing generator is exhausted. Some flows (e.g. chat-based
+                    # response synthesis in llama-index-core >= 0.14.22) fire the LLM end
+                    # event and resolve the inner span *before* these enclosing spans
+                    # register, so the event-driven upward walk in resolve() never reaches
+                    # them. Tying resolution to generator exhaustion makes it independent of
+                    # event/registration ordering, and is idempotent with resolve().
+                    if isinstance(result, (StreamingResponse, AsyncStreamingResponse)):
+                        result.response_gen = self._wrap_stream_for_exhaustion(
+                            result.response_gen, span
+                        )
                 else:
                     # If the span is not pended successfully, end it immediately
                     _end_span(span=span, outputs=result, token=token)
@@ -285,6 +296,43 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         """End the pending streaming span(s)"""
         self._stream_resolver.resolve(span, event)
         self._pending_spans.pop(event.span_id, None)
+
+    def _wrap_stream_for_exhaustion(self, response_gen, span: LiveSpan):
+        """Wrap a StreamingResponse generator so the pending span is resolved when the
+        generator is exhausted (or closed), independent of LLM end-event ordering. The
+        streamed text chunks are accumulated and recorded as the span output.
+        """
+        handler = self
+
+        if inspect.isasyncgen(response_gen):
+
+            async def _async_wrapper():
+                chunks = []
+                try:
+                    async for item in response_gen:
+                        if isinstance(item, str):
+                            chunks.append(item)
+                        yield item
+                finally:
+                    handler._end_pending_stream_span_on_exhaustion(span, "".join(chunks) or None)
+
+            return _async_wrapper()
+
+        def _wrapper():
+            chunks = []
+            try:
+                for item in response_gen:
+                    if isinstance(item, str):
+                        chunks.append(item)
+                    yield item
+            finally:
+                handler._end_pending_stream_span_on_exhaustion(span, "".join(chunks) or None)
+
+        return _wrapper()
+
+    def _end_pending_stream_span_on_exhaustion(self, span: LiveSpan, outputs=None):
+        for ended_id in self._stream_resolver.resolve_exhausted(span, outputs):
+            self._pending_spans.pop(ended_id, None)
 
     def prepare_to_drop_span(self, id_: str, err: Exception | None, **kwargs) -> _LlamaSpan:
         """Logic for handling errors during the model execution."""
@@ -654,3 +702,40 @@ class StreamResolver:
                 # as token stream can be modified by callers. However, it is technically
                 # challenging to track the modified stream across multiple spans.
                 _end_span(span=span, status=status, outputs=output_text)
+
+    def resolve_exhausted(self, span: LiveSpan, outputs=None) -> list[str]:
+        """Resolve a pending stream span and its still-pending ancestors when the
+        user-facing response generator is exhausted.
+
+        Used for flows where the LLM end event resolved the inner span *before* these
+        enclosing StreamingResponse spans registered (e.g. chat-based response synthesis
+        in llama-index-core >= 0.14.22), so the event-driven `resolve()` upward walk never
+        reached them. Idempotent: spans already resolved by an end event are skipped.
+
+        Returns the span ids that were ended.
+        """
+        entry = self._span_id_to_span_and_gen.pop(span.span_id, None)
+        if entry is None:
+            return []
+        trace_id = span.trace_id
+        span, _ = entry
+        _end_span(span=span, status=SpanStatusCode.OK, outputs=outputs)
+        ended = [span.span_id]
+        # Resolve the still-pending ancestors that share the (now-exhausted) stream.
+        while span.parent_id in self._span_id_to_span_and_gen:
+            if span_and_stream := self._span_id_to_span_and_gen.pop(span.parent_id, None):
+                span, _ = span_and_stream
+                _end_span(span=span, status=SpanStatusCode.OK, outputs=outputs)
+                ended.append(span.span_id)
+        # Resolve any other still-pending spans of the same trace. On
+        # llama-index-core >= 0.14.22, intermediate generator spans (e.g.
+        # CompactAndRefine.get_response) can also register after their LLM child's end
+        # event fired, leaving them open. While such spans stay open, the trace's
+        # full-info export stays deferred and trace-level metadata (inputs/outputs,
+        # model id) is dropped. The user-facing stream is exhausted, so the trace is done.
+        for pending_id, (pending_span, _) in list(self._span_id_to_span_and_gen.items()):
+            if pending_span.trace_id == trace_id:
+                self._span_id_to_span_and_gen.pop(pending_id, None)
+                _end_span(span=pending_span, status=SpanStatusCode.OK)
+                ended.append(pending_id)
+        return ended
