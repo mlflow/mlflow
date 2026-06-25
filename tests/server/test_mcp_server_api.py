@@ -6,9 +6,11 @@ from unittest import mock
 from urllib.parse import quote
 
 import pytest
+from fastapi import FastAPI
 from starlette.testclient import TestClient
 
-from mlflow.server.registry_fastapi_app import create_registry_fastapi_app
+from mlflow.server.fastapi_app import add_mcp_exception_handlers
+from mlflow.server.mcp_server_api import get_mcp_server_api_route_prefixes, mcp_server_router
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 PREFIX = "/ajax-api/3.0/mlflow/mcp-servers"
@@ -24,6 +26,18 @@ def _encode_path_param(value: str) -> str:
     return quote(value, safe="")
 
 
+def _create_registry_fastapi_app(route_prefixes=None):
+    fastapi_app = FastAPI()
+    add_mcp_exception_handlers(fastapi_app)
+    if route_prefixes is None:
+        route_prefixes = get_mcp_server_api_route_prefixes()
+    elif isinstance(route_prefixes, str):
+        route_prefixes = (route_prefixes,)
+    for route_prefix in route_prefixes:
+        fastapi_app.include_router(mcp_server_router, prefix=route_prefix)
+    return fastapi_app
+
+
 @pytest.fixture
 def store(tmp_path: Path):
     artifact_uri = tmp_path / "artifacts"
@@ -37,7 +51,7 @@ def client(store):
         "mlflow.server.handlers._get_tracking_store",
         return_value=store,
     ):
-        yield TestClient(create_registry_fastapi_app())
+        yield TestClient(_create_registry_fastapi_app())
 
 
 def test_create_server(client):
@@ -228,6 +242,7 @@ def test_create_version(client):
     assert data["version"] == "1.0.0"
     assert data["status"] == "active"
     assert data["server_json"]["title"] == "Test"
+    assert data["tools"] == []
 
 
 def test_create_version_name_mismatch(client):
@@ -392,6 +407,7 @@ def test_get_version(client):
     r = client.get(f"{PREFIX}/{_encode_path_param('com.example/gv')}" + "/versions/2.0.0")
     assert r.status_code == 200
     assert r.json()["version"] == "2.0.0"
+    assert r.json()["tools"] == []
 
 
 def test_latest_alias_does_not_override_literal_version_route(client):
@@ -512,6 +528,7 @@ def test_search_versions(client):
     assert r.status_code == 200
     data = r.json()
     assert len(data["mcp_server_versions"]) == 2
+    assert all(version["tools"] == [] for version in data["mcp_server_versions"])
 
 
 def test_search_versions_order_by_version_uses_semver_desc(client):
@@ -849,6 +866,7 @@ def test_get_binding_includes_resolved_version(client):
     assert r.status_code == 200
     assert r.json()["resolved_version"]["name"] == "com.example/brv-srv"
     assert r.json()["resolved_version"]["version"] == "1.0.0"
+    assert r.json()["resolved_version"]["tools"] == []
 
 
 def test_get_binding_preserves_empty_tools_list(client):
