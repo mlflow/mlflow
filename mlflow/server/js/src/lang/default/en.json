@@ -1371,6 +1371,10 @@
     "defaultMessage": "Close",
     "description": "Close button for tag details modal"
   },
+  "4b6A7E": {
+    "defaultMessage": "Undo",
+    "description": "Experiment page > shared view > undo button on the override confirmation toast"
+  },
   "4cnExh": {
     "defaultMessage": "{count, plural, one {# reviewer} other {# reviewers}} selected",
     "description": "Queue settings: reviewers dropdown selected-count summary"
@@ -2483,6 +2487,10 @@
     "defaultMessage": "avg per request",
     "description": "Subtitle for average tokens per request in gateway"
   },
+  "A0m0mR": {
+    "defaultMessage": "You're viewing a shared view. Your changes won't be saved unless you override your own saved view.",
+    "description": "Experiment page > shared view banner > explanation that the shared view is read-only"
+  },
   "A1ljDC": {
     "defaultMessage": "Docs",
     "description": "Sidebar link for docs page"
@@ -2722,6 +2730,10 @@
   "BD8ZUj": {
     "defaultMessage": "{isTraces, select, true {Trace} other {Session}} {index} of {total}",
     "description": "Index of the current trace and total number of traces"
+  },
+  "BDmDMg": {
+    "defaultMessage": "Your saved view was overridden.",
+    "description": "Experiment page > shared view > confirmation toast after overriding the user's saved view with a shared view"
   },
   "BDnRzZ": {
     "defaultMessage": "Total cost: {cost}",
@@ -3190,6 +3202,10 @@
   "DQ3XQT": {
     "defaultMessage": "Diff highlighting is not supported in Markdown view. Switch to Text view to see differences.",
     "description": "Warning message shown in prompt comparison view when markdown rendering is enabled"
+  },
+  "DSBiYz": {
+    "defaultMessage": "Discard",
+    "description": "Experiment page > shared view banner > button that discards the shared view and restores the user's own view"
   },
   "DSu+/R": {
     "defaultMessage": "Select reviewers",
@@ -5058,6 +5074,10 @@
   "NWbmIK": {
     "defaultMessage": "Is the text grammatically correct and naturally flowing?",
     "description": "Hint for Fluency template"
+  },
+  "NX60WQ": {
+    "defaultMessage": "Override saved view",
+    "description": "Experiment page > shared view banner > button that overwrites the user's own saved view with the shared view"
   },
   "NekUba": {
     "defaultMessage": "Add to dataset",

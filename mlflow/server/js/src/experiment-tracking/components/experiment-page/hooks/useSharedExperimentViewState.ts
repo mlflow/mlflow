@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { EXPERIMENT_PAGE_QUERY_PARAM_KEYS, useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { omit, pick } from 'lodash';
@@ -57,12 +57,55 @@ export const useSharedExperimentViewState = (
   const [sharedStateError, setSharedStateError] = useState<string | null>(null);
   const [sharedStateErrorMessage, setSharedStateErrorMessage] = useState<string | null>(null);
 
-  // Tracks the url-embedded key we've already consumed this session. See the guard
-  // in the effect below for why this is needed.
-  const appliedUrlEmbeddedKeyRef = useRef<string | null>(null);
+  // True once a shared view has been successfully applied this session, and stays true even after
+  // the share key leaves the URL (e.g. navigating to another tab). The page uses this to keep
+  // local-storage persistence paused — so the shared view is read-only and never auto-overwrites
+  // the user's own saved view — until they explicitly save or discard it (see `exitSharedView`).
+  const [sharedViewActive, setSharedViewActive] = useState(false);
+  const exitSharedView = useCallback(() => setSharedViewActive(false), []);
+
+  // The component isn't remounted when navigating between experiments (the route element carries no
+  // `key`), so reset the latch when the experiment changes — otherwise a shared session for one
+  // experiment would keep local-storage persistence disabled for the next one. Only reset on a real
+  // change between two resolved experiments: the URL-embedded apply can latch the view active before
+  // `experiment` has loaded, and the initial undefined→resolved transition must not clear it.
+  const previousExperimentIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const experimentId = experiment?.experimentId;
+    if (!experimentId) {
+      return;
+    }
+    if (previousExperimentIdRef.current && previousExperimentIdRef.current !== experimentId) {
+      setSharedViewActive(false);
+    }
+    previousExperimentIdRef.current = experimentId;
+  }, [experiment?.experimentId]);
+
+  // Tracks the share key we've already acted on (applied, or reported invalid) while the URL had no
+  // facet params. Prevents double-applying during the async parse and re-reporting an invalid key.
+  // Cleared once facets are present (the apply landed) or the key leaves the URL.
+  const appliedShareKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!viewStateShareKey) {
+      appliedShareKeyRef.current = null;
+      return;
+    }
+
+    // The shared view writes its facets into the URL when applied. Treat their presence as "already
+    // applied": skip so we neither stomp the user's edits nor re-fire on an `experiment` refetch.
+    // Their absence means we should (re)apply — covers initial arrival AND the case where the facet
+    // params were wiped while the key stayed (e.g. re-pasting the bare share link), which otherwise
+    // leaves searchFacets null and hangs the page on the loading skeleton.
+    const hasFacetParams = EXPERIMENT_PAGE_QUERY_PARAM_KEYS.some((key) => searchParams.has(key));
+    if (hasFacetParams) {
+      appliedShareKeyRef.current = null;
+      return;
+    }
+
+    // Facets absent: (re)apply. Guard against re-acting on the same key while the async parse is in
+    // flight, and against repeatedly re-reporting an invalid key.
+    if (appliedShareKeyRef.current === viewStateShareKey) {
       return;
     }
 
@@ -87,6 +130,9 @@ export const useSharedExperimentViewState = (
       setSharedUiState(sharedUiState);
       setSharedStateError(null);
       setSharedStateErrorMessage(null);
+      // Latch only on a successful apply so invalid links (which go through
+      // reportInvalidShareState) never put the page into read-only shared mode.
+      setSharedViewActive(true);
     };
 
     const reportInvalidShareState = () => {
@@ -103,15 +149,8 @@ export const useSharedExperimentViewState = (
 
     // URL-embedded shared link: the view state is carried directly in the viewStateShareKey param
     if (isUrlEmbeddedShareState(viewStateShareKey)) {
-      // Apply a given url-embedded link exactly once. This effect also re-runs when
-      // `experiment` gets a new reference (e.g. editing experiment notes/tags refetches
-      // the entity); without this guard it would re-apply the URL blob over the user's
-      // subsequent edits. A different key (navigating to another shared link) still
-      // applies. Latch synchronously so a fast re-run can't slip past the pending async.
-      if (appliedUrlEmbeddedKeyRef.current === viewStateShareKey) {
-        return;
-      }
-      appliedUrlEmbeddedKeyRef.current = viewStateShareKey;
+      // Mark as acted-on synchronously so a fast re-run can't slip past the pending async parse.
+      appliedShareKeyRef.current = viewStateShareKey;
       const parseUrlEmbeddedShareState = async () => {
         try {
           const parsedSharedViewState = await deserializePersistedState(viewStateShareKey);
@@ -144,6 +183,10 @@ export const useSharedExperimentViewState = (
       ({ key }) => key === `${EXPERIMENT_PAGE_VIEW_STATE_SHARE_TAG_PREFIX}${viewStateShareKey}`,
     );
 
+    // Mark as acted-on now that `experiment` is loaded (setting it earlier would block this path
+    // from running once the experiment resolves). Covers both the apply and the not-found report.
+    appliedShareKeyRef.current = viewStateShareKey;
+
     const tryParseSharedStateFromTag = async (shareViewTag: KeyValueEntity) => {
       try {
         const parsedSharedViewState = await deserializePersistedState(shareViewTag.value);
@@ -173,9 +216,9 @@ export const useSharedExperimentViewState = (
     }
 
     tryParseSharedStateFromTag(shareViewTag);
-    // `experiment` is required by the legacy tag-lookup path below; the url-embedded
-    // path above is guarded against re-applying when it re-fires on an experiment change.
-  }, [experiment, viewStateShareKey, intl]);
+    // `searchParams` is a dependency so the effect re-fires when the facet params change — in
+    // particular when they get wiped while the key stays, so we re-apply instead of hanging.
+  }, [experiment, viewStateShareKey, searchParams, intl]);
 
   useEffect(() => {
     if (!sharedSearchFacetsState || disabled) {
@@ -212,5 +255,7 @@ export const useSharedExperimentViewState = (
   return {
     isViewStateShared,
     sharedStateError,
+    sharedViewActive,
+    exitSharedView,
   };
 };

@@ -341,6 +341,140 @@ describe('useSharedExperimentViewState', () => {
         expect(result.current.sharedStateError).toBeNull();
       });
     });
+
+    it('marks the shared view active after a successful apply and clears it on exitSharedView', async () => {
+      jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+      const blob = await textCompressDeflate(testSerializedShareViewState);
+      jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams({ viewStateShareKey: blob }), jest.fn()]);
+
+      const { result } = renderHookWithIntl(() => useSharedExperimentViewState(uiStateSetterMock));
+
+      await waitFor(() => expect(result.current.sharedViewActive).toBe(true));
+
+      act(() => result.current.exitSharedView());
+      expect(result.current.sharedViewActive).toBe(false);
+    });
+
+    it('keeps the shared view active after the share key leaves the URL (sticky read-only)', async () => {
+      jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+      const blob = await textCompressDeflate(testSerializedShareViewState);
+      jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams({ viewStateShareKey: blob }), jest.fn()]);
+
+      const { result, rerender } = renderHookWithIntl(() => useSharedExperimentViewState(uiStateSetterMock));
+      await waitFor(() => expect(result.current.sharedViewActive).toBe(true));
+
+      // Simulate navigating to a keyless route (e.g. the Runs tab): the key is gone, but the session
+      // must stay read-only so the shared view isn't auto-persisted over the user's own saved view.
+      jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams(), jest.fn()]);
+      rerender();
+
+      expect(result.current.isViewStateShared).toBe(false);
+      expect(result.current.sharedViewActive).toBe(true);
+    });
+
+    it('clears the shared view when navigating to a different experiment', async () => {
+      jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+      const blob = await textCompressDeflate(testSerializedShareViewState);
+      jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams({ viewStateShareKey: blob }), jest.fn()]);
+
+      const { result, rerender } = renderHook(
+        ({ experiment }: { experiment?: ExperimentEntity }) =>
+          useSharedExperimentViewState(uiStateSetterMock, experiment),
+        {
+          initialProps: { experiment: { experimentId: 'experiment_1', tags: [] } as unknown as ExperimentEntity },
+          wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider>,
+        },
+      );
+
+      await waitFor(() => expect(result.current.sharedViewActive).toBe(true));
+
+      // The view isn't remounted on an experiment switch, so the latch must reset itself — otherwise
+      // it would keep local-storage persistence disabled for the next experiment too.
+      rerender({ experiment: { experimentId: 'experiment_2', tags: [] } as unknown as ExperimentEntity });
+
+      await waitFor(() => expect(result.current.sharedViewActive).toBe(false));
+    });
+
+    it('does not clear the shared view when the experiment resolves from undefined for the same link', async () => {
+      jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+      const blob = await textCompressDeflate(testSerializedShareViewState);
+      jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams({ viewStateShareKey: blob }), jest.fn()]);
+
+      // A url-embedded link latches the view active before `experiment` has loaded; the subsequent
+      // undefined -> resolved transition must NOT be mistaken for an experiment switch.
+      const { result, rerender } = renderHook(
+        ({ experiment }: { experiment?: ExperimentEntity }) =>
+          useSharedExperimentViewState(uiStateSetterMock, experiment),
+        {
+          initialProps: { experiment: undefined as ExperimentEntity | undefined },
+          wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider>,
+        },
+      );
+
+      await waitFor(() => expect(result.current.sharedViewActive).toBe(true));
+
+      rerender({ experiment: { experimentId: 'experiment_1', tags: [] } as unknown as ExperimentEntity });
+
+      expect(result.current.sharedViewActive).toBe(true);
+    });
+
+    it('does not activate the shared view when the embedded blob is invalid', async () => {
+      jest.spyOn(console, 'error').mockImplementation(() => {});
+      jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+      const malformedBlob = `${'deflate;'}not-valid-base64-deflate`;
+      jest
+        .mocked(useSearchParams)
+        .mockReturnValue([new URLSearchParams({ viewStateShareKey: malformedBlob }), jest.fn()]);
+
+      const { result } = renderHookWithIntl(() => useSharedExperimentViewState(uiStateSetterMock));
+
+      await waitFor(() => expect(result.current.sharedStateError).toMatch(/share key is invalid/));
+      expect(result.current.sharedViewActive).toBe(false);
+      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
+      jest.mocked(console.error).mockRestore();
+    });
+
+    it('re-applies a shared link after navigating away and back instead of hanging', async () => {
+      jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+      const blob = await textCompressDeflate(testSerializedShareViewState);
+      jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams({ viewStateShareKey: blob }), jest.fn()]);
+
+      const { rerender } = renderHookWithIntl(() => useSharedExperimentViewState(uiStateSetterMock));
+      await waitFor(() => expect(updateSearchFacetsMock).toHaveBeenCalledTimes(1));
+
+      // Navigate to a keyless route (client-side, no remount): the apply-once guard must reset.
+      jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams(), jest.fn()]);
+      rerender();
+
+      // Navigate back to the same shared link: it must re-apply rather than hang on a stale guard
+      // (otherwise searchFacets never repopulate and the view stays on the loading skeleton).
+      jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams({ viewStateShareKey: blob }), jest.fn()]);
+      rerender();
+      await waitFor(() => expect(updateSearchFacetsMock).toHaveBeenCalledTimes(2));
+    });
+
+    it('re-applies when the facet params are wiped while the share key stays (re-pasting the bare link)', async () => {
+      jest.mocked(shouldUseCompressedExperimentViewSharedState).mockImplementation(() => true);
+      const blob = await textCompressDeflate(testSerializedShareViewState);
+
+      // Initial arrival: key present, no facet params yet → applies (which writes the facets).
+      jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams({ viewStateShareKey: blob }), jest.fn()]);
+      const { rerender } = renderHookWithIntl(() => useSharedExperimentViewState(uiStateSetterMock));
+      await waitFor(() => expect(updateSearchFacetsMock).toHaveBeenCalledTimes(1));
+
+      // Facets now present in the URL (apply landed) → must NOT re-apply (no stomp, no re-fire spam).
+      jest
+        .mocked(useSearchParams)
+        .mockReturnValue([new URLSearchParams({ viewStateShareKey: blob, orderByKey: 'metrics.m1' }), jest.fn()]);
+      rerender();
+      expect(updateSearchFacetsMock).toHaveBeenCalledTimes(1);
+
+      // Re-paste the bare link: facet params wiped, key unchanged → must re-apply, not hang on the
+      // skeleton (the bug). The previous guard skipped this because the key hadn't changed.
+      jest.mocked(useSearchParams).mockReturnValue([new URLSearchParams({ viewStateShareKey: blob }), jest.fn()]);
+      rerender();
+      await waitFor(() => expect(updateSearchFacetsMock).toHaveBeenCalledTimes(2));
+    });
   });
 
   test('should recognize uncompressed state also when compression flag is enabled', async () => {
