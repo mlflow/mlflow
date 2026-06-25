@@ -819,6 +819,10 @@
     "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
     "description": "Issue detection summary > View issues button"
   },
+  "1vy2L2": {
+    "defaultMessage": "Create and manage access bindings for your MCP servers.",
+    "description": "Empty state description for MCP access bindings tab"
+  },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
     "description": "Label for the custom column group in the logged model column selector"
@@ -1831,6 +1835,10 @@
     "defaultMessage": "A unique name to identify this API key for reuse across endpoints",
     "description": "Hint text explaining API key name field"
   },
+  "7BNPN4": {
+    "defaultMessage": "MCP Server",
+    "description": "Access bindings table header for server name"
+  },
   "7Dhfxy": {
     "defaultMessage": "Fail",
     "description": "The label for a failing asseessment above a bar-chart in the summary stats."
@@ -1854,6 +1862,10 @@
   "7GU2wd": {
     "defaultMessage": "Add traces from the Traces tab to start reviewing them with your team.",
     "description": "Review queue: empty queue description"
+  },
+  "7Hw8oa": {
+    "defaultMessage": "Servers",
+    "description": "MCP Registry servers tab label"
   },
   "7KKvmS": {
     "defaultMessage": "Created by",
@@ -1899,9 +1911,17 @@
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. All parameters ({inputs}, {outputs}, {expectations}, {trace}) are optional — include only the ones your logic needs. {link}",
     "description": "Step 1 description for defining judge function"
   },
+  "7ODAYz": {
+    "defaultMessage": "Search access bindings",
+    "description": "Placeholder for MCP access bindings search filter input"
+  },
   "7PCvDy": {
     "defaultMessage": "OK",
     "description": "Confirmation button text on the model version stage transition request/approval modal"
+  },
+  "7PqwjP": {
+    "defaultMessage": "Grid view",
+    "description": "Aria label for grid view toggle"
   },
   "7RNlsx": {
     "defaultMessage": "MLflow API documentation",
@@ -2483,6 +2503,10 @@
     "defaultMessage": "avg per request",
     "description": "Subtitle for average tokens per request in gateway"
   },
+  "A/vYwt": {
+    "defaultMessage": "Create MCP server",
+    "description": "Button to create a new MCP server"
+  },
   "A1ljDC": {
     "defaultMessage": "Docs",
     "description": "Sidebar link for docs page"
@@ -2790,6 +2814,10 @@
   "BUdrAE": {
     "defaultMessage": "One-line setup",
     "description": "Tab label for the mlflow agent setup CLI path in the agent action card"
+  },
+  "BVZjOe": {
+    "defaultMessage": "Name",
+    "description": "MCP servers table header for name column"
   },
   "BWH8UR": {
     "defaultMessage": "API key name:",
@@ -3138,6 +3166,10 @@
   "D9xvar": {
     "defaultMessage": "Cancel",
     "description": "Button to cancel editing"
+  },
+  "DAnoyO": {
+    "defaultMessage": "MCP registry",
+    "description": "Sidebar link for MCP registry page"
   },
   "DCC164": {
     "defaultMessage": "GenAI",
@@ -3698,6 +3730,10 @@
   "GKiPV1": {
     "defaultMessage": "Start Time:",
     "description": "Text for start time row header in the main table in the model comparison\n                page"
+  },
+  "GRC83e": {
+    "defaultMessage": "Create MCP server",
+    "description": "Empty state title for MCP servers tab"
   },
   "GRaplV": {
     "defaultMessage": "Context sufficiency",
@@ -4575,6 +4611,10 @@
     "defaultMessage": "Latency Comparison",
     "description": "Title for the tool latency comparison chart"
   },
+  "LA4/Jy": {
+    "defaultMessage": "Create and manage MCP servers using MLflow.",
+    "description": "Empty state description for MCP servers tab"
+  },
   "LBaK9z": {
     "defaultMessage": "Open dataset",
     "description": "Text for the button that opens the dataset source URL in a new tab"
@@ -4646,6 +4686,10 @@
   "LajLDb": {
     "defaultMessage": "Move to top",
     "description": "Experiment page > compare runs tab > chart header > move to top option"
+  },
+  "LbpFi1": {
+    "defaultMessage": "Create MCP server",
+    "description": "MCP Registry empty state CTA button"
   },
   "LfggX9": {
     "defaultMessage": "Loading users…",
@@ -5483,6 +5527,10 @@
     "defaultMessage": "Track every version of your model to understand how quality changes over time. {learnMoreLink}",
     "description": "Empty state description displayed when no models are logged in the machine learning logged models list page"
   },
+  "Pbi8zz": {
+    "defaultMessage": "Version/Alias",
+    "description": "Access bindings table header for version or alias"
+  },
   "PdoaF7": {
     "defaultMessage": "Model",
     "description": "Run page > Overview > Model used for issue detection"
@@ -5810,6 +5858,10 @@
   "RJenO+": {
     "defaultMessage": "Create prompt version",
     "description": "Label for the create prompt action on the registered prompt details page"
+  },
+  "RPlL7/": {
+    "defaultMessage": "List view",
+    "description": "Aria label for list view toggle"
   },
   "RQ80MZ": {
     "defaultMessage": "You're not assigned to this queue, so you can't submit reviews here.",
@@ -6570,6 +6622,10 @@
   "V5cjvM": {
     "defaultMessage": "Copy your MLflow models to another registered model for simple model promotion across environments. For more mature production-grade setups, we recommend setting up automated model training workflows to produce models in controlled environments. <link>Learn more</link>",
     "description": "Model registry > OSS Promote model modal > description paragraph body"
+  },
+  "V5hAI0": {
+    "defaultMessage": "MCP Registry",
+    "description": "MCP Registry page title"
   },
   "V6AwxC": {
     "defaultMessage": "Run judges",
@@ -8563,6 +8619,10 @@
     "defaultMessage": "Search runs",
     "description": "Placeholder text for the search input in the runs table on the logged model details page"
   },
+  "eQaVED": {
+    "defaultMessage": "Last updated",
+    "description": "Access bindings table header for last updated"
+  },
   "eQgPEi": {
     "defaultMessage": "{value} (step={step})",
     "description": "Formats a metric value along with the step number it corresponds to"
@@ -9026,6 +9086,10 @@
   "gRz1nB": {
     "defaultMessage": "{count, plural, one {Delete Trace} other {Delete Traces}}",
     "description": "Experiment page > traces view controls > Delete traces modal > Title"
+  },
+  "gSQgYt": {
+    "defaultMessage": "Create access binding",
+    "description": "Empty state title for MCP access bindings tab"
   },
   "gST1At": {
     "defaultMessage": "Key",
@@ -9987,6 +10051,10 @@
     "defaultMessage": "Params",
     "description": "Label for 'params' option group in the compare runs chart configure modal"
   },
+  "kZK2zW": {
+    "defaultMessage": "Create access binding",
+    "description": "MCP Registry bindings empty state CTA button"
+  },
   "kZaBMS": {
     "defaultMessage": "trace.status = 'OK'",
     "description": "Placeholder example for filter string input"
@@ -10046,6 +10114,10 @@
   "ktiuki": {
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
+  },
+  "kwXUSF": {
+    "defaultMessage": "Search MCP servers by name",
+    "description": "Placeholder for MCP server search filter input"
   },
   "kwqwaU": {
     "defaultMessage": "View starter code",
@@ -10614,6 +10686,10 @@
   "nYSJgH": {
     "defaultMessage": "Show all parent spans",
     "description": "Checkbox label for a setting that enables showing all parent spans in the trace explorer regardless of filter conditions."
+  },
+  "na79Zq": {
+    "defaultMessage": "Endpoint",
+    "description": "Access bindings table header for endpoint"
   },
   "naivho": {
     "defaultMessage": "of",
@@ -11555,6 +11631,10 @@
     "defaultMessage": "No runs logged",
     "description": "Empty state title text for experiment runs page when no runs are logged in the experiment"
   },
+  "sCavJv": {
+    "defaultMessage": "Access Bindings",
+    "description": "MCP Registry access bindings tab label"
+  },
   "sD3+jL": {
     "defaultMessage": "Failed to save webhook",
     "description": "Generic error message informing the user that webhook saving failed"
@@ -12391,6 +12471,10 @@
     "defaultMessage": "Columns",
     "description": "Evaluation review > evaluations list > filter dropdown button"
   },
+  "wmEHaX": {
+    "defaultMessage": "Transport",
+    "description": "Access bindings table header for transport type"
+  },
   "womPSY": {
     "defaultMessage": "Session",
     "description": "Column label for session"
@@ -12463,6 +12547,10 @@
     "defaultMessage": "Nothing to compare!",
     "description": "Header displayed in the metrics and params compare plot when no values are selected"
   },
+  "x0yivN": {
+    "defaultMessage": "Description",
+    "description": "MCP servers table header for description column"
+  },
   "x1Lbmd": {
     "defaultMessage": "{gpuCount, plural, =0 {} one {# GPU} other {# GPUs}} selected",
     "description": "Count of selected GPUs displayed in the node level metric charts node selector"
@@ -12474,6 +12562,10 @@
   "x5IuGA": {
     "defaultMessage": "Loaded {name} v{version}",
     "description": "Success toast shown on the playground after loading a prompt version that did not include stored settings"
+  },
+  "x5RW3f": {
+    "defaultMessage": "Last modified",
+    "description": "MCP servers table header for last modified column"
   },
   "x5ukxr": {
     "defaultMessage": "Runs",

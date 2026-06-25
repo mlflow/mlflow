@@ -20,6 +20,7 @@ import {
   InfoBookIcon,
   Tooltip,
   NewWindowIcon,
+  WrenchIcon,
 } from '@databricks/design-system';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import type { Location } from '../utils/RoutingUtils';
@@ -27,6 +28,7 @@ import { Link, matchPath, useLocation, useNavigate, useParams, useSearchParams }
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import GatewayRoutes from '../../gateway/routes';
+import MCPRegistryRoutes from '../../mcp-registry/routes';
 import AccountRoutes from '../../account/routes';
 import AdminRoutes from '../../admin/routes';
 import { useCurrentUserIsAdmin, useCurrentUserQuery, useIsBasicAuth } from '../../account/hooks';
@@ -60,6 +62,7 @@ const isExperimentsActive = (location: Location) =>
 const isModelsActive = (location: Location) => Boolean(matchPath('/models/*', location.pathname));
 const isPromptsActive = (location: Location) => Boolean(matchPath('/prompts/*', location.pathname));
 const isGatewayActive = (location: Location) => Boolean(matchPath('/gateway/*', location.pathname));
+const isMCPRegistryActive = (location: Location) => Boolean(matchPath('/mcp-registry/*', location.pathname));
 const isSettingsActive = (location: Location) =>
   Boolean(
     matchPath({ path: '/settings', end: true }, location.pathname) ||
@@ -233,6 +236,22 @@ export function MlflowSidebar({
                 children: <FormattedMessage defaultMessage="Prompts" description="Sidebar link for prompts tab" />,
               },
               componentId: 'mlflow.sidebar.prompts_tab_link',
+            },
+          ]
+        : []),
+      ...(shouldShowGenAIFeatures(enableWorkflowBasedNavigation, workflowType) && !showNestedExperimentItems
+        ? [
+            {
+              key: 'mcp-registry',
+              icon: <WrenchIcon />,
+              linkProps: {
+                to: MCPRegistryRoutes.mcpRegistryPageRoute,
+                isActive: isMCPRegistryActive,
+                children: (
+                  <FormattedMessage defaultMessage="MCP registry" description="Sidebar link for MCP registry page" />
+                ),
+              },
+              componentId: 'mlflow.sidebar.mcp_registry_tab_link',
             },
           ]
         : []),
