@@ -450,6 +450,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Coding Agents & Long-Running Agents',
   },
   {
+    id: 'omnigent',
+    name: 'Omnigent',
+    logoPath: '/images/logos/omnigent-logo.png',
+    link: '/genai/tracing/integrations/listing/omnigent',
+    category: 'Coding Agents & Long-Running Agents',
+  },
+  {
     id: 'qwen_code',
     name: 'Qwen Code',
     logoPath: '/images/logos/qwen-logo.jpg',

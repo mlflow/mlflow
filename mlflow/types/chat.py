@@ -67,6 +67,17 @@ class ToolCall(BaseModel):
     id: str
     type: str = Field(default="function")
     function: Function
+    # Gemini thinking-mode models return a thought_signature with each
+    # function call that must be echoed back in subsequent turns.
+    # https://ai.google.dev/gemini-api/docs/thought-signatures
+    thought_signature: str | None = Field(default=None)
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        data = handler(self)
+        if data.get("thought_signature") is None:
+            data.pop("thought_signature", None)
+        return data
 
 
 class ChatMessage(BaseModel):
@@ -264,6 +275,17 @@ class ToolCallDelta(BaseModel):
     id: str | None = None
     type: str | None = None
     function: Function
+    # Gemini thinking-mode models return a thought_signature with each
+    # function call that must be echoed back in subsequent turns.
+    # https://ai.google.dev/gemini-api/docs/thought-signatures
+    thought_signature: str | None = Field(default=None)
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        data = handler(self)
+        if data.get("thought_signature") is None:
+            data.pop("thought_signature", None)
+        return data
 
 
 class ChatChoiceDelta(BaseModel):

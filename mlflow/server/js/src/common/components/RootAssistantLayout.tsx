@@ -7,6 +7,7 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { useAssistant } from '../../assistant/AssistantContext';
 import { AssistantChatPanel } from '../../assistant/AssistantChatPanel';
+import { AssistantFloatingButton } from '../../assistant/AssistantFloatingButton';
 
 const MIN_PANEL_WIDTH = 300;
 const MAX_PANEL_WIDTH_PERCENT = 60;
@@ -96,6 +97,7 @@ export const RootAssistantLayout = ({ children }: { children: ReactNode }) => {
           </div>
         )}
       </div>
+      <AssistantFloatingButton />
     </>
   );
 };

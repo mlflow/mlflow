@@ -3,10 +3,10 @@
 Drives any server that exposes `POST /v1/chat/completions` in OpenAI SSE form:
 MLflow AI Gateway, Ollama (via its `/v1` shim), vLLM, LM Studio, etc.
 
-The wire-level differences between these servers (model-listing endpoint, auth
-header, error messages) are passed to the constructor as data, so a single
-class can be registered multiple times with different presets in
-`providers/__init__.py`.
+:class:`OpenAICompatibleProvider` owns the shared streaming/tool-loop
+machinery. Concrete presets (``MlflowGatewayProvider``, ``OllamaProvider``,
+etc.) subclass it and forward their per-preset constants through
+``super().__init__()``.
 """
 
 import json
@@ -173,7 +173,7 @@ def _merge_tool_call_chunk(accumulator: list[dict[str, Any]], chunk: dict[str, A
 
 
 class OpenAICompatibleProvider(AssistantProvider):
-    """Provider for any server exposing `POST /v1/chat/completions` in OpenAI form."""
+    """Base provider for any server exposing `POST /v1/chat/completions`."""
 
     def __init__(
         self,

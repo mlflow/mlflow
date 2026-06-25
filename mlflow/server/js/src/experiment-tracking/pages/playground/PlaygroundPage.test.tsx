@@ -12,6 +12,26 @@ import { PlaygroundApi } from './api';
 import PlaygroundPage from './PlaygroundPage';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
 
+// Monaco does not render in jsdom; stand the editor in with a labelled textarea.
+jest.mock('../experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor', () => ({
+  LazyJsonRecordEditor: ({
+    ariaLabel,
+    value,
+    onChange,
+    errorMessage,
+  }: {
+    ariaLabel: string;
+    value: string;
+    onChange: (next: string) => void;
+    errorMessage?: string;
+  }) => (
+    <div>
+      <textarea aria-label={ariaLabel} value={value} onChange={(event) => onChange(event.target.value)} />
+      {errorMessage ? <div role="alert">{errorMessage}</div> : null}
+    </div>
+  ),
+}));
+
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
 
@@ -24,6 +44,26 @@ const openVariablesDrawer = () => userEvent.click(screen.getByRole('button', { n
 
 // Drawers are focus-trapping Radix dialogs — Submit isn't reachable until the drawer is closed.
 const closeDrawer = () => userEvent.keyboard('{Escape}');
+
+// Tool-call arguments and JSON-format responses render through GenAIMarkdownRenderer's
+// CodeSnippet, which splits tokens across spans and prepends a line number to each line.
+// Collapse a <pre>'s text to just its JSON payload (drop the leading per-line digits and
+// all whitespace) so we can compare against an expected JSON string structurally.
+const normalizeCodeBlock = (text: string | null): string =>
+  (text ?? '')
+    .split('\n')
+    .map((line) => line.replace(/^\d+/, ''))
+    .join('')
+    .replace(/\s+/g, '');
+
+// Returns the <pre> code block whose normalized JSON payload equals the expected
+// (whitespace-insensitive) JSON, or undefined when none matches.
+const findJsonCodeBlock = (expectedJson: string): HTMLPreElement | undefined => {
+  const want = expectedJson.replace(/\s+/g, '');
+  return Array.from(document.querySelectorAll('pre')).find((pre) => normalizeCodeBlock(pre.textContent) === want) as
+    | HTMLPreElement
+    | undefined;
+};
 
 jest.mock('../../components/EndpointSelector', () => ({
   EndpointSelector: ({
@@ -136,7 +176,7 @@ describe('PlaygroundPage', () => {
     expect(screen.getByRole('button', { name: /submit/i })).toBeEnabled();
   });
 
-  it('keeps Submit disabled when tool choice is required but no tool definition is provided', async () => {
+  it('keeps Submit disabled when a tool is added but its function name is empty', async () => {
     renderPlayground();
 
     const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
@@ -145,14 +185,15 @@ describe('PlaygroundPage', () => {
 
     expect(screen.getByRole('button', { name: /submit/i })).toBeEnabled();
 
+    // Adding a tool leaves its function name empty, which blocks submission.
     await openSettingsDrawer();
-    await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
     await closeDrawer();
 
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
   });
 
-  it('keeps Submit disabled when tool choice is required and tools parses to an empty array', async () => {
+  it('keeps Submit disabled when a tool parameters schema is not a JSON object', async () => {
     renderPlayground();
 
     const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
@@ -160,8 +201,9 @@ describe('PlaygroundPage', () => {
     await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
 
     await openSettingsDrawer();
-    await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
-    fireEvent.change(screen.getByLabelText('JSON Tool Definition'), { target: { value: '[]' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
+    fireEvent.change(screen.getByLabelText('Function name'), { target: { value: 'echo' } });
+    fireEvent.change(screen.getByLabelText('Tool 1 parameters'), { target: { value: '[]' } });
     await closeDrawer();
 
     expect(screen.getByRole('button', { name: /submit/i })).toBeDisabled();
@@ -231,10 +273,12 @@ describe('PlaygroundPage', () => {
     await userEvent.type(screen.getByLabelText('Frequency penalty'), '0.5');
     fireEvent.change(screen.getByLabelText('Stop sequences'), { target: { value: 'STOP\nFIN' } });
 
-    // Switch tool_choice to required and supply a valid tools array.
+    // Add a tool, switch tool_choice to required and supply a name + parameters schema.
+    await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
     await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
-    fireEvent.change(screen.getByLabelText('JSON Tool Definition'), {
-      target: { value: '[{"type":"function","function":{"name":"echo"}}]' },
+    fireEvent.change(screen.getByLabelText('Function name'), { target: { value: 'echo' } });
+    fireEvent.change(screen.getByLabelText('Tool 1 parameters'), {
+      target: { value: '{"type":"object","properties":{}}' },
     });
 
     // Switch response format to json_object.
@@ -252,7 +296,7 @@ describe('PlaygroundPage', () => {
           presence_penalty: 0.5,
           frequency_penalty: 0.5,
           stop: ['STOP', 'FIN'],
-          tools: [{ type: 'function', function: { name: 'echo' } }],
+          tools: [{ type: 'function', function: { name: 'echo', parameters: { type: 'object', properties: {} } } }],
           tool_choice: 'required',
           response_format: { type: 'json_object' },
         }),
@@ -295,7 +339,7 @@ describe('PlaygroundPage', () => {
     });
   });
 
-  it('omits tools and tool_choice when toolChoice stays at none, even with tool text typed', async () => {
+  it('omits tools and tool_choice when the tools are removed, even after tool text was typed', async () => {
     const chatCompletionSpy = jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
       choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
     });
@@ -306,13 +350,11 @@ describe('PlaygroundPage', () => {
     await userEvent.type(endpointInput, 'my-endpoint');
     await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello there');
 
-    // Pick Required just to reveal the textarea, type something, then revert to None.
+    // Add a tool and fill its name, then remove it with the trash icon.
     await openSettingsDrawer();
-    await userEvent.click(screen.getByRole('radio', { name: 'Required' }));
-    fireEvent.change(screen.getByLabelText('JSON Tool Definition'), {
-      target: { value: '[{"type":"function","function":{"name":"echo"}}]' },
-    });
-    await userEvent.click(screen.getByRole('radio', { name: 'None' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
+    fireEvent.change(screen.getByLabelText('Function name'), { target: { value: 'echo' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Remove tool 1' }));
 
     await closeDrawer();
     await userEvent.click(screen.getByRole('button', { name: /submit/i }));
@@ -537,6 +579,380 @@ describe('PlaygroundPage', () => {
 
     // Clear conversation is now enabled because the conversation is non-empty.
     expect(screen.getByRole('button', { name: /clear conversation/i })).toBeEnabled();
+  });
+
+  it('renders tool calls without showing the empty text fallback', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: 'call_1',
+                type: 'function',
+                function: { name: 'get_weather', arguments: '{"city":"San Francisco"}' },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Weather?');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
+    });
+
+    // Exactly one tool-call card holds the bold header + args as a JSON code block; no text card.
+    const toolCards = screen.getAllByTestId('mlflow.playground.assistant.tool_call_card');
+    expect(toolCards).toHaveLength(1);
+    expect(screen.queryByTestId('mlflow.playground.assistant.text_card')).not.toBeInTheDocument();
+    expect(toolCards[0]).toContainElement(screen.getByText('get_weather'));
+    // Arguments render inside a CodeSnippet <pre> whose JSON payload matches verbatim.
+    const weatherArgs = findJsonCodeBlock('{"city":"San Francisco"}');
+    expect(weatherArgs).toBeDefined();
+    expect(toolCards[0]).toContainElement(weatherArgs!);
+    // The JSON code block exposes a copy button.
+    expect(toolCards[0].querySelector('[data-testid="mlflow.playground.json_code_block"] button')).toBeInTheDocument();
+    expect(screen.queryByText('Tools — get_weather')).not.toBeInTheDocument();
+    expect(screen.queryByText('(no text content)')).not.toBeInTheDocument();
+  });
+
+  it('renders assistant text together with tool calls', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: 'Checking the weather.',
+            tool_calls: [
+              {
+                id: 'call_1',
+                type: 'function',
+                function: { name: 'get_weather', arguments: '{"city":"San Francisco"}' },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Weather?');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Checking the weather.')).toBeInTheDocument();
+    });
+    expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
+    const weatherArgs = findJsonCodeBlock('{"city":"San Francisco"}');
+    expect(weatherArgs).toBeDefined();
+
+    // Assistant text gets its own first card, separate from the tool-call card.
+    const textCard = screen.getByTestId('mlflow.playground.assistant.text_card');
+    const toolCard = screen.getByTestId('mlflow.playground.assistant.tool_call_card');
+    expect(textCard).toContainElement(screen.getByText('Checking the weather.'));
+    expect(textCard).not.toBe(toolCard);
+    expect(textCard).not.toContainElement(screen.getByText('get_weather'));
+    expect(toolCard).toContainElement(screen.getByText('get_weather'));
+    expect(toolCard).toContainElement(weatherArgs!);
+  });
+
+  it('renders tool names as bold body headers with token usage footer unchanged', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: 'call_1',
+                type: 'function',
+                function: {
+                  name: 'search_jobs',
+                  arguments: '{"currency":"USD","minimum_salary":4000,"maximum_salary":6000,"pay_period":"MONTH"}',
+                },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+        },
+      ],
+      usage: { prompt_tokens: 340, completion_tokens: 40, total_tokens: 380 },
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Find jobs');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Tokens — input: 340, output: 40, total: 380')).toBeInTheDocument();
+    });
+    expect(screen.getByText('search_jobs').tagName.toLowerCase()).toBe('strong');
+    // Arguments render verbatim inside a JSON code block (whitespace-insensitive match).
+    const jobArgs = findJsonCodeBlock(
+      '{"currency":"USD","minimum_salary":4000,"maximum_salary":6000,"pay_period":"MONTH"}',
+    );
+    expect(jobArgs).toBeDefined();
+
+    // The token usage footer renders exactly once and lives outside (below) the cards.
+    const footer = screen.getByText('Tokens — input: 340, output: 40, total: 380');
+    expect(screen.getAllByText(/^Tokens —/)).toHaveLength(1);
+    const toolCard = screen.getByTestId('mlflow.playground.assistant.tool_call_card');
+    expect(toolCard).not.toContainElement(footer);
+    expect(toolCard).toContainElement(jobArgs!);
+    expect(screen.queryByTestId('mlflow.playground.assistant.text_card')).not.toBeInTheDocument();
+  });
+
+  it('renders multiple tool calls in one assistant response', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: 'call_1',
+                type: 'function',
+                function: { name: 'get_weather', arguments: '{"city":"San Francisco"}' },
+              },
+              {
+                id: 'call_2',
+                type: 'function',
+                function: { name: 'get_time', arguments: '{"timezone": "America/Los_Angeles"}' },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Weather and time?');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
+    });
+    expect(screen.getByText('get_time').tagName.toLowerCase()).toBe('strong');
+
+    // Each named tool call renders as its own sibling grey card.
+    const toolCards = screen.getAllByTestId('mlflow.playground.assistant.tool_call_card');
+    expect(toolCards).toHaveLength(2);
+    // No leading text card when the assistant returned no content.
+    expect(screen.queryByTestId('mlflow.playground.assistant.text_card')).not.toBeInTheDocument();
+
+    // Each call's arguments render as their own JSON code block (whitespace-insensitive match).
+    const weatherArgs = findJsonCodeBlock('{"city":"San Francisco"}');
+    const timeArgs = findJsonCodeBlock('{"timezone":"America/Los_Angeles"}');
+    expect(weatherArgs).toBeDefined();
+    expect(timeArgs).toBeDefined();
+
+    // get_weather's header + args live in one card; get_time's in a different card.
+    const weatherCard = toolCards.find((card) => card.contains(screen.getByText('get_weather')));
+    const timeCard = toolCards.find((card) => card.contains(screen.getByText('get_time')));
+    expect(weatherCard).toBeDefined();
+    expect(timeCard).toBeDefined();
+    expect(weatherCard).not.toBe(timeCard);
+    expect(weatherCard).toContainElement(weatherArgs!);
+    expect(weatherCard).not.toContainElement(timeArgs!);
+    expect(timeCard).toContainElement(timeArgs!);
+    expect(timeCard).not.toContainElement(weatherArgs!);
+
+    expect(screen.queryByText('Tools — get_weather, get_time')).not.toBeInTheDocument();
+  });
+
+  it('renders the assistant reply as a JSON code block when response format is JSON', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: '{"user_name":"a_b","score":42}' },
+          finish_reason: 'stop',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Give me JSON');
+
+    await openSettingsDrawer();
+    await userEvent.click(screen.getByRole('radio', { name: 'JSON' }));
+    await closeDrawer();
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    // The reply renders inside the text card as a JSON code block (CodeSnippet <pre>),
+    // pretty-printed and verbatim — not as a markdown paragraph where `a_b` would italicize.
+    await waitFor(() => {
+      expect(findJsonCodeBlock('{"user_name":"a_b","score":42}')).toBeDefined();
+    });
+    const textCard = screen.getByTestId('mlflow.playground.assistant.text_card');
+    expect(textCard).toContainElement(findJsonCodeBlock('{"user_name":"a_b","score":42}')!);
+  });
+
+  it('renders the assistant reply as a JSON code block when response format is JSON schema', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: '{"title":"hello_world"}' },
+          finish_reason: 'stop',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Give me JSON');
+
+    await openSettingsDrawer();
+    await userEvent.click(screen.getByRole('radio', { name: 'JSON schema' }));
+    fireEvent.change(screen.getByLabelText('Schema'), {
+      target: { value: '{"type":"object","properties":{"title":{"type":"string"}}}' },
+    });
+    await closeDrawer();
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(findJsonCodeBlock('{"title":"hello_world"}')).toBeDefined();
+    });
+    const textCard = screen.getByTestId('mlflow.playground.assistant.text_card');
+    expect(textCard).toContainElement(findJsonCodeBlock('{"title":"hello_world"}')!);
+  });
+
+  it('does not reformat a plain-text reply as JSON when no response format is set', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: '{"user_name":"a_b"}' },
+          finish_reason: 'stop',
+        },
+      ],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    // Without a response format the content stays a markdown paragraph (no code block).
+    await waitFor(() => {
+      expect(screen.getByTestId('mlflow.playground.assistant.text_card')).toBeInTheDocument();
+    });
+    expect(findJsonCodeBlock('{"user_name":"a_b"}')).toBeUndefined();
+  });
+
+  it('strips tool calls from outbound follow-up conversation history', async () => {
+    const chatCompletionSpy = jest
+      .spyOn(PlaygroundApi, 'chatCompletion')
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: null,
+              tool_calls: [
+                {
+                  id: 'call_1',
+                  type: 'function',
+                  function: { name: 'get_weather', arguments: '{"city":"SF"}' },
+                },
+              ],
+            },
+            finish_reason: 'tool_calls',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [{ index: 0, message: { role: 'assistant', content: 'Done.' }, finish_reason: 'stop' }],
+      });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Weather?');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('get_weather').tagName.toLowerCase()).toBe('strong');
+    });
+
+    const composers = screen.getAllByPlaceholderText('Type a message');
+    await userEvent.type(composers[1], 'Thanks');
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(chatCompletionSpy).toHaveBeenCalledTimes(2);
+    });
+    expect(chatCompletionSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: 'user', content: 'Weather?' },
+          { role: 'assistant', content: '' },
+          { role: 'user', content: 'Thanks' },
+        ],
+      }),
+    );
+  });
+
+  it('renders the empty text fallback when assistant returns no content or tool calls', async () => {
+    jest.spyOn(PlaygroundApi, 'chatCompletion').mockResolvedValue({
+      choices: [{ index: 0, message: { role: 'assistant', content: '' }, finish_reason: 'stop' }],
+    });
+
+    renderPlayground();
+
+    const endpointInput = await screen.findByTestId('endpoint-selector-test-input');
+    await userEvent.type(endpointInput, 'my-endpoint');
+    await userEvent.type(screen.getByPlaceholderText('Type a message'), 'Hello');
+
+    await userEvent.click(screen.getByRole('button', { name: /submit/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('(no text content)')).toBeInTheDocument();
+    });
   });
 
   it('sends the full conversation history on the follow-up submit, stripping per-turn usage', async () => {

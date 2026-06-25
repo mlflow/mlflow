@@ -1,6 +1,6 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { EndpointSelector } from '../../../components/EndpointSelector';
-import type { ChatMessage, PlaygroundParams, ResponseFormatType, ToolChoice } from '../types';
+import type { ChatMessage, PlaygroundParams, PlaygroundTool, ResponseFormatType, ToolChoice } from '../types';
 import { ParametersButton } from './ParametersButton';
 import { RegistryButton } from './RegistryButton';
 import { SaveToRegistryButton } from './SaveToRegistryButton';
@@ -11,9 +11,10 @@ interface Props {
   onEndpointSelect: (name: string) => void;
   params: PlaygroundParams;
   onParamsChange: (next: PlaygroundParams) => void;
-  toolsText: string;
-  onToolsChange: (next: string) => void;
-  toolsError?: string | null;
+  tools: PlaygroundTool[];
+  onAddTool: () => void;
+  onRemoveTool: (id: string) => void;
+  onUpdateTool: (id: string, patch: Partial<PlaygroundTool>) => void;
   toolChoice: ToolChoice;
   onToolChoiceChange: (next: ToolChoice) => void;
   responseFormatType: ResponseFormatType;
@@ -34,9 +35,10 @@ export const PlaygroundTopBar = ({
   onEndpointSelect,
   params,
   onParamsChange,
-  toolsText,
-  onToolsChange,
-  toolsError,
+  tools,
+  onAddTool,
+  onRemoveTool,
+  onUpdateTool,
   toolChoice,
   onToolChoiceChange,
   responseFormatType,
@@ -72,9 +74,10 @@ export const PlaygroundTopBar = ({
       <ParametersButton
         value={params}
         onChange={onParamsChange}
-        toolsText={toolsText}
-        onToolsChange={onToolsChange}
-        toolsError={toolsError}
+        tools={tools}
+        onAddTool={onAddTool}
+        onRemoveTool={onRemoveTool}
+        onUpdateTool={onUpdateTool}
         toolChoice={toolChoice}
         onToolChoiceChange={onToolChoiceChange}
         responseFormatType={responseFormatType}

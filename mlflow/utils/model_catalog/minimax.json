@@ -109,13 +109,21 @@
     "MiniMax-M3": {
       "mode": "chat",
       "context_window": {
-        "max_input": 512000,
+        "max_input": 1000000,
         "max_output": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 0.6,
-        "output_per_million_tokens": 2.4,
-        "cache_read_per_million_tokens": 0.12
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2,
+        "cache_read_per_million_tokens": 0.06,
+        "long_context": [
+          {
+            "threshold_tokens": 512000,
+            "input_per_million_tokens": 0.6,
+            "output_per_million_tokens": 2.4,
+            "cache_read_per_million_tokens": 0.12
+          }
+        ]
       },
       "capabilities": {
         "function_calling": true,
@@ -124,7 +132,7 @@
         "prompt_caching": true,
         "response_schema": false
       },
-      "last_updated_at": "2026-06-09"
+      "last_updated_at": "2026-06-22"
     }
   }
 }

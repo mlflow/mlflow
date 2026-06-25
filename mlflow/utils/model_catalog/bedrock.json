@@ -405,7 +405,7 @@
         "max_tokens": 8192
       },
       "pricing": {
-        "input_per_million_tokens": 0.2,
+        "input_per_million_tokens": 0.02,
         "output_per_million_tokens": 0.0
       },
       "capabilities": {
@@ -415,7 +415,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-24"
     },
     "amazon.titan-image-generator-v1": {
       "mode": "image_generation",

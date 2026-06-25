@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { shouldEnableTracesTableStatePersistence } from '@databricks/web-shared/model-trace-explorer';
+import { AnalyzeWithAssistantButton } from '@databricks/web-shared/genai-traces-table';
 import { TracesV3Logs } from './TracesV3Logs';
 import {
   MonitoringConfigProvider,
@@ -11,6 +12,7 @@ import { TracesV3PageWrapper } from './TracesV3PageWrapper';
 import { useMonitoringViewState } from '@mlflow/mlflow/src/experiment-tracking/hooks/useMonitoringViewState';
 import { useExperiments } from '../../hooks/useExperiments';
 import { TracesV3Toolbar } from './TracesV3Toolbar';
+import { useAssistant } from '@mlflow/mlflow/src/assistant';
 import {
   useMonitoringFilters,
   useMonitoringFiltersTimeRange,
@@ -30,6 +32,7 @@ const TracesV3Content = ({
   endpointName,
   timeRange,
 }: TracesV3ContentProps) => {
+  const { isLocalServer, openPanel } = useAssistant();
   if (viewState === 'logs') {
     return (
       <TracesV3Logs
@@ -38,6 +41,11 @@ const TracesV3Content = ({
         endpointName={endpointName || ''}
         timeRange={timeRange}
         drawerWidth="80vw"
+        toolbarAddons={
+          isLocalServer ? (
+            <AnalyzeWithAssistantButton componentId="mlflow.assistant.traces_toolbar_button" onClick={openPanel} />
+          ) : undefined
+        }
       />
     );
   }
