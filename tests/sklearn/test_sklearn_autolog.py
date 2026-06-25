@@ -31,6 +31,7 @@ from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.sklearn.utils import (
     _get_arg_names,
+    _get_classifier_artifacts,
     _is_estimator_html_repr_supported,
     _is_metric_supported,
     _is_plotting_supported,
@@ -1836,6 +1837,61 @@ def test_autolog_pos_label_used_for_training_metric():
                 pos_label=1,
             )
     assert training_metrics == expected_training_metrics
+
+
+def test_get_classifier_artifacts_respects_pos_label():
+    X = np.array([[1, 0], [0, 1], [1, 0], [1, 1], [1, 1], [1, 2]])
+    y = np.array(
+        [
+            "Negative_label",
+            "Negative_label",
+            "Negative_label",
+            "Negative_label",
+            "Positive_label",
+            "Positive_label",
+        ]
+    )
+    model = sklearn.linear_model.LogisticRegression()
+    model.fit(X, y)
+
+    artifacts = _get_classifier_artifacts(model, "training_", X, y, None, "Positive_label")
+    roc_artifact = next(a for a in artifacts if a.name == "training_roc_curve")
+    pr_artifact = next(a for a in artifacts if a.name == "training_precision_recall_curve")
+
+    assert roc_artifact.arguments["pos_label"] == "Positive_label"
+    assert pr_artifact.arguments["pos_label"] == "Positive_label"
+
+    if _is_plotting_supported():
+        roc_artifact.function(**roc_artifact.arguments)
+        plt.close()
+        pr_artifact.function(**pr_artifact.arguments)
+        plt.close()
+
+
+def test_autolog_pos_label_used_for_classifier_artifact_curves():
+    mlflow.sklearn.autolog(pos_label="Positive_label")
+
+    X = np.array([[1, 0], [0, 1], [1, 0], [1, 1], [1, 1], [1, 2]])
+    y = np.array(
+        [
+            "Negative_label",
+            "Negative_label",
+            "Negative_label",
+            "Negative_label",
+            "Positive_label",
+            "Positive_label",
+        ]
+    )
+    model = sklearn.linear_model.LogisticRegression()
+
+    with mlflow.start_run() as run:
+        model.fit(X, y)
+
+    client = MlflowClient()
+    artifacts = [x.path for x in client.list_artifacts(run.info.run_id)]
+    if _is_plotting_supported():
+        assert "training_roc_curve.png" in artifacts
+        assert "training_precision_recall_curve.png" in artifacts
 
 
 def test_autolog_emits_warning_message_when_pos_label_used_for_multilabel():
