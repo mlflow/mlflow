@@ -7,6 +7,9 @@ on:
     paths:
       - ".github/workflows/ui-review.yml"
       - ".claude/skills/ui-review/**"
+      # The payload validator + its CLI registration also gate this bot.
+      - ".claude/skills/src/skills/commands/validate_ui_review.py"
+      - ".claude/skills/src/skills/cli.py"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number }}
@@ -140,8 +143,12 @@ jobs:
           retries: 3
           script: |
             const { comment } = context.payload;
+            // Anchor the status block on a stable marker so a workflow re-run replaces
+            // it instead of appending a duplicate. The original comment never contains it.
+            const MARKER = '<!-- ui-review-status -->';
+            const base = comment.body.split(MARKER)[0].replace(/\s+$/, '');
             const message = `🎨 [UI Review running...](${process.env.JOB_RUN_URL})`;
-            const updatedBody = `${comment.body}\n\n---\n\n${message}`;
+            const updatedBody = `${base}\n\n${MARKER}\n\n---\n\n${message}`;
 
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
@@ -219,7 +226,7 @@ jobs:
           # The MLflow server serves the static UI from mlflow/server/js/build, so
           # build the PR's frontend into it first — otherwise the bot would review a
           # stale/missing UI instead of the PR's changes.
-          (cd mlflow/server/js && yarn install && yarn build)
+          (cd mlflow/server/js && yarn install --immutable && yarn build)
 
       - name: Launch MLflow server with demo data
         env:
@@ -333,10 +340,13 @@ jobs:
         if: always()
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: ui-review-screenshots-${{ github.run_id }}
+          # Stable name (artifacts are per-run) so it matches the comment text below.
+          # overwrite handles workflow re-runs (same run id, new attempt).
+          name: ui-review-screenshots
           path: /tmp/ui-review-shots
           retention-days: 7
           if-no-files-found: ignore
+          overwrite: true
 
       - name: Post UI review comment
         if: github.event_name == 'issue_comment'
@@ -432,8 +442,9 @@ jobs:
               comment_id: comment.id,
             });
 
-            const originalBody = currentComment.body.split('\n\n---\n\n🎨 ')[0];
-            const updatedBody = `${originalBody}\n\n---\n\n${resultLine}`;
+            const MARKER = '<!-- ui-review-status -->';
+            const originalBody = currentComment.body.split(MARKER)[0].replace(/\s+$/, '');
+            const updatedBody = `${originalBody}\n\n${MARKER}\n\n---\n\n${resultLine}`;
 
             await github.rest.issues.updateComment({
               owner,
@@ -477,4 +488,8 @@ jobs:
       - name: Stop MLflow server
         if: always()
         run: |
-          kill "${SERVER_PID:-0}" 2>/dev/null || true
+          # Guard on a non-empty PID: a bare `kill 0` would signal the whole
+          # process group if the server never started.
+          if [ -n "${SERVER_PID:-}" ]; then
+            kill "$SERVER_PID" 2>/dev/null || true
+          fi
