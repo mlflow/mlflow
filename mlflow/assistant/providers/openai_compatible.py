@@ -486,9 +486,16 @@ class OpenAICompatibleProvider(AssistantProvider):
                                         _merge_tool_call_chunk(tool_calls_acc, tc)
 
                         if not tool_calls_acc:
-                            if visible_text:
+                            if visible_text.strip():
                                 messages.append({"role": "assistant", "content": visible_text})
-                            break
+                                break
+                            # The model streamed no text this round. Any tool output or error this
+                            # turn already reached the client as its own block, so we just surface
+                            # that the model added no response rather than finalize silently.
+                            yield Event.from_error(
+                                "The model returned an empty response. Please try again."
+                            )
+                            return
 
                         # Normalize accumulated tool calls into the OpenAI
                         # assistant message format expected on the next turn.
@@ -522,25 +529,19 @@ class OpenAICompatibleProvider(AssistantProvider):
                             tool_input = {}
 
                         # Permission gating. With full access (config) tools run without
-                        # prompting. Otherwise we prompt only for a call that BOTH has a session
-                        # (so a decision can be delivered on resume) AND isn't already permitted by
-                        # the static policy: allowlisted Bash commands (e.g. `mlflow`) and
-                        # in-workspace file ops run without a prompt, as they did before tool-call
-                        # permissions existed; the prompt is kept as an override for the previously
-                        # hard-denied calls. The session pauses the turn at a per-call Yes/No
-                        # prompt; a later resume delivers the choice via `tool_decisions`, and an
-                        # explicit allow overrides the static allowlist for that call. Anything not
-                        # gated (no session, or a statically-allowed call) is left to the static
-                        # policy enforced by execute_tool.
+                        # prompting. Otherwise we prompt only for a call the static policy wouldn't
+                        # already permit: allowlisted Bash commands (e.g. `mlflow`) and in-workspace
+                        # file ops run without a prompt, as they did before tool-call permissions
+                        # existed; the prompt is kept as an override for the previously hard-denied
+                        # calls. The turn pauses at a per-call Yes/No prompt; a later resume
+                        # delivers the choice via `tool_decisions`, and an explicit allow overrides
+                        # the static allowlist for that call. Calls the static policy already allows
+                        # are left to it, enforced by execute_tool.
                         needs_prompt = (
                             static_permission_error(tool_name, tool_input, config.permissions, cwd)
                             is not None
                         )
-                        gated = (
-                            not config.permissions.full_access
-                            and bool(mlflow_session_id)
-                            and needs_prompt
-                        )
+                        gated = not config.permissions.full_access and needs_prompt
                         decision = tool_decisions.get(tc["id"])
 
                         # Emit the tool-use block when a call is first surfaced

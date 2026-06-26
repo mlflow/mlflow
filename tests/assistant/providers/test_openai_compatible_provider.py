@@ -388,7 +388,9 @@ async def test_astream_tool_call_round_trip(provider):
                 ]
             )
         ),
-        _sse(_delta(tool_calls=[{"index": 0, "function": {"arguments": 'and": "ls"}'}}])),
+        # Allowlisted command so the round-trip exercises execution without tripping the
+        # permission gate (which no longer depends on a session id).
+        _sse(_delta(tool_calls=[{"index": 0, "function": {"arguments": 'and": "mlflow gc"}'}}])),
         b"data: [DONE]\n",
     ]
     lines_turn2 = [_sse(_delta(content="Done")), b"data: [DONE]\n"]
@@ -404,12 +406,12 @@ async def test_astream_tool_call_round_trip(provider):
             AsyncMock(return_value=("file1.py\n", False)),
         ) as mock_tool,
     ):
-        events = [e async for e in provider.astream("ls", "http://localhost:5000")]
+        events = [e async for e in provider.astream("list runs", "http://localhost:5000")]
 
     mock_tool.assert_awaited_once()
     args, kwargs = mock_tool.await_args
     assert args[0] == "Bash"
-    assert args[1] == {"command": "ls"}
+    assert args[1] == {"command": "mlflow gc"}
 
     tool_use_events = [
         e
@@ -796,7 +798,9 @@ async def test_astream_done_blob_encodes_tool_turn_for_resume(provider):
                     {
                         "index": 0,
                         "id": "call_1",
-                        "function": {"name": "Bash", "arguments": '{"command": "ls"}'},
+                        # Allowlisted command so it executes without a permission prompt (gating
+                        # no longer depends on a session id).
+                        "function": {"name": "Bash", "arguments": '{"command": "mlflow gc"}'},
                     }
                 ]
             )
@@ -816,10 +820,89 @@ async def test_astream_done_blob_encodes_tool_turn_for_resume(provider):
             AsyncMock(return_value=("file1.py\n", False)),
         ),
     ):
-        events = [e async for e in provider.astream("ls", "http://localhost:5000")]
+        events = [e async for e in provider.astream("list runs", "http://localhost:5000")]
 
     done = next(e for e in events if e.type == EventType.DONE)
     history = json.loads(done.data["session_id"])
     assert [m["role"] for m in history] == ["system", "user", "assistant", "tool", "assistant"]
     assert history[2].get("tool_calls")  # assistant message that requested the tool
     assert history[-1]["content"] == "Done"  # final assistant reply
+
+
+@pytest.mark.asyncio
+async def test_astream_empty_response_yields_error(provider):
+    # The model streams nothing — no content, no tool calls. Surface an error instead of a silent
+    # DONE that leaves the UI dropping the spinner with no message and no warning.
+    session, _ = _make_aiohttp_session([[b"data: [DONE]\n"]])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=session,
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert not any(e.type == EventType.DONE for e in events)
+    errors = [e for e in events if e.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert "empty response" in errors[0].data["error"].lower()
+
+
+def _tool_call_turn(command: str) -> list[bytes]:
+    return [
+        _sse(
+            _delta(
+                tool_calls=[
+                    {
+                        "index": 0,
+                        "id": "call_1",
+                        "function": {"name": "Bash", "arguments": json.dumps({"command": command})},
+                    }
+                ]
+            )
+        ),
+        b"data: [DONE]\n",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_astream_empty_after_tool_call_yields_error(provider):
+    # A tool runs, then the follow-up round is empty. The tool's result/error already reached the
+    # client as its own block, so the turn surfaces the empty-response error rather than finalizing
+    # silently — no synthesized give-up message (the UI renders the tool result itself).
+    turn1 = _tool_call_turn("mlflow experiments search")
+    turn2 = [_sse(_delta()), b"data: [DONE]\n"]  # empty follow-up
+    session, calls = _make_aiohttp_session([turn1, turn2])
+    with (
+        patch(
+            "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+            return_value=session,
+        ),
+        patch(
+            "mlflow.assistant.providers.openai_compatible.execute_tool",
+            AsyncMock(return_value=("(no output)", False)),
+        ) as mock_tool,
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    mock_tool.assert_awaited_once()
+    assert not any(e.type == EventType.DONE for e in events)
+    errors = [e for e in events if e.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert "empty response" in errors[0].data["error"].lower()
+    assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_astream_whitespace_only_response_yields_error(provider):
+    # Whitespace-only content with no tool calls is not a real answer; it must surface the empty
+    # error rather than finalize a blank assistant turn.
+    session, _ = _make_aiohttp_session([[_sse(_delta(content="  \n  ")), b"data: [DONE]\n"]])
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=session,
+    ):
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    assert not any(e.type == EventType.DONE for e in events)
+    errors = [e for e in events if e.type == EventType.ERROR]
+    assert len(errors) == 1
+    assert "empty response" in errors[0].data["error"].lower()

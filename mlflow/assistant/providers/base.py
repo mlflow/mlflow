@@ -38,6 +38,7 @@ class AssistantProvider(ABC):
     # Whether conversation history lives on the client and the provider can stream
     # statelessly (no server-side session persistence). Remote/deployable providers
     # opt in; local/single-host providers leave it False and keep server-side sessions.
+    # TODO (joshuawong-db): Unify this with the remote_assistant flag
     client_carries_history: bool = False
 
     @property
