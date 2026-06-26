@@ -60,7 +60,10 @@ IFRAME_HTML = """
 def get_notebook_iframe_html(traces: list["Trace"]):
     # fetch assets from tracking server
     base_url = MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL.get() or mlflow.get_tracking_uri()
-    uri = urljoin(base_url, f"{TRACE_RENDERER_ASSET_PATH}/index.html")
+    # Treat the configured base URL as a server root, not a file path, so
+    # subpath deployments like `https://host/mlflow/` preserve their prefix.
+    normalized_base_url = base_url if base_url.endswith("/") else f"{base_url}/"
+    uri = urljoin(normalized_base_url, f"{TRACE_RENDERER_ASSET_PATH.lstrip('/')}/index.html")
     query_string = _get_query_string_for_traces(traces)
 
     # include mlflow version to invalidate browser cache when mlflow updates
