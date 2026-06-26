@@ -25,7 +25,7 @@ export const ExperimentViewHeaderShareButton = ({
 
   return (
     <>
-      {searchFacetsState && uiState && experimentIds ? (
+      {experimentIds ? (
         <ExperimentGetShareLinkModal
           searchFacetsState={searchFacetsState}
           uiState={uiState}
