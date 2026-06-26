@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "UI Review Payload",
-  "description": "Payload emitted by the ui-review skill, validated by the shared `validate-review` command and rendered into a summary PR comment (NOT posted as an inline PR review). It deliberately reuses the pr-review payload's `event`/`comments` field names so the same validator works unchanged, but each comment carries route/viewport/theme/screenshot context instead of diff-line anchors. `event` is fixed to COMMENT — this bot never approves.",
+  "description": "Payload emitted by the ui-review skill, validated by the shared `validate-review` command and rendered into a summary PR comment (NOT posted as an inline PR review). It deliberately reuses the pr-review payload's `event`/`comments` field names so the same validator works unchanged, but each comment carries route/screenshot context instead of diff-line anchors. `event` is fixed to COMMENT — this bot never approves.",
   "type": "object",
   "additionalProperties": false,
   "required": ["event", "body", "comments"],
@@ -38,7 +38,7 @@
     "comment": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["body", "route", "viewport", "theme"],
+      "required": ["body", "route"],
       "properties": {
         "body": {
           "description": "Comment text. Must start with '🔴 **CRITICAL:** ', '🟡 **MODERATE:** ', or '🟢 **NIT:** '. State what is wrong, why it matters for the user, and (when known) a concrete fix.",
@@ -49,28 +49,13 @@
           ]
         },
         "route": {
-          "description": "The navigable path where the issue was observed, relative to the app root (e.g. '/experiments/1/traces'). Use '/' for the home page.",
+          "description": "The navigable path where the issue was observed, relative to the app root (e.g. '/experiments/1/traces'). Use '/' for the home page. When the finding is specific to a non-default context (tablet/mobile viewport or dark mode), state that in `body` — there are no separate viewport/theme fields.",
           "type": "string",
           "minLength": 1
-        },
-        "viewport": {
-          "description": "Viewport the issue was observed at.",
-          "type": "string",
-          "enum": ["desktop", "tablet", "mobile"]
-        },
-        "theme": {
-          "description": "Color theme the issue was observed under.",
-          "type": "string",
-          "enum": ["light", "dark"]
         },
         "screenshot": {
           "description": "Optional. Filename (basename only) of the evidence screenshot under the screenshots directory ($AGENT_BROWSER_SCREENSHOT_DIR), e.g. 'traces-desktop.png'. Referenced from the rendered comment and uploaded as a workflow artifact.",
           "type": "string"
-        },
-        "changed_files": {
-          "description": "Optional. PR-changed files this finding relates to, for the reader's context.",
-          "type": "array",
-          "items": { "type": "string" }
         }
       }
     }

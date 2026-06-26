@@ -191,10 +191,11 @@ Authoring rules:
 - Set top-level `event` to `"COMMENT"` (the only value the schema allows — this bot never approves).
 - The payload's `comments` array holds one entry per distinct UI/UX issue. For a repeated issue
   across surfaces, file one representative comment and name the other routes in its body.
-- Each comment sets `route`, `viewport`, `theme`, an optional `screenshot` (the basename printed
-  by the no-filename `agent-browser screenshot`), and optional `changed_files`. Start `body` with the matching
-  severity prefix; state the problem, why it matters for the user, and a concrete fix when you
-  have one.
+- Each comment sets `route` and an optional `screenshot` (the basename printed by the no-filename
+  `agent-browser screenshot`). Start `body` with the matching severity prefix; state the problem,
+  why it matters for the user, and a concrete fix when you have one. When a finding is specific to
+  a non-default context — a tablet/mobile viewport or dark mode — say so in the `body` itself
+  (e.g. "At 390px width…", "In dark mode…"); there are no separate viewport/theme/changed_files fields.
 - `body` (top-level) is a 2–4 sentence summary that names the surfaces you reviewed; if you
   could not review some intended surface (empty store, failed load), say so. It MUST end with
   `🤖 Generated with Claude` on its own line.

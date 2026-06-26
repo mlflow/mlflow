@@ -346,7 +346,7 @@ jobs:
           lines = ["<!-- ui-review-summary -->", "## 🎨 UI Review", "", payload["body"], ""]
           if comments:
               for f in sorted(comments, key=lambda x: order.get(x["body"][:1], 3)):
-                  meta = [f"route `{f['route']}`", f["viewport"], f["theme"]]
+                  meta = [f"route `{f['route']}`"]
                   if shot := f.get("screenshot"):
                       meta.append(f"screenshot `{shot}`")
                   lines.append(f"- {f['body']}")
