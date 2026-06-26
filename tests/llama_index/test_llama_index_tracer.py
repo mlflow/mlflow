@@ -117,6 +117,41 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
         }
 
 
+def test_tracer_restores_propagated_mlflow_context_for_instrumented_span():
+    from llama_index.core.instrumentation import get_dispatcher
+
+    dispatcher = get_dispatcher()
+
+    @dispatcher.span
+    def instrumented_operation(value: str) -> str:
+        result = value.upper()
+        with mlflow.start_span("manual-child") as child:
+            child.set_outputs(result)
+        return result
+
+    with mlflow.start_span("workflow-root") as root:
+        context = dispatcher.capture_propagation_context()
+        root_trace_id = root.trace_id
+        root_span_id = root.span_id
+
+    assert mlflow.get_current_active_span() is None
+
+    dispatcher.restore_propagation_context(context)
+    assert instrumented_operation("done") == "DONE"
+
+    traces = get_traces()
+    assert len(traces) == 1
+
+    spans = traces[0].data.spans
+    instrumented_span = next(span for span in spans if span.name.endswith("instrumented_operation"))
+    manual_child = next(span for span in spans if span.name == "manual-child")
+
+    assert instrumented_span.trace_id == root_trace_id
+    assert instrumented_span.parent_id == root_span_id
+    assert manual_child.trace_id == root_trace_id
+    assert manual_child.parent_id == instrumented_span.span_id
+
+
 def test_trace_llm_complete_stream():
     model_name = "gpt-3.5-turbo"
     llm = OpenAI(model=model_name)
