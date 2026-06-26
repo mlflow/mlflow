@@ -52,6 +52,8 @@ _LAZY_IMPORTS = {
     "ToolCallEfficiency",
     "UserFrustration",
     "get_all_scorers",
+    "ContainsKeywords",
+    "NumericBound",
 }
 
 
@@ -84,6 +86,7 @@ def __dir__():
 if TYPE_CHECKING:
     from mlflow.genai.scorers.builtin_scorers import (
         Completeness,
+        ContainsKeywords,
         ConversationalGuidelines,
         ConversationalRoleAdherence,
         ConversationalSafety,
@@ -95,6 +98,7 @@ if TYPE_CHECKING:
         Fluency,
         Guidelines,
         KnowledgeRetention,
+        NumericBound,
         PIIDetection,
         RegexMatch,
         RelevanceToQuery,
@@ -134,6 +138,8 @@ __all__ = [
     "Summarization",
     "ToolCallCorrectness",
     "ToolCallEfficiency",
+    "ContainsKeywords",
+    "NumericBound",
     "UserFrustration",
     "Scorer",
     "scorer",
