@@ -42,6 +42,7 @@ import {
   WORKSPACE_QUERY_PARAM,
 } from './workspaces/utils/WorkspaceUtils';
 import { useWorkspaces } from './workspaces/hooks/useWorkspaces';
+import { LocaleSelector } from './i18n/LocaleSelector';
 
 // Lazy-load so the switcher (which stores plaintext passwords in
 // localStorage and manipulates auth cookies) doesn't get pulled into the
@@ -98,6 +99,9 @@ const MlflowRootLayout = ({
               <MlflowSidebar showSidebar={showSidebar} setShowSidebar={setShowSidebar} />
               <main
                 css={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  minWidth: 0,
                   width: '100%',
                   backgroundColor: theme.colors.backgroundPrimary,
                   margin: theme.spacing.sm,
@@ -106,14 +110,26 @@ const MlflowRootLayout = ({
                   overflowX: 'auto',
                 }}
               >
-                <React.Suspense fallback={<LegacySkeleton />}>
-                  <Outlet />
-                </React.Suspense>
-                {DEV_USER_SWITCHER_ENABLED && (
-                  <React.Suspense fallback={null}>
-                    <LazyDevUserSwitcher />
+                <div
+                  css={{
+                    display: 'flex',
+                    flexShrink: 0,
+                    justifyContent: 'flex-end',
+                    padding: `${theme.spacing.sm}px ${theme.spacing.md}px 0`,
+                  }}
+                >
+                  <LocaleSelector />
+                </div>
+                <div css={{ flex: 1, minWidth: 0 }}>
+                  <React.Suspense fallback={<LegacySkeleton />}>
+                    <Outlet />
                   </React.Suspense>
-                )}
+                  {DEV_USER_SWITCHER_ENABLED && (
+                    <React.Suspense fallback={null}>
+                      <LazyDevUserSwitcher />
+                    </React.Suspense>
+                  )}
+                </div>
               </main>
             </div>
           </RootAssistantLayout>

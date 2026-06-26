@@ -8143,6 +8143,10 @@
     "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
     "description": "Label for the pre-built LLM-as-a-judge filter pill in the run evaluation modal"
   },
+  "cCrveE": {
+    "defaultMessage": "Language",
+    "description": "Label for the UI language selector"
+  },
   "cEj56l": {
     "defaultMessage": "Step",
     "description": "Label for the step axis on the runs compare chart"
