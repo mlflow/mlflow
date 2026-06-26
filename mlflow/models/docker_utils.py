@@ -214,7 +214,10 @@ def build_image_from_context(context_dir: str, image_name: str, network: str | N
     network_option = ["--network", network] if network else []
     commands = [
         "docker",
+        "buildx",
         "build",
+        "--output=type=docker",
+        "--attest", "type=provenance,disabled=true",
         "-t",
         image_name,
         "-f",
