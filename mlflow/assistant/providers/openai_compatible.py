@@ -35,8 +35,8 @@ from mlflow.assistant.types import Event, Message, ToolResultBlock, ToolUseBlock
 
 _logger = logging.getLogger(__name__)
 
-# OpenAI-compatible servers have no server-side session state, so we encode
-# the full message history as JSON in the session_id field. 500 KB stays
+# OpenAI-compatible servers have no server-side session state, so the client
+# carries the full message history as JSON in conversation_history. 500 KB stays
 # well below typical LLM context windows and gives tool-heavy multi-turn
 # conversations enough headroom to avoid frequent trimming. Older turns
 # are dropped first; the system message at index 0 is always kept.
@@ -316,12 +316,11 @@ class OpenAICompatibleProvider(AssistantProvider):
     def resolve_skills_path(self, base_directory: Path) -> Path:
         return base_directory / self._skills_dirname / "skills"
 
-    async def astream(
+    async def astream_stateless(
         self,
         prompt: str,
         tracking_uri: str,
-        session_id: str | None = None,
-        mlflow_session_id: str | None = None,
+        conversation_history: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
@@ -369,9 +368,9 @@ class OpenAICompatibleProvider(AssistantProvider):
             user_text = prompt
 
         messages: list[dict[str, Any]] = []
-        if session_id:
+        if conversation_history:
             try:
-                messages = json.loads(session_id)
+                messages = json.loads(conversation_history)
             except (json.JSONDecodeError, TypeError):
                 _logger.warning("Failed to decode session history; starting a new session")
                 messages = []
@@ -618,8 +617,8 @@ class OpenAICompatibleProvider(AssistantProvider):
                     if paused:
                         break
 
-            new_session_id = json.dumps(_trim_session(messages))
-            yield Event.from_result(result=None, session_id=new_session_id)
+            new_history = json.dumps(_trim_session(messages))
+            yield Event.from_conversation_history(new_history)
 
         except Exception as e:
             _logger.exception("Error communicating with %s", self._display_name)

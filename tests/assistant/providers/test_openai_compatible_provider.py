@@ -217,7 +217,7 @@ async def test_astream_emits_content_deltas(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
 
     stream_events = [e for e in events if e.type == EventType.STREAM_EVENT]
     assert [e.data["event"]["delta"]["text"] for e in stream_events] == ["Hello", " world"]
@@ -240,7 +240,7 @@ async def test_astream_tolerates_done_terminator_and_blank_lines(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
     deltas = [e.data["event"]["delta"]["text"] for e in events if e.type == EventType.STREAM_EVENT]
     assert deltas == ["A", "B"]
 
@@ -259,7 +259,7 @@ async def test_astream_strips_think_blocks_from_stream(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
     visible = "".join(
         e.data["event"]["delta"]["text"] for e in events if e.type == EventType.STREAM_EVENT
     )
@@ -299,7 +299,7 @@ async def test_astream_uses_api_key_header(tmp_path):
             return_value=session,
         ),
     ):
-        _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        _ = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
     assert calls[0]["url"] == "http://gateway.example/v1/chat/completions"
     assert calls[0]["headers"] == {"Authorization": "Bearer sk-abc"}
     clear_config_cache()
@@ -330,7 +330,7 @@ async def test_astream_uses_tracking_uri_via_custom_chat_url_builder(tmp_path):
             return_value=session,
         ),
     ):
-        _ = [e async for e in provider.astream("hi", "http://mlflow.server:5000")]
+        _ = [e async for e in provider.astream_stateless("hi", "http://mlflow.server:5000")]
     assert calls[0]["url"] == "http://mlflow.server:5000/gateway/mlflow/v1/chat/completions"
     clear_config_cache()
 
@@ -362,7 +362,7 @@ async def test_astream_yields_error_on_http_error(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
     errors = [e for e in events if e.type == EventType.ERROR]
     assert len(errors) == 1
     assert "boom" in errors[0].data["error"]
@@ -406,7 +406,7 @@ async def test_astream_tool_call_round_trip(provider):
             AsyncMock(return_value=("file1.py\n", False)),
         ) as mock_tool,
     ):
-        events = [e async for e in provider.astream("list runs", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("list runs", "http://localhost:5000")]
 
     mock_tool.assert_awaited_once()
     args, kwargs = mock_tool.await_args
@@ -430,10 +430,8 @@ async def test_astream_tool_call_round_trip(provider):
 
 
 # ---------------------------------------------------------------------------
-# astream — session-scoped permission gating
+# astream_stateless — permission gating
 # ---------------------------------------------------------------------------
-
-_SESSION_ID = "11111111-1111-1111-1111-111111111111"
 
 
 def _tool_call_turns():
@@ -455,10 +453,10 @@ def _tool_call_turns():
     return [turn1, turn2]
 
 
-def _done_session_id(events) -> str:
+def _done_history(events) -> str:
     for e in reversed(events):
         if e.type == EventType.DONE:
-            return e.data["session_id"]
+            return e.data["conversation_history"]
     raise AssertionError("no DONE event found")
 
 
@@ -478,12 +476,7 @@ async def test_astream_pauses_at_permission_without_executing(provider):
             AsyncMock(return_value=("file1.py\n", False)),
         ) as mock_tool,
     ):
-        events = [
-            e
-            async for e in provider.astream(
-                "ls", "http://localhost:5000", mlflow_session_id=_SESSION_ID
-            )
-        ]
+        events = [e async for e in provider.astream_stateless("ls", "http://localhost:5000")]
 
     mock_tool.assert_not_awaited()
     prompts = [e for e in events if e.type == EventType.PERMISSION_REQUEST]
@@ -493,7 +486,7 @@ async def test_astream_pauses_at_permission_without_executing(provider):
     assert prompts[0].data["tool_input"] == {"command": "ls"}
     assert events[-1].type == EventType.DONE
 
-    history = json.loads(_done_session_id(events))
+    history = json.loads(_done_history(events))
     assert history[-1]["role"] == "assistant"
     assert history[-1].get("tool_calls")
     assert not any(m.get("role") == "tool" for m in history)
@@ -513,14 +506,9 @@ async def test_astream_resume_allow_executes_and_continues(provider):
             AsyncMock(return_value=("x", False)),
         ) as mt1,
     ):
-        ev1 = [
-            e
-            async for e in provider.astream(
-                "ls", "http://localhost:5000", mlflow_session_id=_SESSION_ID
-            )
-        ]
+        ev1 = [e async for e in provider.astream_stateless("ls", "http://localhost:5000")]
     mt1.assert_not_awaited()
-    history = _done_session_id(ev1)
+    history = _done_history(ev1)
 
     # Resume with allow: the decision is delivered via context, no new user turn.
     s2, _ = _make_aiohttp_session([_tool_call_turns()[1]])
@@ -536,11 +524,10 @@ async def test_astream_resume_allow_executes_and_continues(provider):
     ):
         ev2 = [
             e
-            async for e in provider.astream(
+            async for e in provider.astream_stateless(
                 "",
                 "http://localhost:5000",
-                mlflow_session_id=_SESSION_ID,
-                session_id=history,
+                conversation_history=history,
                 context={"tool_decisions": {"call_1": "allow"}},
             )
         ]
@@ -567,13 +554,8 @@ async def test_astream_resume_deny_skips_execution(provider):
             AsyncMock(return_value=("x", False)),
         ),
     ):
-        ev1 = [
-            e
-            async for e in provider.astream(
-                "ls", "http://localhost:5000", mlflow_session_id=_SESSION_ID
-            )
-        ]
-    history = _done_session_id(ev1)
+        ev1 = [e async for e in provider.astream_stateless("ls", "http://localhost:5000")]
+    history = _done_history(ev1)
 
     s2, _ = _make_aiohttp_session([_tool_call_turns()[1]])
     with (
@@ -588,11 +570,10 @@ async def test_astream_resume_deny_skips_execution(provider):
     ):
         ev2 = [
             e
-            async for e in provider.astream(
+            async for e in provider.astream_stateless(
                 "",
                 "http://localhost:5000",
-                mlflow_session_id=_SESSION_ID,
-                session_id=history,
+                conversation_history=history,
                 context={"tool_decisions": {"call_1": "deny"}},
             )
         ]
@@ -627,13 +608,8 @@ async def test_astream_fresh_message_after_abandoned_tool_call(provider):
             AsyncMock(return_value=("x", False)),
         ),
     ):
-        ev1 = [
-            e
-            async for e in provider.astream(
-                "ls", "http://localhost:5000", mlflow_session_id=_SESSION_ID
-            )
-        ]
-    history = _done_session_id(ev1)
+        ev1 = [e async for e in provider.astream_stateless("ls", "http://localhost:5000")]
+    history = _done_history(ev1)
 
     # New message, NO tool_decisions: the abandoned call must be closed out and the
     # new message must reach the model (turn 2 returns plain text, no tool calls).
@@ -650,11 +626,10 @@ async def test_astream_fresh_message_after_abandoned_tool_call(provider):
     ):
         ev2 = [
             e
-            async for e in provider.astream(
+            async for e in provider.astream_stateless(
                 "what is 2+2",
                 "http://localhost:5000",
-                mlflow_session_id=_SESSION_ID,
-                session_id=history,
+                conversation_history=history,
             )
         ]
 
@@ -667,7 +642,7 @@ async def test_astream_fresh_message_after_abandoned_tool_call(provider):
     )
     # History: the orphaned call is closed with a cancellation result, and the new
     # user message is present.
-    final = json.loads(_done_session_id(ev2))
+    final = json.loads(_done_history(ev2))
     assert any(
         m.get("role") == "tool"
         and m.get("tool_call_id") == "call_1"
@@ -708,12 +683,7 @@ async def test_astream_global_full_access_skips_prompt(tmp_path):
             AsyncMock(return_value=("file1.py\n", False)),
         ) as mock_tool,
     ):
-        events = [
-            e
-            async for e in provider.astream(
-                "ls", "http://localhost:5000", mlflow_session_id=_SESSION_ID
-            )
-        ]
+        events = [e async for e in provider.astream_stateless("ls", "http://localhost:5000")]
     clear_config_cache()
     assert not any(e.type == EventType.PERMISSION_REQUEST for e in events)
     mock_tool.assert_awaited_once()
@@ -775,12 +745,7 @@ async def test_astream_allowlisted_command_runs_without_prompt(provider):
             AsyncMock(return_value=("ok", False)),
         ) as mock_tool,
     ):
-        events = [
-            e
-            async for e in provider.astream(
-                "go", "http://localhost:5000", mlflow_session_id=_SESSION_ID
-            )
-        ]
+        events = [e async for e in provider.astream_stateless("go", "http://localhost:5000")]
     assert not any(e.type == EventType.PERMISSION_REQUEST for e in events)
     mock_tool.assert_awaited_once()
     assert events[-1].type == EventType.DONE
@@ -788,8 +753,8 @@ async def test_astream_allowlisted_command_runs_without_prompt(provider):
 
 @pytest.mark.asyncio
 async def test_astream_done_blob_encodes_tool_turn_for_resume(provider):
-    """The DONE session_id blob must capture the full tool turn in order so a fresh,
-    stateless request can resume the conversation by feeding the blob back as session_id.
+    """The DONE conversation_history blob must capture the full tool turn in order so a fresh,
+    stateless request can resume the conversation by feeding the blob back as conversation_history.
     """
     lines_turn1 = [
         _sse(
@@ -820,10 +785,10 @@ async def test_astream_done_blob_encodes_tool_turn_for_resume(provider):
             AsyncMock(return_value=("file1.py\n", False)),
         ),
     ):
-        events = [e async for e in provider.astream("list runs", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("list runs", "http://localhost:5000")]
 
     done = next(e for e in events if e.type == EventType.DONE)
-    history = json.loads(done.data["session_id"])
+    history = json.loads(done.data["conversation_history"])
     assert [m["role"] for m in history] == ["system", "user", "assistant", "tool", "assistant"]
     assert history[2].get("tool_calls")  # assistant message that requested the tool
     assert history[-1]["content"] == "Done"  # final assistant reply
@@ -838,7 +803,7 @@ async def test_astream_empty_response_yields_error(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
 
     assert not any(e.type == EventType.DONE for e in events)
     errors = [e for e in events if e.type == EventType.ERROR]
@@ -881,7 +846,7 @@ async def test_astream_empty_after_tool_call_yields_error(provider):
             AsyncMock(return_value=("(no output)", False)),
         ) as mock_tool,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
 
     mock_tool.assert_awaited_once()
     assert not any(e.type == EventType.DONE for e in events)
@@ -900,7 +865,7 @@ async def test_astream_whitespace_only_response_yields_error(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
 
     assert not any(e.type == EventType.DONE for e in events)
     errors = [e for e in events if e.type == EventType.ERROR]

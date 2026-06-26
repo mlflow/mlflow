@@ -70,9 +70,9 @@ const dispatchSseFrame = (
       return false;
     }
     case 'done': {
-      // For client-carried-history providers the DONE session_id is the updated history blob.
-      if (data.session_id) {
-        onConversationHistory?.(data.session_id);
+      // For client-carried-history providers the DONE event carries the updated history blob.
+      if (data.conversation_history) {
+        onConversationHistory?.(data.conversation_history);
       }
       // A DONE that follows a permission_request is a *pause*, not a completion: skip onDone so
       // the Allow/Deny prompt stays up and isStreaming stays true. The decision is replayed via a

@@ -77,6 +77,17 @@ class MockProvider(AssistantProvider):
         yield Event.from_message(message=Message(role="user", content="Hello from mock"))
         yield Event.from_result(result="complete", session_id="mock-session-123")
 
+    async def astream_stateless(
+        self,
+        prompt: str,
+        tracking_uri: str,
+        conversation_history: str | None = None,
+        cwd: Path | None = None,
+        context: dict[str, Any] | None = None,
+    ):
+        yield Event.from_message(message=Message(role="user", content="Hello from mock"))
+        yield Event.from_conversation_history("[]")
+
 
 @pytest.fixture(autouse=True)
 def isolated_config(tmp_path, monkeypatch):
@@ -123,29 +134,27 @@ def client():
 
 
 class CapturingProvider(MockProvider):
-    """MockProvider that records astream kwargs and echoes the history blob on DONE."""
+    """MockProvider that records astream_stateless kwargs and echoes the history blob on DONE."""
 
     def __init__(self):
         self.calls: list[dict[str, Any]] = []
 
-    async def astream(
+    async def astream_stateless(
         self,
         prompt: str,
         tracking_uri: str,
-        session_id: str | None = None,
-        mlflow_session_id: str | None = None,
+        conversation_history: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
     ):
         self.calls.append({
             "prompt": prompt,
-            "session_id": session_id,
-            "mlflow_session_id": mlflow_session_id,
+            "conversation_history": conversation_history,
             "cwd": cwd,
             "context": context,
         })
         yield Event.from_message(message=Message(role="assistant", content="reply"))
-        yield Event.from_result(result="ok", session_id=session_id or "[]")
+        yield Event.from_conversation_history(conversation_history or "[]")
 
 
 @pytest.fixture
@@ -848,7 +857,7 @@ def test_chat_passes_conversation_history_to_provider(make_client):
     assert response.status_code == 200
     _ = response.text
 
-    assert provider.calls[0]["session_id"] == blob
+    assert provider.calls[0]["conversation_history"] == blob
 
 
 def test_chat_query_mode_working_dir_none(make_client):
@@ -894,7 +903,7 @@ def test_chat_multiturn_roundtrip(make_client):
     assert r1.status_code == 200
     assert "event: done" in r1.text
 
-    blob = provider.calls[0]["session_id"] or "[]"
+    blob = provider.calls[0]["conversation_history"] or "[]"
     r2 = tc.post(
         "/ajax-api/3.0/mlflow/assistant/chat",
         json={"message": "turn 2", "conversation_history": blob},
@@ -902,7 +911,7 @@ def test_chat_multiturn_roundtrip(make_client):
     assert r2.status_code == 200
     _ = r2.text
 
-    assert provider.calls[1]["session_id"] == blob
+    assert provider.calls[1]["conversation_history"] == blob
 
 
 def test_chat_threads_tool_decisions_into_context(make_client):
