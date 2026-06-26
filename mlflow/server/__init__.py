@@ -14,6 +14,8 @@ from pathlib import Path
 
 _logger = logging.getLogger("mlflow.server")
 
+from functools import wraps
+
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
@@ -103,8 +105,59 @@ def _clear_request_shim(exc=None):
 app.before_request(_populate_request_shim)
 app.teardown_request(_clear_request_shim)
 
-for http_path, handler, methods in handlers.get_endpoints():
-    app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
+
+def _starlette_to_flask(handler):
+    """Wrap a handler so Starlette responses are converted to Flask responses.
+
+    Handlers now return Starlette Response objects (from ``responses.py``).
+    When called through the Flask test client or a WSGI server, the response
+    must be a Flask ``Response``. This wrapper converts transparently.
+    """
+    from starlette.responses import FileResponse as StarletteFileResponse
+    from starlette.responses import Response as StarletteResponse
+    from starlette.responses import StreamingResponse as StarletteStreamingResponse
+
+    @wraps(handler)
+    def wrapper(*args, **kwargs):
+        result = handler(*args, **kwargs)
+
+        if not isinstance(result, StarletteResponse):
+            return result
+
+        if isinstance(result, StarletteStreamingResponse):
+            chunks = [
+                chunk if isinstance(chunk, bytes) else chunk.encode()
+                for chunk in result.body_iterator
+            ]
+            flask_resp = Response(
+                b"".join(chunks),
+                status=result.status_code,
+            )
+        elif isinstance(result, StarletteFileResponse):
+            flask_resp = send_from_directory(
+                os.path.dirname(result.path),
+                os.path.basename(result.path),
+            )
+            flask_resp.status_code = result.status_code
+        else:
+            flask_resp = Response(
+                result.body,
+                status=result.status_code,
+            )
+
+        for key, value in result.headers.items():
+            flask_resp.headers[key] = value
+        if result.background:
+            flask_resp.call_on_close(result.background.func)
+        return flask_resp
+
+    return wrapper
+
+
+for _idx, (http_path, handler, methods) in enumerate(handlers.get_endpoints()):
+    wrapped = _starlette_to_flask(handler)
+    endpoint_name = f"{handler.__name__}_{_idx}"
+    app.add_url_rule(http_path, endpoint_name, wrapped, methods=methods)
 
 if os.environ.get(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter
@@ -126,59 +179,66 @@ def version():
     return VERSION, 200
 
 
-# Serve the "get-artifact" route.
+_flask_get_artifact_handler = _starlette_to_flask(get_artifact_handler)
+_flask_get_model_version_artifact_handler = _starlette_to_flask(get_model_version_artifact_handler)
+_flask_get_metric_history_bulk_handler = _starlette_to_flask(get_metric_history_bulk_handler)
+_flask_get_metric_history_bulk_interval_handler = _starlette_to_flask(
+    get_metric_history_bulk_interval_handler
+)
+_flask_search_datasets_handler = _starlette_to_flask(_search_datasets_handler)
+_flask_create_promptlab_run_handler = _starlette_to_flask(create_promptlab_run_handler)
+_flask_gateway_proxy_handler = _starlette_to_flask(gateway_proxy_handler)
+_flask_upload_artifact_handler = _starlette_to_flask(upload_artifact_handler)
+_flask_get_trace_artifact_handler = _starlette_to_flask(get_trace_artifact_handler)
+_flask_get_logged_model_artifact_handler = _starlette_to_flask(get_logged_model_artifact_handler)
+_flask_get_ui_telemetry_handler = _starlette_to_flask(get_ui_telemetry_handler)
+_flask_post_ui_telemetry_handler = _starlette_to_flask(post_ui_telemetry_handler)
+
+
 @app.route(_add_static_prefix("/get-artifact"))
 def serve_artifacts():
-    return get_artifact_handler()
+    return _flask_get_artifact_handler()
 
 
-# Serve the "model-versions/get-artifact" route.
 @app.route(_add_static_prefix("/model-versions/get-artifact"))
 def serve_model_version_artifact():
-    return get_model_version_artifact_handler()
+    return _flask_get_model_version_artifact_handler()
 
 
-# Serve the "metrics/get-history-bulk" route.
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/metrics/get-history-bulk"))
 def serve_get_metric_history_bulk():
-    return get_metric_history_bulk_handler()
+    return _flask_get_metric_history_bulk_handler()
 
 
-# Serve the "metrics/get-history-bulk-interval" route.
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval"))
 def serve_get_metric_history_bulk_interval():
-    return get_metric_history_bulk_interval_handler()
+    return _flask_get_metric_history_bulk_interval_handler()
 
 
-# Serve the "experiments/search-datasets" route.
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"), methods=["POST"])
 def serve_search_datasets():
-    return _search_datasets_handler()
+    return _flask_search_datasets_handler()
 
 
-# Serve the "runs/create-promptlab-run" route.
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/runs/create-promptlab-run"), methods=["POST"])
 def serve_create_promptlab_run():
-    return create_promptlab_run_handler()
+    return _flask_create_promptlab_run_handler()
 
 
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/gateway-proxy"), methods=["POST", "GET"])
 def serve_gateway_proxy():
-    return gateway_proxy_handler()
+    return _flask_gateway_proxy_handler()
 
 
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/upload-artifact"), methods=["POST"])
 def serve_upload_artifact():
-    return upload_artifact_handler()
+    return _flask_upload_artifact_handler()
 
 
-# Serve the "/get-trace-artifact" route to allow frontend to fetch trace artifacts
-# and render them in the Trace UI. The request body should contain the request_id
-# of the trace.
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/get-trace-artifact"), methods=["GET"])
 @app.route(_add_static_prefix("/ajax-api/3.0/mlflow/get-trace-artifact"), methods=["GET"])
 def serve_get_trace_artifact():
-    return get_trace_artifact_handler()
+    return _flask_get_trace_artifact_handler()
 
 
 @app.route(
@@ -186,17 +246,17 @@ def serve_get_trace_artifact():
     methods=["GET"],
 )
 def serve_get_logged_model_artifact(model_id: str):
-    return get_logged_model_artifact_handler(model_id)
+    return _flask_get_logged_model_artifact_handler(model_id)
 
 
 @app.route(_add_static_prefix("/ajax-api/3.0/mlflow/ui-telemetry"), methods=["GET"])
 def serve_get_ui_telemetry():
-    return get_ui_telemetry_handler()
+    return _flask_get_ui_telemetry_handler()
 
 
 @app.route(_add_static_prefix("/ajax-api/3.0/mlflow/ui-telemetry"), methods=["POST"])
 def serve_post_ui_telemetry():
-    return post_ui_telemetry_handler()
+    return _flask_post_ui_telemetry_handler()
 
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
@@ -299,6 +359,9 @@ def _build_waitress_command(waitress_opts, host, port, app_name, is_factory):
 def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     bind_address = f"{host}:{port}"
     opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
+    # Use UvicornWorker to serve the ASGI FastAPI app through gunicorn
+    if not any("-k" in o or "--worker-class" in o for o in opts):
+        opts.extend(["-k", "uvicorn.workers.UvicornWorker"])
     return [
         sys.executable,
         "-m",
@@ -418,8 +481,10 @@ def _run_server(
 
     if app_name is None:
         is_factory = False
-        # For uvicorn, use the FastAPI app; for gunicorn/waitress, use the Flask app
-        app = "mlflow.server.fastapi_app:app" if using_uvicorn else f"{__name__}:app"
+        # waitress is WSGI-only so it uses the Flask app (with Starlette-to-Flask
+        # response adapter); uvicorn and gunicorn (via UvicornWorker) use the
+        # native FastAPI app.
+        app = f"{__name__}:app" if using_waitress else "mlflow.server.fastapi_app:app"
     else:
         app = _find_app(app_name)
         is_factory = _is_factory(app)

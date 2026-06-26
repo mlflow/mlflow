@@ -12,7 +12,9 @@ middleware remains.
 
 from __future__ import annotations
 
+import base64
 import io
+import json
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
@@ -31,8 +33,7 @@ class _Args:
     _data: dict[str, list[str]] = field(default_factory=dict)
 
     def get(self, key: str, default: str | None = None) -> str | None:
-        values = self._data.get(key)
-        if values:
+        if values := self._data.get(key):
             return values[0]
         return default
 
@@ -70,7 +71,7 @@ class RequestShim:
     content_length: int | None = None
     url_rule: str | None = None
     authorization: Authorization | None = None
-    _json: Any = None
+    _json: Any | None = None
     _data: bytes = b""
     _stream: io.BytesIO | None = None
     state: dict[str, Any] = field(default_factory=dict)
@@ -93,9 +94,7 @@ class RequestShim:
         return self._stream
 
 
-_current_request: ContextVar[RequestShim | None] = ContextVar(
-    "mlflow_request", default=None
-)
+_current_request: ContextVar[RequestShim | None] = ContextVar("mlflow_request", default=None)
 
 
 def get_request() -> RequestShim:
@@ -126,9 +125,7 @@ def clear_request() -> None:
 # ---------------------------------------------------------------------------
 # flask.g replacement
 # ---------------------------------------------------------------------------
-_request_state: ContextVar[dict[str, Any]] = ContextVar(
-    "mlflow_request_state", default=None
-)
+_request_state: ContextVar[dict[str, Any]] = ContextVar("mlflow_request_state", default=None)
 
 
 class _GProxy:
@@ -189,5 +186,47 @@ def from_flask_request(flask_request) -> RequestShim:
         authorization=auth,
         _json=flask_request.get_json(force=True, silent=True),
         _data=flask_request.get_data(),
+        _stream=None,
+    )
+
+
+async def from_starlette_request(starlette_request) -> RequestShim:
+    """Build a ``RequestShim`` from a Starlette/FastAPI request object."""
+    args_data: dict[str, list[str]] = {}
+    for key, value in starlette_request.query_params.multi_items():
+        args_data.setdefault(key, []).append(value)
+
+    body = await starlette_request.body()
+
+    json_body = None
+    if body:
+        try:
+            json_body = json.loads(body)
+        except (ValueError, TypeError):
+            pass
+
+    auth = None
+    auth_header = starlette_request.headers.get("authorization", "")
+    if auth_header.lower().startswith("basic "):
+        try:
+            decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
+            username, _, password = decoded.partition(":")
+            auth = Authorization(username=username, password=password)
+        except Exception:
+            pass
+
+    ct = starlette_request.headers.get("content-type")
+    cl_raw = starlette_request.headers.get("content-length")
+    cl = int(cl_raw) if cl_raw else None
+
+    return RequestShim(
+        method=starlette_request.method,
+        args=_Args(_data=args_data),
+        content_type=ct,
+        content_length=cl,
+        url_rule=starlette_request.scope.get("path"),
+        authorization=auth,
+        _json=json_body,
+        _data=body,
         _stream=None,
     )

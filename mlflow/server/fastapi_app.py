@@ -1,32 +1,37 @@
 """
-FastAPI application wrapper for MLflow server.
+FastAPI application for MLflow server.
 
-This module provides a FastAPI application that wraps the existing Flask application
-using WSGIMiddleware to maintain 100% API compatibility while enabling future migration
-to FastAPI endpoints.
+All handler endpoints are registered as native FastAPI routes. A request-shim
+middleware populates a ``contextvars.ContextVar`` so that sync handler code can
+read the current HTTP request without importing Flask.
 """
 
 import json
+import os
+import re
+import textwrap
 import time
-import typing
 
-import anyio
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from flask import Flask
-from starlette.middleware.wsgi import WSGIResponder, build_environ
-from starlette.types import Receive, Scope, Send
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from starlette.responses import Response
+from starlette.staticfiles import StaticFiles
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.providers.utils import provider_call_duration_ms
-from mlflow.server import app as flask_app
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.assistant.api import assistant_router
 from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import gateway_router
 from mlflow.server.job_api import job_api_router
 from mlflow.server.otel_api import otel_router
+from mlflow.server.request_context import (
+    clear_g,
+    clear_request,
+    from_starlette_request,
+    set_request,
+)
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
     resolve_workspace_for_request_if_enabled,
@@ -37,49 +42,14 @@ from mlflow.utils.workspace_context import (
 )
 from mlflow.version import VERSION
 
+_FLASK_PATH_PARAM = re.compile(r"<(?:(?:int|float|path|string|uuid):)?([^>]+)>")
 
-class _EfficientWSGIResponder(WSGIResponder):
-    """WSGIResponder with O(n) body buffering instead of O(n^2) concatenation.
-
-    Starlette's WSGIMiddleware is deprecated and upstream has declined to fix the
-    quadratic body buffering (see https://github.com/Kludex/starlette/pull/2450,
-    closed in favor of deprecating the module entirely).
-
-    Ref: https://github.com/Kludex/starlette/blob/0e88e92b592bfa11fd92e331869a8d49ba34b541/starlette/middleware/wsgi.py#L98-L117
-    """
-
-    async def __call__(self, receive: Receive, send: Send) -> None:
-        # >>> Changed from original: use list + join instead of body += chunk
-        chunks: list[bytes] = []
-        more_body = True
-        while more_body:
-            message = await receive()
-            if chunk := message.get("body", b""):
-                chunks.append(chunk)
-            more_body = message.get("more_body", False)
-        body = b"".join(chunks)
-        del chunks  # Free chunk list before build_environ copies body into BytesIO
-        # <<< End of change
-        environ = build_environ(self.scope, body)
-
-        async with anyio.create_task_group() as task_group:
-            task_group.start_soon(self.sender, send)
-            async with self.stream_send:
-                await anyio.to_thread.run_sync(self.wsgi, environ, self.start_response)
-        if self.exc_info is not None:
-            raise self.exc_info[0].with_traceback(self.exc_info[1], self.exc_info[2])
+REL_STATIC_DIR = os.path.join(os.path.dirname(__file__), "js", "build")
 
 
-class _EfficientWSGIMiddleware:
-    """Drop-in replacement for starlette's WSGIMiddleware that avoids O(n^2) body buffering."""
-
-    def __init__(self, app: typing.Callable[..., typing.Any]) -> None:
-        self.app = app
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        assert scope["type"] == "http"
-        responder = _EfficientWSGIResponder(self.app, scope)
-        await responder(receive, send)
+def _flask_to_fastapi_path(flask_path: str) -> str:
+    """Convert Flask-style ``<param>`` and ``<path:param>`` to FastAPI ``{param}``."""
+    return _FLASK_PATH_PARAM.sub(r"{\1}", flask_path)
 
 
 def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
@@ -118,23 +88,12 @@ def add_gateway_timing_middleware(fastapi_app: FastAPI) -> None:
         if not get_routed_asgi_path(request).startswith("/gateway/"):
             return await call_next(request)
 
-        # Reset the ContextVar so the handler task starts at 0. The handler task
-        # inherits a copy of this context (Starlette's call_next uses copy_context),
-        # so the reset is visible to send_request inside the handler.
         provider_call_duration_ms.set(0.0)
         start = time.perf_counter()
         response = await call_next(request)
         duration_ms = int((time.perf_counter() - start) * 1000)
-        # Read provider duration relayed via request.state by _record_gateway_invocation.
-        # We can't read the ContextVar directly here because the handler runs in a
-        # separate task and ContextVar mutations don't propagate back.
         provider_duration_ms = int(getattr(request.state, "gateway_provider_duration_ms", 0))
 
-        # For non-streaming responses, duration_ms covers the full round-trip.
-        # For streaming responses, duration_ms covers only gateway setup time
-        # (until the StreamingResponse object is returned, before the stream body
-        # is iterated), so it reflects time-to-first-stream rather than total
-        # streaming duration.
         response.headers[MLFLOW_GATEWAY_DURATION_HEADER] = str(duration_ms)
         if provider_duration_ms > 0:
             response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(
@@ -145,20 +104,146 @@ def add_gateway_timing_middleware(fastapi_app: FastAPI) -> None:
     fastapi_app.state.gateway_timing_middleware_added = True
 
 
-def create_fastapi_app(flask_app: Flask = flask_app):
-    """
-    Create a FastAPI application that wraps the existing Flask app.
+def add_request_shim_middleware(fastapi_app: FastAPI) -> None:
+    if getattr(fastapi_app.state, "request_shim_middleware_added", False):
+        return
 
-    Returns:
-        FastAPI application instance with the Flask app mounted via WSGIMiddleware.
-    """
-    # Create FastAPI app with metadata
+    @fastapi_app.middleware("http")
+    async def request_shim_middleware(request: Request, call_next):
+        shim = await from_starlette_request(request)
+        set_request(shim)
+        try:
+            response = await call_next(request)
+        finally:
+            clear_request()
+            clear_g()
+        return response
+
+    fastapi_app.state.request_shim_middleware_added = True
+
+
+def _register_handler_endpoints(fastapi_app: FastAPI) -> None:
+    """Register all handler endpoints from ``handlers.get_endpoints()`` on FastAPI."""
+    from mlflow.server import handlers
+    from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR
+
+    static_prefix = os.environ.get(STATIC_PREFIX_ENV_VAR, "")
+
+    for http_path, handler, methods in handlers.get_endpoints():
+        fastapi_path = _flask_to_fastapi_path(http_path)
+        fastapi_app.add_api_route(
+            fastapi_path,
+            handler,
+            methods=methods,
+            response_class=Response,
+        )
+
+    # Additional routes previously defined on the Flask app in __init__.py
+    @fastapi_app.get(static_prefix + "/health")
+    def health():
+        return PlainTextResponse("OK")
+
+    @fastapi_app.get(static_prefix + "/version")
+    def version():
+        return PlainTextResponse(VERSION)
+
+    @fastapi_app.get(static_prefix + "/get-artifact")
+    def serve_artifacts():
+        return handlers.get_artifact_handler()
+
+    @fastapi_app.get(static_prefix + "/model-versions/get-artifact")
+    def serve_model_version_artifact():
+        return handlers.get_model_version_artifact_handler()
+
+    @fastapi_app.get(static_prefix + "/ajax-api/2.0/mlflow/metrics/get-history-bulk")
+    def serve_get_metric_history_bulk():
+        return handlers.get_metric_history_bulk_handler()
+
+    @fastapi_app.get(static_prefix + "/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval")
+    def serve_get_metric_history_bulk_interval():
+        return handlers.get_metric_history_bulk_interval_handler()
+
+    @fastapi_app.post(static_prefix + "/ajax-api/2.0/mlflow/experiments/search-datasets")
+    def serve_search_datasets():
+        return handlers._search_datasets_handler()
+
+    @fastapi_app.post(static_prefix + "/ajax-api/2.0/mlflow/runs/create-promptlab-run")
+    def serve_create_promptlab_run():
+        return handlers.create_promptlab_run_handler()
+
+    @fastapi_app.api_route(
+        static_prefix + "/ajax-api/2.0/mlflow/gateway-proxy",
+        methods=["POST", "GET"],
+    )
+    def serve_gateway_proxy():
+        return handlers.gateway_proxy_handler()
+
+    @fastapi_app.post(static_prefix + "/ajax-api/2.0/mlflow/upload-artifact")
+    def serve_upload_artifact():
+        return handlers.upload_artifact_handler()
+
+    @fastapi_app.get(static_prefix + "/ajax-api/2.0/mlflow/get-trace-artifact")
+    @fastapi_app.get(static_prefix + "/ajax-api/3.0/mlflow/get-trace-artifact")
+    def serve_get_trace_artifact():
+        return handlers.get_trace_artifact_handler()
+
+    @fastapi_app.get(
+        static_prefix + "/ajax-api/2.0/mlflow/logged-models/{model_id}/artifacts/files"
+    )
+    def serve_get_logged_model_artifact(model_id: str):
+        return handlers.get_logged_model_artifact_handler(model_id)
+
+    @fastapi_app.get(static_prefix + "/ajax-api/3.0/mlflow/ui-telemetry")
+    def serve_get_ui_telemetry():
+        return handlers.get_ui_telemetry_handler()
+
+    @fastapi_app.post(static_prefix + "/ajax-api/3.0/mlflow/ui-telemetry")
+    def serve_post_ui_telemetry():
+        return handlers.post_ui_telemetry_handler()
+
+    # Serve the index.html for the React App for all unmatched routes.
+    @fastapi_app.get(static_prefix + "/")
+    def serve():
+        index = os.path.join(REL_STATIC_DIR, "index.html")
+        if os.path.exists(index):
+            return FileResponse(index)
+
+        text = textwrap.dedent(
+            """
+        Unable to display MLflow UI - landing page (index.html) not found.
+
+        You are very likely running the MLflow server using a source installation
+        of the Python MLflow package.
+
+        If you are a developer making MLflow source code changes and intentionally running a source
+        installation of MLflow, you can view the UI by running the Javascript dev server:
+        https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#running-the-javascript-dev-server
+
+        Otherwise, uninstall MLflow via 'pip uninstall mlflow', reinstall an official MLflow release
+        from PyPI via 'pip install mlflow', and rerun the MLflow server.
+        """
+        )
+        return PlainTextResponse(text)
+
+
+def _mount_static_files(fastapi_app: FastAPI) -> None:
+    """Mount the React build static files directory."""
+    static_prefix = os.environ.get("STATIC_PREFIX_ENV_VAR", "")
+
+    if os.path.isdir(REL_STATIC_DIR):
+        fastapi_app.mount(
+            static_prefix + "/static-files",
+            StaticFiles(directory=REL_STATIC_DIR),
+            name="static-files",
+        )
+
+
+def create_fastapi_app():
+    """Create a FastAPI application with all MLflow endpoints registered natively."""
     fastapi_app = FastAPI(
         title="MLflow Tracking Server",
         description="MLflow Tracking Server API",
         version=VERSION,
-        # TODO: Enable API documentation when we have native FastAPI endpoints
-        # For now, disable docs since we only have Flask routes via WSGI
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
@@ -167,27 +252,23 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     # Initialize security middleware BEFORE adding routes
     init_fastapi_security(fastapi_app)
 
+    # Middleware registration order matters: last registered runs first.
+    # We want: workspace -> gateway timing -> request shim -> handler
     add_fastapi_workspace_middleware(fastapi_app)
     add_gateway_timing_middleware(fastapi_app)
+    add_request_shim_middleware(fastapi_app)
 
-    # Include OpenTelemetry API router BEFORE mounting Flask app
-    # This ensures FastAPI routes take precedence over the catch-all Flask mount
+    # Include existing native FastAPI routers
     fastapi_app.include_router(otel_router)
-
     fastapi_app.include_router(job_api_router)
-
-    # Include Gateway API router for database-backed endpoints
-    # This provides /gateway/{endpoint_name}/mlflow/invocations routes
     fastapi_app.include_router(gateway_router)
-
-    # Include Assistant API router for AI-powered trace analysis
-    # This provides /ajax-api/3.0/mlflow/assistant/* endpoints (localhost only)
     fastapi_app.include_router(assistant_router)
 
-    # Mount the entire Flask application at the root path
-    # This ensures compatibility with existing APIs
-    # NOTE: This must come AFTER include_router to avoid Flask catching all requests
-    fastapi_app.mount("/", _EfficientWSGIMiddleware(flask_app))
+    # Register all handler endpoints as native FastAPI routes
+    _register_handler_endpoints(fastapi_app)
+
+    # Mount static files for the React frontend
+    _mount_static_files(fastapi_app)
 
     return fastapi_app
 

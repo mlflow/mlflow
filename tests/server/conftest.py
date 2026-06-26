@@ -42,12 +42,13 @@ def mlflow_app_client():
     """Test client for the MLflow Flask application with security middleware."""
     from flask import Flask
 
-    from mlflow.server import handlers, security
+    from mlflow.server import _starlette_to_flask, handlers, security
 
     # Create a fresh app for each test to avoid state pollution
     app = Flask(__name__)
-    for http_path, handler, methods in handlers.get_endpoints():
-        app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
+    for idx, (http_path, handler, methods) in enumerate(handlers.get_endpoints()):
+        wrapped = _starlette_to_flask(handler)
+        app.add_url_rule(http_path, f"{handler.__name__}_{idx}", wrapped, methods=methods)
 
     security.init_security_middleware(app)
     return Client(app)

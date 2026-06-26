@@ -16,10 +16,8 @@ from typing import Any, Callable
 
 import requests
 from cachetools import TTLCache
-from flask import g
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
-from werkzeug.http import quote_header_value
 
 import mlflow
 from mlflow.client import MlflowClient
@@ -309,7 +307,7 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
-from mlflow.server.request_context import get_request
+from mlflow.server.request_context import g, get_request
 from mlflow.server.responses import (
     empty_response,
     file_response,
@@ -1084,6 +1082,18 @@ def _get_validated_flask_request_json(
     return request_json
 
 
+_HTTP_TOKEN_CHARS = frozenset(
+    "!#$%&'*+-.0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ^_`abcdefghijklmnopqrstuvwxyz|~"
+)
+
+
+def _quote_header_value(value: str) -> str:
+    """Quote a value for use in an HTTP header (RFC 7230 token / quoted-string)."""
+    if value and all(c in _HTTP_TOKEN_CHARS for c in value):
+        return value
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def _content_disposition_attachment(filename: str) -> str:
     """
     Build an RFC 6266 / RFC 5987 ``Content-Disposition`` value for an attachment.
@@ -1096,30 +1106,23 @@ def _content_disposition_attachment(filename: str) -> str:
     try:
         filename.encode("ascii")
     except UnicodeEncodeError:
-        # ``or "download"`` ensures a well-formed ``filename=<value>`` parameter
-        # even when normalization strips every character (e.g. ``日本語`` with no
-        # extension). Clients that ignore ``filename*`` still get a usable name.
         ascii_fallback = (
             unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii")
             or "download"
         )
         # safe = RFC 5987 attr-char
         quoted = urllib.parse.quote(filename, safe="!#$&+-.^_`|~")
-        quoted_ascii_fallback = quote_header_value(ascii_fallback, allow_token=True)
+        quoted_ascii_fallback = _quote_header_value(ascii_fallback)
         return f"attachment; filename={quoted_ascii_fallback}; filename*=UTF-8''{quoted}"
-    quoted_filename = quote_header_value(filename, allow_token=True)
+    quoted_filename = _quote_header_value(filename)
     return f"attachment; filename={quoted_filename}"
 
 
 def _response_with_file_attachment_headers(file_path, response):
     mime_type = _guess_mime_type(file_path)
     filename = pathlib.Path(file_path).name
-    response.mimetype = mime_type
-    content_disposition_header_name = "Content-Disposition"
-    if content_disposition_header_name not in response.headers:
-        response.headers[content_disposition_header_name] = _content_disposition_attachment(
-            filename
-        )
+    if "Content-Disposition" not in response.headers:
+        response.headers["Content-Disposition"] = _content_disposition_attachment(filename)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Content-Type"] = mime_type
     return response
@@ -1141,6 +1144,8 @@ def _create_artifact_file_response(file_path: str, artifact_name: str):
 def _send_artifact(artifact_repository, path):
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
+    from starlette.background import BackgroundTask
+
     if (local_path := artifact_repository.get_local_path(path)) is not None:
         return _create_artifact_file_response(os.path.abspath(local_path), path)
 
@@ -1150,7 +1155,7 @@ def _send_artifact(artifact_repository, path):
             artifact_repository.download_artifacts(path, dst_path=tmp_dir.name)
         )
         response = _create_artifact_file_response(file_path, path)
-        response.call_on_close(tmp_dir.cleanup)
+        response.background = BackgroundTask(tmp_dir.cleanup)
         return response
     except Exception:
         tmp_dir.cleanup()
@@ -6758,7 +6763,7 @@ def _generate_demo():
     from mlflow.demo.base import DEMO_EXPERIMENT_NAME
     from mlflow.demo.registry import demo_registry
 
-    request_json = request.get_json(silent=True) or {}
+    request_json = get_request().get_json(silent=True) or {}
     features = request_json.get("features")
 
     store = _get_tracking_store()

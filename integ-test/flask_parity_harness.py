@@ -142,9 +142,7 @@ def _build_cases(endpoints) -> list[Case]:
             seen.add(key)
 
             if method == "GET":
-                cases.append(
-                    Case(label=f"GET {concrete}", method="GET", path=concrete)
-                )
+                cases.append(Case(label=f"GET {concrete}", method="GET", path=concrete))
             else:
                 # Three error-path probes per write endpoint: empty JSON, malformed
                 # JSON, and wrong content-type. These exercise routing + validation
@@ -199,11 +197,7 @@ def _normalize_body(text: str) -> Any:
 
 
 def _contractual_headers(headers) -> dict[str, str]:
-    return {
-        k.lower(): v
-        for k, v in headers.items()
-        if k.lower() not in _VOLATILE_HEADERS
-    }
+    return {k.lower(): v for k, v in headers.items() if k.lower() not in _VOLATILE_HEADERS}
 
 
 def _capture_flask(client, case: Case) -> Captured:
@@ -272,12 +266,18 @@ def _build_flask_client():
     from flask import request as flask_request
     from werkzeug.test import Client
 
-    from mlflow.server import handlers
-    from mlflow.server.request_context import clear_g, clear_request, from_flask_request, set_request
+    from mlflow.server import _starlette_to_flask, handlers
+    from mlflow.server.request_context import (
+        clear_g,
+        clear_request,
+        from_flask_request,
+        set_request,
+    )
 
     app = Flask(__name__)
-    for http_path, handler, methods in handlers.get_endpoints():
-        app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
+    for idx, (http_path, handler, methods) in enumerate(handlers.get_endpoints()):
+        wrapped = _starlette_to_flask(handler)
+        app.add_url_rule(http_path, f"{handler.__name__}_{idx}", wrapped, methods=methods)
 
     @app.before_request
     def _populate_shim():
@@ -327,8 +327,7 @@ def run(verbose: bool, write_snapshot: bool) -> int:
             print(f"  {case.label}: flask={f.status} fastapi={a.status}")
 
     print(
-        f"\nParity sweep: {report.n_paths} paths, {report.n_cases} cases, "
-        f"{len(report.diffs)} diffs"
+        f"\nParity sweep: {report.n_paths} paths, {report.n_cases} cases, {len(report.diffs)} diffs"
     )
 
     if write_snapshot:
@@ -352,9 +351,7 @@ def run(verbose: bool, write_snapshot: bool) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verbose", action="store_true", help="print every case")
-    parser.add_argument(
-        "--snapshot", action="store_true", help="write the Flask golden snapshot"
-    )
+    parser.add_argument("--snapshot", action="store_true", help="write the Flask golden snapshot")
     args = parser.parse_args()
     return run(verbose=args.verbose, write_snapshot=args.snapshot)
 

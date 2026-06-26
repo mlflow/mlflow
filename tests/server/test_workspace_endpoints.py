@@ -17,9 +17,12 @@ def enable_workspaces(monkeypatch):
 
 @pytest.fixture
 def app(monkeypatch):
+    from mlflow.server import _starlette_to_flask
+
     flask_app = Flask(__name__)
-    for rule, view_func, methods in get_endpoints():
-        flask_app.add_url_rule(rule, view_func=view_func, methods=methods)
+    for idx, (rule, view_func, methods) in enumerate(get_endpoints()):
+        wrapped = _starlette_to_flask(view_func)
+        flask_app.add_url_rule(rule, f"{view_func.__name__}_{idx}", wrapped, methods=methods)
     return flask_app
 
 
