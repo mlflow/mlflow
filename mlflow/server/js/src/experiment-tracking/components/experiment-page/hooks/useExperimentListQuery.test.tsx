@@ -389,8 +389,57 @@ describe('useExperimentListQuery', () => {
   });
 
   describe('gateway experiment filtering', () => {
-    it('includes gateway exclusion filter in API call', async () => {
-      mockSearchExperiments.mockResolvedValueOnce(createMockResponse(['1', '2'], undefined));
+    it('filters out gateway experiments client-side', async () => {
+      // Create response with a gateway experiment mixed in
+      const response: SearchExperimentsApiResponse = {
+        experiments: [
+          {
+            experimentId: '1',
+            name: 'Normal experiment',
+            artifactLocation: '/artifacts/1',
+            lifecycleStage: 'active',
+            lastUpdateTime: Date.now(),
+            creationTime: Date.now(),
+            tags: [],
+            allowedActions: [],
+          },
+          {
+            experimentId: '2',
+            name: 'Gateway experiment',
+            artifactLocation: '/artifacts/2',
+            lifecycleStage: 'active',
+            lastUpdateTime: Date.now(),
+            creationTime: Date.now(),
+            tags: [{ key: 'mlflow.experiment.isGateway', value: 'true' }],
+            allowedActions: [],
+          },
+          {
+            experimentId: '3',
+            name: 'Another normal experiment',
+            artifactLocation: '/artifacts/3',
+            lifecycleStage: 'active',
+            lastUpdateTime: Date.now(),
+            creationTime: Date.now(),
+            tags: [],
+            allowedActions: [],
+          },
+        ],
+      };
+      mockSearchExperiments.mockResolvedValueOnce(response);
+
+      const { result } = renderHook(() => useExperimentListQuery(), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      // Gateway experiment should be filtered out client-side
+      expect(result.current.data).toHaveLength(2);
+      expect(result.current.data?.map((e) => e.experimentId)).toEqual(['1', '3']);
+    });
+
+    it('does not send IS NULL filter to the API', async () => {
+      mockSearchExperiments.mockResolvedValueOnce(createMockResponse(['1'], undefined));
 
       renderHook(() => useExperimentListQuery(), {
         wrapper: createWrapper(),
@@ -401,8 +450,8 @@ describe('useExperimentListQuery', () => {
       const apiCallData = mockSearchExperiments.mock.calls[0][0];
       const filterParam = apiCallData.find((param: [string, string]) => param?.[0] === 'filter');
 
-      expect(filterParam).toBeDefined();
-      expect(filterParam?.[1]).toContain('tags.`mlflow.experiment.isGateway` IS NULL');
+      // No filter should be sent when there are no user-specified filters
+      expect(filterParam).toBeUndefined();
     });
   });
 });
