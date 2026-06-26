@@ -17,6 +17,7 @@ from mlflow.genai.scorers.registry import (
     list_scorer_versions,
     list_scorers,
 )
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.tracking._tracking_service.utils import _get_store
 
 
@@ -224,6 +225,11 @@ def test_databricks_backend_register_duplicate_name_raises_mlflow_exception():
         assert "delete_scorer" in message
         assert "MLflow Prompt Registry" in message
         assert "mlflow.org/docs" in message
+        # Copilot review: must be RESOURCE_ALREADY_EXISTS (HTTP 400),
+        # not the MlflowException default of INTERNAL_ERROR (HTTP 500),
+        # because a duplicate-name registration is a user-actionable
+        # conflict, not an internal failure.
+        assert exc_info.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
         assert exc_info.value.__cause__ is duplicate_value_error
 
 

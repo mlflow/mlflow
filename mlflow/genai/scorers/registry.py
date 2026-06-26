@@ -19,6 +19,7 @@ from mlflow.genai.scorers.base import (
     Scorer,
     ScorerSamplingConfig,
 )
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.plugins import get_entry_points
@@ -474,7 +475,8 @@ class DatabricksStore(AbstractScorerStore):
                     f"and then re-register to replace it. To version the "
                     f"instruction template, use MLflow Prompt Registry. See "
                     f"https://mlflow.org/docs/latest/genai/eval-monitor/scorers/versioning "
-                    f"for the full guidance."
+                    f"for the full guidance.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
                 ) from e
             raise
 

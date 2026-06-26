@@ -11,9 +11,10 @@ SDK-based scorer versioning (re-registering the same name to create a new versio
 is supported on the OSS MLflow tracking backend (file-based, SQL-backed, or
 self-hosted tracking servers). The **Databricks** tracking backend doesn't
 currently support scorer versioning through the SDK. On Databricks, calling
-`Scorer.register()` with a name that already exists raises a `ValueError` from
-the underlying `databricks-rag-eval` package. If you're on a Databricks tracking
-URI, use one of the following:
+`Scorer.register()` with a name that already exists raises an `MlflowException`
+with error code `RESOURCE_ALREADY_EXISTS` (the underlying `ValueError` from
+`databricks-rag-eval` is chained as the cause for traceback fidelity). If
+you're on a Databricks tracking URI, use one of the following:
 
 - **Update in place:** call `Scorer.update(...)` instead of calling
   `Scorer.register()` again. This replaces the existing scorer's configuration.
