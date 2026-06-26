@@ -269,13 +269,25 @@ def _setup_stores() -> None:
 
 def _build_flask_client():
     from flask import Flask
+    from flask import request as flask_request
     from werkzeug.test import Client
 
     from mlflow.server import handlers
+    from mlflow.server.request_context import clear_g, clear_request, from_flask_request, set_request
 
     app = Flask(__name__)
     for http_path, handler, methods in handlers.get_endpoints():
         app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
+
+    @app.before_request
+    def _populate_shim():
+        set_request(from_flask_request(flask_request))
+
+    @app.teardown_request
+    def _clear_shim(exc=None):
+        clear_request()
+        clear_g()
+
     return Client(app)
 
 

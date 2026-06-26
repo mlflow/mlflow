@@ -16,10 +16,12 @@ from typing import Any, Callable
 
 import requests
 from cachetools import TTLCache
-from flask import Request, Response, current_app, g, jsonify, request, send_file
+from flask import Response, current_app, g, jsonify, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 from werkzeug.http import quote_header_value
+
+from mlflow.server.request_context import get_request
 
 import mlflow
 from mlflow.client import MlflowClient
@@ -943,23 +945,21 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
     return None
 
 
-def _get_request_json(flask_request=request):
+def _get_request_json(flask_request=None):
+    if flask_request is None:
+        flask_request = get_request()
     _validate_content_type(flask_request, ["application/json"])
     return flask_request.get_json(force=True, silent=True)
 
 
-def _get_normalized_request_json(flask_request: Request = request) -> dict[str, Any]:
+def _get_normalized_request_json(flask_request=None) -> dict[str, Any]:
     """
     Get request JSON with normalization for legacy clients.
 
     Handles double-encoded JSON strings from older clients and empty request bodies.
-
-    Args:
-        flask_request: The Flask request object.
-
-    Returns:
-        The request data as a dictionary (empty dict if no body).
     """
+    if flask_request is None:
+        flask_request = get_request()
     request_json = _get_request_json(flask_request)
 
     # Older clients may post their JSON double-encoded as strings, so the get_json
@@ -1004,7 +1004,9 @@ def _validate_request_json_with_schema(
             )
 
 
-def _get_request_message(request_message, flask_request=request, schema=None):
+def _get_request_message(request_message, flask_request=None, schema=None):
+    if flask_request is None:
+        flask_request = get_request()
     if flask_request.method == "GET" and flask_request.args:
         # Convert atomic values of repeated fields to lists before calling protobuf deserialization.
         # Context: We parse the parameter string into a dictionary outside of protobuf since
@@ -1049,25 +1051,11 @@ def _get_request_message(request_message, flask_request=request, schema=None):
 
 
 def _get_validated_flask_request_json(
-    flask_request: Request = request,
+    flask_request=None,
     schema: dict[str, list[Callable[..., Any]]] | None = None,
 ) -> dict[str, Any]:
-    """
-    Get and validate request data without protobuf parsing.
-
-    This is an alternative to _get_request_message for endpoints that don't
-    use protobuf message definitions. Supports both GET and POST/PUT requests.
-
-    Args:
-        flask_request: The Flask request object.
-        schema: Dictionary mapping parameter names to lists of validation functions.
-
-    Returns:
-        The validated request data as a dictionary.
-
-    Raises:
-        MlflowException: If validation fails.
-    """
+    if flask_request is None:
+        flask_request = get_request()
     if flask_request.method == "GET" and flask_request.args:
         # Extract query parameters for GET requests
         request_json = {}
@@ -1188,7 +1176,7 @@ def _disable_unless_serve_artifacts(func):
         if not _is_serving_proxied_artifacts():
             return Response(
                 (
-                    f"Endpoint: {request.url_rule} disabled due to the mlflow server running "
+                    f"Endpoint: {get_request().url_rule} disabled due to the mlflow server running "
                     "with `--no-serve-artifacts`. To enable artifacts server functionality, "
                     "run `mlflow server` with `--serve-artifacts`"
                 ),
@@ -1207,7 +1195,7 @@ def _disable_if_artifacts_only(func):
         if os.environ.get(ARTIFACTS_ONLY_ENV_VAR):
             return Response(
                 (
-                    f"Endpoint: {request.url_rule} disabled due to the mlflow server running "
+                    f"Endpoint: {get_request().url_rule} disabled due to the mlflow server running "
                     "in `--artifacts-only` mode. To enable tracking server functionality, run "
                     "`mlflow server` without `--artifacts-only`"
                 ),
@@ -1224,7 +1212,7 @@ def _disable_if_workspaces_disabled(func):
         if not MLFLOW_ENABLE_WORKSPACES.get():
             return Response(
                 (
-                    f"Endpoint: {request.url_rule} disabled because the server is running "
+                    f"Endpoint: {get_request().url_rule} disabled because the server is running "
                     "without workspaces support. To enable workspace, run "
                     "`mlflow server` with `--enable-workspaces`"
                 ),
@@ -1498,7 +1486,7 @@ def _delete_workspace_handler(workspace_name: str):
             f"The '{DEFAULT_WORKSPACE_NAME}' workspace is reserved and cannot be deleted"
         )
     WorkspaceNameValidator.validate(workspace_name)
-    mode_str = request.args.get("mode", WorkspaceDeletionMode.RESTRICT.value)
+    mode_str = get_request().args.get("mode", WorkspaceDeletionMode.RESTRICT.value)
     try:
         mode = WorkspaceDeletionMode(mode_str)
     except ValueError:
@@ -1516,8 +1504,8 @@ def _delete_workspace_handler(workspace_name: str):
 
 @catch_mlflow_exception
 def get_artifact_handler():
-    run_id = request.args.get("run_id") or request.args.get("run_uuid")
-    path = request.args["path"]
+    run_id = get_request().args.get("run_id") or get_request().args.get("run_uuid")
+    path = get_request().args["path"]
     path = validate_path_is_safe(path)
     run = _get_tracking_store().get_run(run_id)
 
@@ -2099,7 +2087,7 @@ def _get_metric_history():
 def get_metric_history_bulk_handler():
     MAX_HISTORY_RESULTS = 25000
     MAX_RUN_IDS_PER_REQUEST = 100
-    run_ids = request.args.to_dict(flat=False).get("run_id", [])
+    run_ids = get_request().args.to_dict(flat=False).get("run_id", [])
     if not run_ids:
         raise MlflowException(
             message="GetMetricHistoryBulk request must specify at least one run_id.",
@@ -2114,14 +2102,14 @@ def get_metric_history_bulk_handler():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    metric_key = request.args.get("metric_key")
+    metric_key = get_request().args.get("metric_key")
     if metric_key is None:
         raise MlflowException(
             message="GetMetricHistoryBulk request must specify a metric_key.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    max_results = int(request.args.get("max_results", MAX_HISTORY_RESULTS))
+    max_results = int(get_request().args.get("max_results", MAX_HISTORY_RESULTS))
     max_results = min(max_results, MAX_HISTORY_RESULTS)
 
     store = _get_tracking_store()
@@ -2204,7 +2192,7 @@ def get_metric_history_bulk_interval_handler():
 
 
 def get_metric_history_bulk_interval_impl(request_message):
-    args = request.args
+    args = get_request().args
     run_ids = request_message.run_ids
     metric_key = request_message.metric_key
     max_results = int(args.get("max_results", MAX_RESULTS_PER_RUN))
@@ -2251,7 +2239,7 @@ def _search_datasets_handler():
 
 def search_datasets_impl(request_message):
     MAX_EXPERIMENT_IDS_PER_REQUEST = 20
-    _validate_content_type(request, ["application/json"])
+    _validate_content_type(get_request(), ["application/json"])
     experiment_ids = request_message.experiment_ids or []
     if not experiment_ids:
         raise MlflowException(
@@ -2307,11 +2295,11 @@ def gateway_proxy_handler():
         # Pretend an empty gateway service is running
         return {"endpoints": []}
 
-    args = request.args if request.method == "GET" else request.json
+    args = get_request().args if get_request().method == "GET" else get_request().json
     gateway_path = args.get("gateway_path")
-    _validate_gateway_path(request.method, gateway_path)
+    _validate_gateway_path(get_request().method, gateway_path)
     json_data = args.get("json_data", None)
-    response = requests.request(request.method, f"{target_uri}/{gateway_path}", json=json_data)
+    response = requests.request(get_request().method, f"{target_uri}/{gateway_path}", json=json_data)
     if response.status_code == 200:
         return response.json()
     else:
@@ -2332,9 +2320,9 @@ def create_promptlab_run_handler():
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    _validate_content_type(request, ["application/json"])
+    _validate_content_type(get_request(), ["application/json"])
 
-    args = request.json
+    args = get_request().json
     experiment_id = args.get("experiment_id")
     assert_arg_exists("experiment_id", experiment_id)
     run_name = args.get("run_name", None)
@@ -2393,7 +2381,7 @@ def create_promptlab_run_handler():
 
 @catch_mlflow_exception
 def upload_artifact_handler():
-    args = request.args
+    args = get_request().args
     run_uuid = args.get("run_uuid")
     if not run_uuid:
         raise MlflowException(
@@ -2408,13 +2396,13 @@ def upload_artifact_handler():
         )
     path = validate_path_is_safe(path)
 
-    if request.content_length and request.content_length > 10 * 1024 * 1024:
+    if get_request().content_length and get_request().content_length > 10 * 1024 * 1024:
         raise MlflowException(
             message="Artifact size is too large. Max size is 10MB.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    data = request.data
+    data = get_request().data
     if not data:
         raise MlflowException(
             message="Request must specify data.",
@@ -3018,9 +3006,9 @@ def _is_prompt(name: str) -> bool:
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def get_model_version_artifact_handler():
-    name = request.args.get("name")
-    version = request.args.get("version")
-    path = request.args["path"]
+    name = get_request().args.get("name")
+    version = get_request().args.get("version")
+    path = get_request().args["path"]
     path = validate_path_is_safe(path)
     artifact_uri = _get_model_registry_store().get_model_version_download_uri(name, version)
     if _is_servable_proxied_run_artifact_root(artifact_uri):
@@ -3568,7 +3556,7 @@ def _upload_artifact(artifact_path):
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, tail)
         with open(tmp_path, "wb") as f:
-            while chunk := request.stream.read(ARTIFACT_STREAM_CHUNK_SIZE):
+            while chunk := get_request().stream.read(ARTIFACT_STREAM_CHUNK_SIZE):
                 f.write(chunk)
 
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -4194,8 +4182,8 @@ def _fetch_trace_data_from_store(
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def get_trace_artifact_handler() -> Response:
-    request_id = request.args.get("request_id")
-    path = request.args.get("path")
+    request_id = get_request().args.get("request_id")
+    path = get_request().args.get("path")
 
     if not request_id:
         raise MlflowException(
@@ -4880,7 +4868,7 @@ def _invoke_issue_detection_handler():
     from mlflow.genai.discovery.job import _fetch_provider_credentials, invoke_issue_detection_job
     from mlflow.server.jobs import submit_job
 
-    _validate_content_type(request, ["application/json"])
+    _validate_content_type(get_request(), ["application/json"])
 
     request_json = _get_validated_flask_request_json(
         schema={
@@ -4961,7 +4949,7 @@ def _invoke_genai_evaluate_handler():
     from mlflow.genai.evaluation.job import invoke_genai_evaluate_job
     from mlflow.server.jobs import submit_job
 
-    _validate_content_type(request, ["application/json"])
+    _validate_content_type(get_request(), ["application/json"])
 
     request_json = _get_validated_flask_request_json(
         schema={
@@ -4993,7 +4981,7 @@ def _invoke_genai_evaluate_handler():
     run = client.create_run(experiment_id=experiment_id, tags=tags)
     run_id = run.info.run_id
 
-    username = request.authorization.username if request.authorization else None
+    username = get_request().authorization.username if get_request().authorization else None
 
     try:
         job = submit_job(
@@ -5161,7 +5149,7 @@ def _deprecated_search_traces_v2():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def get_logged_model_artifact_handler(model_id: str):
-    artifact_file_path = request.args.get("artifact_file_path")
+    artifact_file_path = get_request().args.get("artifact_file_path")
     if not artifact_file_path:
         raise MlflowException(
             'Request must include the "artifact_file_path" query parameter.',
@@ -5241,7 +5229,7 @@ def _log_logged_model_params(model_id: str):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_logged_model(model_id: str):
-    allow_deleted = request.args.get("allow_deleted", "false").lower() == "true"
+    allow_deleted = get_request().args.get("allow_deleted", "false").lower() == "true"
     model = _get_tracking_store().get_logged_model(model_id, allow_deleted=allow_deleted)
     response_message = GetLoggedModel.Response(model=model.to_proto())
     return _wrap_response(response_message)
@@ -5541,7 +5529,7 @@ def _get_online_scoring_configs():
         JSON response containing a list of configurations.
     """
     request_json = _get_validated_flask_request_json(
-        flask_request=request,
+        flask_request=get_request(),
         schema={
             "scorer_ids": [_assert_required, _assert_array, _assert_item_type_string],
         },
@@ -5571,7 +5559,7 @@ def _upsert_online_scoring_config():
         JSON response containing the updated configuration.
     """
     request_json = _get_validated_flask_request_json(
-        flask_request=request,
+        flask_request=get_request(),
         schema={
             "experiment_id": [_assert_required, _assert_string],
             "name": [_assert_required, _assert_string],
@@ -6579,7 +6567,7 @@ def _list_supported_providers():
 @_disable_if_artifacts_only
 def _list_supported_models():
     try:
-        provider_filter = request.args.get("provider")
+        provider_filter = get_request().args.get("provider")
         models = get_models(provider=provider_filter)
         return jsonify({"models": models})
     except ImportError as e:
@@ -6590,7 +6578,7 @@ def _list_supported_models():
 @_disable_if_artifacts_only
 def _get_provider_config():
     try:
-        provider = request.args.get("provider")
+        provider = get_request().args.get("provider")
         config = get_provider_config_response(provider)
         return jsonify(config)
     except (ImportError, ValueError) as e:
@@ -6615,9 +6603,9 @@ def _invoke_scorer_handler():
 
     This is a UI-only AJAX endpoint for invoking scorers from the frontend.
     """
-    _validate_content_type(request, ["application/json"])
+    _validate_content_type(get_request(), ["application/json"])
 
-    args = request.json
+    args = get_request().json
     experiment_id = args.get("experiment_id")
     serialized_scorer = args.get("serialized_scorer")
     trace_ids = args.get("trace_ids", [])
@@ -6650,7 +6638,7 @@ def _invoke_scorer_handler():
 
     # Extract the authenticated username so that job subprocesses can make
     # gateway requests authorised as the original user (not the admin).
-    username = request.authorization.username if request.authorization else None
+    username = get_request().authorization.username if get_request().authorization else None
 
     jobs = []
     for batch_trace_ids in batches:
@@ -7237,7 +7225,7 @@ def post_ui_telemetry_handler():
         if is_telemetry_disabled():
             return jsonify({"status": "disabled"})
 
-        data = request.json.get("records", [])
+        data = get_request().json.get("records", [])
 
         if not data:
             return jsonify({"status": "success"})

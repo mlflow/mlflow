@@ -84,6 +84,25 @@ if is_running_as_server:
 app.before_request(workspace_before_request_handler)
 app.teardown_request(workspace_teardown_request_handler)
 
+
+def _populate_request_shim():
+    from flask import request as flask_request
+
+    from mlflow.server.request_context import from_flask_request, set_request
+
+    set_request(from_flask_request(flask_request))
+
+
+def _clear_request_shim(exc=None):
+    from mlflow.server.request_context import clear_g, clear_request
+
+    clear_request()
+    clear_g()
+
+
+app.before_request(_populate_request_shim)
+app.teardown_request(_clear_request_shim)
+
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
 
