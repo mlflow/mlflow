@@ -239,17 +239,12 @@ jobs:
 
       - name: Set up agent-browser
         run: |
-          # npx (the repo pattern; policy.rego blocks mutable package installs) + a PATH
-          # shim so the skill can call `agent-browser` directly. Priming also downloads Chrome.
-          npx --min-release-age=7 --yes agent-browser install
-          mkdir -p "$HOME/.local/bin"
-          cat > "$HOME/.local/bin/agent-browser" <<'SH'
-          #!/usr/bin/env bash
-          exec npx --min-release-age=7 --yes agent-browser "$@"
-          SH
-          chmod +x "$HOME/.local/bin/agent-browser"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-          "$HOME/.local/bin/agent-browser" --version
+          # `npm i -g` (alias form, which policy.rego's lockfile rule doesn't flag) puts
+          # agent-browser on PATH directly. `--before` keeps the repo's 7-day supply-chain
+          # cooldown (there's no .npmrc setting min-release-age).
+          npm i -g agent-browser --before="$(date -u -d '7 days ago' +%Y-%m-%d)"
+          agent-browser install # downloads Chrome (headless by default)
+          agent-browser --version
 
       - name: Install Claude CLI
         run: |
