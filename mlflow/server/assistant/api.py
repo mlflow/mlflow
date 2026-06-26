@@ -311,7 +311,9 @@ async def chat(request: Request, body: ChatRequest) -> StreamingResponse:
             prompt=body.message,
             tracking_uri=tracking_uri,
             session_id=body.conversation_history,
-            mlflow_session_id=str(uuid.uuid4()),
+            # No server session on the stateless path. mlflow_session_id only drives subprocess
+            # process tracking (claude_code/codex), which client-carried-history providers skip.
+            mlflow_session_id=None,
             cwd=cwd,
             context=context,
         ):
