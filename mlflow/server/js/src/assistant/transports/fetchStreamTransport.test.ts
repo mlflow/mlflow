@@ -59,7 +59,7 @@ describe('streamChatViaFetch', () => {
     // The "Hello world" message frame is deliberately split across two reads so the
     // parser must hold the trailing partial frame until the next chunk completes it.
     const chunk1 = 'event: message\ndata: {"message":{"content":"Hello';
-    const chunk2 = ' world"}}\n\nevent: done\ndata: {"session_id":"[BLOB]"}\n\n';
+    const chunk2 = ' world"}}\n\nevent: done\ndata: {"conversation_history":"[BLOB]"}\n\n';
     mockFetch.mockResolvedValue({ ok: true, body: { getReader: () => makeReader([chunk1, chunk2]) } });
 
     const callbacks = makeCallbacks();
@@ -76,7 +76,7 @@ describe('streamChatViaFetch', () => {
     const frames =
       'event: stream_event\ndata: {"event":{"type":"status","status":"Reading file"}}\n\n' +
       'event: stream_event\ndata: {"event":{"type":"content_delta","delta":{"text":"abc"}}}\n\n' +
-      'event: done\ndata: {"session_id":"[]"}\n\n';
+      'event: done\ndata: {"conversation_history":"[]"}\n\n';
     mockFetch.mockResolvedValue({ ok: true, body: { getReader: () => makeReader([frames]) } });
 
     const callbacks = makeCallbacks();
@@ -147,7 +147,7 @@ describe('streamChatViaFetch', () => {
     // unresolved tool_call). The turn must NOT finalize — the prompt stays up for an allow/deny.
     const frames =
       'event: permission_request\ndata: {"request_id":"req-1","tool_name":"Bash","tool_input":{"command":"ls"}}\n\n' +
-      'event: done\ndata: {"session_id":"[PAUSED]"}\n\n';
+      'event: done\ndata: {"conversation_history":"[PAUSED]"}\n\n';
     mockFetch.mockResolvedValue({ ok: true, body: { getReader: () => makeReader([frames]) } });
 
     const onPermissionRequest = jest.fn();
