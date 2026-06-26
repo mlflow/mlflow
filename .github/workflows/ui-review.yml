@@ -176,10 +176,8 @@ jobs:
         run: |
           cat > /tmp/parse_args.py <<'EOF'
           import argparse
-          import os
           import shlex
           import sys
-          from pathlib import Path
 
           MODEL_CHOICES = [
               "fable",
@@ -200,15 +198,11 @@ jobs:
               tokens = []
 
           parser = argparse.ArgumentParser(add_help=False)
-          # -m/--model and -e/--effort mirror the /review command. -i/--instructions
-          # is ui-review-specific free-text guidance for the agent.
+          # -m/--model and -e/--effort mirror the /review command.
           parser.add_argument("-m", "--model", choices=MODEL_CHOICES, default="claude-opus-4-7")
           parser.add_argument("-e", "--effort", choices=EFFORT_CHOICES, default="high")
-          parser.add_argument("-i", "--instructions", default="")
           args = parser.parse_args(tokens)
 
-          # Pass free-text instructions via a file (not a shell arg) to avoid injection.
-          Path("/tmp/ui-review-instructions.txt").write_text(args.instructions)
           sys.stdout.write(f"model={args.model}\neffort={args.effort}\n")
           EOF
 
@@ -264,7 +258,6 @@ jobs:
           APP_URL: ${{ env.APP_URL }}
           MODEL: ${{ steps.prompt.outputs.model }}
           EFFORT: ${{ steps.prompt.outputs.effort }}
-          EXTRA_CONTEXT_FILE: /tmp/ui-review-instructions.txt
           AGENT_BROWSER_SCREENSHOT_DIR: /tmp/ui-review-shots
           AGENT_BROWSER_DEFAULT_TIMEOUT: "30000"
         run: |

@@ -42,10 +42,6 @@ renders into a PR comment.
 Split `$owner_repo` on `/` for `<owner>` and `<repo>`. The PR URL is
 `https://github.com/<owner>/<repo>/pull/<pr_number>`.
 
-If the environment variable `$EXTRA_CONTEXT_FILE` is set and the file is non-empty, **read it
-first** — it holds the maintainer's optional `-i`/`--instructions` text (focus areas, specific
-flows to exercise). Let those steer your prioritization throughout.
-
 ## Instructions
 
 ### 1. Gather context (run in parallel)
