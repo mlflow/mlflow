@@ -45,8 +45,35 @@ class AudioContentPart(BaseModel):
     input_audio: InputAudio
 
 
+class ReasoningSummaryPart(BaseModel):
+    type: Literal["summary_text"]
+    text: str
+
+
+class ReasoningContentPart(BaseModel):
+    """
+    A reasoning (a.k.a. "thinking") content part that some models emit alongside their
+    text response, e.g. GPT-OSS / Harmony-format models surface their analysis channel as:
+
+    .. code-block:: json
+
+        {"type": "reasoning", "summary": [{"type": "summary_text", "text": "..."}]}
+
+    Providers may attach additional metadata (e.g. ``id``, ``encrypted_content``, ``status``),
+    so extra fields are allowed to keep validation forward-compatible.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    type: Literal["reasoning"]
+    summary: list[ReasoningSummaryPart] = Field(default_factory=list)
+
+
 ContentPartsList = list[
-    Annotated[TextContentPart | ImageContentPart | AudioContentPart, Field(discriminator="type")]
+    Annotated[
+        TextContentPart | ImageContentPart | AudioContentPart | ReasoningContentPart,
+        Field(discriminator="type"),
+    ]
 ]
 
 
@@ -89,6 +116,7 @@ class ChatMessage(BaseModel):
     - :py:class:`TextContentPart <mlflow.types.chat.TextContentPart>`
     - :py:class:`ImageContentPart <mlflow.types.chat.ImageContentPart>`
     - :py:class:`AudioContentPart <mlflow.types.chat.AudioContentPart>`
+    - :py:class:`ReasoningContentPart <mlflow.types.chat.ReasoningContentPart>`
     """
 
     role: str
