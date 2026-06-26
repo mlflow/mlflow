@@ -28,6 +28,7 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import (
+    MlflowSpanHandler,
     StreamResolver,
     remove_llama_index_tracer,
     set_llama_index_tracer,
@@ -115,6 +116,37 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
             "output_cost": 14.0,
             "total_cost": 19.0,
         }
+
+
+def test_span_handler_propagates_mlflow_context_across_boundaries():
+    handler = MlflowSpanHandler()
+    span_id = "DemoWorkflow.step-123"
+    bound_args = inspect.signature(lambda: None).bind()
+
+    with mlflow.start_span("workflow-root") as root:
+        context = handler.capture_propagation_context()
+        root_trace_id = root.trace_id
+        root_span_id = root.span_id
+
+    assert mlflow.get_current_active_span() is None
+
+    try:
+        handler.restore_propagation_context(context)
+
+        llama_span = handler.new_span(span_id, bound_args)
+        handler.open_spans[span_id] = llama_span
+
+        assert llama_span._mlflow_span.trace_id == root_trace_id
+        assert llama_span._mlflow_span.parent_id == root_span_id
+
+        with mlflow.start_span("manual-child") as manual_child:
+            assert manual_child.trace_id == root_trace_id
+            assert manual_child.parent_id == llama_span._mlflow_span.span_id
+
+        handler.prepare_to_exit_span(span_id, result="done")
+    finally:
+        handler.open_spans.pop(span_id, None)
+        handler.close()
 
 
 def test_trace_llm_complete_stream():
