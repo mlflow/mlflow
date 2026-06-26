@@ -70,6 +70,12 @@ const findMatching = (values: string[], filterQuery: string) =>
   values.filter((v) => v.toLowerCase().includes(filterQuery.toLowerCase()));
 
 /**
+ * Maximum number of items to render per group when no search filter is active.
+ * Prevents DOM bloat with thousands of metrics/params.
+ */
+const MAX_ITEMS_WITHOUT_FILTER = 50;
+
+/**
  * Function dissects given string and wraps the
  * searched query with <strong>...</strong> if found. Used for highlighting search.
  */
@@ -116,6 +122,7 @@ export const ExperimentViewRunsColumnSelector = React.memo(
     const experimentIds = useExperimentIds();
     const [filter, setFilter] = useState('');
     const { theme } = useDesignSystemTheme();
+    const [visibleLimits, setVisibleLimits] = useState<Record<string, number>>({});
 
     const searchInputRef = useRef<any>(null);
     const scrollableContainerRef = useRef<HTMLDivElement>(null);
@@ -150,15 +157,66 @@ export const ExperimentViewRunsColumnSelector = React.memo(
       [runsData, attributeColumnNames, tagsKeyList],
     );
 
+    const showMore = useCallback((groupLabel: string) => {
+      setVisibleLimits((prev) => ({
+        ...prev,
+        [groupLabel]: (prev[groupLabel] ?? MAX_ITEMS_WITHOUT_FILTER) + MAX_ITEMS_WITHOUT_FILTER,
+      }));
+    }, []);
+
     // This memoized value holds the tree structure generated from
     // attributes, params, metrics and tags. Displays only filtered values.
+    // When no search filter is active, caps each group to prevent DOM bloat
+    // with thousands of items. Users can click "Show more" to load the next batch.
     const treeData = useMemo(() => {
       const result = [];
+      const isFiltering = filter.length > 0;
 
       const filteredAttributes = findMatching(attributeColumnNames, filter);
       const filteredParams = findMatching(runsData.paramKeyList, filter);
       const filteredMetrics = findMatching(runsData.metricKeyList, filter);
       const filteredTags = findMatching(tagsKeyList, filter);
+
+      const truncateWithShowMore = (
+        items: { key: string; title: React.ReactNode }[],
+        totalCount: number,
+        groupLabel: string,
+      ) => {
+        if (isFiltering) return items;
+        const limit = visibleLimits[groupLabel] ?? MAX_ITEMS_WITHOUT_FILTER;
+        if (items.length <= limit) return items;
+        const remaining = totalCount - limit;
+        const nextBatch = Math.min(remaining, MAX_ITEMS_WITHOUT_FILTER);
+        const truncated = items.slice(0, limit);
+        truncated.push({
+          key: `__show_more_${groupLabel}`,
+          title: (
+            <span
+              data-show-more
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                showMore(groupLabel);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.stopPropagation();
+                  showMore(groupLabel);
+                }
+              }}
+              css={{
+                color: theme.colors.actionTertiaryTextDefault,
+                cursor: 'pointer',
+                '&:hover': { color: theme.colors.actionTertiaryTextHover },
+              }}
+            >
+              Show {nextBatch} more ({remaining} remaining)
+            </span>
+          ),
+        });
+        return truncated;
+      };
 
       if (filteredAttributes.length) {
         result.push({
@@ -171,41 +229,44 @@ export const ExperimentViewRunsColumnSelector = React.memo(
         });
       }
       if (filteredMetrics.length) {
+        const metricChildren = filteredMetrics.map((metricKey) => {
+          const customColumnDef = customMetricBehaviorDefs[metricKey];
+          return {
+            key: makeCanonicalSortKey(COLUMN_TYPES.METRICS, metricKey),
+            title: createHighlightedNode(customColumnDef?.displayName ?? metricKey, filter),
+          };
+        });
         result.push({
           key: GROUP_KEY_METRICS,
           title: `Metrics (${filteredMetrics.length})`,
-          children: filteredMetrics.map((metricKey) => {
-            const customColumnDef = customMetricBehaviorDefs[metricKey];
-            return {
-              key: makeCanonicalSortKey(COLUMN_TYPES.METRICS, metricKey),
-              title: createHighlightedNode(customColumnDef?.displayName ?? metricKey, filter),
-            };
-          }),
+          children: truncateWithShowMore(metricChildren, filteredMetrics.length, 'metrics'),
         });
       }
       if (filteredParams.length) {
+        const paramChildren = filteredParams.map((paramKey) => ({
+          key: makeCanonicalSortKey(COLUMN_TYPES.PARAMS, paramKey),
+          title: createHighlightedNode(paramKey, filter),
+        }));
         result.push({
           key: GROUP_KEY_PARAMS,
           title: `Parameters (${filteredParams.length})`,
-          children: filteredParams.map((paramKey) => ({
-            key: makeCanonicalSortKey(COLUMN_TYPES.PARAMS, paramKey),
-            title: createHighlightedNode(paramKey, filter),
-          })),
+          children: truncateWithShowMore(paramChildren, filteredParams.length, 'params'),
         });
       }
       if (filteredTags.length) {
+        const tagChildren = filteredTags.map((tagKey) => ({
+          key: makeCanonicalSortKey(COLUMN_TYPES.TAGS, tagKey),
+          title: tagKey,
+        }));
         result.push({
           key: GROUP_KEY_TAGS,
           title: `Tags (${filteredTags.length})`,
-          children: filteredTags.map((tagKey) => ({
-            key: makeCanonicalSortKey(COLUMN_TYPES.TAGS, tagKey),
-            title: tagKey,
-          })),
+          children: truncateWithShowMore(tagChildren, filteredTags.length, 'tags'),
         });
       }
 
       return result;
-    }, [attributeColumnNames, filter, runsData, tagsKeyList]);
+    }, [attributeColumnNames, filter, runsData, tagsKeyList, theme, visibleLimits, showMore]);
 
     // This callback toggles entire group of keys
     const toggleGroup = useCallback(
@@ -234,6 +295,7 @@ export const ExperimentViewRunsColumnSelector = React.memo(
     useEffect(() => {
       if (columnSelectorVisible) {
         setFilter('');
+        setVisibleLimits({});
 
         // Let's wait for the next execution frame, then:
         // - restore the dropdown menu scroll position
@@ -253,18 +315,54 @@ export const ExperimentViewRunsColumnSelector = React.memo(
     const onCheck = useCallback(
       // We need to recreate antd's tree check callback signature
       (_: any, { node: { key, checked } }: AntdTreeCheckCallback) => {
+        // Ignore clicks on "Show more" placeholder nodes
+        if (key.toString().startsWith('__show_more_')) return;
         if (isCanonicalSortKeyOfType(key.toString(), GROUP_KEY)) {
           const columnType = extractCanonicalSortKey(key.toString(), GROUP_KEY);
           const canonicalKeysForGroup = canonicalKeyNames[columnType];
           if (canonicalKeysForGroup) {
-            toggleGroup(checked, findMatching(canonicalKeysForGroup, filter));
+            // When no filter is active, only toggle the currently visible items (paginated view)
+            // to avoid selecting thousands of columns at once which would freeze the runs table.
+            // Users can click "Show more" to load additional items, then toggle again.
+            const isFiltering = filter.length > 0;
+            const groupLabelMap: Record<string, string> = {
+              [COLUMN_TYPES.METRICS]: 'metrics',
+              [COLUMN_TYPES.PARAMS]: 'params',
+              [COLUMN_TYPES.TAGS]: 'tags',
+            };
+            const groupLabel = groupLabelMap[columnType];
+            const limit =
+              !isFiltering && groupLabel
+                ? (visibleLimits[groupLabel] ?? MAX_ITEMS_WITHOUT_FILTER)
+                : canonicalKeysForGroup.length;
+            const keysToToggle = findMatching(canonicalKeysForGroup, filter).slice(0, limit);
+            toggleGroup(checked, keysToToggle);
           }
         } else {
           toggleSingleKey(key.toString(), checked);
         }
       },
-      [canonicalKeyNames, toggleGroup, toggleSingleKey, filter],
+      [canonicalKeyNames, toggleGroup, toggleSingleKey, filter, visibleLimits],
     );
+
+    // Clear all selected metrics/params/tags (keeps attribute columns since those are few)
+    const clearSelected = useCallback(() => {
+      const toRemove = new Set([
+        ...canonicalKeyNames[COLUMN_TYPES.METRICS],
+        ...canonicalKeyNames[COLUMN_TYPES.PARAMS],
+        ...canonicalKeyNames[COLUMN_TYPES.TAGS],
+      ]);
+      setCheckedColumns((checked) => checked.filter((k) => !toRemove.has(k)));
+    }, [canonicalKeyNames, setCheckedColumns]);
+
+    const selectedCount = useMemo(() => {
+      const groupKeys = new Set([
+        ...canonicalKeyNames[COLUMN_TYPES.METRICS],
+        ...canonicalKeyNames[COLUMN_TYPES.PARAMS],
+        ...canonicalKeyNames[COLUMN_TYPES.TAGS],
+      ]);
+      return selectedColumns.filter((k) => groupKeys.has(k)).length;
+    }, [canonicalKeyNames, selectedColumns]);
 
     // This callback moves focus to tree element if down arrow has been pressed
     // when inside search input area.
@@ -312,6 +410,28 @@ export const ExperimentViewRunsColumnSelector = React.memo(
             }}
             onKeyDown={searchInputKeyDown}
           />
+          {selectedCount > 0 && (
+            <div
+              css={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginTop: theme.spacing.sm,
+                fontSize: theme.typography.fontSizeSm,
+                color: theme.colors.textSecondary,
+              }}
+            >
+              <span>{selectedCount} selected</span>
+              <Button
+                componentId="mlflow_column_selector_clear_selected"
+                size="small"
+                type="link"
+                onClick={clearSelected}
+              >
+                Clear selected
+              </Button>
+            </div>
+          )}
         </div>
         <div
           ref={scrollableContainerRef}
@@ -326,6 +446,11 @@ export const ExperimentViewRunsColumnSelector = React.memo(
               whiteSpace: 'nowrap',
               textOverflow: 'ellipsis',
               overflow: 'hidden',
+            },
+            // Hide the checkbox on "Show more" placeholder nodes.
+            // Use wildcard class selectors to match regardless of Design System prefix.
+            '[class*="treenode"]:has([data-show-more]) [class*="checkbox"]': {
+              display: 'none',
             },
             [theme.responsive.mediaQueries.xs]: {
               maxHeight: 'calc(100vh - 100px)',
