@@ -16,6 +16,8 @@ from mlflow.assistant.providers.base import (
 from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
 from mlflow.assistant.types import Event, Message, TextBlock
 from mlflow.server.assistant.session import clear_process_pid, save_process_pid
+from mlflow.tracing.constant import CostKey, TokenUsageKey
+from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
 
 _logger = logging.getLogger(__name__)
 
@@ -188,6 +190,13 @@ class CodexProvider(AssistantProvider):
                     thread_id = data.get("thread_id", "")
                     continue
 
+                # Emit token usage before the result event, which closes the
+                # stream on the client once received.
+                if data.get("type") == "turn.completed" and (usage := data.get("usage")):
+                    model = config.model if config.model and config.model != "default" else None
+                    yield self._build_usage_event(usage, model)
+                    continue
+
                 event = self._parse_event(data)
                 if event is not None:
                     yield event
@@ -218,6 +227,42 @@ class CodexProvider(AssistantProvider):
             if process is not None and process.returncode is None:
                 process.kill()
                 await process.wait()
+
+    @staticmethod
+    def _build_usage_event(usage: dict[str, Any], model: str | None) -> Event:
+        """Translate Codex CLI token usage into a UI usage stream event.
+
+        Codex reports OpenAI-style usage on `turn.completed`, where
+        `input_tokens` is the cache-inclusive prompt total and
+        `cached_input_tokens` is the cached subset of it (not additive). We
+        price it via the LiteLLM-backed cost catalog when the model is known;
+        Codex bills against the user's plan rather than reporting a dollar
+        cost, so total_cost_usd is None when the model isn't in the catalog.
+        The shape matches the usage event emitted by the other providers so the
+        UI handles them identically.
+        """
+        prompt_tokens = usage.get("input_tokens") or 0
+        completion_tokens = usage.get("output_tokens") or 0
+        cache_read = usage.get("cached_input_tokens")
+
+        cost_usage: dict[str, int] = {
+            TokenUsageKey.INPUT_TOKENS: prompt_tokens,
+            TokenUsageKey.OUTPUT_TOKENS: completion_tokens,
+        }
+        if cache_read is not None:
+            cost_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
+
+        cost = calculate_cost_by_model_and_token_usage(model, cost_usage)
+
+        return Event.from_stream_event({
+            "type": "usage",
+            "usage": {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+                "total_cost_usd": cost[CostKey.TOTAL_COST] if cost else None,
+            },
+        })
 
     def _parse_event(self, data: dict[str, Any]) -> Event | None:
         event_type = data.get("type")
