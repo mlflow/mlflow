@@ -92,6 +92,7 @@ def mock_litellm_chat_response():
     response.usage.prompt_tokens = 10
     response.usage.completion_tokens = 20
     response.usage.total_tokens = 30
+    response.usage.prompt_tokens_details = None
 
     return response
 
@@ -228,6 +229,7 @@ async def test_chat_stream():
         chunk3.usage.prompt_tokens = 10
         chunk3.usage.completion_tokens = 20
         chunk3.usage.total_tokens = 30
+        chunk3.usage.prompt_tokens_details = None
         yield chunk3
 
     with mock.patch("litellm.acompletion", return_value=mock_stream()) as mock_completion:
@@ -247,6 +249,8 @@ async def test_chat_stream():
         assert chunks[2].usage.prompt_tokens == 10
         assert chunks[2].usage.completion_tokens == 20
         assert chunks[2].usage.total_tokens == 30
+        # No cache details reported by the provider => field is omitted.
+        assert chunks[2].usage.prompt_tokens_details is None
 
         # Verify stream parameter was set
         call_kwargs = mock_completion.call_args[1]
@@ -269,6 +273,7 @@ async def test_chat_stream_forwards_zero_token_usage():
         chunk.usage.prompt_tokens = 0
         chunk.usage.completion_tokens = 0
         chunk.usage.total_tokens = 0
+        chunk.usage.prompt_tokens_details = None
         yield chunk
 
     with mock.patch("litellm.acompletion", return_value=mock_stream()):
@@ -278,6 +283,35 @@ async def test_chat_stream_forwards_zero_token_usage():
 
     # A valid all-zero usage payload must still be forwarded, not dropped.
     assert chunks[-1].usage.total_tokens == 0
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_forwards_cached_tokens():
+    config = chat_config()
+
+    async def mock_stream():
+        chunk = mock.MagicMock()
+        chunk.id = "chunk-1"
+        chunk.object = "chat.completion.chunk"
+        chunk.created = 1234567890
+        chunk.model = "claude-3-5-sonnet-20241022"
+        chunk.choices = []
+        chunk.usage = mock.MagicMock()
+        chunk.usage.prompt_tokens = 100
+        chunk.usage.completion_tokens = 10
+        chunk.usage.total_tokens = 110
+        chunk.usage.prompt_tokens_details = mock.MagicMock()
+        chunk.usage.prompt_tokens_details.cached_tokens = 80
+        yield chunk
+
+    with mock.patch("litellm.acompletion", return_value=mock_stream()):
+        provider = LiteLLMProvider(EndpointConfig(**config), enable_tracing=True)
+        payload = {"messages": [{"role": "user", "content": "Hi"}], "stream": True}
+        chunks = [chunk async for chunk in provider.chat_stream(chat.RequestPayload(**payload))]
+
+    # Cache-read tokens (a subset of prompt_tokens) are forwarded so clients can price cache hits.
+    assert chunks[-1].usage.prompt_tokens == 100
+    assert chunks[-1].usage.prompt_tokens_details.cached_tokens == 80
 
 
 @pytest.mark.asyncio

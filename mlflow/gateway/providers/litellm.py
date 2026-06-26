@@ -13,6 +13,26 @@ from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
 
 
+def _usage_to_dict(usage: Any) -> dict[str, Any]:
+    """Forward token usage in OpenAI shape, including cache-read tokens.
+
+    ``cached_tokens`` is the subset of ``prompt_tokens`` served from the provider's
+    prompt cache (a subset, not additive). OpenAI-style providers report it under
+    ``prompt_tokens_details``; forward it so clients can price cache hits.
+    https://developers.openai.com/api/docs/guides/prompt-caching#requirements
+    """
+    result = {
+        "prompt_tokens": getattr(usage, "prompt_tokens", None),
+        "completion_tokens": getattr(usage, "completion_tokens", None),
+        "total_tokens": getattr(usage, "total_tokens", None),
+    }
+    details = getattr(usage, "prompt_tokens_details", None)
+    cached_tokens = getattr(details, "cached_tokens", None)
+    if cached_tokens is not None:
+        result["prompt_tokens_details"] = {"cached_tokens": cached_tokens}
+    return result
+
+
 class LiteLLMAdapter(ProviderAdapter):
     @classmethod
     def _get_litellm_model_name(cls, config: EndpointConfig) -> str:
@@ -143,11 +163,7 @@ class LiteLLMProvider(BaseProvider):
                 }
                 for choice in response.choices
             ],
-            "usage": {
-                "prompt_tokens": response.usage.prompt_tokens,
-                "completion_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens,
-            },
+            "usage": _usage_to_dict(response.usage),
         }
 
         return self.adapter_class.model_to_chat(resp_dict, self.config)
@@ -216,11 +232,7 @@ class LiteLLMProvider(BaseProvider):
             # include_usage is set); forward it so clients can track usage/cost.
             usage = getattr(chunk, "usage", None)
             if usage is not None and getattr(usage, "total_tokens", None) is not None:
-                resp_dict["usage"] = {
-                    "prompt_tokens": getattr(usage, "prompt_tokens", None),
-                    "completion_tokens": getattr(usage, "completion_tokens", None),
-                    "total_tokens": getattr(usage, "total_tokens", None),
-                }
+                resp_dict["usage"] = _usage_to_dict(usage)
 
             yield self.adapter_class.model_to_chat_streaming(resp_dict, self.config)
 
