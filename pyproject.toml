@@ -562,6 +562,8 @@ filterwarnings = [
   "error::pydantic.PydanticDeprecatedSince20:tests",
   # Silence filesystem backend deprecation warnings (https://github.com/mlflow/mlflow/issues/18534)
   "ignore:The filesystem (tracking|model registry) backend.*is deprecated:FutureWarning",
+  # pydantic-ai emits this on Python 3.12+ from its own internals; out of our control
+  "ignore:There is no current event loop:DeprecationWarning:pydantic_ai\\._utils",
   # Prevent deprecated generator.throw(type, value, tb) signature from being used (Python 3.12+)
   "error:the \\(type, exc, tb\\) signature of throw\\(\\) is deprecated:DeprecationWarning",
 ]
