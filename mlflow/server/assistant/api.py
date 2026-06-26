@@ -172,32 +172,20 @@ async def send_message(request: MessageRequest) -> MessageResponse:
 
 
 async def stream_provider_events(
-    provider,
-    *,
-    prompt: str,
-    tracking_uri: str,
-    session_id: str | None,
-    mlflow_session_id: str | None,
-    cwd: Path | None,
-    context: dict[str, Any],
+    stream: AsyncGenerator[Event, None] | None,
 ) -> AsyncGenerator[Event, None]:
-    """Stream events from the selected provider, or a single error event if none is configured.
+    """Relay a provider's event stream, or a single error event if none is configured.
 
-    Yields ``Event`` objects so callers can both serialize them to SSE and react to
-    specific events (e.g. the stateful path persisting the provider session id on DONE).
+    ``stream`` is the generator returned by the provider's ``astream``/``astream_stateless``
+    (the caller picks the right one for its path), or ``None`` when no provider is available.
+    Yields ``Event`` objects so callers can both serialize them to SSE and react to specific
+    events (e.g. the stateful path persisting the provider session id on DONE).
     """
-    if provider is None:
+    if stream is None:
         yield Event.from_error("No assistant provider is configured or available.")
         return
     try:
-        async for event in provider.astream(
-            prompt=prompt,
-            tracking_uri=tracking_uri,
-            session_id=session_id,
-            mlflow_session_id=mlflow_session_id,
-            cwd=cwd,
-            context=context,
-        ):
+        async for event in stream:
             yield event
     except Exception:
         # A provider blowing up mid-stream would otherwise drop the connection with no terminal
@@ -261,15 +249,19 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
 
     async def event_generator() -> AsyncGenerator[str, None]:
         provider = _get_selected_provider()
-        async for event in stream_provider_events(
-            provider,
-            prompt=prompt,
-            tracking_uri=tracking_uri,
-            session_id=session.provider_session_id,
-            mlflow_session_id=session_id,
-            cwd=session.working_dir,
-            context=context,
-        ):
+        stream = (
+            provider.astream(
+                prompt=prompt,
+                tracking_uri=tracking_uri,
+                session_id=session.provider_session_id,
+                mlflow_session_id=session_id,
+                cwd=session.working_dir,
+                context=context,
+            )
+            if provider is not None
+            else None
+        )
+        async for event in stream_provider_events(stream):
             # Store provider session ID if returned (for conversation continuity).
             # On a paused turn this persists the history with the unanswered
             # tool_call so a later resume can continue from it.
@@ -306,17 +298,18 @@ async def chat(request: Request, body: ChatRequest) -> StreamingResponse:
         context["tool_decisions"] = body.tool_decisions
 
     async def event_generator() -> AsyncGenerator[str, None]:
-        async for event in stream_provider_events(
-            provider,
-            prompt=body.message,
-            tracking_uri=tracking_uri,
-            session_id=body.conversation_history,
-            # No server session on the stateless path. mlflow_session_id only drives subprocess
-            # process tracking (claude_code/codex), which client-carried-history providers skip.
-            mlflow_session_id=None,
-            cwd=cwd,
-            context=context,
-        ):
+        stream = (
+            provider.astream_stateless(
+                prompt=body.message,
+                tracking_uri=tracking_uri,
+                conversation_history=body.conversation_history,
+                cwd=cwd,
+                context=context,
+            )
+            if provider is not None
+            else None
+        )
+        async for event in stream_provider_events(stream):
             yield event.to_sse_event()
 
     return StreamingResponse(

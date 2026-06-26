@@ -86,7 +86,6 @@ class AssistantProvider(ABC):
     def list_models(self, base_url: str | None = None, api_key: str | None = None) -> list[str]:
         raise NotImplementedError(f"Model listing is not supported for provider '{self.name}'")
 
-    @abstractmethod
     def astream(
         self,
         prompt: str,
@@ -97,7 +96,12 @@ class AssistantProvider(ABC):
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
         """
-        Stream responses from the assistant asynchronously.
+        Stream responses for a server-managed (stateful) turn.
+
+        The server owns the conversation: `session_id` resumes the provider's prior turn
+        and `mlflow_session_id` tracks the subprocess for cancellation. Stateful providers
+        (e.g. Claude Code, Codex) override this; stateless providers override
+        `astream_stateless` instead.
 
         Args:
             prompt: The prompt to send to the assistant
@@ -111,3 +115,33 @@ class AssistantProvider(ABC):
         Yields:
             Event objects with 'type' and 'data' payloads.
         """
+        raise NotImplementedError(f"{self.name} does not support stateful streaming")
+
+    def astream_stateless(
+        self,
+        prompt: str,
+        tracking_uri: str,
+        conversation_history: str | None = None,
+        cwd: Path | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> AsyncGenerator[Event, None]:
+        """
+        Stream responses for a stateless turn (client carries the full history).
+
+        Nothing is persisted server-side: `conversation_history` is the entire prior
+        conversation, serialized by the client, so any host can serve any turn. There is
+        no session handle and no subprocess to cancel. Stateless providers (e.g. MLflow AI
+        Gateway) override this; stateful providers override `astream` instead.
+
+        Args:
+            prompt: The prompt to send to the assistant
+            tracking_uri: MLflow tracking server URI for the assistant to use
+            conversation_history: The full prior conversation, serialized by the client
+            cwd: Working directory for the assistant
+            context: Additional context for the assistant, such as information from
+                the current UI page the user is viewing (e.g., experimentId, traceId)
+
+        Yields:
+            Event objects with 'type' and 'data' payloads.
+        """
+        raise NotImplementedError(f"{self.name} does not support stateless streaming")
