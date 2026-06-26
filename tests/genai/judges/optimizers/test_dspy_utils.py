@@ -16,6 +16,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
     AgentEvalLM,
+    _get_api_base_key,
+    _is_unity_catalog_model_name,
     agreement_metric,
     append_input_fields_section,
     construct_dspy_lm,
@@ -391,6 +393,59 @@ def test_construct_dspy_lm_utility_method(model, expected_type):
         assert isinstance(result, dspy.LM)
         # Ensure MLflow URI format is converted (no :/ in the model)
         assert ":/" not in result.model
+
+
+@pytest.mark.parametrize(
+    ("model_name", "expected"),
+    [
+        ("databricks-claude-haiku-4-5", False),
+        ("my-custom-endpoint", False),
+        ("system.ai.claude-haiku-4-5", True),
+        ("main.default.my_model", True),
+    ],
+)
+def test_is_unity_catalog_model_name(model_name, expected):
+    assert _is_unity_catalog_model_name(model_name) is expected
+
+
+@pytest.mark.parametrize(
+    ("model", "expected_suffix"),
+    [
+        ("databricks:/databricks-claude-haiku-4-5", "/serving-endpoints"),
+        ("endpoints:/my-custom-endpoint", "/serving-endpoints"),
+        ("databricks:/system.ai.claude-haiku-4-5", "/ai-gateway/mlflow/v1"),
+        ("endpoints:/system.ai.gte-large-en", "/ai-gateway/mlflow/v1"),
+    ],
+)
+def test_get_api_base_key_routes_unity_catalog_models_to_ai_gateway(
+    monkeypatch, model, expected_suffix
+):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://my-workspace.databricks.com/")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-test-token")
+
+    api_base, api_key = _get_api_base_key(model)
+
+    assert api_base == f"https://my-workspace.databricks.com{expected_suffix}"
+    assert api_key == "dapi-test-token"
+
+
+@pytest.mark.parametrize("model", ["openai:/gpt-4", "anthropic:/claude-3"])
+def test_get_api_base_key_non_databricks_returns_none(model):
+    assert _get_api_base_key(model) == (None, None)
+
+
+def test_construct_dspy_lm_uses_ai_gateway_for_unity_catalog_model(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://my-workspace.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-test-token")
+
+    with patch("mlflow.genai.judges.optimizers.dspy_utils.dspy.LM") as mock_lm:
+        construct_dspy_lm("databricks:/system.ai.claude-haiku-4-5")
+
+    mock_lm.assert_called_once_with(
+        model="databricks/system.ai.claude-haiku-4-5",
+        api_base="https://my-workspace.databricks.com/ai-gateway/mlflow/v1",
+        api_key="dapi-test-token",
+    )
 
 
 def test_agent_eval_lm_uses_optimizer_session_name():
