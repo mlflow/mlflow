@@ -33,7 +33,7 @@ from llama_index.core.tools import BaseTool
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities import LiveSpan, NoOpSpan, SpanEvent, SpanType
+from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
@@ -45,10 +45,8 @@ from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import (
     detach_span_from_context,
     set_span_in_context,
-    start_span_in_context,
 )
-from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import encode_span_id, set_span_chat_tools
+from mlflow.tracing.utils import set_span_chat_tools
 
 _logger = logging.getLogger(__name__)
 
@@ -90,6 +88,9 @@ def remove_llama_index_tracer():
     from llama_index.core.instrumentation import get_dispatcher
 
     dsp = get_dispatcher()
+    for handler in dsp.span_handlers:
+        if isinstance(handler, MlflowSpanHandler):
+            handler.close()
     dsp.span_handlers = [h for h in dsp.span_handlers if h.class_name() != "MlflowSpanHandler"]
     dsp.event_handlers = [h for h in dsp.event_handlers if h.class_name() != "MlflowEventHandler"]
 
@@ -218,27 +219,6 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def _has_restored_context(self) -> bool:
         return bool(self._propagation_context_managers)
 
-    def _start_span_from_current_context(
-        self,
-        name: str,
-        span_type: str,
-        inputs: dict[str, Any],
-        attributes: dict[str, Any],
-    ) -> LiveSpan | NoOpSpan:
-        otel_span = start_span_in_context(name)
-        if not otel_span.is_recording():
-            return NoOpSpan(otel_span=otel_span)
-
-        trace_manager = InMemoryTraceManager.get_instance()
-        trace_id = trace_manager.get_mlflow_trace_id_from_otel_id(otel_span.context.trace_id)
-        span = trace_manager.get_span_from_id(
-            trace_id, encode_span_id(otel_span.context.span_id)
-        )
-        span.set_span_type(span_type)
-        span.set_inputs(inputs)
-        span.set_attributes(attributes)
-        return span
-
     def new_span(
         self,
         id_: str,
@@ -258,21 +238,14 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
             name = id_.partition("-")[0]
             if parent_span is None and self._has_restored_context:
-                span = self._start_span_from_current_context(
-                    name=name,
-                    span_type=span_type,
-                    inputs=input_args,
-                    attributes=attributes,
-                )
                 self._propagated_root_span_ids.add(id_)
-            else:
-                span = start_span_no_context(
-                    name=name,
-                    parent_span=parent_span,
-                    span_type=span_type,
-                    inputs=input_args,
-                    attributes=attributes,
-                )
+            span = start_span_no_context(
+                name=name,
+                parent_span=parent_span,
+                span_type=span_type,
+                inputs=input_args,
+                attributes=attributes,
+            )
 
             token = set_span_in_context(span)
             self._span_id_to_token[span.span_id] = token

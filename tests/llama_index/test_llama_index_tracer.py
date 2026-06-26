@@ -28,7 +28,6 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import (
-    MlflowSpanHandler,
     StreamResolver,
     remove_llama_index_tracer,
     set_llama_index_tracer,
@@ -118,35 +117,44 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
         }
 
 
-def test_span_handler_propagates_mlflow_context_across_boundaries():
-    handler = MlflowSpanHandler()
-    span_id = "DemoWorkflow.step-123"
-    bound_args = inspect.signature(lambda: None).bind()
+@pytest.mark.skipif(
+    llama_core_version < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
+@pytest.mark.asyncio
+async def test_tracer_workflow_restores_propagated_mlflow_context():
+    from llama_index.core.instrumentation import get_dispatcher
+    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+
+    class MyWorkflow(Workflow):
+        @step
+        async def my_step(self, ev: StartEvent) -> StopEvent:
+            with mlflow.start_span("manual-child") as child:
+                child.set_outputs("done")
+            return StopEvent(result="done")
 
     with mlflow.start_span("workflow-root") as root:
-        context = handler.capture_propagation_context()
+        context = get_dispatcher().capture_propagation_context()
         root_trace_id = root.trace_id
         root_span_id = root.span_id
 
     assert mlflow.get_current_active_span() is None
 
-    try:
-        handler.restore_propagation_context(context)
+    get_dispatcher().restore_propagation_context(context)
+    result = await MyWorkflow(timeout=10, verbose=False).run()
+    assert result == "done"
 
-        llama_span = handler.new_span(span_id, bound_args)
-        handler.open_spans[span_id] = llama_span
+    traces = get_traces()
+    assert len(traces) == 1
 
-        assert llama_span._mlflow_span.trace_id == root_trace_id
-        assert llama_span._mlflow_span.parent_id == root_span_id
+    spans = traces[0].data.spans
+    manual_child = next(span for span in spans if span.name == "manual-child")
+    workflow_parent = next(span for span in spans if span.span_id == manual_child.parent_id)
 
-        with mlflow.start_span("manual-child") as manual_child:
-            assert manual_child.trace_id == root_trace_id
-            assert manual_child.parent_id == llama_span._mlflow_span.span_id
-
-        handler.prepare_to_exit_span(span_id, result="done")
-    finally:
-        handler.open_spans.pop(span_id, None)
-        handler.close()
+    assert any(span.parent_id == root_span_id for span in spans)
+    assert workflow_parent.trace_id == root_trace_id
+    assert manual_child.trace_id == root_trace_id
+    assert manual_child.parent_id != root_span_id
 
 
 def test_trace_llm_complete_stream():
