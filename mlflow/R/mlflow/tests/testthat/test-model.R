@@ -3,6 +3,7 @@ context("Model")
 library("carrier")
 
 testthat_model_name <- basename(tempfile("model_"))
+testthat_uc_model_name <- "test_catalog.test_schema.model"
 
 teardown({
   mlflow_clear_test_dir(testthat_model_name)
@@ -132,4 +133,172 @@ test_that("mlflow can save and load attributes of model flavor correctly", {
 
   expect_equal(attributes(model$flavor)$spec$key1, "value1")
   expect_equal(attributes(model$flavor)$spec$key2, "value2")
+})
+
+test_that("mlflow_log_model supports signature parameter", {
+  lm_model <- lm(Sepal.Width ~ Sepal.Length, iris)
+  model <- crate(~ stats::predict(lm_model, .x), lm_model = lm_model)
+  signature <- list(
+    inputs = list(x = "double"),
+    outputs = list(y = "double")
+  )
+  logged_path <- NULL
+  logged_model_spec <- NULL
+
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_log_artifact = function(path, artifact_path = NULL, run_id = NULL, client = NULL) {
+      logged_path <<- path
+      invisible(path)
+    },
+    mlflow_get_active_run_id_or_start_run = function() "run-123",
+    mlflow_record_logged_model = function(model_spec, run_id = NULL, client = NULL) {
+      logged_model_spec <<- model_spec
+      invisible(NULL)
+    }, {
+      mlflow_log_model(model, "signed_model", signature = signature)
+      spec <- yaml::read_yaml(file.path(logged_path, "MLmodel"))
+      inputs <- jsonlite::fromJSON(spec$signature$inputs, simplifyDataFrame = FALSE)
+      outputs <- jsonlite::fromJSON(spec$signature$outputs, simplifyDataFrame = FALSE)
+      expect_equal(inputs[[1]]$name, "x")
+      expect_equal(inputs[[1]]$type, "double")
+      expect_equal(outputs[[1]]$name, "y")
+      expect_equal(outputs[[1]]$type, "double")
+    })
+  expect_type(logged_model_spec$signature$inputs, "character")
+  expect_type(logged_model_spec$signature$outputs, "character")
+})
+
+test_that("signature formatting expands recursive type shorthand", {
+  signature <- list(
+    inputs = list(
+      payload = list(
+        type = "object",
+        properties = list(
+          score = "double",
+          tags = list(type = "array", items = "string"),
+          metadata = list(type = "map", values = list(type = "array", items = "string"))
+        )
+      )
+    ),
+    outputs = list(
+      prediction = list(type = "map", values = "double", required = FALSE)
+    )
+  )
+
+  formatted <- mlflow_signature_for_model_spec(signature)
+  inputs <- jsonlite::fromJSON(formatted$inputs, simplifyDataFrame = FALSE)
+  outputs <- jsonlite::fromJSON(formatted$outputs, simplifyDataFrame = FALSE)
+
+  expect_equal(inputs[[1]]$name, "payload")
+  expect_equal(inputs[[1]]$type, "object")
+  expect_equal(inputs[[1]]$properties$score$type, "double")
+  expect_equal(inputs[[1]]$properties$tags$type, "array")
+  expect_equal(inputs[[1]]$properties$tags$items$type, "string")
+  expect_equal(inputs[[1]]$properties$metadata$type, "map")
+  expect_equal(inputs[[1]]$properties$metadata$values$type, "array")
+  expect_equal(inputs[[1]]$properties$metadata$values$items$type, "string")
+
+  expect_equal(outputs[[1]]$name, "prediction")
+  expect_equal(outputs[[1]]$type, "map")
+  expect_equal(outputs[[1]]$values$type, "double")
+  expect_false(outputs[[1]]$required)
+})
+
+test_that("signature formatting does not validate MLflow schema semantics", {
+  formatted <- mlflow_signature_for_model_spec(list(
+    inputs = list(
+      x = list(type = "unknown"),
+      y = list(type = "array")
+    )
+  ))
+  inputs <- jsonlite::fromJSON(formatted$inputs, simplifyDataFrame = FALSE)
+
+  expect_equal(inputs[[1]]$name, "x")
+  expect_equal(inputs[[1]]$type, "unknown")
+  expect_equal(inputs[[2]]$name, "y")
+  expect_equal(inputs[[2]]$type, "array")
+  expect_null(inputs[[2]]$items)
+})
+
+test_that("signature formatting accepts list-shaped MLflow schema", {
+  schema <- list(list(name = "x", type = "double"))
+
+  formatted <- mlflow_signature_for_model_spec(list(inputs = schema))
+  inputs <- jsonlite::fromJSON(formatted$inputs, simplifyDataFrame = FALSE)
+
+  expect_equal(inputs[[1]]$name, "x")
+  expect_equal(inputs[[1]]$type, "double")
+})
+
+test_that("signature formatting accepts named type vectors", {
+  formatted <- mlflow_signature_for_model_spec(list(inputs = c(x = "double")))
+  inputs <- jsonlite::fromJSON(formatted$inputs, simplifyDataFrame = FALSE)
+
+  expect_equal(inputs[[1]]$name, "x")
+  expect_equal(inputs[[1]]$type, "double")
+})
+
+test_that("signature formatting requires top-level list", {
+  expect_error(
+    mlflow_signature_for_model_spec("double"),
+    "`signature` must be a list",
+    fixed = TRUE
+  )
+})
+
+test_that("signature formatting requires inputs or outputs", {
+  expect_error(
+    mlflow_signature_for_model_spec(list()),
+    "`signature` must include `inputs` and/or `outputs`",
+    fixed = TRUE
+  )
+
+  expect_equal(
+    names(mlflow_signature_for_model_spec(list(inputs = list(x = "double")))),
+    "inputs"
+  )
+  expect_equal(
+    names(mlflow_signature_for_model_spec(list(outputs = list(y = "double")))),
+    "outputs"
+  )
+  expect_error(
+    mlflow_signature_for_model_spec(list(inputs = "double")),
+    "`signature$inputs` must be a non-empty list",
+    fixed = TRUE
+  )
+  expect_error(
+    mlflow_signature_for_model_spec(list(outputs = "double")),
+    "`signature$outputs` must be a non-empty list",
+    fixed = TRUE
+  )
+})
+
+test_that("model URI downloads are delegated unchanged to artifacts CLI", {
+  model_name <- basename(tempfile("model_"))
+  lm_model <- lm(Sepal.Width ~ Sepal.Length, iris)
+  model <- crate(~ stats::predict(lm_model, .x), lm_model = lm_model)
+  path <- file.path(tempdir(), model_name)
+  mlflow_save_model(model, path = path)
+
+  model_uri <- paste0("models:/", testthat_uc_model_name, "@prod")
+  mock_client <- new_mlflow_client_impl(
+    get_host_creds = function() {
+      new_mlflow_host_creds(host = "localhost")
+    },
+    get_cli_env = list
+  )
+  cli_args <- NULL
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_cli = function(..., echo = TRUE, client = NULL) {
+      cli_args <<- unlist(list(...), use.names = FALSE)
+      expect_false(echo)
+      expect_identical(client, mock_client)
+      list(stdout = paste0("\n", path, "\n"))
+    }, {
+      loaded <- mlflow_load_model(model_uri, client = mock_client)
+      pred <- mlflow_predict(loaded, iris[1:3, ])
+      expect_equal(as.numeric(pred), as.numeric(stats::predict(lm_model, iris[1:3, ])))
+    })
+
+  expect_equal(cli_args, c("artifacts", "download", "-u", model_uri))
 })

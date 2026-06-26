@@ -111,7 +111,7 @@ tracking server or store at the specified URI.
 
 .. code:: r
 
-   mlflow_client(tracking_uri = NULL)
+   mlflow_client(tracking_uri = NULL, registry_uri = NULL)
 
 .. _arguments-2:
 
@@ -124,6 +124,13 @@ Arguments
 | ``tracking_uri``              | The tracking URI. If not provided,   |
 |                               | defaults to the service set by       |
 |                               | ``mlflow_set_tracking_uri()``.       |
++-------------------------------+--------------------------------------+
+| ``registry_uri``              | The registry URI. If not provided,   |
+|                               | defaults to                          |
+|                               | ``mlflow_get_registry_uri()``. For   |
+|                               | Databricks model registry, use       |
+|                               | ``databricks-uc`` or                 |
+|                               | ``databricks-uc://<profile>``.       |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_create_experiment``
@@ -226,6 +233,12 @@ Arguments
 |                               | the tracking server associated with  |
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
+
+Details
+-------
+
+Use a fully qualified registered model name when your registry requires
+one, for example ``catalog.schema.model``.
 
 ``mlflow_create_registered_model``
 ==================================
@@ -594,6 +607,15 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
+.. _details-1:
+
+Details
+-------
+
+Stages are not supported when the registry URI is ``databricks-uc``. Use
+``mlflow_get_model_version_by_alias()`` or load an aliased model URI
+instead.
+
 ``mlflow_get_metric_history``
 =============================
 
@@ -628,6 +650,50 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
+``mlflow_get_model_version_by_alias``
+=====================================
+
+Get model version by alias
+
+Resolves an alias to a registered model version.
+
+.. code:: r
+
+   mlflow_get_model_version_by_alias(name, alias, client = NULL, ...)
+
+.. _arguments-16:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``name``                      | Name of the registered model.        |
++-------------------------------+--------------------------------------+
+| ``alias``                     | Alias to resolve.                    |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
++-------------------------------+--------------------------------------+
+| ``...``                       | Reserved for future options.         |
++-------------------------------+--------------------------------------+
+
+.. _details-2:
+
+Details
+-------
+
+To load the aliased model contents, use
+``mlflow_load_model("models:/<model_name>@<alias>")``.
+
 ``mlflow_get_model_version``
 ============================
 
@@ -639,7 +705,7 @@ Get a model version
 
    mlflow_get_model_version(name, version, client = NULL)
 
-.. _arguments-16:
+.. _arguments-17:
 
 Arguments
 ---------
@@ -673,7 +739,7 @@ Retrieves a registered model from the Model Registry.
 
    mlflow_get_registered_model(name, client = NULL)
 
-.. _arguments-17:
+.. _arguments-18:
 
 Arguments
 ---------
@@ -694,6 +760,17 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
+``mlflow_get_registry_uri``
+===========================
+
+Get Model Registry URI
+
+Gets the model registry URI.
+
+.. code:: r
+
+   mlflow_get_registry_uri()
+
 ``mlflow_get_run``
 ==================
 
@@ -707,7 +784,7 @@ largest step.
 
    mlflow_get_run(run_id = NULL, client = NULL)
 
-.. _arguments-18:
+.. _arguments-19:
 
 Arguments
 ---------
@@ -752,7 +829,7 @@ Extracts the ID of the run or experiment.
    list(list("mlflow_id"), list("mlflow_run"))(object)
    list(list("mlflow_id"), list("mlflow_experiment"))(object)
 
-.. _arguments-19:
+.. _arguments-20:
 
 Arguments
 ---------
@@ -774,7 +851,7 @@ Gets a list of artifacts.
 
    mlflow_list_artifacts(path = NULL, run_id = NULL, client = NULL)
 
-.. _arguments-20:
+.. _arguments-21:
 
 Arguments
 ---------
@@ -814,7 +891,7 @@ on MLflow model flavors.
 
    mlflow_load_flavor(flavor, model_path)
 
-.. _arguments-21:
+.. _arguments-22:
 
 Arguments
 ---------
@@ -845,7 +922,7 @@ searches for a flavor supported by R/MLflow.
 
    mlflow_load_model(model_uri, flavor = NULL, client = mlflow_client())
 
-.. _arguments-22:
+.. _arguments-23:
 
 Arguments
 ---------
@@ -872,13 +949,16 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
+.. _details-3:
+
 Details
 -------
 
 The URI scheme must be supported by MLflow - i.e. there has to be an
 MLflow artifact repository corresponding to the scheme of the URI. The
-content is expected to point to a directory containing MLmodel. The
-following are examples of valid model uris:
+content is expected to point to a directory containing MLmodel. Model
+registry URIs can reference versions, stages, or aliases. Aliases use
+``@``. The following are examples of valid model uris:
 
 -  ``file:///absolute/path/to/local/model``
 -  ``file:relative/path/to/local/model``
@@ -886,10 +966,19 @@ following are examples of valid model uris:
 -  ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 -  ``models:/<model_name>/<model_version>``
 -  ``models:/<model_name>/<stage>``
+-  ``models:/<model_name>@<alias>``
+-  ``models:/<catalog>.<schema>.<model>@<alias>``
 
 For more information about supported URI schemes, see the Artifacts
 Documentation at
 https://www.mlflow.org/docs/latest/tracking.html#artifact-stores.
+
+Examples
+--------
+
+.. code:: r
+
+   mlflow_load_model("models:/catalog.schema.model@champion")
 
 ``mlflow_log_artifact``
 =======================
@@ -902,7 +991,7 @@ Logs a specific file or directory as an artifact for a run.
 
    mlflow_log_artifact(path, artifact_path = NULL, run_id = NULL, client = NULL)
 
-.. _arguments-23:
+.. _arguments-24:
 
 Arguments
 ---------
@@ -929,7 +1018,7 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
-.. _details-1:
+.. _details-4:
 
 Details
 -------
@@ -962,7 +1051,7 @@ request), partial data may be written.
      client = NULL
    )
 
-.. _arguments-24:
+.. _arguments-25:
 
 Arguments
 ---------
@@ -1022,7 +1111,7 @@ historical metric values along two axes: timestamp and step.
      client = NULL
    )
 
-.. _arguments-25:
+.. _arguments-26:
 
 Arguments
 ---------
@@ -1069,9 +1158,9 @@ model as an artifact within the active run.
 
 .. code:: r
 
-   mlflow_log_model(model, artifact_path, ...)
+   mlflow_log_model(model, artifact_path, signature = NULL, ...)
 
-.. _arguments-26:
+.. _arguments-27:
 
 Arguments
 ---------
@@ -1084,6 +1173,11 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``artifact_path``             | Destination path where this MLflow   |
 |                               | compatible model will be saved.      |
++-------------------------------+--------------------------------------+
+| ``signature``                 | Optional model signature with        |
+|                               | ``inputs`` and/or ``outputs``. Each  |
+|                               | schema can be a list or a named      |
+|                               | character vector.                    |
 +-------------------------------+--------------------------------------+
 | ``...``                       | Optional additional arguments passed |
 |                               | to ``mlflow_save_model()`` when      |
@@ -1109,7 +1203,7 @@ allowed to be logged only once.
 
    mlflow_log_param(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-27:
+.. _arguments-28:
 
 Arguments
 ---------
@@ -1148,7 +1242,7 @@ multiple invocations of the same script with different parameters.
 
    mlflow_param(name, default = NULL, type = NULL, description = NULL)
 
-.. _arguments-28:
+.. _arguments-29:
 
 Arguments
 ---------
@@ -1168,6 +1262,8 @@ Arguments
 | ``description``               | Optional description for the         |
 |                               | parameter.                           |
 +-------------------------------+--------------------------------------+
+
+.. _examples-1:
 
 Examples
 --------
@@ -1200,7 +1296,7 @@ to be used by package authors to extend the supported MLflow models.
 
    mlflow_predict(model, data, ...)
 
-.. _arguments-29:
+.. _arguments-30:
 
 Arguments
 ---------
@@ -1235,7 +1331,7 @@ ignored.
 
    mlflow_register_external_observer(observer)
 
-.. _arguments-30:
+.. _arguments-31:
 
 Arguments
 ---------
@@ -1246,7 +1342,7 @@ Argument     Description
 ``observer`` The observer object (see example)
 ============ =================================
 
-.. _examples-1:
+.. _examples-2:
 
 Examples
 --------
@@ -1262,6 +1358,77 @@ Examples
    }
    mlflow_register_external_observer(observer)
 
+``mlflow_register_model``
+=========================
+
+Register a model
+
+Registers an MLflow model URI under a registered model name.
+
+.. code:: r
+
+   mlflow_register_model(
+     model_uri,
+     name,
+     run_id = NULL,
+     tags = NULL,
+     description = NULL,
+     client = NULL,
+     ...
+   )
+
+.. _arguments-32:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``model_uri``                 | URI indicating the location of model |
+|                               | artifacts.                           |
++-------------------------------+--------------------------------------+
+| ``name``                      | Register model under this name.      |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | MLflow run ID for correlation, if    |
+|                               | ``model_uri`` was generated by an    |
+|                               | experiment run in MLflow Tracking.   |
++-------------------------------+--------------------------------------+
+| ``tags``                      | Additional metadata.                 |
++-------------------------------+--------------------------------------+
+| ``description``               | Description for model version.       |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
++-------------------------------+--------------------------------------+
+| ``...``                       | Additional arguments forwarded to    |
+|                               | ``mlflow_create_model_version()``.   |
++-------------------------------+--------------------------------------+
+
+.. _details-5:
+
+Details
+-------
+
+Use a fully qualified registered model name when your registry requires
+one, for example ``catalog.schema.model``.
+
+.. _examples-3:
+
+Examples
+--------
+
+.. code:: r
+
+   mlflow_register_model("runs:/<run_id>/model", "catalog.schema.model")
+
 ``mlflow_rename_experiment``
 ============================
 
@@ -1273,7 +1440,7 @@ Renames an experiment.
 
    mlflow_rename_experiment(new_name, experiment_id = NULL, client = NULL)
 
-.. _arguments-31:
+.. _arguments-33:
 
 Arguments
 ---------
@@ -1310,7 +1477,7 @@ Renames a model in the Model Registry.
 
    mlflow_rename_registered_model(name, new_name, client = NULL)
 
-.. _arguments-32:
+.. _arguments-34:
 
 Arguments
 ---------
@@ -1347,7 +1514,7 @@ restored.
 
    mlflow_restore_experiment(experiment_id, client = NULL)
 
-.. _arguments-33:
+.. _arguments-35:
 
 Arguments
 ---------
@@ -1369,7 +1536,7 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
-.. _details-2:
+.. _details-6:
 
 Details
 -------
@@ -1388,7 +1555,7 @@ Restores the run with the specified ID.
 
    mlflow_restore_run(run_id, client = NULL)
 
-.. _arguments-34:
+.. _arguments-36:
 
 Arguments
 ---------
@@ -1433,7 +1600,7 @@ endpoint will be removed in a future version of mlflow.
      ...
    )
 
-.. _arguments-35:
+.. _arguments-37:
 
 Arguments
 ---------
@@ -1465,15 +1632,16 @@ Arguments
 |                               | ``mlflow_predict()``.                |
 +-------------------------------+--------------------------------------+
 
-.. _details-3:
+.. _details-7:
 
 Details
 -------
 
 The URI scheme must be supported by MLflow - i.e. there has to be an
 MLflow artifact repository corresponding to the scheme of the URI. The
-content is expected to point to a directory containing MLmodel. The
-following are examples of valid model uris:
+content is expected to point to a directory containing MLmodel. Model
+registry URIs can reference versions, stages, or aliases. Aliases use
+``@``. The following are examples of valid model uris:
 
 -  ``file:///absolute/path/to/local/model``
 -  ``file:relative/path/to/local/model``
@@ -1481,12 +1649,14 @@ following are examples of valid model uris:
 -  ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 -  ``models:/<model_name>/<model_version>``
 -  ``models:/<model_name>/<stage>``
+-  ``models:/<model_name>@<alias>``
+-  ``models:/<catalog>.<schema>.<model>@<alias>``
 
 For more information about supported URI schemes, see the Artifacts
 Documentation at
 https://www.mlflow.org/docs/latest/tracking.html#artifact-stores.
 
-.. _examples-2:
+.. _examples-4:
 
 Examples
 --------
@@ -1527,7 +1697,7 @@ https://www.mlflow.org/docs/latest/cli.html#mlflow-run for more info.
      storage_dir = NULL
    )
 
-.. _arguments-36:
+.. _arguments-38:
 
 Arguments
 ---------
@@ -1582,7 +1752,7 @@ Value
 
 The run associated with this run.
 
-.. _examples-3:
+.. _examples-5:
 
 Examples
 --------
@@ -1620,7 +1790,7 @@ model types.
    list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path, model_spec = list(), conda_env = NULL, ...)
    list(list("mlflow_save_model"), list("xgb.Booster"))(model, path, model_spec = list(), conda_env = NULL, ...)
 
-.. _arguments-37:
+.. _arguments-39:
 
 Arguments
 ---------
@@ -1659,7 +1829,7 @@ Search for experiments that satisfy specified criteria.
      client = NULL
    )
 
-.. _arguments-38:
+.. _arguments-40:
 
 Arguments
 ---------
@@ -1716,7 +1886,7 @@ Retrieves a list of registered models.
      client = NULL
    )
 
-.. _arguments-39:
+.. _arguments-41:
 
 Arguments
 ---------
@@ -1730,13 +1900,16 @@ Arguments
 |                               | allows only ANDing together binary   |
 |                               | operations. Example: “name =         |
 |                               | ‘my_model_name’ and tag.key =        |
-|                               | ‘value1’”                            |
+|                               | ‘value1’”. Not supported when the    |
+|                               | registry URI is ``databricks-uc``.   |
 +-------------------------------+--------------------------------------+
 | ``max_results``               | Maximum number of registered models  |
 |                               | to retrieve.                         |
 +-------------------------------+--------------------------------------+
 | ``order_by``                  | List of registered model properties  |
-|                               | to order by. Example: “name”.        |
+|                               | to order by. Example: “name”. Not    |
+|                               | supported when the registry URI is   |
+|                               | ``databricks-uc``.                   |
 +-------------------------------+--------------------------------------+
 | ``page_token``                | Pagination token to go to the next   |
 |                               | page based on a previous query.      |
@@ -1770,7 +1943,7 @@ Metric and Param keys.
      client = NULL
    )
 
-.. _arguments-40:
+.. _arguments-42:
 
 Arguments
 ---------
@@ -1826,7 +1999,7 @@ Wrapper for ``mlflow server``.
      serve_artifacts = FALSE
    )
 
-.. _arguments-41:
+.. _arguments-43:
 
 Arguments
 ---------
@@ -1869,7 +2042,7 @@ metadata that can be updated.
 
    mlflow_set_experiment_tag(key, value, experiment_id = NULL, client = NULL)
 
-.. _arguments-42:
+.. _arguments-44:
 
 Arguments
 ---------
@@ -1919,7 +2092,7 @@ provided name. Returns the ID of the active experiment.
      artifact_location = NULL
    )
 
-.. _arguments-43:
+.. _arguments-45:
 
 Arguments
 ---------
@@ -1944,7 +2117,9 @@ Set Model version tag
 
 Set a tag for the model version. When stage is set, tag will be set for
 latest model version of the stage. Setting both version and stage
-parameter will result in error.
+parameter will result in error. Stages are not supported when the
+registry URI is ``databricks-uc``; set ``version`` directly in that
+case.
 
 .. code:: r
 
@@ -1957,7 +2132,7 @@ parameter will result in error.
      client = NULL
    )
 
-.. _arguments-44:
+.. _arguments-46:
 
 Arguments
 ---------
@@ -1986,6 +2161,94 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
+``mlflow_set_registered_model_alias``
+=====================================
+
+Set a model alias
+
+Assigns an alias to a registered model version.
+
+.. code:: r
+
+   mlflow_set_registered_model_alias(name, alias, version, client = NULL, ...)
+
+.. _arguments-47:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``name``                      | Name of the registered model.        |
++-------------------------------+--------------------------------------+
+| ``alias``                     | Alias to set.                        |
++-------------------------------+--------------------------------------+
+| ``version``                   | Model version number.                |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
++-------------------------------+--------------------------------------+
+| ``...``                       | Reserved for future options.         |
++-------------------------------+--------------------------------------+
+
+.. _details-8:
+
+Details
+-------
+
+Load an aliased model with
+``mlflow_load_model("models:/<model_name>@<alias>")``.
+
+.. _examples-6:
+
+Examples
+--------
+
+.. code:: r
+
+   mlflow_set_registered_model_alias("catalog.schema.model", "champion", 1)
+   mlflow_load_model("models:/catalog.schema.model@champion")
+
+``mlflow_set_registry_uri``
+===========================
+
+Set Model Registry URI
+
+Specifies the URI to the model registry service used for model registry
+operations.
+
+.. code:: r
+
+   mlflow_set_registry_uri(uri)
+
+.. _arguments-48:
+
+Arguments
+---------
+
+======== ======================================
+Argument Description
+======== ======================================
+``uri``  The URI to the model registry service.
+======== ======================================
+
+.. _details-9:
+
+Details
+-------
+
+For Databricks model registry, use ``databricks-uc`` or
+``databricks-uc://<profile>``. When the tracking URI is ``databricks``,
+this is the default registry URI.
+
 ``mlflow_set_tag``
 ==================
 
@@ -1998,7 +2261,7 @@ run and after a run completes.
 
    mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-45:
+.. _arguments-49:
 
 Arguments
 ---------
@@ -2038,7 +2301,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-46:
+.. _arguments-50:
 
 Arguments
 ---------
@@ -2061,7 +2324,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-47:
+.. _arguments-51:
 
 Arguments
 ---------
@@ -2094,7 +2357,7 @@ can be provided.
      nested = FALSE
    )
 
-.. _arguments-48:
+.. _arguments-52:
 
 Arguments
 ---------
@@ -2139,7 +2402,7 @@ Arguments
 |                               | ``TRUE`` creates a nest run.         |
 +-------------------------------+--------------------------------------+
 
-.. _examples-4:
+.. _examples-7:
 
 Examples
 --------
@@ -2167,7 +2430,7 @@ Transition a model version to a different stage.
      client = NULL
    )
 
-.. _arguments-49:
+.. _arguments-53:
 
 Arguments
 ---------
@@ -2195,6 +2458,14 @@ Arguments
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
+.. _details-10:
+
+Details
+-------
+
+Stages are not supported when the registry URI is ``databricks-uc``. Use
+model aliases for registries that reject stages.
+
 ``mlflow_ui``
 =============
 
@@ -2206,7 +2477,7 @@ Launches the MLflow user interface.
 
    mlflow_ui(client, ...)
 
-.. _arguments-50:
+.. _arguments-54:
 
 Arguments
 ---------
@@ -2229,7 +2500,7 @@ Arguments
 |                               | path to a file store.                |
 +-------------------------------+--------------------------------------+
 
-.. _examples-5:
+.. _examples-8:
 
 Examples
 --------
@@ -2256,7 +2527,7 @@ Updates a model version
 
    mlflow_update_model_version(name, version, description, client = NULL)
 
-.. _arguments-51:
+.. _arguments-55:
 
 Arguments
 ---------
@@ -2292,7 +2563,7 @@ Updates a model in the Model Registry.
 
    mlflow_update_registered_model(name, description, client = NULL)
 
-.. _arguments-52:
+.. _arguments-56:
 
 Arguments
 ---------

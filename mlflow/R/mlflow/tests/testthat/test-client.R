@@ -149,3 +149,106 @@ test_that("rest call handles errors correctly", {
     )
   })
 })
+
+test_that("registry URI defaults and setters work", {
+  mlflow_clear_test_dir("mlruns")
+  old_tracking <- mlflow_get_tracking_uri()
+  old_registry <- .globals$registry_uri
+  on.exit({
+    mlflow_set_tracking_uri(old_tracking)
+    .globals$registry_uri <- old_registry
+  }, add = TRUE)
+
+  mlflow_set_tracking_uri("databricks")
+  .globals$registry_uri <- NULL
+  expect_equal(mlflow_get_registry_uri(), "databricks-uc")
+
+  mlflow_set_tracking_uri("databricks://PROFILE")
+  .globals$registry_uri <- NULL
+  expect_equal(mlflow_get_registry_uri(), "databricks-uc://PROFILE")
+
+  client <- mlflow_client("databricks://PROFILE")
+  expect_equal(client$registry_uri$scheme, "databricks-uc")
+  expect_equal(client$registry_uri$path, "PROFILE")
+
+  client <- mlflow_client("databricks")
+  expect_equal(client$tracking_uri$raw_uri, "databricks")
+  expect_equal(client$registry_uri$raw_uri, "databricks-uc")
+
+  with_envvar(c(MLFLOW_REGISTRY_URI = "databricks://PROD"), {
+    .globals$registry_uri <- NULL
+    expect_equal(mlflow_get_registry_uri(), "databricks://PROD")
+  })
+
+  mlflow_set_registry_uri("databricks://DEFAULT")
+  expect_equal(mlflow_get_registry_uri(), "databricks://DEFAULT")
+
+  mlflow_set_registry_uri("")
+  mlflow_set_tracking_uri("databricks")
+  expect_equal(mlflow_get_registry_uri(), "databricks-uc")
+
+  with_envvar(c(MLFLOW_REGISTRY_URI = "databricks://PROD"), {
+    mlflow_set_registry_uri("")
+    expect_equal(mlflow_get_registry_uri(), "databricks-uc")
+  })
+
+  mlflow_set_tracking_uri("http://localhost:5000")
+  .globals$registry_uri <- NULL
+  expect_equal(mlflow_get_registry_uri(), "http://localhost:5000")
+})
+
+test_that("mlflow_cli passes registry URI env", {
+  old_tracking <- mlflow_get_tracking_uri()
+  old_registry <- .globals$registry_uri
+  on.exit({
+    mlflow_set_tracking_uri(old_tracking)
+    .globals$registry_uri <- old_registry
+  }, add = TRUE)
+
+  mlflow_set_tracking_uri("http://tracking")
+  mlflow_set_registry_uri("http://registry")
+
+  env <- NULL
+  with_mocked_bindings(.package = "mlflow",
+    python_bin = function() "/usr/bin/python",
+    python_mlflow_bin = function() "/usr/bin/mlflow",
+    run = function(command = NULL, args = character(), echo = TRUE, echo_cmd = FALSE,
+                   stderr_callback = NULL) {
+      env <<- list(
+        tracking_uri = Sys.getenv("MLFLOW_TRACKING_URI"),
+        registry_uri = Sys.getenv("MLFLOW_REGISTRY_URI")
+      )
+      list(stdout = "")
+    }, {
+      mlflow_cli("experiments", "list", client = NULL)
+    })
+
+  expect_equal(env$tracking_uri, "http://tracking")
+  expect_equal(env$registry_uri, "http://registry")
+})
+
+test_that("mlflow_cli uses client tracking and registry URIs", {
+  mock_client <- new_mlflow_client_impl(get_host_creds = function() {
+    new_mlflow_host_creds(host = "localhost")
+  })
+  mock_client$tracking_uri <- list(raw_uri = "databricks://PROFILE")
+  mock_client$registry_uri <- list(raw_uri = "databricks-uc://PROFILE")
+
+  env <- NULL
+  with_mocked_bindings(.package = "mlflow",
+    python_bin = function() "/usr/bin/python",
+    python_mlflow_bin = function() "/usr/bin/mlflow",
+    run = function(command = NULL, args = character(), echo = TRUE, echo_cmd = FALSE,
+                   stderr_callback = NULL) {
+      env <<- list(
+        tracking_uri = Sys.getenv("MLFLOW_TRACKING_URI"),
+        registry_uri = Sys.getenv("MLFLOW_REGISTRY_URI")
+      )
+      list(stdout = "")
+    }, {
+      mlflow_cli("experiments", "list", client = mock_client)
+    })
+
+  expect_equal(env$tracking_uri, "databricks://PROFILE")
+  expect_equal(env$registry_uri, "databricks-uc://PROFILE")
+})
