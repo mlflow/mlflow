@@ -1363,6 +1363,16 @@ from mlflow.cli import datasets
 
 cli.add_command(datasets.commands)
 
+# Add label-schemas CLI commands
+from mlflow.cli import label_schemas
+
+cli.add_command(label_schemas.commands)
+
+# Add review-queues CLI commands
+from mlflow.cli import review_queues
+
+cli.add_command(review_queues.commands)
+
 # Add demo CLI command
 from mlflow.cli.demo import demo
 
