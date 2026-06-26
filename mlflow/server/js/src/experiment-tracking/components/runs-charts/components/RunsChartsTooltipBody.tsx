@@ -47,7 +47,7 @@ const createBarChartValuesBox = (cardConfig: RunsChartsBarCardConfig, activeRun:
       if (!metric) return null;
       const customMetricBehaviorDef = customMetricBehaviorDefs[metric.key];
       const displayName = customMetricBehaviorDef?.displayName ?? metric.key;
-      const displayValue = customMetricBehaviorDef?.valueFormatter({ value: metric.value }) ?? metric.value;
+      const displayValue = customMetricBehaviorDef?.valueFormatter({ value: metric.value }) ?? Utils.formatMetric(metric.value);
       return { displayName, displayValue };
     })
     .filter(Boolean);
@@ -75,9 +75,11 @@ const createScatterChartValuesBox = (cardConfig: RunsChartsScatterCardConfig, ac
   const xLabel = xaxis.key;
   const yLabel = yaxis.key;
 
-  const xValue = xaxis.type === 'METRIC' ? activeRun.metrics[xKey]?.value : activeRun.params[xKey]?.value;
+  const xRaw = xaxis.type === 'METRIC' ? activeRun.metrics[xKey]?.value : activeRun.params[xKey]?.value;
+  const yRaw = yaxis.type === 'METRIC' ? activeRun.metrics[yKey]?.value : activeRun.params[yKey]?.value;
 
-  const yValue = yaxis.type === 'METRIC' ? activeRun.metrics[yKey]?.value : activeRun.params[yKey]?.value;
+  const xValue = xaxis.type === 'METRIC' && xRaw !== undefined ? Utils.formatMetric(xRaw) : xRaw;
+  const yValue = yaxis.type === 'METRIC' && yRaw !== undefined ? Utils.formatMetric(yRaw) : yRaw;
 
   return (
     <>
@@ -101,11 +103,13 @@ const createContourChartValuesBox = (cardConfig: RunsChartsContourCardConfig, ac
   const yKey = yaxis.key;
   const zKey = zaxis.key;
 
-  const xValue = xaxis.type === 'METRIC' ? activeRun.metrics[xKey]?.value : activeRun.params[xKey]?.value;
+  const xRaw = xaxis.type === 'METRIC' ? activeRun.metrics[xKey]?.value : activeRun.params[xKey]?.value;
+  const yRaw = yaxis.type === 'METRIC' ? activeRun.metrics[yKey]?.value : activeRun.params[yKey]?.value;
+  const zRaw = zaxis.type === 'METRIC' ? activeRun.metrics[zKey]?.value : activeRun.params[zKey]?.value;
 
-  const yValue = yaxis.type === 'METRIC' ? activeRun.metrics[yKey]?.value : activeRun.params[yKey]?.value;
-
-  const zValue = zaxis.type === 'METRIC' ? activeRun.metrics[zKey]?.value : activeRun.params[zKey]?.value;
+  const xValue = xaxis.type === 'METRIC' && xRaw !== undefined ? Utils.formatMetric(xRaw) : xRaw;
+  const yValue = yaxis.type === 'METRIC' && yRaw !== undefined ? Utils.formatMetric(yRaw) : yRaw;
+  const zValue = zaxis.type === 'METRIC' && zRaw !== undefined ? Utils.formatMetric(zRaw) : zRaw;
 
   return (
     <>
@@ -170,7 +174,7 @@ const createLineChartValuesBox = (
         </div>
       )}
       <div css={styles.value}>
-        <strong>{metricKey}:</strong> {metricValue}
+        <strong>{metricKey}:</strong> {Utils.formatMetric(metricValue)}
       </div>
     </>
   );
@@ -198,7 +202,7 @@ const createParallelChartValuesBox = (
     if (metric) {
       return (
         <div key={metricKey}>
-          <strong>{metric.key}:</strong> {metric.value}
+          <strong>{metric.key}:</strong> {Utils.formatMetric(metric.value)}
         </div>
       );
     }

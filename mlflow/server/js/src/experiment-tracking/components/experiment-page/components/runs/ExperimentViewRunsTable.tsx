@@ -243,6 +243,7 @@ export const ExperimentViewRunsTable = React.memo(
       onDatasetSelected,
       expandRows,
       runsHiddenMode: uiState.runsHiddenMode,
+      rowsData,
     });
 
     // Persistable colIds = the columns currently shown in the grid — the always-on
