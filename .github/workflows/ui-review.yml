@@ -7,9 +7,6 @@ on:
     paths:
       - ".github/workflows/ui-review.yml"
       - ".claude/skills/ui-review/**"
-      # The payload validator + its CLI registration also gate this bot.
-      - ".claude/skills/src/skills/commands/validate_ui_review.py"
-      - ".claude/skills/src/skills/cli.py"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.event.issue.number }}
@@ -217,59 +214,33 @@ jobs:
 
           echo "$COMMENT_BODY" | python /tmp/parse_args.py >> "$GITHUB_OUTPUT"
 
-      - name: Build PR frontend
+      - name: Launch dev server with demo data
         env:
-          # CRA treats warnings as errors when CI=true; the PR's lint warnings must
-          # not fail the build (matches ui-preview.yml's build step).
-          CI: "false"
-        run: |
-          # The MLflow server serves the static UI from mlflow/server/js/build, so
-          # build the PR's frontend into it first — otherwise the bot would review a
-          # stale/missing UI instead of the PR's changes.
-          (cd mlflow/server/js && yarn install --immutable && yarn build)
-
-      - name: Launch MLflow server with demo data
-        env:
-          # Generation (client) and the server (--backend-store-uri below) share this
-          # store. Same generate-then-serve approach as .github/ui-preview/app.py.
           MLFLOW_TRACKING_URI: sqlite:////tmp/ui-review/mlflow.db
+          CI: "false" # CRA dev server treats warnings as errors when CI=true
         run: |
-          mkdir -p /tmp/ui-review/mlartifacts
-          # 1) Pre-populate the official GenAI demo dataset (prompts, traces,
-          #    evaluation, judges, issues) into the "MLflow Demo" experiment.
-          #    Offline + deterministic — no API key, no network. refresh=True
-          #    guarantees fresh data. (This is what `mlflow demo` calls internally,
-          #    invoked directly to avoid its interactive prompt.)
+          mkdir -p /tmp/ui-review
+          # Pre-populate the GenAI demo dataset (offline, no API key) so pages aren't empty.
           uv run --frozen python -c "from mlflow.demo import generate_all_demos; generate_all_demos(refresh=True)"
-          # 2) Serve the pre-populated store. Pick the port up front so APP_URL is known.
-          PORT=$(uv run --frozen python -c "from mlflow.utils import find_free_port; print(find_free_port())")
-          APP_URL="http://127.0.0.1:$PORT"
-          uv run --frozen mlflow server \
-            --backend-store-uri "$MLFLOW_TRACKING_URI" \
-            --default-artifact-root /tmp/ui-review/mlartifacts \
-            --serve-artifacts \
-            --host 127.0.0.1 \
-            --port "$PORT" \
-            --workers 1 > /tmp/mlflow-server.log 2>&1 &
-          echo "SERVER_PID=$!" >> "$GITHUB_ENV"
-          for _ in $(seq 1 60); do
-            curl -fsS "$APP_URL/health" >/dev/null 2>&1 && break
-            sleep 3
+          # run_dev_server.py starts the backend + `yarn start` frontend (much faster than
+          # a full `yarn build`) and honors MLFLOW_TRACKING_URI for the store.
+          uv run --frozen dev/run_dev_server.py > /tmp/dev-server.log 2>&1 &
+          echo "DEV_PID=$!" >> "$GITHUB_ENV"
+          APP_URL=""
+          for _ in $(seq 1 120); do
+            [ -z "$APP_URL" ] && APP_URL=$(grep -oE 'Frontend: http://localhost:[0-9]+' /tmp/dev-server.log | head -1 | grep -oE 'http://localhost:[0-9]+' || true)
+            [ -n "$APP_URL" ] && curl -fsS "$APP_URL" >/dev/null 2>&1 && break
+            sleep 5
           done
-          if ! curl -fsS "$APP_URL/health" >/dev/null 2>&1; then
-            echo "::error::MLflow server did not become ready"
-            tail -80 /tmp/mlflow-server.log || true
-            exit 1
+          if [ -z "$APP_URL" ] || ! curl -fsS "$APP_URL" >/dev/null 2>&1; then
+            echo "::error::dev server did not become ready"; tail -80 /tmp/dev-server.log; exit 1
           fi
-          echo "MLflow server ready at $APP_URL"
           echo "APP_URL=$APP_URL" >> "$GITHUB_ENV"
 
       - name: Set up agent-browser
         run: |
-          # Use `npx` to run this npm-distributed CLI — the repo pattern (see
-          # preview-docs.yml); policy.rego forbids mutable package installs in
-          # workflows. Prime the package (+ download Chrome, headless by default),
-          # then drop a thin `agent-browser` shim on PATH so the skill calls it directly.
+          # npx (the repo pattern; policy.rego blocks mutable package installs) + a PATH
+          # shim so the skill can call `agent-browser` directly. Priming also downloads Chrome.
           npx --min-release-age=7 --yes agent-browser install
           mkdir -p "$HOME/.local/bin"
           cat > "$HOME/.local/bin/agent-browser" <<'SH'
@@ -305,13 +276,7 @@ jobs:
           mkdir -p "$AGENT_BROWSER_SCREENSHOT_DIR"
           OUTPUT_FILE="/tmp/ui-output.jsonl"
 
-          # Both event paths run /ui-review end-to-end; on pull_request (smoke),
-          # the Post/Report steps are gated off so nothing is posted.
-          # $REPO/$PR_NUMBER/$APP_URL are all workflow-controlled (GitHub context +
-          # the find_free_port localhost URL), not external input, so interpolating
-          # them into the skill args is safe.
-          # Capture timeout/claude's own exit via PIPESTATUS[0], not the pipeline's
-          # last stage (stream.sh) — otherwise a 124 timeout could be masked.
+          # PIPESTATUS[0] captures claude's exit (not stream.sh's), so a 124 timeout isn't masked.
           EXIT_CODE=0
           timeout 30m claude \
             --model "$MODEL" \
@@ -336,7 +301,8 @@ jobs:
             echo "::error::Claude did not produce /tmp/ui-review-payload.json"
             exit 1
           fi
-          uv run --frozen --package skills skills validate-ui-review /tmp/ui-review-payload.json
+          uv run --frozen --package skills skills validate-review \
+            --schema .claude/skills/ui-review/ui-review-payload.schema.json /tmp/ui-review-payload.json
           echo "::group::UI review payload"
           jq . /tmp/ui-review-payload.json
           echo "::endgroup::"
@@ -511,11 +477,10 @@ jobs:
           retention-days: 1
           if-no-files-found: ignore
 
-      - name: Stop MLflow server
+      - name: Stop dev server
         if: always()
         run: |
-          # Guard on a non-empty PID: a bare `kill 0` would signal the whole
-          # process group if the server never started.
-          if [ -n "${SERVER_PID:-}" ]; then
-            kill "$SERVER_PID" 2>/dev/null || true
+          # Guard on a non-empty PID so a bare `kill 0` can't signal the whole group.
+          if [ -n "${DEV_PID:-}" ]; then
+            kill "$DEV_PID" 2>/dev/null || true
           fi

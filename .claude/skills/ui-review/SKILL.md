@@ -181,7 +181,8 @@ Read [`ui-review-payload.schema.json`](./ui-review-payload.schema.json), then wr
 `/tmp/ui-review-payload.json` matching it, and validate:
 
 ```bash
-uv run --package skills skills validate-ui-review /tmp/ui-review-payload.json
+uv run --package skills skills validate-review \
+  --schema .claude/skills/ui-review/ui-review-payload.schema.json /tmp/ui-review-payload.json
 ```
 
 Authoring rules:
