@@ -61,6 +61,8 @@ tenacity
 # transitive conflict in the combined ML env silently backtracks llama-index to an
 # unsupported 0.10.x (pydantic v1 models), which crashes Settings serialization.
 llama-index>=0.12.38
+# Required for LlamaIndex dispatcher context propagation APIs used by mlflow.llama_index
+llama-index-instrumentation>=0.5.0
 # Required for an agent example of mlflow.llama_index
 llama-index-agent-openai
 # Required by mlflow.langchain
