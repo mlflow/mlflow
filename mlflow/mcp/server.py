@@ -11,6 +11,8 @@ import mlflow.experiments
 import mlflow.models.cli as models_cli
 import mlflow.runs
 from mlflow.ai_commands.ai_command_utils import get_command_body, list_commands
+from mlflow.cli.label_schemas import commands as label_schemas_cli
+from mlflow.cli.review_queues import commands as review_queues_cli
 from mlflow.cli.scorers import commands as scorers_cli
 from mlflow.cli.traces import commands as traces_cli
 from mlflow.mcp.decorator import get_mcp_tool_name
@@ -24,7 +26,7 @@ from mlflow.mcp.decorator import get_mcp_tool_name
 MLFLOW_MCP_TOOLS = os.environ.get("MLFLOW_MCP_TOOLS", "genai")
 
 # Tool category mappings
-_GENAI_TOOLS = {"traces", "scorers", "experiments", "runs"}
+_GENAI_TOOLS = {"traces", "scorers", "experiments", "runs", "review_queues", "label_schemas"}
 _ML_TOOLS = {"models", "deployments", "experiments", "runs"}
 _ALL_TOOLS = _GENAI_TOOLS | _ML_TOOLS
 
@@ -202,6 +204,11 @@ def _collect_tools(commands: dict[str, click.Command]) -> list["FunctionTool"]:
     """Collect MCP tools from commands, filtering out undecorated commands."""
     tools = []
     for cmd in commands.values():
+        if isinstance(cmd, click.Group):
+            # Recurse into subgroups (e.g. `review-queues items`) so their
+            # decorated subcommands are exposed too.
+            tools.extend(_collect_tools(cmd.commands))
+            continue
         tool = cmd_to_function_tool(cmd)
         if tool is not None:
             tools.append(tool)
@@ -220,6 +227,14 @@ def create_mcp() -> "FastMCP":
     # Scorers CLI tools (genai)
     if _is_tool_enabled("scorers"):
         tools.extend(_collect_tools(scorers_cli.commands))
+
+    # Review queue CLI tools (genai)
+    if _is_tool_enabled("review_queues"):
+        tools.extend(_collect_tools(review_queues_cli.commands))
+
+    # Label schema CLI tools (genai)
+    if _is_tool_enabled("label_schemas"):
+        tools.extend(_collect_tools(label_schemas_cli.commands))
 
     # Experiment tracking tools (genai)
     if _is_tool_enabled("experiments"):
