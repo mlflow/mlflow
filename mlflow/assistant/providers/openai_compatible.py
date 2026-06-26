@@ -372,7 +372,7 @@ class OpenAICompatibleProvider(AssistantProvider):
             try:
                 messages = json.loads(conversation_history)
             except (json.JSONDecodeError, TypeError):
-                _logger.warning("Failed to decode session history; starting a new session")
+                _logger.warning("Failed to decode conversation history; starting fresh")
                 messages = []
 
         if not messages:
