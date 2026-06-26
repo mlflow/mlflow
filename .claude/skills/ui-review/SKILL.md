@@ -1,6 +1,6 @@
 ---
 name: ui-review
-description: Review a GitHub PR's UI/UX changes by launching the MLflow web app, driving a headless agent-browser over the changed surfaces, and emitting a validated local UI-review payload (findings + screenshots).
+description: Review a GitHub PR's UI/UX changes by launching the MLflow web app, driving a headless agent-browser over the changed surfaces, and emitting a validated local UI-review payload (comments + screenshots).
 disable-model-invocation: true
 allowed-tools:
   - Read
@@ -62,7 +62,7 @@ These reads are independent. Issue them as parallel tool calls in a single turn.
   pr-review GraphQL query for `reviewThreads`, filtering to UI-relevant paths).
 
 If the diff has no changes under `mlflow/server/js/src/`, there is no UI to review: emit a
-payload with an empty `findings` array and a body noting that no frontend changes were
+payload with `event: "COMMENT"`, an empty `comments` array, and a body noting that no frontend changes were
 detected. Stop.
 
 ### 2. Confirm demo data
@@ -172,8 +172,9 @@ build.
   design-system or i18n gaps, noticeable visual regression
 - 🟢 **NIT** — spacing/polish/preference the author can ignore
 
-This bot is **advisory only** — it posts a summary comment and never approves/stamps the PR, so
-there is no overall verdict/`event` field. Just tag each finding with its severity.
+This bot is **advisory only** — it posts a summary comment and never approves/stamps the PR. The
+payload's `event` is fixed to `"COMMENT"` (the schema forbids `APPROVE`). Just tag each comment
+with its severity prefix.
 
 ### 7. Emit the local payload
 
@@ -187,16 +188,17 @@ uv run --package skills skills validate-review \
 
 Authoring rules:
 
-- One finding per distinct issue. For a repeated issue across surfaces, file one representative
-  finding and name the other routes in its body.
-- Each finding sets `route`, `viewport`, `theme`, an optional `screenshot` (the basename printed
+- Set top-level `event` to `"COMMENT"` (the only value the schema allows — this bot never approves).
+- The payload's `comments` array holds one entry per distinct UI/UX issue. For a repeated issue
+  across surfaces, file one representative comment and name the other routes in its body.
+- Each comment sets `route`, `viewport`, `theme`, an optional `screenshot` (the basename printed
   by the no-filename `agent-browser screenshot`), and optional `changed_files`. Start `body` with the matching
   severity prefix; state the problem, why it matters for the user, and a concrete fix when you
   have one.
 - `body` (top-level) is a 2–4 sentence summary that names the surfaces you reviewed; if you
   could not review some intended surface (empty store, failed load), say so. It MUST end with
   `🤖 Generated with Claude` on its own line.
-- If you found nothing, emit an empty `findings` array (the workflow posts a "no issues found" comment).
+- If you found nothing, emit an empty `comments` array (the workflow posts a "no issues found" comment).
 
 Fix any validation errors and re-emit until it passes. **Do not post the review or any comment**
 (no `gh pr review`, no comment APIs, no other skills). Stop after writing and validating the

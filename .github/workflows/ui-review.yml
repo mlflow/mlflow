@@ -343,14 +343,14 @@ jobs:
           from pathlib import Path
 
           payload = json.loads(Path("/tmp/ui-review-payload.json").read_text())
-          findings = payload.get("findings", [])
+          comments = payload.get("comments", [])
           order = {"🔴": 0, "🟡": 1, "🟢": 2}
 
           # Leading marker lets the post step find-and-update this comment on
           # re-runs instead of appending a duplicate.
           lines = ["<!-- ui-review-summary -->", "## 🎨 UI Review", "", payload["body"], ""]
-          if findings:
-              for f in sorted(findings, key=lambda x: order.get(x["body"][:1], 3)):
+          if comments:
+              for f in sorted(comments, key=lambda x: order.get(x["body"][:1], 3)):
                   meta = [f"route `{f['route']}`", f["viewport"], f["theme"]]
                   if shot := f.get("screenshot"):
                       meta.append(f"screenshot `{shot}`")

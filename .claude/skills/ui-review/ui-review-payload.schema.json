@@ -1,21 +1,25 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "UI Review Payload",
-  "description": "Payload emitted by the ui-review skill. The ui-review workflow renders it into a summary PR comment (it is NOT posted as an inline PR review and NEVER approves the PR), so findings carry route/viewport/theme/screenshot context instead of diff-line anchors. There is intentionally no `event`/approval field — this bot is advisory-only.",
+  "description": "Payload emitted by the ui-review skill, validated by the shared `validate-review` command and rendered into a summary PR comment (NOT posted as an inline PR review). It deliberately reuses the pr-review payload's `event`/`comments` field names so the same validator works unchanged, but each comment carries route/viewport/theme/screenshot context instead of diff-line anchors. `event` is fixed to COMMENT — this bot never approves.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["body", "findings"],
+  "required": ["event", "body", "comments"],
   "properties": {
+    "event": {
+      "description": "Always 'COMMENT'. The ui-review bot is advisory-only — the workflow posts a plain PR comment, never an approving review. Constrained to a single value so the payload cannot request approval.",
+      "const": "COMMENT"
+    },
     "body": {
-      "description": "Concise top-level UI/UX summary in 2-4 sentences (overall assessment, surfaces reviewed). Do not restate individual findings (those go in `findings`). Must end with the '🤖 Generated with Claude' footer on its own line.",
+      "description": "Concise top-level UI/UX summary in 2-4 sentences (overall assessment, surfaces reviewed). Do not restate individual comments (those go in `comments`). Must end with the '🤖 Generated with Claude' footer on its own line.",
       "type": "string",
       "minLength": 1,
       "pattern": "(^|\\n)🤖 Generated with Claude\\s*$"
     },
-    "findings": {
-      "description": "UI/UX findings observed in the running app. Empty array is allowed (no issues found).",
+    "comments": {
+      "description": "UI/UX findings observed in the running app, one per comment. Empty array is allowed (no issues found).",
       "type": "array",
-      "items": { "$ref": "#/$defs/finding" }
+      "items": { "$ref": "#/$defs/comment" }
     }
   },
   "$defs": {
@@ -31,13 +35,13 @@
       "type": "string",
       "pattern": "^🟢 \\*\\*NIT:\\*\\* "
     },
-    "finding": {
+    "comment": {
       "type": "object",
       "additionalProperties": false,
       "required": ["body", "route", "viewport", "theme"],
       "properties": {
         "body": {
-          "description": "Finding text. Must start with '🔴 **CRITICAL:** ', '🟡 **MODERATE:** ', or '🟢 **NIT:** '. State what is wrong, why it matters for the user, and (when known) a concrete fix.",
+          "description": "Comment text. Must start with '🔴 **CRITICAL:** ', '🟡 **MODERATE:** ', or '🟢 **NIT:** '. State what is wrong, why it matters for the user, and (when known) a concrete fix.",
           "anyOf": [
             { "$ref": "#/$defs/criticalPrefix" },
             { "$ref": "#/$defs/moderatePrefix" },

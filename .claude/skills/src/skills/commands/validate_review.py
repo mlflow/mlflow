@@ -51,9 +51,5 @@ def run(args: argparse.Namespace) -> None:
             print(f"  {format_path(list(err.absolute_path))}: {err.message}", file=sys.stderr)
         sys.exit(1)
 
-    # Works for any payload validated against --schema: pr-review uses
-    # `event`/`comments`, ui-review uses `findings` and no `event`.
-    key = "comments" if "comments" in payload else "findings"
-    n = len(payload.get(key, []))
-    prefix = f"event={payload['event']}, " if "event" in payload else ""
-    print(f"OK: {prefix}{key}={n}")
+    n = len(payload.get("comments", []))
+    print(f"OK: event={payload['event']}, comments={n}")
