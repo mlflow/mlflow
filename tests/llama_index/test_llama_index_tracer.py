@@ -117,44 +117,39 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
         }
 
 
-@pytest.mark.skipif(
-    llama_core_version < Version("0.11.0"),
-    reason="Workflow was introduced in 0.11.0",
-)
-@pytest.mark.asyncio
-async def test_tracer_workflow_restores_propagated_mlflow_context():
+def test_tracer_restores_propagated_mlflow_context_for_instrumented_span():
     from llama_index.core.instrumentation import get_dispatcher
-    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
 
-    class MyWorkflow(Workflow):
-        @step
-        async def my_step(self, ev: StartEvent) -> StopEvent:
-            with mlflow.start_span("manual-child") as child:
-                child.set_outputs("done")
-            return StopEvent(result="done")
+    dispatcher = get_dispatcher()
+
+    @dispatcher.span
+    def instrumented_operation(value: str) -> str:
+        result = value.upper()
+        with mlflow.start_span("manual-child") as child:
+            child.set_outputs(result)
+        return result
 
     with mlflow.start_span("workflow-root") as root:
-        context = get_dispatcher().capture_propagation_context()
+        context = dispatcher.capture_propagation_context()
         root_trace_id = root.trace_id
         root_span_id = root.span_id
 
     assert mlflow.get_current_active_span() is None
 
-    get_dispatcher().restore_propagation_context(context)
-    result = await MyWorkflow(timeout=10, verbose=False).run()
-    assert result == "done"
+    dispatcher.restore_propagation_context(context)
+    assert instrumented_operation("done") == "DONE"
 
     traces = get_traces()
     assert len(traces) == 1
 
     spans = traces[0].data.spans
+    instrumented_span = next(span for span in spans if span.name.endswith("instrumented_operation"))
     manual_child = next(span for span in spans if span.name == "manual-child")
-    workflow_parent = next(span for span in spans if span.span_id == manual_child.parent_id)
 
-    assert any(span.parent_id == root_span_id for span in spans)
-    assert workflow_parent.trace_id == root_trace_id
+    assert instrumented_span.trace_id == root_trace_id
+    assert instrumented_span.parent_id == root_span_id
     assert manual_child.trace_id == root_trace_id
-    assert manual_child.parent_id != root_span_id
+    assert manual_child.parent_id == instrumented_span.span_id
 
 
 def test_trace_llm_complete_stream():
