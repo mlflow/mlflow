@@ -178,7 +178,7 @@ export const createExperimentPageUIState = (): ExperimentPageUIState => ({
   runsPinned: [],
   runsHidden: [],
   runsVisibilityMap: {},
-  runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
+  runsHiddenMode: RUNS_VISIBILITY_MODE.HIDEALL,
   compareRunCharts: undefined,
   compareRunSections: undefined,
   viewMaximized: false,
