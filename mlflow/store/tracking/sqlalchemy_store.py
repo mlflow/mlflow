@@ -1089,17 +1089,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 run.status = RunStatus.to_string(run_status)
             if end_time is not None:
                 run.end_time = end_time
-            if run_name:
+            if run_name is not None:
                 run.name = run_name
                 run_name_tag = self._try_get_run_tag(session, run_id, MLFLOW_RUN_NAME)
                 if run_name_tag is None:
                     run.tags.append(SqlTag(key=MLFLOW_RUN_NAME, value=run_name))
                 else:
                     run_name_tag.value = run_name
-
             session.add(run)
             run = run.to_mlflow_entity()
-
             return run.info
 
     def _try_get_run_tag(self, session, run_id, tagKey, eager=False):
