@@ -35,6 +35,17 @@ def my_function(input_data):
 
 MLflow provides automatic tracing (autolog) for 40+ popular libraries. See the complete list at [Automatic Tracing Integrations](/genai/tracing/integrations).
 
+### Q: Do I need to explicitly enable MLflow Tracing?
+
+No. MLflow Tracing does **not** require an explicit `enable()` call to start recording traces.
+
+Tracing starts automatically when you:
+- Use an MLflow auto-tracing integration (for example, `mlflow.openai.autolog()`), or
+- Decorate a function with `@mlflow.trace`
+
+When the first traced operation runs, MLflow automatically creates a trace and records spans under it.
+
+
 ## User Interface and Jupyter Integration
 
 ### Q: Can I view traces directly in Jupyter notebooks?
