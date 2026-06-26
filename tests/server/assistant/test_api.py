@@ -22,7 +22,7 @@ from mlflow.assistant.providers.base import (
     ProviderConfig,
     ProviderNotConfiguredError,
 )
-from mlflow.assistant.types import Event, Message, ToolUseBlock
+from mlflow.assistant.types import Event, EventType, Message, ToolUseBlock
 from mlflow.server.assistant.api import (
     PermissionDecision,
     _AssistantAPIRoute,
@@ -32,6 +32,7 @@ from mlflow.server.assistant.api import (
     _remote_access_policy,
     _RemoteAccessPolicy,
     assistant_router,
+    stream_provider_events,
 )
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager, save_process_pid
 from mlflow.utils.os import is_windows
@@ -1264,6 +1265,26 @@ async def test_stream_tracking_uri_includes_static_prefix(monkeypatch):
         _ = "".join([c async for c in response.body_iterator])
 
     assert provider.captured["tracking_uri"] == "http://localhost:5000/myprefix"
+
+
+@pytest.mark.asyncio
+async def test_stream_provider_events_no_provider_yields_error():
+    events = [e async for e in stream_provider_events(None)]
+    assert len(events) == 1
+    assert events[0].type == EventType.ERROR
+
+
+@pytest.mark.asyncio
+async def test_stream_provider_events_wraps_entry_error():
+    # A provider missing the method for this path raises on entry (the base default raises
+    # NotImplementedError). The thunk is opened inside the error wrapper, so the turn ends
+    # with a clean error event rather than dropping the connection mid-stream.
+    def start_stream():
+        raise NotImplementedError("provider does not support this path")
+
+    events = [e async for e in stream_provider_events(start_stream)]
+    assert len(events) == 1
+    assert events[0].type == EventType.ERROR
 
 
 @pytest.mark.asyncio

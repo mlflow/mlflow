@@ -1,5 +1,6 @@
 import asyncio
 import enum
+import functools
 import ipaddress
 import logging
 import uuid
@@ -508,20 +509,23 @@ async def send_message(request: MessageRequest, http_request: Request) -> Messag
 
 
 async def stream_provider_events(
-    stream: AsyncGenerator[Event, None] | None,
+    start_stream: Callable[[], AsyncGenerator[Event, None]] | None,
 ) -> AsyncGenerator[Event, None]:
     """Relay a provider's event stream, or a single error event if none is configured.
 
-    ``stream`` is the generator returned by the provider's ``astream``/``astream_stateless``
-    (the caller picks the right one for its path), or ``None`` when no provider is available.
-    Yields ``Event`` objects so callers can both serialize them to SSE and react to specific
-    events (e.g. the stateful path persisting the provider session id on DONE).
+    ``start_stream`` is a thunk that opens the provider's ``astream``/``astream_stateless``
+    generator (the caller binds the right one for its path), or ``None`` when no provider is
+    available. The thunk is invoked *inside* the try block so a provider that raises on entry
+    (e.g. one missing the method for this path) still terminates the turn with a clean error
+    event instead of dropping the connection. Yields ``Event`` objects so callers can both
+    serialize them to SSE and react to specific events (e.g. the stateful path persisting the
+    provider session id on DONE).
     """
-    if stream is None:
+    if start_stream is None:
         yield Event.from_error("No assistant provider is configured or available.")
         return
     try:
-        async for event in stream:
+        async for event in start_stream():
             yield event
     except Exception:
         # A provider blowing up mid-stream would otherwise drop the connection with no terminal
@@ -593,30 +597,30 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     async def event_generator() -> AsyncGenerator[str, None]:
         nonlocal session
         provider = await asyncio.to_thread(_resolve_provider, remote=is_remote)
-        if provider is None:
-            yield Event.from_error(
-                "No assistant provider is configured or available."
-            ).to_sse_event()
-            return
-        if provider.client_carries_history:
+        if provider is not None and provider.client_carries_history:
             yield Event.from_error(
                 "This provider requires the stateless /chat endpoint."
             ).to_sse_event()
             return
-        if provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
+        if provider is not None and provider.name == MlflowGatewayProvider.GATEWAY_PROVIDER_NAME:
             # The in-server gateway enforces a per-endpoint USE permission. The Assistant's
             # managed endpoints are created outside the HTTP route that would grant it, so
             # authorize this caller for them before the turn calls the gateway.
             await asyncio.to_thread(ensure_assistant_gateway_use_permission, username)
-        stream = provider.astream(
-            prompt=prompt,
-            tracking_uri=tracking_uri,
-            session_id=session.provider_session_id,
-            mlflow_session_id=session_id,
-            cwd=session.working_dir,
-            context=context,
+        start_stream = (
+            functools.partial(
+                provider.astream,
+                prompt=prompt,
+                tracking_uri=tracking_uri,
+                session_id=session.provider_session_id,
+                mlflow_session_id=session_id,
+                cwd=session.working_dir,
+                context=context,
+            )
+            if provider is not None
+            else None
         )
-        async for event in stream_provider_events(stream):
+        async for event in stream_provider_events(start_stream):
             # Store provider session ID if returned (for conversation continuity).
             # On a paused or failed turn this lets a later request resume the same
             # provider conversation instead of losing its history.
@@ -654,8 +658,9 @@ async def chat(request: Request, body: ChatRequest) -> StreamingResponse:
         context["tool_decisions"] = body.tool_decisions
 
     async def event_generator() -> AsyncGenerator[str, None]:
-        stream = (
-            provider.astream_stateless(
+        start_stream = (
+            functools.partial(
+                provider.astream_stateless,
                 prompt=body.message,
                 tracking_uri=tracking_uri,
                 conversation_history=body.conversation_history,
@@ -665,7 +670,7 @@ async def chat(request: Request, body: ChatRequest) -> StreamingResponse:
             if provider is not None
             else None
         )
-        async for event in stream_provider_events(stream):
+        async for event in stream_provider_events(start_stream):
             yield event.to_sse_event()
 
     return StreamingResponse(
