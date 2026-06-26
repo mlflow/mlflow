@@ -22,8 +22,12 @@ export interface ToolUseInfo {
  * decision when the session is not in full-access mode.
  */
 export interface PermissionRequest {
-  /** The session that produced this request, so a decision targets the right session */
-  sessionId: string;
+  /**
+   * The session that produced this request, so a decision targets the right session. Set on the
+   * legacy EventSource path; omitted on the stateless /chat path, where the decision is replayed
+   * with the client-carried history instead of a server session.
+   */
+  sessionId?: string;
   requestId: string;
   toolName: string;
   toolInput: Record<string, any>;
@@ -130,6 +134,24 @@ export interface MessageRequest {
 }
 
 /**
+ * Request body for the stateless POST /chat endpoint (client-carried history).
+ * The full conversation history travels with the client and is resent each turn,
+ * so the server holds no per-session state.
+ */
+export interface ChatRequest {
+  message: string;
+  experiment_id?: string;
+  context?: KnownAssistantContext & Record<string, unknown>;
+  /** JSON-encoded conversation history carried by the client; omitted on the first turn. */
+  conversation_history?: string;
+  /**
+   * tool_call_id -> decision, sent when resuming a turn paused at a permission prompt. The
+   * provider applies it to the matching pending tool_call in the carried history.
+   */
+  tool_decisions?: Record<string, 'allow' | 'deny'>;
+}
+
+/**
  * Result from the /health endpoint.
  * Status codes: 412 = CLI not installed, 401 = not authenticated, 404 = provider not found
  */
@@ -153,6 +175,8 @@ export interface ProviderConfig {
   permissions: PermissionsConfig;
   base_url?: string;
   api_key?: string;
+  /** Whether this provider carries conversation history client-side and streams statelessly via POST /chat. */
+  client_carries_history?: boolean;
 }
 
 /**
