@@ -1,11 +1,11 @@
 import { TableSkeleton, ToggleButton, useDesignSystemTheme } from '@databricks/design-system';
-import { compact, mapValues, values } from 'lodash';
+import { compact, keyBy, mapValues, values } from 'lodash';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
 import type { ReduxState } from '../../../redux-types';
-import type { MetricEntitiesByName, RunInfoEntity } from '../../types';
+import type { MetricEntitiesByName, RunEntity, RunInfoEntity } from '../../types';
 import type { KeyValueEntity } from '../../../common/types';
 
 import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
@@ -45,6 +45,8 @@ import {
   useNodeLevelMetricsFilterState,
 } from './node-level-metric-charts/contexts/NodeLevelMetricsFilterContext';
 
+const COMPARISON_RUN_COLORS = ['#E88B48', '#3E9C4B', '#9B59B6', '#E74C3C', '#1ABC9C'];
+
 interface RunViewMetricChartsProps {
   metricKeys: string[];
   runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
@@ -56,6 +58,7 @@ interface RunViewMetricChartsProps {
   latestMetrics?: MetricEntitiesByName;
   tags?: Record<string, KeyValueEntity>;
   params?: Record<string, KeyValueEntity>;
+  comparisonRuns?: RunEntity[];
 }
 
 /**
@@ -70,6 +73,7 @@ const RunViewMetricChartsImpl = ({
   latestMetrics = {},
   params = {},
   tags = {},
+  comparisonRuns,
 }: RunViewMetricChartsProps & {
   chartUIState: ExperimentRunsChartsUIConfiguration;
   updateChartsUIState: (
@@ -134,23 +138,37 @@ const RunViewMetricChartsImpl = ({
     setConfiguredCardConfig(null);
   };
 
-  // Create a single run data object to be used in charts
-  const chartData: RunsChartsRunData[] = useMemo(
-    () => [
-      {
-        displayName: runInfo.runName ?? '',
-        metrics: latestMetrics,
-        params,
-        tags,
-        images: imagesByRunUuid[runInfo.runUuid ?? ''] || {},
-        metricHistory: {},
-        uuid: runInfo.runUuid ?? '',
-        color: theme.colors.primary,
-        runInfo,
-      },
-    ],
-    [runInfo, latestMetrics, params, tags, imagesByRunUuid, theme],
-  );
+  const chartData: RunsChartsRunData[] = useMemo(() => {
+    const primaryEntry: RunsChartsRunData = {
+      displayName: runInfo.runName ?? '',
+      metrics: latestMetrics,
+      params,
+      tags,
+      images: imagesByRunUuid[runInfo.runUuid ?? ''] || {},
+      metricsHistory: {},
+      uuid: runInfo.runUuid ?? '',
+      color: theme.colors.primary,
+      runInfo,
+    };
+
+    if (!comparisonRuns?.length) {
+      return [primaryEntry];
+    }
+
+    const comparisonEntries: RunsChartsRunData[] = comparisonRuns.map((run, index) => ({
+      uuid: run.info.runUuid,
+      displayName: run.info.runName ?? run.info.runUuid,
+      runInfo: run.info,
+      metrics: keyBy(run.data.metrics, 'key') as MetricEntitiesByName,
+      params: keyBy(run.data.params, 'key'),
+      tags: keyBy(run.data.tags, 'key'),
+      images: {},
+      color: COMPARISON_RUN_COLORS[index % COMPARISON_RUN_COLORS.length],
+      metricsHistory: {},
+    }));
+
+    return [primaryEntry, ...comparisonEntries];
+  }, [runInfo, latestMetrics, params, tags, imagesByRunUuid, theme, comparisonRuns]);
 
   const allMetricKeys = useMemo(() => Object.keys(latestMetrics), [latestMetrics]);
 

@@ -8,7 +8,7 @@ import {
 } from '@databricks/design-system';
 import { useSelector } from 'react-redux';
 import invariant from 'invariant';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 
 import { PageContainer } from '../../../common/components/PageContainer';
 import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
@@ -42,6 +42,7 @@ import { useLoggedModelsForExperimentRun } from '../experiment-page/hooks/useLog
 import { useLoggedModelsForExperimentRunV2 } from '../experiment-page/hooks/useLoggedModelsForExperimentRunV2';
 import { useExperimentKind } from '../../utils/ExperimentKindUtils';
 import type { KeyValueEntity } from '../../../common/types';
+import type { RunEntity } from '../../types';
 
 const RunPageLoadingState = () => (
   <PageContainer>
@@ -83,6 +84,19 @@ export const RunPage = (props: RunPageProps) => {
   const { theme } = useDesignSystemTheme();
   const [renameModalVisible, setRenameModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [comparisonRuns, setComparisonRuns] = useState<RunEntity[]>([]);
+
+  const handleToggleCompareRun = useCallback((run: RunEntity) => {
+    setComparisonRuns((prev) =>
+      prev.some((r) => r.info.runUuid === run.info.runUuid)
+        ? prev.filter((r) => r.info.runUuid !== run.info.runUuid)
+        : prev.length < 5
+          ? [...prev, run]
+          : prev,
+    );
+  }, []);
+
+  const handleClearComparisons = useCallback(() => setComparisonRuns([]), []);
 
   invariant(runUuid, '[RunPage] Run UUID route param not provided');
   invariant(experimentId, '[RunPage] Experiment ID route param not provided');
@@ -130,6 +144,9 @@ export const RunPage = (props: RunPageProps) => {
   );
 
   const activeTab = useRunViewActiveTab();
+
+  const supportsComparison =
+    activeTab === RunPageTabName.MODEL_METRIC_CHARTS || activeTab === RunPageTabName.SYSTEM_METRIC_CHARTS;
 
   const isUsingGetLoggedModelsApi = shouldUseGetLoggedModelsBatchAPI();
 
@@ -179,6 +196,7 @@ export const RunPage = (props: RunPageProps) => {
             latestMetrics={latestMetrics}
             tags={tags}
             params={params}
+            comparisonRuns={comparisonRuns}
           />
         );
 
@@ -192,6 +210,7 @@ export const RunPage = (props: RunPageProps) => {
             latestMetrics={latestMetrics}
             tags={tags}
             params={params}
+            comparisonRuns={comparisonRuns}
           />
         );
       case RunPageTabName.EVALUATIONS:
@@ -323,6 +342,11 @@ export const RunPage = (props: RunPageProps) => {
           isLoading={loading || isLoadingLoggedModels}
           customBreadcrumbs={customBreadcrumbs}
           tabSwitchProps={tabSwitchProps}
+          activeTab={activeTab}
+          comparisonRuns={comparisonRuns}
+          onCompareRun={handleToggleCompareRun}
+          onClearComparisons={handleClearComparisons}
+          supportsComparison={supportsComparison}
         />
         {/* Scroll tab contents independently within own container */}
         <div css={{ flex: 1, overflow: 'auto', marginBottom: theme.spacing.sm, display: 'flex' }}>
