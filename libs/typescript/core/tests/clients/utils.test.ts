@@ -12,6 +12,62 @@ describe('makeRequest', () => {
     jest.restoreAllMocks();
   });
 
+  describe('workspace header injection', () => {
+    afterEach(() => {
+      delete process.env.MLFLOW_WORKSPACE;
+    });
+
+    it('should include X-MLFLOW-WORKSPACE header when MLFLOW_WORKSPACE is set', async () => {
+      process.env.MLFLOW_WORKSPACE = 'my-workspace';
+
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        headers: { get: (_key: string) => '2' },
+        text: jest.fn().mockResolvedValue('{}'),
+      };
+
+      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(mockResponse as any);
+
+      await makeRequest(
+        'GET',
+        'http://localhost:5000/api/2.0/mlflow/experiments/get',
+        mockHeaderProvider,
+      );
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-MLFLOW-WORKSPACE': 'my-workspace',
+          }),
+        }),
+      );
+    });
+
+    it('should not include X-MLFLOW-WORKSPACE header when MLFLOW_WORKSPACE is not set', async () => {
+      delete process.env.MLFLOW_WORKSPACE;
+
+      const mockResponse = {
+        ok: true,
+        status: 200,
+        headers: { get: (_key: string) => '2' },
+        text: jest.fn().mockResolvedValue('{}'),
+      };
+
+      const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue(mockResponse as any);
+
+      await makeRequest(
+        'GET',
+        'http://localhost:5000/api/2.0/mlflow/experiments/get',
+        mockHeaderProvider,
+      );
+
+      const passedHeaders = fetchSpy.mock.calls[0][1]?.headers as Record<string, string>;
+      expect(passedHeaders).not.toHaveProperty('X-MLFLOW-WORKSPACE');
+    });
+  });
+
   describe('error handling with response body', () => {
     it('should include response body in error message when request fails', async () => {
       const errorResponseBody = JSON.stringify({

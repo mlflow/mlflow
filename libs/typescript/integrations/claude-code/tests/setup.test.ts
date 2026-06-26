@@ -89,6 +89,61 @@ describe('mlflow-claude-code setup', () => {
     expect(existsSync(join(tmpCwd, '.claude', 'settings.json'))).toBe(false);
   });
 
+  it('parses --workspace flag', () => {
+    expect(
+      parseSetupArgs([
+        '--project',
+        '--tracking-uri',
+        'http://localhost:5000',
+        '--experiment-id',
+        '42',
+        '--workspace',
+        'my-workspace',
+      ]),
+    ).toMatchObject({
+      projectLocal: true,
+      trackingUri: 'http://localhost:5000',
+      experimentId: '42',
+      workspace: 'my-workspace',
+    });
+  });
+
+  it('writes workspace to settings when --workspace is passed', async () => {
+    await runSetup(
+      [
+        '--project',
+        '--tracking-uri',
+        'http://localhost:5000',
+        '--experiment-id',
+        '42',
+        '--workspace',
+        'test-ws',
+      ],
+      { home: tmpHome, cwd: tmpCwd },
+    );
+
+    const settingsPath = join(tmpCwd, '.claude', 'settings.json');
+    expect(existsSync(settingsPath)).toBe(true);
+    expect(JSON.parse(readFileSync(settingsPath, 'utf-8'))).toMatchObject({
+      env: {
+        MLFLOW_WORKSPACE: 'test-ws',
+      },
+    });
+  });
+
+  it('does not write MLFLOW_WORKSPACE when --workspace is not passed', async () => {
+    await runSetup(
+      ['--project', '--tracking-uri', 'http://localhost:5000', '--experiment-id', '42'],
+      { home: tmpHome, cwd: tmpCwd },
+    );
+
+    const settingsPath = join(tmpCwd, '.claude', 'settings.json');
+    const stored = JSON.parse(readFileSync(settingsPath, 'utf-8')) as {
+      env: Record<string, string>;
+    };
+    expect(stored.env).not.toHaveProperty('MLFLOW_WORKSPACE');
+  });
+
   it('rejects missing scope flag', async () => {
     await runSetup(['--tracking-uri', 'http://localhost:5000', '--experiment-name', 'x'], {
       home: tmpHome,

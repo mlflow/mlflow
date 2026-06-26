@@ -103,6 +103,13 @@ export interface MLflowTracingConfig {
    * TS SDK does not upsert it.
    */
   traceLocation?: UnityCatalogLocationOptions;
+
+  /**
+   * The workspace name for multi-workspace MLflow deployments.
+   * Can also be set via MLFLOW_WORKSPACE environment variable.
+   * When set, an X-MLFLOW-WORKSPACE header is included in all API requests.
+   */
+  workspace?: string;
 }
 
 /**
@@ -280,6 +287,11 @@ export function init(config: MLflowTracingInitOptions): void {
     workspace: config.workspace,
   });
 
+  const workspace = config.workspace ?? process.env.MLFLOW_WORKSPACE;
+  if (workspace) {
+    process.env.MLFLOW_WORKSPACE = workspace;
+  }
+
   // Build effective config, populating host and databricksToken from auth provider
   // for backwards compatibility with code that reads these properties directly
   const effectiveConfig: MLflowTracingConfig = {
@@ -289,6 +301,7 @@ export function init(config: MLflowTracingInitOptions): void {
     databricksConfigPath,
     host: globalAuthProvider.getHost(),
     databricksToken: globalAuthProvider.getDatabricksToken(),
+    workspace,
   };
 
   // Store the config
