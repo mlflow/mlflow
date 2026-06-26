@@ -512,6 +512,77 @@ def test_translate_outputs_for_spans_traceloop(output_key: str, output_value: An
     assert result["attributes"][SpanAttributeKey.OUTPUTS] == json.dumps(output_value)
 
 
+def _openinference_retriever_span(attributes: dict[str, Any]) -> mock.Mock:
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span.to_dict.return_value = {
+        "attributes": {
+            OpenInferenceTranslator.SPAN_KIND_ATTRIBUTE_KEY: "RETRIEVER",
+            **attributes,
+        }
+    }
+    return span
+
+
+def test_translate_openinference_retrieval_documents():
+    span = _openinference_retriever_span({
+        "retrieval.documents.0.document.content": json.dumps("doc zero text"),
+        "retrieval.documents.0.document.id": json.dumps("id0"),
+        "retrieval.documents.0.document.metadata": json.dumps('{"doc_uri": "u0"}'),
+        "retrieval.documents.0.document.score": json.dumps(0.9),
+        "retrieval.documents.1.document.content": json.dumps("doc one text"),
+    })
+
+    result = translate_span_when_storing(span)
+
+    assert json.loads(result["attributes"][SpanAttributeKey.OUTPUTS]) == [
+        {"page_content": "doc zero text", "id": "id0", "metadata": {"doc_uri": "u0", "score": 0.9}},
+        {"page_content": "doc one text", "id": None, "metadata": {}},
+    ]
+
+
+def test_translate_openinference_retrieval_prefers_documents_over_output_value():
+    span = _openinference_retriever_span({
+        "retrieval.documents.0.document.content": json.dumps("real chunk text"),
+        # OpenInference retriever spans ALSO set output.value; the structured docs win.
+        "output.value": json.dumps({"documents": ["opaque blob"]}),
+    })
+
+    result = translate_span_when_storing(span)
+
+    assert json.loads(result["attributes"][SpanAttributeKey.OUTPUTS]) == [
+        {"page_content": "real chunk text", "id": None, "metadata": {}},
+    ]
+
+
+def test_translate_openinference_retrieval_sparse_indices_preserve_order():
+    span = _openinference_retriever_span({
+        "retrieval.documents.2.document.content": json.dumps("third"),
+        "retrieval.documents.0.document.content": json.dumps("first"),
+    })
+
+    result = translate_span_when_storing(span)
+
+    docs = json.loads(result["attributes"][SpanAttributeKey.OUTPUTS])
+    assert [d["page_content"] for d in docs] == ["first", "third"]
+
+
+def test_translate_non_retriever_openinference_still_uses_output_value():
+    # A non-retriever OpenInference span must be unaffected: output.value still wins.
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span.to_dict.return_value = {
+        "attributes": {
+            OpenInferenceTranslator.SPAN_KIND_ATTRIBUTE_KEY: "LLM",
+            OpenInferenceTranslator.OUTPUT_VALUE_KEYS[0]: json.dumps("llm output"),
+        }
+    }
+
+    result = translate_span_when_storing(span)
+
+    assert result["attributes"][SpanAttributeKey.OUTPUTS] == json.dumps("llm output")
+
+
 @pytest.mark.parametrize(
     (
         "parent_id",
