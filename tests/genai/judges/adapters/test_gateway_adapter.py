@@ -22,10 +22,16 @@ from mlflow.genai.judges.adapters.gateway_adapter import (
     _parse_response_message,
     _should_proactively_prune,
 )
-from mlflow.genai.judges.adapters.utils import ChatCompletionError, is_context_window_error
+from mlflow.genai.judges.adapters.utils import (
+    ChatCompletionError,
+    is_context_window_error,
+)
 from mlflow.genai.judges.utils.tool_calling_utils import _remove_oldest_tool_call_pair
 from mlflow.genai.utils.gateway_utils import GatewayConfig
-from mlflow.metrics.genai.model_utils import _get_provider_instance, _MlflowGatewayProvider
+from mlflow.metrics.genai.model_utils import (
+    _get_provider_instance,
+    _MlflowGatewayProvider,
+)
 from mlflow.types.llm import ChatMessage
 
 
@@ -51,11 +57,14 @@ def _chat_response(content, tool_calls=None, usage=None):
         "created": 1234567890,
         "model": "test-model",
         "choices": [{"index": 0, "message": message, "finish_reason": "stop"}],
-        "usage": usage or {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        "usage": usage
+        or {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     }
 
 
-def _mock_provider(endpoint_url="https://api.openai.com/v1/chat/completions", headers=None):
+def _mock_provider(
+    endpoint_url="https://api.openai.com/v1/chat/completions", headers=None
+):
     provider = mock.MagicMock()
     provider.get_endpoint_url.return_value = endpoint_url
     provider.headers = headers or {}
@@ -68,17 +77,25 @@ def _mock_provider(endpoint_url="https://api.openai.com/v1/chat/completions", he
 # --- is_applicable tests ---
 
 
-@pytest.mark.parametrize("provider", ["openai", "anthropic", "gemini", "mistral", "gateway"])
+@pytest.mark.parametrize(
+    "provider", ["openai", "anthropic", "gemini", "mistral", "gateway"]
+)
 def test_native_providers_applicable(provider):
-    assert GatewayAdapter.is_applicable(model_uri=f"{provider}:/test-model", prompt="test")
+    assert GatewayAdapter.is_applicable(
+        model_uri=f"{provider}:/test-model", prompt="test"
+    )
 
 
 def test_unsupported_provider_not_applicable():
-    assert not GatewayAdapter.is_applicable(model_uri="unknown_provider:/test-model", prompt="test")
+    assert not GatewayAdapter.is_applicable(
+        model_uri="unknown_provider:/test-model", prompt="test"
+    )
 
 
 def test_endpoints_with_string_prompt_applicable():
-    assert GatewayAdapter.is_applicable(model_uri="endpoints:/my-endpoint", prompt="test prompt")
+    assert GatewayAdapter.is_applicable(
+        model_uri="endpoints:/my-endpoint", prompt="test prompt"
+    )
 
 
 def test_endpoints_with_list_prompt_not_applicable():
@@ -229,7 +246,9 @@ def test_invoke_with_structured_output_success():
         num_completion_tokens=5,
     )
 
-    with mock.patch.object(adapter, "_invoke_and_handle_tools", return_value=mock_output):
+    with mock.patch.object(
+        adapter, "_invoke_and_handle_tools", return_value=mock_output
+    ):
         result = adapter.invoke_with_structured_output(
             model_uri="openai:/gpt-4",
             messages=[ChatMessage(role="user", content="test")],
@@ -253,7 +272,9 @@ def test_invoke_with_structured_output_invalid_json():
         num_completion_tokens=None,
     )
 
-    with mock.patch.object(adapter, "_invoke_and_handle_tools", return_value=mock_output):
+    with mock.patch.object(
+        adapter, "_invoke_and_handle_tools", return_value=mock_output
+    ):
         with pytest.raises(MlflowException, match="Failed to parse response"):
             adapter.invoke_with_structured_output(
                 model_uri="openai:/gpt-4",
@@ -274,7 +295,9 @@ def test_endpoints_rejects_base_url():
         base_url="http://proxy:8080",
     )
 
-    with pytest.raises(MlflowException, match="base_url and extra_headers are not supported"):
+    with pytest.raises(
+        MlflowException, match="base_url and extra_headers are not supported"
+    ):
         adapter.invoke(input_params)
 
 
@@ -287,7 +310,9 @@ def test_endpoints_rejects_trace(mock_trace):
         trace=mock_trace,
     )
 
-    with pytest.raises(MlflowException, match="Trace-based tool calling is not supported"):
+    with pytest.raises(
+        MlflowException, match="Trace-based tool calling is not supported"
+    ):
         adapter.invoke(input_params)
 
 
@@ -383,7 +408,11 @@ def test_invoke_via_gateway_endpoint_url():
     route_config = EndpointConfig(
         name="gateway",
         endpoint_type="llm/v1/chat",
-        model={"provider": "openai", "name": "my-endpoint", "config": openai_config.model_dump()},
+        model={
+            "provider": "openai",
+            "name": "my-endpoint",
+            "config": openai_config.model_dump(),
+        },
     )
     provider = _MlflowGatewayProvider(route_config)
     assert provider.get_endpoint_url("llm/v1/chat") == (
@@ -449,7 +478,11 @@ def test_parse_response_basic():
 
 def test_parse_response_with_tool_calls():
     tool_calls = [
-        {"id": "call_1", "type": "function", "function": {"name": "test", "arguments": "{}"}}
+        {
+            "id": "call_1",
+            "type": "function",
+            "function": {"name": "test", "arguments": "{}"},
+        }
     ]
     resp = _chat_response(None, tool_calls=tool_calls)
     msg, usage = _parse_response_message(resp, provider=_mock_provider())
@@ -510,7 +543,9 @@ def test_parse_anthropic_response_text_only(monkeypatch):
         "type": "message",
         "role": "assistant",
         "model": "claude-3-5-sonnet",
-        "content": [{"type": "text", "text": '{"result": "yes", "rationale": "Looks good"}'}],
+        "content": [
+            {"type": "text", "text": '{"result": "yes", "rationale": "Looks good"}'}
+        ],
         "stop_reason": "end_turn",
         "usage": {"input_tokens": 10, "output_tokens": 20},
     }
@@ -558,9 +593,13 @@ def test_remove_oldest_tool_call_pair_with_dict_tool_calls():
         tool_call_id=None,
     )
     msg_tool = mock.MagicMock(role="tool", tool_calls=None, tool_call_id="call_1")
-    msg_final = mock.MagicMock(role="assistant", tool_calls=None, tool_call_id=None, content="done")
+    msg_final = mock.MagicMock(
+        role="assistant", tool_calls=None, tool_call_id=None, content="done"
+    )
 
-    result = _remove_oldest_tool_call_pair([msg_user, msg_assistant, msg_tool, msg_final])
+    result = _remove_oldest_tool_call_pair(
+        [msg_user, msg_assistant, msg_tool, msg_final]
+    )
     assert len(result) == 2
     assert result[0].role == "user"
     assert result[1].role == "assistant"
@@ -635,7 +674,9 @@ def test_get_provider_instance_gateway():
 
 
 def test_get_provider_instance_gateway_with_base_url():
-    with mock.patch("mlflow.metrics.genai.model_utils.get_gateway_config") as mock_get_config:
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils.get_gateway_config"
+    ) as mock_get_config:
         provider = _get_provider_instance(
             "gateway",
             "my-endpoint",
@@ -657,7 +698,9 @@ def test_get_provider_unsupported_raises():
 
 
 def test_single_shot_no_tools():
-    response_json = _chat_response(json.dumps({"result": "yes", "rationale": "Looks good"}))
+    response_json = _chat_response(
+        json.dumps({"result": "yes", "rationale": "Looks good"})
+    )
 
     with (
         mock.patch(
@@ -695,7 +738,9 @@ def test_tool_calling_loop(mock_trace):
             }
         ],
     )
-    final_response = _chat_response(json.dumps({"result": "yes", "rationale": "Trace looks good"}))
+    final_response = _chat_response(
+        json.dumps({"result": "yes", "rationale": "Trace looks good"})
+    )
 
     with (
         mock.patch(
@@ -729,7 +774,10 @@ def test_tool_calling_loop(mock_trace):
 
     assert mock_send.call_count == 2
     mock_process.assert_called_once()
-    assert json.loads(output.response) == {"result": "yes", "rationale": "Trace looks good"}
+    assert json.loads(output.response) == {
+        "result": "yes",
+        "rationale": "Trace looks good",
+    }
 
 
 def test_token_counts_accumulated_across_iterations(mock_trace):
@@ -785,7 +833,11 @@ def test_context_window_error_triggers_pruning(mock_trace):
     tool_call_response = _chat_response(
         None,
         tool_calls=[
-            {"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}},
+            {
+                "id": "c1",
+                "type": "function",
+                "function": {"name": "f", "arguments": "{}"},
+            },
         ],
     )
 
@@ -816,7 +868,9 @@ def test_context_window_error_triggers_pruning(mock_trace):
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
-            return_value=[ChatMessage(role="tool", content="{}", tool_call_id="c1", name="f")],
+            return_value=[
+                ChatMessage(role="tool", content="{}", tool_call_id="c1", name="f")
+            ],
         ),
     ):
         output = GatewayAdapter()._invoke_and_handle_tools(
@@ -835,7 +889,11 @@ def test_max_iterations_exceeded(mock_trace, monkeypatch):
     tool_call_response = _chat_response(
         None,
         tool_calls=[
-            {"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}},
+            {
+                "id": "c1",
+                "type": "function",
+                "function": {"name": "f", "arguments": "{}"},
+            },
         ],
     )
 
@@ -852,7 +910,9 @@ def test_max_iterations_exceeded(mock_trace, monkeypatch):
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
-            return_value=[ChatMessage(role="tool", content="{}", tool_call_id="c1", name="f")],
+            return_value=[
+                ChatMessage(role="tool", content="{}", tool_call_id="c1", name="f")
+            ],
         ),
     ):
         with pytest.raises(MlflowException, match="iteration limit of 1 exceeded"):
@@ -907,7 +967,9 @@ def test_response_format_fallback():
 
 
 def test_response_format_capability_cached_globally():
-    from mlflow.genai.judges.adapters.gateway_adapter import _MODEL_RESPONSE_FORMAT_CAPABILITIES
+    from mlflow.genai.judges.adapters.gateway_adapter import (
+        _MODEL_RESPONSE_FORMAT_CAPABILITIES,
+    )
 
     class TestSchema(pydantic.BaseModel):
         result: str = pydantic.Field(description="test")
@@ -1032,7 +1094,9 @@ def test_lookup_missing_model():
         return_value=None,
     ) as mock_lookup:
         assert _get_max_context_tokens("openai", "unknown-model") is None
-        mock_lookup.assert_called_once_with("unknown-model", custom_llm_provider="openai")
+        mock_lookup.assert_called_once_with(
+            "unknown-model", custom_llm_provider="openai"
+        )
 
 
 # --- _should_proactively_prune tests ---
@@ -1051,7 +1115,9 @@ def test_prune_below_threshold():
 
 
 def test_prune_no_max_context():
-    assert not _should_proactively_prune(usage={"prompt_tokens": 9000}, max_context_tokens=None)
+    assert not _should_proactively_prune(
+        usage={"prompt_tokens": 9000}, max_context_tokens=None
+    )
 
 
 def test_prune_no_prompt_tokens_in_usage():
@@ -1074,7 +1140,11 @@ def test_proactive_pruning_triggers_during_tool_loop(mock_trace):
     tool_call_response = _chat_response(
         None,
         tool_calls=[
-            {"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}},
+            {
+                "id": "c1",
+                "type": "function",
+                "function": {"name": "f", "arguments": "{}"},
+            },
         ],
         usage={"prompt_tokens": 9000, "completion_tokens": 100, "total_tokens": 9100},
     )
@@ -1091,7 +1161,9 @@ def test_proactive_pruning_triggers_during_tool_loop(mock_trace):
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
-            return_value=[ChatMessage(role="tool", content="{}", tool_call_id="c1", name="f")],
+            return_value=[
+                ChatMessage(role="tool", content="{}", tool_call_id="c1", name="f")
+            ],
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._get_max_context_tokens",
@@ -1141,6 +1213,7 @@ def test_invoke_with_tools_populates_output_fields(mock_trace):
 
     assert result.request_id == "req-123"
     assert result.num_prompt_tokens == 10
+    assert result.num_completion_tokens == 5
 
 
 def test_invoke_with_tools_sets_judge_cost_in_metadata(mock_trace):
@@ -1245,78 +1318,139 @@ def test_invoke_with_tools_no_judge_cost_when_model_pricing_unavailable(mock_tra
 # --- Workspace header forwarding tests ---
 
 
-def test_invoke_via_gateway_forwards_workspace_header():
+def test_invoke_via_gateway_forwards_workspace_header_single_shot():
+    """_invoke_via_gateway should attach X-MLFLOW-WORKSPACE when provider is 'gateway'
+    and a workspace is active."""
+    from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
+
+    captured_headers = {}
+
+    def fake_score(
+        *, model_uri, payload, eval_parameters, extra_headers, proxy_url, endpoint_type
+    ):
+        captured_headers.update(extra_headers or {})
+        return '{"result": "yes", "rationale": "ok"}'
+
     with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
+            side_effect=fake_score,
+        ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter.get_request_workspace",
             return_value="my-workspace",
         ),
-        mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
-            return_value='{"result": "yes", "rationale": "ok"}',
-        ) as mock_score,
     ):
         _invoke_via_gateway(
             model_uri="gateway:/my-endpoint",
             provider="gateway",
-            prompt="Is this helpful?",
+            prompt="Is this good?",
         )
 
-    mock_score.assert_called_once()
-    assert mock_score.call_args[1]["extra_headers"]["X-MLFLOW-WORKSPACE"] == "my-workspace"
+    assert WORKSPACE_HEADER_NAME in captured_headers
+    assert captured_headers[WORKSPACE_HEADER_NAME] == "my-workspace"
 
 
-def test_invoke_via_gateway_no_workspace_header_when_unset():
+def test_invoke_via_gateway_no_workspace_header_when_workspace_absent():
+    """_invoke_via_gateway should NOT attach X-MLFLOW-WORKSPACE when no workspace is active."""
+    from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
+
+    captured_headers = {}
+
+    def fake_score(
+        *, model_uri, payload, eval_parameters, extra_headers, proxy_url, endpoint_type
+    ):
+        captured_headers.update(extra_headers or {})
+        return '{"result": "no", "rationale": "bad"}'
+
     with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
+            side_effect=fake_score,
+        ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter.get_request_workspace",
             return_value=None,
         ),
-        mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
-            return_value='{"result": "yes", "rationale": "ok"}',
-        ) as mock_score,
     ):
         _invoke_via_gateway(
             model_uri="gateway:/my-endpoint",
             provider="gateway",
-            prompt="Is this helpful?",
+            prompt="Is this good?",
         )
 
-    mock_score.assert_called_once()
-    extra_headers = mock_score.call_args[1].get("extra_headers") or {}
-    assert "X-MLFLOW-WORKSPACE" not in extra_headers
+    assert WORKSPACE_HEADER_NAME not in captured_headers
 
 
 def test_invoke_and_handle_tools_forwards_workspace_header():
-    adapter = GatewayAdapter()
+    """_invoke_and_handle_tools should add X-MLFLOW-WORKSPACE to headers when
+    provider is 'gateway' and a workspace is active."""
+    from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
+
+    response_json = _chat_response(json.dumps({"result": "yes", "rationale": "ok"}))
     captured_headers = {}
 
-    def capture_and_raise(**kwargs):
-        captured_headers.update(kwargs.get("headers", {}))
-        raise MlflowException("stop")
+    def fake_send_chat_request(*, endpoint, headers, payload, num_retries):
+        captured_headers.update(headers)
+        return response_json
 
     with (
-        mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter.get_request_workspace",
-            return_value="my-workspace",
-        ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._get_provider_instance",
             return_value=_mock_provider(),
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
-            side_effect=capture_and_raise,
+            side_effect=fake_send_chat_request,
         ),
-        pytest.raises(MlflowException, match="stop"),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.get_request_workspace",
+            return_value="prod-workspace",
+        ),
     ):
-        adapter._invoke_and_handle_tools(
+        GatewayAdapter()._invoke_and_handle_tools(
             provider="gateway",
             model_name="my-endpoint",
-            messages=[ChatMessage(role="user", content="evaluate this")],
+            messages=[ChatMessage(role="user", content="test")],
             trace=None,
-            num_retries=0,
+            num_retries=3,
         )
 
-    assert captured_headers["X-MLFLOW-WORKSPACE"] == "my-workspace"
+    assert WORKSPACE_HEADER_NAME in captured_headers
+    assert captured_headers[WORKSPACE_HEADER_NAME] == "prod-workspace"
+
+
+def test_invoke_and_handle_tools_no_workspace_header_for_non_gateway_provider():
+    """_invoke_and_handle_tools should NOT add X-MLFLOW-WORKSPACE for non-gateway providers."""
+    from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
+
+    response_json = _chat_response(json.dumps({"result": "yes", "rationale": "ok"}))
+    captured_headers = {}
+
+    def fake_send_chat_request(*, endpoint, headers, payload, num_retries):
+        captured_headers.update(headers)
+        return response_json
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider_instance",
+            return_value=_mock_provider(),
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
+            side_effect=fake_send_chat_request,
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.get_request_workspace",
+            return_value="some-workspace",
+        ),
+    ):
+        GatewayAdapter()._invoke_and_handle_tools(
+            provider="openai",  # non-gateway provider
+            model_name="gpt-4",
+            messages=[ChatMessage(role="user", content="test")],
+            trace=None,
+            num_retries=3,
+        )
+
+    assert WORKSPACE_HEADER_NAME not in captured_headers
