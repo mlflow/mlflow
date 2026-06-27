@@ -121,6 +121,147 @@ describe('MlflowClient', () => {
     });
   });
 
+  describe('searchTraces', () => {
+    it('should search traces by experiment ID and page through results', async () => {
+      const firstTraceId = randomUUID();
+      const secondTraceId = randomUUID();
+      const testFilterTag = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId: firstTraceId,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: {
+              experimentId: experimentId,
+            },
+          },
+          state: TraceState.OK,
+          requestTime: 1000,
+          tags: { searchTracesPagination: testFilterTag },
+        }),
+      );
+      await client.createTrace(
+        new TraceInfo({
+          traceId: secondTraceId,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: {
+              experimentId: experimentId,
+            },
+          },
+          state: TraceState.OK,
+          requestTime: 2000,
+          tags: { searchTracesPagination: testFilterTag },
+        }),
+      );
+
+      const firstPage = await client.searchTraces({
+        experimentIds: [experimentId],
+        filter: `tags.searchTracesPagination = '${testFilterTag}'`,
+        maxResults: 1,
+        orderBy: ['timestamp_ms DESC'],
+      });
+
+      expect(firstPage.traces).toHaveLength(1);
+      expect(firstPage.traces[0]).toBeInstanceOf(TraceInfo);
+      expect([firstTraceId, secondTraceId]).toContain(firstPage.traces[0].traceId);
+      expect(firstPage.nextPageToken).toBeDefined();
+
+      const secondPage = await client.searchTraces({
+        experimentIds: [experimentId],
+        filter: `tags.searchTracesPagination = '${testFilterTag}'`,
+        maxResults: 1,
+        orderBy: ['timestamp_ms DESC'],
+        pageToken: firstPage.nextPageToken,
+      });
+
+      const returnedTraceIds = [
+        firstPage.traces[0].traceId,
+        ...secondPage.traces.map((trace) => trace.traceId),
+      ];
+      expect(returnedTraceIds).toEqual(expect.arrayContaining([firstTraceId, secondTraceId]));
+    });
+
+    it('should search traces with a filter and explicit locations', async () => {
+      const matchingTraceId = randomUUID();
+      const otherTraceId = randomUUID();
+      await client.createTrace(
+        new TraceInfo({
+          traceId: matchingTraceId,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: {
+              experimentId: experimentId,
+            },
+          },
+          state: TraceState.OK,
+          requestTime: 1000,
+          tags: { searchTracesFilter: 'match' },
+        }),
+      );
+      await client.createTrace(
+        new TraceInfo({
+          traceId: otherTraceId,
+          traceLocation: {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: {
+              experimentId: experimentId,
+            },
+          },
+          state: TraceState.OK,
+          requestTime: 2000,
+          tags: { searchTracesFilter: 'skip' },
+        }),
+      );
+
+      const result = await client.searchTraces({
+        locations: [
+          {
+            type: TraceLocationType.MLFLOW_EXPERIMENT,
+            mlflowExperiment: {
+              experimentId: experimentId,
+            },
+          },
+        ],
+        filter: "tags.searchTracesFilter = 'match'",
+        maxResults: 10,
+      });
+
+      expect(result.traces.map((trace) => trace.traceId)).toContain(matchingTraceId);
+      expect(result.traces.map((trace) => trace.traceId)).not.toContain(otherTraceId);
+    });
+
+    it('should return an empty result when no traces match', async () => {
+      const result = await client.searchTraces({
+        experimentIds: [experimentId],
+        filter: "tags.searchTracesFilter = 'missing'",
+        maxResults: 10,
+      });
+
+      expect(result.traces).toEqual([]);
+      expect(result.nextPageToken).toBeUndefined();
+    });
+
+    it('should reject search without experiment IDs or locations', async () => {
+      await expect(client.searchTraces({})).rejects.toThrow(
+        'searchTraces requires at least one experiment ID or trace location.',
+      );
+    });
+
+    it('should reject unsupported trace locations', async () => {
+      await expect(
+        client.searchTraces({
+          locations: [
+            {
+              type: TraceLocationType.INFERENCE_TABLE,
+              inferenceTable: { fullTableName: 'catalog.schema.table' },
+            },
+          ],
+        }),
+      ).rejects.toThrow('searchTraces supports only MLflow experiment locations.');
+    });
+  });
+
   describe('getExperimentByName', () => {
     it('should retrieve an existing experiment by name', async () => {
       const experiment = await client.getExperimentByName(
