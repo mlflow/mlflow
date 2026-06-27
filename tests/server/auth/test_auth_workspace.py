@@ -4,7 +4,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock
 
 import pytest
-from flask import Response, request
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
@@ -24,9 +23,12 @@ from mlflow.server.auth.routes import (
     UPLOAD_ARTIFACT,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.request_context import get_request
+from mlflow.server.responses import _CompatResponse as Response
 from mlflow.utils import workspace_context
 
 from tests.helper_functions import random_str
+from tests.server.conftest import mock_request_context
 
 
 def test_cleanup_workspace_permissions_handler(monkeypatch):
@@ -47,11 +49,11 @@ def test_cleanup_workspace_permissions_handler(monkeypatch):
     )
 
     workspace_name = f"team-{random_str(10)}"
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         f"/api/3.0/mlflow/workspaces/{workspace_name}", method="DELETE"
     ):
-        request.view_args = {"workspace_name": workspace_name}
-        response = Response(status=204)
+        get_request().view_args = {"workspace_name": workspace_name}
+        response = Response(status_code=204)
         auth_module._after_request(response)
 
     mock_delete_workspace_perms.assert_called_once_with(workspace_name)
@@ -60,7 +62,7 @@ def test_cleanup_workspace_permissions_handler(monkeypatch):
 
 def _create_workspace_response(workspace_name: str) -> Response:
     payload = {"workspace": {"name": workspace_name}}
-    return Response(json.dumps(payload), status=201, content_type="application/json")
+    return Response(content=json.dumps(payload), status_code=201, media_type="application/json")
 
 
 def test_seed_default_workspace_roles_happy_path(monkeypatch):
@@ -94,7 +96,7 @@ def test_seed_default_workspace_roles_happy_path(monkeypatch):
         auth_module.store, "add_role_permission", fake_add_role_permission, raising=True
     )
 
-    with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
+    with mock_request_context("/api/3.0/mlflow/workspaces", method="POST"):
         auth_module._seed_default_workspace_roles(_create_workspace_response(workspace_name))
 
     names = [r["name"] for r in created_roles]
@@ -138,7 +140,7 @@ def test_seed_default_workspace_roles_disabled_skips_seeding(monkeypatch):
         raising=True,
     )
 
-    with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
+    with mock_request_context("/api/3.0/mlflow/workspaces", method="POST"):
         auth_module._seed_default_workspace_roles(_create_workspace_response(workspace_name))
 
     mock_create_role.assert_not_called()
@@ -164,7 +166,7 @@ def test_seed_default_workspace_roles_admin_creation_fails_still_seeds_others(mo
         auth_module.store, "add_role_permission", mock_add_role_permission, raising=True
     )
 
-    with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
+    with mock_request_context("/api/3.0/mlflow/workspaces", method="POST"):
         auth_module._seed_default_workspace_roles(_create_workspace_response(workspace_name))
 
     # ``user`` still got created (best-effort seeding).
@@ -197,7 +199,7 @@ def test_seed_default_workspace_roles_permission_add_fails_rolls_back_role(monke
     )
     monkeypatch.setattr(auth_module.store, "delete_role", mock_delete_role, raising=True)
 
-    with auth_module.app.test_request_context("/api/3.0/mlflow/workspaces", method="POST"):
+    with mock_request_context("/api/3.0/mlflow/workspaces", method="POST"):
         auth_module._seed_default_workspace_roles(_create_workspace_response(workspace_name))
 
     # Orphan admin role (id=1) was rolled back.
@@ -481,13 +483,13 @@ def test_filter_list_workspaces_includes_default_when_autogrant(monkeypatch):
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
 
     response = Response(
-        json.dumps({
+        content=json.dumps({
             "workspaces": [
                 {"name": default_workspace},
                 {"name": "other-workspace"},
             ]
         }),
-        mimetype="application/json",
+        media_type="application/json",
     )
 
     auth_module.filter_list_workspaces(response)
@@ -515,8 +517,8 @@ def test_filter_list_workspaces_filters_to_allowed(monkeypatch):
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
 
     response = Response(
-        json.dumps({"workspaces": [{"name": "team-a"}, {"name": "team-b"}]}),
-        mimetype="application/json",
+        content=json.dumps({"workspaces": [{"name": "team-a"}, {"name": "team-b"}]}),
+        media_type="application/json",
     )
 
     auth_module.filter_list_workspaces(response)
@@ -560,8 +562,8 @@ def test_list_workspaces_hides_workspace_with_only_synthetic_resource_grant(tmp_
     )
 
     response = Response(
-        json.dumps({"workspaces": [{"name": "team-a"}, {"name": "team-b"}]}),
-        mimetype="application/json",
+        content=json.dumps({"workspaces": [{"name": "team-a"}, {"name": "team-b"}]}),
+        media_type="application/json",
     )
     auth_module.filter_list_workspaces(response)
     payload = json.loads(response.get_data(as_text=True))
@@ -607,8 +609,8 @@ def test_list_workspaces_filters_to_role_assigned_workspaces(tmp_path, monkeypat
     )
 
     response = Response(
-        json.dumps({"workspaces": [{"name": "ws-alpha"}, {"name": "ws-beta"}]}),
-        mimetype="application/json",
+        content=json.dumps({"workspaces": [{"name": "ws-alpha"}, {"name": "ws-beta"}]}),
+        media_type="application/json",
     )
 
     auth_module.filter_list_workspaces(response)
@@ -648,16 +650,16 @@ def test_validate_can_view_workspace_allows_default_autogrant(monkeypatch):
 
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         f"/api/3.0/mlflow/workspaces/{default_workspace}", method="GET"
     ):
-        request.view_args = {"workspace_name": default_workspace}
+        get_request().view_args = {"workspace_name": default_workspace}
         assert auth_module.validate_can_view_workspace()
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/workspaces/other-team", method="GET"
     ):
-        request.view_args = {"workspace_name": "other-team"}
+        get_request().view_args = {"workspace_name": "other-team"}
         assert not auth_module.validate_can_view_workspace()
 
 
@@ -666,7 +668,7 @@ def test_experiment_validators_allow_manage_permission(workspace_permission_setu
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, MANAGE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
     ):
         assert auth_module.validate_can_read_experiment()
@@ -674,7 +676,7 @@ def test_experiment_validators_allow_manage_permission(workspace_permission_setu
         assert auth_module.validate_can_delete_experiment()
         assert auth_module.validate_can_manage_experiment()
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/experiments/get-by-name",
         method="GET",
         query_string={"experiment_name": "Primary Experiment"},
@@ -702,7 +704,7 @@ def test_experiment_validators_allow_role_based_workspace_manage(workspace_permi
     user = store.get_user(username)
     store.assign_role_to_user(user.id, role.id)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
     ):
         assert auth_module.validate_can_read_experiment()
@@ -723,7 +725,7 @@ def test_experiment_validators_workspace_use_allows_create_but_blocks_reads_on_o
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
     ):
         assert not auth_module.validate_can_read_experiment()
@@ -765,7 +767,7 @@ def test_use_workspace_permission_allows_create_but_blocks_reads_and_writes_on_o
         assert auth_module.validate_can_create_experiment()
         assert auth_module.validate_can_create_registered_model()
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
     ):
         assert not auth_module.validate_can_read_experiment()
@@ -773,7 +775,7 @@ def test_use_workspace_permission_allows_create_but_blocks_reads_and_writes_on_o
         assert not auth_module.validate_can_delete_experiment()
         assert not auth_module.validate_can_manage_experiment()
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/experiments/get-by-name",
         method="GET",
         query_string={"experiment_name": "Primary Experiment"},
@@ -782,7 +784,7 @@ def test_use_workspace_permission_allows_create_but_blocks_reads_and_writes_on_o
 
     with (
         workspace_context.WorkspaceContext("team-a"),
-        auth_module.app.test_request_context(
+        mock_request_context(
             "/api/2.0/mlflow/registered-models/get",
             method="GET",
             query_string={"name": "model-xyz"},
@@ -849,22 +851,22 @@ def test_experiment_artifact_proxy_validators_respect_permissions(workspace_perm
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, MANAGE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/ajax-api/2.0/mlflow-artifacts/artifacts/1/path",
         method="GET",
     ):
-        request.view_args = {"artifact_path": "1/path"}
+        get_request().view_args = {"artifact_path": "1/path"}
         assert auth_module.validate_can_read_experiment_artifact_proxy()
         assert auth_module.validate_can_update_experiment_artifact_proxy()
         assert auth_module.validate_can_delete_experiment_artifact_proxy()
 
     _set_workspace_permission(store, username, USE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/ajax-api/2.0/mlflow-artifacts/artifacts/1/path",
         method="GET",
     ):
-        request.view_args = {"artifact_path": "1/path"}
+        get_request().view_args = {"artifact_path": "1/path"}
         assert not auth_module.validate_can_read_experiment_artifact_proxy()
         assert not auth_module.validate_can_update_experiment_artifact_proxy()
         assert not auth_module.validate_can_delete_experiment_artifact_proxy()
@@ -877,11 +879,11 @@ def test_experiment_artifact_proxy_without_experiment_id_uses_workspace_permissi
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/ajax-api/2.0/mlflow-artifacts/artifacts/uploads/path",
         method="GET",
     ):
-        request.view_args = {"artifact_path": "uploads/path"}
+        get_request().view_args = {"artifact_path": "uploads/path"}
         assert auth_module.validate_can_read_experiment_artifact_proxy()
         assert not auth_module.validate_can_update_experiment_artifact_proxy()
 
@@ -893,11 +895,11 @@ def test_experiment_artifact_proxy_without_experiment_id_denied_without_workspac
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/ajax-api/2.0/mlflow-artifacts/artifacts/uploads/path",
         method="GET",
     ):
-        request.view_args = {"artifact_path": "uploads/path"}
+        get_request().view_args = {"artifact_path": "uploads/path"}
         assert not auth_module.validate_can_read_experiment_artifact_proxy()
 
 
@@ -979,7 +981,7 @@ def test_run_validators_allow_manage_permission(workspace_permission_setup):
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, MANAGE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/runs/get", method="GET", query_string={"run_id": "run-1"}
     ):
         assert auth_module.validate_can_read_run()
@@ -993,7 +995,7 @@ def test_run_validators_workspace_use_blocks_reads_and_writes(workspace_permissi
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/runs/get", method="GET", query_string={"run_id": "run-1"}
     ):
         assert not auth_module.validate_can_read_run()
@@ -1007,7 +1009,7 @@ def test_logged_model_validators_respect_permissions(workspace_permission_setup)
     username = workspace_permission_setup["username"]
 
     _set_workspace_permission(store, username, MANAGE.name)
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/logged-models/get",
         method="GET",
         query_string={"model_id": "model-1"},
@@ -1018,7 +1020,7 @@ def test_logged_model_validators_respect_permissions(workspace_permission_setup)
         assert auth_module.validate_can_manage_logged_model()
 
     _set_workspace_permission(store, username, USE.name)
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/logged-models/get",
         method="GET",
         query_string={"model_id": "model-1"},
@@ -1034,7 +1036,7 @@ def test_scorer_validators_use_workspace_permissions(workspace_permission_setup)
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, MANAGE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/scorers/get",
         method="GET",
         query_string={"experiment_id": "exp-1", "name": "score-1"},
@@ -1044,7 +1046,7 @@ def test_scorer_validators_use_workspace_permissions(workspace_permission_setup)
         assert auth_module.validate_can_delete_scorer()
         assert auth_module.validate_can_manage_scorer()
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/scorers/permissions/create",
         method="POST",
         json={
@@ -1062,7 +1064,7 @@ def test_scorer_validators_workspace_use_blocks_reads_and_writes(workspace_permi
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/scorers/get",
         method="GET",
         query_string={"experiment_id": "exp-1", "name": "score-1"},
@@ -1072,7 +1074,7 @@ def test_scorer_validators_workspace_use_blocks_reads_and_writes(workspace_permi
         assert not auth_module.validate_can_delete_scorer()
         assert not auth_module.validate_can_manage_scorer()
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/scorers/permissions/create",
         method="POST",
         json={
@@ -1091,7 +1093,7 @@ def test_registered_model_validators_require_manage_for_writes(workspace_permiss
 
     with workspace_context.WorkspaceContext("team-a"):
         _set_workspace_permission(store, username, MANAGE.name)
-        with auth_module.app.test_request_context(
+        with mock_request_context(
             "/api/2.0/mlflow/registered-models/get",
             method="GET",
             query_string={"name": "model-xyz"},
@@ -1106,7 +1108,7 @@ def test_registered_model_validators_require_manage_for_writes(workspace_permiss
         assert auth_module.validate_can_create_registered_model()
 
         _set_workspace_permission(store, username, USE.name)
-        with auth_module.app.test_request_context(
+        with mock_request_context(
             "/api/2.0/mlflow/registered-models/get",
             method="GET",
             query_string={"name": "model-xyz"},
@@ -1127,7 +1129,7 @@ def test_prompt_validators_require_manage_for_writes(workspace_permission_setup,
 
     with workspace_context.WorkspaceContext("team-a"):
         _set_workspace_permission(store, username, MANAGE.name)
-        with auth_module.app.test_request_context(
+        with mock_request_context(
             "/api/2.0/mlflow/registered-models/get",
             method="GET",
             query_string={"name": "prompt-xyz"},
@@ -1138,7 +1140,7 @@ def test_prompt_validators_require_manage_for_writes(workspace_permission_setup,
             assert auth_module.validate_can_manage_prompt()
 
         _set_workspace_permission(store, username, USE.name)
-        with auth_module.app.test_request_context(
+        with mock_request_context(
             "/api/2.0/mlflow/registered-models/get",
             method="GET",
             query_string={"name": "prompt-xyz"},
@@ -1170,7 +1172,7 @@ def test_prompt_dispatch_routes_request_by_is_prompt_tag(workspace_permission_se
 
     with workspace_context.WorkspaceContext("team-a"):
         # The prompt name maps to the prompt validator and succeeds.
-        with auth_module.app.test_request_context(
+        with mock_request_context(
             "/api/2.0/mlflow/registered-models/get",
             method="GET",
             query_string={"name": "prompt-xyz"},
@@ -1179,7 +1181,7 @@ def test_prompt_dispatch_routes_request_by_is_prompt_tag(workspace_permission_se
 
         # A non-prompt name maps to the registered_model validator and FAILS:
         # pins cross-resource isolation (prompt grant ≠ registered_model grant).
-        with auth_module.app.test_request_context(
+        with mock_request_context(
             "/api/2.0/mlflow/registered-models/get",
             method="GET",
             query_string={"name": "model-xyz"},
@@ -1206,7 +1208,7 @@ def test_registered_model_grant_does_not_satisfy_prompt_request(
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
     with workspace_context.WorkspaceContext("team-a"):
-        with auth_module.app.test_request_context(
+        with mock_request_context(
             "/api/2.0/mlflow/registered-models/get",
             method="GET",
             query_string={"name": "foo"},
@@ -1227,7 +1229,7 @@ def test_request_targets_prompt_is_registry_driven_not_body_driven(
 
     with workspace_context.WorkspaceContext("team-a"):
         # Spoofed body tag on a non-CREATE route must NOT classify ``foo`` as a prompt.
-        with auth_module.app.test_request_context(
+        with mock_request_context(
             "/api/2.0/mlflow/registered-models/delete",
             method="DELETE",
             json={
@@ -1239,7 +1241,7 @@ def test_request_targets_prompt_is_registry_driven_not_body_driven(
 
         # Without the spoofed tag, the persisted-state lookup still says
         # registered_model — body tags have no impact on classification.
-        with auth_module.app.test_request_context(
+        with mock_request_context(
             "/api/2.0/mlflow/registered-models/delete",
             method="DELETE",
             json={"name": "foo"},
@@ -1256,7 +1258,7 @@ def test_request_targets_prompt_persisted_prompt_classifies_true(
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
 
     with workspace_context.WorkspaceContext("team-a"):
-        with auth_module.app.test_request_context(
+        with mock_request_context(
             "/api/2.0/mlflow/registered-models/get",
             method="GET",
             query_string={"name": "foo"},
@@ -1273,7 +1275,7 @@ def test_request_targets_prompt_unknown_entity_falls_back_to_registered_model(
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
 
     with workspace_context.WorkspaceContext("team-a"):
-        with auth_module.app.test_request_context(
+        with mock_request_context(
             "/api/2.0/mlflow/registered-models/create",
             method="POST",
             json={
@@ -1297,7 +1299,7 @@ def test_request_targets_prompt_propagates_unexpected_errors(
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: _BrokenRegistryStore())
 
     with workspace_context.WorkspaceContext("team-a"):
-        with auth_module.app.test_request_context(
+        with mock_request_context(
             "/api/2.0/mlflow/registered-models/get",
             method="GET",
             query_string={"name": "foo"},
@@ -1328,9 +1330,9 @@ def test_filter_search_registered_models_uses_prompt_grant_for_prompt_rows(
         ],
         "next_page_token": "",
     })
-    flask_resp = Response(payload, mimetype="application/json")
+    flask_resp = Response(content=payload, media_type="application/json")
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/registered-models/search",
         method="GET",
         query_string={"max_results": "100"},
@@ -1363,9 +1365,9 @@ def test_filter_search_registered_models_does_not_satisfy_prompt_with_rm_grant(
         ],
         "next_page_token": "",
     })
-    flask_resp = Response(payload, mimetype="application/json")
+    flask_resp = Response(content=payload, media_type="application/json")
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/registered-models/search",
         method="GET",
         query_string={"max_results": "100"},
@@ -1396,9 +1398,9 @@ def test_filter_search_model_versions_uses_prompt_grant_for_prompt_versions(
             {"name": "bar", "tags": []},
         ],
     })
-    flask_resp = Response(payload, mimetype="application/json")
+    flask_resp = Response(content=payload, media_type="application/json")
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/model-versions/search", method="GET"
     ):
         auth_module.filter_search_model_versions(flask_resp)
@@ -1426,12 +1428,12 @@ def test_rename_registered_model_permission_sweeps_prompt_namespace(
     }
     assert ("prompt", "foo") in before
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/registered-models/rename",
         method="POST",
         json={"name": "foo", "new_name": "bar"},
     ):
-        auth_module.rename_registered_model_permission(Response(status=200))
+        auth_module.rename_registered_model_permission(Response(status_code=200))
 
     after = {
         (rp.resource_type, rp.resource_pattern)
@@ -1458,12 +1460,12 @@ def test_delete_can_manage_registered_model_permission_sweeps_prompt_namespace(
     }
     assert ("prompt", "foo") in before
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/registered-models/delete",
         method="DELETE",
         json={"name": "foo"},
     ):
-        auth_module.delete_can_manage_registered_model_permission(Response(status=200))
+        auth_module.delete_can_manage_registered_model_permission(Response(status_code=200))
 
     after = {
         (rp.resource_type, rp.resource_pattern)
@@ -1485,15 +1487,15 @@ def test_set_can_manage_registered_model_permission_grants_prompt_for_prompt_ent
     user_id = store.get_user(username).id
 
     flask_resp = Response(
-        json.dumps({
+        content=json.dumps({
             "registered_model": {
                 "name": "my-prompt",
                 "tags": [{"key": IS_PROMPT_TAG_KEY, "value": "true"}],
             }
         }),
-        mimetype="application/json",
+        media_type="application/json",
     )
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/registered-models/create",
         method="POST",
         json={"name": "my-prompt"},
@@ -1520,10 +1522,10 @@ def test_set_can_manage_registered_model_permission_grants_registered_model_for_
     user_id = store.get_user(username).id
 
     flask_resp = Response(
-        json.dumps({"registered_model": {"name": "my-model", "tags": []}}),
-        mimetype="application/json",
+        content=json.dumps({"registered_model": {"name": "my-model", "tags": []}}),
+        media_type="application/json",
     )
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/registered-models/create",
         method="POST",
         json={"name": "my-model"},
@@ -1586,10 +1588,10 @@ def test_filter_search_registered_models_classifies_refetched_rows(
     # offset-bookkeeping doesn't reject our seed.
     seed_token = SearchUtils.create_page_token(1).decode("utf-8")
     flask_resp = Response(
-        json.dumps({"registered_models": [], "next_page_token": seed_token}),
-        mimetype="application/json",
+        content=json.dumps({"registered_models": [], "next_page_token": seed_token}),
+        media_type="application/json",
     )
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/registered-models/search",
         method="GET",
         query_string={"max_results": "10"},
@@ -1609,14 +1611,14 @@ def test_delete_can_manage_registered_model_permission_rejects_missing_name(
     # ``request.get_json(silent=True)`` returns ``None`` on missing /
     # unparsable bodies; the guard must surface a clean 400 instead of a
     # ``TypeError`` -> 500.
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/registered-models/delete",
         method="DELETE",
         data="",  # empty body
         content_type="application/json",
     ):
         with pytest.raises(MlflowException, match="Missing value for required parameter 'name'"):
-            auth_module.delete_can_manage_registered_model_permission(Response(status=200))
+            auth_module.delete_can_manage_registered_model_permission(Response(status_code=200))
 
 
 def test_rename_registered_model_permission_rejects_missing_fields(
@@ -1625,45 +1627,45 @@ def test_rename_registered_model_permission_rejects_missing_fields(
     # Missing ``name`` / ``new_name`` must raise INVALID_PARAMETER_VALUE
     # rather than silently forwarding ``None`` to
     # ``rename_grants_for_resource`` where it would corrupt grants.
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/registered-models/rename",
         method="POST",
         json={"name": "foo"},  # no new_name
     ):
         with pytest.raises(MlflowException, match="Missing value for required parameter"):
-            auth_module.rename_registered_model_permission(Response(status=200))
+            auth_module.rename_registered_model_permission(Response(status_code=200))
 
 
 def test_validate_can_view_workspace_requires_access(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/workspaces/team-a",
         method="GET",
     ):
-        request.view_args = {"workspace_name": "team-a"}
+        get_request().view_args = {"workspace_name": "team-a"}
         assert auth_module.validate_can_view_workspace()
 
     store.delete_workspace_permission("team-a", username)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/workspaces/team-a",
         method="GET",
     ):
-        request.view_args = {"workspace_name": "team-a"}
+        get_request().view_args = {"workspace_name": "team-a"}
         assert not auth_module.validate_can_view_workspace()
 
 
 def test_run_artifact_validators_use_workspace_permissions(workspace_permission_setup):
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         GET_ARTIFACT,
         method="GET",
         query_string={"run_id": "run-1"},
     ):
         assert auth_module.validate_can_read_run_artifact()
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         UPLOAD_ARTIFACT,
         method="POST",
         query_string={"run_id": "run-1"},
@@ -1672,7 +1674,7 @@ def test_run_artifact_validators_use_workspace_permissions(workspace_permission_
 
 
 def test_model_version_artifact_validator_uses_workspace_permissions(workspace_permission_setup):
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         GET_MODEL_VERSION_ARTIFACT,
         method="GET",
         query_string={"name": "model-xyz"},
@@ -1681,7 +1683,7 @@ def test_model_version_artifact_validator_uses_workspace_permissions(workspace_p
 
 
 def test_metric_history_bulk_validator_uses_workspace_permissions(workspace_permission_setup):
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         GET_METRIC_HISTORY_BULK,
         method="GET",
         query_string=[("run_id", "run-1"), ("run_id", "run-2")],
@@ -1692,7 +1694,7 @@ def test_metric_history_bulk_validator_uses_workspace_permissions(workspace_perm
 def test_metric_history_bulk_interval_validator_uses_workspace_permissions(
     workspace_permission_setup,
 ):
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         GET_METRIC_HISTORY_BULK_INTERVAL,
         method="GET",
         query_string=[
@@ -1705,7 +1707,7 @@ def test_metric_history_bulk_interval_validator_uses_workspace_permissions(
 
 
 def test_search_datasets_validator_uses_workspace_permissions(workspace_permission_setup):
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         SEARCH_DATASETS,
         method="POST",
         json={"experiment_ids": ["exp-1", "exp-2"]},
@@ -1714,7 +1716,7 @@ def test_search_datasets_validator_uses_workspace_permissions(workspace_permissi
 
 
 def test_create_promptlab_run_validator_uses_workspace_permissions(workspace_permission_setup):
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         CREATE_PROMPTLAB_RUN,
         method="POST",
         json={"experiment_id": "exp-2"},
@@ -1724,7 +1726,7 @@ def test_create_promptlab_run_validator_uses_workspace_permissions(workspace_per
 
 @pytest.mark.parametrize("path", [GET_TRACE_ARTIFACT, GET_TRACE_ARTIFACT_V3])
 def test_trace_artifact_validator_uses_workspace_permissions(workspace_permission_setup, path):
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         path,
         method="GET",
         query_string={"request_id": "trace-1"},
@@ -1746,11 +1748,11 @@ def test_experiment_artifact_proxy_without_workspaces_falls_back_to_default(monk
         lambda: SimpleNamespace(username="carol"),
     )
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/ajax-api/2.0/mlflow-artifacts/artifacts/uploads/path",
         method="GET",
     ):
-        request.view_args = {"artifact_path": "uploads/path"}
+        get_request().view_args = {"artifact_path": "uploads/path"}
         assert auth_module.validate_can_read_experiment_artifact_proxy()
 
 
@@ -1759,14 +1761,14 @@ def test_run_artifact_validators_denied_without_workspace_permission(workspace_p
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         GET_ARTIFACT,
         method="GET",
         query_string={"run_id": "run-1"},
     ):
         assert not auth_module.validate_can_read_run_artifact()
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         UPLOAD_ARTIFACT,
         method="POST",
         query_string={"run_id": "run-1"},
@@ -1781,7 +1783,7 @@ def test_model_version_artifact_validator_denied_without_workspace_permission(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         GET_MODEL_VERSION_ARTIFACT,
         method="GET",
         query_string={"name": "model-xyz"},
@@ -1796,7 +1798,7 @@ def test_metric_history_bulk_validator_denied_without_workspace_permission(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         GET_METRIC_HISTORY_BULK,
         method="GET",
         query_string=[("run_id", "run-1"), ("run_id", "run-2")],
@@ -1811,7 +1813,7 @@ def test_metric_history_bulk_interval_validator_denied_without_workspace_permiss
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         GET_METRIC_HISTORY_BULK_INTERVAL,
         method="GET",
         query_string=[
@@ -1830,7 +1832,7 @@ def test_search_datasets_validator_denied_without_workspace_permission(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         SEARCH_DATASETS,
         method="POST",
         json={"experiment_ids": ["exp-1", "exp-2"]},
@@ -1845,7 +1847,7 @@ def test_create_promptlab_run_validator_denied_without_workspace_permission(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         CREATE_PROMPTLAB_RUN,
         method="POST",
         json={"experiment_id": "exp-2"},
@@ -1861,7 +1863,7 @@ def test_trace_artifact_validator_denied_without_workspace_permission(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         path,
         method="GET",
         query_string={"request_id": "trace-1"},
@@ -1877,7 +1879,7 @@ def test_cross_workspace_access_denied(workspace_permission_setup, monkeypatch):
     )
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/experiments/get",
         method="GET",
         query_string={"experiment_id": "exp-other-ws"},
@@ -1886,7 +1888,7 @@ def test_cross_workspace_access_denied(workspace_permission_setup, monkeypatch):
         assert not auth_module.validate_can_update_experiment()
         assert not auth_module.validate_can_delete_experiment()
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/runs/get",
         method="GET",
         query_string={"run_id": "run-other-ws"},
@@ -1899,7 +1901,7 @@ def test_cross_workspace_registered_model_access_denied(workspace_permission_set
     registry_store = _RegistryStore({"model-other-ws": "team-b"})
     monkeypatch.setattr(auth_module, "_get_model_registry_store", lambda: registry_store)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/registered-models/get",
         method="GET",
         query_string={"name": "model-other-ws"},
@@ -1918,7 +1920,7 @@ def test_explicit_experiment_permission_overrides_workspace(
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
     store.create_experiment_permission("exp-1", username, READ.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/experiments/get",
         method="GET",
         query_string={"experiment_id": "exp-1"},
@@ -1926,7 +1928,7 @@ def test_explicit_experiment_permission_overrides_workspace(
         assert auth_module.validate_can_read_experiment()
         assert not auth_module.validate_can_update_experiment()
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/2.0/mlflow/experiments/get",
         method="GET",
         query_string={"experiment_id": "exp-2"},
@@ -1945,7 +1947,7 @@ def test_cross_workspace_gateway_secret_access_denied(workspace_permission_setup
     tracking_store.ManagedSessionMaker = tracking_store._create_mock_session_maker()
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/gateway/secrets/get",
         method="GET",
         query_string={"secret_id": "secret-other-ws"},
@@ -1966,7 +1968,7 @@ def test_cross_workspace_gateway_endpoint_access_denied(workspace_permission_set
     tracking_store.ManagedSessionMaker = tracking_store._create_mock_session_maker()
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/gateway/endpoints/get",
         method="GET",
         query_string={"endpoint_id": "endpoint-other-ws"},
@@ -1989,7 +1991,7 @@ def test_cross_workspace_gateway_model_definition_access_denied(
     tracking_store.ManagedSessionMaker = tracking_store._create_mock_session_maker()
     monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/gateway/model-definitions/get",
         method="GET",
         query_string={"model_definition_id": "model-def-other-ws"},
@@ -2006,14 +2008,14 @@ def test_workspace_permission_required_for_gateway_creation(workspace_permission
     # Remove workspace permission
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/gateway/endpoints/create",
         method="POST",
         json={"name": "test-endpoint", "model_configs": []},
     ):
         assert not auth_module.validate_can_create_gateway_endpoint()
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/gateway/model-definitions/create",
         method="POST",
         json={
@@ -2028,7 +2030,7 @@ def test_workspace_permission_required_for_gateway_creation(workspace_permission
     # Restore workspace permission
     store.set_workspace_permission("team-a", username, MANAGE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/gateway/endpoints/create",
         method="POST",
         json={"name": "test-endpoint", "model_configs": []},
@@ -2048,7 +2050,7 @@ def test_prompt_optimization_job_validators_use_workspace_permissions(
 
     _set_workspace_permission(store, username, MANAGE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/prompt-optimization/jobs/get",
         method="GET",
         query_string={"job_id": "job-1"},
@@ -2070,7 +2072,7 @@ def test_prompt_optimization_job_validators_workspace_use_blocks_reads_and_write
 
     _set_workspace_permission(store, username, USE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/prompt-optimization/jobs/get",
         method="GET",
         query_string={"job_id": "job-1"},
@@ -2092,7 +2094,7 @@ def test_prompt_optimization_job_validators_denied_without_workspace_permission(
 
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/prompt-optimization/jobs/get",
         method="GET",
         query_string={"job_id": "job-1"},
@@ -2209,7 +2211,7 @@ def test_role_grant_on_gateway_endpoint_gates_validator_capabilities(
 
     _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", granted)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/gateway/endpoints/get",
         method="GET",
         query_string={"endpoint_id": "endpoint-1"},
@@ -2234,7 +2236,7 @@ def test_role_grant_read_on_gateway_endpoint_does_not_permit_use(
 
     # _validate_gateway_use_permission looks up the endpoint by name, resolves
     # the endpoint id, then checks ``can_use`` via the permission resolver.
-    with auth_module.app.test_request_context("/"):
+    with mock_request_context("/"):
         assert auth_module._validate_gateway_use_permission("endpoint-1", username) is False
 
 
@@ -2245,7 +2247,7 @@ def test_role_grant_use_on_gateway_endpoint_permits_use(workspace_permission_set
 
     _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "USE")
 
-    with auth_module.app.test_request_context("/"):
+    with mock_request_context("/"):
         assert auth_module._validate_gateway_use_permission("endpoint-1", username) is True
 
 
@@ -2270,7 +2272,7 @@ def test_role_grant_permission_level_determines_use_capability(
 
     _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", granted)
 
-    with auth_module.app.test_request_context("/"):
+    with mock_request_context("/"):
         assert (
             auth_module._validate_gateway_use_permission("endpoint-1", username) is expected_can_use
         )
@@ -2296,7 +2298,7 @@ def test_role_workspace_wide_grant_folds_for_manage_only_on_gateway_endpoints(
 
     _assign_role_with_permission(store, username, "team-a", "workspace", granted)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/gateway/endpoints/get",
         method="GET",
         query_string={"endpoint_id": "endpoint-1"},
@@ -2323,7 +2325,7 @@ def test_role_workspace_wide_grant_invocation_tier_dependent(
 
     _assign_role_with_permission(store, username, "team-a", "workspace", granted)
 
-    with auth_module.app.test_request_context("/"):
+    with mock_request_context("/"):
         assert auth_module._validate_gateway_use_permission("endpoint-1", username) is expected_use
 
 
@@ -2347,7 +2349,7 @@ def test_role_grant_on_gateway_secret_gates_validator(
 
     _assign_role_with_permission(store, username, "team-a", "gateway_secret", granted)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/gateway/secrets/get",
         method="GET",
         query_string={"secret_id": "secret-1"},
@@ -2373,7 +2375,7 @@ def test_role_grant_on_gateway_model_definition_gates_validator(
 
     _assign_role_with_permission(store, username, "team-a", "gateway_model_definition", granted)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/gateway/model-definitions/get",
         method="GET",
         query_string={"model_definition_id": "model-def-1"},
@@ -2399,7 +2401,7 @@ def test_role_in_other_workspace_does_not_grant_gateway_endpoint_access(
     # Role with MANAGE in team-b — should NOT apply to team-a endpoints.
     _assign_role_with_permission(store, username, "team-b", "gateway_endpoint", "MANAGE")
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/gateway/endpoints/get",
         method="GET",
         query_string={"endpoint_id": "endpoint-1"},  # endpoint-1 is in team-a.
@@ -2415,7 +2417,7 @@ def test_role_in_other_workspace_does_not_grant_gateway_use(workspace_permission
 
     _assign_role_with_permission(store, username, "team-b", "gateway_endpoint", "USE")
 
-    with auth_module.app.test_request_context("/"):
+    with mock_request_context("/"):
         # endpoint-1 is in team-a; role grant is in team-b.
         assert auth_module._validate_gateway_use_permission("endpoint-1", username) is False
 
@@ -2434,7 +2436,7 @@ def test_role_union_best_permission_wins_for_gateway_endpoint(workspace_permissi
     _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "READ")
     _assign_role_with_permission(store, username, "team-a", "gateway_endpoint", "MANAGE")
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/gateway/endpoints/get",
         method="GET",
         query_string={"endpoint_id": "endpoint-1"},
@@ -2524,7 +2526,7 @@ def _request_context_for_shape(shape, role_auth_setup, workspace):
                 if workspace == "foo"
                 else role_auth_setup["role_bar_id"]
             )
-            return auth_module.app.test_request_context(
+            return mock_request_context(
                 "/api/3.0/mlflow/roles/get",
                 method="GET",
                 query_string={"role_id": str(role_id)},
@@ -2535,13 +2537,13 @@ def _request_context_for_shape(shape, role_auth_setup, workspace):
                 if workspace == "foo"
                 else role_auth_setup["role_permission_bar_id"]
             )
-            return auth_module.app.test_request_context(
+            return mock_request_context(
                 "/api/3.0/mlflow/roles/permissions/update",
                 method="PATCH",
                 json={"role_permission_id": rp_id, "permission": READ.name},
             )
         case "workspace":
-            return auth_module.app.test_request_context(
+            return mock_request_context(
                 "/api/3.0/mlflow/roles/create",
                 method="POST",
                 json={"name": "new-role", "workspace": workspace},
@@ -2623,7 +2625,7 @@ def test_validate_can_view_roles_authorization(role_auth_setup, actor, workspace
 def test_validate_can_list_roles_unscoped_is_super_admin_only(role_auth_setup, actor, expected):
     # No workspace param: only super admins may list every role in the system.
     role_auth_setup["login_as"](actor)
-    with auth_module.app.test_request_context("/api/3.0/mlflow/roles/list", method="GET"):
+    with mock_request_context("/api/3.0/mlflow/roles/list", method="GET"):
         assert auth_module.validate_can_list_roles() is expected
 
 
@@ -2642,7 +2644,7 @@ def test_validate_can_list_roles_unscoped_is_super_admin_only(role_auth_setup, a
 )
 def test_validate_can_list_roles_workspace_scoped(role_auth_setup, actor, workspace, expected):
     role_auth_setup["login_as"](actor)
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/roles/list", method="GET", query_string={"workspace": workspace}
     ):
         assert auth_module.validate_can_list_roles() is expected
@@ -2654,7 +2656,7 @@ def test_validate_can_list_roles_blank_workspace_denied_for_non_admin(role_auth_
     # rather than raising, unlike _get_role_workspace_from_request which would
     # raise on blank workspace. Kept as a guard for that specific branch.
     role_auth_setup["login_as"]("ws_admin_foo")
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/roles/list",
         method="GET",
         query_string={"workspace": "   "},
@@ -2681,7 +2683,7 @@ def test_validate_can_list_roles_blank_workspace_denied_for_non_admin(role_auth_
 )
 def test_validate_can_list_roles_multi_workspace(role_auth_setup, actor, workspaces, expected):
     role_auth_setup["login_as"](actor)
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/roles/list",
         method="GET",
         query_string=[("workspace", w) for w in workspaces],
@@ -2711,7 +2713,7 @@ def test_validate_can_list_users_workspace_scoped(role_auth_setup, actor, worksp
     role_auth_setup["login_as"](actor)
     token = workspace_context.set_server_request_workspace(workspace)
     try:
-        with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+        with mock_request_context("/api/2.0/mlflow/users/list", method="GET"):
             assert auth_module.validate_can_list_users() is expected
     finally:
         workspace_context._WORKSPACE.reset(token)
@@ -2723,7 +2725,7 @@ def test_validate_can_list_users_allows_any_user_without_workspaces(role_auth_se
     # workspaces; override it back off for this case.
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
     role_auth_setup["login_as"]("outsider")
-    with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+    with mock_request_context("/api/2.0/mlflow/users/list", method="GET"):
         assert auth_module.validate_can_list_users() is True
 
 
@@ -2731,7 +2733,7 @@ def test_list_users_handler_eager_loads_scoped_roles(role_auth_setup):
     # Workspace admin: bulk response includes per-user roles, scoped to
     # workspaces the requester administers (plus self, unscoped).
     role_auth_setup["login_as"]("ws_admin_foo")
-    with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+    with mock_request_context("/api/2.0/mlflow/users/list", method="GET"):
         response = auth_module.list_users()
     by_username = {u["username"]: u for u in response.get_json()["users"]}
 
@@ -2750,7 +2752,7 @@ def test_list_users_handler_eager_loads_scoped_roles(role_auth_setup):
 
 def test_list_users_handler_super_admin_sees_every_role(role_auth_setup):
     role_auth_setup["login_as"]("super_admin")
-    with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+    with mock_request_context("/api/2.0/mlflow/users/list", method="GET"):
         response = auth_module.list_users()
     by_username = {u["username"]: u for u in response.get_json()["users"]}
 
@@ -2776,7 +2778,7 @@ def test_list_users_handler_super_admin_sees_every_role(role_auth_setup):
 )
 def test_validate_can_create_user(role_auth_setup, actor, expected):
     role_auth_setup["login_as"](actor)
-    with auth_module.app.test_request_context("/api/2.0/mlflow/users/create", method="POST"):
+    with mock_request_context("/api/2.0/mlflow/users/create", method="POST"):
         assert auth_module.validate_can_create_user() is expected
 
 
@@ -2784,7 +2786,7 @@ def test_validate_can_delete_user_stays_super_admin_only(role_auth_setup):
     # Regression: the create-user widening must not have leaked into delete.
     for actor in ("ws_admin_foo", "outsider"):
         role_auth_setup["login_as"](actor)
-        with auth_module.app.test_request_context("/api/2.0/mlflow/users/delete", method="DELETE"):
+        with mock_request_context("/api/2.0/mlflow/users/delete", method="DELETE"):
             assert auth_module.validate_can_delete_user() is False
 
 
@@ -2793,7 +2795,7 @@ def test_validate_can_view_user_roles_self_always_allowed(role_auth_setup):
     # Using ``outsider`` (zero roles) exercises the self-short-circuit without
     # any membership helping.
     role_auth_setup["login_as"]("outsider")
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/roles/list",
         method="GET",
         query_string={"username": "outsider"},
@@ -2813,7 +2815,7 @@ def test_validate_can_view_user_roles_self_always_allowed(role_auth_setup):
 )
 def test_validate_can_view_user_roles_cross_user(role_auth_setup, requester, target, expected):
     role_auth_setup["login_as"](requester)
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/roles/list",
         method="GET",
         query_string={"username": target},
@@ -2827,7 +2829,7 @@ def test_validate_can_view_user_roles_nonexistent_target_denied_for_non_admin(
     # Non-existent target: return False rather than leaking existence via the
     # RESOURCE_DOES_NOT_EXIST the handler would raise downstream.
     role_auth_setup["login_as"]("ws_admin_foo")
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/roles/list",
         method="GET",
         query_string={"username": "ghost"},
@@ -2841,7 +2843,7 @@ def test_validate_can_view_user_roles_nonexistent_target_allowed_for_super_admin
     # Super admin short-circuits before the target lookup — they're authorized
     # regardless of whether the target exists (the handler then 404s cleanly).
     role_auth_setup["login_as"]("super_admin")
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/roles/list",
         method="GET",
         query_string={"username": "ghost"},
@@ -2857,13 +2859,13 @@ def test_validate_can_manage_roles_nonexistent_resource_denied(role_auth_setup, 
     role_auth_setup["login_as"]("ws_admin_foo")
     bogus_id = 999_999
     if shape == "role_id":
-        ctx = auth_module.app.test_request_context(
+        ctx = mock_request_context(
             "/api/3.0/mlflow/roles/get",
             method="GET",
             query_string={"role_id": str(bogus_id)},
         )
     else:
-        ctx = auth_module.app.test_request_context(
+        ctx = mock_request_context(
             "/api/3.0/mlflow/roles/permissions/update",
             method="PATCH",
             json={"role_permission_id": bogus_id, "permission": READ.name},
@@ -2878,7 +2880,7 @@ def test_validate_can_manage_roles_nonexistent_role_id_bypassed_by_super_admin(
     # Super admins skip the workspace resolution entirely — an unresolvable
     # role_id still produces True at the validator layer.
     role_auth_setup["login_as"]("super_admin")
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/roles/get",
         method="GET",
         query_string={"role_id": "999999"},
@@ -2891,7 +2893,7 @@ def test_validate_can_manage_roles_missing_workspace_params_raises(role_auth_set
     # resolver raises INVALID_PARAMETER_VALUE — callers that hit this path have
     # a client bug, and we surface it instead of silently denying.
     role_auth_setup["login_as"]("ws_admin_foo")
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/roles/create", method="POST", json={}
     ):
         with pytest.raises(MlflowException, match="must include one of"):
@@ -2900,7 +2902,7 @@ def test_validate_can_manage_roles_missing_workspace_params_raises(role_auth_set
 
 def test_validate_can_manage_roles_blank_workspace_raises(role_auth_setup):
     role_auth_setup["login_as"]("ws_admin_foo")
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/roles/create",
         method="POST",
         json={"name": "new-role", "workspace": "   "},
@@ -2913,7 +2915,7 @@ def test_validate_can_manage_roles_propagates_param_coercion_errors(role_auth_se
     # Integration check: a non-integer role_id in the request surfaces the
     # coercion error through the validator chain rather than silently denying.
     role_auth_setup["login_as"]("ws_admin_foo")
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/roles/get",
         method="GET",
         query_string={"role_id": "not-an-int"},
@@ -3193,7 +3195,7 @@ def _list_user_permissions_response(monkeypatch, requester: str, target: str) ->
     monkeypatch.setattr(
         auth_module, "authenticate_request", lambda: SimpleNamespace(username=requester)
     )
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/list",
         method="GET",
         query_string={"username": target},
@@ -3293,7 +3295,7 @@ def test_list_current_user_permissions_returns_caller_rows_and_admin_flag(tmp_pa
     monkeypatch.setattr(
         auth_module, "authenticate_request", lambda: SimpleNamespace(username="alice")
     )
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/current/permissions", method="GET"
     ):
         response = auth_module.list_current_user_permissions()
@@ -3500,7 +3502,7 @@ def test_validate_can_manage_resource_workspace_manage_allows(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, MANAGE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/grant",
         method="POST",
         json={
@@ -3528,7 +3530,7 @@ def test_validate_can_manage_resource_per_resource_manage_allows(
     store.add_role_permission(role.id, "experiment", "exp-1", MANAGE.name)
     store.assign_role_to_user(user_id, role.id)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/grant",
         method="POST",
         json={
@@ -3552,7 +3554,7 @@ def test_validate_can_manage_resource_other_resource_denied(workspace_permission
     store.add_role_permission(role.id, "experiment", "exp-1", MANAGE.name)
     store.assign_role_to_user(user_id, role.id)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/grant",
         method="POST",
         json={
@@ -3570,7 +3572,7 @@ def test_validate_can_manage_resource_no_grant_denied(workspace_permission_setup
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/grant",
         method="POST",
         json={
@@ -3590,7 +3592,7 @@ def test_validate_can_manage_resource_workspace_use_insufficient(workspace_permi
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, USE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/grant",
         method="POST",
         json={
@@ -3612,7 +3614,7 @@ def test_validate_can_manage_resource_scorer_dispatch(workspace_permission_setup
     _set_workspace_permission(store, username, MANAGE.name)
 
     pattern = _scorer_resource_id("exp-1", "score-1")
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/grant",
         method="POST",
         json={
@@ -3632,7 +3634,7 @@ def test_validate_can_manage_resource_scorer_missing_delimiter_raises(workspace_
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, MANAGE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/grant",
         method="POST",
         json={
@@ -3655,7 +3657,7 @@ def test_validate_can_manage_resource_workspace_resource_type_rejected(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, MANAGE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/grant",
         method="POST",
         json={
@@ -3678,7 +3680,7 @@ def test_validate_can_get_user_permission_self_check_allowed(
     username = workspace_permission_setup["username"]
     _set_workspace_permission(store, username, NO_PERMISSIONS.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={
@@ -3705,7 +3707,7 @@ def test_validate_can_get_user_permission_admin_short_circuits(
     )
 
     target = workspace_permission_setup["username"]
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={
@@ -3737,7 +3739,7 @@ def test_validate_can_get_user_permission_admin_probes_other_workspace(
     # team-b experiment — admin has no membership in team-b.
     auth_module._get_tracking_store()._experiment_workspaces["exp-team-b"] = "team-b"
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={
@@ -3762,7 +3764,7 @@ def test_validate_can_get_user_permission_cross_user_requires_admin(
     store.create_user(target, "supersecurepassword", is_admin=False)
     _set_workspace_permission(store, requester, USE.name)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={
@@ -3787,7 +3789,7 @@ def test_validate_can_get_user_permission_wp_admin_scoped_to_resource_workspace(
     target = "bob"
     store.create_user(target, "supersecurepassword", is_admin=False)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={
@@ -3813,7 +3815,7 @@ def test_validate_can_get_user_permission_cross_workspace_probe_denied(
     store.create_user(target, "supersecurepassword", is_admin=False)
     auth_module._get_tracking_store()._experiment_workspaces["exp-team-b"] = "team-b"
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={
@@ -3838,7 +3840,7 @@ def test_validate_can_get_user_permission_unknown_resource_denied(
     target = "bob"
     store.create_user(target, "supersecurepassword", is_admin=False)
 
-    with auth_module.app.test_request_context(
+    with mock_request_context(
         "/api/3.0/mlflow/users/permissions/get",
         method="GET",
         query_string={

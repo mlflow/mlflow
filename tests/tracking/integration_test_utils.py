@@ -1,9 +1,11 @@
 import contextlib
+import importlib
 import logging
 import os
 import socket
 import sys
 import time
+import types
 from subprocess import Popen
 from threading import Thread
 from typing import Any, Generator, Literal
@@ -63,16 +65,26 @@ def _init_server(
 
     if server_type == "fastapi":
         # Use uvicorn for FastAPI
+        app_path = app or "mlflow.server.fastapi_app:app"
         cmd = [
             sys.executable,
             "-m",
             "uvicorn",
-            app or "mlflow.server.fastapi_app:app",
+            app_path,
             "--host",
             LOCALHOST,
             "--port",
             str(server_port),
         ]
+        if ":" in app_path:
+            module, obj_name = app_path.rsplit(":", 1)
+            try:
+                mod = importlib.import_module(module)
+                obj = getattr(mod, obj_name)
+                if isinstance(obj, types.FunctionType):
+                    cmd.append("--factory")
+            except Exception:
+                pass
     else:
         # Default to Flask
         cmd = [

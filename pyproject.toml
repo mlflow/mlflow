@@ -27,8 +27,6 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-  "Flask-CORS<7",
-  "Flask<4",
   "aiohttp<4,>=3.7.0",
   "alembic<2,!=1.10.0",
   "cachetools<8,>=5.0.0",
@@ -64,7 +62,6 @@ dependencies = [
   "starlette<2",
   "typing-extensions<5,>=4.0.0",
   "uvicorn<1",
-  "waitress<4; platform_system == 'Windows'",
 ]
 [[project.maintainers]]
 name = "Databricks"
@@ -83,7 +80,6 @@ extras = [
   "azureml-core>=1.2.0",
   "pysftp",
   "kubernetes",
-  "prometheus-flask-exporter",
 ]
 db = ["PyMySQL", "psycopg2-binary", "pymssql"]
 databricks = [
@@ -116,7 +112,7 @@ aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
 kubernetes = ["kubernetes"]
 langchain = ["langchain>=0.3.26,<=1.3.0"]
-auth = ["Flask-WTF<2"]
+auth = []
 
 [project.urls]
 homepage = "https://mlflow.org"
@@ -227,7 +223,6 @@ docs = [
   "pyspark",
   "datasets",
   "plotly",
-  "Flask-WTF<2",
   "polars>=1",
   "openai",
   "haystack-ai",

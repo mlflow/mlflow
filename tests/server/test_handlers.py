@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
-from flask import Response
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
@@ -136,8 +135,8 @@ from mlflow.server import (
     ARTIFACTS_DESTINATION_ENV_VAR,
     BACKEND_STORE_URI_ENV_VAR,
     SERVE_ARTIFACTS_ENV_VAR,
-    app,
 )
+from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
     ARTIFACT_STREAM_CHUNK_SIZE,
     STATIC_PREFIX_ENV_VAR,
@@ -230,6 +229,7 @@ from mlflow.server.handlers import (
     post_ui_telemetry_handler,
     upload_artifact_handler,
 )
+from mlflow.server.responses import _CompatResponse as Response
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
@@ -251,6 +251,107 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
+
+from tests.server.conftest import mock_request_context
+
+_app = create_fastapi_app()
+from starlette.testclient import TestClient as _TestClient
+
+
+class _FlaskLikeTestClient:
+
+    def __init__(self):
+        self._client = _TestClient(_app, raise_server_exceptions=False)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+    @staticmethod
+    def _inject_host(kwargs):
+        headers = kwargs.get("headers", {})
+        if not any(k.lower() == "host" for k in headers):
+            headers["Host"] = "localhost"
+            kwargs["headers"] = headers
+
+    def get(self, path, **kwargs):
+        self._inject_host(kwargs)
+        if "query_string" in kwargs and "params" not in kwargs:
+            kwargs["params"] = kwargs.pop("query_string")
+        resp = self._client.get(path, **kwargs)
+        return _WrappedResponse(resp)
+
+    def post(self, path, **kwargs):
+        self._inject_host(kwargs)
+        if "data" in kwargs and "content" not in kwargs:
+            kwargs["content"] = kwargs.pop("data")
+        resp = self._client.post(path, **kwargs)
+        return _WrappedResponse(resp)
+
+    def put(self, path, **kwargs):
+        self._inject_host(kwargs)
+        if "data" in kwargs and "content" not in kwargs:
+            kwargs["content"] = kwargs.pop("data")
+        resp = self._client.put(path, **kwargs)
+        return _WrappedResponse(resp)
+
+    def patch(self, path, **kwargs):
+        self._inject_host(kwargs)
+        if "data" in kwargs and "content" not in kwargs:
+            kwargs["content"] = kwargs.pop("data")
+        resp = self._client.patch(path, **kwargs)
+        return _WrappedResponse(resp)
+
+    def delete(self, path, **kwargs):
+        self._inject_host(kwargs)
+        resp = self._client.delete(path, **kwargs)
+        return _WrappedResponse(resp)
+
+    def options(self, path, **kwargs):
+        self._inject_host(kwargs)
+        resp = self._client.options(path, **kwargs)
+        return _WrappedResponse(resp)
+
+
+class _WrappedResponse:
+    """Wraps httpx Response to provide Flask-like API (get_data, get_json)."""
+
+    def __init__(self, resp):
+        self._resp = resp
+
+    @property
+    def status_code(self):
+        return self._resp.status_code
+
+    @property
+    def headers(self):
+        return self._resp.headers
+
+    def get_data(self, as_text=False):
+        if as_text:
+            return self._resp.text
+        return self._resp.content
+
+    def get_json(self):
+        return self._resp.json()
+
+    @property
+    def data(self):
+        return self._resp.content
+
+    @property
+    def json(self):
+        return self._resp.json()
+
+
+class _FakeApp:
+    def test_client(self):
+        return _FlaskLikeTestClient()
+
+
+app = _FakeApp()
 
 
 @pytest.fixture
@@ -390,14 +491,14 @@ def test_health():
     with app.test_client() as c:
         response = c.get("/health")
         assert response.status_code == 200
-        assert response.get_data().decode() == "OK"
+        assert response.get_data(as_text=True) == "OK"
 
 
 def test_version():
     with app.test_client() as c:
         response = c.get("/version")
         assert response.status_code == 200
-        assert response.get_data().decode() == mlflow.__version__
+        assert response.get_data(as_text=True) == mlflow.__version__
 
 
 def test_server_info():
@@ -1220,7 +1321,7 @@ def test_get_presigned_download_url_success(enable_serve_artifacts):
 
     artifact_path = "run_id/artifacts/model.pkl"
     with (
-        app.test_request_context(method="GET"),
+        mock_request_context(method="GET"),
         mock.patch(
             "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
             return_value=MockMultipartDownloadRepo(),
@@ -1256,7 +1357,7 @@ def test_get_presigned_download_url_throws_for_malicious_path(enable_serve_artif
 
 def test_get_presigned_download_url_unsupported_repo(enable_serve_artifacts, tmp_path):
     with (
-        app.test_request_context(method="GET"),
+        mock_request_context(method="GET"),
         mock.patch(
             "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
             return_value=LocalArtifactRepository(str(tmp_path)),
@@ -1293,7 +1394,7 @@ def test_create_presigned_upload_url_success():
     request_proto.path = "model.pkl"
 
     with (
-        app.test_request_context(method="POST", content_type="application/json"),
+        mock_request_context(method="POST", content_type="application/json"),
         mock.patch(
             "mlflow.server.handlers._get_request_message",
             return_value=request_proto,
@@ -1327,7 +1428,7 @@ def test_create_presigned_upload_url_unsupported_repo():
     request_proto.path = "model.pkl"
 
     with (
-        app.test_request_context(method="POST", content_type="application/json"),
+        mock_request_context(method="POST", content_type="application/json"),
         mock.patch(
             "mlflow.server.handlers._get_request_message",
             return_value=request_proto,
@@ -1368,7 +1469,7 @@ def test_create_presigned_upload_url_rejects_proxy_artifact_uri(artifact_uri):
     request_proto.path = "model.pkl"
 
     with (
-        app.test_request_context(method="POST", content_type="application/json"),
+        mock_request_context(method="POST", content_type="application/json"),
         mock.patch(
             "mlflow.server.handlers._get_request_message",
             return_value=request_proto,
@@ -1394,7 +1495,7 @@ def test_create_presigned_upload_url_invalid_run_id():
     request_proto.path = "model.pkl"
 
     with (
-        app.test_request_context(method="POST", content_type="application/json"),
+        mock_request_context(method="POST", content_type="application/json"),
         mock.patch(
             "mlflow.server.handlers._get_request_message",
             return_value=request_proto,
@@ -1432,7 +1533,7 @@ def test_create_presigned_upload_url_rejects_path_traversal(path):
     request_proto.path = path
 
     with (
-        app.test_request_context(method="POST", content_type="application/json"),
+        mock_request_context(method="POST", content_type="application/json"),
         mock.patch(
             "mlflow.server.handlers._get_request_message",
             return_value=request_proto,
@@ -1469,7 +1570,7 @@ def test_create_presigned_upload_url_with_custom_expiration():
     request_proto.expiration = 60
 
     with (
-        app.test_request_context(method="POST", content_type="application/json"),
+        mock_request_context(method="POST", content_type="application/json"),
         mock.patch(
             "mlflow.server.handlers._get_request_message",
             return_value=request_proto,
@@ -1513,7 +1614,7 @@ def test_create_presigned_upload_url_default_expiration():
     request_proto.path = "model.pkl"
 
     with (
-        app.test_request_context(method="POST", content_type="application/json"),
+        mock_request_context(method="POST", content_type="application/json"),
         mock.patch(
             "mlflow.server.handlers._get_request_message",
             return_value=request_proto,
@@ -1538,7 +1639,7 @@ def test_create_presigned_upload_url_blocked_in_artifacts_only_mode(monkeypatch)
 
     monkeypatch.setenv(ARTIFACTS_ONLY_ENV_VAR, "true")
 
-    with app.test_request_context(method="POST", content_type="application/json"):
+    with mock_request_context(method="POST", content_type="application/json"):
         response = _create_presigned_upload_url()
 
     assert response.status_code == 503
@@ -1667,7 +1768,7 @@ def test_create_prompt_as_model_version(mock_get_request_message, mock_model_reg
 def test_create_evaluation_dataset(mock_tracking_store, mock_evaluation_dataset):
     mock_tracking_store.create_dataset.return_value = mock_evaluation_dataset
 
-    with app.test_request_context(
+    with mock_request_context(
         method="POST",
         json={
             "name": "test_dataset",
@@ -1688,7 +1789,7 @@ def test_get_evaluation_dataset(mock_tracking_store, mock_evaluation_dataset):
     mock_tracking_store.get_dataset.return_value = mock_evaluation_dataset
 
     dataset_id = "d-1234567890abcdef1234567890abcdef"
-    with app.test_request_context(method="GET"):
+    with mock_request_context(method="GET"):
         _get_dataset_handler(dataset_id)
 
     mock_tracking_store.get_dataset.assert_called_once_with(dataset_id)
@@ -1696,7 +1797,7 @@ def test_get_evaluation_dataset(mock_tracking_store, mock_evaluation_dataset):
 
 def test_delete_evaluation_dataset(mock_tracking_store):
     dataset_id = "d-1234567890abcdef1234567890abcdef"
-    with app.test_request_context(method="DELETE"):
+    with mock_request_context(method="DELETE"):
         _delete_dataset_handler(dataset_id)
 
     mock_tracking_store.delete_dataset.assert_called_once_with(dataset_id)
@@ -1718,7 +1819,7 @@ def test_search_datasets(mock_tracking_store):
     paged_list = PagedList(datasets, "next_token")
     mock_tracking_store.search_datasets.return_value = paged_list
 
-    with app.test_request_context(
+    with mock_request_context(
         method="POST",
         json={
             "experiment_ids": ["0", "1"],
@@ -1741,7 +1842,7 @@ def test_search_datasets(mock_tracking_store):
 
 def test_set_dataset_tags(mock_tracking_store):
     dataset_id = "d-1234567890abcdef1234567890abcdef"
-    with app.test_request_context(
+    with mock_request_context(
         method="POST",
         json={
             "tags": json.dumps({"env": "production", "version": "2.0"}),
@@ -1758,7 +1859,7 @@ def test_set_dataset_tags(mock_tracking_store):
 def test_delete_dataset_tag(mock_tracking_store):
     dataset_id = "d-1234567890abcdef1234567890abcdef"
     key = "deprecated_tag"
-    with app.test_request_context(method="DELETE"):
+    with mock_request_context(method="DELETE"):
         _delete_dataset_tag_handler(dataset_id, key)
 
     mock_tracking_store.delete_dataset_tag.assert_called_once_with(
@@ -1779,7 +1880,7 @@ def test_upsert_dataset_records(mock_tracking_store):
         {"inputs": {"q": "test2"}, "expectations": {"score": 0.8}},
     ]
 
-    with app.test_request_context(
+    with mock_request_context(
         method="POST",
         json={
             "records": json.dumps(records),
@@ -1805,7 +1906,7 @@ def test_get_dataset_experiment_ids(mock_tracking_store):
     ]
 
     dataset_id = "d-1234567890abcdef1234567890abcdef"
-    with app.test_request_context(method="GET"):
+    with mock_request_context(method="GET"):
         resp = _get_dataset_experiment_ids_handler(dataset_id)
 
     mock_tracking_store.get_dataset_experiment_ids.assert_called_once_with(dataset_id=dataset_id)
@@ -1839,7 +1940,7 @@ def test_get_dataset_records(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = (records, None)
 
     dataset_id = "d-1234567890abcdef1234567890abcdef"
-    with app.test_request_context(method="GET"):
+    with mock_request_context(method="GET"):
         resp = _get_dataset_records_handler(dataset_id)
 
     mock_tracking_store._load_dataset_records.assert_called_with(
@@ -1853,7 +1954,7 @@ def test_get_dataset_records(mock_tracking_store):
 
     mock_tracking_store._load_dataset_records.return_value = (records[:2], "token_page2")
 
-    with app.test_request_context(
+    with mock_request_context(
         method="GET",
         json={
             "max_results": 2,
@@ -1873,7 +1974,7 @@ def test_get_dataset_records(mock_tracking_store):
 
     mock_tracking_store._load_dataset_records.return_value = (records[2:], None)
 
-    with app.test_request_context(
+    with mock_request_context(
         method="GET",
         json={
             "max_results": 2,
@@ -1896,7 +1997,7 @@ def test_get_dataset_records_empty(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = ([], None)
 
     dataset_id = "d-1234567890abcdef1234567890abcdef"
-    with app.test_request_context(method="GET"):
+    with mock_request_context(method="GET"):
         resp = _get_dataset_records_handler(dataset_id)
 
     response_data = json.loads(resp.get_data())
@@ -1929,7 +2030,7 @@ def test_get_dataset_records_pagination(mock_tracking_store):
         all_records.append(record)
     mock_tracking_store._load_dataset_records.return_value = (all_records[:20], "token_20")
 
-    with app.test_request_context(
+    with mock_request_context(
         method="GET",
         json={"max_results": 20},
     ):
@@ -1947,7 +2048,7 @@ def test_get_dataset_records_pagination(mock_tracking_store):
     assert records_data[19]["dataset_record_id"] == "r-019"
     mock_tracking_store._load_dataset_records.return_value = (all_records[20:40], "token_40")
 
-    with app.test_request_context(
+    with mock_request_context(
         method="GET",
         json={"max_results": 20, "page_token": "token_20"},
     ):
@@ -1964,7 +2065,7 @@ def test_get_dataset_records_pagination(mock_tracking_store):
     assert records_data[0]["dataset_record_id"] == "r-020"
     mock_tracking_store._load_dataset_records.return_value = (all_records[40:], None)
 
-    with app.test_request_context(
+    with mock_request_context(
         method="GET",
         json={"max_results": 20, "page_token": "token_40"},
     ):
@@ -2881,7 +2982,7 @@ def test_get_trace_artifact_handler(mock_tracking_store):
     mock_tracking_store.get_trace.return_value = mock_trace
     mock_tracking_store.batch_get_traces.return_value = [mock_trace]
 
-    with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+    with mock_request_context(method="GET", query_string={"request_id": trace_id}):
         response = get_trace_artifact_handler()
 
     # Verify the store was called correctly
@@ -2894,7 +2995,7 @@ def test_get_trace_artifact_handler(mock_tracking_store):
 
 
 def test_get_trace_artifact_handler_missing_request_id(mock_tracking_store):
-    with app.test_request_context(method="GET"):
+    with mock_request_context(method="GET"):
         response = get_trace_artifact_handler()
 
     assert response.status_code == 400
@@ -2911,7 +3012,7 @@ def test_get_trace_artifact_handler_trace_not_found(mock_tracking_store):
         error_code=RESOURCE_DOES_NOT_EXIST,
     )
 
-    with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+    with mock_request_context(method="GET", query_string={"request_id": trace_id}):
         response = get_trace_artifact_handler()
 
     mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
@@ -2956,7 +3057,7 @@ def test_get_trace_artifact_handler_fallback_to_batch_get_traces(mock_tracking_s
     )
     mock_tracking_store.batch_get_traces.return_value = [mock_trace]
 
-    with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+    with mock_request_context(method="GET", query_string={"request_id": trace_id}):
         response = get_trace_artifact_handler()
 
     # Verify both methods were called
@@ -2979,7 +3080,7 @@ def test_get_trace_artifact_handler_batch_get_traces_not_found(mock_tracking_sto
     # batch_get_traces returns empty list (trace not found)
     mock_tracking_store.batch_get_traces.return_value = []
 
-    with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+    with mock_request_context(method="GET", query_string={"request_id": trace_id}):
         response = get_trace_artifact_handler()
 
     # Verify both methods were called
@@ -3037,7 +3138,7 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_stor
     with mock.patch(
         "mlflow.server.handlers._get_trace_artifact_repo", return_value=mock_artifact_repo
     ):
-        with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+        with mock_request_context(method="GET", query_string={"request_id": trace_id}):
             response = get_trace_artifact_handler()
 
     # Verify the fallback path was taken
@@ -3073,7 +3174,7 @@ def test_get_trace_artifact_handler_with_attachment_path(mock_tracking_store):
         "mlflow.server.handlers._get_trace_artifact_repo", return_value=mock_artifact_repo
     ):
         query = {"request_id": trace_id, "path": attachment_id}
-        with app.test_request_context(method="GET", query_string=query):
+        with mock_request_context(method="GET", query_string=query):
             response = get_trace_artifact_handler()
 
     mock_tracking_store.get_trace_info.assert_called_once_with(trace_id)
@@ -3107,7 +3208,7 @@ def test_get_trace_artifact_handler_falls_back_to_archive_repo(mock_tracking_sto
     with mock.patch(
         "mlflow.server.handlers._get_trace_archive_repo", return_value=mock_archive_repo
     ):
-        with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+        with mock_request_context(method="GET", query_string={"request_id": trace_id}):
             response = get_trace_artifact_handler()
 
     mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
@@ -3119,7 +3220,7 @@ def test_get_trace_artifact_handler_falls_back_to_archive_repo(mock_tracking_sto
 
 def test_get_trace_artifact_handler_attachment_missing_request_id():
     query = {"path": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"}
-    with app.test_request_context(method="GET", query_string=query):
+    with mock_request_context(method="GET", query_string=query):
         response = get_trace_artifact_handler()
     assert response.status_code == 400
 
@@ -3128,7 +3229,7 @@ def test_get_trace_artifact_handler_attachment_trace_not_found(mock_tracking_sto
     mock_tracking_store.get_trace_info.return_value = None
 
     query = {"request_id": "tr-nonexistent", "path": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"}
-    with app.test_request_context(method="GET", query_string=query):
+    with mock_request_context(method="GET", query_string=query):
         response = get_trace_artifact_handler()
     assert response.status_code == 404
 
@@ -3775,7 +3876,7 @@ def test_invoke_scorer_submits_jobs(mock_tracking_store):
 
 
 def test_get_ui_telemetry_handler(
-    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
+    mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
     config = {
         "disable_telemetry": False,
@@ -3811,7 +3912,7 @@ def test_get_ui_telemetry_handler(
 
 
 def test_get_ui_telemetry_handler_disabled_by_config(
-    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
+    mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
     config = {
         "disable_telemetry": True,
@@ -3837,7 +3938,7 @@ def test_get_ui_telemetry_handler_disabled_by_config(
 
 
 def test_get_ui_telemetry_handler_disabled_by_env(
-    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check, monkeypatch
+    mock_telemetry_config_cache, bypass_telemetry_env_check, monkeypatch
 ):
     monkeypatch.setenv("DO_NOT_TRACK", "true")
     with mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config") as mock_fetch:
@@ -3855,7 +3956,7 @@ def test_get_ui_telemetry_handler_disabled_by_env(
 
 
 def test_get_ui_telemetry_handler_fallback_values(
-    test_app_context, mock_telemetry_config_cache, bypass_telemetry_env_check
+    mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
     config_without_ui_fields = {
         "disable_telemetry": False,
@@ -3888,7 +3989,7 @@ def test_get_ui_telemetry_handler_fallback_values(
 
 
 def test_post_ui_telemetry_handler_success(
-    test_app, mock_telemetry_config_cache, bypass_telemetry_env_check
+    mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
     event1 = {
         "event_name": "test_event_1",
@@ -3911,7 +4012,7 @@ def test_post_ui_telemetry_handler_success(
 
     server_install_id = "server-install-789"
     with (
-        test_app.test_request_context(
+        mock_request_context(
             "/ui-telemetry", method="POST", data=request, content_type="application/json"
         ),
         mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config),
@@ -3947,7 +4048,7 @@ def test_post_ui_telemetry_handler_success(
 
 
 def test_post_ui_telemetry_handler_telemetry_disabled_by_config(
-    test_app, mock_telemetry_config_cache, bypass_telemetry_env_check
+    mock_telemetry_config_cache, bypass_telemetry_env_check
 ):
     event = {
         "event_name": "test_event_1",
@@ -3964,7 +4065,7 @@ def test_post_ui_telemetry_handler_telemetry_disabled_by_config(
     mock_client = mock.MagicMock()
 
     with (
-        test_app.test_request_context(
+        mock_request_context(
             "/ui-telemetry", method="POST", data=request, content_type="application/json"
         ),
         mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config),
@@ -3982,12 +4083,12 @@ def test_post_ui_telemetry_handler_telemetry_disabled_by_config(
 
 
 def test_post_ui_telemetry_handler_telemetry_disabled_by_env(
-    test_app, mock_telemetry_config_cache, bypass_telemetry_env_check, monkeypatch
+    mock_telemetry_config_cache, bypass_telemetry_env_check, monkeypatch
 ):
     monkeypatch.setenv("DO_NOT_TRACK", "true")
     request = json.dumps({"records": []})
     with (
-        test_app.test_request_context(
+        mock_request_context(
             "/ui-telemetry", method="POST", data=request, content_type="application/json"
         ),
         mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config") as mock_fetch,
@@ -4017,7 +4118,7 @@ def test_send_artifact_prefers_local_path(tmp_path):
     mock_artifact_repo.get_local_path.return_value = str(test_file)
 
     with (
-        app.test_request_context(method="GET"),
+        mock_request_context(method="GET"),
         mock.patch("mlflow.server.handlers.tempfile.TemporaryDirectory") as mock_tmp_dir,
     ):
         response = _send_artifact(mock_artifact_repo, artifact_path)
@@ -4040,7 +4141,7 @@ def test_send_artifact_falls_back_to_download_when_local_path_unavailable(tmp_pa
     mock_artifact_repo.get_local_path.return_value = None
     mock_artifact_repo.download_artifacts.return_value = str(test_file)
 
-    with app.test_request_context(method="GET"):
+    with mock_request_context(method="GET"):
         response = _send_artifact(mock_artifact_repo, artifact_path)
 
     response.direct_passthrough = False
@@ -4054,7 +4155,7 @@ def test_create_artifact_file_response_uses_local_path_mimetype_and_artifact_nam
     test_file = tmp_path / "payload.html"
     test_file.write_text("<html><body>ok</body></html>")
 
-    with app.test_request_context(method="GET"):
+    with mock_request_context(method="GET"):
         response = _create_artifact_file_response(str(test_file), "artifacts/model.txt")
 
     assert response.mimetype == "text/html"
@@ -4065,7 +4166,7 @@ def test_create_artifact_file_response_quotes_token_unsafe_ascii_artifact_name(t
     test_file = tmp_path / "payload.html"
     test_file.write_text("<html><body>ok</body></html>")
 
-    with app.test_request_context(method="GET"):
+    with mock_request_context(method="GET"):
         response = _create_artifact_file_response(str(test_file), "artifacts/my model;a.txt")
 
     assert response.headers["Content-Disposition"] == 'attachment; filename="my model;a.txt"'
@@ -4078,7 +4179,7 @@ def test_download_artifact_uses_local_path_fast_path(enable_serve_artifacts, tmp
     test_file.write_bytes(test_data)
 
     with (
-        app.test_request_context(method="GET"),
+        mock_request_context(method="GET"),
         mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
         mock.patch("mlflow.server.handlers.tempfile.TemporaryDirectory") as mock_tmp_dir,
     ):
@@ -4109,7 +4210,7 @@ def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
     test_file.write_bytes(test_data)
 
     with (
-        app.test_request_context(method="GET"),
+        mock_request_context(method="GET"),
         mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
         mock.patch("mlflow.server.handlers.tempfile.TemporaryDirectory") as mock_tmp_dir,
     ):
@@ -4150,7 +4251,7 @@ def test_download_artifact_cleans_up_tmp_dir_when_download_fails(enable_serve_ar
     artifact_path = "test_model/model.pkl"
 
     with (
-        app.test_request_context(method="GET"),
+        mock_request_context(method="GET"),
         mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
         mock.patch("mlflow.server.handlers.tempfile.TemporaryDirectory") as mock_tmp_dir,
     ):
@@ -4184,7 +4285,7 @@ def test_download_artifact_returns_404_for_missing_azure_blob(enable_serve_artif
     )
 
     with (
-        app.test_request_context(method="GET"),
+        mock_request_context(method="GET"),
         mock.patch(
             "mlflow.server.handlers._get_artifact_repo_mlflow_artifacts",
             return_value=artifact_repo,
@@ -4216,7 +4317,7 @@ def test_download_artifact_returns_404_for_missing_azure_blob(enable_serve_artif
 def test_response_with_file_attachment_headers_encodes_non_ascii_filename(
     file_path, expected_simple, expected_quoted
 ):
-    with app.test_request_context():
+    with mock_request_context():
         response = _response_with_file_attachment_headers(file_path, Response())
 
     header = response.headers["Content-Disposition"]
@@ -4237,7 +4338,7 @@ def test_response_with_file_attachment_headers_encodes_non_ascii_filename(
 def test_response_with_file_attachment_headers_ascii_filename_preserves_werkzeug_quoting(
     filename, expected_header
 ):
-    with app.test_request_context():
+    with mock_request_context():
         response = _response_with_file_attachment_headers(filename, Response())
 
     assert response.headers["Content-Disposition"] == expected_header
@@ -4314,7 +4415,7 @@ def test_create_prompt_optimization_job(mock_tracking_store):
             "mlflow.genai.datasets.get_dataset", return_value=mock_dataset
         ) as mock_get_dataset,
     ):
-        with app.test_request_context(
+        with mock_request_context(
             method="POST",
             json={
                 "experiment_id": "exp-123",
@@ -4375,7 +4476,7 @@ def test_create_prompt_optimization_job_zero_shot(mock_tracking_store):
         mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job_entity),
         mock.patch("mlflow.server.handlers._get_user", return_value="test_user"),
     ):
-        with app.test_request_context(
+        with mock_request_context(
             method="POST",
             json={
                 "experiment_id": "exp-123",
@@ -4402,7 +4503,7 @@ def test_create_prompt_optimization_job_zero_shot(mock_tracking_store):
 
 
 def test_create_prompt_optimization_job_missing_prompt_uri(mock_tracking_store):
-    with app.test_request_context(
+    with mock_request_context(
         method="POST",
         json={
             "experiment_id": "exp-123",
@@ -4421,7 +4522,7 @@ def test_create_prompt_optimization_job_missing_prompt_uri(mock_tracking_store):
 
 
 def test_create_prompt_optimization_job_unspecified_optimizer_type(mock_tracking_store):
-    with app.test_request_context(
+    with mock_request_context(
         method="POST",
         json={
             "experiment_id": "exp-123",
@@ -4441,7 +4542,7 @@ def test_create_prompt_optimization_job_unspecified_optimizer_type(mock_tracking
 
 
 def test_create_prompt_optimization_job_invalid_optimizer_config_json(mock_tracking_store):
-    with app.test_request_context(
+    with mock_request_context(
         method="POST",
         json={
             "experiment_id": "exp-123",
@@ -4462,7 +4563,7 @@ def test_create_prompt_optimization_job_invalid_optimizer_config_json(mock_track
 
 
 def test_create_prompt_optimization_job_missing_experiment_id(mock_tracking_store):
-    with app.test_request_context(
+    with mock_request_context(
         method="POST",
         json={
             "experiment_id": "",  # Empty experiment_id
@@ -4504,7 +4605,7 @@ def test_cancel_prompt_optimization_job():
     ):
         mock_tracking_store = mock.Mock()
         mock_store.return_value = mock_tracking_store
-        with app.test_request_context(method="POST"):
+        with mock_request_context(method="POST"):
             response = _cancel_prompt_optimization_job("job-123")
 
         # Verify that the underlying run was terminated
@@ -4975,7 +5076,7 @@ def test_get_artifact_handler_applies_workspace_scoping(monkeypatch):
         mock_repo.return_value = mock_artifact_repo
 
         with WorkspaceContext("team-blue"):
-            with app.test_request_context(
+            with mock_request_context(
                 method="GET", query_string={"run_id": "run1", "path": "model/weights.bin"}
             ):
                 get_artifact_handler()
@@ -5003,7 +5104,7 @@ def test_get_artifact_handler_no_scoping_when_workspaces_disabled(monkeypatch):
         mock_store.return_value.get_run.return_value = mock_run
         mock_repo.return_value = mock_artifact_repo
 
-        with app.test_request_context(
+        with mock_request_context(
             method="GET", query_string={"run_id": "run1", "path": "model/weights.bin"}
         ):
             get_artifact_handler()
@@ -5031,7 +5132,7 @@ def test_get_model_version_artifact_handler_applies_workspace_scoping(monkeypatc
         mock_repo.return_value = mock_artifact_repo
 
         with WorkspaceContext("team-red"):
-            with app.test_request_context(
+            with mock_request_context(
                 method="GET", query_string={"name": "MyModel", "version": "1", "path": "model.pkl"}
             ):
                 get_model_version_artifact_handler()
@@ -5060,7 +5161,7 @@ def test_get_logged_model_artifact_handler_applies_workspace_scoping(monkeypatch
         mock_repo.return_value = mock_artifact_repo
 
         with WorkspaceContext("team-green"):
-            with app.test_request_context(
+            with mock_request_context(
                 method="GET", query_string={"artifact_file_path": "MLmodel"}
             ):
                 get_logged_model_artifact_handler("model123")
@@ -5090,7 +5191,7 @@ def test_upload_artifact_handler_applies_workspace_scoping(monkeypatch):
         mock_repo.return_value = mock_artifact_repo
 
         with WorkspaceContext("team-purple"):
-            with app.test_request_context(
+            with mock_request_context(
                 method="POST",
                 query_string={"run_uuid": "run1", "path": "output.txt"},
                 data=b"test data",
@@ -5449,7 +5550,7 @@ def test_get_issue():
     with mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store:
         mock_store.return_value.get_issue.return_value = issue
 
-        with app.test_request_context():
+        with mock_request_context():
             response = _get_issue("iss-get-123")
 
         mock_store.return_value.get_issue.assert_called_once_with("iss-get-123")
@@ -5467,7 +5568,7 @@ def test_get_issue_not_found():
             "Issue not found", error_code=RESOURCE_DOES_NOT_EXIST
         )
 
-        with app.test_request_context():
+        with mock_request_context():
             response = _get_issue("nonexistent-id")
 
         # The @catch_mlflow_exception decorator catches and returns error as JSON

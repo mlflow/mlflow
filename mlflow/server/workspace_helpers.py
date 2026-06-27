@@ -3,8 +3,6 @@ from __future__ import annotations
 import logging
 import os
 
-from flask import Response, request
-
 from mlflow.entities import Workspace
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
@@ -12,6 +10,8 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
+from mlflow.server.request_context import get_request
+from mlflow.server.responses import _CompatResponse
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.tracking._workspace.registry import get_workspace_store
@@ -79,7 +79,7 @@ def _get_workspace_store(workspace_uri: str | None = None, tracking_uri: str | N
     return _workspace_store
 
 
-def _workspace_error_response(exc: Exception) -> Response:
+def _workspace_error_response(exc: Exception) -> _CompatResponse:
     if isinstance(exc, MlflowException):
         mlflow_exc = exc
     else:
@@ -87,13 +87,13 @@ def _workspace_error_response(exc: Exception) -> Response:
             str(exc),
             error_code=databricks_pb2.INTERNAL_ERROR,
         )
-        # Preserve the original stack for debugging by chaining the exception.
         mlflow_exc.__cause__ = exc
 
-    response = Response(mimetype="application/json")
-    response.set_data(mlflow_exc.serialize_as_json())
-    response.status_code = mlflow_exc.get_http_status_code()
-    return response
+    return _CompatResponse(
+        content=mlflow_exc.serialize_as_json(),
+        status_code=mlflow_exc.get_http_status_code(),
+        media_type="application/json",
+    )
 
 
 def resolve_workspace_for_request_if_enabled(
@@ -126,14 +126,13 @@ def resolve_workspace_for_request_if_enabled(
 
 
 def workspace_before_request_handler():
-    # FastAPI middleware may have already resolved the workspace for this request, and the
-    # server does not set the env var so this should reflect request-scoped state.
     if workspace_context.is_request_workspace_resolved():
         return None
 
-    header_value = request.headers.get(WORKSPACE_HEADER_NAME)
+    req = get_request()
+    header_value = req.headers.get(WORKSPACE_HEADER_NAME)
     try:
-        workspace = resolve_workspace_for_request_if_enabled(request.path, header_value)
+        workspace = resolve_workspace_for_request_if_enabled(req.path, header_value)
     except MlflowException as exc:
         return _workspace_error_response(exc)
 

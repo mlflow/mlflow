@@ -6,24 +6,24 @@ NOT SUITABLE FOR PRODUCTION USE.
 import logging
 
 import jwt
-from flask import Response, make_response, request
-from werkzeug.datastructures import Authorization
+
+from mlflow.server.request_context import Authorization, get_request
+from mlflow.server.responses import _CompatResponse
 
 BEARER_PREFIX = "bearer "
 
 _logger = logging.getLogger(__name__)
 
 
-def authenticate_request() -> Authorization | Response:
+def authenticate_request() -> Authorization | _CompatResponse:
     _logger.debug("Getting token")
-    error_response = make_response()
-    error_response.status_code = 401
-    error_response.set_data(
-        "You are not authenticated. Please provide a valid JWT Bearer token with the request."
+    error_response = _CompatResponse(
+        content="You are not authenticated. Please provide a valid JWT Bearer token with the request.",
+        status_code=401,
+        headers={"WWW-Authenticate": 'Bearer error="invalid_token"'},
     )
-    error_response.headers["WWW-Authenticate"] = 'Bearer error="invalid_token"'
 
-    token = request.headers.get("Authorization")
+    token = get_request().headers.get("Authorization")
     if token is not None and token.lower().startswith(BEARER_PREFIX):
         token = token[len(BEARER_PREFIX) :]  # Remove prefix
         try:

@@ -6,7 +6,6 @@ from urllib.parse import quote, unquote
 from sqlalchemy import and_, or_, select, text
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 from sqlalchemy.orm import selectinload, sessionmaker
-from werkzeug.security import check_password_hash, generate_password_hash
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
@@ -35,6 +34,7 @@ from mlflow.server.auth.entities import (
     UserRoleAssignment,
     WorkspacePermission,
 )
+from mlflow.server.auth.password import check_password_hash, generate_password_hash
 from mlflow.server.auth.permissions import (
     MANAGE,
     RESOURCE_TYPE_EXPERIMENT,

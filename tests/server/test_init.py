@@ -58,32 +58,6 @@ def test_find_app_non_existing_app():
         server._find_app("does_not_exist")
 
 
-def test_build_waitress_command():
-    assert server._build_waitress_command(
-        "", "localhost", "5000", f"{server.__name__}:app", is_factory=True
-    ) == [
-        sys.executable,
-        "-m",
-        "waitress",
-        "--host=localhost",
-        "--port=5000",
-        "--ident=mlflow",
-        "--call",
-        "mlflow.server:app",
-    ]
-    assert server._build_waitress_command(
-        "", "localhost", "5000", f"{server.__name__}:app", is_factory=False
-    ) == [
-        sys.executable,
-        "-m",
-        "waitress",
-        "--host=localhost",
-        "--port=5000",
-        "--ident=mlflow",
-        "mlflow.server:app",
-    ]
-
-
 def test_build_gunicorn_command():
     assert server._build_gunicorn_command(
         "", "localhost", "5000", "4", f"{server.__name__}:app"
@@ -91,6 +65,8 @@ def test_build_gunicorn_command():
         sys.executable,
         "-m",
         "gunicorn",
+        "-k",
+        "uvicorn.workers.UvicornWorker",
         "-b",
         "localhost:5000",
         "-w",

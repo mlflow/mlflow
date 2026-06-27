@@ -315,16 +315,24 @@ def _validate_server_args(
                 "gunicorn is not supported on Windows, cannot specify --gunicorn-opts"
             )
 
-    num_server_opts_specified = sum(
-        1 for opt in [gunicorn_opts, waitress_opts, uvicorn_opts] if opt is not None
-    )
+    if waitress_opts is not None:
+        import warnings
+
+        warnings.warn(
+            "--waitress-opts is deprecated and will be removed in a future release. "
+            "The server now uses uvicorn by default. Use '--uvicorn-opts' instead.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
+    num_server_opts_specified = sum(1 for opt in [gunicorn_opts, uvicorn_opts] if opt is not None)
     if num_server_opts_specified > 1:
         raise click.UsageError(
             "Cannot specify multiple server options. Choose one of: "
-            "'--gunicorn-opts', '--waitress-opts', or '--uvicorn-opts'."
+            "'--gunicorn-opts' or '--uvicorn-opts'."
         )
 
-    using_flask_only = gunicorn_opts is not None or waitress_opts is not None
+    using_flask_only = gunicorn_opts is not None
     # NB: Only check for security params that are explicitly passed via CLI (not env vars)
     # This allows Docker containers to set env vars while using gunicorn
     from click.core import ParameterSource
@@ -446,7 +454,10 @@ def _validate_static_prefix(ctx, param, value):
     help="Additional command line options forwarded to gunicorn processes.",
 )
 @click.option(
-    "--waitress-opts", default=None, help="Additional command line options for waitress-serve."
+    "--waitress-opts",
+    default=None,
+    hidden=True,
+    help="Deprecated. The server now uses uvicorn by default. Use '--uvicorn-opts' instead.",
 )
 @click.option(
     "--uvicorn-opts",

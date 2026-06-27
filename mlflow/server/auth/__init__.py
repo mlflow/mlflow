@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import functools
+import hashlib
 import hmac
 import importlib
 import json
@@ -26,12 +27,8 @@ import sqlalchemy
 from cachetools import TTLCache
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
-from flask import (
-    Flask,
-    flash,
-    render_template_string,
-)
 from starlette.requests import Request as StarletteRequest
+from starlette.responses import HTMLResponse
 
 from mlflow import MlflowException
 from mlflow.entities import Experiment
@@ -39,19 +36,23 @@ from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
-    _MLFLOW_SGI_NAME,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_RBAC_SEED_DEFAULT_ROLES,
     MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH,
 )
+from mlflow.environment_variables import (
+    _MLFLOW_SGI_NAME as _MLFLOW_SGI_NAME,
+)
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
-    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
+)
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR as INTERNAL_ERROR,
 )
 from mlflow.protos.label_schemas_pb2 import (
     CreateLabelSchema,
@@ -215,7 +216,6 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
-from mlflow.server import _starlette_to_flask, app
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
 from mlflow.server.auth.entities import GetUserPermissionResult, User
@@ -343,14 +343,6 @@ from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
-
-try:
-    from flask_wtf.csrf import CSRFProtect
-except ImportError as e:
-    raise ImportError(
-        "The MLflow basic auth app requires the Flask-WTF package to perform CSRF "
-        "validation. Please run `pip install mlflow[auth]` to install it."
-    ) from e
 
 _logger = logging.getLogger(__name__)
 
@@ -2517,10 +2509,19 @@ def get_before_request_handler(request_class):
 @functools.lru_cache(maxsize=None)
 def _re_compile_path(path: str) -> re.Pattern:
     """
-    Convert a path with angle brackets to a regex pattern. For example,
-    "/api/2.0/experiments/<experiment_id>" becomes "/api/2.0/experiments/([^/]+)".
+    Convert a path with angle brackets to a regex pattern with named groups.
+
+    "/api/2.0/experiments/<experiment_id>" becomes
+    "/api/2.0/experiments/(?P<experiment_id>[^/]+)".
     """
-    return re.compile(re.sub(r"<([^>]+)>", r"([^/]+)", path))
+
+    def _named_group(m: re.Match) -> str:
+        param = m.group(1)
+        if param.startswith("path:"):
+            return f"(?P<{param[5:]}>.+)"
+        return f"(?P<{param}>[^/]+)"
+
+    return re.compile(re.sub(r"<([^>]+)>", _named_group, path))
 
 
 BEFORE_REQUEST_VALIDATORS = {
@@ -2680,8 +2681,22 @@ WEBHOOK_BEFORE_REQUEST_VALIDATORS = {
 
 _AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
 
+_ALL_PARAMETERIZED_PATH_PATTERNS: list[re.Pattern] = list({
+    pat
+    for patterns in (
+        TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS,
+        LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS,
+        WEBHOOK_BEFORE_REQUEST_VALIDATORS,
+    )
+    for (pat, _method) in patterns
+})
 
-_AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
+
+def _extract_parameterized_view_args(path: str) -> dict[str, str]:
+    for pat in _ALL_PARAMETERIZED_PATH_PATTERNS:
+        if m := pat.fullmatch(path):
+            return m.groupdict()
+    return {}
 
 
 _PROXY_ARTIFACT_PREFIXES = [
@@ -2716,7 +2731,7 @@ def _is_proxy_artifact_path(path: str) -> bool:
 def _extract_artifact_view_args(path: str) -> dict[str, str]:
     for prefix in _PROXY_ARTIFACT_PREFIXES:
         if path.startswith(prefix):
-            return {"artifact_path": path[len(prefix):]}
+            return {"artifact_path": path[len(prefix) :]}
     return {}
 
 
@@ -3608,29 +3623,33 @@ def _warn_if_default_admin_password(password):
         )
 
 
-def alert(href: str):
-    return render_template_string(
-        r"""
-<script type = "text/javascript">
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    {% for message in messages %}
-      alert("{{ message }}");
-    {% endfor %}
-  {% endif %}
-{% endwith %}
-      window.location.href = "{{ href }}";
-</script>
-""",
-        href=href,
+def _generate_csrf_token(secret_key: str) -> str:
+    token = secrets.token_hex(32)
+    sig = hmac.new(secret_key.encode(), token.encode(), hashlib.sha256).hexdigest()
+    return f"{token}.{sig}"
+
+
+def _validate_csrf_token(token: str, secret_key: str) -> bool:
+    if not token or "." not in token:
+        return False
+    raw, _, sig = token.partition(".")
+    expected = hmac.new(secret_key.encode(), raw.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(sig, expected)
+
+
+def _alert_and_redirect(message: str, href: str):
+    return HTMLResponse(
+        f'<script type="text/javascript">'
+        f"alert({json.dumps(message)});"
+        f"window.location.href = {json.dumps(href)};"
+        f"</script>"
     )
 
 
-def signup():
-    return render_template_string(
-        r"""
-<style>
-  form {
+def signup(secret_key: str):
+    csrf_token = _generate_csrf_token(secret_key)
+    html = f"""<style>
+  form {{
     background-color: #F5F5F5;
     border: 1px solid #CCCCCC;
     border-radius: 4px;
@@ -3640,17 +3659,16 @@ def signup():
     font-family: Arial, sans-serif;
     font-size: 14px;
     line-height: 1.5;
-  }
-
-  input[type=text], input[type=password] {
+  }}
+  input[type=text], input[type=password] {{
     width: 100%;
     padding: 10px;
     margin-bottom: 10px;
     border: 1px solid #CCCCCC;
     border-radius: 4px;
     box-sizing: border-box;
-  }
-  input[type=submit] {
+  }}
+  input[type=submit] {{
     background-color: rgb(34, 114, 180);
     color: #FFFFFF;
     border: none;
@@ -3659,31 +3677,25 @@ def signup():
     cursor: pointer;
     font-size: 16px;
     font-weight: bold;
-  }
-
-  input[type=submit]:hover {
+  }}
+  input[type=submit]:hover {{
     background-color: rgb(14, 83, 139);
-  }
-
-  .logo-container {
+  }}
+  .logo-container {{
     display: flex;
     align-items: center;
     justify-content: center;
     margin-bottom: 10px;
-  }
-
-  .logo {
+  }}
+  .logo {{
     max-width: 150px;
     margin-right: 10px;
-  }
+  }}
 </style>
-
-<form action="{{ users_route }}" method="post">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+<form action="{CREATE_USER_UI}" method="post">
+  <input type="hidden" name="csrf_token" value="{csrf_token}"/>
   <div class="logo-container">
-    {% autoescape false %}
-    {{ mlflow_logo }}
-    {% endautoescape %}
+    {MLFLOW_LOGO}
   </div>
   <label for="username">Username:</label>
   <br>
@@ -3695,33 +3707,31 @@ def signup():
   <br>
   <br>
   <input type="submit" value="Sign up">
-</form>
-""",
-        mlflow_logo=MLFLOW_LOGO,
-        users_route=CREATE_USER_UI,
-    )
+</form>"""
+    return HTMLResponse(html)
 
 
 @catch_mlflow_exception
-def create_user_ui(csrf):
-    csrf.protect()
+def create_user_ui(secret_key: str):
     req = get_request()
+    csrf_token = req.form.get("csrf_token", "")
+    if not _validate_csrf_token(csrf_token, secret_key):
+        return text_response("CSRF validation failed.", 403)
+
     content_type = req.headers.get("Content-Type")
     if content_type == "application/x-www-form-urlencoded":
-        username = req.form["username"]
-        password = req.form["password"]
+        username = req.form.get("username", "")
+        password = req.form.get("password", "")
 
         if not username or not password:
             message = "Username and password cannot be empty."
             return text_response(message, 400)
 
         if store.has_user(username):
-            flash(f"Username has already been taken: {username}")
-            return alert(href=SIGNUP)
+            return _alert_and_redirect(f"Username has already been taken: {username}", SIGNUP)
 
         store.create_user(username, password)
-        flash(f"Successfully signed up user: {username}")
-        return alert(href=HOME)
+        return _alert_and_redirect(f"Successfully signed up user: {username}", HOME)
     else:
         message = "Invalid content type. Must be application/x-www-form-urlencoded"
         return text_response(message, 400)
@@ -4452,10 +4462,12 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         # (auth + permission check) and _after_request (auto-grant on create).
         shim = await from_starlette_request(request)
         # Middleware runs before routing, so path params aren't available
-        # on the Starlette request yet.  Extract them from the URL for the
-        # artifact proxy routes that depend on view_args.
+        # on the Starlette request yet.  Extract them from the URL for
+        # routes whose validators depend on view_args.
         if _is_proxy_artifact_path(path):
             shim.view_args = _extract_artifact_view_args(path)
+        elif extracted := _extract_parameterized_view_args(path):
+            shim.view_args = extracted
         set_request(shim)
         try:
             result = _before_request()
@@ -4488,11 +4500,13 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                     media_type=response.media_type,
                 )
                 _after_request(compat)
+                resp_headers = dict(response.headers)
+                resp_headers["content-length"] = str(len(compat.body))
                 return Response(
-                    content=body,
-                    status_code=response.status_code,
-                    headers=dict(response.headers),
-                    media_type=response.media_type,
+                    content=compat.body,
+                    status_code=compat.status_code,
+                    headers=resp_headers,
+                    media_type=compat.media_type,
                 )
 
             return response
@@ -4526,12 +4540,12 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
 ]
 
 
-def _register_auth_routes_on_fastapi(fastapi_app, csrf) -> None:
+def _register_auth_routes_on_fastapi(fastapi_app, secret_key: str) -> None:
     from starlette.responses import Response
 
     _auth_routes: list[tuple[Callable, str, list[str]]] = [
-        (signup, SIGNUP, ["GET"]),
-        (lambda: create_user_ui(csrf), CREATE_USER_UI, ["POST"]),
+        (lambda: signup(secret_key), SIGNUP, ["GET"]),
+        (lambda: create_user_ui(secret_key), CREATE_USER_UI, ["POST"]),
     ]
     for handler, rest_path, ajax_path in [
         (get_user, GET_USER, AJAX_GET_USER),
@@ -4570,25 +4584,13 @@ def _register_auth_routes_on_fastapi(fastapi_app, csrf) -> None:
         fastapi_app.add_api_route(path, handler, methods=methods, response_class=Response)
 
 
-def create_app(app: Flask = app):
-    """
-    A factory to enable authentication and authorization for the MLflow server.
-
-    Args:
-        app: The Flask app to enable authentication and authorization for.
-
-    Returns:
-        The app with authentication and authorization enabled.
-    """
+def create_app():
     global _auth_initialized
 
     _logger.warning(
         "This feature is still experimental and may change in a future release without warning"
     )
 
-    # a secret key is required for flashing, and also for
-    # CSRF protection. it's important that this is a static key,
-    # otherwise CSRF validation won't work across workers.
     secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
     if not secret_key:
         raise MlflowException(
@@ -4599,14 +4601,6 @@ def create_app(app: Flask = app):
             "If you are using multiple servers, please ensure this key is consistent between "
             "them, in order to prevent validation issues."
         )
-    app.secret_key = secret_key
-
-    # we only need to protect the CREATE_USER_UI route, since that's
-    # the only browser-accessible route. the rest are client / REST
-    # APIs that do not have access to the CSRF token for validation
-    app.config["WTF_CSRF_CHECK_DEFAULT"] = False
-    csrf = CSRFProtect()
-    csrf.init_app(app)
 
     store.init_db(
         auth_config.database_uri,
@@ -4617,59 +4611,7 @@ def create_app(app: Flask = app):
 
     _auth_initialized = True
 
-    # Auth handlers return Starlette responses (_CompatResponse). When running
-    # under Flask (waitress / test client), wrap them so Flask gets Flask
-    # Response objects, matching the pattern used in mlflow.server.__init__.
-    # Wrap each function once so Flask sees a single endpoint per handler.
-    _flask_signup = _starlette_to_flask(signup)
-    _flask_create_user_ui = _starlette_to_flask(lambda: create_user_ui(csrf))
-    _flask_create_user = _starlette_to_flask(create_user)
-    _flask_get_user = _starlette_to_flask(get_user)
-    _flask_list_users = _starlette_to_flask(list_users)
-    _flask_get_current_user = _starlette_to_flask(get_current_user)
-    _flask_list_current_user_permissions = _starlette_to_flask(list_current_user_permissions)
-    _flask_list_user_permissions = _starlette_to_flask(list_user_permissions)
-    _flask_update_user_password = _starlette_to_flask(update_user_password)
-    _flask_update_user_admin = _starlette_to_flask(update_user_admin)
-    _flask_delete_user = _starlette_to_flask(delete_user)
-
-    app.add_url_rule(rule=SIGNUP, view_func=_flask_signup, methods=["GET"])
-    app.add_url_rule(rule=CREATE_USER_UI, view_func=_flask_create_user_ui, methods=["POST"])
-    for rule in [CREATE_USER, AJAX_CREATE_USER]:
-        app.add_url_rule(rule=rule, view_func=_flask_create_user, methods=["POST"])
-    for rule in [GET_USER, AJAX_GET_USER]:
-        app.add_url_rule(rule=rule, view_func=_flask_get_user, methods=["GET"])
-    for rule in [LIST_USERS, AJAX_LIST_USERS]:
-        app.add_url_rule(rule=rule, view_func=_flask_list_users, methods=["GET"])
-    for rule in [GET_CURRENT_USER, AJAX_GET_CURRENT_USER]:
-        app.add_url_rule(rule=rule, view_func=_flask_get_current_user, methods=["GET"])
-    for rule in [LIST_CURRENT_USER_PERMISSIONS, AJAX_LIST_CURRENT_USER_PERMISSIONS]:
-        app.add_url_rule(
-            rule=rule, view_func=_flask_list_current_user_permissions, methods=["GET"]
-        )
-    for rule in [LIST_USER_PERMISSIONS, AJAX_LIST_USER_PERMISSIONS]:
-        app.add_url_rule(rule=rule, view_func=_flask_list_user_permissions, methods=["GET"])
-    for rule in [UPDATE_USER_PASSWORD, AJAX_UPDATE_USER_PASSWORD]:
-        app.add_url_rule(rule=rule, view_func=_flask_update_user_password, methods=["PATCH"])
-    for rule in [UPDATE_USER_ADMIN, AJAX_UPDATE_USER_ADMIN]:
-        app.add_url_rule(rule=rule, view_func=_flask_update_user_admin, methods=["PATCH"])
-    for rule in [DELETE_USER, AJAX_DELETE_USER]:
-        app.add_url_rule(rule=rule, view_func=_flask_delete_user, methods=["DELETE"])
-    # Role management routes (RBAC) -- see _RBAC_ROUTES at module scope.
-    for view_func, method, rest_path, ajax_path in _RBAC_ROUTES:
-        wrapped = _starlette_to_flask(view_func)
-        for path in (rest_path, ajax_path):
-            app.add_url_rule(rule=path, view_func=wrapped, methods=[method])
-
-    app.before_request(_starlette_to_flask(_before_request))
-    app.after_request(_after_request)
-
-    # Gunicorn uses UvicornWorker (ASGI), so both uvicorn and gunicorn need
-    # the FastAPI app. Only waitress (WSGI) uses the Flask app directly.
-    if _MLFLOW_SGI_NAME.get() in ("uvicorn", "gunicorn"):
-        fastapi_app = create_fastapi_app()
-        add_fastapi_permission_middleware(fastapi_app)
-        _register_auth_routes_on_fastapi(fastapi_app, csrf)
-        return fastapi_app
-    else:
-        return app
+    fastapi_app = create_fastapi_app()
+    add_fastapi_permission_middleware(fastapi_app)
+    _register_auth_routes_on_fastapi(fastapi_app, secret_key)
+    return fastapi_app

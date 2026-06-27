@@ -20,10 +20,40 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
+class _CIHeaders(dict):
+    """Case-insensitive dict for HTTP headers."""
+
+    def __getitem__(self, key):
+        return super().__getitem__(key.lower())
+
+    def __contains__(self, key):
+        return super().__contains__(key.lower())
+
+    def get(self, key, default=None):
+        return super().get(key.lower(), default)
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key.lower(), value)
+
+
 @dataclass
 class Authorization:
     username: str | None = None
     password: str | None = None
+    auth_type: str | None = None
+    _data: dict[str, Any] | None = None
+
+    def __init__(
+        self,
+        username: str | None = None,
+        password: str | None = None,
+        auth_type: str | None = None,
+        data: dict[str, Any] | None = None,
+    ):
+        self.auth_type = auth_type
+        self._data = data or {}
+        self.username = username if username is not None else self._data.get("username")
+        self.password = password if password is not None else self._data.get("password")
 
 
 @dataclass
@@ -56,6 +86,12 @@ class _Args:
 
     def __iter__(self):
         return iter(self._data)
+
+    def keys(self):
+        return self._data.keys()
+
+    def items(self):
+        return ((k, v[0]) for k, v in self._data.items() if v)
 
     def __bool__(self) -> bool:
         return bool(self._data)
@@ -106,7 +142,9 @@ class RequestShim:
         return self._stream
 
     @property
-    def headers(self) -> dict[str, str]:
+    def headers(self) -> _CIHeaders:
+        if not isinstance(self._headers, _CIHeaders):
+            self._headers = _CIHeaders(self._headers)
         return self._headers
 
     @property
@@ -120,16 +158,6 @@ _current_request: ContextVar[RequestShim | None] = ContextVar("mlflow_request", 
 def get_request() -> RequestShim:
     r = _current_request.get()
     if r is None:
-        # Fall back to Flask's request context during the migration period.
-        # Tests using app.test_request_context() don't trigger before_request
-        # hooks, so the shim may not be populated.
-        try:
-            import flask
-
-            if flask.has_request_context():
-                return from_flask_request(flask.request)
-        except ImportError:
-            pass
         raise RuntimeError("No active request context")
     return r
 
