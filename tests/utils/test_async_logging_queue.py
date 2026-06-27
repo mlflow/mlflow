@@ -437,3 +437,47 @@ def test_batch_split(monkeypatch):
         async_logging_queue.flush()
 
         assert run_data.batch_count == 2
+
+
+def test_at_exit_callback_returns_within_timeout_when_worker_blocked(monkeypatch):
+    monkeypatch.setattr(
+        mlflow.utils.async_logging.async_logging_queue, "_AT_EXIT_TIMEOUT_SECONDS", 0.5
+    )
+    worker_blocking = threading.Event()
+
+    def blocking_logging_func(run_id, metrics, params, tags):
+        worker_blocking.set()
+        time.sleep(120)
+
+    queue = AsyncLoggingQueue(logging_func=blocking_logging_func)
+    queue.activate()
+    queue.log_batch_async(
+        run_id="r",
+        metrics=[Metric(key="m", value=1.0, timestamp=int(time.time() * 1000), step=0)],
+        params=[],
+        tags=[],
+    )
+    assert worker_blocking.wait(timeout=5)
+
+    start = time.monotonic()
+    queue._at_exit_callback()
+    elapsed = time.monotonic() - start
+    # 3 bounded waits of 0.5s each; allow generous headroom for CI jitter.
+    assert elapsed < 5.0, f"_at_exit_callback took {elapsed:.2f}s, expected < 5.0s"
+
+
+def test_at_exit_callback_succeeds_on_happy_path(monkeypatch):
+    monkeypatch.setattr(
+        mlflow.utils.async_logging.async_logging_queue, "_AT_EXIT_TIMEOUT_SECONDS", 5
+    )
+    run_data = RunData()
+    queue = AsyncLoggingQueue(logging_func=run_data.consume_queue_data)
+    queue.activate()
+    queue.log_batch_async(
+        run_id="r",
+        metrics=[Metric(key="m", value=1.0, timestamp=int(time.time() * 1000), step=0)],
+        params=[],
+        tags=[],
+    )
+    queue._at_exit_callback()
+    assert run_data.received_run_id == "r"
