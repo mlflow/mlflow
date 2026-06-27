@@ -37,7 +37,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         supports_large_file_uploads = _sdk_supports_large_file_uploads()
         wc = WorkspaceClient(
             config=(
-                Config(enable_experimental_files_api_client=True)
+                Config(enable_experimental_files_api_client=True, experimental_files_ext_enable_storage_proxy=True)
                 if supports_large_file_uploads
                 else None
             )
@@ -70,9 +70,11 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         return True
 
     def full_path(self, artifact_path: str | None) -> str:
+        _logger.warn("[DEBUG] DatabricksSdkArtifactRepository.full_path %s", artifact_path)
         return f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
 
     def log_artifact(self, local_file: str, artifact_path: str | None = None) -> None:
+        _logger.warn("[DEBUG] DatabricksSdkArtifactRepository.log_artifact %s", artifact_path)
         if Path(local_file).stat().st_size > 5 * (1024**3) and not _sdk_supports_large_file_uploads:
             raise MlflowException.invalid_parameter_value(
                 "Databricks SDK version < 0.41.0 does not support uploading files larger than 5GB. "
@@ -88,6 +90,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
             )
 
     def log_artifacts(self, local_dir: str, artifact_path: str | None = None) -> None:
+        _logger.warn("[DEBUG] DatabricksSdkArtifactRepository.log_artifacts %s", artifact_path)
         local_dir = Path(local_dir).resolve()
         futures: list[Future[None]] = []
         with self._create_thread_pool() as executor:
@@ -112,6 +115,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
             fut.result()
 
     def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
+        _logger.warn("[DEBUG] DatabricksSdkArtifactRepository.list_artifacts %s", path)
         dest_path = self.full_path(path)
         if not self._is_dir(dest_path):
             return []
@@ -130,6 +134,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
         return sorted(file_infos, key=lambda f: f.path)
 
     def _download_file(self, remote_file_path: str, local_path: str) -> None:
+        _logger.warn("[DEBUG] DatabricksSdkArtifactRepository._download_file %s", remote_file_path)
         download_resp = self.files_api.download(self.full_path(remote_file_path))
         with open(local_path, "wb") as f:
             while chunk := download_resp.contents.read(10 * 1024 * 1024):

@@ -1,3 +1,4 @@
+import logging
 import warnings
 
 from mlflow.exceptions import MlflowException
@@ -21,6 +22,8 @@ from mlflow.store.artifact.uc_volume_artifact_repo import uc_volume_artifact_rep
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.uri import get_uri_scheme, is_uc_volumes_uri
 from mlflow.utils.workspace_context import get_request_workspace
+
+_logger = logging.getLogger(__name__)
 
 
 class ArtifactRepositoryRegistry:
@@ -77,6 +80,7 @@ class ArtifactRepositoryRegistry:
         """
         scheme = get_uri_scheme(artifact_uri)
         repository = self._registry.get(scheme)
+        _logger.warn("[DEBUG] get_artifact_repository (scheme=%s, repository=%s)", scheme, repository)
         if repository is None:
             raise MlflowException(
                 f"Could not find a registered artifact repository for: {artifact_uri}. "
@@ -85,11 +89,15 @@ class ArtifactRepositoryRegistry:
         repository_instance = repository(
             artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
         )
+        _logger.warn("[DEBUG] get_artifact_repository (artifact_uri=%s, tracking_uri=%s, registry_uri=%s)", artifact_uri, tracking_uri, registry_uri)
 
         workspace_name = get_request_workspace()
         if workspace_name and hasattr(repository_instance, "for_workspace"):
             repository_instance = repository_instance.for_workspace(workspace_name)
 
+        _logger.warn("[DEBUG] repository_instance: %s", repository_instance)
+        _logger.warn("[DEBUG] repository_instance: %s", repository_instance.__class__)
+        
         return repository_instance
 
     def get_registered_artifact_repositories(self):

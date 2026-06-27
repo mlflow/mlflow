@@ -1,3 +1,4 @@
+import logging
 import posixpath
 
 from mlflow.entities import FileInfo
@@ -6,11 +7,14 @@ from mlflow.environment_variables import (
 )
 from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 
+_logger = logging.getLogger(__name__)
+
 
 def _get_databricks_workspace_client():
     from databricks.sdk import WorkspaceClient
 
-    return WorkspaceClient()
+    _logger.warn("DatabricksSDKModelsArtifactRepository._get_databricks_workspace_client")
+    return WorkspaceClient(experimental_files_ext_enable_storage_proxy=True)
 
 
 class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
@@ -26,6 +30,7 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
         tracking_uri: str | None = None,
         registry_uri: str | None = None,
     ):
+        _logger.warn("DatabricksSDKModelsArtifactRepository.__init__")
         self.model_name = model_name
         self.model_version = model_version
         self.model_base_path = f"/Models/{model_name.replace('.', '/')}/{model_version}"
@@ -33,6 +38,7 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
         super().__init__(self.model_base_path, tracking_uri, registry_uri)
 
     def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
+        _logger.warn("DatabricksSDKModelsArtifactRepository.list_artifacts")
         dest_path = self.model_base_path
         if path:
             dest_path = posixpath.join(dest_path, path)
@@ -57,6 +63,7 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
         return sorted(file_infos, key=lambda f: f.path)
 
     def _is_dir(self, artifact_path):
+        _logger.warn("DatabricksSDKModelsArtifactRepository.is_dir")
         from databricks.sdk.errors.platform import NotFound
 
         try:
@@ -66,6 +73,7 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
         return True
 
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path=None):
+        _logger.warn("DatabricksSDKModelsArtifactRepository._upload_to_cloud")
         dest_path = self.model_base_path
         if artifact_file_path:
             dest_path = posixpath.join(dest_path, artifact_file_path)
@@ -74,6 +82,7 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
             self.client.files.upload(dest_path, f, overwrite=True)
 
     def log_artifact(self, local_file, artifact_path=None):
+        _logger.warn("DatabricksSDKModelsArtifactRepository.log_artifact")
         self._upload_to_cloud(
             cloud_credential_info=None,
             src_file_path=local_file,
@@ -81,6 +90,7 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
         )
 
     def _download_from_cloud(self, remote_file_path, local_path):
+        _logger.warn("DatabricksSDKModelsArtifactRepository._download_from_cloud")
         dest_path = self.model_base_path
         if remote_file_path:
             dest_path = posixpath.join(dest_path, remote_file_path)
@@ -94,9 +104,11 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
                 f.write(chunk)
 
     def _get_write_credential_infos(self, remote_file_paths):
+        _logger.warn("DatabricksSDKModelsArtifactRepository._get_write_credential_infos")
         # Databricks sdk based model download/upload don't need any extra credentials
         return [None] * len(remote_file_paths)
 
     def _get_read_credential_infos(self, remote_file_paths):
+        _logger.warn("DatabricksSDKModelsArtifactRepository._get_read_credential_infos")
         # Databricks sdk based model download/upload don't need any extra credentials
         return [None] * len(remote_file_paths)

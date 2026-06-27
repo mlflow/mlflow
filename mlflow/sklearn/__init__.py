@@ -253,6 +253,8 @@ def save_model(
             serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE,
         )
     """
+    _logger.warning("save_model (path = %s)", path)
+    
     import sklearn
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
@@ -321,7 +323,7 @@ def save_model(
         )
     else:
         _logger.warning(
-            f"Model was missing function: {pyfunc_predict_fn}. Not logging python_function flavor!"
+            f"[DEBUG] Model was missing function: {pyfunc_predict_fn}. Not logging python_function flavor!"
         )
 
     mlflow_model.add_flavor(
@@ -475,6 +477,7 @@ def log_model(
             mlflow.sklearn.log_model(sk_model, name="sk_models", signature=signature)
 
     """
+    _logger.warning("log_model (artifact_path = %s)", artifact_path)
     return Model.log(
         artifact_path=artifact_path,
         name=name,

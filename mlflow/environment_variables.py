@@ -1019,7 +1019,7 @@ _MLFLOW_IN_CAPTURE_MODULE_PROCESS = _BooleanEnvironmentVariable(
 #: eliminate models exfiltration risk associated with temporary scoped token generation used in
 #: existing model artifact repo classes.
 MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC = _BooleanEnvironmentVariable(
-    "MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", False
+    "MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", True
 )
 
 #: Disable Databricks SDK for run artifacts. We enable this by default since we want to
