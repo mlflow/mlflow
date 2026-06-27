@@ -4,6 +4,15 @@ from typing import Any
 
 from pydantic import BaseModel
 
+_JSON_SCHEMA_MAP_KEYWORDS = {
+    "$defs",
+    "definitions",
+    "dependencies",
+    "dependentSchemas",
+    "patternProperties",
+    "properties",
+}
+
 
 def serialize_messages_to_prompts(
     messages: list[Any],
@@ -71,27 +80,24 @@ def serialize_chat_messages_to_prompts(
 
 
 def _enforce_strict_json_schema(node: Any) -> None:
-    """Recursively set ``additionalProperties: false`` on every object schema.
-
-    OpenAI's strict structured output API (used by the MLflow AI Gateway and the
-    ``openai``/``azure`` providers) rejects a ``json_schema`` response format
-    unless every object - including those nested under ``$defs``, ``properties``,
-    array ``items``, or combinators like ``anyOf`` - declares
-    ``additionalProperties: false``. Pydantic's ``model_json_schema()`` does not
-    emit this field, so we add it in place before sending the request.
-
-    An object node is detected either by an explicit ``type: object`` or by the
-    presence of ``properties``, since Pydantic does not always emit ``type`` on
-    object schemas.
-    """
-    if isinstance(node, dict):
-        if node.get("type") == "object" or "properties" in node:
-            node["additionalProperties"] = False
-        for value in node.values():
-            _enforce_strict_json_schema(value)
-    elif isinstance(node, list):
+    """Recursively make object schemas strict while preserving free-form maps."""
+    if isinstance(node, list):
         for item in node:
             _enforce_strict_json_schema(item)
+        return
+    if not isinstance(node, dict):
+        return
+
+    if "properties" in node:
+        node["additionalProperties"] = False
+
+    for key, value in node.items():
+        if key in _JSON_SCHEMA_MAP_KEYWORDS and isinstance(value, dict):
+            # These values are name-to-schema maps, not schema nodes themselves.
+            for schema in value.values():
+                _enforce_strict_json_schema(schema)
+        else:
+            _enforce_strict_json_schema(value)
 
 
 def pydantic_to_response_format(cls: type[BaseModel]) -> dict[str, Any]:

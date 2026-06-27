@@ -250,3 +250,23 @@ def test_enforce_strict_json_schema_detects_objects_without_explicit_type():
 
     assert schema["additionalProperties"] is False
     assert schema["properties"]["nested"]["additionalProperties"] is False
+
+
+def test_enforce_strict_json_schema_preserves_free_form_map_fields():
+    class ModelWithTags(pydantic.BaseModel):
+        tags: dict[str, str]
+
+    schema = pydantic_to_response_format(ModelWithTags)["json_schema"]["schema"]
+
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["tags"]["additionalProperties"] == {"type": "string"}
+
+
+def test_enforce_strict_json_schema_does_not_modify_schema_maps():
+    class ModelWithPropertiesField(pydantic.BaseModel):
+        properties: str
+
+    schema = pydantic_to_response_format(ModelWithPropertiesField)["json_schema"]["schema"]
+
+    assert "additionalProperties" not in schema["properties"]
+    assert schema["properties"]["properties"]["type"] == "string"
