@@ -81,7 +81,7 @@ export const setLastUsedWorkspace = (workspace: string | null) => {
 };
 
 // Workspace name validation constants (must match backend: mlflow/store/workspace/abstract_store.py)
-const WORKSPACE_NAME_PATTERN = /^(?!.*--)[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
+const WORKSPACE_NAME_PATTERN = /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/;
 export const WORKSPACE_NAME_MIN_LENGTH = 2;
 export const WORKSPACE_NAME_MAX_LENGTH = 63;
 
