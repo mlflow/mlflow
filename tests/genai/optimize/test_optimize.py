@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 import pandas as pd
@@ -396,21 +397,117 @@ def test_optimize_prompts_validation_errors(
         )
 
 
-def test_optimize_prompts_with_chat_prompt(
-    sample_translation_prompt: PromptVersion, sample_dataset: pd.DataFrame
-):
+class ChatAwarePromptOptimizer(BasePromptOptimizer):
+    """Mock optimizer that handles both text and JSON-serialized chat templates.
+
+    Text templates are prefixed with "Be precise and accurate. ".
+    Chat templates (passed in as JSON strings per the optimizer contract) are
+    rebuilt with a "Be precise and accurate." instruction prepended to the
+    first message's content.
+    """
+
+    def optimize(
+        self,
+        eval_fn: Any,
+        train_data: list[dict[str, Any]],
+        target_prompts: dict[str, str],
+        enable_tracking: bool = True,
+    ) -> PromptOptimizerOutput:
+        optimized_prompts = {}
+        for prompt_name, template in target_prompts.items():
+            try:
+                parsed = json.loads(template)
+            except (TypeError, ValueError):
+                parsed = None
+            if isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
+                parsed[0]["content"] = "Be precise and accurate. " + parsed[0].get("content", "")
+                optimized_prompts[prompt_name] = json.dumps(parsed)
+            else:
+                optimized_prompts[prompt_name] = f"Be precise and accurate. {template}"
+
+        if eval_fn is not None:
+            eval_fn(optimized_prompts, train_data)
+
+        return PromptOptimizerOutput(
+            optimized_prompts=optimized_prompts,
+            initial_eval_score=0.5,
+            final_eval_score=0.9,
+        )
+
+
+def test_optimize_prompts_with_chat_prompt(sample_dataset: pd.DataFrame):
     chat_prompt = register_prompt(
         name="test_chat_prompt",
-        template=[{"role": "user", "content": "{{input_text}}"}],
+        template=[
+            {"role": "system", "content": "You translate text."},
+            {"role": "user", "content": "Translate to {{language}}: {{input_text}}"},
+        ],
     )
-    with pytest.raises(MlflowException, match="Only text prompts can be optimized"):
-        optimize_prompts(
-            predict_fn=sample_predict_fn,
-            train_data=sample_dataset,
-            prompt_uris=[f"prompts:/{chat_prompt.name}/{chat_prompt.version}"],
-            optimizer=MockPromptOptimizer(),
-            scorers=[equivalence],
-        )
+
+    def chat_predict_fn(input_text: str, language: str) -> str:
+        mlflow.genai.load_prompt("prompts:/test_chat_prompt/1")
+        translations = {
+            ("Hello", "Spanish"): "Hola",
+            ("World", "French"): "Monde",
+            ("Goodbye", "Spanish"): "Adiós",
+        }
+        return translations.get((input_text, language), f"translated_{input_text}")
+
+    result = optimize_prompts(
+        predict_fn=chat_predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[f"prompts:/{chat_prompt.name}/{chat_prompt.version}"],
+        optimizer=ChatAwarePromptOptimizer(),
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 1
+    optimized = result.optimized_prompts[0]
+    assert not optimized.is_text_prompt
+    assert isinstance(optimized.template, list)
+    assert optimized.template[0]["role"] == "system"
+    assert optimized.template[0]["content"].startswith("Be precise and accurate. ")
+    assert optimized.template[1]["role"] == "user"
+    assert "{{language}}" in optimized.template[1]["content"]
+
+
+def test_optimize_prompts_with_mixed_text_and_chat_prompts(sample_dataset: pd.DataFrame):
+    text_prompt = register_prompt(
+        name="test_mixed_text_prompt",
+        template="Translate to {{language}}: {{input_text}}",
+    )
+    chat_prompt = register_prompt(
+        name="test_mixed_chat_prompt",
+        template=[{"role": "user", "content": "Translate to {{language}}: {{input_text}}"}],
+    )
+
+    def mixed_predict_fn(input_text: str, language: str) -> str:
+        mlflow.genai.load_prompt(f"prompts:/{text_prompt.name}/1")
+        mlflow.genai.load_prompt(f"prompts:/{chat_prompt.name}/1")
+        return f"translated_{input_text}_{language}"
+
+    result = optimize_prompts(
+        predict_fn=mixed_predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[
+            f"prompts:/{text_prompt.name}/{text_prompt.version}",
+            f"prompts:/{chat_prompt.name}/{chat_prompt.version}",
+        ],
+        optimizer=ChatAwarePromptOptimizer(),
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 2
+    optimized_by_name = {p.name: p for p in result.optimized_prompts}
+
+    optimized_text = optimized_by_name[text_prompt.name]
+    assert optimized_text.is_text_prompt
+    assert optimized_text.template.startswith("Be precise and accurate. ")
+
+    optimized_chat = optimized_by_name[chat_prompt.name]
+    assert not optimized_chat.is_text_prompt
+    assert isinstance(optimized_chat.template, list)
+    assert optimized_chat.template[0]["content"].startswith("Be precise and accurate. ")
 
 
 def test_optimize_prompts_with_managed_evaluation_dataset(
