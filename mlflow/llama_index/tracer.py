@@ -95,7 +95,14 @@ class _LlamaSpan(BaseSpan, extra="allow"):
 
 def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None, token=None):
     """An utility function to end the span or trace."""
-    if isinstance(outputs, (StreamingResponse, AsyncStreamingResponse, StreamingAgentChatResponse)):
+    if isinstance(outputs, (StreamingResponse, AsyncStreamingResponse)):
+        # Use already-resolved text when the generator has been fully consumed.
+        # Consuming a live sync generator here would empty it for the caller;
+        # consuming a live async generator here would either block or deadlock
+        # inside a running event loop.  If response_txt is None the stream has
+        # not been consumed yet and we record nothing rather than breaking things.
+        outputs = outputs.response_txt
+    elif isinstance(outputs, StreamingAgentChatResponse):
         _logger.warning(
             "Trying to record streaming response to the MLflow trace. This may consume "
             "the generator and result in an empty response."
@@ -279,7 +286,23 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         with self.lock:
             workflow_llama_span = self.open_spans.pop(parent_id, None)
         if workflow_llama_span:
-            _end_span(span=workflow_llama_span._mlflow_span, outputs=result.result)
+            output = result.result
+            workflow_mlflow_span = workflow_llama_span._mlflow_span
+
+            if self._stream_resolver.is_streaming_result(output):
+                # The workflow returned a streaming response.  Register the workflow
+                # span as a pending stream span so it is resolved when the underlying
+                # LLM stream ends (via the recursive parent-resolution in StreamResolver).
+                is_pended = self._stream_resolver.register_stream_span(
+                    workflow_mlflow_span, output
+                )
+                if is_pended:
+                    self._pending_spans[parent_id] = workflow_llama_span
+                    return
+                # The generator was already consumed before we could register it;
+                # _end_span will extract response_txt so pass output through.
+
+            _end_span(span=workflow_mlflow_span, outputs=output)
 
     def resolve_pending_stream_span(self, span: LiveSpan, event: Any):
         """End the pending streaming span(s)"""
