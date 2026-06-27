@@ -13,6 +13,7 @@ import requests
 import mlflow
 from mlflow.gateway.config import EndpointType
 from mlflow.genai.judges.adapters.litellm_adapter import _is_litellm_available
+from mlflow.genai.utils.message_utils import _STRICT_JSON_SCHEMA_PROVIDERS
 from mlflow.metrics.genai.model_utils import _get_provider_instance, _parse_model_uri, _send_request
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._tracking_service.utils import _get_store
@@ -219,7 +220,9 @@ def _call_llm_via_gateway(
     if inference_params:
         payload.update(inference_params)
     if response_format is not None:
-        payload["response_format"] = _pydantic_to_response_format(response_format)
+        payload["response_format"] = _pydantic_to_response_format(
+            response_format, provider=provider_name
+        )
     elif json_mode:
         payload["response_format"] = {"type": "json_object"}
 
@@ -247,12 +250,19 @@ def _call_llm_via_gateway(
     return response
 
 
-def _pydantic_to_response_format(cls: type[pydantic.BaseModel]) -> dict[str, Any]:
+def _pydantic_to_response_format(
+    cls: type[pydantic.BaseModel], provider: str | None = None
+) -> dict[str, Any]:
+    strict = provider is not None and provider in _STRICT_JSON_SCHEMA_PROVIDERS
     return {
         "type": "json_schema",
         "json_schema": {
             "name": cls.__name__,
-            "schema": cls.model_json_schema(),
+            "schema": {
+                **cls.model_json_schema(),
+                **({"additionalProperties": False} if strict else {}),
+            },
+            **({"strict": True} if strict else {}),
         },
     }
 

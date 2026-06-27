@@ -199,15 +199,33 @@ def test_full_conversation_dict():
     assert system_prompt == "Be helpful"
 
 
-def test_pydantic_to_response_format():
+@pytest.mark.parametrize(
+    ("provider", "expect_strict"),
+    [
+        (None, False),
+        ("openai", True),
+        ("azure", True),
+        ("databricks", True),
+        ("endpoints", True),
+        ("anthropic", False),
+        ("gemini", False),
+    ],
+)
+def test_pydantic_to_response_format(provider, expect_strict):
     class MySchema(pydantic.BaseModel):
         name: str
         score: int
 
-    result = pydantic_to_response_format(MySchema)
+    result = pydantic_to_response_format(MySchema, provider=provider)
 
     assert result["type"] == "json_schema"
     assert result["json_schema"]["name"] == "MySchema"
     schema = result["json_schema"]["schema"]
     assert "name" in schema["properties"]
     assert "score" in schema["properties"]
+    if expect_strict:
+        assert result["json_schema"]["strict"] is True
+        assert schema["additionalProperties"] is False
+    else:
+        assert "strict" not in result["json_schema"]
+        assert "additionalProperties" not in schema
