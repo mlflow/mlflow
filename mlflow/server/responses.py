@@ -27,6 +27,21 @@ class _CompatResponse(Response):
         return json.loads(self.body)
 
     @property
+    def json(self) -> Any:
+        return json.loads(self.body)
+
+    @property
+    def data(self) -> bytes:
+        return self.body
+
+    @data.setter
+    def data(self, value: str | bytes) -> None:
+        if isinstance(value, str):
+            self.body = value.encode("utf-8")
+        else:
+            self.body = value
+
+    @property
     def mimetype(self) -> str | None:
         return self.media_type
 

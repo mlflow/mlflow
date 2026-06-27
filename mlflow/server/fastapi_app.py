@@ -42,14 +42,21 @@ from mlflow.utils.workspace_context import (
 )
 from mlflow.version import VERSION
 
-_FLASK_PATH_PARAM = re.compile(r"<(?:(?:int|float|path|string|uuid):)?([^>]+)>")
+_FLASK_PATH_PARAM = re.compile(r"<(?:(int|float|path|string|uuid):)?([^>]+)>")
 
 REL_STATIC_DIR = os.path.join(os.path.dirname(__file__), "js", "build")
 
 
 def _flask_to_fastapi_path(flask_path: str) -> str:
     """Convert Flask-style ``<param>`` and ``<path:param>`` to FastAPI ``{param}``."""
-    return _FLASK_PATH_PARAM.sub(r"{\1}", flask_path)
+
+    def _replace(m: re.Match) -> str:
+        converter, name = m.group(1), m.group(2)
+        if converter == "path":
+            return f"{{{name}:path}}"
+        return f"{{{name}}}"
+
+    return _FLASK_PATH_PARAM.sub(_replace, flask_path)
 
 
 def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:

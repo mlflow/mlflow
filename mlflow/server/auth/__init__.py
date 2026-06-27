@@ -28,17 +28,10 @@ from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 from flask import (
     Flask,
-    Request,
-    Response,
     flash,
-    g,
-    jsonify,
-    make_response,
     render_template_string,
-    request,
 )
 from starlette.requests import Request as StarletteRequest
-from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
 from mlflow.entities import Experiment
@@ -222,7 +215,7 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
-from mlflow.server import app
+from mlflow.server import _starlette_to_flask, app
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
 from mlflow.server.auth.entities import GetUserPermissionResult, User
@@ -331,6 +324,17 @@ from mlflow.server.handlers import (
     _disable_if_workspaces_disabled as _disable_if_workspaces_disabled,
 )
 from mlflow.server.jobs import get_job
+from mlflow.server.request_context import (
+    Authorization,
+    clear_g,
+    clear_request,
+    from_starlette_request,
+    g,
+    get_request,
+    set_request,
+)
+from mlflow.server.responses import _CompatResponse, jsonify_response, text_response
+from mlflow.server.responses import json_response as json_response
 from mlflow.server.workspace_helpers import _get_workspace_store
 from mlflow.store.entities import PagedList
 from mlflow.store.workspace.utils import get_default_workspace_optional
@@ -454,44 +458,43 @@ def is_unprotected_route(path: str) -> bool:
     return path.startswith(_UNPROTECTED_PATH_PREFIXES) or path.startswith(prefixed)
 
 
-def make_basic_auth_response() -> Response:
-    res = make_response(
+def make_basic_auth_response() -> _CompatResponse:
+    resp = text_response(
         "You are not authenticated. Please see "
         "https://www.mlflow.org/docs/latest/auth/index.html#authenticating-to-mlflow "
-        "on how to authenticate."
+        "on how to authenticate.",
+        401,
     )
-    res.status_code = 401
-    res.headers["WWW-Authenticate"] = 'Basic realm="mlflow"'
-    return res
+    resp.headers["WWW-Authenticate"] = 'Basic realm="mlflow"'
+    return resp
 
 
-def make_forbidden_response() -> Response:
-    res = make_response("Permission denied")
-    res.status_code = 403
-    return res
+def make_forbidden_response() -> _CompatResponse:
+    return text_response("Permission denied", 403)
 
 
 def _get_request_param(param: str) -> str:
-    if request.method == "GET":
-        args = request.args
-    elif request.method in ("POST", "PATCH"):
+    req = get_request()
+    if req.method == "GET":
+        args = req.args
+    elif req.method in ("POST", "PATCH"):
         # Coerce null/empty/non-dict JSON bodies to {} so callers get a 400, not
         # a 500 from the dict-merge below.
-        body = request.get_json(silent=True)
+        body = req.get_json(silent=True)
         args = body if isinstance(body, dict) else {}
-    elif request.method == "DELETE":
-        if request.is_json:
-            body = request.get_json(silent=True)
+    elif req.method == "DELETE":
+        if req.is_json:
+            body = req.get_json(silent=True)
             args = body if isinstance(body, dict) else {}
         else:
-            args = request.args
+            args = req.args
     else:
         raise MlflowException(
-            f"Unsupported HTTP method '{request.method}'",
+            f"Unsupported HTTP method '{req.method}'",
             BAD_REQUEST,
         )
 
-    args = args | (request.view_args or {})
+    args = args | (req.view_args or {})
     if param not in args:
         # Special handling for run_id
         if param == "run_id":
@@ -757,7 +760,8 @@ _EXPERIMENT_ID_PATTERN = re.compile(r"^(\d+)/")
 def _get_experiment_id_from_view_args():
     # For download/upload/delete artifact endpoints, artifact_path is a URL path parameter.
     # For the list-artifacts endpoint, the path is a query parameter named "path".
-    if artifact_path := (request.view_args.get("artifact_path") or request.args.get("path")):
+    req = get_request()
+    if artifact_path := (req.view_args.get("artifact_path") or req.args.get("path")):
         if m := _EXPERIMENT_ID_PATTERN.match(artifact_path):
             return m.group(1)
     return None
@@ -1018,7 +1022,8 @@ def validate_can_read_scorer_list():
     # a cross-experiment listing and ``AFTER_REQUEST_PATH_HANDLERS`` does the
     # per-row RBAC filtering, so the route itself is open to any authenticated
     # caller.
-    args = request.args if request.method == "GET" else (request.get_json(silent=True) or {})
+    req = get_request()
+    args = req.args if req.method == "GET" else (req.get_json(silent=True) or {})
     if not args.get("experiment_id"):
         return True
     return _get_permission_from_experiment_id().can_read
@@ -1185,7 +1190,8 @@ def validate_can_view_workspace() -> bool:
 
     username = authenticate_request().username
 
-    workspace_name = request.view_args.get("workspace_name") if request.view_args else None
+    req = get_request()
+    workspace_name = req.view_args.get("workspace_name") if req.view_args else None
     if workspace_name is None:
         return False
 
@@ -1235,14 +1241,15 @@ def _is_workspace_admin(user_id: int, workspace: str) -> bool:
 
 def _request_params() -> dict[str, object]:
     """Return the request's params dict (body for POST/PATCH/DELETE, args for GET)."""
-    if request.method == "GET":
-        return dict(request.args)
-    if request.method in ("POST", "PATCH"):
-        return dict(request.get_json(silent=True) or {})
-    if request.method == "DELETE":
-        if request.is_json:
-            return dict(request.get_json(silent=True) or {})
-        return dict(request.args)
+    req = get_request()
+    if req.method == "GET":
+        return dict(req.args)
+    if req.method in ("POST", "PATCH"):
+        return dict(req.get_json(silent=True) or {})
+    if req.method == "DELETE":
+        if req.is_json:
+            return dict(req.get_json(silent=True) or {})
+        return dict(req.args)
     return {}
 
 
@@ -1316,7 +1323,9 @@ def validate_can_list_roles():
     if user.is_admin:
         return True
     requested = {
-        w.strip() for w in request.args.getlist("workspace") if isinstance(w, str) and w.strip()
+        w.strip()
+        for w in get_request().args.getlist("workspace")
+        if isinstance(w, str) and w.strip()
     }
     if not requested:
         return False
@@ -1706,7 +1715,7 @@ def validate_can_create_gateway_model_definition():
     Validate that the user can create a gateway model definition.
     This requires USE permission on the referenced secret.
     """
-    body = request.json or {}
+    body = get_request().json or {}
     secret_id = body.get("secret_id")
     if not secret_id:
         # If no secret is provided, allow creation (will fail in handler)
@@ -1737,7 +1746,7 @@ def validate_can_update_gateway_model_definition():
         return False
 
     # If updating the secret, check USE permission on the new secret
-    body = request.json or {}
+    body = get_request().json or {}
     secret_id = body.get("secret_id")
     if not secret_id:
         # No secret being changed, just return True
@@ -1827,7 +1836,7 @@ def validate_can_create_gateway_endpoint():
     Validate that the user can create a gateway endpoint.
     This requires USE permission on all referenced model definitions.
     """
-    body = request.json or {}
+    body = get_request().json or {}
     model_configs = body.get("model_configs", [])
     return _validate_can_use_model_definitions_for_create(model_configs)
 
@@ -1841,7 +1850,7 @@ def validate_can_update_gateway_endpoint():
     if not _get_permission_from_gateway_endpoint_id().can_update:
         return False
 
-    body = request.json or {}
+    body = get_request().json or {}
     model_configs = body.get("model_configs", [])
     return _validate_can_use_model_definitions(model_configs)
 
@@ -1850,7 +1859,8 @@ def _get_permission_from_run_id_or_uuid() -> Permission:
     """
     Get permission for Flask routes that use either run_id or run_uuid parameter.
     """
-    run_id = request.args.get("run_id") or request.args.get("run_uuid")
+    req = get_request()
+    run_id = req.args.get("run_id") or req.args.get("run_uuid")
     if not run_id:
         raise MlflowException(
             "Request must specify run_id or run_uuid parameter",
@@ -1886,7 +1896,7 @@ def _get_permission_from_model_version() -> Permission:
     Get permission for model version artifacts.
     Model versions inherit permissions from their registered model.
     """
-    name = request.args.get("name")
+    name = get_request().args.get("name")
     if not name:
         raise MlflowException(
             "Request must specify name parameter",
@@ -1911,7 +1921,7 @@ def validate_can_read_model_version_artifact():
 
 
 def _get_permission_from_trace_request_id() -> Permission:
-    request_id = request.args.get("request_id")
+    request_id = get_request().args.get("request_id")
     if not request_id:
         raise MlflowException(
             "Request must specify request_id parameter",
@@ -1949,7 +1959,7 @@ def validate_can_read_trace_by_trace_id():
 
 
 def validate_can_search_traces():
-    experiment_ids = request.args.to_dict(flat=False).get("experiment_ids", [])
+    experiment_ids = get_request().args.to_dict(flat=False).get("experiment_ids", [])
     username = authenticate_request().username
     return bool(experiment_ids) and all(
         _get_experiment_permission(eid, username).can_read for eid in experiment_ids
@@ -1957,7 +1967,7 @@ def validate_can_search_traces():
 
 
 def validate_can_search_traces_v3():
-    locations = (request.json or {}).get("locations", [])
+    locations = (get_request().json or {}).get("locations", [])
     # Only mlflow_experiment locations carry an experiment_id we can permission-check;
     # inference_table and other future location types don't map to a local experiment so
     # they are intentionally excluded and requests containing only those locations are
@@ -1976,10 +1986,11 @@ def validate_can_search_traces_v3():
 
 
 def validate_can_batch_get_traces():
-    if request.method == "GET":
-        trace_ids = request.args.to_dict(flat=False).get("trace_ids", [])
+    req = get_request()
+    if req.method == "GET":
+        trace_ids = req.args.to_dict(flat=False).get("trace_ids", [])
     else:
-        trace_ids = (request.json or {}).get("trace_ids", [])
+        trace_ids = (req.json or {}).get("trace_ids", [])
     username = authenticate_request().username
     tracking_store = _get_tracking_store()
     try:
@@ -2012,7 +2023,7 @@ def validate_can_update_trace_by_request_id():
 
 
 def validate_can_read_traces_by_experiment_ids():
-    experiment_ids = (request.json or {}).get("experiment_ids", [])
+    experiment_ids = (get_request().json or {}).get("experiment_ids", [])
     username = authenticate_request().username
     return bool(experiment_ids) and all(
         _get_experiment_permission(eid, username).can_read for eid in experiment_ids
@@ -2020,7 +2031,7 @@ def validate_can_read_traces_by_experiment_ids():
 
 
 def validate_can_start_trace_v3():
-    body = request.json or {}
+    body = get_request().json or {}
     match body:
         case {
             "trace": {
@@ -2044,7 +2055,7 @@ def validate_can_link_traces_to_run():
         raise
     if not _get_experiment_permission(run.info.experiment_id, username).can_update:
         return False
-    trace_ids = (request.json or {}).get("trace_ids", [])
+    trace_ids = (get_request().json or {}).get("trace_ids", [])
     try:
         trace_experiment_ids = {
             tracking_store.get_trace_info(tid).experiment_id for tid in trace_ids
@@ -2066,7 +2077,7 @@ def validate_can_read_metric_history_bulk(run_ids=None):
             extracts 'run_id' from request args (for GetMetricHistoryBulk endpoint).
     """
     if run_ids is None:
-        run_ids = request.args.to_dict(flat=False).get("run_id", [])
+        run_ids = get_request().args.to_dict(flat=False).get("run_id", [])
     if not run_ids:
         raise MlflowException(
             "GetMetricHistoryBulk request must specify at least one run_id.",
@@ -2097,7 +2108,7 @@ def validate_can_read_metric_history_bulk(run_ids=None):
 
 def validate_can_read_metric_history_bulk_interval():
     """Checks READ permission on all requested runs for the bulk interval endpoint."""
-    run_ids = request.args.to_dict(flat=False).get("run_ids", [])
+    run_ids = get_request().args.to_dict(flat=False).get("run_ids", [])
     if not run_ids:
         raise MlflowException(
             "GetMetricHistoryBulkInterval request must specify at least one run_id.",
@@ -2108,11 +2119,12 @@ def validate_can_read_metric_history_bulk_interval():
 
 def validate_can_search_datasets():
     """Checks READ permission on all requested experiments."""
-    if request.method == "POST":
-        data = request.json
+    req = get_request()
+    if req.method == "POST":
+        data = req.json
         experiment_ids = data.get("experiment_ids", [])
     else:
-        experiment_ids = request.args.getlist("experiment_ids")
+        experiment_ids = req.args.getlist("experiment_ids")
 
     if not experiment_ids:
         raise MlflowException(
@@ -2142,7 +2154,7 @@ def validate_can_search_datasets():
 
 def validate_can_create_promptlab_run():
     """Checks UPDATE permission on the experiment."""
-    data = request.json
+    data = get_request().json
     experiment_id = data.get("experiment_id")
     if not experiment_id:
         raise MlflowException(
@@ -2331,7 +2343,7 @@ def validate_can_manage_label_schema():
     return _get_permission_from_label_schema_id().can_manage
 
 
-def filter_list_review_queues(resp: Response) -> None:
+def filter_list_review_queues(resp: _CompatResponse) -> None:
     """Narrow a ``ListReviewQueues`` response to queues the caller may see.
 
     A server admin or any user with experiment EDIT (or MANAGE) sees every
@@ -2672,9 +2684,26 @@ _AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
 _AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
 
 
+_PROXY_ARTIFACT_PREFIXES = [
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/create/",
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/complete/",
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/abort/",
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/presigned/",
+]
+
+_PROXY_ARTIFACT_LIST_PREFIXES = [
+    f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+    f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+]
+
+
 def _is_proxy_artifact_path(path: str) -> bool:
-    # MlflowArtifactsService endpoints are registered at both /api/2.0/... and /ajax-api/2.0/...
-    # paths (see handlers._get_paths), so we need to check both prefixes for auth validation.
     prefixes = [
         f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
@@ -2682,6 +2711,13 @@ def _is_proxy_artifact_path(path: str) -> bool:
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/",
     ]
     return any(path.startswith(prefix) for prefix in prefixes)
+
+
+def _extract_artifact_view_args(path: str) -> dict[str, str]:
+    for prefix in _PROXY_ARTIFACT_PREFIXES:
+        if path.startswith(prefix):
+            return {"artifact_path": path[len(prefix):]}
+    return {}
 
 
 def _get_proxy_artifact_validator(
@@ -2698,14 +2734,14 @@ def _get_proxy_artifact_validator(
     }.get(method)
 
 
-def authenticate_request() -> Authorization | Response:
+def authenticate_request() -> Authorization | _CompatResponse:
     """Use configured authorization function to get request authorization."""
     auth_func = get_auth_func(auth_config.authorization_function)
     return auth_func()
 
 
 @functools.lru_cache(maxsize=None)
-def get_auth_func(authorization_function: str) -> Callable[[], Authorization | Response]:
+def get_auth_func(authorization_function: str) -> Callable[[], Authorization | _CompatResponse]:
     """
     Import and return the specified authorization function.
 
@@ -2717,26 +2753,27 @@ def get_auth_func(authorization_function: str) -> Callable[[], Authorization | R
     return getattr(module, fn_name)
 
 
-def authenticate_request_basic_auth() -> Authorization | Response:
+def authenticate_request_basic_auth() -> Authorization | _CompatResponse:
     """Authenticate the request using basic auth."""
-    if request.authorization is None:
+    req = get_request()
+    if req.authorization is None:
         return make_basic_auth_response()
 
-    username = request.authorization.username
-    password = request.authorization.password
+    username = req.authorization.username
+    password = req.authorization.password
     # When the cache is disabled, don't pay the extra get_user round-trip that
-    # _authenticate_cached does for the sake of cache-population — the Flask
+    # _authenticate_cached does for the sake of cache-population -- the Flask
     # path only cares about the yes/no auth decision.
     if _USER_AUTH_CACHE is None:
         if store.authenticate_user(username, password):
-            return request.authorization
+            return req.authorization
     elif _authenticate_cached(username, password):
-        return request.authorization
+        return req.authorization
     # let user attempt login again
     return make_basic_auth_response()
 
 
-def _find_validator(req: Request) -> Callable[[], bool] | None:
+def _find_validator(req) -> Callable[[], bool] | None:
     """
     Finds the validator matching the request path and method.
     """
@@ -2785,18 +2822,16 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
 
 @catch_mlflow_exception
 def _before_request():
-    if is_unprotected_route(request.path):
+    req = get_request()
+    if is_unprotected_route(req.path):
         return
 
     authorization = authenticate_request()
-    if isinstance(authorization, Response):
+    # Custom auth functions return either an Authorization-like object (with a
+    # username attribute) or an HTTP response (e.g. 401). Accept both our own
+    # Authorization and werkzeug's via duck typing.
+    if not hasattr(authorization, "username"):
         return authorization
-    elif not isinstance(authorization, Authorization):
-        raise MlflowException(
-            f"Unsupported result type from {auth_config.authorization_function}: "
-            f"'{type(authorization).__name__}'",
-            INTERNAL_ERROR,
-        )
 
     # Expose the authenticated user to request handlers (e.g. to stamp a
     # trustworthy review-queue owner) via the shared request context.
@@ -2807,16 +2842,16 @@ def _before_request():
         return
 
     # authorization
-    if validator := _find_validator(request):
+    if validator := _find_validator(req):
         if not validator():
             return make_forbidden_response()
-    elif _is_proxy_artifact_path(request.path):
-        if validator := _get_proxy_artifact_validator(request.method, request.view_args):
+    elif _is_proxy_artifact_path(req.path):
+        if validator := _get_proxy_artifact_validator(req.method, req.view_args):
             if not validator():
                 return make_forbidden_response()
 
 
-def set_can_manage_experiment_permission(resp: Response):
+def set_can_manage_experiment_permission(resp: _CompatResponse):
     response_message = CreateExperiment.Response()
     parse_dict(resp.json, response_message)
     experiment_id = response_message.experiment_id
@@ -2824,7 +2859,7 @@ def set_can_manage_experiment_permission(resp: Response):
     store.grant_user_permission(username, "experiment", experiment_id, MANAGE.name)
 
 
-def set_can_manage_registered_model_permission(resp: Response):
+def set_can_manage_registered_model_permission(resp: _CompatResponse):
     # ``CreateRegisteredModel`` is shared with prompt creation; the response
     # carries the persisted ``mlflow.prompt.is_prompt`` tag, so we can classify
     # the entity authoritatively here and grant MANAGE in the matching
@@ -2841,7 +2876,7 @@ def set_can_manage_registered_model_permission(resp: Response):
     store.grant_user_permission(username, resource_type, name, MANAGE.name)
 
 
-def delete_can_manage_registered_model_permission(resp: Response):
+def delete_can_manage_registered_model_permission(resp: _CompatResponse):
     """
     Sweep registered-model and prompt grants when the entity is deleted.
 
@@ -2855,7 +2890,7 @@ def delete_can_manage_registered_model_permission(resp: Response):
     """
     # ``silent=True`` returns ``None`` on missing / unparsable bodies; the
     # ``or {}`` guard prevents a ``TypeError`` from leaking out as a 500.
-    data = request.get_json(force=True, silent=True) or {}
+    data = get_request().get_json(force=True, silent=True) or {}
     name = data.get("name")
     if not name:
         raise MlflowException(
@@ -2877,39 +2912,39 @@ def create_role():
         raise MlflowException.invalid_parameter_value("Role name cannot be empty.")
     if not isinstance(workspace, str) or not workspace.strip():
         raise MlflowException.invalid_parameter_value("Workspace cannot be empty.")
-    body = request.get_json(silent=True) or {}
+    body = get_request().get_json(silent=True) or {}
     description = body.get("description")
     if description is not None and not isinstance(description, str):
         raise MlflowException.invalid_parameter_value("Role description must be a string or null.")
     role = store.create_role(name, workspace, description)
-    return jsonify({"role": role.to_json()})
+    return jsonify_response({"role": role.to_json()})
 
 
 @catch_mlflow_exception
 def get_role():
     role_id = _get_int_request_param("role_id")
     role = store.get_role(role_id)
-    return jsonify({"role": role.to_json()})
+    return jsonify_response({"role": role.to_json()})
 
 
 @catch_mlflow_exception
 def list_roles():
     # Repeated ``workspace`` scopes the listing. When omitted, fall back to cross-
     # workspace listing (admin-only — enforced by validate_can_list_roles).
-    workspaces = request.args.getlist("workspace")
+    workspaces = get_request().args.getlist("workspace")
     for w in workspaces:
         if not isinstance(w, str) or not w.strip():
             raise MlflowException.invalid_parameter_value(
                 "Parameter 'workspace' must be a non-empty string when provided."
             )
     roles = store.list_roles(workspaces) if workspaces else store.list_roles()
-    return jsonify({"roles": [r.to_json() for r in roles]})
+    return jsonify_response({"roles": [r.to_json() for r in roles]})
 
 
 @catch_mlflow_exception
 def update_role():
     role_id = _get_int_request_param("role_id")
-    body = request.get_json(silent=True) or {}
+    body = get_request().get_json(silent=True) or {}
     name = body.get("name")
     description = body.get("description")
     if name is None and description is None:
@@ -2921,14 +2956,14 @@ def update_role():
     if description is not None and not isinstance(description, str):
         raise MlflowException.invalid_parameter_value("Role description must be a string.")
     role = store.update_role(role_id, name=name, description=description)
-    return jsonify({"role": role.to_json()})
+    return jsonify_response({"role": role.to_json()})
 
 
 @catch_mlflow_exception
 def delete_role():
     role_id = _get_int_request_param("role_id")
     store.delete_role(role_id)
-    return make_response({})
+    return jsonify_response({})
 
 
 @catch_mlflow_exception
@@ -2938,21 +2973,21 @@ def add_role_permission():
     resource_pattern = _get_request_param("resource_pattern")
     permission = _get_request_param("permission")
     rp = store.add_role_permission(role_id, resource_type, resource_pattern, permission)
-    return jsonify({"role_permission": rp.to_json()})
+    return jsonify_response({"role_permission": rp.to_json()})
 
 
 @catch_mlflow_exception
 def remove_role_permission():
     role_permission_id = _get_int_request_param("role_permission_id")
     store.remove_role_permission(role_permission_id)
-    return make_response({})
+    return jsonify_response({})
 
 
 @catch_mlflow_exception
 def list_role_permissions():
     role_id = _get_int_request_param("role_id")
     perms = store.list_role_permissions(role_id)
-    return jsonify({"role_permissions": [p.to_json() for p in perms]})
+    return jsonify_response({"role_permissions": [p.to_json() for p in perms]})
 
 
 @catch_mlflow_exception
@@ -2960,7 +2995,7 @@ def update_role_permission():
     role_permission_id = _get_int_request_param("role_permission_id")
     permission = _get_request_param("permission")
     rp = store.update_role_permission(role_permission_id, permission)
-    return jsonify({"role_permission": rp.to_json()})
+    return jsonify_response({"role_permission": rp.to_json()})
 
 
 @catch_mlflow_exception
@@ -2969,7 +3004,7 @@ def assign_role():
     role_id = _get_int_request_param("role_id")
     user = store.get_user(username)
     assignment = store.assign_role_to_user(user.id, role_id)
-    return jsonify({"assignment": assignment.to_json()})
+    return jsonify_response({"assignment": assignment.to_json()})
 
 
 @catch_mlflow_exception
@@ -2978,7 +3013,7 @@ def unassign_role():
     role_id = _get_int_request_param("role_id")
     user = store.get_user(username)
     store.unassign_role_from_user(user.id, role_id)
-    return make_response({})
+    return jsonify_response({})
 
 
 @catch_mlflow_exception
@@ -2998,17 +3033,17 @@ def list_user_roles():
         admin_workspaces = store.list_workspace_admin_workspaces(requester_user.id)
         roles = [r for r in roles if r.workspace in admin_workspaces]
 
-    return jsonify({"roles": [r.to_json() for r in roles]})
+    return jsonify_response({"roles": [r.to_json() for r in roles]})
 
 
 @catch_mlflow_exception
 def list_role_users():
     role_id = _get_int_request_param("role_id")
     assignments = store.list_role_users(role_id)
-    return jsonify({"assignments": [a.to_json() for a in assignments]})
+    return jsonify_response({"assignments": [a.to_json() for a in assignments]})
 
 
-def filter_list_workspaces(resp: Response) -> None:
+def filter_list_workspaces(resp: _CompatResponse) -> None:
     if sender_is_admin():
         return
 
@@ -3069,7 +3104,7 @@ _DEFAULT_WORKSPACE_ROLES = (
 )
 
 
-def _seed_default_workspace_roles(resp: Response) -> None:
+def _seed_default_workspace_roles(resp: _CompatResponse) -> None:
     """After a successful ``CreateWorkspace``, seed default RBAC roles into the new
     workspace. Partial failures are logged rather than raised — the workspace
     creation has already succeeded at this point.
@@ -3127,10 +3162,11 @@ def _seed_default_workspace_roles(resp: Response) -> None:
                 )
 
 
-def _cleanup_workspace_permissions(resp: Response) -> None:
+def _cleanup_workspace_permissions(resp: _CompatResponse) -> None:
     # This handler runs only on successful DELETE responses. Cleanup failures are logged
     # instead of raised because the workspace deletion has already succeeded at this point.
-    workspace_name = request.view_args.get("workspace_name") if request.view_args else None
+    req = get_request()
+    workspace_name = req.view_args.get("workspace_name") if req.view_args else None
     if not workspace_name:
         return
 
@@ -3153,7 +3189,7 @@ def _cleanup_workspace_permissions(resp: Response) -> None:
         )
 
 
-def filter_search_experiments(resp: Response):
+def filter_search_experiments(resp: _CompatResponse):
     if sender_is_admin():
         return
 
@@ -3198,7 +3234,7 @@ def filter_search_experiments(resp: Response):
     resp.data = message_to_json(response_message)
 
 
-def filter_search_logged_models(resp: Response) -> None:
+def filter_search_logged_models(resp: _CompatResponse) -> None:
     """
     Filter out unreadable logged models from the search results.
     """
@@ -3268,7 +3304,7 @@ def filter_search_logged_models(resp: Response) -> None:
     resp.data = message_to_json(response_proto)
 
 
-def filter_search_registered_models(resp: Response):
+def filter_search_registered_models(resp: _CompatResponse):
     if sender_is_admin():
         return
 
@@ -3324,7 +3360,7 @@ def filter_search_registered_models(resp: Response):
     resp.data = message_to_json(response_message)
 
 
-def filter_search_model_versions(resp: Response):
+def filter_search_model_versions(resp: _CompatResponse):
     if sender_is_admin():
         return
 
@@ -3345,7 +3381,7 @@ def filter_search_model_versions(resp: Response):
     resp.data = message_to_json(response_message)
 
 
-def rename_registered_model_permission(resp: Response):
+def rename_registered_model_permission(resp: _CompatResponse):
     """
     Propagate a registered-model rename to RBAC grants.
 
@@ -3357,7 +3393,7 @@ def rename_registered_model_permission(resp: Response):
     # ``silent=True`` returns ``None`` on missing / unparsable bodies; ``or
     # {}`` plus the explicit value checks below prevent ``None`` from
     # propagating to ``resource_pattern`` and silently rewriting rows.
-    data = request.get_json(force=True, silent=True) or {}
+    data = get_request().get_json(force=True, silent=True) or {}
     old_name = data.get("name")
     new_name = data.get("new_name")
     if not old_name or not new_name:
@@ -3369,7 +3405,7 @@ def rename_registered_model_permission(resp: Response):
     store.rename_grants_for_resource("prompt", old_name, new_name, workspace_scoped=True)
 
 
-def set_can_manage_scorer_permission(resp: Response):
+def set_can_manage_scorer_permission(resp: _CompatResponse):
     response_message = RegisterScorer.Response()
     parse_dict(resp.json, response_message)
     experiment_id = response_message.experiment_id
@@ -3381,8 +3417,8 @@ def set_can_manage_scorer_permission(resp: Response):
     store.grant_user_permission(username, "scorer", pattern, MANAGE.name)
 
 
-def delete_scorer_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
+def delete_scorer_permissions_cascade(resp: _CompatResponse):
+    data = get_request().get_json(force=True, silent=True)
     experiment_id = data.get("experiment_id")
     name = data.get("name")
     if experiment_id and name:
@@ -3390,7 +3426,7 @@ def delete_scorer_permissions_cascade(resp: Response):
         store.delete_grants_for_resource("scorer", pattern)
 
 
-def set_can_manage_gateway_secret_permission(resp: Response):
+def set_can_manage_gateway_secret_permission(resp: _CompatResponse):
     response_message = CreateGatewaySecret.Response()
     parse_dict(resp.json, response_message)
     secret_id = response_message.secret.secret_id
@@ -3398,13 +3434,13 @@ def set_can_manage_gateway_secret_permission(resp: Response):
     store.grant_user_permission(username, "gateway_secret", secret_id, MANAGE.name)
 
 
-def delete_gateway_secret_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
+def delete_gateway_secret_permissions_cascade(resp: _CompatResponse):
+    data = get_request().get_json(force=True, silent=True)
     if secret_id := data.get("secret_id"):
         store.delete_grants_for_resource("gateway_secret", secret_id)
 
 
-def set_can_manage_gateway_endpoint_permission(resp: Response):
+def set_can_manage_gateway_endpoint_permission(resp: _CompatResponse):
     response_message = CreateGatewayEndpoint.Response()
     parse_dict(resp.json, response_message)
     endpoint_id = response_message.endpoint.endpoint_id
@@ -3412,13 +3448,13 @@ def set_can_manage_gateway_endpoint_permission(resp: Response):
     store.grant_user_permission(username, "gateway_endpoint", endpoint_id, MANAGE.name)
 
 
-def delete_gateway_endpoint_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
+def delete_gateway_endpoint_permissions_cascade(resp: _CompatResponse):
+    data = get_request().get_json(force=True, silent=True)
     if endpoint_id := data.get("endpoint_id"):
         store.delete_grants_for_resource("gateway_endpoint", endpoint_id)
 
 
-def set_can_manage_gateway_model_definition_permission(resp: Response):
+def set_can_manage_gateway_model_definition_permission(resp: _CompatResponse):
     response_message = CreateGatewayModelDefinition.Response()
     parse_dict(resp.json, response_message)
     model_definition_id = response_message.model_definition.model_definition_id
@@ -3428,13 +3464,13 @@ def set_can_manage_gateway_model_definition_permission(resp: Response):
     )
 
 
-def delete_gateway_model_definition_permissions_cascade(resp: Response):
-    data = request.get_json(force=True, silent=True)
+def delete_gateway_model_definition_permissions_cascade(resp: _CompatResponse):
+    data = get_request().get_json(force=True, silent=True)
     if model_definition_id := data.get("model_definition_id"):
         store.delete_grants_for_resource("gateway_model_definition", model_definition_id)
 
 
-def filter_list_scorers(resp: Response) -> None:
+def filter_list_scorers(resp: _CompatResponse) -> None:
     """Filter cross-experiment ``ListScorers`` responses to rows the caller can read.
 
     Single-experiment requests are already gated by ``validate_can_read_scorer_list``
@@ -3519,17 +3555,18 @@ WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS = {
 
 
 @catch_mlflow_exception
-def _after_request(resp: Response):
+def _after_request(resp: _CompatResponse):
     if 400 <= resp.status_code < 600:
         return resp
 
-    handler = AFTER_REQUEST_HANDLERS.get((request.path, request.method))
-    if handler is None and "/workspaces/" in request.path:
+    req = get_request()
+    handler = AFTER_REQUEST_HANDLERS.get((req.path, req.method))
+    if handler is None and "/workspaces/" in req.path:
         # Fallback to regex matching for workspace paths.
         for (path, method), candidate in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS.items():
-            if method != request.method:
+            if method != req.method:
                 continue
-            if path.fullmatch(request.path):
+            if path.fullmatch(req.path):
                 handler = candidate
                 break
 
@@ -3668,14 +3705,15 @@ def signup():
 @catch_mlflow_exception
 def create_user_ui(csrf):
     csrf.protect()
-    content_type = request.headers.get("Content-Type")
+    req = get_request()
+    content_type = req.headers.get("Content-Type")
     if content_type == "application/x-www-form-urlencoded":
-        username = request.form["username"]
-        password = request.form["password"]
+        username = req.form["username"]
+        password = req.form["password"]
 
         if not username or not password:
             message = "Username and password cannot be empty."
-            return make_response(message, 400)
+            return text_response(message, 400)
 
         if store.has_user(username):
             flash(f"Username has already been taken: {username}")
@@ -3686,29 +3724,29 @@ def create_user_ui(csrf):
         return alert(href=HOME)
     else:
         message = "Invalid content type. Must be application/x-www-form-urlencoded"
-        return make_response(message, 400)
+        return text_response(message, 400)
 
 
 @catch_mlflow_exception
 def create_user():
-    if not request.is_json:
-        return make_response("Invalid content type. Must be application/json", 400)
+    if not get_request().is_json:
+        return text_response("Invalid content type. Must be application/json", 400)
 
     username = _get_request_param("username")
     password = _get_request_param("password")
 
     if not username or not password:
-        return make_response("Username and password cannot be empty.", 400)
+        return text_response("Username and password cannot be empty.", 400)
 
     user = store.create_user(username, password)
-    return jsonify({"user": user.to_json()})
+    return jsonify_response({"user": user.to_json()})
 
 
 @catch_mlflow_exception
 def get_user():
     username = _get_request_param("username")
     user = store.get_user(username)
-    return jsonify({"user": user.to_json()})
+    return jsonify_response({"user": user.to_json()})
 
 
 @catch_mlflow_exception
@@ -3738,7 +3776,7 @@ def list_users():
             "is_admin": u.is_admin,
             "roles": [r.to_json() for r in visible_roles],
         })
-    return jsonify({"users": response_users})
+    return jsonify_response({"users": response_users})
 
 
 @catch_mlflow_exception
@@ -3754,7 +3792,7 @@ def get_current_user():
     username = authenticate_request().username
     user = store.get_user(username)
     is_basic_auth = auth_config.authorization_function == DEFAULT_AUTHORIZATION_FUNCTION
-    return jsonify({
+    return jsonify_response({
         "user": {"id": user.id, "username": user.username, "is_admin": user.is_admin},
         "is_basic_auth": is_basic_auth,
     })
@@ -3809,7 +3847,7 @@ def list_current_user_permissions():
     # admin status without a second call to ``/users/get``.
     username = authenticate_request().username
     is_admin, rows = _list_user_role_permissions(username)
-    return jsonify({"is_admin": is_admin, "permissions": [asdict(r) for r in rows]})
+    return jsonify_response({"is_admin": is_admin, "permissions": [asdict(r) for r in rows]})
 
 
 @catch_mlflow_exception
@@ -3827,7 +3865,7 @@ def list_user_permissions():
         admin_workspaces = store.list_workspace_admin_workspaces(requester_user.id)
         rows = [r for r in rows if r.workspace in admin_workspaces]
 
-    return jsonify({"is_admin": is_admin, "permissions": [asdict(r) for r in rows]})
+    return jsonify_response({"is_admin": is_admin, "permissions": [asdict(r) for r in rows]})
 
 
 @catch_mlflow_exception
@@ -3839,7 +3877,7 @@ def update_user_password():
     sender = authenticate_request()
     sender_username = getattr(sender, "username", None)
     if sender_username == username:
-        body = request.get_json(silent=True) or {}
+        body = get_request().get_json(silent=True) or {}
         current_password = body.get("current_password")
         if not current_password:
             raise MlflowException(
@@ -3860,7 +3898,7 @@ def update_user_password():
             )
     store.update_user(username, password=password)
     _invalidate_user_auth_cache(username)
-    return make_response({})
+    return jsonify_response({})
 
 
 @catch_mlflow_exception
@@ -3869,7 +3907,7 @@ def update_user_admin():
     is_admin = _get_request_param("is_admin")
     store.update_user(username, is_admin=is_admin)
     _invalidate_user_auth_cache(username)
-    return make_response({})
+    return jsonify_response({})
 
 
 @catch_mlflow_exception
@@ -3892,7 +3930,7 @@ def delete_user():
         )
     store.delete_user(username)
     _invalidate_user_auth_cache(username)
-    return make_response({})
+    return jsonify_response({})
 
 
 # =============================================================================
@@ -3913,7 +3951,7 @@ def grant_user_permission():
     permission = _get_request_param("permission")
     store.get_user(username)
     store.grant_user_resource_permission(username, resource_type, resource_id, permission)
-    return make_response({})
+    return jsonify_response({})
 
 
 @catch_mlflow_exception
@@ -3923,7 +3961,7 @@ def revoke_user_permission():
     resource_id = _get_request_param("resource_id")
     store.get_user(username)
     store.revoke_user_resource_permission(username, resource_type, resource_id)
-    return make_response({})
+    return jsonify_response({})
 
 
 @catch_mlflow_exception
@@ -3938,7 +3976,7 @@ def get_user_permission():
     permission = _resolve_user_permission_for_resource(username, resource_type, resource_id)
     # ``allowed`` mirrors ``can_use`` (regular access tier). READ alone is not
     # sufficient — callers needing a different cut inspect ``permission`` directly.
-    return make_response(
+    return jsonify_response(
         GetUserPermissionResult(allowed=permission.can_use, permission=permission.name).to_json()
     )
 
@@ -4045,7 +4083,7 @@ class GraphQLAuthorizationMiddleware:
 
         try:
             authorization = authenticate_request()
-            if isinstance(authorization, Response):
+            if isinstance(authorization, _CompatResponse):
                 return None
             username = authorization.username
 
@@ -4347,18 +4385,13 @@ def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awai
 
 def add_fastapi_permission_middleware(app: FastAPI) -> None:
     """
-    Add permission middleware to FastAPI app for routes not handled by Flask.
+    Add permission middleware to the FastAPI app that enforces authentication
+    and authorization for all routes.
 
-    This middleware mirrors the high-level logic of ``_before_request`` for routes that are
-    served directly by FastAPI (e.g., ``/gateway/`` routes) and thus bypass Flask's
-    ``before_request`` hooks. It follows the same authorization flow:
-
-    1. Skip unprotected routes
-    2. Find the appropriate validator for the route
-    3. Reject if custom authorization_function is configured (not supported for FastAPI routes)
-    4. Authenticate the request
-    5. Allow admins full access
-    6. Run the validator
+    For routes with dedicated async validators (gateway, otel, jobs, assistant)
+    the middleware runs the validator directly against the Starlette request.
+    For all other routes it delegates to ``_before_request`` / ``_after_request``
+    which use the request-shim contextvar.
 
     Args:
         app: The FastAPI application instance.
@@ -4366,60 +4399,106 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
 
     @app.middleware("http")
     async def fastapi_permission_middleware(request, call_next):
+        from starlette.responses import Response
+
         path = get_routed_asgi_path(request)
 
-        # Skip unprotected routes
         if is_unprotected_route(path):
             return await call_next(request)
 
-        # Find validator for this route
+        # Routes with dedicated async validators (gateway, otel, jobs, assistant)
         validator = _find_fastapi_validator(path)
-        if validator is None:
-            return await call_next(request)
-
-        # Check for custom authorization_function (only affects routes with validators)
-        if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
-            return PlainTextResponse(
-                f"Custom authorization_function '{auth_config.authorization_function}' is not "
-                f"supported for FastAPI routes (e.g., /gateway/ endpoints). Only the default "
-                f"Basic Auth function is supported. Please use "
-                f"'{DEFAULT_AUTHORIZATION_FUNCTION}' or disable the AI Gateway feature.",
-                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
-            )
-
-        # Authenticate user
-        user = _authenticate_fastapi_request(request)
-        if user is None:
-            return PlainTextResponse(
-                "You are not authenticated. Please see "
-                "https://www.mlflow.org/docs/latest/auth/index.html#authenticating-to-mlflow "
-                "on how to authenticate.",
-                status_code=HTTPStatus.UNAUTHORIZED,
-                headers={"WWW-Authenticate": 'Basic realm="mlflow"'},
-            )
-
-        # Store user info in request state for downstream handlers (e.g., gateway tracing)
-        request.state.username = user.username
-        request.state.user_id = user.id
-
-        # Admins have full access
-        if user.is_admin:
-            return await call_next(request)
-
-        # Run the validator
-        try:
-            if not await validator(user.username, request):
+        if validator is not None:
+            if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
                 return PlainTextResponse(
-                    "Permission denied",
-                    status_code=HTTPStatus.FORBIDDEN,
+                    f"Custom authorization_function '{auth_config.authorization_function}' is not "
+                    f"supported for FastAPI routes (e.g., /gateway/ endpoints). Only the default "
+                    f"Basic Auth function is supported. Please use "
+                    f"'{DEFAULT_AUTHORIZATION_FUNCTION}' or disable the AI Gateway feature.",
+                    status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
                 )
-        except MlflowException as e:
-            return PlainTextResponse(
-                e.message,
-                status_code=e.get_http_status_code(),
+
+            user = _authenticate_fastapi_request(request)
+            if user is None:
+                return PlainTextResponse(
+                    "You are not authenticated. Please see "
+                    "https://www.mlflow.org/docs/latest/auth/index.html#authenticating-to-mlflow "
+                    "on how to authenticate.",
+                    status_code=HTTPStatus.UNAUTHORIZED,
+                    headers={"WWW-Authenticate": 'Basic realm="mlflow"'},
+                )
+
+            request.state.username = user.username
+            request.state.user_id = user.id
+
+            if user.is_admin:
+                return await call_next(request)
+
+            try:
+                if not await validator(user.username, request):
+                    return PlainTextResponse(
+                        "Permission denied",
+                        status_code=HTTPStatus.FORBIDDEN,
+                    )
+            except MlflowException as e:
+                return PlainTextResponse(
+                    e.message,
+                    status_code=e.get_http_status_code(),
+                )
+
+            return await call_next(request)
+
+        # All other routes: populate the request shim and run _before_request
+        # (auth + permission check) and _after_request (auto-grant on create).
+        shim = await from_starlette_request(request)
+        # Middleware runs before routing, so path params aren't available
+        # on the Starlette request yet.  Extract them from the URL for the
+        # artifact proxy routes that depend on view_args.
+        if _is_proxy_artifact_path(path):
+            shim.view_args = _extract_artifact_view_args(path)
+        set_request(shim)
+        try:
+            result = _before_request()
+            if result is not None:
+                return result
+
+            response = await call_next(request)
+
+            # Run _after_request for routes that auto-grant permissions (e.g.
+            # CreateExperiment, CreateRegisteredModel).  We need the response
+            # body, so buffer it.  The inner request-shim middleware already
+            # cleared the contextvar, so re-set it briefly.
+            method = request.method
+            has_after = (path, method) in AFTER_REQUEST_HANDLERS or (
+                "/workspaces/" in path
+                and any(
+                    m == method and p.fullmatch(path)
+                    for (p, m) in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS
+                )
             )
 
-        return await call_next(request)
+            if has_after and response.status_code < 400:
+                body = b""
+                async for chunk in response.body_iterator:
+                    body += chunk
+                set_request(shim)
+                compat = _CompatResponse(
+                    content=body,
+                    status_code=response.status_code,
+                    media_type=response.media_type,
+                )
+                _after_request(compat)
+                return Response(
+                    content=body,
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                    media_type=response.media_type,
+                )
+
+            return response
+        finally:
+            clear_request()
+            clear_g()
 
 
 # Role management routes (RBAC). Each route is exposed at both the REST path (Python
@@ -4445,6 +4524,50 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
     (revoke_user_permission, "POST", REVOKE_USER_PERMISSION, AJAX_REVOKE_USER_PERMISSION),
     (get_user_permission, "GET", GET_USER_PERMISSION, AJAX_GET_USER_PERMISSION),
 ]
+
+
+def _register_auth_routes_on_fastapi(fastapi_app, csrf) -> None:
+    from starlette.responses import Response
+
+    _auth_routes: list[tuple[Callable, str, list[str]]] = [
+        (signup, SIGNUP, ["GET"]),
+        (lambda: create_user_ui(csrf), CREATE_USER_UI, ["POST"]),
+    ]
+    for handler, rest_path, ajax_path in [
+        (get_user, GET_USER, AJAX_GET_USER),
+        (list_users, LIST_USERS, AJAX_LIST_USERS),
+        (get_current_user, GET_CURRENT_USER, AJAX_GET_CURRENT_USER),
+        (
+            list_current_user_permissions,
+            LIST_CURRENT_USER_PERMISSIONS,
+            AJAX_LIST_CURRENT_USER_PERMISSIONS,
+        ),
+        (list_user_permissions, LIST_USER_PERMISSIONS, AJAX_LIST_USER_PERMISSIONS),
+    ]:
+        _auth_routes.append((handler, rest_path, ["GET"]))
+        _auth_routes.append((handler, ajax_path, ["GET"]))
+    for handler, rest_path, ajax_path in [
+        (create_user, CREATE_USER, AJAX_CREATE_USER),
+    ]:
+        _auth_routes.append((handler, rest_path, ["POST"]))
+        _auth_routes.append((handler, ajax_path, ["POST"]))
+    for handler, rest_path, ajax_path in [
+        (update_user_password, UPDATE_USER_PASSWORD, AJAX_UPDATE_USER_PASSWORD),
+        (update_user_admin, UPDATE_USER_ADMIN, AJAX_UPDATE_USER_ADMIN),
+    ]:
+        _auth_routes.append((handler, rest_path, ["PATCH"]))
+        _auth_routes.append((handler, ajax_path, ["PATCH"]))
+    for handler, rest_path, ajax_path in [
+        (delete_user, DELETE_USER, AJAX_DELETE_USER),
+    ]:
+        _auth_routes.append((handler, rest_path, ["DELETE"]))
+        _auth_routes.append((handler, ajax_path, ["DELETE"]))
+    for view_func, method, rest_path, ajax_path in _RBAC_ROUTES:
+        _auth_routes.append((view_func, rest_path, [method]))
+        _auth_routes.append((view_func, ajax_path, [method]))
+
+    for handler, path, methods in _auth_routes:
+        fastapi_app.add_api_route(path, handler, methods=methods, response_class=Response)
 
 
 def create_app(app: Flask = app):
@@ -4494,81 +4617,59 @@ def create_app(app: Flask = app):
 
     _auth_initialized = True
 
-    app.add_url_rule(
-        rule=SIGNUP,
-        view_func=signup,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule=CREATE_USER_UI,
-        view_func=lambda: create_user_ui(csrf),
-        methods=["POST"],
-    )
+    # Auth handlers return Starlette responses (_CompatResponse). When running
+    # under Flask (waitress / test client), wrap them so Flask gets Flask
+    # Response objects, matching the pattern used in mlflow.server.__init__.
+    # Wrap each function once so Flask sees a single endpoint per handler.
+    _flask_signup = _starlette_to_flask(signup)
+    _flask_create_user_ui = _starlette_to_flask(lambda: create_user_ui(csrf))
+    _flask_create_user = _starlette_to_flask(create_user)
+    _flask_get_user = _starlette_to_flask(get_user)
+    _flask_list_users = _starlette_to_flask(list_users)
+    _flask_get_current_user = _starlette_to_flask(get_current_user)
+    _flask_list_current_user_permissions = _starlette_to_flask(list_current_user_permissions)
+    _flask_list_user_permissions = _starlette_to_flask(list_user_permissions)
+    _flask_update_user_password = _starlette_to_flask(update_user_password)
+    _flask_update_user_admin = _starlette_to_flask(update_user_admin)
+    _flask_delete_user = _starlette_to_flask(delete_user)
+
+    app.add_url_rule(rule=SIGNUP, view_func=_flask_signup, methods=["GET"])
+    app.add_url_rule(rule=CREATE_USER_UI, view_func=_flask_create_user_ui, methods=["POST"])
     for rule in [CREATE_USER, AJAX_CREATE_USER]:
-        app.add_url_rule(
-            rule=rule,
-            view_func=create_user,
-            methods=["POST"],
-        )
+        app.add_url_rule(rule=rule, view_func=_flask_create_user, methods=["POST"])
     for rule in [GET_USER, AJAX_GET_USER]:
-        app.add_url_rule(
-            rule=rule,
-            view_func=get_user,
-            methods=["GET"],
-        )
+        app.add_url_rule(rule=rule, view_func=_flask_get_user, methods=["GET"])
     for rule in [LIST_USERS, AJAX_LIST_USERS]:
-        app.add_url_rule(
-            rule=rule,
-            view_func=list_users,
-            methods=["GET"],
-        )
+        app.add_url_rule(rule=rule, view_func=_flask_list_users, methods=["GET"])
     for rule in [GET_CURRENT_USER, AJAX_GET_CURRENT_USER]:
-        app.add_url_rule(
-            rule=rule,
-            view_func=get_current_user,
-            methods=["GET"],
-        )
+        app.add_url_rule(rule=rule, view_func=_flask_get_current_user, methods=["GET"])
     for rule in [LIST_CURRENT_USER_PERMISSIONS, AJAX_LIST_CURRENT_USER_PERMISSIONS]:
         app.add_url_rule(
-            rule=rule,
-            view_func=list_current_user_permissions,
-            methods=["GET"],
+            rule=rule, view_func=_flask_list_current_user_permissions, methods=["GET"]
         )
     for rule in [LIST_USER_PERMISSIONS, AJAX_LIST_USER_PERMISSIONS]:
-        app.add_url_rule(
-            rule=rule,
-            view_func=list_user_permissions,
-            methods=["GET"],
-        )
+        app.add_url_rule(rule=rule, view_func=_flask_list_user_permissions, methods=["GET"])
     for rule in [UPDATE_USER_PASSWORD, AJAX_UPDATE_USER_PASSWORD]:
-        app.add_url_rule(
-            rule=rule,
-            view_func=update_user_password,
-            methods=["PATCH"],
-        )
+        app.add_url_rule(rule=rule, view_func=_flask_update_user_password, methods=["PATCH"])
     for rule in [UPDATE_USER_ADMIN, AJAX_UPDATE_USER_ADMIN]:
-        app.add_url_rule(
-            rule=rule,
-            view_func=update_user_admin,
-            methods=["PATCH"],
-        )
+        app.add_url_rule(rule=rule, view_func=_flask_update_user_admin, methods=["PATCH"])
     for rule in [DELETE_USER, AJAX_DELETE_USER]:
-        app.add_url_rule(
-            rule=rule,
-            view_func=delete_user,
-            methods=["DELETE"],
-        )
-    # Role management routes (RBAC) — see _RBAC_ROUTES at module scope.
+        app.add_url_rule(rule=rule, view_func=_flask_delete_user, methods=["DELETE"])
+    # Role management routes (RBAC) -- see _RBAC_ROUTES at module scope.
     for view_func, method, rest_path, ajax_path in _RBAC_ROUTES:
+        wrapped = _starlette_to_flask(view_func)
         for path in (rest_path, ajax_path):
-            app.add_url_rule(rule=path, view_func=view_func, methods=[method])
+            app.add_url_rule(rule=path, view_func=wrapped, methods=[method])
 
-    app.before_request(_before_request)
+    app.before_request(_starlette_to_flask(_before_request))
     app.after_request(_after_request)
 
-    if _MLFLOW_SGI_NAME.get() == "uvicorn":
-        fastapi_app = create_fastapi_app(app)
+    # Gunicorn uses UvicornWorker (ASGI), so both uvicorn and gunicorn need
+    # the FastAPI app. Only waitress (WSGI) uses the Flask app directly.
+    if _MLFLOW_SGI_NAME.get() in ("uvicorn", "gunicorn"):
+        fastapi_app = create_fastapi_app()
         add_fastapi_permission_middleware(fastapi_app)
+        _register_auth_routes_on_fastapi(fastapi_app, csrf)
         return fastapi_app
     else:
         return app

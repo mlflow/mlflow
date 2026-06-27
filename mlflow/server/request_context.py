@@ -60,6 +60,9 @@ class _Args:
     def __bool__(self) -> bool:
         return bool(self._data)
 
+    def __or__(self, other: dict) -> dict:
+        return self.to_dict() | other
+
 
 @dataclass
 class RequestShim:
@@ -70,10 +73,14 @@ class RequestShim:
     content_type: str | None = None
     content_length: int | None = None
     url_rule: str | None = None
+    path: str = ""
+    view_args: dict[str, str] = field(default_factory=dict)
     authorization: Authorization | None = None
     _json: Any | None = None
     _data: bytes = b""
     _stream: io.BytesIO | None = None
+    _headers: dict[str, str] = field(default_factory=dict)
+    _form: dict[str, str] = field(default_factory=dict)
     state: dict[str, Any] = field(default_factory=dict)
 
     def get_json(self, force: bool = False, silent: bool = False) -> Any:
@@ -84,6 +91,11 @@ class RequestShim:
         return self._json
 
     @property
+    def is_json(self) -> bool:
+        ct = self.content_type or ""
+        return "json" in ct.lower()
+
+    @property
     def data(self) -> bytes:
         return self._data
 
@@ -92,6 +104,14 @@ class RequestShim:
         if self._stream is None:
             self._stream = io.BytesIO(self._data)
         return self._stream
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return self._headers
+
+    @property
+    def form(self) -> dict[str, str]:
+        return self._form
 
 
 _current_request: ContextVar[RequestShim | None] = ContextVar("mlflow_request", default=None)
@@ -177,16 +197,23 @@ def from_flask_request(flask_request) -> RequestShim:
             password=flask_request.authorization.password,
         )
 
+    headers = dict(flask_request.headers)
+    form = dict(flask_request.form) if hasattr(flask_request, "form") else {}
+
     return RequestShim(
         method=flask_request.method,
         args=_Args(_data=args_data),
         content_type=flask_request.content_type,
         content_length=flask_request.content_length,
         url_rule=str(flask_request.url_rule) if flask_request.url_rule else None,
+        path=flask_request.path,
+        view_args=dict(flask_request.view_args or {}),
         authorization=auth,
         _json=flask_request.get_json(force=True, silent=True),
         _data=flask_request.get_data(),
         _stream=None,
+        _headers=headers,
+        _form=form,
     )
 
 
@@ -219,14 +246,30 @@ async def from_starlette_request(starlette_request) -> RequestShim:
     cl_raw = starlette_request.headers.get("content-length")
     cl = int(cl_raw) if cl_raw else None
 
+    request_path = starlette_request.scope.get("path", "")
+    headers = dict(starlette_request.headers)
+    path_params = dict(getattr(starlette_request, "path_params", None) or {})
+
+    form_data: dict[str, str] = {}
+    if ct and "application/x-www-form-urlencoded" in ct and body:
+        from urllib.parse import parse_qs
+
+        for k, vs in parse_qs(body.decode("utf-8")).items():
+            if vs:
+                form_data[k] = vs[0]
+
     return RequestShim(
         method=starlette_request.method,
         args=_Args(_data=args_data),
         content_type=ct,
         content_length=cl,
-        url_rule=starlette_request.scope.get("path"),
+        url_rule=request_path,
+        path=request_path,
+        view_args=path_params,
         authorization=auth,
         _json=json_body,
         _data=body,
         _stream=None,
+        _headers=headers,
+        _form=form_data,
     )

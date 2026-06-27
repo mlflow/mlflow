@@ -3233,41 +3233,46 @@ def test_basic_auth_returns_none_when_user_deleted_between_authenticate_and_get(
 def test_flask_basic_auth_skips_get_user_when_cache_disabled(
     mock_auth_store, mock_auth_config, monkeypatch
 ):
+    from mlflow.server.request_context import Authorization, RequestShim, clear_request, set_request
+
     monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
-    fake_flask_request = mock.Mock()
-    fake_flask_request.authorization.username = "alice"
-    fake_flask_request.authorization.password = "password123"
+    auth = Authorization(username="alice", password="password123")
+    shim = RequestShim(authorization=auth)
+    set_request(shim)
 
-    with (
-        mock.patch("mlflow.server.auth._USER_AUTH_CACHE", None),
-        mock.patch("mlflow.server.auth.request", fake_flask_request),
-    ):
-        result = auth_module.authenticate_request_basic_auth()
+    try:
+        with mock.patch("mlflow.server.auth._USER_AUTH_CACHE", None):
+            result = auth_module.authenticate_request_basic_auth()
+    finally:
+        clear_request()
 
-    assert result is fake_flask_request.authorization
+    assert result is auth
     mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
-    # Cache disabled + Flask path only needs the yes/no answer → no user fetch.
     mock_auth_store.get_user.assert_not_called()
 
 
 def test_flask_basic_auth_shares_cache_with_fastapi_path(
     enable_auth_cache, mock_auth_store, mock_auth_config, monkeypatch
 ):
+    from mlflow.server.request_context import Authorization, RequestShim, clear_request, set_request
+
     monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
     # Prime the cache via the FastAPI path.
     credentials = base64.b64encode(b"alice:password123").decode("ascii")
     _authenticate_fastapi_request(_make_request("/x", f"Basic {credentials}"))
     mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
 
-    # A subsequent Flask-side call for the same credentials must be served from
-    # cache — no second PBKDF2 verification, no second user fetch.
-    fake_flask_request = mock.Mock()
-    fake_flask_request.authorization.username = "alice"
-    fake_flask_request.authorization.password = "password123"
-    with mock.patch("mlflow.server.auth.request", fake_flask_request):
+    # A subsequent request-shim call for the same credentials must be served
+    # from cache - no second PBKDF2 verification, no second user fetch.
+    auth = Authorization(username="alice", password="password123")
+    shim = RequestShim(authorization=auth)
+    set_request(shim)
+    try:
         result = auth_module.authenticate_request_basic_auth()
+    finally:
+        clear_request()
 
-    assert result is fake_flask_request.authorization
+    assert result is auth
     mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
 
 
