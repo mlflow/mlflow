@@ -201,6 +201,7 @@ describe('MLflowTracingPlugin', () => {
     process.env = { ...originalEnv };
     delete process.env.MLFLOW_TRACKING_URI;
     delete process.env.MLFLOW_EXPERIMENT_ID;
+    delete process.env.MLFLOW_TRACE_LOCATION;
   });
 
   afterAll(() => {
