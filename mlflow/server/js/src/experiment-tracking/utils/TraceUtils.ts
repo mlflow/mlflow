@@ -33,11 +33,16 @@ export async function getTrace(
   // only set when the backend is OSS SQLAlchemyStore.
   if (getSpansLocation(traceInfo as ModelTraceInfoV3) === TRACKING_STORE_SPANS_LOCATION) {
     const traceResp = await getExperimentTraceV3({ traceId });
-    if (traceResp?.trace && traceResp.trace.data) {
-      return {
-        info: traceResp.trace.trace_info || {},
-        data: traceResp.trace.data,
-      };
+    if (traceResp?.trace) {
+      // The proto-JSON response returns spans at `trace.spans` (not `trace.data.spans`),
+      // because the protobuf Trace message has `trace_info` and `spans` as top-level fields.
+      const spans = traceResp.trace.data?.spans || traceResp.trace.spans;
+      if (spans) {
+        return {
+          info: traceResp.trace.trace_info || {},
+          data: { spans },
+        };
+      }
     }
   }
 
