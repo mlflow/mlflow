@@ -213,7 +213,7 @@ def _call_llm_provider_api(
             URL for the LLM provider will be used.
         messages: Pre-built list of message dicts (``[{"role": ..., "content": ...}]``).
             Mutually exclusive with ``input_data``.
-        response_format: Response format dict (e.g. from ``_pydantic_to_response_format``).
+        response_format: Response format dict (e.g. from ``pydantic_to_response_format``).
     """
     from mlflow.gateway.config import Provider
     from mlflow.gateway.schemas import chat

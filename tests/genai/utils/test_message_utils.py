@@ -2,6 +2,7 @@ import pydantic
 import pytest
 
 from mlflow.genai.utils.message_utils import (
+    _enforce_strict_json_schema,
     pydantic_to_response_format,
     serialize_messages_to_prompts,
 )
@@ -208,6 +209,67 @@ def test_pydantic_to_response_format():
 
     assert result["type"] == "json_schema"
     assert result["json_schema"]["name"] == "MySchema"
+    assert result["json_schema"]["strict"] is True
     schema = result["json_schema"]["schema"]
+    assert schema["additionalProperties"] is False
     assert "name" in schema["properties"]
     assert "score" in schema["properties"]
+
+
+def test_pydantic_to_response_format_sets_additional_properties_on_nested_objects():
+    class Address(pydantic.BaseModel):
+        city: str
+
+    class Person(pydantic.BaseModel):
+        name: str
+        addresses: list[Address]
+        primary_address: Address
+
+    result = pydantic_to_response_format(Person)
+    schema = result["json_schema"]["schema"]
+
+    assert result["json_schema"]["strict"] is True
+    assert schema["additionalProperties"] is False
+    assert schema["$defs"]["Address"]["additionalProperties"] is False
+
+
+def test_enforce_strict_json_schema_detects_objects_without_explicit_type():
+    schema = {
+        "properties": {
+            "nested": {"properties": {"x": {"type": "string"}}},
+        },
+        "title": "NoType",
+    }
+    _enforce_strict_json_schema(schema)
+
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["nested"]["additionalProperties"] is False
+
+
+def test_enforce_strict_json_schema_preserves_free_form_map_fields():
+    # dict[str, str] Pydantic schema — type: object with additionalProperties schema, no properties
+    schema = {
+        "properties": {
+            "tags": {"type": "object", "additionalProperties": {"type": "string"}},
+        },
+    }
+    _enforce_strict_json_schema(schema)
+
+    assert schema["additionalProperties"] is False
+    # Free-form dict: additionalProperties should remain as its original schema, not False
+    assert schema["properties"]["tags"]["additionalProperties"] == {"type": "string"}
+
+
+def test_pydantic_to_response_format_with_anyof_nested_schema():
+    # Optional fields emit anyOf — ensure nested object schemas inside anyOf are also covered
+    class Inner(pydantic.BaseModel):
+        value: str
+
+    class Outer(pydantic.BaseModel):
+        inner: Inner | None = None
+
+    result = pydantic_to_response_format(Outer)
+    schema = result["json_schema"]["schema"]
+
+    assert schema["additionalProperties"] is False
+    assert schema["$defs"]["Inner"]["additionalProperties"] is False
