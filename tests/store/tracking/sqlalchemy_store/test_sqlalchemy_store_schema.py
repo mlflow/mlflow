@@ -203,6 +203,58 @@ def test_create_index_on_metrics_run_uuid_key_step(tmp_path, db_url):
         assert columns == ["run_uuid", "key", "step"]
 
 
+def test_secrets_migration_is_idempotent(tmp_path, db_url):
+    # Test for mlflow/store/db_migrations/versions/1bd49d398cd23_add_secrets_tables.py
+    # Simulates the MySQL partial-migration scenario: DDL is auto-committed, so tables
+    # may exist from a prior interrupted run while alembic_version was not advanced.
+    # The migration must succeed even when the tables already exist.
+    engine = sqlalchemy.create_engine(db_url)
+    InitialBase.metadata.create_all(engine)
+    config = _get_alembic_config(db_url)
+
+    # Migrate up to the revision that precedes 1bd49d398cd23.
+    command.upgrade(config, "bf29a5ff90ea")
+
+    # Simulate partial DDL commit: create the secrets table manually, as if a prior
+    # interrupted run of 1bd49d398cd23 left it behind on a MySQL-like database.
+    with engine.begin() as conn:
+        conn.execute(
+            sqlalchemy.text(
+                "CREATE TABLE secrets ("
+                "  secret_id VARCHAR(36) NOT NULL,"
+                "  secret_name VARCHAR(255) NOT NULL,"
+                "  encrypted_value BLOB NOT NULL,"
+                "  wrapped_dek BLOB NOT NULL,"
+                "  kek_version INTEGER NOT NULL,"
+                "  masked_value VARCHAR(500) NOT NULL,"
+                "  provider VARCHAR(64),"
+                "  auth_config TEXT,"
+                "  description TEXT,"
+                "  created_by VARCHAR(255),"
+                "  created_at INTEGER NOT NULL,"
+                "  last_updated_by VARCHAR(255),"
+                "  last_updated_at INTEGER NOT NULL,"
+                "  CONSTRAINT secrets_pk PRIMARY KEY (secret_id)"
+                ")"
+            )
+        )
+
+    # Running the migration to head must not raise even though 'secrets' already exists.
+    command.upgrade(config, "1bd49d398cd23")
+
+    inspector = sqlalchemy.inspect(engine)
+    table_names = inspector.get_table_names()
+    for table in (
+        "secrets",
+        "endpoints",
+        "model_definitions",
+        "endpoint_model_mappings",
+        "endpoint_bindings",
+        "endpoint_tags",
+    ):
+        assert table in table_names, f"Expected table '{table}' to exist after migration"
+
+
 def test_index_for_dataset_tables(tmp_path, db_url):
     # Test for
     # mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py
