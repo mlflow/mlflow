@@ -33,7 +33,7 @@ runs:
         if [[ "$PIN_MICRO_VERSION" == "true" ]]; then
           if [[ "$python_version" == "3.10" ]]; then
             if [ "$RUNNER_OS" == "Linux" ]; then
-              python_version="3.10.19"
+              python_version="3.10.20"
             else
               python_version="3.10.11"
             fi
@@ -41,7 +41,7 @@ runs:
             if [ "$RUNNER_OS" == "Windows" ]; then
               python_version="3.11.9"
             else
-              python_version="3.11.14"
+              python_version="3.11.15"
             fi
           else
             echo "Invalid python version: '$python_version'. Must be '3.10', or '3.11'."

@@ -108,7 +108,7 @@ export const useTableColumns = (
             description: 'Column label for request',
           }),
           type: TracesTableColumnType.INPUT,
-          group: TracesTableColumnGroup.INFO,
+          group: TracesTableColumnGroup.BASE,
           filterOrder: 0,
         },
       ];
@@ -140,7 +140,7 @@ export const useTableColumns = (
             description: 'Column label for trace ID',
           }),
           type: TracesTableColumnType.TRACE_INFO,
-          group: TracesTableColumnGroup.INFO,
+          group: TracesTableColumnGroup.BASE,
         },
         {
           id: TRACE_NAME_COLUMN_ID,
@@ -158,7 +158,7 @@ export const useTableColumns = (
             description: 'Column label for response',
           }),
           type: TracesTableColumnType.TRACE_INFO,
-          group: TracesTableColumnGroup.INFO,
+          group: TracesTableColumnGroup.BASE,
           filterOrder: 0,
         },
         {

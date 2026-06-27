@@ -30,18 +30,12 @@ MLflow is an open-source platform for managing the end-to-end machine learning l
 
 ```bash
 # Start both MLflow backend and React frontend dev servers
-# (The script will automatically clean up any existing servers)
-nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
+LOG=$(mktemp) && echo "Logs: $LOG"
+uv run dev/run_dev_server.py > "$LOG" 2>&1 &
 
-# Monitor the logs
-tail -f /tmp/mlflow-dev-server.log
-
-# Servers will be available at:
-# - MLflow backend: http://localhost:5000
-# - React frontend: http://localhost:3000
+# Monitor the logs (server URLs are printed there)
+tail -f "$LOG"
 ```
-
-This uses `uv` (fast Python package manager) to automatically manage dependencies and run the development environment.
 
 ## Debugging
 
@@ -63,15 +57,12 @@ export DATABRICKS_TOKEN="your-databricks-token"                # Your Databricks
 export MLFLOW_TRACKING_URI="databricks"                        # Must be set to "databricks"
 export MLFLOW_REGISTRY_URI="databricks-uc"                     # Use "databricks-uc" for Unity Catalog, or "databricks" for workspace model registry
 
-# Start the dev server with these environment variables
-# (The script will automatically clean up any existing servers)
-nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
+# Start the dev server with these environment variables (unique log per invocation)
+LOG=$(mktemp) && echo "Logs: $LOG"
+uv run dev/run_dev_server.py > "$LOG" 2>&1 &
 
-# Monitor the logs
-tail -f /tmp/mlflow-dev-server.log
-
-# The MLflow server will now proxy tracking and model registry requests to Databricks
-# Access the UI at http://localhost:3000 to see your Databricks experiments and models
+# Monitor the logs (server URLs are printed there)
+tail -f "$LOG"
 ```
 
 **Note**: The MLflow server acts as a proxy, forwarding API requests to your Databricks workspace while serving the local React frontend. This allows you to develop and test UI changes against real Databricks data.

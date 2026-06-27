@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 import sklearn
 import sklearn.datasets
-import sklearn.neighbors
+import sklearn.linear_model
 from click.testing import CliRunner
 from packaging.requirements import Requirement
 
@@ -76,11 +76,11 @@ def iris_data() -> tuple[np.ndarray, np.ndarray]:
 
 
 @pytest.fixture(scope="module")
-def sk_model(iris_data: tuple[np.ndarray, np.ndarray]) -> sklearn.neighbors.KNeighborsClassifier:
+def sk_model(iris_data: tuple[np.ndarray, np.ndarray]) -> sklearn.linear_model.LogisticRegression:
     x, y = iris_data
-    knn_model = sklearn.neighbors.KNeighborsClassifier()
-    knn_model.fit(x, y)
-    return knn_model
+    logreg_model = sklearn.linear_model.LogisticRegression()
+    logreg_model.fit(x, y)
+    return logreg_model
 
 
 @pytest.mark.allow_infer_pip_requirements_fallback
@@ -190,7 +190,7 @@ class PredictTestData:
 @pytest.fixture
 def predict_test_setup(
     iris_data: tuple[np.ndarray, np.ndarray],
-    sk_model: sklearn.neighbors.KNeighborsClassifier,
+    sk_model: sklearn.linear_model.LogisticRegression,
     tmp_path: Path,
 ) -> PredictTestData:
     with mlflow.start_run() as active_run:

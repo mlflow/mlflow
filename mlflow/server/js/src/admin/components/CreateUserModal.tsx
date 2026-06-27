@@ -13,6 +13,7 @@ import {
 import { FieldLabel } from './FieldLabel';
 import { useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { LongFormSection } from '../../common/components/long-form/LongFormSection';
+import { ConfirmationModal } from '../ConfirmationModal';
 import { AdminApi } from '../api';
 import {
   AdminQueryKeys,
@@ -65,6 +66,13 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
   const [roleValue, setRoleValue] = useState<RoleAssignmentValue>(ROLE_ASSIGNMENT_DEFAULT);
   const [directPermissions, setDirectPermissions] = useState<StagedDirectPermission[]>([]);
   const [grantWorkspace, setGrantWorkspace] = useState<string>(initialGrantWorkspace);
+  // Reported by ``DirectPermissionsSection`` whenever the in-progress draft
+  // is dirty (any field touched away from default). The modal uses this to
+  // pop a confirm-discard dialog on submit so the admin can't silently
+  // drop a half-filled permission, but submit is NOT disabled — the admin
+  // can always click through.
+  const [hasUnsavedDirectDraft, setHasUnsavedDirectDraft] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Set after the user lands; lets retries skip ``createUser`` and
@@ -81,6 +89,12 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
       setRoleValue(ROLE_ASSIGNMENT_DEFAULT);
       setDirectPermissions([]);
       setGrantWorkspace(initialGrantWorkspace);
+      // ``hasUnsavedDirectDraft`` isn't reset here — the ``key={String(open)}``
+      // on ``DirectPermissionsSection`` below remounts the section on every
+      // open, and its first commit-time effect fires ``false`` from the
+      // default draft state. Resetting here too would muddy who owns the
+      // reset.
+      setShowDiscardConfirm(false);
       setSubmitting(false);
       setError(null);
       setCreatedUsername(null);
@@ -204,7 +218,10 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
           <Button
             componentId="admin.create_user_modal.submit"
             type="primary"
-            onClick={handleSubmit}
+            // Submit isn't blocked on an unsaved draft — instead we gate on
+            // it via a discard-confirm dialog so the admin can either go
+            // back and click Add, or knowingly drop the draft and proceed.
+            onClick={() => (hasUnsavedDirectDraft ? setShowDiscardConfirm(true) : handleSubmit())}
             loading={submitting}
             disabled={!canSubmit}
           >
@@ -291,11 +308,19 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
             </Typography.Text>
           </div>
         )}
+        {/* ``key={String(open)}`` forces a fresh mount each time the modal
+            re-opens, so the section's internal ``draft`` state can't bleed
+            across close → reopen and re-block submit with a phantom
+            previous-session draft (the dialog itself stays mounted via
+            ant Modal default behavior, so the section would otherwise
+            retain its useState). */}
         <DirectPermissionsSection
+          key={String(open)}
           value={directPermissions}
           onChange={setDirectPermissions}
           workspace={grantWorkspace}
           disabled={submitting}
+          onUnsavedDraftChange={setHasUnsavedDirectDraft}
         />
       </LongFormSection>
       {isCurrentUserAdmin && (
@@ -315,6 +340,26 @@ export const CreateUserModal = ({ open, onClose }: CreateUserModalProps) => {
           />
         </LongFormSection>
       )}
+      {/* Discard-confirm gate: only intercepts when ``hasUnsavedDirectDraft``
+          is true (any field touched in the direct-grant picker without a
+          subsequent ``Add`` or ``Clear``). The dialog is the warning surface;
+          submit itself stays enabled so the admin can always click through. */}
+      <ConfirmationModal
+        componentId="admin.create_user_modal.discard_unsaved_draft"
+        title="Discard unsaved direct permission?"
+        visible={showDiscardConfirm}
+        message="You started adding a direct permission but didn't click Add. Continuing will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
+        okText="Continue"
+        cancelText="Back"
+        // ``danger=false`` because the OK verb is neutral ("Continue") — the
+        // destructive intent is in the title question, not the button.
+        danger={false}
+        onCancel={() => setShowDiscardConfirm(false)}
+        onConfirm={() => {
+          setShowDiscardConfirm(false);
+          handleSubmit();
+        }}
+      />
     </Modal>
   );
 };

@@ -28,6 +28,50 @@ def _resolve_file_path(raw_path: str, cwd: Path | None) -> Path:
     return p.resolve()
 
 
+def static_permission_error(
+    tool_name: str,
+    tool_input: dict[str, Any],
+    perms: PermissionsConfig,
+    cwd: Path | None,
+) -> str | None:
+    """Return a denial message if the call is NOT permitted under static (non-full-access)
+    permissions, or None if it is allowed.
+
+    Shared by ``execute_tool`` (to enforce the policy) and the assistant's per-call permission gate
+    (to decide whether an interactive prompt is even needed): a call the static policy already
+    allows — e.g. an ``mlflow`` CLI command or an in-workspace file op — runs without prompting,
+    just as it did before tool-call permissions existed.
+    """
+    if perms.full_access:
+        return None
+
+    if tool_name == "Bash":
+        command = tool_input.get("command", "").strip()
+        try:
+            argv = shlex.split(command)
+        except ValueError:
+            return "Permission denied: malformed command"
+        if not argv or argv[0] not in _ALLOWED_BASH_COMMANDS:
+            return (
+                f"Permission denied: only {', '.join(sorted(_ALLOWED_BASH_COMMANDS))} "
+                "commands are allowed"
+            )
+
+    if tool_name in _FILE_TOOLS and not perms.allow_edit_files:
+        return f"Permission denied: {tool_name} is not allowed"
+
+    if tool_name in {"Write", "Edit"} and not cwd:
+        return f"Permission denied: {tool_name} requires a configured project directory"
+
+    if tool_name in _FILE_TOOLS and cwd:
+        if raw_path := tool_input.get("file_path") or tool_input.get("path", ""):
+            target = _resolve_file_path(raw_path, cwd)
+            if not _is_path_within(target, cwd):
+                return f"Permission denied: path {raw_path} is outside the workspace {cwd}"
+
+    return None
+
+
 async def execute_tool(
     tool_name: str,
     tool_input: dict[str, Any],
@@ -37,32 +81,8 @@ async def execute_tool(
 ) -> tuple[str, bool]:
     perms = permissions or PermissionsConfig()
 
-    if not perms.full_access:
-        if tool_name == "Bash":
-            command = tool_input.get("command", "").strip()
-            try:
-                argv = shlex.split(command)
-            except ValueError:
-                return "Permission denied: malformed command", True
-            if not argv or argv[0] not in _ALLOWED_BASH_COMMANDS:
-                return (
-                    f"Permission denied: only {', '.join(sorted(_ALLOWED_BASH_COMMANDS))} "
-                    "commands are allowed"
-                ), True
-
-        if tool_name in _FILE_TOOLS and not perms.allow_edit_files:
-            return f"Permission denied: {tool_name} is not allowed", True
-
-        if tool_name in {"Write", "Edit"} and not cwd:
-            return f"Permission denied: {tool_name} requires a configured project directory", True
-
-        if tool_name in _FILE_TOOLS and cwd:
-            if raw_path := tool_input.get("file_path") or tool_input.get("path", ""):
-                target = _resolve_file_path(raw_path, cwd)
-                if not _is_path_within(target, cwd):
-                    return (
-                        f"Permission denied: path {raw_path} is outside the workspace {cwd}"
-                    ), True
+    if (denial := static_permission_error(tool_name, tool_input, perms, cwd)) is not None:
+        return denial, True
 
     try:
         match tool_name:

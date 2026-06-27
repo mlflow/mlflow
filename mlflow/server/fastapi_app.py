@@ -21,6 +21,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.server import app as flask_app
+from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.assistant.api import assistant_router
 from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import gateway_router
@@ -89,7 +90,7 @@ def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
     async def workspace_context_middleware(request: Request, call_next):
         try:
             workspace = resolve_workspace_for_request_if_enabled(
-                request.url.path,
+                get_routed_asgi_path(request),
                 request.headers.get(WORKSPACE_HEADER_NAME),
             )
         except MlflowException as e:
@@ -114,7 +115,7 @@ def add_gateway_timing_middleware(fastapi_app: FastAPI) -> None:
 
     @fastapi_app.middleware("http")
     async def gateway_timing_middleware(request: Request, call_next):
-        if not request.url.path.startswith("/gateway/"):
+        if not get_routed_asgi_path(request).startswith("/gateway/"):
             return await call_next(request)
 
         # Reset the ContextVar so the handler task starts at 0. The handler task

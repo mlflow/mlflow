@@ -14,7 +14,6 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
-from mlflow.utils.annotations import experimental
 
 
 @dataclass
@@ -44,7 +43,6 @@ class ConcurrentPair:
     overlap_s: float
 
 
-@experimental(version="3.5.0")
 class GetSpanPerformanceAndTimingReportTool(JudgeTool):
     """
     A tool that generates a span timing report for a trace.

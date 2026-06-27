@@ -1,9 +1,3 @@
-"""Integration tests for the demo data framework.
-
-These tests run against a real MLflow tracking server to verify that demo data
-is correctly persisted, retrieved, and cleaned up on version bumps.
-"""
-
 from pathlib import Path
 
 import pytest
@@ -167,7 +161,6 @@ def test_traces_have_expected_span_types(client, traces_generator):
     assert "rag_pipeline" in all_span_names
     assert "embed_query" in all_span_names
     assert "retrieve_docs" in all_span_names
-    assert "generate_response" in all_span_names
     assert "agent" in all_span_names
     assert "chat_agent" in all_span_names
     assert "prompt_chain" in all_span_names
@@ -176,6 +169,9 @@ def test_traces_have_expected_span_types(client, traces_generator):
     assert "image_generation" in all_span_names
     assert "audio_transcription" in all_span_names
     assert "text_to_speech" in all_span_names
+    assert "chat.completions.create" in all_span_names  # OpenAI
+    assert "messages.create" in all_span_names  # Anthropic
+    assert "generate_content" in all_span_names  # Google
 
 
 def test_traces_session_metadata(client, traces_generator):

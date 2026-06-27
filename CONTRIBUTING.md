@@ -462,12 +462,6 @@ $ yarn start
 (UI should now be visible at localhost:3000)
 ```
 
-#### Launching MLflow UI with MLflow AI Gateway for PromptLab
-
-```sh
-python dev/server.py
-```
-
 #### Testing a React Component
 
 Add a test file in the same directory as the newly created React

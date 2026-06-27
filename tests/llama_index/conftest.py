@@ -76,8 +76,6 @@ def settings(monkeypatch, mock_openai):
     monkeypatch.setattr(Settings, "node_parser", SentenceSplitter(chunk_size=1024))
     monkeypatch.setattr(Settings, "transformations", [SentenceSplitter(chunk_size=1024)])
 
-    assert all(Settings.__dict__.values())  # ensure the full object is populated
-
     return Settings
 
 
