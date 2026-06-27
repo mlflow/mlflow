@@ -94,11 +94,26 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     viewAsTable: true,
   };
 
-  getExistingModelVersions() {
-    const { modelVersionsBySource } = this.props;
-    const activeNodeRealPath = Utils.normalize(this.getActiveNodeRealPath());
+ getExistingModelVersions() {
+  const { modelVersionsBySource, runUuid } = this.props;
+  const activeNodeRealPath = Utils.normalize(this.getActiveNodeRealPath());
+  const activeNodeId = this.state.activeNodeId;
+
+  // Check raw S3 path (legacy)
+  if (modelVersionsBySource[activeNodeRealPath]) {
     return modelVersionsBySource[activeNodeRealPath];
   }
+
+  // Check runs:/ URI (registered via UI after #18501)
+  if (runUuid && activeNodeId) {
+    const runsUri = Utils.normalize(`runs:/${runUuid}/${activeNodeId}`);
+    if (modelVersionsBySource[runsUri]) {
+      return modelVersionsBySource[runsUri];
+    }
+  }
+
+  return undefined;
+}
 
   renderRegisterModelButton() {
     const { runUuid } = this.props;
