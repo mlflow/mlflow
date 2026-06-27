@@ -235,6 +235,54 @@ jobs:
           databricks workspace import-dir /tmp/app-deploy "$WORKSPACE_PATH" --overwrite
           databricks apps deploy "$APP_NAME" --source-code-path "/Workspace$WORKSPACE_PATH"
 
+      - name: Restart app to load the new code
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          DATABRICKS_AUTH_TYPE: oauth-m2m
+          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+        run: |
+          # `apps deploy` restarts the app process and re-extracts the UI assets,
+          # but reuses the existing Python env, so the freshly built wheel is not
+          # reinstalled and backend code changes never take effect. Stop then start
+          # the app so the env is rebuilt from the deployed source.
+          echo "Stopping app..."
+          databricks apps stop "$APP_NAME"
+          for i in $(seq 1 40); do
+            STATE=$(databricks apps get "$APP_NAME" -o json | jq -r '.compute_status.state')
+            echo "Compute state: $STATE"
+            if [ "$STATE" = "STOPPED" ]; then
+              break
+            elif [ "$STATE" = "ERROR" ]; then
+              echo "::error::Compute entered ERROR state while stopping"
+              exit 1
+            fi
+            sleep 15
+          done
+          if [ "$STATE" != "STOPPED" ]; then
+            echo "::error::Timed out waiting for compute to stop (last state: $STATE)"
+            exit 1
+          fi
+
+          echo "Starting app..."
+          databricks apps start "$APP_NAME"
+          for i in $(seq 1 40); do
+            STATE=$(databricks apps get "$APP_NAME" -o json | jq -r '.compute_status.state')
+            echo "Compute state: $STATE"
+            if [ "$STATE" = "ACTIVE" ]; then
+              break
+            elif [ "$STATE" = "ERROR" ]; then
+              echo "::error::Compute entered ERROR state"
+              exit 1
+            fi
+            sleep 15
+          done
+          if [ "$STATE" != "ACTIVE" ]; then
+            echo "::error::Timed out waiting for compute to become ACTIVE (last state: $STATE)"
+            exit 1
+          fi
+
       - name: Print app URL
         if: github.event_name == 'push'
         env:

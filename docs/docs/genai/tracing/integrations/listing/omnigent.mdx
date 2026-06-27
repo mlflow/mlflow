@@ -38,7 +38,7 @@ Omnigent ships MLflow as an optional dependency. Install the tracing extra and c
 <StepHeader number={1} title="Install the Tracing Extra" />
 
 ```bash
-pip install 'omnigent[tracing]'
+uv pip install 'omnigent[tracing]'
 ```
 
 This installs `mlflow` and `opentelemetry` SDK packages. If the tracing extra is not installed, Omnigent degrades gracefully to a no-op — the server continues to run without emitting traces.
