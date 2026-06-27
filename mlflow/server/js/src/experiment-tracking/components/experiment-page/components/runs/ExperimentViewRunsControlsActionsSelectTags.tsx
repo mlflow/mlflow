@@ -48,11 +48,14 @@ const getRunsTagsSelection = (
     return [];
   });
 
-  const allRunsTags: string[] = tagsList.flatMap((tags) => {
-    return Object.keys(tags)
-      .filter(isUserFacingTag)
-      .map((tagKey) => convertTagToString(tags[tagKey]));
-  });
+  // FIX: deduplicate with uniq and sort alphabetically so tags always appear in a consistent order
+  const allRunsTags: string[] = uniq(
+    tagsList.flatMap((tags) => {
+      return Object.keys(tags)
+        .filter(isUserFacingTag)
+        .map((tagKey) => convertTagToString(tags[tagKey]));
+    }),
+  ).sort();
 
   const selectedRunsAllSelectedTags: string[] = allRunsTags.filter((tag) =>
     selectedRunsTagArray.every((selectedTags) => selectedTags.includes(tag)),
@@ -189,7 +192,8 @@ export const ExperimentViewRunsControlsActionsSelectTags = ({
         />
         <DialogComboboxContent matchTriggerWidth>
           <DialogComboboxOptionList>
-            {Object.keys(selectedTags).map((tagString) => {
+            {/* FIX: sort keys alphabetically so the dropdown list is always ordered consistently */}
+            {Object.keys(selectedTags).sort().map((tagString) => {
               const isIndeterminate = selectedTags[tagString] === undefined;
               return (
                 <DialogComboboxOptionListCheckboxItem
