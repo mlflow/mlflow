@@ -47,9 +47,9 @@ def mock_request_context(
         path=path,
         content_type=content_type,
         args=_Args(_data=args_data),
-        _json=json_data,
-        _data=raw_data,
-        _headers=dict(headers or {}),
+        json_body=json_data,
+        raw_body=raw_data or b"",
+        headers=dict(headers or {}),
         view_args=dict(view_args or {}),
     )
     token = _current_request.set(shim)
