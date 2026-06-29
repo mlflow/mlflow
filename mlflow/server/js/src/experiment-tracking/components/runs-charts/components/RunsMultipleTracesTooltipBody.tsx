@@ -1,4 +1,7 @@
 import { isUndefined } from 'lodash';
+import Utils from '../../../../common/utils/Utils';
+import { computeColumnFormatSpec } from '../../experiment-page/utils/metricColumnFormat';
+import { useSmartNumberFormattingEnabled } from '../../experiment-page/utils/useSmartNumberFormatting';
 
 import type { RunsCompareMultipleTracesTooltipData } from './RunsMetricsLinePlot';
 import React from 'react';
@@ -40,6 +43,7 @@ export const RunsMultipleTracesTooltipBody = ({ hoverData }: { hoverData: RunsCo
 
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
+  const smartFormatting = useSmartNumberFormattingEnabled();
 
   const hoveredTraceUuid = `${runUuid}.${metricEntity?.key}`;
   const displayedXValueLabel =
@@ -48,6 +52,14 @@ export const RunsMultipleTracesTooltipBody = ({ hoverData }: { hoverData: RunsCo
       : intl.formatMessage(getChartAxisLabelDescriptor(hoverData.xAxisKey));
 
   if (tooltipLegendItems) {
+    // Prefer the pre-computed spec (derived from ALL y-values in the chart, across all steps)
+    // so that formatting is consistent even at steps where every visible value happens to be 0.
+    // Fall back to computing from just the visible step's values when no global spec is available.
+    const allValues = tooltipLegendItems.map((item) => item.value).filter((v): v is number => typeof v === 'number');
+    const formatSpec = smartFormatting
+      ? (hoverData.formatSpec ?? computeColumnFormatSpec(allValues))
+      : null;
+
     return (
       <div>
         {!isUndefined(xValue) && (
@@ -72,6 +84,21 @@ export const RunsMultipleTracesTooltipBody = ({ hoverData }: { hoverData: RunsCo
             alignItems: 'center',
           }}
         >
+          {formatSpec?.headerAnnotation && (
+            <>
+              <span />
+              <span />
+              <span
+                css={{
+                  fontSize: theme.typography.fontSizeSm,
+                  color: theme.colors.textSecondary,
+                  textAlign: 'right',
+                }}
+              >
+                {formatSpec.headerAnnotation}
+              </span>
+            </>
+          )}
           {tooltipLegendItems.map(({ displayName, color, uuid, value, dashStyle }) => (
             <React.Fragment key={uuid}>
               <TraceLabelColorIndicator color={color || 'transparent'} dashStyle={dashStyle} />
@@ -93,7 +120,7 @@ export const RunsMultipleTracesTooltipBody = ({ hoverData }: { hoverData: RunsCo
                       color: hoveredTraceUuid === uuid ? 'unset' : theme.colors.textPlaceholder,
                     }}
                   >
-                    {value}
+                    {formatSpec ? formatSpec.format(value) : Utils.formatMetric(value)}
                   </span>
                 )}
               </div>

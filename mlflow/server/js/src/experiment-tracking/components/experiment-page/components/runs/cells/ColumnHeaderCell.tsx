@@ -9,6 +9,8 @@ export interface ColumnHeaderCellProps {
     orderByKey: string;
     orderByAsc: boolean;
   };
+  /** Optional scale annotation shown below the column name, e.g. "×10⁻⁶" */
+  headerAnnotation?: string;
 }
 
 export const ColumnHeaderCell = ({
@@ -16,6 +18,7 @@ export const ColumnHeaderCell = ({
   canonicalSortKey,
   displayName,
   context: tableContext,
+  headerAnnotation,
 }: ColumnHeaderCellProps) => {
   const { orderByKey, orderByAsc } = tableContext || {};
   const updateSearchFacets = useUpdateExperimentPageSearchFacets();
@@ -68,14 +71,31 @@ export const ColumnHeaderCell = ({
         className={selectedCanonicalSortKey === orderByKey ? isOrderedByClassName : ''}
         onClick={enableSorting ? handleSortBy : undefined}
       >
-        <span data-testid={`sort-header-${displayName}`}>{displayName}</span>
-        {enableSorting && selectedCanonicalSortKey === orderByKey ? (
-          orderByAsc ? (
-            <SortAscendingIcon />
-          ) : (
-            <SortDescendingIcon />
-          )
-        ) : null}
+        <div css={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, overflow: 'hidden' }}>
+            <span
+              data-testid={`sort-header-${displayName}`}
+              css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {displayName}
+            </span>
+            {enableSorting && selectedCanonicalSortKey === orderByKey ? (
+              orderByAsc ? <SortAscendingIcon /> : <SortDescendingIcon />
+            ) : null}
+          </div>
+          {headerAnnotation && (
+            <span
+              css={{
+                fontSize: 10,
+                lineHeight: 1,
+                color: theme.colors.textSecondary,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {headerAnnotation}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

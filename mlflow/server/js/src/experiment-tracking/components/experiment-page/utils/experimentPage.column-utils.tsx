@@ -45,6 +45,8 @@ import { AggregateMetricValueCell } from '../components/runs/cells/AggregateMetr
 import { type RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { customMetricBehaviorDefs } from './customMetricBehaviorUtils';
+import { computeColumnFormatSpec } from './metricColumnFormat';
+import { useSmartNumberFormattingEnabled } from './useSmartNumberFormatting';
 
 const cellClassIsOrderedBy = ({ colDef, context }: CellClassParams) => {
   return context.orderByKey === colDef.headerComponentParams?.canonicalSortKey;
@@ -160,6 +162,8 @@ export interface UseRunsColumnDefinitionsParams {
   allRunsHidden?: boolean;
   usingCustomVisibility?: boolean;
   runsHiddenMode?: RUNS_VISIBILITY_MODE;
+  /** All current row data, used to compute per-column number format specs. */
+  rowsData?: RunRowType[];
 }
 
 /**
@@ -249,8 +253,10 @@ export const useRunsColumnDefinitions = ({
   isComparingRuns,
   expandRows,
   runsHiddenMode,
+  rowsData,
 }: UseRunsColumnDefinitionsParams) => {
   const { theme } = useDesignSystemTheme();
+  const smartFormatting = useSmartNumberFormattingEnabled();
 
   const cumulativeColumns = useCumulativeColumnKeys({
     metricKeyList,
@@ -472,6 +478,12 @@ export const useRunsColumnDefinitions = ({
           const displayName = customMetricColumnDef?.displayName ?? metricKey;
           const fieldName = createMetricFieldName(metricKey);
           const tooltip = getQualifiedEntityName(COLUMN_TYPES.METRICS, metricKey);
+
+          // Compute a column-aware format spec from all current row values.
+          // Falls back gracefully when rowsData is empty (e.g. before data loads).
+          const columnValues = (rowsData ?? []).map((row) => row[fieldName] as number | undefined | null);
+          const formatSpec = smartFormatting ? computeColumnFormatSpec(columnValues) : null;
+
           return {
             headerName: displayName,
             colId: canonicalSortKey,
@@ -485,8 +497,9 @@ export const useRunsColumnDefinitions = ({
             sortable: true,
             headerComponentParams: {
               canonicalSortKey,
+              headerAnnotation: formatSpec?.headerAnnotation,
             },
-            valueFormatter: customMetricColumnDef?.valueFormatter,
+            valueFormatter: customMetricColumnDef?.valueFormatter ?? (formatSpec ? ({ value }) => formatSpec.format(value) : undefined),
             cellRendererSelector: ({ data: { groupParentInfo } }) =>
               groupParentInfo ? { component: 'AggregateMetricValueCell' } : undefined,
             cellClassRules: {
@@ -505,18 +518,40 @@ export const useRunsColumnDefinitions = ({
         groupId: COLUMN_TYPES.PARAMS,
         children: paramKeys.map((paramKey) => {
           const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.PARAMS, paramKey);
+          const fieldName = createParamFieldName(paramKey);
+
+          // Detect whether every non-empty value in this column is a valid number.
+          // We use Number() rather than parseFloat() so that "123abc" is rejected.
+          const rawValues = (rowsData ?? []).map((row) => row[fieldName]);
+          // '-' is the default placeholder for runs that don't have this param — exclude it
+          const nonEmpty = rawValues.filter((v): v is string => typeof v === 'string' && v !== '' && v !== '-');
+          const isNumericColumn =
+            nonEmpty.length > 0 && nonEmpty.every((v) => !isNaN(Number(v.trim())));
+
+          const numericFormatSpec = smartFormatting && isNumericColumn
+            ? computeColumnFormatSpec(nonEmpty.map((v) => Number(v.trim())))
+            : null;
+
           return {
             colId: canonicalSortKey,
             headerName: paramKey,
             headerTooltip: getQualifiedEntityName(COLUMN_TYPES.PARAMS, paramKey),
-            field: createParamFieldName(paramKey),
-            tooltipField: createParamFieldName(paramKey),
+            field: fieldName,
+            tooltipField: fieldName,
             initialHide: true,
             initialWidth: 100,
             sortable: true,
             headerComponentParams: {
               canonicalSortKey,
+              headerAnnotation: numericFormatSpec?.headerAnnotation,
             },
+            ...(numericFormatSpec && {
+              valueFormatter: ({ value }) => {
+                if (value == null || value === '' || value === '-') return value ?? '';
+                const n = Number(String(value).trim());
+                return isNaN(n) ? String(value) : numericFormatSpec.format(n);
+              },
+            }),
             cellClassRules: {
               'is-previewable-cell': () => true,
               'is-ordered-by': cellClassIsOrderedBy,
@@ -557,6 +592,8 @@ export const useRunsColumnDefinitions = ({
     onDatasetSelected,
     expandRows,
     usingCompactViewport,
+    rowsData,
+    smartFormatting,
   ]);
 
   const canonicalSortKeys = useMemo(
