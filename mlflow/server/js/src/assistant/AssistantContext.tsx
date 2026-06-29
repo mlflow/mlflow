@@ -30,6 +30,38 @@ import { GATEWAY_PROVIDER_ID } from './constants';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
 
+// Cap the persisted transcript by JSON string length (UTF-16 code units — what localStorage counts),
+// keeping it well under the ~5 MB localStorage limit.
+const MAX_PERSISTED_CHARS = 1_500_000;
+
+const CHAT_STORAGE_KEY_BASE = 'mlflow.assistant.chat';
+const CHAT_STORAGE_VERSION = 1;
+export const CHAT_STORAGE_KEY = buildStorageKey(CHAT_STORAGE_KEY_BASE, CHAT_STORAGE_VERSION);
+
+const EMPTY_TOKEN_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null };
+
+interface PersistedChat {
+  messages: ChatMessage[];
+  tokenUsage: TokenUsage;
+}
+
+/** `timestamp` round-trips through JSON as a string; restore it to a Date on load. */
+export const reviveMessages = (messages: ChatMessage[]): ChatMessage[] =>
+  messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
+
+/** Shrink a transcript to fit storage by dropping the oldest messages under a string-length budget. */
+export const trimForStorage = (messages: ChatMessage[], maxChars: number = MAX_PERSISTED_CHARS): ChatMessage[] => {
+  // Drop the oldest message until under budget, but never drop the last one.
+  const lengths = messages.map((msg) => JSON.stringify(msg).length);
+  let size = lengths.reduce((acc, len) => acc + len, 0); // best-effort; ignores separators
+  let start = 0;
+  while (start < messages.length - 1 && size > maxChars) {
+    size -= lengths[start];
+    start += 1;
+  }
+  return start === 0 ? messages : messages.slice(start);
+};
+
 /**
  * Wrap every stream callback so it no-ops once the originating send is stale (the user reset or
  * cancelled while the POST was still in flight). Guards the whole object generically rather than
@@ -121,38 +153,6 @@ const partsToContent = (parts: AssistantPart[]): string =>
     .map((p) => p.text)
     .join('');
 
-const EMPTY_TOKEN_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null };
-
-// Cap the persisted transcript by JSON string length (UTF-16 code units — what localStorage counts),
-// keeping it well under the ~5 MB localStorage limit.
-const MAX_PERSISTED_CHARS = 1_500_000;
-
-const CHAT_STORAGE_KEY_BASE = 'mlflow.assistant.chat';
-const CHAT_STORAGE_VERSION = 2;
-export const CHAT_STORAGE_KEY = buildStorageKey(CHAT_STORAGE_KEY_BASE, CHAT_STORAGE_VERSION);
-
-interface PersistedChat {
-  messages: ChatMessage[];
-  tokenUsage: TokenUsage;
-}
-
-/** `timestamp` round-trips through JSON as a string; restore it to a Date on load. */
-export const reviveMessages = (messages: ChatMessage[]): ChatMessage[] =>
-  messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
-
-/** Shrink a transcript to fit storage by dropping the oldest messages under a string-length budget. */
-export const trimForStorage = (messages: ChatMessage[], maxChars: number = MAX_PERSISTED_CHARS): ChatMessage[] => {
-  // Drop the oldest message until under budget, but never drop the last one. Track a running size
-  // instead of re-serialising the whole array each iteration (O(n) rather than O(n^2)).
-  let trimmed = messages;
-  let size = JSON.stringify(trimmed).length;
-  while (trimmed.length > 1 && size > maxChars) {
-    size -= JSON.stringify(trimmed[0]).length; // best-effort; ignores the separating comma
-    trimmed = trimmed.slice(1);
-  }
-  return trimmed;
-};
-
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Detect if server is local - memoized since hostname doesn't change
   const isLocalServer = useMemo(() => checkIsLocalServer(), []);
@@ -215,22 +215,22 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // Seal the in-flight streaming assistant message: flush any buffered text into an open
+  // Commit the in-flight streaming assistant message: flush any buffered text into an open
   // text part, mirror `content`, and mark it no longer streaming. Optionally append a
   // trailing text part (e.g. an error) or merge extra flags (e.g. isInterrupted). Shared
   // by the done / error / interrupt terminal paths so the message-finalize logic lives once.
-  const sealStreamingMessage = useCallback((options: { appendText?: string; extra?: Partial<ChatMessage> } = {}) => {
+  const commitStreamingMessage = useCallback((options: { appendText?: string; extra?: Partial<ChatMessage> } = {}) => {
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (!(lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming)) {
         return prev;
       }
-      const flushed = streamingMessageRef.current
+      const withBufferedText = streamingMessageRef.current
         ? setOpenTextPart(lastMessage.parts ?? [], streamingMessageRef.current)
         : (lastMessage.parts ?? []);
       const parts: AssistantPart[] = options.appendText
-        ? [...flushed, { type: 'text', text: options.appendText }]
-        : flushed;
+        ? [...withBufferedText, { type: 'text', text: options.appendText }]
+        : withBufferedText;
       return [
         ...prev.slice(0, -1),
         { ...lastMessage, parts, content: partsToContent(parts), isStreaming: false, ...options.extra },
@@ -263,13 +263,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       cancelAnimationFrame(rafPendingRef.current);
       rafPendingRef.current = null;
     }
-    sealStreamingMessage();
+    commitStreamingMessage();
     eventSourceRef.current = null;
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
-  }, [sealStreamingMessage]);
+  }, [commitStreamingMessage]);
 
   const handleStatus = useCallback((status: string) => {
     setCurrentStatus(status);
@@ -393,9 +393,9 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setPendingPermission(null);
       // Keep any tool calls / text produced so far and append the error as a text
       // part (a styled error callout is a planned follow-up).
-      sealStreamingMessage({ appendText: `Error: ${errorMsg}` });
+      commitStreamingMessage({ appendText: `Error: ${errorMsg}` });
     },
-    [sealStreamingMessage],
+    [commitStreamingMessage],
   );
 
   const handleInterrupted = useCallback(() => {
@@ -409,8 +409,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       rafPendingRef.current = null;
     }
     // Keep whatever text/tool parts streamed before the interrupt.
-    sealStreamingMessage({ extra: { isInterrupted: true } });
-  }, [sealStreamingMessage]);
+    commitStreamingMessage({ extra: { isInterrupted: true } });
+  }, [commitStreamingMessage]);
 
   // Shared SSE callback wiring for startChat, handleSendMessage, respondToPermission and
   // regenerate. Each call site wraps this in `withGuard(isCurrent, streamCallbacks)` so a

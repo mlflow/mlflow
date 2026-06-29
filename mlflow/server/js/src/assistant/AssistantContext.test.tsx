@@ -139,6 +139,158 @@ describe('AssistantContext — reset() tears down the active stream', () => {
   });
 });
 
+describe('AssistantContext — reset() during the in-flight send window', () => {
+  // Drive sendMessageStream with a deferred promise so reset() can run while the POST is still
+  // pending — the exact window where the captured token is invalidated before the stream attaches.
+  const deferSend = () => {
+    let resolveSend!: (result: { eventSource: EventSource | null }) => void;
+    mockSendMessageStream.mockImplementation((_req, callbacks) => {
+      capturedCallbacks = callbacks;
+      return new Promise((resolve) => {
+        resolveSend = resolve;
+      });
+    });
+    return { resolve: () => resolveSend({ eventSource: fakeEventSource as unknown as EventSource }) };
+  };
+
+  it('ignores a stale onSessionId fired after reset() (no session revival)', async () => {
+    const { result } = await renderAssistant();
+    deferSend();
+
+    // Start the send but leave the POST pending (do not await it).
+    act(() => {
+      result.current.sendMessage('hello');
+    });
+
+    act(() => {
+      result.current.reset();
+    });
+
+    // The backend reply lands after reset — the guarded callback must no-op.
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-OLD');
+    });
+
+    expect(result.current.sessionId).toBeNull();
+  });
+
+  it('closes the late-resolved EventSource instead of storing it', async () => {
+    const { result } = await renderAssistant();
+    const send = deferSend();
+
+    act(() => {
+      result.current.sendMessage('hello');
+    });
+    act(() => {
+      result.current.reset();
+    });
+
+    // POST resolves after reset: the post-await guard closes the orphaned stream.
+    await act(async () => {
+      send.resolve();
+    });
+    expect(fakeEventSource.close).toHaveBeenCalledTimes(1);
+
+    // A second reset() must not close it again — proving it was never stored in eventSourceRef.
+    act(() => {
+      result.current.reset();
+    });
+    expect(fakeEventSource.close).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes a regenerate stream orphaned by reset() during its in-flight window', async () => {
+    const { result } = await renderAssistant();
+
+    // Seed a completed turn so regenerateLastMessage has a user message to replay.
+    const firstSend = deferSend();
+    act(() => {
+      result.current.sendMessage('hello');
+    });
+    await act(async () => {
+      firstSend.resolve();
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-1');
+      capturedCallbacks?.onDone();
+    });
+    expect(result.current.isStreaming).toBe(false);
+    fakeEventSource.close.mockClear();
+
+    // Regenerate, but leave its POST pending, then reset before it attaches.
+    const regen = deferSend();
+    act(() => {
+      result.current.regenerateLastMessage();
+    });
+    act(() => {
+      result.current.reset();
+    });
+
+    await act(async () => {
+      regen.resolve();
+    });
+
+    // The orphaned regenerate stream is closed by the guard, and the session stays cleared.
+    expect(fakeEventSource.close).toHaveBeenCalledTimes(1);
+    expect(result.current.sessionId).toBeNull();
+  });
+});
+
+describe('AssistantContext — pendingPrompt seed', () => {
+  it('prefillPrompt sets pendingPrompt and clearPendingPrompt nulls it', async () => {
+    const { result } = await renderAssistant();
+    expect(result.current.pendingPrompt).toBeNull();
+
+    act(() => {
+      result.current.prefillPrompt('SEED');
+    });
+    expect(result.current.pendingPrompt).toBe('SEED');
+
+    act(() => {
+      result.current.clearPendingPrompt();
+    });
+    expect(result.current.pendingPrompt).toBeNull();
+  });
+
+  it('closePanel clears a queued pendingPrompt (abandon ⇒ no stale inject later)', async () => {
+    const { result } = await renderAssistant();
+
+    act(() => {
+      result.current.prefillPrompt('SEED');
+    });
+    expect(result.current.pendingPrompt).toBe('SEED');
+
+    act(() => {
+      result.current.closePanel();
+    });
+    expect(result.current.pendingPrompt).toBeNull();
+  });
+
+  // completing setup must NOT drop a queued prompt, so it can be
+  // consumed once the chat input appears post-setup.
+  it('keeps pendingPrompt across completeSetup() (seed survives the setup wizard)', async () => {
+    const { result } = await renderAssistant();
+
+    act(() => {
+      result.current.prefillPrompt('SEED');
+    });
+    expect(result.current.pendingPrompt).toBe('SEED');
+
+    // completeSetup() re-fetches config; mirror a finished wizard where a provider is selected
+    // so setupComplete stays true after the refresh lands.
+    mockGetConfig.mockResolvedValue({
+      providers: { anthropic: { model: 'm', selected: true, permissions: {} } },
+      projects: {},
+    } as unknown as Awaited<ReturnType<typeof AssistantService.getConfig>>);
+
+    await act(async () => {
+      result.current.completeSetup();
+    });
+
+    expect(result.current.setupComplete).toBe(true);
+    expect(result.current.pendingPrompt).toBe('SEED');
+  });
+});
+
 describe('upsertToolCalls', () => {
   test('appends a new tool call with running status', () => {
     const result = upsertToolCalls([], [{ id: 't1', name: 'Bash', input: { command: 'ls' } }]);

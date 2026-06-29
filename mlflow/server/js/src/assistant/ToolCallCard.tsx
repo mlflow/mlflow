@@ -45,9 +45,9 @@ const StatusBadge = ({ status }: { status: ToolCallPart['status'] }) => {
   const { theme } = useDesignSystemTheme();
   const icon =
     status === 'done' ? (
-      <CheckCircleIcon css={{ fontSize: 14, color: theme.colors.textValidationSuccess }} />
+      <CheckCircleIcon css={{ fontSize: theme.typography.fontSizeSm, color: theme.colors.textValidationSuccess }} />
     ) : status === 'error' ? (
-      <XCircleIcon css={{ fontSize: 14, color: theme.colors.textValidationDanger }} />
+      <XCircleIcon css={{ fontSize: theme.typography.fontSizeSm, color: theme.colors.textValidationDanger }} />
     ) : (
       <Spinner size="small" />
     );
@@ -150,7 +150,9 @@ export const ToolCallGroup = ({ parts }: { parts: ToolCallPart[] }) => {
         ) : (
           <ChevronRightIcon css={{ flexShrink: 0 }} aria-hidden />
         )}
-        <WrenchSparkleIcon css={{ fontSize: 14, flexShrink: 0, color: theme.colors.textSecondary }} />
+        <WrenchSparkleIcon
+          css={{ fontSize: theme.typography.fontSizeSm, flexShrink: 0, color: theme.colors.textSecondary }}
+        />
         <Typography.Text size="sm" color="secondary" bold css={{ flexShrink: 0 }}>
           <FormattedMessage
             defaultMessage="{count, plural, one {# tool call} other {# tool calls}}"
@@ -236,7 +238,9 @@ export const ToolCallCard = ({ part }: { part: ToolCallPart }) => {
         ) : (
           <ChevronRightIcon css={{ flexShrink: 0 }} aria-hidden />
         )}
-        <WrenchSparkleIcon css={{ fontSize: 14, flexShrink: 0, color: theme.colors.textSecondary }} />
+        <WrenchSparkleIcon
+          css={{ fontSize: theme.typography.fontSizeSm, flexShrink: 0, color: theme.colors.textSecondary }}
+        />
         <Typography.Text size="sm" color="secondary" bold css={{ flexShrink: 0 }}>
           {part.name}
         </Typography.Text>
