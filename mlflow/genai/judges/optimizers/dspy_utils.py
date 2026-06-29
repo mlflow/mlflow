@@ -141,11 +141,19 @@ def _is_unity_catalog_model_name(model_name: str) -> bool:
     """
     Whether a Databricks model name is a Unity Catalog name (and thus served via AI Gateway).
 
-    Databricks serving endpoint names cannot contain ``.``, while Unity Catalog model names
-    are three-level (``<catalog>.<schema>.<model>``, e.g. ``system.ai.claude-haiku-4-5``) and
-    always do, so the presence of a ``.`` reliably distinguishes the two surfaces.
+    Unity Catalog model names are three-level (``<catalog>.<schema>.<model>``, e.g.
+    ``system.ai.claude-haiku-4-5``), so they contain at least two ``.`` separators. Databricks
+    serving endpoint names, by contrast, are restricted to ``^[a-zA-Z0-9_-]+$`` and cannot
+    contain ``.`` at all (see the ``name`` field in the create-serving-endpoint API reference:
+    https://docs.databricks.com/api/workspace/servingendpoints/create), so this shape check
+    reliably distinguishes the two surfaces.
+
+    Requiring two separators (rather than just any ``.``) keeps a one-dot name from being
+    misrouted to the AI Gateway. Such a name cannot be a valid serving endpoint either, but
+    leaving it on the legacy path yields a clearer "endpoint not found" error than a malformed
+    gateway URL.
     """
-    return "." in model_name
+    return model_name.count(".") >= 2
 
 
 def _get_api_base_key(model: str) -> tuple[str | None, str | None]:
@@ -215,7 +223,7 @@ def _get_databricks_api_base_key(model_name: str) -> tuple[str | None, str | Non
                 api_key = headers["Authorization"].replace("Bearer ", "")
 
     if not host:
-        return None, api_key
+        return None, None
 
     host = host.rstrip("/")
     # Unity Catalog models live behind the AI Gateway; everything else is a serving endpoint.

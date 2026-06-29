@@ -400,6 +400,8 @@ def test_construct_dspy_lm_utility_method(model, expected_type):
     [
         ("databricks-claude-haiku-4-5", False),
         ("my-custom-endpoint", False),
+        # A one-dot name is not a three-level UC name and must stay on serving-endpoints.
+        ("my-org.prod", False),
         ("system.ai.claude-haiku-4-5", True),
         ("main.default.my_model", True),
     ],
