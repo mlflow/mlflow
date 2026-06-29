@@ -716,7 +716,11 @@ def test_create_user_ui(client):
 
         response = session.post(
             client.tracking_uri + "/api/2.0/mlflow/users/create-ui",
-            data={"username": random_str(), "password": random_str(), "csrf_token": csrf_token},
+            data={
+                "username": random_str(),
+                "password": random_str(),
+                "csrf_token": csrf_token,
+            },
             auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
             headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
@@ -2669,7 +2673,10 @@ def test_otel_unauthenticated_access_denied(fastapi_client, monkeypatch):
 
     response = requests.post(
         url=fastapi_client.tracking_uri + "/v1/traces",
-        headers={"Content-Type": "application/x-protobuf", "X-Mlflow-Experiment-Id": "1"},
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-Mlflow-Experiment-Id": "1",
+        },
         data=b"",
     )
     assert response.status_code == 401
@@ -3316,7 +3323,11 @@ def _create_trace(tracking_uri: str, experiment_id: str, auth: tuple[str, str]) 
 
 
 def _grant_experiment_permission(
-    tracking_uri: str, experiment_id: str, username: str, permission: str, auth: tuple[str, str]
+    tracking_uri: str,
+    experiment_id: str,
+    username: str,
+    permission: str,
+    auth: tuple[str, str],
 ) -> None:
     # ``grant`` is not upsert — issue a best-effort revoke first so this helper
     # behaves like the legacy upsert semantics tests relied on.
@@ -3398,7 +3409,10 @@ def test_trace_delete_permission(client, monkeypatch):
     def delete_traces(auth):
         return requests.post(
             url=client.tracking_uri + "/api/2.0/mlflow/traces/delete-traces",
-            json={"experiment_id": experiment_id, "max_timestamp_millis": 9999999999999},
+            json={
+                "experiment_id": experiment_id,
+                "max_timestamp_millis": 9999999999999,
+            },
             auth=auth,
         )
 
@@ -3872,3 +3886,39 @@ def test_mcp_server_tracks_created_by(fastapi_client, monkeypatch, prefix):
     data = resp.json()
     assert data["created_by"] == username
     assert data["last_updated_by"] == ADMIN_USERNAME
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_unified_permission_grant(fastapi_client, monkeypatch, prefix):
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    user, password = create_user(fastapi_client.tracking_uri)
+    server_name = "com.test/unified-perm"
+
+    requests.post(
+        url=fastapi_client.tracking_uri + prefix,
+        json={"name": server_name},
+        auth=admin_auth,
+    ).raise_for_status()
+
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}/api/3.0/mlflow/users/permissions/grant",
+        json={
+            "username": user,
+            "resource_type": "mcp_server",
+            "resource_id": server_name,
+            "permission": "EDIT",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+
+    resp = requests.get(
+        url=f"{fastapi_client.tracking_uri}/api/3.0/mlflow/users/permissions/get",
+        params={
+            "username": user,
+            "resource_type": "mcp_server",
+            "resource_id": server_name,
+        },
+        auth=admin_auth,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["permission"] == "EDIT"

@@ -234,6 +234,7 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
     RESOURCE_TYPE_GATEWAY_SECRET,
+    RESOURCE_TYPE_MCP_SERVER,
     RESOURCE_TYPE_REGISTERED_MODEL,
     RESOURCE_TYPE_SCORER,
     RESOURCE_TYPE_WORKSPACE,
@@ -1197,6 +1198,21 @@ def validate_can_create_mcp_server() -> bool:
     return _user_can_create_in_workspace()
 
 
+def _can_create_mcp_server(username: str) -> bool:
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return True
+    workspace_name = workspace_context.get_request_workspace()
+    if workspace_name is None:
+        return False
+    user = store.get_user(username)
+    perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
+    if perm is not None and perm.can_use:
+        return True
+    if perm is None and _user_inherits_default_workspace_grant(workspace_name):
+        return get_permission(auth_config.default_permission).can_use
+    return False
+
+
 def validate_can_view_workspace() -> bool:
     if not MLFLOW_ENABLE_WORKSPACES.get():
         return True
@@ -1412,6 +1428,10 @@ _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], A
                 model_definition_id=mdid
             )
         ),
+    ),
+    RESOURCE_TYPE_MCP_SERVER: (
+        "mcp server",
+        lambda: _get_tracking_store().get_mcp_server,
     ),
 }
 
@@ -4401,9 +4421,14 @@ def _get_mcp_server_validator(
     suffix = _mcp_server_suffix(path)
     parts = suffix.split("/") if suffix else []
 
-    # Root and /bindings are open to any authenticated user.
     if len(parts) < 2:
-        return _get_require_authentication_validator()
+
+        async def root_validator(username: str, request: StarletteRequest) -> bool:
+            if request.method == "POST":
+                return _can_create_mcp_server(username)
+            return True
+
+        return root_validator
 
     # Server name is namespace/slug (first two path segments).
     name = f"{parts[0]}/{parts[1]}"
