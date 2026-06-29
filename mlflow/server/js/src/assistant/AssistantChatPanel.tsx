@@ -556,7 +556,8 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
  */
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
-  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, completeSetup } = useAssistant();
+  const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, completeSetup, isLocalServer } =
+    useAssistant();
   const context = useAssistantPageContext();
   const experimentId = context['experimentId'] as string | undefined;
 
@@ -669,13 +670,17 @@ export const AssistantChatPanel = () => {
                   aria-label="New Chat"
                 />
               </Tooltip>
-              <Tooltip componentId="mlflow.assistant.chat_panel.settings.tooltip" content="Settings">
+              <Tooltip
+                componentId="mlflow.assistant.chat_panel.settings.tooltip"
+                content={isLocalServer ? 'Settings' : 'Settings are only available on the local server'}
+              >
                 <Button
                   componentId="mlflow.assistant.chat_panel.settings"
                   size="small"
                   icon={<GearIcon />}
                   onClick={handleOpenSettings}
                   aria-label="Settings"
+                  disabled={!isLocalServer}
                 />
               </Tooltip>
             </>
