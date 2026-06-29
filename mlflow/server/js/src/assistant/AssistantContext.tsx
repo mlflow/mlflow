@@ -5,7 +5,16 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type { AssistantAgentContextType, AssistantConfig, ChatMessage, PermissionRequest, ToolUseInfo } from './types';
+import type {
+  AssistantAgentContextType,
+  AssistantConfig,
+  AssistantPart,
+  ChatMessage,
+  PermissionRequest,
+  ToolUseInfo,
+  ToolResultInfo,
+  TokenUsage,
+} from './types';
 import {
   cancelSession as cancelSessionApi,
   sendMessageStream,
@@ -20,38 +29,6 @@ import { GatewayApi } from '../gateway/api';
 import { GATEWAY_PROVIDER_ID } from './constants';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
-
-// Cap the persisted transcript by JSON string length (UTF-16 code units — what localStorage counts),
-// keeping it well under the ~5 MB localStorage limit.
-const MAX_PERSISTED_CHARS = 1_500_000;
-
-// Exported as base + version (not a precomputed key) so this module does no work at import time:
-// `useLocalStorage` builds the full key from these, and tests build it via `buildStorageKey`.
-// A top-level `buildStorageKey()` call here would run whenever the module is loaded — including
-// transitively in unrelated suites — and throw under any mock that stubs the hooks module.
-export const CHAT_STORAGE_KEY_BASE = 'mlflow.assistant.chat';
-export const CHAT_STORAGE_VERSION = 1;
-
-interface PersistedChat {
-  messages: ChatMessage[];
-}
-
-/** `timestamp` round-trips through JSON as a string; restore it to a Date on load. */
-export const reviveMessages = (messages: ChatMessage[]): ChatMessage[] =>
-  messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
-
-/** Shrink a transcript to fit storage by dropping the oldest messages under a string-length budget. */
-export const trimForStorage = (messages: ChatMessage[], maxChars: number = MAX_PERSISTED_CHARS): ChatMessage[] => {
-  // Drop the oldest message until under budget, but never drop the last one.
-  const lengths = messages.map((msg) => JSON.stringify(msg).length);
-  let size = lengths.reduce((acc, len) => acc + len, 0); // best-effort; ignores separators
-  let start = 0;
-  while (start < messages.length - 1 && size > maxChars) {
-    size -= lengths[start];
-    start += 1;
-  }
-  return start === 0 ? messages : messages.slice(start);
-};
 
 /**
  * Wrap every stream callback so it no-ops once the originating send is stale (the user reset or
@@ -100,6 +77,82 @@ async function resolveSetupComplete(config: AssistantConfig): Promise<boolean> {
   return endpoints.some((endpoint) => endpoint.name === providerConfig.model);
 }
 
+/**
+ * Set the current (open) text segment of an assistant turn. `text` is the full
+ * segment since the last tool call, so we replace the trailing text part if there
+ * is one, otherwise append a new text part (a tool call always closes the prior
+ * text part, so the next text starts fresh).
+ */
+const setOpenTextPart = (parts: AssistantPart[], text: string): AssistantPart[] => {
+  const last = parts[parts.length - 1];
+  if (last?.type === 'text') {
+    return [...parts.slice(0, -1), { type: 'text', text }];
+  }
+  return [...parts, { type: 'text', text }];
+};
+
+/** Add or update tool-call parts by `toolUseId` (they can re-stream, so upsert). */
+export const upsertToolCalls = (parts: AssistantPart[], tools: ToolUseInfo[]): AssistantPart[] => {
+  const next = [...parts];
+  for (const tool of tools) {
+    const i = next.findIndex((p) => p.type === 'toolCall' && p.toolUseId === tool.id);
+    const part = { type: 'toolCall' as const, toolUseId: tool.id, name: tool.name, input: tool.input };
+    if (i >= 0) {
+      // Merge without clobbering an already-resolved status/result from a tool_result.
+      next[i] = { ...next[i], ...part };
+    } else {
+      next.push({ ...part, status: 'running' });
+    }
+  }
+  return next;
+};
+
+/** Resolve a tool call's status/result once its tool_result arrives, matched by `toolUseId`. */
+export const applyToolResult = (parts: AssistantPart[], result: ToolResultInfo): AssistantPart[] =>
+  parts.map((p) =>
+    p.type === 'toolCall' && p.toolUseId === result.toolUseId
+      ? { ...p, status: result.isError ? 'error' : 'done', result: result.content }
+      : p,
+  );
+
+const partsToContent = (parts: AssistantPart[]): string =>
+  parts
+    .filter((p): p is Extract<AssistantPart, { type: 'text' }> => p.type === 'text')
+    .map((p) => p.text)
+    .join('');
+
+const EMPTY_TOKEN_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null };
+
+// Cap the persisted transcript by JSON string length (UTF-16 code units — what localStorage counts),
+// keeping it well under the ~5 MB localStorage limit.
+const MAX_PERSISTED_CHARS = 1_500_000;
+
+const CHAT_STORAGE_KEY_BASE = 'mlflow.assistant.chat';
+const CHAT_STORAGE_VERSION = 2;
+export const CHAT_STORAGE_KEY = buildStorageKey(CHAT_STORAGE_KEY_BASE, CHAT_STORAGE_VERSION);
+
+interface PersistedChat {
+  messages: ChatMessage[];
+  tokenUsage: TokenUsage;
+}
+
+/** `timestamp` round-trips through JSON as a string; restore it to a Date on load. */
+export const reviveMessages = (messages: ChatMessage[]): ChatMessage[] =>
+  messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
+
+/** Shrink a transcript to fit storage by dropping the oldest messages under a string-length budget. */
+export const trimForStorage = (messages: ChatMessage[], maxChars: number = MAX_PERSISTED_CHARS): ChatMessage[] => {
+  // Drop the oldest message until under budget, but never drop the last one. Track a running size
+  // instead of re-serialising the whole array each iteration (O(n) rather than O(n^2)).
+  let trimmed = messages;
+  let size = JSON.stringify(trimmed).length;
+  while (trimmed.length > 1 && size > maxChars) {
+    size -= JSON.stringify(trimmed[0]).length; // best-effort; ignores the separating comma
+    trimmed = trimmed.slice(1);
+  }
+  return trimmed;
+};
+
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Detect if server is local - memoized since hostname doesn't change
   const isLocalServer = useMemo(() => checkIsLocalServer(), []);
@@ -115,10 +168,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [persistedChat, setPersistedChat] = useLocalStorage<PersistedChat>({
     key: CHAT_STORAGE_KEY_BASE,
     version: CHAT_STORAGE_VERSION,
-    initialValue: { messages: [] },
+    initialValue: { messages: [], tokenUsage: EMPTY_TOKEN_USAGE },
   });
 
-  // Chat state - messages are seeded once from the persisted conversation on first mount.
+  // Chat state - messages/tokenUsage seeded once from the persisted conversation on first mount.
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>(() => reviveMessages(persistedChat.messages));
   const [isStreaming, setIsStreaming] = useState(false);
@@ -126,13 +179,12 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
   const [pendingPermission, setPendingPermission] = useState<PermissionRequest | null>(null);
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(persistedChat.tokenUsage);
 
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
-
-  // A prompt queued by an onboarding card to seed the chat input the next time it's visible.
-  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
 
   // Use ref to track current streaming message
   const streamingMessageRef = useRef<string>('');
@@ -143,24 +195,57 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Use ref to track active EventSource for cancellation
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  // Identity token for the in-flight send. Each send captures its own token; reset()/cancel set
-  // this to null, which invalidates a send still awaiting its POST so its callbacks (fired from
-  // inside the service) and its late-attached EventSource can't leak into the reset state.
+  // Token identifying the in-flight send; reset/cancel invalidates it so a late POST's
+  // guarded callbacks no-op and its stream is closed instead of leaking into new state.
   const activeRequestRef = useRef<symbol | null>(null);
 
   // Throttle streaming updates to avoid overwhelming React with re-renders
   const rafPendingRef = useRef<number | null>(null);
 
-  const flushStreamingMessage = useCallback(() => {
-    rafPendingRef.current = null;
+  // Apply `fn` to the last message's parts if it's the streaming assistant message,
+  // keeping `content` mirrored to the text parts.
+  const updateStreamingParts = useCallback((fn: (parts: AssistantPart[]) => AssistantPart[]) => {
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, content: streamingMessageRef.current }];
+        const parts = fn(lastMessage.parts ?? []);
+        return [...prev.slice(0, -1), { ...lastMessage, parts, content: partsToContent(parts) }];
       }
       return prev;
     });
   }, []);
+
+  // Seal the in-flight streaming assistant message: flush any buffered text into an open
+  // text part, mirror `content`, and mark it no longer streaming. Optionally append a
+  // trailing text part (e.g. an error) or merge extra flags (e.g. isInterrupted). Shared
+  // by the done / error / interrupt terminal paths so the message-finalize logic lives once.
+  const sealStreamingMessage = useCallback((options: { appendText?: string; extra?: Partial<ChatMessage> } = {}) => {
+    setMessages((prev) => {
+      const lastMessage = prev[prev.length - 1];
+      if (!(lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming)) {
+        return prev;
+      }
+      const flushed = streamingMessageRef.current
+        ? setOpenTextPart(lastMessage.parts ?? [], streamingMessageRef.current)
+        : (lastMessage.parts ?? []);
+      const parts: AssistantPart[] = options.appendText
+        ? [...flushed, { type: 'text', text: options.appendText }]
+        : flushed;
+      return [
+        ...prev.slice(0, -1),
+        { ...lastMessage, parts, content: partsToContent(parts), isStreaming: false, ...options.extra },
+      ];
+    });
+    streamingMessageRef.current = '';
+  }, []);
+
+  const flushStreamingMessage = useCallback(() => {
+    rafPendingRef.current = null;
+    if (!streamingMessageRef.current) {
+      return;
+    }
+    updateStreamingParts((parts) => setOpenTextPart(parts, streamingMessageRef.current));
+  }, [updateStreamingParts]);
 
   const appendToStreamingMessage = useCallback(
     (text: string) => {
@@ -178,20 +263,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       cancelAnimationFrame(rafPendingRef.current);
       rafPendingRef.current = null;
     }
-    setMessages((prev) => {
-      const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, content: streamingMessageRef.current, isStreaming: false }];
-      }
-      return prev;
-    });
-    streamingMessageRef.current = '';
+    sealStreamingMessage();
     eventSourceRef.current = null;
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
-  }, []);
+  }, [sealStreamingMessage]);
 
   const handleStatus = useCallback((status: string) => {
     setCurrentStatus(status);
@@ -201,9 +279,54 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setSessionId(newSessionId);
   }, []);
 
-  const handleToolUse = useCallback((tools: ToolUseInfo[]) => {
-    setActiveTools(tools);
-  }, []);
+  const handleToolUse = useCallback(
+    (tools: ToolUseInfo[]) => {
+      // `activeTools` drives the transient "working" indicator only.
+      setActiveTools(tools);
+      if (tools.length === 0) {
+        return;
+      }
+      // Persist the calls onto the message, in order. Commit any buffered text
+      // first (so the calls land after the text that preceded them) and reset the
+      // buffer so subsequent text starts a new part after the tool call.
+      if (rafPendingRef.current !== null) {
+        cancelAnimationFrame(rafPendingRef.current);
+        rafPendingRef.current = null;
+      }
+      updateStreamingParts((parts) => {
+        const withText = streamingMessageRef.current ? setOpenTextPart(parts, streamingMessageRef.current) : parts;
+        return upsertToolCalls(withText, tools);
+      });
+      streamingMessageRef.current = '';
+    },
+    [updateStreamingParts],
+  );
+
+  const handleToolResult = useCallback(
+    (result: ToolResultInfo) => {
+      updateStreamingParts((parts) => applyToolResult(parts, result));
+    },
+    [updateStreamingParts],
+  );
+
+  const handleUsage = useCallback(
+    (usage: {
+      prompt_tokens: number;
+      completion_tokens: number;
+      total_tokens: number;
+      total_cost_usd?: number | null;
+    }) => {
+      setTokenUsage((prev) => ({
+        promptTokens: prev.promptTokens + (usage.prompt_tokens ?? 0),
+        completionTokens: prev.completionTokens + (usage.completion_tokens ?? 0),
+        totalTokens: prev.totalTokens + (usage.total_tokens ?? 0),
+        // Accumulate cost only from priced turns; stays null until the first
+        // numeric estimate arrives so unpriced models render no cost at all.
+        costUsd: usage.total_cost_usd == null ? prev.costUsd : (prev.costUsd ?? 0) + usage.total_cost_usd,
+      }));
+    },
+    [],
+  );
 
   const handlePermissionRequest = useCallback((request: PermissionRequest) => {
     setPendingPermission(request);
@@ -234,13 +357,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     refreshConfig();
   }, [refreshConfig]);
 
-  // Persist the conversation once it settles. Skipping the streaming hot path avoids a write on
-  // every token; reset() empties messages, so this writes the empty conversation to clear storage.
-  useEffect(() => {
-    if (isStreaming) return;
-    setPersistedChat({ messages: trimForStorage(messages) });
-  }, [isStreaming, messages, setPersistedChat]);
-
   // Cancel pending RAF and close EventSource on unmount
   useEffect(() => {
     return () => {
@@ -257,21 +373,30 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const handleStreamError = useCallback((errorMsg: string) => {
-    setError(errorMsg);
-    setIsStreaming(false);
-    setCurrentStatus(null);
-    eventSourceRef.current = null;
-    setActiveTools([]);
-    setPendingPermission(null);
-    setMessages((prev) => {
-      const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, content: `Error: ${errorMsg}`, isStreaming: false }];
-      }
-      return prev;
-    });
-  }, []);
+  // Persist the conversation only once a turn has settled (never on the streaming
+  // hot path, which would write to storage on every frame). `reset()` flips back to
+  // the empty state here too, which clears the stored conversation.
+  useEffect(() => {
+    if (isStreaming) {
+      return;
+    }
+    setPersistedChat({ messages: trimForStorage(messages), tokenUsage });
+  }, [isStreaming, messages, tokenUsage, setPersistedChat]);
+
+  const handleStreamError = useCallback(
+    (errorMsg: string) => {
+      setError(errorMsg);
+      setIsStreaming(false);
+      setCurrentStatus(null);
+      eventSourceRef.current = null;
+      setActiveTools([]);
+      setPendingPermission(null);
+      // Keep any tool calls / text produced so far and append the error as a text
+      // part (a styled error callout is a planned follow-up).
+      sealStreamingMessage({ appendText: `Error: ${errorMsg}` });
+    },
+    [sealStreamingMessage],
+  );
 
   const handleInterrupted = useCallback(() => {
     setIsStreaming(false);
@@ -279,15 +404,43 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setActiveTools([]);
     setPendingPermission(null);
     eventSourceRef.current = null;
-    streamingMessageRef.current = '';
-    setMessages((prev) => {
-      const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, isStreaming: false, isInterrupted: true }];
-      }
-      return prev;
-    });
-  }, []);
+    if (rafPendingRef.current !== null) {
+      cancelAnimationFrame(rafPendingRef.current);
+      rafPendingRef.current = null;
+    }
+    // Keep whatever text/tool parts streamed before the interrupt.
+    sealStreamingMessage({ extra: { isInterrupted: true } });
+  }, [sealStreamingMessage]);
+
+  // Shared SSE callback wiring for startChat, handleSendMessage, respondToPermission and
+  // regenerate. Each call site wraps this in `withGuard(isCurrent, streamCallbacks)` so a
+  // superseded send's callbacks no-op.
+  const streamCallbacks = useMemo(
+    () => ({
+      onMessage: appendToStreamingMessage,
+      onError: handleStreamError,
+      onDone: finalizeStreamingMessage,
+      onStatus: handleStatus,
+      onSessionId: handleSessionId,
+      onToolUse: handleToolUse,
+      onToolResult: handleToolResult,
+      onInterrupted: handleInterrupted,
+      onUsage: handleUsage,
+      onPermissionRequest: handlePermissionRequest,
+    }),
+    [
+      appendToStreamingMessage,
+      handleStreamError,
+      finalizeStreamingMessage,
+      handleStatus,
+      handleSessionId,
+      handleToolUse,
+      handleToolResult,
+      handleInterrupted,
+      handleUsage,
+      handlePermissionRequest,
+    ],
+  );
 
   // Actions
   const openPanel = useCallback(() => {
@@ -326,6 +479,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     setCurrentStatus(null);
     setActiveTools([]);
+    setTokenUsage({ promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null });
     streamingMessageRef.current = '';
     setPendingPermission(null);
   }, []);
@@ -396,16 +550,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
             experiment_id: pageContext['experimentId'] as string | undefined,
             context: pageContext,
           },
-          withGuard(isCurrent, {
-            onMessage: appendToStreamingMessage,
-            onError: handleStreamError,
-            onDone: finalizeStreamingMessage,
-            onStatus: handleStatus,
-            onSessionId: handleSessionId,
-            onToolUse: handleToolUse,
-            onInterrupted: handleInterrupted,
-            onPermissionRequest: handlePermissionRequest,
-          }),
+          withGuard(isCurrent, streamCallbacks),
         );
         if (!attachStreamIfCurrent(isCurrent, result)) {
           return;
@@ -417,20 +562,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         handleStreamError(err instanceof Error ? err.message : 'Failed to start chat');
       }
     },
-    [
-      sessionId,
-      beginRequest,
-      attachStreamIfCurrent,
-      getPageContext,
-      appendToStreamingMessage,
-      handleStreamError,
-      finalizeStreamingMessage,
-      handleStatus,
-      handleSessionId,
-      handleToolUse,
-      handleInterrupted,
-      handlePermissionRequest,
-    ],
+    [sessionId, beginRequest, attachStreamIfCurrent, getPageContext, streamCallbacks, handleStreamError],
   );
 
   const respondToPermission = useCallback(
@@ -448,21 +580,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       // The paused assistant placeholder keeps streaming — no new message; the
       // resume stream continues accumulating into it until done.
       const isCurrent = beginRequest();
-      resumeStream(
-        requestSessionId,
-        requestId,
-        allow ? 'allow' : 'deny',
-        withGuard(isCurrent, {
-          onMessage: appendToStreamingMessage,
-          onError: handleStreamError,
-          onDone: finalizeStreamingMessage,
-          onStatus: handleStatus,
-          onSessionId: handleSessionId,
-          onToolUse: handleToolUse,
-          onInterrupted: handleInterrupted,
-          onPermissionRequest: handlePermissionRequest,
-        }),
-      )
+      resumeStream(requestSessionId, requestId, allow ? 'allow' : 'deny', withGuard(isCurrent, streamCallbacks))
         .then((result) => {
           attachStreamIfCurrent(isCurrent, result);
         })
@@ -472,19 +590,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           }
         });
     },
-    [
-      pendingPermission,
-      beginRequest,
-      attachStreamIfCurrent,
-      appendToStreamingMessage,
-      handleStreamError,
-      finalizeStreamingMessage,
-      handleStatus,
-      handleSessionId,
-      handleToolUse,
-      handleInterrupted,
-      handlePermissionRequest,
-    ],
+    [pendingPermission, beginRequest, attachStreamIfCurrent, streamCallbacks, handleStreamError],
   );
 
   const handleSendMessage = useCallback(
@@ -533,40 +639,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           experiment_id: pageContext['experimentId'] as string | undefined,
           context: pageContext,
         },
-        withGuard(isCurrent, {
-          onMessage: appendToStreamingMessage,
-          onError: handleStreamError,
-          onDone: finalizeStreamingMessage,
-          onStatus: handleStatus,
-          onSessionId: handleSessionId,
-          onToolUse: handleToolUse,
-          onInterrupted: handleInterrupted,
-          onPermissionRequest: handlePermissionRequest,
-        }),
+        withGuard(isCurrent, streamCallbacks),
       );
       attachStreamIfCurrent(isCurrent, result);
     },
-    [
-      sessionId,
-      startChat,
-      beginRequest,
-      attachStreamIfCurrent,
-      getPageContext,
-      appendToStreamingMessage,
-      handleStreamError,
-      finalizeStreamingMessage,
-      handleStatus,
-      handleSessionId,
-      handleToolUse,
-      handleInterrupted,
-      handlePermissionRequest,
-    ],
+    [sessionId, startChat, beginRequest, attachStreamIfCurrent, getPageContext, streamCallbacks],
   );
 
   const handleCancelSession = useCallback(() => {
     if (!sessionId || !isStreaming) return;
 
-    // Invalidate any in-flight send so a stream still awaiting its POST can't attach after cancel.
+    // Invalidate any in-flight send so a late POST can't reopen a stream after cancel
     activeRequestRef.current = null;
 
     // Close EventSource immediately to stop receiving data
@@ -652,34 +735,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         experiment_id: pageContext['experimentId'] as string | undefined,
         context: pageContext,
       },
-      withGuard(isCurrent, {
-        onMessage: appendToStreamingMessage,
-        onError: handleStreamError,
-        onDone: finalizeStreamingMessage,
-        onStatus: handleStatus,
-        onSessionId: handleSessionId,
-        onToolUse: handleToolUse,
-        onInterrupted: handleInterrupted,
-        onPermissionRequest: handlePermissionRequest,
-      }),
+      withGuard(isCurrent, streamCallbacks),
     );
     attachStreamIfCurrent(isCurrent, result);
-  }, [
-    messages,
-    sessionId,
-    isStreaming,
-    beginRequest,
-    attachStreamIfCurrent,
-    getPageContext,
-    appendToStreamingMessage,
-    handleStreamError,
-    finalizeStreamingMessage,
-    handleStatus,
-    handleSessionId,
-    handleToolUse,
-    handleInterrupted,
-    handlePermissionRequest,
-  ]);
+  }, [messages, sessionId, isStreaming, beginRequest, attachStreamIfCurrent, getPageContext, streamCallbacks]);
 
   const value: AssistantAgentContextType = {
     // State
@@ -695,6 +754,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     isLocalServer,
     pendingPrompt,
     pendingPermission,
+    tokenUsage,
     // Actions
     openPanel,
     closePanel,
@@ -726,6 +786,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   isLocalServer: false,
   pendingPrompt: null,
   pendingPermission: null,
+  tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null },
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},

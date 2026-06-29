@@ -12,6 +12,7 @@ import {
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
   GearIcon,
+  InfoTooltip,
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
@@ -30,7 +31,8 @@ import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
 import { ToolPermissionPrompt } from './ToolPermissionPrompt';
-import type { ChatMessage, ToolUseInfo } from './types';
+import { ToolCallGroup, type ToolCallPart } from './ToolCallCard';
+import type { AssistantPart, ChatMessage } from './types';
 import { AssistantSetupWizard } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
@@ -53,18 +55,120 @@ const DOTS_ANIMATION = {
   '100%': { content: '"..."' },
 };
 
+// Abbreviate token counts for the compact usage footer (e.g. 45257 -> "45.3K").
+const formatCompactTokens = (n: number): string =>
+  new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+
+// Sub-dollar estimates need more precision than cents (e.g. "$0.0045").
+const formatCostUsd = (cost: number): string =>
+  new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: cost < 1 ? 4 : 2,
+  }).format(cost);
+
+export type MessagePartGroup = { kind: 'text'; text: string } | { kind: 'tools'; calls: ToolCallPart[] };
+
+/**
+ * Coalesces an ordered part list into render groups, collapsing each maximal run of
+ * adjacent tool calls into a single `tools` group while preserving interleaving order.
+ */
+export const groupParts = (parts: AssistantPart[]): MessagePartGroup[] => {
+  const groups: MessagePartGroup[] = [];
+  for (const part of parts) {
+    if (part.type === 'text') {
+      groups.push({ kind: 'text', text: part.text });
+      continue;
+    }
+    const last = groups[groups.length - 1];
+    if (last?.kind === 'tools') {
+      last.calls.push(part);
+    } else {
+      groups.push({ kind: 'tools', calls: [part] });
+    }
+  }
+  return groups;
+};
+
+/**
+ * Renders an assistant turn's ordered parts (text + tool calls). Falls back to plain
+ * `content` for messages that predate the parts model.
+ */
+export const AssistantMessageBody = ({ message }: { message: ChatMessage }) => {
+  const { theme } = useDesignSystemTheme();
+  const parts: AssistantPart[] = message.parts ?? [{ type: 'text', text: message.content }];
+  // The markdown renderer leaves `---` as a default <hr> and headings with tight margins,
+  // so model-generated section breaks read cramped. Give rules and headings room to breathe.
+  const markdownSpacing = {
+    '& hr': {
+      margin: `${theme.spacing.lg}px 0`,
+      border: 'none',
+      borderTop: `1px solid ${theme.colors.border}`,
+    },
+    '& h1, & h2, & h3, & h4': { marginTop: theme.spacing.md },
+  };
+  return (
+    <>
+      {groupParts(parts).map((group, i) =>
+        group.kind === 'text' ? (
+          group.text ? (
+            <div key={`text-${i}`} css={markdownSpacing}>
+              <GenAIMarkdownRenderer>{group.text}</GenAIMarkdownRenderer>
+            </div>
+          ) : null
+        ) : (
+          <ToolCallGroup key={group.calls[0].toolUseId} parts={group.calls} />
+        ),
+      )}
+    </>
+  );
+};
+
+/** Animated "working" indicator shown while the assistant streams a turn. */
+const StreamingIndicator = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: theme.spacing.sm,
+        marginTop: theme.spacing.sm,
+      }}
+    >
+      <SparkleIcon
+        color="ai"
+        css={{ fontSize: 16, animation: 'pulse 1.5s ease-in-out infinite', '@keyframes pulse': PULSE_ANIMATION }}
+      />
+      <span
+        css={{
+          fontSize: theme.typography.fontSizeBase,
+          color: theme.colors.textSecondary,
+          '&::after': {
+            content: '"..."',
+            animation: 'dots 1.5s steps(3, end) infinite',
+            display: 'inline-block',
+            width: '1.2em',
+          },
+          '@keyframes dots': DOTS_ANIMATION,
+        }}
+      >
+        Processing
+      </span>
+    </div>
+  );
+};
+
 /**
  * Single chat message bubble.
  */
 const ChatMessageBubble = ({
   message,
   isLastMessage,
-  activeTools,
   onRegenerate,
 }: {
   message: ChatMessage;
   isLastMessage: boolean;
-  activeTools?: ToolUseInfo[];
   onRegenerate?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -101,7 +205,7 @@ const ChatMessageBubble = ({
         {isUser ? (
           <Typography.Text css={{ whiteSpace: 'pre-wrap' }}>{message.content}</Typography.Text>
         ) : (
-          <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+          <AssistantMessageBody message={message} />
         )}
         {/* Interrupted indicator */}
         {message.isInterrupted && (
@@ -118,42 +222,7 @@ const ChatMessageBubble = ({
           </span>
         )}
         {/* Loading indicator */}
-        {message.isStreaming && (
-          <div
-            css={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: theme.spacing.sm,
-              marginTop: theme.spacing.sm,
-            }}
-          >
-            <SparkleIcon
-              color="ai"
-              css={{
-                fontSize: 16,
-                animation: 'pulse 1.5s ease-in-out infinite',
-                '@keyframes pulse': PULSE_ANIMATION,
-              }}
-            />
-            <span
-              css={{
-                fontSize: theme.typography.fontSizeBase,
-                color: theme.colors.textSecondary,
-                '&::after': {
-                  content: '"..."',
-                  animation: 'dots 1.5s steps(3, end) infinite',
-                  display: 'inline-block',
-                  width: '1.2em',
-                },
-                '@keyframes dots': DOTS_ANIMATION,
-              }}
-            >
-              {activeTools && activeTools.length > 0 && activeTools[0].description
-                ? `Tool: ${activeTools[0].description}`
-                : 'Processing'}
-            </span>
-          </div>
-        )}
+        {message.isStreaming && <StreamingIndicator />}
       </div>
 
       {/* Action buttons for assistant messages */}
@@ -269,7 +338,6 @@ const ChatPanelContent = () => {
     messages,
     isStreaming,
     error,
-    activeTools,
     sendMessage,
     regenerateLastMessage,
     cancelSession,
@@ -277,6 +345,7 @@ const ChatPanelContent = () => {
     clearPendingPrompt,
     pendingPermission,
     respondToPermission,
+    tokenUsage,
   } = useAssistant();
   const logTelemetryEvent = useLogTelemetryEvent();
   const viewId = useMemo(() => uuidv4(), []);
@@ -374,7 +443,6 @@ const ChatPanelContent = () => {
               key={message.id}
               message={message}
               isLastMessage={isLastAssistantMessage}
-              activeTools={message.isStreaming ? activeTools : undefined}
               onRegenerate={isLastAssistantMessage ? regenerateLastMessage : undefined}
             />
           );
@@ -441,6 +509,72 @@ const ChatPanelContent = () => {
             />
           </div>
           <AssistantContextTags />
+          {tokenUsage.totalTokens > 0 && (
+            <div
+              css={{
+                alignSelf: 'flex-end',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: theme.spacing.xs,
+                paddingTop: theme.spacing.sm,
+              }}
+            >
+              <Typography.Text size="sm" color="secondary">
+                <FormattedMessage
+                  defaultMessage="{total} tokens"
+                  description="Compact per-session assistant token count shown near the chat input"
+                  values={{ total: formatCompactTokens(tokenUsage.totalTokens) }}
+                />
+                {tokenUsage.costUsd != null && (
+                  <>
+                    {' · '}
+                    <FormattedMessage
+                      defaultMessage="~{cost}"
+                      description="Estimated session cost; the leading tilde marks it as an approximate estimate"
+                      values={{ cost: formatCostUsd(tokenUsage.costUsd) }}
+                    />
+                  </>
+                )}
+              </Typography.Text>
+              <InfoTooltip
+                componentId="mlflow.assistant.chat_panel.usage_info"
+                content={
+                  <div
+                    css={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: theme.spacing.xs,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    <span>
+                      <FormattedMessage
+                        defaultMessage="Input {input} · Output {output} tokens"
+                        description="Breakdown of session token usage into input (prompt) and output (completion) tokens"
+                        values={{
+                          input: tokenUsage.promptTokens.toLocaleString(),
+                          output: tokenUsage.completionTokens.toLocaleString(),
+                        }}
+                      />
+                    </span>
+                    <span>
+                      {tokenUsage.costUsd != null ? (
+                        <FormattedMessage
+                          defaultMessage="Estimated from public model pricing; actual cost may vary (provider and cache rates)."
+                          description="Disclaimer clarifying that the displayed assistant cost is an estimate"
+                        />
+                      ) : (
+                        <FormattedMessage
+                          defaultMessage="Cost estimate unavailable for this model."
+                          description="Shown when the assistant's model is not in the pricing catalog so cost cannot be estimated"
+                        />
+                      )}
+                    </span>
+                  </div>
+                }
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

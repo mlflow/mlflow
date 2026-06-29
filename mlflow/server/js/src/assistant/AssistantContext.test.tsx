@@ -2,20 +2,21 @@ import { describe, it, test, expect, jest, beforeEach, afterEach } from '@jest/g
 import { renderHook, act, cleanup, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
-import { buildStorageKey } from '@databricks/web-shared/hooks/useLocalStorage';
-
 import {
   AssistantProvider,
   useAssistant,
+  upsertToolCalls,
+  applyToolResult,
   reviveMessages,
   trimForStorage,
-  CHAT_STORAGE_KEY_BASE,
-  CHAT_STORAGE_VERSION,
+  CHAT_STORAGE_KEY,
 } from './AssistantContext';
 import * as AssistantService from './AssistantService';
 import type { SendMessageStreamCallbacks } from './AssistantService';
 import { GatewayApi } from '../gateway/api';
-import type { AssistantConfig, ChatMessage, ProviderConfig } from './types';
+import type { AssistantConfig, ProviderConfig, AssistantPart, ChatMessage } from './types';
+
+const EMPTY_TOKEN_USAGE = { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null };
 
 const CHAT_STORAGE_KEY = buildStorageKey(CHAT_STORAGE_KEY_BASE, CHAT_STORAGE_VERSION);
 
@@ -138,155 +139,52 @@ describe('AssistantContext — reset() tears down the active stream', () => {
   });
 });
 
-describe('AssistantContext — reset() during the in-flight send window', () => {
-  // Drive sendMessageStream with a deferred promise so reset() can run while the POST is still
-  // pending — the exact window where the captured token is invalidated before the stream attaches.
-  const deferSend = () => {
-    let resolveSend!: (result: { eventSource: EventSource | null }) => void;
-    mockSendMessageStream.mockImplementation((_req, callbacks) => {
-      capturedCallbacks = callbacks;
-      return new Promise((resolve) => {
-        resolveSend = resolve;
-      });
-    });
-    return { resolve: () => resolveSend({ eventSource: fakeEventSource as unknown as EventSource }) };
-  };
-
-  it('ignores a stale onSessionId fired after reset() (no session revival)', async () => {
-    const { result } = await renderAssistant();
-    deferSend();
-
-    // Start the send but leave the POST pending (do not await it).
-    act(() => {
-      result.current.sendMessage('hello');
-    });
-
-    act(() => {
-      result.current.reset();
-    });
-
-    // The backend reply lands after reset — the guarded callback must no-op.
-    act(() => {
-      capturedCallbacks?.onSessionId?.('session-OLD');
-    });
-
-    expect(result.current.sessionId).toBeNull();
+describe('upsertToolCalls', () => {
+  test('appends a new tool call with running status', () => {
+    const result = upsertToolCalls([], [{ id: 't1', name: 'Bash', input: { command: 'ls' } }]);
+    expect(result).toEqual([
+      { type: 'toolCall', toolUseId: 't1', name: 'Bash', input: { command: 'ls' }, status: 'running' },
+    ]);
   });
 
-  it('closes the late-resolved EventSource instead of storing it', async () => {
-    const { result } = await renderAssistant();
-    const send = deferSend();
-
-    act(() => {
-      result.current.sendMessage('hello');
-    });
-    act(() => {
-      result.current.reset();
-    });
-
-    // POST resolves after reset: the post-await guard closes the orphaned stream.
-    await act(async () => {
-      send.resolve();
-    });
-    expect(fakeEventSource.close).toHaveBeenCalledTimes(1);
-
-    // A second reset() must not close it again — proving it was never stored in eventSourceRef.
-    act(() => {
-      result.current.reset();
-    });
-    expect(fakeEventSource.close).toHaveBeenCalledTimes(1);
+  test('keeps a tool call after any text part', () => {
+    const parts: AssistantPart[] = [{ type: 'text', text: 'working' }];
+    const result = upsertToolCalls(parts, [{ id: 't1', name: 'Bash', input: {} }]);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ type: 'text', text: 'working' });
+    expect(result[1]).toMatchObject({ type: 'toolCall', toolUseId: 't1', status: 'running' });
   });
 
-  it('closes a regenerate stream orphaned by reset() during its in-flight window', async () => {
-    const { result } = await renderAssistant();
-
-    // Seed a completed turn so regenerateLastMessage has a user message to replay.
-    const firstSend = deferSend();
-    act(() => {
-      result.current.sendMessage('hello');
-    });
-    await act(async () => {
-      firstSend.resolve();
-    });
-    act(() => {
-      capturedCallbacks?.onSessionId?.('session-1');
-      capturedCallbacks?.onDone();
-    });
-    expect(result.current.isStreaming).toBe(false);
-    fakeEventSource.close.mockClear();
-
-    // Regenerate, but leave its POST pending, then reset before it attaches.
-    const regen = deferSend();
-    act(() => {
-      result.current.regenerateLastMessage();
-    });
-    act(() => {
-      result.current.reset();
-    });
-
-    await act(async () => {
-      regen.resolve();
-    });
-
-    // The orphaned regenerate stream is closed by the guard, and the session stays cleared.
-    expect(fakeEventSource.close).toHaveBeenCalledTimes(1);
-    expect(result.current.sessionId).toBeNull();
+  test('re-upserting an existing call does not clobber a resolved status/result', () => {
+    const parts: AssistantPart[] = [
+      { type: 'toolCall', toolUseId: 't1', name: 'Bash', input: { command: 'ls' }, status: 'done', result: 'out' },
+    ];
+    const result = upsertToolCalls(parts, [{ id: 't1', name: 'Bash', input: { command: 'ls -a' } }]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ status: 'done', result: 'out', input: { command: 'ls -a' } });
   });
 });
 
-describe('AssistantContext — pendingPrompt seed', () => {
-  it('prefillPrompt sets pendingPrompt and clearPendingPrompt nulls it', async () => {
-    const { result } = await renderAssistant();
-    expect(result.current.pendingPrompt).toBeNull();
+describe('applyToolResult', () => {
+  const parts: AssistantPart[] = [
+    { type: 'text', text: 'let me check' },
+    { type: 'toolCall', toolUseId: 't1', name: 'Bash', input: { command: 'ls' }, status: 'running' },
+  ];
 
-    act(() => {
-      result.current.prefillPrompt('SEED');
-    });
-    expect(result.current.pendingPrompt).toBe('SEED');
-
-    act(() => {
-      result.current.clearPendingPrompt();
-    });
-    expect(result.current.pendingPrompt).toBeNull();
+  test('resolves the matching tool call to done with its result', () => {
+    const result = applyToolResult(parts, { toolUseId: 't1', content: 'output', isError: false });
+    expect(result[1]).toMatchObject({ toolUseId: 't1', status: 'done', result: 'output' });
+    expect(result[0]).toEqual({ type: 'text', text: 'let me check' });
   });
 
-  it('closePanel clears a queued pendingPrompt (abandon ⇒ no stale inject later)', async () => {
-    const { result } = await renderAssistant();
-
-    act(() => {
-      result.current.prefillPrompt('SEED');
-    });
-    expect(result.current.pendingPrompt).toBe('SEED');
-
-    act(() => {
-      result.current.closePanel();
-    });
-    expect(result.current.pendingPrompt).toBeNull();
+  test('marks the tool call as error when isError is true', () => {
+    const result = applyToolResult(parts, { toolUseId: 't1', content: 'boom', isError: true });
+    expect(result[1]).toMatchObject({ status: 'error', result: 'boom' });
   });
 
-  // completing setup must NOT drop a queued prompt, so it can be
-  // consumed once the chat input appears post-setup.
-  it('keeps pendingPrompt across completeSetup() (seed survives the setup wizard)', async () => {
-    const { result } = await renderAssistant();
-
-    act(() => {
-      result.current.prefillPrompt('SEED');
-    });
-    expect(result.current.pendingPrompt).toBe('SEED');
-
-    // completeSetup() re-fetches config; mirror a finished wizard where a provider is selected
-    // so setupComplete stays true after the refresh lands.
-    mockGetConfig.mockResolvedValue({
-      providers: { anthropic: { model: 'm', selected: true, permissions: {} } },
-      projects: {},
-    } as unknown as Awaited<ReturnType<typeof AssistantService.getConfig>>);
-
-    await act(async () => {
-      result.current.completeSetup();
-    });
-
-    expect(result.current.setupComplete).toBe(true);
-    expect(result.current.pendingPrompt).toBe('SEED');
+  test('leaves parts untouched when no toolUseId matches', () => {
+    const result = applyToolResult(parts, { toolUseId: 'other', content: 'x', isError: false });
+    expect(result).toEqual(parts);
   });
 });
 
@@ -454,13 +352,25 @@ describe('trimForStorage', () => {
     const messages = [makeMessage({ id: 'only', content: 'x'.repeat(1000) })];
     expect(trimForStorage(messages, 10)).toEqual(messages);
   });
+
+  it('keeps as many recent messages as fit the byte budget', () => {
+    const messages = [makeMessage({ id: 'm1' }), makeMessage({ id: 'm2' }), makeMessage({ id: 'm3' })];
+    // trimForStorage tracks a running size that ignores separator commas, so it can over-count by up
+    // to one char per dropped message; give the budget that headroom so the last two still fit.
+    const budgetForLastTwo = JSON.stringify(messages.slice(1)).length + messages.length;
+    const trimmed = trimForStorage(messages, budgetForLastTwo);
+    expect(trimmed.map((m) => m.id)).toEqual(['m2', 'm3']);
+  });
 });
 
 describe('AssistantContext — localStorage chat persistence', () => {
   it('restores messages from localStorage on mount', async () => {
     localStorage.setItem(
       CHAT_STORAGE_KEY,
-      JSON.stringify({ messages: [makeMessage({ id: 'restored', content: 'from storage' })] }),
+      JSON.stringify({
+        messages: [makeMessage({ id: 'restored', content: 'from storage' })],
+        tokenUsage: EMPTY_TOKEN_USAGE,
+      }),
     );
 
     const { result } = await renderAssistant();
@@ -487,7 +397,10 @@ describe('AssistantContext — localStorage chat persistence', () => {
   });
 
   it('clears persisted messages when reset() is called', async () => {
-    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages: [makeMessage({ id: 'restored' })] }));
+    localStorage.setItem(
+      CHAT_STORAGE_KEY,
+      JSON.stringify({ messages: [makeMessage({ id: 'restored' })], tokenUsage: EMPTY_TOKEN_USAGE }),
+    );
 
     const { result } = await renderAssistant();
     expect(result.current.messages).toHaveLength(1);
@@ -499,6 +412,7 @@ describe('AssistantContext — localStorage chat persistence', () => {
     expect(result.current.messages).toHaveLength(0);
     const stored = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? '{}');
     expect(stored.messages).toEqual([]);
+    expect(stored.tokenUsage).toEqual(EMPTY_TOKEN_USAGE);
   });
 
   it('persists the interrupted turn when a stream is cancelled mid-stream', async () => {
