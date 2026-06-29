@@ -85,7 +85,7 @@ def _is_empty_database(engine):
 
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
-    InitialBase.metadata.create_all(engine)
+    # Use Alembic upgrade to create all tables properly, handling existing tables
     _upgrade_db(engine)
 
 
