@@ -776,6 +776,7 @@ def test_use_workspace_permission_allows_create_but_blocks_reads_and_writes_on_o
         assert auth_module.validate_can_create_experiment()
         assert auth_module.validate_can_create_registered_model()
         assert auth_module.validate_can_create_mcp_server()
+        assert auth_module._can_create_mcp_server(username)
 
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
@@ -816,6 +817,7 @@ def test_no_permissions_blocks_create(workspace_permission_setup):
         assert not auth_module.validate_can_create_experiment()
         assert not auth_module.validate_can_create_registered_model()
         assert not auth_module.validate_can_create_mcp_server()
+        assert not auth_module._can_create_mcp_server(username)
 
 
 def test_role_grant_workspace_use_allows_create(workspace_permission_setup, monkeypatch):
