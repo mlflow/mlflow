@@ -39,15 +39,15 @@ export const reviveMessages = (messages: ChatMessage[]): ChatMessage[] =>
 
 /** Shrink a transcript to fit storage by dropping the oldest messages under a string-length budget. */
 export const trimForStorage = (messages: ChatMessage[], maxChars: number = MAX_PERSISTED_CHARS): ChatMessage[] => {
-  // Drop the oldest message until under budget, but never drop the last one. Track a running size
-  // instead of re-serialising the whole array each iteration (O(n) rather than O(n^2)).
-  let trimmed = messages;
-  let size = JSON.stringify(trimmed).length;
-  while (trimmed.length > 1 && size > maxChars) {
-    size -= JSON.stringify(trimmed[0]).length; // best-effort; ignores the separating comma
-    trimmed = trimmed.slice(1);
+  // Drop the oldest message until under budget, but never drop the last one.
+  const lengths = messages.map((msg) => JSON.stringify(msg).length);
+  let size = lengths.reduce((acc, len) => acc + len, 0); // best-effort; ignores separators
+  let start = 0;
+  while (start < messages.length - 1 && size > maxChars) {
+    size -= lengths[start];
+    start += 1;
   }
-  return trimmed;
+  return start === 0 ? messages : messages.slice(start);
 };
 
 /**
