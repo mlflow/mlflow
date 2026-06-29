@@ -331,6 +331,7 @@ from mlflow.server.handlers import (
     _disable_if_workspaces_disabled as _disable_if_workspaces_disabled,
 )
 from mlflow.server.jobs import get_job
+from mlflow.server.mcp_server_api import get_mcp_server_api_route_prefixes, is_mcp_server_api_path
 from mlflow.server.workspace_helpers import _get_workspace_store
 from mlflow.store.entities import PagedList
 from mlflow.store.workspace.utils import get_default_workspace_optional
@@ -1008,6 +1009,19 @@ def _get_permission_from_gateway_model_definition_id() -> Permission:
     )
 
 
+def _get_mcp_server_permission(name: str, username: str) -> Permission:
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="mcp_server",
+            resource_key=name,
+            workspace_lookup_id=name,
+            workspace_fetcher=_get_tracking_store().get_mcp_server,
+            workspace_label="mcp server",
+        ),
+    )
+
+
 def validate_can_read_experiment():
     return _get_permission_from_experiment_id().can_read
 
@@ -1176,6 +1190,10 @@ def validate_can_create_experiment() -> bool:
 
 
 def validate_can_create_registered_model() -> bool:
+    return _user_can_create_in_workspace()
+
+
+def validate_can_create_mcp_server() -> bool:
     return _user_can_create_in_workspace()
 
 
@@ -4370,6 +4388,63 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Await
     return validator
 
 
+def _mcp_server_suffix(path: str) -> str:
+    for prefix in get_mcp_server_api_route_prefixes():
+        if path.startswith(prefix):
+            return path[len(prefix) :].strip("/")
+    return ""
+
+
+def _get_mcp_server_validator(
+    path: str,
+) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    suffix = _mcp_server_suffix(path)
+    parts = suffix.split("/") if suffix else []
+
+    # Root and /bindings are open to any authenticated user.
+    if len(parts) < 2:
+        return _get_require_authentication_validator()
+
+    # Server name is namespace/slug (first two path segments).
+    name = f"{parts[0]}/{parts[1]}"
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        perm = _get_mcp_server_permission(name, username)
+        match request.method:
+            case "GET":
+                return perm.can_read
+            case "POST" | "PATCH":
+                return perm.can_update
+            case "DELETE":
+                return perm.can_delete if len(parts) == 2 else perm.can_update
+            case _:
+                return False
+
+    return validator
+
+
+def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
+    suffix = _mcp_server_suffix(get_routed_asgi_path(request))
+    if suffix and "/" in suffix:
+        return
+    body = getattr(request, "_body", None)
+    if not body:
+        return
+    try:
+        name = json.loads(body).get("name")
+    except (json.JSONDecodeError, AttributeError):
+        return
+    if name:
+        store.grant_user_permission(username, "mcp_server", name, MANAGE.name)
+
+
+def _mcp_server_after_delete(username: str, request: StarletteRequest) -> None:
+    suffix = _mcp_server_suffix(get_routed_asgi_path(request))
+    parts = suffix.split("/") if suffix else []
+    if len(parts) == 2:
+        store.delete_grants_for_resource("mcp_server", f"{parts[0]}/{parts[1]}")
+
+
 def _get_require_authentication_validator() -> Callable[[str, StarletteRequest], Awaitable[bool]]:
     """
     Get a validator that requires authentication but grants access to any authenticated user.
@@ -4428,7 +4503,34 @@ def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awai
     if path.startswith("/ajax-api/3.0/mlflow/assistant"):
         return _get_require_authentication_validator()
 
+    if is_mcp_server_api_path(path):
+        return _get_mcp_server_validator(path)
+
     return None
+
+
+FASTAPI_AFTER_REQUEST_HANDLERS: dict[
+    tuple[str, str],
+    Callable[[str, StarletteRequest], None],
+] = {
+    ("/ajax-api/3.0/mlflow/mcp-servers", "POST"): _mcp_server_after_create,
+    ("/api/3.0/mlflow/mcp-servers", "POST"): _mcp_server_after_create,
+    ("/ajax-api/3.0/mlflow/mcp-servers", "DELETE"): _mcp_server_after_delete,
+    ("/api/3.0/mlflow/mcp-servers", "DELETE"): _mcp_server_after_delete,
+}
+
+
+def _find_fastapi_after_request_handler(
+    path: str, method: str
+) -> Callable[[str, StarletteRequest], None] | None:
+    return next(
+        (
+            handler
+            for (prefix, m), handler in FASTAPI_AFTER_REQUEST_HANDLERS.items()
+            if m == method and path.startswith(prefix)
+        ),
+        None,
+    )
 
 
 def add_fastapi_permission_middleware(app: FastAPI) -> None:
@@ -4445,6 +4547,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
     4. Authenticate the request
     5. Allow admins full access
     6. Run the validator
+    7. Run after-request handlers on successful responses
 
     Args:
         app: The FastAPI application instance.
@@ -4488,24 +4591,35 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         request.state.username = user.username
         request.state.user_id = user.id
 
-        # Admins have full access
-        if user.is_admin:
-            return await call_next(request)
+        # Pre-read request body for after-request handlers that need it (the
+        # body is cached by Starlette so the route handler can still read it).
+        after_handler = _find_fastapi_after_request_handler(path, request.method)
+        if after_handler is not None:
+            await request.body()
 
-        # Run the validator
-        try:
-            if not await validator(user.username, request):
+        if not user.is_admin:
+            # Run the validator
+            try:
+                if not await validator(user.username, request):
+                    return PlainTextResponse(
+                        "Permission denied",
+                        status_code=HTTPStatus.FORBIDDEN,
+                    )
+            except MlflowException as e:
                 return PlainTextResponse(
-                    "Permission denied",
-                    status_code=HTTPStatus.FORBIDDEN,
+                    e.message,
+                    status_code=e.get_http_status_code(),
                 )
-        except MlflowException as e:
-            return PlainTextResponse(
-                e.message,
-                status_code=e.get_http_status_code(),
-            )
 
-        return await call_next(request)
+        response = await call_next(request)
+
+        if after_handler is not None and response.status_code < 400:
+            try:
+                after_handler(user.username, request)
+            except Exception:
+                _logger.exception("after-request handler failed for %s %s", request.method, path)
+
+        return response
 
 
 # Role management routes (RBAC). Each route is exposed at both the REST path (Python

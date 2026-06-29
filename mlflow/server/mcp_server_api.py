@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
@@ -413,50 +413,48 @@ def _icon_payloads_to_entities(
     return [icon.model_dump(exclude_none=True) for icon in icons]
 
 
-def _update_mcp_server_kwargs(name: str, request: UpdateMCPServerRequest) -> dict[str, Any]:
+def _update_mcp_server_kwargs(name: str, body: UpdateMCPServerRequest) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"name": name}
-    provided_fields = request.model_fields_set
+    provided_fields = body.model_fields_set
     for field_name in ("description", "display_name", "icons"):
         if field_name in provided_fields:
             kwargs[field_name] = (
-                _icon_payloads_to_entities(request.icons)
+                _icon_payloads_to_entities(body.icons)
                 if field_name == "icons"
-                else getattr(request, field_name)
+                else getattr(body, field_name)
             )
     return kwargs
 
 
 def _update_mcp_server_version_kwargs(
-    name: str, version: str, request: UpdateMCPServerVersionRequest
+    name: str, version: str, body: UpdateMCPServerVersionRequest
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"name": name, "version": version}
-    provided_fields = request.model_fields_set
+    provided_fields = body.model_fields_set
     if "display_name" in provided_fields:
-        kwargs["display_name"] = request.display_name
+        kwargs["display_name"] = body.display_name
     if "status" in provided_fields:
-        if request.status is None:
+        if body.status is None:
             raise MlflowException.invalid_parameter_value(
                 "status cannot be null; omit the field to leave it unchanged"
             )
-        kwargs["status"] = _parse_status(request.status)
+        kwargs["status"] = _parse_status(body.status)
     if "tools" in provided_fields:
-        kwargs["tools"] = _tool_payloads_to_entities(request.tools)
+        kwargs["tools"] = _tool_payloads_to_entities(body.tools)
     return kwargs
 
 
 def _update_mcp_access_binding_kwargs(
-    server_name: str, binding_id: int, request: UpdateMCPAccessBindingRequest
+    server_name: str, binding_id: int, body: UpdateMCPAccessBindingRequest
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"server_name": server_name, "binding_id": binding_id}
-    provided_fields = request.model_fields_set
+    provided_fields = body.model_fields_set
     for field_name in ("server_version", "server_alias", "endpoint_url"):
         if field_name in provided_fields:
-            kwargs[field_name] = getattr(request, field_name)
+            kwargs[field_name] = getattr(body, field_name)
     if "transport_type" in provided_fields:
         kwargs["transport_type"] = (
-            None
-            if request.transport_type is None
-            else _parse_transport_type(request.transport_type)
+            None if body.transport_type is None else _parse_transport_type(body.transport_type)
         )
     return kwargs
 
@@ -465,14 +463,16 @@ mcp_server_router = APIRouter(tags=["MCP Server Registry"])
 
 
 @mcp_server_router.post("", response_model=MCPServerResponse)
-def create_mcp_server(request: CreateMCPServerRequest) -> MCPServerResponse:
+def create_mcp_server(body: CreateMCPServerRequest, request: Request) -> MCPServerResponse:
     from mlflow.server.handlers import _get_tracking_store
 
-    validate_mcp_server_name(request.name)
+    validate_mcp_server_name(body.name)
+    username = getattr(request.state, "username", None)
     server = _get_tracking_store().create_mcp_server(
-        name=request.name,
-        description=request.description,
-        icons=_icon_payloads_to_entities(request.icons),
+        name=body.name,
+        description=body.description,
+        icons=_icon_payloads_to_entities(body.icons),
+        created_by=username,
     )
     return MCPServerResponse.from_entity(server)
 
@@ -559,12 +559,13 @@ def get_mcp_server_version(name: str, version: str) -> MCPServerVersionResponse:
     "/{name:path}/versions/{version:path}", response_model=MCPServerVersionResponse
 )
 def update_mcp_server_version(
-    name: str, version: str, request: UpdateMCPServerVersionRequest
+    name: str, version: str, body: UpdateMCPServerVersionRequest, request: Request
 ) -> MCPServerVersionResponse:
     from mlflow.server.handlers import _get_tracking_store
 
+    username = getattr(request.state, "username", None)
     ver = _get_tracking_store().update_mcp_server_version(
-        **_update_mcp_server_version_kwargs(name, version, request)
+        **_update_mcp_server_version_kwargs(name, version, body), last_updated_by=username
     )
     return MCPServerVersionResponse.from_entity(ver)
 
@@ -579,25 +580,27 @@ def delete_mcp_server_version(name: str, version: str) -> dict[str, Any]:
 
 @mcp_server_router.post("/{name:path}/versions", response_model=MCPServerVersionResponse)
 def create_mcp_server_version(
-    name: str, request: CreateMCPServerVersionRequest
+    name: str, body: CreateMCPServerVersionRequest, request: Request
 ) -> MCPServerVersionResponse:
     from mlflow.server.handlers import _get_tracking_store
 
-    validate_mcp_server_name(request.server_json.name)
+    validate_mcp_server_name(body.server_json.name)
     validate_mcp_server_name(name)
-    if request.server_json.name != name:
+    if body.server_json.name != name:
         raise MlflowException.invalid_parameter_value(
-            f"server_json.name '{request.server_json.name}' does not match path parameter '{name}'"
+            f"server_json.name '{body.server_json.name}' does not match path parameter '{name}'"
         )
-    status = _parse_status(request.status)
-    tools = _tool_payloads_to_entities(request.tools)
-    server_json = request.server_json.model_dump(by_alias=True, exclude_unset=True)
+    username = getattr(request.state, "username", None)
+    status = _parse_status(body.status)
+    tools = _tool_payloads_to_entities(body.tools)
+    server_json = body.server_json.model_dump(by_alias=True, exclude_unset=True)
     ver = _get_tracking_store().create_mcp_server_version(
         server_json=server_json,
-        display_name=request.display_name,
-        source=request.source,
+        display_name=body.display_name,
+        source=body.source,
         status=status,
         tools=tools,
+        created_by=username,
     )
     return MCPServerVersionResponse.from_entity(ver)
 
@@ -627,18 +630,20 @@ def search_mcp_server_versions(
 
 @mcp_server_router.post("/{name:path}/bindings", response_model=MCPAccessBindingResponse)
 def create_mcp_access_binding(
-    name: str, request: CreateMCPAccessBindingRequest
+    name: str, body: CreateMCPAccessBindingRequest, request: Request
 ) -> MCPAccessBindingResponse:
     from mlflow.server.handlers import _get_tracking_store
 
-    transport = _parse_transport_type(request.transport_type)
+    username = getattr(request.state, "username", None)
+    transport = _parse_transport_type(body.transport_type)
     store = _get_tracking_store()
     binding = store.create_mcp_access_binding(
         server_name=name,
-        endpoint_url=request.endpoint_url,
+        endpoint_url=body.endpoint_url,
         transport_type=transport,
-        server_version=request.server_version,
-        server_alias=request.server_alias,
+        server_version=body.server_version,
+        server_alias=body.server_alias,
+        created_by=username,
     )
     return MCPAccessBindingResponse.from_entity(binding)
 
@@ -660,13 +665,14 @@ def get_mcp_access_binding(name: str, binding_id: int) -> MCPAccessBindingRespon
     response_model=MCPAccessBindingResponse,
 )
 def update_mcp_access_binding(
-    name: str, binding_id: int, request: UpdateMCPAccessBindingRequest
+    name: str, binding_id: int, body: UpdateMCPAccessBindingRequest, request: Request
 ) -> MCPAccessBindingResponse:
     from mlflow.server.handlers import _get_tracking_store
 
+    username = getattr(request.state, "username", None)
     store = _get_tracking_store()
     binding = store.update_mcp_access_binding(
-        **_update_mcp_access_binding_kwargs(name, binding_id, request)
+        **_update_mcp_access_binding_kwargs(name, binding_id, body), last_updated_by=username
     )
     return MCPAccessBindingResponse.from_entity(binding)
 
@@ -760,10 +766,15 @@ def get_mcp_server(name: str) -> MCPServerResponse:
 
 
 @mcp_server_router.patch("/{name:path}", response_model=MCPServerResponse)
-def update_mcp_server(name: str, request: UpdateMCPServerRequest) -> MCPServerResponse:
+def update_mcp_server(
+    name: str, body: UpdateMCPServerRequest, request: Request
+) -> MCPServerResponse:
     from mlflow.server.handlers import _get_tracking_store
 
-    server = _get_tracking_store().update_mcp_server(**_update_mcp_server_kwargs(name, request))
+    username = getattr(request.state, "username", None)
+    server = _get_tracking_store().update_mcp_server(
+        **_update_mcp_server_kwargs(name, body), last_updated_by=username
+    )
     return MCPServerResponse.from_entity(server)
 
 
