@@ -94,10 +94,10 @@ Omnigent sets `MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false` so MLflow shares the gl
 
 ## Configuration Reference
 
-| Variable                      | Purpose                                                 | Default |
-| ----------------------------- | ------------------------------------------------------- | ------- |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint (e.g. your MLflow server URL)   | unset   |
-| `OTEL_EXPORTER_OTLP_PROTOCOL` | OTLP transport (`grpc` or `http/protobuf`)              | `grpc`  |
+| Variable                      | Purpose                                                                                                                          | Default |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP collector endpoint (e.g. your MLflow server URL)                                                                            | unset   |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | OTLP transport (`grpc` or `http/protobuf`)                                                                                       | `grpc`  |
 | `OTEL_EXPORTER_OTLP_HEADERS`  | Key-value headers sent with every OTLP request (e.g. `x-mlflow-experiment-id=1` to route traces to a specific MLflow experiment) | unset   |
 
 ## Monitoring Token Usage
