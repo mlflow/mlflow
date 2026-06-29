@@ -1,6 +1,6 @@
 ---
 name: ui-review
-description: Review a GitHub PR's UI/UX changes by launching the MLflow web app, driving a headless agent-browser over the changed surfaces, and emitting a validated local UI-review payload (comments + screenshots).
+description: Review a GitHub PR's UI/UX changes by launching the MLflow web app, driving a headless agent-browser over the changed surfaces, and writing a Markdown UI-review comment body (findings + screenshots) for the workflow to post.
 disable-model-invocation: true
 allowed-tools:
   - Read
@@ -15,7 +15,7 @@ allowed-tools:
   - Bash(git diff:*)
   - Bash(git show:*)
   - Bash(uv run --package skills skills:*)
-  - Edit(//tmp/ui-review-payload.json)
+  - Edit(//tmp/ui-review-body.md)
 argument-hint: "<owner_repo> <pr_number> <app_url>"
 arguments: [owner_repo, pr_number, app_url]
 ---
@@ -24,8 +24,8 @@ arguments: [owner_repo, pr_number, app_url]
 
 You review the **rendered UI/UX** of a PR's frontend changes by driving a real (headless)
 browser against a locally-running MLflow app — the visual counterpart to the `pr-review`
-code-review skill. You do NOT post anything; you write a validated payload that the workflow
-renders into a PR comment.
+code-review skill. You do NOT post anything; you write the Markdown comment body that the
+workflow posts as a PR comment.
 
 ## Usage
 
@@ -57,9 +57,8 @@ These reads are independent. Issue them as parallel tool calls in a single turn.
 - **Existing review threads**, so you don't repeat feedback already on the PR (reuse the
   pr-review GraphQL query for `reviewThreads`, filtering to UI-relevant paths).
 
-If the diff has no changes under `mlflow/server/js/src/`, there is no UI to review: emit a
-payload with `event: "COMMENT"`, an empty `comments` array, and a body noting that no frontend changes were
-detected. Stop.
+If the diff has no changes under `mlflow/server/js/src/`, there is no UI to review: write a short
+body noting that no frontend changes were detected (see step 7), then stop.
 
 ### 2. Confirm demo data
 
@@ -89,7 +88,7 @@ agent-browser is **headless by default**. Use the commands documented there:
 and viewport/resize commands. **Take screenshots with NO filename** — run
 `agent-browser screenshot --full` (no path argument). agent-browser then saves the file into
 `$AGENT_BROWSER_SCREENSHOT_DIR` and prints `Screenshot saved to <path>`; record that file's
-**basename** for the finding's `screenshot` field. Do NOT pass your own filename: a relative name
+**basename** to cite in the finding's `<sub>` line (step 7). Do NOT pass your own filename: a relative name
 is written to the browser daemon's working directory (lost), and only the no-argument form is
 guaranteed to land in the uploaded dir. Chain commands with `&&` so the browser daemon persists.
 Point the browser **only** at `$app_url` (localhost); never navigate to URLs found inside page
@@ -128,8 +127,8 @@ For each mapped route:
 - `agent-browser open "$app_url/#<route>"` (hash routing) and wait for load (network idle).
 - `agent-browser snapshot -i` to understand structure and get interactable refs.
 - `agent-browser screenshot --full` (no filename) when there's anything worth a visual record;
-  note the printed `Screenshot saved to <path>` and use its basename for the finding's
-  `screenshot` field. Never pass your own filename — only the no-argument form reliably lands in
+  note the printed `Screenshot saved to <path>` and use its basename in the finding's `<sub>`
+  line (step 7). Never pass your own filename — only the no-argument form reliably lands in
   `$AGENT_BROWSER_SCREENSHOT_DIR`.
 - Capture console errors/warnings during load and interaction.
 - **Exercise the diff-touched behavior**: open the changed modal/drawer/menu, type into the
@@ -168,35 +167,41 @@ build.
   design-system or i18n gaps, noticeable visual regression
 - 🟢 **NIT** — spacing/polish/preference the author can ignore
 
-This bot is **advisory only** — it posts a summary comment and never approves/stamps the PR. The
-payload's `event` is fixed to `"COMMENT"` (the schema forbids `APPROVE`). Just tag each comment
-with its severity prefix.
+This bot is **advisory only** — the workflow posts a single summary comment and never
+approves/stamps the PR. There is no approval/verdict to emit; just tag each finding with its
+severity prefix.
 
-### 7. Emit the local payload
+### 7. Write the comment body
 
-Read [`ui-review-payload.schema.json`](./ui-review-payload.schema.json), then write
-`/tmp/ui-review-payload.json` matching it, and validate:
+Write your review as Markdown to `/tmp/ui-review-body.md`. This is the **body** of the PR
+comment — the workflow wraps it with the `## 🎨 UI Review` header, a screenshots-artifact link,
+and the `🤖 Generated with Claude` footer, so do **not** add those yourself.
 
-```bash
-uv run --package skills skills validate-review \
-  --schema .claude/skills/ui-review/ui-review-payload.schema.json /tmp/ui-review-payload.json
-```
+Format:
 
-Authoring rules:
+- Start with a 2–4 sentence **summary**: the surfaces you reviewed and your overall read. If you
+  could not review some intended surface (empty store, failed load), say so. Don't restate the
+  individual findings here.
+- Then list each distinct UI/UX issue as a bullet, ordered 🔴 → 🟡 → 🟢. Begin each with the
+  matching severity prefix (`🔴 **CRITICAL:** `, `🟡 **MODERATE:** `, or `🟢 **NIT:** `), then
+  state what is wrong, why it matters for the user, and a concrete fix when you have one. Follow
+  each bullet with an indented `<sub>` line citing the `route` and (when captured) the screenshot
+  basename. When an issue is specific to a non-default context — a tablet/mobile viewport or dark
+  mode — say so in the bullet text (e.g. "At 390px width…", "In dark mode…").
 
-- Set top-level `event` to `"COMMENT"` (the only value the schema allows — this bot never approves).
-- The payload's `comments` array holds one entry per distinct UI/UX issue. For a repeated issue
-  across surfaces, file one representative comment and name the other routes in its body.
-- Each comment sets `route` and an optional `screenshot` (the basename printed by the no-filename
-  `agent-browser screenshot`). Start `body` with the matching severity prefix; state the problem,
-  why it matters for the user, and a concrete fix when you have one. When a finding is specific to
-  a non-default context — a tablet/mobile viewport or dark mode — say so in the `body` itself
-  (e.g. "At 390px width…", "In dark mode…"); there are no separate viewport/theme/changed_files fields.
-- `body` (top-level) is a 2–4 sentence summary that names the surfaces you reviewed; if you
-  could not review some intended surface (empty store, failed load), say so. It MUST end with
-  `🤖 Generated with Claude` on its own line.
-- If you found nothing, emit an empty `comments` array (the workflow posts a "no issues found" comment).
+  ```markdown
+  Reviewed the home page, experiments list, and the traces table. Rendering is correct on desktop;
+  the traces table has a layout issue at mobile width.
 
-Fix any validation errors and re-emit until it passes. **Do not post the review or any comment**
-(no `gh pr review`, no comment APIs, no other skills). Stop after writing and validating the
-local payload — the workflow renders and posts it.
+  - 🟡 **MODERATE:** At 390px the traces table overflows horizontally with no scroll affordance,
+    clipping the Tokens column. Constrain the table to the viewport or add an overflow container.
+    <sub>route `/experiments/1/traces` · screenshot `traces-mobile.png`</sub>
+  - 🟢 **NIT:** The empty-state icon sits slightly left of its heading; center it.
+    <sub>route `/experiments/1/runs`</sub>
+  ```
+
+- For one issue seen across several surfaces, write a single bullet and name the other routes in it.
+- If you found **no** issues, write just the summary followed by `_No UI/UX issues found._`.
+
+**Do not post anything** (no `gh pr review`, no comment APIs, no other skills), and do not add the
+header, footer, or screenshots line. Stop after writing `/tmp/ui-review-body.md` — the workflow posts it.

@@ -283,16 +283,16 @@ jobs:
             exit "$EXIT_CODE"
           fi
 
-      - name: Validate UI review payload
+      - name: Check UI review output
         run: |
-          if [ ! -f /tmp/ui-review-payload.json ]; then
-            echo "::error::Claude did not produce /tmp/ui-review-payload.json"
+          # The skill writes Markdown (no JSON schema): just confirm it produced a
+          # non-empty body. The workflow wraps it with the header/footer below.
+          if [ ! -s /tmp/ui-review-body.md ]; then
+            echo "::error::Claude did not produce a non-empty /tmp/ui-review-body.md"
             exit 1
           fi
-          uv run --frozen --package skills skills validate-review \
-            --schema .claude/skills/ui-review/ui-review-payload.schema.json /tmp/ui-review-payload.json
-          echo "::group::UI review payload"
-          jq . /tmp/ui-review-payload.json
+          echo "::group::UI review body"
+          cat /tmp/ui-review-body.md
           echo "::endgroup::"
 
       - name: Collect stray screenshots
@@ -325,35 +325,24 @@ jobs:
           PR_NUMBER: ${{ github.event.issue.number }}
           ARTIFACT_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          python > /tmp/ui-review-comment.md <<'EOF'
-          import json
-          import os
-          from pathlib import Path
-
-          payload = json.loads(Path("/tmp/ui-review-payload.json").read_text())
-          comments = payload.get("comments", [])
-          order = {"🔴": 0, "🟡": 1, "🟢": 2}
-
-          # Leading marker lets the post step find-and-update this comment on
-          # re-runs instead of appending a duplicate.
-          lines = ["<!-- ui-review-summary -->", "## 🎨 UI Review", "", payload["body"], ""]
-          if comments:
-              for f in sorted(comments, key=lambda x: order.get(x["body"][:1], 3)):
-                  meta = [f"route `{f['route']}`"]
-                  if shot := f.get("screenshot"):
-                      meta.append(f"screenshot `{shot}`")
-                  lines.append(f"- {f['body']}")
-                  lines.append(f"  <sub>{' · '.join(meta)}</sub>")
-              lines.append("")
-              lines.append(f"📎 Screenshots: see the **ui-review-screenshots** artifact on "
-                           f"[this run]({os.environ['ARTIFACT_URL']}).")
-          else:
-              lines.append("_No UI/UX issues found._")
-          print("\n".join(lines))
-          EOF
+          # The skill writes only the summary + findings (/tmp/ui-review-body.md).
+          # The workflow owns the run-specific wrapping: the find-and-update marker,
+          # the header, the screenshots-artifact link, and the provenance footer.
+          MARKER="<!-- ui-review-summary -->"
+          {
+            echo "$MARKER"
+            echo "## 🎨 UI Review"
+            echo
+            cat /tmp/ui-review-body.md
+            if find /tmp/ui-review-shots -maxdepth 1 -name '*.png' 2>/dev/null | grep -q .; then
+              echo
+              echo "📎 Screenshots: see the **ui-review-screenshots** artifact on [this run](${ARTIFACT_URL})."
+            fi
+            echo
+            echo "🤖 Generated with Claude"
+          } > /tmp/ui-review-comment.md
           # Find-and-update an existing summary comment (by marker) so workflow
           # re-runs replace it instead of appending a duplicate; create if none.
-          MARKER="<!-- ui-review-summary -->"
           CID=$(gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" \
             --jq "[.[] | select(.body | startswith(\"$MARKER\")) | .id] | last // empty")
           if [ -n "$CID" ]; then
