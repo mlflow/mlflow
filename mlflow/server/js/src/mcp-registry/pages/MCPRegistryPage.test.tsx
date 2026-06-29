@@ -7,7 +7,13 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { setupServer } from '../../common/utils/setup-msw';
 import MCPRegistryPage from './MCPRegistryPage';
-import { getMockedSearchMCPServersResponse } from '../test-utils';
+import { rest } from 'msw';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import {
+  createMockMCPServer,
+  getMockedSearchMCPServersResponse,
+  getMockedSearchMCPServersErrorResponse,
+} from '../test-utils';
 
 describe('MCPRegistryPage', () => {
   const server = setupServer(getMockedSearchMCPServersResponse([]));
@@ -34,18 +40,50 @@ describe('MCPRegistryPage', () => {
     });
   };
 
-  it('renders page title', async () => {
+  it('renders page title and tabs', async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('MCP Registry')).toBeInTheDocument();
     });
+    expect(screen.getByText('Servers')).toBeInTheDocument();
+    expect(screen.getByText('Access Bindings')).toBeInTheDocument();
   });
 
-  it('renders both tabs', async () => {
+  it('shows empty state on servers tab when no servers exist', async () => {
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('Servers')).toBeInTheDocument();
-      expect(screen.getByText('Access Bindings')).toBeInTheDocument();
+      expect(screen.getByText('Create and manage MCP servers using MLflow.')).toBeInTheDocument();
+    });
+  });
+
+  it('renders server cards when data is available', async () => {
+    const servers = [
+      createMockMCPServer({ name: 'server-1', display_name: 'My Server 1' }),
+      createMockMCPServer({ name: 'server-2', display_name: 'My Server 2' }),
+    ];
+    server.use(getMockedSearchMCPServersResponse(servers));
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('My Server 1')).toBeInTheDocument();
+      expect(screen.getByText('My Server 2')).toBeInTheDocument();
+    });
+  });
+
+  it('shows Create MCP server button when servers exist', async () => {
+    const servers = [createMockMCPServer({ name: 's1', display_name: 'Server 1' })];
+    server.use(getMockedSearchMCPServersResponse(servers));
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Server 1')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Create MCP server')).toBeInTheDocument();
+  });
+
+  it('renders error alert when API fails', async () => {
+    server.use(getMockedSearchMCPServersErrorResponse(500, 'Something broke'));
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Something broke')).toBeInTheDocument();
     });
   });
 
@@ -56,6 +94,13 @@ describe('MCPRegistryPage', () => {
     });
   });
 
+  it('shows empty state on access bindings tab when no servers exist', async () => {
+    renderPage(['/?tab=bindings']);
+    await waitFor(() => {
+      expect(screen.getByText('Create and manage access bindings for your MCP servers.')).toBeInTheDocument();
+    });
+  });
+
   it('switches to access bindings tab', async () => {
     renderPage();
     await waitFor(() => {
@@ -63,22 +108,80 @@ describe('MCPRegistryPage', () => {
     });
 
     await userEvent.click(screen.getByText('Access Bindings'));
+
     await waitFor(() => {
       expect(screen.getByPlaceholderText('Search access bindings')).toBeInTheDocument();
     });
   });
 
-  it('shows empty state on servers tab when no servers exist', async () => {
+  it('does not show header create button in empty state', async () => {
     renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('Create and manage MCP servers using MLflow.')).toBeInTheDocument();
+    });
+    // The empty state has a title and a CTA button both saying "Create MCP server" (2 elements).
+    // The header create button is a third one that should NOT exist in empty state.
+    const createTexts = screen.getAllByText('Create MCP server');
+    expect(createTexts).toHaveLength(2);
+  });
+
+  it('shows empty state in list view when no servers exist', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText('MCP Registry')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByLabelText('List view'));
+
     await waitFor(() => {
       expect(screen.getByText('Create and manage MCP servers using MLflow.')).toBeInTheDocument();
     });
   });
 
-  it('shows empty state on access bindings tab when no servers exist', async () => {
-    renderPage(['/?tab=bindings']);
+  it('filters servers via search input', async () => {
+    let capturedFilter: string | null = null;
+    server.use(
+      rest.get(getAjaxUrl('ajax-api/3.0/mlflow/mcp-servers'), (req, res, ctx) => {
+        capturedFilter = req.url.searchParams.get('filter_string');
+        return res(ctx.json({ mcp_servers: [], next_page_token: undefined }));
+      }),
+    );
+    renderPage();
+
     await waitFor(() => {
-      expect(screen.getByText('Create and manage access bindings for your MCP servers.')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Search MCP servers by name')).toBeInTheDocument();
+    });
+
+    await userEvent.type(screen.getByPlaceholderText('Search MCP servers by name'), 'github');
+
+    await waitFor(() => {
+      expect(capturedFilter).toBe("name ILIKE '%github%'");
+    });
+  });
+
+  it('switches between grid and list views', async () => {
+    const servers = [createMockMCPServer({ name: 's1', display_name: 'Server 1' })];
+    server.use(getMockedSearchMCPServersResponse(servers));
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Server 1')).toBeInTheDocument();
+    });
+
+    // Default is grid, switch to list
+    await userEvent.click(screen.getByLabelText('List view'));
+
+    // Table headers should appear in list view
+    await waitFor(() => {
+      expect(screen.getByText('Latest version')).toBeInTheDocument();
+      expect(screen.getByText('Last modified')).toBeInTheDocument();
+    });
+
+    // Switch back to grid
+    await userEvent.click(screen.getByLabelText('Grid view'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Latest version')).not.toBeInTheDocument();
     });
   });
 });

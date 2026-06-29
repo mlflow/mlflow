@@ -1671,6 +1671,10 @@
     "defaultMessage": "The retrieval groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
     "description": "Evaluation results > known type of evaluation result assessment > description of retrieval groundedness judge."
   },
+  "6QwDyx": {
+    "defaultMessage": "Name",
+    "description": "Header for the name column in the MCP servers table"
+  },
   "6SXoSp": {
     "defaultMessage": "Model definition",
     "description": "Label for model definition selector"
@@ -2483,6 +2487,10 @@
     "defaultMessage": "Choose from a selection of built-in LLM judges or create your own custom code based judge. {learnMore}",
     "description": "Description for the empty state when no judges exist"
   },
+  "9xfwTO": {
+    "defaultMessage": "Loading servers...",
+    "description": "Loading state for MCP servers card grid"
+  },
   "9y+yUQ": {
     "defaultMessage": "File is too large to preview",
     "description": "Label to indicate that the file is too large to preview"
@@ -2815,10 +2823,6 @@
     "defaultMessage": "One-line setup",
     "description": "Tab label for the mlflow agent setup CLI path in the agent action card"
   },
-  "BVZjOe": {
-    "defaultMessage": "Name",
-    "description": "MCP servers table header for name column"
-  },
   "BWH8UR": {
     "defaultMessage": "API key name:",
     "description": "Label for API key name input"
@@ -2874,6 +2878,10 @@
   "Bg/LgH": {
     "defaultMessage": "Instructions",
     "description": "Label for guardrail judge instructions"
+  },
+  "Bh7AL1": {
+    "defaultMessage": "Latest version",
+    "description": "Header for the latest version column in the MCP servers table"
   },
   "BkDhmT": {
     "defaultMessage": "Chat",
@@ -3575,6 +3583,10 @@
     "defaultMessage": "When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.",
     "description": "Tooltip explaining what usage tracking does"
   },
+  "FZe3Mu": {
+    "defaultMessage": "Last modified",
+    "description": "Header for the last modified column in the MCP servers table"
+  },
   "FZubuU": {
     "defaultMessage": "Input an experiment name",
     "description": "Input placeholder to enter experiment name for create experiment"
@@ -3730,10 +3742,6 @@
   "GKiPV1": {
     "defaultMessage": "Start Time:",
     "description": "Text for start time row header in the main table in the model comparison\n                page"
-  },
-  "GRC83e": {
-    "defaultMessage": "Create MCP server",
-    "description": "Empty state title for MCP servers tab"
   },
   "GRaplV": {
     "defaultMessage": "Context sufficiency",
@@ -3914,6 +3922,10 @@
   "HXbUkt": {
     "defaultMessage": "Child runs",
     "description": "Run page > Overview > Child runs"
+  },
+  "HXhGPv": {
+    "defaultMessage": "Tags",
+    "description": "Header for the tags column in the MCP servers table"
   },
   "HYQHVk": {
     "defaultMessage": "See more",
@@ -4611,10 +4623,6 @@
     "defaultMessage": "Latency Comparison",
     "description": "Title for the tool latency comparison chart"
   },
-  "LA4/Jy": {
-    "defaultMessage": "Create and manage MCP servers using MLflow.",
-    "description": "Empty state description for MCP servers tab"
-  },
   "LBaK9z": {
     "defaultMessage": "Open dataset",
     "description": "Text for the button that opens the dataset source URL in a new tab"
@@ -4686,10 +4694,6 @@
   "LajLDb": {
     "defaultMessage": "Move to top",
     "description": "Experiment page > compare runs tab > chart header > move to top option"
-  },
-  "LbpFi1": {
-    "defaultMessage": "Create MCP server",
-    "description": "MCP Registry empty state CTA button"
   },
   "LfggX9": {
     "defaultMessage": "Loading users…",
@@ -7599,6 +7603,10 @@
     "defaultMessage": "(unknown)",
     "description": "Filler text when run's time information is unavailable"
   },
+  "ZcWNz2": {
+    "defaultMessage": "Description",
+    "description": "Header for the description column in the MCP servers table"
+  },
   "ZfsnMj": {
     "defaultMessage": "Not grounded",
     "description": "Evaluation results > grounded assessment > negative value label. Displayed if evaluation result is considered as not grounded."
@@ -9635,6 +9643,10 @@
     "defaultMessage": "Evaluating {isTraces, select, true {traces} other {sessions}}...",
     "description": "Status text while evaluating traces or sessions"
   },
+  "ig+A10": {
+    "defaultMessage": "Create and manage MCP servers using MLflow.",
+    "description": "Empty state description for MCP servers"
+  },
   "igK5Su": {
     "defaultMessage": "Error",
     "description": "Experiment page > traces table > status label > error"
@@ -10735,6 +10747,10 @@
     "defaultMessage": "Prompt Name",
     "description": "Header for prompt name column in linked prompts table on logged model details page"
   },
+  "nrIEMg": {
+    "defaultMessage": "No servers found",
+    "description": "Empty state when MCP server search returns no results"
+  },
   "nugZSE": {
     "defaultMessage": "Show less",
     "description": "Button label to collapse conversation messages in model trace explorer"
@@ -10982,6 +10998,10 @@
   "p2po2x": {
     "defaultMessage": "Delete prompt",
     "description": "A header for the delete prompt modal"
+  },
+  "p9EISw": {
+    "defaultMessage": "Create MCP server",
+    "description": "Empty state title for MCP servers"
   },
   "p9ZErC": {
     "defaultMessage": "Start review",
@@ -12427,6 +12447,10 @@
     "defaultMessage": "Owner",
     "description": "Review queue sidebar: queue-owner column"
   },
+  "wU/MOk": {
+    "defaultMessage": "Create MCP server",
+    "description": "MCP servers empty state CTA button"
+  },
   "wY58OE": {
     "defaultMessage": "Retrieval groundedness",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval groundedness assessment. Used to indicate if the result is grounded in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Retrieval groundedness: moderately grounded\""
@@ -12547,10 +12571,6 @@
     "defaultMessage": "Nothing to compare!",
     "description": "Header displayed in the metrics and params compare plot when no values are selected"
   },
-  "x0yivN": {
-    "defaultMessage": "Description",
-    "description": "MCP servers table header for description column"
-  },
   "x1Lbmd": {
     "defaultMessage": "{gpuCount, plural, =0 {} one {# GPU} other {# GPUs}} selected",
     "description": "Count of selected GPUs displayed in the node level metric charts node selector"
@@ -12562,10 +12582,6 @@
   "x5IuGA": {
     "defaultMessage": "Loaded {name} v{version}",
     "description": "Success toast shown on the playground after loading a prompt version that did not include stored settings"
-  },
-  "x5RW3f": {
-    "defaultMessage": "Last modified",
-    "description": "MCP servers table header for last modified column"
   },
   "x5ukxr": {
     "defaultMessage": "Runs",
