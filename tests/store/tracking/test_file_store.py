@@ -736,6 +736,34 @@ def test_get_experiment_by_name(store):
     assert store.get_experiment_by_name(exp_data[exp_id]["name"]).experiment_id == exp_id
 
 
+@pytest.mark.parametrize(
+    "name",
+    [
+        "o'brien",
+        "experiment ' with quote",
+        "name = 'x'",
+        "' OR '1'='1",
+    ],
+)
+def test_get_experiment_by_name_with_filter_special_characters(store, name):
+    # Names containing characters that are significant to the search filter DSL
+    # (e.g. a single quote) must still be createable and retrievable by name.
+    # Previously ``get_experiment_by_name`` interpolated the name into a
+    # ``filter_string``, so such names raised a parse error or, in the worst
+    # case, matched a different experiment.
+    exp_id = store.create_experiment(name)
+    exp = store.get_experiment_by_name(name)
+    assert exp is not None
+    assert exp.experiment_id == exp_id
+    assert exp.name == name
+
+
+def test_get_experiment_by_name_no_spurious_match(store):
+    # A crafted name must not match a different, legitimately-named experiment.
+    store.create_experiment("real")
+    assert store.get_experiment_by_name("nonexistent' OR name = 'real") is None
+
+
 def test_create_additional_experiment_generates_random_fixed_length_id(store):
     store._get_active_experiments = mock.Mock(return_value=[])
     store._get_deleted_experiments = mock.Mock(return_value=[])
