@@ -747,7 +747,7 @@ def test_get_experiment_by_name(store):
 )
 def test_get_experiment_by_name_with_filter_special_characters(store, name):
     # Names containing characters that are significant to the search filter DSL
-    # (e.g. a single quote) must still be createable and retrievable by name.
+    # (e.g. a single quote) must still be creatable and retrievable by name.
     # Previously ``get_experiment_by_name`` interpolated the name into a
     # ``filter_string``, so such names raised a parse error or, in the worst
     # case, matched a different experiment.
