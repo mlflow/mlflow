@@ -142,6 +142,15 @@ MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS = _EnvironmentVariable(
     "MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS", int, 60
 )
 
+#: When true, disables the automatic ``/workspaces/<workspace_name>`` prefix that is
+#: appended to artifact roots when workspace support is enabled. Use this to keep workspaces
+#: functional while retaining compatibility with artifact paths created before workspace support
+#: was introduced.
+#: (default: ``False``)
+MLFLOW_WORKSPACE_DISABLE_ARTIFACT_PREFIX = _BooleanEnvironmentVariable(
+    "MLFLOW_WORKSPACE_DISABLE_ARTIFACT_PREFIX", False
+)
+
 #: Specifies the ``dfs_tmpdir`` parameter to use for ``mlflow.spark.save_model``,
 #: ``mlflow.spark.log_model`` and ``mlflow.spark.load_model``. See
 #: https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model
