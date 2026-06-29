@@ -283,6 +283,18 @@ jobs:
             exit "$EXIT_CODE"
           fi
 
+      - name: Stop dev server
+        if: always()
+        run: |
+          # The review loop is the only consumer of the dev server, so stop it as
+          # soon as Claude finishes; the remaining steps (check, upload, comment)
+          # don't need it. always() so it runs even if the review step failed or
+          # timed out. Guard on a non-empty PID so a bare `kill 0` can't signal the
+          # whole process group.
+          if [ -n "${DEV_PID:-}" ]; then
+            kill "$DEV_PID" 2>/dev/null || true
+          fi
+
       - name: Check UI review output
         run: |
           # The skill writes Markdown (no JSON schema): just confirm it produced a
@@ -453,11 +465,3 @@ jobs:
           path: /tmp/ui-output.jsonl
           retention-days: 1
           if-no-files-found: ignore
-
-      - name: Stop dev server
-        if: always()
-        run: |
-          # Guard on a non-empty PID so a bare `kill 0` can't signal the whole group.
-          if [ -n "${DEV_PID:-}" ]; then
-            kill "$DEV_PID" 2>/dev/null || true
-          fi
