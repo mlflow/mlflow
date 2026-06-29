@@ -31,15 +31,13 @@ Omnigent is an agent orchestration platform that supports multiple execution har
 
 ## Setup
 
-Omnigent ships MLflow as an optional dependency. Install the tracing extra and configure your export target.
+Install Omnigent and MLflow, then configure your export target.
 
-<StepHeader number={1} title="Install the Tracing Extra" />
+<StepHeader number={1} title="Install Omnigent and MLflow" />
 
 ```bash
-uv pip install 'omnigent[tracing]'
+uv pip install omnigent mlflow
 ```
-
-This installs `mlflow` and `opentelemetry` SDK packages. If the tracing extra is not installed, Omnigent degrades gracefully to a no-op — the server continues to run without emitting traces.
 
 <StepHeader number={2} title="Start the MLflow Tracking Server" />
 
