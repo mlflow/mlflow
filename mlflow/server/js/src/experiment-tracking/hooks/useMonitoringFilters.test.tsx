@@ -19,6 +19,7 @@ const mockPersistLocalStorage = jest.fn((val: MonitoringFilters | undefined) => 
 });
 
 jest.mock('@databricks/web-shared/hooks', () => ({
+  ...jest.requireActual<Record<string, unknown>>('@databricks/web-shared/hooks'),
   useLocalStorage: () => [mockLocalStorageValue, mockPersistLocalStorage],
 }));
 
