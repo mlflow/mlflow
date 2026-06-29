@@ -751,7 +751,12 @@ def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
     )
 
 
-_EXPERIMENT_ID_PATTERN = re.compile(r"^(\d+)/")
+# Proxied artifact paths are ``<experiment_id>/<run_id>/artifacts/...``. When
+# workspaces are enabled, non-default workspaces prefix the path with
+# ``workspaces/<workspace>/``. Accept the optional prefix so the experiment id is
+# resolved in both layouts; otherwise the prefixed form fails to match and the
+# artifact-proxy validator falls back to the coarser workspace-tier grant.
+_EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/")
 
 
 def _get_experiment_id_from_view_args():
