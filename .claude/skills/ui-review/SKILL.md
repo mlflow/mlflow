@@ -85,7 +85,7 @@ agent-browser skills get core --full
 agent-browser is **headless by default**. Use the commands documented there:
 `open <url>`, `snapshot [-i]` (accessibility tree — cheap, prefer it for structure),
 `screenshot [--full] [--annotate]`, `click/type/fill/press/scroll`, and the console-log
-and viewport/resize commands. **Take screenshots with NO filename** — run
+commands. **Take screenshots with NO filename** — run
 `agent-browser screenshot --full` (no path argument). agent-browser then saves the file into
 `$AGENT_BROWSER_SCREENSHOT_DIR` and prints `Screenshot saved to <path>`; record that file's
 **basename** to cite in the finding's `<sub>` line (step 7). Do NOT pass your own filename: a relative name
@@ -134,9 +134,9 @@ For each mapped route:
 - **Exercise the diff-touched behavior**: open the changed modal/drawer/menu, type into the
   changed input, toggle the changed control, switch the changed tab — using refs from the
   snapshot. Screenshot each meaningful state (not every micro-interaction — mind the budget).
-- **Only when the change is layout/responsive-related**, re-check key surfaces at tablet
-  (768×1024) and mobile (390×844). **Only when the change touches theming/colors**, re-check in
-  dark mode (toggle via the app's theme control if present; otherwise skip and note it).
+- Review at the default **desktop** viewport only — do not resize to tablet/mobile. **Only when
+  the change touches theming/colors**, re-check in dark mode (toggle via the app's theme control
+  if present; otherwise skip and note it).
 - If a surface fails to load, record it as a finding and continue to the next.
 
 ### 5. Evaluate
@@ -145,7 +145,6 @@ Across the surfaces, look for:
 
 - **Visual correctness** — does it render as the change intends; broken/overlapping elements
 - **Layout & overflow** — clipped text, horizontal scrollbars, broken grids/alignment
-- **Responsiveness** — breakage at tablet/mobile breakpoints (when layout changed)
 - **Accessibility** — from the a11y snapshot: missing labels/roles/alt text, low contrast,
   focus order, keyboard reachability; tracked components carry a static `componentId`
 - **Loading / empty / error states** — present and sensible (see the empty-state conventions in
@@ -163,7 +162,7 @@ build.
 
 - 🔴 **CRITICAL** — broken/unusable UI, crash, data not rendering, severe a11y blocker, or a
   console error that breaks the page
-- 🟡 **MODERATE** — layout/overflow at a common viewport, missing empty/error state,
+- 🟡 **MODERATE** — layout/overflow, missing empty/error state,
   design-system or i18n gaps, noticeable visual regression
 - 🟢 **NIT** — spacing/polish/preference the author can ignore
 
@@ -186,16 +185,16 @@ Format:
   matching severity prefix (`🔴 **CRITICAL:** `, `🟡 **MODERATE:** `, or `🟢 **NIT:** `), then
   state what is wrong, why it matters for the user, and a concrete fix when you have one. Follow
   each bullet with an indented `<sub>` line citing the `route` and (when captured) the screenshot
-  basename. When an issue is specific to a non-default context — a tablet/mobile viewport or dark
-  mode — say so in the bullet text (e.g. "At 390px width…", "In dark mode…").
+  basename. When an issue is specific to dark mode, say so in the bullet text (e.g. "In dark mode…").
 
   ```markdown
-  Reviewed the home page, experiments list, and the traces table. Rendering is correct on desktop;
-  the traces table has a layout issue at mobile width.
+  Reviewed the home page, experiments list, and the traces table at desktop size. Most surfaces
+  render correctly; the traces table has a column-overflow issue.
 
-  - 🟡 **MODERATE:** At 390px the traces table overflows horizontally with no scroll affordance,
-    clipping the Tokens column. Constrain the table to the viewport or add an overflow container.
-    <sub>route `/experiments/1/traces` · screenshot `traces-mobile.png`</sub>
+  - 🟡 **MODERATE:** When a trace name is long, the traces table's "Tokens" column overlaps the
+    adjacent column and the value becomes unreadable. Truncate long names with an ellipsis or give
+    the column a min-width.
+    <sub>route `/experiments/1/traces` · screenshot `traces-table.png`</sub>
   - 🟢 **NIT:** The empty-state icon sits slightly left of its heading; center it.
     <sub>route `/experiments/1/runs`</sub>
   ```
