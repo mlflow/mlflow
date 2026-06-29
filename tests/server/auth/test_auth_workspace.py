@@ -215,6 +215,7 @@ class _TrackingStore:
         gateway_secret_workspaces: dict[str, str] | None = None,
         gateway_endpoint_workspaces: dict[str, str] | None = None,
         gateway_model_def_workspaces: dict[str, str] | None = None,
+        mcp_server_workspaces: dict[str, str] | None = None,
         engine=None,
         ManagedSessionMaker=None,
     ):
@@ -226,6 +227,7 @@ class _TrackingStore:
         self._gateway_secret_workspaces = gateway_secret_workspaces or {}
         self._gateway_endpoint_workspaces = gateway_endpoint_workspaces or {}
         self._gateway_model_def_workspaces = gateway_model_def_workspaces or {}
+        self._mcp_server_workspaces = mcp_server_workspaces or {}
         self.engine = engine
         self.ManagedSessionMaker = ManagedSessionMaker
 
@@ -299,6 +301,14 @@ class _TrackingStore:
                 workspace=self._gateway_model_def_workspaces[model_definition_id],
             )
         raise ValueError("Must provide model_definition_id or name")
+
+    def get_mcp_server(self, name: str):
+        if name not in self._mcp_server_workspaces:
+            raise MlflowException(
+                f"MCP server not found ({name})",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return SimpleNamespace(workspace=self._mcp_server_workspaces[name])
 
     def _create_mock_session(self):
         """Create a mock session that can query gateway SQL models."""
@@ -410,6 +420,7 @@ def workspace_permission_setup(tmp_path, monkeypatch):
         gateway_secret_workspaces={"secret-1": "team-a", "secret-2": "team-a"},
         gateway_endpoint_workspaces={"endpoint-1": "team-a", "endpoint-2": "team-a"},
         gateway_model_def_workspaces={"model-def-1": "team-a", "model-def-2": "team-a"},
+        mcp_server_workspaces={"server-1": "team-a", "server-2": "team-a"},
         engine=MagicMock(),  # Mock engine for SQL model queries
     )
     # Set ManagedSessionMaker after creating the store
@@ -764,6 +775,7 @@ def test_use_workspace_permission_allows_create_but_blocks_reads_and_writes_on_o
     with workspace_context.WorkspaceContext("team-a"):
         assert auth_module.validate_can_create_experiment()
         assert auth_module.validate_can_create_registered_model()
+        assert auth_module.validate_can_create_mcp_server()
 
     with auth_module.app.test_request_context(
         "/api/2.0/mlflow/experiments/get", method="GET", query_string={"experiment_id": "exp-1"}
@@ -803,6 +815,7 @@ def test_no_permissions_blocks_create(workspace_permission_setup):
     with workspace_context.WorkspaceContext("team-a"):
         assert not auth_module.validate_can_create_experiment()
         assert not auth_module.validate_can_create_registered_model()
+        assert not auth_module.validate_can_create_mcp_server()
 
 
 def test_role_grant_workspace_use_allows_create(workspace_permission_setup, monkeypatch):
@@ -2519,6 +2532,50 @@ def test_role_union_best_permission_wins_for_gateway_endpoint(workspace_permissi
         query_string={"endpoint_id": "endpoint-1"},
     ):
         assert auth_module.validate_can_manage_gateway_endpoint() is True
+
+
+# =============================================================================
+# Authorization for MCP server resources
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    ("granted", "expected_read", "expected_update", "expected_delete", "expected_manage"),
+    [
+        ("READ", True, False, False, False),
+        ("USE", True, False, False, False),
+        ("EDIT", True, True, False, False),
+        ("MANAGE", True, True, True, True),
+    ],
+)
+def test_role_grant_on_mcp_server_gates_capabilities(
+    workspace_permission_setup,
+    granted,
+    expected_read,
+    expected_update,
+    expected_delete,
+    expected_manage,
+):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _assign_role_with_permission(store, username, "team-a", "mcp_server", granted)
+
+    perm = auth_module._get_mcp_server_permission("server-1", username)
+    assert perm.can_read is expected_read
+    assert perm.can_update is expected_update
+    assert perm.can_delete is expected_delete
+    assert perm.can_manage is expected_manage
+
+
+def test_role_in_other_workspace_does_not_grant_mcp_server_access(workspace_permission_setup):
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, NO_PERMISSIONS.name)
+    _assign_role_with_permission(store, username, "team-b", "mcp_server", "MANAGE")
+
+    perm = auth_module._get_mcp_server_permission("server-1", username)
+    assert perm.can_read is False
 
 
 # =============================================================================
