@@ -30,7 +30,7 @@ import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/m
 
 const chartMatchesFilter = (filter: string, config: RunsChartsCardConfig) => {
   // Use regexp-based filtering if a feature flag is enabled
-  if (config.type === RunsChartType.IMAGE || config.type === RunsChartType.DIFFERENCE) {
+  if (config.type === RunsChartType.IMAGE || config.type === RunsChartType.DIFFERENCE || config.type === RunsChartType.VIDEO) {
     return true;
   }
 
