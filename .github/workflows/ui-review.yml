@@ -216,9 +216,21 @@ jobs:
           mkdir -p /tmp/ui-review
           # Pre-populate the GenAI demo dataset (offline, no API key) so pages aren't empty.
           uv run --frozen python -c "from mlflow.demo import generate_all_demos; generate_all_demos(refresh=True)"
+          # For PRs that touch the Assistant, install a credential-free stub `claude`
+          # so the provider's auth probe passes and the chat panel renders. The stub
+          # is scoped to the dev server process (run_dev_server prepends it to its own
+          # PATH); the real CLI used by the UI Review step below stays untouched. Gated
+          # to assistant paths so unrelated reviews are unaffected.
+          # HEAD^1 is the merge base parent (checkout uses the PR merge ref, depth 2).
+          CHANGED=$(git diff --name-only HEAD^1 2>/dev/null || true)
+          STUB_ARGS=()
+          if echo "$CHANGED" | grep -qE '^mlflow/(assistant|server/assistant|server/js/src/assistant)/'; then
+            STUB_ARGS+=(--stub-providers claude)
+            echo "Assistant change detected; launching dev server with stub claude"
+          fi
           # run_dev_server.py starts the backend + `yarn start` frontend (much faster than
           # a full `yarn build`) and honors MLFLOW_TRACKING_URI for the store.
-          uv run --frozen dev/run_dev_server.py > /tmp/dev-server.log 2>&1 &
+          uv run --frozen dev/run_dev_server.py "${STUB_ARGS[@]}" > /tmp/dev-server.log 2>&1 &
           echo "DEV_PID=$!" >> "$GITHUB_ENV"
           APP_URL=""
           for _ in $(seq 1 120); do
