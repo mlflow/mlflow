@@ -1,11 +1,16 @@
 import os
 import shutil
-from typing import Any
+import tempfile
+import threading
+from contextlib import suppress
+from typing import Any, BinaryIO, Callable
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.artifact_repo import (
+    ARTIFACT_STREAM_CHUNK_SIZE,
     ArtifactRepository,
+    StreamUploadMixin,
     try_read_trace_data,
     verify_artifact_path,
 )
@@ -20,8 +25,30 @@ from mlflow.utils.file_utils import (
 )
 from mlflow.utils.uri import validate_path_is_safe, validate_path_within_directory
 
+_TEMP_ARTIFACT_PREFIX = ".artifact.uploading."
+_UMASK_LOCK = threading.Lock()
 
-class LocalArtifactRepository(ArtifactRepository):
+
+def _set_default_file_mode(file_path: str) -> None:
+    """Set file permissions to match the default mode produced by ``open()``."""
+    if os.name == "nt":
+        return
+
+    with _UMASK_LOCK:
+        current_umask = os.umask(0)
+        os.umask(current_umask)
+    os.chmod(file_path, 0o666 & ~current_umask)
+
+
+def _verify_artifact_file_name(artifact_file_name: str) -> None:
+    if os.path.basename(artifact_file_name).startswith(_TEMP_ARTIFACT_PREFIX):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid artifact file name: '{artifact_file_name}'. "
+            f"Artifact names starting with '{_TEMP_ARTIFACT_PREFIX}' are reserved."
+        )
+
+
+class LocalArtifactRepository(ArtifactRepository, StreamUploadMixin):
     """Stores artifacts as files in a local directory."""
 
     def __init__(
@@ -45,7 +72,7 @@ class LocalArtifactRepository(ArtifactRepository):
             )
         return os.path.abspath(local_artifact_path)
 
-    def log_artifact(self, local_file, artifact_path=None):
+    def _get_or_create_artifact_dir(self, artifact_path: str | None = None) -> str:
         verify_artifact_path(artifact_path)
         # NOTE: The artifact_path is expected to be in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
@@ -55,12 +82,88 @@ class LocalArtifactRepository(ArtifactRepository):
         artifact_dir = (
             os.path.join(self.artifact_dir, artifact_path) if artifact_path else self.artifact_dir
         )
+        validate_path_within_directory(self.artifact_dir, artifact_dir)
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
+        return artifact_dir
+
+    def _get_destination_artifact_path(
+        self, artifact_file_name: str, artifact_path: str | None = None
+    ) -> tuple[str, str]:
+        artifact_dir = self._get_or_create_artifact_dir(artifact_path)
+        _verify_artifact_file_name(artifact_file_name)
+        destination_file_path = os.path.join(artifact_dir, os.path.basename(artifact_file_name))
+        validate_path_within_directory(self.artifact_dir, destination_file_path)
+        return artifact_dir, destination_file_path
+
+    def _write_to_destination_path(
+        self,
+        artifact_file_name: str,
+        writer: Callable[[BinaryIO], None],
+        artifact_path: str | None = None,
+        finalize_temp_path: Callable[[str], None] | None = None,
+    ) -> None:
+        artifact_dir, destination_file_path = self._get_destination_artifact_path(
+            artifact_file_name, artifact_path
+        )
+        # Write to a hidden temp file in the destination directory, then atomically
+        # replace the target path so readers never see a partially-written artifact.
+        temp_file_descriptor, temp_file_path = tempfile.mkstemp(
+            dir=artifact_dir, prefix=_TEMP_ARTIFACT_PREFIX
+        )
+        published = False
         try:
-            shutil.copy2(local_file, os.path.join(artifact_dir, os.path.basename(local_file)))
-        except shutil.SameFileError:
+            temp_file = os.fdopen(temp_file_descriptor, "wb")
+            temp_file_descriptor = None
+            with temp_file:
+                writer(temp_file)
+            if finalize_temp_path is not None:
+                finalize_temp_path(temp_file_path)
+            os.replace(temp_file_path, destination_file_path)
+            published = True
+        finally:
+            if temp_file_descriptor is not None:
+                os.close(temp_file_descriptor)
+            if not published:
+                with suppress(FileNotFoundError):
+                    os.remove(temp_file_path)
+
+    def log_artifact(self, local_file, artifact_path=None):
+        _, destination_file_path = self._get_destination_artifact_path(local_file, artifact_path)
+        try:
+            if os.path.samefile(local_file, destination_file_path):
+                return
+        except FileNotFoundError:
             pass
+
+        def _write_file(temp_file: BinaryIO) -> None:
+            with open(local_file, "rb") as local_artifact_file:
+                shutil.copyfileobj(
+                    local_artifact_file, temp_file, length=ARTIFACT_STREAM_CHUNK_SIZE
+                )
+
+        self._write_to_destination_path(
+            local_file,
+            _write_file,
+            artifact_path,
+            finalize_temp_path=lambda temp_file_path: shutil.copystat(local_file, temp_file_path),
+        )
+
+    def log_artifact_from_stream(
+        self,
+        stream: BinaryIO,
+        artifact_file_name: str,
+        artifact_path: str | None = None,
+    ) -> None:
+        def _write_stream(temp_file: BinaryIO) -> None:
+            shutil.copyfileobj(stream, temp_file, length=ARTIFACT_STREAM_CHUNK_SIZE)
+
+        self._write_to_destination_path(
+            artifact_file_name,
+            _write_stream,
+            artifact_path,
+            finalize_temp_path=_set_default_file_mode,
+        )
 
     def _is_directory(self, artifact_path):
         # NOTE: The path is expected to be in posix format.
@@ -70,16 +173,7 @@ class LocalArtifactRepository(ArtifactRepository):
         return os.path.isdir(list_dir)
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        verify_artifact_path(artifact_path)
-        # NOTE: The artifact_path is expected to be in posix format.
-        # Posix paths work fine on windows but just in case we normalize it here.
-        if artifact_path:
-            artifact_path = os.path.normpath(artifact_path)
-        artifact_dir = (
-            os.path.join(self.artifact_dir, artifact_path) if artifact_path else self.artifact_dir
-        )
-        if not os.path.exists(artifact_dir):
-            mkdir(artifact_dir)
+        artifact_dir = self._get_or_create_artifact_dir(artifact_path)
         shutil_copytree_without_file_permissions(local_dir, artifact_dir)
 
     def download_artifacts(self, artifact_path, dst_path=None):
@@ -113,6 +207,7 @@ class LocalArtifactRepository(ArtifactRepository):
                     f, relative_path_to_artifact_path(os.path.relpath(f, self.artifact_dir))
                 )
                 for f in artifact_files
+                if not os.path.basename(f).startswith(_TEMP_ARTIFACT_PREFIX)
             ]
             return sorted(infos, key=lambda f: f.path)
         else:
