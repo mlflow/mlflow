@@ -2,6 +2,8 @@ import { describe, it, test, expect, jest, beforeEach, afterEach } from '@jest/g
 import { renderHook, act, cleanup, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
+import { buildStorageKey } from '@databricks/web-shared/hooks/useLocalStorage';
+
 import {
   AssistantProvider,
   useAssistant,
@@ -9,7 +11,8 @@ import {
   applyToolResult,
   reviveMessages,
   trimForStorage,
-  CHAT_STORAGE_KEY,
+  CHAT_STORAGE_KEY_BASE,
+  CHAT_STORAGE_VERSION,
 } from './AssistantContext';
 import * as AssistantService from './AssistantService';
 import type { SendMessageStreamCallbacks } from './AssistantService';
