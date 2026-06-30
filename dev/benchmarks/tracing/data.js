@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782697358097,
+  "lastUpdate": 1782791459618,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -11933,6 +11933,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 8.935469999971701,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "veronica.lyu@databricks.com",
+            "name": "veronicalyu320",
+            "username": "veronicalyu320"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cb77d03e230b66ede88a3bd73036d7cd0a9e8b88",
+          "message": "Route DSPy judge optimizer Databricks models to Mosaic AI Gateway for Unity Catalog names (#24177)\n\nSigned-off-by: Veronica Lyu <veronica.lyu@databricks.com>",
+          "timestamp": "2026-06-30T03:47:41Z",
+          "tree_id": "5cff7b73bc965fdd25feab606626e6490267e195",
+          "url": "https://github.com/mlflow/mlflow/commit/cb77d03e230b66ede88a3bd73036d7cd0a9e8b88"
+        },
+        "date": 1782791458311,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 30.087342950000107,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 18.708730629631038,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 16.740164936365176,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 17.26961697959071,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 18.037891509614212,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 31.79428550001262,
             "unit": "ms"
           }
         ]
