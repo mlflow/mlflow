@@ -226,6 +226,24 @@ def test_set_model_version_tag():
     assert mv.tags == {"key": "value"}
 
 
+def test_log_model_forwards_tags_to_registered_model_version():
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input):
+            return model_input
+
+    tags = {"stage": "training", "framework": "pyfunc"}
+    model_info = mlflow.pyfunc.log_model(
+        name="model",
+        python_model=TestModel(),
+        registered_model_name="Model 1",
+        tags=tags,
+    )
+
+    # Tags must land on the registered ModelVersion, not only on the LoggedModel.
+    mv = MlflowClient().get_model_version("Model 1", str(model_info.registered_model_version))
+    assert mv.tags == tags
+
+
 def test_register_model_with_2_x_model(tmp_path: Path):
     tracking_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     artifact_location = (tmp_path / "artifacts").as_uri()
