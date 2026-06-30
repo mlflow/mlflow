@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import {
+  Alert,
   Button,
-  Empty,
   GridIcon,
   Header,
   ListIcon,
@@ -24,25 +24,16 @@ import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWra
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { useSearchParams } from '../../common/utils/RoutingUtils';
+import { useMCPServersListQuery } from '../hooks/useMCPServersListQuery';
+import { MCPServerCardGrid } from '../components/MCPServerCardGrid';
+import { MCPServerListTable } from '../components/MCPServerListTable';
+import { MCPServerListFilters } from '../components/MCPServerListFilters';
+import { MCPRegistryEmptyState } from '../components/MCPRegistryEmptyState';
+import { flexColumnContainerStyles, headerIconStyles } from '../styles';
+import { useDebounce } from 'use-debounce';
 
 type ViewMode = 'list' | 'grid';
 type ActiveTab = 'servers' | 'bindings';
-
-const emptyCenterStyles = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  height: '100%',
-  minHeight: 400,
-  width: '100%',
-  '& > div': {
-    height: '100%',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-};
 
 const MCPRegistryPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -50,8 +41,23 @@ const MCPRegistryPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab');
   const activeTab: ActiveTab = tabFromUrl === 'bindings' ? 'bindings' : 'servers';
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [searchFilter, setSearchFilter] = useState('');
+  const [debouncedSearchFilter] = useDebounce(searchFilter, 500);
+
+  const {
+    data: servers,
+    isLoading,
+    error,
+    hasNextPage,
+    hasPreviousPage,
+    onNextPage,
+    onPreviousPage,
+    pageSizeSelect,
+  } = useMCPServersListQuery({
+    searchFilter: activeTab === 'servers' ? debouncedSearchFilter : undefined,
+    enabled: activeTab === 'servers',
+  });
 
   const handleTabChange = useCallback(
     (e: RadioChangeEvent) => {
@@ -68,9 +74,8 @@ const MCPRegistryPage = () => {
     [searchParams, setSearchParams],
   );
 
-  // TODO: show create button only when server list is non-empty (matches PromptsPage pattern)
-  const isEmptyState = true;
-  const createButton = !isEmptyState ? (
+  const hideCreateButton = !isLoading && !servers?.length && !debouncedSearchFilter;
+  const createButton = !hideCreateButton ? (
     <Button componentId="mlflow.mcp_registry.create_server_button" type="primary" disabled>
       <FormattedMessage defaultMessage="Create MCP server" description="Button to create a new MCP server" />
     </Button>
@@ -82,14 +87,7 @@ const MCPRegistryPage = () => {
       <Header
         title={
           <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-            <span
-              css={{
-                display: 'flex',
-                borderRadius: theme.borders.borderRadiusSm,
-                backgroundColor: theme.colors.backgroundSecondary,
-                padding: theme.spacing.sm,
-              }}
-            >
+            <span css={headerIconStyles(theme)}>
               <WrenchIcon />
             </span>
             <FormattedMessage defaultMessage="MCP Registry" description="MCP Registry page title" />
@@ -98,7 +96,7 @@ const MCPRegistryPage = () => {
         buttons={createButton}
       />
       <Spacer shrinks={false} />
-      <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div css={flexColumnContainerStyles}>
         <SegmentedControlGroup
           name="mcp-registry-tabs"
           value={activeTab}
@@ -114,22 +112,22 @@ const MCPRegistryPage = () => {
         </SegmentedControlGroup>
 
         {activeTab === 'servers' && (
-          <>
+          <div css={flexColumnContainerStyles}>
             <div
-              css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.sm, paddingTop: theme.spacing.md }}
+              css={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: theme.spacing.sm,
+                paddingTop: theme.spacing.md,
+                flexShrink: 0,
+              }}
             >
               <div css={{ flex: 1 }}>
-                <TableFilterLayout>
-                  <TableFilterInput
-                    placeholder={intl.formatMessage({
-                      defaultMessage: 'Search MCP servers by name',
-                      description: 'Placeholder for MCP server search filter input',
-                    })}
-                    componentId="mlflow.mcp_registry.search"
-                    value={searchFilter}
-                    onChange={(e) => setSearchFilter(e.target.value)}
-                  />
-                </TableFilterLayout>
+                <MCPServerListFilters
+                  searchFilter={searchFilter}
+                  onSearchFilterChange={setSearchFilter}
+                  componentId="mlflow.mcp_registry.search"
+                />
               </div>
               <SegmentedControlGroup
                 name="mcp-registry-view-mode"
@@ -155,61 +153,40 @@ const MCPRegistryPage = () => {
                 />
               </SegmentedControlGroup>
             </div>
-            <Table
-              scrollable
-              empty={
-                <div css={emptyCenterStyles}>
-                  <Empty
-                    title={
-                      <FormattedMessage
-                        defaultMessage="Create MCP server"
-                        description="Empty state title for MCP servers tab"
-                      />
-                    }
-                    description={
-                      <FormattedMessage
-                        defaultMessage="Create and manage MCP servers using MLflow."
-                        description="Empty state description for MCP servers tab"
-                      />
-                    }
-                    button={
-                      <Button
-                        componentId="mlflow.mcp_registry.empty_state.create_server"
-                        type="primary"
-                        icon={<PlusIcon />}
-                        disabled
-                      >
-                        <FormattedMessage
-                          defaultMessage="Create MCP server"
-                          description="MCP Registry empty state CTA button"
-                        />
-                      </Button>
-                    }
-                  />
-                </div>
-              }
-            >
-              {viewMode === 'list' && (
-                <TableRow isHeader>
-                  <TableHeader componentId="mlflow.mcp_registry.table.header.name">
-                    <FormattedMessage defaultMessage="Name" description="MCP servers table header for name column" />
-                  </TableHeader>
-                  <TableHeader componentId="mlflow.mcp_registry.table.header.description">
-                    <FormattedMessage
-                      defaultMessage="Description"
-                      description="MCP servers table header for description column"
-                    />
-                  </TableHeader>
-                  <TableHeader componentId="mlflow.mcp_registry.table.header.last_modified">
-                    <FormattedMessage
-                      defaultMessage="Last modified"
-                      description="MCP servers table header for last modified column"
-                    />
-                  </TableHeader>
-                </TableRow>
-              )}
-            </Table>
-          </>
+            {error?.message && (
+              <Alert
+                type="error"
+                message={error.message}
+                componentId="mlflow.mcp_registry.error"
+                closable={false}
+                css={{ marginTop: theme.spacing.sm, flexShrink: 0 }}
+              />
+            )}
+            {!error &&
+              (viewMode === 'grid' ? (
+                <MCPServerCardGrid
+                  servers={servers}
+                  isLoading={isLoading}
+                  isFiltered={Boolean(debouncedSearchFilter)}
+                  hasNextPage={hasNextPage}
+                  hasPreviousPage={hasPreviousPage}
+                  onNextPage={onNextPage}
+                  onPreviousPage={onPreviousPage}
+                  pageSizeSelect={pageSizeSelect}
+                />
+              ) : (
+                <MCPServerListTable
+                  servers={servers}
+                  hasNextPage={hasNextPage}
+                  hasPreviousPage={hasPreviousPage}
+                  isLoading={isLoading}
+                  isFiltered={Boolean(debouncedSearchFilter)}
+                  onNextPage={onNextPage}
+                  onPreviousPage={onPreviousPage}
+                  pageSizeSelect={pageSizeSelect}
+                />
+              ))}
+          </div>
         )}
 
         {activeTab === 'bindings' && (
@@ -230,35 +207,33 @@ const MCPRegistryPage = () => {
             <Table
               scrollable
               empty={
-                <div css={emptyCenterStyles}>
-                  <Empty
-                    title={
+                <MCPRegistryEmptyState
+                  title={
+                    <FormattedMessage
+                      defaultMessage="Create access binding"
+                      description="Empty state title for MCP access bindings tab"
+                    />
+                  }
+                  description={
+                    <FormattedMessage
+                      defaultMessage="Create and manage access bindings for your MCP servers."
+                      description="Empty state description for MCP access bindings tab"
+                    />
+                  }
+                  button={
+                    <Button
+                      componentId="mlflow.mcp_registry.bindings.empty_state.create"
+                      type="primary"
+                      icon={<PlusIcon />}
+                      disabled
+                    >
                       <FormattedMessage
                         defaultMessage="Create access binding"
-                        description="Empty state title for MCP access bindings tab"
+                        description="MCP Registry bindings empty state CTA button"
                       />
-                    }
-                    description={
-                      <FormattedMessage
-                        defaultMessage="Create and manage access bindings for your MCP servers."
-                        description="Empty state description for MCP access bindings tab"
-                      />
-                    }
-                    button={
-                      <Button
-                        componentId="mlflow.mcp_registry.bindings.empty_state.create"
-                        type="primary"
-                        icon={<PlusIcon />}
-                        disabled
-                      >
-                        <FormattedMessage
-                          defaultMessage="Create access binding"
-                          description="MCP Registry bindings empty state CTA button"
-                        />
-                      </Button>
-                    }
-                  />
-                </div>
+                    </Button>
+                  }
+                />
               }
             >
               <TableRow isHeader>

@@ -109,32 +109,8 @@ export const parseLinkedPromptsFromRunTags = (
   return [];
 };
 
-/**
- * Builds a filter clause from a search string.
- * If the search string contains SQL-like keywords (ILIKE, LIKE, =, !=),
- * it's treated as a raw filter query. Otherwise, it's treated as a simple
- * name search and wrapped with ILIKE pattern matching.
- *
- * @param searchFilter - The search string to process
- * @returns The filter clause, or an empty string if searchFilter is empty
- */
-export const buildSearchFilterClause = (searchFilter?: string): string => {
-  if (!searchFilter) {
-    return '';
-  }
-
-  // Check if the search filter looks like a SQL-like query
-  // If so, treat it as a raw filter query; otherwise, treat it as a simple name search
-  const sqlKeywordPattern = /(\s+(ILIKE|LIKE)\s+)|=|!=/i;
-
-  if (sqlKeywordPattern.test(searchFilter)) {
-    // User provided a SQL-like filter, use it directly
-    return searchFilter;
-  } else {
-    // Simple name search
-    return `name ILIKE '%${searchFilter}%'`;
-  }
-};
+// Re-export from shared utility for backwards compatibility
+export { buildSearchFilterClause } from '@mlflow/mlflow/src/common/utils/SearchUtils';
 
 /**
  * Parse model config from tag value (JSON string).
