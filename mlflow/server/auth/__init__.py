@@ -336,6 +336,8 @@ from mlflow.server.handlers import (
 )
 from mlflow.server.jobs import get_job
 from mlflow.server.mcp_server_api import (
+    MCPAccessBindingResponse,
+    MCPServerResponse,
     get_mcp_server_api_route_prefixes,
     is_mcp_server_api_path,
 )
@@ -4500,6 +4502,7 @@ def _get_mcp_server_validator(
 
     async def validator(username: str, request: StarletteRequest) -> bool:
         if request.method == "POST" and len(parts) > 2 and not _server_exists():
+            request.state.implicit_parent_create = True
             return _can_create_mcp_server(username)
         perm = _get_mcp_server_permission(name, username)
         match request.method:
@@ -4520,14 +4523,10 @@ def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
     parts = suffix.split("/") if suffix else []
 
     if len(parts) > 2:
-        # Implicit parent creation — grant MANAGE only when no grant exists yet.
+        if not getattr(request.state, "implicit_parent_create", False):
+            return
         name = f"{parts[0]}/{parts[1]}"
-        user = store.get_user(username)
-        existing = store.get_role_permission_for_resource(
-            user.id, "mcp_server", name, workspace_context.get_request_workspace()
-        )
-        if existing is None:
-            store.grant_user_permission(username, "mcp_server", name, MANAGE.name)
+        store.grant_user_permission(username, "mcp_server", name, MANAGE.name)
         return
 
     body = getattr(request, "_body", None)
@@ -4550,21 +4549,79 @@ def _mcp_server_after_delete(username: str, request: StarletteRequest) -> None:
         )
 
 
-def _filter_search_mcp_servers(username: str, body: bytes) -> bytes:
+def _can_read_mcp_server(name: str, username: str) -> bool:
+    return _get_mcp_server_permission(name, username).can_read
+
+
+def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
-    servers = data.get("mcp_servers", [])
-    data["mcp_servers"] = [
-        s for s in servers if _get_mcp_server_permission(s["name"], username).can_read
-    ]
+    readable = [s for s in data.get("mcp_servers", []) if _can_read_mcp_server(s["name"], username)]
+
+    params = request.query_params
+    max_results = int(params.get("max_results", 100))
+    next_token = data.get("next_page_token")
+    filter_string = params.get("filter_string")
+    order_by = params.getlist("order_by") or None
+
+    while len(readable) < max_results and next_token:
+        page = _get_tracking_store().search_mcp_servers(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=next_token,
+        )
+        if not page:
+            next_token = None
+            break
+        for s in page:
+            if len(readable) >= max_results:
+                break
+            if _can_read_mcp_server(s.name, username):
+                readable.append(MCPServerResponse.from_entity(s).model_dump(mode="json"))
+        next_token = page.token
+
+    data["mcp_servers"] = readable[:max_results]
+    data["next_page_token"] = next_token
     return json.dumps(data).encode()
 
 
-def _filter_search_mcp_bindings(username: str, body: bytes) -> bytes:
+def _filter_search_mcp_bindings(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
-    bindings = data.get("mcp_access_bindings", [])
-    data["mcp_access_bindings"] = [
-        b for b in bindings if _get_mcp_server_permission(b["server_name"], username).can_read
+    readable = [
+        b
+        for b in data.get("mcp_access_bindings", [])
+        if _can_read_mcp_server(b["server_name"], username)
     ]
+
+    params = request.query_params
+    max_results = int(params.get("max_results", 100))
+    next_token = data.get("next_page_token")
+    filter_string = params.get("filter_string")
+    order_by = params.getlist("order_by") or None
+    server_version = params.get("server_version")
+    server_alias = params.get("server_alias")
+
+    while len(readable) < max_results and next_token:
+        page = _get_tracking_store().search_mcp_access_bindings(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=next_token,
+            server_version=server_version,
+            server_alias=server_alias,
+        )
+        if not page:
+            next_token = None
+            break
+        for b in page:
+            if len(readable) >= max_results:
+                break
+            if _can_read_mcp_server(b.server_name, username):
+                readable.append(MCPAccessBindingResponse.from_entity(b).model_dump(mode="json"))
+        next_token = page.token
+
+    data["mcp_access_bindings"] = readable[:max_results]
+    data["next_page_token"] = next_token
     return json.dumps(data).encode()
 
 
@@ -4776,7 +4833,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 body += chunk
             headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
             return JSONResponse(
-                content=response_filter(user.username, body),
+                content=response_filter(user.username, body, request),
                 status_code=response.status_code,
                 headers=headers,
                 media_type=response.media_type,
