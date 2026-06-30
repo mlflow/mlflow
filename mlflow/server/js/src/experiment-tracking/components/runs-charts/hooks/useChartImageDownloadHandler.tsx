@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
-import { type Data, type Layout, type Config, downloadImage } from 'plotly.js';
+import { type Data, type Layout, type Config } from 'plotly.js';
+import { Plotly } from '../../PlotlyFactory';
 
 export type ExperimentChartImageDownloadFileFormat = 'svg' | 'png';
 export type ExperimentChartImageDownloadHandler = (
@@ -24,7 +25,7 @@ const experimentChartImageDefaultDownloadPlotConfig: Partial<Config> = {
 
 export const createChartImageDownloadHandler =
   (data: Data[], layout: Partial<Layout>) => (format: 'svg' | 'png', title: string) =>
-    downloadImage(
+    Plotly.downloadImage(
       {
         data,
         layout: { ...layout, ...experimentChartImageDefaultDownloadLayout },
