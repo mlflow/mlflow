@@ -3,6 +3,7 @@ import json
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -83,6 +84,21 @@ def test_claude_resume_reuses_session_id():
 def test_install_stubs_rejects_unknown_name():
     with pytest.raises(ValueError, match="Unknown stub"):
         dev_stubs.install_stubs(["not-a-stub"])
+
+
+def test_install_stubs_cleans_up_temp_dirs_on_partial_failure(monkeypatch):
+    tmp_root = Path(tempfile.gettempdir())
+    before = set(tmp_root.glob("mlflow-dev-stub-bin-*"))
+
+    def boom(_result):
+        raise RuntimeError("boom")
+
+    monkeypatch.setitem(dev_stubs._INSTALLERS, "boom", boom)
+    with pytest.raises(RuntimeError, match="boom"):
+        # claude stages a temp dir, then `boom` fails -- the dir must not leak.
+        dev_stubs.install_stubs(["claude", "boom"])
+
+    assert set(tmp_root.glob("mlflow-dev-stub-bin-*")) == before
 
 
 def test_install_claude_stages_working_shim():

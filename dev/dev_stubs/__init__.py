@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import shlex
+import shutil
 import sys
 import tempfile
 from dataclasses import dataclass, field
@@ -54,6 +55,12 @@ _INSTALLERS = {
 }
 
 
+def _cleanup(result: StubResult) -> None:
+    """Remove whatever a (possibly partial) install staged, e.g. on failure."""
+    for path in result.cleanup_paths:
+        shutil.rmtree(path, ignore_errors=True)
+
+
 def install_stubs(names: list[str]) -> StubResult:
     """Install the named stubs, returning PATH/cleanup changes for the caller to apply."""
     if unknown := [n for n in names if n not in _INSTALLERS]:
@@ -61,8 +68,14 @@ def install_stubs(names: list[str]) -> StubResult:
             f"Unknown stub(s): {', '.join(unknown)}. Available: {', '.join(AVAILABLE_STUBS)}"
         )
     result = StubResult()
-    for name in names:
-        _INSTALLERS[name](result)
+    try:
+        for name in names:
+            _INSTALLERS[name](result)
+    except BaseException:
+        # An installer failed partway; clean up what earlier ones staged before
+        # re-raising so we don't leak temp dirs.
+        _cleanup(result)
+        raise
     return result
 
 

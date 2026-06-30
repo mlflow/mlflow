@@ -222,11 +222,16 @@ jobs:
           # PATH); the real CLI used by the UI Review step below stays untouched. Gated
           # to assistant paths so unrelated reviews are unaffected.
           # HEAD^1 is the merge base parent (checkout uses the PR merge ref, depth 2).
-          CHANGED=$(git diff --name-only HEAD^1 2>/dev/null || true)
           STUB_ARGS=()
-          if echo "$CHANGED" | grep -qE '^mlflow/(assistant|server/assistant|server/js/src/assistant)/'; then
-            STUB_ARGS+=(--stub-providers claude)
-            echo "Assistant change detected; launching dev server with stub claude"
+          if CHANGED=$(git diff --name-only HEAD^1 2>/dev/null); then
+            if echo "$CHANGED" | grep -qE '^mlflow/(assistant|server/assistant|server/js/src/assistant)/'; then
+              STUB_ARGS+=(--stub-providers claude)
+              echo "Assistant change detected; launching dev server with stub claude"
+            fi
+          else
+            # Don't fail closed silently: surface the skip so an assistant PR whose
+            # merge ref lost HEAD^1 (force-push/rebase) doesn't quietly render unstubbed.
+            echo "::warning::Could not compute changed files via 'git diff HEAD^1'; skipping the Assistant stub. If this is an Assistant PR, the chat panel may not render."
           fi
           # run_dev_server.py starts the backend + `yarn start` frontend (much faster than
           # a full `yarn build`) and honors MLFLOW_TRACKING_URI for the store.
