@@ -261,6 +261,24 @@ def test_notebook_trace_renderer_base_url_override(monkeypatch):
     assert "http://mlflow:5000/static-files/lib/notebook-trace-renderer/index.html" not in html
 
 
+def test_notebook_trace_renderer_preserves_tracking_uri_path_prefix():
+    trace = create_trace("a")
+    mlflow.set_tracking_uri("https://example.com/mlflow/")
+
+    html = get_notebook_iframe_html([trace])
+    assert "https://example.com/mlflow/static-files/lib/notebook-trace-renderer/index.html" in html
+    assert "https://example.com/static-files/lib/notebook-trace-renderer/index.html" not in html
+
+
+def test_notebook_trace_renderer_preserves_tracking_uri_path_prefix_without_trailing_slash():
+    trace = create_trace("a")
+    mlflow.set_tracking_uri("https://example.com/mlflow")
+
+    html = get_notebook_iframe_html([trace])
+    assert "https://example.com/mlflow/static-files/lib/notebook-trace-renderer/index.html" in html
+    assert "https://example.com/static-files/lib/notebook-trace-renderer/index.html" not in html
+
+
 def test_notebook_iframe_includes_workspace_query_param(monkeypatch):
     trace = create_trace("a")
     mlflow.set_tracking_uri("http://localhost:5000")
