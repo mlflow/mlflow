@@ -11,6 +11,7 @@ import io
 import logging
 import os
 import threading
+import warnings
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union, overload
 
@@ -3436,6 +3437,24 @@ def _get_or_start_run():
 def _get_experiment_id_from_env():
     experiment_name = MLFLOW_EXPERIMENT_NAME.get()
     experiment_id = MLFLOW_EXPERIMENT_ID.get()
+    if IS_TRACING_SDK_ONLY:
+        # The lightweight `mlflow-tracing` package excludes `MlflowClient` and the
+        # tracking store layer, so we cannot resolve an experiment name to an id
+        # or cross-check an id against an experiment name. Pass ids through as-is;
+        # for names, warn (once per process via Python's default warning filter)
+        # and fall through so the trace processor degrades gracefully.
+        if experiment_id is not None:
+            return experiment_id
+        if experiment_name is not None:
+            warnings.warn(
+                f"{MLFLOW_EXPERIMENT_NAME.name} cannot be resolved to an experiment "
+                f"id under the lightweight `mlflow-tracing` package. Set "
+                f"{MLFLOW_EXPERIMENT_ID.name} instead, or call "
+                "`mlflow.set_experiment()` before creating traces.",
+                category=UserWarning,
+                stacklevel=2,
+            )
+        return None
     if experiment_name is not None:
         if exp := MlflowClient().get_experiment_by_name(experiment_name):
             if experiment_id and experiment_id != exp.experiment_id:
@@ -3465,8 +3484,9 @@ def _get_experiment_id_from_env():
 def _get_experiment_id() -> str | None:
     if _active_experiment_id:
         return _active_experiment_id
-    else:
-        return _get_experiment_id_from_env() or default_experiment_registry.get_experiment_id()
+    if IS_TRACING_SDK_ONLY:
+        return _get_experiment_id_from_env()
+    return _get_experiment_id_from_env() or default_experiment_registry.get_experiment_id()
 
 
 @autologging_integration("mlflow")
