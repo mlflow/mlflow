@@ -103,7 +103,11 @@ def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
     ).hexdigest()
     with ExclusiveFileLock(f"{tempfile.gettempdir()}/db_init_lock-{url_hash}"):
         if not _all_tables_exist(engine):
-            _initialize_tables(engine)
+            if _is_empty_database(engine):
+                _initialize_tables(engine)
+            else:
+                # If some tables exist but not all, run upgrade only
+                _upgrade_db(engine)
 
 
 def _get_latest_schema_revision():
