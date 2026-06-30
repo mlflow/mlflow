@@ -106,7 +106,7 @@ export const validateWorkspaceName = (name: string): WorkspaceValidationResult =
   if (!WORKSPACE_NAME_PATTERN.test(name)) {
     return {
       valid: false,
-      error: 'Workspace name must be lowercase alphanumeric with optional single hyphens (no consecutive hyphens).',
+      error: 'Workspace name must be lowercase alphanumeric with optional hyphens.',
     };
   }
 
