@@ -623,3 +623,28 @@ describe('AssistantContext — localStorage chat persistence', () => {
     expect(result.current.isStreaming).toBe(true);
   });
 });
+
+describe('AssistantContext — buffered text survives a tool call', () => {
+  it('commits unflushed streamed text as a text part before the tool call', async () => {
+    // renderAssistant's rAF mock no-ops, so the streamed token stays buffered in the ref and is
+    // never flushed before the tool call arrives. handleToolUse must snapshot that buffer
+    // synchronously — reading the ref inside the deferred setMessages updater (after the clear)
+    // would drop the text.
+    const { result } = await renderAssistant();
+
+    await act(async () => {
+      result.current.sendMessage('go');
+    });
+    act(() => {
+      capturedCallbacks?.onSessionId?.('session-tool');
+      capturedCallbacks?.onMessage('Looking into it. ');
+      capturedCallbacks?.onToolUse?.([{ id: 'tool-1', name: 'Bash', input: { command: 'ls' } }]);
+    });
+
+    const assistant = result.current.messages.find((m) => m.role === 'assistant');
+    expect(assistant?.parts).toEqual([
+      { type: 'text', text: 'Looking into it. ' },
+      expect.objectContaining({ type: 'toolCall', toolUseId: 'tool-1', name: 'Bash' }),
+    ]);
+  });
+});
