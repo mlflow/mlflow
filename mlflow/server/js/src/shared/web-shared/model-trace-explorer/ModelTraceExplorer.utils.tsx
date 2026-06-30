@@ -527,6 +527,7 @@ export const normalizeNewSpanData = (
     (value) => tryDeserializeAttribute(value),
   );
   const events = span.events;
+  const links = span.links;
   const start = (Number(getModelTraceSpanStartTime(span)) - rootStartTime) / 1000;
   const end = (Number(getModelTraceSpanEndTime(span) ?? rootEndTime) - rootStartTime) / 1000;
 
@@ -548,6 +549,7 @@ export const normalizeNewSpanData = (
     outputs,
     attributes,
     events,
+    links,
     chatMessageFormat: messageFormat,
     chatMessages,
     chatTools,
@@ -1387,6 +1389,7 @@ export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): Mode
         attributes: convertAttributes(event.attributes),
       })),
     }),
+    ...(modelTraceSpan.links && { links: modelTraceSpan.links }),
   };
 };
 
