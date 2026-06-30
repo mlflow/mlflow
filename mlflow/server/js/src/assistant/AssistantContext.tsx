@@ -14,7 +14,7 @@ import {
   type SendMessageStreamCallbacks,
   type SendMessageStreamResult,
 } from './AssistantService';
-import { useLocalStorage, buildStorageKey } from '@databricks/web-shared/hooks';
+import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useAssistantPageContextActions } from './AssistantPageContext';
 import { GatewayApi } from '../gateway/api';
 import { GATEWAY_PROVIDER_ID } from './constants';
@@ -25,9 +25,12 @@ const AssistantReactContext = createContext<AssistantAgentContextType | null>(nu
 // keeping it well under the ~5 MB localStorage limit.
 const MAX_PERSISTED_CHARS = 1_500_000;
 
-const CHAT_STORAGE_KEY_BASE = 'mlflow.assistant.chat';
-const CHAT_STORAGE_VERSION = 1;
-export const CHAT_STORAGE_KEY = buildStorageKey(CHAT_STORAGE_KEY_BASE, CHAT_STORAGE_VERSION);
+// Exported as base + version (not a precomputed key) so this module does no work at import time:
+// `useLocalStorage` builds the full key from these, and tests build it via `buildStorageKey`.
+// A top-level `buildStorageKey()` call here would run whenever the module is loaded — including
+// transitively in unrelated suites — and throw under any mock that stubs the hooks module.
+export const CHAT_STORAGE_KEY_BASE = 'mlflow.assistant.chat';
+export const CHAT_STORAGE_VERSION = 1;
 
 interface PersistedChat {
   messages: ChatMessage[];

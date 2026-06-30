@@ -2,11 +2,22 @@ import { describe, it, test, expect, jest, beforeEach, afterEach } from '@jest/g
 import { renderHook, act, cleanup, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
-import { AssistantProvider, useAssistant, reviveMessages, trimForStorage, CHAT_STORAGE_KEY } from './AssistantContext';
+import { buildStorageKey } from '@databricks/web-shared/hooks/useLocalStorage';
+
+import {
+  AssistantProvider,
+  useAssistant,
+  reviveMessages,
+  trimForStorage,
+  CHAT_STORAGE_KEY_BASE,
+  CHAT_STORAGE_VERSION,
+} from './AssistantContext';
 import * as AssistantService from './AssistantService';
 import type { SendMessageStreamCallbacks } from './AssistantService';
 import { GatewayApi } from '../gateway/api';
 import type { AssistantConfig, ChatMessage, ProviderConfig } from './types';
+
+const CHAT_STORAGE_KEY = buildStorageKey(CHAT_STORAGE_KEY_BASE, CHAT_STORAGE_VERSION);
 
 const makeMessage = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
   id: 'msg-1',
