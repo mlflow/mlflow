@@ -20,10 +20,6 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-# `dev_stubs` is a sibling module under dev/. Running this as a script (e.g.
-# `uv run dev/run_dev_server.py`) puts dev/ on sys.path automatically, but add it
-# explicitly so the import also resolves when the file is loaded from elsewhere
-# (a test or linter at the repo root) instead of raising a bare ModuleNotFoundError.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import dev_stubs

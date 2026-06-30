@@ -23,8 +23,6 @@ from pathlib import Path
 _DEV_STUBS_DIR = Path(__file__).resolve().parent
 _CLAUDE_CLI = _DEV_STUBS_DIR / "claude_cli.py"
 
-AVAILABLE_STUBS = ("claude",)
-
 
 @dataclass
 class StubResult:
@@ -53,6 +51,8 @@ def _install_claude(result: StubResult) -> None:
 _INSTALLERS = {
     "claude": _install_claude,
 }
+
+AVAILABLE_STUBS = tuple(_INSTALLERS)
 
 
 def _cleanup(result: StubResult) -> None:
