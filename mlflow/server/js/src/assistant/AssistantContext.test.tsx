@@ -627,7 +627,7 @@ describe('AssistantContext — localStorage chat persistence', () => {
 describe('AssistantContext — buffered text survives a tool call', () => {
   it('commits unflushed streamed text as a text part before the tool call', async () => {
     // renderAssistant's rAF mock no-ops, so the streamed token stays buffered in the ref and is
-    // never flushed before the tool call arrives. handleToolUse must snapshot that buffer
+    // never flushed before the tool call arrives. addToolCalls must snapshot that buffer
     // synchronously — reading the ref inside the deferred setMessages updater (after the clear)
     // would drop the text.
     const { result } = await renderAssistant();
