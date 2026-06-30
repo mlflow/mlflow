@@ -167,6 +167,11 @@ export const streamChatViaFetch = async (
         if (dispatchSseFrame(event, data, callbacks, turnState)) {
           sawTerminal = true;
           clearWatchdog(); // turn is done; a slow socket close shouldn't trip the watchdog
+          // The server sends nothing after a terminal frame, so release the reader now rather
+          // than looping for the EOF that ends it. Aborting tears down the request deterministically
+          // even if an intermediary (proxy/LB) holds the connection open and never delivers EOF.
+          controller.abort();
+          break;
         } else {
           armWatchdog(); // a frame arrived — the stream is alive, reset the inactivity clock
         }
