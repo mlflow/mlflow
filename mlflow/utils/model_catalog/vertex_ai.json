@@ -1542,6 +1542,44 @@
       },
       "last_updated_at": "2026-04-27"
     },
+    "gemini-3-pro-image": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 12.0,
+        "service_tiers": {
+          "batch": {
+            "input_per_million_tokens": 1.0,
+            "output_per_million_tokens": 6.0
+          }
+        },
+        "modality": {
+          "image": {
+            "output_per_million_tokens": 120.0
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-29"
+    },
     "gemini-3-pro-image-preview": {
       "mode": "image_generation",
       "context_window": {
@@ -1622,6 +1660,38 @@
       "deprecation_date": "2026-03-26",
       "last_updated_at": "2026-04-24"
     },
+    "gemini-3.1-flash-image": {
+      "mode": "image_generation",
+      "context_window": {
+        "max_input": 65536,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.5,
+        "output_per_million_tokens": 3.0,
+        "modality": {
+          "image": {
+            "output_per_million_tokens": 60.0
+          }
+        },
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_low": 0.014,
+            "search_context_size_medium": 0.014,
+            "search_context_size_high": 0.014
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": true,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-06-29"
+    },
     "gemini-3.1-flash-image-preview": {
       "mode": "image_generation",
       "context_window": {
@@ -1668,8 +1738,7 @@
         "service_tiers": {
           "batch": {
             "input_per_million_tokens": 0.125,
-            "output_per_million_tokens": 0.75,
-            "cache_read_per_million_tokens": 0.0125
+            "output_per_million_tokens": 0.75
           },
           "flex": {
             "input_per_million_tokens": 0.125,
@@ -1684,7 +1753,6 @@
         },
         "modality": {
           "audio": {
-            "cache_read_per_million_tokens": 0.05,
             "input_per_million_tokens": 0.5
           }
         },
@@ -1703,7 +1771,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-05-27"
+      "last_updated_at": "2026-06-29"
     },
     "gemini-3.1-flash-lite-preview": {
       "mode": "chat",
@@ -1718,7 +1786,6 @@
         "cache_read_per_million_tokens": 0.025,
         "modality": {
           "audio": {
-            "cache_read_per_million_tokens": 0.05,
             "input_per_million_tokens": 0.5
           }
         },
@@ -1737,7 +1804,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-27"
+      "last_updated_at": "2026-06-29"
     },
     "gemini-3.1-pro-preview": {
       "mode": "chat",
@@ -2992,12 +3059,7 @@
       },
       "pricing": {
         "input_per_million_tokens": 0.00625,
-        "output_per_million_tokens": 0,
-        "service_tiers": {
-          "batch": {
-            "input_per_million_tokens": 0.005
-          }
-        }
+        "output_per_million_tokens": 0
       },
       "capabilities": {
         "function_calling": false,
@@ -3006,7 +3068,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-29"
     },
     "text-multilingual-embedding-002": {
       "mode": "embedding",
