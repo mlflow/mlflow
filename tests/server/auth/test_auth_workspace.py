@@ -3907,3 +3907,47 @@ def test_validate_can_get_user_permission_unknown_resource_denied(
         },
     ):
         assert not auth_module.validate_can_get_user_permission()
+
+
+def test_mcp_server_delete_grants_workspace_isolated(tmp_path, monkeypatch):
+    """Deleting grants for an MCP server in one workspace must not affect
+    same-named servers in another workspace.
+    """
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+
+    db_uri = f"sqlite:///{tmp_path / 'auth-iso.db'}"
+    auth_store = SqlAlchemyStore()
+    auth_store.init_db(db_uri)
+
+    username = "alice"
+    auth_store.create_user(username, "supersecurepassword", is_admin=False)
+    server_name = "com.test/shared-name"
+
+    # Grant MANAGE in both workspaces on the same server name.
+    with workspace_context.WorkspaceContext("team-a"):
+        auth_store.grant_user_permission(username, "mcp_server", server_name, MANAGE.name)
+
+    with workspace_context.WorkspaceContext("team-b"):
+        auth_store.grant_user_permission(username, "mcp_server", server_name, MANAGE.name)
+
+    # Delete grants in team-a only.
+    with workspace_context.WorkspaceContext("team-a"):
+        auth_store.delete_grants_for_resource("mcp_server", server_name, workspace_scoped=True)
+
+    # team-a grant is gone.
+    with workspace_context.WorkspaceContext("team-a"):
+        user = auth_store.get_user(username)
+        perm = auth_store.get_role_permission_for_resource(
+            user.id, "mcp_server", server_name, "team-a"
+        )
+        assert perm is None
+
+    # team-b grant survives.
+    with workspace_context.WorkspaceContext("team-b"):
+        perm = auth_store.get_role_permission_for_resource(
+            user.id, "mcp_server", server_name, "team-b"
+        )
+        assert perm is not None
+        assert perm.name == MANAGE.name
+
+    auth_store.engine.dispose()
