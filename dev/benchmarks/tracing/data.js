@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782791459618,
+  "lastUpdate": 1782829858398,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -11987,6 +11987,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 31.79428550001262,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "kramaranya15@gmail.com",
+            "name": "Anya Kramar",
+            "username": "kramaranya"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8feb189f82729d8c400a3c886dc6698fa336625d",
+          "message": "Optimize local artifact uploads with atomic rename (#23794)\n\nSigned-off-by: kramaranya <kramaranya15@gmail.com>",
+          "timestamp": "2026-06-30T14:27:14Z",
+          "tree_id": "e537b82166814879a4e747b4a7d0f1ce20efbf16",
+          "url": "https://github.com/mlflow/mlflow/commit/8feb189f82729d8c400a3c886dc6698fa336625d"
+        },
+        "date": 1782829857589,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 40.78341895000008,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 22.674431742857287,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 21.934810984847985,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 21.94612624137841,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 21.71791873333291,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 42.561956399998735,
             "unit": "ms"
           }
         ]
