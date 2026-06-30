@@ -1,3 +1,4 @@
+import logging
 import os
 from pathlib import Path
 from unittest import mock
@@ -730,3 +731,57 @@ def test_model_log_with_metadata(onnx_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def _stub_session(mock_session):
+    # _OnnxModelWrapper.__init__ asserts len(self.rt.get_inputs()) >= 1 and reads
+    # inp.name/inp.type and outp.name (mlflow/onnx/__init__.py:320-322). Configure the
+    # mocked InferenceSession's return value so construction completes.
+    inp = mock.Mock()
+    inp.name, inp.type = "input", "tensor(float)"
+    outp = mock.Mock()
+    outp.name = "output"
+    mock_session.return_value.get_inputs.return_value = [inp]
+    mock_session.return_value.get_outputs.return_value = [outp]
+
+
+def test_onnx_model_load_honors_declared_execution_providers(onnx_model, model_path):
+    mlflow.onnx.save_model(
+        onnx_model, model_path, onnx_execution_providers=["CPUExecutionProvider"]
+    )
+    with mock.patch("onnxruntime.InferenceSession") as mock_session:
+        _stub_session(mock_session)
+        mlflow.pyfunc.load_model(model_path)
+    _, kwargs = mock_session.call_args
+    assert kwargs["providers"] == ["CPUExecutionProvider"]
+
+
+def test_onnx_model_load_warns_when_declared_provider_unavailable(
+    onnx_model, model_path, caplog
+):
+    mlflow.onnx.save_model(
+        onnx_model,
+        model_path,
+        onnx_execution_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
+    # The "mlflow" logger sets propagate=False, so caplog's root handler does not see
+    # records. Attach caplog's handler directly to the mlflow.onnx logger
+    # (mirrors tests/server/test_security.py:84-92).
+    onnx_logger = logging.getLogger("mlflow.onnx")
+    onnx_logger.addHandler(caplog.handler)
+    try:
+        with (
+            mock.patch("onnxruntime.InferenceSession") as mock_session,
+            mock.patch(
+                "onnxruntime.get_available_providers",
+                return_value=["CPUExecutionProvider"],
+            ),
+            caplog.at_level("WARNING", logger="mlflow.onnx"),
+        ):
+            _stub_session(mock_session)
+            mlflow.pyfunc.load_model(model_path)
+    finally:
+        onnx_logger.removeHandler(caplog.handler)
+    _, kwargs = mock_session.call_args
+    assert kwargs["providers"] == ["CPUExecutionProvider"]
+    assert "CUDAExecutionProvider" in caplog.text
