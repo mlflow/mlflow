@@ -189,7 +189,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const canUseAssistant = isLocalServer || remoteAccessAllowed;
 
   // Use ref to track current streaming message
-  const streamingMessageRef = useRef<string>('');
+  const openTextBufferRef = useRef<string>('');
 
   // NB: Using the actions hook to avoid re-rendering the component when the context changes.
   const { getContext: getPageContext } = useAssistantPageContextActions();
@@ -206,7 +206,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   // Apply `fn` to the last message's parts if it's the streaming assistant message,
   // keeping `content` mirrored to the text parts.
-  const updateStreamingParts = useCallback((fn: (parts: AssistantPart[]) => AssistantPart[]) => {
+  const updateOpenMessageParts = useCallback((fn: (parts: AssistantPart[]) => AssistantPart[]) => {
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
@@ -221,12 +221,12 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // text part, mirror `content`, and mark it no longer streaming. Optionally append a
   // trailing text part (e.g. an error) or merge extra flags (e.g. isInterrupted). Shared
   // by the done / error / interrupt terminal paths so the message-finalize logic lives once.
-  const commitStreamingMessage = useCallback((options: { appendText?: string; extra?: Partial<ChatMessage> } = {}) => {
+  const closeStreamingMessage = useCallback((options: { appendText?: string; extra?: Partial<ChatMessage> } = {}) => {
     // Snapshot the buffer and clear it up front. The setMessages updater runs during a later
-    // render, so reading streamingMessageRef inside it would race with the clear below and drop
+    // render, so reading openTextBufferRef inside it would race with the clear below and drop
     // any text streamed since the last flush.
-    const buffered = streamingMessageRef.current;
-    streamingMessageRef.current = '';
+    const buffered = openTextBufferRef.current;
+    openTextBufferRef.current = '';
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (!(lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming)) {
@@ -245,38 +245,38 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  const flushStreamingMessage = useCallback(() => {
+  const flushTextToMessage = useCallback(() => {
     rafPendingRef.current = null;
-    const buffered = streamingMessageRef.current;
+    const buffered = openTextBufferRef.current;
     if (!buffered) {
       return;
     }
-    updateStreamingParts((parts) => setOpenTextPart(parts, buffered));
-  }, [updateStreamingParts]);
+    updateOpenMessageParts((parts) => setOpenTextPart(parts, buffered));
+  }, [updateOpenMessageParts]);
 
-  const appendToStreamingMessage = useCallback(
+  const writeStreamedText = useCallback(
     (text: string) => {
-      streamingMessageRef.current += text;
+      openTextBufferRef.current += text;
       if (rafPendingRef.current === null) {
-        rafPendingRef.current = requestAnimationFrame(flushStreamingMessage);
+        rafPendingRef.current = requestAnimationFrame(flushTextToMessage);
       }
     },
-    [flushStreamingMessage],
+    [flushTextToMessage],
   );
 
-  const finalizeStreamingMessage = useCallback(() => {
+  const endStreamingTurn = useCallback(() => {
     // Cancel any pending RAF and do a final flush with isStreaming: false
     if (rafPendingRef.current !== null) {
       cancelAnimationFrame(rafPendingRef.current);
       rafPendingRef.current = null;
     }
-    commitStreamingMessage();
+    closeStreamingMessage();
     eventSourceRef.current = null;
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
-  }, [commitStreamingMessage]);
+  }, [closeStreamingMessage]);
 
   const handleStatus = useCallback((status: string) => {
     setCurrentStatus(status);
@@ -286,7 +286,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setSessionId(newSessionId);
   }, []);
 
-  const handleToolUse = useCallback(
+  const addToolCalls = useCallback(
     (tools: ToolUseInfo[]) => {
       // `activeTools` drives the transient "working" indicator only.
       setActiveTools(tools);
@@ -300,21 +300,21 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         cancelAnimationFrame(rafPendingRef.current);
         rafPendingRef.current = null;
       }
-      const buffered = streamingMessageRef.current;
-      streamingMessageRef.current = '';
-      updateStreamingParts((parts) => {
+      const buffered = openTextBufferRef.current;
+      openTextBufferRef.current = '';
+      updateOpenMessageParts((parts) => {
         const withText = buffered ? setOpenTextPart(parts, buffered) : parts;
         return upsertToolCalls(withText, tools);
       });
     },
-    [updateStreamingParts],
+    [updateOpenMessageParts],
   );
 
-  const handleToolResult = useCallback(
+  const resolveToolCall = useCallback(
     (result: ToolResultInfo) => {
-      updateStreamingParts((parts) => applyToolResult(parts, result));
+      updateOpenMessageParts((parts) => applyToolResult(parts, result));
     },
-    [updateStreamingParts],
+    [updateOpenMessageParts],
   );
 
   const handleUsage = useCallback(
@@ -393,7 +393,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setPersistedChat({ messages: trimForStorage(messages), tokenUsage });
   }, [isStreaming, messages, tokenUsage, setPersistedChat]);
 
-  const handleStreamError = useCallback(
+  const failStreamingTurn = useCallback(
     (errorMsg: string) => {
       setError(errorMsg);
       setIsStreaming(false);
@@ -403,12 +403,12 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       setPendingPermission(null);
       // Keep any tool calls / text produced so far and append the error as a text
       // part (a styled error callout is a planned follow-up).
-      commitStreamingMessage({ appendText: `Error: ${errorMsg}` });
+      closeStreamingMessage({ appendText: `Error: ${errorMsg}` });
     },
-    [commitStreamingMessage],
+    [closeStreamingMessage],
   );
 
-  const handleInterrupted = useCallback(() => {
+  const interruptStreamingTurn = useCallback(() => {
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
@@ -419,34 +419,34 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       rafPendingRef.current = null;
     }
     // Keep whatever text/tool parts streamed before the interrupt.
-    commitStreamingMessage({ extra: { isInterrupted: true } });
-  }, [commitStreamingMessage]);
+    closeStreamingMessage({ extra: { isInterrupted: true } });
+  }, [closeStreamingMessage]);
 
   // Shared SSE callback wiring for startChat, handleSendMessage, respondToPermission and
   // regenerate. Each call site wraps this in `withGuard(isCurrent, streamCallbacks)` so a
   // superseded send's callbacks no-op.
   const streamCallbacks = useMemo(
     () => ({
-      onMessage: appendToStreamingMessage,
-      onError: handleStreamError,
-      onDone: finalizeStreamingMessage,
+      onMessage: writeStreamedText,
+      onError: failStreamingTurn,
+      onDone: endStreamingTurn,
       onStatus: handleStatus,
       onSessionId: handleSessionId,
-      onToolUse: handleToolUse,
-      onToolResult: handleToolResult,
-      onInterrupted: handleInterrupted,
+      onToolUse: addToolCalls,
+      onToolResult: resolveToolCall,
+      onInterrupted: interruptStreamingTurn,
       onUsage: handleUsage,
       onPermissionRequest: handlePermissionRequest,
     }),
     [
-      appendToStreamingMessage,
-      handleStreamError,
-      finalizeStreamingMessage,
+      writeStreamedText,
+      failStreamingTurn,
+      endStreamingTurn,
       handleStatus,
       handleSessionId,
-      handleToolUse,
-      handleToolResult,
-      handleInterrupted,
+      addToolCalls,
+      resolveToolCall,
+      interruptStreamingTurn,
       handleUsage,
       handlePermissionRequest,
     ],
@@ -490,7 +490,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     setTokenUsage({ promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null });
-    streamingMessageRef.current = '';
+    openTextBufferRef.current = '';
     setPendingPermission(null);
   }, []);
 
@@ -539,7 +539,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Add streaming assistant message placeholder
-      streamingMessageRef.current = '';
+      openTextBufferRef.current = '';
       setMessages((prev) => [
         ...prev,
         {
@@ -569,10 +569,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         if (!isCurrent()) {
           return;
         }
-        handleStreamError(err instanceof Error ? err.message : 'Failed to start chat');
+        failStreamingTurn(err instanceof Error ? err.message : 'Failed to start chat');
       }
     },
-    [sessionId, beginRequest, attachStreamIfCurrent, getPageContext, streamCallbacks, handleStreamError],
+    [sessionId, beginRequest, attachStreamIfCurrent, getPageContext, streamCallbacks, failStreamingTurn],
   );
 
   const respondToPermission = useCallback(
@@ -596,11 +596,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         })
         .catch((err) => {
           if (isCurrent()) {
-            handleStreamError(err instanceof Error ? err.message : 'Failed to resume');
+            failStreamingTurn(err instanceof Error ? err.message : 'Failed to resume');
           }
         });
     },
-    [pendingPermission, beginRequest, attachStreamIfCurrent, streamCallbacks, handleStreamError],
+    [pendingPermission, beginRequest, attachStreamIfCurrent, streamCallbacks, failStreamingTurn],
   );
 
   const handleSendMessage = useCallback(
@@ -628,7 +628,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       ]);
 
       // Add streaming assistant message placeholder
-      streamingMessageRef.current = '';
+      openTextBufferRef.current = '';
       setMessages((prev) => [
         ...prev,
         {
@@ -688,7 +688,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
-    streamingMessageRef.current = '';
+    openTextBufferRef.current = '';
   }, [sessionId, isStreaming]);
 
   const regenerateLastMessage = useCallback(async () => {
@@ -710,7 +710,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     // Set streaming state BEFORE modifying messages
     setError(null);
     setIsStreaming(true);
-    streamingMessageRef.current = '';
+    openTextBufferRef.current = '';
 
     // Remove all messages after the last user message and add streaming placeholder
     setMessages((prev) => {
