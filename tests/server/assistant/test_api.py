@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import subprocess
@@ -20,11 +21,12 @@ from mlflow.assistant.providers.base import (
     ProviderConfig,
     ProviderNotConfiguredError,
 )
-from mlflow.assistant.types import Event, Message, ToolUseBlock
+from mlflow.assistant.types import Event, EventType, Message, ToolUseBlock
 from mlflow.server.assistant.api import (
     PermissionDecision,
     _require_localhost,
     assistant_router,
+    stream_provider_events,
 )
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager, save_process_pid
 from mlflow.utils.os import is_windows
@@ -76,6 +78,17 @@ class MockProvider(AssistantProvider):
         yield Event.from_message(message=Message(role="user", content="Hello from mock"))
         yield Event.from_result(result="complete", session_id="mock-session-123")
 
+    async def astream_stateless(
+        self,
+        prompt: str,
+        tracking_uri: str,
+        conversation_history: str | None = None,
+        cwd: Path | None = None,
+        context: dict[str, Any] | None = None,
+    ):
+        yield Event.from_message(message=Message(role="user", content="Hello from mock"))
+        yield Event.from_conversation_history("[]")
+
 
 @pytest.fixture(autouse=True)
 def isolated_config(tmp_path, monkeypatch):
@@ -119,6 +132,55 @@ def client():
         patch("mlflow.server.assistant.api._get_selected_provider", return_value=mock_provider),
     ):
         yield TestClient(app)
+
+
+class CapturingProvider(MockProvider):
+    """MockProvider that records astream_stateless kwargs and echoes the history blob on DONE."""
+
+    def __init__(self):
+        self.calls: list[dict[str, Any]] = []
+
+    async def astream_stateless(
+        self,
+        prompt: str,
+        tracking_uri: str,
+        conversation_history: str | None = None,
+        cwd: Path | None = None,
+        context: dict[str, Any] | None = None,
+    ):
+        self.calls.append({
+            "prompt": prompt,
+            "conversation_history": conversation_history,
+            "cwd": cwd,
+            "context": context,
+        })
+        yield Event.from_message(message=Message(role="assistant", content="reply"))
+        yield Event.from_conversation_history(conversation_history or "[]")
+
+
+@pytest.fixture
+def make_client():
+    """Build a TestClient whose selected provider is a caller-supplied instance."""
+    started = []
+
+    def _make(provider):
+        app = FastAPI()
+        app.include_router(assistant_router)
+
+        async def mock_require_localhost():
+            pass
+
+        app.dependency_overrides[_require_localhost] = mock_require_localhost
+        p1 = patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider)
+        p2 = patch("mlflow.server.assistant.api.list_providers", return_value=[provider])
+        p1.start()
+        p2.start()
+        started.extend([p1, p2])
+        return TestClient(app)
+
+    yield _make
+    for p in started:
+        p.stop()
 
 
 def test_message(client):
@@ -259,6 +321,31 @@ def test_get_config_returns_existing_config(client, tmp_path):
     assert data["providers"]["claude_code"]["model"] == "default"
     assert data["providers"]["claude_code"]["selected"] is True
     assert data["projects"]["exp-123"]["location"] == str(project_dir)
+
+
+def test_get_config_surfaces_client_carries_history(tmp_path):
+    config = AssistantConfig(
+        providers={
+            "mlflow_gateway": AssistantProviderConfig(model="gpt-4", selected=True),
+            "ollama": AssistantProviderConfig(model="llama3", selected=False),
+        },
+    )
+    config.save()
+
+    app = FastAPI()
+    app.include_router(assistant_router)
+
+    async def mock_require_localhost():
+        pass
+
+    app.dependency_overrides[_require_localhost] = mock_require_localhost
+    test_client = TestClient(app)
+
+    response = test_client.get("/ajax-api/3.0/mlflow/assistant/config")
+    assert response.status_code == 200
+    providers = response.json()["providers"]
+    assert providers["mlflow_gateway"]["client_carries_history"] is True
+    assert providers["ollama"]["client_carries_history"] is False
 
 
 def test_update_config_sets_provider(client):
@@ -509,6 +596,26 @@ async def test_stream_prefers_new_message_over_stale_tool_decision():
 
 
 @pytest.mark.asyncio
+async def test_stream_provider_events_no_provider_yields_error():
+    events = [e async for e in stream_provider_events(None)]
+    assert len(events) == 1
+    assert events[0].type == EventType.ERROR
+
+
+@pytest.mark.asyncio
+async def test_stream_provider_events_wraps_entry_error():
+    # A provider missing the method for this path raises on entry (the base default raises
+    # NotImplementedError). The thunk is opened inside the error wrapper, so the turn ends
+    # with a clean error event rather than dropping the connection mid-stream.
+    def start_stream():
+        raise NotImplementedError("provider does not support this path")
+
+    events = [e async for e in stream_provider_events(start_stream)]
+    assert len(events) == 1
+    assert events[0].type == EventType.ERROR
+
+
+@pytest.mark.asyncio
 async def test_stream_forwards_tool_decision_when_no_pending_message():
     """A genuine resume (decision delivered, no new message) still forwards the
     tool_decisions so the provider can continue the paused turn.
@@ -712,3 +819,143 @@ def test_list_provider_models_returns_404_for_unsupported_provider(client):
 
     assert response.status_code == 404
     assert "not supported" in response.json()["detail"]
+
+
+# ── Legacy /message + /stream: server-side session persistence (Claude/Codex/Ollama) ──
+
+
+def test_stream_persists_history_for_legacy_sessions(client):
+    r = client.post(
+        "/ajax-api/3.0/mlflow/assistant/message",
+        json={"message": "Hello"},
+    )
+    session_id = r.json()["session_id"]
+
+    client.get(f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream")
+
+    session = SessionManager.load(session_id)
+    # Mock provider returns "mock-session-123" in DONE; should be persisted for legacy sessions
+    assert session.provider_session_id == "mock-session-123"
+
+
+# ── POST /chat: stateless streaming for client-carried-history providers ──────
+
+
+def test_chat_streams_sse_events(client):
+    response = client.post("/ajax-api/3.0/mlflow/assistant/chat", json={"message": "Hi"})
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+    content = response.text
+    assert "event: message" in content
+    assert "Hello from mock" in content
+    assert "event: done" in content
+
+
+def test_chat_writes_no_session_file(client):
+    with (
+        patch("mlflow.server.assistant.api.SessionManager.save") as mock_save,
+        patch("mlflow.server.assistant.api.SessionManager.load") as mock_load,
+    ):
+        response = client.post("/ajax-api/3.0/mlflow/assistant/chat", json={"message": "Hi"})
+        assert response.status_code == 200
+        _ = response.text  # consume the stream
+
+    mock_save.assert_not_called()
+    mock_load.assert_not_called()
+    if SESSION_DIR.exists():
+        assert list(SESSION_DIR.glob("*.json")) == []
+
+
+def test_chat_passes_conversation_history_to_provider(make_client):
+    provider = CapturingProvider()
+    tc = make_client(provider)
+    blob = json.dumps([{"role": "system", "content": "sys"}])
+
+    response = tc.post(
+        "/ajax-api/3.0/mlflow/assistant/chat",
+        json={"message": "Hi", "conversation_history": blob},
+    )
+    assert response.status_code == 200
+    _ = response.text
+
+    assert provider.calls[0]["conversation_history"] == blob
+
+
+def test_chat_query_mode_working_dir_none(make_client):
+    provider = CapturingProvider()
+    tc = make_client(provider)
+
+    response = tc.post("/ajax-api/3.0/mlflow/assistant/chat", json={"message": "Hi"})
+    assert response.status_code == 200
+    _ = response.text
+
+    assert provider.calls[0]["cwd"] is None
+
+
+def test_chat_experiment_mode_working_dir_resolved(make_client, tmp_path):
+    from mlflow.assistant import clear_project_path_cache
+
+    project_dir = tmp_path / "project"
+    project_dir.mkdir()
+    config = AssistantConfig(
+        projects={"exp-123": ProjectConfig(type="local", location=str(project_dir))},
+    )
+    config.save()
+    clear_project_path_cache()
+
+    provider = CapturingProvider()
+    tc = make_client(provider)
+
+    response = tc.post(
+        "/ajax-api/3.0/mlflow/assistant/chat",
+        json={"message": "Hi", "experiment_id": "exp-123"},
+    )
+    assert response.status_code == 200
+    _ = response.text
+
+    assert provider.calls[0]["cwd"] == Path(str(project_dir))
+
+
+def test_chat_multiturn_roundtrip(make_client):
+    provider = CapturingProvider()
+    tc = make_client(provider)
+
+    r1 = tc.post("/ajax-api/3.0/mlflow/assistant/chat", json={"message": "turn 1"})
+    assert r1.status_code == 200
+    assert "event: done" in r1.text
+
+    blob = provider.calls[0]["conversation_history"] or "[]"
+    r2 = tc.post(
+        "/ajax-api/3.0/mlflow/assistant/chat",
+        json={"message": "turn 2", "conversation_history": blob},
+    )
+    assert r2.status_code == 200
+    _ = r2.text
+
+    assert provider.calls[1]["conversation_history"] == blob
+
+
+def test_chat_threads_tool_decisions_into_context(make_client):
+    provider = CapturingProvider()
+    tc = make_client(provider)
+    blob = json.dumps([{"role": "system", "content": "sys"}])
+
+    response = tc.post(
+        "/ajax-api/3.0/mlflow/assistant/chat",
+        json={"message": "", "conversation_history": blob, "tool_decisions": {"call_1": "allow"}},
+    )
+    assert response.status_code == 200
+    _ = response.text
+
+    assert provider.calls[0]["context"]["tool_decisions"] == {"call_1": "allow"}
+
+
+def test_chat_omits_tool_decisions_when_absent(make_client):
+    provider = CapturingProvider()
+    tc = make_client(provider)
+
+    response = tc.post("/ajax-api/3.0/mlflow/assistant/chat", json={"message": "Hi"})
+    assert response.status_code == 200
+    _ = response.text
+
+    assert "tool_decisions" not in provider.calls[0]["context"]

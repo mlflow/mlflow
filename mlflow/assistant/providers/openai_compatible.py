@@ -37,8 +37,8 @@ from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
 
 _logger = logging.getLogger(__name__)
 
-# OpenAI-compatible servers have no server-side session state, so we encode
-# the full message history as JSON in the session_id field. 500 KB stays
+# OpenAI-compatible servers have no server-side session state, so the client
+# carries the full message history as JSON in conversation_history. 500 KB stays
 # well below typical LLM context windows and gives tool-heavy multi-turn
 # conversations enough headroom to avoid frequent trimming. Older turns
 # are dropped first; the system message at index 0 is always kept.
@@ -253,7 +253,9 @@ class OpenAICompatibleProvider(AssistantProvider):
         chat_url_builder: ChatUrlBuilder = _default_chat_url_builder,
         default_base_url: str | None = None,
         skills_dirname: str | None = None,
+        client_carries_history: bool = False,
     ):
+        self.client_carries_history = client_carries_history
         self._name = name
         self._display_name = display_name
         self._description = description
@@ -352,12 +354,11 @@ class OpenAICompatibleProvider(AssistantProvider):
     def resolve_skills_path(self, base_directory: Path) -> Path:
         return base_directory / self._skills_dirname / "skills"
 
-    async def astream(
+    async def astream_stateless(
         self,
         prompt: str,
         tracking_uri: str,
-        session_id: str | None = None,
-        mlflow_session_id: str | None = None,
+        conversation_history: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
@@ -405,11 +406,11 @@ class OpenAICompatibleProvider(AssistantProvider):
             user_text = prompt
 
         messages: list[dict[str, Any]] = []
-        if session_id:
+        if conversation_history:
             try:
-                messages = json.loads(session_id)
+                messages = json.loads(conversation_history)
             except (json.JSONDecodeError, TypeError):
-                _logger.warning("Failed to decode session history; starting a new session")
+                _logger.warning("Failed to decode conversation history; starting fresh")
                 messages = []
 
         if not messages:
@@ -533,9 +534,16 @@ class OpenAICompatibleProvider(AssistantProvider):
                                         _merge_tool_call_chunk(tool_calls_acc, tc)
 
                         if not tool_calls_acc:
-                            if visible_text:
+                            if visible_text.strip():
                                 messages.append({"role": "assistant", "content": visible_text})
-                            break
+                                break
+                            # The model streamed no text this round. Any tool output or error this
+                            # turn already reached the client as its own block, so we just surface
+                            # that the model added no response rather than finalize silently.
+                            yield Event.from_error(
+                                "The model returned an empty response. Please try again."
+                            )
+                            return
 
                         # Normalize accumulated tool calls into the OpenAI
                         # assistant message format expected on the next turn.
@@ -569,25 +577,19 @@ class OpenAICompatibleProvider(AssistantProvider):
                             tool_input = {}
 
                         # Permission gating. With full access (config) tools run without
-                        # prompting. Otherwise we prompt only for a call that BOTH has a session
-                        # (so a decision can be delivered on resume) AND isn't already permitted by
-                        # the static policy: allowlisted Bash commands (e.g. `mlflow`) and
-                        # in-workspace file ops run without a prompt, as they did before tool-call
-                        # permissions existed; the prompt is kept as an override for the previously
-                        # hard-denied calls. The session pauses the turn at a per-call Yes/No
-                        # prompt; a later resume delivers the choice via `tool_decisions`, and an
-                        # explicit allow overrides the static allowlist for that call. Anything not
-                        # gated (no session, or a statically-allowed call) is left to the static
-                        # policy enforced by execute_tool.
+                        # prompting. Otherwise we prompt only for a call the static policy wouldn't
+                        # already permit: allowlisted Bash commands (e.g. `mlflow`) and in-workspace
+                        # file ops run without a prompt, as they did before tool-call permissions
+                        # existed; the prompt is kept as an override for the previously hard-denied
+                        # calls. The turn pauses at a per-call Yes/No prompt; a later resume
+                        # delivers the choice via `tool_decisions`, and an explicit allow overrides
+                        # the static allowlist for that call. Calls the static policy already allows
+                        # are left to it, enforced by execute_tool.
                         needs_prompt = (
                             static_permission_error(tool_name, tool_input, config.permissions, cwd)
                             is not None
                         )
-                        gated = (
-                            not config.permissions.full_access
-                            and bool(mlflow_session_id)
-                            and needs_prompt
-                        )
+                        gated = not config.permissions.full_access and needs_prompt
                         decision = tool_decisions.get(tc["id"])
 
                         # Emit the tool-use block when a call is first surfaced
@@ -664,8 +666,8 @@ class OpenAICompatibleProvider(AssistantProvider):
                     if paused:
                         break
 
-            new_session_id = json.dumps(_trim_session(messages))
-            yield Event.from_result(result=None, session_id=new_session_id)
+            new_history = json.dumps(_trim_session(messages))
+            yield Event.from_conversation_history(new_history)
 
         except Exception as e:
             _logger.exception("Error communicating with %s", self._display_name)

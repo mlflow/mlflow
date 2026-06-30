@@ -90,6 +90,15 @@ class Event(BaseModel):
         return cls(type=EventType.DONE, data={"result": result, "session_id": session_id})
 
     @classmethod
+    def from_conversation_history(cls, conversation_history: str) -> "Event":
+        """DONE event for stateless providers: the turn's payload is the updated history that
+        the client carries forward, not a server-side session handle.
+        """
+        return cls(
+            type=EventType.DONE, data={"result": None, "conversation_history": conversation_history}
+        )
+
+    @classmethod
     def from_interrupted(cls) -> "Event":
         return cls(type=EventType.INTERRUPTED, data={"message": "Assistant was interrupted"})
 
