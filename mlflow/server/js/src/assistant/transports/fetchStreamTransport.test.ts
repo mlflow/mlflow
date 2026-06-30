@@ -180,4 +180,29 @@ describe('streamChatViaFetch', () => {
     const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toMatchObject({ tool_decisions: { 'call-1': 'allow' } });
   });
+
+  it('aborts and stops reading immediately on a terminal frame instead of waiting for EOF', async () => {
+    // The terminal `done` is followed by a trailing frame in a stream that does NOT close right
+    // away. The loop must break + abort on the terminal frame — not read on toward EOF (which a
+    // buffering proxy might never deliver, hanging the reader). So the trailing frame is never
+    // read or dispatched, and the request is torn down deterministically.
+    const reader = makeReader([
+      'event: done\ndata: {"conversation_history":"[]"}\n\n',
+      'event: message\ndata: {"message":{"content":"should never be read"}}\n\n',
+    ]);
+    mockFetch.mockResolvedValue({ ok: true, body: { getReader: () => reader } });
+
+    const callbacks = makeCallbacks();
+    await streamChatViaFetch({ message: 'hi' }, callbacks);
+    await tick();
+
+    expect(callbacks.onDone).toHaveBeenCalledTimes(1);
+    // Broke on the terminal frame: only the first chunk was read, the trailing frame never was.
+    expect(reader.read).toHaveBeenCalledTimes(1);
+    expect(callbacks.onMessage).not.toHaveBeenCalled();
+    // The request was aborted to release the reader rather than left to EOF.
+    const [, init] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(init.signal?.aborted).toBe(true);
+    expect(callbacks.onError).not.toHaveBeenCalled();
+  });
 });
