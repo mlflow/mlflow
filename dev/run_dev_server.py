@@ -138,7 +138,7 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
-    stub_names = [s for s in args.stub_providers.split(",") if s]
+    stub_names = [s.strip() for s in args.stub_providers.split(",") if s.strip()]
 
     subprocess.check_call(["yarn", "install"], cwd=JS_DIR)
 

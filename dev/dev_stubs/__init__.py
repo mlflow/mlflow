@@ -13,6 +13,7 @@ The CI ui-review bot passes the names a PR needs; locally, pass them yourself.
 from __future__ import annotations
 
 import os
+import shlex
 import sys
 import tempfile
 from dataclasses import dataclass, field
@@ -38,7 +39,10 @@ def _install_claude(result: StubResult) -> None:
     shim_dir = Path(tempfile.mkdtemp(prefix="mlflow-dev-stub-bin-"))
     shim = shim_dir / "claude"
     # Use sys.executable (not a bare `python3`) so resolution doesn't depend on PATH.
-    shim.write_text(f'#!/usr/bin/env bash\nexec {sys.executable} {_CLAUDE_CLI} "$@"\n')
+    # Quote both paths so the shim survives spaces in the interpreter or repo path.
+    interpreter = shlex.quote(sys.executable)
+    script = shlex.quote(str(_CLAUDE_CLI))
+    shim.write_text(f'#!/usr/bin/env bash\nexec {interpreter} {script} "$@"\n')
     shim.chmod(0o755)
     result.path_prepend.append(shim_dir)
     result.cleanup_paths.append(shim_dir)

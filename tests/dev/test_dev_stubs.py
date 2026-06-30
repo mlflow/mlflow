@@ -72,6 +72,7 @@ def test_claude_stream_json_parses_into_message_and_done_events():
 
 def test_claude_resume_reuses_session_id():
     result = run_claude("-p", "hi", "--output-format", "stream-json", "--resume", "sess-abc")
+    assert result.returncode == 0
     events = [json.loads(line) for line in result.stdout.splitlines() if line.strip()]
     assert {e["session_id"] for e in events if "session_id" in e} == {"sess-abc"}
 
