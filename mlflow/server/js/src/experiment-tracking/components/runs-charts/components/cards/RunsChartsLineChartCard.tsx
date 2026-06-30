@@ -49,7 +49,11 @@ const getV2ChartTitle = (cardConfig: RunsChartsLineCardConfig): string => {
     return expressions?.join(' vs ') || '';
   }
   if (!cardConfig.selectedMetricKeys || cardConfig.selectedMetricKeys.length === 0) {
-    return cardConfig.metricKey;
+    return cardConfig.displayName ?? cardConfig.metricKey;
+  }
+
+  if (cardConfig.selectedMetricKeys.length === 1) {
+    return cardConfig.displayName ?? cardConfig.selectedMetricKeys[0];
   }
 
   return cardConfig.selectedMetricKeys.join(' vs ');

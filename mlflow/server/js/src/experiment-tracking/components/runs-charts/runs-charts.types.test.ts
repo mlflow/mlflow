@@ -196,4 +196,35 @@ describe('RunsChartsCardConfig.getBaseChartAndSectionConfigs', () => {
       expect(gpuSectionExists).toBe(false);
     });
   });
+
+  test('uses section-relative display names for generated nested metric charts', () => {
+    const runsData = [
+      createMockRunData({
+        'train/losses/grouped_by_x/after_y/mae': {
+          key: 'train/losses/grouped_by_x/after_y/mae',
+          value: 0.1,
+          step: 0,
+        },
+        'system/gpu_1': {
+          key: 'system/gpu_1',
+          value: 10,
+          step: 2,
+        },
+      }),
+    ];
+
+    const { resultChartSet, resultSectionSet } = RunsChartsCardConfig.getBaseChartAndSectionConfigs({
+      runsData,
+    });
+
+    const nestedMetricChart = resultChartSet.find(
+      (chart) => 'metricKey' in chart && chart.metricKey === 'train/losses/grouped_by_x/after_y/mae',
+    );
+    const systemMetricChart = resultChartSet.find((chart) => 'metricKey' in chart && chart.metricKey === 'system/gpu_1');
+
+    expect(nestedMetricChart?.displayName).toBe('mae');
+    expect(systemMetricChart?.displayName).toBe('gpu_1');
+    expect(resultSectionSet.some((section) => section.name === 'train/losses/grouped_by_x/after_y')).toBe(true);
+    expect(resultSectionSet.some((section) => section.name === 'System metrics')).toBe(true);
+  });
 });
