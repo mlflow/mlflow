@@ -1,10 +1,13 @@
 import argparse
+import asyncio
+import contextvars
 import functools
 import inspect
 import json
 import logging
 import os
 import posixpath
+import threading
 from typing import Any, AsyncGenerator, Callable, Literal, ParamSpec, TypeVar
 
 import httpx
@@ -29,6 +32,18 @@ _R = TypeVar("_R")
 
 _invoke_function: Callable[..., Any] | None = None
 _stream_function: Callable[..., Any] | None = None
+
+# Sentinel pushed onto the bridge queue to signal a worker generator has finished.
+_STREAM_SENTINEL = object()
+
+# Max number of real chunks the worker may stay ahead of the consumer. A semaphore
+# enforces this so a slow or disconnected consumer applies backpressure to the
+# worker thread instead of letting it buffer the whole stream in memory.
+_STREAM_MAX_CHUNKS_AHEAD = 64
+
+# How often the worker thread wakes while blocked on backpressure to re-check the
+# stop signal, so a client disconnect halts production promptly.
+_STREAM_POLL_SECONDS = 0.1
 
 
 def get_invoke_function():
@@ -319,7 +334,10 @@ class AgentServer:
                 if inspect.iscoroutinefunction(func):
                     result = await func(request)
                 else:
-                    result = func(request)
+                    # Run sync handlers off the event loop so a slow handler does not
+                    # block other concurrent requests (e.g. /health). to_thread copies
+                    # the current context, so the active tracing span propagates.
+                    result = await asyncio.to_thread(func, request)
 
                 result = self.validator.validate_and_convert_result(result)
                 if self.agent_type == "ResponsesAgent":
@@ -346,6 +364,126 @@ class AgentServer:
 
             raise HTTPException(status_code=500, detail=str(e))
 
+    async def _iterate_sync_in_thread(
+        self, func: Callable[..., Any], request: dict[str, Any]
+    ) -> AsyncGenerator[Any, None]:
+        """Iterate a synchronous generator on a dedicated worker thread.
+
+        Running user generators off the event loop keeps the server responsive to
+        other requests (e.g. /health) while a chunk is being produced. A single
+        dedicated thread per stream runs the generator in a copied context rather
+        than Starlette's per-``__next__`` threadpool so the generator executes in
+        one consistent thread/context. This keeps MLflow's contextvar-based span
+        attach/detach from crossing thread/context boundaries, which would
+        otherwise raise "token was created in a different Context" errors.
+
+        Chunks are handed to the event loop via ``call_soon_threadsafe`` into an
+        ``asyncio.Queue`` that the consumer awaits natively, so no executor thread
+        is tied up on a blocking ``get``. Earlier designs scheduled both the
+        producer and every per-chunk ``get`` onto the shared default executor;
+        under concurrent load the blocked gets could exhaust that pool (which is
+        also shared with ``asyncio.to_thread``) and starve producers. A dedicated
+        thread plus an ``asyncio.Queue`` avoids touching the executor entirely.
+
+        Teardown on client disconnect is handled explicitly: when the client goes
+        away, Starlette closes the streaming body generator, which raises
+        ``GeneratorExit`` into the ``yield`` below. The ``finally`` then sets a
+        stop signal. A worker blocked on the backpressure semaphore wakes within a
+        poll interval, closes the user's generator to run its cleanup, and
+        terminates instead of leaking the thread or running an unbounded stream to
+        completion.
+        """
+        loop = asyncio.get_running_loop()
+        # asyncio.Queue is awaited natively by the consumer; the worker thread
+        # feeds it via call_soon_threadsafe since asyncio.Queue is not
+        # thread-safe. The actual backpressure is the semaphore below: the
+        # worker blocks on it before producing, since a put_nowait scheduled
+        # onto the loop cannot block to apply backpressure itself. The queue's
+        # maxsize is a structural hard cap so memory stays bounded even without
+        # reasoning about the semaphore -- the semaphore keeps the queue from
+        # ever actually reaching it (so put_nowait never raises QueueFull). The
+        # +1 is headroom for the permit-less sentinel enqueued at teardown.
+        chunk_queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=_STREAM_MAX_CHUNKS_AHEAD + 1)
+        free_slots = threading.Semaphore(_STREAM_MAX_CHUNKS_AHEAD)
+        error: list[Exception] = []
+        stop_event = threading.Event()
+        # Copy the current context so the active tracing span set by the caller
+        # propagates into the worker thread and the generator's own spans nest
+        # correctly.
+        ctx = contextvars.copy_context()
+
+        def enqueue(item: Any) -> None:
+            # call_soon_threadsafe raises RuntimeError once the loop is closed
+            # (server shutdown); there is then no consumer left to deliver to.
+            try:
+                loop.call_soon_threadsafe(chunk_queue.put_nowait, item)
+            except RuntimeError:
+                pass
+
+        def produce() -> None:
+            gen = func(request)
+            try:
+                for chunk in gen:
+                    # Acquire one backpressure permit per real chunk, waking
+                    # periodically to re-check the stop signal so a disconnected
+                    # client halts production promptly.
+                    acquired = False
+                    while not stop_event.is_set():
+                        if free_slots.acquire(timeout=_STREAM_POLL_SECONDS):
+                            acquired = True
+                            break
+                    if not acquired:
+                        break
+                    enqueue(chunk)
+            except Exception as e:
+                # Only capture ordinary errors. Let BaseException types
+                # (KeyboardInterrupt, SystemExit) propagate so they terminate the
+                # worker thread and don't impede interpreter shutdown; the finally
+                # block still closes the generator and flushes the sentinel.
+                error.append(e)
+            finally:
+                # Close the user's generator so its cleanup (span exit, finally
+                # blocks) runs in this worker thread/context even when the client
+                # disconnected mid-stream. On the normal path the generator is
+                # already exhausted and close() is a no-op. Preserve any earlier
+                # error rather than letting a close() failure mask it.
+                gen_close = getattr(gen, "close", None)
+                if gen_close is not None:
+                    try:
+                        gen_close()
+                    except Exception as e:
+                        if not error:
+                            error.append(e)
+                # The sentinel carries no permit, so it always enqueues even when
+                # the consumer is mid-disconnect.
+                enqueue(_STREAM_SENTINEL)
+
+        thread = threading.Thread(
+            target=lambda: ctx.run(produce),
+            name="agent-server-stream-worker",
+            daemon=True,
+        )
+        thread.start()
+
+        try:
+            while True:
+                chunk = await chunk_queue.get()
+                if chunk is _STREAM_SENTINEL:
+                    if error:
+                        raise error[0]
+                    break
+                # Release the permit acquired by the producer for this chunk so it
+                # may advance by one, keeping at most _STREAM_MAX_CHUNKS_AHEAD chunks
+                # in flight.
+                free_slots.release()
+                yield chunk
+        finally:
+            # Runs on normal completion, error, and GeneratorExit (client
+            # disconnect). Signal the worker to stop; a worker blocked on the
+            # backpressure semaphore wakes within a poll interval, runs its
+            # generator's cleanup, and terminates instead of leaking the thread.
+            stop_event.set()
+
     async def _generate(
         self,
         func: Callable[..., Any],
@@ -363,7 +501,7 @@ class AgentServer:
                         all_chunks.append(chunk)
                         yield f"data: {json.dumps(chunk)}\n\n"
                 else:
-                    for chunk in func(request):
+                    async for chunk in self._iterate_sync_in_thread(func, request):
                         chunk = self.validator.validate_and_convert_result(chunk, stream=True)
                         all_chunks.append(chunk)
                         yield f"data: {json.dumps(chunk)}\n\n"
