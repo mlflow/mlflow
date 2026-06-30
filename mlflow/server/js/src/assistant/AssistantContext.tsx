@@ -222,13 +222,18 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // trailing text part (e.g. an error) or merge extra flags (e.g. isInterrupted). Shared
   // by the done / error / interrupt terminal paths so the message-finalize logic lives once.
   const commitStreamingMessage = useCallback((options: { appendText?: string; extra?: Partial<ChatMessage> } = {}) => {
+    // Snapshot the buffer and clear it up front. The setMessages updater runs during a later
+    // render, so reading streamingMessageRef inside it would race with the clear below and drop
+    // any text streamed since the last flush.
+    const buffered = streamingMessageRef.current;
+    streamingMessageRef.current = '';
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (!(lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming)) {
         return prev;
       }
-      const withBufferedText = streamingMessageRef.current
-        ? setOpenTextPart(lastMessage.parts ?? [], streamingMessageRef.current)
+      const withBufferedText = buffered
+        ? setOpenTextPart(lastMessage.parts ?? [], buffered)
         : (lastMessage.parts ?? []);
       const parts: AssistantPart[] = options.appendText
         ? [...withBufferedText, { type: 'text', text: options.appendText }]
@@ -238,15 +243,15 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         { ...lastMessage, parts, content: partsToContent(parts), isStreaming: false, ...options.extra },
       ];
     });
-    streamingMessageRef.current = '';
   }, []);
 
   const flushStreamingMessage = useCallback(() => {
     rafPendingRef.current = null;
-    if (!streamingMessageRef.current) {
+    const buffered = streamingMessageRef.current;
+    if (!buffered) {
       return;
     }
-    updateStreamingParts((parts) => setOpenTextPart(parts, streamingMessageRef.current));
+    updateStreamingParts((parts) => setOpenTextPart(parts, buffered));
   }, [updateStreamingParts]);
 
   const appendToStreamingMessage = useCallback(
@@ -295,11 +300,12 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         cancelAnimationFrame(rafPendingRef.current);
         rafPendingRef.current = null;
       }
+      const buffered = streamingMessageRef.current;
+      streamingMessageRef.current = '';
       updateStreamingParts((parts) => {
-        const withText = streamingMessageRef.current ? setOpenTextPart(parts, streamingMessageRef.current) : parts;
+        const withText = buffered ? setOpenTextPart(parts, buffered) : parts;
         return upsertToolCalls(withText, tools);
       });
-      streamingMessageRef.current = '';
     },
     [updateStreamingParts],
   );
