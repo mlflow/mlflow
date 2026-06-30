@@ -371,6 +371,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       total_tokens: number;
       total_cost_usd?: number | null;
     }) => {
+      // Contract: each `usage` event is a per-turn / per-request *delta*, never a
+      // session-running total. Every provider emits it at a turn/request boundary
+      // (Claude Code's `result`, Codex's `turn.completed`, the gateway's per-request
+      // usage chunk), so we accumulate. A provider that emitted cumulative totals would
+      // double-count here — emit deltas, not running totals.
       setTokenUsage((prev) => ({
         promptTokens: prev.promptTokens + (usage.prompt_tokens ?? 0),
         completionTokens: prev.completionTokens + (usage.completion_tokens ?? 0),
