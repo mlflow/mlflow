@@ -269,6 +269,14 @@ class _OnnxModelWrapper:
         else:
             providers = ONNX_EXECUTION_PROVIDERS
 
+        # Guard against malformed metadata: the providers field may have been hand-written
+        # as a single string or as null. Normalize to a non-empty list of provider names so
+        # the filtering below does not iterate over characters or fail on None.
+        if isinstance(providers, str):
+            providers = [providers]
+        elif not providers:
+            providers = ONNX_EXECUTION_PROVIDERS
+
         sess_options = onnxruntime.SessionOptions()
         if options := model_meta.flavors.get(FLAVOR_NAME).get("onnx_session_options"):
             if inter_op_num_threads := options.get("inter_op_num_threads"):

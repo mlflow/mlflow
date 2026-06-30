@@ -735,8 +735,8 @@ def test_model_log_with_metadata(onnx_model):
 
 def _stub_session(mock_session):
     # _OnnxModelWrapper.__init__ asserts len(self.rt.get_inputs()) >= 1 and reads
-    # inp.name/inp.type and outp.name (mlflow/onnx/__init__.py:320-322). Configure the
-    # mocked InferenceSession's return value so construction completes.
+    # inp.name/inp.type and outp.name. Configure the mocked InferenceSession's return
+    # value so construction completes.
     inp = mock.Mock()
     inp.name, inp.type = "input", "tensor(float)"
     outp = mock.Mock()
@@ -785,3 +785,23 @@ def test_onnx_model_load_warns_when_declared_provider_unavailable(
     _, kwargs = mock_session.call_args
     assert kwargs["providers"] == ["CPUExecutionProvider"]
     assert "CUDAExecutionProvider" in caplog.text
+
+
+def test_onnx_model_load_coerces_string_provider_metadata(onnx_model, model_path):
+    # Malformed/legacy metadata may store a single provider as a bare string rather than a
+    # list. Without coercion the loader would iterate over its characters and silently fall
+    # back to CPU; the guard normalizes it to a one-element list.
+    mlflow.onnx.save_model(
+        onnx_model, model_path, onnx_execution_providers="CUDAExecutionProvider"
+    )
+    with (
+        mock.patch("onnxruntime.InferenceSession") as mock_session,
+        mock.patch(
+            "onnxruntime.get_available_providers",
+            return_value=["CUDAExecutionProvider", "CPUExecutionProvider"],
+        ),
+    ):
+        _stub_session(mock_session)
+        mlflow.pyfunc.load_model(model_path)
+    _, kwargs = mock_session.call_args
+    assert kwargs["providers"] == ["CUDAExecutionProvider"]
