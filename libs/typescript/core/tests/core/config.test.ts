@@ -112,6 +112,59 @@ describe('Config', () => {
       );
     });
 
+    describe('workspace configuration', () => {
+      afterEach(() => {
+        delete process.env.MLFLOW_WORKSPACE;
+      });
+
+      it('should set MLFLOW_WORKSPACE env var when workspace is provided', () => {
+        init({
+          trackingUri: 'http://localhost:5000',
+          experimentId: '123',
+          workspace: 'my-workspace',
+        });
+
+        expect(process.env.MLFLOW_WORKSPACE).toBe('my-workspace');
+        expect(getConfig().workspace).toBe('my-workspace');
+      });
+
+      it('should read workspace from MLFLOW_WORKSPACE env var when not provided', () => {
+        process.env.MLFLOW_WORKSPACE = 'env-workspace';
+
+        init({
+          trackingUri: 'http://localhost:5000',
+          experimentId: '123',
+        });
+
+        expect(getConfig().workspace).toBe('env-workspace');
+      });
+
+      it('should prefer explicit workspace over env var', () => {
+        process.env.MLFLOW_WORKSPACE = 'env-workspace';
+
+        init({
+          trackingUri: 'http://localhost:5000',
+          experimentId: '123',
+          workspace: 'explicit-workspace',
+        });
+
+        expect(process.env.MLFLOW_WORKSPACE).toBe('explicit-workspace');
+        expect(getConfig().workspace).toBe('explicit-workspace');
+      });
+
+      it('should not set MLFLOW_WORKSPACE when workspace is not provided and env var is unset', () => {
+        delete process.env.MLFLOW_WORKSPACE;
+
+        init({
+          trackingUri: 'http://localhost:5000',
+          experimentId: '123',
+        });
+
+        expect(process.env.MLFLOW_WORKSPACE).toBeUndefined();
+        expect(getConfig().workspace).toBeUndefined();
+      });
+    });
+
     describe('Databricks configuration', () => {
       const tempDir = path.join(os.tmpdir(), 'mlflow-databricks-test-' + Date.now());
       const configPath = path.join(tempDir, '.databrickscfg');

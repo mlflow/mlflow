@@ -70,6 +70,10 @@ export async function makeRequest<T>(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout ?? getDefaultTimeout());
   const headers = await headerProvider();
+  const workspace = process.env.MLFLOW_WORKSPACE;
+  if (workspace) {
+    headers['X-MLFLOW-WORKSPACE'] = workspace;
+  }
 
   try {
     const response = await fetch(url, {
