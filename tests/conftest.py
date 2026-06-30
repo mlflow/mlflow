@@ -1,3 +1,4 @@
+import argparse
 import cProfile
 import inspect
 import io
@@ -92,9 +93,11 @@ def pytest_addoption(parser):
     )
     parser.addoption(
         "--serve-wheel",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         default=os.environ.get("CI", "false").lower() == "true",
-        help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise.",
+        help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise. "
+        "Pass --no-serve-wheel to disable (e.g. when running under pytest-xdist, where the "
+        "session-scoped build would otherwise race across workers).",
     )
     parser.addoption(
         "--profile",

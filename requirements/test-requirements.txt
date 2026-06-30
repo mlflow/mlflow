@@ -2,6 +2,7 @@
 ## Test-only dependencies
 pytest
 pytest-asyncio
+pytest-xdist[psutil]
 pytest-repeat
 pytest-cov
 pytest-timeout

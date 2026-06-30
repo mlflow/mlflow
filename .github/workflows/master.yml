@@ -121,6 +121,43 @@ jobs:
           uv run --no-sync --with 'databricks-agents,databricks-connect' \
             pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
 
+  # Canary: run a subset of xdist-safe, I/O-bound suites in parallel with
+  # pytest-xdist to measure the per-runner speedup and prove the tests stay
+  # green under concurrency. This job is intentionally NOT part of the merge
+  # gate and does not replace the serial `python` job above. `--no-serve-wheel`
+  # disables the session-scoped wheel build, which otherwise races across
+  # workers; the selected suites do not need the served dev wheel.
+  python-xdist:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          submodules: true
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          uv sync --extra extras --extra gateway --extra mcp --extra genai
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            -r requirements/extra-ml-requirements.txt
+      - uses: ./.github/actions/show-versions
+      - name: Run tests (xdist)
+        run: |
+          source dev/setup-ssh.sh
+          uv run --no-sync pytest \
+            -n auto --dist load --no-serve-wheel \
+            --quiet --requires-ssh \
+            tests/tracking tests/store tests/server tests/utils
+
   database:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
