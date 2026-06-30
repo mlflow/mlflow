@@ -2,7 +2,6 @@ import { Card, Typography, useDesignSystemTheme } from '@databricks/design-syste
 import { useIntl } from 'react-intl';
 
 import type { MCPServer } from '../types';
-import { resolveDisplayName } from '../utils';
 import { textClampStyles, textEllipsisStyles, cardBodyStyles, cardHeaderRowStyles } from '../styles';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
@@ -12,7 +11,6 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  const displayName = resolveDisplayName(server);
   const timestamp = server.last_updated_timestamp
     ? Utils.formatTimestamp(server.last_updated_timestamp, intl)
     : undefined;
@@ -29,9 +27,9 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
     >
       <div css={cardBodyStyles(theme)}>
         <div css={cardHeaderRowStyles(theme)}>
-          <MCPServerIcon icons={server.icons} name={displayName} />
+          <MCPServerIcon icons={server.icons} name={server.name} />
           <Typography.Text bold css={{ ...textEllipsisStyles, flex: 1 }}>
-            {displayName}
+            {server.name}
           </Typography.Text>
           {server.latest_version && (
             <Typography.Text color="secondary" size="sm" css={{ flexShrink: 0 }}>

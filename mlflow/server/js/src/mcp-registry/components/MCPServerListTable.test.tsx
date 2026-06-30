@@ -40,24 +40,22 @@ describe('MCPServerListTable', () => {
     expect(screen.getByText('Tags')).toBeInTheDocument();
   });
 
-  it('renders server rows with display name and description', () => {
+  it('renders server rows with name and description', () => {
     const servers = [
       createMockMCPServer({
         name: 'io.github.test/server-a',
-        display_name: 'Server A',
         description: 'A test server',
         last_updated_timestamp: 1620000000000,
       }),
       createMockMCPServer({
         name: 'io.github.test/server-b',
-        display_name: 'Server B',
         description: 'Another test server',
       }),
     ];
     renderTable({ servers });
-    expect(screen.getByText('Server A')).toBeInTheDocument();
+    expect(screen.getByText('io.github.test/server-a')).toBeInTheDocument();
     expect(screen.getByText('A test server')).toBeInTheDocument();
-    expect(screen.getByText('Server B')).toBeInTheDocument();
+    expect(screen.getByText('io.github.test/server-b')).toBeInTheDocument();
     expect(screen.getByText('Another test server')).toBeInTheDocument();
   });
 
@@ -85,9 +83,9 @@ describe('MCPServerListTable', () => {
   });
 
   it('renders server name in the table row', () => {
-    const servers = [createMockMCPServer({ name: 'test', display_name: 'My Server' })];
+    const servers = [createMockMCPServer({ name: 'io.github.test/my-server' })];
     renderTable({ servers });
-    expect(screen.getByText('My Server')).toBeInTheDocument();
+    expect(screen.getByText('io.github.test/my-server')).toBeInTheDocument();
   });
 
   it('renders pagination controls', () => {

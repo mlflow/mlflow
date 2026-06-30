@@ -9019,6 +9019,10 @@
     "defaultMessage": "Display points",
     "description": "Runs charts > line chart > display points > label"
   },
+  "g89D3N": {
+    "defaultMessage": "Examples:",
+    "description": "Text header for examples of MCP server search syntax"
+  },
   "gC2Kxm": {
     "defaultMessage": "Give instructions to the model. Use '{{ }}' or the \"Add new variable\" button to add variables to your prompt.",
     "description": "Experiment page > new run modal > prompt template input hint"
@@ -12278,6 +12282,10 @@
   "vbRrqF": {
     "defaultMessage": "Add question",
     "description": "Add review question modal title"
+  },
+  "vcK5wo": {
+    "defaultMessage": "To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.",
+    "description": "Tooltip to explain how to search MCP servers in the registry"
   },
   "vedifc": {
     "defaultMessage": "Enter API key or select saved key",

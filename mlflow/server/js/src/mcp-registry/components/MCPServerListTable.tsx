@@ -17,7 +17,6 @@ import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { useIntl } from 'react-intl';
 
 import type { MCPServer } from '../types';
-import { resolveDisplayName } from '../utils';
 import { MCPServersEmptyState } from './MCPRegistryEmptyState';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
@@ -79,7 +78,7 @@ const useMCPServerTableColumns = () => {
           defaultMessage: 'Name',
           description: 'Header for the name column in the MCP servers table',
         }),
-        accessorFn: (row) => resolveDisplayName(row),
+        accessorFn: (row) => row.name,
         id: 'name',
         cell: MCPServerNameCell,
       },

@@ -33,6 +33,7 @@ export const MCPServerIcon = ({
       <img
         src={iconSrc}
         alt={name || ''}
+        referrerPolicy="no-referrer"
         onError={() => setImgFailed(true)}
         css={{
           width: ICON_SIZE,

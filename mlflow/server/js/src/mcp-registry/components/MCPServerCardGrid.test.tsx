@@ -49,14 +49,14 @@ describe('MCPServerCardGrid', () => {
 
   it('renders a card for each server', () => {
     const servers = [
-      createMockMCPServer({ name: 'server-a', display_name: 'Server A' }),
-      createMockMCPServer({ name: 'server-b', display_name: 'Server B' }),
-      createMockMCPServer({ name: 'server-c', display_name: 'Server C' }),
+      createMockMCPServer({ name: 'server-a' }),
+      createMockMCPServer({ name: 'server-b' }),
+      createMockMCPServer({ name: 'server-c' }),
     ];
     renderGrid({ ...defaultPaginationProps, servers });
-    expect(screen.getByText('Server A')).toBeInTheDocument();
-    expect(screen.getByText('Server B')).toBeInTheDocument();
-    expect(screen.getByText('Server C')).toBeInTheDocument();
+    expect(screen.getByText('server-a')).toBeInTheDocument();
+    expect(screen.getByText('server-b')).toBeInTheDocument();
+    expect(screen.getByText('server-c')).toBeInTheDocument();
   });
 
   it('does not render loading spinner when servers are present', () => {

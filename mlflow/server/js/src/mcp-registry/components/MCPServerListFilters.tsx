@@ -1,6 +1,6 @@
 import { TableFilterInput, TableFilterLayout } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
-import { ModelSearchInputHelpTooltip } from '../../model-registry/components/model-list/ModelListFilters';
+import { MCPSearchInputHelpTooltip } from './MCPSearchInputHelpTooltip';
 
 export const MCPServerListFilters = ({
   searchFilter,
@@ -22,7 +22,7 @@ export const MCPServerListFilters = ({
         componentId={componentId}
         value={searchFilter}
         onChange={(e) => onSearchFilterChange(e.target.value)}
-        suffix={<ModelSearchInputHelpTooltip exampleEntityName="my-mcp-server" />}
+        suffix={<MCPSearchInputHelpTooltip />}
       />
     </TableFilterLayout>
   );

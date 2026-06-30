@@ -57,24 +57,21 @@ describe('MCPRegistryPage', () => {
   });
 
   it('renders server cards when data is available', async () => {
-    const servers = [
-      createMockMCPServer({ name: 'server-1', display_name: 'My Server 1' }),
-      createMockMCPServer({ name: 'server-2', display_name: 'My Server 2' }),
-    ];
+    const servers = [createMockMCPServer({ name: 'server-1' }), createMockMCPServer({ name: 'server-2' })];
     server.use(getMockedSearchMCPServersResponse(servers));
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('My Server 1')).toBeInTheDocument();
-      expect(screen.getByText('My Server 2')).toBeInTheDocument();
+      expect(screen.getByText('server-1')).toBeInTheDocument();
+      expect(screen.getByText('server-2')).toBeInTheDocument();
     });
   });
 
   it('shows Create MCP server button when servers exist', async () => {
-    const servers = [createMockMCPServer({ name: 's1', display_name: 'Server 1' })];
+    const servers = [createMockMCPServer({ name: 'server-1' })];
     server.use(getMockedSearchMCPServersResponse(servers));
     renderPage();
     await waitFor(() => {
-      expect(screen.getByText('Server 1')).toBeInTheDocument();
+      expect(screen.getByText('server-1')).toBeInTheDocument();
     });
     expect(screen.getByText('Create MCP server')).toBeInTheDocument();
   });
@@ -160,12 +157,12 @@ describe('MCPRegistryPage', () => {
   });
 
   it('switches between grid and list views', async () => {
-    const servers = [createMockMCPServer({ name: 's1', display_name: 'Server 1' })];
+    const servers = [createMockMCPServer({ name: 'server-1' })];
     server.use(getMockedSearchMCPServersResponse(servers));
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('Server 1')).toBeInTheDocument();
+      expect(screen.getByText('server-1')).toBeInTheDocument();
     });
 
     // Default is grid, switch to list

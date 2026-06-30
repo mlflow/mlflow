@@ -162,29 +162,30 @@ const MCPRegistryPage = () => {
                 css={{ marginTop: theme.spacing.sm, flexShrink: 0 }}
               />
             )}
-            {viewMode === 'grid' ? (
-              <MCPServerCardGrid
-                servers={servers}
-                isLoading={isLoading}
-                isFiltered={Boolean(debouncedSearchFilter)}
-                hasNextPage={hasNextPage}
-                hasPreviousPage={hasPreviousPage}
-                onNextPage={onNextPage}
-                onPreviousPage={onPreviousPage}
-                pageSizeSelect={pageSizeSelect}
-              />
-            ) : (
-              <MCPServerListTable
-                servers={servers}
-                hasNextPage={hasNextPage}
-                hasPreviousPage={hasPreviousPage}
-                isLoading={isLoading}
-                isFiltered={Boolean(debouncedSearchFilter)}
-                onNextPage={onNextPage}
-                onPreviousPage={onPreviousPage}
-                pageSizeSelect={pageSizeSelect}
-              />
-            )}
+            {!error &&
+              (viewMode === 'grid' ? (
+                <MCPServerCardGrid
+                  servers={servers}
+                  isLoading={isLoading}
+                  isFiltered={Boolean(debouncedSearchFilter)}
+                  hasNextPage={hasNextPage}
+                  hasPreviousPage={hasPreviousPage}
+                  onNextPage={onNextPage}
+                  onPreviousPage={onPreviousPage}
+                  pageSizeSelect={pageSizeSelect}
+                />
+              ) : (
+                <MCPServerListTable
+                  servers={servers}
+                  hasNextPage={hasNextPage}
+                  hasPreviousPage={hasPreviousPage}
+                  isLoading={isLoading}
+                  isFiltered={Boolean(debouncedSearchFilter)}
+                  onNextPage={onNextPage}
+                  onPreviousPage={onPreviousPage}
+                  pageSizeSelect={pageSizeSelect}
+                />
+              ))}
           </div>
         )}
 
