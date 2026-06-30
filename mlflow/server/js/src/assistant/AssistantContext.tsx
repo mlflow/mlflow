@@ -5,15 +5,16 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type {
-  AssistantAgentContextType,
-  AssistantConfig,
-  AssistantPart,
-  ChatMessage,
-  PermissionRequest,
-  ToolUseInfo,
-  ToolResultInfo,
-  TokenUsage,
+import {
+  ToolCallStatus,
+  type AssistantAgentContextType,
+  type AssistantConfig,
+  type AssistantPart,
+  type ChatMessage,
+  type PermissionRequest,
+  type ToolUseInfo,
+  type ToolResultInfo,
+  type TokenUsage,
 } from './types';
 import {
   cancelSession as cancelSessionApi,
@@ -133,7 +134,7 @@ export const upsertToolCalls = (parts: AssistantPart[], tools: ToolUseInfo[]): A
       // Merge without clobbering an already-resolved status/result from a tool_result.
       next[i] = { ...next[i], ...part };
     } else {
-      next.push({ ...part, status: 'running' });
+      next.push({ ...part, status: ToolCallStatus.Running });
     }
   }
   return next;
@@ -143,15 +144,57 @@ export const upsertToolCalls = (parts: AssistantPart[], tools: ToolUseInfo[]): A
 export const applyToolResult = (parts: AssistantPart[], result: ToolResultInfo): AssistantPart[] =>
   parts.map((p) =>
     p.type === 'toolCall' && p.toolUseId === result.toolUseId
-      ? { ...p, status: result.isError ? 'error' : 'done', result: result.content }
+      ? { ...p, status: result.isError ? ToolCallStatus.Error : ToolCallStatus.Done, result: result.content }
       : p,
   );
+
+/** The kinds of new information the stream delivers, each changing the open message's parts. */
+const PartsUpdateKind = {
+  Text: 'text',
+  ToolCalls: 'toolCalls',
+  ToolResult: 'toolResult',
+} as const;
+
+/** A piece of new information from the stream that changes the open message's parts. */
+type PartsUpdate =
+  | { kind: typeof PartsUpdateKind.Text; text: string }
+  | { kind: typeof PartsUpdateKind.ToolCalls; tools: ToolUseInfo[] }
+  | { kind: typeof PartsUpdateKind.ToolResult; result: ToolResultInfo };
+
+/** Fold one update into the parts list. Streaming an assistant turn is a reduction over these. */
+const reduceParts = (parts: AssistantPart[], update: PartsUpdate): AssistantPart[] => {
+  switch (update.kind) {
+    case PartsUpdateKind.Text:
+      return update.text ? setOpenTextPart(parts, update.text) : parts;
+    case PartsUpdateKind.ToolCalls:
+      return upsertToolCalls(parts, update.tools);
+    case PartsUpdateKind.ToolResult:
+      return applyToolResult(parts, update.result);
+  }
+};
+
+/** Why a streaming turn stopped; the open message is closed differently for each. */
+const TurnEndReason = {
+  Completed: 'completed',
+  Failed: 'failed',
+  Interrupted: 'interrupted',
+} as const;
+
+/** The terminal of a streaming turn: it completed, failed (with an error), or was interrupted. */
+type TurnEnd =
+  | { reason: typeof TurnEndReason.Completed }
+  | { reason: typeof TurnEndReason.Failed; error: string }
+  | { reason: typeof TurnEndReason.Interrupted };
 
 const partsToContent = (parts: AssistantPart[]): string =>
   parts
     .filter((p): p is Extract<AssistantPart, { type: 'text' }> => p.type === 'text')
     .map((p) => p.text)
     .join('');
+
+/** The last message is the open turn we stream into: an assistant message still streaming. */
+const isOpenAssistantTurn = (message: ChatMessage | undefined): message is ChatMessage =>
+  message?.role === 'assistant' && Boolean(message.isStreaming);
 
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Detect if server is local - memoized since hostname doesn't change
@@ -204,24 +247,24 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Throttle streaming updates to avoid overwhelming React with re-renders
   const rafPendingRef = useRef<number | null>(null);
 
-  // Apply `fn` to the last message's parts if it's the streaming assistant message,
-  // keeping `content` mirrored to the text parts.
-  const updateOpenMessageParts = useCallback((fn: (parts: AssistantPart[]) => AssistantPart[]) => {
+  // Fold stream updates into the open (streaming) assistant message's parts, keeping
+  // `content` mirrored to the text parts. No-op if the last message isn't an open turn.
+  const applyToOpenParts = useCallback((...updates: PartsUpdate[]) => {
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        const parts = fn(lastMessage.parts ?? []);
+      if (isOpenAssistantTurn(lastMessage)) {
+        const parts = updates.reduce(reduceParts, lastMessage.parts ?? []);
         return [...prev.slice(0, -1), { ...lastMessage, parts, content: partsToContent(parts) }];
       }
       return prev;
     });
   }, []);
 
-  // Commit the in-flight streaming assistant message: flush any buffered text into an open
-  // text part, mirror `content`, and mark it no longer streaming. Optionally append a
-  // trailing text part (e.g. an error) or merge extra flags (e.g. isInterrupted). Shared
-  // by the done / error / interrupt terminal paths so the message-finalize logic lives once.
-  const closeStreamingMessage = useCallback((options: { appendText?: string; extra?: Partial<ChatMessage> } = {}) => {
+  // Close the in-flight streaming assistant message: flush any buffered text into an open
+  // text part, mirror `content`, mark it no longer streaming, and reflect how the turn ended
+  // (append the error text on failure, flag an interrupt). Shared by the done / error /
+  // interrupt terminals so the message-finalize logic lives once.
+  const closeStreamingMessage = useCallback((end: TurnEnd) => {
     // Snapshot the buffer and clear it up front. The setMessages updater runs during a later
     // render, so reading openTextBufferRef inside it would race with the clear below and drop
     // any text streamed since the last flush.
@@ -229,18 +272,26 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     openTextBufferRef.current = '';
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
-      if (!(lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming)) {
+      if (!isOpenAssistantTurn(lastMessage)) {
         return prev;
       }
       const withBufferedText = buffered
         ? setOpenTextPart(lastMessage.parts ?? [], buffered)
         : (lastMessage.parts ?? []);
-      const parts: AssistantPart[] = options.appendText
-        ? [...withBufferedText, { type: 'text', text: options.appendText }]
-        : withBufferedText;
+      // On failure, append the error as a text part (a styled error callout is a planned follow-up).
+      const parts: AssistantPart[] =
+        end.reason === TurnEndReason.Failed
+          ? [...withBufferedText, { type: 'text', text: `Error: ${end.error}` }]
+          : withBufferedText;
       return [
         ...prev.slice(0, -1),
-        { ...lastMessage, parts, content: partsToContent(parts), isStreaming: false, ...options.extra },
+        {
+          ...lastMessage,
+          parts,
+          content: partsToContent(parts),
+          isStreaming: false,
+          ...(end.reason === TurnEndReason.Interrupted ? { isInterrupted: true } : {}),
+        },
       ];
     });
   }, []);
@@ -251,8 +302,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     if (!buffered) {
       return;
     }
-    updateOpenMessageParts((parts) => setOpenTextPart(parts, buffered));
-  }, [updateOpenMessageParts]);
+    applyToOpenParts({ kind: PartsUpdateKind.Text, text: buffered });
+  }, [applyToOpenParts]);
 
   const writeStreamedText = useCallback(
     (text: string) => {
@@ -270,7 +321,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       cancelAnimationFrame(rafPendingRef.current);
       rafPendingRef.current = null;
     }
-    closeStreamingMessage();
+    closeStreamingMessage({ reason: TurnEndReason.Completed });
     eventSourceRef.current = null;
     setIsStreaming(false);
     setCurrentStatus(null);
@@ -302,19 +353,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       }
       const buffered = openTextBufferRef.current;
       openTextBufferRef.current = '';
-      updateOpenMessageParts((parts) => {
-        const withText = buffered ? setOpenTextPart(parts, buffered) : parts;
-        return upsertToolCalls(withText, tools);
-      });
+      // Commit any buffered text first so the calls land after the text that preceded them.
+      applyToOpenParts({ kind: PartsUpdateKind.Text, text: buffered }, { kind: PartsUpdateKind.ToolCalls, tools });
     },
-    [updateOpenMessageParts],
+    [applyToOpenParts],
   );
 
   const resolveToolCall = useCallback(
     (result: ToolResultInfo) => {
-      updateOpenMessageParts((parts) => applyToolResult(parts, result));
+      applyToOpenParts({ kind: PartsUpdateKind.ToolResult, result });
     },
-    [updateOpenMessageParts],
+    [applyToOpenParts],
   );
 
   const handleUsage = useCallback(
@@ -401,9 +450,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       eventSourceRef.current = null;
       setActiveTools([]);
       setPendingPermission(null);
-      // Keep any tool calls / text produced so far and append the error as a text
-      // part (a styled error callout is a planned follow-up).
-      closeStreamingMessage({ appendText: `Error: ${errorMsg}` });
+      closeStreamingMessage({ reason: TurnEndReason.Failed, error: errorMsg });
     },
     [closeStreamingMessage],
   );
@@ -418,8 +465,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       cancelAnimationFrame(rafPendingRef.current);
       rafPendingRef.current = null;
     }
-    // Keep whatever text/tool parts streamed before the interrupt.
-    closeStreamingMessage({ extra: { isInterrupted: true } });
+    closeStreamingMessage({ reason: TurnEndReason.Interrupted });
   }, [closeStreamingMessage]);
 
   // Shared SSE callback wiring for startChat, handleSendMessage, respondToPermission and
@@ -678,7 +724,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     // Mark the current streaming message as interrupted
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
-      if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
+      if (isOpenAssistantTurn(lastMessage)) {
         return [...prev.slice(0, -1), { ...lastMessage, isStreaming: false, isInterrupted: true }];
       }
       return prev;

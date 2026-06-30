@@ -16,7 +16,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 
-import type { AssistantPart } from './types';
+import { ToolCallStatus, type AssistantPart } from './types';
 import { GenAIMarkdownRenderer } from '../shared/web-shared/genai-markdown-renderer';
 
 export type ToolCallPart = Extract<AssistantPart, { type: 'toolCall' }>;
@@ -44,16 +44,16 @@ const toolInputSummary = (part: ToolCallPart): string => {
 const StatusBadge = ({ status }: { status: ToolCallPart['status'] }) => {
   const { theme } = useDesignSystemTheme();
   const icon =
-    status === 'done' ? (
+    status === ToolCallStatus.Done ? (
       <CheckCircleIcon css={{ fontSize: theme.typography.fontSizeSm, color: theme.colors.textValidationSuccess }} />
-    ) : status === 'error' ? (
+    ) : status === ToolCallStatus.Error ? (
       <XCircleIcon css={{ fontSize: theme.typography.fontSizeSm, color: theme.colors.textValidationDanger }} />
     ) : (
       <Spinner size="small" />
     );
   return (
     <span
-      data-testid={`tool-call-status-${status ?? 'running'}`}
+      data-testid={`tool-call-status-${status ?? ToolCallStatus.Running}`}
       css={{
         width: 16,
         height: 16,
@@ -75,8 +75,8 @@ const fencedBlock = (body: string, lang = ''): string => `\`\`\`${lang}\n${body}
 // reads as done, not failed — only a trailing error surfaces as `error`. Individual failures
 // stay visible on their own cards.
 export const groupStatus = (parts: ToolCallPart[]): NonNullable<ToolCallPart['status']> => {
-  if (parts.some((p) => (p.status ?? 'running') === 'running')) return 'running';
-  return parts[parts.length - 1]?.status === 'error' ? 'error' : 'done';
+  if (parts.some((p) => (p.status ?? ToolCallStatus.Running) === ToolCallStatus.Running)) return ToolCallStatus.Running;
+  return parts[parts.length - 1]?.status === ToolCallStatus.Error ? ToolCallStatus.Error : ToolCallStatus.Done;
 };
 
 // Deduped, first-appearance-ordered tool names with `×N` when a name repeats,
@@ -90,11 +90,15 @@ export const toolNameSummary = (parts: ToolCallPart[]): string => {
 };
 
 const GROUP_STATUS_LABEL: Record<NonNullable<ToolCallPart['status']>, ReactNode> = {
-  running: (
+  [ToolCallStatus.Running]: (
     <FormattedMessage defaultMessage="Running" description="Status for an in-progress run of assistant tool calls" />
   ),
-  done: <FormattedMessage defaultMessage="Completed" description="Status for a finished run of assistant tool calls" />,
-  error: <FormattedMessage defaultMessage="Failed" description="Status for a failed run of assistant tool calls" />,
+  [ToolCallStatus.Done]: (
+    <FormattedMessage defaultMessage="Completed" description="Status for a finished run of assistant tool calls" />
+  ),
+  [ToolCallStatus.Error]: (
+    <FormattedMessage defaultMessage="Failed" description="Status for a failed run of assistant tool calls" />
+  ),
 };
 
 // Activate a role="button" disclosure row from the keyboard, matching native <button> semantics.
@@ -117,9 +121,9 @@ export const ToolCallGroup = ({ parts }: { parts: ToolCallPart[] }) => {
   const status = groupStatus(parts);
   const summary = toolNameSummary(parts);
   const statusColor =
-    status === 'done'
+    status === ToolCallStatus.Done
       ? theme.colors.textValidationSuccess
-      : status === 'error'
+      : status === ToolCallStatus.Error
         ? theme.colors.textValidationDanger
         : theme.colors.textSecondary;
 

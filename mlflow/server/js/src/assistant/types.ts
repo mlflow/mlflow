@@ -1,7 +1,21 @@
 /**
- * An ordered piece of an assistant turn. Text and tool calls are kept in arrival
- * order so the transcript can show the work (tool calls) interleaved with the
- * narration, and so tool results/status (filled in later) render where they happened.
+ * Lifecycle of a single tool call: `Running` until the matching tool_result
+ * arrives, then `Done`/`Error` depending on whether the tool failed.
+ */
+export const ToolCallStatus = {
+  Running: 'running',
+  Done: 'done',
+  Error: 'error',
+} as const;
+export type ToolCallStatus = (typeof ToolCallStatus)[keyof typeof ToolCallStatus];
+
+/**
+ * One piece of an assistant turn — a text segment or a tool call — mirroring the
+ * "message parts" model chat SDKs use (e.g. the Vercel AI SDK's `UIMessage.parts`;
+ * the Anthropic API calls the equivalents "content blocks"). A turn is an ordered
+ * list of these, not a single string. They're kept in arrival order so the transcript
+ * can show tool calls interleaved with the narration, and so tool results/status
+ * (filled in later) render where they happened.
  */
 export type AssistantPart =
   | { type: 'text'; text: string }
@@ -10,8 +24,7 @@ export type AssistantPart =
       toolUseId: string;
       name: string;
       input?: Record<string, any>;
-      // 'running' until the matching tool_result arrives, then 'done'/'error'.
-      status?: 'running' | 'done' | 'error';
+      status?: ToolCallStatus;
       // Normalized tool output (string) once the tool_result arrives.
       result?: string;
     };
