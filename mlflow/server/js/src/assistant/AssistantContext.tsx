@@ -226,7 +226,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
   const [pendingPermission, setPendingPermission] = useState<PermissionRequest | null>(null);
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
-  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(persistedChat.tokenUsage);
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(() => persistedChat.tokenUsage ?? EMPTY_TOKEN_USAGE);
 
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
