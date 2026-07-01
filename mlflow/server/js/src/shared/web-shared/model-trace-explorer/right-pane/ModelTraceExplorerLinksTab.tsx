@@ -1,4 +1,4 @@
-import { Empty, LinkIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Empty, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import type { ModelTraceSpanLink, ModelTraceSpanNode } from '../ModelTrace.types';
@@ -12,29 +12,28 @@ function SpanLinkEntry({ link, index }: { link: ModelTraceSpanLink; index: numbe
   const { theme } = useDesignSystemTheme();
   const href = useSpanLinkHref(link.trace_id);
 
-  const title = (
-    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-      <Typography.Text bold css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {link.trace_id}
-      </Typography.Text>
-      {href && (
-        <Link
-          componentId="mlflow.model_trace_explorer.span_link"
-          to={href}
-          target="_blank"
-          rel="noreferrer"
-          onClick={(e: React.MouseEvent) => e.stopPropagation()}
-          css={{
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            color: theme.colors.actionPrimaryBackgroundDefault,
-          }}
-        >
-          <LinkIcon css={{ fontSize: 14 }} />
-        </Link>
-      )}
-    </div>
+  const title = href ? (
+    <Link
+      componentId="mlflow.model_trace_explorer.span_link"
+      to={href}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e: React.MouseEvent) => e.stopPropagation()}
+      css={{
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        fontWeight: theme.typography.typographyBoldFontWeight,
+        color: theme.colors.actionPrimaryBackgroundDefault,
+        '&:hover': { textDecoration: 'underline' },
+      }}
+    >
+      {link.trace_id}
+    </Link>
+  ) : (
+    <Typography.Text bold css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      {link.trace_id}
+    </Typography.Text>
   );
 
   const hasAttributes = link.attributes && Object.keys(link.attributes).length > 0;
