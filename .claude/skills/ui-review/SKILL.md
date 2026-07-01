@@ -59,9 +59,8 @@ These reads are independent. Issue them as parallel tool calls in a single turn.
 
 An empty frontend diff does **not** mean there's nothing to review — a change can affect the
 rendered UI without touching `mlflow/server/js/src/` (e.g. a backend endpoint/handler that changes
-what a page displays, demo-data or config changes, or a surface the commenter names in their
-`/ui-review` guidance). Decide from the whole picture — the changed files, the PR description, and any
-reviewer guidance — whether there is a rendered surface worth looking at:
+what a page displays, or a demo-data/config change). Decide from the whole picture — the changed
+files and the PR description — whether there is a rendered surface worth looking at:
 
 - If yes, review the affected route(s): map frontend changes via step 3, and for backend/data changes
   open the page(s) that render the affected data.
