@@ -15,6 +15,7 @@ from langchain_core.outputs import (
     GenerationChunk,
     LLMResult,
 )
+from langgraph.errors import GraphInterrupt
 from tenacity import RetryCallState
 
 import mlflow
@@ -616,6 +617,10 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         **kwargs: Any,
     ):
         """Run when chain errors."""
+        if isinstance(error, GraphInterrupt):
+            self.on_chain_end(outputs={}, inputs=inputs, run_id=run_id, **kwargs)
+            return
+        
         chain_span = self._get_span_by_run_id(run_id)
         if inputs:
             chain_span.set_inputs(inputs)
