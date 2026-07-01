@@ -8,7 +8,6 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class FactualCorrectness(RagasScorer):
     """
@@ -36,7 +35,6 @@ class FactualCorrectness(RagasScorer):
     metric_name: ClassVar[str] = "FactualCorrectness"
 
 
-@experimental(version="3.8.0")
 class NonLLMStringSimilarity(RagasScorer):
     """
     Calculates string similarity without using an LLM.
@@ -62,7 +60,6 @@ class NonLLMStringSimilarity(RagasScorer):
     metric_name: ClassVar[str] = "NonLLMStringSimilarity"
 
 
-@experimental(version="3.8.0")
 class BleuScore(RagasScorer):
     """
     Calculates BLEU score.
@@ -85,7 +82,6 @@ class BleuScore(RagasScorer):
     metric_name: ClassVar[str] = "BleuScore"
 
 
-@experimental(version="3.8.0")
 class ChrfScore(RagasScorer):
     """
     Calculates Chrf (Character F-score) score between the output and expected output.
@@ -108,7 +104,6 @@ class ChrfScore(RagasScorer):
     metric_name: ClassVar[str] = "ChrfScore"
 
 
-@experimental(version="3.8.0")
 class RougeScore(RagasScorer):
     """
     Calculates ROUGE score between the output and expected output.
@@ -131,7 +126,6 @@ class RougeScore(RagasScorer):
     metric_name: ClassVar[str] = "RougeScore"
 
 
-@experimental(version="3.8.0")
 class StringPresence(RagasScorer):
     """
     Checks if the expected output is present in the output.
@@ -154,7 +148,6 @@ class StringPresence(RagasScorer):
     metric_name: ClassVar[str] = "StringPresence"
 
 
-@experimental(version="3.8.0")
 class ExactMatch(RagasScorer):
     """
     Performs exact string matching between the output and expected output.

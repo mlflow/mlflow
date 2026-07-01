@@ -381,7 +381,6 @@ def is_grounded(
     return _sanitize_feedback(feedback)
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 def is_tool_call_efficient(
     *,
@@ -488,7 +487,6 @@ def is_tool_call_efficient(
     return _sanitize_feedback(feedback)
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 def is_tool_call_correct(
     *,

@@ -21,7 +21,6 @@ except ImportError:
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.8.0")
 class GEPAAlignmentOptimizer(DSPyAlignmentOptimizer):
     """
     GEPA (Genetic-Pareto) alignment optimizer for judges.
