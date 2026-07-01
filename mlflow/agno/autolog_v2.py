@@ -6,7 +6,7 @@ import importlib.metadata as _meta
 import logging
 
 from opentelemetry import trace
-from opentelemetry.context.context import Context
+from opentelemetry.context import Context
 from opentelemetry.trace import Tracer, TracerProvider
 from packaging.version import Version
 
@@ -57,7 +57,7 @@ def _bridge_parent_context(context):
     span = trace.get_current_span()
     span_context = span.get_span_context() if span is not None else None
     if span_context is not None and span_context.is_valid:
-        return context
+        return None
 
     return mlflow_context
 
