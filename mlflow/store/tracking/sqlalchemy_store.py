@@ -930,8 +930,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # "IN" clause is case-insensitive, we use a trick that filters out comparison values
             # containing upper case letters when parsing "IN" clause inside query filter.
             run_id = uuid.uuid4().hex
+            artifact_location_base = next(
+                (t.value for t in (tags or []) if t.key == "mlflow.artifacts_location_uri_override",
+                experiment.artifact_location
+            )
             artifact_location = append_to_uri_path(
-                experiment.artifact_location,
+                artifact_location_base,
                 run_id,
                 SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
             )
