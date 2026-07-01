@@ -57,8 +57,16 @@ These reads are independent. Issue them as parallel tool calls in a single turn.
 - **Existing review threads**, so you don't repeat feedback already on the PR (reuse the
   pr-review GraphQL query for `reviewThreads`, filtering to UI-relevant paths).
 
-If the diff has no changes under `mlflow/server/js/src/`, there is no UI to review: write a short
-body noting that no frontend changes were detected (see step 7), then stop.
+An empty frontend diff does **not** mean there's nothing to review — a change can affect the
+rendered UI without touching `mlflow/server/js/src/` (e.g. a backend endpoint/handler that changes
+what a page displays, demo-data or config changes, or a surface the commenter names in their
+`/ui-review` guidance). Decide from the whole picture — the changed files, the PR description, and any
+reviewer guidance — whether there is a rendered surface worth looking at:
+
+- If yes, review the affected route(s): map frontend changes via step 3, and for backend/data changes
+  open the page(s) that render the affected data.
+- Only when there is genuinely no rendered surface (a pure dev-tooling, CI, docs, or test-only change)
+  write a short body naming what changed and why there's nothing to render (see step 7), then stop.
 
 ### 2. Confirm demo data
 
