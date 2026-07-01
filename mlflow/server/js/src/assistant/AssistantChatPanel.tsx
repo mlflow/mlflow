@@ -69,7 +69,7 @@ export const groupParts = (parts: AssistantPart[]): MessagePartGroup[] => {
     }
     const last = groups[groups.length - 1];
     if (last?.kind === 'tools') {
-      last.calls.push(part);
+      last.calls = [...last.calls, part];
     } else {
       groups.push({ kind: 'tools', calls: [part] });
     }
