@@ -101,6 +101,10 @@ def test_install_stubs_cleans_up_temp_dirs_on_partial_failure(monkeypatch):
     assert set(tmp_root.glob("mlflow-dev-stub-bin-*")) == before
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="the claude shim is a POSIX shell script; run_dev_server (its consumer) is POSIX-only",
+)
 def test_install_claude_stages_working_shim():
     result = dev_stubs.install_stubs(["claude"])
     try:
