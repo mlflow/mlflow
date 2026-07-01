@@ -26,6 +26,7 @@ import sqlalchemy
 from cachetools import TTLCache
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
+from fastapi.responses import Response as FilteredResponse
 from flask import (
     Flask,
     Request,
@@ -234,6 +235,7 @@ from mlflow.server.auth.permissions import (
     RESOURCE_TYPE_GATEWAY_ENDPOINT,
     RESOURCE_TYPE_GATEWAY_MODEL_DEFINITION,
     RESOURCE_TYPE_GATEWAY_SECRET,
+    RESOURCE_TYPE_MCP_SERVER,
     RESOURCE_TYPE_REGISTERED_MODEL,
     RESOURCE_TYPE_SCORER,
     RESOURCE_TYPE_WORKSPACE,
@@ -331,6 +333,12 @@ from mlflow.server.handlers import (
     _disable_if_workspaces_disabled as _disable_if_workspaces_disabled,
 )
 from mlflow.server.jobs import get_job
+from mlflow.server.mcp_server_api import (
+    MCPAccessBindingResponse,
+    MCPServerResponse,
+    get_mcp_server_api_route_prefixes,
+    is_mcp_server_api_path,
+)
 from mlflow.server.workspace_helpers import _get_workspace_store
 from mlflow.store.entities import PagedList
 from mlflow.store.workspace.utils import get_default_workspace_optional
@@ -568,7 +576,7 @@ def _get_role_permission_or_default(
     return get_permission(max_permission(perm.name, default.name))
 
 
-def _user_can_create_in_workspace() -> bool:
+def _user_can_create_in_workspace(username: str | None = None) -> bool:
     """
     True if the current request can create new resources in the request's
     workspace. Always allows when workspaces are disabled. Otherwise requires
@@ -592,7 +600,9 @@ def _user_can_create_in_workspace() -> bool:
     if workspace_name is None:
         return False
 
-    user = store.get_user(authenticate_request().username)
+    if username is None:
+        username = authenticate_request().username
+    user = store.get_user(username)
     perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
     if perm is not None and perm.can_use:
         return True
@@ -1008,6 +1018,19 @@ def _get_permission_from_gateway_model_definition_id() -> Permission:
     )
 
 
+def _get_mcp_server_permission(name: str, username: str) -> Permission:
+    return _get_role_permission_or_default(
+        _role_permission_for(
+            username=username,
+            resource_type="mcp_server",
+            resource_key=name,
+            workspace_lookup_id=name,
+            workspace_fetcher=_get_tracking_store().get_mcp_server,
+            workspace_label="mcp server",
+        ),
+    )
+
+
 def validate_can_read_experiment():
     return _get_permission_from_experiment_id().can_read
 
@@ -1177,6 +1200,10 @@ def validate_can_create_experiment() -> bool:
 
 def validate_can_create_registered_model() -> bool:
     return _user_can_create_in_workspace()
+
+
+def validate_can_create_mcp_server(username: str) -> bool:
+    return _user_can_create_in_workspace(username)
 
 
 def validate_can_view_workspace() -> bool:
@@ -1374,7 +1401,10 @@ def _reject_workspace_resource_type(resource_type: str) -> None:
 # Maps each resource_type to ``(workspace_label, workspace_fetcher_factory)``.
 # Factory is invoked lazily so tests can patch the underlying store.
 _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], Any]]]] = {
-    RESOURCE_TYPE_EXPERIMENT: ("experiment", lambda: _get_tracking_store().get_experiment),
+    RESOURCE_TYPE_EXPERIMENT: (
+        "experiment",
+        lambda: _get_tracking_store().get_experiment,
+    ),
     RESOURCE_TYPE_REGISTERED_MODEL: (
         "registered model",
         lambda: _get_model_registry_store().get_registered_model,
@@ -1394,6 +1424,10 @@ _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], A
                 model_definition_id=mdid
             )
         ),
+    ),
+    RESOURCE_TYPE_MCP_SERVER: (
+        "mcp server",
+        lambda: _get_tracking_store().get_mcp_server,
     ),
 }
 
@@ -1789,7 +1823,9 @@ def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> 
     return True
 
 
-def _validate_can_use_model_definitions_for_create(model_configs: list[dict[str, Any]]) -> bool:
+def _validate_can_use_model_definitions_for_create(
+    model_configs: list[dict[str, Any]],
+) -> bool:
     """
     Create-only helper that enforces workspace USE permission when no model definitions
     are provided, otherwise validates USE permission on referenced model definitions.
@@ -2256,7 +2292,8 @@ def _registered_username_match(name: object) -> str | None:
         return None
     target = name.strip().lower()
     return next(
-        (u.username for u in store.list_users() if u.username.strip().lower() == target), None
+        (u.username for u in store.list_users() if u.username.strip().lower() == target),
+        None,
     )
 
 
@@ -2678,7 +2715,10 @@ BEFORE_REQUEST_VALIDATORS.update({
     (GET_TRACE_ARTIFACT, "GET"): validate_can_read_trace_artifact,
     (GET_TRACE_ARTIFACT_V3, "GET"): validate_can_read_trace_artifact,
     (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
-    (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
+    (
+        GET_METRIC_HISTORY_BULK_INTERVAL,
+        "GET",
+    ): validate_can_read_metric_history_bulk_interval,
     (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
     (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
@@ -2788,7 +2828,9 @@ def authenticate_request() -> Authorization | Response:
 
 
 @functools.lru_cache(maxsize=None)
-def get_auth_func(authorization_function: str) -> Callable[[], Authorization | Response]:
+def get_auth_func(
+    authorization_function: str,
+) -> Callable[[], Authorization | Response]:
     """
     Import and return the specified authorization function.
 
@@ -2856,7 +2898,10 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
         validator = next(
             (
                 v
-                for (pat, method), v in TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS.items()
+                for (
+                    pat,
+                    method,
+                ), v in TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS.items()
                 if pat.fullmatch(req.path) and method == req.method
             ),
             None,
@@ -3612,7 +3657,10 @@ def _after_request(resp: Response):
     handler = AFTER_REQUEST_HANDLERS.get((request.path, request.method))
     if handler is None and "/workspaces/" in request.path:
         # Fallback to regex matching for workspace paths.
-        for (path, method), candidate in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS.items():
+        for (
+            path,
+            method,
+        ), candidate in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS.items():
             if method != request.method:
                 continue
             if path.fullmatch(request.path):
@@ -3841,7 +3889,11 @@ def get_current_user():
     user = store.get_user(username)
     is_basic_auth = auth_config.authorization_function == DEFAULT_AUTHORIZATION_FUNCTION
     return jsonify({
-        "user": {"id": user.id, "username": user.username, "is_admin": user.is_admin},
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "is_admin": user.is_admin,
+        },
         "is_basic_auth": is_basic_auth,
     })
 
@@ -3862,7 +3914,9 @@ class _UserRolePermissionRow:
     permission: str
 
 
-def _list_user_role_permissions(username: str) -> tuple[bool, list[_UserRolePermissionRow]]:
+def _list_user_role_permissions(
+    username: str,
+) -> tuple[bool, list[_UserRolePermissionRow]]:
     """Flatten every role-derived permission grant the user holds.
 
     Returns ``(is_admin, rows)`` where ``rows`` covers all roles the user is
@@ -4338,7 +4392,9 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
         return False
 
 
-def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
+def _get_gateway_validator(
+    path: str,
+) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Get a validator function for gateway routes.
 
@@ -4370,6 +4426,185 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Await
     return validator
 
 
+def _mcp_server_suffix(path: str) -> str:
+    for prefix in get_mcp_server_api_route_prefixes():
+        if path.startswith(prefix):
+            return path[len(prefix) :].strip("/")
+    return ""
+
+
+def _get_mcp_server_validator(
+    path: str,
+) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    suffix = _mcp_server_suffix(path)
+    parts = suffix.split("/") if suffix else []
+
+    if len(parts) < 2:
+
+        async def root_validator(username: str, request: StarletteRequest) -> bool:
+            if request.method == "POST":
+                return validate_can_create_mcp_server(username)
+            return True
+
+        return root_validator
+
+    # Server name is namespace/slug (first two path segments).
+    name = f"{parts[0]}/{parts[1]}"
+
+    def _server_exists() -> bool:
+        try:
+            _get_tracking_store().get_mcp_server(name)
+            return True
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                return False
+            raise
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        if request.method == "POST" and len(parts) > 2 and not _server_exists():
+            return validate_can_create_mcp_server(username)
+        perm = _get_mcp_server_permission(name, username)
+        match request.method:
+            case "GET":
+                return perm.can_read
+            case "POST" | "PATCH":
+                return perm.can_update
+            case "DELETE":
+                return perm.can_delete if len(parts) == 2 else perm.can_update
+            case _:
+                return False
+
+    return validator
+
+
+def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
+    if store.get_user(username).is_admin:
+        return
+
+    suffix = _mcp_server_suffix(get_routed_asgi_path(request))
+    parts = suffix.split("/") if suffix else []
+
+    if len(parts) > 2:
+        name = f"{parts[0]}/{parts[1]}"
+        try:
+            server = _get_tracking_store().get_mcp_server(name)
+        except MlflowException:
+            return
+        if server.created_by != username:
+            return
+        store.grant_user_permission(username, "mcp_server", name, MANAGE.name)
+        return
+
+    body = getattr(request.state, "raw_body", None)
+    if not body:
+        return
+    try:
+        name = json.loads(body).get("name")
+    except (json.JSONDecodeError, AttributeError):
+        return
+    if name:
+        store.grant_user_permission(username, "mcp_server", name, MANAGE.name)
+
+
+def _mcp_server_after_delete(username: str, request: StarletteRequest) -> None:
+    suffix = _mcp_server_suffix(get_routed_asgi_path(request))
+    parts = suffix.split("/") if suffix else []
+    if len(parts) == 2:
+        store.delete_grants_for_resource(
+            "mcp_server", f"{parts[0]}/{parts[1]}", workspace_scoped=True
+        )
+
+
+def _backfill_readable_mcp_results(
+    can_read: Callable[[str], bool],
+    readable: list[dict[str, Any]],
+    max_results: int,
+    next_token: str | None,
+    fetch_page: Callable[[str | None], PagedList],
+    get_name: Callable[[Any], str],
+    to_dict: Callable[[Any], dict[str, Any]],
+) -> str | None:
+    while len(readable) < max_results and next_token:
+        start_offset = SearchUtils.parse_start_offset_from_page_token(next_token)
+        page = fetch_page(next_token)
+        if not page:
+            return None
+        consumed = 0
+        for item in page:
+            if len(readable) >= max_results:
+                break
+            consumed += 1
+            if can_read(get_name(item)):
+                readable.append(to_dict(item))
+        if consumed < len(page):
+            next_token = SearchUtils.create_page_token(start_offset + consumed)
+        else:
+            next_token = page.token
+        if isinstance(next_token, bytes):
+            next_token = next_token.decode("utf-8")
+    return next_token
+
+
+def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    can_read = _role_based_read_predicate(username, "mcp_server")
+    readable = [s for s in data.get("mcp_servers", []) if can_read(s["name"])]
+
+    params = request.query_params
+    max_results = int(params.get("max_results", 100))
+    filter_string = params.get("filter_string")
+    order_by = params.getlist("order_by") or None
+
+    data["next_page_token"] = _backfill_readable_mcp_results(
+        can_read=can_read,
+        readable=readable,
+        max_results=max_results,
+        next_token=data.get("next_page_token"),
+        fetch_page=lambda token: _get_tracking_store().search_mcp_servers(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=token,
+        ),
+        get_name=lambda s: s.name,
+        to_dict=lambda s: MCPServerResponse.from_entity(s).model_dump(mode="json"),
+    )
+    data["mcp_servers"] = readable[:max_results]
+    return json.dumps(data).encode()
+
+
+def _filter_search_mcp_bindings(username: str, body: bytes, request: StarletteRequest) -> bytes:
+    data = json.loads(body)
+    can_read = _role_based_read_predicate(username, "mcp_server")
+    readable = [b for b in data.get("mcp_access_bindings", []) if can_read(b["server_name"])]
+
+    params = request.query_params
+    max_results = int(params.get("max_results", 100))
+    filter_string = params.get("filter_string")
+    order_by = params.getlist("order_by") or None
+    server_version = params.get("server_version")
+    server_alias = params.get("server_alias")
+
+    data["next_page_token"] = _backfill_readable_mcp_results(
+        can_read=can_read,
+        readable=readable,
+        max_results=max_results,
+        next_token=data.get("next_page_token"),
+        fetch_page=lambda token: _get_tracking_store().search_mcp_access_bindings(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=token,
+            server_version=server_version,
+            server_alias=server_alias,
+        ),
+        get_name=lambda b: b.server_name,
+        to_dict=lambda b: MCPAccessBindingResponse.from_entity(b).model_dump(mode="json"),
+    )
+    data["mcp_access_bindings"] = readable[:max_results]
+    return json.dumps(data).encode()
+
+
 def _get_require_authentication_validator() -> Callable[[str, StarletteRequest], Awaitable[bool]]:
     """
     Get a validator that requires authentication but grants access to any authenticated user.
@@ -4395,14 +4630,17 @@ def _get_otel_validator(
         experiment_id = request.headers.get("x-mlflow-experiment-id")
         if not experiment_id:
             raise MlflowException(
-                "Missing required header: X-Mlflow-Experiment-Id", error_code=BAD_REQUEST
+                "Missing required header: X-Mlflow-Experiment-Id",
+                error_code=BAD_REQUEST,
             )
         return _get_experiment_permission(experiment_id, username).can_update
 
     return validator
 
 
-def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
+def _find_fastapi_validator(
+    path: str,
+) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Find the validator for a FastAPI route that bypasses Flask.
 
@@ -4428,7 +4666,60 @@ def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awai
     if path.startswith("/ajax-api/3.0/mlflow/assistant"):
         return _get_require_authentication_validator()
 
+    if is_mcp_server_api_path(path):
+        return _get_mcp_server_validator(path)
+
     return None
+
+
+FASTAPI_AFTER_REQUEST_HANDLERS: dict[
+    tuple[str, str],
+    Callable[[str, StarletteRequest], None],
+] = {
+    (prefix, method): handler
+    for prefix in get_mcp_server_api_route_prefixes()
+    for method, handler in (
+        ("POST", _mcp_server_after_create),
+        ("DELETE", _mcp_server_after_delete),
+    )
+}
+
+
+def _find_fastapi_after_request_handler(
+    path: str, method: str
+) -> Callable[[str, StarletteRequest], None] | None:
+    return next(
+        (
+            handler
+            for (prefix, m), handler in FASTAPI_AFTER_REQUEST_HANDLERS.items()
+            if m == method and path.startswith(prefix)
+        ),
+        None,
+    )
+
+
+FASTAPI_RESPONSE_FILTERS: dict[
+    tuple[str, str],
+    Callable[[str, bytes, StarletteRequest], bytes],
+] = {
+    (prefix, "GET"): _filter_search_mcp_servers for prefix in get_mcp_server_api_route_prefixes()
+} | {
+    (f"{prefix}/bindings", "GET"): _filter_search_mcp_bindings
+    for prefix in get_mcp_server_api_route_prefixes()
+}
+
+
+def _find_fastapi_response_filter(
+    path: str, method: str
+) -> Callable[[str, bytes, StarletteRequest], bytes] | None:
+    return next(
+        (
+            handler
+            for (route, m), handler in FASTAPI_RESPONSE_FILTERS.items()
+            if m == method and path == route
+        ),
+        None,
+    )
 
 
 def add_fastapi_permission_middleware(app: FastAPI) -> None:
@@ -4445,6 +4736,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
     4. Authenticate the request
     5. Allow admins full access
     6. Run the validator
+    7. Run after-request handlers on successful responses
 
     Args:
         app: The FastAPI application instance.
@@ -4488,24 +4780,48 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         request.state.username = user.username
         request.state.user_id = user.id
 
-        # Admins have full access
-        if user.is_admin:
-            return await call_next(request)
+        # Pre-read request body for after-request handlers that need it (the
+        # body is cached by Starlette so the route handler can still read it).
+        after_handler = _find_fastapi_after_request_handler(path, request.method)
+        if after_handler is not None:
+            request.state.raw_body = await request.body()
 
-        # Run the validator
-        try:
-            if not await validator(user.username, request):
+        if not user.is_admin:
+            # Run the validator
+            try:
+                if not await validator(user.username, request):
+                    return PlainTextResponse(
+                        "Permission denied",
+                        status_code=HTTPStatus.FORBIDDEN,
+                    )
+            except MlflowException as e:
                 return PlainTextResponse(
-                    "Permission denied",
-                    status_code=HTTPStatus.FORBIDDEN,
+                    e.message,
+                    status_code=e.get_http_status_code(),
                 )
-        except MlflowException as e:
-            return PlainTextResponse(
-                e.message,
-                status_code=e.get_http_status_code(),
+
+        response = await call_next(request)
+
+        if after_handler is not None and response.status_code < 400:
+            try:
+                after_handler(user.username, request)
+            except Exception:
+                _logger.exception("after-request handler failed for %s %s", request.method, path)
+
+        response_filter = _find_fastapi_response_filter(path, request.method)
+        if response_filter is not None and not user.is_admin and response.status_code < 400:
+            body = b""
+            async for chunk in response.body_iterator:
+                body += chunk
+            headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+            return FilteredResponse(
+                content=response_filter(user.username, body, request),
+                status_code=response.status_code,
+                headers=headers,
+                media_type=response.media_type,
             )
 
-        return await call_next(request)
+        return response
 
 
 # Role management routes (RBAC). Each route is exposed at both the REST path (Python
@@ -4517,9 +4833,19 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
     (update_role, "PATCH", UPDATE_ROLE, AJAX_UPDATE_ROLE),
     (delete_role, "DELETE", DELETE_ROLE, AJAX_DELETE_ROLE),
     (add_role_permission, "POST", ADD_ROLE_PERMISSION, AJAX_ADD_ROLE_PERMISSION),
-    (remove_role_permission, "DELETE", REMOVE_ROLE_PERMISSION, AJAX_REMOVE_ROLE_PERMISSION),
+    (
+        remove_role_permission,
+        "DELETE",
+        REMOVE_ROLE_PERMISSION,
+        AJAX_REMOVE_ROLE_PERMISSION,
+    ),
     (list_role_permissions, "GET", LIST_ROLE_PERMISSIONS, AJAX_LIST_ROLE_PERMISSIONS),
-    (update_role_permission, "PATCH", UPDATE_ROLE_PERMISSION, AJAX_UPDATE_ROLE_PERMISSION),
+    (
+        update_role_permission,
+        "PATCH",
+        UPDATE_ROLE_PERMISSION,
+        AJAX_UPDATE_ROLE_PERMISSION,
+    ),
     (assign_role, "POST", ASSIGN_ROLE, AJAX_ASSIGN_ROLE),
     (unassign_role, "DELETE", UNASSIGN_ROLE, AJAX_UNASSIGN_ROLE),
     (list_user_roles, "GET", LIST_USER_ROLES, AJAX_LIST_USER_ROLES),
@@ -4528,7 +4854,12 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
     # ``grant`` / ``revoke`` mutate state (POST); ``check`` resolves the user's
     # effective permission without touching the DB (GET).
     (grant_user_permission, "POST", GRANT_USER_PERMISSION, AJAX_GRANT_USER_PERMISSION),
-    (revoke_user_permission, "POST", REVOKE_USER_PERMISSION, AJAX_REVOKE_USER_PERMISSION),
+    (
+        revoke_user_permission,
+        "POST",
+        REVOKE_USER_PERMISSION,
+        AJAX_REVOKE_USER_PERMISSION,
+    ),
     (get_user_permission, "GET", GET_USER_PERMISSION, AJAX_GET_USER_PERMISSION),
 ]
 

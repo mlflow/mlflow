@@ -66,6 +66,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         name: str,
         description: str | None = None,
         icons: list[MCPIcon] | None = None,
+        created_by: str | None = None,
     ) -> MCPServer:
         validate_mcp_server_name(name)
         now = get_current_time_millis()
@@ -76,6 +77,8 @@ class SqlAlchemyMCPServerRegistryMixin:
                         name=name,
                         description=description,
                         icons=icons,
+                        created_by=created_by,
+                        last_updated_by=created_by,
                         created_at=now,
                         last_updated_at=now,
                     )
@@ -176,6 +179,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         description: str | None = NOT_SET,
         display_name: str | None = NOT_SET,
         icons: list[MCPIcon] | None = NOT_SET,
+        last_updated_by: str | None = None,
     ) -> MCPServer:
         with self.ManagedSessionMaker(read_only=False) as session:
             server = self._get_entity_or_raise(session, SqlMCPServer, {"name": name}, "MCPServer")
@@ -185,6 +189,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                 server.display_name = display_name
             if icons is not NOT_SET:
                 server.icons = icons
+            server.last_updated_by = last_updated_by
             server.last_updated_at = get_current_time_millis()
             session.flush()
             server = self._mcp_server_query(session).filter(SqlMCPServer.name == name).one()
@@ -206,6 +211,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         source: str | None = None,
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = None,
+        created_by: str | None = None,
     ) -> MCPServerVersion:
         name = server_json.get("name")
         version = server_json.get("version")
@@ -233,6 +239,8 @@ class SqlAlchemyMCPServerRegistryMixin:
                     existing_server = self._with_workspace_field(
                         SqlMCPServer(
                             name=name,
+                            created_by=created_by,
+                            last_updated_by=created_by,
                             created_at=now,
                             last_updated_at=now,
                         )
@@ -262,6 +270,8 @@ class SqlAlchemyMCPServerRegistryMixin:
                         status=status.value,
                         tools=tools_json,
                         source=source,
+                        created_by=created_by,
+                        last_updated_by=created_by,
                         created_at=now,
                         last_updated_at=now,
                     )
@@ -398,6 +408,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
+        last_updated_by: str | None = None,
     ) -> MCPServerVersion:
         with self.ManagedSessionMaker(read_only=False) as session:
             sv = self._get_live_mcp_server_version_or_raise(session, name, version)
@@ -414,6 +425,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             if tools is not NOT_SET:
                 sv.tools = None if tools is None else [t.to_dict() for t in tools]
 
+            sv.last_updated_by = last_updated_by
             sv.last_updated_at = get_current_time_millis()
             session.add(sv)
             session.flush()
@@ -530,6 +542,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
         server_version: str | None = None,
         server_alias: str | None = None,
+        created_by: str | None = None,
     ) -> MCPAccessBinding:
         _validate_exactly_one("server_version", server_version, "server_alias", server_alias)
 
@@ -566,6 +579,8 @@ class SqlAlchemyMCPServerRegistryMixin:
                     transport_type=transport_type.value,
                     server_version=server_version,
                     server_alias=server_alias,
+                    created_by=created_by,
+                    last_updated_by=created_by,
                     created_at=now,
                     last_updated_at=now,
                 )
@@ -666,6 +681,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         server_alias: str | None = NOT_SET,
         endpoint_url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
+        last_updated_by: str | None = None,
     ) -> MCPAccessBinding:
         if server_version is not NOT_SET and server_alias is not NOT_SET:
             if server_version is not None and server_alias is not None:
@@ -722,6 +738,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             if transport_type is not NOT_SET and transport_type is not None:
                 binding.transport_type = transport_type.value
 
+            binding.last_updated_by = last_updated_by
             binding.last_updated_at = get_current_time_millis()
             session.add(binding)
             session.flush()
