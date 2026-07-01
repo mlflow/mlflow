@@ -70,11 +70,34 @@ def serialize_chat_messages_to_prompts(
     return serialize_messages_to_prompts(messages)
 
 
+def _enforce_strict_json_schema(node: Any) -> None:
+    """Recursively set ``additionalProperties: false`` on every object schema with properties.
+
+    Skips free-form dict fields (type: object without ``properties``) so their existing
+    ``additionalProperties`` value is preserved.
+    """
+    if not isinstance(node, dict):
+        return
+    if "properties" in node:
+        node["additionalProperties"] = False
+    for value in node.values():
+        match value:
+            case dict():
+                _enforce_strict_json_schema(value)
+            case list():
+                for item in value:
+                    if isinstance(item, dict):
+                        _enforce_strict_json_schema(item)
+
+
 def pydantic_to_response_format(cls: type[BaseModel]) -> dict[str, Any]:
+    schema = cls.model_json_schema()
+    _enforce_strict_json_schema(schema)
     return {
         "type": "json_schema",
         "json_schema": {
             "name": cls.__name__,
-            "schema": cls.model_json_schema(),
+            "schema": schema,
+            "strict": True,
         },
     }

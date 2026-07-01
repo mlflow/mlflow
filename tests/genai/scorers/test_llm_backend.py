@@ -135,9 +135,11 @@ def test_complete_with_pydantic_response_format(monkeypatch):
         )
 
     mock_call.assert_called_once()
-    call_kwargs = mock_call.call_args
-    assert call_kwargs.kwargs["response_format"] is not None
-    assert isinstance(call_kwargs.kwargs["response_format"], dict)
+    response_format = mock_call.call_args.kwargs["response_format"]
+    assert isinstance(response_format, dict)
+    assert response_format["type"] == "json_schema"
+    assert response_format["json_schema"]["strict"] is True
+    assert response_format["json_schema"]["schema"]["additionalProperties"] is False
 
 
 def test_complete_with_dict_response_format(monkeypatch):
