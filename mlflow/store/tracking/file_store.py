@@ -737,7 +737,10 @@ class FileStore(AbstractStore):
             )
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
-                f"Could not create run under non-active experiment with ID {experiment_id}.",
+                f"Could not create run under non-active experiment with ID {experiment_id}. "
+                "The experiment has been deleted; restore it with "
+                f"`MlflowClient().restore_experiment('{experiment_id}')` or use an active "
+                "experiment.",
                 databricks_pb2.INVALID_STATE,
             )
         tags = tags or []
