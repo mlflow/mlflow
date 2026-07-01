@@ -725,21 +725,20 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    // Mark the current streaming message as interrupted
-    setMessages((prev) => {
-      const lastMessage = prev[prev.length - 1];
-      if (isOpenAssistantTurn(lastMessage)) {
-        return [...prev.slice(0, -1), { ...lastMessage, isStreaming: false, isInterrupted: true }];
-      }
-      return prev;
-    });
+    // Flush any buffered text and mark the turn interrupted through the shared terminal,
+    // matching the server-driven interrupt path (interruptStreamingTurn) so a user cancel
+    // can't drop text buffered since the last RAF flush.
+    if (rafPendingRef.current !== null) {
+      cancelAnimationFrame(rafPendingRef.current);
+      rafPendingRef.current = null;
+    }
+    closeStreamingMessage({ reason: TurnEndReason.Interrupted });
 
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
     setPendingPermission(null);
-    openTextBufferRef.current = '';
-  }, [sessionId, isStreaming]);
+  }, [sessionId, isStreaming, closeStreamingMessage]);
 
   const regenerateLastMessage = useCallback(async () => {
     // Prevent regeneration while already streaming
