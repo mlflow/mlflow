@@ -10,6 +10,11 @@ from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
 
+try:
+    from importlib.resources.abc import Traversable  # Python 3.13+
+except ImportError:
+    from importlib.abc import Traversable  # Python < 3.13
+
 from mlflow.ai_commands.ai_command_utils import parse_frontmatter
 
 SKILL_MANIFEST_FILE = "SKILL.md"
@@ -21,6 +26,10 @@ class BundledSkill:
     name: str
     description: str
     path: Path
+
+
+def _skills_package_root() -> Traversable:
+    return resources.files(SKILLS_PACKAGE)
 
 
 def _find_skill_directories(path: Path) -> list[Path]:
@@ -38,7 +47,7 @@ def list_bundled_skills() -> list[BundledSkill]:
         ``git submodule update --init``).
     """
     try:
-        skills_pkg = resources.files(SKILLS_PACKAGE)
+        skills_pkg = _skills_package_root()
     except ModuleNotFoundError:
         return []
     skills = []
@@ -70,7 +79,7 @@ def install_skills(destination_path: Path) -> list[str]:
         A list of installed skill names.
     """
     destination_dir = destination_path.expanduser()
-    skills_pkg = resources.files(SKILLS_PACKAGE)
+    skills_pkg = _skills_package_root()
     installed_skills = []
 
     for item in skills_pkg.iterdir():
