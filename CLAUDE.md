@@ -50,8 +50,8 @@ uv run dev/run_dev_server.py --stub-providers claude
   Assistant's Claude Code provider passes its auth probe and the chat panel
   renders without `ANTHROPIC_API_KEY`.
 
-The stubs are dev/CI-only; the `ui-review` bot passes the relevant ones
-automatically for PRs that touch the Assistant.
+The stubs are dev/CI-only; the `ui-review` bot always passes `--stub-providers claude`
+so the Assistant is reviewable on any PR.
 
 ## Debugging
 
