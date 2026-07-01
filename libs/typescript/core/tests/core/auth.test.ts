@@ -221,6 +221,19 @@ describe('createAuthProvider', () => {
       expect(headers['X-MLFLOW-WORKSPACE']).toBeUndefined();
     });
 
+    it('kubernetes: honors programmatic workspace option', async () => {
+      const tokenPath = path.join(tmpDir, 'token');
+      fs.writeFileSync(tokenPath, 'sa-token');
+
+      // namespacePath is undefined — irrelevant because enableWorkspaces is false
+      const provider = createKubernetesAuth(
+        'http://mlflow:5000', false, tokenPath, undefined, 'options-namespace',
+      );
+      const headers = await provider.getHeadersProvider()();
+
+      expect(headers['X-MLFLOW-WORKSPACE']).toBe('options-namespace');
+    });
+
     it('kubernetes: honors MLFLOW_WORKSPACE even without kubernetes-namespaced', async () => {
       const tokenPath = path.join(tmpDir, 'token');
       fs.writeFileSync(tokenPath, 'sa-token');

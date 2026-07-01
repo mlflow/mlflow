@@ -56,9 +56,9 @@ function createCachedFileReader(filePath: string): () => string | undefined {
   return () => {
     const now = Date.now();
     if (cached === undefined || now - cachedAt > CACHE_TTL_MS) {
+      cachedAt = now;
       try {
         cached = fs.readFileSync(filePath, 'utf-8').trim() || undefined;
-        cachedAt = now;
       } catch {
         cached = undefined;
       }
@@ -295,7 +295,13 @@ function createOssAuth(options: AuthOptions): AuthProvider {
   const trackingAuth = process.env.MLFLOW_TRACKING_AUTH;
 
   if (trackingAuth === 'kubernetes' || trackingAuth === 'kubernetes-namespaced') {
-    return createKubernetesAuth(host, trackingAuth === 'kubernetes-namespaced');
+    return createKubernetesAuth(
+      host,
+      trackingAuth === 'kubernetes-namespaced',
+      SA_TOKEN_PATH,
+      SA_NAMESPACE_PATH,
+      options.workspace,
+    );
   }
 
   // Resolve credentials from options or environment
@@ -389,6 +395,7 @@ export function createKubernetesAuth(
   enableWorkspaces: boolean,
   tokenPath: string = SA_TOKEN_PATH,
   namespacePath: string = SA_NAMESPACE_PATH,
+  workspace?: string,
 ): AuthProvider {
   const getTokenFromFile = createCachedFileReader(tokenPath);
   const getNamespaceFromFile = enableWorkspaces
@@ -423,7 +430,7 @@ export function createKubernetesAuth(
 
     // Workspace: explicit MLFLOW_WORKSPACE if provided will take precedence.
     // For kubernetes-namespaced, also auto-discover from SA file or kubeconfig.
-    const explicitWorkspace = process.env.MLFLOW_WORKSPACE;
+    const explicitWorkspace = process.env.MLFLOW_WORKSPACE ?? workspace;
     if (explicitWorkspace) {
       headers['X-MLFLOW-WORKSPACE'] = explicitWorkspace;
     } else if (enableWorkspaces) {
