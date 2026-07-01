@@ -748,7 +748,7 @@ def test_search_mcp_server_versions_scoped(store):
 def test_update_mcp_server_version_status(store):
     store.create_mcp_server_version(_server_json())
     updated = store.update_mcp_server_version(
-        "io.github.test/server", "1.0.0", status=MCPStatus.ACTIVE, last_updated_by="bob"
+        "io.github.test/servererver", "1.0.0", status=MCPStatus.ACTIVE, last_updated_by="bob"
     )
     assert updated.status == MCPStatus.ACTIVE
     assert updated.last_updated_by == "bob"
@@ -907,7 +907,7 @@ def test_delete_mcp_server_version_not_found_raises(store):
 def test_create_mcp_access_binding_with_version(store):
     _setup_server(store, "io.github.test/server")
     binding = store.create_mcp_access_binding(
-        "io.github.test/s",
+        "io.github.test/server",
         "https://mcp.example.com",
         server_version="1.0.0",
         created_by="alice",
@@ -1471,7 +1471,7 @@ def test_update_mcp_access_binding_version_clears_alias(store):
     )
     assert binding.server_alias == "stable"
     updated = store.update_mcp_access_binding(
-        "io.github.test/s",
+        "io.github.test/server",
         binding.binding_id,
         server_version="2.0.0",
         last_updated_by="bob",
