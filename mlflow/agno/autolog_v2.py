@@ -5,11 +5,13 @@ Autologging logic for Agno V2 (>= 2.0.0) using OpenTelemetry instrumentation.
 import importlib.metadata as _meta
 import logging
 
+from opentelemetry import trace
+from opentelemetry.context import Context
+from opentelemetry.trace import Tracer, TracerProvider
 from packaging.version import Version
 
-import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.utils.otlp import build_otlp_headers
+from mlflow.tracing.provider import _get_tracer, get_current_context
 
 _logger = logging.getLogger(__name__)
 _agno_instrumentor = None
@@ -38,6 +40,58 @@ def _is_agno_v2() -> bool:
         return False
 
 
+def _bridge_parent_context(context):
+    """Resolve the parent context for an Agno span."""
+    if context is not None:
+        return context
+
+    # get_current_context() returns MLflow's context in isolated mode
+    # (MLFLOW_USE_DEFAULT_TRACER_PROVIDER=true), or None in unified mode. None => nothing to bridge,
+    # so return None and let OTel resolve the parent from the native context.
+    mlflow_context = get_current_context()
+    if mlflow_context is None:
+        return None
+
+    # Already inside the Agno subtree (a parent Agno span is current in the native context): return
+    # None so this span nests under that span natively, not under the outer MLflow span.
+    span = trace.get_current_span()
+    span_context = span.get_span_context() if span is not None else None
+    if span_context is not None and span_context.is_valid:
+        return None
+
+    return mlflow_context
+
+
+class _MlflowContextBridgingTracer(Tracer):
+    """Delegating ``Tracer`` that parents Agno's OpenInference spans under active MLflow spans."""
+
+    def __init__(self, tracer: Tracer):
+        self._tracer = tracer
+
+    def start_span(self, name: str, context: Context | None = None, **kwargs):
+        return self._tracer.start_span(name, context=_bridge_parent_context(context), **kwargs)
+
+    def start_as_current_span(self, name: str, context: Context | None = None, **kwargs):
+        return self._tracer.start_as_current_span(
+            name, context=_bridge_parent_context(context), **kwargs
+        )
+
+    def __getattr__(self, name):
+        return getattr(self._tracer, name)
+
+
+class _MlflowTracerProvider(TracerProvider):
+    """``TracerProvider`` given to ``AgnoInstrumentor().instrument()``"""
+
+    def get_tracer(
+        self,
+        instrumenting_module_name: str,
+        *args,
+        **kwargs,
+    ) -> Tracer:
+        return _MlflowContextBridgingTracer(_get_tracer(instrumenting_module_name))
+
+
 def _setup_otel_instrumentation() -> None:
     """Set up OpenTelemetry instrumentation for Agno V2."""
     global _agno_instrumentor
@@ -48,31 +102,9 @@ def _setup_otel_instrumentation() -> None:
 
     try:
         from openinference.instrumentation.agno import AgnoInstrumentor
-        from opentelemetry import trace
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-        from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
-        from mlflow.tracking.fluent import _get_experiment_id
-
-        tracking_uri = mlflow.get_tracking_uri()
-
-        tracking_uri = tracking_uri.rstrip("/")
-        endpoint = f"{tracking_uri}/v1/traces"
-
-        experiment_id = _get_experiment_id()
-
-        exporter = OTLPSpanExporter(endpoint=endpoint, headers=build_otlp_headers(experiment_id))
-
-        tracer_provider = trace.get_tracer_provider()
-        if not isinstance(tracer_provider, TracerProvider):
-            tracer_provider = TracerProvider()
-            trace.set_tracer_provider(tracer_provider)
-
-        tracer_provider.add_span_processor(BatchSpanProcessor(exporter))
 
         _agno_instrumentor = AgnoInstrumentor()
-        _agno_instrumentor.instrument()
+        _agno_instrumentor.instrument(tracer_provider=_MlflowTracerProvider())
         _logger.debug("OpenTelemetry instrumentation enabled for Agno V2")
 
     except ImportError as exc:
