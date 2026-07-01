@@ -10,7 +10,6 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class AnswerRelevancy(DeepEvalScorer):
     """
@@ -41,7 +40,6 @@ class AnswerRelevancy(DeepEvalScorer):
     metric_name: ClassVar[str] = "AnswerRelevancy"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class Faithfulness(DeepEvalScorer):
     """
@@ -68,7 +66,6 @@ class Faithfulness(DeepEvalScorer):
     metric_name: ClassVar[str] = "Faithfulness"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextualRecall(DeepEvalScorer):
     """
@@ -95,7 +92,6 @@ class ContextualRecall(DeepEvalScorer):
     metric_name: ClassVar[str] = "ContextualRecall"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextualPrecision(DeepEvalScorer):
     """
@@ -125,7 +121,6 @@ class ContextualPrecision(DeepEvalScorer):
     metric_name: ClassVar[str] = "ContextualPrecision"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class ContextualRelevancy(DeepEvalScorer):
     """

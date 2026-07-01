@@ -43,7 +43,6 @@ from mlflow.utils.docstring_utils import format_docstring
 
 
 # General-purpose metrics
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class Hallucination(DeepEvalScorer):
     """
@@ -64,7 +63,6 @@ class Hallucination(DeepEvalScorer):
     metric_name: ClassVar[str] = "Hallucination"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class Summarization(DeepEvalScorer):
     """
@@ -85,7 +83,6 @@ class Summarization(DeepEvalScorer):
     metric_name: ClassVar[str] = "Summarization"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class JsonCorrectness(DeepEvalScorer):
     """
@@ -111,7 +108,6 @@ class JsonCorrectness(DeepEvalScorer):
     metric_name: ClassVar[str] = "JsonCorrectness"
 
 
-@experimental(version="3.8.0")
 @format_docstring(_MODEL_API_DOC)
 class PromptAlignment(DeepEvalScorer):
     """
@@ -132,7 +128,6 @@ class PromptAlignment(DeepEvalScorer):
     metric_name: ClassVar[str] = "PromptAlignment"
 
 
-@experimental(version="3.8.0")
 class ExactMatch(DeepEvalScorer):
     """
     Performs exact string matching between output and expected output.
@@ -166,7 +161,6 @@ class ExactMatch(DeepEvalScorer):
         )
 
 
-@experimental(version="3.8.0")
 class PatternMatch(DeepEvalScorer):
     """
     Performs regex pattern matching on the output.
