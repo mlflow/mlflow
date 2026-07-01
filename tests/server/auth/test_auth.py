@@ -3970,22 +3970,22 @@ def test_mcp_server_root_post_enforces_workspace_create_authz(prefix, monkeypatc
 
     # Without any workspace permission, create must be denied.
     with workspace_context.WorkspaceContext("team-a"):
-        assert auth_module._can_create_mcp_server(username) is False
+        assert auth_module.validate_can_create_mcp_server(username) is False
 
     # Grant workspace-level USE — the same grant that enables
     # validate_can_create_registered_model via _user_can_create_in_workspace.
     auth_store.set_workspace_permission("team-a", username, USE.name)
 
     with workspace_context.WorkspaceContext("team-a"):
-        assert auth_module._can_create_mcp_server(username) is True
+        assert auth_module.validate_can_create_mcp_server(username) is True
 
     # Revoke the grant and verify denial is restored.
     auth_store.delete_workspace_permission("team-a", username)
 
     with workspace_context.WorkspaceContext("team-a"):
-        assert auth_module._can_create_mcp_server(username) is False
+        assert auth_module.validate_can_create_mcp_server(username) is False
 
-    # The FastAPI validator for root POST dispatches to _can_create_mcp_server.
+    # The FastAPI validator for root POST dispatches to validate_can_create_mcp_server.
     validator = _find_fastapi_validator(prefix)
     assert validator is not None
 
@@ -4231,9 +4231,9 @@ def test_mcp_server_search_backfills_after_filtering(fastapi_client, monkeypatch
     reader, reader_pw = create_user(fastapi_client.tracking_uri)
     admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
 
-    # Create 4 servers. Default sort is name ASC, so hidden servers
-    # ("a-*") land on page 1, pushing readable ones ("z-*") past max_results.
-    readable = ["com.test/z-read1", "com.test/z-read2"]
+    # 3 readable servers so backfill must break mid-backend-page and still
+    # return z-read3 on the next client request (not skip it).
+    readable = ["com.test/z-read1", "com.test/z-read2", "com.test/z-read3"]
     hidden = ["com.test/a-hid1", "com.test/a-hid2"]
     for name in readable + hidden:
         requests.post(
