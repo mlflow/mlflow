@@ -1115,6 +1115,35 @@
       },
       "last_updated_at": "2026-06-01"
     },
+    "anthropic.claude-sonnet-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.3,
+        "cache_write_per_million_tokens": 3.75,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-07-01"
+    },
     "anthropic.claude-v1": {
       "mode": "chat",
       "context_window": {
@@ -2144,6 +2173,35 @@
         "response_schema": true
       },
       "last_updated_at": "2026-06-01"
+    },
+    "au.anthropic.claude-sonnet-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.3,
+        "output_per_million_tokens": 16.5,
+        "cache_read_per_million_tokens": 0.33,
+        "cache_write_per_million_tokens": 4.125,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-07-01"
     },
     "ca-central-1/meta.llama3-70b-instruct-v1:0": {
       "mode": "chat",
@@ -3604,6 +3662,35 @@
       },
       "last_updated_at": "2026-06-01"
     },
+    "eu.anthropic.claude-sonnet-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.3,
+        "output_per_million_tokens": 16.5,
+        "cache_read_per_million_tokens": 0.33,
+        "cache_write_per_million_tokens": 4.125,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-07-01"
+    },
     "eu.deepseek.v3.2": {
       "mode": "chat",
       "context_window": {
@@ -4023,6 +4110,35 @@
       },
       "last_updated_at": "2026-06-01"
     },
+    "global.anthropic.claude-sonnet-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0,
+        "cache_read_per_million_tokens": 0.3,
+        "cache_write_per_million_tokens": 3.75,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-07-01"
+    },
     "google.gemma-3-12b-it": {
       "mode": "chat",
       "context_window": {
@@ -4222,6 +4338,35 @@
         "response_schema": true
       },
       "last_updated_at": "2026-06-01"
+    },
+    "jp.anthropic.claude-sonnet-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.3,
+        "output_per_million_tokens": 16.5,
+        "cache_read_per_million_tokens": 0.33,
+        "cache_write_per_million_tokens": 4.125,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-07-01"
     },
     "max-steps/stability.stable-diffusion-xl-v0": {
       "mode": "image_generation",
@@ -7641,6 +7786,35 @@
         "response_schema": true
       },
       "last_updated_at": "2026-06-01"
+    },
+    "us.anthropic.claude-sonnet-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.3,
+        "output_per_million_tokens": 16.5,
+        "cache_read_per_million_tokens": 0.33,
+        "cache_write_per_million_tokens": 4.125,
+        "tooling": {
+          "search_context_per_query": {
+            "search_context_size_high": 0.01,
+            "search_context_size_low": 0.01,
+            "search_context_size_medium": 0.01
+          }
+        }
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-07-01"
     },
     "us.deepseek.r1-v1:0": {
       "mode": "chat",

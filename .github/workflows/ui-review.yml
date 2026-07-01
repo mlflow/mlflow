@@ -216,9 +216,14 @@ jobs:
           mkdir -p /tmp/ui-review
           # Pre-populate the GenAI demo dataset (offline, no API key) so pages aren't empty.
           uv run --frozen python -c "from mlflow.demo import generate_all_demos; generate_all_demos(refresh=True)"
+          # Install a credential-free stub `claude` so the Assistant provider's auth
+          # probe passes and its chat panel renders (the dev server has no
+          # ANTHROPIC_API_KEY). Scoped to the dev server's own PATH; the real CLI in
+          # the UI Review step below is untouched. Always on: it's harmless for
+          # non-Assistant reviews and keeps the Assistant reviewable on any PR.
           # run_dev_server.py starts the backend + `yarn start` frontend (much faster than
           # a full `yarn build`) and honors MLFLOW_TRACKING_URI for the store.
-          uv run --frozen dev/run_dev_server.py > /tmp/dev-server.log 2>&1 &
+          uv run --frozen dev/run_dev_server.py --stub-providers claude > /tmp/dev-server.log 2>&1 &
           echo "DEV_PID=$!" >> "$GITHUB_ENV"
           APP_URL=""
           for _ in $(seq 1 120); do
