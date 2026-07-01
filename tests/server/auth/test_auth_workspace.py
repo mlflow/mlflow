@@ -901,6 +901,35 @@ def test_experiment_artifact_proxy_without_experiment_id_denied_without_workspac
         assert not auth_module.validate_can_read_experiment_artifact_proxy()
 
 
+def test_experiment_artifact_proxy_resolves_experiment_id_under_workspace_prefix(
+    workspace_permission_setup,
+):
+    # In a non-default workspace the proxied artifact path is prefixed with
+    # ``workspaces/<ws>/``. The experiment id must still be resolved from the path so
+    # per-experiment grants apply, instead of falling back to the workspace-tier grant
+    # (which, for a USE member, has no can_update and would wrongly reject writes).
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    # "DataScientist" shape: workspace USE (member, no can_update at the workspace tier)
+    # plus an explicit experiment-level EDIT grant.
+    _set_workspace_permission(store, username, USE.name)
+    store.create_experiment_permission("1", username, EDIT.name)
+
+    prefixed_path = "workspaces/team-a/1/run-1/artifacts/plots/x.png"
+    with auth_module.app.test_request_context(
+        f"/ajax-api/2.0/mlflow-artifacts/artifacts/{prefixed_path}",
+        method="GET",
+    ):
+        request.view_args = {"artifact_path": prefixed_path}
+        # EDIT on the experiment resolves through the workspace prefix -> reads and
+        # writes are allowed even though the workspace-tier grant is only USE.
+        assert auth_module.validate_can_read_experiment_artifact_proxy()
+        assert auth_module.validate_can_update_experiment_artifact_proxy()
+        # EDIT does not confer delete.
+        assert not auth_module.validate_can_delete_experiment_artifact_proxy()
+
+
 def test_filter_experiment_ids_respects_workspace_permissions(
     workspace_permission_setup, monkeypatch
 ):
