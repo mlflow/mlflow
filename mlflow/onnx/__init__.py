@@ -313,9 +313,46 @@ class _OnnxModelWrapper:
                 missing,
                 usable or ["CPUExecutionProvider"],
             )
-        self.rt = onnxruntime.InferenceSession(
-            path, providers=usable or ["CPUExecutionProvider"], sess_options=sess_options
-        )
+        requested_providers = usable or ["CPUExecutionProvider"]
+        # Some providers are compiled into onnxruntime (so they appear in
+        # get_available_providers()) but fail to initialize at runtime -- e.g. TensorRT
+        # without the TensorRT libraries installed, or CUDA with a driver/runtime mismatch.
+        # Depending on the provider, construction either raises or silently falls back to
+        # CPU. To avoid regressing a previously-loadable model into a hard load failure, we
+        # retry on CPU if the requested providers raise, and warn loudly in both cases.
+        try:
+            self.rt = onnxruntime.InferenceSession(
+                path, providers=requested_providers, sess_options=sess_options
+            )
+        except Exception as e:
+            if requested_providers == ["CPUExecutionProvider"]:
+                raise
+            _logger.warning(
+                "ONNX model requested execution providers %s but onnxruntime failed to "
+                "initialize them (%s); falling back to CPU. GPU acceleration will not be "
+                "used.",
+                requested_providers,
+                repr(e),
+            )
+            self.rt = onnxruntime.InferenceSession(
+                path, providers=["CPUExecutionProvider"], sess_options=sess_options
+            )
+
+        # Even when construction succeeds, onnxruntime may have silently dropped a requested
+        # provider that failed to initialize (activating fewer than requested). Compare
+        # requested vs actually-activated providers and warn on any drop, so a GPU model
+        # quietly running on CPU is surfaced instead of silent.
+        active_providers = self.rt.get_providers()
+        inactive_providers = [p for p in requested_providers if p not in active_providers]
+        if inactive_providers:
+            _logger.warning(
+                "ONNX model requested execution providers %s but onnxruntime activated only "
+                "%s; %s failed to initialize at runtime and were dropped. GPU acceleration "
+                "will not be used.",
+                requested_providers,
+                active_providers,
+                inactive_providers,
+            )
 
         assert len(self.rt.get_inputs()) >= 1
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
