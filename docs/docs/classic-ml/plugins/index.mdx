@@ -623,6 +623,38 @@ pip install trubrics-sdk
 ```
 
   </TabItem>
+  <TabItem value="run-context-plugin" label="Run Context and Provenance">
+
+#### **mlflow-falsify**
+
+Bind every MLflow run to a [PRML](https://spec.falsify.dev/v0.1) manifest (Pre-Registered ML Manifest) via a tamper-evident SHA-256 hash, so reviewers can verify after the fact that a reported metric matches a pre-registered claim:
+
+```bash
+pip install mlflow-falsify
+```
+
+```python
+import mlflow
+
+# Drop a .prml.yaml in your repo (or any ancestor directory).
+# Every run is auto-tagged — no workflow change.
+with mlflow.start_run():
+    mlflow.log_metric("accuracy", 0.873)
+```
+
+**Tags applied automatically:**
+
+- `prml.manifest_hash` — SHA-256 of the canonical manifest bytes
+- `prml.manifest_path`, `prml.version`
+- `prml.metric`, `prml.comparator`, `prml.threshold`
+- `prml.dataset_id`
+
+For HPO sweeps, descriptive tags can be lifted to experiment scope via `MLFLOW_FALSIFY_TAG_SCOPE=experiment`. The provider never raises exceptions into your run; on failure it logs a debug message and no-ops.
+
+Implements the documented `mlflow.run_context_provider` entry point (above). MIT-licensed. Spec is CC BY 4.0.
+
+  </TabItem>
+
   <TabItem value="execution" label="Execution Backends">
 
 | Plugin          | Platform     | Use Case                     |
