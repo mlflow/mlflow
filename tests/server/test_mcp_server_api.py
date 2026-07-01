@@ -105,6 +105,10 @@ def test_create_duplicate_server(client):
         "com.example/bindings",
         "com.example/tags",
         "com.example/versions",
+        "com.example/_server",
+        "com.example/server_",
+        "com.example/.server",
+        "com.example/server-",
     ],
 )
 def test_create_server_invalid_name_rejected(client, invalid_name):
@@ -112,6 +116,21 @@ def test_create_server_invalid_name_rejected(client, invalid_name):
     assert r.status_code == 400
     assert r.json()["error_code"] == "INVALID_PARAMETER_VALUE"
     assert "Expected '<reverse-dns namespace>/<server slug>'" in r.json()["message"]
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "io.github.TestOrg/server-name",
+        "com/server-name",
+        "io.github.test/server_name",
+        "io.github.test/server.name",
+    ],
+)
+def test_create_server_accepts_upstream_name_shapes(client, name):
+    r = client.post(PREFIX, json={"name": name})
+    assert r.status_code == 200
+    assert r.json()["name"] == name
 
 
 def test_get_server(client):
@@ -314,15 +333,38 @@ def test_create_version_invalid_server_name_rejected(client):
 
 
 @pytest.mark.parametrize(
+    "name",
+    [
+        "io.github.TestOrg/server-name",
+        "com/server-name",
+        "io.github.test/server_name",
+        "io.github.test/server.name",
+    ],
+)
+def test_create_version_accepts_upstream_name_shapes(client, name):
+    encoded_name = _encode_path_param(name)
+    r = client.post(
+        f"{PREFIX}/{encoded_name}/versions",
+        json={"server_json": {"name": name, "version": "1.0.0"}},
+    )
+    assert r.status_code == 200
+    assert r.json()["name"] == name
+
+
+@pytest.mark.parametrize(
     "invalid_name",
     [
         "com.example/aliases",
         "com.example/bindings",
         "com.example/tags",
         "com.example/versions",
+        "com.example/_server",
+        "com.example/server_",
+        "com.example/.server",
+        "com.example/server-",
     ],
 )
-def test_create_version_reserved_suffix_server_name_rejected(client, invalid_name):
+def test_create_version_invalid_server_name_rejected(client, invalid_name):
     encoded_name = _encode_path_param(invalid_name)
     r = client.post(
         f"{PREFIX}/{encoded_name}/versions",
