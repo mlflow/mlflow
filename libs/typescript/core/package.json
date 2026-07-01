@@ -46,7 +46,8 @@
     "@opentelemetry/sdk-trace-base": "^2.1.0",
     "fast-safe-stringify": "^2.1.1",
     "bignumber.js": "^9.0.0",
-    "ini": "^5.0.0"
+    "ini": "^5.0.0",
+    "@kubernetes/client-node": "^1.0.0"
   },
   "devDependencies": {
     "@types/ini": "^4.1.1",
