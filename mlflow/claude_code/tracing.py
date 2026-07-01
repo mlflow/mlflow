@@ -57,6 +57,16 @@ CLAUDE_TRACING_LEVEL = logging.WARNING - 5
 
 
 # ============================================================================
+# TYPES
+# ============================================================================
+@dataclasses.dataclass
+class ToolUseResult:
+    content: Any
+    command_name: str | None
+    is_error: bool = False
+
+
+# ============================================================================
 # LOGGING AND SETUP
 # ============================================================================
 
@@ -293,7 +303,9 @@ def _extract_content_and_tools(content: list[dict[str, Any]]) -> tuple[str, list
     return text_content, tool_uses
 
 
-def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict[str, Any]:
+def _find_tool_results(
+    transcript: list[dict[str, Any]], start_idx: int
+) -> dict[str, ToolUseResult]:
     """Find tool results following the current assistant response.
 
     Returns a mapping from tool_use_id to tool result content.
@@ -307,6 +319,12 @@ def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict
             continue
 
         msg = entry.get(MESSAGE_FIELD_MESSAGE, {})
+        tool_use_result = entry.get(MESSAGE_FIELD_TOOL_USE_RESULT)
+        command_name = (
+            tool_use_result.get(MESSAGE_FIELD_COMMAND_NAME)
+            if isinstance(tool_use_result, dict)
+            else None
+        )
         content = msg.get(MESSAGE_FIELD_CONTENT, [])
 
         if isinstance(content, list):
@@ -317,8 +335,13 @@ def _find_tool_results(transcript: list[dict[str, Any]], start_idx: int) -> dict
                 ):
                     tool_use_id = part.get("tool_use_id")
                     result_content = part.get("content", "")
+                    is_error = bool(part.get("is_error", False))
                     if tool_use_id:
-                        tool_results[tool_use_id] = result_content
+                        tool_results[tool_use_id] = ToolUseResult(
+                            content=result_content,
+                            command_name=command_name,
+                            is_error=is_error,
+                        )
 
         # Stop looking once we hit the next assistant response
         if entry.get(MESSAGE_FIELD_TYPE) == MESSAGE_TYPE_ASSISTANT:
@@ -425,6 +448,11 @@ def _create_llm_and_tool_spans(
     parent_span, transcript: list[dict[str, Any]], start_idx: int
 ) -> None:
     """Create LLM and tool spans for assistant responses with proper timing."""
+
+    # Keeps track of the active skill name as all child spans of active skills
+    # need to be tagged for cost attribution purposes
+    active_skill_name: str | None = None
+
     for i in range(start_idx, len(transcript)):
         entry = transcript[i]
         if entry.get(MESSAGE_FIELD_TYPE) != MESSAGE_TYPE_ASSISTANT:
@@ -462,6 +490,11 @@ def _create_llm_and_tool_spans(
                 attributes={
                     "model": msg.get("model", "unknown"),
                     SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
+                    **(
+                        {SpanAttributeKey.SKILL_NAME: active_skill_name}
+                        if active_skill_name
+                        else {}
+                    ),
                 },
             )
 
@@ -484,7 +517,22 @@ def _create_llm_and_tool_spans(
             for idx, tool_use in enumerate(tool_uses):
                 tool_start_ns = timestamp_ns + (idx * tool_duration_ns)
                 tool_use_id = tool_use.get("id", "")
-                tool_result = tool_results.get(tool_use_id, "No result found")
+                tool_result = tool_results.get(tool_use_id, None)
+
+                # Stamp the Skill's own TOOL span with its own commandName for
+                # identification (so a failed Skill is still attributable).
+                # Propagation rules:
+                #   - success: active_skill_name = commandName (child spans inherit)
+                #   - failure: active_skill_name = None (prior skill must not leak
+                #     into recovery spans, and the failed skill itself never
+                #     injected its body so it shouldn't propagate either)
+                if tool_result and tool_result.command_name:
+                    span_skill_name = tool_result.command_name
+                    active_skill_name = (
+                        tool_result.command_name if not tool_result.is_error else None
+                    )
+                else:
+                    span_skill_name = active_skill_name
 
                 tool_span = mlflow.start_span_no_context(
                     name=f"tool_{tool_use.get('name', 'unknown')}",
@@ -495,10 +543,17 @@ def _create_llm_and_tool_spans(
                     attributes={
                         "tool_name": tool_use.get("name", "unknown"),
                         "tool_id": tool_use_id,
+                        **(
+                            {SpanAttributeKey.SKILL_NAME: span_skill_name}
+                            if span_skill_name
+                            else {}
+                        ),
                     },
                 )
 
-                tool_span.set_outputs({"result": tool_result})
+                tool_span.set_outputs({
+                    "result": tool_result.content if tool_result else "No result found"
+                })
                 tool_span.end(end_time_ns=tool_start_ns + tool_duration_ns)
 
 
@@ -676,7 +731,7 @@ def _find_sdk_user_prompt(messages: list[Any]) -> str | None:
     from claude_agent_sdk.types import TextBlock, UserMessage
 
     for msg in messages:
-        if not isinstance(msg, UserMessage) or msg.tool_use_result is not None:
+        if not isinstance(msg, UserMessage) or getattr(msg, "tool_use_result", None) is not None:
             continue
         content = msg.content
         if isinstance(content, str):
@@ -690,19 +745,71 @@ def _find_sdk_user_prompt(messages: list[Any]) -> str | None:
     return None
 
 
-def _build_tool_result_map(messages: list[Any]) -> dict[str, str]:
+def _is_real_sdk_user_prompt(messages: list[Any], idx: int) -> bool:
+    """True when messages[idx] is a fresh user prompt — not a tool-result echo,
+    not a skill body injection, not empty. Used to scope skill-name propagation
+    so a skill from a prior turn doesn't leak into a subsequent prompt's spans.
+    """
+    from claude_agent_sdk.types import TextBlock, UserMessage
+
+    msg = messages[idx]
+    if not isinstance(msg, UserMessage) or getattr(msg, "tool_use_result", None) is not None:
+        return False
+
+    content = msg.content
+    if isinstance(content, str):
+        text = content
+    elif isinstance(content, list):
+        text = "\n".join(b.text for b in content if isinstance(b, TextBlock))
+    else:
+        return False
+    if not text.strip():
+        return False
+
+    # A user message immediately following a Skill tool-result is the CLI
+    # injecting the skill's prompt body — keep skill scope, don't reset it.
+    if idx > 0:
+        prev_tur = getattr(messages[idx - 1], "tool_use_result", None)
+        # The SDK types tool_use_result as a dict today, but tolerate a future
+        # typed object so a skill body injection is never misread as a real
+        # prompt (which would clear skill scope mid-skill).
+        command_name = (
+            prev_tur.get("commandName")
+            if isinstance(prev_tur, dict)
+            else getattr(prev_tur, "commandName", None)
+        )
+        if command_name:
+            return False
+
+    return True
+
+
+def _build_tool_result_map(messages: list[Any]) -> dict[str, ToolUseResult]:
     """Map tool_use_id to its result content so tool spans can show outputs."""
     from claude_agent_sdk.types import ToolResultBlock, UserMessage
 
-    tool_result_map: dict[str, str] = {}
+    tool_result_map: dict[str, ToolUseResult] = {}
     for msg in messages:
         if isinstance(msg, UserMessage) and isinstance(msg.content, list):
+            # Skill metadata lives on the UserMessage's tool_use_result dict
+            # (verified via the SDK at claude_agent_sdk/types.py:1021 and the
+            # CLI stream-json wire format). It is NOT on ToolResultBlock.
+            # Use getattr to stay compatible with older SDK versions that
+            # predate the field.
+            tool_use_result = getattr(msg, "tool_use_result", None)
+            command_name = (
+                tool_use_result.get("commandName") if isinstance(tool_use_result, dict) else None
+            )
             for block in msg.content:
                 if isinstance(block, ToolResultBlock):
                     result = block.content
                     if isinstance(result, list):
                         result = str(result)
-                    tool_result_map[block.tool_use_id] = result or ""
+                    tool_result_map[block.tool_use_id] = ToolUseResult(
+                        content=result or "",
+                        command_name=command_name,
+                        is_error=bool(getattr(block, "is_error", False)),
+                    )
     return tool_result_map
 
 
@@ -748,15 +855,19 @@ def _serialize_sdk_message(msg) -> dict[str, Any] | None:
 def _create_sdk_child_spans(
     messages: list[Any],
     parent_span,
-    tool_result_map: dict[str, str],
+    tool_result_map: dict[str, ToolUseResult],
 ) -> str | None:
     """Create LLM and tool child spans under ``parent_span`` from SDK messages."""
     from claude_agent_sdk.types import AssistantMessage, TextBlock, ToolUseBlock
 
     final_response = None
     pending_messages: list[dict[str, Any]] = []
+    active_skill_name: str | None = None
 
-    for msg in messages:
+    for idx, msg in enumerate(messages):
+        if _is_real_sdk_user_prompt(messages, idx):
+            active_skill_name = None
+
         if isinstance(msg, AssistantMessage) and msg.content:
             text_blocks = [block for block in msg.content if isinstance(block, TextBlock)]
             tool_blocks = [block for block in msg.content if isinstance(block, ToolUseBlock)]
@@ -777,6 +888,11 @@ def _create_sdk_child_spans(
                     attributes={
                         "model": getattr(msg, "model", "unknown"),
                         SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
+                        **(
+                            {SpanAttributeKey.SKILL_NAME: active_skill_name}
+                            if active_skill_name
+                            else {}
+                        ),
                     },
                 )
                 llm_span.set_outputs({
@@ -789,14 +905,43 @@ def _create_sdk_child_spans(
                 continue
 
             for tool_block in tool_blocks:
+                tool_result = tool_result_map.get(tool_block.id)
+
+                # Stamp the Skill's own TOOL span with its own commandName for
+                # identification (failed Skills are still attributable).
+                # Gate on tool_block.name: commandName is message-level metadata,
+                # so if results are ever batched it must only mark the Skill
+                # block, not co-resident non-skill results.
+                # Propagation:
+                #   - success: active_skill_name = commandName (child spans inherit)
+                #   - failure: active_skill_name = None (prior skill must not
+                #     leak into recovery spans)
+                if tool_result and tool_result.command_name and tool_block.name == "Skill":
+                    span_skill_name = tool_result.command_name
+                    active_skill_name = (
+                        tool_result.command_name if not tool_result.is_error else None
+                    )
+                else:
+                    span_skill_name = active_skill_name
+
                 tool_span = mlflow.start_span_no_context(
                     name=f"tool_{tool_block.name}",
                     parent_span=parent_span,
                     span_type=SpanType.TOOL,
                     inputs=tool_block.input,
-                    attributes={"tool_name": tool_block.name, "tool_id": tool_block.id},
+                    attributes={
+                        "tool_name": tool_block.name,
+                        "tool_id": tool_block.id,
+                        **(
+                            {SpanAttributeKey.SKILL_NAME: span_skill_name}
+                            if span_skill_name
+                            else {}
+                        ),
+                    },
                 )
-                tool_span.set_outputs({"result": tool_result_map.get(tool_block.id, "")})
+                tool_span.set_outputs({
+                    "result": tool_result.content if tool_result else "No result found"
+                })
                 tool_span.end()
 
         if anthropic_msg := _serialize_sdk_message(msg):

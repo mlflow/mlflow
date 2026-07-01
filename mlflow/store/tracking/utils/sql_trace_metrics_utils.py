@@ -102,17 +102,26 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
             SpanMetricDimensionKey.SPAN_STATUS,
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            SpanMetricDimensionKey.SPAN_SKILL_NAME,
         },
     ),
     SpanMetricKey.LATENCY: TraceMetricsConfig(
         aggregation_types={AggregationType.AVG, AggregationType.PERCENTILE},
-        dimensions={SpanMetricDimensionKey.SPAN_NAME, SpanMetricDimensionKey.SPAN_STATUS},
+        # No SPAN_SKILL_NAME: per-span latency averaged across a skill's spans
+        # blends fast tool spans with slow LLM spans, so it reflects span mix
+        # rather than skill speed. Skill wall-clock duration is a separate
+        # scope-level aggregation (needs a per-invocation id) — revisit then.
+        dimensions={
+            SpanMetricDimensionKey.SPAN_NAME,
+            SpanMetricDimensionKey.SPAN_STATUS,
+        },
     ),
     SpanMetricKey.INPUT_COST: TraceMetricsConfig(
         aggregation_types={AggregationType.SUM, AggregationType.AVG, AggregationType.PERCENTILE},
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            SpanMetricDimensionKey.SPAN_SKILL_NAME,
         },
     ),
     SpanMetricKey.OUTPUT_COST: TraceMetricsConfig(
@@ -120,6 +129,7 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            SpanMetricDimensionKey.SPAN_SKILL_NAME,
         },
     ),
     SpanMetricKey.TOTAL_COST: TraceMetricsConfig(
@@ -127,6 +137,7 @@ SPANS_METRICS_CONFIGS: dict[SpanMetricKey, TraceMetricsConfig] = {
         dimensions={
             SpanMetricDimensionKey.SPAN_MODEL_NAME,
             SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+            SpanMetricDimensionKey.SPAN_SKILL_NAME,
         },
     ),
 }
@@ -439,6 +450,12 @@ def _apply_dimension_to_query(
                         db_type,
                         SpanAttributeKey.MODEL_PROVIDER,
                         SpanMetricDimensionKey.SPAN_MODEL_PROVIDER,
+                    )
+                case SpanMetricDimensionKey.SPAN_SKILL_NAME:
+                    return query, _get_json_dimension_column(
+                        db_type,
+                        SpanAttributeKey.SKILL_NAME,
+                        SpanMetricDimensionKey.SPAN_SKILL_NAME,
                     )
         case MetricViewType.ASSESSMENTS:
             match dimension:

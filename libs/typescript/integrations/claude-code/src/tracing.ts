@@ -99,11 +99,13 @@ function findToolResults(
       // Check both entry-level and content-level toolUseResult for agentId
       const partToolUseResult = toolResult.toolUseResult ?? {};
       const agentId = entryToolUseResult.agentId ?? partToolUseResult.agentId;
+      const commandName = entryToolUseResult.commandName;
 
       results[toolUseId] = {
         content: toolResult.content ?? '',
         isError: toolResult.is_error ?? false,
         agentId,
+        ...(commandName && { commandName }),
       };
     }
   }
@@ -339,6 +341,7 @@ function createLlmAndToolSpans(
   transcriptPath?: string,
 ): void {
   const subagentGroups = collectSubagentGroups(transcript, startIdx);
+  let activeSkillName: string | undefined = undefined;
 
   for (let i = startIdx; i < transcript.length; i++) {
     const entry = transcript[i];
@@ -380,6 +383,7 @@ function createLlmAndToolSpans(
           model,
           'mlflow.llm.model': model,
           [SpanAttributeKey.MESSAGE_FORMAT]: 'anthropic',
+          ...(activeSkillName ? { [SpanAttributeKey.SKILL_NAME]: activeSkillName } : {}),
         },
       });
 
@@ -405,6 +409,22 @@ function createLlmAndToolSpans(
         const toolResultInfo = toolResults[toolUseId];
         const toolResult = toolResultInfo?.content ?? 'No result found';
         const toolName = toolUse.name ?? 'unknown';
+        const commandName = toolResultInfo?.commandName;
+
+        // Stamp the Skill's own TOOL span with its own commandName for
+        // identification (failed Skills are still attributable).
+        // Propagation:
+        //   - success: activeSkillName = commandName (child spans inherit)
+        //   - failure: activeSkillName = undefined (prior skill must not leak
+        //     into recovery spans, and the failed skill itself never injected
+        //     its body so it shouldn't propagate either)
+        let spanSkillName: string | undefined;
+        if (commandName) {
+          spanSkillName = commandName;
+          activeSkillName = toolResultInfo?.isError ? undefined : commandName;
+        } else {
+          spanSkillName = activeSkillName;
+        }
 
         const toolSpan = startSpan({
           name: `tool_${toolName}`,
@@ -415,6 +435,7 @@ function createLlmAndToolSpans(
           attributes: {
             tool_name: toolName,
             tool_id: toolUseId,
+            ...(spanSkillName ? { [SpanAttributeKey.SKILL_NAME]: spanSkillName } : {}),
           },
         });
 
