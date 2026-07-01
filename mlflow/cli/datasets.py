@@ -5,6 +5,9 @@ import click
 
 from mlflow import MlflowClient
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
+from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import get_dataset
+from mlflow.tracing.client import TracingClient
 from mlflow.utils.string_utils import _create_table
 from mlflow.utils.time import conv_longdate_to_str
 
@@ -136,3 +139,81 @@ def list_datasets(
 
         if datasets.token:
             click.echo(f"\nNext page token: {datasets.token}")
+
+
+@commands.command("add-traces")
+@click.option(
+    "--dataset-id",
+    type=click.STRING,
+    required=True,
+    help="ID of the evaluation dataset to add traces to.",
+)
+@click.option(
+    "--trace-ids",
+    type=click.STRING,
+    required=True,
+    help="Comma-separated list of trace IDs to add.",
+)
+@click.option(
+    "--output",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format.",
+)
+def add_traces(
+    dataset_id: str,
+    trace_ids: str,
+    output: Literal["table", "json"] = "table",
+) -> None:
+    """
+    Add traces to a GenAI evaluation dataset.
+
+    Traces are merged by trace ID, so re-adding a trace already in the dataset
+    is a no-op rather than creating a duplicate. Works against both OSS MLflow
+    and Databricks-managed datasets.
+
+    \b
+    Examples:
+    # Add a single trace
+    mlflow datasets add-traces --dataset-id d-abc123 --trace-ids tr-1234567890abcdef
+
+    \b
+    # Add multiple traces
+    mlflow datasets add-traces --dataset-id d-abc123 --trace-ids tr-1,tr-2,tr-3
+
+    \b
+    # Output the updated dataset as JSON
+    mlflow datasets add-traces --dataset-id d-abc123 --trace-ids tr-1 --output json
+    """
+    ids = [t.strip() for t in trace_ids.split(",") if t.strip()]
+    if not ids:
+        raise click.UsageError("--trace-ids must contain at least one trace ID.")
+
+    try:
+        dataset = get_dataset(dataset_id=dataset_id)
+    except MlflowException as e:
+        raise click.UsageError(f"Could not load dataset {dataset_id!r}: {e.message}")
+
+    tracing_client = TracingClient()
+    traces = []
+    for trace_id in ids:
+        try:
+            traces.append(tracing_client.get_trace(trace_id))
+        except MlflowException as e:
+            raise click.UsageError(f"Could not fetch trace {trace_id!r}: {e.message}")
+
+    # merge_records mutates self on the OSS path but returns a new object on the
+    # Databricks-managed path, so reassign to report the post-merge digest/name for both.
+    dataset = dataset.merge_records(traces)
+
+    if output == "json":
+        result = {
+            "dataset_id": dataset.dataset_id,
+            "name": dataset.name,
+            "digest": dataset.digest,
+            "added_trace_ids": ids,
+        }
+        click.echo(json.dumps(result, indent=2))
+    else:
+        click.echo(f"Added {len(ids)} trace(s) to dataset {dataset.dataset_id} ({dataset.name}).")
+        click.echo(f"Digest: {dataset.digest}")

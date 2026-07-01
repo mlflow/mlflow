@@ -5,7 +5,7 @@ from click.testing import CliRunner
 
 import mlflow
 from mlflow.cli.datasets import commands
-from mlflow.genai.datasets import create_dataset
+from mlflow.genai.datasets import create_dataset, get_dataset
 
 
 @pytest.fixture
@@ -36,6 +36,21 @@ def dataset_b(experiment):
         experiment_id=experiment,
         tags={"env": "staging"},
     )
+
+
+@pytest.fixture
+def trace_ids(experiment):
+    mlflow.set_experiment(experiment_id=experiment)
+
+    @mlflow.trace
+    def predict(question: str) -> str:
+        return f"answer to {question}"
+
+    ids = []
+    for q in ["q1", "q2"]:
+        predict(q)
+        ids.append(mlflow.get_last_active_trace_id())
+    return ids
 
 
 def test_commands_group_exists():
@@ -182,3 +197,103 @@ def test_list_datasets_json_multiple_datasets(
 
     names = {d["name"] for d in output_json["datasets"]}
     assert names == {"dataset_a", "dataset_b"}
+
+
+def test_add_traces_command_params():
+    add_cmd = next((cmd for cmd in commands.commands.values() if cmd.name == "add-traces"), None)
+    assert add_cmd is not None
+    param_names = {p.name for p in add_cmd.params}
+    assert param_names == {"dataset_id", "trace_ids", "output"}
+
+
+def test_add_traces_table_output(runner: CliRunner, dataset_a, trace_ids):
+    result = runner.invoke(
+        commands,
+        ["add-traces", "--dataset-id", dataset_a.dataset_id, "--trace-ids", ",".join(trace_ids)],
+    )
+
+    assert result.exit_code == 0
+    assert f"Added {len(trace_ids)} trace(s)" in result.output
+    assert dataset_a.dataset_id in result.output
+
+
+def test_add_traces_json_output(runner: CliRunner, dataset_a, trace_ids):
+    result = runner.invoke(
+        commands,
+        [
+            "add-traces",
+            "--dataset-id",
+            dataset_a.dataset_id,
+            "--trace-ids",
+            ",".join(trace_ids),
+            "--output",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    output_json = json.loads(result.output)
+    assert output_json["dataset_id"] == dataset_a.dataset_id
+    assert output_json["added_trace_ids"] == trace_ids
+
+
+def test_add_traces_merges_records(runner: CliRunner, dataset_a, trace_ids):
+    result = runner.invoke(
+        commands,
+        ["add-traces", "--dataset-id", dataset_a.dataset_id, "--trace-ids", ",".join(trace_ids)],
+    )
+
+    assert result.exit_code == 0
+    refreshed = get_dataset(dataset_id=dataset_a.dataset_id)
+    assert len(refreshed.to_df()) == len(trace_ids)
+
+
+def test_add_traces_is_idempotent(runner: CliRunner, dataset_a, trace_ids):
+    args = ["add-traces", "--dataset-id", dataset_a.dataset_id, "--trace-ids", ",".join(trace_ids)]
+    assert runner.invoke(commands, args).exit_code == 0
+    assert runner.invoke(commands, args).exit_code == 0
+
+    refreshed = get_dataset(dataset_id=dataset_a.dataset_id)
+    assert len(refreshed.to_df()) == len(trace_ids)
+
+
+def test_add_traces_single_trace(runner: CliRunner, dataset_a, trace_ids):
+    result = runner.invoke(
+        commands,
+        ["add-traces", "--dataset-id", dataset_a.dataset_id, "--trace-ids", trace_ids[0]],
+    )
+
+    assert result.exit_code == 0
+    assert "Added 1 trace(s)" in result.output
+
+
+def test_add_traces_missing_dataset_id(runner: CliRunner):
+    result = runner.invoke(commands, ["add-traces", "--trace-ids", "tr-1"])
+
+    assert result.exit_code != 0
+    assert "Missing option '--dataset-id'" in result.output
+
+
+def test_add_traces_missing_trace_ids(runner: CliRunner, dataset_a):
+    result = runner.invoke(commands, ["add-traces", "--dataset-id", dataset_a.dataset_id])
+
+    assert result.exit_code != 0
+    assert "Missing option '--trace-ids'" in result.output
+
+
+def test_add_traces_unknown_dataset(runner: CliRunner, trace_ids):
+    result = runner.invoke(
+        commands, ["add-traces", "--dataset-id", "d-missing", "--trace-ids", trace_ids[0]]
+    )
+
+    assert result.exit_code != 0
+    assert "Could not load dataset 'd-missing'" in result.output
+
+
+def test_add_traces_unknown_trace(runner: CliRunner, dataset_a):
+    result = runner.invoke(
+        commands, ["add-traces", "--dataset-id", dataset_a.dataset_id, "--trace-ids", "tr-missing"]
+    )
+
+    assert result.exit_code != 0
+    assert "Could not fetch trace 'tr-missing'" in result.output
