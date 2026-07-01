@@ -779,9 +779,7 @@ def test_onnx_model_load_honors_declared_execution_providers(onnx_model, model_p
     assert kwargs["providers"] == ["CPUExecutionProvider"]
 
 
-def test_onnx_model_load_warns_when_declared_provider_unavailable(
-    onnx_model, model_path, caplog
-):
+def test_onnx_model_load_warns_when_declared_provider_unavailable(onnx_model, model_path, caplog):
     mlflow.onnx.save_model(
         onnx_model,
         model_path,
@@ -814,9 +812,7 @@ def test_onnx_model_load_coerces_string_provider_metadata(onnx_model, model_path
     # Malformed/legacy metadata may store a single provider as a bare string rather than a
     # list. Without coercion the loader would iterate over its characters and silently fall
     # back to CPU; the guard normalizes it to a one-element list.
-    mlflow.onnx.save_model(
-        onnx_model, model_path, onnx_execution_providers="CUDAExecutionProvider"
-    )
+    mlflow.onnx.save_model(onnx_model, model_path, onnx_execution_providers="CUDAExecutionProvider")
     with (
         mock.patch("onnxruntime.InferenceSession") as mock_session,
         mock.patch(
