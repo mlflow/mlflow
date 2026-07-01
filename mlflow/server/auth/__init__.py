@@ -26,7 +26,7 @@ import sqlalchemy
 from cachetools import TTLCache
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
-from fastapi.responses import Response as JSONResponse
+from fastapi.responses import Response as FilteredResponse
 from flask import (
     Flask,
     Request,
@@ -578,7 +578,7 @@ def _get_role_permission_or_default(
     return get_permission(max_permission(perm.name, default.name))
 
 
-def _user_can_create_in_workspace() -> bool:
+def _user_can_create_in_workspace(username: str | None = None) -> bool:
     """
     True if the current request can create new resources in the request's
     workspace. Always allows when workspaces are disabled. Otherwise requires
@@ -602,7 +602,9 @@ def _user_can_create_in_workspace() -> bool:
     if workspace_name is None:
         return False
 
-    user = store.get_user(authenticate_request().username)
+    if username is None:
+        username = authenticate_request().username
+    user = store.get_user(username)
     perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
     if perm is not None and perm.can_use:
         return True
@@ -1227,23 +1229,8 @@ def validate_can_create_registered_model() -> bool:
     return _user_can_create_in_workspace()
 
 
-def validate_can_create_mcp_server() -> bool:
-    return _user_can_create_in_workspace()
-
-
-def _can_create_mcp_server(username: str) -> bool:
-    if not MLFLOW_ENABLE_WORKSPACES.get():
-        return True
-    workspace_name = workspace_context.get_request_workspace()
-    if workspace_name is None:
-        return False
-    user = store.get_user(username)
-    perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
-    if perm is not None and perm.can_use:
-        return True
-    if perm is None and _user_inherits_default_workspace_grant(workspace_name):
-        return get_permission(auth_config.default_permission).can_use
-    return False
+def validate_can_create_mcp_server(username: str) -> bool:
+    return _user_can_create_in_workspace(username)
 
 
 def validate_can_view_workspace() -> bool:
@@ -4485,7 +4472,7 @@ def _get_mcp_server_validator(
 
         async def root_validator(username: str, request: StarletteRequest) -> bool:
             if request.method == "POST":
-                return _can_create_mcp_server(username)
+                return validate_can_create_mcp_server(username)
             return True
 
         return root_validator
@@ -4497,13 +4484,15 @@ def _get_mcp_server_validator(
         try:
             _get_tracking_store().get_mcp_server(name)
             return True
-        except MlflowException:
-            return False
+        except MlflowException as e:
+            if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                return False
+            raise
 
     async def validator(username: str, request: StarletteRequest) -> bool:
         if request.method == "POST" and len(parts) > 2 and not _server_exists():
             request.state.implicit_parent_create = True
-            return _can_create_mcp_server(username)
+            return validate_can_create_mcp_server(username)
         perm = _get_mcp_server_permission(name, username)
         match request.method:
             case "GET":
@@ -4519,6 +4508,9 @@ def _get_mcp_server_validator(
 
 
 def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
+    if store.get_user(username).is_admin:
+        return
+
     suffix = _mcp_server_suffix(get_routed_asgi_path(request))
     parts = suffix.split("/") if suffix else []
 
@@ -4526,10 +4518,16 @@ def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
         if not getattr(request.state, "implicit_parent_create", False):
             return
         name = f"{parts[0]}/{parts[1]}"
+        try:
+            server = _get_tracking_store().get_mcp_server(name)
+        except MlflowException:
+            return
+        if server.created_by != username:
+            return
         store.grant_user_permission(username, "mcp_server", name, MANAGE.name)
         return
 
-    body = getattr(request, "_body", None)
+    body = getattr(request.state, "raw_body", None)
     if not body:
         return
     try:
@@ -4549,79 +4547,93 @@ def _mcp_server_after_delete(username: str, request: StarletteRequest) -> None:
         )
 
 
-def _can_read_mcp_server(name: str, username: str) -> bool:
-    return _get_mcp_server_permission(name, username).can_read
+def _backfill_readable_mcp_results(
+    can_read: Callable[[str], bool],
+    readable: list[dict[str, Any]],
+    max_results: int,
+    next_token: str | None,
+    fetch_page: Callable[[str | None], PagedList],
+    get_name: Callable[[Any], str],
+    to_dict: Callable[[Any], dict[str, Any]],
+) -> str | None:
+    while len(readable) < max_results and next_token:
+        start_offset = SearchUtils.parse_start_offset_from_page_token(next_token)
+        page = fetch_page(next_token)
+        if not page:
+            return None
+        consumed = 0
+        for item in page:
+            if len(readable) >= max_results:
+                break
+            consumed += 1
+            if can_read(get_name(item)):
+                readable.append(to_dict(item))
+        if consumed < len(page):
+            next_token = SearchUtils.create_page_token(start_offset + consumed)
+        else:
+            next_token = page.token
+        if isinstance(next_token, bytes):
+            next_token = next_token.decode("utf-8")
+    return next_token
 
 
 def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
-    readable = [s for s in data.get("mcp_servers", []) if _can_read_mcp_server(s["name"], username)]
+    can_read = _role_based_read_predicate(username, "mcp_server")
+    readable = [s for s in data.get("mcp_servers", []) if can_read(s["name"])]
 
     params = request.query_params
     max_results = int(params.get("max_results", 100))
-    next_token = data.get("next_page_token")
     filter_string = params.get("filter_string")
     order_by = params.getlist("order_by") or None
 
-    while len(readable) < max_results and next_token:
-        page = _get_tracking_store().search_mcp_servers(
+    data["next_page_token"] = _backfill_readable_mcp_results(
+        can_read=can_read,
+        readable=readable,
+        max_results=max_results,
+        next_token=data.get("next_page_token"),
+        fetch_page=lambda token: _get_tracking_store().search_mcp_servers(
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
-            page_token=next_token,
-        )
-        if not page:
-            next_token = None
-            break
-        for s in page:
-            if len(readable) >= max_results:
-                break
-            if _can_read_mcp_server(s.name, username):
-                readable.append(MCPServerResponse.from_entity(s).model_dump(mode="json"))
-        next_token = page.token
-
+            page_token=token,
+        ),
+        get_name=lambda s: s.name,
+        to_dict=lambda s: MCPServerResponse.from_entity(s).model_dump(mode="json"),
+    )
     data["mcp_servers"] = readable[:max_results]
-    data["next_page_token"] = next_token
     return json.dumps(data).encode()
 
 
 def _filter_search_mcp_bindings(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
-    readable = [
-        b
-        for b in data.get("mcp_access_bindings", [])
-        if _can_read_mcp_server(b["server_name"], username)
-    ]
+    can_read = _role_based_read_predicate(username, "mcp_server")
+    readable = [b for b in data.get("mcp_access_bindings", []) if can_read(b["server_name"])]
 
     params = request.query_params
     max_results = int(params.get("max_results", 100))
-    next_token = data.get("next_page_token")
     filter_string = params.get("filter_string")
     order_by = params.getlist("order_by") or None
     server_version = params.get("server_version")
     server_alias = params.get("server_alias")
 
-    while len(readable) < max_results and next_token:
-        page = _get_tracking_store().search_mcp_access_bindings(
+    data["next_page_token"] = _backfill_readable_mcp_results(
+        can_read=can_read,
+        readable=readable,
+        max_results=max_results,
+        next_token=data.get("next_page_token"),
+        fetch_page=lambda token: _get_tracking_store().search_mcp_access_bindings(
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
-            page_token=next_token,
+            page_token=token,
             server_version=server_version,
             server_alias=server_alias,
-        )
-        if not page:
-            next_token = None
-            break
-        for b in page:
-            if len(readable) >= max_results:
-                break
-            if _can_read_mcp_server(b.server_name, username):
-                readable.append(MCPAccessBindingResponse.from_entity(b).model_dump(mode="json"))
-        next_token = page.token
-
+        ),
+        get_name=lambda b: b.server_name,
+        to_dict=lambda b: MCPAccessBindingResponse.from_entity(b).model_dump(mode="json"),
+    )
     data["mcp_access_bindings"] = readable[:max_results]
-    data["next_page_token"] = next_token
     return json.dumps(data).encode()
 
 
@@ -4720,7 +4732,7 @@ def _find_fastapi_after_request_handler(
 
 FASTAPI_RESPONSE_FILTERS: dict[
     tuple[str, str],
-    Callable[[str, bytes], bytes],
+    Callable[[str, bytes, StarletteRequest], bytes],
 ] = {
     (prefix, "GET"): _filter_search_mcp_servers for prefix in get_mcp_server_api_route_prefixes()
 } | {
@@ -4729,7 +4741,9 @@ FASTAPI_RESPONSE_FILTERS: dict[
 }
 
 
-def _find_fastapi_response_filter(path: str, method: str) -> Callable[[str, bytes], bytes] | None:
+def _find_fastapi_response_filter(
+    path: str, method: str
+) -> Callable[[str, bytes, StarletteRequest], bytes] | None:
     return next(
         (
             handler
@@ -4802,7 +4816,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         # body is cached by Starlette so the route handler can still read it).
         after_handler = _find_fastapi_after_request_handler(path, request.method)
         if after_handler is not None:
-            await request.body()
+            request.state.raw_body = await request.body()
 
         if not user.is_admin:
             # Run the validator
@@ -4832,7 +4846,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             async for chunk in response.body_iterator:
                 body += chunk
             headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
-            return JSONResponse(
+            return FilteredResponse(
                 content=response_filter(user.username, body, request),
                 status_code=response.status_code,
                 headers=headers,
