@@ -28,6 +28,7 @@ model response. Real provider behavior stays covered by unit/integration tests.
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import uuid
@@ -40,17 +41,6 @@ STUB_REPLY = (
 )
 
 STUB_MODEL = "mlflow-dev-stub"
-
-
-def _opt_value(argv: list[str], name: str) -> str | None:
-    """Return the value of ``--name value`` or ``--name=value`` in ``argv``."""
-    prefix = f"{name}="
-    for i, arg in enumerate(argv):
-        if arg == name:
-            return argv[i + 1] if i + 1 < len(argv) else None
-        if arg.startswith(prefix):
-            return arg[len(prefix) :]
-    return None
 
 
 def _emit(obj: dict[str, Any]) -> None:
@@ -78,14 +68,23 @@ def _result_event(session_id: str) -> dict[str, Any]:
 
 
 def main(argv: list[str]) -> int:
-    if "--version" in argv:
+    # The real `claude` CLI takes many flags; parse only the few the stub needs and
+    # let parse_known_args drop the rest. add_help/allow_abbrev are off so `-p`,
+    # `--verbose`, etc. fall through to the ignored extras rather than being matched.
+    parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    parser.add_argument("--version", action="store_true")
+    parser.add_argument("--output-format", default="text")
+    parser.add_argument("--resume", default=None)
+    args, _ = parser.parse_known_args(argv)
+
+    if args.version:
         print(f"0.0.0 ({STUB_MODEL})")
         return 0
 
     # Reuse the resume id so a continued conversation keeps a stable session.
-    session_id = _opt_value(argv, "--resume") or f"mlflow-dev-stub-{uuid.uuid4().hex[:12]}"
+    session_id = args.resume or f"mlflow-dev-stub-{uuid.uuid4().hex[:12]}"
 
-    if _opt_value(argv, "--output-format") == "stream-json":
+    if args.output_format == "stream-json":
         _emit({
             "type": "system",
             "subtype": "init",
