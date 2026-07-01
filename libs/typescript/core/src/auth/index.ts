@@ -21,9 +21,14 @@
  * ## Self-hosted MLflow (OSS)
  *
  * For HTTP(S) URIs, authentication is resolved in order:
- * 1. Basic Auth (MLFLOW_TRACKING_USERNAME + MLFLOW_TRACKING_PASSWORD)
- * 2. Bearer Token (MLFLOW_TRACKING_TOKEN)
- * 3. No authentication
+ * 1. Kubernetes auth (MLFLOW_TRACKING_AUTH=kubernetes or kubernetes-namespaced)
+ * 2. Basic Auth (MLFLOW_TRACKING_USERNAME + MLFLOW_TRACKING_PASSWORD)
+ * 3. Bearer Token (MLFLOW_TRACKING_TOKEN)
+ * 4. No authentication
+ *
+ * Kubernetes auth support:
+ * - MLFLOW_TRACKING_AUTH=kubernetes: reads bearer token from the pod's ServiceAccount mount
+ * - MLFLOW_TRACKING_AUTH=kubernetes-namespaced: same, plus sets X-MLFLOW-WORKSPACE from the namespace
  *
  * Workspace support (servers with workspaces enabled):
  * - MLFLOW_WORKSPACE: sets the `X-MLFLOW-WORKSPACE` header for workspace-scoped requests
@@ -35,6 +40,32 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { Config } from '@databricks/sdk-experimental';
+
+const SA_TOKEN_PATH = '/var/run/secrets/kubernetes.io/serviceaccount/token';
+const SA_NAMESPACE_PATH = '/var/run/secrets/kubernetes.io/serviceaccount/namespace';
+const CACHE_TTL_MS = 60_000;
+
+/**
+ * Returns a function that reads a file and caches the result for CACHE_TTL_MS.
+ * Used to read ServiceAccount token/namespace files without hitting disk on
+ * every HTTP request, while still picking up rotated tokens within 60 seconds.
+ */
+function createCachedFileReader(filePath: string): () => string | undefined {
+  let cached: string | undefined;
+  let cachedAt = 0;
+  return () => {
+    const now = Date.now();
+    if (cached === undefined || now - cachedAt > CACHE_TTL_MS) {
+      cachedAt = now;
+      try {
+        cached = fs.readFileSync(filePath, 'utf-8').trim() || undefined;
+      } catch {
+        cached = undefined;
+      }
+    }
+    return cached;
+  };
+}
 
 /**
  * Function that provides HTTP headers for authenticated requests.
@@ -261,6 +292,17 @@ function createDatabricksAuth(options: AuthOptions): AuthProvider {
  */
 function createOssAuth(options: AuthOptions): AuthProvider {
   const host = options.trackingUri;
+  const trackingAuth = process.env.MLFLOW_TRACKING_AUTH;
+
+  if (trackingAuth === 'kubernetes' || trackingAuth === 'kubernetes-namespaced') {
+    return createKubernetesAuth(
+      host,
+      trackingAuth === 'kubernetes-namespaced',
+      SA_TOKEN_PATH,
+      SA_NAMESPACE_PATH,
+      options.workspace,
+    );
+  }
 
   // Resolve credentials from options or environment
   const username = options.trackingServerUsername || process.env.MLFLOW_TRACKING_USERNAME;
@@ -288,6 +330,124 @@ function createOssAuth(options: AuthOptions): AuthProvider {
     if (workspace) {
       headers['X-MLFLOW-WORKSPACE'] = workspace;
     }
+    return headers;
+  };
+
+  return {
+    getHost: () => host,
+    getHeadersProvider: () => headersProvider,
+    getDatabricksToken: () => undefined,
+  };
+}
+
+/**
+ * Try to load token and namespace from kubeconfig (~/.kube/config).
+ * Requires the optional @kubernetes/client-node package.
+ * Returns null if the package is not installed or kubeconfig is not available.
+ * Logs a warning when the package is missing so the user knows how to enable
+ * kubeconfig support.
+ */
+function loadFromKubeconfig(): { token?: string; namespace?: string } | null {
+  let k8s;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    k8s = require('@kubernetes/client-node');
+  } catch {
+    console.warn(
+      '[mlflow] @kubernetes/client-node is not installed. ' +
+        'Kubeconfig fallback is disabled. ' +
+        'Install it with: npm install @kubernetes/client-node',
+    );
+    return null;
+  }
+
+  try {
+    const kc = new k8s.KubeConfig();
+    kc.loadFromDefault();
+
+    const currentContext = kc.getCurrentContext();
+    const context = kc.getContextObject(currentContext);
+    const user = kc.getCurrentUser();
+
+    return {
+      token: user?.token || undefined,
+      namespace: context?.namespace || undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Create authentication for Kubernetes environments.
+ *
+ * Resolution order (mirrors Python SDK):
+ * 1. ServiceAccount mount: reads token/namespace from
+ *    /var/run/secrets/kubernetes.io/serviceaccount/ with 60s TTL caching
+ * 2. Kubeconfig fallback: reads ~/.kube/config via @kubernetes/client-node
+ *    (optional dependency — install with: npm install @kubernetes/client-node)
+ *
+ * When enableWorkspaces is true, also reads the namespace and sets
+ * the X-MLFLOW-WORKSPACE header.
+ */
+export function createKubernetesAuth(
+  host: string,
+  enableWorkspaces: boolean,
+  tokenPath: string = SA_TOKEN_PATH,
+  namespacePath: string = SA_NAMESPACE_PATH,
+  workspace?: string,
+): AuthProvider {
+  const getTokenFromFile = createCachedFileReader(tokenPath);
+  const getNamespaceFromFile = enableWorkspaces
+    ? createCachedFileReader(namespacePath)
+    : undefined;
+
+  // Kubeconfig is loaded once
+  let kubeconfigResult: { token?: string; namespace?: string } | null | undefined;
+  function getKubeconfig() {
+    if (kubeconfigResult === undefined) {
+      kubeconfigResult = loadFromKubeconfig();
+    }
+    return kubeconfigResult;
+  }
+
+  const headersProvider: HeadersProvider = async () => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+    // Token: try SA file first, then kubeconfig, otherwise throw error
+    let token = getTokenFromFile();
+    if (!token) {
+      token = getKubeconfig()?.token;
+    }
+    if (!token) {
+      throw new Error(
+        'Could not determine Kubernetes credentials. ' +
+          'Ensure you are running in a Kubernetes pod with a service account ' +
+          'or have a valid kubeconfig with credentials set.',
+      );
+    }
+    headers['Authorization'] = `Bearer ${token}`;
+
+    // Workspace: explicit MLFLOW_WORKSPACE if provided will take precedence.
+    // For kubernetes-namespaced, also auto-discover from SA file or kubeconfig.
+    const explicitWorkspace = process.env.MLFLOW_WORKSPACE ?? workspace;
+    if (explicitWorkspace) {
+      headers['X-MLFLOW-WORKSPACE'] = explicitWorkspace;
+    } else if (enableWorkspaces) {
+      let namespace = getNamespaceFromFile?.();
+      if (!namespace) {
+        namespace = getKubeconfig()?.namespace;
+      }
+      if (!namespace) {
+        throw new Error(
+          'Could not determine Kubernetes namespace. ' +
+            'Ensure you are running in a Kubernetes pod with a service account ' +
+            'or have a valid kubeconfig with a namespace set in the active context.',
+        );
+      }
+      headers['X-MLFLOW-WORKSPACE'] = namespace;
+    }
+
     return headers;
   };
 
