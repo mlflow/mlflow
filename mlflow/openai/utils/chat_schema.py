@@ -33,7 +33,13 @@ def set_span_chat_attributes(span: LiveSpan, inputs: dict[str, Any], output: Any
         _logger.debug("Failed to set chat tools on span", exc_info=True)
 
     # Set model name if available
-    set_span_model_attribute(span, inputs)
+    # NB: Prioritize model name from the response to ensure accuracy for providers like Azure
+    #     OpenAI where the request 'model' parameter may contain deployment name instead of the
+    #     actual model name.
+    if model := _parse_model(output):
+        span.set_attribute(SpanAttributeKey.MODEL, model)
+    else:
+        set_span_model_attribute(span, inputs)
 
     # Extract and set usage information if available
     if usage := _parse_usage(output):
@@ -121,6 +127,51 @@ def _parse_tools(inputs: dict[str, Any]) -> list[ChatTool]:
             raise MlflowException(f"Unknown tool type: {tool_type}")
 
     return parsed_tools
+
+
+def _parse_model(output: Any) -> str | None:
+    """
+    Parse model information from OpenAI response objects.
+
+    Args:
+        output: The response object from OpenAI API calls
+
+    Returns:
+        The model name.
+    """
+    if output is None:
+        return None
+
+    # Handle OpenAI ChatCompletion API response
+    try:
+        from openai.types.chat import ChatCompletion
+
+        if isinstance(output, ChatCompletion) and (model := output.model):
+            return model
+    except ImportError:
+        pass
+
+    # Handle OpenAI Responses API response
+    try:
+        from openai.types.responses import Response
+
+        if isinstance(output, Response) and (model := output.model):
+            return model
+    except ImportError:
+        pass
+
+    # Handle OpenAI ChatCompletion Streaming API response
+    try:
+        from openai.types.chat import ChatCompletionChunk
+
+        if isinstance(output, list):
+            for item in output:
+                if isinstance(item, ChatCompletionChunk) and (model := item.model):
+                    return model
+    except ImportError:
+        pass
+
+    return None
 
 
 def _parse_usage(output: Any) -> dict[str, Any] | None:
