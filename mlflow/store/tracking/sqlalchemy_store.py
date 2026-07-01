@@ -4975,8 +4975,21 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         aggregated_token_usage = update_token_usage(
                             aggregated_token_usage, span_token_usage
                         )
-                    if span_cost := span_attributes.get(SpanAttributeKey.LLM_COST):
-                        aggregated_cost = update_cost(aggregated_cost, span_cost)
+                    # Check all cost attribute types in priority order
+                    for cost_attr_key in [
+                        SpanAttributeKey.LLM_COST,
+                        SpanAttributeKey.TOOL_COST,
+                        SpanAttributeKey.EMBEDDING_COST,
+                        SpanAttributeKey.RETRIEVAL_COST,
+                        SpanAttributeKey.SPAN_COST,
+                    ]:
+                        if cost_value := span_attributes.get(cost_attr_key):
+                            aggregated_cost = update_cost(aggregated_cost, cost_value)
+                            # Use first cost attribute found for span metrics
+                            if span_cost is None:
+                                span_cost = cost_value
+                            # Only use one cost attribute per span
+                            break
                     # Session ID from OTel semantic conventions:
                     # https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
                     if session_id is None and (
@@ -4989,8 +5002,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     # user id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/user/#user-id
                     if user_id is None and (span_user_id := span_attributes.get("user.id")):
                         user_id = _try_parse_json_string(span_user_id)
-                    # Get cost for span metrics
-                    span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 

@@ -831,6 +831,104 @@ describe('normalizeNewSpanData', () => {
     expect(normalized.cost).toBeUndefined();
   });
 
+  it('should extract cost from mlflow.tool.cost attribute (simple float)', () => {
+    const spanWithToolCost: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.tool.cost': JSON.stringify(0.005),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithToolCost, 0, 0, [], {}, '');
+    expect(normalized.cost).toEqual({
+      input_cost: 0,
+      output_cost: 0,
+      total_cost: 0.005,
+    });
+  });
+
+  it('should extract cost from mlflow.embedding.cost attribute (dict format)', () => {
+    const spanWithEmbeddingCost: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.embedding.cost': JSON.stringify({
+          total_cost: 0.001,
+        }),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithEmbeddingCost, 0, 0, [], {}, '');
+    expect(normalized.cost).toEqual({
+      input_cost: 0,
+      output_cost: 0,
+      total_cost: 0.001,
+    });
+  });
+
+  it('should extract cost from mlflow.retrieval.cost attribute (full breakdown)', () => {
+    const spanWithRetrievalCost: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.retrieval.cost': JSON.stringify({
+          input_cost: 0.0001,
+          output_cost: 0.0002,
+          total_cost: 0.0003,
+        }),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithRetrievalCost, 0, 0, [], {}, '');
+    expect(normalized.cost).toEqual({
+      input_cost: 0.0001,
+      output_cost: 0.0002,
+      total_cost: 0.0003,
+    });
+  });
+
+  it('should extract cost from mlflow.span.cost attribute (generic fallback)', () => {
+    const spanWithGenericCost: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.span.cost': JSON.stringify(0.01),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithGenericCost, 0, 0, [], {}, '');
+    expect(normalized.cost).toEqual({
+      input_cost: 0,
+      output_cost: 0,
+      total_cost: 0.01,
+    });
+  });
+
+  it('should prioritize mlflow.llm.cost over other cost attributes', () => {
+    const spanWithMultipleCosts: ModelTraceSpanV3 = {
+      ...MOCK_V3_SPANS[0],
+      attributes: {
+        ...MOCK_V3_SPANS[0].attributes,
+        'mlflow.llm.cost': JSON.stringify({
+          input_cost: 0.01,
+          output_cost: 0.02,
+          total_cost: 0.03,
+        }),
+        'mlflow.tool.cost': JSON.stringify(0.005),
+        'mlflow.span.cost': JSON.stringify(0.001),
+      },
+    };
+
+    const normalized = normalizeNewSpanData(spanWithMultipleCosts, 0, 0, [], {}, '');
+    // Should use mlflow.llm.cost since it's first in priority
+    expect(normalized.cost).toEqual({
+      input_cost: 0.01,
+      output_cost: 0.02,
+      total_cost: 0.03,
+    });
+  });
+
   it('should return undefined model and cost when attributes are not present', () => {
     const normalized = normalizeNewSpanData(MOCK_V3_SPANS[0], 0, 0, [], {}, '');
     expect(normalized.modelName).toBeUndefined();
