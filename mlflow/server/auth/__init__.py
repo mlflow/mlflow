@@ -4491,7 +4491,6 @@ def _get_mcp_server_validator(
 
     async def validator(username: str, request: StarletteRequest) -> bool:
         if request.method == "POST" and len(parts) > 2 and not _server_exists():
-            request.state.implicit_parent_create = True
             return validate_can_create_mcp_server(username)
         perm = _get_mcp_server_permission(name, username)
         match request.method:
@@ -4515,8 +4514,6 @@ def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
     parts = suffix.split("/") if suffix else []
 
     if len(parts) > 2:
-        if not getattr(request.state, "implicit_parent_create", False):
-            return
         name = f"{parts[0]}/{parts[1]}"
         try:
             server = _get_tracking_store().get_mcp_server(name)
