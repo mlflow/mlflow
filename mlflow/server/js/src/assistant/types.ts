@@ -90,6 +90,8 @@ export interface AssistantAgentState {
   pendingPrompt: string | null;
   /** A tool call awaiting the user's Yes/No decision, or null */
   pendingPermission: PermissionRequest | null;
+  /** Whether the Assistant can be used from this client, considering server-side remote-access settings */
+  canUseAssistant: boolean;
 }
 
 export interface AssistantAgentActions {
@@ -170,6 +172,8 @@ export interface AssistantConfig {
   providers: Record<string, ProviderConfig>;
   projects: Record<string, ProjectConfig>;
   skills_location?: string;
+  /** Whether the currently selected provider can be used from a non-localhost client */
+  remote_chat_allowed?: boolean;
 }
 
 /**

@@ -1,16 +1,22 @@
+import enum
 import ipaddress
+import logging
 import uuid
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, AsyncGenerator, Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from fastapi.routing import APIRoute
 from pydantic import BaseModel, Field
+from starlette.responses import Response
 
 from mlflow.assistant import clear_project_path_cache, get_project_path
 from mlflow.assistant.config import AssistantConfig, PermissionsConfig, ProjectConfig
 from mlflow.assistant.providers import list_providers
 from mlflow.assistant.providers.base import (
+    AssistantProvider,
     CLINotInstalledError,
     NotAuthenticatedError,
     ProviderNotConfiguredError,
@@ -18,7 +24,10 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
+from mlflow.environment_variables import MLFLOW_ALLOW_REMOTE_ASSISTANT
 from mlflow.server.assistant.session import SessionManager, terminate_session_process
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_provider(name: str):
@@ -28,8 +37,9 @@ def _get_provider(name: str):
     return None
 
 
-def _get_selected_provider():
-    config = AssistantConfig.load()
+def _get_selected_provider(config: AssistantConfig | None = None):
+    if config is None:
+        config = AssistantConfig.load()
     for provider_name, provider_config in config.providers.items():
         if provider_config.selected:
             return _get_provider(provider_name)
@@ -41,33 +51,118 @@ _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
 )
 
 
-async def _require_localhost(request: Request) -> None:
-    """
-    Dependency that restricts access to localhost only.
+class _RemoteAccessMode(str, enum.Enum):
+    OFF = "off"
+    API_ONLY = "api-only"
 
-    Uses ipaddress library for robust loopback detection.
 
-    Raises:
-        HTTPException: If request is not from localhost
-    """
+_INVALID_REMOTE_ACCESS_MODES_WARNED: set[str] = set()
+
+
+def _is_localhost(request: Request) -> bool:
     client_host = request.client.host if request.client else None
-
     if not client_host:
-        raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
-
+        return False
     try:
         ip = ipaddress.ip_address(client_host)
     except ValueError:
+        return False
+    return ip.is_loopback
+
+
+def _get_remote_access_mode() -> _RemoteAccessMode:
+    raw = MLFLOW_ALLOW_REMOTE_ASSISTANT.get()
+    try:
+        return _RemoteAccessMode(raw)
+    except ValueError:
+        if raw not in _INVALID_REMOTE_ACCESS_MODES_WARNED:
+            _logger.warning(
+                "Invalid value %r for %s, falling back to 'off'. Valid values are: %s",
+                raw,
+                MLFLOW_ALLOW_REMOTE_ASSISTANT.name,
+                [m.value for m in _RemoteAccessMode],
+            )
+            _INVALID_REMOTE_ACCESS_MODES_WARNED.add(raw)
+        return _RemoteAccessMode.OFF
+
+
+def _provider_allows_remote_access(provider: AssistantProvider | None) -> bool:
+    if provider is None:
+        return False
+    return (
+        _get_remote_access_mode() == _RemoteAccessMode.API_ONLY and provider.allows_remote_execution
+    )
+
+
+def _enforce_remote_access(request: Request, provider: AssistantProvider | None) -> None:
+    if _is_localhost(request):
+        return
+    if not _provider_allows_remote_access(provider):
         raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
 
-    if not ip.is_loopback:
-        raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
+
+# Per-route remote-access policy:
+#   SELECTED_PROVIDER — gate on whichever provider the user has currently selected
+#   PATH_PROVIDER     — gate on the provider identified by a {provider} path parameter
+#   LOCALHOST_ONLY    — always block remote access (stays localhost-only regardless of mode)
+#   NONE              — no gating (e.g. GET /config, which redacts secrets instead)
+class _RemoteAccessPolicy(str, enum.Enum):
+    SELECTED_PROVIDER = "selected_provider"
+    PATH_PROVIDER = "path_provider"
+    LOCALHOST_ONLY = "localhost_only"
+    NONE = "none"
+
+
+_REMOTE_ACCESS_POLICY_ATTR = "_assistant_remote_access_policy"
+
+
+def _remote_access_policy(policy: _RemoteAccessPolicy):
+    def decorator(func):
+        setattr(func, _REMOTE_ACCESS_POLICY_ATTR, policy)
+        return func
+
+    return decorator
+
+
+def _get_route_provider(request: Request, policy: _RemoteAccessPolicy) -> AssistantProvider | None:
+    match policy:
+        case _RemoteAccessPolicy.SELECTED_PROVIDER:
+            return _get_selected_provider()
+        case _RemoteAccessPolicy.PATH_PROVIDER:
+            provider_name = request.path_params.get("provider")
+            return _get_provider(provider_name) if provider_name else None
+        case _RemoteAccessPolicy.LOCALHOST_ONLY | _RemoteAccessPolicy.NONE:
+            return None
+
+
+class _AssistantAPIRoute(APIRoute):
+    def get_route_handler(self) -> Callable[[Request], Awaitable[Response]]:
+        original_route_handler = super().get_route_handler()
+        policy: _RemoteAccessPolicy | None = getattr(
+            self.endpoint, _REMOTE_ACCESS_POLICY_ATTR, None
+        )
+        if policy is None:
+            raise RuntimeError(
+                f"Assistant route {self.path!r} ({self.endpoint.__name__}) is missing a "
+                f"remote-access policy. Add @_remote_access_policy(...) to the endpoint."
+            )
+
+        async def route_handler(request: Request) -> Response:
+            if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
+                if _get_remote_access_mode() == _RemoteAccessMode.OFF:
+                    raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
+                provider = _get_route_provider(request, policy)
+                if policy != _RemoteAccessPolicy.PATH_PROVIDER or provider is not None:
+                    _enforce_remote_access(request, provider)
+            return await original_route_handler(request)
+
+        return route_handler
 
 
 assistant_router = APIRouter(
     prefix="/ajax-api/3.0/mlflow/assistant",
     tags=["assistant"],
-    dependencies=[Depends(_require_localhost)],
+    route_class=_AssistantAPIRoute,
 )
 
 
@@ -87,6 +182,7 @@ class MessageResponse(BaseModel):
 class ConfigResponse(BaseModel):
     providers: dict[str, Any] = Field(default_factory=dict)
     projects: dict[str, Any] = Field(default_factory=dict)
+    remote_chat_allowed: bool = False
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -120,6 +216,7 @@ class SkillsInstallResponse(BaseModel):
 
 
 @assistant_router.post("/message")
+@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
 async def send_message(request: MessageRequest) -> MessageResponse:
     """
     Send a message to the assistant and get a session for streaming the response.
@@ -156,6 +253,7 @@ async def send_message(request: MessageRequest) -> MessageResponse:
 
 
 @assistant_router.get("/sessions/{session_id}/stream")
+@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
 async def stream_response(request: Request, session_id: str) -> StreamingResponse:
     """
     Stream the assistant's response via Server-Sent Events.
@@ -193,8 +291,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
         context["tool_decisions"] = tool_decisions
 
     # Extract the MLflow server URL from the request for the assistant to use.
-    # This assumes the assistant is accessing the same MLflow server that serves this API,
-    # which works because the assistant endpoint is localhost-only.
+    # This assumes the assistant is accessing the same MLflow server that serves this API.
     # TODO: Extend this to support remote/proxy scenarios where the tracking URI may differ.
     tracking_uri = str(request.base_url).rstrip("/")
 
@@ -237,6 +334,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
 
 
 @assistant_router.patch("/sessions/{session_id}")
+@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
 async def patch_session(session_id: str, request: SessionPatchRequest) -> SessionPatchResponse:
     """
     Update session status.
@@ -270,6 +368,7 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
 
 
 @assistant_router.post("/sessions/{session_id}/permission")
+@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
 async def resolve_permission(session_id: str, request: PermissionDecision) -> MessageResponse:
     """Deliver a tool-call permission decision and resume the paused turn on a new stream.
 
@@ -297,6 +396,7 @@ async def resolve_permission(session_id: str, request: PermissionDecision) -> Me
 
 
 @assistant_router.get("/providers/{provider}/health")
+@_remote_access_policy(_RemoteAccessPolicy.PATH_PROVIDER)
 async def provider_health_check(provider: str) -> dict[str, str]:
     p = _get_provider(provider)
     if p is None:
@@ -318,7 +418,8 @@ async def provider_health_check(provider: str) -> dict[str, str]:
 
 
 @assistant_router.get("/config")
-async def get_config() -> ConfigResponse:
+@_remote_access_policy(_RemoteAccessPolicy.NONE)
+async def get_config(request: Request) -> ConfigResponse:
     """
     Get the current assistant configuration.
 
@@ -326,13 +427,24 @@ async def get_config() -> ConfigResponse:
         Current configuration including providers and projects.
     """
     config = AssistantConfig.load()
+    providers = {name: p.model_dump() for name, p in config.providers.items()}
+    for provider_data in providers.values():
+        provider_data.pop("api_key", None)
+
+    projects = {exp_id: p.model_dump() for exp_id, p in config.projects.items()}
+    if not _is_localhost(request):
+        for project_data in projects.values():
+            project_data.pop("location", None)
+
     return ConfigResponse(
-        providers={name: p.model_dump() for name, p in config.providers.items()},
-        projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
+        providers=providers,
+        projects=projects,
+        remote_chat_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
     )
 
 
 @assistant_router.put("/config")
+@_remote_access_policy(_RemoteAccessPolicy.LOCALHOST_ONLY)
 async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
     """
     Update the assistant configuration.
@@ -397,13 +509,19 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
     clear_config_cache()
     clear_project_path_cache()
 
+    providers = {name: p.model_dump() for name, p in config.providers.items()}
+    for provider_data in providers.values():
+        provider_data.pop("api_key", None)
+
     return ConfigResponse(
-        providers={name: p.model_dump() for name, p in config.providers.items()},
+        providers=providers,
         projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
+        remote_chat_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
     )
 
 
 @assistant_router.post("/skills/install")
+@_remote_access_policy(_RemoteAccessPolicy.LOCALHOST_ONLY)
 async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstallResponse:
     """
     Install skills bundled with MLflow.
@@ -465,6 +583,7 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
 
 
 @assistant_router.get("/providers/{provider}/models")
+@_remote_access_policy(_RemoteAccessPolicy.PATH_PROVIDER)
 async def list_provider_models(
     provider: str,
     base_url: str | None = None,
@@ -472,7 +591,7 @@ async def list_provider_models(
 ) -> dict[str, Any]:
     # api_key is read from the X-API-Key header (not a query param) so the
     # bearer token doesn't land in access logs, browser history, or referer
-    # headers. Localhost-only gating mitigates remote exposure but not
+    # headers. Remote-access gating mitigates remote exposure but not
     # local logging.
     api_key = x_api_key
     p = _get_provider(provider)

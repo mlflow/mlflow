@@ -40,6 +40,7 @@ jest.mock('@mlflow/mlflow/src/assistant', () => ({
     activeTools: [],
     isLoadingConfig: false,
     isLocalServer: true,
+    canUseAssistant: true,
     closePanel: jest.fn(),
     regenerateLastMessage: jest.fn(),
     cancelSession: jest.fn(),
