@@ -86,6 +86,128 @@ def test_create_server_with_icons_preserves_extra_fields(client):
     assert r.json()["icons"] == icons
 
 
+@pytest.mark.parametrize(
+    "icons",
+    [
+        [{"src": "http://example.com/icon.png"}],
+        [{"src": "https://127.0.0.1/icon.png"}],
+        [{"src": "https://user:pass@example.com/icon.png"}],
+    ],
+)
+def test_create_server_rejects_risky_icon_urls(client, icons):
+    r = client.post(PREFIX, json={"name": "com.example/icon-server", "icons": icons})
+    assert r.status_code == 400
+    assert "Icon URL" in r.text
+
+
+def test_create_server_rejects_icon_url_outside_allowlist(client, monkeypatch):
+    monkeypatch.setenv(
+        "MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS",
+        "assets.example.com,*.cdn.example.com",
+    )
+    r = client.post(
+        PREFIX,
+        json={
+            "name": "com.example/icon-allowlist-server",
+            "icons": [{"src": "https://other.example.com/icon.png"}],
+        },
+    )
+    assert r.status_code == 400
+    assert "allowed domain list" in r.text
+
+
+def test_create_server_accepts_icon_url_inside_allowlist(client, monkeypatch):
+    monkeypatch.setenv(
+        "MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS",
+        "assets.example.com,*.cdn.example.com",
+    )
+    r = client.post(
+        PREFIX,
+        json={
+            "name": "com.example/icon-allowlist-accepted",
+            "icons": [{"src": "https://foo.cdn.example.com/icon.png"}],
+        },
+    )
+    assert r.status_code == 200
+
+
+def test_create_server_accepts_public_http_icon_url_when_scheme_enabled(client, monkeypatch):
+    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES", "http,https")
+    r = client.post(
+        PREFIX,
+        json={
+            "name": "com.example/icon-http-public",
+            "icons": [{"src": "http://example.com/icon.png"}],
+        },
+    )
+    assert r.status_code == 200
+
+
+def test_create_server_accepts_local_icon_url_when_private_ips_enabled(client, monkeypatch):
+    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS", "true")
+    r = client.post(
+        PREFIX,
+        json={
+            "name": "com.example/icon-private-localhost",
+            "icons": [{"src": "https://localhost/icon.png"}],
+        },
+    )
+    assert r.status_code == 200
+
+
+def test_create_server_accepts_local_http_icon_when_scheme_and_private_flags_enabled(
+    client, monkeypatch
+):
+    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES", "http,https")
+    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS", "true")
+    r = client.post(
+        PREFIX,
+        json={
+            "name": "com.example/icon-http-localhost",
+            "icons": [{"src": "http://localhost/icon.png"}],
+        },
+    )
+    assert r.status_code == 200
+
+
+def test_create_server_rejects_invalid_icon_mime_type(client):
+    r = client.post(
+        PREFIX,
+        json={
+            "name": "com.example/icon-bad-mime",
+            "icons": [
+                {
+                    "src": "https://example.com/icon.bin",
+                    "mimeType": "application/octet-stream",
+                }
+            ],
+        },
+    )
+    assert r.status_code == 400
+    assert "Invalid icon mimeType" in r.text
+
+
+@pytest.mark.parametrize(
+    "mime_type",
+    [
+        "image/png",
+        "image/svg+xml",
+        "image/heic",
+        "IMAGE/PNG",
+    ],
+)
+def test_create_server_accepts_reasonable_icon_mime_types(client, mime_type):
+    r = client.post(
+        PREFIX,
+        json={
+            "name": f"com.example/icon-mime-{mime_type.replace('/', '-').replace('+', '-')}",
+            "icons": [{"src": "https://example.com/icon", "mimeType": mime_type}],
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["icons"][0]["mimeType"] == mime_type.lower()
+
+
 def test_create_duplicate_server(client):
     client.post(PREFIX, json={"name": "com.example/dup"})
     r = client.post(PREFIX, json={"name": "com.example/dup"})
@@ -194,6 +316,16 @@ def test_update_server(client):
     data = r.json()
     assert data["description"] == "updated"
     assert data["display_name"] == "Upd"
+
+
+def test_update_server_rejects_risky_icon_urls(client):
+    client.post(PREFIX, json={"name": "com.example/upd-icons"})
+    r = client.patch(
+        f"{PREFIX}/{_encode_path_param('com.example/upd-icons')}",
+        json={"icons": [{"src": "https://127.0.0.1/icon.png"}]},
+    )
+    assert r.status_code == 400
+    assert "Icon URL" in r.text
 
 
 def test_update_server_rejects_latest_version_field(client):
@@ -409,6 +541,31 @@ def test_create_version_with_tool_icons_preserves_extra_fields(client):
     assert r.status_code == 200
     assert r.json()["tools"][0]["name"] == "web_search"
     assert r.json()["tools"][0]["icons"] == tools[0]["icons"]
+
+
+def test_create_version_rejects_risky_tool_icon_urls(client):
+    sj = _server_json("com.example/tool-icons-invalid", "1.0.0")
+    tools = [{"name": "web_search", "icons": [{"src": "https://127.0.0.1/icon.png"}]}]
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/tool-icons-invalid')}/versions",
+        json={"server_json": sj, "tools": tools, "status": "active"},
+    )
+    assert r.status_code == 400
+    assert "Icon URL" in r.text
+
+
+def test_create_version_rejects_risky_server_json_icon_urls(client):
+    sj = _server_json(
+        "com.example/server-json-icons-invalid",
+        "1.0.0",
+        icons=[{"src": "http://example.com/icon.png"}],
+    )
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/server-json-icons-invalid')}/versions",
+        json={"server_json": sj, "status": "active"},
+    )
+    assert r.status_code == 400
+    assert "Icon URL" in r.text
 
 
 def test_create_version_preserves_empty_tools_list(client):

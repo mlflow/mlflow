@@ -10,6 +10,7 @@ import posixpath
 import re
 import socket
 import urllib.parse
+from fnmatch import fnmatch
 from typing import Any
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
@@ -19,6 +20,9 @@ from mlflow.environment_variables import (
     _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS,
     _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
+    MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS,
+    MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS,
+    MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES,
     MLFLOW_TRUNCATE_LONG_VALUES,
 )
 from mlflow.exceptions import MlflowException
@@ -883,6 +887,104 @@ def _validate_webhook_name(name: str) -> None:
             f"Webhook name {name!r} is invalid. It must start and end with a letter or digit, "
             "be less than 63 characters long, and contain only letters, digits, dots (.), "
             "underscores (_), and hyphens (-)."
+        )
+
+
+def _validate_public_https_url(
+    url: str,
+    field_name: str = "URL",
+    allowed_schemes: list[str] | tuple[str, ...] | set[str] = ("https",),
+    allow_private_ips: bool = False,
+) -> None:
+    if not isinstance(url, str):
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must be a string, got {type(url).__name__!r}"
+        )
+
+    if not url.strip():
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} cannot be empty or just whitespace: {url!r}"
+        )
+
+    try:
+        parsed_url = urllib.parse.urlparse(url)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(f"Invalid {field_name} {url!r}: {e!r}") from e
+
+    normalized_allowed_schemes = {scheme.lower() for scheme in allowed_schemes}
+    if parsed_url.scheme not in normalized_allowed_schemes:
+        scheme_list = ", ".join(f"{scheme!r}" for scheme in sorted(normalized_allowed_schemes))
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid {field_name} scheme: {parsed_url.scheme!r}. Allowed schemes are: "
+            f"{scheme_list}."
+        )
+
+    if parsed_url.username or parsed_url.password:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must not include embedded credentials: {url!r}"
+        )
+
+    hostname = parsed_url.hostname
+    if not hostname:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must include a hostname: {url!r}"
+        )
+
+    if allow_private_ips:
+        return
+
+    if hostname.lower() == "localhost":
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must not target localhost: {url!r}"
+        )
+
+    try:
+        ip = ipaddress.ip_address(hostname)
+    except ValueError:
+        return
+
+    if not ip.is_global:
+        raise MlflowException.invalid_parameter_value(
+            f"{field_name} must not resolve to a non-public IP address: {ip}."
+        )
+
+
+def _validate_mcp_icon_url(url: str) -> None:
+    """Validate an MCP icon URL on write/update requests.
+
+    Default behavior accepts only public HTTPS targets. This follows the
+    existing webhook pattern for scheme and private-IP controls, with an
+    optional hostname allowlist layered on top for stricter deployments.
+
+    Operators can further configure:
+    - ``MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES`` to allow schemes like ``http``
+    - ``MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS=true`` to allow localhost /
+      loopback / private-network targets
+    - ``MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS`` for a strict hostname allowlist
+    """
+    allowed_schemes = MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES.get()
+    allow_private_ips = MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS.get()
+    _validate_public_https_url(
+        url,
+        field_name="Icon URL",
+        allowed_schemes=allowed_schemes,
+        allow_private_ips=allow_private_ips,
+    )
+
+    allowed_domains = MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS.get()
+    if not allowed_domains:
+        return
+
+    hostname = urllib.parse.urlparse(url).hostname
+    if not hostname:
+        raise MlflowException.invalid_parameter_value(f"Icon URL must include a hostname: {url!r}")
+
+    normalized_hostname = hostname.lower()
+    normalized_allowed_domains = [pattern.lower() for pattern in allowed_domains]
+    if not any(fnmatch(normalized_hostname, pattern) for pattern in normalized_allowed_domains):
+        raise MlflowException.invalid_parameter_value(
+            f"Icon URL host {hostname!r} is not in the allowed domain list: "
+            f"{', '.join(allowed_domains)}."
         )
 
 

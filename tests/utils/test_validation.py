@@ -20,12 +20,14 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_name,
     _validate_list_param,
+    _validate_mcp_icon_url,
     _validate_metric_name,
     _validate_model_alias_name,
     _validate_model_alias_name_reserved,
     _validate_model_name,
     _validate_model_renaming,
     _validate_param_name,
+    _validate_public_https_url,
     _validate_run_id,
     _validate_tag_name,
     _validate_webhook_url,
@@ -533,6 +535,116 @@ def test_validate_webhook_url_allow_private_ips_env_var(monkeypatch):
         side_effect=_mock_getaddrinfo("127.0.0.1"),
     ):
         _validate_webhook_url("https://localhost/callback")
+
+
+@pytest.mark.parametrize(
+    ("url", "expected_match"),
+    [
+        (123, "Icon URL must be a string"),
+        ("", "Icon URL cannot be empty"),
+        ("   ", "Icon URL cannot be empty"),
+        ("http://example.com/icon.png", "Invalid Icon URL scheme"),
+        ("data:image/png;base64,abc", "Invalid Icon URL scheme"),
+        ("https://", "Icon URL must include a hostname"),
+        ("https://user:pass@example.com/icon.png", "must not include embedded credentials"),
+        ("https://localhost/icon.png", "must not target localhost"),
+        ("https://127.0.0.1/icon.png", "must not resolve to a non-public IP address"),
+        ("https://[::1]/icon.png", "must not resolve to a non-public IP address"),
+        ("https://192.168.1.10/icon.png", "must not resolve to a non-public IP address"),
+    ],
+)
+def test_validate_public_https_url_rejects_invalid_input(url, expected_match):
+    with pytest.raises(MlflowException, match=expected_match):
+        _validate_public_https_url(url, field_name="Icon URL")
+
+
+@pytest.mark.parametrize("url", ["https://example.com/icon.png", "https://8.8.8.8/icon.png"])
+def test_validate_public_https_url_accepts_public_targets(url):
+    _validate_public_https_url(url, field_name="Icon URL")
+
+
+def test_validate_public_https_url_allowed_schemes_accepts_http():
+    _validate_public_https_url(
+        "http://example.com/icon.png",
+        field_name="Icon URL",
+        allowed_schemes=("http", "https"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("url", "expected_match"),
+    [
+        ("https://user:pass@example.com/icon.png", "must not include embedded credentials"),
+        ("https://", "Icon URL must include a hostname"),
+    ],
+)
+def test_validate_public_https_url_allowed_schemes_keeps_basic_shape_checks(url, expected_match):
+    with pytest.raises(MlflowException, match=expected_match):
+        _validate_public_https_url(
+            url,
+            field_name="Icon URL",
+            allowed_schemes=("http", "https"),
+        )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://localhost/icon.png",
+        "https://127.0.0.1/icon.png",
+        "https://192.168.1.10/icon.png",
+    ],
+)
+def test_validate_public_https_url_allow_private_ips_accepts_local_targets(url):
+    _validate_public_https_url(url, field_name="Icon URL", allow_private_ips=True)
+
+
+def test_validate_mcp_icon_url_allowlist_accepts_exact_match(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS", "example.com")
+    _validate_mcp_icon_url("https://example.com/icon.png")
+
+
+def test_validate_mcp_icon_url_allowlist_accepts_wildcard_match(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS", "*.example.com")
+    _validate_mcp_icon_url("https://cdn.example.com/icon.png")
+
+
+def test_validate_mcp_icon_url_allowlist_rejects_unlisted_host(monkeypatch):
+    monkeypatch.setenv(
+        "MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS",
+        "assets.example.com,*.cdn.example.com",
+    )
+    with pytest.raises(MlflowException, match="not in the allowed domain list"):
+        _validate_mcp_icon_url("https://evil.example.com/icon.png")
+
+
+def test_validate_mcp_icon_url_allow_private_ips_accepts_localhost(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS", "true")
+    _validate_mcp_icon_url("https://localhost/icon.png")
+
+
+def test_validate_mcp_icon_url_allowed_schemes_accepts_public_http(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES", "http,https")
+    _validate_mcp_icon_url("http://example.com/icon.png")
+
+
+def test_validate_mcp_icon_url_allow_private_ips_does_not_bypass_allowlist(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS", "true")
+    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS", "assets.example.com")
+    with pytest.raises(MlflowException, match="allowed domain list"):
+        _validate_mcp_icon_url("https://localhost/icon.png")
+
+
+def test_validate_mcp_icon_url_allow_private_ips_and_allowlist_accepts_localhost(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS", "true")
+    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS", "localhost")
+    _validate_mcp_icon_url("https://localhost/icon.png")
+
+
+def test_validate_mcp_icon_url_allowed_schemes_keeps_basic_shape_checks(monkeypatch):
+    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES", "http,https")
+    with pytest.raises(MlflowException, match="must not include embedded credentials"):
+        _validate_mcp_icon_url("http://user:pass@example.com/icon.png")
 
 
 @pytest.mark.parametrize("invalid_name", ["my/model", "model:v1", "name/with:both"])

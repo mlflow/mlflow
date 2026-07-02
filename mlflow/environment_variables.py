@@ -1363,6 +1363,26 @@ _MLFLOW_WEBHOOK_ALLOWED_SCHEMES = _EnvironmentVariable(
 )
 
 
+#: Allowed schemes for MCP icon URLs.
+#: Defaults to ``https``. Set to ``http,https`` for local development.
+MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES", _split_strip, ["https"]
+)
+
+#: Whether to allow MCP icon URLs that target private or loopback hosts.
+#: Intended for local development and testing only.
+MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
+    "MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS", False
+)
+
+#: Optional allowlist of domains that MCP icon URLs may target.
+#: Supports exact hosts and wildcard patterns like ``*.example.com``.
+#: When unset, icon URLs may use any public host allowed by the scheme/private-IP
+#: policy.
+MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS = _EnvironmentVariable(
+    "MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS", _split_strip, None
+)
+
 #: Specifies the secret key used to encrypt webhook secrets in MLflow.
 MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY", str, None
