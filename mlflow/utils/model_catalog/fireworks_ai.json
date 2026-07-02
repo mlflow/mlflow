@@ -2747,12 +2747,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-06-24"
     },
     "accounts/fireworks/models/ministral-3-14b-instruct-2512": {
       "mode": "chat",
@@ -5647,12 +5647,12 @@
       },
       "capabilities": {
         "function_calling": true,
-        "vision": false,
+        "vision": true,
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
       },
-      "last_updated_at": "2026-06-22"
+      "last_updated_at": "2026-06-24"
     },
     "qwen3p7-plus": {
       "mode": "chat",

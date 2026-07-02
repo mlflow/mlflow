@@ -11,15 +11,17 @@ from mlflow.spark.autologging import _stop_listen_for_spark_activity
 
 @pytest.fixture
 def autolog_caplog(caplog):
-    # The "mlflow" logger sets propagate=False, so caplog's root handler does not see
-    # records. Attach caplog's handler directly to the autologging logger.
-    logger = logging.getLogger("mlflow.spark.autologging")
-    logger.addHandler(caplog.handler)
+    # "mlflow" sets propagate=False, so its records never reach caplog's root handler.
+    # Enable propagation so caplog captures them. Don't attach caplog.handler directly:
+    # pytest >= 9.1 attaches it to non-propagating loggers, which double-counts records.
+    mlflow_logger = logging.getLogger("mlflow")
+    original_propagate = mlflow_logger.propagate
+    mlflow_logger.propagate = True
     try:
         with caplog.at_level(logging.WARNING, logger="mlflow.spark.autologging"):
             yield caplog
     finally:
-        logger.removeHandler(caplog.handler)
+        mlflow_logger.propagate = original_propagate
 
 
 def _make_spark_context(shutdown_side_effect=None):

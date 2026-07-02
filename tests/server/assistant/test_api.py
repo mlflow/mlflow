@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from mlflow.assistant.config import AssistantConfig, ProjectConfig
 from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
+from mlflow.assistant.providers import OllamaProvider
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
@@ -19,8 +20,12 @@ from mlflow.assistant.providers.base import (
     ProviderConfig,
     ProviderNotConfiguredError,
 )
-from mlflow.assistant.types import Event, Message
-from mlflow.server.assistant.api import _require_localhost, assistant_router
+from mlflow.assistant.types import Event, Message, ToolUseBlock
+from mlflow.server.assistant.api import (
+    PermissionDecision,
+    _require_localhost,
+    assistant_router,
+)
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager, save_process_pid
 from mlflow.utils.os import is_windows
 
@@ -390,6 +395,160 @@ def test_patch_session_cancel_with_process(client):
             assert not _is_process_running(proc.pid)
 
 
+class _DeferredProvider(MockProvider):
+    """Pauses at the prompt on the first turn; resumes from the decision in context."""
+
+    async def astream(
+        self,
+        prompt,
+        tracking_uri,
+        session_id=None,
+        mlflow_session_id=None,
+        cwd=None,
+        context=None,
+    ):
+        decisions = (context or {}).get("tool_decisions") or {}
+        if not decisions:
+            # First turn: surface the tool, emit the prompt, and end the turn.
+            yield Event.from_message(
+                Message(
+                    role="assistant",
+                    content=[ToolUseBlock(id="t1", name="Bash", input={"command": "echo hi"})],
+                )
+            )
+            yield Event.from_permission_request("t1", "Bash", {"command": "echo hi"})
+            yield Event.from_result(result=None, session_id="prov-paused")
+            return
+        # Resume: apply the delivered decision.
+        allowed = decisions.get("t1") == "allow"
+        yield Event.from_message(Message(role="assistant", content="ran" if allowed else "denied"))
+        yield Event.from_result(result=None, session_id="prov-done")
+
+
+@pytest.mark.parametrize(("decision", "expected_text"), [("allow", "ran"), ("deny", "denied")])
+@pytest.mark.asyncio
+async def test_stream_pauses_then_resumes(decision, expected_text):
+    """The turn ENDS at the permission prompt (no hang, no cross-request state);
+    a resume request then drives a fresh stream to completion.
+    """
+    from mlflow.server.assistant.api import resolve_permission, stream_response
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.set_pending_message(role="user", content="hi")
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    provider = _DeferredProvider()
+
+    # First turn: the stream completes immediately at the prompt (no await).
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        first = "".join([c async for c in response.body_iterator])
+    assert "permission_request" in first
+    assert "event: done" in first
+
+    # Deliver the decision, then a fresh stream resumes to completion.
+    res = await resolve_permission(
+        session_id, PermissionDecision(request_id="t1", decision=decision)
+    )
+    assert res.session_id == session_id
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response2 = await stream_response(mock_request, session_id)
+        second = "".join([c async for c in response2.body_iterator])
+    assert expected_text in second
+    assert "event: done" in second
+
+
+class _CaptureProvider(MockProvider):
+    """Records the prompt and context astream is called with, then completes."""
+
+    def __init__(self):
+        self.captured: dict[str, Any] = {}
+
+    async def astream(
+        self,
+        prompt,
+        tracking_uri,
+        session_id=None,
+        mlflow_session_id=None,
+        cwd=None,
+        context=None,
+    ):
+        self.captured = {"prompt": prompt, "context": context or {}}
+        yield Event.from_result(result=None, session_id="prov-done")
+
+
+@pytest.mark.asyncio
+async def test_stream_prefers_new_message_over_stale_tool_decision():
+    """A pending message and a stale decision can coexist if a resume stream never
+    consumed the decision and the user typed again. The new message must win: the
+    provider sees the prompt and NOT the stale tool_decisions (which would otherwise
+    resume the abandoned turn and silently drop the message).
+    """
+    from mlflow.server.assistant.api import stream_response
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.set_pending_message(role="user", content="what is 2+2")
+    session.pending_tool_decisions = {"t1": "allow"}
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    provider = _CaptureProvider()
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        _ = "".join([c async for c in response.body_iterator])
+
+    assert provider.captured["prompt"] == "what is 2+2"
+    assert "tool_decisions" not in provider.captured["context"]
+
+
+@pytest.mark.asyncio
+async def test_stream_forwards_tool_decision_when_no_pending_message():
+    """A genuine resume (decision delivered, no new message) still forwards the
+    tool_decisions so the provider can continue the paused turn.
+    """
+    from mlflow.server.assistant.api import stream_response
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.pending_tool_decisions = {"t1": "allow"}
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    provider = _CaptureProvider()
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        _ = "".join([c async for c in response.body_iterator])
+
+    assert provider.captured["prompt"] == ""
+    assert provider.captured["context"]["tool_decisions"] == {"t1": "allow"}
+
+
+def test_resolve_permission_rejects_invalid_session(client):
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/sessions/not-a-uuid/permission",
+        json={"request_id": "t1", "decision": "allow"},
+    )
+    assert response.status_code == 400
+
+
+def test_resolve_permission_returns_404_for_unknown_session(client):
+    # Well-formed UUID, but no such session exists.
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/sessions/f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47/permission",
+        json={"request_id": "t1", "decision": "allow"},
+    )
+    assert response.status_code == 404
+
+
 def test_install_skills_success(client):
     with patch(
         "mlflow.server.assistant.api.install_skills", return_value=["skill1", "skill2"]
@@ -429,11 +588,12 @@ def test_install_skills_skips_when_already_installed(client):
 
 
 def test_update_config_partial_update_preserves_selected_provider(client):
+    ollama = OllamaProvider.OLLAMA_PROVIDER_NAME
     # Pre-populate config: claude_code selected, ollama exists but not selected
     config = AssistantConfig(
         providers={
             "claude_code": AssistantProviderConfig(model="opus", selected=True),
-            "ollama": AssistantProviderConfig(
+            ollama: AssistantProviderConfig(
                 model="llama3", selected=False, base_url="http://localhost:11434"
             ),
         }
@@ -443,14 +603,14 @@ def test_update_config_partial_update_preserves_selected_provider(client):
     # Partially update ollama base_url without a selected flag
     response = client.put(
         "/ajax-api/3.0/mlflow/assistant/config",
-        json={"providers": {"ollama": {"base_url": "http://localhost:12345"}}},
+        json={"providers": {ollama: {"base_url": "http://localhost:12345"}}},
     )
 
     assert response.status_code == 200
     data = response.json()
     assert data["providers"]["claude_code"]["selected"] is True
-    assert data["providers"]["ollama"]["selected"] is False
-    assert data["providers"]["ollama"]["base_url"] == "http://localhost:12345"
+    assert data["providers"][ollama]["selected"] is False
+    assert data["providers"][ollama]["base_url"] == "http://localhost:12345"
 
 
 def test_list_ollama_models_returns_model_list(client):

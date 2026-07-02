@@ -97,6 +97,7 @@ export interface ExperimentViewRunsColumnSelectorProps {
   columnSelectorVisible: boolean;
   onChangeColumnSelectorVisible: (value: boolean) => void;
   selectedColumns: string[];
+  onResetColumns: () => void;
 }
 
 /**
@@ -109,6 +110,7 @@ export const ExperimentViewRunsColumnSelector = React.memo(
     columnSelectorVisible,
     onChangeColumnSelectorVisible,
     selectedColumns,
+    onResetColumns,
   }: ExperimentViewRunsColumnSelectorProps) => {
     const updateUIState = useUpdateExperimentViewUIState();
     const experimentIds = useExperimentIds();
@@ -340,6 +342,29 @@ export const ExperimentViewRunsColumnSelector = React.memo(
             defaultExpandedKeys={[GROUP_KEY_ATTRIBUTES, GROUP_KEY_PARAMS, GROUP_KEY_METRICS, GROUP_KEY_TAGS]}
             treeData={treeData}
           />
+        </div>
+        <div
+          css={{
+            borderTop: `1px solid ${theme.colors.border}`,
+            padding: theme.spacing.sm,
+            display: 'flex',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <Button
+            componentId="mlflow.experiment_page.runs_table.column_selector.reset_to_defaults"
+            type="tertiary"
+            data-testid="column-selector-reset"
+            onClick={() => {
+              onResetColumns();
+              onChangeColumnSelectorVisible(false);
+            }}
+          >
+            <FormattedMessage
+              defaultMessage="Reset to defaults"
+              description="Button in the experiment runs table column selector that resets column visibility, order and width back to defaults"
+            />
+          </Button>
         </div>
       </div>
     );

@@ -5,18 +5,53 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import type { AssistantAgentContextType, ChatMessage, ToolUseInfo } from './types';
+import type { AssistantAgentContextType, AssistantConfig, ChatMessage, PermissionRequest, ToolUseInfo } from './types';
 import {
   cancelSession as cancelSessionApi,
   sendMessageStream,
   getConfig,
+  resumeStream,
   type SendMessageStreamCallbacks,
   type SendMessageStreamResult,
 } from './AssistantService';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useAssistantPageContextActions } from './AssistantPageContext';
+import { GatewayApi } from '../gateway/api';
+import { GATEWAY_PROVIDER_ID } from './constants';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
+
+// Cap the persisted transcript by JSON string length (UTF-16 code units — what localStorage counts),
+// keeping it well under the ~5 MB localStorage limit.
+const MAX_PERSISTED_CHARS = 1_500_000;
+
+// Exported as base + version (not a precomputed key) so this module does no work at import time:
+// `useLocalStorage` builds the full key from these, and tests build it via `buildStorageKey`.
+// A top-level `buildStorageKey()` call here would run whenever the module is loaded — including
+// transitively in unrelated suites — and throw under any mock that stubs the hooks module.
+export const CHAT_STORAGE_KEY_BASE = 'mlflow.assistant.chat';
+export const CHAT_STORAGE_VERSION = 1;
+
+interface PersistedChat {
+  messages: ChatMessage[];
+}
+
+/** `timestamp` round-trips through JSON as a string; restore it to a Date on load. */
+export const reviveMessages = (messages: ChatMessage[]): ChatMessage[] =>
+  messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
+
+/** Shrink a transcript to fit storage by dropping the oldest messages under a string-length budget. */
+export const trimForStorage = (messages: ChatMessage[], maxChars: number = MAX_PERSISTED_CHARS): ChatMessage[] => {
+  // Drop the oldest message until under budget, but never drop the last one.
+  const lengths = messages.map((msg) => JSON.stringify(msg).length);
+  let size = lengths.reduce((acc, len) => acc + len, 0); // best-effort; ignores separators
+  let start = 0;
+  while (start < messages.length - 1 && size > maxChars) {
+    size -= lengths[start];
+    start += 1;
+  }
+  return start === 0 ? messages : messages.slice(start);
+};
 
 /**
  * Wrap every stream callback so it no-ops once the originating send is stale (the user reset or
@@ -50,6 +85,21 @@ const generateMessageId = (): string => {
   return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
+async function resolveSetupComplete(config: AssistantConfig): Promise<boolean> {
+  const selectedProvider = Object.entries(config.providers ?? {}).find(
+    ([, providerConfig]) => providerConfig.selected === true,
+  );
+  if (!selectedProvider) return false;
+
+  const [providerId, providerConfig] = selectedProvider;
+  if (providerId !== GATEWAY_PROVIDER_ID) {
+    return true;
+  }
+  // The endpoint must be the same as the model name
+  const { endpoints } = await GatewayApi.listEndpoints();
+  return endpoints.some((endpoint) => endpoint.name === providerConfig.model);
+}
+
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Detect if server is local - memoized since hostname doesn't change
   const isLocalServer = useMemo(() => checkIsLocalServer(), []);
@@ -61,13 +111,21 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     initialValue: false,
   });
 
-  // Chat state
+  // Conversation - persisted to localStorage so it survives reloads as a single conversation.
+  const [persistedChat, setPersistedChat] = useLocalStorage<PersistedChat>({
+    key: CHAT_STORAGE_KEY_BASE,
+    version: CHAT_STORAGE_VERSION,
+    initialValue: { messages: [] },
+  });
+
+  // Chat state - messages are seeded once from the persisted conversation on first mount.
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => reviveMessages(persistedChat.messages));
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [activeTools, setActiveTools] = useState<ToolUseInfo[]>([]);
+  const [pendingPermission, setPendingPermission] = useState<PermissionRequest | null>(null);
 
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
@@ -132,6 +190,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
+    setPendingPermission(null);
   }, []);
 
   const handleStatus = useCallback((status: string) => {
@@ -146,12 +205,16 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setActiveTools(tools);
   }, []);
 
+  const handlePermissionRequest = useCallback((request: PermissionRequest) => {
+    setPendingPermission(request);
+  }, []);
+
   // Setup actions
   const refreshConfig = useCallback(async () => {
     setIsLoadingConfig(true);
     try {
       const config = await getConfig();
-      const isComplete = Object.values(config.providers ?? {}).some((p) => p.selected === true);
+      const isComplete = await resolveSetupComplete(config);
       setSetupComplete(isComplete);
     } catch {
       // On error, assume setup is not complete
@@ -170,6 +233,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     refreshConfig();
   }, [refreshConfig]);
+
+  // Persist the conversation once it settles. Skipping the streaming hot path avoids a write on
+  // every token; reset() empties messages, so this writes the empty conversation to clear storage.
+  useEffect(() => {
+    if (isStreaming) return;
+    setPersistedChat({ messages: trimForStorage(messages) });
+  }, [isStreaming, messages, setPersistedChat]);
 
   // Cancel pending RAF and close EventSource on unmount
   useEffect(() => {
@@ -193,6 +263,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     eventSourceRef.current = null;
     setActiveTools([]);
+    setPendingPermission(null);
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
@@ -206,6 +277,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
+    setPendingPermission(null);
     eventSourceRef.current = null;
     streamingMessageRef.current = '';
     setMessages((prev) => {
@@ -255,6 +327,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setCurrentStatus(null);
     setActiveTools([]);
     streamingMessageRef.current = '';
+    setPendingPermission(null);
   }, []);
 
   // Begin a new in-flight send: stamp a fresh token in closure,
@@ -283,6 +356,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
       setError(null);
       setIsStreaming(true);
+      // A new message supersedes any prompt the user was deciding on. Clearing it
+      // here drops the stale Allow/Deny so it can't resume the abandoned turn; the
+      // backend closes the orphaned tool call out as cancelled.
+      setPendingPermission(null);
 
       // Add user message if prompt provided
       if (prompt) {
@@ -327,6 +404,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
             onSessionId: handleSessionId,
             onToolUse: handleToolUse,
             onInterrupted: handleInterrupted,
+            onPermissionRequest: handlePermissionRequest,
           }),
         );
         if (!attachStreamIfCurrent(isCurrent, result)) {
@@ -351,6 +429,61 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       handleSessionId,
       handleToolUse,
       handleInterrupted,
+      handlePermissionRequest,
+    ],
+  );
+
+  const respondToPermission = useCallback(
+    (allow: boolean) => {
+      if (!pendingPermission) {
+        return;
+      }
+      // Target the request's originating session, not the current one, so a
+      // session change while the prompt was shown can't resolve the wrong turn.
+      const { sessionId: requestSessionId, requestId } = pendingPermission;
+      setPendingPermission(null);
+      setError(null);
+      setIsStreaming(true);
+
+      // The paused assistant placeholder keeps streaming — no new message; the
+      // resume stream continues accumulating into it until done.
+      const isCurrent = beginRequest();
+      resumeStream(
+        requestSessionId,
+        requestId,
+        allow ? 'allow' : 'deny',
+        withGuard(isCurrent, {
+          onMessage: appendToStreamingMessage,
+          onError: handleStreamError,
+          onDone: finalizeStreamingMessage,
+          onStatus: handleStatus,
+          onSessionId: handleSessionId,
+          onToolUse: handleToolUse,
+          onInterrupted: handleInterrupted,
+          onPermissionRequest: handlePermissionRequest,
+        }),
+      )
+        .then((result) => {
+          attachStreamIfCurrent(isCurrent, result);
+        })
+        .catch((err) => {
+          if (isCurrent()) {
+            handleStreamError(err instanceof Error ? err.message : 'Failed to resume');
+          }
+        });
+    },
+    [
+      pendingPermission,
+      beginRequest,
+      attachStreamIfCurrent,
+      appendToStreamingMessage,
+      handleStreamError,
+      finalizeStreamingMessage,
+      handleStatus,
+      handleSessionId,
+      handleToolUse,
+      handleInterrupted,
+      handlePermissionRequest,
     ],
   );
 
@@ -365,6 +498,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
       setError(null);
       setIsStreaming(true);
+      setPendingPermission(null);
 
       // Add user message
       setMessages((prev) => [
@@ -407,6 +541,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
           onSessionId: handleSessionId,
           onToolUse: handleToolUse,
           onInterrupted: handleInterrupted,
+          onPermissionRequest: handlePermissionRequest,
         }),
       );
       attachStreamIfCurrent(isCurrent, result);
@@ -424,6 +559,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       handleSessionId,
       handleToolUse,
       handleInterrupted,
+      handlePermissionRequest,
     ],
   );
 
@@ -458,6 +594,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setIsStreaming(false);
     setCurrentStatus(null);
     setActiveTools([]);
+    setPendingPermission(null);
     streamingMessageRef.current = '';
   }, [sessionId, isStreaming]);
 
@@ -523,6 +660,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
         onSessionId: handleSessionId,
         onToolUse: handleToolUse,
         onInterrupted: handleInterrupted,
+        onPermissionRequest: handlePermissionRequest,
       }),
     );
     attachStreamIfCurrent(isCurrent, result);
@@ -540,6 +678,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     handleSessionId,
     handleToolUse,
     handleInterrupted,
+    handlePermissionRequest,
   ]);
 
   const value: AssistantAgentContextType = {
@@ -555,6 +694,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     isLoadingConfig,
     isLocalServer,
     pendingPrompt,
+    pendingPermission,
     // Actions
     openPanel,
     closePanel,
@@ -566,6 +706,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     cancelSession: handleCancelSession,
     refreshConfig,
     completeSetup,
+    respondToPermission,
   };
 
   return <AssistantReactContext.Provider value={value}>{children}</AssistantReactContext.Provider>;
@@ -584,6 +725,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   isLoadingConfig: false,
   isLocalServer: false,
   pendingPrompt: null,
+  pendingPermission: null,
   openPanel: () => {},
   closePanel: () => {},
   sendMessage: () => {},
@@ -594,6 +736,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   cancelSession: () => {},
   refreshConfig: () => Promise.resolve(),
   completeSetup: () => {},
+  respondToPermission: () => {},
 };
 
 /**
