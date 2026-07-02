@@ -756,3 +756,47 @@ def test_get_presigned_download_url(http_artifact_repo):
             f"/mlflow-artifacts/presigned/{remote_file_path}",
             "GET",
         )
+
+
+def test_upload_part_respects_ignore_tls(monkeypatch, tmp_path):
+    monkeypatch.setenv(
+        "MLFLOW_MULTIPART_UPLOAD_IGNORE_TLS",
+        "true",
+    )
+
+    credential = MultipartUploadCredential(
+        url="https://example.com/upload",
+        part_number=1,
+        headers={},
+    )
+
+    with mock.patch(
+        "mlflow.store.artifact.http_artifact_repo.requests.put"
+    ) as mock_put:
+        mock_response = mock.Mock()
+        mock_response.headers = {"ETag": "abc"}
+        mock_response.raise_for_status.return_value = None
+        mock_put.return_value = mock_response
+
+        file = tmp_path / "sample.txt"
+        file.write_text("hello")
+
+        HttpArtifactRepository._upload_part(
+            credential,
+            file,
+            5,
+            0,
+        )
+
+        print(mock_put.call_args)
+        print(mock_put.call_args.args)
+        print(mock_put.call_args.kwargs)
+
+        assert False
+
+    monkeypatch.delenv(
+        "MLFLOW_MULTIPART_UPLOAD_IGNORE_TLS",
+        raising=False,
+    )
+
+ 
