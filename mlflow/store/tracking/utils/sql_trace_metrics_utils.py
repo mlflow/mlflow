@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Float, and_, case, distinct, exists, func, literal_column
+from sqlalchemy import Column, Float, and_, case, distinct, exists, func, literal_column, true
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.query import Query
 
@@ -477,7 +477,7 @@ def _apply_view_initial_join(query: Query, view_type: MetricViewType) -> Query:
                 SqlAssessments,
                 and_(
                     SqlAssessments.trace_id == SqlTraceInfo.request_id,
-                    SqlAssessments.valid.is_(True),
+                    SqlAssessments.valid == true(),
                 ),
             )
     return query
