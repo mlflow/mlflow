@@ -83,6 +83,10 @@ import {
   COST_METADATA_KEY,
   MLFLOW_SPAN_OUTPUT_KEY,
   SPAN_ATTRIBUTE_COST_KEY,
+  SPAN_ATTRIBUTE_TOOL_COST_KEY,
+  SPAN_ATTRIBUTE_EMBEDDING_COST_KEY,
+  SPAN_ATTRIBUTE_RETRIEVAL_COST_KEY,
+  SPAN_ATTRIBUTE_SPAN_COST_KEY,
   SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY,
   SPAN_ATTRIBUTE_MODEL_KEY,
   TOKEN_USAGE_METADATA_KEY,
@@ -467,15 +471,31 @@ const getChatToolsFromSpan = (toolsAttributeValue: any, inputs: any): ModelTrace
 };
 
 const getCostFromSpan = (costAttributeValue: any): SpanCostInfo | undefined => {
-  if (
-    costAttributeValue &&
-    typeof costAttributeValue === 'object' &&
-    'input_cost' in costAttributeValue &&
-    'output_cost' in costAttributeValue &&
-    'total_cost' in costAttributeValue
-  ) {
-    return costAttributeValue as SpanCostInfo;
+  if (costAttributeValue === null || costAttributeValue === undefined) {
+    return undefined;
   }
+
+  // Handle structured cost format (with input/output/total breakdown)
+  // Preserve all keys including span-type-specific ones (tool_cost, embedding_cost, etc.)
+  if (typeof costAttributeValue === 'object' && 'total_cost' in costAttributeValue) {
+    return {
+      total_cost: costAttributeValue.total_cost,
+      input_cost: costAttributeValue.input_cost,
+      output_cost: costAttributeValue.output_cost,
+      tool_cost: costAttributeValue.tool_cost,
+      embedding_cost: costAttributeValue.embedding_cost,
+      retrieval_cost: costAttributeValue.retrieval_cost,
+      other_cost: costAttributeValue.other_cost,
+    } as SpanCostInfo;
+  }
+
+  // Handle simple numeric cost format (just total_cost)
+  if (typeof costAttributeValue === 'number') {
+    return {
+      total_cost: costAttributeValue,
+    } as SpanCostInfo;
+  }
+
   return undefined;
 };
 
@@ -513,9 +533,27 @@ export const normalizeNewSpanData = (
 
   // Extract model name, cost info, and linked gateway trace ID
   const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);
-  const cost = getCostFromSpan(
-    tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_COST_KEY) as string),
-  );
+
+  // Check all cost attributes in order of priority
+  const costAttributeKeys = [
+    SPAN_ATTRIBUTE_COST_KEY,
+    SPAN_ATTRIBUTE_TOOL_COST_KEY,
+    SPAN_ATTRIBUTE_EMBEDDING_COST_KEY,
+    SPAN_ATTRIBUTE_RETRIEVAL_COST_KEY,
+    SPAN_ATTRIBUTE_SPAN_COST_KEY,
+  ];
+
+  let cost: SpanCostInfo | undefined;
+  for (const costKey of costAttributeKeys) {
+    const costValue = tryDeserializeAttribute(getSpanAttribute(span.attributes, costKey) as string);
+    if (costValue !== undefined) {
+      cost = getCostFromSpan(costValue);
+      if (cost) {
+        break;
+      }
+    }
+  }
+
   const linkedGatewayTraceId = tryDeserializeAttribute(
     getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY) as string,
   );
