@@ -5,9 +5,11 @@ from collections.abc import Iterator
 from unittest import mock
 
 import pytest
+import requests
+from urllib3.util.retry import Retry
 
 from mlflow.webhooks.delivery import _create_webhook_session
-from mlflow.webhooks.ssrf import SSRFProtectionError
+from mlflow.webhooks.ssrf import SSRFProtectedHTTPAdapter, SSRFProtectionError
 
 
 @pytest.fixture
@@ -101,3 +103,29 @@ def test_ssrf_error_is_not_retried(loopback_server: int):
             session.post(f"http://127.0.0.1:{loopback_server}/", timeout=10)
         # One check per connection attempt; no retry loop.
         mock_ip.assert_called_once()
+
+
+def test_explicit_proxy_to_private_ip_is_blocked(loopback_server: int):
+    # An explicitly configured proxy routes through proxy_manager_for, not the
+    # direct pool manager. The adapter's proxy manager must also use protected
+    # pools so the proxy endpoint's peer IP is validated.
+    session = requests.Session()
+    adapter = SSRFProtectedHTTPAdapter(max_retries=Retry(total=0))
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    session.proxies = {"http": f"http://127.0.0.1:{loopback_server}"}
+
+    assert type(adapter.proxy_manager_for(f"http://127.0.0.1:{loopback_server}")).__name__ == (
+        "_SSRFProtectedProxyManager"
+    )
+    with pytest.raises(SSRFProtectionError, match="not a public IP"):
+        session.post("http://example.com/hook", timeout=10)
+
+
+def test_getpeername_oserror_fails_closed(loopback_server: int):
+    # If getpeername() raises OSError (e.g. ENOTCONN), the check must fail closed
+    # with SSRFProtectionError rather than leak an uncaught OSError.
+    session = _create_webhook_session()
+    with mock.patch.object(socket.socket, "getpeername", side_effect=OSError("ENOTCONN")):
+        with pytest.raises(SSRFProtectionError, match="peer address"):
+            session.post(f"http://127.0.0.1:{loopback_server}/", timeout=10)

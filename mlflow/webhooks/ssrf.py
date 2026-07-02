@@ -24,7 +24,7 @@ import socket
 from requests.adapters import DEFAULT_POOLBLOCK, HTTPAdapter
 from urllib3.connection import HTTPConnection, HTTPSConnection
 from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
-from urllib3.poolmanager import PoolManager
+from urllib3.poolmanager import PoolManager, ProxyManager
 
 from mlflow.environment_variables import _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS
 
@@ -42,7 +42,14 @@ def _assert_public_peer(sock: socket.socket) -> None:
         return
 
     # getpeername() returns (host, port, ...) for both IPv4 and IPv6 sockets.
-    peer_ip = sock.getpeername()[0]
+    # It can raise OSError (e.g. ENOTCONN) on an unconnected socket; fail closed.
+    try:
+        peer_ip = sock.getpeername()[0]
+    except OSError as e:
+        sock.close()
+        raise SSRFProtectionError(
+            f"Could not determine webhook connection peer address: {e}"
+        ) from e
     try:
         ip = ipaddress.ip_address(peer_ip)
     except ValueError as e:
@@ -83,19 +90,32 @@ class _SSRFProtectedHTTPSConnectionPool(HTTPSConnectionPool):
     ConnectionCls = _SSRFProtectedHTTPSConnection
 
 
+# Instance-local override installed on any (Pool|Proxy)Manager below, so only
+# pools created by these managers get the SSRF-protected connection classes.
+_SSRF_POOL_CLASSES = {
+    "http": _SSRFProtectedHTTPConnectionPool,
+    "https": _SSRFProtectedHTTPSConnectionPool,
+}
+
+
 class _SSRFProtectedPoolManager(PoolManager):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        # Instance-local override, so only pools created by this manager get the
-        # SSRF-protected connection classes.
-        self.pool_classes_by_scheme = {
-            "http": _SSRFProtectedHTTPConnectionPool,
-            "https": _SSRFProtectedHTTPSConnectionPool,
-        }
+        self.pool_classes_by_scheme = _SSRF_POOL_CLASSES
+
+
+class _SSRFProtectedProxyManager(ProxyManager):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.pool_classes_by_scheme = _SSRF_POOL_CLASSES
 
 
 class SSRFProtectedHTTPAdapter(HTTPAdapter):
-    """``HTTPAdapter`` that validates each connection's peer IP is public."""
+    """``HTTPAdapter`` that validates each connection's peer IP is public.
+
+    Both the direct pool manager and the proxy manager use SSRF-protected pools,
+    so the peer-IP check runs whether or not a proxy is configured.
+    """
 
     def init_poolmanager(
         self, connections, maxsize, block=DEFAULT_POOLBLOCK, **pool_kwargs
@@ -109,3 +129,16 @@ class SSRFProtectedHTTPAdapter(HTTPAdapter):
             block=block,
             **pool_kwargs,
         )
+
+    def proxy_manager_for(self, proxy, **proxy_kwargs):
+        if proxy not in self.proxy_manager:
+            proxy_headers = self.proxy_headers(proxy)
+            self.proxy_manager[proxy] = _SSRFProtectedProxyManager(
+                proxy,
+                proxy_headers=proxy_headers,
+                num_pools=self._pool_connections,
+                maxsize=self._pool_maxsize,
+                block=self._pool_block,
+                **proxy_kwargs,
+            )
+        return self.proxy_manager[proxy]
