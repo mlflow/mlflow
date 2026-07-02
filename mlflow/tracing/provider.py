@@ -163,6 +163,12 @@ class _TracerProviderWrapper:
 
     def reset(self):
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+            # reset() drops the isolated provider reference outright (the next trace lazily
+            # re-inits it). Orphan its batch processor first so its daemon thread is reclaimed
+            # once drained instead of leaked. This is the set_experiment()/set_destination()
+            # provider-swap path, which goes through reset() rather than
+            # _initialize_tracer_provider.
+            _orphan_current_processor_and_sweep()
             self._isolated_tracer_provider = None
             self._isolated_tracer_provider_once._done = False
         else:
@@ -496,6 +502,31 @@ def _get_trace_exporter():
     return None
 
 
+def _orphan_current_processor_and_sweep():
+    """Detach the outgoing provider's MLflow batch processor before it is replaced.
+
+    Called immediately before ``provider.set(...)`` replaces the current tracer provider
+    (isolated mode, or the NoOp swap on disable). The outgoing provider's MLflow span
+    processor (if it has a BatchSpanProcessor delegate) is moved onto the orphan list instead
+    of being shut down synchronously, because an enclosing trace's spans may still be open on
+    it. It is shut down later, only once its in-flight spans have drained. We also piggyback a
+    sweep of previously-orphaned-and-now-drained processors.
+
+    This must NOT be called on the global add-onto-existing path, where MLflow appends a
+    processor to an external provider rather than replacing the provider (no orphan there).
+    """
+    # Inline import to avoid circular dependency: provider -> base_mlflow -> fluent -> entities
+    from mlflow.tracing.processor.base_mlflow import (
+        _register_orphaned_processor,
+        reclaim_orphaned_processors,
+    )
+
+    processor = _get_span_processor()
+    if processor is not None and getattr(processor, "_batch_delegate", None) is not None:
+        _register_orphaned_processor(processor)
+    reclaim_orphaned_processors()
+
+
 def _initialize_tracer_provider(disabled=False):
     """
     Instantiate a tracer provider and set it as the global tracer provider.
@@ -506,6 +537,9 @@ def _initialize_tracer_provider(disabled=False):
     """
     processors = _get_span_processors(disabled=disabled)
     if not processors:
+        # Replacing the current provider with a NoOp (e.g. disable()): orphan the outgoing
+        # provider's batch processor for deferred, drain-gated shutdown before swapping.
+        _orphan_current_processor_and_sweep()
         provider.set(trace.NoOpTracerProvider())
         return
 
@@ -584,6 +618,11 @@ def _initialize_tracer_provider(disabled=False):
     for processor in processors:
         tracer_provider.add_span_processor(processor)
 
+    # About to replace the current provider (isolated mode, or global mode when no external
+    # provider was reused above). Orphan the outgoing provider's batch processor for deferred,
+    # drain-gated shutdown before swapping, so its daemon thread is reclaimed once drained
+    # rather than leaked.
+    _orphan_current_processor_and_sweep()
     provider.set(tracer_provider)
 
 

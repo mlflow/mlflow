@@ -1,5 +1,7 @@
+import atexit
 import json
 import logging
+import os
 import threading
 import weakref
 from typing import Any
@@ -64,6 +66,205 @@ _DEFAULT_OTEL_MAX_QUEUE_SIZE = 2048
 _batch_processor_registry: weakref.WeakSet["BaseMlflowSpanProcessor"] = weakref.WeakSet()
 _batch_processor_registry_lock = threading.Lock()
 
+# Processors detached from a tracer provider on a provider swap (e.g. disable()/enable(),
+# set_experiment(), set_destination() in isolated mode) but not yet shut down. Their
+# BatchSpanProcessor daemon threads keep running until reclaimed. We do NOT shut them down
+# synchronously on swap because an enclosing trace's spans may still be open on the outgoing
+# provider; a synchronous shutdown would drop those in-flight spans. Instead they are shut down
+# lazily once their in-flight spans have drained (see reclaim_orphaned_processors).
+_orphaned_processors: list["BaseMlflowSpanProcessor"] = []
+_orphaned_processors_lock = threading.Lock()
+
+# Interval (seconds) at which the reaper wakes to try reclaiming orphaned processors.
+_REAPER_INTERVAL_SECONDS = 1.0
+# Log a warning when the number of un-drained orphans exceeds this, as a leak early-warning.
+_ORPHAN_WARN_THRESHOLD = 20
+
+_reaper: "MlflowProcessorReaper | None" = None
+_reaper_lock = threading.Lock()
+
+
+def _drain_and_shutdown_processors(
+    processors: list["BaseMlflowSpanProcessor"], timeout_millis: float
+) -> None:
+    """Run the two-layer drain then shutdown each processor.
+
+    Waits for all in-flight ``on_end`` calls to finish, force-flushes each BSP into its
+    exporter, drains each exporter's async queue, then shuts each processor down. Shared by
+    ``flush_all_batch_processors(terminate=True)`` and ``reclaim_orphaned_processors``.
+    """
+    timeout_secs = timeout_millis / 1000
+    # Wait for all in-flight on_end calls to finish before flushing.
+    # This guarantees every span is in the BSP queue before force_flush() is
+    # called, preventing the race where a span arrives just after the flush
+    # signal is sent to the BSP worker thread.
+    # Note: wait_for() always evaluates the predicate before blocking, so even
+    # if notify_all() fires before wait_for() is entered (counter already 0),
+    # the predicate is true and wait_for() returns immediately.
+    for processor in processors:
+        with processor._pending_on_end_condition:
+            processor._pending_on_end_condition.wait_for(
+                lambda: processor._pending_on_end_count == 0,
+                timeout=timeout_secs,
+            )
+    # Layer 1: drain span queues into exporters
+    for processor in processors:
+        try:
+            processor.force_flush(timeout_millis)
+        except Exception:
+            _logger.debug(f"Failed to flush processor {processor}", exc_info=True)
+    # Layer 2: drain all exporters' async queues into the tracking store
+    for processor in processors:
+        try:
+            exporter = processor.span_exporter
+            if hasattr(exporter, "_async_queue"):
+                exporter._async_queue.flush(terminate=True)
+        except Exception:
+            _logger.debug(f"Failed to flush exporter queue for {processor}", exc_info=True)
+    for processor in processors:
+        try:
+            processor.shutdown()
+            # Null out the delegate so future on_end calls fall through
+            # to SimpleSpanProcessor instead of going to the dead batch
+            # processor. This is critical for test isolation: the tracer
+            # provider may outlive the shutdown and reuse the processor.
+            processor._batch_delegate = None
+        except Exception:
+            _logger.debug(f"Failed to shutdown processor {processor}", exc_info=True)
+
+
+def reclaim_orphaned_processors(timeout_millis: float = 30000) -> None:
+    """Shut down orphaned processors whose in-flight spans have drained.
+
+    For each orphaned processor, the drain gate requires BOTH:
+      * ``_pending_on_end_count == 0`` -- no ``on_end`` currently executing, and
+      * ``_active_root_spans == 0``    -- no root span (i.e. no enclosing trace) still open.
+
+    Only processors that satisfy the gate are drained-then-shut-down and removed from the
+    orphan list. Processors whose enclosing trace is still open are left in place and retried
+    on the next call. This guarantees a swap never drops the in-flight spans of an enclosing
+    trace that started on the outgoing provider.
+    """
+    with _orphaned_processors_lock:
+        ready = [p for p in _orphaned_processors if p._is_drained()]
+        for p in ready:
+            _orphaned_processors.remove(p)
+        remaining = len(_orphaned_processors)
+    if remaining > _ORPHAN_WARN_THRESHOLD:
+        _logger.warning(
+            f"{remaining} orphaned span processors have not drained yet; "
+            "possible provider-swap leak."
+        )
+    if ready:
+        _drain_and_shutdown_processors(ready, timeout_millis)
+
+
+def _register_orphaned_processor(processor: "BaseMlflowSpanProcessor") -> None:
+    """Move a processor detached from a swapped-out provider onto the orphan list.
+
+    Lazily starts the reaper daemon so the orphan is eventually reclaimed even if no further
+    swap happens.
+    """
+    with _orphaned_processors_lock:
+        if processor in _orphaned_processors:
+            return
+        _orphaned_processors.append(processor)
+    _ensure_reaper_running()
+
+
+def _has_orphaned_processors() -> bool:
+    with _orphaned_processors_lock:
+        return bool(_orphaned_processors)
+
+
+class MlflowProcessorReaper(threading.Thread):
+    """A single daemon thread that periodically reclaims drained orphaned processors.
+
+    Bounds the number of live BatchSpanProcessor daemon threads to roughly
+    ``1 reaper + live providers`` instead of leaking one per provider swap. Stops itself once
+    the orphan list is empty so idle processes stay clean; it is lazily restarted on the next
+    orphan registration.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(name="MlflowProcessorReaper", daemon=True)
+        self._stop_event = threading.Event()
+
+    def run(self) -> None:
+        while not self._stop_event.is_set():
+            self._stop_event.wait(_REAPER_INTERVAL_SECONDS)
+            try:
+                reclaim_orphaned_processors()
+            except Exception:
+                _logger.debug("Error while reclaiming orphaned processors", exc_info=True)
+            if not _has_orphaned_processors():
+                break
+        # Clear the module-level handle so a future orphan registration starts a fresh reaper.
+        global _reaper
+        with _reaper_lock:
+            if _reaper is self:
+                _reaper = None
+
+    def stop(self) -> None:
+        self._stop_event.set()
+
+
+def _ensure_reaper_running() -> None:
+    global _reaper
+    with _reaper_lock:
+        if _reaper is not None and _reaper.is_alive():
+            return
+        _reaper = MlflowProcessorReaper()
+        _reaper.start()
+
+
+def _reset_lifecycle_state_after_fork() -> None:
+    """Reset orphan/reaper state in a forked child.
+
+    OTel re-initializes each BatchSpanProcessor's worker thread on fork
+    (``_at_fork_reinit``), so the parent's orphan bookkeeping and the (now-dead) reaper thread
+    object are meaningless in the child. Clear them so the child does not try to manage stale
+    thread objects; the child will register its own orphans and reaper as it swaps providers.
+    """
+    global _reaper
+    with _orphaned_processors_lock:
+        _orphaned_processors.clear()
+    with _reaper_lock:
+        _reaper = None
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_lifecycle_state_after_fork)
+
+
+@atexit.register
+def _shutdown_all_processors_at_exit() -> None:
+    """Drain and shut down every registered and orphaned processor at interpreter exit.
+
+    Safety net that guarantees no BatchSpanProcessor daemon thread outlives the process
+    uncleanly, regardless of whether the reaper reclaimed all orphans in time. Mirrors
+    ``AsyncTraceExportQueue._at_exit_callback``.
+    """
+    with _reaper_lock:
+        reaper = _reaper
+    if reaper is not None:
+        reaper.stop()
+    with _batch_processor_registry_lock:
+        registered = list(_batch_processor_registry)
+        _batch_processor_registry.clear()
+    with _orphaned_processors_lock:
+        orphaned = list(_orphaned_processors)
+        _orphaned_processors.clear()
+    # De-dup while preserving order (a processor could be in both collections).
+    seen: set[int] = set()
+    processors = []
+    for p in registered + orphaned:
+        if id(p) not in seen:
+            seen.add(id(p))
+            processors.append(p)
+    if processors:
+        _drain_and_shutdown_processors(processors, timeout_millis=30000)
+
 
 def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = False) -> None:
     """Flush all registered batch processors and their exporters' async queues.
@@ -84,6 +285,11 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
         # go into a fresh registry.
         if terminate:
             _batch_processor_registry.clear()
+
+    if terminate:
+        _drain_and_shutdown_processors(processors, timeout_millis)
+        return
+
     # Wait for all in-flight on_end calls to finish before flushing.
     # This guarantees every span is in the BSP queue before force_flush() is
     # called, preventing the race where a span arrives just after the flush
@@ -113,17 +319,6 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
                 exporter._async_queue.flush(terminate=terminate)
         except Exception:
             _logger.debug(f"Failed to flush exporter queue for {processor}", exc_info=True)
-    if terminate:
-        for processor in processors:
-            try:
-                processor.shutdown()
-                # Null out the delegate so future on_end calls fall through
-                # to SimpleSpanProcessor instead of going to the dead batch
-                # processor. This is critical for test isolation: the tracer
-                # provider may outlive the shutdown and reuse the processor.
-                processor._batch_delegate = None
-            except Exception:
-                _logger.debug(f"Failed to shutdown processor {processor}", exc_info=True)
 
 
 def _create_batch_span_processor(exporter: SpanExporter) -> BatchSpanProcessor:
@@ -171,6 +366,22 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         # span is in the BSP queue before the flush starts.
         self._pending_on_end_count = 0
         self._pending_on_end_condition = threading.Condition(threading.Lock())
+        # Number of root spans currently open on this processor (i.e. enclosing traces still
+        # in flight). Guarded by _deduplication_lock. Used as part of the drain gate so an
+        # orphaned processor is not shut down while a trace that started on it is still open.
+        self._active_root_spans = 0
+
+    def _is_drained(self) -> bool:
+        """Whether this processor has no in-flight work and is safe to shut down.
+
+        The drain gate for reclaiming an orphaned processor: no ``on_end`` call is currently
+        executing AND no root span (enclosing trace) is still open.
+        """
+        with self._deduplication_lock:
+            if self._active_root_spans != 0:
+                return False
+        with self._pending_on_end_condition:
+            return self._pending_on_end_count == 0
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         """
@@ -193,6 +404,11 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
             return
 
         if span.parent is None:
+            # Track this root span as an in-flight enclosing trace. Incremented here and
+            # decremented in on_end (both keyed on the same `parent is None` condition) so the
+            # drain gate can tell whether a trace started on this processor is still open.
+            with self._deduplication_lock:
+                self._active_root_spans += 1
             trace_info = self._start_trace(span)
             if trace_info is None:
                 return
@@ -215,6 +431,14 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         try:
             self._on_end_impl(span)
         finally:
+            # Decrement the root-span counter symmetrically with the on_start increment
+            # (both keyed on `parent is None`). This runs after _on_end_impl has enqueued the
+            # span into the batch delegate. The reaper's drain gate also requires
+            # _pending_on_end_count == 0, which stays > 0 until this on_end fully returns, so
+            # the processor cannot be shut down before this span is flushed.
+            if span._parent is None:
+                with self._deduplication_lock:
+                    self._active_root_spans -= 1
             with self._pending_on_end_condition:
                 self._pending_on_end_count -= 1
                 if self._pending_on_end_count == 0:
