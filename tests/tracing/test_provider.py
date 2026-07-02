@@ -613,7 +613,8 @@ def test_otel_resource_attributes(monkeypatch):
     }
 
     mlflow.tracing.reset()
-    # When otel attributes are set explicitly, they are merged into the resource alongside MLflow's SDK attributes.
+    # When otel attributes are set explicitly, they are merged into the resource
+    # alongside MLflow's SDK attributes.
     monkeypatch.setenv("OTEL_RESOURCE_ATTRIBUTES", "favorite.fruit=apple,color=red")
     tracer = _get_tracer("test")
     assert resource_attributes(tracer) == {
