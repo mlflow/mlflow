@@ -205,10 +205,9 @@ def _aggregate_from_spans(
     keys: list[str],
     default: int | float,
     optional_keys: list[str] | None = None,
+    deduplicate: bool = True,
 ) -> dict[str, int | float] | None:
     """Generic aggregation of data from spans using DFS traversal.
-
-    Avoids double-counting by skipping spans whose ancestors already have the data.
 
     Args:
         spans: List of spans to aggregate from.
@@ -217,6 +216,9 @@ def _aggregate_from_spans(
         default: Default value (0 for int, 0.0 for float) that also determines return type.
         optional_keys: Additional keys to aggregate. Only included in the result
             when the key is present in the span attribute.
+        deduplicate: If True, avoids double-counting by skipping spans whose ancestors
+            already have the data. If False, aggregates all spans regardless of ancestry.
+            Default is True for backward compatibility.
 
     Returns:
         Aggregated dictionary with the keys, or None if no data found.
@@ -241,12 +243,22 @@ def _aggregate_from_spans(
         data = span.get_attribute(attribute_key)
         span_has_data = data is not None
 
-        if span_has_data and not ancestor_has_data:
-            for k in keys:
-                totals[k] += data.get(k, default)
-            for k in optional_keys or []:
-                if k in data:
-                    totals[k] = totals.get(k, default) + data[k]
+        # Aggregate if data exists and either deduplication is off or no ancestor has data
+        should_aggregate = span_has_data and (not deduplicate or not ancestor_has_data)
+
+        if should_aggregate:
+            # Handle both float and dict formats
+            if isinstance(data, (int, float)):
+                # Simple numeric value - only add to keys (typically just total_cost)
+                for k in keys:
+                    totals[k] += float(data)
+            elif isinstance(data, dict):
+                # Dict format - extract specific keys
+                for k in keys:
+                    totals[k] += data.get(k, default)
+                for k in optional_keys or []:
+                    if k in data:
+                        totals[k] = totals.get(k, default) + data[k]
             has_data = True
 
         next_ancestor_has_data = ancestor_has_data or span_has_data
@@ -274,13 +286,55 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
 
 
 def aggregate_cost_from_spans(spans: list[LiveSpan]) -> dict[str, float] | None:
-    """Aggregate cost information from all spans in the trace."""
-    return _aggregate_from_spans(
+    """Aggregate cost information from all spans in the trace.
+
+    LLM costs use deduplication to avoid double-counting when multiple autologging
+    frameworks (e.g., LangChain + OpenAI) report the same tokens. Non-LLM costs are
+    only set manually, so deduplication is not needed.
+    """
+    # Mapping from span attribute keys to their corresponding cost breakdown keys
+    span_to_cost_key_mapping = {
+        SpanAttributeKey.TOOL_COST: CostKey.TOOL_COST,
+        SpanAttributeKey.EMBEDDING_COST: CostKey.EMBEDDING_COST,
+        SpanAttributeKey.RETRIEVAL_COST: CostKey.RETRIEVAL_COST,
+        SpanAttributeKey.SPAN_COST: CostKey.OTHER_COST,
+    }
+
+    # Aggregate LLM costs with deduplication (for autologging scenarios)
+    llm_cost = _aggregate_from_spans(
         spans,
         SpanAttributeKey.LLM_COST,
         keys=[CostKey.INPUT_COST, CostKey.OUTPUT_COST, CostKey.TOTAL_COST],
         default=0.0,
+        deduplicate=True,
     )
+
+    # Initialize result with all cost keys
+    result: dict[str, float] = dict.fromkeys(CostKey.all_keys(), 0.0)
+
+    # Add LLM costs if present
+    if llm_cost:
+        for key, value in llm_cost.items():
+            result[key] += value
+
+    # Aggregate non-LLM costs without deduplication (manual spans don't duplicate)
+    for attr_key, cost_key in span_to_cost_key_mapping.items():
+        cost = _aggregate_from_spans(
+            spans,
+            attr_key,
+            keys=[cost_key, CostKey.TOTAL_COST],
+            default=0.0,
+            deduplicate=False,
+        )
+        if cost:
+            for key, value in cost.items():
+                result[key] += value
+
+    # Return None if no cost data was found
+    if all(value == 0.0 for value in result.values()):
+        return None
+
+    return result
 
 
 def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
