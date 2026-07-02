@@ -93,6 +93,9 @@ def _create_webhook_session() -> requests.Session:
     # _validate_webhook_url (resolve + check) and the actual request (re-resolve).
     adapter = SSRFProtectedHTTPAdapter(max_retries=retry_strategy)
     session = requests.Session()
+    # Disable env proxy handling: a proxy would make the validated peer the
+    # proxy rather than the webhook destination, bypassing the SSRF check.
+    session.trust_env = False
     session.mount("http://", adapter)
     session.mount("https://", adapter)
 
