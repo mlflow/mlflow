@@ -144,7 +144,7 @@ export type ModelTraceEvent = {
 export type ModelTraceSpanLink = {
   trace_id: string;
   span_id: string;
-  attributes?: Record<string, any>;
+  attributes?: Record<string, any> | null;
 };
 
 export type ModelTraceData = {
