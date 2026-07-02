@@ -85,7 +85,10 @@ def _is_empty_database(engine):
 
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
-    InitialBase.metadata.create_all(engine)
+    # Use checkfirst=True (default) to avoid errors when tables already exist.
+    # This can happen when upgrading from an older version that already has
+    # some tables (e.g., 'secrets' table added in 3.8.0).
+    InitialBase.metadata.create_all(engine, checkfirst=True)
     _upgrade_db(engine)
 
 
