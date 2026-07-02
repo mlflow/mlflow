@@ -20,7 +20,6 @@ import requests
 import urllib3
 from cachetools import TTLCache
 from packaging.version import Version
-from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookTestResult
@@ -40,6 +39,7 @@ from mlflow.webhooks.constants import (
     WEBHOOK_SIGNATURE_VERSION,
     WEBHOOK_TIMESTAMP_HEADER,
 )
+from mlflow.webhooks.ssrf import SSRFProtectedHTTPAdapter
 from mlflow.webhooks.types import (
     WebhookPayload,
     get_example_payload_for_event,
@@ -88,7 +88,10 @@ def _create_webhook_session() -> requests.Session:
         **extra_kwargs,
     )
 
-    adapter = HTTPAdapter(max_retries=retry_strategy)
+    # SSRF-protected adapter validates each connection's peer IP is public at
+    # connect time, closing the DNS-rebinding TOCTOU gap between
+    # _validate_webhook_url (resolve + check) and the actual request (re-resolve).
+    adapter = SSRFProtectedHTTPAdapter(max_retries=retry_strategy)
     session = requests.Session()
     session.mount("http://", adapter)
     session.mount("https://", adapter)
