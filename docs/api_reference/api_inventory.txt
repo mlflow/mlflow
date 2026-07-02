@@ -1911,6 +1911,8 @@ mlflow.types.chat.JsonSchemaSpec
 mlflow.types.chat.ParamProperty
 mlflow.types.chat.ParamType
 mlflow.types.chat.PromptTokensDetails
+mlflow.types.chat.ReasoningContentPart
+mlflow.types.chat.ReasoningSummaryPart
 mlflow.types.chat.ResponseFormat
 mlflow.types.chat.TextContentPart
 mlflow.types.chat.ToolCall
