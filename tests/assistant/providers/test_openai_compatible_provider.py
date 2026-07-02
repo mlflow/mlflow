@@ -490,6 +490,64 @@ async def test_astream_tool_call_round_trip(provider):
     assert any(m["role"] == "tool" for m in second_payload["messages"])
 
 
+@pytest.mark.asyncio
+async def test_astream_remote_lockdown_denies_full_access_bash(provider, config_file, monkeypatch):
+    # Remote mode + config full_access=True: the allowlist is still absolute. A
+    # disallowed Bash command must be denied by the real execute_tool (not prompted,
+    # not executed) even though full_access is configured. Guards the security-critical
+    # `gated` short-circuit and effective_permissions selection.
+    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "1")
+    config_file.write_text(
+        json.dumps({
+            "providers": {"oai_test": {"model": "model-a", "permissions": {"full_access": True}}}
+        })
+    )
+    clear_config_cache()
+
+    turn1 = [
+        _sse(
+            _delta(
+                tool_calls=[
+                    {
+                        "index": 0,
+                        "id": "call_1",
+                        "function": {"name": "Bash", "arguments": '{"command": "echo hi"}'},
+                    }
+                ]
+            )
+        ),
+        b"data: [DONE]\n",
+    ]
+    turn2 = [_sse(_delta(content="ok")), b"data: [DONE]\n"]
+    session, _calls = _make_aiohttp_session([turn1, turn2])
+
+    # execute_tool is NOT mocked here: we want the real allowlist denial to run.
+    with patch(
+        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
+        return_value=session,
+    ):
+        events = [
+            e
+            async for e in provider.astream(
+                "hi", "http://localhost:5000", mlflow_session_id=_SESSION_ID
+            )
+        ]
+
+    # Remote mode: no per-call prompt is offered.
+    assert not [e for e in events if e.type == EventType.PERMISSION_REQUEST]
+    # The tool result is a denial (proving `echo` never executed).
+    tool_results = [
+        block
+        for e in events
+        if e.type == EventType.MESSAGE and isinstance(e.data["message"]["content"], list)
+        for block in e.data["message"]["content"]
+        if block.get("tool_use_id")
+    ]
+    assert len(tool_results) == 1
+    assert tool_results[0]["is_error"] is True
+    assert "Permission denied" in tool_results[0]["content"]
+
+
 # ---------------------------------------------------------------------------
 # astream — session-scoped permission gating
 # ---------------------------------------------------------------------------
@@ -784,7 +842,8 @@ async def test_astream_global_full_access_skips_prompt(tmp_path):
     ("tool_name", "tool_input", "allowed"),
     [
         ("Bash", {"command": "mlflow experiments search"}, True),
-        ("Bash", {"command": "python script.py"}, True),
+        ("Bash", {"command": "python script.py"}, False),
+        ("Bash", {"command": "mlflow run ."}, False),
         ("Bash", {"command": "rm -rf /"}, False),
         ("Bash", {"command": "ls"}, False),
     ],

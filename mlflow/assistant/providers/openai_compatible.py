@@ -29,6 +29,7 @@ from mlflow.assistant.providers.prompts import ASSISTANT_SYSTEM_PROMPT
 from mlflow.assistant.providers.tool_executor import (
     build_tools_schema,
     execute_tool,
+    remote_lockdown_active,
     static_permission_error,
 )
 from mlflow.assistant.types import Event, Message, ToolResultBlock, ToolUseBlock
@@ -583,10 +584,15 @@ class OpenAICompatibleProvider(AssistantProvider):
                             static_permission_error(tool_name, tool_input, config.permissions, cwd)
                             is not None
                         )
+                        # In remote mode the allowlist is absolute: don't offer a
+                        # per-call override the static policy would re-deny anyway.
+                        # Disallowed calls fall through to execute_tool and return
+                        # a denial as the tool result instead of prompting.
                         gated = (
                             not config.permissions.full_access
                             and bool(mlflow_session_id)
                             and needs_prompt
+                            and not remote_lockdown_active()
                         )
                         decision = tool_decisions.get(tc["id"])
 
