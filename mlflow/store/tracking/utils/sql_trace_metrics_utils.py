@@ -470,7 +470,16 @@ def _apply_view_initial_join(query: Query, view_type: MetricViewType) -> Query:
         case MetricViewType.SPANS:
             query = query.join(SqlSpan, SqlSpan.trace_id == SqlTraceInfo.request_id)
         case MetricViewType.ASSESSMENTS:
-            query = query.join(SqlAssessments, SqlAssessments.trace_id == SqlTraceInfo.request_id)
+            # Only aggregate valid assessments. When an assessment is overridden via
+            # mlflow.override_feedback(), the superseded assessment is marked valid=False,
+            # and should be excluded from counts/values so override chains aren't double-counted.
+            query = query.join(
+                SqlAssessments,
+                and_(
+                    SqlAssessments.trace_id == SqlTraceInfo.request_id,
+                    SqlAssessments.valid.is_(True),
+                ),
+            )
     return query
 
 
