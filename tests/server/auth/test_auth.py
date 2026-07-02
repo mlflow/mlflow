@@ -4,6 +4,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import jwt
@@ -35,7 +36,7 @@ from mlflow.server.auth import (
     _find_fastapi_validator,
     _re_compile_path,
 )
-from mlflow.server.auth.permissions import NO_PERMISSIONS, USE
+from mlflow.server.auth.permissions import NO_PERMISSIONS, READ, USE
 from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
     LIST_USERS,
@@ -3913,6 +3914,17 @@ def test_mcp_server_routes_have_validators(path):
     assert validator is not None
 
 
+@pytest.mark.parametrize(
+    "path",
+    [f"{prefix}{sub}" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX) for sub in _MCP_SUBPATHS],
+)
+def test_mcp_server_routes_skip_validator_with_custom_auth(path):
+    with mock.patch("mlflow.server.auth.auth_config") as cfg:
+        cfg.authorization_function = "custom_auth:authorize"
+        validator = _find_fastapi_validator(path)
+    assert validator is None
+
+
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
 def test_mcp_server_unauthenticated_returns_401(fastapi_client, monkeypatch, prefix):
     monkeypatch.delenv(MLFLOW_TRACKING_USERNAME.name, raising=False)
@@ -4197,6 +4209,124 @@ def test_mcp_server_root_post_enforces_workspace_create_authz(prefix, monkeypatc
     assert validator is not None
 
     auth_store.engine.dispose()
+
+
+def test_read_predicate_honors_grant_default_workspace_access(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    default_workspace = "team-default"
+    monkeypatch.setattr(
+        auth_module,
+        "auth_config",
+        auth_module.auth_config._replace(
+            default_permission=READ.name,
+            grant_default_workspace_access=True,
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(auth_module, "_get_workspace_store", lambda: None, raising=False)
+    monkeypatch.setattr(
+        auth_module,
+        "get_default_workspace_optional",
+        lambda *args, **kwargs: (SimpleNamespace(name=default_workspace), True),
+        raising=False,
+    )
+
+    class DummyStore:
+        def get_user(self, username):
+            return SimpleNamespace(id=42, username=username)
+
+        def list_role_grants_for_user_in_workspace(self, user_id, workspace, resource_type):
+            return []
+
+    monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
+
+    with workspace_context.WorkspaceContext(default_workspace):
+        predicate = auth_module._role_based_read_predicate("alice", "mcp_server")
+        assert predicate("com.test/some-server") is True
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_mcp_server_nested_delete_requires_can_delete(fastapi_client, monkeypatch, prefix):
+    owner, owner_pw = create_user(fastapi_client.tracking_uri)
+    editor, editor_pw = create_user(fastapi_client.tracking_uri)
+    server_name = "com.test/nested-delete"
+
+    with User(owner, owner_pw, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": server_name},
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions",
+            json=_version_create_body(server_name),
+            auth=(owner, owner_pw),
+        ).raise_for_status()
+
+    grant_role_permission(
+        fastapi_client.tracking_uri,
+        editor,
+        "mcp_server",
+        server_name,
+        "EDIT",
+    )
+
+    with User(editor, editor_pw, monkeypatch):
+        resp = requests.delete(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions/1.0.0",
+            auth=(editor, editor_pw),
+        )
+        assert resp.status_code == 403
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_nested_post_does_not_re_promote_downgraded_creator(fastapi_client, monkeypatch, prefix):
+    creator, creator_pw = create_user(fastapi_client.tracking_uri)
+    server_name = "com.test/re-promote"
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+
+    # Creator creates the server (auto-granted MANAGE via synthetic role).
+    with User(creator, creator_pw, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": server_name},
+            auth=(creator, creator_pw),
+        ).raise_for_status()
+
+    # Admin downgrades creator: revoke MANAGE, then grant EDIT on the synthetic role.
+    _send_rest_tracking_post_request(
+        fastapi_client.tracking_uri,
+        "/api/3.0/mlflow/users/permissions/revoke",
+        {"username": creator, "resource_type": "mcp_server", "resource_id": server_name},
+        auth=admin_auth,
+    ).raise_for_status()
+    _send_rest_tracking_post_request(
+        fastapi_client.tracking_uri,
+        "/api/3.0/mlflow/users/permissions/grant",
+        {
+            "username": creator,
+            "resource_type": "mcp_server",
+            "resource_id": server_name,
+            "permission": "EDIT",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+
+    # Creator does a nested POST (version create) — should NOT restore MANAGE.
+    with User(creator, creator_pw, monkeypatch):
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions",
+            json=_version_create_body(server_name),
+            auth=(creator, creator_pw),
+        ).raise_for_status()
+
+    # Verify creator still cannot delete the server (requires MANAGE/can_delete).
+    with User(creator, creator_pw, monkeypatch):
+        resp = requests.delete(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}",
+            auth=(creator, creator_pw),
+        )
+        assert resp.status_code == 403
 
 
 def _version_create_body(name):

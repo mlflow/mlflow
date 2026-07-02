@@ -578,7 +578,7 @@ def _get_role_permission_or_default(
     return get_permission(max_permission(perm.name, default.name))
 
 
-def _user_can_create_in_workspace(username: str | None = None) -> bool:
+def _user_can_create_in_workspace() -> bool:
     """
     True if the current request can create new resources in the request's
     workspace. Always allows when workspaces are disabled. Otherwise requires
@@ -602,9 +602,7 @@ def _user_can_create_in_workspace(username: str | None = None) -> bool:
     if workspace_name is None:
         return False
 
-    if username is None:
-        username = authenticate_request().username
-    user = store.get_user(username)
+    user = store.get_user(authenticate_request().username)
     perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
     if perm is not None and perm.can_use:
         return True
@@ -1230,7 +1228,18 @@ def validate_can_create_registered_model() -> bool:
 
 
 def validate_can_create_mcp_server(username: str) -> bool:
-    return _user_can_create_in_workspace(username)
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return True
+    workspace_name = workspace_context.get_request_workspace()
+    if workspace_name is None:
+        return False
+    user = store.get_user(username)
+    perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
+    if perm is not None and perm.can_use:
+        return True
+    if perm is None and _user_inherits_default_workspace_grant(workspace_name):
+        return get_permission(auth_config.default_permission).can_use
+    return False
 
 
 def validate_can_view_workspace() -> bool:
@@ -1428,10 +1437,7 @@ def _reject_workspace_resource_type(resource_type: str) -> None:
 # Maps each resource_type to ``(workspace_label, workspace_fetcher_factory)``.
 # Factory is invoked lazily so tests can patch the underlying store.
 _RESOURCE_WORKSPACE_FETCHER: dict[str, tuple[str, Callable[[], Callable[[str], Any]]]] = {
-    RESOURCE_TYPE_EXPERIMENT: (
-        "experiment",
-        lambda: _get_tracking_store().get_experiment,
-    ),
+    RESOURCE_TYPE_EXPERIMENT: ("experiment", lambda: _get_tracking_store().get_experiment),
     RESOURCE_TYPE_REGISTERED_MODEL: (
         "registered model",
         lambda: _get_model_registry_store().get_registered_model,
@@ -1640,7 +1646,14 @@ def _role_based_read_predicate(username: str, resource_type: str) -> Callable[[s
             readable.add(resource_pattern)
 
     default_can_read = get_permission(auth_config.default_permission).can_read
-    fallback = default_can_read if not MLFLOW_ENABLE_WORKSPACES.get() else False
+    fallback = (
+        default_can_read
+        if (
+            not MLFLOW_ENABLE_WORKSPACES.get()
+            or _user_inherits_default_workspace_grant(workspace_name)
+        )
+        else False
+    )
 
     def predicate(resource_id: str) -> bool:
         return resource_id in readable or wildcard_can_read or fallback
@@ -1850,9 +1863,7 @@ def _validate_can_use_model_definitions(model_configs: list[dict[str, Any]]) -> 
     return True
 
 
-def _validate_can_use_model_definitions_for_create(
-    model_configs: list[dict[str, Any]],
-) -> bool:
+def _validate_can_use_model_definitions_for_create(model_configs: list[dict[str, Any]]) -> bool:
     """
     Create-only helper that enforces workspace USE permission when no model definitions
     are provided, otherwise validates USE permission on referenced model definitions.
@@ -2319,8 +2330,7 @@ def _registered_username_match(name: object) -> str | None:
         return None
     target = name.strip().lower()
     return next(
-        (u.username for u in store.list_users() if u.username.strip().lower() == target),
-        None,
+        (u.username for u in store.list_users() if u.username.strip().lower() == target), None
     )
 
 
@@ -2744,10 +2754,7 @@ BEFORE_REQUEST_VALIDATORS.update({
     (GET_TRACE_ARTIFACT, "GET"): validate_can_read_trace_artifact,
     (GET_TRACE_ARTIFACT_V3, "GET"): validate_can_read_trace_artifact,
     (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
-    (
-        GET_METRIC_HISTORY_BULK_INTERVAL,
-        "GET",
-    ): validate_can_read_metric_history_bulk_interval,
+    (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
     (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
     (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
     (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
@@ -2857,9 +2864,7 @@ def authenticate_request() -> Authorization | Response:
 
 
 @functools.lru_cache(maxsize=None)
-def get_auth_func(
-    authorization_function: str,
-) -> Callable[[], Authorization | Response]:
+def get_auth_func(authorization_function: str) -> Callable[[], Authorization | Response]:
     """
     Import and return the specified authorization function.
 
@@ -2927,10 +2932,7 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
         validator = next(
             (
                 v
-                for (
-                    pat,
-                    method,
-                ), v in TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS.items()
+                for (pat, method), v in TRACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS.items()
                 if pat.fullmatch(req.path) and method == req.method
             ),
             None,
@@ -3686,10 +3688,7 @@ def _after_request(resp: Response):
     handler = AFTER_REQUEST_HANDLERS.get((request.path, request.method))
     if handler is None and "/workspaces/" in request.path:
         # Fallback to regex matching for workspace paths.
-        for (
-            path,
-            method,
-        ), candidate in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS.items():
+        for (path, method), candidate in WORKSPACE_PARAMETERIZED_AFTER_REQUEST_HANDLERS.items():
             if method != request.method:
                 continue
             if path.fullmatch(request.path):
@@ -3918,11 +3917,7 @@ def get_current_user():
     user = store.get_user(username)
     is_basic_auth = auth_config.authorization_function == DEFAULT_AUTHORIZATION_FUNCTION
     return jsonify({
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "is_admin": user.is_admin,
-        },
+        "user": {"id": user.id, "username": user.username, "is_admin": user.is_admin},
         "is_basic_auth": is_basic_auth,
     })
 
@@ -3943,9 +3938,7 @@ class _UserRolePermissionRow:
     permission: str
 
 
-def _list_user_role_permissions(
-    username: str,
-) -> tuple[bool, list[_UserRolePermissionRow]]:
+def _list_user_role_permissions(username: str) -> tuple[bool, list[_UserRolePermissionRow]]:
     """Flatten every role-derived permission grant the user holds.
 
     Returns ``(is_admin, rows)`` where ``rows`` covers all roles the user is
@@ -4421,9 +4414,7 @@ def _validate_gateway_use_permission(endpoint_name: str, username: str) -> bool:
         return False
 
 
-def _get_gateway_validator(
-    path: str,
-) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
+def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Get a validator function for gateway routes.
 
@@ -4459,7 +4450,7 @@ def _mcp_server_suffix(path: str) -> str:
     for prefix in get_mcp_server_api_route_prefixes():
         if path.startswith(prefix):
             return path[len(prefix) :].strip("/")
-    return ""
+    raise MlflowException(f"Not an MCP server path: {path}", error_code=BAD_REQUEST)
 
 
 def _get_mcp_server_validator(
@@ -4499,7 +4490,7 @@ def _get_mcp_server_validator(
             case "POST" | "PATCH":
                 return perm.can_update
             case "DELETE":
-                return perm.can_delete if len(parts) == 2 else perm.can_update
+                return perm.can_delete
             case _:
                 return False
 
@@ -4507,7 +4498,8 @@ def _get_mcp_server_validator(
 
 
 def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
-    if store.get_user(username).is_admin:
+    user = store.get_user(username)
+    if user.is_admin:
         return
 
     suffix = _mcp_server_suffix(get_routed_asgi_path(request))
@@ -4520,6 +4512,9 @@ def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
         except MlflowException:
             return
         if server.created_by != username:
+            return
+        workspace = server.workspace or workspace_context.get_active_workspace_name()
+        if store.get_role_permission_for_resource(user.id, "mcp_server", name, workspace):
             return
         store.grant_user_permission(username, "mcp_server", name, MANAGE.name)
         return
@@ -4696,6 +4691,8 @@ def _find_fastapi_validator(
         return _get_require_authentication_validator()
 
     if is_mcp_server_api_path(path):
+        if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
+            return None
         return _get_mcp_server_validator(path)
 
     return None
