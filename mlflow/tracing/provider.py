@@ -331,7 +331,7 @@ def safe_set_span_in_context(span: "Span"):
         detach_span_from_context(token)
 
 
-def set_span_in_context(span: "Span") -> contextvars.Token:
+def set_span_in_context(span: "Span") -> object:
     """
     Set the given OpenTelemetry span as the active span in the current context.
 
@@ -343,23 +343,29 @@ def set_span_in_context(span: "Span") -> contextvars.Token:
     """
     context = trace.set_span_in_context(span._span, context=get_current_context())
     if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
-        # When using the default tracer provider, attach to MLflow's runtime context so that span
-        # will not get mixed with the native OpenTelemetry runtime context.
-        token = mlflow_runtime_context.attach(context)
+        mlflow_token = mlflow_runtime_context.attach(context)
+        # Also propagate the span to the global OTel context so that OTel-based
+        # libraries (e.g., strands-agents, LangChain) can see the MLflow span as
+        # a parent and create properly nested child spans.
+        otel_context = trace.set_span_in_context(span._span)
+        otel_token = context_api.attach(otel_context)
+        return (mlflow_token, otel_token)
     else:
         token = context_api.attach(context)
-    return token
+        return token
 
 
-def detach_span_from_context(token: contextvars.Token):
+def detach_span_from_context(token: object):
     """
     Remove the active span from the current context.
 
     Args:
-        token: The token returned by `_set_span_to_active` function.
+        token: The token returned by `set_span_in_context` function.
     """
     if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
-        mlflow_runtime_context.detach(token)
+        mlflow_token, otel_token = token
+        context_api.detach(otel_token)
+        mlflow_runtime_context.detach(mlflow_token)
     else:
         context_api.detach(token)
 
