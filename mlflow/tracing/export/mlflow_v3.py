@@ -77,7 +77,6 @@ class MlflowV3SpanExporter(SpanExporter):
 
         Args:
             spans: Sequence of ReadableSpan objects to export.
-            manager: The trace manager instance.
         """
         if is_databricks_uri(self._client.tracking_uri):
             _logger.debug(
