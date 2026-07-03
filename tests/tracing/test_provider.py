@@ -388,13 +388,13 @@ def _count_batch_processor_threads() -> int:
 
 
 @pytest.fixture
-def batch_span_processor(monkeypatch, tmp_path):
+def batch_span_processor(monkeypatch):
     # Force the async BatchSpanProcessor path (which owns the leaked daemon thread)
-    # regardless of the ambient test config.
+    # regardless of the ambient test config. The tracking backend and experiment are
+    # supplied by the autouse conftest fixtures (a real DB in the full install, a real
+    # server in the tracing-SDK job), so we must not override the tracking URI here.
     monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "true")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
-    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
-    mlflow.set_experiment("leak-test")
 
 
 def test_disable_enable_does_not_leak_batch_processor_threads(batch_span_processor):
@@ -405,6 +405,8 @@ def test_disable_enable_does_not_leak_batch_processor_threads(batch_span_process
     # Prime a real BatchSpanProcessor (and its daemon thread).
     f()
     baseline = _count_batch_processor_threads()
+    # Guard against a vacuous pass: the batch path must actually be active.
+    assert baseline >= 1
 
     # Each enable() used to build a fresh provider + BatchSpanProcessor without
     # shutting down the old one, leaking one thread per cycle (issue #24209).
@@ -426,6 +428,7 @@ def test_trace_disabled_does_not_leak_batch_processor_threads(batch_span_process
 
     f()
     baseline = _count_batch_processor_threads()
+    assert baseline >= 1
 
     # trace_disabled wraps load_model/log_model; it must not create or destroy
     # the BatchSpanProcessor thread per call.
@@ -536,10 +539,9 @@ def test_otlp_span_processor_is_retired_on_provider_replace(monkeypatch):
             shutdown.assert_called_once()
 
 
-def test_set_experiment_survives_tracing_state_error(tmp_path, monkeypatch):
+def test_set_experiment_survives_tracing_state_error():
     # is_tracing_enabled() is raise_as_trace_exception-wrapped; a tracing error
     # must not break set_experiment (issue #24209 review).
-    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
     mlflow.set_experiment("first")
 
     @mlflow.trace
@@ -555,8 +557,7 @@ def test_set_experiment_survives_tracing_state_error(tmp_path, monkeypatch):
         mlflow.set_experiment("second")
 
 
-def test_set_experiment_preserves_explicit_disable(tmp_path):
-    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+def test_set_experiment_preserves_explicit_disable():
     mlflow.set_experiment("first")
 
     mlflow.tracing.disable()
