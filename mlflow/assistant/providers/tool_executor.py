@@ -18,8 +18,8 @@ _ALLOWED_BASH_COMMANDS = {"mlflow"}
 # MLflow subcommands the restricted assistant may invoke. This is an allowlist
 # (fail-closed): any subcommand not listed here — including future ones — is
 # denied. Every entry routes through the tracking API, so Tier-1 token forwarding
-# authorizes it as the calling user; most are read/query verbs, and the few that
-# mutate (`experiments create/delete/restore/rename/update`, `runs delete/restore`)
+# authorizes it as the calling user; most are read/query verbs, and the ones that
+# mutate (e.g. `experiments create/delete/rename`, `runs create/delete/link-traces`)
 # are still authorized as that user. Excluded subcommands such as `run`, `models`,
 # `server`, `deployments`, `sagemaker`, `gateway`, `db`, `gc`, and the LLM/agent
 # runners either execute arbitrary code, serve/mutate backend state, or permanently
