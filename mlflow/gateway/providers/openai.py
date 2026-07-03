@@ -147,7 +147,10 @@ class OpenAIAdapter(OpenAICompatibleAdapter):
                 completions.StreamChoice(
                     index=c["index"],
                     finish_reason=c["finish_reason"],
-                    text=c["delta"].get("content"),
+                    # The legacy /v1/completions streaming response carries the incremental
+                    # text at `choices[].text` (the streamed and non-streamed responses share
+                    # the same shape); it has no `delta` object like chat.completion.chunk does.
+                    text=c.get("text"),
                 )
                 for c in resp["choices"]
             ],
