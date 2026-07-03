@@ -409,11 +409,34 @@ def test_autolog_auto_enables_instrument():
     mlflow.pydantic_ai.autolog(log_traces=True)
 
     agent = Agent("openai:gpt-4o", system_prompt="Test")
-    assert agent.instrument is not None
+    if hasattr(Agent, "instrument_all"):
+        # Newer pydantic-ai instruments globally via Agent.instrument_all(), so the
+        # per-instance instrument attribute stays unset.
+        assert agent.instrument is None
+    else:
+        assert agent.instrument is not None
 
     # Verify the user can still explicitly set instrument=False
     agent_no_instrument = Agent("openai:gpt-4o", system_prompt="Test", instrument=False)
     assert agent_no_instrument.instrument is None or agent_no_instrument.instrument is False
+
+
+@pytest.mark.skipif(
+    not hasattr(Agent, "instrument_all"),
+    reason="Agent.instrument_all added in newer pydantic-ai versions",
+)
+def test_autolog_uses_global_instrumentation_when_available(monkeypatch):
+    # Pretend the user already had a known global instrumentation state before autolog
+    # so we can assert that disabling restores that exact state, not a hardcoded False.
+    sentinel_state = object()
+    monkeypatch.setattr(Agent, "_instrument_default", sentinel_state)
+
+    with patch.object(Agent, "instrument_all") as mock_instrument_all:
+        mlflow.pydantic_ai.autolog(log_traces=True)
+        mock_instrument_all.assert_called_once_with(True)
+
+        mlflow.pydantic_ai.autolog(disable=True)
+        mock_instrument_all.assert_called_with(sentinel_state)
 
 
 def test_autolog_auto_instrument_captures_llm_spans(mock_litellm_cost):
