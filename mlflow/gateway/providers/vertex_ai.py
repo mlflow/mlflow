@@ -175,6 +175,10 @@ class VertexAIProvider(GeminiProvider):
 
     @property
     def adapter_class(self):
+        # Claude/MaaS models are formatted by their delegate's adapter; only Gemini
+        # models use the Gemini adapter (stripped for Vertex).
+        if self._delegate is not None:
+            return self._delegate.adapter_class
         return _VertexGeminiAdapter
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:

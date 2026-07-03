@@ -214,6 +214,21 @@ async def test_chat_stream_tool_calling_omits_function_call_id():
     assert "id" not in _find_part(contents, "functionResponse")
 
 
+def test_adapter_class_matches_the_active_delegate():
+    # adapter_class must follow the delegate: Claude/MaaS models are formatted by their
+    # own adapters (get_endpoint_url points at the delegate's endpoint), not the Gemini one.
+    from mlflow.gateway.providers.anthropic import AnthropicAdapter
+    from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
+    from mlflow.gateway.providers.vertex_ai import _VertexGeminiAdapter
+
+    assert _make_provider().adapter_class is _VertexGeminiAdapter
+    assert _make_claude_provider().adapter_class is AnthropicAdapter
+    assert (
+        _make_maas_provider("meta/llama-3.1-405b-instruct-maas").adapter_class
+        is OpenAICompatibleAdapter
+    )
+
+
 def _passthrough_tool_body():
     # A raw Gemini-native generateContent body a client posts to the passthrough
     # route, already carrying the function-call id that Vertex rejects.
