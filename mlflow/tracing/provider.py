@@ -214,6 +214,13 @@ class _TracerProviderWrapper:
         restored later. Used by ``trace_disabled`` to hide the real provider
         behind a NoOp for the duration of the wrapped call without tearing down
         (and rebuilding) its ``BatchSpanProcessor`` thread.
+
+        Contract: this does not guard against a concurrent global mutation
+        (``enable()``/``disable()``/``set_destination()`` from another thread)
+        landing while a ``trace_disabled`` window is open. ``trace_disabled``
+        frames are serialized against each other, but a concurrent global
+        transition can still be overwritten by the restore. Mutating global
+        tracing state from multiple threads at once is unsupported.
         """
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             old = self._isolated_tracer_provider
