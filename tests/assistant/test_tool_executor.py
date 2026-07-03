@@ -121,7 +121,7 @@ def test_bash_no_shell_injection_via_metacharacters(tmp_path, template):
 
 @pytest.mark.parametrize(
     "sub",
-    ["run", "server", "models", "deployments", "sagemaker", "gateway", "db", "gc", "ai"],
+    ["run", "server", "models", "deployments", "sagemaker", "gateway", "db", "gc", "ai", "doctor"],
 )
 def test_bash_blocks_dangerous_mlflow_subcommands(sub):
     result, is_error = _run(execute_tool("Bash", {"command": f"mlflow {sub} --help"}))
@@ -160,6 +160,10 @@ def test_static_allows_safe_mlflow_commands(cmd):
         "mlflow experiments csv --experiment-id 0 --filename /root/.ssh/authorized_keys",
         "mlflow experiments csv --experiment-id 0 -o /etc/cron.d/x",
         "mlflow experiments csv --experiment-id 0",
+        # `doctor` prints MLFLOW_* env vars (tokens/passwords) unmasked and the raw
+        # tracking URI, reading local process state rather than the tracking API.
+        "mlflow doctor",
+        "mlflow doctor --mask-envs",
     ],
 )
 def test_static_denies_dangerous_mlflow_commands(cmd):
