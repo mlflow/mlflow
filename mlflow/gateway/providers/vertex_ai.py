@@ -27,7 +27,7 @@ from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.base import BaseProvider
-from mlflow.gateway.providers.gemini import GeminiProvider
+from mlflow.gateway.providers.gemini import GeminiAdapter, GeminiProvider
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleProvider
 
 _DEFAULT_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
@@ -38,6 +38,29 @@ _VERTEX_ANTHROPIC_VERSION = "vertex-2023-10-16"
 # No-slash model name prefixes that belong to the MaaS (OpenAI-compatible) type
 # rather than the Google (Gemini API) type.
 _MAAS_PREFIXES = ("mistral", "codestral", "jamba")
+
+
+class _VertexGeminiAdapter(GeminiAdapter):
+    """GeminiAdapter for Gemini models on Vertex AI.
+
+    The shared GeminiAdapter targets the Developer Gemini API
+    (generativelanguage.googleapis.com), which uses ``functionCall``/``functionResponse``
+    ``id`` to correlate parallel tool calls. Vertex AI's generateContent proto rejects
+    that field with ``400 INVALID_ARGUMENT`` at ``contents[].parts[].function_call.id``,
+    so strip it from the translated request while leaving ``name`` and
+    ``thoughtSignature`` intact.
+    """
+
+    @classmethod
+    def chat_to_model(cls, payload, config):
+        model_payload = super().chat_to_model(payload, config)
+        for content in model_payload.get("contents", []):
+            for part in content.get("parts", []):
+                if function_call := part.get("functionCall"):
+                    function_call.pop("id", None)
+                if function_response := part.get("functionResponse"):
+                    function_response.pop("id", None)
+        return model_payload
 
 
 def _classify_model(model_name: str) -> str:
@@ -143,6 +166,10 @@ class VertexAIProvider(GeminiProvider):
 
     def get_provider_name(self) -> str:
         return "vertex_ai"
+
+    @property
+    def adapter_class(self):
+        return _VertexGeminiAdapter
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
         if not isinstance(config.model.config, VertexAIConfig):
