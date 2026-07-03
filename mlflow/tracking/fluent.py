@@ -295,26 +295,25 @@ def _sync_trace_destination_and_provider(
     from mlflow.exceptions import MlflowTracingException
     from mlflow.tracing.provider import (
         _MLFLOW_TRACE_USER_DESTINATION,
-        disable,
         is_tracing_enabled,
         provider,
     )
 
-    # If the tracer provider has already been initialized, reset it so the
-    # next trace re-derives the correct processor chain from the new experiment.
+    # If the tracer provider has already been initialized, reset it so the next
+    # trace re-derives the correct processor chain from the new experiment. But
+    # only when tracing is enabled: reset() flips the `once` flag off, which makes
+    # is_tracing_enabled() fall back to its default of True, silently re-enabling
+    # tracing the user explicitly disabled (issue #24209). Skipping reset() when
+    # disabled preserves that state (the NoOp provider stays installed).
+    # is_tracing_enabled() is raise_as_trace_exception-wrapped; never let a tracing
+    # error break set_experiment, so default to resetting on error.
     if provider.once._done:
-        # reset() flips the `once` flag back off, which makes is_tracing_enabled()
-        # fall back to its default of True. If the user had explicitly disabled
-        # tracing, preserve that instead of silently re-enabling it (issue #24209).
-        # is_tracing_enabled() is wrapped with raise_as_trace_exception; never let
-        # a tracing error break set_experiment, so default to not preserving.
         try:
-            was_disabled = not is_tracing_enabled()
+            tracing_enabled = is_tracing_enabled()
         except MlflowTracingException:
-            was_disabled = False
-        provider.reset()
-        if was_disabled:
-            disable()
+            tracing_enabled = True
+        if tracing_enabled:
+            provider.reset()
 
     _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
 
