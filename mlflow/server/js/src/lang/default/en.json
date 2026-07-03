@@ -2831,6 +2831,10 @@
     "defaultMessage": "Confirm new password",
     "description": "Placeholder for the confirm-password input"
   },
+  "BOm6XU": {
+    "defaultMessage": "Input {input} · Output {output} tokens",
+    "description": "Breakdown of session token usage into input (prompt) and output (completion) tokens"
+  },
   "BOz0T2": {
     "defaultMessage": "Select metric",
     "description": "Placeholder text for a metric selector when configuring a line chart"
@@ -3538,6 +3542,10 @@
   "Ey+oLI": {
     "defaultMessage": "Request",
     "description": "Column label for request"
+  },
+  "F+8+Xo": {
+    "defaultMessage": "Estimated cost ~{cost} — from public model pricing; actual may vary (provider and cache rates).",
+    "description": "Estimated session cost with a disclaimer that it is approximate"
   },
   "F16DNA": {
     "defaultMessage": "Version {versionNum}",
@@ -5382,6 +5390,10 @@
   "Ob5d+s": {
     "defaultMessage": "System metrics",
     "description": "Run details page > tab selector > System metrics tab"
+  },
+  "OcN222": {
+    "defaultMessage": "Cost estimate unavailable for this model.",
+    "description": "Shown when the assistant's model is not in the pricing catalog so cost cannot be estimated"
   },
   "OcYzCN": {
     "defaultMessage": "Unresolved",

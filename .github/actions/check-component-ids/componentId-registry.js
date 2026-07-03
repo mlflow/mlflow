@@ -826,6 +826,7 @@ module.exports = {
   "mlflow.assistant.chat_panel.settings.tooltip": "",
   "mlflow.assistant.chat_panel.setup": "",
   "mlflow.assistant.chat_panel.suggestion.card": "",
+  "mlflow.assistant.chat_panel.usage_info": "",
   "mlflow.assistant.fab": "",
   "mlflow.assistant.icon_button": "",
   "mlflow.assistant.icon_button.tooltip": "",

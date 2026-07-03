@@ -12,6 +12,7 @@ import {
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
   GearIcon,
+  InfoTooltip,
   RefreshIcon,
   SparkleDoubleIcon,
   SparkleIcon,
@@ -53,6 +54,18 @@ const DOTS_ANIMATION = {
   '66%': { content: '".."' },
   '100%': { content: '"..."' },
 };
+
+// Abbreviate token counts for the compact usage footer (e.g. 45257 -> "45.3K").
+const formatCompactTokens = (n: number): string =>
+  new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+
+// Sub-dollar estimates need more precision than cents (e.g. "$0.0045").
+const formatCostUsd = (cost: number): string =>
+  new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: cost < 1 ? 4 : 2,
+  }).format(cost);
 
 export type MessagePartGroup = { kind: 'text'; text: string } | { kind: 'tools'; calls: ToolCallPart[] };
 
@@ -332,6 +345,7 @@ const ChatPanelContent = () => {
     sendMessage,
     regenerateLastMessage,
     cancelSession,
+    tokenUsage,
     pendingPrompt,
     clearPendingPrompt,
     pendingPermission,
@@ -459,37 +473,95 @@ const ChatPanelContent = () => {
             backgroundColor: theme.colors.backgroundPrimary,
           }}
         >
-          <div css={{ display: 'flex', alignItems: 'flex-end' }}>
-            <textarea
-              ref={textareaRef}
-              placeholder="Ask a question..."
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              css={{
-                flex: 1,
+          <AssistantContextTags />
+          <textarea
+            ref={textareaRef}
+            placeholder="Ask a question..."
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={1}
+            css={{
+              width: '100%',
+              border: 'none',
+              outline: 'none',
+              backgroundColor: 'transparent',
+              fontSize: theme.typography.fontSizeBase,
+              color: theme.colors.textPrimary,
+              padding: theme.spacing.xs,
+              resize: 'none',
+              overflowX: 'hidden',
+              overflowY: 'auto',
+              fontFamily: 'inherit',
+              lineHeight: 'inherit',
+              maxHeight: 150,
+              '&::placeholder': {
+                color: theme.colors.textPlaceholder,
+              },
+              '&:focus': {
                 border: 'none',
                 outline: 'none',
-                backgroundColor: 'transparent',
-                fontSize: theme.typography.fontSizeBase,
-                color: theme.colors.textPrimary,
-                padding: theme.spacing.xs,
-                resize: 'none',
-                overflowX: 'hidden',
-                overflowY: 'auto',
-                fontFamily: 'inherit',
-                lineHeight: 'inherit',
-                maxHeight: 150,
-                '&::placeholder': {
-                  color: theme.colors.textPlaceholder,
-                },
-                '&:focus': {
-                  border: 'none',
-                  outline: 'none',
-                },
-              }}
-            />
+              },
+            }}
+          />
+          <div
+            css={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.sm,
+              paddingTop: theme.spacing.sm,
+              marginTop: theme.spacing.xs,
+              borderTop: `1px solid ${theme.colors.borderDecorative}`,
+            }}
+          >
+            <div css={{ flex: 1 }} />
+            {tokenUsage.totalTokens > 0 && (
+              <div css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                <Typography.Text size="sm" color="secondary" css={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {formatCompactTokens(tokenUsage.totalTokens)}
+                </Typography.Text>
+                <InfoTooltip
+                  componentId="mlflow.assistant.chat_panel.usage_info"
+                  content={
+                    <div
+                      css={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: theme.spacing.xs,
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      <span>
+                        <FormattedMessage
+                          defaultMessage="Input {input} · Output {output} tokens"
+                          description="Breakdown of session token usage into input (prompt) and output (completion) tokens"
+                          values={{
+                            input: tokenUsage.promptTokens.toLocaleString(),
+                            output: tokenUsage.completionTokens.toLocaleString(),
+                          }}
+                        />
+                      </span>
+                      {tokenUsage.costUsd != null ? (
+                        <span>
+                          <FormattedMessage
+                            defaultMessage="Estimated cost ~{cost} — from public model pricing; actual may vary (provider and cache rates)."
+                            description="Estimated session cost with a disclaimer that it is approximate"
+                            values={{ cost: formatCostUsd(tokenUsage.costUsd) }}
+                          />
+                        </span>
+                      ) : (
+                        <span>
+                          <FormattedMessage
+                            defaultMessage="Cost estimate unavailable for this model."
+                            description="Shown when the assistant's model is not in the pricing catalog so cost cannot be estimated"
+                          />
+                        </span>
+                      )}
+                    </div>
+                  }
+                />
+              </div>
+            )}
             <Button
               componentId="mlflow.assistant.chat_panel.send"
               onClick={isStreaming ? cancelSession : handleSend}
@@ -498,7 +570,6 @@ const ChatPanelContent = () => {
               aria-label="Send message"
             />
           </div>
-          <AssistantContextTags />
         </div>
       </div>
     </div>
