@@ -126,6 +126,40 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
                 _logger.debug(f"Failed to shutdown processor {processor}", exc_info=True)
 
 
+def retire_batch_processor(processor: "BaseMlflowSpanProcessor") -> None:
+    """Flush then shut down a single batch processor and drop it from the registry.
+
+    Called when a tracer provider is being replaced (e.g. ``enable()`` after
+    ``disable()``). The outgoing provider's ``BatchSpanProcessor`` owns a daemon
+    thread that OTel never stops on garbage collection, so replacing the provider
+    without this leaks one thread per cycle (see issue #24209).
+
+    Order matters: ``force_flush()`` synchronously drains the span queue into the
+    exporter (and the exporter's async queue into the store) *before*
+    ``shutdown()``, because OTel's ``BatchSpanProcessor.shutdown()`` sets an
+    internal flag that turns any subsequent ``force_flush()`` into a no-op. Flush
+    first, then stop, so no queued spans are dropped.
+    """
+    if processor._batch_delegate is None:
+        return
+    try:
+        processor.force_flush()
+        exporter = processor.span_exporter
+        if hasattr(exporter, "_async_queue"):
+            exporter._async_queue.flush(terminate=True)
+    except Exception:
+        _logger.debug(f"Failed to flush processor {processor} before retiring", exc_info=True)
+    try:
+        processor.shutdown()
+    except Exception:
+        _logger.debug(f"Failed to shut down processor {processor}", exc_info=True)
+    # Null out the delegate so any lingering on_end call falls through to the
+    # SimpleSpanProcessor path instead of a dead batch thread.
+    processor._batch_delegate = None
+    with _batch_processor_registry_lock:
+        _batch_processor_registry.discard(processor)
+
+
 def _create_batch_span_processor(exporter: SpanExporter) -> BatchSpanProcessor:
     max_export_batch_size = MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE.get()
     # OTel requires max_export_batch_size <= max_queue_size (raises ValueError otherwise).

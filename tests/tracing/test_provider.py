@@ -1,4 +1,5 @@
 import random
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -329,21 +330,15 @@ def test_trace_disabled_decorator(enabled_initially):
     assert len(get_traces()) == 0
     assert is_tracing_enabled() == enabled_initially
 
-    # @trace_disabled should not block the decorated function even
-    # if it fails to disable tracing
+    # @trace_disabled should not block the decorated function even if the
+    # tracing machinery errors while checking/toggling the tracing state.
     with mock.patch(
-        "mlflow.tracing.provider.disable", side_effect=MlflowTracingException("error")
-    ) as disable_mock:
+        "mlflow.tracing.provider.is_tracing_enabled",
+        side_effect=MlflowTracingException("error"),
+    ) as is_enabled_mock:
         assert test_fn() == 0
         assert call_count == 3
-        assert disable_mock.call_count == (1 if enabled_initially else 0)
-
-    with mock.patch(
-        "mlflow.tracing.provider.enable", side_effect=MlflowTracingException("error")
-    ) as enable_mock:
-        assert test_fn() == 0
-        assert call_count == 4
-        assert enable_mock.call_count == (1 if enabled_initially else 0)
+        assert is_enabled_mock.call_count == 1
 
 
 @pytest.mark.parametrize("enabled_initially", [True, False])
@@ -385,6 +380,94 @@ def test_disable_enable_tracing_not_mutate_otel_provider(monkeypatch):
 
     test_fn()
     assert trace.get_tracer_provider() is otel_tracer_provider
+
+
+def _count_batch_processor_threads() -> int:
+    return sum("OtelBatchSpanRecordProcessor" in t.name for t in threading.enumerate())
+
+
+@pytest.fixture
+def batch_span_processor(monkeypatch, tmp_path):
+    # Force the async BatchSpanProcessor path (which owns the leaked daemon thread)
+    # regardless of the ambient test config.
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "true")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("leak-test")
+
+
+def test_disable_enable_does_not_leak_batch_processor_threads(batch_span_processor):
+    @mlflow.trace
+    def f():
+        return 0
+
+    # Prime a real BatchSpanProcessor (and its daemon thread).
+    f()
+    baseline = _count_batch_processor_threads()
+
+    # Each enable() used to build a fresh provider + BatchSpanProcessor without
+    # shutting down the old one, leaking one thread per cycle (issue #24209).
+    for _ in range(10):
+        mlflow.tracing.disable()
+        mlflow.tracing.enable()
+
+    assert _count_batch_processor_threads() <= baseline
+
+
+def test_trace_disabled_does_not_leak_batch_processor_threads(batch_span_processor):
+    @mlflow.trace
+    def f():
+        return 0
+
+    @trace_disabled
+    def wrapped():
+        return 0
+
+    f()
+    baseline = _count_batch_processor_threads()
+
+    # trace_disabled wraps load_model/log_model; it must not create or destroy
+    # the BatchSpanProcessor thread per call.
+    for _ in range(20):
+        wrapped()
+
+    assert _count_batch_processor_threads() <= baseline
+    # Tracing is fully restored and still records after the decorated call.
+    purge_traces()
+    f()
+    assert len(get_traces()) == 1
+
+
+def test_trace_disabled_no_data_loss_on_retire(batch_span_processor):
+    # A span emitted just before enable() rebuilds the provider must still be
+    # exported: retiring the outgoing processor force_flushes before shutdown.
+    @mlflow.trace
+    def f():
+        return 0
+
+    f()
+    purge_traces()
+    f()
+    # Rebuild the provider; the pending span must survive the retire (flush-then-shutdown).
+    mlflow.tracing.disable()
+    mlflow.tracing.enable()
+    assert len(get_traces()) == 1
+
+
+def test_set_experiment_preserves_explicit_disable(tmp_path):
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("first")
+
+    mlflow.tracing.disable()
+    assert not is_tracing_enabled()
+
+    # set_experiment resets the provider to re-derive the destination; it must
+    # not silently re-enable tracing the user explicitly turned off (issue #24209).
+    mlflow.set_experiment("second")
+    assert not is_tracing_enabled()
+
+    mlflow.tracing.enable()
+    assert is_tracing_enabled()
 
 
 def test_is_tracing_enabled():

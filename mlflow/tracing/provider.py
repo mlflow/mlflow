@@ -148,7 +148,30 @@ class _TracerProviderWrapper:
             return self._isolated_tracer_provider
         return trace.get_tracer_provider()
 
+    def _retire_current_batch_processors(self) -> None:
+        """Flush and shut down the outgoing provider's MLflow batch processors.
+
+        A ``BatchSpanProcessor`` owns a daemon thread that OTel never stops on
+        garbage collection, so dropping the provider (on rebuild or reset)
+        without this leaks one thread per cycle (issue #24209). Only MLflow-owned
+        processors are retired; external processors on a shared global provider
+        are left untouched.
+        """
+        from mlflow.tracing.processor.base_mlflow import (
+            BaseMlflowSpanProcessor,
+            retire_batch_processor,
+        )
+
+        current = self.get()
+        if not isinstance(current, TracerProvider):
+            return
+        active = getattr(current, "_active_span_processor", None)
+        for processor in list(getattr(active, "_span_processors", ())):
+            if isinstance(processor, BaseMlflowSpanProcessor):
+                retire_batch_processor(processor)
+
     def set(self, tracer_provider: TracerProvider):
+        self._retire_current_batch_processors()
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             self._isolated_tracer_provider = tracer_provider
         else:
@@ -162,12 +185,29 @@ class _TracerProviderWrapper:
         return self.get().get_tracer(module_name)
 
     def reset(self):
+        self._retire_current_batch_processors()
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             self._isolated_tracer_provider = None
             self._isolated_tracer_provider_once._done = False
         else:
             trace._TRACER_PROVIDER = None
             self._global_provider_init_once._done = False
+
+    def _swap_raw(self, tracer_provider: TracerProvider) -> TracerProvider:
+        """Install ``tracer_provider`` and return the previous one, without retiring it.
+
+        Unlike ``set()``, the outgoing provider is left running so it can be
+        restored later. Used by ``trace_disabled`` to hide the real provider
+        behind a NoOp for the duration of the wrapped call without tearing down
+        (and rebuilding) its ``BatchSpanProcessor`` thread.
+        """
+        if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+            old = self._isolated_tracer_provider
+            self._isolated_tracer_provider = tracer_provider
+            return old
+        old = trace._TRACER_PROVIDER
+        trace._TRACER_PROVIDER = tracer_provider
+        return old
 
 
 provider = _TracerProviderWrapper()
@@ -888,35 +928,38 @@ def trace_disabled(f: Callable[P, R]) -> Callable[P, R]:
 
     @functools.wraps(f)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        is_func_called = False
-        result = None
+        # Hide the real provider behind a NoOp for the duration of the call and
+        # restore the SAME provider object afterwards, instead of disable() +
+        # enable(). The old path rebuilt a fresh BatchSpanProcessor (and its
+        # daemon thread) on every call, leaking one thread per invocation for
+        # BSP-wrapped functions like load_model/log_model (issue #24209).
         try:
-            if is_tracing_enabled():
-                disable()
-                try:
-                    is_func_called = True
-                    result = f(*args, **kwargs)
-                finally:
-                    enable()
-            else:
-                is_func_called = True
-                result = f(*args, **kwargs)
-        # We should only catch the exception from disable() and enable()
-        # and let other exceptions propagate.
+            enabled = is_tracing_enabled()
+        # is_tracing_enabled() only raises MlflowTracingException; let the
+        # function run untouched rather than blocking it on a tracing error.
         except MlflowTracingException as e:
             _logger.warning(
-                f"An error occurred while disabling or re-enabling tracing: {e} "
-                "The original function will still be executed, but the tracing "
-                "state may not be as expected. For full traceback, set "
-                "logging level to debug.",
+                f"An error occurred while checking tracing state: {e} The original "
+                "function will still be executed, but the tracing state may not be "
+                "as expected. For full traceback, set logging level to debug.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
-            # If the exception is raised before the original function
-            # is called, we should call the original function
-            if not is_func_called:
-                result = f(*args, **kwargs)
+            return f(*args, **kwargs)
 
-        return result
+        if not enabled:
+            return f(*args, **kwargs)
+
+        # Force the once flag on for the window so a lazy get_or_init_tracer()
+        # inside f() does not re-initialize over our NoOp. Restore both the
+        # provider object and the flag afterwards.
+        was_done = provider.once._done
+        old_provider = provider._swap_raw(trace.NoOpTracerProvider())
+        provider.once._done = True
+        try:
+            return f(*args, **kwargs)
+        finally:
+            provider._swap_raw(old_provider)
+            provider.once._done = was_done
 
     return wrapper
 

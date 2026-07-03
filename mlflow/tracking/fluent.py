@@ -292,12 +292,23 @@ def set_experiment(
 def _sync_trace_destination_and_provider(
     resolved_location: UnityCatalog | None,
 ) -> None:
-    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, provider
+    from mlflow.tracing.provider import (
+        _MLFLOW_TRACE_USER_DESTINATION,
+        disable,
+        is_tracing_enabled,
+        provider,
+    )
 
     # If the tracer provider has already been initialized, reset it so the
     # next trace re-derives the correct processor chain from the new experiment.
     if provider.once._done:
+        # reset() flips the `once` flag back off, which makes is_tracing_enabled()
+        # fall back to its default of True. If the user had explicitly disabled
+        # tracing, preserve that instead of silently re-enabling it (issue #24209).
+        was_disabled = not is_tracing_enabled()
         provider.reset()
+        if was_disabled:
+            disable()
 
     _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
 
