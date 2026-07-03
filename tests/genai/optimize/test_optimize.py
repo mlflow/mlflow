@@ -444,8 +444,19 @@ def test_optimize_prompts_with_chat_prompt(sample_dataset: pd.DataFrame):
         ],
     )
 
+    # Record the messages produced by `PromptVersion.format()` on every call so we
+    # can assert the JSON -> list[dict] round-trip in `_template_patch` is exercised
+    # during evaluation (not just when re-registering the optimized prompt).
+    formatted_messages: list[Any] = []
+
     def chat_predict_fn(input_text: str, language: str) -> str:
-        mlflow.genai.load_prompt("prompts:/test_chat_prompt/1")
+        prompt = mlflow.genai.load_prompt("prompts:/test_chat_prompt/1")
+        messages = prompt.format(language=language, input_text=input_text)
+        # The patched template must round-trip back to `list[dict]`, never a raw
+        # JSON string, so `format()` can build proper chat messages.
+        assert isinstance(messages, list)
+        assert all(isinstance(message, dict) for message in messages)
+        formatted_messages.append(messages)
         translations = {
             ("Hello", "Spanish"): "Hola",
             ("World", "French"): "Monde",
@@ -459,6 +470,17 @@ def test_optimize_prompts_with_chat_prompt(sample_dataset: pd.DataFrame):
         prompt_uris=[f"prompts:/{chat_prompt.name}/{chat_prompt.version}"],
         optimizer=ChatAwarePromptOptimizer(),
         scorers=[equivalence],
+    )
+
+    # `predict_fn` is invoked once for the initial model-check (original template,
+    # before the candidate patch is installed) and once per training row during
+    # evaluation (candidate template with the injected prefix).
+    assert len(formatted_messages) == 1 + len(sample_dataset)
+    initial_messages, *evaluation_messages = formatted_messages
+    assert initial_messages[0]["content"] == "You translate text."
+    assert all(
+        messages[0]["content"].startswith("Be precise and accurate. ")
+        for messages in evaluation_messages
     )
 
     assert len(result.optimized_prompts) == 1
@@ -508,6 +530,50 @@ def test_optimize_prompts_with_mixed_text_and_chat_prompts(sample_dataset: pd.Da
     assert not optimized_chat.is_text_prompt
     assert isinstance(optimized_chat.template, list)
     assert optimized_chat.template[0]["content"].startswith("Be precise and accurate. ")
+
+
+def test_optimize_prompts_formats_chat_prompt_outside_candidates(sample_dataset: pd.DataFrame):
+    # A chat prompt used by `predict_fn` but not among the prompts being optimized
+    # takes the `_template_patch` fallback path. It must still round-trip to
+    # `list[dict]` so `format()` works, rather than leaking the raw JSON string.
+    target_prompt = register_prompt(
+        name="test_fallback_target_prompt",
+        template="Translate to {{language}}: {{input_text}}",
+    )
+    untouched_chat_prompt = register_prompt(
+        name="test_fallback_chat_prompt",
+        template=[{"role": "system", "content": "You are a translator."}],
+    )
+
+    formatted_chat_messages: list[Any] = []
+
+    def predict_fn(input_text: str, language: str) -> str:
+        target = mlflow.genai.load_prompt(f"prompts:/{target_prompt.name}/1")
+        target.format(language=language, input_text=input_text)
+        chat = mlflow.genai.load_prompt(f"prompts:/{untouched_chat_prompt.name}/1")
+        messages = chat.format()
+        assert isinstance(messages, list)
+        assert all(isinstance(message, dict) for message in messages)
+        formatted_chat_messages.append(messages)
+        return f"translated_{input_text}_{language}"
+
+    result = optimize_prompts(
+        predict_fn=predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[f"prompts:/{target_prompt.name}/{target_prompt.version}"],
+        optimizer=ChatAwarePromptOptimizer(),
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 1
+    assert result.optimized_prompts[0].name == target_prompt.name
+
+    # The chat prompt is formatted once for the initial model-check and once per
+    # training row during evaluation. Every call must succeed and yield `list[dict]`.
+    assert len(formatted_chat_messages) == 1 + len(sample_dataset)
+    assert all(
+        messages[0]["content"] == "You are a translator." for messages in formatted_chat_messages
+    )
 
 
 def test_optimize_prompts_with_managed_evaluation_dataset(
