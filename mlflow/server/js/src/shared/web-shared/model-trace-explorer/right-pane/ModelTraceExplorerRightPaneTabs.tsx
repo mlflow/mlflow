@@ -163,7 +163,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
         <ModelTraceExplorerEventsTab activeSpan={activeSpan} searchFilter={searchFilter} activeMatch={activeMatch} />
       </Tabs.Content>
       <Tabs.Content css={contentStyle} value="links">
-        <ModelTraceExplorerLinksTab activeSpan={activeSpan} />
+        <ModelTraceExplorerLinksTab activeSpan={activeSpan} searchFilter={searchFilter} activeMatch={activeMatch} />
       </Tabs.Content>
       {displayReadOnlyAssessments && (
         <Tabs.Content css={contentStyle} value="assessments">

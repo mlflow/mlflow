@@ -345,7 +345,7 @@ export type ModelTraceExplorerTab = 'chat' | 'content' | 'attributes' | 'events'
 
 export type SearchMatch = {
   span: ModelTraceSpanNode;
-  section: 'inputs' | 'outputs' | 'attributes' | 'events';
+  section: 'inputs' | 'outputs' | 'attributes' | 'events' | 'links';
   key: string;
   isKeyMatch: boolean;
   matchIndex: number;
