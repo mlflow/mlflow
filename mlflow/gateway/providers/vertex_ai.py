@@ -40,27 +40,33 @@ _VERTEX_ANTHROPIC_VERSION = "vertex-2023-10-16"
 _MAAS_PREFIXES = ("mistral", "codestral", "jamba")
 
 
-class _VertexGeminiAdapter(GeminiAdapter):
-    """GeminiAdapter for Gemini models on Vertex AI.
+def _strip_function_call_ids(gemini_payload: dict[str, Any]) -> dict[str, Any]:
+    """Remove ``id`` from functionCall/functionResponse parts of a Gemini request body.
 
-    The shared GeminiAdapter targets the Developer Gemini API
-    (generativelanguage.googleapis.com), which uses ``functionCall``/``functionResponse``
-    ``id`` to correlate parallel tool calls. Vertex AI's generateContent proto rejects
-    that field with ``400 INVALID_ARGUMENT`` at ``contents[].parts[].function_call.id``,
-    so strip it from the translated request while leaving ``name`` and
-    ``thoughtSignature`` intact.
+    The shared GeminiAdapter and the Gemini passthrough route both target the Developer
+    Gemini API (generativelanguage.googleapis.com), which uses ``functionCall``/
+    ``functionResponse`` ``id`` to correlate parallel tool calls. Vertex AI's
+    generateContent proto rejects that field with ``400 INVALID_ARGUMENT`` at
+    ``contents[].parts[].function_call.id``, so strip it while leaving ``name`` and
+    ``thoughtSignature`` intact. Mutates and returns ``gemini_payload``.
+    """
+    for content in gemini_payload.get("contents", []):
+        for part in content.get("parts", []):
+            if function_call := part.get("functionCall"):
+                function_call.pop("id", None)
+            if function_response := part.get("functionResponse"):
+                function_response.pop("id", None)
+    return gemini_payload
+
+
+class _VertexGeminiAdapter(GeminiAdapter):
+    """GeminiAdapter for Gemini models on Vertex AI, which strips the Vertex-illegal
+    ``functionCall``/``functionResponse`` ``id`` from the translated request.
     """
 
     @classmethod
     def chat_to_model(cls, payload, config):
-        model_payload = super().chat_to_model(payload, config)
-        for content in model_payload.get("contents", []):
-            for part in content.get("parts", []):
-                if function_call := part.get("functionCall"):
-                    function_call.pop("id", None)
-                if function_response := part.get("functionResponse"):
-                    function_response.pop("id", None)
-        return model_payload
+        return _strip_function_call_ids(super().chat_to_model(payload, config))
 
 
 def _classify_model(model_name: str) -> str:
@@ -287,3 +293,8 @@ class VertexAIProvider(GeminiProvider):
             )
         async for chunk in super()._completions_stream(payload):
             yield chunk
+
+    async def _passthrough(self, action, payload, headers=None):
+        # Raw Gemini-native bodies bypass chat_to_model, so strip the Vertex-illegal
+        # functionCall/functionResponse id here too before forwarding.
+        return await super()._passthrough(action, _strip_function_call_ids(payload), headers)

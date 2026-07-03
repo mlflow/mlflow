@@ -10,6 +10,7 @@ from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS
 from mlflow.gateway.exceptions import AIGatewayException
+from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.vertex_ai import VertexAIProvider
 from mlflow.gateway.schemas import chat, completions
 
@@ -207,6 +208,77 @@ async def test_chat_stream_tool_calling_omits_function_call_id():
     with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         stream = provider.chat_stream(chat.RequestPayload(**payload))
         _ = [chunk async for chunk in stream]
+
+    contents = mock_client.post.call_args[1]["json"]["contents"]
+    assert "id" not in _find_part(contents, "functionCall")
+    assert "id" not in _find_part(contents, "functionResponse")
+
+
+def _passthrough_tool_body():
+    # A raw Gemini-native generateContent body a client posts to the passthrough
+    # route, already carrying the function-call id that Vertex rejects.
+    return {
+        "contents": [
+            {"role": "user", "parts": [{"text": "What's the weather in Santiago?"}]},
+            {
+                "role": "model",
+                "parts": [
+                    {
+                        "functionCall": {
+                            "id": "call_001",
+                            "name": "get_weather",
+                            "args": {"city": "Santiago"},
+                        }
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "functionResponse": {
+                            "id": "call_001",
+                            "name": "get_weather",
+                            "response": {"temp": 14},
+                        }
+                    }
+                ],
+            },
+        ]
+    }
+
+
+@pytest.mark.asyncio
+async def test_passthrough_generate_content_strips_function_call_id():
+    # Regression test for #24127 on the passthrough route: raw generateContent bodies
+    # bypass chat_to_model, so the id must be stripped here too before reaching Vertex.
+    provider = _make_provider()
+    mock_client = mock_http_client(MockAsyncResponse({"candidates": []}))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        await provider.passthrough(
+            PassthroughAction.GEMINI_GENERATE_CONTENT, _passthrough_tool_body()
+        )
+
+    contents = mock_client.post.call_args[1]["json"]["contents"]
+    function_call = _find_part(contents, "functionCall")
+    function_response = _find_part(contents, "functionResponse")
+    assert "id" not in function_call
+    assert "id" not in function_response
+    assert function_call["name"] == "get_weather"
+    assert function_call["args"] == {"city": "Santiago"}
+
+
+@pytest.mark.asyncio
+async def test_passthrough_stream_generate_content_strips_function_call_id():
+    provider = _make_provider()
+    mock_client = mock_http_client(MockAsyncStreamingResponse([b'data: {"candidates": []}\n\n']))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.passthrough(
+            PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, _passthrough_tool_body()
+        )
+        _ = [chunk async for chunk in result]
 
     contents = mock_client.post.call_args[1]["json"]["contents"]
     assert "id" not in _find_part(contents, "functionCall")
