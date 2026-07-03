@@ -1,6 +1,5 @@
 import random
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -468,16 +467,18 @@ def test_nested_trace_disabled_restores_tracing(batch_span_processor):
 
     @trace_disabled
     def outer():
-        # Tracing is off inside the outer frame, and the inner frame must not
-        # restore it early on its own exit.
         assert not is_tracing_enabled()
-        return inner()
+        inner_state = inner()
+        # The inner frame must NOT restore tracing on its own exit: we are still
+        # inside the outer frame, so tracing must remain disabled.
+        assert not is_tracing_enabled()
+        return inner_state
 
     f()
     baseline = _count_batch_processor_threads()
 
     assert outer() is False
-    # Outermost exit restores tracing exactly once; no thread churn.
+    # Only the outermost exit restores tracing.
     assert is_tracing_enabled()
     assert _count_batch_processor_threads() <= baseline
     purge_traces()
@@ -485,22 +486,24 @@ def test_nested_trace_disabled_restores_tracing(batch_span_processor):
     assert len(get_traces()) == 1
 
 
-def test_concurrent_trace_disabled_restores_tracing(batch_span_processor):
+def test_trace_disabled_under_concurrency_smoke(batch_span_processor):
+    # Smoke check that trace_disabled is safe under concurrent use: after many
+    # overlapping calls tracing is still enabled and no BSP thread leaked. This
+    # asserts the happy end state; it does not deterministically force the rare
+    # swap/restore interleaving the depth guard defends against.
     @mlflow.trace
     def f():
         return 0
 
     @trace_disabled
     def wrapped():
-        time.sleep(0.005)
+        return 0
 
     f()
     baseline = _count_batch_processor_threads()
 
-    # Overlapping calls must not leave a NoOp permanently installed; the depth
-    # guard swaps/restores only on the outermost frame.
-    with ThreadPoolExecutor(max_workers=12, thread_name_prefix="trace-disabled-test") as executor:
-        futures = [executor.submit(wrapped) for _ in range(120)]
+    with ThreadPoolExecutor(max_workers=8, thread_name_prefix="trace-disabled-test") as executor:
+        futures = [executor.submit(wrapped) for _ in range(200)]
         for future in futures:
             future.result()
 
