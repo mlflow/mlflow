@@ -292,6 +292,7 @@ def set_experiment(
 def _sync_trace_destination_and_provider(
     resolved_location: UnityCatalog | None,
 ) -> None:
+    from mlflow.exceptions import MlflowTracingException
     from mlflow.tracing.provider import (
         _MLFLOW_TRACE_USER_DESTINATION,
         disable,
@@ -305,7 +306,12 @@ def _sync_trace_destination_and_provider(
         # reset() flips the `once` flag back off, which makes is_tracing_enabled()
         # fall back to its default of True. If the user had explicitly disabled
         # tracing, preserve that instead of silently re-enabling it (issue #24209).
-        was_disabled = not is_tracing_enabled()
+        # is_tracing_enabled() is wrapped with raise_as_trace_exception; never let
+        # a tracing error break set_experiment, so default to not preserving.
+        try:
+            was_disabled = not is_tracing_enabled()
+        except MlflowTracingException:
+            was_disabled = False
         provider.reset()
         if was_disabled:
             disable()

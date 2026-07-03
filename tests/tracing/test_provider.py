@@ -1,5 +1,6 @@
 import random
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -438,7 +439,7 @@ def test_trace_disabled_does_not_leak_batch_processor_threads(batch_span_process
     assert len(get_traces()) == 1
 
 
-def test_trace_disabled_no_data_loss_on_retire(batch_span_processor):
+def test_disable_enable_no_data_loss_on_retire(batch_span_processor):
     # A span emitted just before enable() rebuilds the provider must still be
     # exported: retiring the outgoing processor force_flushes before shutdown.
     @mlflow.trace
@@ -452,6 +453,106 @@ def test_trace_disabled_no_data_loss_on_retire(batch_span_processor):
     mlflow.tracing.disable()
     mlflow.tracing.enable()
     assert len(get_traces()) == 1
+
+
+def test_nested_trace_disabled_restores_tracing(batch_span_processor):
+    @mlflow.trace
+    def f():
+        return 0
+
+    @trace_disabled
+    def inner():
+        return is_tracing_enabled()
+
+    @trace_disabled
+    def outer():
+        # Tracing is off inside the outer frame, and the inner frame must not
+        # restore it early on its own exit.
+        assert not is_tracing_enabled()
+        return inner()
+
+    f()
+    baseline = _count_batch_processor_threads()
+
+    assert outer() is False
+    # Outermost exit restores tracing exactly once; no thread churn.
+    assert is_tracing_enabled()
+    assert _count_batch_processor_threads() <= baseline
+    purge_traces()
+    f()
+    assert len(get_traces()) == 1
+
+
+def test_concurrent_trace_disabled_restores_tracing(batch_span_processor):
+    @mlflow.trace
+    def f():
+        return 0
+
+    @trace_disabled
+    def wrapped():
+        time.sleep(0.005)
+
+    f()
+    baseline = _count_batch_processor_threads()
+
+    # Overlapping trace_disabled calls must not leave a NoOp permanently
+    # installed (each frame stashing its own "old" provider). The depth guard
+    # ensures the swap/restore happens only on the outermost frame.
+    with ThreadPoolExecutor(max_workers=12, thread_name_prefix="trace-disabled-test") as executor:
+        futures = [executor.submit(wrapped) for _ in range(120)]
+        for future in futures:
+            future.result()
+
+    assert is_tracing_enabled()
+    assert _count_batch_processor_threads() <= baseline
+    purge_traces()
+    f()
+    assert len(get_traces()) == 1
+
+
+def test_otlp_span_processor_is_retired_on_provider_replace(monkeypatch):
+    # OtelSpanProcessor subclasses OTel's BatchSpanProcessor directly (it is not
+    # a BaseMlflowSpanProcessor) and owns its own worker thread, so it must also
+    # be flushed + shut down when the provider is replaced (issue #24209 review).
+    from mlflow.tracing.provider import _get_tracer
+
+    monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "false")
+    with (
+        mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True),
+        mock.patch("mlflow.tracing.provider.get_otlp_exporter"),
+    ):
+        mlflow.tracing.reset()
+        tracer = _get_tracer("test")
+        (otel_processor,) = tracer.span_processor._span_processors
+        assert isinstance(otel_processor, OtelSpanProcessor)
+
+        with (
+            mock.patch.object(otel_processor, "force_flush") as force_flush,
+            mock.patch.object(otel_processor, "shutdown") as shutdown,
+        ):
+            # Replacing the provider must flush before it shuts the processor down.
+            mlflow.tracing.disable()
+            force_flush.assert_called_once()
+            shutdown.assert_called_once()
+
+
+def test_set_experiment_survives_tracing_state_error(tmp_path, monkeypatch):
+    # is_tracing_enabled() is raise_as_trace_exception-wrapped; a tracing error
+    # must not break set_experiment (issue #24209 review).
+    mlflow.set_tracking_uri(f"sqlite:///{tmp_path}/mlflow.db")
+    mlflow.set_experiment("first")
+
+    @mlflow.trace
+    def f():
+        return 0
+
+    f()  # ensure provider.once._done so the preserve-disabled branch runs
+    with mock.patch(
+        "mlflow.tracing.provider.is_tracing_enabled",
+        side_effect=MlflowTracingException("boom"),
+    ):
+        # Should not raise despite the tracing-state check failing.
+        mlflow.set_experiment("second")
 
 
 def test_set_experiment_preserves_explicit_disable(tmp_path):

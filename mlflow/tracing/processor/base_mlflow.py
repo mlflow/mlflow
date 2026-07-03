@@ -142,6 +142,14 @@ def retire_batch_processor(processor: "BaseMlflowSpanProcessor") -> None:
     """
     if processor._batch_delegate is None:
         return
+    # Wait for any in-flight on_end to finish so its span is in the BSP queue
+    # before force_flush(), mirroring flush_all_batch_processors(). Otherwise a
+    # span whose on_end is running concurrently could be dropped on shutdown.
+    with processor._pending_on_end_condition:
+        processor._pending_on_end_condition.wait_for(
+            lambda: processor._pending_on_end_count == 0,
+            timeout=30.0,
+        )
     try:
         processor.force_flush()
         exporter = processor.span_exporter

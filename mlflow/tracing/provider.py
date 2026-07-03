@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import random
+import threading
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, ParamSpec, TypeVar
 
@@ -156,11 +157,17 @@ class _TracerProviderWrapper:
         without this leaks one thread per cycle (issue #24209). Only MLflow-owned
         processors are retired; external processors on a shared global provider
         are left untouched.
+
+        Two MLflow-owned kinds carry a batch worker thread:
+        - ``BaseMlflowSpanProcessor`` with a ``_batch_delegate`` (async MLflow export)
+        - ``OtelSpanProcessor`` (OTLP export), which subclasses OTel's
+          ``BatchSpanProcessor`` directly and owns the thread itself.
         """
         from mlflow.tracing.processor.base_mlflow import (
             BaseMlflowSpanProcessor,
             retire_batch_processor,
         )
+        from mlflow.tracing.processor.otel import OtelSpanProcessor
 
         current = self.get()
         if not isinstance(current, TracerProvider):
@@ -169,6 +176,13 @@ class _TracerProviderWrapper:
         for processor in list(getattr(active, "_span_processors", ())):
             if isinstance(processor, BaseMlflowSpanProcessor):
                 retire_batch_processor(processor)
+            elif isinstance(processor, OtelSpanProcessor):
+                # Flush before shutdown so queued spans are exported, not dropped.
+                try:
+                    processor.force_flush()
+                    processor.shutdown()
+                except Exception:
+                    _logger.debug(f"Failed to retire OtelSpanProcessor {processor}", exc_info=True)
 
     def set(self, tracer_provider: TracerProvider):
         self._retire_current_batch_processors()
@@ -212,6 +226,14 @@ class _TracerProviderWrapper:
 
 provider = _TracerProviderWrapper()
 mlflow_runtime_context = ContextVarsRuntimeContext()
+
+# Serializes trace_disabled's provider swap/restore and counts active frames so
+# nested and concurrent trace_disabled calls swap only on the outermost entry and
+# restore only on the outermost exit. Without this, overlapping calls each stash
+# their own "old" provider and the last finally to run can leave a NoOp installed
+# permanently (issue #24209 review).
+_trace_disabled_lock = threading.Lock()
+_trace_disabled_state: dict[str, Any] = {"depth": 0, "saved_provider": None, "saved_once": None}
 
 
 def get_context_api():
@@ -933,33 +955,49 @@ def trace_disabled(f: Callable[P, R]) -> Callable[P, R]:
         # enable(). The old path rebuilt a fresh BatchSpanProcessor (and its
         # daemon thread) on every call, leaking one thread per invocation for
         # BSP-wrapped functions like load_model/log_model (issue #24209).
+        #
+        # A module-level depth counter makes the swap happen once on the
+        # outermost entry and the restore once on the outermost exit, so nested
+        # and concurrent trace_disabled calls can't each stash their own "old"
+        # provider and leave a NoOp installed permanently.
+        entered = False
         try:
-            enabled = is_tracing_enabled()
-        # is_tracing_enabled() only raises MlflowTracingException; let the
-        # function run untouched rather than blocking it on a tracing error.
+            with _trace_disabled_lock:
+                if _trace_disabled_state["depth"] == 0:
+                    # is_tracing_enabled() only raises MlflowTracingException;
+                    # let the function run untouched rather than blocking it.
+                    if not is_tracing_enabled():
+                        return f(*args, **kwargs)
+                    # Force the once flag on for the window so a lazy
+                    # get_or_init_tracer() inside f() does not re-initialize
+                    # over our NoOp.
+                    _trace_disabled_state["saved_once"] = provider.once._done
+                    _trace_disabled_state["saved_provider"] = provider._swap_raw(
+                        trace.NoOpTracerProvider()
+                    )
+                    provider.once._done = True
+                _trace_disabled_state["depth"] += 1
+                entered = True
         except MlflowTracingException as e:
             _logger.warning(
-                f"An error occurred while checking tracing state: {e} The original "
+                f"An error occurred while disabling tracing: {e} The original "
                 "function will still be executed, but the tracing state may not be "
                 "as expected. For full traceback, set logging level to debug.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
             return f(*args, **kwargs)
 
-        if not enabled:
-            return f(*args, **kwargs)
-
-        # Force the once flag on for the window so a lazy get_or_init_tracer()
-        # inside f() does not re-initialize over our NoOp. Restore both the
-        # provider object and the flag afterwards.
-        was_done = provider.once._done
-        old_provider = provider._swap_raw(trace.NoOpTracerProvider())
-        provider.once._done = True
         try:
             return f(*args, **kwargs)
         finally:
-            provider._swap_raw(old_provider)
-            provider.once._done = was_done
+            if entered:
+                with _trace_disabled_lock:
+                    _trace_disabled_state["depth"] -= 1
+                    if _trace_disabled_state["depth"] == 0:
+                        provider._swap_raw(_trace_disabled_state["saved_provider"])
+                        provider.once._done = _trace_disabled_state["saved_once"]
+                        _trace_disabled_state["saved_provider"] = None
+                        _trace_disabled_state["saved_once"] = None
 
     return wrapper
 
