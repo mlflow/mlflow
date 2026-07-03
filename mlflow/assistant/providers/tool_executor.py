@@ -17,21 +17,25 @@ _ALLOWED_BASH_COMMANDS = {"mlflow"}
 
 # MLflow subcommands the restricted assistant may invoke. This is an allowlist
 # (fail-closed): any subcommand not listed here — including future ones — is
-# denied. Everything here is read/query-oriented and routes through the tracking
-# API (so Tier-1 token forwarding authorizes it as the calling user). Excluded
-# subcommands such as `run`, `models`, `server`, `deployments`, `sagemaker`,
-# `gateway`, `db`, `gc`, and the LLM/agent runners either execute arbitrary code,
-# serve/mutate backend state, or permanently delete data. `artifacts` is also
-# excluded: `log-artifact --local-file` / `download --dst-path` take unconstrained
-# server-local paths, making it an arbitrary file read/write primitive that would
-# escape the workspace sandbox the Read/Write tools enforce.
+# denied. Every entry routes through the tracking API, so Tier-1 token forwarding
+# authorizes it as the calling user; most are read/query verbs, and the few that
+# mutate (`experiments create/delete/restore/rename/update`, `runs delete/restore`)
+# are still authorized as that user. Excluded subcommands such as `run`, `models`,
+# `server`, `deployments`, `sagemaker`, `gateway`, `db`, `gc`, and the LLM/agent
+# runners either execute arbitrary code, serve/mutate backend state, or permanently
+# delete data. `artifacts` is also excluded: `log-artifact --local-file` /
+# `download --dst-path` take unconstrained server-local paths, making it an arbitrary
+# file read/write primitive that would escape the workspace sandbox the Read/Write
+# tools enforce. `doctor` is excluded too: it reads local process state rather than
+# the tracking API and prints every MLFLOW_* env var unmasked (including
+# MLFLOW_TRACKING_TOKEN/USERNAME/PASSWORD) plus the raw tracking URI, so under remote
+# lockdown it is a one-shot server-side secret exfiltration primitive.
 _ALLOWED_MLFLOW_SUBCOMMANDS = frozenset({
     "experiments",
     "runs",
     "traces",
     "datasets",
     "scorers",
-    "doctor",
 })
 
 # Sub-subcommands that are denied even though their parent subcommand is allowlisted,
