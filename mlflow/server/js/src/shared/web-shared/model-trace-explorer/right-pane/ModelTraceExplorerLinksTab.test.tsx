@@ -12,9 +12,13 @@ import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
 import { MOCK_LINKS_SPAN, MOCK_SPAN_LINKS } from '../ModelTraceExplorer.test-utils';
 
-jest.mock('../hooks/useSpanLinkHref', () => ({
-  useSpanLinkHref: (traceId: string | undefined) =>
+const mockUseSpanLinkHref = jest.fn(
+  (traceId: string | undefined) =>
     traceId ? `/experiments/1/traces?selectedEvaluationId=${traceId}` : undefined,
+);
+
+jest.mock('../hooks/useSpanLinkHref', () => ({
+  useSpanLinkHref: (...args: any[]) => mockUseSpanLinkHref(...args),
 }));
 
 const queryClient = new QueryClient();
@@ -90,6 +94,18 @@ describe('ModelTraceExplorerLinksTab', () => {
 
     expect(screen.getByText('tr-with-attrs')).toBeInTheDocument();
     expect(screen.getByText('attributes')).toBeInTheDocument();
+  });
+
+  it('renders trace_id as plain text when href is unavailable', () => {
+    mockUseSpanLinkHref.mockReturnValue(undefined);
+    const span = createMockSpanNode({
+      links: [{ trace_id: 'tr-unresolved', span_id: 'eeff000000000000' }],
+    });
+    render(<ModelTraceExplorerLinksTab activeSpan={span} />, { wrapper: Wrapper });
+
+    expect(screen.getByText('tr-unresolved')).toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    mockUseSpanLinkHref.mockRestore();
   });
 
   it('does not render attributes section when link has no attributes', () => {
