@@ -259,8 +259,10 @@ def test_process_transcript_creates_spans(mock_transcript_file):
     assert tool_span.name == "tool_Bash"
 
     # Verify LLM spans have MESSAGE_FORMAT set to "anthropic" for Chat UI rendering
+    # and MODEL set so cost is computable on the client-side (Databricks) path.
     for llm_span in llm_spans:
         assert llm_span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+        assert llm_span.get_attribute(SpanAttributeKey.MODEL) == llm_span.inputs["model"]
 
     # Verify LLM span outputs are in Anthropic response format
     first_llm = llm_spans[0]
@@ -448,6 +450,7 @@ def test_process_sdk_messages_simple_conversation():
     assert llm_spans[0].inputs["model"] == "claude-sonnet-4-20250514"
     assert llm_spans[0].inputs["messages"] == [{"role": "user", "content": "What is 2 + 2?"}]
     assert llm_spans[0].get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+    assert llm_spans[0].get_attribute(SpanAttributeKey.MODEL) == "claude-sonnet-4-20250514"
 
     # Output should be in Anthropic response format
     outputs = llm_spans[0].outputs

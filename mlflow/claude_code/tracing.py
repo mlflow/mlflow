@@ -461,6 +461,7 @@ def _create_llm_and_tool_spans(
                 },
                 attributes={
                     "model": msg.get("model", "unknown"),
+                    SpanAttributeKey.MODEL: msg.get("model", "unknown"),
                     SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
                 },
             )
@@ -776,6 +777,7 @@ def _create_sdk_child_spans(
                     },
                     attributes={
                         "model": getattr(msg, "model", "unknown"),
+                        SpanAttributeKey.MODEL: getattr(msg, "model", "unknown"),
                         SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
                     },
                 )
