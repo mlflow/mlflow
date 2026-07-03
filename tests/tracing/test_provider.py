@@ -597,19 +597,27 @@ def test_metrics_export_without_otlp_trace_export(monkeypatch):
 
 
 def test_otel_resource_attributes(monkeypatch):
+    def resource_attributes(tracer):
+        # opentelemetry-sdk 1.43.0+ auto-injects a random `service.instance.id` when it builds
+        # the resource from env vars. It is not deterministic, so drop it before comparing.
+        attributes = dict(tracer.resource.attributes)
+        attributes.pop("service.instance.id", None)
+        return attributes
+
     tracer = _get_tracer("test")
     # By default, only MLflow's SDK attributes are set on an empty resource
-    assert tracer.resource.attributes == {
+    assert resource_attributes(tracer) == {
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
     }
 
     mlflow.tracing.reset()
-    # When otel attributes are set explicitly, MLflow's SDK attributes are not set on the resource
+    # When otel attributes are set explicitly, they are merged into the resource
+    # alongside MLflow's SDK attributes.
     monkeypatch.setenv("OTEL_RESOURCE_ATTRIBUTES", "favorite.fruit=apple,color=red")
     tracer = _get_tracer("test")
-    assert dict(tracer.resource.attributes) == {
+    assert resource_attributes(tracer) == {
         "favorite.fruit": "apple",
         "color": "red",
         "telemetry.sdk.language": "python",
@@ -623,7 +631,7 @@ def test_otel_resource_attributes(monkeypatch):
     monkeypatch.setenv("OTEL_SERVICE_NAME", "test-service")
     monkeypatch.delenv("OTEL_RESOURCE_ATTRIBUTES", raising=False)
     tracer = _get_tracer("test")
-    assert dict(tracer.resource.attributes) == {
+    assert resource_attributes(tracer) == {
         "service.name": "test-service",
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",
@@ -635,7 +643,7 @@ def test_otel_resource_attributes(monkeypatch):
     monkeypatch.setenv("OTEL_RESOURCE_ATTRIBUTES", "invalid")
     monkeypatch.delenv("OTEL_SERVICE_NAME", raising=False)
     tracer = _get_tracer("test")
-    assert dict(tracer.resource.attributes) == {
+    assert resource_attributes(tracer) == {
         "service.name": "unknown_service",
         "telemetry.sdk.language": "python",
         "telemetry.sdk.name": "mlflow",

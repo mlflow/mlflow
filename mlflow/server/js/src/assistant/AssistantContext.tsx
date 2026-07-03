@@ -21,6 +21,38 @@ import { GATEWAY_PROVIDER_ID } from './constants';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
 
+// Cap the persisted transcript by JSON string length (UTF-16 code units — what localStorage counts),
+// keeping it well under the ~5 MB localStorage limit.
+const MAX_PERSISTED_CHARS = 1_500_000;
+
+// Exported as base + version (not a precomputed key) so this module does no work at import time:
+// `useLocalStorage` builds the full key from these, and tests build it via `buildStorageKey`.
+// A top-level `buildStorageKey()` call here would run whenever the module is loaded — including
+// transitively in unrelated suites — and throw under any mock that stubs the hooks module.
+export const CHAT_STORAGE_KEY_BASE = 'mlflow.assistant.chat';
+export const CHAT_STORAGE_VERSION = 1;
+
+interface PersistedChat {
+  messages: ChatMessage[];
+}
+
+/** `timestamp` round-trips through JSON as a string; restore it to a Date on load. */
+export const reviveMessages = (messages: ChatMessage[]): ChatMessage[] =>
+  messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }));
+
+/** Shrink a transcript to fit storage by dropping the oldest messages under a string-length budget. */
+export const trimForStorage = (messages: ChatMessage[], maxChars: number = MAX_PERSISTED_CHARS): ChatMessage[] => {
+  // Drop the oldest message until under budget, but never drop the last one.
+  const lengths = messages.map((msg) => JSON.stringify(msg).length);
+  let size = lengths.reduce((acc, len) => acc + len, 0); // best-effort; ignores separators
+  let start = 0;
+  while (start < messages.length - 1 && size > maxChars) {
+    size -= lengths[start];
+    start += 1;
+  }
+  return start === 0 ? messages : messages.slice(start);
+};
+
 /**
  * Wrap every stream callback so it no-ops once the originating send is stale (the user reset or
  * cancelled while the POST was still in flight). Guards the whole object generically rather than
@@ -79,9 +111,16 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     initialValue: false,
   });
 
-  // Chat state
+  // Conversation - persisted to localStorage so it survives reloads as a single conversation.
+  const [persistedChat, setPersistedChat] = useLocalStorage<PersistedChat>({
+    key: CHAT_STORAGE_KEY_BASE,
+    version: CHAT_STORAGE_VERSION,
+    initialValue: { messages: [] },
+  });
+
+  // Chat state - messages are seeded once from the persisted conversation on first mount.
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => reviveMessages(persistedChat.messages));
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
@@ -194,6 +233,13 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     refreshConfig();
   }, [refreshConfig]);
+
+  // Persist the conversation once it settles. Skipping the streaming hot path avoids a write on
+  // every token; reset() empties messages, so this writes the empty conversation to clear storage.
+  useEffect(() => {
+    if (isStreaming) return;
+    setPersistedChat({ messages: trimForStorage(messages) });
+  }, [isStreaming, messages, setPersistedChat]);
 
   // Cancel pending RAF and close EventSource on unmount
   useEffect(() => {
