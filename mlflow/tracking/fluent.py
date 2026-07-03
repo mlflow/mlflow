@@ -300,13 +300,9 @@ def _sync_trace_destination_and_provider(
     )
 
     # If the tracer provider has already been initialized, reset it so the next
-    # trace re-derives the correct processor chain from the new experiment. But
-    # only when tracing is enabled: reset() flips the `once` flag off, which makes
-    # is_tracing_enabled() fall back to its default of True, silently re-enabling
-    # tracing the user explicitly disabled (issue #24209). Skipping reset() when
-    # disabled preserves that state (the NoOp provider stays installed).
-    # is_tracing_enabled() is raise_as_trace_exception-wrapped; never let a tracing
-    # error break set_experiment, so default to resetting on error.
+    # trace re-derives the correct processor chain from the new experiment. Skip
+    # when disabled: reset() would flip `once` off and silently re-enable tracing
+    # the user turned off (#24209). Default to resetting if the state check errors.
     if provider.once._done:
         try:
             tracing_enabled = is_tracing_enabled()

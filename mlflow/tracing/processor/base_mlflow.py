@@ -127,24 +127,17 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
 
 
 def retire_batch_processor(processor: "BaseMlflowSpanProcessor") -> None:
-    """Flush then shut down a single batch processor and drop it from the registry.
+    """Flush then shut down a batch processor and drop it from the registry.
 
-    Called when a tracer provider is being replaced (e.g. ``enable()`` after
-    ``disable()``). The outgoing provider's ``BatchSpanProcessor`` owns a daemon
-    thread that OTel never stops on garbage collection, so replacing the provider
-    without this leaks one thread per cycle (see issue #24209).
-
-    Order matters: ``force_flush()`` synchronously drains the span queue into the
-    exporter (and the exporter's async queue into the store) *before*
-    ``shutdown()``, because OTel's ``BatchSpanProcessor.shutdown()`` sets an
-    internal flag that turns any subsequent ``force_flush()`` into a no-op. Flush
-    first, then stop, so no queued spans are dropped.
+    The outgoing provider's ``BatchSpanProcessor`` daemon thread is never stopped
+    by GC, so replacing a provider without this leaks a thread per cycle (#24209).
+    Flush before shutdown: OTel's ``shutdown()`` makes a later ``force_flush()`` a
+    no-op, so flushing first is what prevents dropping queued spans.
     """
     if processor._batch_delegate is None:
         return
-    # Wait for any in-flight on_end to finish so its span is in the BSP queue
-    # before force_flush(), mirroring flush_all_batch_processors(). Otherwise a
-    # span whose on_end is running concurrently could be dropped on shutdown.
+    # Wait for in-flight on_end calls so their spans reach the queue before the
+    # flush, mirroring flush_all_batch_processors().
     with processor._pending_on_end_condition:
         processor._pending_on_end_condition.wait_for(
             lambda: processor._pending_on_end_count == 0,

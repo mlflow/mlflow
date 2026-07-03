@@ -152,16 +152,11 @@ class _TracerProviderWrapper:
     def _retire_current_batch_processors(self) -> None:
         """Flush and shut down the outgoing provider's MLflow batch processors.
 
-        A ``BatchSpanProcessor`` owns a daemon thread that OTel never stops on
-        garbage collection, so dropping the provider (on rebuild or reset)
-        without this leaks one thread per cycle (issue #24209). Only MLflow-owned
-        processors are retired; external processors on a shared global provider
-        are left untouched.
-
-        Two MLflow-owned kinds carry a batch worker thread:
-        - ``BaseMlflowSpanProcessor`` with a ``_batch_delegate`` (async MLflow export)
-        - ``OtelSpanProcessor`` (OTLP export), which subclasses OTel's
-          ``BatchSpanProcessor`` directly and owns the thread itself.
+        Dropping a provider without this leaks its BatchSpanProcessor daemon
+        thread (#24209). Retires both MLflow-owned kinds that carry one:
+        ``BaseMlflowSpanProcessor`` (async MLflow export) and ``OtelSpanProcessor``
+        (OTLP export). External processors on a shared global provider are left
+        untouched.
         """
         from mlflow.tracing.processor.base_mlflow import (
             BaseMlflowSpanProcessor,
@@ -210,17 +205,12 @@ class _TracerProviderWrapper:
     def _swap_raw(self, tracer_provider: TracerProvider) -> TracerProvider:
         """Install ``tracer_provider`` and return the previous one, without retiring it.
 
-        Unlike ``set()``, the outgoing provider is left running so it can be
-        restored later. Used by ``trace_disabled`` to hide the real provider
-        behind a NoOp for the duration of the wrapped call without tearing down
-        (and rebuilding) its ``BatchSpanProcessor`` thread.
-
-        Contract: this does not guard against a concurrent global mutation
-        (``enable()``/``disable()``/``set_destination()`` from another thread)
-        landing while a ``trace_disabled`` window is open. ``trace_disabled``
-        frames are serialized against each other, but a concurrent global
-        transition can still be overwritten by the restore. Mutating global
-        tracing state from multiple threads at once is unsupported.
+        Unlike ``set()``, the outgoing provider is left running so ``trace_disabled``
+        can restore it after hiding it behind a NoOp, without rebuilding its
+        BatchSpanProcessor thread. Contract: a concurrent global mutation
+        (``enable()``/``set_destination()`` from another thread) during the window
+        can be overwritten by the restore; mutating global tracing state from
+        multiple threads at once is unsupported.
         """
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             old = self._isolated_tracer_provider
@@ -234,11 +224,9 @@ class _TracerProviderWrapper:
 provider = _TracerProviderWrapper()
 mlflow_runtime_context = ContextVarsRuntimeContext()
 
-# Serializes trace_disabled's provider swap/restore and counts active frames so
-# nested and concurrent trace_disabled calls swap only on the outermost entry and
-# restore only on the outermost exit. Without this, overlapping calls each stash
-# their own "old" provider and the last finally to run can leave a NoOp installed
-# permanently (issue #24209 review).
+# Serialize trace_disabled's swap/restore and count active frames so nested and
+# concurrent calls swap only on the outermost entry and restore on the outermost
+# exit; otherwise overlapping frames can leave a NoOp installed permanently (#24209).
 _trace_disabled_lock = threading.Lock()
 _trace_disabled_state: dict[str, Any] = {"depth": 0, "saved_provider": None, "saved_once": None}
 
@@ -957,27 +945,17 @@ def trace_disabled(f: Callable[P, R]) -> Callable[P, R]:
 
     @functools.wraps(f)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        # Hide the real provider behind a NoOp for the duration of the call and
-        # restore the SAME provider object afterwards, instead of disable() +
-        # enable(). The old path rebuilt a fresh BatchSpanProcessor (and its
-        # daemon thread) on every call, leaking one thread per invocation for
-        # BSP-wrapped functions like load_model/log_model (issue #24209).
-        #
-        # A module-level depth counter makes the swap happen once on the
-        # outermost entry and the restore once on the outermost exit, so nested
-        # and concurrent trace_disabled calls can't each stash their own "old"
-        # provider and leave a NoOp installed permanently.
+        # Hide the real provider behind a NoOp for the call and restore the same
+        # object after, instead of disable()+enable() which rebuilt (and leaked)
+        # a BatchSpanProcessor thread every call (#24209).
         entered = False
         try:
             with _trace_disabled_lock:
                 if _trace_disabled_state["depth"] == 0:
-                    # is_tracing_enabled() only raises MlflowTracingException;
-                    # let the function run untouched rather than blocking it.
                     if not is_tracing_enabled():
                         return f(*args, **kwargs)
-                    # Force the once flag on for the window so a lazy
-                    # get_or_init_tracer() inside f() does not re-initialize
-                    # over our NoOp.
+                    # Pin `once` on so a lazy get_or_init_tracer() in f() can't
+                    # re-initialize over the NoOp.
                     _trace_disabled_state["saved_once"] = provider.once._done
                     _trace_disabled_state["saved_provider"] = provider._swap_raw(
                         trace.NoOpTracerProvider()

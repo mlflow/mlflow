@@ -389,10 +389,9 @@ def _count_batch_processor_threads() -> int:
 
 @pytest.fixture
 def batch_span_processor(monkeypatch):
-    # Force the async BatchSpanProcessor path (which owns the leaked daemon thread)
-    # regardless of the ambient test config. The tracking backend and experiment are
-    # supplied by the autouse conftest fixtures (a real DB in the full install, a real
-    # server in the tracing-SDK job), so we must not override the tracking URI here.
+    # Force the async BatchSpanProcessor path (which owns the leaked thread).
+    # The backend is supplied by the autouse conftest fixtures, so don't override
+    # the tracking URI here (sqlite:// breaks the SDK-only job, which has no store).
     monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "true")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
 
@@ -498,9 +497,8 @@ def test_concurrent_trace_disabled_restores_tracing(batch_span_processor):
     f()
     baseline = _count_batch_processor_threads()
 
-    # Overlapping trace_disabled calls must not leave a NoOp permanently
-    # installed (each frame stashing its own "old" provider). The depth guard
-    # ensures the swap/restore happens only on the outermost frame.
+    # Overlapping calls must not leave a NoOp permanently installed; the depth
+    # guard swaps/restores only on the outermost frame.
     with ThreadPoolExecutor(max_workers=12, thread_name_prefix="trace-disabled-test") as executor:
         futures = [executor.submit(wrapped) for _ in range(120)]
         for future in futures:
@@ -514,9 +512,8 @@ def test_concurrent_trace_disabled_restores_tracing(batch_span_processor):
 
 
 def test_otlp_span_processor_is_retired_on_provider_replace(monkeypatch):
-    # OtelSpanProcessor subclasses OTel's BatchSpanProcessor directly (it is not
-    # a BaseMlflowSpanProcessor) and owns its own worker thread, so it must also
-    # be flushed + shut down when the provider is replaced (issue #24209 review).
+    # OtelSpanProcessor subclasses OTel's BatchSpanProcessor directly (not a
+    # BaseMlflowSpanProcessor), so it must be retired on provider replace too.
     from mlflow.tracing.provider import _get_tracer
 
     monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "false")
