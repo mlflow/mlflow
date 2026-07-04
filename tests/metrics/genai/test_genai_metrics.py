@@ -632,6 +632,17 @@ def test_extract_score_and_justification():
     assert score6 == 2
     assert justification6 == "This is a justification"
 
+    for malformed_score_output in (
+        '{"justification": "This is a justification"}',
+        '{"score": null, "justification": "This is a justification"}',
+        '{"score": "high", "justification": "This is a justification"}',
+    ):
+        score, justification = _extract_score_and_justification(text=malformed_score_output)
+        assert score is None
+        assert justification == (
+            f"Failed to extract score and justification. Raw output: {malformed_score_output}"
+        )
+
 
 @pytest.mark.parametrize(
     ("parameters", "extra_headers", "proxy_url"),
