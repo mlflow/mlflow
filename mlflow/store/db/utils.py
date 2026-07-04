@@ -86,6 +86,12 @@ def _is_empty_database(engine):
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
     InitialBase.metadata.create_all(engine)
+    # Stamp the database with the initial Alembic revision to prevent
+    # subsequent _upgrade_db from trying to create tables that already exist.
+    from alembic.command import stamp
+    from mlflow.store.db.utils import _get_alembic_config
+    config = _get_alembic_config(engine.url)
+    stamp(config, revision="head")
     _upgrade_db(engine)
 
 
