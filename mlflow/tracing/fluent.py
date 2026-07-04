@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, ParamSpec, 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
-from mlflow.entities import NoOpSpan, Session, SpanLogLevel, SpanType, Trace
+from mlflow.entities import Link, NoOpSpan, Session, SpanLogLevel, SpanType, Trace
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
@@ -97,6 +97,7 @@ def trace(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
+    links: list[Link] | None = None,
 ) -> Callable[_P, _R]: ...
 
 
@@ -110,6 +111,7 @@ def trace(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
+    links: list[Link] | None = None,
 ) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]: ...
 
 
@@ -122,6 +124,7 @@ def trace(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
+    links: list[Link] | None = None,
 ) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
@@ -231,6 +234,7 @@ def trace(
             :py:class:`SpanLogLevel <mlflow.entities.SpanLogLevel>` or its name
             (e.g. ``"INFO"``, ``"DEBUG"``). If not provided, the span level is
             resolved from the span type at end time.
+        links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with the span.
     """
 
     # Validate sampling_ratio_override
@@ -258,6 +262,7 @@ def trace(
                 trace_destination,
                 sampling_ratio_override,
                 log_level,
+                links,
             )
         else:
             if output_reducer is not None:
@@ -272,6 +277,7 @@ def trace(
                 trace_destination,
                 sampling_ratio_override,
                 log_level,
+                links,
             )
 
         # If the original was a descriptor, wrap the result back as the same type of descriptor
@@ -293,6 +299,7 @@ def _wrap_function(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
+    links: list[Link] | None = None,
 ) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -307,6 +314,7 @@ def _wrap_function(
                 attributes=attributes,
                 trace_destination=trace_destination,
                 log_level=log_level,
+                links=links,
             ) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
                 inputs = capture_function_input_args(fn, args, kwargs)
@@ -367,6 +375,7 @@ def _wrap_generator(
     trace_destination: TraceLocationBase | None = None,
     sampling_ratio_override: float | None = None,
     log_level: SpanLogLevel | str | None = None,
+    links: list[Link] | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
@@ -405,6 +414,7 @@ def _wrap_generator(
                 inputs=inputs,
                 experiment_id=getattr(trace_destination, "experiment_id", None),
                 log_level=log_level,
+                links=links,
             )
         except Exception as e:
             _logger.debug(f"Failed to start stream span: {e}")
@@ -517,6 +527,7 @@ def start_span(
     trace_destination: TraceLocationBase | None = None,
     log_level: SpanLogLevel | str | None = None,
     run_id: str | None = None,
+    links: list[Link] | None = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -582,6 +593,8 @@ def start_span(
             `trace_destination`, the trace will be logged to the run's experiment. If an
             active MLflow run is already set via `mlflow.start_run()`, this parameter takes
             precedence over the active run.
+        links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
+            the span.
 
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
@@ -637,6 +650,13 @@ def start_span(
         _logger.debug(f"Failed to start span {name}.", exc_info=True)
         noop_span = NoOpSpan()
 
+    if noop_span is None:
+        for link in links or []:
+            try:
+                mlflow_span.add_link(link)
+            except MlflowException:
+                _logger.warning("Skipping invalid link: %s", link)
+
     # Yield NoOp spans outside the try/except block so that exceptions thrown
     # back into the generator (via contextmanager's throw()) propagate correctly
     # instead of being caught by the broad "except Exception" above.
@@ -666,6 +686,7 @@ def start_span_no_context(
     experiment_id: str | None = None,
     start_time_ns: int | None = None,
     log_level: SpanLogLevel | str | None = None,
+    links: list[Link] | None = None,
 ) -> LiveSpan:
     """
     Start a span without attaching it to the global tracing context.
@@ -693,6 +714,8 @@ def start_span_no_context(
             :py:class:`SpanLogLevel <mlflow.entities.SpanLogLevel>` or its name
             (e.g. ``"INFO"``, ``"DEBUG"``). If not provided, the span level is
             resolved from the span type at end time.
+        links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
+            the span.
 
     Returns:
         A :py:class:`mlflow.entities.Span` that represents the created span.
@@ -776,13 +799,20 @@ def start_span_no_context(
             with trace_manager.get_trace(trace_id) as trace:
                 trace.info.trace_metadata.update(metadata)
 
-        return mlflow_span
     except Exception as e:
         _logger.warning(
             f"Failed to start span {name}: {e}. For full traceback, set logging level to debug.",
             exc_info=_logger.isEnabledFor(logging.DEBUG),
         )
-    return NoOpSpan()
+        return NoOpSpan()
+
+    for link in links or []:
+        try:
+            mlflow_span.add_link(link)
+        except MlflowException:
+            _logger.warning("Skipping invalid link: %s", link)
+
+    return mlflow_span
 
 
 @deprecated_parameter("request_id", "trace_id")

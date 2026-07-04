@@ -1,8 +1,9 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { EndpointSelector } from '../../../components/EndpointSelector';
-import type { ChatMessage, PlaygroundParams, ResponseFormatType, ToolChoice } from '../types';
+import type { ChatMessage, PlaygroundParams, PlaygroundTool, ResponseFormatType, ToolChoice } from '../types';
 import { ParametersButton } from './ParametersButton';
 import { RegistryButton } from './RegistryButton';
+import { SaveToRegistryButton } from './SaveToRegistryButton';
 import { VariablesButton } from './VariablesButton';
 
 interface Props {
@@ -10,9 +11,10 @@ interface Props {
   onEndpointSelect: (name: string) => void;
   params: PlaygroundParams;
   onParamsChange: (next: PlaygroundParams) => void;
-  toolsText: string;
-  onToolsChange: (next: string) => void;
-  toolsError?: string | null;
+  tools: PlaygroundTool[];
+  onAddTool: () => void;
+  onRemoveTool: (id: string) => void;
+  onUpdateTool: (id: string, patch: Partial<PlaygroundTool>) => void;
   toolChoice: ToolChoice;
   onToolChoiceChange: (next: ToolChoice) => void;
   responseFormatType: ResponseFormatType;
@@ -24,6 +26,8 @@ interface Props {
   variables: Record<string, string>;
   onVariablesChange: (next: Record<string, string>) => void;
   onOpenRegistry: () => void;
+  onOpenSave: () => void;
+  saveDisabled?: boolean;
 }
 
 export const PlaygroundTopBar = ({
@@ -31,9 +35,10 @@ export const PlaygroundTopBar = ({
   onEndpointSelect,
   params,
   onParamsChange,
-  toolsText,
-  onToolsChange,
-  toolsError,
+  tools,
+  onAddTool,
+  onRemoveTool,
+  onUpdateTool,
   toolChoice,
   onToolChoiceChange,
   responseFormatType,
@@ -45,6 +50,8 @@ export const PlaygroundTopBar = ({
   variables,
   onVariablesChange,
   onOpenRegistry,
+  onOpenSave,
+  saveDisabled,
 }: Props) => {
   const { theme } = useDesignSystemTheme();
 
@@ -67,9 +74,10 @@ export const PlaygroundTopBar = ({
       <ParametersButton
         value={params}
         onChange={onParamsChange}
-        toolsText={toolsText}
-        onToolsChange={onToolsChange}
-        toolsError={toolsError}
+        tools={tools}
+        onAddTool={onAddTool}
+        onRemoveTool={onRemoveTool}
+        onUpdateTool={onUpdateTool}
         toolChoice={toolChoice}
         onToolChoiceChange={onToolChoiceChange}
         responseFormatType={responseFormatType}
@@ -80,6 +88,7 @@ export const PlaygroundTopBar = ({
       />
       <VariablesButton messages={messages} value={variables} onChange={onVariablesChange} />
       <RegistryButton onOpen={onOpenRegistry} />
+      <SaveToRegistryButton onOpen={onOpenSave} disabled={saveDisabled} />
     </div>
   );
 };

@@ -14,7 +14,7 @@ describe('RegistryButton', () => {
         </DesignSystemProvider>
       </IntlProvider>,
     );
-    expect(screen.getByRole('button', { name: /load prompt from registry/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /load prompt/i })).toBeInTheDocument();
   });
 
   it('calls onOpen when clicked', async () => {
@@ -26,7 +26,7 @@ describe('RegistryButton', () => {
         </DesignSystemProvider>
       </IntlProvider>,
     );
-    await userEvent.click(screen.getByRole('button', { name: /load prompt from registry/i }));
+    await userEvent.click(screen.getByRole('button', { name: /load prompt/i }));
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 });

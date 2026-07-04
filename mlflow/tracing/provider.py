@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import random
+import threading
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, ParamSpec, TypeVar
 
@@ -148,7 +149,38 @@ class _TracerProviderWrapper:
             return self._isolated_tracer_provider
         return trace.get_tracer_provider()
 
+    def _retire_current_batch_processors(self) -> None:
+        """Flush and shut down the outgoing provider's MLflow batch processors.
+
+        Dropping a provider without this leaks its BatchSpanProcessor daemon
+        thread (#24209). Retires both MLflow-owned kinds that carry one:
+        ``BaseMlflowSpanProcessor`` (async MLflow export) and ``OtelSpanProcessor``
+        (OTLP export). External processors on a shared global provider are left
+        untouched.
+        """
+        from mlflow.tracing.processor.base_mlflow import (
+            BaseMlflowSpanProcessor,
+            retire_batch_processor,
+        )
+        from mlflow.tracing.processor.otel import OtelSpanProcessor
+
+        current = self.get()
+        if not isinstance(current, TracerProvider):
+            return
+        active = getattr(current, "_active_span_processor", None)
+        for processor in list(getattr(active, "_span_processors", ())):
+            if isinstance(processor, BaseMlflowSpanProcessor):
+                retire_batch_processor(processor)
+            elif isinstance(processor, OtelSpanProcessor):
+                # Flush before shutdown so queued spans are exported, not dropped.
+                try:
+                    processor.force_flush()
+                    processor.shutdown()
+                except Exception:
+                    _logger.debug(f"Failed to retire OtelSpanProcessor {processor}", exc_info=True)
+
     def set(self, tracer_provider: TracerProvider):
+        self._retire_current_batch_processors()
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             self._isolated_tracer_provider = tracer_provider
         else:
@@ -162,6 +194,7 @@ class _TracerProviderWrapper:
         return self.get().get_tracer(module_name)
 
     def reset(self):
+        self._retire_current_batch_processors()
         if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             self._isolated_tracer_provider = None
             self._isolated_tracer_provider_once._done = False
@@ -169,9 +202,33 @@ class _TracerProviderWrapper:
             trace._TRACER_PROVIDER = None
             self._global_provider_init_once._done = False
 
+    def _swap_raw(self, tracer_provider: TracerProvider) -> TracerProvider:
+        """Install ``tracer_provider`` and return the previous one, without retiring it.
+
+        Unlike ``set()``, the outgoing provider is left running so ``trace_disabled``
+        can restore it after hiding it behind a NoOp, without rebuilding its
+        BatchSpanProcessor thread. Contract: a concurrent global mutation
+        (``enable()``/``set_destination()`` from another thread) during the window
+        can be overwritten by the restore; mutating global tracing state from
+        multiple threads at once is unsupported.
+        """
+        if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+            old = self._isolated_tracer_provider
+            self._isolated_tracer_provider = tracer_provider
+            return old
+        old = trace._TRACER_PROVIDER
+        trace._TRACER_PROVIDER = tracer_provider
+        return old
+
 
 provider = _TracerProviderWrapper()
 mlflow_runtime_context = ContextVarsRuntimeContext()
+
+# Serialize trace_disabled's swap/restore and count active frames so nested and
+# concurrent calls swap only on the outermost entry and restore on the outermost
+# exit; otherwise overlapping frames can leave a NoOp installed permanently (#24209).
+_trace_disabled_lock = threading.Lock()
+_trace_disabled_state: dict[str, Any] = {"depth": 0, "saved_provider": None, "saved_once": None}
 
 
 def get_context_api():
@@ -218,7 +275,9 @@ def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
     span = _get_tracer(__name__).start_span(
-        name, attributes=attributes, context=get_current_context()
+        name,
+        attributes=attributes,
+        context=get_current_context(),
     )
 
     if experiment_id and getattr(span, "_parent", None):
@@ -285,7 +344,12 @@ def start_detached_span(
         attributes[SpanAttributeKey.START_TIME_NS] = json.dumps(start_time_ns)
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
-    span = tracer.start_span(name, context=context, attributes=attributes, start_time=start_time_ns)
+    span = tracer.start_span(
+        name,
+        context=context,
+        attributes=attributes,
+        start_time=start_time_ns,
+    )
 
     if experiment_id and getattr(span, "_parent", None):
         _logger.warning(
@@ -881,35 +945,44 @@ def trace_disabled(f: Callable[P, R]) -> Callable[P, R]:
 
     @functools.wraps(f)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        is_func_called = False
-        result = None
+        # Hide the real provider behind a NoOp for the call and restore the same
+        # object after, instead of disable()+enable() which rebuilt (and leaked)
+        # a BatchSpanProcessor thread every call (#24209).
+        entered = False
         try:
-            if is_tracing_enabled():
-                disable()
-                try:
-                    is_func_called = True
-                    result = f(*args, **kwargs)
-                finally:
-                    enable()
-            else:
-                is_func_called = True
-                result = f(*args, **kwargs)
-        # We should only catch the exception from disable() and enable()
-        # and let other exceptions propagate.
+            with _trace_disabled_lock:
+                if _trace_disabled_state["depth"] == 0:
+                    if not is_tracing_enabled():
+                        return f(*args, **kwargs)
+                    # Pin `once` on so a lazy get_or_init_tracer() in f() can't
+                    # re-initialize over the NoOp.
+                    _trace_disabled_state["saved_once"] = provider.once._done
+                    _trace_disabled_state["saved_provider"] = provider._swap_raw(
+                        trace.NoOpTracerProvider()
+                    )
+                    provider.once._done = True
+                _trace_disabled_state["depth"] += 1
+                entered = True
         except MlflowTracingException as e:
             _logger.warning(
-                f"An error occurred while disabling or re-enabling tracing: {e} "
-                "The original function will still be executed, but the tracing "
-                "state may not be as expected. For full traceback, set "
-                "logging level to debug.",
+                f"An error occurred while disabling tracing: {e} The original "
+                "function will still be executed, but the tracing state may not be "
+                "as expected. For full traceback, set logging level to debug.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
-            # If the exception is raised before the original function
-            # is called, we should call the original function
-            if not is_func_called:
-                result = f(*args, **kwargs)
+            return f(*args, **kwargs)
 
-        return result
+        try:
+            return f(*args, **kwargs)
+        finally:
+            if entered:
+                with _trace_disabled_lock:
+                    _trace_disabled_state["depth"] -= 1
+                    if _trace_disabled_state["depth"] == 0:
+                        provider._swap_raw(_trace_disabled_state["saved_provider"])
+                        provider.once._done = _trace_disabled_state["saved_once"]
+                        _trace_disabled_state["saved_provider"] = None
+                        _trace_disabled_state["saved_once"] = None
 
     return wrapper
 

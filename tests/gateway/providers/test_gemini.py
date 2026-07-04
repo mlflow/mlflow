@@ -835,6 +835,126 @@ async def test_gemini_chat_function_calling_second_turn():
     )
 
 
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_thought_signature():
+    config = chat_config()
+    provider = GeminiProvider(EndpointConfig(**config))
+    payload = chat_function_calling_payload()
+
+    payload["messages"].extend([
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_001",
+                    "function": {
+                        "arguments": '{"location": "Singapore"}',
+                        "name": "get_weather",
+                    },
+                    "type": "function",
+                    "thought_signature": "opaque_thought_sig_token",
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "call_001",
+            "content": '{"temperature": 31.2, "condition": "sunny"}',
+        },
+    ])
+
+    expected_url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    )
+
+    resp = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {
+                            "functionCall": {
+                                "name": "get_weather",
+                                "args": {"location": "Kuala Lumpur"},
+                                "id": "call_002",
+                                "thoughtSignature": "new_thought_sig_token",
+                            },
+                        },
+                    ],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ]
+    }
+    with (
+        mock.patch("time.time", return_value=1234567890),
+        mock.patch(
+            "aiohttp.ClientSession.post",
+            return_value=MockAsyncResponse(resp),
+        ) as mock_post,
+    ):
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+    assert response.choices[0].message.tool_calls[0].thought_signature == "new_thought_sig_token"
+
+    expected_payload = {
+        "contents": [
+            {"role": "user", "parts": [{"text": "What's the weather like in Singapore today?"}]},
+            {
+                "role": "model",
+                "parts": [
+                    {
+                        "functionCall": {
+                            "id": "call_001",
+                            "name": "get_weather",
+                            "args": {"location": "Singapore"},
+                            "thoughtSignature": "opaque_thought_sig_token",
+                        }
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "functionResponse": {
+                            "id": "call_001",
+                            "name": "get_weather",
+                            "response": {"temperature": 31.2, "condition": "sunny"},
+                        }
+                    }
+                ],
+            },
+        ],
+        "generationConfig": {"temperature": 0.5, "candidateCount": 1},
+        "tools": [
+            {
+                "functionDeclarations": [
+                    {
+                        "name": "get_weather",
+                        "description": "Get current temperature for a given location.",
+                        "parametersJsonSchema": {
+                            "properties": {
+                                "location": {"type": "string", "description": "The name of a city"}
+                            },
+                            "type": "object",
+                            "required": ["location"],
+                        },
+                    }
+                ]
+            }
+        ],
+    }
+
+    mock_post.assert_called_once_with(
+        expected_url,
+        json=expected_payload,
+        timeout=mock.ANY,
+    )
+
+
 def chat_stream_response():
     return [
         b'data: {"candidates":[{"content":{"parts":[{"text":"a"}]},"finishReason":null}],"'

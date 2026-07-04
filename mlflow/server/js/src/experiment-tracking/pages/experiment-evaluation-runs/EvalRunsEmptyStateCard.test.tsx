@@ -19,13 +19,17 @@ const mockTraceMetricsCount = (count: number) =>
   });
 
 const mockOpenPanel = jest.fn();
-const mockSendMessage = jest.fn();
+const mockPrefillPrompt = jest.fn();
 
 jest.mock('@mlflow/mlflow/src/assistant', () => ({
   __esModule: true,
   useAssistant: () => ({
     openPanel: mockOpenPanel,
-    sendMessage: mockSendMessage,
+    sendMessage: jest.fn(),
+    prefillPrompt: mockPrefillPrompt,
+    clearPendingPrompt: jest.fn(),
+    pendingPrompt: null,
+    reset: jest.fn(),
     setupComplete: true,
     isPanelOpen: false,
     sessionId: null,
@@ -38,7 +42,6 @@ jest.mock('@mlflow/mlflow/src/assistant', () => ({
     isLocalServer: true,
     closePanel: jest.fn(),
     regenerateLastMessage: jest.fn(),
-    reset: jest.fn(),
     cancelSession: jest.fn(),
     refreshConfig: jest.fn(),
     completeSetup: jest.fn(),
@@ -68,7 +71,7 @@ const renderCard = () =>
 
 beforeEach(() => {
   mockOpenPanel.mockClear();
-  mockSendMessage.mockClear();
+  mockPrefillPrompt.mockClear();
   mockUseTraceMetricsQuery.mockReset();
   mockTraceMetricsCount(5); // default: experiment has traces
 });
@@ -93,7 +96,7 @@ describe('EvalRunsEmptyStateCard', () => {
     expect(screen.getByTestId('assistant-sparkle-icon')).toBeInTheDocument();
   });
 
-  it('clicking "Open assistant" calls openPanel and sendMessage with the eval assistant prompt', async () => {
+  it('clicking "Open assistant" opens the panel and prefills the chat input with the eval prompt', async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     renderCard();
 
@@ -101,8 +104,8 @@ describe('EvalRunsEmptyStateCard', () => {
     await user.click(screen.getByRole('button', { name: /Open assistant/ }));
 
     expect(mockOpenPanel).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage).toHaveBeenCalledTimes(1);
-    expect(mockSendMessage.mock.calls[0][0]).toContain('Target experiment ID: 42');
+    expect(mockPrefillPrompt).toHaveBeenCalledTimes(1);
+    expect(mockPrefillPrompt.mock.calls[0][0]).toContain('Target experiment ID: 42');
   });
 
   it('renders the trace-based snippet when the experiment has traces', async () => {

@@ -394,6 +394,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/omnigent',
+                  label: 'Omnigent',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/opencode',
                   label: 'OpenCode',
                 },
@@ -678,6 +683,11 @@ const sidebarsGenAI: SidebarsConfig = {
               },
             },
           ],
+        },
+        {
+          type: 'doc',
+          id: 'eval-monitor/regression-testing',
+          label: 'Regression Testing and CI/CD',
         },
         {
           type: 'doc',

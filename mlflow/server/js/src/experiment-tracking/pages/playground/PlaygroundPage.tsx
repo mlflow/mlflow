@@ -9,7 +9,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
@@ -17,9 +17,18 @@ import { PlaygroundTopBar } from './components/PlaygroundTopBar';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
 import type { PromptLoadPayload } from './components/PromptRegistryPicker';
+import { SavePromptVersionModal } from './components/SavePromptVersionModal';
 import { useChatCompletionMutation } from './hooks/useChatCompletionMutation';
-import type { ConversationMessage, PlaygroundParams, ResponseFormat, ResponseFormatType, ToolChoice } from './types';
-import { getEmptyVariables, isToolsValueEmpty, substituteVariables } from './utils';
+import type {
+  ConversationMessage,
+  PlaygroundParams,
+  PlaygroundTool,
+  PromptType,
+  ResponseFormat,
+  ResponseFormatType,
+  ToolChoice,
+} from './types';
+import { BLANK_JSON_SCHEMA, getEmptyVariables, getToolParametersError, substituteVariables } from './utils';
 
 const EMPTY_USER_MESSAGE: ConversationMessage = { role: 'user', content: '' };
 
@@ -30,16 +39,26 @@ const PlaygroundPage = () => {
   const [messages, setMessages] = useState<ConversationMessage[]>([{ ...EMPTY_USER_MESSAGE }]);
   const [params, setParams] = useState<PlaygroundParams>({});
   const [variables, setVariables] = useState<Record<string, string>>({});
-  const [toolsText, setToolsText] = useState<string>('');
-  const [toolChoice, setToolChoice] = useState<ToolChoice>('none');
+  const [tools, setTools] = useState<PlaygroundTool[]>([]);
+  const [toolChoice, setToolChoice] = useState<ToolChoice>('auto');
+  // Monotonic counter for stable client-side tool ids (used as React keys).
+  const toolIdRef = useRef(0);
   const [responseFormatType, setResponseFormatType] = useState<ResponseFormatType>('text');
   const [responseFormatSchemaText, setResponseFormatSchemaText] = useState<string>('');
   const [showRegistryPicker, setShowRegistryPicker] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  // The registry prompt currently loaded into the playground, if any. Lets the
+  // save modal default to appending a new version of that prompt and preserve
+  // its type.
+  const [loadedPrompt, setLoadedPrompt] = useState<{ name: string; version: string; promptType: PromptType } | null>(
+    null,
+  );
   const [loadedToast, setLoadedToast] = useState<{
     name: string;
     version: string;
     withSettings: boolean;
   } | null>(null);
+  const [savedToast, setSavedToast] = useState<{ name: string; version: string } | null>(null);
 
   const { mutate, error, isLoading, reset } = useChatCompletionMutation();
 
@@ -49,6 +68,12 @@ const PlaygroundPage = () => {
     return () => window.clearTimeout(t);
   }, [loadedToast]);
 
+  useEffect(() => {
+    if (!savedToast) return;
+    const t = window.setTimeout(() => setSavedToast(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [savedToast]);
+
   const handleRegistryLoad = (payload: PromptLoadPayload) => {
     setMessages(payload.messages.length > 0 ? payload.messages : [{ ...EMPTY_USER_MESSAGE }]);
     if (payload.settings !== null) {
@@ -57,6 +82,7 @@ const PlaygroundPage = () => {
       setResponseFormatSchemaText(payload.settings.responseFormatSchemaText);
     }
     setShowRegistryPicker(false);
+    setLoadedPrompt({ name: payload.promptName, version: payload.versionLabel, promptType: payload.promptType });
     setLoadedToast({
       name: payload.promptName,
       version: payload.versionLabel,
@@ -64,20 +90,53 @@ const PlaygroundPage = () => {
     });
   };
 
-  const toolsError = useMemo(() => {
-    if (!toolsText.trim()) {
-      return null;
+  const handleSaved = ({ name, version, promptType }: { name: string; version: string; promptType: PromptType }) => {
+    setShowSaveModal(false);
+    // Chain subsequent saves onto the freshly created version.
+    setLoadedPrompt({ name, version, promptType });
+    setSavedToast({ name, version });
+  };
+
+  const handleAddTool = () => {
+    setTools((current) => [
+      ...current,
+      { id: `tool-${toolIdRef.current++}`, name: '', description: '', params: BLANK_JSON_SCHEMA },
+    ]);
+  };
+  const handleRemoveTool = (id: string) => {
+    setTools((current) => current.filter((tool) => tool.id !== id));
+  };
+  const handleUpdateTool = (id: string, patch: Partial<PlaygroundTool>) => {
+    setTools((current) => current.map((tool) => (tool.id === id ? { ...tool, ...patch } : tool)));
+  };
+
+  const handleResponseFormatTypeChange = (next: ResponseFormatType) => {
+    setResponseFormatType(next);
+    // Pre-populate a bare-minimum schema the first time JSON schema is selected.
+    if (next === 'json_schema' && !responseFormatSchemaText.trim()) {
+      setResponseFormatSchemaText(BLANK_JSON_SCHEMA);
     }
-    try {
-      const parsed = JSON.parse(toolsText);
-      if (!Array.isArray(parsed)) {
-        return 'Tools must be a JSON array';
+  };
+
+  // First validation error across all tools — a missing function name or an
+  // invalid parameters schema — or null when every tool is complete and valid.
+  const firstToolError = useMemo(() => {
+    for (const tool of tools) {
+      if (!tool.name.trim()) {
+        return intl.formatMessage({
+          defaultMessage: 'Give every tool a function name',
+          description: 'Submit blocker detail shown when a playground tool is missing its function name',
+        });
       }
-      return null;
-    } catch (e) {
-      return e instanceof Error ? e.message : 'Invalid JSON';
+      if (getToolParametersError(tool.params)) {
+        return intl.formatMessage({
+          defaultMessage: 'Fix the tool parameters schema',
+          description: 'Submit blocker shown when a playground tool has an invalid parameters schema',
+        });
+      }
     }
-  }, [toolsText]);
+    return null;
+  }, [tools, intl]);
 
   const responseFormatSchemaError = useMemo(() => {
     if (responseFormatType !== 'json_schema') {
@@ -108,7 +167,7 @@ const PlaygroundPage = () => {
         }),
       );
     }
-    if (messages.length === 0 || messages.some((m) => m.content.trim().length === 0)) {
+    if (messages.length === 0 || messages.some((m) => (m.content ?? '').trim().length === 0 && !m.tool_calls?.length)) {
       blockers.push(
         intl.formatMessage({
           defaultMessage: 'Fill in every message',
@@ -116,27 +175,8 @@ const PlaygroundPage = () => {
         }),
       );
     }
-    if (toolChoice !== 'none') {
-      if (isToolsValueEmpty(toolsText)) {
-        blockers.push(
-          intl.formatMessage({
-            defaultMessage: 'Add at least one tool definition',
-            description:
-              'Reason shown when the playground Submit button is disabled because tool choice requires tools but none are provided',
-          }),
-        );
-      } else if (toolsError) {
-        blockers.push(
-          intl.formatMessage(
-            {
-              defaultMessage: 'Fix the Tools JSON: {error}',
-              description:
-                'Reason shown when the playground Submit button is disabled because the tools JSON is invalid',
-            },
-            { error: toolsError },
-          ),
-        );
-      }
+    if (tools.length > 0 && firstToolError) {
+      blockers.push(firstToolError);
     }
     if (responseFormatSchemaError) {
       blockers.push(
@@ -162,7 +202,7 @@ const PlaygroundPage = () => {
       );
     }
     return blockers;
-  }, [endpointName, messages, toolChoice, toolsText, toolsError, responseFormatSchemaError, variables, intl]);
+  }, [endpointName, messages, tools, firstToolError, responseFormatSchemaError, variables, intl]);
 
   const canSubmit = submitBlockers.length === 0 && !isLoading;
 
@@ -170,7 +210,18 @@ const PlaygroundPage = () => {
     if (!canSubmit) {
       return;
     }
-    const tools = toolChoice !== 'none' && toolsText.trim() ? (JSON.parse(toolsText) as unknown[]) : undefined;
+    // canSubmit guarantees every tool has a name and valid parameters JSON, so the parses are safe.
+    const wireTools =
+      tools.length > 0
+        ? tools.map((tool) => ({
+            type: 'function',
+            function: {
+              name: tool.name.trim(),
+              ...(tool.description.trim() && { description: tool.description.trim() }),
+              parameters: JSON.parse(tool.params),
+            },
+          }))
+        : undefined;
     let response_format: ResponseFormat | undefined;
     if (responseFormatType === 'json_object') {
       response_format = { type: 'json_object' };
@@ -184,6 +235,7 @@ const PlaygroundPage = () => {
         },
       };
     }
+    // Multi-turn tool conversations that forward tool_calls plus tool results are a known follow-up.
     const wireMessages = substituteVariables(messages, variables).map(({ role, content }) => ({ role, content }));
     mutate(
       {
@@ -196,17 +248,20 @@ const PlaygroundPage = () => {
         ...(params.presence_penalty !== undefined && { presence_penalty: params.presence_penalty }),
         ...(params.frequency_penalty !== undefined && { frequency_penalty: params.frequency_penalty }),
         ...(params.stop && params.stop.length > 0 && { stop: params.stop }),
-        ...(tools && { tools }),
-        ...(tools && { tool_choice: toolChoice }),
+        ...(wireTools && { tools: wireTools }),
+        ...(wireTools && { tool_choice: toolChoice }),
         ...(response_format && { response_format }),
       },
       {
         onSuccess: (response) => {
           const assistant = response.choices?.[0]?.message;
           if (!assistant) return;
+          const hasToolCalls = Boolean(assistant.tool_calls?.length);
           const appended: ConversationMessage = {
             ...assistant,
-            content: assistant.content || '(no text content)',
+            content: assistant.content ?? '',
+            ...(hasToolCalls && { tool_calls: assistant.tool_calls }),
+            ...(response_format && { contentIsJson: true }),
             usage: response.usage,
           };
           setMessages((current) => [...current, appended, { ...EMPTY_USER_MESSAGE }]);
@@ -229,13 +284,14 @@ const PlaygroundPage = () => {
         onEndpointSelect={setEndpointName}
         params={params}
         onParamsChange={setParams}
-        toolsText={toolsText}
-        onToolsChange={setToolsText}
-        toolsError={toolsError}
+        tools={tools}
+        onAddTool={handleAddTool}
+        onRemoveTool={handleRemoveTool}
+        onUpdateTool={handleUpdateTool}
         toolChoice={toolChoice}
         onToolChoiceChange={setToolChoice}
         responseFormatType={responseFormatType}
-        onResponseFormatTypeChange={setResponseFormatType}
+        onResponseFormatTypeChange={handleResponseFormatTypeChange}
         responseFormatSchemaText={responseFormatSchemaText}
         onResponseFormatSchemaChange={setResponseFormatSchemaText}
         responseFormatSchemaError={responseFormatSchemaError}
@@ -243,11 +299,22 @@ const PlaygroundPage = () => {
         variables={variables}
         onVariablesChange={setVariables}
         onOpenRegistry={() => setShowRegistryPicker(true)}
+        onOpenSave={() => setShowSaveModal(true)}
+        saveDisabled={conversationIsEmpty}
       />
       <Spacer size="sm" shrinks={false} />
       <div css={{ borderTop: `1px solid ${theme.colors.border}`, flexShrink: 0 }} role="separator" aria-hidden="true" />
       <Spacer size="sm" shrinks={false} />
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, flex: 1, minHeight: 0 }}>
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.md,
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+        }}
+      >
         <PromptInputPanel messages={messages} onChange={setMessages} />
         {isLoading && (
           <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.md }}>
@@ -368,6 +435,17 @@ const PlaygroundPage = () => {
         onCancel={() => setShowRegistryPicker(false)}
         onLoad={handleRegistryLoad}
       />
+      <SavePromptVersionModal
+        visible={showSaveModal}
+        onCancel={() => setShowSaveModal(false)}
+        messages={messages}
+        params={params}
+        responseFormatType={responseFormatType}
+        responseFormatSchemaText={responseFormatSchemaText}
+        loadedPromptName={loadedPrompt?.name}
+        loadedPromptType={loadedPrompt?.promptType}
+        onSaved={handleSaved}
+      />
       {loadedToast && (
         <Notification.Provider>
           <Notification.Root severity="success" componentId="mlflow.playground.prompt_registry_picker.loaded">
@@ -387,6 +465,21 @@ const PlaygroundPage = () => {
               )}
             </Notification.Title>
             <Notification.Close componentId="mlflow.playground.prompt_registry_picker.loaded.close" />
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
+      {savedToast && (
+        <Notification.Provider>
+          <Notification.Root severity="success" componentId="mlflow.playground.save_prompt_version.saved">
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Saved {name} v{version} to the registry"
+                description="Success toast shown on the playground after saving the current messages as a new prompt version"
+                values={{ name: savedToast.name, version: savedToast.version }}
+              />
+            </Notification.Title>
+            <Notification.Close componentId="mlflow.playground.save_prompt_version.saved.close" />
           </Notification.Root>
           <Notification.Viewport />
         </Notification.Provider>

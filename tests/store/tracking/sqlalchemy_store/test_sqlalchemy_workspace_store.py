@@ -8,10 +8,13 @@ from unittest import mock
 import pytest
 
 from mlflow.entities import (
+    AssessmentSource,
     Dataset,
     DatasetInput,
+    Expectation,
     Experiment,
     ExperimentTag,
+    Feedback,
     GatewayEndpointModelConfig,
     GatewayModelLinkageType,
     GatewayResourceType,
@@ -1071,6 +1074,78 @@ def test_search_traces_is_workspace_scoped(workspace_tracking_store):
         results, _ = workspace_tracking_store.search_traces(locations=[exp_b])
         assert len(results) == 1
         assert results[0].trace_id == trace_id_b
+
+
+def test_search_traces_with_assessment_numeric_filters_is_workspace_scoped(
+    workspace_tracking_store,
+):
+    source = AssessmentSource(source_type="HUMAN", source_id="user@example.com")
+
+    with WorkspaceContext("team-assessment-search-a"):
+        exp_a = workspace_tracking_store.create_experiment("exp-assessment-search-a")
+        _create_trace(workspace_tracking_store, "trace-a", exp_a)
+        workspace_tracking_store.create_assessment(
+            Feedback(trace_id="trace-a", name="score", value=5, source=source)
+        )
+
+    with WorkspaceContext("team-assessment-search-b"):
+        exp_b = workspace_tracking_store.create_experiment("exp-assessment-search-b")
+        for trace_id, score, quality in [
+            ("trace-b1", 2, "low"),
+            ("trace-b2", 3.0, "medium"),
+            ("trace-b3", 3.5, "high"),
+            ("trace-b4", 4, "high"),
+        ]:
+            _create_trace(workspace_tracking_store, trace_id, exp_b)
+            workspace_tracking_store.create_assessment(
+                Feedback(trace_id=trace_id, name="score", value=score, source=source)
+            )
+            workspace_tracking_store.create_assessment(
+                Feedback(trace_id=trace_id, name="quality", value=quality, source=source)
+            )
+
+        for trace_id, threshold in [("trace-b1", 0.25), ("trace-b2", 0.5), ("trace-b3", 0.75)]:
+            workspace_tracking_store.create_assessment(
+                Expectation(trace_id=trace_id, name="threshold", value=threshold, source=source)
+            )
+
+        for trace_id, value in [("trace-b5", "high"), ("trace-b6", True)]:
+            _create_trace(workspace_tracking_store, trace_id, exp_b)
+            workspace_tracking_store.create_assessment(
+                Feedback(trace_id=trace_id, name="score", value=value, source=source)
+            )
+
+        def search(filter_string):
+            traces, _ = workspace_tracking_store.search_traces(
+                locations=[exp_b], filter_string=filter_string
+            )
+            return {trace.trace_id for trace in traces}
+
+        assert search("feedback.score > 3") == {"trace-b3", "trace-b4"}
+        assert search("feedback.score >= 3.5") == {"trace-b3", "trace-b4"}
+        assert search("feedback.score < 3.5") == {"trace-b1", "trace-b2"}
+        assert search("feedback.score <= 3") == {"trace-b1", "trace-b2"}
+        assert search('feedback.score > 3 AND feedback.quality = "high"') == {
+            "trace-b3",
+            "trace-b4",
+        }
+        assert search("expectation.threshold > 0.25") == {"trace-b2", "trace-b3"}
+        assert search("feedback.score > 0") == {
+            "trace-b1",
+            "trace-b2",
+            "trace-b3",
+            "trace-b4",
+        }
+
+        traces, _ = workspace_tracking_store.search_traces(
+            locations=[exp_a], filter_string="feedback.score > 3"
+        )
+        assert traces == []
+
+        with pytest.raises(MlflowException, match="Expected a numeric value for feedback"):
+            workspace_tracking_store.search_traces(
+                locations=[exp_b], filter_string='feedback.score > "high"'
+            )
 
 
 def test_link_traces_to_run_is_workspace_scoped(workspace_tracking_store):

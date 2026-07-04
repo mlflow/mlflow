@@ -116,6 +116,7 @@ describe('PromptRegistryPicker', () => {
         settings: null,
         promptName: 'chat-prompt',
         versionLabel: '1',
+        promptType: 'chat',
       });
     });
   });
@@ -141,6 +142,7 @@ describe('PromptRegistryPicker', () => {
         settings: null,
         promptName: 'text-prompt',
         versionLabel: '1',
+        promptType: 'text',
       });
     });
   });
@@ -232,6 +234,7 @@ describe('PromptRegistryPicker', () => {
         },
         promptName: 'chat-prompt',
         versionLabel: '1',
+        promptType: 'chat',
       });
     });
   });

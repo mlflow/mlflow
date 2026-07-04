@@ -13,12 +13,12 @@ export const RegistryButton = ({ onOpen }: Props) => {
       icon={<BookIcon />}
       onClick={onOpen}
       aria-label={intl.formatMessage({
-        defaultMessage: 'Load prompt from registry',
+        defaultMessage: 'Load prompt',
         description: 'Aria label for the playground top-bar button that opens the registered prompt picker',
       })}
     >
       <FormattedMessage
-        defaultMessage="Load prompt from registry"
+        defaultMessage="Load prompt"
         description="Label for the playground top-bar button that opens the registered prompt picker"
       />
     </Button>

@@ -91,6 +91,10 @@
     "defaultMessage": "Select baseline run",
     "description": "Placeholder text for the baseline run selector dropdown"
   },
+  "+UM7um": {
+    "defaultMessage": "Tool {number} parameters",
+    "description": "Accessible label for an individual tool parameters JSON editor in the playground"
+  },
   "+VGmLL": {
     "defaultMessage": "Optional description",
     "description": "Webhook description placeholder"
@@ -115,10 +119,6 @@
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
     "description": "Queue settings: questions dropdown selected-count summary"
   },
-  "+asYF/": {
-    "defaultMessage": "Have the model call functions you define. Tool choice strategies:",
-    "description": "Intro line of the info popover next to the Tools section header"
-  },
   "+d9nXK": {
     "defaultMessage": "Output cost",
     "description": "Label for output cost"
@@ -130,10 +130,6 @@
   "+dbgRR": {
     "defaultMessage": "{numUniqueValues} values",
     "description": "Text for number of unique values for categorical assessment"
-  },
-  "+dueuC": {
-    "defaultMessage": "JSON Tool Definition",
-    "description": "Label for the JSON tool definitions textarea inside the Tools card"
   },
   "+erxn2": {
     "defaultMessage": "Optimize prompts",
@@ -182,10 +178,6 @@
   "+o0xUA": {
     "defaultMessage": "An error occurred while attempting to fetch trace data (ID: {traceId}). Please ensure that the MLflow tracking server is running, and that the trace data exists. Error details:",
     "description": "An error message explaining that an error occurred while fetching trace data"
-  },
-  "+qbuLR": {
-    "defaultMessage": "Load prompt from registry",
-    "description": "Label for the playground top-bar button that opens the registered prompt picker"
   },
   "+tURAJ": {
     "defaultMessage": "Cancel",
@@ -310,6 +302,10 @@
   "/QYbzP": {
     "defaultMessage": "Time (wall)",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use wall time axis in all charts"
+  },
+  "/RFfvj": {
+    "defaultMessage": "Load prompt",
+    "description": "Aria label for the playground top-bar button that opens the registered prompt picker"
   },
   "/SGMOh": {
     "defaultMessage": "Only an experiment manager can change a queue's questions.",
@@ -735,6 +731,10 @@
     "defaultMessage": "Prompts",
     "description": "Title for linked prompts table on logged model details page"
   },
+  "1TTYjs": {
+    "defaultMessage": "Close guidance",
+    "description": "Aria label for closing the analyze with assistant guidance popover"
+  },
   "1Ujhc3": {
     "defaultMessage": "True",
     "description": "True assessment label"
@@ -887,6 +887,10 @@
     "defaultMessage": "Time (wall)",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option is for the absolute time that the metrics were logged."
   },
+  "2HyEkO": {
+    "defaultMessage": "Analyze traces with the MLflow assistant",
+    "description": "Aria label for the analyze with assistant button"
+  },
   "2I27Yy": {
     "defaultMessage": "(empty)",
     "description": "Models table > tags column > no value"
@@ -971,9 +975,17 @@
     "defaultMessage": "Hours",
     "description": "Trace archival retention unit option for hours"
   },
+  "2ZB29e": {
+    "defaultMessage": "A new prompt will be created in the registry.",
+    "description": "Note shown in the playground save modal when no prompt is loaded, so a new prompt is created"
+  },
   "2a/rR8": {
     "defaultMessage": "Cancel",
     "description": "Key-value tag editor modal > Manage Tag cancel button"
+  },
+  "2aFMT3": {
+    "defaultMessage": "Save prompt to registry",
+    "description": "Title of the save-prompt-version modal on the playground page"
   },
   "2cshW2": {
     "defaultMessage": "Resolved ({count})",
@@ -1255,6 +1267,10 @@
     "defaultMessage": "Owner",
     "description": "Queue settings: owner field label"
   },
+  "4AQBnK": {
+    "defaultMessage": "Collapse assertion text",
+    "description": "Aria label for the chevron that collapses a long assertion text"
+  },
   "4AkzyD": {
     "defaultMessage": "Confirm",
     "description": "Button label to confirm the inferred experiment kind"
@@ -1363,6 +1379,10 @@
     "defaultMessage": "Close",
     "description": "Close button for tag details modal"
   },
+  "4b6A7E": {
+    "defaultMessage": "Undo",
+    "description": "Experiment page > shared view > undo button on the override confirmation toast"
+  },
   "4cnExh": {
     "defaultMessage": "{count, plural, one {# reviewer} other {# reviewers}} selected",
     "description": "Queue settings: reviewers dropdown selected-count summary"
@@ -1423,6 +1443,10 @@
     "defaultMessage": "Unique identifier for the trace",
     "description": "Tooltip description for the Trace ID column in the traces table"
   },
+  "4yuYDg": {
+    "defaultMessage": "Got it",
+    "description": "Analyze with assistant guidance dismiss button"
+  },
   "4zJtO4": {
     "defaultMessage": "Copy for coding agent",
     "description": "Tab label for the copy-prompt-to-coding-agent path in the agent action card"
@@ -1466,6 +1490,10 @@
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
+  },
+  "5K6npM": {
+    "defaultMessage": "Analyze with Assistant",
+    "description": "Button that opens the MLflow assistant side panel to analyze the current trace"
   },
   "5LORfM": {
     "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",
@@ -1554,10 +1582,6 @@
   "5jXYY4": {
     "defaultMessage": "Detailed assessments",
     "description": "Evaluation review > assessments > detailed assessments > title"
-  },
-  "5kc6dO": {
-    "defaultMessage": "— model decides whether to call a tool.",
-    "description": "Description of the Auto tool choice in the Tools info popover"
   },
   "5lsHqm": {
     "defaultMessage": "Cancel",
@@ -1887,6 +1911,10 @@
     "defaultMessage": "Tags",
     "description": "Column title text for model version tags in model version table"
   },
+  "7NadFN": {
+    "defaultMessage": "Format",
+    "description": "Button that pretty-prints the response format JSON schema in the playground"
+  },
   "7O0x9Q": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. All parameters ({inputs}, {outputs}, {expectations}, {trace}) are optional — include only the ones your logic needs. {link}",
     "description": "Step 1 description for defining judge function"
@@ -1914,6 +1942,10 @@
   "7WkP1e": {
     "defaultMessage": "Delete",
     "description": "Menu item to delete an experiment run"
+  },
+  "7X4zhx": {
+    "defaultMessage": "Parameters schema must include a \"properties\" object",
+    "description": "Inline error shown when a tool parameters schema is missing its properties map"
   },
   "7Y0hIS": {
     "defaultMessage": "Run the following code to validate model inference works on the example input data and logged model dependencies, prior to deploying it to a serving endpoint",
@@ -1999,6 +2031,10 @@
     "defaultMessage": "Delete runs",
     "description": "Delete evaluation runs action"
   },
+  "7vws6u": {
+    "defaultMessage": "Trace",
+    "description": "Button to open the raw trace from the detail"
+  },
   "7x6xu8": {
     "defaultMessage": "Create prompt",
     "description": "Label for the create prompt button on the registered prompts page"
@@ -2018,6 +2054,10 @@
   "8/7V3S": {
     "defaultMessage": "Artifact Location",
     "description": "Label for displaying the experiment artifact location"
+  },
+  "8/M7+2": {
+    "defaultMessage": "Provide one or more function definitions for the model to call.",
+    "description": "Help text shown under the Add tools button in the playground settings drawer before any tools are added"
   },
   "801Xh4": {
     "defaultMessage": "Save tags",
@@ -2094,6 +2134,10 @@
   "8Mwwrq": {
     "defaultMessage": "No matching users",
     "description": "Review queue: no users match the owner search"
+  },
+  "8Rlf8s": {
+    "defaultMessage": "— The model decides whether to call one or more tools (default).",
+    "description": "Description of the Auto tool choice in the Tools info popover"
   },
   "8Uwpjw": {
     "defaultMessage": "Create run",
@@ -2190,6 +2234,10 @@
   "8xzQsr": {
     "defaultMessage": "Train models",
     "description": "Home page quick action title for training models"
+  },
+  "9+31Wm": {
+    "defaultMessage": "Prompt name",
+    "description": "Label for the new-prompt name input in the playground save-prompt-version modal"
   },
   "9/KT56": {
     "defaultMessage": "Prompts",
@@ -2299,6 +2347,10 @@
     "defaultMessage": "Tags",
     "description": "Row group title for tags of runs on the experiment compare runs page"
   },
+  "9Klofr": {
+    "defaultMessage": "Add tool",
+    "description": "Label for the button that appends another tool definition card in the playground Tools section"
+  },
   "9MHcPE": {
     "defaultMessage": "Overview",
     "description": "Tab label for endpoint overview"
@@ -2362,6 +2414,10 @@
   "9gQk+t": {
     "defaultMessage": "Manage and version prompts using MLflow's Prompt Registry. <link>Learn more</link>",
     "description": "Subtitle for the empty state on the prompts list page"
+  },
+  "9i4YFp": {
+    "defaultMessage": "No assertions recorded for this test.",
+    "description": "Empty assertions state in the regression-test detail"
   },
   "9icYIV": {
     "defaultMessage": "Select Categories",
@@ -2447,6 +2503,10 @@
     "defaultMessage": "avg per request",
     "description": "Subtitle for average tokens per request in gateway"
   },
+  "A0m0mR": {
+    "defaultMessage": "You're viewing a shared view. Your changes won't be saved unless you override your own saved view.",
+    "description": "Experiment page > shared view banner > explanation that the shared view is read-only"
+  },
   "A1ljDC": {
     "defaultMessage": "Docs",
     "description": "Sidebar link for docs page"
@@ -2466,6 +2526,10 @@
   "A7jptW": {
     "defaultMessage": "Edit tags",
     "description": "Edit tags action"
+  },
+  "A7npjN": {
+    "defaultMessage": "Failed",
+    "description": "Fail status pill in the regression-test detail"
   },
   "AAdQxU": {
     "defaultMessage": "Messages",
@@ -2514,6 +2578,10 @@
   "AHaom4": {
     "defaultMessage": "No assessments available",
     "description": "Message shown when there are no assessments to display"
+  },
+  "AIun3p": {
+    "defaultMessage": "e.g. get_weather",
+    "description": "Placeholder for the tool function name input in the playground Tools card"
   },
   "AM8DuO": {
     "defaultMessage": "Failed",
@@ -2679,6 +2747,10 @@
     "defaultMessage": "{isTraces, select, true {Trace} other {Session}} {index} of {total}",
     "description": "Index of the current trace and total number of traces"
   },
+  "BDmDMg": {
+    "defaultMessage": "Your saved view was overridden.",
+    "description": "Experiment page > shared view > confirmation toast after overriding the user's saved view with a shared view"
+  },
   "BDnRzZ": {
     "defaultMessage": "Total cost: {cost}",
     "description": "Issue detection progress > Total cost in USD"
@@ -2726,6 +2798,10 @@
   "BQt0TQ": {
     "defaultMessage": "This model is also registered to the <link>model registry</link>.",
     "description": "Sub text to tell the users where the registered models are located "
+  },
+  "BRfxyC": {
+    "defaultMessage": "See less",
+    "description": "Toggle that collapses a long JSON code block on the playground page"
   },
   "BTAzqb": {
     "defaultMessage": "Toggle visibility of rows",
@@ -2867,6 +2943,10 @@
     "defaultMessage": "Evaluation",
     "description": "Label for the evaluation section in the MLflow experiment navbar"
   },
+  "C1y/A6": {
+    "defaultMessage": "Assertions",
+    "description": "Assertions column header"
+  },
   "C4y1fv": {
     "defaultMessage": "-∞",
     "description": "Label displaying negative infinity symbol displayed on a plot UI element"
@@ -2919,6 +2999,10 @@
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
   },
+  "CIpiSM": {
+    "defaultMessage": "Allow",
+    "description": "Button to allow a tool-call permission request"
+  },
   "CKwhUr": {
     "defaultMessage": "Move to Todo",
     "description": "Review focused view: send a completed/declined trace back to the to-do list"
@@ -2958,6 +3042,10 @@
   "CX8ytv": {
     "defaultMessage": "Expected output",
     "description": "Evaluation review > Response section > expected output > title"
+  },
+  "CZW5JY": {
+    "defaultMessage": "Messages",
+    "description": "Header of the messages preview in the playground save-prompt-version modal"
   },
   "CZWYoV": {
     "defaultMessage": "e.g. 0.0",
@@ -3135,6 +3223,10 @@
     "defaultMessage": "Diff highlighting is not supported in Markdown view. Switch to Text view to see differences.",
     "description": "Warning message shown in prompt comparison view when markdown rendering is enabled"
   },
+  "DSBiYz": {
+    "defaultMessage": "Discard",
+    "description": "Experiment page > shared view banner > button that discards the shared view and restores the user's own view"
+  },
   "DSu+/R": {
     "defaultMessage": "Select reviewers",
     "description": "Review queue: reviewers dropdown label"
@@ -3142,6 +3234,10 @@
   "DUnrWL": {
     "defaultMessage": "Run Name:",
     "description": "Row title for the run name on the experiment compare runs page"
+  },
+  "DVBFdl": {
+    "defaultMessage": "Expand assertion text",
+    "description": "Aria label for the chevron that expands a long assertion text"
   },
   "DXxTNn": {
     "defaultMessage": "Used for HMAC signature verification of incoming webhook requests.",
@@ -3191,6 +3287,10 @@
     "defaultMessage": "Budget exceeded",
     "description": "Warning icon label for exceeded budget"
   },
+  "DxHEXN": {
+    "defaultMessage": "Preview",
+    "description": "Title of the preview section in the playground prompt-registry picker modal"
+  },
   "Dz/+6s": {
     "defaultMessage": "Usage tracking",
     "description": "Label for usage tracking toggle in sidebar"
@@ -3198,10 +3298,6 @@
   "E+bByS": {
     "defaultMessage": "My queues",
     "description": "Review queue sidebar: show-only-owned-queues filter"
-  },
-  "E0nFI2": {
-    "defaultMessage": "Preview",
-    "description": "Title of the preview section in the playground prompt-registry picker drawer"
   },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
@@ -3339,6 +3435,10 @@
     "defaultMessage": "Version {version}",
     "description": "Version display for judge"
   },
+  "EbJub1": {
+    "defaultMessage": "Test",
+    "description": "Column label for the regression test name column"
+  },
   "EcjcgN": {
     "defaultMessage": "Metrics",
     "description": "Label for the ungrouped metrics column group in the logged model column selector"
@@ -3406,10 +3506,6 @@
   "F4K195": {
     "defaultMessage": "No evaluation datasets found",
     "description": "Empty state for the evaluation datasets page"
-  },
-  "F6YQTG": {
-    "defaultMessage": "Pick Auto or Required to enter the JSON tool definitions.",
-    "description": "Closing line of the Tools info popover hinting at the conditional definitions input"
   },
   "F8MqzZ": {
     "defaultMessage": "Path",
@@ -3643,6 +3739,10 @@
     "defaultMessage": "Context sufficiency",
     "description": "Evaluation results > known type of evaluation result assessment > context sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. \"Context Sufficiency: mostly sufficient\""
   },
+  "GWkYrG": {
+    "defaultMessage": "Provide a unique prompt name",
+    "description": "Placeholder for the new-prompt name input in the playground save-prompt-version modal"
+  },
   "GXayIF": {
     "defaultMessage": "Predict on a Pandas DataFrame:",
     "description": "Section heading to display the code block on how we can use registered model to predict using pandas DataFrame"
@@ -3723,10 +3823,6 @@
     "defaultMessage": "Trace archival retention not updated",
     "description": "Partial save status message when experiment trace archival retention update was not attempted"
   },
-  "H+Onu7": {
-    "defaultMessage": "Cancel",
-    "description": "Cancel-button label on the prompt-registry picker drawer"
-  },
   "H+tV5c": {
     "defaultMessage": "Coding Agents",
     "description": "Gateway > Quick start > Coding Agents card header"
@@ -3790,6 +3886,10 @@
   "HQXWk2": {
     "defaultMessage": "Select the LLM-as-a-judge scorers to run on the selected traces.",
     "description": "Description for the judge selection section in the run evaluation modal"
+  },
+  "HRSBco": {
+    "defaultMessage": "Save model settings with this version",
+    "description": "Label for the checkbox that stores playground model settings alongside the saved prompt version"
   },
   "HSMagB": {
     "defaultMessage": "Error evaluating \"{label}\"",
@@ -3911,6 +4011,10 @@
     "defaultMessage": "Compare",
     "description": "Compare traces button"
   },
+  "HrQbGZ": {
+    "defaultMessage": "Format",
+    "description": "Button that pretty-prints the tool parameters JSON in the playground"
+  },
   "Hvznjh": {
     "defaultMessage": "Assistant",
     "description": "Display text for the 'assistant' role in a GenAI chat message."
@@ -3962,6 +4066,10 @@
   "ID3XkJ": {
     "defaultMessage": "New password and confirmation do not match",
     "description": "Validation error when new password and confirmation do not match"
+  },
+  "IDk8d+": {
+    "defaultMessage": "Save prompt",
+    "description": "Aria label for the playground top-bar button that opens the save-prompt-version modal"
   },
   "IEORCP": {
     "defaultMessage": "Comparing {numRuns} Runs from {numExperiments} Experiments",
@@ -4075,6 +4183,10 @@
     "defaultMessage": "To manually instrument your own traces, the most convenient method is to use the {code} function decorator. This will cause the inputs and outputs of the function to be captured in the trace. For more information, please visit the <a>official documentation</a> for manual tracing.",
     "description": "Description of how to log custom code traces using MLflow. This message is followed by a code example. The link leads to the MLflow documentation for the user to learn more."
   },
+  "InNAAD": {
+    "defaultMessage": "Name is required",
+    "description": "Validation error when no prompt name is provided in the playground save-prompt-version modal"
+  },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for API calls to Google's Gemini API using MLflow autologging. This message is followed by a code example."
@@ -4098,6 +4210,10 @@
   "J1DBbP": {
     "defaultMessage": "Created",
     "description": "Header for the dataset record create-time column"
+  },
+  "J1orkI": {
+    "defaultMessage": "Previous test case",
+    "description": "Aria label for the previous-test-case button in the regression-test detail drawer"
   },
   "J2IXIT": {
     "defaultMessage": "Create Guardrail",
@@ -4178,10 +4294,6 @@
   "JUTcIz": {
     "defaultMessage": "Time created",
     "description": "Header for the time created column in the experiments table"
-  },
-  "JUuOks": {
-    "defaultMessage": "e.g. {example}",
-    "description": "Placeholder shown inside the playground response_format JSON schema textarea"
   },
   "JW0GbU": {
     "defaultMessage": "You can set a maximum of {maxLength} values",
@@ -4419,6 +4531,10 @@
     "defaultMessage": "This queue has no questions attached.",
     "description": "Add to review queue: custom queue disabled reason"
   },
+  "KpFPCX": {
+    "defaultMessage": "Settings",
+    "description": "Subsection header listing model settings stored with the selected prompt version on the playground prompt-registry picker modal"
+  },
   "KqReh3": {
     "defaultMessage": "Error stack trace",
     "description": "Title of the assessment error stack trace modal"
@@ -4519,6 +4635,10 @@
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 20 first runs in the evaluation runs table"
   },
+  "LKA/ko": {
+    "defaultMessage": "Add tools",
+    "description": "Label for the button that reveals the playground tool definitions input and tool choice selector"
+  },
   "LKAZ2n": {
     "defaultMessage": "Disable grouped runs to compare",
     "description": "Experiment tracking > components > runs-charts > RunsChartsConfigureDifferenceCharts > disable grouped runs info message"
@@ -4586,6 +4706,10 @@
   "Ll6vbT": {
     "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
     "description": "Tooltip text for transitioning existing model versions in stage to archived\n     in the model versions page"
+  },
+  "LmHxvf": {
+    "defaultMessage": "Only alphanumeric characters, underscores, hyphens, and dots are allowed",
+    "description": "Validation error for an invalid prompt name in the playground save-prompt-version modal"
   },
   "LpdcPw": {
     "defaultMessage": "Model versions",
@@ -4682,6 +4806,10 @@
   "MBNIRk": {
     "defaultMessage": "Attributes",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading"
+  },
+  "MGcWqh": {
+    "defaultMessage": "Schema",
+    "description": "Accessible label for the playground response_format JSON schema editor"
   },
   "MHWark": {
     "defaultMessage": "Year",
@@ -4967,6 +5095,10 @@
     "defaultMessage": "Is the text grammatically correct and naturally flowing?",
     "description": "Hint for Fluency template"
   },
+  "NX60WQ": {
+    "defaultMessage": "Override saved view",
+    "description": "Experiment page > shared view banner > button that overwrites the user's own saved view with the shared view"
+  },
   "NekUba": {
     "defaultMessage": "Add to dataset",
     "description": "Button text for adding a trace to an evaluation dataset"
@@ -5127,6 +5259,14 @@
     "defaultMessage": "Expectations",
     "description": "Column selector label for the expectations column"
   },
+  "OHDirZ": {
+    "defaultMessage": "Use the trash icon to remove the tools from the request.",
+    "description": "Closing line of the Tools info popover explaining how the trash icon removes tools"
+  },
+  "OIJAhv": {
+    "defaultMessage": "Function name is required",
+    "description": "Inline error shown when a tool is missing its function name"
+  },
   "OLZyxe": {
     "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
     "description": "Error count in tooltip"
@@ -5258,6 +5398,10 @@
   "P/Uvf4": {
     "defaultMessage": "Classification",
     "description": "Label for experiments focused on classification modeling"
+  },
+  "P037Va": {
+    "defaultMessage": "Passed",
+    "description": "Pass status pill in the regression-test detail"
   },
   "P0Y/ks": {
     "defaultMessage": "Workspace Manager",
@@ -5423,10 +5567,6 @@
     "defaultMessage": "Select endpoint",
     "description": "Placeholder for endpoint selector"
   },
-  "PuVisU": {
-    "defaultMessage": "Schema",
-    "description": "Label for the playground response_format JSON schema textarea"
-  },
   "PuXTcZ": {
     "defaultMessage": "Welcome to MLflow",
     "description": "Workspace landing page title"
@@ -5570,6 +5710,10 @@
   "Qayyg6": {
     "defaultMessage": "Columns",
     "description": "Columns button label"
+  },
+  "Qb78hE": {
+    "defaultMessage": "Messages",
+    "description": "Subsection header listing messages of the selected prompt version on the playground prompt-registry picker modal"
   },
   "QcEYpD": {
     "defaultMessage": "Add to evaluation dataset",
@@ -5887,6 +6031,10 @@
     "defaultMessage": "— instructions or persona for the model (e.g. {example}).",
     "description": "Description of the system role in the playground role-selector help popover"
   },
+  "SG6cpK": {
+    "defaultMessage": "e.g. Get the weather in a given location",
+    "description": "Placeholder for the tool description input in the playground Tools card"
+  },
   "SHoy6d": {
     "defaultMessage": "Open full trace viewer",
     "description": "Link to open the full trace viewer for the endpoint's experiment"
@@ -5939,10 +6087,6 @@
     "defaultMessage": "Select a workspace to start experiments",
     "description": "Home page workspaces section subtitle"
   },
-  "SSxRdM": {
-    "defaultMessage": "Opens the MLflow assistant in this browser and starts the conversation.",
-    "description": "Description above the MLflow assistant button in the agent action card"
-  },
   "STEhnv": {
     "defaultMessage": "Description",
     "description": "Header for the description column in the experiments table"
@@ -5962,6 +6106,10 @@
   "SYa+JC": {
     "defaultMessage": "Select a prompt",
     "description": "Placeholder for the prompt picker on the playground prompt-registry modal"
+  },
+  "SZQjTs": {
+    "defaultMessage": "Result",
+    "description": "Result column header"
   },
   "Sb+wLa": {
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
@@ -6135,6 +6283,10 @@
     "defaultMessage": "Source",
     "description": "Header for the dataset record source column"
   },
+  "TTXfdj": {
+    "defaultMessage": "Commit message (optional)",
+    "description": "Label for the optional commit-message input in the playground save-prompt-version modal"
+  },
   "TWnsnV": {
     "defaultMessage": "Run Name",
     "description": "Column header for run name in the evaluation runs table"
@@ -6162,6 +6314,10 @@
   "TcNbWT": {
     "defaultMessage": "View dataset metadata",
     "description": "Overflow-menu item that opens the V2 evaluation dataset metadata modal"
+  },
+  "TcXjUy": {
+    "defaultMessage": "Eval",
+    "description": "Type pill text for a regular evaluation run in the evaluation runs table"
   },
   "TeN9hs": {
     "defaultMessage": "Traces",
@@ -6435,6 +6591,10 @@
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
     "description": "Tooltip message for the export button when the trace is not exportable"
   },
+  "V0IJuy": {
+    "defaultMessage": "Allow the assistant to run {toolName}?",
+    "description": "Title of the prompt asking the user to approve a tool call"
+  },
   "V1kYC+": {
     "defaultMessage": "Select element type",
     "description": "Placeholder for list element type"
@@ -6530,6 +6690,10 @@
   "VPU43C": {
     "defaultMessage": "Compare parameter importance",
     "description": "Experiment page > compare runs > parallel coordinates chart > chart not configured warning > title"
+  },
+  "VS9L0H": {
+    "defaultMessage": "Add a parameters schema",
+    "description": "Inline error shown when a tool parameters editor is empty"
   },
   "VSitCY": {
     "defaultMessage": "Top K",
@@ -6723,6 +6887,10 @@
     "defaultMessage": "Register model",
     "description": "Run page > Header > Register model dropdown > Button label when some models are not registered"
   },
+  "WGe+QH": {
+    "defaultMessage": "Load",
+    "description": "Confirm-button label on the prompt-registry picker modal that loads the selected prompt version"
+  },
   "WHf+VX": {
     "defaultMessage": "Please enter a name",
     "description": "Error message for empty assessment name in a creation form"
@@ -6746,6 +6914,10 @@
   "WJuNcs": {
     "defaultMessage": "Failed to update workspace. Please try again.",
     "description": "Generic error message for edit workspace modal"
+  },
+  "WLGBoB": {
+    "defaultMessage": "Chat with Traces in Assistant",
+    "description": "Analyze with assistant guidance popover title"
   },
   "WP1pyQ": {
     "defaultMessage": "Created by",
@@ -6855,6 +7027,10 @@
     "defaultMessage": "<link>Learn more about budget time windows.</link>",
     "description": "Tooltip with link to budget time windows documentation"
   },
+  "Wv+BbS": {
+    "defaultMessage": "Parameters must be a JSON object",
+    "description": "Inline error shown when tool parameters are valid JSON but not an object"
+  },
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
@@ -6882,6 +7058,10 @@
   "X/TTxm": {
     "defaultMessage": "Previous trace",
     "description": "Review focused view: previous-trace button"
+  },
+  "X1/rxD": {
+    "defaultMessage": "MLflow Assistant",
+    "description": "Label revealed when hovering the floating MLflow assistant button"
   },
   "X11caV": {
     "defaultMessage": "Failed to override assessment. Error: {error}",
@@ -6991,6 +7171,10 @@
     "defaultMessage": "View prompt template",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > \"view prompt template\" button label"
   },
+  "XYUKDW": {
+    "defaultMessage": "Comparison isn't available for regression-test runs",
+    "description": "Tooltip for the compare button when a regression-test run is selected"
+  },
   "XZlIAj": {
     "defaultMessage": "Remove fallback model",
     "description": "Tooltip for remove fallback model button"
@@ -7010,6 +7194,10 @@
   "Xe+MXn": {
     "defaultMessage": "Prompt alias deleted",
     "description": "Webhook event label"
+  },
+  "XfsPd4": {
+    "defaultMessage": "Save prompt",
+    "description": "Label for the playground top-bar button that opens the save-prompt-version modal"
   },
   "XiGiE1": {
     "defaultMessage": "Workspace",
@@ -7202,6 +7390,10 @@
   "Yd5ANL": {
     "defaultMessage": "PASS",
     "description": "Header label for pass/fail assessment type for the pass rate"
+  },
+  "YdxomH": {
+    "defaultMessage": "New version of {name}",
+    "description": "Option to save a new version of the loaded prompt in the playground save modal"
   },
   "YeCF5P": {
     "defaultMessage": "Human feedback",
@@ -7463,6 +7655,10 @@
     "defaultMessage": "Experiments",
     "description": "Header title for the experiments page"
   },
+  "ZqOagL": {
+    "defaultMessage": "Invalid JSON: {detail}",
+    "description": "Inline error shown when a tool parameters editor contains unparseable JSON"
+  },
   "Zqj4VA": {
     "defaultMessage": "New run name",
     "description": "Experiment page > new run modal > run name input label"
@@ -7522,6 +7718,10 @@
   "aAAHaS": {
     "defaultMessage": "Context insufficient",
     "description": "Evaluation results > context sufficiency assessment > negative value label. Displayed if retrieved context is insufficient to generate the expected response."
+  },
+  "aAcCh2": {
+    "defaultMessage": "Analyze with Assistant",
+    "description": "Traces table toolbar button that opens the MLflow assistant to analyze the current traces"
   },
   "aB6xFd": {
     "defaultMessage": "Outputs",
@@ -7799,10 +7999,6 @@
     "defaultMessage": "Try selecting a longer time range.",
     "description": "Suggestion to select a longer time range"
   },
-  "bUiWBa": {
-    "defaultMessage": "Load prompt from registry",
-    "description": "Title of the prompt-registry picker drawer on the playground page"
-  },
   "bWh+VF": {
     "defaultMessage": "Create",
     "description": "Gateway > Endpoints list > Create endpoint button"
@@ -7835,9 +8031,9 @@
     "defaultMessage": "Collapse description",
     "description": "Aria label for button that collapses a long description"
   },
-  "beIrMl": {
-    "defaultMessage": "Load",
-    "description": "Confirm-button label on the prompt-registry picker drawer that loads the selected prompt version"
+  "bgk51B": {
+    "defaultMessage": "Give every tool a function name",
+    "description": "Submit blocker detail shown when a playground tool is missing its function name"
   },
   "bi26D5": {
     "defaultMessage": "Run ID:",
@@ -8071,10 +8267,6 @@
     "defaultMessage": "{count, plural, one {# custom queue} other {# custom queues}}",
     "description": "Manage review questions: count of custom queues using the question being deleted"
   },
-  "cdkVoZ": {
-    "defaultMessage": "Settings",
-    "description": "Subsection header listing model settings stored with the selected prompt version on the playground prompt-registry picker drawer"
-  },
   "cfzQMh": {
     "defaultMessage": "baseline run",
     "description": "Placeholder text shown when no baseline run is selected for comparison"
@@ -8279,6 +8471,10 @@
     "defaultMessage": "Permanently delete \"{name}\" and remove its traces from review? This cannot be undone.",
     "description": "Delete review queue: confirm body"
   },
+  "dkw8bG": {
+    "defaultMessage": "Deny",
+    "description": "Button to deny a tool-call permission request"
+  },
   "dl0TeT": {
     "defaultMessage": "Save",
     "description": "Experiment tracking > experiment page > runs > save tags button"
@@ -8290,6 +8486,10 @@
   "dmN/nA": {
     "defaultMessage": "Name",
     "description": "Queue settings: name field label"
+  },
+  "dp7Jva": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel-button label on the playground save-prompt-version modal"
   },
   "dq8MJd": {
     "defaultMessage": "Contour Plot",
@@ -8367,6 +8567,10 @@
     "defaultMessage": "Account",
     "description": "Accessible label for the account-page icon avatar"
   },
+  "eCMHlc": {
+    "defaultMessage": "— The model must call at least one tool.",
+    "description": "Description of the Required tool choice in the Tools info popover"
+  },
   "eCleLG": {
     "defaultMessage": "Failed to load API keys. Please check your connection and try again.",
     "description": "Gateway > API keys list > Error loading API keys"
@@ -8382,6 +8586,10 @@
   "eE5VIF": {
     "defaultMessage": "Click to hide the run",
     "description": "A tooltip for the \"hide\" icon button in the runs chart tooltip"
+  },
+  "eEjDUQ": {
+    "defaultMessage": "Destination",
+    "description": "Label for the destination selector in the playground save-prompt-version modal"
   },
   "eIM9PU": {
     "defaultMessage": "Open dataset record {recordId} — tags",
@@ -8571,6 +8779,10 @@
     "defaultMessage": "(edited)",
     "description": "Link text in an edited assessment that allows the user to click to see the previous value"
   },
+  "f5cp11": {
+    "defaultMessage": "Provide one or more function definitions the model can call. Choose how the model invokes them:",
+    "description": "Intro line of the info popover next to the Tools section header"
+  },
   "f6B8LJ": {
     "defaultMessage": "Numeric",
     "description": "Review question input type: numeric"
@@ -8606,6 +8818,10 @@
   "fMxD0i": {
     "defaultMessage": "Admin",
     "description": "Tag content marking an admin role (single-tenant)"
+  },
+  "fRJE/2": {
+    "defaultMessage": "Load a saved prompt to replace the current playground messages, and apply any settings stored with it.",
+    "description": "Intro paragraph at the top of the playground prompt-registry picker modal, explaining that loading replaces messages and applies stored settings"
   },
   "fSm3ue": {
     "defaultMessage": "Category choices",
@@ -8815,6 +9031,10 @@
     "defaultMessage": "Cancel",
     "description": "Delete assessment modal cancel button text"
   },
+  "gH6GGr": {
+    "defaultMessage": "Function name",
+    "description": "Label for the tool function name input in the playground Tools card"
+  },
   "gIc8Lp": {
     "defaultMessage": "Stages have been deprecated in the new Model Registry UI. Learn how to migrate models <link>here</link>.",
     "description": "Tooltip content for the disabled stage metadata in model version page"
@@ -8830,6 +9050,10 @@
   "gMX8Zp": {
     "defaultMessage": "MLflow assistant",
     "description": "Tab label for the in-UI MLflow assistant path in the agent action card"
+  },
+  "gMflIB": {
+    "defaultMessage": "Reset to defaults",
+    "description": "Button in the experiment runs table column selector that resets column visibility, order and width back to defaults"
   },
   "gOH/XL": {
     "defaultMessage": "No additional metadata is available for this dataset.",
@@ -9211,6 +9435,10 @@
     "defaultMessage": "Previous",
     "description": "Previous page button"
   },
+  "hwmfrL": {
+    "defaultMessage": "Next test case",
+    "description": "Aria label for the next-test-case button in the regression-test detail drawer"
+  },
   "hxMEqi": {
     "defaultMessage": "The model version will be copied to {selectedModel} as a new version.",
     "description": "Model registry > OSS Promote model modal > copy explanatory text"
@@ -9218,6 +9446,10 @@
   "hyHL1n": {
     "defaultMessage": "No metrics match the search filter",
     "description": "Message displayed when no metrics match the search filter in the logged model details metrics table"
+  },
+  "i+1bTL": {
+    "defaultMessage": "Test",
+    "description": "Type pill text for a regression-test run in the evaluation runs table"
   },
   "i+JtEu": {
     "defaultMessage": "Could not copy link to clipboard.",
@@ -9355,6 +9587,10 @@
     "defaultMessage": "My webhook",
     "description": "Webhook name placeholder"
   },
+  "iX9mZm": {
+    "defaultMessage": "Saved {name} v{version} to the registry",
+    "description": "Success toast shown on the playground after saving the current messages as a new prompt version"
+  },
   "iXb99e": {
     "defaultMessage": "Box Plot",
     "description": "Tab pane title for box plot on the compare runs page"
@@ -9479,6 +9715,10 @@
     "defaultMessage": "Select the experiment you configured above.",
     "description": "Instruction to select the experiment configured for traces"
   },
+  "j4rsyV": {
+    "defaultMessage": "Could not load the trace for this test case.",
+    "description": "Error message shown when the regression-test detail drawer fails to load the trace"
+  },
   "j4vtTO": {
     "defaultMessage": "Save aliases",
     "description": "Alias editor > Confirm change of aliases"
@@ -9563,6 +9803,10 @@
     "defaultMessage": "AI Gateway",
     "description": "Home page quick action title for AI Gateway"
   },
+  "jSuw00": {
+    "defaultMessage": "Tool {number}",
+    "description": "Header label for an individual tool card in the playground Tools section"
+  },
   "jTqRO+": {
     "defaultMessage": "None",
     "description": "A short label for experiments with no automatically inferred experiment type"
@@ -9590,6 +9834,10 @@
   "jcg8zG": {
     "defaultMessage": "Models",
     "description": "Models column header"
+  },
+  "jeQmEj": {
+    "defaultMessage": "Function description",
+    "description": "Label for the tool description input in the playground Tools card"
   },
   "jhgu6C": {
     "defaultMessage": "A unique identifier for the session or conversation for grouping traces",
@@ -9723,13 +9971,13 @@
     "defaultMessage": "Correctness",
     "description": "LLM template option"
   },
+  "kD2Vww": {
+    "defaultMessage": "The model decides whether to call one or more tools.",
+    "description": "Hint shown under the tool choice selector when Auto is selected"
+  },
   "kEmVw4": {
     "defaultMessage": "Trace Archival Retention",
     "description": "Label for workspace trace archival retention field"
-  },
-  "kGVN6k": {
-    "defaultMessage": "e.g. {example}",
-    "description": "Placeholder shown above the playground tools JSON textarea"
   },
   "kHDQiE": {
     "defaultMessage": "Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.",
@@ -10086,6 +10334,10 @@
   "mBhoMH": {
     "defaultMessage": "Last modified",
     "description": "Last modified column header"
+  },
+  "mEV+mz": {
+    "defaultMessage": "New prompt",
+    "description": "Option to save the playground messages as a brand-new prompt in the save modal"
   },
   "mGUpJv": {
     "defaultMessage": "Failed to create record",
@@ -10511,6 +10763,10 @@
     "defaultMessage": "Custom code judge",
     "description": "Menu item text to create a new custom code judge"
   },
+  "o66/ZA": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel-button label on the prompt-registry picker modal"
+  },
   "o6uTLu": {
     "defaultMessage": "Created",
     "description": "Column selector label for the create-time column"
@@ -10542,10 +10798,6 @@
   "oHW+ks": {
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
-  },
-  "oJg/Kk": {
-    "defaultMessage": "— model must call a tool.",
-    "description": "Description of the Required tool choice in the Tools info popover"
   },
   "oKNOju": {
     "defaultMessage": "Conversational tool call efficiency",
@@ -10695,9 +10947,17 @@
     "defaultMessage": "Describe what this guardrail should check for...",
     "description": "Guardrail instructions placeholder"
   },
+  "p+urWV": {
+    "defaultMessage": "Load prompt from registry",
+    "description": "Title of the prompt-registry picker modal on the playground page"
+  },
   "p/wUKB": {
     "defaultMessage": "MLflow Assistant",
     "description": "Title for the global Assistant chat panel"
+  },
+  "p0FZXy": {
+    "defaultMessage": "Add at least one non-empty message before saving.",
+    "description": "Warning shown in the playground save-prompt-version modal when there are no messages to save"
   },
   "p1H1KR": {
     "defaultMessage": "Last 30 days",
@@ -10855,6 +11115,10 @@
     "defaultMessage": "Are you sure you want to delete the dataset \"{name}\"? This action cannot be undone.",
     "description": "Body for the V2 evaluation dataset delete confirmation modal on the detail page"
   },
+  "pxRaW6": {
+    "defaultMessage": "Schema",
+    "description": "Label for the playground response_format JSON schema editor"
+  },
   "pye4NE": {
     "defaultMessage": "Select an endpoint",
     "description": "Placeholder for endpoint selection dropdown"
@@ -10963,6 +11227,10 @@
     "defaultMessage": "Track and compare versions of your GenAI app",
     "description": "Empty state title displayed when no models are logged in the genai logged models list page"
   },
+  "qQazgD": {
+    "defaultMessage": "Type",
+    "description": "Column header for run type (Eval vs Test) in the evaluation runs table"
+  },
   "qR3llD": {
     "defaultMessage": "Max tokens",
     "description": "Experiment page > prompt lab > max tokens parameter label"
@@ -10974,6 +11242,10 @@
   "qTjYVU": {
     "defaultMessage": "Hide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the visible run"
+  },
+  "qVOt+R": {
+    "defaultMessage": "See more",
+    "description": "Toggle that expands a collapsed long JSON code block on the playground page"
   },
   "qVQYZH": {
     "defaultMessage": "Show less",
@@ -11122,6 +11394,10 @@
   "r91Gz/": {
     "defaultMessage": "Duplicate",
     "description": "Gateway > Endpoints list > Duplicate button"
+  },
+  "r9EsGo": {
+    "defaultMessage": "This view is too large to fit in a link. The link will open the experiment with your filters and sorting, but without the saved column layout and charts.",
+    "description": "Warning shown in the experiment share-link modal when the view is too large to embed in the URL and a simplified link is shared instead"
   },
   "rAAy4b": {
     "defaultMessage": "Open dataset record {recordId}",
@@ -11399,10 +11675,6 @@
     "defaultMessage": "None",
     "description": "Label for the button disabling grouping in the logged model list page"
   },
-  "sQxTyj": {
-    "defaultMessage": "Messages",
-    "description": "Subsection header listing messages of the selected prompt version on the playground prompt-registry picker drawer"
-  },
   "sS3GBl": {
     "defaultMessage": "Trace LLM applications for debugging and monitoring.",
     "description": "Home page quick action description for logging traces"
@@ -11567,6 +11839,10 @@
     "defaultMessage": "Failed to save record",
     "description": "Generic fallback save-error text for the dataset record side panel (edit mode)"
   },
+  "tEW/jO": {
+    "defaultMessage": "Save the current playground messages as a new prompt version in the registry.",
+    "description": "Intro paragraph at the top of the playground save-prompt-version modal"
+  },
   "tEX/Gk": {
     "defaultMessage": "Select a Guardrail Model endpoint to create this guardrail.",
     "description": "Tooltip shown when create button is disabled because guardrail model is not selected"
@@ -11586,10 +11862,6 @@
   "tHrp+A": {
     "defaultMessage": "Value",
     "description": "Key-value tag editor modal > Value input label (required)"
-  },
-  "tLScUd": {
-    "defaultMessage": "Load prompt from registry",
-    "description": "Aria label for the playground top-bar button that opens the registered prompt picker"
   },
   "tLb7+M": {
     "defaultMessage": "{timeSince, plural, =1 {1 day} other {# days}} ago",
@@ -11702,6 +11974,10 @@
   "u1UjvS": {
     "defaultMessage": "e.g. Hallucination review",
     "description": "Create review queue: name field placeholder"
+  },
+  "u5B9TA": {
+    "defaultMessage": "Load prompt",
+    "description": "Label for the playground top-bar button that opens the registered prompt picker"
   },
   "u9ZeuA": {
     "defaultMessage": "State",
@@ -11827,10 +12103,6 @@
     "defaultMessage": "Edit Workspace",
     "description": "Title for edit workspace modal"
   },
-  "um/4MQ": {
-    "defaultMessage": "Add at least one tool definition",
-    "description": "Inline error shown in the Tools card when tool choice is not none but no tool definitions are provided"
-  },
   "umeTwG": {
     "defaultMessage": "Latest",
     "description": "Column title for the column displaying the latest metric values for a metric"
@@ -11951,10 +12223,6 @@
     "defaultMessage": "Experiment type",
     "description": "Label for the experiment type selector in the experiment view header"
   },
-  "vRhqKG": {
-    "defaultMessage": "Load a saved prompt to replace the current playground messages, and apply any settings stored with it.",
-    "description": "Intro paragraph at the top of the playground prompt-registry picker drawer, explaining that loading replaces messages and applies stored settings"
-  },
   "vSI23W": {
     "defaultMessage": "Provider cannot be changed. Create a new key if a different provider is needed.",
     "description": "Tooltip explaining why provider field is disabled in drawer edit"
@@ -11975,6 +12243,10 @@
     "defaultMessage": "Add question",
     "description": "Add review question modal title"
   },
+  "vcZc8z": {
+    "defaultMessage": "Open the MLflow Assistant to ask questions about your traces, debug failures, and investigate quality issues right alongside your data.",
+    "description": "Analyze with assistant guidance popover message"
+  },
   "vedifc": {
     "defaultMessage": "Enter API key or select saved key",
     "description": "Placeholder for API key combobox input"
@@ -11982,6 +12254,10 @@
   "vgfy8y": {
     "defaultMessage": "Add assessment",
     "description": "Evaluation review > assessments > add assessment button label"
+  },
+  "vhChCU": {
+    "defaultMessage": "Fix the tool parameters schema",
+    "description": "Submit blocker shown when a playground tool has an invalid parameters schema"
   },
   "vi2MM7": {
     "defaultMessage": "All",
@@ -12011,6 +12287,10 @@
     "defaultMessage": "Back to experiment list",
     "description": "Tooltip for experiments button"
   },
+  "vtQvcd": {
+    "defaultMessage": "Save version",
+    "description": "Confirm-button label on the playground save-prompt-version modal"
+  },
   "vwD2zW": {
     "defaultMessage": "Unified APIs",
     "description": "Unified APIs tab title"
@@ -12022,10 +12302,6 @@
   "vwXBHk": {
     "defaultMessage": "Rationale",
     "description": "Label for the rationale of an issue assessment"
-  },
-  "vwvhCa": {
-    "defaultMessage": "Fix the Tools JSON: {error}",
-    "description": "Reason shown when the playground Submit button is disabled because the tools JSON is invalid"
   },
   "vxY1CI": {
     "defaultMessage": "Status",
@@ -12191,10 +12467,6 @@
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the prompt content in the prompt creation modal"
   },
-  "wqI7on": {
-    "defaultMessage": "Add at least one tool definition",
-    "description": "Reason shown when the playground Submit button is disabled because tool choice requires tools but none are provided"
-  },
   "wqv2gd": {
     "defaultMessage": "Redact or mask flagged content, then allow the request to continue.",
     "description": "Sanitize action description"
@@ -12282,6 +12554,10 @@
   "x7NsCC": {
     "defaultMessage": "Reasoning",
     "description": "Label for the collapsible reasoning section in chat message"
+  },
+  "x90XmL": {
+    "defaultMessage": "The model must call at least one tool.",
+    "description": "Hint shown under the tool choice selector when Required is selected"
   },
   "xBIlD4": {
     "defaultMessage": "Expectation",
@@ -12386,6 +12662,10 @@
   "xc+tL4": {
     "defaultMessage": "Filters{numFilters}",
     "description": "Usage overview > metrics filter dropdown button"
+  },
+  "xczUnJ": {
+    "defaultMessage": "Function parameters schema",
+    "description": "Label for the tool parameters JSON schema editor in the playground Tools card"
   },
   "xdFMIN": {
     "defaultMessage": "Dataset name",
@@ -12571,6 +12851,10 @@
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Link to model version in the model version table"
   },
+  "ylLjh0": {
+    "defaultMessage": "Opens the MLflow assistant in the browser with a suggested prompt.",
+    "description": "Description above the MLflow assistant button in the agent action card"
+  },
   "yltiK8": {
     "defaultMessage": "No prompts match your search",
     "description": "No search results message for linked prompts table on logged model details page"
@@ -12650,6 +12934,10 @@
   "z6K3IC": {
     "defaultMessage": "Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here",
     "description": "Tooltip suggesting to create an endpoint for reuse"
+  },
+  "z6QxDs": {
+    "defaultMessage": "Issue detection",
+    "description": "Type pill text for an issue-detection run in the evaluation runs table"
   },
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
@@ -12731,6 +13019,10 @@
     "defaultMessage": "Run judge on {count} traces",
     "description": "Title for run judge modal when running on multiple traces"
   },
+  "zPxoze": {
+    "defaultMessage": "Remove tool {number}",
+    "description": "Aria label for the trash button that removes a single tool from the playground request"
+  },
   "zRKlAL": {
     "defaultMessage": "Metadata",
     "description": "Label for the metadata section"
@@ -12782,10 +13074,6 @@
   "ze1m7Z": {
     "defaultMessage": "Run name cannot consist only of whitespace!",
     "description": "An error shown when user sets the run's name to whitespace characters only"
-  },
-  "zehip9": {
-    "defaultMessage": "— never call a tool (default).",
-    "description": "Description of the None tool choice in the Tools info popover"
   },
   "zfpA2q": {
     "defaultMessage": "Source run",

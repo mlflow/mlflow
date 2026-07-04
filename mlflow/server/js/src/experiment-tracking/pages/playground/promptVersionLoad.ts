@@ -1,7 +1,14 @@
-import { getChatPromptMessagesFromValue, getPromptContentTagValue, isChatPrompt } from '../prompts/utils';
-import { getModelConfigFromTags, getResponseFormatFromTags } from '../prompts/utils';
+import {
+  getChatPromptMessagesFromValue,
+  getModelConfigFromTags,
+  getPromptContentTagValue,
+  getResponseFormatFromTags,
+  isChatPrompt,
+  PROMPT_TYPE_CHAT,
+  PROMPT_TYPE_TEXT,
+} from '../prompts/utils';
 import type { RegisteredPromptVersion } from '../prompts/types';
-import type { ChatMessage, ChatRole, PlaygroundParams, ResponseFormatType } from './types';
+import type { ChatMessage, ChatRole, PlaygroundParams, PromptType, ResponseFormatType } from './types';
 
 const KNOWN_ROLES: ChatRole[] = ['system', 'user', 'assistant'];
 
@@ -35,10 +42,14 @@ export interface PromptLoadPayload {
   settings: PromptLoadSettings | null;
   promptName: string;
   versionLabel: string;
+  // Registry type of the loaded version, so a later save can preserve it
+  // (e.g. keep a text prompt text-typed instead of promoting it to chat).
+  promptType: PromptType;
 }
 
 export const buildLoadPayloadFromVersion = (version: RegisteredPromptVersion): PromptLoadPayload => {
   const messages = buildMessagesFromVersion(version);
+  const promptType: PromptType = isChatPrompt(version) ? PROMPT_TYPE_CHAT : PROMPT_TYPE_TEXT;
   const modelConfig = getModelConfigFromTags(version.tags);
   const responseFormatRaw = getResponseFormatFromTags(version.tags);
   const hasResponseFormat = typeof responseFormatRaw === 'string' && responseFormatRaw.trim().length > 0;
@@ -49,6 +60,7 @@ export const buildLoadPayloadFromVersion = (version: RegisteredPromptVersion): P
       settings: null,
       promptName: version.name,
       versionLabel: version.version,
+      promptType,
     };
   }
 
@@ -74,5 +86,6 @@ export const buildLoadPayloadFromVersion = (version: RegisteredPromptVersion): P
     },
     promptName: version.name,
     versionLabel: version.version,
+    promptType,
   };
 };

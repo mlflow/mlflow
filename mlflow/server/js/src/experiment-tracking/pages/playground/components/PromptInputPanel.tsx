@@ -15,6 +15,7 @@ import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-ren
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { ChangeEvent } from 'react';
 import type { ChatRole, ConversationMessage } from '../types';
+import { JsonCodeBlock } from './JsonCodeBlock';
 
 const { TextArea } = Input;
 
@@ -24,6 +25,9 @@ const ROLE_OPTIONS: ChatRole[] = ['system', 'user', 'assistant'];
 
 const roleLabel = (role: ChatRole): string => role[0].toUpperCase() + role.slice(1);
 
+const getNamedToolCalls = (message: ConversationMessage) =>
+  message.tool_calls?.filter((toolCall) => Boolean(toolCall.function?.name)) ?? [];
+
 interface Props {
   messages: ConversationMessage[];
   onChange: (messages: ConversationMessage[]) => void;
@@ -32,6 +36,16 @@ interface Props {
 export const PromptInputPanel = ({ messages, onChange }: Props) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+
+  // Shared grey-card styling reused by every assistant card (the text card and each
+  // per-tool-call card) so they render as visually-identical sibling boxes.
+  const cardStyles = {
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.general.borderRadiusBase,
+    padding: theme.spacing.md,
+    backgroundColor: theme.colors.backgroundSecondary,
+    overflow: 'auto',
+  } as const;
 
   const updateMessage = (index: number, patch: Partial<ConversationMessage>) => {
     onChange(messages.map((msg, i) => (i === index ? { ...msg, ...patch } : msg)));
@@ -92,16 +106,33 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
                 </Typography.Text>
                 {removeButton(index)}
               </div>
-              <div
-                css={{
-                  border: `1px solid ${theme.colors.border}`,
-                  borderRadius: theme.general.borderRadiusBase,
-                  padding: theme.spacing.md,
-                  backgroundColor: theme.colors.backgroundSecondary,
-                  overflow: 'auto',
-                }}
-              >
-                <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                {message.content ? (
+                  <div css={cardStyles} data-testid="mlflow.playground.assistant.text_card">
+                    {message.contentIsJson ? (
+                      <JsonCodeBlock raw={message.content} />
+                    ) : (
+                      <GenAIMarkdownRenderer>{message.content}</GenAIMarkdownRenderer>
+                    )}
+                  </div>
+                ) : null}
+                {getNamedToolCalls(message).map((toolCall, toolCallIndex) => (
+                  <div
+                    key={toolCall.id ?? toolCallIndex}
+                    css={{ ...cardStyles, display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}
+                    data-testid="mlflow.playground.assistant.tool_call_card"
+                  >
+                    <Typography.Text bold>
+                      <strong>{toolCall.function?.name}</strong>
+                    </Typography.Text>
+                    {toolCall.function?.arguments && <JsonCodeBlock raw={toolCall.function.arguments} />}
+                  </div>
+                ))}
+                {!message.content && getNamedToolCalls(message).length === 0 && (
+                  <div css={cardStyles} data-testid="mlflow.playground.assistant.text_card">
+                    <GenAIMarkdownRenderer>(no text content)</GenAIMarkdownRenderer>
+                  </div>
+                )}
               </div>
               {message.usage && (
                 <Typography.Hint>
@@ -219,7 +250,7 @@ export const PromptInputPanel = ({ messages, onChange }: Props) => {
               </div>
               <TextArea
                 componentId="mlflow.playground.prompt_input.content"
-                value={message.content}
+                value={message.content ?? ''}
                 onChange={(event: ChangeEvent<HTMLTextAreaElement>) =>
                   updateMessage(index, { content: event.target.value })
                 }

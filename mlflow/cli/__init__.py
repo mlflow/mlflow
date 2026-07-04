@@ -364,7 +364,7 @@ def _validate_static_prefix(ctx, param, value):
     return value
 
 
-@cli.command()
+@cli.command(short_help="Run the MLflow tracking server (UI + REST API).")
 @click.pass_context
 @click.option(
     "--backend-store-uri",
@@ -374,8 +374,9 @@ def _validate_static_prefix(ctx, param, value):
     help="URI to which to persist experiment and run data. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
-    "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
-    "to the ./mlruns directory.",
+    "(e.g. 'file:///absolute/path/to/directory'). By default, data is logged to a local "
+    "SQLite database (sqlite:///mlflow.db), falling back to the ./mlruns directory when an "
+    "existing ./mlruns store is present.",
 )
 @click.option(
     "--read-replica-backend-store-uri",
@@ -428,10 +429,6 @@ def _validate_static_prefix(ctx, param, value):
 @cli_args.HOST
 @cli_args.PORT
 @cli_args.WORKERS
-@cli_args.ALLOWED_HOSTS
-@cli_args.CORS_ALLOWED_ORIGINS
-@cli_args.DISABLE_SECURITY_MIDDLEWARE
-@cli_args.X_FRAME_OPTIONS
 @click.option(
     "--static-prefix",
     envvar="MLFLOW_STATIC_PREFIX",
@@ -439,6 +436,10 @@ def _validate_static_prefix(ctx, param, value):
     callback=_validate_static_prefix,
     help="A prefix which will be prepended to the path of all static paths.",
 )
+@cli_args.ALLOWED_HOSTS
+@cli_args.CORS_ALLOWED_ORIGINS
+@cli_args.DISABLE_SECURITY_MIDDLEWARE
+@cli_args.X_FRAME_OPTIONS
 @click.option(
     "--gunicorn-opts",
     envvar="MLFLOW_GUNICORN_OPTS",
@@ -453,6 +454,18 @@ def _validate_static_prefix(ctx, param, value):
     envvar="MLFLOW_UVICORN_OPTS",
     default=None,
     help="Additional command line options forwarded to uvicorn processes (used by default).",
+)
+@click.option(
+    "--dev",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=(
+        "If enabled, run the server with debug logging and auto-reload. "
+        "Should only be used for development purposes. "
+        "Cannot be used with '--gunicorn-opts' or '--uvicorn-opts'. "
+        "Unsupported on Windows."
+    ),
 )
 @click.option(
     "--expose-prometheus",
@@ -479,18 +492,6 @@ def _validate_static_prefix(ctx, param, value):
     metavar="PATH",
     default=None,
     help=("Path to the YAML config file for server-owned trace archival."),
-)
-@click.option(
-    "--dev",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help=(
-        "If enabled, run the server with debug logging and auto-reload. "
-        "Should only be used for development purposes. "
-        "Cannot be used with '--gunicorn-opts' or '--uvicorn-opts'. "
-        "Unsupported on Windows."
-    ),
 )
 @click.option(
     "--secrets-cache-ttl",
@@ -564,16 +565,31 @@ def server(
     workspace_store_uri,
     enable_workspaces,
 ):
-    """
-    Run the MLflow tracking server with built-in security middleware.
+    """Run the MLflow tracking server (UI + REST API).
 
-    The server listens on http://localhost:5000 by default and only accepts connections
-    from the local machine. To let the server accept connections from other machines, you will need
-    to pass ``--host 0.0.0.0`` to listen on all network interfaces
-    (or a specific interface address).
+    Whether you're doing LLMOps or training classic ML models, the server is the
+    same. Pick your setup by how you're deploying:
 
-    See https://mlflow.org/docs/latest/tracking/server-security.html for detailed documentation
-    and guidance on security configurations for the MLflow tracking server.
+    \b
+      First time user? Try MLflow out locally:
+        mlflow server   (defaults to sqlite:///mlflow.db; reuses an
+                         existing ./mlruns file store if one is present)
+      Team server (shared):
+        mlflow server --backend-store-uri postgresql://... --host 0.0.0.0
+      Cloud artifact storage (proxied through server):
+        ...add --artifacts-destination s3://my-bucket
+      Exposed beyond LAN:
+        ...add --allowed-hosts host.co --cors-allowed-origins https://host.co
+
+    \b
+    Options by topic:
+      Storage   --backend-store-uri, --registry-store-uri, --default-artifact-root, ...
+      Network   --host, --port, --workers, --static-prefix
+      Security  --allowed-hosts, --cors-allowed-origins, --x-frame-options, ...
+      Advanced  --app-name, --expose-prometheus, --enable-workspaces, ...
+
+    \b
+    Full guide: https://mlflow.org/docs/latest/self-hosting/architecture/tracking-server
     """
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
