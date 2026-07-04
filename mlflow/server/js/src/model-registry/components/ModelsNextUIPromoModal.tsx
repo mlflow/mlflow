@@ -3,6 +3,14 @@ import { ReactComponent as PromoContentSvg } from '../../common/static/promo-mod
 import { FormattedMessage } from 'react-intl';
 import { modelStagesMigrationGuideLink } from '../../common/constants';
 
+let pendingFocus: number | undefined;
+const focusPrimaryAction = (node: HTMLButtonElement | null) => {
+  if (pendingFocus !== undefined) {
+    window.clearTimeout(pendingFocus);
+  }
+  pendingFocus = node ? window.setTimeout(() => node.focus(), 0) : undefined;
+};
+
 export const ModelsNextUIPromoModal = ({
   visible,
   onClose,
@@ -37,6 +45,7 @@ export const ModelsNextUIPromoModal = ({
         </Button>
         <Button
           componentId="codegen_mlflow_app_src_model-registry_components_modelsnextuipromomodal.tsx_32"
+          ref={focusPrimaryAction}
           type="primary"
           onClick={onTryItNow}
         >
