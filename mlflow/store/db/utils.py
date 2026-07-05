@@ -85,8 +85,14 @@ def _is_empty_database(engine):
 
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
-    InitialBase.metadata.create_all(engine)
-    _upgrade_db(engine)
+    InitialBase.metadata.create_all(engine, checkfirst=True)
+    try:
+        _upgrade_db(engine)
+    except Exception as e:
+        if "already exists" in str(e).lower():
+            _logger.warning("Migration table already exists, skipping upgrade: %s", e)
+        else:
+            raise
 
 
 def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
