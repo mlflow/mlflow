@@ -97,14 +97,10 @@ def _remote_access_policy(policy: _RemoteAccessPolicy):
     return decorator
 
 
-def _get_route_provider(request: Request, policy: _RemoteAccessPolicy) -> AssistantProvider | None:
-    match policy:
-        case _RemoteAccessPolicy.ONLY_SAFE_PROVIDER:
-            if provider_name := request.path_params.get("provider"):
-                return _get_provider(provider_name)
-            return _get_selected_provider()
-        case _RemoteAccessPolicy.DENY | _RemoteAccessPolicy.NONE:
-            return None
+def _get_route_provider(request: Request) -> AssistantProvider | None:
+    if provider_name := request.path_params.get("provider"):
+        return _get_provider(provider_name)
+    return _get_selected_provider()
 
 
 class _AssistantAPIRoute(APIRoute):
@@ -121,9 +117,9 @@ class _AssistantAPIRoute(APIRoute):
 
         async def route_handler(request: Request) -> Response:
             if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
-                if not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
+                if policy == _RemoteAccessPolicy.DENY or not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
                     raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
-                provider = _get_route_provider(request, policy)
+                provider = _get_route_provider(request)
                 # A {provider} path param that doesn't resolve to a known provider is a
                 # 404, not a remote-access decision; let the endpoint handle it.
                 if not ("provider" in request.path_params and provider is None):

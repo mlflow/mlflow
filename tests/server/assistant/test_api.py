@@ -27,6 +27,8 @@ from mlflow.server.assistant.api import (
     _enforce_remote_access,
     _is_localhost,
     _provider_allows_remote_access,
+    _remote_access_policy,
+    _RemoteAccessPolicy,
     assistant_router,
 )
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager, save_process_pid
@@ -346,6 +348,24 @@ def test_assistant_route_without_policy_raises_at_startup():
 
     with pytest.raises(RuntimeError, match="missing a remote-access policy"):
         router.add_api_route("/unguarded", unguarded_route, methods=["GET"])
+
+
+def test_deny_policy_route_with_provider_path_param_blocks_remote(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "true")
+    router = APIRouter(prefix="/assistant", route_class=_AssistantAPIRoute)
+
+    @_remote_access_policy(_RemoteAccessPolicy.DENY)
+    async def denied_route(provider: str):
+        return {"provider": provider}
+
+    router.add_api_route("/denied/{provider}", denied_route, methods=["GET"])
+    app = FastAPI()
+    app.include_router(router)
+
+    with patch("mlflow.server.assistant.api._is_localhost", return_value=False):
+        response = TestClient(app).get("/assistant/denied/unknown-provider")
+
+    assert response.status_code == 403
 
 
 def test_message_allowed_for_remote_client_when_provider_allows_remote_access(monkeypatch):
