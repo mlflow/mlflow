@@ -81,9 +81,9 @@ class _EfficientWSGIMiddleware:
             # WSGI cannot serve WebSocket (or other non-HTTP) connections. The Flask
             # app is mounted at the catch-all "/", so any WebSocket handshake that
             # isn't matched by a native FastAPI route reaches here. Reject it cleanly
-            # instead of crashing with AssertionError (see issue #24146). Sending
-            # websocket.close before accept is a valid ASGI rejection (server maps it
-            # to HTTP 403); other non-HTTP scopes (e.g. lifespan) are simply ignored.
+            # instead of crashing. Sending websocket.close before accept is a valid
+            # ASGI rejection (server maps it to HTTP 403); other non-HTTP scopes
+            # (e.g. lifespan) are simply ignored.
             if scope["type"] == "websocket":
                 await send({"type": "websocket.close", "code": 1000})
             return

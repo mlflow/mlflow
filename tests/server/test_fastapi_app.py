@@ -12,7 +12,7 @@ def client():
 
 def test_websocket_to_wsgi_mount_does_not_crash(client):
     # A WebSocket handshake routed to the catch-all WSGI mount must be rejected
-    # cleanly (close code 1000) instead of raising AssertionError. Regression for #24146.
+    # cleanly (close code 1000) instead of raising AssertionError.
     with pytest.raises(WebSocketDisconnect) as excinfo:  # noqa: PT011
         with client.websocket_connect("/gateway/proxy/codex/v1/models"):
             pass
