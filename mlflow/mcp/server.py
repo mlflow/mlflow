@@ -125,6 +125,18 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
                         param.type.convert(value, param, None) for value in kwargs[param.name]
                     )
 
+            # Scalar params with a custom ParamType arrive as raw strings over MCP (the transport
+            # never runs convert() the way Click does on the CLI path), so convert them here.
+            for param in command.params:
+                if (
+                    param.name in kwargs
+                    and not (param.multiple or param.nargs == -1)
+                    and isinstance(kwargs[param.name], str)
+                    and not isinstance(param.type, click.Choice)
+                    and all(param.type is not t for t in (STRING, INT, FLOAT, BOOL, UUID))
+                ):
+                    kwargs[param.name] = param.type.convert(kwargs[param.name], param, None)
+
             command.callback(**kwargs)  # type: ignore[misc]
         return string_io.getvalue().strip()
 

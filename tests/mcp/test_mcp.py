@@ -9,6 +9,8 @@ from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 
 import mlflow
+from mlflow.cli import label_schemas
+from mlflow.genai.label_schemas import InputPassFail, LabelSchema, LabelSchemaType
 from mlflow.mcp import server
 from mlflow.mcp.server import fn_wrapper
 from mlflow.models import python_api
@@ -226,3 +228,26 @@ def test_fn_wrapper_converts_repeatable_custom_types():
     call_kwargs = mock_predict.call_args.kwargs
     assert call_kwargs["model_uri"] == "runs:/123/model"
     assert call_kwargs["extra_envs"] == {"FOO": "bar", "BAR": "baz"}
+
+
+def test_fn_wrapper_converts_scalar_custom_types():
+    schema = LabelSchema(
+        name="q",
+        type=LabelSchemaType.FEEDBACK,
+        input=InputPassFail(positive_label="Pass", negative_label="Fail"),
+    )
+    input_json = '{"variant": "pass_fail", "positive_label": "Pass", "negative_label": "Fail"}'
+    with patch.object(label_schemas, "create_label_schema", return_value=schema) as mock_create:
+        wrapper = fn_wrapper(label_schemas.commands.commands["create"])
+        wrapper(
+            name="q",
+            schema_type="feedback",
+            input_spec=input_json,
+            experiment_id="0",
+            output="json",
+        )
+
+    mock_create.assert_called_once()
+    assert mock_create.call_args.kwargs["input"] == InputPassFail(
+        positive_label="Pass", negative_label="Fail"
+    )
