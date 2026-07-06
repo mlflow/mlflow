@@ -2214,6 +2214,107 @@ def test_gateway_endpoint_use_permission(fastapi_client, monkeypatch):
         ).raise_for_status()
 
 
+def test_gateway_proxy_authenticates_via_mlflow_auth_header(fastapi_client, monkeypatch):
+    user1, password1 = create_user(fastapi_client.tracking_uri)
+    user2, password2 = create_user(fastapi_client.tracking_uri)
+
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": "proxy_secret",
+                "secret_value": {"api_key": "test-key"},
+                "provider": "openai",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        secret_id = response.json()["secret"]["secret_id"]
+
+        response = requests.post(
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+            json={
+                "name": "proxy_model_def",
+                "secret_id": secret_id,
+                "provider": "openai",
+                "model_name": "gpt-4",
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        model_definition_id = response.json()["model_definition"]["model_definition_id"]
+
+        response = requests.post(
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+            json={
+                "name": "proxy_endpoint",
+                "model_configs": [
+                    {"model_definition_id": model_definition_id, "linkage_type": "PRIMARY"}
+                ],
+            },
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+        endpoint_id = response.json()["endpoint"]["endpoint_id"]
+        endpoint_name = response.json()["endpoint"]["name"]
+
+    with User(user1, password1, monkeypatch):
+        grant_role_permission(
+            fastapi_client.tracking_uri,
+            user2,
+            "gateway_endpoint",
+            endpoint_id,
+            "USE",
+        )
+
+    mlflow_auth = "Basic " + base64.b64encode(f"{user2}:{password2}".encode()).decode("ascii")
+    proxy_url = fastapi_client.tracking_uri + f"/gateway/proxy/{endpoint_name}/v1/responses"
+
+    # The coding agent's own provider key occupies Authorization; MLflow creds ride in
+    # X-MLflow-Authorization. Auth must clear the middleware (the upstream call then fails
+    # on the fake key, but that is NOT the middleware's 401/403).
+    response = requests.post(
+        proxy_url,
+        json={"messages": [{"role": "user", "content": "hi"}]},
+        headers={
+            "Authorization": "Bearer sk-decoy-provider-key",
+            "X-MLflow-Authorization": mlflow_auth,
+            "User-Agent": "codex_cli_rs/1.0",
+        },
+    )
+    assert "You are not authenticated" not in response.text
+    assert response.text != "Permission denied"
+
+    # Without the MLflow auth header, the decoy Bearer alone must be rejected by the middleware.
+    response = requests.post(
+        proxy_url,
+        json={"messages": [{"role": "user", "content": "hi"}]},
+        headers={
+            "Authorization": "Bearer sk-decoy-provider-key",
+            "User-Agent": "codex_cli_rs/1.0",
+        },
+    )
+    assert response.status_code == 401
+    assert "You are not authenticated" in response.text
+
+    with User(user1, password1, monkeypatch):
+        requests.delete(
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/endpoints/delete",
+            json={"endpoint_id": endpoint_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.delete(
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/delete",
+            json={"model_definition_id": model_definition_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+        requests.delete(
+            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id},
+            auth=(user1, password1),
+        ).raise_for_status()
+
+
 def test_gateway_model_definition_requires_secret_use_permission(client, monkeypatch):
     user1, password1 = create_user(client.tracking_uri)
     user2, password2 = create_user(client.tracking_uri)
@@ -3180,13 +3281,15 @@ def enable_auth_cache():
         yield cache
 
 
-def _make_request(path, authorization=None, *, scope_path=None):
+def _make_request(path, authorization=None, mlflow_authorization=None, *, scope_path=None):
     request = mock.Mock()
     request.scope = {"path": scope_path or path}
     request.url.path = path
     request.headers = {}
     if authorization:
         request.headers["Authorization"] = authorization
+    if mlflow_authorization:
+        request.headers["X-MLflow-Authorization"] = mlflow_authorization
     return request
 
 
@@ -3303,6 +3406,117 @@ def test_basic_auth_no_internal_token_uses_normal_auth(
     monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
     credentials = base64.b64encode(b"alice:password123").decode("ascii")
     request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
+# -- X-MLflow-Authorization header for gateway routes (OpenAI-protocol coding agents) --
+
+
+def test_gateway_auth_header_authenticates(mock_auth_store, mock_auth_config, monkeypatch):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request(
+        "/gateway/proxy/my-endpoint/v1/responses",
+        mlflow_authorization=f"Basic {credentials}",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
+def test_gateway_auth_header_takes_precedence_over_bearer(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request(
+        "/gateway/proxy/my-endpoint/v1/responses",
+        authorization="Bearer sk-provider-key",
+        mlflow_authorization=f"Basic {credentials}",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
+def test_gateway_auth_header_ignored_on_non_gateway_route(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request(
+        "/api/3.0/mlflow/experiments/list",
+        authorization="Bearer sk-provider-key",
+        mlflow_authorization=f"Basic {credentials}",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user is None
+    mock_auth_store.authenticate_user.assert_not_called()
+
+
+def test_gateway_basic_auth_still_works_without_new_header(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request(
+        "/gateway/proxy/my-endpoint/v1/responses",
+        authorization=f"Basic {credentials}",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
+def test_gateway_auth_header_honors_internal_token(mock_auth_store, mock_auth_config, monkeypatch):
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request(
+        "/gateway/proxy/my-endpoint/v1/responses",
+        mlflow_authorization=f"Basic {credentials}",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.get_user.assert_called_once_with("alice")
+    mock_auth_store.authenticate_user.assert_not_called()
+
+
+def test_gateway_auth_header_malformed_returns_none(mock_auth_store, mock_auth_config):
+    request = _make_request(
+        "/gateway/proxy/my-endpoint/v1/responses",
+        mlflow_authorization="garbage-not-basic",
+    )
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user is None
+
+
+def test_gateway_empty_auth_header_falls_back_to_authorization(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request(
+        "/gateway/proxy/my-endpoint/v1/responses",
+        authorization=f"Basic {credentials}",
+    )
+    # A present-but-empty X-MLflow-Authorization must not shadow a valid Authorization.
+    request.headers["X-MLflow-Authorization"] = ""
 
     user = _authenticate_fastapi_request(request)
 

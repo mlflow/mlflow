@@ -23,7 +23,14 @@ async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, paylo
 
     # Drop any client Accept-Encoding (any casing) so we send only one value; otherwise
     # aiohttp may send both and upstream can respond with Brotli, which is not supported.
-    request_headers = {k: v for k, v in headers.items() if k.lower() != "accept-encoding"}
+    # Also drop X-MLflow-Authorization (MLflow's own RBAC credential on gateway routes) so
+    # it is never forwarded to the upstream provider. This is the single egress choke point
+    # all proxy/passthrough paths funnel through.
+    request_headers = {
+        k: v
+        for k, v in headers.items()
+        if k.lower() not in ("accept-encoding", "x-mlflow-authorization")
+    }
     request_headers["Accept-Encoding"] = SUPPORTED_ACCEPT_ENCODING
     url = append_to_uri_path(base_url, path)
     # Raise the aiohttp stream read buffer to tolerate large SSE `data:` lines

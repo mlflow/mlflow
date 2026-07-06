@@ -392,6 +392,14 @@ def _auth_cache_key(username: str, password: str) -> tuple[str, bytes]:
     return (username, digest)
 
 
+# Dedicated header carrying MLflow RBAC credentials on /gateway/ routes, so an
+# OpenAI-protocol coding agent (Codex, Claude Code, Gemini CLI) can keep its own provider
+# key in the standard ``Authorization`` header (which MLflow forwards upstream) while still
+# authenticating to MLflow. Honored ONLY on /gateway/ routes so it can never act as a
+# master credential elsewhere, and stripped before forwarding upstream (see _aiohttp_post).
+_MLFLOW_GATEWAY_AUTH_HEADER = "X-MLflow-Authorization"
+
+
 def _authenticate_cached(username: str, password: str) -> User | None:
     """Run basic-auth verification with the credential cache in front of it.
 
@@ -4280,11 +4288,20 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     Returns:
         User object if authentication succeeds, None otherwise.
     """
-    if "Authorization" not in request.headers:
-        return None
-
     request_path = get_routed_asgi_path(request)
-    auth = request.headers["Authorization"]
+
+    # On /gateway/ routes, a coding agent's own provider key occupies the standard
+    # Authorization header (forwarded upstream), so MLflow credentials ride in a dedicated
+    # header. Prefer it there; fall back to Authorization for backward compat.
+    auth = None
+    if request_path.startswith("/gateway/"):
+        auth = request.headers.get(_MLFLOW_GATEWAY_AUTH_HEADER)
+    # Treat a missing OR empty header as absent so an empty X-MLflow-Authorization
+    # does not shadow a valid Authorization header.
+    if not auth:
+        auth = request.headers.get("Authorization")
+    if not auth:
+        return None
     try:
         scheme, credentials = auth.split()
         if scheme.lower() != "basic":

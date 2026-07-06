@@ -1427,6 +1427,27 @@ async def test_proxy_non_streaming():
 
 
 @pytest.mark.asyncio
+async def test_proxy_strips_mlflow_auth_header_but_preserves_client_key():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session:
+        await provider.proxy(
+            path="v1/responses",
+            payload={"messages": [{"role": "user", "content": "Hello"}]},
+            headers={
+                "authorization": "Bearer client-key",
+                "x-mlflow-authorization": "Basic dXNlcjpwYXNz",
+                "user-agent": "codex_cli_rs/1.0",
+            },
+        )
+
+    sent_headers = mock_session.call_args.kwargs["headers"]
+    assert sent_headers["authorization"] == "Bearer client-key"
+    assert "x-mlflow-authorization" not in {k.lower() for k in sent_headers}
+
+
+@pytest.mark.asyncio
 async def test_proxy_streaming():
     provider = OpenAIProvider(EndpointConfig(**chat_config()))
     chunk_data = (
