@@ -284,7 +284,7 @@ async def test_astream_requests_usage_via_stream_options(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        _ = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
 
     assert calls[0]["json"]["stream_options"] == {"include_usage": True}
 
