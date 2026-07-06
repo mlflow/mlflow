@@ -31,7 +31,7 @@ ALLOWLIST="$ROOT/scripts/known-floor-violations.txt"
 # mlflow#24167) but must not fail the gate yet. New violations still fail.
 is_allowlisted() {
   [[ -f "$ALLOWLIST" ]] || return 1
-  grep -vE '^\s*(#|$)' "$ALLOWLIST" | grep -qxF "$1"
+  grep -vE '^[[:space:]]*(#|$)' "$ALLOWLIST" | grep -qxF "$1"
 }
 
 # Append markdown to the GitHub Actions run summary when available (a no-op
@@ -70,7 +70,15 @@ for pkg_json in integrations/*/package.json; do
   # Baseline: workspace-latest (the symlinked source), no shadowing.
   baseline="$(errors_here || true)"
 
+  # Shadow the floor into the integration's own node_modules. Preserve any
+  # pre-existing one (common when iterating locally) and restore it at the end
+  # so the check never leaves the working tree modified.
   shadow="$dir/node_modules"
+  backup=""
+  if [[ -e "$shadow" ]]; then
+    backup="$(mktemp -d)/node_modules"
+    mv "$shadow" "$backup"
+  fi
   mkdir -p "$shadow/@mlflow"
   while IFS= read -r dep; do
     [[ -z "$dep" ]] && continue
@@ -100,8 +108,15 @@ for pkg_json in integrations/*/package.json; do
     # integration's node_modules so Node/tsc resolution finds it before the
     # hoisted workspace symlink.
     tmp="$(mktemp -d)"
-    npm install --prefix "$tmp" "$dep@$floor" \
-      --no-save --no-package-lock --no-audit --no-fund >/dev/null 2>&1
+    # Silence normal progress on stdout but keep stderr, so a failed install
+    # (unpublished version, network error) surfaces its reason in CI logs.
+    if ! npm install --prefix "$tmp" "$dep@$floor" \
+      --no-save --no-package-lock --no-audit --no-fund >/dev/null; then
+      echo "        ERROR: failed to install $dep@$floor (see npm output above)" >&2
+      rm -rf "$tmp" "$shadow"
+      [[ -n "$backup" ]] && mv "$backup" "$shadow" && rmdir "$(dirname "$backup")"
+      exit 1
+    fi
     rm -rf "$shadow/$dep"
     cp -R "$tmp/node_modules/$dep" "$shadow/$dep"
     rm -rf "$tmp"
@@ -111,6 +126,10 @@ for pkg_json in integrations/*/package.json; do
   floor_errors="$(errors_here || true)"
   violations="$(comm -13 <(printf '%s\n' "$baseline") <(printf '%s\n' "$floor_errors"))"
   rm -rf "$shadow"
+  if [[ -n "$backup" ]]; then
+    mv "$backup" "$shadow"
+    rmdir "$(dirname "$backup")"
+  fi
 
   if [[ -z "$violations" ]]; then
     if is_allowlisted "$slug"; then
