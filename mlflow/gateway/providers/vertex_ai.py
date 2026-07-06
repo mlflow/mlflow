@@ -43,15 +43,15 @@ _MAAS_PREFIXES = ("mistral", "codestral", "jamba")
 def _strip_function_call_ids(gemini_payload: dict[str, Any]) -> dict[str, Any]:
     """Remove ``id`` from functionCall/functionResponse parts of a Gemini request body.
 
-    The shared GeminiAdapter and the Gemini passthrough route both target the Developer
-    Gemini API (generativelanguage.googleapis.com), which uses ``functionCall``/
-    ``functionResponse`` ``id`` to correlate parallel tool calls. Vertex AI's
-    generateContent proto rejects that field with ``400 INVALID_ARGUMENT`` at
-    ``contents[].parts[].function_call.id``, so strip it while leaving ``name`` and
-    ``thoughtSignature`` intact. Mutates and returns ``gemini_payload``.
+    The shared GeminiAdapter targets the Developer Gemini API
+    (generativelanguage.googleapis.com), which uses ``functionCall``/``functionResponse``
+    ``id`` to correlate parallel tool calls. Vertex AI's generateContent proto rejects
+    that field with ``400 INVALID_ARGUMENT`` at ``contents[].parts[].function_call.id``,
+    so strip it while leaving ``name`` and ``thoughtSignature`` intact. Mutates and
+    returns ``gemini_payload``.
     """
-    for content in gemini_payload.get("contents", []):
-        for part in content.get("parts", []):
+    for content in gemini_payload.get("contents") or []:
+        for part in content.get("parts") or []:
             if function_call := part.get("functionCall"):
                 function_call.pop("id", None)
             if function_response := part.get("functionResponse"):
@@ -297,8 +297,3 @@ class VertexAIProvider(GeminiProvider):
             )
         async for chunk in super()._completions_stream(payload):
             yield chunk
-
-    async def _passthrough(self, action, payload, headers=None):
-        # Raw Gemini-native bodies bypass chat_to_model, so strip the Vertex-illegal
-        # functionCall/functionResponse id here too before forwarding.
-        return await super()._passthrough(action, _strip_function_call_ids(payload), headers)

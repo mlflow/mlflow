@@ -10,7 +10,6 @@ from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.constants import MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.vertex_ai import VertexAIProvider
 from mlflow.gateway.schemas import chat, completions
 
@@ -229,75 +228,49 @@ def test_adapter_class_matches_the_active_delegate():
     )
 
 
-def _passthrough_tool_body():
-    # A raw Gemini-native generateContent body a client posts to the passthrough
-    # route, already carrying the function-call id that Vertex rejects.
-    return {
-        "contents": [
-            {"role": "user", "parts": [{"text": "What's the weather in Santiago?"}]},
-            {
-                "role": "model",
-                "parts": [
-                    {
-                        "functionCall": {
-                            "id": "call_001",
-                            "name": "get_weather",
-                            "args": {"city": "Santiago"},
-                        }
-                    }
-                ],
-            },
-            {
-                "role": "user",
-                "parts": [
-                    {
-                        "functionResponse": {
-                            "id": "call_001",
-                            "name": "get_weather",
-                            "response": {"temp": 14},
-                        }
-                    }
-                ],
-            },
+@pytest.mark.asyncio
+async def test_chat_parallel_tool_calls_omit_all_function_call_ids():
+    # Two parallel tool calls in one turn — the case `id` exists for on the Dev API.
+    # Proves the strip loop covers every functionCall part, not just the first.
+    provider = _make_provider()
+    payload = _tool_calling_second_turn_payload()
+    payload["messages"][1]["tool_calls"].append({
+        "id": "call_002",
+        "function": {"arguments": '{"location": "Tokyo"}', "name": "get_weather"},
+        "type": "function",
+    })
+    payload["messages"].append({
+        "role": "tool",
+        "tool_call_id": "call_002",
+        "content": '{"temperature": 18.0, "condition": "cloudy"}',
+    })
+    resp = {
+        "candidates": [
+            {"content": {"parts": [{"text": "Sunny and cloudy."}]}, "finishReason": "stop"}
         ]
     }
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        await provider.chat(chat.RequestPayload(**payload))
 
-
-@pytest.mark.asyncio
-async def test_passthrough_generate_content_strips_function_call_id():
-    # Regression test for #24127 on the passthrough route: raw generateContent bodies
-    # bypass chat_to_model, so the id must be stripped here too before reaching Vertex.
-    provider = _make_provider()
-    mock_client = mock_http_client(MockAsyncResponse({"candidates": []}))
-
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
-        await provider.passthrough(
-            PassthroughAction.GEMINI_GENERATE_CONTENT, _passthrough_tool_body()
-        )
-
-    contents = mock_client.post.call_args[1]["json"]["contents"]
-    function_call = _find_part(contents, "functionCall")
-    function_response = _find_part(contents, "functionResponse")
-    assert "id" not in function_call
-    assert "id" not in function_response
-    assert function_call["name"] == "get_weather"
-    assert function_call["args"] == {"city": "Santiago"}
-
-
-@pytest.mark.asyncio
-async def test_passthrough_stream_generate_content_strips_function_call_id():
-    provider = _make_provider()
-    mock_client = mock_http_client(MockAsyncStreamingResponse([b'data: {"candidates": []}\n\n']))
-
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
-        result = await provider.passthrough(
-            PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, _passthrough_tool_body()
-        )
-        _ = [chunk async for chunk in result]
-
-    contents = mock_client.post.call_args[1]["json"]["contents"]
-    assert "id" not in _find_part(contents, "functionCall")
-    assert "id" not in _find_part(contents, "functionResponse")
+    contents = mock_post.call_args[1]["json"]["contents"]
+    function_calls = [
+        part["functionCall"]
+        for c in contents
+        for part in c.get("parts", [])
+        if "functionCall" in part
+    ]
+    function_responses = [
+        part["functionResponse"]
+        for c in contents
+        for part in c.get("parts", [])
+        if "functionResponse" in part
+    ]
+    assert len(function_calls) == 2
+    assert len(function_responses) == 2
+    assert all("id" not in fc for fc in function_calls)
+    assert all("id" not in fr for fr in function_responses)
 
 
 def test_basic_config():
