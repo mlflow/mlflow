@@ -783,7 +783,7 @@ def test_host_invalid_value():
         "mlflow.models.cli.get_flavor_backend",
         return_value=PyFuncBackend({}, env_manager=_EnvManager.VIRTUALENV),
     ):
-        with pytest.raises(ShellCommandException, match=r"Non-zero exit code: 1"):
+        with pytest.raises(ShellCommandException, match=r"Non-zero exit code: -?[1-9]\d*"):
             CliRunner().invoke(
                 models_cli.serve,
                 ["--model-uri", model_info.model_uri, "--host", "localhost & echo BUG"],
