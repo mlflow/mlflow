@@ -1,7 +1,9 @@
 import { randomUUID } from 'crypto';
 import * as mlflow from '../../src';
-import { MlflowClient } from '../../src/clients/client';
+import { MlflowClient, type SearchTracesOptions } from '../../src/clients/client';
+import type { ArtifactsClient } from '../../src/clients/artifacts';
 import { Trace } from '../../src/core/entities/trace';
+import { TraceData } from '../../src/core/entities/trace_data';
 import { TraceInfo } from '../../src/core/entities/trace_info';
 import { TraceLocationType } from '../../src/core/entities/trace_location';
 import { TraceState } from '../../src/core/entities/trace_state';
@@ -276,6 +278,46 @@ describe('MlflowClient', () => {
       expect(result.traces).toEqual([]);
     });
 
+    it('should warn and drop only the traces whose span data download fails', async () => {
+      const failingTraceId = randomUUID();
+      const okTraceId = randomUUID();
+      for (const traceId of [failingTraceId, okTraceId]) {
+        await client.createTrace(
+          new TraceInfo({
+            traceId: traceId,
+            traceLocation: experimentLocation(),
+            state: TraceState.OK,
+            requestTime: 1000,
+          }),
+        );
+      }
+
+      const { artifactsClient } = client as unknown as { artifactsClient: ArtifactsClient };
+      const downloadSpy = jest
+        .spyOn(artifactsClient, 'downloadTraceData')
+        .mockImplementation((traceInfo) =>
+          traceInfo.traceId === failingTraceId
+            ? Promise.reject(new Error('download failed'))
+            : Promise.resolve(new TraceData([])),
+        );
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      try {
+        const result = await client.searchTraces({
+          locations: [experimentLocation()],
+        });
+
+        expect(result.traces.map((trace) => trace.info.traceId)).toEqual([okTraceId]);
+        expect(warnSpy).toHaveBeenCalledWith(
+          `Failed to download trace data for trace ${failingTraceId}:`,
+          expect.any(Error),
+        );
+      } finally {
+        downloadSpy.mockRestore();
+        warnSpy.mockRestore();
+      }
+    });
+
     it('should return an empty result when no traces match', async () => {
       const result = await client.searchTraces({
         locations: [experimentLocation()],
@@ -289,6 +331,13 @@ describe('MlflowClient', () => {
 
     it('should reject search without locations', async () => {
       await expect(client.searchTraces({ locations: [] })).rejects.toThrow(
+        'At least one location must be specified for searching traces.',
+      );
+    });
+
+    it('should reject search when locations is omitted', async () => {
+      // Plain-JS callers can omit locations despite the required type.
+      await expect(client.searchTraces({} as SearchTracesOptions)).rejects.toThrow(
         'At least one location must be specified for searching traces.',
       );
     });

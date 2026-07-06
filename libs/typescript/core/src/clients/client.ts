@@ -265,7 +265,7 @@ export class MlflowClient {
    */
   async searchTraces(options: SearchTracesOptions): Promise<SearchTracesResult> {
     const { locations, includeSpans = true } = options;
-    if (locations.length === 0) {
+    if (!locations?.length) {
       throw new Error('At least one location must be specified for searching traces.');
     }
 
