@@ -672,7 +672,11 @@ export const AssistantChatPanel = () => {
               </Tooltip>
               <Tooltip
                 componentId="mlflow.assistant.chat_panel.settings.tooltip"
-                content={isLocalServer ? 'Settings' : 'Settings are only available on the local server'}
+                content={
+                  isLocalServer
+                    ? 'Settings'
+                    : 'Updating Assistant settings is not allowed for a remote MLflow server. Contact your server admin to update the settings.'
+                }
               >
                 <Button
                   componentId="mlflow.assistant.chat_panel.settings"

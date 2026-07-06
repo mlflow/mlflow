@@ -173,7 +173,7 @@ export interface AssistantConfig {
   projects: Record<string, ProjectConfig>;
   skills_location?: string;
   /** Whether the currently selected provider can be used from a non-localhost client */
-  remote_chat_allowed?: boolean;
+  remote_access_allowed?: boolean;
 }
 
 /**

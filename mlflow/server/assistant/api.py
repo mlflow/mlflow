@@ -1,6 +1,5 @@
 import enum
 import ipaddress
-import logging
 import uuid
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -24,10 +23,8 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
 from mlflow.assistant.types import EventType
-from mlflow.environment_variables import MLFLOW_ALLOW_REMOTE_ASSISTANT
+from mlflow.environment_variables import MLFLOW_ENABLE_REMOTE_ASSISTANT
 from mlflow.server.assistant.session import SessionManager, terminate_session_process
-
-_logger = logging.getLogger(__name__)
 
 
 def _get_provider(name: str):
@@ -51,14 +48,6 @@ _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
 )
 
 
-class _RemoteAccessMode(str, enum.Enum):
-    OFF = "off"
-    API_ONLY = "api-only"
-
-
-_INVALID_REMOTE_ACCESS_MODES_WARNED: set[str] = set()
-
-
 def _is_localhost(request: Request) -> bool:
     client_host = request.client.host if request.client else None
     if not client_host:
@@ -70,28 +59,10 @@ def _is_localhost(request: Request) -> bool:
     return ip.is_loopback
 
 
-def _get_remote_access_mode() -> _RemoteAccessMode:
-    raw = MLFLOW_ALLOW_REMOTE_ASSISTANT.get()
-    try:
-        return _RemoteAccessMode(raw)
-    except ValueError:
-        if raw not in _INVALID_REMOTE_ACCESS_MODES_WARNED:
-            _logger.warning(
-                "Invalid value %r for %s, falling back to 'off'. Valid values are: %s",
-                raw,
-                MLFLOW_ALLOW_REMOTE_ASSISTANT.name,
-                [m.value for m in _RemoteAccessMode],
-            )
-            _INVALID_REMOTE_ACCESS_MODES_WARNED.add(raw)
-        return _RemoteAccessMode.OFF
-
-
 def _provider_allows_remote_access(provider: AssistantProvider | None) -> bool:
     if provider is None:
         return False
-    return (
-        _get_remote_access_mode() == _RemoteAccessMode.API_ONLY and provider.allows_remote_execution
-    )
+    return MLFLOW_ENABLE_REMOTE_ASSISTANT.get() and provider.allows_remote_execution
 
 
 def _enforce_remote_access(request: Request, provider: AssistantProvider | None) -> None:
@@ -102,14 +73,13 @@ def _enforce_remote_access(request: Request, provider: AssistantProvider | None)
 
 
 # Per-route remote-access policy:
-#   SELECTED_PROVIDER — gate on whichever provider the user has currently selected
-#   PATH_PROVIDER     — gate on the provider identified by a {provider} path parameter
-#   LOCALHOST_ONLY    — always block remote access (stays localhost-only regardless of mode)
-#   NONE              — no gating (e.g. GET /config, which redacts secrets instead)
+#   ONLY_SAFE_PROVIDER — gate on the provider identified by a {provider} path parameter,
+#                        falling back to whichever provider the user has currently selected
+#   DENY               — always block remote access (stays localhost-only regardless of mode)
+#   NONE               — no gating (e.g. GET /config, which redacts secrets instead)
 class _RemoteAccessPolicy(str, enum.Enum):
-    SELECTED_PROVIDER = "selected_provider"
-    PATH_PROVIDER = "path_provider"
-    LOCALHOST_ONLY = "localhost_only"
+    ONLY_SAFE_PROVIDER = "only_safe_provider"
+    DENY = "deny"
     NONE = "none"
 
 
@@ -126,12 +96,11 @@ def _remote_access_policy(policy: _RemoteAccessPolicy):
 
 def _get_route_provider(request: Request, policy: _RemoteAccessPolicy) -> AssistantProvider | None:
     match policy:
-        case _RemoteAccessPolicy.SELECTED_PROVIDER:
+        case _RemoteAccessPolicy.ONLY_SAFE_PROVIDER:
+            if provider_name := request.path_params.get("provider"):
+                return _get_provider(provider_name)
             return _get_selected_provider()
-        case _RemoteAccessPolicy.PATH_PROVIDER:
-            provider_name = request.path_params.get("provider")
-            return _get_provider(provider_name) if provider_name else None
-        case _RemoteAccessPolicy.LOCALHOST_ONLY | _RemoteAccessPolicy.NONE:
+        case _RemoteAccessPolicy.DENY | _RemoteAccessPolicy.NONE:
             return None
 
 
@@ -149,10 +118,12 @@ class _AssistantAPIRoute(APIRoute):
 
         async def route_handler(request: Request) -> Response:
             if policy != _RemoteAccessPolicy.NONE and not _is_localhost(request):
-                if _get_remote_access_mode() == _RemoteAccessMode.OFF:
+                if not MLFLOW_ENABLE_REMOTE_ASSISTANT.get():
                     raise HTTPException(status_code=403, detail=_BLOCK_REMOTE_ACCESS_ERROR_MSG)
                 provider = _get_route_provider(request, policy)
-                if policy != _RemoteAccessPolicy.PATH_PROVIDER or provider is not None:
+                # A {provider} path param that doesn't resolve to a known provider is a
+                # 404, not a remote-access decision; let the endpoint handle it.
+                if not ("provider" in request.path_params and provider is None):
                     _enforce_remote_access(request, provider)
             return await original_route_handler(request)
 
@@ -182,7 +153,7 @@ class MessageResponse(BaseModel):
 class ConfigResponse(BaseModel):
     providers: dict[str, Any] = Field(default_factory=dict)
     projects: dict[str, Any] = Field(default_factory=dict)
-    remote_chat_allowed: bool = False
+    remote_access_allowed: bool = False
 
 
 class ConfigUpdateRequest(BaseModel):
@@ -216,7 +187,7 @@ class SkillsInstallResponse(BaseModel):
 
 
 @assistant_router.post("/message")
-@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
 async def send_message(request: MessageRequest) -> MessageResponse:
     """
     Send a message to the assistant and get a session for streaming the response.
@@ -253,7 +224,7 @@ async def send_message(request: MessageRequest) -> MessageResponse:
 
 
 @assistant_router.get("/sessions/{session_id}/stream")
-@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
 async def stream_response(request: Request, session_id: str) -> StreamingResponse:
     """
     Stream the assistant's response via Server-Sent Events.
@@ -334,7 +305,7 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
 
 
 @assistant_router.patch("/sessions/{session_id}")
-@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
 async def patch_session(session_id: str, request: SessionPatchRequest) -> SessionPatchResponse:
     """
     Update session status.
@@ -368,7 +339,7 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
 
 
 @assistant_router.post("/sessions/{session_id}/permission")
-@_remote_access_policy(_RemoteAccessPolicy.SELECTED_PROVIDER)
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
 async def resolve_permission(session_id: str, request: PermissionDecision) -> MessageResponse:
     """Deliver a tool-call permission decision and resume the paused turn on a new stream.
 
@@ -396,7 +367,7 @@ async def resolve_permission(session_id: str, request: PermissionDecision) -> Me
 
 
 @assistant_router.get("/providers/{provider}/health")
-@_remote_access_policy(_RemoteAccessPolicy.PATH_PROVIDER)
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
 async def provider_health_check(provider: str) -> dict[str, str]:
     p = _get_provider(provider)
     if p is None:
@@ -439,12 +410,12 @@ async def get_config(request: Request) -> ConfigResponse:
     return ConfigResponse(
         providers=providers,
         projects=projects,
-        remote_chat_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
+        remote_access_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
     )
 
 
 @assistant_router.put("/config")
-@_remote_access_policy(_RemoteAccessPolicy.LOCALHOST_ONLY)
+@_remote_access_policy(_RemoteAccessPolicy.DENY)
 async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
     """
     Update the assistant configuration.
@@ -516,12 +487,12 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
     return ConfigResponse(
         providers=providers,
         projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
-        remote_chat_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
+        remote_access_allowed=_provider_allows_remote_access(_get_selected_provider(config)),
     )
 
 
 @assistant_router.post("/skills/install")
-@_remote_access_policy(_RemoteAccessPolicy.LOCALHOST_ONLY)
+@_remote_access_policy(_RemoteAccessPolicy.DENY)
 async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstallResponse:
     """
     Install skills bundled with MLflow.
@@ -583,7 +554,7 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
 
 
 @assistant_router.get("/providers/{provider}/models")
-@_remote_access_policy(_RemoteAccessPolicy.PATH_PROVIDER)
+@_remote_access_policy(_RemoteAccessPolicy.ONLY_SAFE_PROVIDER)
 async def list_provider_models(
     provider: str,
     base_url: str | None = None,

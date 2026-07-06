@@ -130,8 +130,8 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
-  const [remoteChatAllowed, setRemoteChatAllowed] = useState(false);
-  const canUseAssistant = isLocalServer || remoteChatAllowed;
+  const [remoteAccessAllowed, setRemoteAccessAllowed] = useState(false);
+  const canUseAssistant = isLocalServer || remoteAccessAllowed;
 
   // A prompt queued by an onboarding card to seed the chat input the next time it's visible.
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null);
@@ -218,11 +218,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
       const config = await getConfig();
       const isComplete = await resolveSetupComplete(config);
       setSetupComplete(isComplete);
-      setRemoteChatAllowed(config.remote_chat_allowed ?? false);
+      setRemoteAccessAllowed(config.remote_access_allowed ?? false);
     } catch {
       // On error, assume setup is not complete
       setSetupComplete(false);
-      setRemoteChatAllowed(false);
+      setRemoteAccessAllowed(false);
     } finally {
       setIsLoadingConfig(false);
     }

@@ -1,4 +1,3 @@
-import logging
 import os
 import shutil
 import subprocess
@@ -23,7 +22,6 @@ from mlflow.assistant.providers.base import (
 )
 from mlflow.assistant.types import Event, Message, ToolUseBlock
 from mlflow.server.assistant.api import (
-    _INVALID_REMOTE_ACCESS_MODES_WARNED,
     PermissionDecision,
     _AssistantAPIRoute,
     _enforce_remote_access,
@@ -300,27 +298,27 @@ def test_get_config_loads_config_once(client):
 
 
 @pytest.mark.parametrize(
-    ("mode", "allows_remote_execution", "expected"),
+    ("enabled", "allows_remote_execution", "expected"),
     [
-        ("off", False, False),
-        ("api-only", False, False),
-        ("api-only", True, True),
+        (False, False, False),
+        (True, False, False),
+        (True, True, True),
     ],
 )
-def test_get_config_remote_chat_allowed(
-    client, monkeypatch, mode, allows_remote_execution, expected
+def test_get_config_remote_access_allowed(
+    client, monkeypatch, enabled, allows_remote_execution, expected
 ):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", mode)
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", str(enabled))
     with patch("mlflow.server.assistant.api._get_selected_provider") as mock_get_selected_provider:
         mock_get_selected_provider.return_value.allows_remote_execution = allows_remote_execution
         response = client.get("/ajax-api/3.0/mlflow/assistant/config")
 
     assert response.status_code == 200
-    assert response.json()["remote_chat_allowed"] is expected
+    assert response.json()["remote_access_allowed"] is expected
 
 
 def test_message_blocked_for_remote_client_when_remote_access_off(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "off")
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "false")
     app = FastAPI()
     app.include_router(assistant_router)
 
@@ -351,7 +349,7 @@ def test_assistant_route_without_policy_raises_at_startup():
 
 
 def test_message_allowed_for_remote_client_when_provider_allows_remote_access(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "api-only")
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "true")
     app = FastAPI()
     app.include_router(assistant_router)
 
@@ -448,28 +446,28 @@ def test_is_localhost_blocks_when_no_client():
 
 
 @pytest.mark.parametrize(
-    ("mode", "allows_remote_execution", "expected"),
+    ("enabled", "allows_remote_execution", "expected"),
     [
-        ("off", False, False),
-        ("off", True, False),
-        ("api-only", False, False),
-        ("api-only", True, True),
+        (False, False, False),
+        (False, True, False),
+        (True, False, False),
+        (True, True, True),
     ],
 )
-def test_provider_allows_remote_access(mode, allows_remote_execution, expected, monkeypatch):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", mode)
+def test_provider_allows_remote_access(enabled, allows_remote_execution, expected, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", str(enabled))
     provider = MagicMock()
     provider.allows_remote_execution = allows_remote_execution
     assert _provider_allows_remote_access(provider) is expected
 
 
 def test_provider_allows_remote_access_no_provider_selected(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "api-only")
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "true")
     assert _provider_allows_remote_access(None) is False
 
 
-def test_remote_request_blocked_without_loading_provider_when_mode_is_off(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "off")
+def test_remote_request_blocked_without_loading_provider_when_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "false")
     app = FastAPI()
     app.include_router(assistant_router)
 
@@ -486,40 +484,23 @@ def test_remote_request_blocked_without_loading_provider_when_mode_is_off(monkey
     mock_get_provider.assert_not_called()
 
 
-def test_invalid_remote_access_mode_falls_back_to_off(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "bogus")
+def test_invalid_remote_access_value_raises(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "bogus")
     provider = MagicMock()
     provider.allows_remote_execution = True
-    assert _provider_allows_remote_access(provider) is False
-
-
-def test_invalid_remote_access_mode_logs_warning_once(monkeypatch, caplog):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "bogus")
-    _INVALID_REMOTE_ACCESS_MODES_WARNED.clear()
-    provider = MagicMock()
-    provider.allows_remote_execution = True
-    assistant_logger = logging.getLogger("mlflow.server.assistant.api")
-    assistant_logger.addHandler(caplog.handler)
-
-    try:
-        with caplog.at_level("WARNING", logger="mlflow.server.assistant.api"):
-            assert _provider_allows_remote_access(provider) is False
-            assert _provider_allows_remote_access(provider) is False
-    finally:
-        assistant_logger.removeHandler(caplog.handler)
-
-    assert sum("Invalid value 'bogus'" in record.message for record in caplog.records) == 1
+    with pytest.raises(ValueError, match="MLFLOW_ENABLE_REMOTE_ASSISTANT"):
+        _provider_allows_remote_access(provider)
 
 
 def test_enforce_remote_access_allows_localhost_regardless_of_mode(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "off")
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "false")
     mock_request = MagicMock()
     mock_request.client.host = "127.0.0.1"
     _enforce_remote_access(mock_request, None)  # should not raise
 
 
-def test_enforce_remote_access_blocks_remote_when_off(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "off")
+def test_enforce_remote_access_blocks_remote_when_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "false")
     mock_request = MagicMock()
     mock_request.client.host = "192.168.1.100"
     with pytest.raises(HTTPException, match="same host"):
@@ -770,7 +751,7 @@ def test_install_skills_skips_when_already_installed(client):
 
 
 def test_install_skills_blocked_for_remote_client(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ALLOW_REMOTE_ASSISTANT", "api-only")
+    monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "true")
     app = FastAPI()
     app.include_router(assistant_router)
 
