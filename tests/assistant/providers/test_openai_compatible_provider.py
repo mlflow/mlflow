@@ -288,7 +288,7 @@ async def test_astream_omits_stream_options(provider):
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
         return_value=session,
     ):
-        _ = [e async for e in provider.astream("hi", "http://localhost:5000")]
+        _ = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
 
     assert "stream_options" not in calls[0]["json"]
 
