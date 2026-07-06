@@ -14,6 +14,7 @@ from cryptography.fernet import Fernet
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.entities import Dataset, DatasetInput, InputTag, LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
@@ -962,6 +963,58 @@ def test_search_runs(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
         inaccessible_runs = set(all_runs[experiment_ids[1]])
         returned_inaccessible = set(all_paginated_runs) & inaccessible_runs
         assert len(returned_inaccessible) == 0
+
+
+def test_log_inputs_authorization(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    dataset_inputs = [
+        DatasetInput(
+            dataset=Dataset(
+                name="name1",
+                digest="digest1",
+                source_type="source_type1",
+                source="source1",
+            ),
+            tags=[InputTag(key="context", value="training")],
+        )
+    ]
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("log_inputs_authz")
+        run_id = client.create_run(experiment_id).info.run_id
+        client.log_inputs(run_id, dataset_inputs)
+
+    with User(username2, password2, monkeypatch):
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.log_inputs(run_id, dataset_inputs)
+
+    grant_role_permission(client.tracking_uri, username2, "experiment", experiment_id, "EDIT")
+
+    with User(username2, password2, monkeypatch):
+        client.log_inputs(run_id, dataset_inputs)
+
+
+def test_log_outputs_authorization(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("log_outputs_authz")
+        run_id = client.create_run(experiment_id).info.run_id
+        model = client.create_logged_model(experiment_id=experiment_id)
+
+    model_outputs = [LoggedModelOutput(model.model_id, 1)]
+
+    with User(username2, password2, monkeypatch):
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.log_outputs(run_id, model_outputs)
+
+    grant_role_permission(client.tracking_uri, username2, "experiment", experiment_id, "EDIT")
+
+    with User(username2, password2, monkeypatch):
+        client.log_outputs(run_id, model_outputs)
 
 
 def test_reregister_scorer_does_not_raise(client, monkeypatch):
