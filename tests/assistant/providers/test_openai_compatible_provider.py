@@ -187,6 +187,33 @@ def test_merge_tool_call_chunk_supports_multiple_calls():
     assert acc[1]["id"] == "b"
 
 
+def test_merge_tool_call_chunk_splits_distinct_ids_sharing_an_index():
+    # Some servers (e.g. the MLflow gateway with certain models) emit each complete
+    # parallel call as its own chunk reusing index 0 but with distinct ids. They must
+    # not be merged into one call with a doubled name and concatenated (invalid) args.
+    acc: list[dict[str, Any]] = []
+    _merge_tool_call_chunk(
+        acc,
+        {
+            "index": 0,
+            "id": "a",
+            "function": {"name": "Bash", "arguments": '{"command": "echo one"}'},
+        },
+    )
+    _merge_tool_call_chunk(
+        acc,
+        {
+            "index": 0,
+            "id": "b",
+            "function": {"name": "Bash", "arguments": '{"command": "echo two"}'},
+        },
+    )
+    assert acc == [
+        {"id": "a", "function": {"name": "Bash", "arguments": '{"command": "echo one"}'}},
+        {"id": "b", "function": {"name": "Bash", "arguments": '{"command": "echo two"}'}},
+    ]
+
+
 def test_trim_session_drops_oldest_keeping_system():
     big = "x" * (_MAX_SESSION_BYTES // 3)
     messages = [
