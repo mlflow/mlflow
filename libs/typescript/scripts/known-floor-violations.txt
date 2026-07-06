@@ -6,14 +6,16 @@
 # gate can be turned on now and block *new* regressions immediately while
 # these are fixed incrementally.
 #
-# To fix an entry: inline the unshipped constants (e.g. the mlflow.trace.session
-# / mlflow.trace.user metadata keys) and/or raise the @mlflow/* floor to a
-# published version that actually exports the symbol, then delete it from here.
-# When an allowlisted integration starts passing, the gate prints a notice
-# asking you to remove it from this file.
+# To fix an entry, first check whether the missing symbol was ever published
+# ('npm view @mlflow/core versions', then 'npm pack @mlflow/core@latest' and grep
+# the extracted dist/*.d.ts). If it exists in a version newer than the floor,
+# raise the @mlflow/* floor in package.json to that version. If it exists in no
+# published version, raising the floor cannot help -- inline the value in the
+# integration instead (see integrations/openclaw/src/service.ts). Then delete
+# the entry from here. When an allowlisted integration starts passing, the gate
+# prints a notice asking you to remove it from this file.
 #
 # One integration directory name per line (matches integrations/<name>).
-# Tracking: https://github.com/mlflow/mlflow/issues/24167
 opencode
 claude-code
 codex

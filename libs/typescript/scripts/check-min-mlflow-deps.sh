@@ -34,9 +34,19 @@ is_allowlisted() {
   grep -vE '^\s*(#|$)' "$ALLOWLIST" | grep -qxF "$1"
 }
 
-new_failures=()      # not allowlisted -> block the build
+# Append markdown to the GitHub Actions run summary when available (a no-op
+# locally). Renders a result table on the run's page needing no token.
+summary() {
+  [[ -n "${GITHUB_STEP_SUMMARY:-}" ]] && printf '%s\n' "$1" >> "$GITHUB_STEP_SUMMARY"
+  return 0
+}
+
+new_failures=()      # not allowlisted -> fail the build
 known_failures=()    # allowlisted -> reported only
-stale_allowlist=()   # allowlisted but now passing -> ask to remove
+stale_allowlist=()   # allowlisted but now passing -> fail, asking to remove
+summary "### Minimum-version floor check"
+summary "| Integration | Result |"
+summary "| --- | --- |"
 
 for pkg_json in integrations/*/package.json; do
   dir="$(dirname "$pkg_json")"
@@ -106,22 +116,26 @@ for pkg_json in integrations/*/package.json; do
     if is_allowlisted "$slug"; then
       echo "        OK: $name now type-checks against floors -- remove it from known-floor-violations.txt"
       stale_allowlist+=("$slug")
+      summary "| \`$name\` | ⚠️ passes but still allowlisted — remove it |"
     else
       echo "        OK: $name type-checks against dependency floors"
+      summary "| \`$name\` | ✅ ok |"
     fi
   elif is_allowlisted "$slug"; then
     echo "        KNOWN FAIL (allowlisted): $name -- pre-existing floor violation, not blocking"
     printf '%s\n' "$violations" | sed 's/^/          /'
     known_failures+=("$name")
+    summary "| \`$name\` | 🕒 known violation (allowlisted) |"
   else
     echo "        FAIL: $name imports a symbol newer than its declared @mlflow/* floor"
     printf '%s\n' "$violations" | sed 's/^/          /'
     new_failures+=("$name")
+    summary "| \`$name\` | ❌ NEW violation |"
   fi
 done
 
 echo
-[[ ${#known_failures[@]} -gt 0 ]] && echo "Known (allowlisted) floor violations, not blocking: ${known_failures[*]}"
+[[ ${#known_failures[@]} -gt 0 ]] && echo "Known (allowlisted) floor violations: ${known_failures[*]}"
 
 if [[ ${#stale_allowlist[@]} -gt 0 ]]; then
   echo
@@ -133,10 +147,17 @@ fi
 if [[ ${#new_failures[@]} -gt 0 ]]; then
   echo
   echo "Minimum-version check FAILED for: ${new_failures[*]}"
-  echo "Each imports an @mlflow/* symbol newer than its declared floor, so a user"
+  echo "Each imports an @mlflow/* symbol missing from its declared floor, so a user"
   echo "running 'npm install' against the published dependency would crash at runtime."
-  echo "Either raise the @mlflow/* dependency floor in the package's package.json,"
-  echo "or stop importing the newer-than-floor symbol (inline the constant)."
+  echo
+  echo "To fix, first find out whether the symbol was ever published. Check the"
+  echo "published versions with 'npm view @mlflow/core versions', then 'npm pack"
+  echo "@mlflow/core@latest' and grep the extracted dist/index.d.ts (named import)"
+  echo "or the relevant dist/**/*.d.ts (a member access like SomeConst.NEW_KEY):"
+  echo "  - Symbol exists in a version newer than your floor -> raise the @mlflow/*"
+  echo "    floor in the package's package.json to that version."
+  echo "  - Symbol exists in NO published version -> raising the floor cannot help;"
+  echo "    inline the value in the integration (see integrations/openclaw/src/service.ts)."
   echo "If this is knowingly deferred, add the integration to scripts/known-floor-violations.txt."
   exit 1
 fi
