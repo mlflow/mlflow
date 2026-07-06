@@ -129,11 +129,6 @@ def _prompt_assistant_skills_location(
     """Prompt for where to install the Assistant's skills, mirroring the in-app picker.
 
     Returns the `SkillsConfig` to persist and the resolved destination directory.
-
-    Note: only the global location is currently discovered by the in-app Assistant at
-    chat time; project and custom locations require an experiment->path mapping (or the
-    launched coding agent's cwd) to be picked up. The options are kept in sync with the
-    in-app config picker regardless.
     """
     global_dest = Path.home() / target.skills_subdir
     project_dest = repo_root / target.skills_subdir
