@@ -126,11 +126,12 @@ def _is_localhost_tracking_uri(tracking_uri: str) -> bool:
 def _offer_assistant_setup(agent: AgentTool, tracking_uri: str) -> bool | None:
     """Optionally select `agent` as the in-app MLflow Assistant provider.
 
-    Selects the matching provider in the Assistant config and offers to install its
-    skills into the global user directory. Only offered for agents that have an
-    Assistant provider and when the tracking server is reachable from localhost (the
-    Assistant API is localhost-only). An existing provider configuration is preserved
-    (model and skills location are left untouched); only the selection is updated.
+    Only offered for agents that have an Assistant provider and when the tracking
+    server is reachable from localhost (the Assistant API is localhost-only). On a
+    fresh setup the provider is selected and its skills are installed into the global
+    user directory as part of enabling the Assistant. An existing provider
+    configuration is preserved (model and skills are left untouched): only the
+    selection is updated and skills are not reinstalled.
 
     Skills are installed globally because `agent setup` does not create an
     experiment->path mapping, and the in-app Assistant resolves project-level skills
@@ -157,29 +158,30 @@ def _offer_assistant_setup(agent: AgentTool, tracking_uri: str) -> bool | None:
 
     config = AssistantConfig.load()
     if existing := config.providers.get(target.config_name):
-        # Preserve the user's existing model and skills location; only select it.
+        # Already configured: preserve the user's model and skills, just select it.
         config.set_provider(target.config_name, model=existing.model)
+        config.save()
         click.secho(
             f"Selected {agent.display_name} as the MLflow Assistant provider "
             "(kept your existing configuration).",
             fg="green",
             err=True,
         )
-    else:
-        config.set_provider(target.config_name, model="default")
-        config.providers[target.config_name].skills = SkillsConfig(type="global")
-        click.secho(f"Enabled the MLflow Assistant ({agent.display_name}).", fg="green", err=True)
+        return True
+
+    # Fresh setup: select the provider and install its skills into the global user
+    # directory as part of enabling the Assistant.
+    config.set_provider(target.config_name, model="default")
+    config.providers[target.config_name].skills = SkillsConfig(type="global")
     config.save()
-
     skills_dest = Path.home() / target.skills_subdir
-    if click.confirm(
-        click.style(f"Install MLflow skills to {skills_dest}?", fg="cyan", bold=True),
-        default=True,
+    installed = install_skills(skills_dest)
+    click.secho(
+        f"Enabled the MLflow Assistant ({agent.display_name}); "
+        f"installed {len(installed)} skill(s) to {skills_dest}.",
+        fg="green",
         err=True,
-    ):
-        installed = install_skills(skills_dest)
-        click.secho(f"Installed {len(installed)} skill(s) to {skills_dest}.", fg="green", err=True)
-
+    )
     return True
 
 
@@ -200,23 +202,6 @@ def _run_setup(
 
     agent = _choose_agent(agent_name)
     payload["agent"] = agent.name
-
-    skills_dest = repo_root / agent.skills_dir
-    skills_choice = arrow_select(
-        f"Install MLflow skills at {agent.skills_dir}/ (this project)?",
-        ["Install", "Skip"],
-    )
-    skills_installed = skills_choice == 0
-    payload["skills_install_confirmed"] = skills_installed
-    if skills_installed:
-        installed = install_skills(skills_dest)
-        click.secho(
-            f"Wrote {len(installed)} skill(s) to {agent.skills_dir}/:", fg="green", err=True
-        )
-        for name in installed:
-            click.echo(f"  - {name}", err=True)
-    else:
-        click.secho("Skipping skill installation.", fg="yellow", err=True)
 
     experiment_id: str | None = None
     local_server_port: int | None = None
@@ -259,7 +244,30 @@ def _run_setup(
                     err=True,
                 ).strip()
 
-    payload["assistant_configured"] = _offer_assistant_setup(agent, tracking_uri)
+    # Enabling the in-app Assistant installs skills into the global user directory,
+    # which the launched coding agent also discovers, so only fall back to a
+    # project-level skills install when the Assistant is not configured.
+    assistant_configured = _offer_assistant_setup(agent, tracking_uri)
+    payload["assistant_configured"] = assistant_configured
+    if assistant_configured:
+        skills_installed = False
+        payload["skills_install_confirmed"] = None
+    else:
+        skills_choice = arrow_select(
+            f"Install MLflow skills at {agent.skills_dir}/ (this project)?",
+            ["Install", "Skip"],
+        )
+        skills_installed = skills_choice == 0
+        payload["skills_install_confirmed"] = skills_installed
+        if skills_installed:
+            installed = install_skills(repo_root / agent.skills_dir)
+            click.secho(
+                f"Wrote {len(installed)} skill(s) to {agent.skills_dir}/:", fg="green", err=True
+            )
+            for name in installed:
+                click.echo(f"  - {name}", err=True)
+        else:
+            click.secho("Skipping skill installation.", fg="yellow", err=True)
 
     prompt = build_prompt(
         repo_root,
