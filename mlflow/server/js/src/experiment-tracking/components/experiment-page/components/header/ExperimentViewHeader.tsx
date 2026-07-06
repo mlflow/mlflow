@@ -33,6 +33,7 @@ import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButt
 import { useExperimentKind, isGenAIExperimentKind } from '../../../../utils/ExperimentKindUtils';
 import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
 import { shouldEnableWorkflowBasedNavigation } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { useHeaderVisibility } from '../../../../pages/experiment-page-tabs/ExperimentPageHeaderVisibilityContext';
 
 import { ExperimentKind, ExperimentPageTabName } from '../../../../constants';
 import { useGetExperimentPageActiveTabByRoute } from '../../hooks/useGetExperimentPageActiveTabByRoute';
@@ -76,6 +77,7 @@ export const ExperimentViewHeader = React.memo(
     const intl = useIntl();
     const navigate = useNavigate();
     const location = useLocation();
+    const { headerActionsHidden } = useHeaderVisibility();
     const handleBack = useCallback(() => {
       const pathSegments = location.pathname.split('/').filter(Boolean);
 
@@ -296,14 +298,18 @@ export const ExperimentViewHeader = React.memo(
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
           >
-            {!ROUTES_WITHOUT_MANAGEMENT_MENU.some((route) => matchPath(route, location.pathname)) && (
-              <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
+            {!headerActionsHidden && (
+              <>
+                {!ROUTES_WITHOUT_MANAGEMENT_MENU.some((route) => matchPath(route, location.pathname)) && (
+                  <ExperimentViewManagementMenu experiment={experiment} setEditing={setEditing} />
+                )}
+                <ExperimentViewHeaderShareButton
+                  experimentIds={experimentIds}
+                  searchFacetsState={searchFacetsState}
+                  uiState={uiState}
+                />
+              </>
             )}
-            <ExperimentViewHeaderShareButton
-              experimentIds={experimentIds}
-              searchFacetsState={searchFacetsState}
-              uiState={uiState}
-            />
             {showDocsLink && (
               <Typography.Link
                 componentId="mlflow.experiment-page.header.docs-link"

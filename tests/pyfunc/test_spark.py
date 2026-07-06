@@ -158,9 +158,9 @@ def sklearn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
     y = iris.target
-    knn_model = KNeighborsClassifier()
-    knn_model.fit(X, y)
-    return ModelWithData(model=knn_model, inference_data=X)
+    logreg_model = LogisticRegression()
+    logreg_model.fit(X, y)
+    return ModelWithData(model=logreg_model, inference_data=X)
 
 
 def test_spark_udf(spark, model_path):
@@ -892,7 +892,9 @@ def test_spark_udf_datetime_with_model_schema(spark):
     timestamp_dtype = {"timestamp": "datetime64[ns]"}
     with mlflow.start_run():
         signature = mlflow.models.infer_signature(X.astype(timestamp_dtype), y)
-        model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
+        model_info = mlflow.sklearn.log_model(
+            model, name="model", signature=signature, serialization_format="cloudpickle"
+        )
 
     inference_sample = X.sample(n=10, random_state=42)
     infer_spark_df = spark.createDataFrame(inference_sample.astype(timestamp_dtype))
@@ -921,7 +923,9 @@ def test_spark_udf_string_datetime_with_model_schema(spark):
 
     with mlflow.start_run():
         signature = mlflow.models.infer_signature(X, y)
-        model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
+        model_info = mlflow.sklearn.log_model(
+            model, name="model", signature=signature, serialization_format="cloudpickle"
+        )
 
     inference_sample = X.sample(n=10, random_state=42)
     infer_spark_df = spark.createDataFrame(inference_sample)

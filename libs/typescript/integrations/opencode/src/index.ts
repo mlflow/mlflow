@@ -17,11 +17,11 @@ import type { Plugin, PluginInput, Hooks } from '@opencode-ai/plugin';
 import {
   init,
   startSpan,
+  withSpan,
+  updateCurrentTrace,
   flushTraces,
   SpanType,
   SpanAttributeKey,
-  TraceMetadataKey,
-  InMemoryTraceManager,
 } from '@mlflow/core';
 
 // Track the last processed message count per session to avoid duplicate traces.
@@ -39,6 +39,14 @@ const MESSAGE_ROLE_USER = 'user';
 const MESSAGE_ROLE_ASSISTANT = 'assistant';
 const PART_TYPE_TEXT = 'text';
 const PART_TYPE_TOOL = 'tool';
+
+// Well-known trace metadata keys. We pass these through updateCurrentTrace's
+// generic `metadata` option rather than its `sessionId`/`user` convenience
+// options, since those options (and the TraceMetadataKey.TRACE_SESSION/TRACE_USER
+// enum members) are only present in newer @mlflow/core builds. The metadata keys
+// themselves are stable, so this works across the published version range.
+const TRACE_SESSION_METADATA_KEY = 'mlflow.trace.session';
+const TRACE_USER_METADATA_KEY = 'mlflow.trace.user';
 
 // SDK initialization state
 let initialized = false;
@@ -434,53 +442,52 @@ async function processSession(sessionId: string, messages: Message[]): Promise<v
   const lastMsgTime = lastMsg.info?.time || {};
   const updatedNs = timestampToNs(lastMsgTime.completed || lastMsgTime.created);
 
-  // Create parent span for the conversation
-  const parentSpan = startSpan({
-    name: 'opencode_conversation',
-    inputs: { prompt: userPrompt },
-    startTimeNs: createdNs,
-    spanType: SpanType.AGENT,
-  });
-
-  // Create child spans for LLM calls and tools
-  createLlmAndToolSpans(parentSpan, messages, lastUserIdx + 1);
-
   // Get final response for preview
   const finalResponse = extractAssistantResponse(messages);
 
-  // Set trace metadata
-  try {
-    const traceManager = InMemoryTraceManager.getInstance();
-    const trace = traceManager.getTrace(parentSpan.traceId);
-    if (trace) {
-      trace.info.requestPreview = userPrompt.slice(0, MAX_PREVIEW_LENGTH);
-      if (finalResponse) {
-        trace.info.responsePreview = finalResponse.slice(0, MAX_PREVIEW_LENGTH);
-      }
-      trace.info.traceMetadata = {
-        ...trace.info.traceMetadata,
-        [TraceMetadataKey.TRACE_SESSION]: sessionId,
-        [TraceMetadataKey.TRACE_USER]: process.env.USER || '',
-      };
-    }
-  } catch (error) {
-    if (DEBUG) {
-      console.error('[mlflow] Failed to update trace metadata:', error);
-    }
-  }
+  // Create the parent span via withSpan so it becomes the OTel context-active
+  // span. This lets us attach trace-level metadata through the public
+  // `updateCurrentTrace` API (which targets the active trace) instead of
+  // reaching into `InMemoryTraceManager` internals.
+  const traceId = await withSpan(
+    (parentSpan) => {
+      // Create child spans for LLM calls and tools
+      createLlmAndToolSpans(parentSpan, messages, lastUserIdx + 1);
 
-  // End parent span
-  parentSpan.setOutputs({
-    response: finalResponse || 'Conversation completed',
-    status: 'completed',
-  });
-  parentSpan.end({ endTimeNs: updatedNs });
+      // Attach session/user and request/response previews to the trace.
+      updateCurrentTrace({
+        metadata: {
+          [TRACE_SESSION_METADATA_KEY]: sessionId,
+          [TRACE_USER_METADATA_KEY]: process.env.USER || '',
+        },
+        requestPreview: userPrompt.slice(0, MAX_PREVIEW_LENGTH),
+        ...(finalResponse ? { responsePreview: finalResponse.slice(0, MAX_PREVIEW_LENGTH) } : {}),
+      });
+
+      // End the parent span with the reconstructed end time. withSpan issues a
+      // trailing end() at the current time, but OpenTelemetry ignores end() on
+      // an already-ended span, so this explicit end time is what is recorded.
+      parentSpan.setOutputs({
+        response: finalResponse || 'Conversation completed',
+        status: 'completed',
+      });
+      parentSpan.end({ endTimeNs: updatedNs });
+
+      return parentSpan.traceId;
+    },
+    {
+      name: 'opencode_conversation',
+      inputs: { prompt: userPrompt },
+      startTimeNs: createdNs,
+      spanType: SpanType.AGENT,
+    },
+  );
 
   // Flush traces to MLflow
   await flushTraces();
 
   if (DEBUG) {
-    console.error(`[mlflow] Created trace: ${parentSpan.traceId}`);
+    console.error(`[mlflow] Created trace: ${traceId}`);
   }
 }
 

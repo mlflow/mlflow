@@ -1,4 +1,11 @@
-import type { CellClickedEvent, ColumnApi, GridApi, GridReadyEvent } from '@ag-grid-community/core';
+import type {
+  CellClickedEvent,
+  ColumnApi,
+  ColumnMovedEvent,
+  ColumnResizedEvent,
+  GridApi,
+  GridReadyEvent,
+} from '@ag-grid-community/core';
 import type { Theme } from '@emotion/react';
 import { type CSSObject, Interpolation } from '@emotion/react';
 import cx from 'classnames';
@@ -45,7 +52,8 @@ import { useExperimentTableSelectRowHandler } from '../../hooks/useExperimentTab
 import { useToggleRowVisibilityCallback } from '../../hooks/useToggleRowVisibilityCallback';
 import { ExperimentViewRunsTableHeaderContextProvider } from './ExperimentViewRunsTableHeaderContext';
 import { useRunsHighlightTableRow } from '../../../runs-charts/hooks/useRunsHighlightTableRow';
-import { isEmpty } from 'lodash';
+import { debounce, isEmpty, isEqual } from 'lodash';
+import { columnStateToPrefs, prefsToColumnState } from './agGridColumnPrefsAdapter';
 
 const ROW_BUFFER = 101; // How many rows to keep rendered, even ones not visible
 const LARGE_COLUMN_COUNT_THRESHOLD = 1000; // Threshold to determine if we should optimize column rendering
@@ -73,6 +81,12 @@ export interface ExperimentViewRunsTableProps {
   expandRows: boolean;
   uiState: ExperimentPageUIState;
   compareRunsMode: ExperimentViewRunsCompareMode;
+
+  /**
+   * Published on grid-ready so sibling controls (e.g. the column selector's
+   * "Reset to defaults") can imperatively reset ag-grid's column state.
+   */
+  columnApiRef?: React.MutableRefObject<ColumnApi | null>;
 }
 
 export const ExperimentViewRunsTable = React.memo(
@@ -92,6 +106,7 @@ export const ExperimentViewRunsTable = React.memo(
     viewState,
     uiState,
     compareRunsMode,
+    columnApiRef,
   }: ExperimentViewRunsTableProps) => {
     const { theme } = useDesignSystemTheme();
     const updateUIState = useUpdateExperimentViewUIState();
@@ -191,10 +206,16 @@ export const ExperimentViewRunsTable = React.memo(
     // A modern version of row visibility toggle function, supports "show all", "show first n runs" options
     const toggleRowVisibility = useToggleRowVisibilityCallback(rowsData, uiState.useGroupedValuesInCharts);
 
-    const gridReadyHandler = useCallback((params: GridReadyEvent) => {
-      setGridApi(params.api);
-      setColumnApi(params.columnApi);
-    }, []);
+    const gridReadyHandler = useCallback(
+      (params: GridReadyEvent) => {
+        setGridApi(params.api);
+        setColumnApi(params.columnApi);
+        if (columnApiRef) {
+          columnApiRef.current = params.columnApi;
+        }
+      },
+      [columnApiRef],
+    );
 
     const { handleRowSelected, onSelectionChange } = useExperimentTableSelectRowHandler(updateViewState);
 
@@ -223,6 +244,98 @@ export const ExperimentViewRunsTable = React.memo(
       expandRows,
       runsHiddenMode: uiState.runsHiddenMode,
     });
+
+    // Persistable colIds = the columns currently shown in the grid — the always-on
+    // columns (Run Name, Created, Duration) plus the user's selected columns, in
+    // display order. Excludes the selection checkbox and any hidden columns, so we
+    // only persist what's actually on screen. Re-derived on visibility changes
+    // (selectedColumns) since columnDefs alone doesn't reflect show/hide.
+    const [allColumns, setAllColumns] = useState<string[]>([]);
+    useEffect(() => {
+      if (!columnApi) {
+        return;
+      }
+      const ids = (columnApi.getAllDisplayedColumns() ?? [])
+        .filter((column) => !column.getColDef().checkboxSelection)
+        .map((column) => column.getColId())
+        .filter((id): id is string => Boolean(id));
+      setAllColumns((prev) => (isEqual(prev, ids) ? prev : ids));
+    }, [columnApi, columnDefs, selectedColumns, isComparingRuns]);
+
+    // Column order + width persist via uiState, riding the existing localStorage
+    // and share path. Visibility stays on the separate `selectedColumns` path.
+    //
+    // The debounce owns a live timer, so it must be one stable instance — held in
+    // a ref, built once. allColumns is read through a ref so a column toggle can't
+    // rebuild the debounce and cancel an in-flight drag capture. updateUIState is a
+    // stable setter, so depending on it doesn't cause a rebuild.
+    const allColumnsRef = useRef(allColumns);
+    allColumnsRef.current = allColumns;
+
+    const captureColumnStateRef = useRef<((api: ColumnApi) => void) & { cancel(): void }>();
+    useEffect(() => {
+      const fn = debounce((api: ColumnApi) => {
+        const { columnOrder, columnWidths } = columnStateToPrefs(api.getColumnState(), allColumnsRef.current);
+        updateUIState((state: ExperimentPageUIState) => ({ ...state, columnOrder, columnWidths }));
+      }, 250);
+      captureColumnStateRef.current = fn;
+      // Cancel any pending capture on unmount so we don't write state after the grid is gone.
+      return () => fn.cancel();
+    }, [updateUIState]);
+    const captureColumnState = useCallback((api: ColumnApi) => captureColumnStateRef.current?.(api), []);
+
+    // Only capture genuine user gestures. Allowlisting (rather than excluding
+    // 'api'/'flex'/etc.) keeps initial layout, compare-mode auto-fit, and our
+    // own applyColumnState from being persisted or causing a feedback loop.
+    const handleColumnMoved = useCallback(
+      (event: ColumnMovedEvent) => {
+        if (isComparingRuns || !event.columnApi) {
+          return;
+        }
+        if (event.source === 'uiColumnMoved' || event.source === 'uiColumnDragged') {
+          captureColumnState(event.columnApi);
+        }
+      },
+      [captureColumnState, isComparingRuns],
+    );
+
+    const handleColumnResized = useCallback(
+      (event: ColumnResizedEvent) => {
+        if (isComparingRuns || !event.columnApi || event.finished === false) {
+          return;
+        }
+        if (event.source === 'uiColumnDragged' || event.source === 'uiColumnResized') {
+          captureColumnState(event.columnApi);
+        }
+      },
+      [captureColumnState, isComparingRuns],
+    );
+
+    // Read latest persisted layout without re-applying on every capture (which
+    // would fight an in-progress drag and revert the user's move mid-gesture).
+    const columnLayoutRef = useRef({ columnOrder: uiState.columnOrder, columnWidths: uiState.columnWidths });
+    columnLayoutRef.current = { columnOrder: uiState.columnOrder, columnWidths: uiState.columnWidths };
+
+    // Apply persisted order + width only on grid-ready and when the column set
+    // structurally changes — and only once the user has actually customized,
+    // so the grid keeps its natural columnDefs order by default. Visibility
+    // stays on the selectedColumns effect, so only order + width are applied.
+    useEffect(() => {
+      if (!columnApi || isComparingRuns) {
+        return;
+      }
+      const { columnOrder, columnWidths } = columnLayoutRef.current;
+      if (columnOrder.length === 0 && isEmpty(columnWidths)) {
+        return;
+      }
+      const state = prefsToColumnState(columnOrder, columnWidths);
+      if (state.length > 0) {
+        columnApi.applyColumnState({ state, applyOrder: true });
+      }
+      // `allColumns` populates one tick after grid-ready; depending on it ensures
+      // the persisted order is applied once colIds are known. It stays stable
+      // across user drags, so this won't re-run and fight an in-progress gesture.
+    }, [columnApi, columnDefs, isComparingRuns, allColumns]);
 
     const gridSizeHandler = useCallback(
       (api: GridApi) => {
@@ -393,7 +506,11 @@ export const ExperimentViewRunsTable = React.memo(
                 defaultColDef={EXPERIMENTS_DEFAULT_COLUMN_SETUP}
                 columnDefs={columnDefs}
                 rowSelection="multiple"
+                maintainColumnOrder
+                suppressDragLeaveHidesColumns
                 onGridReady={gridReadyHandler}
+                onColumnMoved={handleColumnMoved}
+                onColumnResized={handleColumnResized}
                 onSelectionChanged={onSelectionChange}
                 getRowHeight={rowHeightGetterFn}
                 headerHeight={EXPERIMENT_RUNS_TABLE_ROW_HEIGHT}

@@ -3,4 +3,4 @@ name: mlflow
 description: A production-ready Helm chart for deploying MLflow on Kubernetes
 type: application
 version: 0.1.0
-appVersion: "3.13.0"
+appVersion: "3.14.0"

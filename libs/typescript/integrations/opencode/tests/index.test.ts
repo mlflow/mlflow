@@ -23,19 +23,15 @@ jest.mock('@mlflow/core', () => {
     end: jest.fn(),
   };
 
-  const mockTraceInfo = {
-    requestPreview: '',
-    responsePreview: '',
-    traceMetadata: {},
-  };
-
-  const mockTrace = {
-    info: mockTraceInfo,
-  };
-
   return {
     init: jest.fn(),
     startSpan: jest.fn(() => mockSpan),
+    // withSpan invokes its callback with the parent span so the child-span
+    // logic runs, and returns the callback's result (the traceId string).
+    withSpan: jest.fn((callback: (span: typeof mockSpan) => unknown, _options?: unknown) =>
+      callback(mockSpan),
+    ),
+    updateCurrentTrace: jest.fn(),
     flushTraces: jest.fn().mockResolvedValue(undefined),
     SpanType: {
       LLM: 'LLM',
@@ -44,15 +40,6 @@ jest.mock('@mlflow/core', () => {
     },
     SpanAttributeKey: {
       TOKEN_USAGE: 'token_usage',
-    },
-    TraceMetadataKey: {
-      TRACE_SESSION: 'mlflow.trace.session',
-      TRACE_USER: 'mlflow.trace.user',
-    },
-    InMemoryTraceManager: {
-      getInstance: jest.fn(() => ({
-        getTrace: jest.fn(() => mockTrace),
-      })),
     },
   };
 });
@@ -307,8 +294,9 @@ describe('MLflowTracingPlugin', () => {
 
       await hooks.event!(createSessionIdleEvent('session-1'));
 
-      // Should create parent span (AGENT type)
-      expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
+      // Should create parent span (AGENT type) via withSpan
+      expect(mlflowTracing.withSpan).toHaveBeenCalledWith(
+        expect.any(Function),
         expect.objectContaining({
           name: 'opencode_conversation',
           spanType: 'AGENT',
@@ -632,8 +620,9 @@ describe('MLflowTracingPlugin', () => {
 
       await hooks.event!(createSessionIdleEvent('agent-workflow'));
 
-      // Should create parent AGENT span
-      expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
+      // Should create parent AGENT span via withSpan
+      expect(mlflowTracing.withSpan).toHaveBeenCalledWith(
+        expect.any(Function),
         expect.objectContaining({
           name: 'opencode_conversation',
           spanType: 'AGENT',
@@ -745,8 +734,8 @@ describe('MLflowTracingPlugin', () => {
 
       await hooks.event!(createSessionIdleEvent('empty-session'));
 
-      // Should not create any spans
-      expect(mlflowTracing.startSpan).not.toHaveBeenCalled();
+      // Should not create a trace
+      expect(mlflowTracing.withSpan).not.toHaveBeenCalled();
     });
 
     it('should handle session with no user messages', async () => {
@@ -758,7 +747,7 @@ describe('MLflowTracingPlugin', () => {
       await hooks.event!(createSessionIdleEvent('no-user-session'));
 
       // Should not create trace without user message
-      expect(mlflowTracing.startSpan).not.toHaveBeenCalled();
+      expect(mlflowTracing.withSpan).not.toHaveBeenCalled();
     });
 
     it('should handle user message with empty text', async () => {
@@ -773,7 +762,7 @@ describe('MLflowTracingPlugin', () => {
       await hooks.event!(createSessionIdleEvent('empty-user-text'));
 
       // Should not create trace with empty user prompt
-      expect(mlflowTracing.startSpan).not.toHaveBeenCalled();
+      expect(mlflowTracing.withSpan).not.toHaveBeenCalled();
     });
 
     it('should handle messages with missing parts', async () => {
@@ -787,8 +776,8 @@ describe('MLflowTracingPlugin', () => {
 
       await hooks.event!(createSessionIdleEvent('missing-parts'));
 
-      // Should handle gracefully
-      expect(mlflowTracing.startSpan).not.toHaveBeenCalled();
+      // Should handle gracefully and not create a trace
+      expect(mlflowTracing.withSpan).not.toHaveBeenCalled();
     });
 
     it('should handle tool call with missing state', async () => {
@@ -820,7 +809,7 @@ describe('MLflowTracingPlugin', () => {
 
       await hooks.event!(createSessionIdleEvent('messages-failure'));
 
-      expect(mlflowTracing.startSpan).not.toHaveBeenCalled();
+      expect(mlflowTracing.withSpan).not.toHaveBeenCalled();
     });
   });
 
@@ -910,9 +899,17 @@ describe('MLflowTracingPlugin', () => {
 
       await hooks.event!(createSessionIdleEvent('metadata-session'));
 
-      // Verify InMemoryTraceManager was used
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(mlflowTracing.InMemoryTraceManager.getInstance).toHaveBeenCalled();
+      // Verify trace metadata is attached via the public updateCurrentTrace API
+      expect(mlflowTracing.updateCurrentTrace).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: {
+            'mlflow.trace.session': 'metadata-session',
+            'mlflow.trace.user': 'test-user',
+          },
+          requestPreview: 'Test prompt',
+          responsePreview: 'Test response',
+        }),
+      );
     });
   });
 

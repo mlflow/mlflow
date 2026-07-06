@@ -31,6 +31,7 @@ def upgrade():
         sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column("created_time", sa.BigInteger(), nullable=False),
         sa.Column("last_update_time", sa.BigInteger(), nullable=False),
+        sa.Column("is_default", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.ForeignKeyConstraint(
             ["experiment_id"],
             ["experiments.experiment_id"],

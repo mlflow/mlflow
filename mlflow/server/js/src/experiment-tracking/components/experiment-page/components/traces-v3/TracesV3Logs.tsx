@@ -76,6 +76,7 @@ import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { checkColumnContents } from './utils/columnUtils';
 import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
+import { AddToReviewQueueDropdown } from '../../../../pages/experiment-review-queue/AddToReviewQueueDropdown';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 import {
@@ -336,6 +337,7 @@ const TracesV3LogsImpl = React.memo(
     const deleteTracesAction = useGetDeleteTracesAction({ traceSearchLocations });
 
     const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
+    const renderCustomAddToReviewQueueDropdown = AddToReviewQueueDropdown;
 
     const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
 
@@ -349,6 +351,7 @@ const TracesV3LogsImpl = React.memo(
       return {
         deleteTracesAction,
         exportToEvals: true,
+        addToReviewQueue: true,
         // Enable unified tags modal if V4 APIs is enabled
         editTags: shouldUseTracesV4API()
           ? {
@@ -565,6 +568,7 @@ const TracesV3LogsImpl = React.memo(
     const tableContent = (
       <ModelTraceExplorerContextProvider
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+        renderAddToReviewQueueDropdown={renderCustomAddToReviewQueueDropdown}
         DrawerComponent={AssistantAwareDrawer}
         drawerWidth={drawerWidth}
       >

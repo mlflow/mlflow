@@ -135,6 +135,12 @@ export const TRACE_ID_V4_PREFIX = 'trace:/';
 export const DATABRICKS_UC_TABLE_HEADER = 'X-Databricks-UC-Table-Name';
 
 /**
+ * HTTP header used to associate OTLP span uploads with an MLflow experiment
+ * when sending to the OSS tracking server's /v1/traces endpoint.
+ */
+export const MLFLOW_EXPERIMENT_ID_HEADER = 'x-mlflow-experiment-id';
+
+/**
  * The default name for spans if the name is not provided when starting a span
  */
 export const DEFAULT_SPAN_NAME = 'span';

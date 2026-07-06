@@ -16,6 +16,7 @@ from mlflow.utils.credentials import read_mlflow_creds
 
 # Constants for OpenTelemetry integration
 MLFLOW_EXPERIMENT_ID_HEADER = "x-mlflow-experiment-id"
+MLFLOW_RUN_ID_HEADER = "x-mlflow-run-id"
 OTLP_TRACES_PATH = "/v1/traces"
 OTLP_METRICS_PATH = "/v1/metrics"
 

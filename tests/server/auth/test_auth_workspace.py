@@ -1002,6 +1002,56 @@ def test_run_validators_workspace_use_blocks_reads_and_writes(workspace_permissi
         assert not auth_module.validate_can_manage_run()
 
 
+def test_create_model_version_source_read_blocks_cross_workspace(
+    workspace_permission_setup, monkeypatch
+):
+    # Target model lives in team-a (user has MANAGE); source run/model live in team-b
+    # (user has no access). The source-read check must block anchoring the model version
+    # at a run/model the caller cannot read, even though they can update the target model.
+    tracking_store = _TrackingStore(
+        experiment_workspaces={"exp-a": "team-a", "exp-b": "team-b"},
+        run_experiments={"run-a": "exp-a", "run-b": "exp-b"},
+        trace_experiments={},
+        logged_model_experiments={"model-a": "exp-a", "model-b": "exp-b"},
+    )
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "run_id": "run-b"},
+    ):
+        assert not auth_module.validate_can_create_model_version()
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "model_id": "model-b"},
+    ):
+        assert not auth_module.validate_can_create_model_version()
+
+    # Same-workspace source (team-a) is allowed.
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "run_id": "run-a"},
+    ):
+        assert auth_module.validate_can_create_model_version()
+
+    # A truthy non-dict JSON body must be coerced to {} rather than raising
+    # AttributeError on `.get(...)`. Bypass the target-model check (which reads
+    # `name` from the body) to isolate the source-read coercion.
+    monkeypatch.setattr(
+        auth_module, "_validate_can_update_registered_model_or_prompt", lambda: True
+    )
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json=[1],
+    ):
+        assert auth_module.validate_can_create_model_version()
+
+
 def test_logged_model_validators_respect_permissions(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]
@@ -2689,22 +2739,42 @@ def test_validate_can_list_roles_multi_workspace(role_auth_setup, actor, workspa
         assert auth_module.validate_can_list_roles() is expected
 
 
-# Super admin is omitted from these parametrizations: ``_before_request``
-# short-circuits via ``sender_is_admin`` before the validator is reached, so
-# the validator is unreachable for them in production.
+# Listing users is scoped to workspace membership (the review-queue assignment UI
+# needs the roster; assigning still requires experiment MANAGE), so the roster
+# isn't leaked across workspaces. Super admin is omitted: ``_before_request``
+# short-circuits via ``sender_is_admin`` before the validator is reached.
 @pytest.mark.parametrize(
-    ("actor", "expected"),
+    ("actor", "workspace", "expected"),
     [
-        ("ws_admin_foo", True),
-        ("ws_admin_bar", True),
-        ("ws_member_foo", False),
-        ("outsider", False),
+        # Workspace-wide grant carrying can_use (USE/MANAGE) → may list the roster.
+        ("ws_admin_foo", "foo", True),
+        # Isolation: an admin of another workspace can't list users in this one.
+        ("ws_admin_foo", "bar", False),
+        ("ws_admin_bar", "foo", False),
+        # A plain experiment-level grant is not a workspace-wide grant → denied.
+        ("ws_member_foo", "foo", False),
+        # No grant anywhere.
+        ("outsider", "foo", False),
     ],
 )
-def test_validate_can_list_users(role_auth_setup, actor, expected):
+def test_validate_can_list_users_workspace_scoped(role_auth_setup, actor, workspace, expected):
     role_auth_setup["login_as"](actor)
+    token = workspace_context.set_server_request_workspace(workspace)
+    try:
+        with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
+            assert auth_module.validate_can_list_users() is expected
+    finally:
+        workspace_context._WORKSPACE.reset(token)
+
+
+def test_validate_can_list_users_allows_any_user_without_workspaces(role_auth_setup, monkeypatch):
+    # With workspaces disabled there is no isolation boundary, so any authenticated
+    # user may list the roster (single-tenant). ``role_auth_setup`` enables
+    # workspaces; override it back off for this case.
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+    role_auth_setup["login_as"]("outsider")
     with auth_module.app.test_request_context("/api/2.0/mlflow/users/list", method="GET"):
-        assert auth_module.validate_can_list_users() is expected
+        assert auth_module.validate_can_list_users() is True
 
 
 def test_list_users_handler_eager_loads_scoped_roles(role_auth_setup):

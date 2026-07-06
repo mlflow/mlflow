@@ -1,4 +1,5 @@
 import {
+  Alert,
   Button,
   ChartLineIcon,
   Checkbox,
@@ -11,17 +12,26 @@ import {
   getShadowScrollStyles,
   useDesignSystemTheme,
 } from '@databricks/design-system';
+import { useQueryClient } from '@databricks/web-shared/query-client';
 import { createTraceLocationForExperiment, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
 import { isEmpty } from 'lodash';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
+import { useNavigate } from '../../../common/utils/RoutingUtils';
+import Routes from '../../routes';
+import { ExperimentPageTabName } from '../../constants';
+import { SELECTED_RUN_UUID_QUERY_PARAM } from '../../components/evaluations/hooks/useSelectedRunUuid';
 import { EndpointSelector } from '../../components/EndpointSelector';
 import { SelectTracesModal } from '../../components/SelectTracesModal';
+import { useMonitoringFiltersTimeRange } from '../../hooks/useMonitoringFilters';
 import { formatGatewayModelFromEndpoint, getEndpointNameFromGatewayModel } from '../../../gateway/utils/gatewayUtils';
 import { ScorerEvaluationScope } from '../experiment-scorers/constants';
 import { useGetScheduledScorers } from '../experiment-scorers/hooks/useGetScheduledScorers';
 import { useTemplateOptions } from '../experiment-scorers/llmScorerUtils';
+import { TEMPLATE_INSTRUCTIONS_MAP } from '../experiment-scorers/prompts';
 import { LLM_TEMPLATE, type LLMScorer, type ScheduledScorer } from '../experiment-scorers/types';
+import { transformScheduledScorer } from '../experiment-scorers/utils/scorerTransformUtils';
+import { useInvokeGenAIEvaluation } from './hooks/useInvokeGenAIEvaluation';
 
 type JudgeSelectionMode = 'llm' | 'template';
 
@@ -31,6 +41,9 @@ const isTraceLevelLLMScorer = (scorer: ScheduledScorer): scorer is LLMScorer =>
 export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { displayMap, templateOptions } = useTemplateOptions(ScorerEvaluationScope.TRACES);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTraceIds, setSelectedTraceIds] = useState<string[]>([]);
   const [isSelectTracesModalOpen, setIsSelectTracesModalOpen] = useState(false);
@@ -41,6 +54,21 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
   const selectedJudgeCount = selectedScorers.length + selectedTemplates.length;
   const runJudgeDisabled =
     selectedTraceIds.length === 0 || selectedJudgeCount === 0 || (hasSelectedTemplates && !currentEndpointModel);
+
+  const {
+    mutate: invokeGenAIEvaluation,
+    isLoading: isSubmitting,
+    error: submitError,
+    reset: resetSubmit,
+  } = useInvokeGenAIEvaluation();
+
+  const [buildError, setBuildError] = useState<Error | null>(null);
+  const submissionError = submitError ?? buildError;
+
+  const clearSubmissionError = () => {
+    resetSubmit();
+    setBuildError(null);
+  };
 
   const toggleScorer = (scorer: LLMScorer) => {
     setSelectedScorers((prev) => {
@@ -57,8 +85,10 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
   };
 
   const traceSearchLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
+  const timeRange = useMonitoringFiltersTimeRange();
   const { data: traceInfos, isLoading: isLoadingTraces } = useSearchMlflowTraces({
     locations: traceSearchLocations,
+    timeRange,
     disabled: !isOpen,
   });
 
@@ -80,20 +110,85 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
     setSelectedScorers([]);
     setSelectedTemplates([]);
     setCurrentEndpointModel(undefined);
+    setBuildError(null);
+    resetSubmit();
+  };
+
+  const buildSerializedScorers = (): string[] => {
+    const fromCustom = selectedScorers.map((scorer) => transformScheduledScorer(scorer).serialized_scorer);
+
+    const fromTemplates = selectedTemplates.map((template) => {
+      const instructions = TEMPLATE_INSTRUCTIONS_MAP[template];
+      const adHocScheduledScorer: ScheduledScorer = instructions
+        ? {
+            name: displayMap[template] ?? template,
+            type: 'llm',
+            llmTemplate: LLM_TEMPLATE.CUSTOM,
+            instructions,
+            model: currentEndpointModel,
+            is_instructions_judge: true,
+            isSessionLevelScorer: false,
+          }
+        : {
+            name: displayMap[template] ?? template,
+            type: 'llm',
+            llmTemplate: template,
+            model: currentEndpointModel,
+            is_instructions_judge: false,
+            isSessionLevelScorer: false,
+          };
+      return transformScheduledScorer(adHocScheduledScorer).serialized_scorer;
+    });
+
+    return [...fromCustom, ...fromTemplates];
+  };
+
+  const handleSubmit = () => {
+    let serializedScorers: string[];
+    try {
+      serializedScorers = buildSerializedScorers();
+    } catch (error) {
+      setBuildError(error instanceof Error ? error : new Error(String(error)));
+      return;
+    }
+    setBuildError(null);
+
+    invokeGenAIEvaluation(
+      {
+        experimentId,
+        traceIds: selectedTraceIds,
+        serializedScorers,
+      },
+      {
+        onSuccess: (response) => {
+          queryClient.invalidateQueries({ queryKey: ['SEARCH_RUNS', experimentId] });
+          closeAndResetSelections();
+          navigate({
+            pathname: Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.EvaluationRuns),
+            search: `?${SELECTED_RUN_UUID_QUERY_PARAM}=${response.run_id}`,
+          });
+        },
+      },
+    );
   };
 
   return (
     <>
-      <Button componentId="mlflow.eval-runs.start-run-button" icon={<ChartLineIcon />} onClick={() => setIsOpen(true)}>
+      <Button
+        componentId="mlflow.eval-runs.start-run-button"
+        icon={<ChartLineIcon />}
+        type="primary"
+        onClick={() => setIsOpen(true)}
+      >
         <FormattedMessage
-          defaultMessage="Run evaluation"
-          description="Label for a button that displays instructions for starting a new evaluation run"
+          defaultMessage="Evaluate traces"
+          description="Label for the primary button that opens the run-evaluation modal"
         />
       </Button>
       <Modal
         componentId="mlflow.eval-runs.start-run-modal"
         title={
-          <FormattedMessage defaultMessage="Run evaluation" description="Title for the run evaluation modal dialog" />
+          <FormattedMessage defaultMessage="Evaluate traces" description="Title for the run evaluation modal dialog" />
         }
         visible={isOpen}
         cancelText={intl.formatMessage({
@@ -111,11 +206,21 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
                 description: 'Button text for running a single judge from the run evaluation modal',
               })
         }
-        okButtonProps={{ disabled: runJudgeDisabled }}
-        onOk={() => {}}
-        onCancel={closeAndResetSelections}
+        okButtonProps={{ disabled: runJudgeDisabled, loading: isSubmitting }}
+        cancelButtonProps={{ disabled: isSubmitting }}
+        onOk={handleSubmit}
+        onCancel={isSubmitting ? undefined : closeAndResetSelections}
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+          {submissionError && (
+            <Alert
+              componentId="mlflow.eval-runs.start-run-modal.error"
+              type="error"
+              message={submissionError.message}
+              closable
+              onClose={clearSubmissionError}
+            />
+          )}
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
             <Typography.Text bold>
               <FormattedMessage
@@ -166,6 +271,7 @@ export const RunEvaluationButton = ({ experimentId }: { experimentId: string }) 
             <JudgesSelectionSection
               experimentId={experimentId}
               enabled={isOpen}
+              templateOptions={templateOptions}
               selectedScorers={selectedScorers}
               selectedTemplates={selectedTemplates}
               onToggleScorer={toggleScorer}
@@ -216,6 +322,7 @@ const HIDDEN_PRE_BUILT_TEMPLATES = [LLM_TEMPLATE.CUSTOM, LLM_TEMPLATE.GUIDELINES
 const JudgesSelectionSection = ({
   experimentId,
   enabled,
+  templateOptions,
   selectedScorers,
   selectedTemplates,
   onToggleScorer,
@@ -223,6 +330,7 @@ const JudgesSelectionSection = ({
 }: {
   experimentId: string;
   enabled: boolean;
+  templateOptions: ReturnType<typeof useTemplateOptions>['templateOptions'];
   selectedScorers: LLMScorer[];
   selectedTemplates: LLM_TEMPLATE[];
   onToggleScorer: (scorer: LLMScorer) => void;
@@ -234,7 +342,6 @@ const JudgesSelectionSection = ({
   const [judgeSelectionMode, setJudgeSelectionMode] = useState<JudgeSelectionMode>('llm');
 
   const { data, isLoading: loadingScorers } = useGetScheduledScorers(experimentId, { enabled });
-  const { templateOptions } = useTemplateOptions(ScorerEvaluationScope.TRACES);
 
   const displayedLLMScorers = useMemo(() => {
     const lowercased = searchValue.toLowerCase();
