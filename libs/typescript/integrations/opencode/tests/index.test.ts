@@ -711,14 +711,40 @@ describe('MLflowTracingPlugin', () => {
       );
       expect(llmCalls.length).toBe(2);
 
-      // The LLM span outputs should include tool_calls
-      expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: 'llm_call',
-          spanType: 'LLM',
-          inputs: expect.objectContaining({ model: 'anthropic/claude-3-opus' }),
-        }),
-      );
+      // The LLM span outputs should include tool_calls in the OpenAI chat-completion
+      // shape ({id, type: 'function', function: {name, arguments}}) so MLflow's Chat
+      // view can render them, consistent with the other integrations.
+      type OutputMessage = {
+        role: string;
+        content: string | null;
+        tool_calls?: Array<{
+          id: string;
+          type: string;
+          function: { name: string; arguments: string };
+        }>;
+      };
+      const setOutputsCalls = (mlflowTracing.startSpan as jest.Mock).mock.results[0].value
+        .setOutputs.mock.calls as Array<[{ choices?: Array<{ message?: OutputMessage }> }]>;
+      const toolCallMessages = setOutputsCalls
+        .map(([outputs]) => outputs?.choices?.[0]?.message)
+        .filter((message): message is OutputMessage => Boolean(message?.tool_calls));
+      expect(toolCallMessages).toHaveLength(2);
+      for (const message of toolCallMessages) {
+        // tool-call-only responses carry null content (OpenAI convention)
+        expect(message.content).toBeNull();
+        for (const toolCall of message.tool_calls ?? []) {
+          expect(typeof toolCall.id).toBe('string');
+          expect(toolCall.type).toBe('function');
+          expect(typeof toolCall.function.name).toBe('string');
+          // arguments must be a JSON string, not a raw object
+          expect(typeof toolCall.function.arguments).toBe('string');
+        }
+      }
+      const firstToolCall = toolCallMessages[0].tool_calls?.[0];
+      expect(firstToolCall?.function.name).toBe('Read');
+      expect(JSON.parse(firstToolCall?.function.arguments ?? '{}')).toEqual({
+        file_path: '/src/plan.ts',
+      });
     });
   });
 

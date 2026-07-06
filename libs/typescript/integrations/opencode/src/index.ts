@@ -343,16 +343,27 @@ function createLlmAndToolSpans(
         llmSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, tokenUsage);
       }
 
+      // Emit the OpenAI chat-completion message shape (content: string | null,
+      // tool_calls: [{id, type, function: {name, arguments}}]) so MLflow's Chat view
+      // renders tool-call spans and traces stay consistent with the other integrations
+      // (see integrations/codex and integrations/qwen-code).
       const outputMessage: {
         role: string;
-        content: string;
-        tool_calls?: Array<{ id: string; name: string; input: Record<string, unknown> }>;
-      } = { role: 'assistant', content: textContent };
+        content: string | null;
+        tool_calls?: Array<{
+          id: string;
+          type: 'function';
+          function: { name: string; arguments: string };
+        }>;
+      } = { role: 'assistant', content: textContent || null };
       if (toolParts.length > 0) {
         outputMessage.tool_calls = toolParts.map((p) => ({
           id: p.callID || '',
-          name: p.tool || 'unknown',
-          input: p.state?.input || {},
+          type: 'function' as const,
+          function: {
+            name: p.tool || 'unknown',
+            arguments: JSON.stringify(p.state?.input ?? {}),
+          },
         }));
       }
 
