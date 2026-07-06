@@ -891,10 +891,10 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 3.0,
-        "output_per_million_tokens": 15.0,
-        "cache_read_per_million_tokens": 0.3,
-        "cache_write_per_million_tokens": 3.75,
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.2,
+        "cache_write_per_million_tokens": 2.5,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -910,7 +910,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-01"
+      "last_updated_at": "2026-07-06"
     },
     "claude-sonnet-5@default": {
       "mode": "chat",
@@ -920,10 +920,10 @@
         "max_tokens": 128000
       },
       "pricing": {
-        "input_per_million_tokens": 3.0,
-        "output_per_million_tokens": 15.0,
-        "cache_read_per_million_tokens": 0.3,
-        "cache_write_per_million_tokens": 3.75,
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0,
+        "cache_read_per_million_tokens": 0.2,
+        "cache_write_per_million_tokens": 2.5,
         "tooling": {
           "search_context_per_query": {
             "search_context_size_high": 0.01,
@@ -939,7 +939,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-07-01"
+      "last_updated_at": "2026-07-06"
     },
     "codestral-2": {
       "mode": "chat",
