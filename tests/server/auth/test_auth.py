@@ -712,6 +712,11 @@ def test_create_model_version_requires_read_on_source_model(
         assert response.status_code == 200
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_create_model_version_from_own_source_succeeds(
     client: MlflowClient, monkeypatch: pytest.MonkeyPatch
 ):
@@ -722,8 +727,45 @@ def test_create_model_version_from_own_source_succeeds(
         run = client.create_run(exp_id)
         run_id = run.info.run_id
         rm = client.create_registered_model("own-source-authz-model")
+
+    # Under no_permission_auth.ini the creator has no default read, so grant READ on the
+    # source experiment explicitly — the create must succeed with the source-read guard active.
+    grant_role_permission(client.tracking_uri, username1, "experiment", exp_id, "READ")
+
+    with User(username1, password1, monkeypatch):
         mv = client.create_model_version(rm.name, f"{run.info.artifact_uri}/model", run_id=run_id)
         assert mv.name == rm.name
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_create_model_version_empty_source_id_does_not_bypass(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch
+):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("empty-id-authz-exp")
+        run = client.create_run(exp_id)
+        source = run.info.artifact_uri
+
+    with User(username2, password2, monkeypatch):
+        rm = client.create_registered_model("empty-id-authz-model")
+
+    # An explicitly-supplied empty run_id must not skip the source-read guard: the request
+    # is denied rather than slipping past as if run_id were absent.
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={"name": rm.name, "source": source, "run_id": ""},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
 
 
 def _wait(url: str, timeout: int = 10) -> None:

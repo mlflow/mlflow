@@ -1181,9 +1181,12 @@ def validate_can_create_model_version():
         return False
     body = request.get_json(force=True, silent=True)
     body = body if isinstance(body, dict) else {}
-    if body.get("run_id") and not _get_permission_from_run_id().can_read:
+    # Presence of run_id/model_id means the version is anchored to that source, so require
+    # READ on it. Guard on presence (not truthiness): an explicitly-supplied empty id is
+    # denied here rather than being allowed to slip past the guard as if it were absent.
+    if "run_id" in body and not (body["run_id"] and _get_permission_from_run_id().can_read):
         return False
-    if body.get("model_id") and not _get_permission_from_model_id().can_read:
+    if "model_id" in body and not (body["model_id"] and _get_permission_from_model_id().can_read):
         return False
     return True
 
