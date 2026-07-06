@@ -578,11 +578,12 @@ def _get_role_permission_or_default(
     return get_permission(max_permission(perm.name, default.name))
 
 
-def _user_can_create_in_workspace() -> bool:
+def _can_create_in_workspace(username: str) -> bool:
     """
-    True if the current request can create new resources in the request's
-    workspace. Always allows when workspaces are disabled. Otherwise requires
-    a workspace-wide grant whose level has ``can_use`` (i.e. USE or MANAGE under
+    True if *username* can create new resources in the request's workspace.
+
+    Always allows when workspaces are disabled. Otherwise requires a
+    workspace-wide grant whose level has ``can_use`` (i.e. USE or MANAGE under
     the simplified two-tier workspace model). Resource-specific grants don't
     confer create rights — only workspace-wide grants do.
 
@@ -602,13 +603,17 @@ def _user_can_create_in_workspace() -> bool:
     if workspace_name is None:
         return False
 
-    user = store.get_user(authenticate_request().username)
+    user = store.get_user(username)
     perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
     if perm is not None and perm.can_use:
         return True
     if perm is None and _user_inherits_default_workspace_grant(workspace_name):
         return get_permission(auth_config.default_permission).can_use
     return False
+
+
+def _user_can_create_in_workspace() -> bool:
+    return _can_create_in_workspace(authenticate_request().username)
 
 
 def _get_resource_workspace(
@@ -1228,18 +1233,7 @@ def validate_can_create_registered_model() -> bool:
 
 
 def validate_can_create_mcp_server(username: str) -> bool:
-    if not MLFLOW_ENABLE_WORKSPACES.get():
-        return True
-    workspace_name = workspace_context.get_request_workspace()
-    if workspace_name is None:
-        return False
-    user = store.get_user(username)
-    perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
-    if perm is not None and perm.can_use:
-        return True
-    if perm is None and _user_inherits_default_workspace_grant(workspace_name):
-        return get_permission(auth_config.default_permission).can_use
-    return False
+    return _can_create_in_workspace(username)
 
 
 def validate_can_view_workspace() -> bool:
@@ -4654,17 +4648,14 @@ def _get_otel_validator(
         experiment_id = request.headers.get("x-mlflow-experiment-id")
         if not experiment_id:
             raise MlflowException(
-                "Missing required header: X-Mlflow-Experiment-Id",
-                error_code=BAD_REQUEST,
+                "Missing required header: X-Mlflow-Experiment-Id", error_code=BAD_REQUEST
             )
         return _get_experiment_permission(experiment_id, username).can_update
 
     return validator
 
 
-def _find_fastapi_validator(
-    path: str,
-) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
+def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Find the validator for a FastAPI route that bypasses Flask.
 
@@ -4691,8 +4682,6 @@ def _find_fastapi_validator(
         return _get_require_authentication_validator()
 
     if is_mcp_server_api_path(path):
-        if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
-            return None
         return _get_mcp_server_validator(path)
 
     return None
@@ -4742,7 +4731,7 @@ def _find_fastapi_response_filter(
         (
             handler
             for (route, m), handler in FASTAPI_RESPONSE_FILTERS.items()
-            if m == method and path == route
+            if m == method and path.rstrip("/") == route.rstrip("/")
         ),
         None,
     )
@@ -4859,19 +4848,9 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
     (update_role, "PATCH", UPDATE_ROLE, AJAX_UPDATE_ROLE),
     (delete_role, "DELETE", DELETE_ROLE, AJAX_DELETE_ROLE),
     (add_role_permission, "POST", ADD_ROLE_PERMISSION, AJAX_ADD_ROLE_PERMISSION),
-    (
-        remove_role_permission,
-        "DELETE",
-        REMOVE_ROLE_PERMISSION,
-        AJAX_REMOVE_ROLE_PERMISSION,
-    ),
+    (remove_role_permission, "DELETE", REMOVE_ROLE_PERMISSION, AJAX_REMOVE_ROLE_PERMISSION),
     (list_role_permissions, "GET", LIST_ROLE_PERMISSIONS, AJAX_LIST_ROLE_PERMISSIONS),
-    (
-        update_role_permission,
-        "PATCH",
-        UPDATE_ROLE_PERMISSION,
-        AJAX_UPDATE_ROLE_PERMISSION,
-    ),
+    (update_role_permission, "PATCH", UPDATE_ROLE_PERMISSION, AJAX_UPDATE_ROLE_PERMISSION),
     (assign_role, "POST", ASSIGN_ROLE, AJAX_ASSIGN_ROLE),
     (unassign_role, "DELETE", UNASSIGN_ROLE, AJAX_UNASSIGN_ROLE),
     (list_user_roles, "GET", LIST_USER_ROLES, AJAX_LIST_USER_ROLES),
@@ -4880,12 +4859,7 @@ _RBAC_ROUTES: list[tuple[Callable[[], Any], str, str, str]] = [
     # ``grant`` / ``revoke`` mutate state (POST); ``check`` resolves the user's
     # effective permission without touching the DB (GET).
     (grant_user_permission, "POST", GRANT_USER_PERMISSION, AJAX_GRANT_USER_PERMISSION),
-    (
-        revoke_user_permission,
-        "POST",
-        REVOKE_USER_PERMISSION,
-        AJAX_REVOKE_USER_PERMISSION,
-    ),
+    (revoke_user_permission, "POST", REVOKE_USER_PERMISSION, AJAX_REVOKE_USER_PERMISSION),
     (get_user_permission, "GET", GET_USER_PERMISSION, AJAX_GET_USER_PERMISSION),
 ]
 

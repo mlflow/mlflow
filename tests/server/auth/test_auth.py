@@ -33,6 +33,7 @@ from mlflow.server import auth as auth_module
 from mlflow.server.asgi_utils import get_routed_asgi_path
 from mlflow.server.auth import (
     _authenticate_fastapi_request,
+    _find_fastapi_response_filter,
     _find_fastapi_validator,
     _re_compile_path,
 )
@@ -3918,11 +3919,11 @@ def test_mcp_server_routes_have_validators(path):
     "path",
     [f"{prefix}{sub}" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX) for sub in _MCP_SUBPATHS],
 )
-def test_mcp_server_routes_skip_validator_with_custom_auth(path):
+def test_mcp_server_routes_return_validator_with_custom_auth(path):
     with mock.patch("mlflow.server.auth.auth_config") as cfg:
         cfg.authorization_function = "custom_auth:authorize"
         validator = _find_fastapi_validator(path)
-    assert validator is None
+    assert validator is not None
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
@@ -4211,7 +4212,26 @@ def test_mcp_server_root_post_enforces_workspace_create_authz(prefix, monkeypatc
     auth_store.engine.dispose()
 
 
-def test_read_predicate_honors_grant_default_workspace_access(monkeypatch):
+def test_validate_can_create_mcp_server_delegates_to_shared_helper():
+    with mock.patch.object(
+        auth_module, "_can_create_in_workspace", return_value=True
+    ) as mock_helper:
+        result = auth_module.validate_can_create_mcp_server("alice")
+        mock_helper.assert_called_once_with("alice")
+        assert result is True
+
+
+@pytest.mark.parametrize(
+    ("resource_type", "resource_id"),
+    [
+        ("mcp_server", "com.test/some-server"),
+        ("registered_model", "my-model"),
+        ("experiment", "123"),
+    ],
+)
+def test_read_predicate_honors_grant_default_workspace_access(
+    monkeypatch, resource_type, resource_id
+):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     default_workspace = "team-default"
     monkeypatch.setattr(
@@ -4241,8 +4261,17 @@ def test_read_predicate_honors_grant_default_workspace_access(monkeypatch):
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
 
     with workspace_context.WorkspaceContext(default_workspace):
-        predicate = auth_module._role_based_read_predicate("alice", "mcp_server")
-        assert predicate("com.test/some-server") is True
+        predicate = auth_module._role_based_read_predicate("alice", resource_type)
+        assert predicate(resource_id) is True
+
+
+@pytest.mark.parametrize(
+    "path",
+    [f"{prefix}/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)]
+    + [f"{prefix}/bindings/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)],
+)
+def test_response_filter_matches_trailing_slash(path):
+    assert _find_fastapi_response_filter(path, "GET") is not None
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
