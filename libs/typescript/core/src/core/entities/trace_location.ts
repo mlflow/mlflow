@@ -131,13 +131,13 @@ export function deserializeTraceLocation(json: SerializedTraceLocation | undefin
 
   return {
     type: json.type,
-    mlflowExperiment: json?.mlflow_experiment
+    mlflowExperiment: json.mlflow_experiment
       ? { experimentId: json.mlflow_experiment.experiment_id }
       : undefined,
-    inferenceTable: json?.inference_table
+    inferenceTable: json.inference_table
       ? { fullTableName: json.inference_table.full_table_name }
       : undefined,
-    ucTablePrefix: json?.uc_table_prefix
+    ucTablePrefix: json.uc_table_prefix
       ? {
           catalogName: json.uc_table_prefix.catalog_name,
           schemaName: json.uc_table_prefix.schema_name,
