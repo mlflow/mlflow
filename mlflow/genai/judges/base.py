@@ -110,7 +110,8 @@ class Judge(Scorer):
 
         Args:
             traces: Training traces for alignment
-            optimizer: The alignment optimizer to use. If None, uses the default SIMBA optimizer.
+            optimizer: The alignment optimizer to use. If None, uses the default MemAlign
+                optimizer.
 
         Returns:
             A new Judge instance that is better aligned with the input traces.
@@ -125,8 +126,8 @@ class Judge(Scorer):
 
                 import logging
 
-                # For SIMBA optimizer (default)
-                logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
+                # For MemAlign optimizer (default)
+                logging.getLogger("mlflow.genai.judges.optimizers.memalign").setLevel(logging.DEBUG)
         """
         if self.is_session_level_scorer:
             raise NotImplementedError("Alignment is not supported for session-level scorers.")

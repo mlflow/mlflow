@@ -18,7 +18,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "baai/bge-m3": {
       "mode": "embedding",
@@ -37,7 +38,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "baichuan/baichuan-m2-32b": {
       "mode": "chat",
@@ -56,7 +58,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "baidu/ernie-4.5-21B-a3b": {
       "mode": "chat",
@@ -75,7 +78,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "baidu/ernie-4.5-21B-a3b-thinking": {
       "mode": "chat",
@@ -94,7 +98,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "baidu/ernie-4.5-300b-a47b-paddle": {
       "mode": "chat",
@@ -113,7 +118,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "baidu/ernie-4.5-vl-28b-a3b": {
       "mode": "chat",
@@ -132,7 +138,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "baidu/ernie-4.5-vl-28b-a3b-thinking": {
       "mode": "chat",
@@ -151,7 +158,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "baidu/ernie-4.5-vl-424b-a47b": {
       "mode": "chat",
@@ -170,7 +178,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-ocr": {
       "mode": "chat",
@@ -189,7 +198,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-prover-v2-671b": {
       "mode": "chat",
@@ -208,7 +218,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-r1-0528": {
       "mode": "chat",
@@ -228,7 +239,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-r1-0528-qwen3-8b": {
       "mode": "chat",
@@ -247,7 +259,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-r1-distill-llama-70b": {
       "mode": "chat",
@@ -266,7 +279,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-r1-distill-qwen-14b": {
       "mode": "chat",
@@ -285,7 +299,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-r1-distill-qwen-32b": {
       "mode": "chat",
@@ -304,7 +319,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-r1-turbo": {
       "mode": "chat",
@@ -323,7 +339,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-v3-0324": {
       "mode": "chat",
@@ -343,7 +360,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-v3-turbo": {
       "mode": "chat",
@@ -362,7 +380,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-v3.1": {
       "mode": "chat",
@@ -382,7 +401,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-v3.1-terminus": {
       "mode": "chat",
@@ -402,7 +422,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-v3.2": {
       "mode": "chat",
@@ -422,7 +443,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-v3.2-exp": {
       "mode": "chat",
@@ -441,7 +463,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "google/gemma-3-12b-it": {
       "mode": "chat",
@@ -460,7 +483,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "google/gemma-3-27b-it": {
       "mode": "chat",
@@ -479,7 +503,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "gryphe/mythomax-l2-13b": {
       "mode": "chat",
@@ -498,7 +523,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "kwaipilot/kat-coder-pro": {
       "mode": "chat",
@@ -518,7 +544,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/llama-3-70b-instruct": {
       "mode": "chat",
@@ -537,7 +564,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/llama-3-8b-instruct": {
       "mode": "chat",
@@ -556,7 +584,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/llama-3.1-8b-instruct": {
       "mode": "chat",
@@ -575,7 +604,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/llama-3.2-3b-instruct": {
       "mode": "chat",
@@ -594,7 +624,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/llama-3.3-70b-instruct": {
       "mode": "chat",
@@ -613,7 +644,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/llama-4-maverick-17b-128e-instruct-fp8": {
       "mode": "chat",
@@ -632,7 +664,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/llama-4-scout-17b-16e-instruct": {
       "mode": "chat",
@@ -651,7 +684,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "microsoft/wizardlm-2-8x22b": {
       "mode": "chat",
@@ -670,7 +704,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "minimax/minimax-m2": {
       "mode": "chat",
@@ -690,7 +725,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "minimax/minimax-m2.1": {
       "mode": "chat",
@@ -710,7 +746,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "minimaxai/minimax-m1-80k": {
       "mode": "chat",
@@ -729,7 +766,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistralai/mistral-nemo": {
       "mode": "chat",
@@ -748,7 +786,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "moonshotai/kimi-k2-0905": {
       "mode": "chat",
@@ -767,7 +806,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "moonshotai/kimi-k2-instruct": {
       "mode": "chat",
@@ -786,7 +826,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "moonshotai/kimi-k2-thinking": {
       "mode": "chat",
@@ -805,7 +846,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "nousresearch/hermes-2-pro-llama-3-8b": {
       "mode": "chat",
@@ -824,7 +866,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/gpt-oss-120b": {
       "mode": "chat",
@@ -843,7 +886,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/gpt-oss-20b": {
       "mode": "chat",
@@ -862,7 +906,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "paddlepaddle/paddleocr-vl": {
       "mode": "chat",
@@ -881,7 +926,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen-2.5-72b-instruct": {
       "mode": "chat",
@@ -900,7 +946,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen-mt-plus": {
       "mode": "chat",
@@ -919,7 +966,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen2.5-7b-instruct": {
       "mode": "chat",
@@ -938,7 +986,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen2.5-vl-72b-instruct": {
       "mode": "chat",
@@ -957,7 +1006,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-235b-a22b-fp8": {
       "mode": "chat",
@@ -976,7 +1026,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-235b-a22b-instruct-2507": {
       "mode": "chat",
@@ -995,7 +1046,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-235b-a22b-thinking-2507": {
       "mode": "chat",
@@ -1014,7 +1066,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-30b-a3b-fp8": {
       "mode": "chat",
@@ -1033,7 +1086,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-32b-fp8": {
       "mode": "chat",
@@ -1052,7 +1106,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-4b-fp8": {
       "mode": "chat",
@@ -1071,7 +1126,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-8b-fp8": {
       "mode": "chat",
@@ -1090,7 +1146,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-coder-30b-a3b-instruct": {
       "mode": "chat",
@@ -1109,7 +1166,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-coder-480b-a35b-instruct": {
       "mode": "chat",
@@ -1128,7 +1186,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-embedding-0.6b": {
       "mode": "embedding",
@@ -1147,7 +1206,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-embedding-8b": {
       "mode": "embedding",
@@ -1166,7 +1226,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-max": {
       "mode": "chat",
@@ -1185,7 +1246,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-next-80b-a3b-instruct": {
       "mode": "chat",
@@ -1204,7 +1266,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-next-80b-a3b-thinking": {
       "mode": "chat",
@@ -1223,7 +1286,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-omni-30b-a3b-instruct": {
       "mode": "chat",
@@ -1242,7 +1306,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-omni-30b-a3b-thinking": {
       "mode": "chat",
@@ -1261,7 +1326,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-vl-235b-a22b-instruct": {
       "mode": "chat",
@@ -1280,7 +1346,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-vl-235b-a22b-thinking": {
       "mode": "chat",
@@ -1299,7 +1366,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-vl-30b-a3b-instruct": {
       "mode": "chat",
@@ -1318,7 +1386,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-vl-30b-a3b-thinking": {
       "mode": "chat",
@@ -1337,7 +1406,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "qwen/qwen3-vl-8b-instruct": {
       "mode": "chat",
@@ -1356,7 +1426,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "sao10k/l3-70b-euryale-v2.1": {
       "mode": "chat",
@@ -1375,7 +1446,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "sao10k/l3-8b-lunaris": {
       "mode": "chat",
@@ -1394,7 +1466,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "sao10k/l31-70b-euryale-v2.2": {
       "mode": "chat",
@@ -1413,7 +1486,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "skywork/r1v4-lite": {
       "mode": "chat",
@@ -1432,7 +1506,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "xiaomimimo/mimo-v2-flash": {
       "mode": "chat",
@@ -1452,7 +1527,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "zai-org/autoglm-phone-9b-multilingual": {
       "mode": "chat",
@@ -1471,7 +1547,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "zai-org/glm-4.5": {
       "mode": "chat",
@@ -1491,7 +1568,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "zai-org/glm-4.5-air": {
       "mode": "chat",
@@ -1510,7 +1588,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "zai-org/glm-4.5v": {
       "mode": "chat",
@@ -1530,7 +1609,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "zai-org/glm-4.6": {
       "mode": "chat",
@@ -1550,7 +1630,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "zai-org/glm-4.6v": {
       "mode": "chat",
@@ -1570,7 +1651,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "zai-org/glm-4.7": {
       "mode": "chat",
@@ -1590,7 +1672,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }

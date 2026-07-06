@@ -1,5 +1,5 @@
 import { isNil } from 'lodash';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 
@@ -160,23 +160,6 @@ export const useGenAITracesUIStateColumns = (
     },
     [enableURLPersistence, setColumnState, hiddenColumns, allColumns, setUrlColumnIds],
   );
-
-  // Migration: sync localStorage state to URL on initial mount
-  const hasSyncedToURL = useRef(false);
-  useEffect(() => {
-    if (
-      enableURLPersistence &&
-      !hasSyncedToURL.current &&
-      (!urlColumnIds || urlColumnIds.length === 0) &&
-      allColumns.length > 0
-    ) {
-      hasSyncedToURL.current = true;
-      const selectedIds = allColumns.filter((col) => !hiddenColumns.includes(col.id)).map((col) => col.id);
-      if (selectedIds.length > 0) {
-        setUrlColumnIds(selectedIds, true);
-      }
-    }
-  }, [enableURLPersistence, urlColumnIds, hiddenColumns, allColumns, setUrlColumnIds]);
 
   return { hiddenColumns, toggleColumns };
 };

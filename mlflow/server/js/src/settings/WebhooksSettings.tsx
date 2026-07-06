@@ -169,32 +169,27 @@ const WebhooksSettings = ({
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        {(showTitle || showDescription) && (
-          <div>
-            {showTitle && (
-              <Typography.Title level={4} withoutMargins>
-                {title ?? <FormattedMessage defaultMessage="Webhooks" description="Webhooks settings section title" />}
-              </Typography.Title>
-            )}
-            {showDescription && (
-              <Typography.Text color="secondary">
-                {description ?? (
-                  <FormattedMessage
-                    defaultMessage="Manage webhooks to receive HTTP notifications when events occur in MLflow."
-                    description="Webhooks settings section description"
-                  />
-                )}
-              </Typography.Text>
-            )}
-          </div>
-        )}
-        <Button
-          componentId="mlflow.settings.webhooks.create-button"
-          type="primary"
-          onClick={openCreateModal}
-          css={!showTitle && !showDescription ? { marginLeft: 'auto' } : undefined}
-        >
+      {(showTitle || showDescription) && (
+        <div>
+          {showTitle && (
+            <Typography.Title level={4} withoutMargins>
+              {title ?? <FormattedMessage defaultMessage="Webhooks" description="Webhooks settings section title" />}
+            </Typography.Title>
+          )}
+          {showDescription && (
+            <Typography.Text color="secondary">
+              {description ?? (
+                <FormattedMessage
+                  defaultMessage="Manage webhooks to receive HTTP notifications when events occur in MLflow."
+                  description="Webhooks settings section description"
+                />
+              )}
+            </Typography.Text>
+          )}
+        </div>
+      )}
+      <div css={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}>
+        <Button componentId="mlflow.settings.webhooks.create-button" type="primary" onClick={openCreateModal}>
           <FormattedMessage defaultMessage="Create webhook" description="Create webhook button" />
         </Button>
       </div>

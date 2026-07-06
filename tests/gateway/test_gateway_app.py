@@ -249,6 +249,7 @@ def test_dynamic_route():
                 "object": "chat.completion",
                 "created": 1677858242,
                 "model": "gpt-4o-mini",
+                "provider": "openai",
                 "usage": {
                     "prompt_tokens": 13,
                     "completion_tokens": 7,

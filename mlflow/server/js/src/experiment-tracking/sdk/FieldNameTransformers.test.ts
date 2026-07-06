@@ -1,5 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import {
+  transformGetExperimentResponse,
   transformGetRunResponse,
   transformSearchRunsResponse,
   transformSearchExperimentsResponse,
@@ -190,5 +191,29 @@ describe('transformSearchExperimentsResponse', () => {
     const transformedResponse = transformSearchExperimentsResponse(originalResponse);
 
     expect(transformedResponse).toBeNull();
+  });
+});
+
+describe('transformGetExperimentResponse', () => {
+  it('transforms snake_case experiment-only fields', () => {
+    const originalResponse = {
+      experiment: {
+        experiment_id: '1',
+        name: 'Experiment 1',
+        lifecycle_stage: 'active',
+        effective_trace_archival_retention: '30d',
+      },
+    };
+
+    const transformedResponse = transformGetExperimentResponse(originalResponse);
+
+    expect(transformedResponse).toEqual({
+      experiment: expect.objectContaining({
+        experimentId: '1',
+        name: 'Experiment 1',
+        lifecycleStage: 'active',
+        effectiveTraceArchivalRetention: '30d',
+      }),
+    });
   });
 });

@@ -4,7 +4,7 @@ description: Add a review comment to a GitHub pull request.
 allowed-tools:
   - Bash(gh api:*)
   - Bash(gh pr view:*)
-  - Bash(uv run skills fetch-diff:*)
+  - Bash(uv run --package skills skills fetch-diff:*)
 ---
 
 # Add Review Comment

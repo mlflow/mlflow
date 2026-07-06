@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.os_environ_set_in_test import OsEnvironSetInTest
 
 
-def test_os_environ_set_in_test(index_path: Path) -> None:
+def test_os_environ_set_in_test(index: SymbolIndex) -> None:
     code = """
 import os
 
@@ -18,7 +19,7 @@ def non_test_func():
     os.environ["MY_VAR"] = "value"
 """
     config = Config(select={OsEnvironSetInTest.name})
-    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    violations = lint_file(Path("test_file.py"), code, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, OsEnvironSetInTest) for v in violations)
     assert violations[0].range == Range(Position(5, 4))

@@ -41,7 +41,7 @@ const CodeSnippetWithCopy = ({ code, language }: { code: string; language: CodeS
 export const OptimizeModal = ({ visible, promptName, promptVersion, onCancel }: Props) => {
   const { theme } = useDesignSystemTheme();
 
-  const bashCode = `pip install -U 'mlflow>=3.5.0' 'dspy>=3.0.0' openai`;
+  const bashCode = `pip install -U 'mlflow>=3.5.0' 'dspy>=3.0.0' openai databricks-agents`;
 
   const pythonCode = `import os
 from typing import Any

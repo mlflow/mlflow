@@ -98,7 +98,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         Returns:
             Job entity instance
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             job_id = str(uuid.uuid4())
             creation_time = get_current_time_millis()
 
@@ -120,7 +120,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             return job.to_mlflow_entity()
 
     def _update_job(self, job_id: str, new_status: JobStatus, result: str | None = None) -> Job:
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             job = self._get_sql_job(session, job_id)
 
             if JobStatus.is_finalized(job.status):
@@ -146,7 +146,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         Raises:
             MlflowException: If job is not in PENDING state or doesn't exist
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # Atomic update: only transition from PENDING to RUNNING
             rows_updated = (
                 self
@@ -225,7 +225,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
         max_retries = MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES.get()
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             job = self._get_sql_job(session, job_id)
 
             if job.retry_count >= max_retries:
@@ -273,7 +273,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             return True
 
         while True:
-            with self.ManagedSessionMaker() as session:
+            with self.ManagedSessionMaker(read_only=False) as session:
                 # Select all columns needed for Job entity
                 query = self._get_query(session, SqlJob)
 
@@ -342,7 +342,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         Raises:
             MlflowException: If job with the given ID is not found
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             job = self._get_sql_job(session, job_id)
             return job.to_mlflow_entity()
 
@@ -379,7 +379,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             JobStatus.CANCELED.to_int(),
         ]
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             query = self._get_query(session, SqlJob).filter(SqlJob.status.in_(finalized_statuses))
 
             if job_ids:
@@ -423,7 +423,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
             job_id: The ID of the job to update
             status_details: Status details to merge into existing job status details
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             job = self._get_sql_job(session, job_id)
 
             # Merge new status details with existing

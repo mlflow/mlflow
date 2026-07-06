@@ -10,7 +10,13 @@ import pytest
 
 import mlflow
 from mlflow.utils import logging_utils
-from mlflow.utils.logging_utils import LOGGING_LINE_FORMAT, eprint, suppress_logs
+from mlflow.utils.logging_utils import (
+    LOGGING_LINE_FORMAT,
+    SensitiveQueryParamFilter,
+    _redact_sensitive_query_params,
+    eprint,
+    suppress_logs,
+)
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -179,6 +185,70 @@ assert logging.getLogger("mlflow").isEnabledFor({expected_level})
         ],
         env=os.environ.copy() | {env_var_name: value},
     )
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        (
+            "Retrying after broken: /path?X-Amz-Security-Token=ABC&"
+            "X-Amz-Credential=KEY%2F20260414%2Fap-northeast-1%2Fs3%2Faws4_request&"
+            "X-Amz-Date=20260414T154032Z&X-Amz-Signature=DEADBEEF",
+            "Retrying after broken: /path?X-Amz-Security-Token=[REDACTED]&"
+            "X-Amz-Credential=[REDACTED]&"
+            "X-Amz-Date=20260414T154032Z&X-Amz-Signature=[REDACTED]",
+        ),
+        (
+            "https://store.googleapis.com/o?X-Goog-Signature=ZZZ&X-Goog-Credential=YYY",
+            "https://store.googleapis.com/o?X-Goog-Signature=[REDACTED]&"
+            "X-Goog-Credential=[REDACTED]",
+        ),
+        (
+            "https://store.blob.core.windows.net/c/b?sig=AAA&se=2026-04-14T16%3A40%3A32Z",
+            "https://store.blob.core.windows.net/c/b?sig=[REDACTED]&se=2026-04-14T16%3A40%3A32Z",
+        ),
+        (
+            "just a normal log message without credentials",
+            "just a normal log message without credentials",
+        ),
+        ("path?foo=bar&baz=qux", "path?foo=bar&baz=qux"),
+    ],
+)
+def test_redact_sensitive_query_params(message: str, expected: str):
+    assert _redact_sensitive_query_params(message) == expected
+
+
+def test_sensitive_query_param_filter_rewrites_record_message():
+    capture_stream = StringIO()
+    logger = logging.getLogger(f"test_urllib3_{uuid.uuid4().hex}")
+    logger.addHandler(logging.StreamHandler(capture_stream))
+    logger.addFilter(SensitiveQueryParamFilter())
+    logger.setLevel(logging.WARNING)
+
+    logger.warning(
+        "Retrying (%r) after connection broken by %r: %s",
+        "Retry(total=1)",
+        "NameResolutionError(...)",
+        "/tokyo-prod/artifacts/traces.json"
+        "?X-Amz-Security-Token=SECRET_TOKEN"
+        "&X-Amz-Algorithm=AWS4-HMAC-SHA256"
+        "&X-Amz-Signature=SECRET_SIGNATURE"
+        "&X-Amz-Credential=SECRET_CREDENTIAL",
+    )
+
+    output = capture_stream.getvalue()
+    assert "X-Amz-Security-Token=[REDACTED]" in output
+    assert "X-Amz-Signature=[REDACTED]" in output
+    assert "X-Amz-Credential=[REDACTED]" in output
+    assert "X-Amz-Algorithm=AWS4-HMAC-SHA256" in output
+    assert "SECRET_TOKEN" not in output
+    assert "SECRET_SIGNATURE" not in output
+    assert "SECRET_CREDENTIAL" not in output
+
+
+def test_sensitive_query_param_filter_installed_on_urllib3_connectionpool():
+    urllib3_logger = logging.getLogger("urllib3.connectionpool")
+    assert any(isinstance(f, SensitiveQueryParamFilter) for f in urllib3_logger.filters)
 
 
 @pytest.mark.parametrize("configure_logging", ["0", "1"])

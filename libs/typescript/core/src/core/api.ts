@@ -1,6 +1,6 @@
 import { trace as otelTrace, context, Span as ApiSpan, INVALID_TRACEID } from '@opentelemetry/api';
 import { Span as OTelSpan } from '@opentelemetry/sdk-trace-node';
-import { DEFAULT_SPAN_NAME, SpanType, TraceMetadataKey } from './constants';
+import { DEFAULT_SPAN_NAME, SpanLogLevel, SpanType, TraceMetadataKey } from './constants';
 import { createMlflowSpan, LiveSpan, NoOpSpan } from './entities/span';
 import { getTracer } from './provider';
 import { InMemoryTraceManager } from './trace_manager';
@@ -41,6 +41,13 @@ export interface SpanOptions {
    * The parent span object. If not provided, the span is considered a root span.
    */
   parent?: LiveSpan;
+
+  /**
+   * Optional severity level to attach to the span. Accepts a SpanLogLevel
+   * enum value or its name (e.g. "INFO", "DEBUG"). If not provided, the span
+   * level is resolved from the span type at end time.
+   */
+  logLevel?: SpanLogLevel | string;
 }
 
 /**
@@ -225,6 +232,9 @@ function getMlflowSpan(otelSpan: OTelSpan, options: SpanOptions): LiveSpan | NoO
   if (options.spanType) {
     mlflowSpan.setSpanType(options.spanType);
   }
+  if (options.logLevel !== undefined) {
+    mlflowSpan.setLogLevel(options.logLevel);
+  }
   return mlflowSpan;
 }
 
@@ -356,6 +366,7 @@ export function trace<T extends (...args: any[]) => any>(
           spanType: decoratorOptions?.spanType,
           attributes: decoratorOptions?.attributes,
           inputs,
+          logLevel: decoratorOptions?.logLevel,
         };
 
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
@@ -404,6 +415,7 @@ function traceFunction<T extends (...args: any[]) => any>(func: T, options?: Tra
       spanType: options?.spanType,
       attributes: options?.attributes,
       inputs: inputs,
+      logLevel: options?.logLevel,
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return

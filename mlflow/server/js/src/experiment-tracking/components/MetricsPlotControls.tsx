@@ -91,6 +91,7 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
                 />{' '}
                 <Tooltip
                   componentId="mlflow.experiment-tracking.metrics-plot-controls.reset"
+                  disableHoverableContent={false}
                   content={completedRunsTooltipText}
                 >
                   <span>
@@ -126,6 +127,7 @@ class MetricsPlotControlsImpl extends React.Component<Props> {
                   />{' '}
                   <Tooltip
                     componentId="mlflow.experiment-tracking.metrics-plot-controls.save"
+                    disableHoverableContent={false}
                     content={lineSmoothnessTooltipText}
                   >
                     <span>

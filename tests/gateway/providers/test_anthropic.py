@@ -5,11 +5,11 @@ from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
     MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS,
-    MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.anthropic import (
@@ -18,7 +18,7 @@ from mlflow.gateway.providers.anthropic import (
     _enforce_strict_schema,
     _UnsupportedSchemaError,
 )
-from mlflow.gateway.providers.base import PassthroughAction
+from mlflow.gateway.providers.base import PassthroughAction, _client_provides_auth
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse, mock_http_client
@@ -70,6 +70,70 @@ def parsed_completions_response():
     }
 
 
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        # Known CLI tools with auth header → True
+        ({"user-agent": "claude-cli/2.0.37 (external, cli)", "x-api-key": "key"}, True),
+        # Codex TUI variant
+        (
+            {
+                "user-agent": "codex-tui/0.1.0 (darwin; arm64) iTerm.app",
+                "authorization": "Bearer key",
+            },
+            True,
+        ),
+        # Codex non-interactive (Rust CLI) variant
+        (
+            {"user-agent": "codex_cli_rs/0.1.0 (darwin; arm64)", "authorization": "Bearer key"},
+            True,
+        ),
+        # Codex VS Code variant
+        (
+            {"user-agent": "codex_vscode/0.1.0 (darwin; arm64)", "authorization": "Bearer key"},
+            True,
+        ),
+        (
+            {
+                "user-agent": "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+                "x-goog-api-key": "key",
+            },
+            True,
+        ),
+        # Known CLI tool but no auth header → False
+        ({"user-agent": "claude-cli/2.0.37 (external, cli)"}, False),
+        # Unknown user-agent with auth header → False
+        ({"user-agent": "python-httpx/0.27.0", "authorization": "Bearer key"}, False),
+        # Empty / missing headers → False
+        ({}, False),
+        (None, False),
+    ],
+)
+def test_client_provides_auth(headers, expected):
+    assert _client_provides_auth(headers) == expected
+
+
+def test_get_headers_uses_server_key_by_default():
+    provider = AnthropicProvider(EndpointConfig(**completions_config()))
+    merged = provider._get_headers(headers={"x-api-key": "client-key", "X-Custom": "value"})
+    assert merged["x-api-key"] == "key"
+    assert merged["X-Custom"] == "value"
+
+
+@pytest.mark.parametrize(
+    "user_agent",
+    [
+        "claude-cli/2.0.37 (external, cli)",
+        "Codex-Desktop/26.422.2437.0",
+        "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+    ],
+)
+def test_get_headers_preserves_client_key_for_credential_agents(user_agent):
+    provider = AnthropicProvider(EndpointConfig(**completions_config()))
+    merged = provider._get_headers(headers={"x-api-key": "client-key", "user-agent": user_agent})
+    assert merged["x-api-key"] == "client-key"
+
+
 @pytest.mark.asyncio
 async def test_completions():
     resp = completions_response()
@@ -96,7 +160,7 @@ async def test_completions():
                 "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
                 "stop_sequences": ["foobazbardiddly"],
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -119,7 +183,7 @@ async def test_completions_with_default_max_tokens():
                 "max_tokens_to_sample": 8192,
                 "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -271,6 +335,7 @@ async def test_chat():
             "object": "chat.completion",
             "created": 1677858242,
             "model": "claude-2.1",
+            "provider": "anthropic",
             "choices": [
                 {
                     "message": {
@@ -302,7 +367,7 @@ async def test_chat():
                 "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
                 "temperature": 0.25,
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -391,6 +456,7 @@ async def test_chat_function_calling():
             "object": "chat.completion",
             "created": 1677858242,
             "model": "claude-2.1",
+            "provider": "anthropic",
             "choices": [
                 {
                     "index": 0,
@@ -438,7 +504,7 @@ async def test_chat_function_calling():
                     }
                 ],
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -551,6 +617,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -569,6 +636,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -587,6 +655,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -605,6 +674,7 @@ async def test_chat_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -637,7 +707,7 @@ async def test_chat_stream():
                 "temperature": 0.25,
                 "stream": True,
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -695,6 +765,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -720,6 +791,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -745,6 +817,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -770,6 +843,7 @@ async def test_chat_function_calling_stream():
                 "object": "chat.completion.chunk",
                 "created": 1677858242,
                 "model": "claude-2.1",
+                "provider": "anthropic",
                 "choices": [
                     {
                         "index": 0,
@@ -808,7 +882,7 @@ async def test_chat_function_calling_stream():
                 ],
                 "stream": True,
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -896,7 +970,7 @@ async def test_passthrough_anthropic_messages():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -929,7 +1003,7 @@ async def test_passthrough_anthropic_messages():
                 "temperature": 0.7,
                 "model": "claude-2.1",
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
         # Verify provider headers are propagated correctly
@@ -953,7 +1027,7 @@ async def test_passthrough_anthropic_messages_streaming():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -991,7 +1065,7 @@ async def test_passthrough_anthropic_messages_streaming():
                 "stream": True,
                 "model": "claude-2.1",
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
         # Verify provider headers are propagated correctly
@@ -1000,6 +1074,95 @@ async def test_passthrough_anthropic_messages_streaming():
 
         # Verify custom headers are propagated correctly
         assert captured_session_headers["X-Stream-ID"] == "stream-123"
+
+
+@pytest.mark.asyncio
+async def test_proxy_anthropic_non_streaming():
+    resp = passthrough_messages_response()
+    config = chat_config()
+
+    captured_session_headers = {}
+    mock_session_client = mock_http_client(MockAsyncResponse(resp))
+
+    def mock_client_session(headers=None, **kwargs):
+        captured_session_headers.update(headers or {})
+        return mock_session_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "model": "claude-2.1",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+        }
+        response = await provider.proxy(
+            path="v1/messages",
+            payload=payload,
+            headers={"X-Request-ID": "req-001", "host": "ignored"},
+        )
+
+    assert response == resp
+    mock_session_client.post.assert_called_once_with(
+        "https://api.anthropic.com/v1/messages",
+        json=payload,
+        timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+    )
+    assert captured_session_headers["x-api-key"] == "key"
+    assert captured_session_headers["X-Request-ID"] == "req-001"
+    assert "host" not in captured_session_headers
+
+
+@pytest.mark.asyncio
+async def test_proxy_anthropic_streaming():
+    resp = passthrough_messages_stream_response()
+    config = chat_config()
+
+    captured_session_headers = {}
+    mock_session_client = mock_http_client(
+        MockAsyncStreamingResponse(resp, headers={"Content-Type": "text/event-stream"})
+    )
+
+    def mock_client_session(headers=None, **kwargs):
+        captured_session_headers.update(headers or {})
+        return mock_session_client
+
+    with mock.patch("aiohttp.ClientSession", mock_client_session):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "model": "claude-2.1",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+            "stream": True,
+        }
+        response = await provider.proxy(path="v1/messages", payload=payload)
+        chunks = [chunk async for chunk in response]
+
+    assert len(chunks) == 7
+    assert b"message_start" in chunks[0]
+
+
+@pytest.mark.asyncio
+async def test_proxy_anthropic_streaming_detected_from_content_type():
+    resp = passthrough_messages_stream_response()
+    config = chat_config()
+
+    mock_session_client = mock_http_client(
+        MockAsyncStreamingResponse(resp, headers={"Content-Type": "text/event-stream"})
+    )
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_session_client):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "model": "claude-2.1",
+            "messages": [{"role": "user", "content": "Hello"}],
+            "max_tokens": 1024,
+            # no "stream" flag
+        }
+        response = await provider.proxy(path="v1/messages", payload=payload)
+        chunks = [chunk async for chunk in response]
+
+    assert len(chunks) == 7
+    assert b"message_start" in chunks[0]
 
 
 @pytest.mark.asyncio
@@ -1039,7 +1202,7 @@ async def test_chat_with_structured_output():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1124,6 +1287,52 @@ async def test_chat_with_structured_output_sanitizes_schema():
         # so output_config should NOT be set (falls back to plain text)
         call_kwargs = mock_session_client.post.call_args[1]
         assert "output_config" not in call_kwargs["json"]
+
+
+@pytest.mark.asyncio
+async def test_chat_with_json_object_response_format():
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "anthropic",
+            "name": "claude-sonnet-4-5",
+            "config": {
+                "anthropic_api_key": "key",
+            },
+        },
+    }
+
+    resp = {
+        "id": "msg_013Zva2CMHLNnXjNJJKqJ2EF",
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "text", "text": '{"answer": 42}'}],
+        "model": "claude-sonnet-4-5",
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+
+    mock_session_client = mock_http_client(MockAsyncResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_session_client):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [
+                {"role": "system", "content": "You are helpful."},
+                {"role": "user", "content": "Give me JSON"},
+            ],
+            "response_format": {"type": "json_object"},
+        }
+        await provider.chat(chat.RequestPayload(**payload))
+
+        # Anthropic has no schema-less JSON mode, so json_object is steered via a
+        # system instruction appended to the existing system message.
+        call_kwargs = mock_session_client.post.call_args[1]
+        body = call_kwargs["json"]
+        assert "output_config" not in body
+        assert body["system"].startswith("You are helpful.")
+        assert "valid JSON object" in body["system"]
 
 
 def test_enforce_strict_schema_sets_additional_properties_false():

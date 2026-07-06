@@ -5,7 +5,12 @@ import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { SelectSessionsModal } from './SelectSessionsModal';
 import { useGenAiTraceTableRowSelection } from '@databricks/web-shared/genai-traces-table';
-import { GenAIChatSessionsTable, useSearchMlflowTraces } from '@databricks/web-shared/genai-traces-table';
+import {
+  GenAIChatSessionsTable,
+  useSearchMlflowTraces,
+  createTraceLocationForExperiment,
+  createTraceLocationForDestinationPath,
+} from '@databricks/web-shared/genai-traces-table';
 import { TestRouter, testRoute, setupTestRouter, waitForRoutesToBeRendered } from '../../common/utils/RoutingTestUtils';
 
 // Mock GenAIChatSessionsTable to keep this test simple
@@ -18,6 +23,7 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => ({
 }));
 
 const testExperimentId = 'test-experiment-123';
+const defaultTraceLocation = createTraceLocationForExperiment(testExperimentId);
 
 describe('SelectSessionsModal', () => {
   const { history } = setupTestRouter();

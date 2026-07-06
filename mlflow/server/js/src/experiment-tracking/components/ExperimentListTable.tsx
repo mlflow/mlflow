@@ -285,6 +285,7 @@ const ExperimentListTableCell: ExperimentTableColumnDef['cell'] = ({ row: { orig
         </Link>
         <Tooltip
           componentId="mlflow.experiment_list.demo_tooltip"
+          disableHoverableContent={false}
           content={
             <FormattedMessage
               defaultMessage="A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings."

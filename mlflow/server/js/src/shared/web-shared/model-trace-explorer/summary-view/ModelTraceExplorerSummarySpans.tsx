@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { SegmentedControlButton, SegmentedControlGroup, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  SegmentedControlButton,
+  SegmentedControlGroup,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerSummaryIntermediateNode } from './ModelTraceExplorerSummaryIntermediateNode';
@@ -14,6 +19,7 @@ import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
 import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
 
 export const SUMMARY_SPANS_MIN_WIDTH = 400;
+const INTERMEDIATE_NODES_TRUNCATION_LIMIT = 3;
 
 export const ModelTraceExplorerSummarySpans = ({
   rootNode,
@@ -27,7 +33,8 @@ export const ModelTraceExplorerSummarySpans = ({
   const { theme } = useDesignSystemTheme();
   const preferences = useModelTraceExplorerPreferences();
   const [renderMode, setRenderModeInternal] = useState<ModelTraceExplorerRenderMode>(preferences.renderMode);
-  const { readOnly } = useModelTraceExplorerViewState();
+  const [intermediateNodesExpanded, setIntermediateNodesExpanded] = useState(false);
+  const { readOnly, assessmentsPaneExpanded } = useModelTraceExplorerViewState();
 
   useEffect(() => {
     setRenderModeInternal(preferences.renderMode);
@@ -50,6 +57,10 @@ export const ModelTraceExplorerSummarySpans = ({
 
   const inputList = createListFromObject(rootInputs).filter(({ value }) => value !== 'null');
   const outputList = createListFromObject(rootOutputs).filter(({ value }) => value !== 'null');
+  const shouldTruncateNodes = intermediateNodes.length > INTERMEDIATE_NODES_TRUNCATION_LIMIT;
+  const displayedIntermediateNodes = intermediateNodesExpanded
+    ? intermediateNodes
+    : intermediateNodes.slice(0, INTERMEDIATE_NODES_TRUNCATION_LIMIT);
 
   return (
     <div
@@ -58,17 +69,13 @@ export const ModelTraceExplorerSummarySpans = ({
         flexDirection: 'column',
         flex: 1,
         minHeight: 0,
-        padding: theme.spacing.md,
-        paddingTop: theme.spacing.sm,
         overflow: 'auto',
         minWidth: SUMMARY_SPANS_MIN_WIDTH,
       }}
     >
       {!hideRenderModeSelector && (
-        <div
-          css={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}
-        >
-          <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+        <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end', marginBlock: theme.spacing.sm }}>
+          <div css={{ display: 'flex', gap: theme.spacing.sm, paddingInline: theme.spacing.sm }}>
             <SegmentedControlGroup
               name="render-mode"
               componentId="shared.model-trace-explorer.summary-view.render-mode"
@@ -88,11 +95,17 @@ export const ModelTraceExplorerSummarySpans = ({
                   description="Label for the JSON render mode selector in the model trace explorer summary view"
                 />
               </SegmentedControlButton>
+              <SegmentedControlButton value="table">
+                <FormattedMessage
+                  defaultMessage="Table"
+                  description="Label for the Table render mode selector in the model trace explorer summary view"
+                />
+              </SegmentedControlButton>
             </SegmentedControlGroup>
             {!readOnly && (
               <>
                 <AddToDatasetButton />
-                <AssessmentPaneToggle />
+                {!assessmentsPaneExpanded && <AssessmentPaneToggle />}
               </>
             )}
           </div>
@@ -112,10 +125,48 @@ export const ModelTraceExplorerSummarySpans = ({
         renderMode={renderMode}
         chatMessageFormat={chatMessageFormat}
       />
-      {hasIntermediateNodes &&
-        intermediateNodes.map((node) => (
-          <ModelTraceExplorerSummaryIntermediateNode key={node.key} node={node} renderMode={renderMode} />
-        ))}
+      {displayedIntermediateNodes.map((node, index) => (
+        <ModelTraceExplorerSummaryIntermediateNode
+          key={node.key}
+          node={node}
+          renderMode={renderMode}
+          css={{
+            borderTop: index === 0 ? `1px solid ${theme.colors.border}` : undefined,
+            borderBottom:
+              !shouldTruncateNodes && index === displayedIntermediateNodes.length - 1
+                ? undefined
+                : `1px solid ${theme.colors.border}`,
+          }}
+        />
+      ))}
+      {shouldTruncateNodes && (
+        <div css={{ paddingBlock: theme.spacing.sm, display: 'flex', justifyContent: 'center' }}>
+          {intermediateNodesExpanded ? (
+            <Typography.Link
+              componentId="shared.model-trace-explorer.summary-view.collapse-intermediate-nodes"
+              onClick={() => setIntermediateNodesExpanded(false)}
+            >
+              <FormattedMessage
+                defaultMessage="Show less"
+                description="Link that collapses an expanded list when clicked"
+              />
+            </Typography.Link>
+          ) : (
+            <Typography.Link
+              componentId="shared.model-trace-explorer.summary-view.expand-intermediate-nodes"
+              onClick={() => setIntermediateNodesExpanded(true)}
+            >
+              <FormattedMessage
+                defaultMessage="Show {count} more intermediate {count, plural, =1 {step} other {steps}}"
+                description="Link that expands a collapsed list of intermediate function execution steps when clicked"
+                values={{
+                  count: intermediateNodes.length - INTERMEDIATE_NODES_TRUNCATION_LIMIT,
+                }}
+              />
+            </Typography.Link>
+          )}
+        </div>
+      )}
       <ModelTraceExplorerSummarySection
         title={
           <FormattedMessage

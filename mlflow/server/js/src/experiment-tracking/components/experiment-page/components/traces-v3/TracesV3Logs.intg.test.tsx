@@ -252,7 +252,7 @@ describe('TracesV3Logs - integration test', () => {
       expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
     });
     // Now check for the empty state text
-    expect(await screen.findByText(/No traces recorded/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Start tracing your LLM application/i)).toBeInTheDocument();
   });
 
   it('renders traces table when traces exist', async () => {

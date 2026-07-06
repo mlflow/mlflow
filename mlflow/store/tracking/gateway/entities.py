@@ -76,6 +76,7 @@ class GatewayEndpointConfig:
     routing_strategy: RoutingStrategy | None = None
     fallback_config: FallbackConfig | None = None
     experiment_id: str | None = None
+    usage_tracking: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

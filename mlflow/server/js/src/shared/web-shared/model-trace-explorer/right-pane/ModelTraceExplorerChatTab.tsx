@@ -3,28 +3,28 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerChatTool } from './ModelTraceExplorerChatTool';
 import { ModelTraceExplorerConversation } from './ModelTraceExplorerConversation';
-import type { ModelTraceChatMessage, ModelTraceChatTool } from '../ModelTrace.types';
+import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
+import { SpanModelCostBadge } from './SpanModelCostBadge';
 
-export function ModelTraceExplorerChatTab({
-  chatMessages,
-  chatTools,
-}: {
-  chatMessages: ModelTraceChatMessage[];
-  chatTools?: ModelTraceChatTool[];
-}) {
+export function ModelTraceExplorerChatTab({ activeSpan }: { activeSpan: ModelTraceSpanNode }) {
   const { theme } = useDesignSystemTheme();
+  const { chatMessages, chatTools } = activeSpan;
 
   return (
     <div
       css={{
         overflowY: 'auto',
-        padding: theme.spacing.md,
       }}
       data-testid="model-trace-explorer-chat-tab"
     >
+      <SpanModelCostBadge
+        css={{ marginBlock: theme.spacing.sm, marginLeft: theme.spacing.sm }}
+        activeSpan={activeSpan}
+      />
       {chatTools && (
         <ModelTraceExplorerCollapsibleSection
+          withBorder
           css={{ marginBottom: theme.spacing.sm }}
           title={
             <FormattedMessage
@@ -50,8 +50,9 @@ export function ModelTraceExplorerChatTab({
           />
         }
         sectionKey="messages"
+        withBorder
       >
-        <ModelTraceExplorerConversation messages={chatMessages} />
+        <ModelTraceExplorerConversation messages={chatMessages ?? []} />
       </ModelTraceExplorerCollapsibleSection>
     </div>
   );

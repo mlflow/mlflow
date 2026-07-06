@@ -1,9 +1,11 @@
 import type { Endpoint } from '../types';
 
 export const GATEWAY_MODEL_PREFIX = 'gateway:/';
+const DATABRICKS_MODEL_PREFIX = 'databricks:/';
 
 export enum ModelProvider {
   GATEWAY = 'gateway',
+  DATABRICKS = 'databricks',
   OTHER = 'other',
 }
 
@@ -18,19 +20,14 @@ export const getEndpointNameFromGatewayModel = (model: string | undefined): stri
   if (model?.startsWith(GATEWAY_MODEL_PREFIX)) {
     return model.replace(GATEWAY_MODEL_PREFIX, '');
   }
+  if (model?.startsWith(DATABRICKS_MODEL_PREFIX)) {
+    return ModelProvider.DATABRICKS;
+  }
   return undefined;
 };
 
 export const formatGatewayModelFromEndpoint = (endpointName: string): string => {
   return `${GATEWAY_MODEL_PREFIX}${endpointName}`;
-};
-
-/**
- * Checks if the model is a non-gateway model (i.e., openai:/gpt-4, anthropic:/claude-3-5-sonnet, etc.
- * that doesn't use the gateway:/ prefix).
- */
-export const isDirectModel = (model: string | undefined): boolean => {
-  return Boolean(model && !model.startsWith(GATEWAY_MODEL_PREFIX));
 };
 
 export const getEndpointDisplayInfo = (

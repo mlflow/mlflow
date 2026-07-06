@@ -32,6 +32,7 @@ class Experiment(_MlflowObject):
         last_update_time=None,
         workspace=None,
         trace_location=None,
+        effective_trace_archival_retention=None,
     ):
         super().__init__()
         self._experiment_id = experiment_id
@@ -43,6 +44,7 @@ class Experiment(_MlflowObject):
         self._last_update_time = last_update_time
         self._workspace = resolve_entity_workspace_name(workspace)
         self._trace_location = trace_location
+        self._effective_trace_archival_retention = effective_trace_archival_retention
 
     @property
     def experiment_id(self):
@@ -90,6 +92,15 @@ class Experiment(_MlflowObject):
         self._last_update_time = last_update_time
 
     @property
+    def effective_trace_archival_retention(self):
+        """Effective trace archival retention after applying broader-scope overrides."""
+        return self._effective_trace_archival_retention
+
+    @effective_trace_archival_retention.setter
+    def effective_trace_archival_retention(self, effective_trace_archival_retention):
+        self._effective_trace_archival_retention = effective_trace_archival_retention
+
+    @property
     def trace_location(self) -> UnityCatalog | None:
         """Trace storage location, if configured."""
         if self._trace_location is None:
@@ -122,7 +133,7 @@ class Experiment(_MlflowObject):
                 return None
 
     @property
-    def workspace(self):
+    def workspace(self) -> str:
         """Workspace that owns the experiment, if known."""
         return self._workspace
 
@@ -139,7 +150,12 @@ class Experiment(_MlflowObject):
             # `last_update_time` if they are non-zero.
             creation_time=proto.creation_time or None,
             last_update_time=proto.last_update_time or None,
-            workspace=None,
+            workspace=(proto.workspace if proto.HasField("workspace") else None),
+            effective_trace_archival_retention=(
+                proto.effective_trace_archival_retention
+                if proto.HasField("effective_trace_archival_retention")
+                else None
+            ),
         )
         for proto_tag in proto.tags:
             experiment._add_tag(ExperimentTag.from_proto(proto_tag))
@@ -155,6 +171,10 @@ class Experiment(_MlflowObject):
             experiment.creation_time = self.creation_time
         if self.last_update_time:
             experiment.last_update_time = self.last_update_time
+        if self.effective_trace_archival_retention is not None:
+            experiment.effective_trace_archival_retention = self.effective_trace_archival_retention
+        if self.workspace is not None:
+            experiment.workspace = self.workspace
         experiment.tags.extend([
             ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()
         ])

@@ -106,6 +106,8 @@ class Choice(ChatChoice, ResponseModel):
 class ResponsePayload(ChatCompletionResponse, ResponseModel):
     # Override the `choices` field to use the Choice model
     choices: list[Choice]
+    # Provider that actually handled the request (set by BaseProvider after the call)
+    provider: str | None = None
 
     model_config = ConfigDict(json_schema_extra=_RESPONSE_PAYLOAD_EXTRA_SCHEMA)
 
@@ -128,4 +130,7 @@ _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class StreamResponsePayload(ChatCompletionChunk, ResponseModel):
+    # Provider that actually handled the request (set by BaseProvider after the call)
+    provider: str | None = None
+
     model_config = ConfigDict(json_schema_extra=_STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA)

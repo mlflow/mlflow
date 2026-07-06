@@ -1,7 +1,7 @@
 import { Button } from '@databricks/design-system';
 
 import { FormattedMessage } from '@databricks/i18n';
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { SelectTracesModal } from '../../components/SelectTracesModal';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
@@ -12,9 +12,11 @@ import { SelectSessionsModal } from '../../components/SelectSessionsModal';
 export const SampleScorerTracesToEvaluatePicker = ({
   selectedItemIds,
   onSelectedItemIdsChange,
+  buttonProps,
 }: {
   selectedItemIds: string[];
   onSelectedItemIdsChange: (selectedItemIds: string[]) => void;
+  buttonProps?: Partial<ComponentProps<typeof Button>>;
 }) => {
   const { watch } = useFormContext<ScorerFormData>();
 
@@ -28,6 +30,7 @@ export const SampleScorerTracesToEvaluatePicker = ({
       <Button
         componentId="mlflow.experiment-scorers.form.traces-picker.trigger"
         onClick={() => setDisplayPickCustomTracesModal(true)}
+        {...buttonProps}
       >
         {hasSelectedItems ? (
           evaluationScope === ScorerEvaluationScope.TRACES ? (

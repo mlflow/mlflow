@@ -101,7 +101,7 @@ First, create your judge and generate traces with initial assessments:
 
 ```python
 from mlflow.genai.judges import make_judge
-from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
+from mlflow.genai.judges.optimizers import MemAlignOptimizer
 from mlflow.entities import AssessmentSource, AssessmentSourceType
 from typing import Literal
 import mlflow
@@ -159,7 +159,7 @@ For detailed instructions on collecting feedback, see [Collecting Feedback for A
 After collecting feedback, align your judge and register it:
 
 ```python
-from mlflow.genai.judges.optimizers import SIMBAAlignmentOptimizer
+from mlflow.genai.judges.optimizers import MemAlignOptimizer
 
 # Retrieve traces with both judge and human assessments
 traces_for_alignment = mlflow.search_traces(
@@ -168,8 +168,8 @@ traces_for_alignment = mlflow.search_traces(
 
 # Align the judge using human corrections (minimum 10 traces recommended)
 if len(traces_for_alignment) >= 10:
-    # Use SIMBAAlignmentOptimizer explicitly (this is also the default if no optimizer is specified)
-    optimizer = SIMBAAlignmentOptimizer(model="anthropic:/claude-opus-4-1-20250805")
+    # Use MemAlignOptimizer explicitly (this is also the default if no optimizer is specified)
+    optimizer = MemAlignOptimizer(reflection_lm="anthropic:/claude-opus-4-1-20250805")
     aligned_judge = initial_judge.align(traces_for_alignment, optimizer)
 
     # Register the aligned judge
@@ -183,9 +183,9 @@ else:
 
 MLflow provides multiple alignment optimizers:
 
-- [**SIMBA**](/genai/eval-monitor/scorers/llm-judge/simba) (default) - Uses DSPy's SIMBA algorithm for prompt optimization
+- [**MemAlign**](/genai/eval-monitor/scorers/llm-judge/memalign) (default) - Uses a dual-memory system for fast and cheap few-shot alignment
+- [**SIMBA**](/genai/eval-monitor/scorers/llm-judge/simba) - Uses DSPy's SIMBA algorithm for prompt optimization
 - [**GEPA**](/genai/eval-monitor/scorers/llm-judge/gepa) - Uses DSPy's GEPA algorithm with LLM-driven reflection for iterative refinement
-- [**MemAlign**](/genai/eval-monitor/scorers/llm-judge/memalign) (experimental) - Uses a dual-memory system for fast and cheap few-shot alignment
 
 You can also [create custom optimizers](/genai/eval-monitor/scorers/llm-judge/custom-optimizers) to implement domain-specific alignment strategies.
 

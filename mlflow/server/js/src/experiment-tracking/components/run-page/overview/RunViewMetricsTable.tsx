@@ -212,6 +212,7 @@ export const RunViewMetricsTable = ({
       {
         id: 'key',
         accessorKey: 'key',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         header: () => (
           <FormattedMessage
             defaultMessage="Metric"
@@ -223,6 +224,7 @@ export const RunViewMetricsTable = ({
       },
       {
         id: 'value',
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         header: () => (
           <FormattedMessage
             defaultMessage="Value"

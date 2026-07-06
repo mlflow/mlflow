@@ -110,20 +110,31 @@ class GitHubClient:
                 break
             page += 1
 
-    async def get_jobs(self, owner: str, repo: str, run_id: int) -> AsyncIterator[Job]:
-        """Get jobs for a workflow run."""
+    async def get_jobs(
+        self, owner: str, repo: str, run_id: int, attempt: int | None = None
+    ) -> AsyncIterator[Job]:
+        """Get jobs for a workflow run.
+
+        If `attempt` is None, returns jobs from the latest attempt only (GitHub's default).
+        If `attempt` is given, returns jobs from that specific attempt.
+        """
+        endpoint = (
+            f"/repos/{owner}/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs"
+            if attempt is not None
+            else f"/repos/{owner}/{repo}/actions/runs/{run_id}/jobs"
+        )
+        # GitHub 502s this endpoint with per_page=100 on runs with many jobs
+        # (e.g. cross-version matrices with 300+ jobs).
+        per_page = 30
         page = 1
         while True:
-            data = await self._get_json(
-                f"/repos/{owner}/{repo}/actions/runs/{run_id}/jobs",
-                {"per_page": 100, "page": page},
-            )
+            data = await self._get_json(endpoint, {"per_page": per_page, "page": page})
             jobs = data.get("jobs", [])
             if not jobs:
                 break
             for job in jobs:
                 yield Job.model_validate(job)
-            if len(jobs) < 100:
+            if len(jobs) < per_page:
                 break
             page += 1
 

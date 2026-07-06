@@ -389,6 +389,7 @@ export const getLineChartLegendData = (
   metricKey: string,
   yAxisKey: RunsChartsLineChartYAxisType,
   yAxisExpressions: RunsChartsLineChartExpression[],
+  getCustomLineStyle?: (metricKey: string) => { color: string; dashStyle: Dash } | null,
 ): LegendLabelData[] =>
   runsData.flatMap((runEntry): LegendLabelData[] => {
     if (!runEntry.metricsHistory) {
@@ -406,13 +407,16 @@ export const getLineChartLegendData = (
     }
 
     const metricKeys = selectedMetricKeys ?? [metricKey];
-    return metricKeys.map((metricKey, idx) => ({
-      label: `${runEntry.displayName} (${metricKey})`,
-      color: runEntry.color ?? '',
-      dashStyle: lineDashStyles[idx % lineDashStyles.length],
-      metricKey,
-      uuid: runEntry.uuid,
-    }));
+    return metricKeys.map((metricKey, idx) => {
+      const customLineStyle = getCustomLineStyle?.(metricKey);
+      return {
+        label: `${runEntry.displayName} (${metricKey})`,
+        color: customLineStyle?.color ?? runEntry.color ?? '',
+        dashStyle: customLineStyle?.dashStyle ?? lineDashStyles[idx % lineDashStyles.length],
+        metricKey,
+        uuid: runEntry.uuid,
+      };
+    });
   });
 
 /**

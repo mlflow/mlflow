@@ -5,9 +5,9 @@ from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig, OpenAIConfig
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.openai import OpenAIAdapter, OpenAIProvider
@@ -100,6 +100,7 @@ async def _run_test_chat(provider):
             "object": "chat.completion",
             "created": 1677858242,
             "model": "gpt-4o-mini",
+            "provider": "openai",
             "choices": [
                 {
                     "message": {
@@ -128,8 +129,42 @@ async def _run_test_chat(provider):
                 "n": 1,
                 **payload,
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
+
+
+def test_get_headers_uses_server_key_by_default():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    merged = provider._get_headers(
+        headers={"authorization": "Bearer client-key", "X-Custom": "value"}
+    )
+    assert merged["authorization"] == "Bearer key"
+    assert merged["X-Custom"] == "value"
+
+
+@pytest.mark.parametrize(
+    "user_agent",
+    [
+        "claude-cli/2.0.37 (external, cli)",
+        "Codex-Desktop/26.422.2437.0",
+        "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+    ],
+)
+def test_get_headers_preserves_client_key_for_credential_agents(user_agent):
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    merged = provider._get_headers(
+        headers={"authorization": "Bearer client-key", "user-agent": user_agent}
+    )
+    assert merged["authorization"] == "Bearer client-key"
+
+
+def test_get_headers_preserves_azure_api_key_for_credential_agents():
+    provider = OpenAIProvider(EndpointConfig(**azure_config(api_type="azure")))
+    merged = provider._get_headers(
+        headers={"api-key": "client-azure-key", "user-agent": "claude-cli/2.0.37 (external, cli)"}
+    )
+    assert merged["api-key"] == "client-azure-key"
+    assert "authorization" not in merged
 
 
 @pytest.mark.asyncio
@@ -195,6 +230,7 @@ async def _run_test_chat_stream(resp, provider):
                 "created": 1,
                 "id": "test-id",
                 "model": "test",
+                "provider": "openai",
                 "object": "chat.completion.chunk",
                 "usage": None,
             },
@@ -213,6 +249,7 @@ async def _run_test_chat_stream(resp, provider):
                 "created": 1,
                 "id": "test-id",
                 "model": "test",
+                "provider": "openai",
                 "object": "chat.completion.chunk",
                 "usage": None,
             },
@@ -231,6 +268,7 @@ async def _run_test_chat_stream(resp, provider):
                 "created": 1,
                 "id": "test-id",
                 "model": "test",
+                "provider": "openai",
                 "object": "chat.completion.chunk",
                 "usage": None,
             },
@@ -247,7 +285,7 @@ async def _run_test_chat_stream(resp, provider):
                 "stream_options": {"include_usage": True},
                 **payload,
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -295,6 +333,7 @@ async def test_chat_stream_with_function_calling():
                 "object": "chat.completion.chunk",
                 "created": 1,
                 "model": "test",
+                "provider": "openai",
                 "choices": [
                     {
                         "index": 0,
@@ -320,6 +359,7 @@ async def test_chat_stream_with_function_calling():
                 "object": "chat.completion.chunk",
                 "created": 1,
                 "model": "test",
+                "provider": "openai",
                 "choices": [
                     {
                         "index": 0,
@@ -345,6 +385,7 @@ async def test_chat_stream_with_function_calling():
                 "object": "chat.completion.chunk",
                 "created": 1,
                 "model": "test",
+                "provider": "openai",
                 "choices": [
                     {
                         "index": 0,
@@ -410,7 +451,7 @@ async def _run_test_completions(resp, provider):
                 "n": 1,
                 "prompt": "This is a test",
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -532,7 +573,7 @@ async def _run_test_completions_stream(resp, provider):
                 "prompt": "This is a test",
                 "stream_options": {"include_usage": True},
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -606,7 +647,7 @@ async def _run_test_embeddings(provider):
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/embeddings",
             json={"model": "text-embedding-ada-002", "input": "This is a test"},
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -686,7 +727,7 @@ async def test_embeddings_batch_input():
                 "model": "text-embedding-ada-002",
                 "input": ["1", "2"],
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -740,7 +781,7 @@ async def test_azure_openai():
                 "n": 1,
                 "prompt": "This is a test",
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -776,7 +817,7 @@ async def test_azuread_openai():
                 "n": 1,
                 "prompt": "This is a test",
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -1364,3 +1405,47 @@ def test_openai_adapter_build_chat_usage_without_cached_tokens():
     assert usage.completion_tokens == 20
     assert usage.total_tokens == 70
     assert usage.prompt_tokens_details is None
+
+
+@pytest.mark.asyncio
+async def test_proxy_non_streaming():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    mock_client = mock_http_client(MockAsyncResponse(chat_response()))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.proxy(
+            path="v1/chat/completions",
+            payload={"messages": [{"role": "user", "content": "Hello"}]},
+        )
+
+    assert result["id"] == "chatcmpl-abc123"
+    mock_client.post.assert_called_once_with(
+        "https://api.openai.com/v1/chat/completions",
+        json={"messages": [{"role": "user", "content": "Hello"}]},
+        timeout=mock.ANY,
+    )
+
+
+@pytest.mark.asyncio
+async def test_proxy_streaming():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk_data = (
+        b'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","created":1,'
+        b'"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"content":"Hi"},'
+        b'"finish_reason":null}]}\n\n'
+    )
+    chunks = [chunk_data, b"data: [DONE]\n\n"]
+    mock_client = mock_http_client(
+        MockAsyncStreamingResponse(chunks, headers={"Content-Type": "text/event-stream"})
+    )
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        result = await provider.proxy(
+            path="v1/chat/completions",
+            payload={"messages": [{"role": "user", "content": "Hello"}], "stream": True},
+        )
+        collected = [chunk async for chunk in result]
+
+    assert len(collected) == 2
+    assert b"chatcmpl-1" in collected[0]
+    assert b"[DONE]" in collected[1]

@@ -38,6 +38,10 @@ def test_supports_workspaces_defaults_to_false(store):
     assert store.supports_workspaces is False
 
 
+def test_supports_trace_archival_defaults_to_false(store):
+    assert store.supports_trace_archival is False
+
+
 def test_get_metric_history_bulk_interval_empty_run_ids(store):
     result = store.get_metric_history_bulk_interval([], "accuracy", 10, 0, 100)
     assert result == []

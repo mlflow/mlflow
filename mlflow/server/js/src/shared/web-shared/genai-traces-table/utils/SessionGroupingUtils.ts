@@ -1,5 +1,3 @@
-import { compact } from 'lodash';
-
 import { SESSION_ID_METADATA_KEY } from '../../model-trace-explorer/constants';
 import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 
@@ -58,36 +56,6 @@ const getSessionMatchKey = (trace: ModelTraceInfoV3, isComparing?: boolean): str
   }
 
   return `unmatched:${trace.trace_id}`;
-};
-
-/**
- * Collect all ModelTraceInfoV3 objects from a list of entries (currentRunValue only).
- */
-const collectTracesFromEntries = (entries: EvalTraceComparisonEntry[]): ModelTraceInfoV3[] => {
-  const traces: ModelTraceInfoV3[] = [];
-
-  entries.forEach((entry) => {
-    if (entry.currentRunValue?.traceInfo) {
-      traces.push(entry.currentRunValue.traceInfo);
-    }
-  });
-
-  return compact(traces);
-};
-
-/**
- * Collect all ModelTraceInfoV3 objects from otherRunValue in entries.
- */
-const collectOtherTracesFromEntries = (entries: EvalTraceComparisonEntry[]): ModelTraceInfoV3[] => {
-  const traces: ModelTraceInfoV3[] = [];
-
-  entries.forEach((entry) => {
-    if (entry.otherRunValue?.traceInfo) {
-      traces.push(entry.otherRunValue.traceInfo);
-    }
-  });
-
-  return compact(traces);
 };
 
 interface SessionData {

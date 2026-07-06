@@ -8,29 +8,21 @@
 import React from 'react';
 import { PageWrapper, Spacer } from '@databricks/design-system';
 
-type OwnProps = {
+type Props = {
   usesFullHeight?: boolean;
   children?: React.ReactNode;
 };
 
-// @ts-expect-error TS(2565): Property 'defaultProps' is used before being assig... Remove this comment to see the full error message
-type Props = OwnProps & typeof PageContainer.defaultProps;
-
-export function PageContainer(props: Props) {
-  const { usesFullHeight, ...restProps } = props;
+export function PageContainer({ usesFullHeight = false, children }: Props) {
   return (
     // @ts-expect-error TS(2322): Type '{ height: string; display: string; flexDirec... Remove this comment to see the full error message
     <PageWrapper css={usesFullHeight ? styles.useFullHeightLayout : styles.wrapper}>
       {/* @ts-expect-error TS(2322): Type '{ css: { flexShrink: number; }; }' is not as... Remove this comment to see the full error message */}
       <Spacer css={styles.fixedSpacer} />
-      {usesFullHeight ? props.children : <div {...restProps} css={styles.container} />}
+      {usesFullHeight ? children : <div css={styles.container}>{children}</div>}
     </PageWrapper>
   );
 }
-
-PageContainer.defaultProps = {
-  usesFullHeight: false,
-};
 
 const styles = {
   useFullHeightLayout: {

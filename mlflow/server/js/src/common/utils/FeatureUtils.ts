@@ -8,11 +8,9 @@ import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useSer
 // Returns the current workspaces enabled state from the cached server features.
 // This is synchronous and returns the cached value (false if not yet loaded).
 // For React components, prefer using the useWorkspacesEnabled hook instead.
-export const shouldEnableWorkspaces = () => getWorkspacesEnabledSync();
-
-export const shouldEnableWorkspacePermissions = () => shouldEnableWorkspaces();
-
-export const shouldEnableRunDetailsPageAutoRefresh = () => true;
+export const shouldEnableWorkspaces = () => {
+  return getWorkspacesEnabledSync();
+};
 
 /**
  * Enable chart expressions feature
@@ -58,6 +56,15 @@ export const enableScorersUI = () => {
 };
 
 /**
+ * Determines if the new GenAI experiment creation modal with table prefix onboarding is enabled.
+ * When enabled, the observatory shows a create modal with UC storage selection and table prefix,
+ * and the inline UC schema selector in the traces toolbar is hidden.
+ */
+export const shouldEnableGenAIExperimentCreationModal = () => {
+  return false;
+};
+
+/**
  * Determines if running scorers feature is enabled (ability to run LLM scorers on sample traces)
  */
 export const isRunningScorersEnabled = () => {
@@ -65,13 +72,42 @@ export const isRunningScorersEnabled = () => {
 };
 
 /**
- * Determines if running scorers feature is enabled (ability to run LLM scorers on sample traces)
+ * Determines if evaluating sessions (not just traces) in scorers is enabled.
+ * When false, session-level scorers cannot be run on sample traces. They can still be created.
  */
 export const isEvaluatingSessionsInScorersEnabled = () => {
-  if (!enableScorersUI() || !isRunningScorersEnabled()) {
-    return false;
-  }
   return true;
+};
+
+/**
+ * Determines if running agentic judges (judges using the {{ trace }} variable) is enabled
+ * in the sample scorer output panel.
+ */
+export const isRunningAgenticJudgesEnabled = () => {
+  return true;
+};
+
+/**
+ * Determines if all scorer templates are supported for running on sample traces.
+ * When false, only templates with chat-assessments mapping or editable instructions are supported.
+ */
+export const isRunningAllScorerTemplatesEnabled = () => {
+  return true;
+};
+
+/**
+ * Determines if the output type selector is shown in the LLM scorer form.
+ * When false, the output type defaults to 'default' (no explicit type sent to API).
+ */
+export const isScorerOutputTypeSelectorEnabled = () => {
+  return true;
+};
+
+/**
+ * Scorer pagination is supported in managed but not oss.
+ */
+export const shouldPaginateScorers = () => {
+  return false;
 };
 
 /**
@@ -87,6 +123,10 @@ export const shouldDisableReproduceRunButton = () => false;
 
 export const shouldEnablePromptLab = () => {
   return true;
+};
+
+export const shouldEnableNodeLevelSystemMetricCharts = () => {
+  return false;
 };
 
 export const shouldUnifyLoggedModelsAndRegisteredModels = () => {
@@ -107,11 +147,16 @@ export const shouldShowModelsNextUI = () => {
   return true;
 };
 
-export const shouldEnableTraceInsights = () => {
+export const shouldEnableTracesSyncUI = () => {
   return false;
 };
 
-export const shouldEnableTracesSyncUI = () => {
+/**
+ * Whether to batch multiple token metric queries into a single QueryTraceMetrics call
+ * using the metric_names (plural) field. Requires backend support for the new field.
+ */
+export const shouldEnableBatchedTokenMetricQueries = () => {
+  // TODO: enable this when the backend is ready
   return false;
 };
 
@@ -151,11 +196,18 @@ export const shouldEnableArtifactsOnRunDetailsPage = () => {
   return false;
 };
 
-export const shouldEnableExperimentPageSideTabs = () => {
-  return true;
-};
-
-export const shouldEnableExperimentOverviewTab = () => {
+/**
+ * Whether the Overview tab should be shown for a given experiment.
+ *
+ * On Databricks, requires the rollout flag. For UC-backed experiments (hasV4Location=true),
+ * the overview tab is always shown. For MySQL-backed experiments, a separate
+ * enableMysqlExperimentOverview flag must also be enabled.
+ * On OSS (after edge stripping), the tab is always enabled.
+ *
+ * @param hasV4Location — true when the experiment's trace storage is UC-backed.
+ *   Sourced from SqlWarehouseContext; undefined when no provider is present (OSS).
+ */
+export const shouldEnableExperimentOverviewTab = (hasV4Location?: boolean) => {
   return true;
 };
 
@@ -192,4 +244,13 @@ export const shouldEnableIssueDetection = () => {
  */
 export const shouldShowEvalRunsIssuesPanel = () => {
   return true;
+};
+
+/**
+ * Determines if databricks:/ provider models can be run from the UI.
+ * In Databricks, databricks:/ models are gateway-routed and runnable.
+ * In OSS (after Copybara strips EDGE), databricks:/ models are not supported.
+ */
+export const shouldSupportRunningDatabricksProviderJudgesFromUI = () => {
+  return false;
 };

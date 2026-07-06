@@ -119,6 +119,6 @@ export const getLoggedModelArtifactLocationUrl = (path: string, loggedModelId: s
 };
 
 export const getArtifactLocationUrl = (path: string, runUuid: string) => {
-  const artifactEndpointPath = 'get-artifact';
-  return getAjaxUrl(`${artifactEndpointPath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`);
+  const artifactEndpointPath = getAjaxUrl('get-artifact');
+  return `${artifactEndpointPath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`;
 };

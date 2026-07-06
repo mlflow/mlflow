@@ -1,0 +1,2 @@
+export declare const useDialogComboboxOptionListContext: () => import("../providers/DialogComboboxOptionListContext").DialogComboboxOptionListContextType;
+//# sourceMappingURL=useDialogComboboxOptionListContext.d.ts.map

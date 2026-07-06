@@ -38,7 +38,7 @@ export interface UseToolLatencyChartDataResult {
  *
  * @returns Processed chart data, tool names, loading state, and error state
  */
-export function useToolLatencyChartData(): UseToolLatencyChartDataResult {
+export function useToolLatencyChartData({ enabled = true }: { enabled?: boolean } = {}): UseToolLatencyChartDataResult {
   const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
   // Filter for TOOL type spans
   const toolFilter = useMemo(() => [createSpanFilter(SpanFilterKey.TYPE, SpanType.TOOL)], []);
@@ -54,6 +54,7 @@ export function useToolLatencyChartData(): UseToolLatencyChartDataResult {
     filters: toolFilter,
     dimensions: [SpanDimensionKey.SPAN_NAME],
     timeIntervalSeconds,
+    enabled,
   });
 
   // Extract tool names and build chart data

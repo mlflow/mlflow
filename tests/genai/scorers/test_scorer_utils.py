@@ -494,6 +494,63 @@ def test_update_model_in_serialized_scorer():
     assert data[INSTRUCTIONS_JUDGE_PYDANTIC_DATA]["model"] == "gateway:/old-endpoint"
 
 
+def test_extract_model_from_third_party_scorer():
+    llm_scorer = {
+        "name": "faithfulness",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.ragas.scorers.rag_metrics",
+            "class": "Faithfulness",
+            "metric_name": "Faithfulness",
+            "model": "openai:/gpt-4o",
+            "kwargs": {},
+        },
+    }
+    assert extract_model_from_serialized_scorer(llm_scorer) == "openai:/gpt-4o"
+
+    deterministic_scorer = {
+        "name": "exact_match",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.ragas.scorers.comparison_metrics",
+            "class": "ExactMatch",
+            "metric_name": "ExactMatch",
+            "model": None,
+            "kwargs": {},
+        },
+    }
+    assert extract_model_from_serialized_scorer(deterministic_scorer) is None
+
+
+def test_update_model_in_third_party_scorer():
+    llm_scorer = {
+        "name": "faithfulness",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.ragas.scorers.rag_metrics",
+            "class": "Faithfulness",
+            "metric_name": "Faithfulness",
+            "model": "openai:/old",
+            "kwargs": {},
+        },
+    }
+    result = update_model_in_serialized_scorer(llm_scorer, "openai:/new")
+    assert result["third_party_scorer_data"]["model"] == "openai:/new"
+    assert llm_scorer["third_party_scorer_data"]["model"] == "openai:/old"
+
+    # Deterministic scorer (model=None) must not gain a model — the wrapper
+    # constructor rejects `model=` and the round-trip would break.
+    deterministic_scorer = {
+        "name": "exact_match",
+        "third_party_scorer_data": {
+            "module": "mlflow.genai.scorers.ragas.scorers.comparison_metrics",
+            "class": "ExactMatch",
+            "metric_name": "ExactMatch",
+            "model": None,
+            "kwargs": {},
+        },
+    }
+    result = update_model_in_serialized_scorer(deterministic_scorer, "openai:/new")
+    assert result["third_party_scorer_data"]["model"] is None
+
+
 # ============================================================================
 # TOOL CALL HELPER FUNCTION TESTS
 # ============================================================================

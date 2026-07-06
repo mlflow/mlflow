@@ -66,7 +66,11 @@ def _process_tool_calls(
         else:
             if is_dataclass(result):
                 result = asdict(result)
-            result_json = json.dumps(result, default=str) if not isinstance(result, str) else result
+            result_json = (
+                json.dumps(result, default=str, ensure_ascii=False)
+                if not isinstance(result, str)
+                else result
+            )
             tool_response_messages.append(
                 _create_tool_response_message(
                     tool_call_id=tool_call.id,

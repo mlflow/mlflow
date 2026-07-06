@@ -7,6 +7,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Alert,
   Button,
+  PillControl,
   getShadowScrollStyles,
   Input,
   Modal,
@@ -18,7 +19,6 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { PillControl } from '@databricks/design-system/development';
 import ScorerModalRenderer from '../ScorerModalRenderer';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from '../constants';
 import { useRunSerializedScorer } from './useRunSerializedScorer';

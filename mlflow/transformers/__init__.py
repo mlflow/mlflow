@@ -57,9 +57,6 @@ from mlflow.transformers.flavor_config import (
     build_flavor_config_from_local_checkpoint,
     update_flavor_conf_to_persist_pretrained_model,
 )
-from mlflow.transformers.hub_utils import (
-    is_valid_hf_repo_id,
-)
 from mlflow.transformers.llm_inference_utils import (
     _LLM_INFERENCE_TASK_CHAT,
     _LLM_INFERENCE_TASK_COMPLETIONS,
@@ -123,6 +120,9 @@ from mlflow.utils.environment import (
     infer_pip_requirements,
 )
 from mlflow.utils.file_utils import TempDir, get_total_file_size, write_to
+from mlflow.utils.huggingface_utils import (
+    is_valid_hf_repo_id,
+)
 from mlflow.utils.logging_utils import suppress_logs
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
@@ -2669,7 +2669,7 @@ class _TransformersWrapper:
         """
         Parse the return type from a FeatureExtractionPipeline output. The mixed types for
         input are present depending on how the pyfunc is instantiated. For model serving usage,
-        the returned type from MLServer will be a numpy.ndarray type, otherwise, the return
+        the returned type will be a numpy.ndarray type, otherwise, the return
         within a manually executed pyfunc (i.e., for udf usage), the return will be a collection
         of nested lists.
 

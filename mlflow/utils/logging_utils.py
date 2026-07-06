@@ -118,6 +118,49 @@ class SuppressLogFilter(logging.Filter):
         return super().filter(record)
 
 
+# Cloud storage presigned URLs (AWS S3, GCS, Azure SAS) embed credentials in
+# query parameters. urllib3 logs the full target URL on connection retries
+# (e.g. when DNS resolution fails), which leaks those credentials to stderr.
+_SENSITIVE_QUERY_PARAM_NAMES = (
+    "X-Amz-Signature",
+    "X-Amz-Security-Token",
+    "X-Amz-Credential",
+    "X-Goog-Signature",
+    "X-Goog-Credential",
+    "Signature",
+    "sig",
+)
+
+_SENSITIVE_QUERY_PARAM_PATTERN = re.compile(
+    r"\b(" + "|".join(re.escape(p) for p in _SENSITIVE_QUERY_PARAM_NAMES) + r")=[^&\s'\"]+",
+    re.IGNORECASE,
+)
+
+
+def _redact_sensitive_query_params(message: str) -> str:
+    return _SENSITIVE_QUERY_PARAM_PATTERN.sub(lambda m: f"{m.group(1)}=[REDACTED]", message)
+
+
+class SensitiveQueryParamFilter(logging.Filter):
+    """
+    Logging filter that masks cloud storage credentials embedded in URL query
+    strings. Attached to urllib3 to avoid leaking presigned URL credentials
+    (X-Amz-Signature, X-Amz-Security-Token, X-Amz-Credential, ...) when
+    urllib3 logs full URLs on connection failures or retries.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            message = record.getMessage()
+        except Exception:
+            return True
+        redacted = _redact_sensitive_query_params(message)
+        if redacted != message:
+            record.msg = redacted
+            record.args = None
+        return True
+
+
 def _configure_mlflow_loggers(root_module_name):
     log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
     # For alembic, use WARNING minimum to reduce noise, but respect higher levels
@@ -169,6 +212,17 @@ def _configure_mlflow_loggers(root_module_name):
             }
         },
     })
+
+
+def _install_sensitive_query_param_filter() -> None:
+    """
+    Attach SensitiveQueryParamFilter to urllib3.connectionpool. urllib3 logs
+    full target URLs (with presigned-URL credentials in query params) on
+    connection retries, which can leak credentials to stderr. Idempotent.
+    """
+    urllib3_logger = logging.getLogger("urllib3.connectionpool")
+    if not any(isinstance(f, SensitiveQueryParamFilter) for f in urllib3_logger.filters):
+        urllib3_logger.addFilter(SensitiveQueryParamFilter())
 
 
 def eprint(*args, **kwargs):

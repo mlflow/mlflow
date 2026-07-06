@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
 import type { PredefinedError } from '@databricks/web-shared/errors';
 import type { ScorerConfig } from '../types';
-import { removeScheduledScorersFromCache } from './scheduledScorersCacheUtils';
+import { invalidateScheduledScorersCache, removeScheduledScorersFromCache } from './scheduledScorersCacheUtils';
 import { deleteScheduledScorers } from '../api';
 
 // Define response types based on monitoring_service.proto
@@ -12,6 +12,7 @@ export type DeleteScheduledScorersResponse = {
   };
 };
 
+/* eslint-disable react-hooks/rules-of-hooks */
 export const useDeleteScheduledScorerMutation = () => {
   const queryClient = useQueryClient();
 
@@ -26,8 +27,9 @@ export const useDeleteScheduledScorerMutation = () => {
     mutationFn: async ({ experimentId, scorerNames }) => {
       return await deleteScheduledScorers(experimentId, scorerNames);
     },
-    onSuccess: (data, variables) => {
-      removeScheduledScorersFromCache(queryClient, variables.experimentId, variables.scorerNames);
+    onSuccess: async (_data, variables) => {
+      await removeScheduledScorersFromCache(queryClient, variables.experimentId, variables.scorerNames);
     },
   });
 };
+/* eslint-enable react-hooks/rules-of-hooks */

@@ -90,6 +90,7 @@ export const TraceTokenStatsChart: React.FC<TraceTokenStatsChartProps> = ({ titl
                   />
                 }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               <Line
                 type="monotone"

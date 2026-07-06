@@ -148,7 +148,7 @@ export class DeleteRunModalImpl extends Component<Props, State> {
     ) : null;
 
     const footerButtons = [
-      <Button componentId="cancel" key="cancel" onClick={this.onRequestClose} disabled={!!deletingMode}>
+      <Button componentId="cancel" key="cancel" onClick={this.onRequestClose} disabled={Boolean(deletingMode)}>
         Cancel
       </Button>,
       deleteSelectedButton,

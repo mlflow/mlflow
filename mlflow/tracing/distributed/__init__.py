@@ -138,6 +138,7 @@ def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
 
     token = None
     otel_trace_id = None
+    registered_dummy_trace = False
     trace_manager = InMemoryTraceManager.get_instance()
     try:
         headers = dict(headers)
@@ -164,18 +165,26 @@ def set_tracing_context_from_http_request_headers(headers: dict[str, str]):
         otel_trace_id = span_context.trace_id
 
         trace_id = generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id)
-        dummy_trace_info = TraceInfo(
-            trace_id=trace_id,
-            trace_location=None,
-            request_time=None,
-            state=TraceState.IN_PROGRESS,
-        )
 
-        trace_manager.register_trace(otel_trace_id, dummy_trace_info, is_remote_trace=True)
+        # Skip dummy registration if the trace already exists locally (e.g. same-process
+        # distributed tracing with a pending async export). Overwriting it would prevent
+        # the real trace from being exported to the backend.
+        with trace_manager.get_trace(trace_id) as existing_trace:
+            has_local_trace = existing_trace is not None and not existing_trace.is_remote_trace
+
+        if not has_local_trace:
+            dummy_trace_info = TraceInfo(
+                trace_id=trace_id,
+                trace_location=None,
+                request_time=None,
+                state=TraceState.IN_PROGRESS,
+            )
+            trace_manager.register_trace(otel_trace_id, dummy_trace_info, is_remote_trace=True)
+            registered_dummy_trace = True
 
         yield
     finally:
         if token is not None:
             get_context_api().detach(token)
-        if otel_trace_id is not None:
+        if otel_trace_id is not None and registered_dummy_trace:
             trace_manager.pop_trace(otel_trace_id)

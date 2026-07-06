@@ -17,7 +17,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-claude-3-7-sonnet": {
       "mode": "chat",
@@ -36,7 +37,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
     },
     "databricks-claude-haiku-4-5": {
       "mode": "chat",
@@ -55,7 +57,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
     },
     "databricks-claude-opus-4": {
       "mode": "chat",
@@ -74,7 +77,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
     },
     "databricks-claude-opus-4-1": {
       "mode": "chat",
@@ -93,7 +97,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
     },
     "databricks-claude-opus-4-5": {
       "mode": "chat",
@@ -112,7 +117,96 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
+    },
+    "databricks-claude-opus-4-6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 64000,
+        "max_tokens": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.00003,
+        "output_per_million_tokens": 25.00001,
+        "cache_write_per_million_tokens": 6.25004,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-claude-opus-4-6[1m]": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 64000,
+        "max_tokens": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.00003,
+        "output_per_million_tokens": 25.00001,
+        "cache_write_per_million_tokens": 6.25004,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-claude-opus-4-7": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 64000,
+        "max_tokens": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.00003,
+        "output_per_million_tokens": 25.00001,
+        "cache_write_per_million_tokens": 6.25004,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-claude-opus-4-7[1m]": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 64000,
+        "max_tokens": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.00003,
+        "output_per_million_tokens": 25.00001,
+        "cache_write_per_million_tokens": 6.25004,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
     },
     "databricks-claude-sonnet-4": {
       "mode": "chat",
@@ -131,7 +225,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
     },
     "databricks-claude-sonnet-4-1": {
       "mode": "chat",
@@ -150,7 +245,8 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
     },
     "databricks-claude-sonnet-4-5": {
       "mode": "chat",
@@ -169,7 +265,52 @@
         "reasoning": true,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
+    },
+    "databricks-claude-sonnet-4-6": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 200000,
+        "max_output": 64000,
+        "max_tokens": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.99999,
+        "output_per_million_tokens": 15.00002,
+        "cache_write_per_million_tokens": 3.74999,
+        "cache_read_per_million_tokens": 0.3
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-claude-sonnet-4-6[1m]": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1000000,
+        "max_output": 64000,
+        "max_tokens": 64000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.99999,
+        "output_per_million_tokens": 15.00002,
+        "cache_write_per_million_tokens": 3.74999,
+        "cache_read_per_million_tokens": 0.3
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
     },
     "databricks-gemini-2-5-flash": {
       "mode": "chat",
@@ -188,7 +329,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
     },
     "databricks-gemini-2-5-pro": {
       "mode": "chat",
@@ -207,7 +349,118 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
+    },
+    "databricks-gemini-3-1-flash-lite": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.31248,
+        "output_per_million_tokens": 1.87502,
+        "cache_write_per_million_tokens": 0.31248,
+        "cache_read_per_million_tokens": 0.03125
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-gemini-3-1-pro": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.49998,
+        "output_per_million_tokens": 15.00002,
+        "cache_write_per_million_tokens": 2.49998,
+        "cache_read_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-gemini-3-5-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.87502,
+        "output_per_million_tokens": 11.24998,
+        "cache_write_per_million_tokens": 1.87502,
+        "cache_read_per_million_tokens": 0.1875
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-gemini-3-flash": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.62503,
+        "output_per_million_tokens": 3.74997,
+        "cache_write_per_million_tokens": 0.62503,
+        "cache_read_per_million_tokens": 0.0625
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-gemini-3-pro": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 1048576,
+        "max_output": 65536,
+        "max_tokens": 65536
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.49998,
+        "output_per_million_tokens": 15.00002,
+        "cache_write_per_million_tokens": 2.49998,
+        "cache_read_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
     },
     "databricks-gemma-3-12b": {
       "mode": "chat",
@@ -226,7 +479,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-gpt-5": {
       "mode": "chat",
@@ -245,7 +499,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
     },
     "databricks-gpt-5-1": {
       "mode": "chat",
@@ -264,7 +519,228 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
+    },
+    "databricks-gpt-5-1-codex-max": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 400000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.24999,
+        "output_per_million_tokens": 9.99999,
+        "cache_write_per_million_tokens": 1.24999,
+        "cache_read_per_million_tokens": 0.125
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-gpt-5-1-codex-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 400000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.24997,
+        "output_per_million_tokens": 1.99997,
+        "cache_write_per_million_tokens": 0.24997,
+        "cache_read_per_million_tokens": 0.025
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-gpt-5-2": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 400000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0,
+        "cache_write_per_million_tokens": 1.75,
+        "cache_read_per_million_tokens": 0.175
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-gpt-5-2-codex": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 400000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0,
+        "cache_write_per_million_tokens": 1.75,
+        "cache_read_per_million_tokens": 0.175
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-gpt-5-3-codex": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 400000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.75,
+        "output_per_million_tokens": 14.0,
+        "cache_write_per_million_tokens": 1.75,
+        "cache_read_per_million_tokens": 0.175
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-gpt-5-4": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 400000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.49998,
+        "output_per_million_tokens": 15.00002,
+        "cache_write_per_million_tokens": 2.49998,
+        "cache_read_per_million_tokens": 0.25
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-gpt-5-4-mini": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 400000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.74998,
+        "output_per_million_tokens": 4.50002,
+        "cache_write_per_million_tokens": 0.74998,
+        "cache_read_per_million_tokens": 0.075
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-gpt-5-4-nano": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 400000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.19999,
+        "output_per_million_tokens": 1.24999,
+        "cache_write_per_million_tokens": 0.19999,
+        "cache_read_per_million_tokens": 0.02
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-gpt-5-5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 400000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 5.00003,
+        "output_per_million_tokens": 30.00003,
+        "cache_write_per_million_tokens": 5.00003,
+        "cache_read_per_million_tokens": 0.5
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-gpt-5-5-pro": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 400000,
+        "max_output": 128000,
+        "max_tokens": 128000
+      },
+      "pricing": {
+        "input_per_million_tokens": 30.00003,
+        "output_per_million_tokens": 180.00003,
+        "cache_write_per_million_tokens": 30.00003,
+        "cache_read_per_million_tokens": 3.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
     },
     "databricks-gpt-5-mini": {
       "mode": "chat",
@@ -283,7 +759,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
     },
     "databricks-gpt-5-nano": {
       "mode": "chat",
@@ -302,7 +779,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-06-12"
     },
     "databricks-gpt-oss-120b": {
       "mode": "chat",
@@ -321,7 +799,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-gpt-oss-20b": {
       "mode": "chat",
@@ -340,7 +819,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-gte-large-en": {
       "mode": "embedding",
@@ -358,7 +838,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-llama-2-70b-chat": {
       "mode": "chat",
@@ -377,7 +858,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-llama-4-maverick": {
       "mode": "chat",
@@ -396,7 +878,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-meta-llama-3-1-405b-instruct": {
       "mode": "chat",
@@ -415,7 +898,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-meta-llama-3-1-8b-instruct": {
       "mode": "chat",
@@ -434,7 +918,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-meta-llama-3-3-70b-instruct": {
       "mode": "chat",
@@ -453,7 +938,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-meta-llama-3-70b-instruct": {
       "mode": "chat",
@@ -472,7 +958,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-mixtral-8x7b-instruct": {
       "mode": "chat",
@@ -491,7 +978,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-mpt-30b-instruct": {
       "mode": "chat",
@@ -510,7 +998,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "databricks-mpt-7b-instruct": {
       "mode": "chat",
@@ -529,7 +1018,67 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "databricks-qwen3-embedding-0-6b": {
+      "mode": "embedding",
+      "context_window": {
+        "max_input": 32000,
+        "max_tokens": 32000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.02002,
+        "output_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-qwen3-next-80b-a3b-instruct": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 131072,
+        "max_output": 32768,
+        "max_tokens": 32768
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15001,
+        "output_per_million_tokens": 1.20001
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": false,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
+    },
+    "databricks-qwen35-122b-a10b": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 256000,
+        "max_output": 8000,
+        "max_tokens": 8000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.15001,
+        "output_per_million_tokens": 0.50001
+      },
+      "capabilities": {
+        "function_calling": false,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-05-20"
     }
   }
 }
