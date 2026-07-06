@@ -314,8 +314,11 @@ function createLlmAndToolSpans(
     const textParts = parts.filter((p) => p.type === PART_TYPE_TEXT);
     const toolParts = parts.filter((p) => p.type === PART_TYPE_TOOL);
 
-    // Create LLM span for text responses
-    if (textParts.length > 0) {
+    // Create LLM span for all assistant messages with content.
+    // Tool-call-only responses (no text) are still LLM calls and must be traced;
+    // omitting them causes missing spans when agents like prometheus issue many
+    // back-to-back tool calls without intermediate text.
+    if (textParts.length > 0 || toolParts.length > 0) {
       const conversationMessages = reconstructConversationMessages(messages, i);
       const textContent = textParts.map((p) => p.text || '').join('\n');
 
@@ -340,9 +343,31 @@ function createLlmAndToolSpans(
         llmSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, tokenUsage);
       }
 
-      llmSpan.setOutputs({
-        choices: [{ message: { role: 'assistant', content: textContent } }],
-      });
+      // Emit the OpenAI chat-completion message shape (content: string | null,
+      // tool_calls: [{id, type, function: {name, arguments}}]) so MLflow's Chat view
+      // renders tool-call spans and traces stay consistent with the other integrations
+      // (see integrations/codex and integrations/qwen-code).
+      const outputMessage: {
+        role: string;
+        content: string | null;
+        tool_calls?: Array<{
+          id: string;
+          type: 'function';
+          function: { name: string; arguments: string };
+        }>;
+      } = { role: 'assistant', content: textContent || null };
+      if (toolParts.length > 0) {
+        outputMessage.tool_calls = toolParts.map((p) => ({
+          id: p.callID || '',
+          type: 'function' as const,
+          function: {
+            name: p.tool || 'unknown',
+            arguments: JSON.stringify(p.state?.input ?? {}),
+          },
+        }));
+      }
+
+      llmSpan.setOutputs({ choices: [{ message: outputMessage }] });
       llmSpan.end({ endTimeNs: completedNs });
     }
 
