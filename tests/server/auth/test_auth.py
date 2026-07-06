@@ -1003,18 +1003,18 @@ def test_log_outputs_authorization(client: MlflowClient, monkeypatch: pytest.Mon
     with User(username1, password1, monkeypatch):
         experiment_id = client.create_experiment("log_outputs_authz")
         run_id = client.create_run(experiment_id).info.run_id
-        model1 = client.create_logged_model(experiment_id=experiment_id)
-        model2 = client.create_logged_model(experiment_id=experiment_id)
-        client.log_outputs(run_id, [LoggedModelOutput(model1.model_id, 1)])
+        model = client.create_logged_model(experiment_id=experiment_id)
+
+    model_outputs = [LoggedModelOutput(model.model_id, 1)]
 
     with User(username2, password2, monkeypatch):
         with pytest.raises(MlflowException, match="Permission denied"):
-            client.log_outputs(run_id, [LoggedModelOutput(model2.model_id, 1)])
+            client.log_outputs(run_id, model_outputs)
 
     grant_role_permission(client.tracking_uri, username2, "experiment", experiment_id, "EDIT")
 
     with User(username2, password2, monkeypatch):
-        client.log_outputs(run_id, [LoggedModelOutput(model2.model_id, 1)])
+        client.log_outputs(run_id, model_outputs)
 
 
 def test_reregister_scorer_does_not_raise(client, monkeypatch):
