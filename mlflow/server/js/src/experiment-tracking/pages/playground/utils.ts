@@ -59,18 +59,65 @@ export const prettyPrintJson = (raw: string): string => {
 };
 
 /**
- * Returns true when the JSON tool-definitions text has no usable tools — either
- * empty/whitespace or parses to an empty array. Parse errors return false so
- * they flow to the separate parse-error path.
+ * Bare-minimum JSON Schema used to pre-populate a freshly added tool's
+ * parameters editor and the response-format schema editor, mirroring the
+ * "blank" template in the design spec.
  */
-export const isToolsValueEmpty = (text: string): boolean => {
-  if (!text.trim()) {
-    return true;
-  }
+export const BLANK_JSON_SCHEMA = `{
+  "type": "object",
+  "properties": {},
+  "required": []
+}`;
+
+/**
+ * Pretty-prints JSON text with 2-space indentation. Returns `null` when the text
+ * is not valid JSON so callers can leave the input untouched (and keep showing the
+ * parse error). Used by the editor's Format action.
+ */
+export const formatJson = (text: string): string | null => {
   try {
-    const parsed = JSON.parse(text);
-    return Array.isArray(parsed) && parsed.length === 0;
+    return JSON.stringify(JSON.parse(text), null, 2);
   } catch {
-    return false;
+    return null;
   }
+};
+
+/**
+ * Structured validation result for a tool's parameters JSON Schema. Returning a
+ * code (rather than a display string) keeps `getToolParametersError` framework- and
+ * locale-agnostic; the UI maps each code to a localized message via `react-intl`.
+ * `parseError` carries the raw (non-localizable) JSON parser message as `detail`.
+ */
+export type ToolParametersError =
+  | { code: 'empty' }
+  | { code: 'parseError'; detail: string }
+  | { code: 'notObject' }
+  | { code: 'missingProperties' };
+
+/**
+ * Validates a tool's parameters JSON Schema text. Returns `null` when it parses to
+ * a JSON object containing a `properties` map (what the gateway requires), or a
+ * structured {@link ToolParametersError} otherwise. Used to flag the parameters
+ * editor and gate submission; the caller localizes the returned code.
+ */
+export const getToolParametersError = (text: string): ToolParametersError | null => {
+  if (!text.trim()) {
+    return { code: 'empty' };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    return { code: 'parseError', detail: e instanceof Error ? e.message : 'Invalid JSON' };
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return { code: 'notObject' };
+  }
+  // The gateway requires the function parameters to be a JSON Schema object with a
+  // `properties` map; flag a missing/invalid one here instead of surfacing a 400.
+  const properties = (parsed as Record<string, unknown>)['properties'];
+  if (typeof properties !== 'object' || properties === null || Array.isArray(properties)) {
+    return { code: 'missingProperties' };
+  }
+  return null;
 };

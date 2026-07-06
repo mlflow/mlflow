@@ -2060,7 +2060,6 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
-            "cache_read_per_million_tokens": 2.5,
             "input_per_million_tokens": 10.0,
             "output_per_million_tokens": 40.0
           }
@@ -2073,7 +2072,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-06-29"
     },
     "gpt-image-1-mini": {
       "mode": "image_generation",
@@ -2082,7 +2081,6 @@
         "cache_read_per_million_tokens": 0.2,
         "modality": {
           "image": {
-            "cache_read_per_million_tokens": 0.25,
             "input_per_million_tokens": 2.5,
             "output_per_million_tokens": 8.0
           }
@@ -2095,7 +2093,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-06-29"
     },
     "gpt-image-1.5": {
       "mode": "image_generation",
@@ -2104,7 +2102,6 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
-            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 32.0
           }
@@ -2117,7 +2114,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-06-29"
     },
     "gpt-image-1.5-2025-12-16": {
       "mode": "image_generation",
@@ -2126,7 +2123,6 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
-            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 32.0
           }
@@ -2139,7 +2135,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-06-29"
     },
     "gpt-image-2": {
       "mode": "image_generation",
@@ -2149,7 +2145,6 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
-            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -2162,7 +2157,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-06-29"
     },
     "gpt-image-2-2026-04-21": {
       "mode": "image_generation",
@@ -2172,7 +2167,6 @@
         "cache_read_per_million_tokens": 1.25,
         "modality": {
           "image": {
-            "cache_read_per_million_tokens": 2.0,
             "input_per_million_tokens": 8.0,
             "output_per_million_tokens": 30.0
           }
@@ -2185,7 +2179,7 @@
         "prompt_caching": false,
         "response_schema": false
       },
-      "last_updated_at": "2026-05-28"
+      "last_updated_at": "2026-06-29"
     },
     "gpt-realtime-1.5-2026-02-23": {
       "mode": "chat",

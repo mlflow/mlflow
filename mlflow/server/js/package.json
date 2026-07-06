@@ -94,7 +94,7 @@
     "redux-promise-middleware": "^5.1.1",
     "redux-thunk": "^2.3.0",
     "remark-gfm-4": "npm:remark-gfm@4",
-    "sanitize-html": "^1.18.5",
+    "sanitize-html": "^2.17.4",
     "showdown": "^1.8.6",
     "stream-browserify": "^3.0.0",
     "url": "^0.11.0",

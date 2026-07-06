@@ -8,15 +8,18 @@ import {
   FlagPointerIcon,
   PlusIcon,
   Notification,
+  SparkleIcon,
   Tooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { Global } from '@emotion/react';
+import { useAssistant } from '@mlflow/mlflow/src/assistant';
 
 import { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
 import { useModelTraceExplorerContext } from './ModelTraceExplorerContext';
 import type { ModelTraceInfoV3 } from './ModelTrace.types';
+import { getAiGradientBorderStyle } from '../design-system/aiGradientBorderStyle';
 import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 
@@ -54,6 +57,7 @@ export const ModelTraceExplorerDrawer = ({
   traceInfo,
 }: ModelTraceExplorerDrawerProps) => {
   const { theme } = useDesignSystemTheme();
+  const { isLocalServer, openPanel } = useAssistant();
   const [showDatasetModal, setShowDatasetModal] = useState(false);
   const [showCopiedNotification, setShowCopiedNotification] = useState(false);
   const [showCopyError, setShowCopyError] = useState(false);
@@ -181,6 +185,22 @@ export const ModelTraceExplorerDrawer = ({
               <ChevronRightIcon />
             </Button>
             <div css={{ flex: 1, overflow: 'hidden' }}>{renderModalTitle()}</div>
+            {isLocalServer && (
+              // data-assistant-ui marks this as assistant UI so AssistantAwareDrawer won't treat
+              // the click as an outside-click and close. See AssistantAwareDrawer.tsx.
+              <Button
+                componentId="mlflow.assistant.trace_header_button"
+                data-assistant-ui="true"
+                icon={<SparkleIcon color="ai" />}
+                onClick={openPanel}
+                css={{ flexShrink: 0, ...getAiGradientBorderStyle(theme) }}
+              >
+                <FormattedMessage
+                  defaultMessage="Analyze with Assistant"
+                  description="Button that opens the MLflow assistant side panel to analyze the current trace"
+                />
+              </Button>
+            )}
             {showAddToDatasetButton && (
               <Button
                 componentId="mlflow.evaluations_review.modal.add_to_dataset"

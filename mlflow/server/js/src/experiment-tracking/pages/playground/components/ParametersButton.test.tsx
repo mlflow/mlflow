@@ -4,28 +4,48 @@ import { render, screen } from '@testing-library/react';
 import userEventGlobal from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
-import type { PlaygroundParams, ResponseFormatType, ToolChoice } from '../types';
+import type { PlaygroundParams, PlaygroundTool, ResponseFormatType, ToolChoice } from '../types';
 import { ParametersButton } from './ParametersButton';
+
+// Monaco does not render in jsdom; stand the editor in with a labelled textarea.
+jest.mock('../../experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor', () => ({
+  LazyJsonRecordEditor: ({
+    ariaLabel,
+    value,
+    onChange,
+    errorMessage,
+  }: {
+    ariaLabel: string;
+    value: string;
+    onChange: (next: string) => void;
+    errorMessage?: string;
+  }) => (
+    <div>
+      <textarea aria-label={ariaLabel} value={value} onChange={(event) => onChange(event.target.value)} />
+      {errorMessage ? <div role="alert">{errorMessage}</div> : null}
+    </div>
+  ),
+}));
 
 const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
 
 interface RenderProps {
   toolChoice?: ToolChoice;
-  toolsText?: string;
-  toolsError?: string | null;
+  tools?: PlaygroundTool[];
   params?: PlaygroundParams;
   responseFormatType?: ResponseFormatType;
 }
 
 const renderButton = ({
-  toolChoice = 'none',
-  toolsText = '',
-  toolsError = null,
+  toolChoice = 'auto',
+  tools = [],
   params = {},
   responseFormatType = 'text',
 }: RenderProps = {}) => {
   const onChange = jest.fn();
-  const onToolsChange = jest.fn();
+  const onAddTool = jest.fn<() => void>();
+  const onRemoveTool = jest.fn<(id: string) => void>();
+  const onUpdateTool = jest.fn<(id: string, patch: Partial<PlaygroundTool>) => void>();
   const onToolChoiceChange = jest.fn<(next: ToolChoice) => void>();
   const onResponseFormatTypeChange = jest.fn();
   const onResponseFormatSchemaChange = jest.fn();
@@ -35,9 +55,10 @@ const renderButton = ({
         <ParametersButton
           value={params}
           onChange={onChange}
-          toolsText={toolsText}
-          onToolsChange={onToolsChange}
-          toolsError={toolsError}
+          tools={tools}
+          onAddTool={onAddTool}
+          onRemoveTool={onRemoveTool}
+          onUpdateTool={onUpdateTool}
           toolChoice={toolChoice}
           onToolChoiceChange={onToolChoiceChange}
           responseFormatType={responseFormatType}
@@ -48,7 +69,7 @@ const renderButton = ({
       </DesignSystemProvider>
     </IntlProvider>,
   );
-  return { onChange, onToolsChange, onToolChoiceChange, onResponseFormatTypeChange };
+  return { onChange, onAddTool, onRemoveTool, onUpdateTool, onToolChoiceChange, onResponseFormatTypeChange };
 };
 
 const openDrawer = async () => {
@@ -64,18 +85,24 @@ describe('ParametersButton', () => {
     expect(screen.getByText('Response format')).toBeInTheDocument();
   });
 
-  it('renders the Tool choice picker defaulting to None and hides the JSON textarea', async () => {
-    renderButton({ toolChoice: 'none' });
+  it('shows the Add tools button and no tool cards before any tools exist', async () => {
+    renderButton({ tools: [] });
     await openDrawer();
-    expect(screen.getByRole('radio', { name: 'None' })).toBeChecked();
-    expect(screen.queryByLabelText('JSON Tool Definition')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add tools' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Tool 1 parameters')).not.toBeInTheDocument();
   });
 
-  it('reveals the JSON textarea and fires onToolChoiceChange when picker switches to Auto', async () => {
-    const { onToolChoiceChange } = renderButton({ toolChoice: 'none' });
+  it('fires onAddTool when Add tools is clicked', async () => {
+    const { onAddTool } = renderButton({ tools: [] });
     await openDrawer();
-    await userEvent.click(screen.getByRole('radio', { name: 'Auto' }));
-    expect(onToolChoiceChange).toHaveBeenLastCalledWith('auto');
+    await userEvent.click(screen.getByRole('button', { name: 'Add tools' }));
+    expect(onAddTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders a tool card with a parameters editor when a tool exists', async () => {
+    renderButton({ tools: [{ id: 't1', name: 'get_weather', description: '', params: '{}' }] });
+    await openDrawer();
+    expect(screen.getByLabelText('Tool 1 parameters')).toBeInTheDocument();
   });
 
   it('opens the Parameters info popover and shows the provider-disclaimer line', async () => {

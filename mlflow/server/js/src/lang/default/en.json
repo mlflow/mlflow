@@ -91,6 +91,10 @@
     "defaultMessage": "Select baseline run",
     "description": "Placeholder text for the baseline run selector dropdown"
   },
+  "+UM7um": {
+    "defaultMessage": "Tool {number} parameters",
+    "description": "Accessible label for an individual tool parameters JSON editor in the playground"
+  },
   "+VGmLL": {
     "defaultMessage": "Optional description",
     "description": "Webhook description placeholder"
@@ -115,10 +119,6 @@
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
     "description": "Queue settings: questions dropdown selected-count summary"
   },
-  "+asYF/": {
-    "defaultMessage": "Have the model call functions you define. Tool choice strategies:",
-    "description": "Intro line of the info popover next to the Tools section header"
-  },
   "+d9nXK": {
     "defaultMessage": "Output cost",
     "description": "Label for output cost"
@@ -130,10 +130,6 @@
   "+dbgRR": {
     "defaultMessage": "{numUniqueValues} values",
     "description": "Text for number of unique values for categorical assessment"
-  },
-  "+dueuC": {
-    "defaultMessage": "JSON Tool Definition",
-    "description": "Label for the JSON tool definitions textarea inside the Tools card"
   },
   "+erxn2": {
     "defaultMessage": "Optimize prompts",
@@ -735,6 +731,10 @@
     "defaultMessage": "Prompts",
     "description": "Title for linked prompts table on logged model details page"
   },
+  "1TTYjs": {
+    "defaultMessage": "Close guidance",
+    "description": "Aria label for closing the analyze with assistant guidance popover"
+  },
   "1Ujhc3": {
     "defaultMessage": "True",
     "description": "True assessment label"
@@ -886,6 +886,10 @@
   "2Hf+yU": {
     "defaultMessage": "Time (wall)",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option is for the absolute time that the metrics were logged."
+  },
+  "2HyEkO": {
+    "defaultMessage": "Analyze traces with the MLflow assistant",
+    "description": "Aria label for the analyze with assistant button"
   },
   "2I27Yy": {
     "defaultMessage": "(empty)",
@@ -1375,6 +1379,10 @@
     "defaultMessage": "Close",
     "description": "Close button for tag details modal"
   },
+  "4b6A7E": {
+    "defaultMessage": "Undo",
+    "description": "Experiment page > shared view > undo button on the override confirmation toast"
+  },
   "4cnExh": {
     "defaultMessage": "{count, plural, one {# reviewer} other {# reviewers}} selected",
     "description": "Queue settings: reviewers dropdown selected-count summary"
@@ -1435,6 +1443,10 @@
     "defaultMessage": "Unique identifier for the trace",
     "description": "Tooltip description for the Trace ID column in the traces table"
   },
+  "4yuYDg": {
+    "defaultMessage": "Got it",
+    "description": "Analyze with assistant guidance dismiss button"
+  },
   "4zJtO4": {
     "defaultMessage": "Copy for coding agent",
     "description": "Tab label for the copy-prompt-to-coding-agent path in the agent action card"
@@ -1478,6 +1490,10 @@
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
+  },
+  "5K6npM": {
+    "defaultMessage": "Analyze with Assistant",
+    "description": "Button that opens the MLflow assistant side panel to analyze the current trace"
   },
   "5LORfM": {
     "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",
@@ -1566,10 +1582,6 @@
   "5jXYY4": {
     "defaultMessage": "Detailed assessments",
     "description": "Evaluation review > assessments > detailed assessments > title"
-  },
-  "5kc6dO": {
-    "defaultMessage": "— model decides whether to call a tool.",
-    "description": "Description of the Auto tool choice in the Tools info popover"
   },
   "5lsHqm": {
     "defaultMessage": "Cancel",
@@ -1899,6 +1911,10 @@
     "defaultMessage": "Tags",
     "description": "Column title text for model version tags in model version table"
   },
+  "7NadFN": {
+    "defaultMessage": "Format",
+    "description": "Button that pretty-prints the response format JSON schema in the playground"
+  },
   "7O0x9Q": {
     "defaultMessage": "Create a custom judge function using the {decorator} decorator. All parameters ({inputs}, {outputs}, {expectations}, {trace}) are optional — include only the ones your logic needs. {link}",
     "description": "Step 1 description for defining judge function"
@@ -1926,6 +1942,10 @@
   "7WkP1e": {
     "defaultMessage": "Delete",
     "description": "Menu item to delete an experiment run"
+  },
+  "7X4zhx": {
+    "defaultMessage": "Parameters schema must include a \"properties\" object",
+    "description": "Inline error shown when a tool parameters schema is missing its properties map"
   },
   "7Y0hIS": {
     "defaultMessage": "Run the following code to validate model inference works on the example input data and logged model dependencies, prior to deploying it to a serving endpoint",
@@ -2035,6 +2055,10 @@
     "defaultMessage": "Artifact Location",
     "description": "Label for displaying the experiment artifact location"
   },
+  "8/M7+2": {
+    "defaultMessage": "Provide one or more function definitions for the model to call.",
+    "description": "Help text shown under the Add tools button in the playground settings drawer before any tools are added"
+  },
   "801Xh4": {
     "defaultMessage": "Save tags",
     "description": "Key-value tag editor modal > Manage Tag save button"
@@ -2110,6 +2134,10 @@
   "8Mwwrq": {
     "defaultMessage": "No matching users",
     "description": "Review queue: no users match the owner search"
+  },
+  "8Rlf8s": {
+    "defaultMessage": "— The model decides whether to call one or more tools (default).",
+    "description": "Description of the Auto tool choice in the Tools info popover"
   },
   "8Uwpjw": {
     "defaultMessage": "Create run",
@@ -2319,6 +2347,10 @@
     "defaultMessage": "Tags",
     "description": "Row group title for tags of runs on the experiment compare runs page"
   },
+  "9Klofr": {
+    "defaultMessage": "Add tool",
+    "description": "Label for the button that appends another tool definition card in the playground Tools section"
+  },
   "9MHcPE": {
     "defaultMessage": "Overview",
     "description": "Tab label for endpoint overview"
@@ -2471,6 +2503,10 @@
     "defaultMessage": "avg per request",
     "description": "Subtitle for average tokens per request in gateway"
   },
+  "A0m0mR": {
+    "defaultMessage": "You're viewing a shared view. Your changes won't be saved unless you override your own saved view.",
+    "description": "Experiment page > shared view banner > explanation that the shared view is read-only"
+  },
   "A1ljDC": {
     "defaultMessage": "Docs",
     "description": "Sidebar link for docs page"
@@ -2542,6 +2578,10 @@
   "AHaom4": {
     "defaultMessage": "No assessments available",
     "description": "Message shown when there are no assessments to display"
+  },
+  "AIun3p": {
+    "defaultMessage": "e.g. get_weather",
+    "description": "Placeholder for the tool function name input in the playground Tools card"
   },
   "AM8DuO": {
     "defaultMessage": "Failed",
@@ -2706,6 +2746,10 @@
   "BD8ZUj": {
     "defaultMessage": "{isTraces, select, true {Trace} other {Session}} {index} of {total}",
     "description": "Index of the current trace and total number of traces"
+  },
+  "BDmDMg": {
+    "defaultMessage": "Your saved view was overridden.",
+    "description": "Experiment page > shared view > confirmation toast after overriding the user's saved view with a shared view"
   },
   "BDnRzZ": {
     "defaultMessage": "Total cost: {cost}",
@@ -2955,6 +2999,10 @@
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
   },
+  "CIpiSM": {
+    "defaultMessage": "Allow",
+    "description": "Button to allow a tool-call permission request"
+  },
   "CKwhUr": {
     "defaultMessage": "Move to Todo",
     "description": "Review focused view: send a completed/declined trace back to the to-do list"
@@ -3174,6 +3222,10 @@
   "DQ3XQT": {
     "defaultMessage": "Diff highlighting is not supported in Markdown view. Switch to Text view to see differences.",
     "description": "Warning message shown in prompt comparison view when markdown rendering is enabled"
+  },
+  "DSBiYz": {
+    "defaultMessage": "Discard",
+    "description": "Experiment page > shared view banner > button that discards the shared view and restores the user's own view"
   },
   "DSu+/R": {
     "defaultMessage": "Select reviewers",
@@ -3454,10 +3506,6 @@
   "F4K195": {
     "defaultMessage": "No evaluation datasets found",
     "description": "Empty state for the evaluation datasets page"
-  },
-  "F6YQTG": {
-    "defaultMessage": "Pick Auto or Required to enter the JSON tool definitions.",
-    "description": "Closing line of the Tools info popover hinting at the conditional definitions input"
   },
   "F8MqzZ": {
     "defaultMessage": "Path",
@@ -3963,6 +4011,10 @@
     "defaultMessage": "Compare",
     "description": "Compare traces button"
   },
+  "HrQbGZ": {
+    "defaultMessage": "Format",
+    "description": "Button that pretty-prints the tool parameters JSON in the playground"
+  },
   "Hvznjh": {
     "defaultMessage": "Assistant",
     "description": "Display text for the 'assistant' role in a GenAI chat message."
@@ -4242,10 +4294,6 @@
   "JUTcIz": {
     "defaultMessage": "Time created",
     "description": "Header for the time created column in the experiments table"
-  },
-  "JUuOks": {
-    "defaultMessage": "e.g. {example}",
-    "description": "Placeholder shown inside the playground response_format JSON schema textarea"
   },
   "JW0GbU": {
     "defaultMessage": "You can set a maximum of {maxLength} values",
@@ -4587,6 +4635,10 @@
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 20 first runs in the evaluation runs table"
   },
+  "LKA/ko": {
+    "defaultMessage": "Add tools",
+    "description": "Label for the button that reveals the playground tool definitions input and tool choice selector"
+  },
   "LKAZ2n": {
     "defaultMessage": "Disable grouped runs to compare",
     "description": "Experiment tracking > components > runs-charts > RunsChartsConfigureDifferenceCharts > disable grouped runs info message"
@@ -4754,6 +4806,10 @@
   "MBNIRk": {
     "defaultMessage": "Attributes",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading"
+  },
+  "MGcWqh": {
+    "defaultMessage": "Schema",
+    "description": "Accessible label for the playground response_format JSON schema editor"
   },
   "MHWark": {
     "defaultMessage": "Year",
@@ -5039,6 +5095,10 @@
     "defaultMessage": "Is the text grammatically correct and naturally flowing?",
     "description": "Hint for Fluency template"
   },
+  "NX60WQ": {
+    "defaultMessage": "Override saved view",
+    "description": "Experiment page > shared view banner > button that overwrites the user's own saved view with the shared view"
+  },
   "NekUba": {
     "defaultMessage": "Add to dataset",
     "description": "Button text for adding a trace to an evaluation dataset"
@@ -5198,6 +5258,14 @@
   "OH7mDs": {
     "defaultMessage": "Expectations",
     "description": "Column selector label for the expectations column"
+  },
+  "OHDirZ": {
+    "defaultMessage": "Use the trash icon to remove the tools from the request.",
+    "description": "Closing line of the Tools info popover explaining how the trash icon removes tools"
+  },
+  "OIJAhv": {
+    "defaultMessage": "Function name is required",
+    "description": "Inline error shown when a tool is missing its function name"
   },
   "OLZyxe": {
     "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
@@ -5498,10 +5566,6 @@
   "Pts/gW": {
     "defaultMessage": "Select endpoint",
     "description": "Placeholder for endpoint selector"
-  },
-  "PuVisU": {
-    "defaultMessage": "Schema",
-    "description": "Label for the playground response_format JSON schema textarea"
   },
   "PuXTcZ": {
     "defaultMessage": "Welcome to MLflow",
@@ -5966,6 +6030,10 @@
   "SG4oPe": {
     "defaultMessage": "— instructions or persona for the model (e.g. {example}).",
     "description": "Description of the system role in the playground role-selector help popover"
+  },
+  "SG6cpK": {
+    "defaultMessage": "e.g. Get the weather in a given location",
+    "description": "Placeholder for the tool description input in the playground Tools card"
   },
   "SHoy6d": {
     "defaultMessage": "Open full trace viewer",
@@ -6523,6 +6591,10 @@
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
     "description": "Tooltip message for the export button when the trace is not exportable"
   },
+  "V0IJuy": {
+    "defaultMessage": "Allow the assistant to run {toolName}?",
+    "description": "Title of the prompt asking the user to approve a tool call"
+  },
   "V1kYC+": {
     "defaultMessage": "Select element type",
     "description": "Placeholder for list element type"
@@ -6618,6 +6690,10 @@
   "VPU43C": {
     "defaultMessage": "Compare parameter importance",
     "description": "Experiment page > compare runs > parallel coordinates chart > chart not configured warning > title"
+  },
+  "VS9L0H": {
+    "defaultMessage": "Add a parameters schema",
+    "description": "Inline error shown when a tool parameters editor is empty"
   },
   "VSitCY": {
     "defaultMessage": "Top K",
@@ -6839,6 +6915,10 @@
     "defaultMessage": "Failed to update workspace. Please try again.",
     "description": "Generic error message for edit workspace modal"
   },
+  "WLGBoB": {
+    "defaultMessage": "Chat with Traces in Assistant",
+    "description": "Analyze with assistant guidance popover title"
+  },
   "WP1pyQ": {
     "defaultMessage": "Created by",
     "description": "Column title for created by column for a model in the registered model page"
@@ -6947,6 +7027,10 @@
     "defaultMessage": "<link>Learn more about budget time windows.</link>",
     "description": "Tooltip with link to budget time windows documentation"
   },
+  "Wv+BbS": {
+    "defaultMessage": "Parameters must be a JSON object",
+    "description": "Inline error shown when tool parameters are valid JSON but not an object"
+  },
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
@@ -6974,6 +7058,10 @@
   "X/TTxm": {
     "defaultMessage": "Previous trace",
     "description": "Review focused view: previous-trace button"
+  },
+  "X1/rxD": {
+    "defaultMessage": "MLflow Assistant",
+    "description": "Label revealed when hovering the floating MLflow assistant button"
   },
   "X11caV": {
     "defaultMessage": "Failed to override assessment. Error: {error}",
@@ -7567,6 +7655,10 @@
     "defaultMessage": "Experiments",
     "description": "Header title for the experiments page"
   },
+  "ZqOagL": {
+    "defaultMessage": "Invalid JSON: {detail}",
+    "description": "Inline error shown when a tool parameters editor contains unparseable JSON"
+  },
   "Zqj4VA": {
     "defaultMessage": "New run name",
     "description": "Experiment page > new run modal > run name input label"
@@ -7626,6 +7718,10 @@
   "aAAHaS": {
     "defaultMessage": "Context insufficient",
     "description": "Evaluation results > context sufficiency assessment > negative value label. Displayed if retrieved context is insufficient to generate the expected response."
+  },
+  "aAcCh2": {
+    "defaultMessage": "Analyze with Assistant",
+    "description": "Traces table toolbar button that opens the MLflow assistant to analyze the current traces"
   },
   "aB6xFd": {
     "defaultMessage": "Outputs",
@@ -7934,6 +8030,10 @@
   "bdVsGZ": {
     "defaultMessage": "Collapse description",
     "description": "Aria label for button that collapses a long description"
+  },
+  "bgk51B": {
+    "defaultMessage": "Give every tool a function name",
+    "description": "Submit blocker detail shown when a playground tool is missing its function name"
   },
   "bi26D5": {
     "defaultMessage": "Run ID:",
@@ -8371,6 +8471,10 @@
     "defaultMessage": "Permanently delete \"{name}\" and remove its traces from review? This cannot be undone.",
     "description": "Delete review queue: confirm body"
   },
+  "dkw8bG": {
+    "defaultMessage": "Deny",
+    "description": "Button to deny a tool-call permission request"
+  },
   "dl0TeT": {
     "defaultMessage": "Save",
     "description": "Experiment tracking > experiment page > runs > save tags button"
@@ -8462,6 +8566,10 @@
   "eBXtz7": {
     "defaultMessage": "Account",
     "description": "Accessible label for the account-page icon avatar"
+  },
+  "eCMHlc": {
+    "defaultMessage": "— The model must call at least one tool.",
+    "description": "Description of the Required tool choice in the Tools info popover"
   },
   "eCleLG": {
     "defaultMessage": "Failed to load API keys. Please check your connection and try again.",
@@ -8670,6 +8778,10 @@
   "f4CfIz": {
     "defaultMessage": "(edited)",
     "description": "Link text in an edited assessment that allows the user to click to see the previous value"
+  },
+  "f5cp11": {
+    "defaultMessage": "Provide one or more function definitions the model can call. Choose how the model invokes them:",
+    "description": "Intro line of the info popover next to the Tools section header"
   },
   "f6B8LJ": {
     "defaultMessage": "Numeric",
@@ -8919,6 +9031,10 @@
     "defaultMessage": "Cancel",
     "description": "Delete assessment modal cancel button text"
   },
+  "gH6GGr": {
+    "defaultMessage": "Function name",
+    "description": "Label for the tool function name input in the playground Tools card"
+  },
   "gIc8Lp": {
     "defaultMessage": "Stages have been deprecated in the new Model Registry UI. Learn how to migrate models <link>here</link>.",
     "description": "Tooltip content for the disabled stage metadata in model version page"
@@ -8934,6 +9050,10 @@
   "gMX8Zp": {
     "defaultMessage": "MLflow assistant",
     "description": "Tab label for the in-UI MLflow assistant path in the agent action card"
+  },
+  "gMflIB": {
+    "defaultMessage": "Reset to defaults",
+    "description": "Button in the experiment runs table column selector that resets column visibility, order and width back to defaults"
   },
   "gOH/XL": {
     "defaultMessage": "No additional metadata is available for this dataset.",
@@ -9683,6 +9803,10 @@
     "defaultMessage": "AI Gateway",
     "description": "Home page quick action title for AI Gateway"
   },
+  "jSuw00": {
+    "defaultMessage": "Tool {number}",
+    "description": "Header label for an individual tool card in the playground Tools section"
+  },
   "jTqRO+": {
     "defaultMessage": "None",
     "description": "A short label for experiments with no automatically inferred experiment type"
@@ -9710,6 +9834,10 @@
   "jcg8zG": {
     "defaultMessage": "Models",
     "description": "Models column header"
+  },
+  "jeQmEj": {
+    "defaultMessage": "Function description",
+    "description": "Label for the tool description input in the playground Tools card"
   },
   "jhgu6C": {
     "defaultMessage": "A unique identifier for the session or conversation for grouping traces",
@@ -9843,13 +9971,13 @@
     "defaultMessage": "Correctness",
     "description": "LLM template option"
   },
+  "kD2Vww": {
+    "defaultMessage": "The model decides whether to call one or more tools.",
+    "description": "Hint shown under the tool choice selector when Auto is selected"
+  },
   "kEmVw4": {
     "defaultMessage": "Trace Archival Retention",
     "description": "Label for workspace trace archival retention field"
-  },
-  "kGVN6k": {
-    "defaultMessage": "e.g. {example}",
-    "description": "Placeholder shown above the playground tools JSON textarea"
   },
   "kHDQiE": {
     "defaultMessage": "Analyze the '{{ conversation }}' and determine if the agent maintains a polite and professional tone throughout all interactions.{br}Rate as 'consistently_polite', 'mostly_polite', or 'impolite'.",
@@ -10671,10 +10799,6 @@
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
   },
-  "oJg/Kk": {
-    "defaultMessage": "— model must call a tool.",
-    "description": "Description of the Required tool choice in the Tools info popover"
-  },
   "oKNOju": {
     "defaultMessage": "Conversational tool call efficiency",
     "description": "LLM template option"
@@ -10991,6 +11115,10 @@
     "defaultMessage": "Are you sure you want to delete the dataset \"{name}\"? This action cannot be undone.",
     "description": "Body for the V2 evaluation dataset delete confirmation modal on the detail page"
   },
+  "pxRaW6": {
+    "defaultMessage": "Schema",
+    "description": "Label for the playground response_format JSON schema editor"
+  },
   "pye4NE": {
     "defaultMessage": "Select an endpoint",
     "description": "Placeholder for endpoint selection dropdown"
@@ -11266,6 +11394,10 @@
   "r91Gz/": {
     "defaultMessage": "Duplicate",
     "description": "Gateway > Endpoints list > Duplicate button"
+  },
+  "r9EsGo": {
+    "defaultMessage": "This view is too large to fit in a link. The link will open the experiment with your filters and sorting, but without the saved column layout and charts.",
+    "description": "Warning shown in the experiment share-link modal when the view is too large to embed in the URL and a simplified link is shared instead"
   },
   "rAAy4b": {
     "defaultMessage": "Open dataset record {recordId}",
@@ -11971,10 +12103,6 @@
     "defaultMessage": "Edit Workspace",
     "description": "Title for edit workspace modal"
   },
-  "um/4MQ": {
-    "defaultMessage": "Add at least one tool definition",
-    "description": "Inline error shown in the Tools card when tool choice is not none but no tool definitions are provided"
-  },
   "umeTwG": {
     "defaultMessage": "Latest",
     "description": "Column title for the column displaying the latest metric values for a metric"
@@ -12115,6 +12243,10 @@
     "defaultMessage": "Add question",
     "description": "Add review question modal title"
   },
+  "vcZc8z": {
+    "defaultMessage": "Open the MLflow Assistant to ask questions about your traces, debug failures, and investigate quality issues right alongside your data.",
+    "description": "Analyze with assistant guidance popover message"
+  },
   "vedifc": {
     "defaultMessage": "Enter API key or select saved key",
     "description": "Placeholder for API key combobox input"
@@ -12122,6 +12254,10 @@
   "vgfy8y": {
     "defaultMessage": "Add assessment",
     "description": "Evaluation review > assessments > add assessment button label"
+  },
+  "vhChCU": {
+    "defaultMessage": "Fix the tool parameters schema",
+    "description": "Submit blocker shown when a playground tool has an invalid parameters schema"
   },
   "vi2MM7": {
     "defaultMessage": "All",
@@ -12166,10 +12302,6 @@
   "vwXBHk": {
     "defaultMessage": "Rationale",
     "description": "Label for the rationale of an issue assessment"
-  },
-  "vwvhCa": {
-    "defaultMessage": "Fix the Tools JSON: {error}",
-    "description": "Reason shown when the playground Submit button is disabled because the tools JSON is invalid"
   },
   "vxY1CI": {
     "defaultMessage": "Status",
@@ -12335,10 +12467,6 @@
     "defaultMessage": "Prompt content is required",
     "description": "A validation state for the prompt content in the prompt creation modal"
   },
-  "wqI7on": {
-    "defaultMessage": "Add at least one tool definition",
-    "description": "Reason shown when the playground Submit button is disabled because tool choice requires tools but none are provided"
-  },
   "wqv2gd": {
     "defaultMessage": "Redact or mask flagged content, then allow the request to continue.",
     "description": "Sanitize action description"
@@ -12426,6 +12554,10 @@
   "x7NsCC": {
     "defaultMessage": "Reasoning",
     "description": "Label for the collapsible reasoning section in chat message"
+  },
+  "x90XmL": {
+    "defaultMessage": "The model must call at least one tool.",
+    "description": "Hint shown under the tool choice selector when Required is selected"
   },
   "xBIlD4": {
     "defaultMessage": "Expectation",
@@ -12530,6 +12662,10 @@
   "xc+tL4": {
     "defaultMessage": "Filters{numFilters}",
     "description": "Usage overview > metrics filter dropdown button"
+  },
+  "xczUnJ": {
+    "defaultMessage": "Function parameters schema",
+    "description": "Label for the tool parameters JSON schema editor in the playground Tools card"
   },
   "xdFMIN": {
     "defaultMessage": "Dataset name",
@@ -12883,6 +13019,10 @@
     "defaultMessage": "Run judge on {count} traces",
     "description": "Title for run judge modal when running on multiple traces"
   },
+  "zPxoze": {
+    "defaultMessage": "Remove tool {number}",
+    "description": "Aria label for the trash button that removes a single tool from the playground request"
+  },
   "zRKlAL": {
     "defaultMessage": "Metadata",
     "description": "Label for the metadata section"
@@ -12934,10 +13074,6 @@
   "ze1m7Z": {
     "defaultMessage": "Run name cannot consist only of whitespace!",
     "description": "An error shown when user sets the run's name to whitespace characters only"
-  },
-  "zehip9": {
-    "defaultMessage": "— never call a tool (default).",
-    "description": "Description of the None tool choice in the Tools info popover"
   },
   "zfpA2q": {
     "defaultMessage": "Source run",
