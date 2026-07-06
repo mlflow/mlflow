@@ -7831,6 +7831,10 @@
     "defaultMessage": "Add record",
     "description": "Primary button text for adding a new dataset record from the empty state"
   },
+  "aKVdS3": {
+    "defaultMessage": "Model: {model}",
+    "description": "Tooltip on the assistant composer showing the active provider's configured model name"
+  },
   "aKW54p": {
     "defaultMessage": "See it in action",
     "description": "Label on the click-to-play video preview in the traces empty state"

@@ -112,6 +112,14 @@ export interface KnownAssistantContext {
 /** All known context keys */
 export type AssistantContextKey = keyof KnownAssistantContext;
 
+/** The provider/model backing the current session, resolved from the selected `/config` entry. */
+export interface SelectedProvider {
+  /** Provider id as keyed in `/config` (e.g. `claude_code`, `mlflow_gateway`). */
+  id: string;
+  /** Configured model / endpoint name for that provider. */
+  model: string;
+}
+
 /** Cumulative token usage reported by the provider for the current session. */
 export interface TokenUsage {
   promptTokens: number;
@@ -145,6 +153,8 @@ export interface AssistantAgentState {
   isLoadingConfig: boolean;
   /** Whether the server is running locally (localhost) */
   isLocalServer: boolean;
+  /** The provider/model backing the session, or null before setup completes */
+  selectedProvider: SelectedProvider | null;
   /** A prompt queued to seed the chat input the next time it becomes visible (null when none) */
   pendingPrompt: string | null;
   /** A tool call awaiting the user's Yes/No decision, or null */

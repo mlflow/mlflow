@@ -816,6 +816,7 @@ module.exports = {
   "mlflow.assistant.chat_panel.context.trace": "",
   "mlflow.assistant.chat_panel.copy": "",
   "mlflow.assistant.chat_panel.copy.tooltip": "",
+  "mlflow.assistant.chat_panel.provider_info.tooltip": "",
   "mlflow.assistant.chat_panel.regenerate": "",
   "mlflow.assistant.chat_panel.regenerate.tooltip": "",
   "mlflow.assistant.chat_panel.remote_close": "",

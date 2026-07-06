@@ -12,6 +12,7 @@ import {
   type AssistantPart,
   type ChatMessage,
   type PermissionRequest,
+  type SelectedProvider,
   type ToolUseInfo,
   type ToolResultInfo,
   type TokenUsage,
@@ -98,19 +99,31 @@ const generateMessageId = (): string => {
   return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
-async function resolveSetupComplete(config: AssistantConfig): Promise<boolean> {
-  const selectedProvider = Object.entries(config.providers ?? {}).find(
+/**
+ * Resolve, from the config, whether setup is complete and which provider/model backs the
+ * session. `selectedProvider` is the config's selected entry (null when none); it's returned
+ * even when setup is incomplete so callers can surface it, but is only *usable* when
+ * `setupComplete` is true.
+ */
+async function resolveSetup(
+  config: AssistantConfig,
+): Promise<{ setupComplete: boolean; selectedProvider: SelectedProvider | null }> {
+  const selected = Object.entries(config.providers ?? {}).find(
     ([, providerConfig]) => providerConfig.selected === true,
   );
-  if (!selectedProvider) return false;
+  if (!selected) {
+    return { setupComplete: false, selectedProvider: null };
+  }
 
-  const [providerId, providerConfig] = selectedProvider;
+  const [providerId, providerConfig] = selected;
+  const selectedProvider: SelectedProvider = { id: providerId, model: providerConfig.model };
   if (providerId !== GATEWAY_PROVIDER_ID) {
-    return true;
+    return { setupComplete: true, selectedProvider };
   }
   // The endpoint must be the same as the model name
   const { endpoints } = await GatewayApi.listEndpoints();
-  return endpoints.some((endpoint) => endpoint.name === providerConfig.model);
+  const setupComplete = endpoints.some((endpoint) => endpoint.name === providerConfig.model);
+  return { setupComplete, selectedProvider };
 }
 
 /**
@@ -230,6 +243,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   // Setup state
   const [setupComplete, setSetupComplete] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<SelectedProvider | null>(null);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [remoteAccessAllowed, setRemoteAccessAllowed] = useState(false);
   const canUseAssistant = isLocalServer || remoteAccessAllowed;
@@ -405,13 +419,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setIsLoadingConfig(true);
     try {
       const config = await getConfig();
-      const isComplete = await resolveSetupComplete(config);
+      const { setupComplete: isComplete, selectedProvider: provider } = await resolveSetup(config);
       setSetupComplete(isComplete);
       setRemoteAccessAllowed(config.remote_access_allowed ?? false);
+      // Only expose the provider once setup is valid, so the composer never shows a
+      // half-configured (e.g. gateway with a stale endpoint) provider as active.
+      setSelectedProvider(isComplete ? provider : null);
     } catch {
       // On error, assume setup is not complete
       setSetupComplete(false);
       setRemoteAccessAllowed(false);
+      setSelectedProvider(null);
     } finally {
       setIsLoadingConfig(false);
     }
@@ -818,6 +836,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setupComplete,
     isLoadingConfig,
     isLocalServer,
+    selectedProvider,
     pendingPrompt,
     pendingPermission,
     canUseAssistant,
@@ -851,6 +870,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   setupComplete: false,
   isLoadingConfig: false,
   isLocalServer: false,
+  selectedProvider: null,
   pendingPrompt: null,
   pendingPermission: null,
   canUseAssistant: false,

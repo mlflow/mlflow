@@ -29,6 +29,8 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
+import { getAssistantProvider } from './providerRegistry';
+import type { SelectedProvider } from './types';
 import { AssistantContextTags } from './AssistantContextTags';
 import { ToolPermissionPrompt } from './ToolPermissionPrompt';
 import { ToolCallGroup, type ToolCallPart } from './ToolCallCard';
@@ -66,6 +68,38 @@ const formatCostUsd = (cost: number): string =>
     currency: 'USD',
     maximumFractionDigits: cost < 1 ? 4 : 2,
   }).format(cost);
+
+/**
+ * Read-only indicator of the provider/model backing the session. Shows the provider's brand
+ * logo + name, with the model name in a tooltip. Display-only — there is intentionally no
+ * affordance to change the provider from the composer (that lives in Settings).
+ */
+const ProviderIndicator = ({ provider }: { provider: SelectedProvider }) => {
+  const { theme } = useDesignSystemTheme();
+  const meta = getAssistantProvider(provider.id);
+  const label = meta?.name ?? provider.id;
+  return (
+    <Tooltip
+      componentId="mlflow.assistant.chat_panel.provider_info.tooltip"
+      content={
+        <FormattedMessage
+          defaultMessage="Model: {model}"
+          description="Tooltip on the assistant composer showing the active provider's configured model name"
+          values={{ model: provider.model }}
+        />
+      }
+    >
+      <div css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs, minWidth: 0 }}>
+        {meta?.logo && (
+          <img src={meta.logo} alt="" aria-hidden css={{ width: 14, height: 14, flexShrink: 0, borderRadius: 2 }} />
+        )}
+        <Typography.Text size="sm" color="secondary" css={{ whiteSpace: 'nowrap' }}>
+          {label}
+        </Typography.Text>
+      </div>
+    </Tooltip>
+  );
+};
 
 export type MessagePartGroup = { kind: 'text'; text: string } | { kind: 'tools'; calls: ToolCallPart[] };
 
@@ -346,6 +380,7 @@ const ChatPanelContent = () => {
     regenerateLastMessage,
     cancelSession,
     tokenUsage,
+    selectedProvider,
     pendingPrompt,
     clearPendingPrompt,
     pendingPermission,
@@ -514,6 +549,7 @@ const ChatPanelContent = () => {
               borderTop: `1px solid ${theme.colors.borderDecorative}`,
             }}
           >
+            {selectedProvider ? <ProviderIndicator provider={selectedProvider} /> : <div css={{ flex: 1 }} />}
             <div css={{ flex: 1 }} />
             {tokenUsage.totalTokens > 0 && (
               <div css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.xs }}>

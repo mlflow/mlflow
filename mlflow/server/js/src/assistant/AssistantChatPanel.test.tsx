@@ -34,6 +34,7 @@ jest.mock('./AssistantContext', () => ({
     setupComplete: mockSetupComplete,
     isLoadingConfig: false,
     isLocalServer: true,
+    selectedProvider: null,
     pendingPrompt: mockPendingPrompt,
     canUseAssistant: true,
     tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, costUsd: null },
