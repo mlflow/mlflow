@@ -16,7 +16,6 @@
 # prints a notice asking you to remove it from this file.
 #
 # One integration directory name per line (matches integrations/<name>).
-opencode
 claude-code
 codex
 qwen-code
