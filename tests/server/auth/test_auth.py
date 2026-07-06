@@ -541,6 +541,126 @@ def test_graphql_search_model_versions(client, monkeypatch):
     assert names == [f"gql_mv_model{i}" for i in readable]
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_create_model_version_requires_read_on_source_run(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch
+):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("source-run-authz-exp")
+        run = client.create_run(exp_id)
+        run_id = run.info.run_id
+        source = run.info.artifact_uri
+
+    with User(username2, password2, monkeypatch):
+        rm = client.create_registered_model("source-run-authz-model")
+
+    # user2 owns the target model but has no read on user1's experiment/run:
+    # anchoring a model version at user1's run artifact dir must be denied.
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={"name": rm.name, "source": source, "run_id": run_id},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    # grant user2 READ on user1's experiment; creation should now succeed.
+    with User(username1, password1, monkeypatch):
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": exp_id,
+                "username": username2,
+                "permission": "READ",
+            },
+            auth=(username1, password1),
+        )
+
+    with User(username2, password2, monkeypatch):
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/model-versions/create",
+            json_payload={"name": rm.name, "source": source, "run_id": run_id},
+            auth=(username2, password2),
+        )
+        assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_create_model_version_requires_read_on_source_model(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch
+):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("source-model-authz-exp")
+        model = client.create_logged_model(experiment_id=exp_id)
+        model_id = model.model_id
+        source = model.artifact_location
+
+    with User(username2, password2, monkeypatch):
+        rm = client.create_registered_model("source-model-authz-model")
+
+    # user2 owns the target model but has no read on the source logged model.
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={"name": rm.name, "source": source, "model_id": model_id},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    with User(username1, password1, monkeypatch):
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/experiments/permissions/create",
+            json_payload={
+                "experiment_id": exp_id,
+                "username": username2,
+                "permission": "READ",
+            },
+            auth=(username1, password1),
+        )
+
+    with User(username2, password2, monkeypatch):
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/model-versions/create",
+            json_payload={"name": rm.name, "source": source, "model_id": model_id},
+            auth=(username2, password2),
+        )
+        assert response.status_code == 200
+
+
+def test_create_model_version_from_own_source_succeeds(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch
+):
+    username1, password1 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("own-source-authz-exp")
+        run = client.create_run(exp_id)
+        run_id = run.info.run_id
+        rm = client.create_registered_model("own-source-authz-model")
+        mv = client.create_model_version(rm.name, f"{run.info.artifact_uri}/model", run_id=run_id)
+        assert mv.name == rm.name
+
+
 def test_create_and_delete_registered_model(client, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
 

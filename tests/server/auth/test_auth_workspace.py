@@ -570,6 +570,43 @@ def test_run_validators_read_permission_blocks_writes(workspace_permission_setup
         assert not auth_module.validate_can_manage_run()
 
 
+def test_create_model_version_source_read_blocks_cross_workspace(
+    workspace_permission_setup, monkeypatch
+):
+    # Target model lives in team-a (user has MANAGE); source run/model live in team-b
+    # (user has no access). The source-read check must block anchoring the model version
+    # at a run/model the caller cannot read, even though they can update the target model.
+    tracking_store = _TrackingStore(
+        experiment_workspaces={"exp-a": "team-a", "exp-b": "team-b"},
+        run_experiments={"run-a": "exp-a", "run-b": "exp-b"},
+        trace_experiments={},
+        logged_model_experiments={"model-a": "exp-a", "model-b": "exp-b"},
+    )
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "run_id": "run-b"},
+    ):
+        assert not auth_module.validate_can_create_model_version()
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "model_id": "model-b"},
+    ):
+        assert not auth_module.validate_can_create_model_version()
+
+    # Same-workspace source (team-a) is allowed.
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "run_id": "run-a"},
+    ):
+        assert auth_module.validate_can_create_model_version()
+
+
 def test_logged_model_validators_respect_permissions(workspace_permission_setup):
     store = workspace_permission_setup["store"]
     username = workspace_permission_setup["username"]

@@ -898,6 +898,22 @@ def validate_can_manage_registered_model():
     return _get_permission_from_registered_model_name().can_manage
 
 
+def validate_can_create_model_version():
+    # A model version anchors its `source` inside the artifact directory of the run/model
+    # named by `run_id`/`model_id`. Downstream artifact reads are gated on the model version's
+    # registered model, so without a read check here a caller could point `source` at another
+    # user's run/model and read those artifacts through their own registered model. Require read
+    # on the source run/model to keep create-time access consistent with artifact-read gating.
+    if not validate_can_update_registered_model():
+        return False
+    body = request.get_json(force=True, silent=True) or {}
+    if body.get("run_id") and not _get_permission_from_run_id().can_read:
+        return False
+    if body.get("model_id") and not _get_permission_from_model_id().can_read:
+        return False
+    return True
+
+
 def validate_can_create_experiment() -> bool:
     # Historically, experiment creation has always been allowed when workspaces are
     # disabled. We keep returning True here to preserve that behavior even if
@@ -1488,7 +1504,7 @@ BEFORE_REQUEST_HANDLERS = {
     UpdateRegisteredModel: validate_can_update_registered_model,
     RenameRegisteredModel: validate_can_update_registered_model,
     GetLatestVersions: validate_can_read_registered_model,
-    CreateModelVersion: validate_can_update_registered_model,
+    CreateModelVersion: validate_can_create_model_version,
     GetModelVersion: validate_can_read_registered_model,
     DeleteModelVersion: validate_can_delete_registered_model,
     UpdateModelVersion: validate_can_update_registered_model,
