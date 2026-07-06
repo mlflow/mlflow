@@ -224,16 +224,27 @@ def _merge_tool_call_chunk(accumulator: list[dict[str, Any]], chunk: dict[str, A
     """Merge a streamed tool-call delta into the accumulator.
 
     OpenAI streams tool calls in pieces keyed by `index`: the first chunk
-    typically carries `id` and `function.name`, subsequent chunks append to
-    `function.arguments`.
+    typically carries `id` and `function.name`, subsequent chunks carry no `id`
+    and append to `function.arguments`.
+
+    A chunk bearing a *new* `id` begins a new tool call, so we key on `id` when
+    present and only fall back to `index` for id-less continuation chunks. Some
+    servers (e.g. the MLflow gateway with certain models) emit each complete
+    parallel call as its own chunk reusing `index: 0` but with distinct ids;
+    keying purely on `index` would merge those into one call with a doubled name
+    and concatenated (invalid-JSON) arguments.
     """
-    idx = chunk.get("index", 0)
-    while len(accumulator) <= idx:
-        accumulator.append({"id": "", "function": {"name": "", "arguments": ""}})
-    entry = accumulator[idx]
-    if call_id := chunk.get("id"):
-        entry["id"] = call_id
     fn = chunk.get("function") or {}
+    if call_id := chunk.get("id"):
+        entry = next((e for e in accumulator if e["id"] == call_id), None)
+        if entry is None:
+            entry = {"id": call_id, "function": {"name": "", "arguments": ""}}
+            accumulator.append(entry)
+    else:
+        idx = chunk.get("index", 0)
+        while len(accumulator) <= idx:
+            accumulator.append({"id": "", "function": {"name": "", "arguments": ""}})
+        entry = accumulator[idx]
     if name := fn.get("name"):
         entry["function"]["name"] = name
     if args := fn.get("arguments"):
