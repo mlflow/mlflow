@@ -545,16 +545,12 @@ class OpenAICompatibleProvider(AssistantProvider):
                                         _merge_tool_call_chunk(tool_calls_acc, tc)
 
                         if not tool_calls_acc:
-                            if visible_text.strip():
-                                messages.append({"role": "assistant", "content": visible_text})
-                                break
-                            # The model streamed no text this round. Any tool output or error this
-                            # turn already reached the client as its own block, so we just surface
-                            # that the model added no response rather than finalize silently.
-                            yield Event.from_error(
-                                "The model returned an empty response. Please try again."
-                            )
-                            return
+                            # No tool calls this round: the model's turn is done. Persist whatever
+                            # text it produced (possibly empty) and fall through to finalize with
+                            # the updated history, so a retry resumes from it rather than re-running
+                            # any tools already executed this turn.
+                            messages.append({"role": "assistant", "content": visible_text})
+                            break
 
                         # Normalize accumulated tool calls into the OpenAI
                         # assistant message format expected on the next turn.

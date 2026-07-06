@@ -885,9 +885,10 @@ async def test_astream_done_blob_encodes_tool_turn_for_resume(provider):
 
 
 @pytest.mark.asyncio
-async def test_astream_empty_response_yields_error(provider):
-    # The model streams nothing — no content, no tool calls. Surface an error instead of a silent
-    # DONE that leaves the UI dropping the spinner with no message and no warning.
+async def test_astream_empty_response_finalizes_with_history(provider):
+    # The model streams nothing — no content, no tool calls. The turn finalizes normally with the
+    # updated history (an empty assistant message) rather than forking into a special error path;
+    # the UI renders the empty turn and clears the spinner.
     session, _ = _make_aiohttp_session([[b"data: [DONE]\n"]])
     with patch(
         "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
@@ -895,10 +896,11 @@ async def test_astream_empty_response_yields_error(provider):
     ):
         events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
 
-    assert not any(e.type == EventType.DONE for e in events)
-    errors = [e for e in events if e.type == EventType.ERROR]
-    assert len(errors) == 1
-    assert "empty response" in errors[0].data["error"].lower()
+    assert not any(e.type == EventType.ERROR for e in events)
+    done = [e for e in events if e.type == EventType.DONE]
+    assert len(done) == 1
+    history = json.loads(done[0].data["conversation_history"])
+    assert history[-1] == {"role": "assistant", "content": ""}
 
 
 def _tool_call_turn(command: str) -> list[bytes]:
@@ -919,10 +921,10 @@ def _tool_call_turn(command: str) -> list[bytes]:
 
 
 @pytest.mark.asyncio
-async def test_astream_empty_after_tool_call_yields_error(provider):
-    # A tool runs, then the follow-up round is empty. The tool's result/error already reached the
-    # client as its own block, so the turn surfaces the empty-response error rather than finalizing
-    # silently — no synthesized give-up message (the UI renders the tool result itself).
+async def test_astream_empty_after_tool_call_finalizes_with_history(provider):
+    # A tool runs, then the follow-up round is empty. The turn finalizes with the updated history —
+    # which includes the executed tool call + its result — so a retry resumes after the tool instead
+    # of re-running it. The tool must not execute twice.
     turn1 = _tool_call_turn("mlflow experiments search")
     turn2 = [_sse(_delta()), b"data: [DONE]\n"]  # empty follow-up
     session, calls = _make_aiohttp_session([turn1, turn2])
@@ -939,25 +941,10 @@ async def test_astream_empty_after_tool_call_yields_error(provider):
         events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
 
     mock_tool.assert_awaited_once()
-    assert not any(e.type == EventType.DONE for e in events)
-    errors = [e for e in events if e.type == EventType.ERROR]
-    assert len(errors) == 1
-    assert "empty response" in errors[0].data["error"].lower()
+    assert not any(e.type == EventType.ERROR for e in events)
+    done = [e for e in events if e.type == EventType.DONE]
+    assert len(done) == 1
+    history = json.loads(done[0].data["conversation_history"])
+    # The tool call + its result are persisted so a replay does not re-execute the tool.
+    assert any(m["role"] == "tool" for m in history)
     assert len(calls) == 2
-
-
-@pytest.mark.asyncio
-async def test_astream_whitespace_only_response_yields_error(provider):
-    # Whitespace-only content with no tool calls is not a real answer; it must surface the empty
-    # error rather than finalize a blank assistant turn.
-    session, _ = _make_aiohttp_session([[_sse(_delta(content="  \n  ")), b"data: [DONE]\n"]])
-    with patch(
-        "mlflow.assistant.providers.openai_compatible.aiohttp.ClientSession",
-        return_value=session,
-    ):
-        events = [e async for e in provider.astream_stateless("hi", "http://localhost:5000")]
-
-    assert not any(e.type == EventType.DONE for e in events)
-    errors = [e for e in events if e.type == EventType.ERROR]
-    assert len(errors) == 1
-    assert "empty response" in errors[0].data["error"].lower()
