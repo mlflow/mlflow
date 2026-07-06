@@ -1560,22 +1560,85 @@ def test_get_metric_history_bulk_interval_auth(client: MlflowClient, monkeypatch
         assert len(data["metrics"]) == 2
 
 
-def test_gateway_secrets_permissions(client, monkeypatch):
-    user1, password1 = create_user(client.tracking_uri)
-    user2, password2 = create_user(client.tracking_uri)
+def _create_gateway_secret_as_admin(
+    tracking_uri, monkeypatch, secret_name, provider="openai", owner=None
+):
+    """Create a gateway secret as admin (creation is admin-only) and optionally grant
+    ``owner`` MANAGE so the non-admin user can manage the secret for the rest of a test.
+    """
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        response = requests.post(
+            url=tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": secret_name,
+                "secret_value": {"api_key": "test-key"},
+                "provider": provider,
+            },
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        )
+        response.raise_for_status()
+        secret_id = response.json()["secret"]["secret_id"]
+        if owner is not None:
+            _send_rest_tracking_post_request(
+                tracking_uri,
+                "/api/3.0/mlflow/gateway/secrets/permissions/create",
+                json_payload={
+                    "secret_id": secret_id,
+                    "username": owner,
+                    "permission": "MANAGE",
+                },
+                auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+            )
+    return secret_id
 
+
+def test_gateway_secret_create_admin_only(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+
+    # Non-admin cannot create a gateway secret
     with User(user1, password1, monkeypatch):
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
             json={
-                "secret_name": "user1_secret",
+                "secret_name": "non_admin_secret",
                 "secret_value": {"api_key": "test-key"},
                 "provider": "openai",
             },
             auth=(user1, password1),
         )
+        assert response.status_code == 403
+
+    # Admin can create a gateway secret
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+            json={
+                "secret_name": "admin_secret",
+                "secret_value": {"api_key": "test-key"},
+                "provider": "openai",
+            },
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        )
         response.raise_for_status()
-        user1_secret_id = response.json()["secret"]["secret_id"]
+        secret_id = response.json()["secret"]["secret_id"]
+
+    # Admin can delete the gateway secret
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
+            json={"secret_id": secret_id},
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        )
+        response.raise_for_status()
+
+
+def test_gateway_secrets_permissions(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+    user2, password2 = create_user(client.tracking_uri)
+
+    user1_secret_id = _create_gateway_secret_as_admin(
+        client.tracking_uri, monkeypatch, "user1_secret", owner=user1
+    )
 
     with User(user1, password1, monkeypatch):
         response = requests.get(
@@ -1654,18 +1717,9 @@ def test_gateway_endpoints_permissions(client, monkeypatch):
     user1, password1 = create_user(client.tracking_uri)
     user2, password2 = create_user(client.tracking_uri)
 
-    with User(user1, password1, monkeypatch):
-        response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
-            json={
-                "secret_name": "user1_secret_for_endpoint",
-                "secret_value": {"api_key": "test-key"},
-                "provider": "openai",
-            },
-            auth=(user1, password1),
-        )
-        response.raise_for_status()
-        secret_id = response.json()["secret"]["secret_id"]
+    secret_id = _create_gateway_secret_as_admin(
+        client.tracking_uri, monkeypatch, "user1_secret_for_endpoint", owner=user1
+    )
 
     with User(user1, password1, monkeypatch):
         response = requests.post(
@@ -1783,18 +1837,9 @@ def test_gateway_model_definitions_permissions(client, monkeypatch):
     user1, password1 = create_user(client.tracking_uri)
     user2, password2 = create_user(client.tracking_uri)
 
-    with User(user1, password1, monkeypatch):
-        response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
-            json={
-                "secret_name": "user1_secret_for_model_def",
-                "secret_value": {"api_key": "test-key"},
-                "provider": "openai",
-            },
-            auth=(user1, password1),
-        )
-        response.raise_for_status()
-        secret_id = response.json()["secret"]["secret_id"]
+    secret_id = _create_gateway_secret_as_admin(
+        client.tracking_uri, monkeypatch, "user1_secret_for_model_def", owner=user1
+    )
 
     with User(user1, password1, monkeypatch):
         response = requests.post(
@@ -2030,18 +2075,9 @@ def test_gateway_endpoint_use_permission(fastapi_client, monkeypatch):
     user2, password2 = create_user(fastapi_client.tracking_uri)
 
     # User1 creates a secret, model definition, and endpoint
-    with User(user1, password1, monkeypatch):
-        response = requests.post(
-            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
-            json={
-                "secret_name": "test_secret",
-                "secret_value": {"api_key": "test-key"},
-                "provider": "openai",
-            },
-            auth=(user1, password1),
-        )
-        response.raise_for_status()
-        secret_id = response.json()["secret"]["secret_id"]
+    secret_id = _create_gateway_secret_as_admin(
+        fastapi_client.tracking_uri, monkeypatch, "test_secret", owner=user1
+    )
 
     with User(user1, password1, monkeypatch):
         response = requests.post(
@@ -2131,18 +2167,9 @@ def test_gateway_model_definition_requires_secret_use_permission(client, monkeyp
     user2, password2 = create_user(client.tracking_uri)
 
     # User1 creates a secret
-    with User(user1, password1, monkeypatch):
-        response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
-            json={
-                "secret_name": "user1_secret",
-                "secret_value": {"api_key": "test-key"},
-                "provider": "openai",
-            },
-            auth=(user1, password1),
-        )
-        response.raise_for_status()
-        secret_id = response.json()["secret"]["secret_id"]
+    secret_id = _create_gateway_secret_as_admin(
+        client.tracking_uri, monkeypatch, "user1_secret", owner=user1
+    )
 
     # User2 cannot create a model definition using user1's secret (no permission)
     with User(user2, password2, monkeypatch):
@@ -2183,18 +2210,9 @@ def test_gateway_model_definition_requires_secret_use_permission(client, monkeyp
         model_def_id = response.json()["model_definition"]["model_definition_id"]
 
     # User1 creates another secret
-    with User(user1, password1, monkeypatch):
-        response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
-            json={
-                "secret_name": "user1_secret_2",
-                "secret_value": {"api_key": "test-key-2"},
-                "provider": "anthropic",
-            },
-            auth=(user1, password1),
-        )
-        response.raise_for_status()
-        secret_id_2 = response.json()["secret"]["secret_id"]
+    secret_id_2 = _create_gateway_secret_as_admin(
+        client.tracking_uri, monkeypatch, "user1_secret_2", provider="anthropic", owner=user1
+    )
 
     # User2 cannot update the model definition to use secret_id_2 (no permission on that secret)
     with User(user2, password2, monkeypatch):
@@ -2257,19 +2275,11 @@ def test_gateway_endpoint_requires_model_definition_use_permission(client, monke
     user2, password2 = create_user(client.tracking_uri)
 
     # User1 creates a secret and model definition
-    with User(user1, password1, monkeypatch):
-        response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
-            json={
-                "secret_name": "user1_secret",
-                "secret_value": {"api_key": "test-key"},
-                "provider": "openai",
-            },
-            auth=(user1, password1),
-        )
-        response.raise_for_status()
-        secret_id = response.json()["secret"]["secret_id"]
+    secret_id = _create_gateway_secret_as_admin(
+        client.tracking_uri, monkeypatch, "user1_secret", owner=user1
+    )
 
+    with User(user1, password1, monkeypatch):
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
             json={
@@ -2424,19 +2434,11 @@ def test_gateway_endpoint_requires_fallback_model_definition_use_permission(clie
     user2, password2 = create_user(client.tracking_uri)
 
     # User1 creates secrets and model definitions
-    with User(user1, password1, monkeypatch):
-        response = requests.post(
-            url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
-            json={
-                "secret_name": "user1_secret",
-                "secret_value": {"api_key": "test-key"},
-                "provider": "openai",
-            },
-            auth=(user1, password1),
-        )
-        response.raise_for_status()
-        secret_id = response.json()["secret"]["secret_id"]
+    secret_id = _create_gateway_secret_as_admin(
+        client.tracking_uri, monkeypatch, "user1_secret", owner=user1
+    )
 
+    with User(user1, password1, monkeypatch):
         # Create primary model definition
         response = requests.post(
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
@@ -2692,19 +2694,11 @@ def test_gateway_endpoint_invocation_requires_use_permission(fastapi_client, mon
     user2, password2 = create_user(fastapi_client.tracking_uri)
 
     # User1 creates a secret, model definition, and endpoint
-    with User(user1, password1, monkeypatch):
-        response = requests.post(
-            url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
-            json={
-                "secret_name": "user1_secret",
-                "secret_value": {"api_key": "test-key"},
-                "provider": "openai",
-            },
-            auth=(user1, password1),
-        )
-        response.raise_for_status()
-        secret_id = response.json()["secret"]["secret_id"]
+    secret_id = _create_gateway_secret_as_admin(
+        fastapi_client.tracking_uri, monkeypatch, "user1_secret", owner=user1
+    )
 
+    with User(user1, password1, monkeypatch):
         response = requests.post(
             url=fastapi_client.tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
             json={

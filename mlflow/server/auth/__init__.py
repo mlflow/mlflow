@@ -1508,6 +1508,7 @@ BEFORE_REQUEST_HANDLERS = {
     DeleteScorer: validate_can_delete_scorer,
     ListScorerVersions: validate_can_read_scorer,
     # Routes for gateway secrets
+    CreateGatewaySecret: sender_is_admin,
     GetGatewaySecretInfo: validate_can_read_gateway_secret,
     UpdateGatewaySecret: validate_can_update_gateway_secret,
     DeleteGatewaySecret: validate_can_delete_gateway_secret,
