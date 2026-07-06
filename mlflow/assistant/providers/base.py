@@ -55,7 +55,7 @@ class AssistantProvider(ABC):
         """Check if the provider is available and ready to use."""
 
     @property
-    def allows_remote_execution(self) -> bool:
+    def allows_remote_access(self) -> bool:
         """Whether this provider can serve requests from remote clients."""
         return False
 

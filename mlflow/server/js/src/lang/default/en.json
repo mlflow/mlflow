@@ -1231,6 +1231,10 @@
     "defaultMessage": "Clear all demo data",
     "description": "Clear demo data button"
   },
+  "43FXJM": {
+    "defaultMessage": "Updating Assistant settings is not allowed for a remote MLflow server. Contact your server admin to update the settings.",
+    "description": "Tooltip explaining that Assistant settings cannot be changed from a remote client"
+  },
   "44XPr5": {
     "defaultMessage": "Chart view",
     "description": "Label for the table view toggle button in the logged model list page"
@@ -9258,6 +9262,10 @@
   "h48hnl": {
     "defaultMessage": "Send request",
     "description": "Send request button"
+  },
+  "h4AZ8v": {
+    "defaultMessage": "Settings",
+    "description": "Tooltip for the Assistant settings button"
   },
   "h5Dryo": {
     "defaultMessage": "Resource",

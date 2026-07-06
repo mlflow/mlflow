@@ -24,7 +24,7 @@ import {
   WrenchSparkleIcon,
   Spinner,
 } from '@databricks/design-system';
-import { FormattedMessage } from '@databricks/i18n';
+import { FormattedMessage, useIntl } from '@databricks/i18n';
 
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
@@ -556,6 +556,7 @@ const SetupPrompt = ({ onSetup }: { onSetup: () => void }) => {
  */
 export const AssistantChatPanel = () => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const { closePanel, reset, setupComplete, isLoadingConfig, canUseAssistant, completeSetup, isLocalServer } =
     useAssistant();
   const context = useAssistantPageContext();
@@ -674,8 +675,17 @@ export const AssistantChatPanel = () => {
                 componentId="mlflow.assistant.chat_panel.settings.tooltip"
                 content={
                   isLocalServer
-                    ? 'Settings'
-                    : 'Updating Assistant settings is not allowed for a remote MLflow server. Contact your server admin to update the settings.'
+                    ? intl.formatMessage({
+                        defaultMessage: 'Settings',
+                        description: 'Tooltip for the Assistant settings button',
+                      })
+                    : intl.formatMessage({
+                        defaultMessage:
+                          'Updating Assistant settings is not allowed for a remote MLflow server. ' +
+                          'Contact your server admin to update the settings.',
+                        description:
+                          'Tooltip explaining that Assistant settings cannot be changed from a remote client',
+                      })
                 }
               >
                 <Button

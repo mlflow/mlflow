@@ -298,7 +298,7 @@ def test_get_config_loads_config_once(client):
 
 
 @pytest.mark.parametrize(
-    ("enabled", "allows_remote_execution", "expected"),
+    ("enabled", "allows_remote_access", "expected"),
     [
         (False, False, False),
         (True, False, False),
@@ -306,11 +306,11 @@ def test_get_config_loads_config_once(client):
     ],
 )
 def test_get_config_remote_access_allowed(
-    client, monkeypatch, enabled, allows_remote_execution, expected
+    client, monkeypatch, enabled, allows_remote_access, expected
 ):
     monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", str(enabled))
     with patch("mlflow.server.assistant.api._get_selected_provider") as mock_get_selected_provider:
-        mock_get_selected_provider.return_value.allows_remote_execution = allows_remote_execution
+        mock_get_selected_provider.return_value.allows_remote_access = allows_remote_access
         response = client.get("/ajax-api/3.0/mlflow/assistant/config")
 
     assert response.status_code == 200
@@ -355,7 +355,7 @@ def test_message_allowed_for_remote_client_when_provider_allows_remote_access(mo
 
     class RemoteAllowedProvider(MockProvider):
         @property
-        def allows_remote_execution(self) -> bool:
+        def allows_remote_access(self) -> bool:
             return True
 
     mock_provider = RemoteAllowedProvider()
@@ -446,7 +446,7 @@ def test_is_localhost_blocks_when_no_client():
 
 
 @pytest.mark.parametrize(
-    ("enabled", "allows_remote_execution", "expected"),
+    ("enabled", "allows_remote_access", "expected"),
     [
         (False, False, False),
         (False, True, False),
@@ -454,10 +454,10 @@ def test_is_localhost_blocks_when_no_client():
         (True, True, True),
     ],
 )
-def test_provider_allows_remote_access(enabled, allows_remote_execution, expected, monkeypatch):
+def test_provider_allows_remote_access(enabled, allows_remote_access, expected, monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", str(enabled))
     provider = MagicMock()
-    provider.allows_remote_execution = allows_remote_execution
+    provider.allows_remote_access = allows_remote_access
     assert _provider_allows_remote_access(provider) is expected
 
 
@@ -487,7 +487,7 @@ def test_remote_request_blocked_without_loading_provider_when_disabled(monkeypat
 def test_invalid_remote_access_value_raises(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_REMOTE_ASSISTANT", "bogus")
     provider = MagicMock()
-    provider.allows_remote_execution = True
+    provider.allows_remote_access = True
     with pytest.raises(ValueError, match="MLFLOW_ENABLE_REMOTE_ASSISTANT"):
         _provider_allows_remote_access(provider)
 

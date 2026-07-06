@@ -49,6 +49,9 @@ _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
 
 
 def _is_localhost(request: Request) -> bool:
+    # This app is only ever served via uvicorn (see mlflow/server/__init__.py), which by
+    # default trusts X-Forwarded-For from 127.0.0.1 and rewrites request.client.host
+    # accordingly. So a same-host reverse proxy on 127.0.0.1 does not defeat this check.
     client_host = request.client.host if request.client else None
     if not client_host:
         return False
@@ -62,7 +65,7 @@ def _is_localhost(request: Request) -> bool:
 def _provider_allows_remote_access(provider: AssistantProvider | None) -> bool:
     if provider is None:
         return False
-    return MLFLOW_ENABLE_REMOTE_ASSISTANT.get() and provider.allows_remote_execution
+    return MLFLOW_ENABLE_REMOTE_ASSISTANT.get() and provider.allows_remote_access
 
 
 def _enforce_remote_access(request: Request, provider: AssistantProvider | None) -> None:
