@@ -1179,7 +1179,8 @@ def validate_can_create_model_version():
     # on the source run/model to keep create-time access consistent with artifact-read gating.
     if not _validate_can_update_registered_model_or_prompt():
         return False
-    body = request.get_json(force=True, silent=True) or {}
+    body = request.get_json(force=True, silent=True)
+    body = body if isinstance(body, dict) else {}
     if body.get("run_id") and not _get_permission_from_run_id().can_read:
         return False
     if body.get("model_id") and not _get_permission_from_model_id().can_read:

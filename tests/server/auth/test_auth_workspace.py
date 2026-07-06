@@ -1038,6 +1038,19 @@ def test_create_model_version_source_read_blocks_cross_workspace(
     ):
         assert auth_module.validate_can_create_model_version()
 
+    # A truthy non-dict JSON body must be coerced to {} rather than raising
+    # AttributeError on `.get(...)`. Bypass the target-model check (which reads
+    # `name` from the body) to isolate the source-read coercion.
+    monkeypatch.setattr(
+        auth_module, "_validate_can_update_registered_model_or_prompt", lambda: True
+    )
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json=[1],
+    ):
+        assert auth_module.validate_can_create_model_version()
+
 
 def test_logged_model_validators_respect_permissions(workspace_permission_setup):
     store = workspace_permission_setup["store"]
