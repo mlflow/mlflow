@@ -532,3 +532,53 @@ def test_autolog_disable_openai_agent_tracer():
     processors = _get_processors()
     assert len(processors) == 1
     assert isinstance(processors[0], MlflowOpenAgentTracingProcessor)
+
+
+def test_generation_span_token_usage_stored_under_chat_usage_key():
+    from agents.tracing import GenerationSpanData
+
+    from mlflow.openai._agent_tracer import _parse_span_data
+    from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+
+    usage = {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+    span_data = mock.MagicMock(spec=GenerationSpanData)
+    span_data.type = "generation"
+    span_data.input = [{"role": "user", "content": "hello"}]
+    span_data.output = [{"role": "assistant", "content": "hi"}]
+    span_data.model = "gpt-4o-mini"
+    span_data.model_config = {}
+    span_data.usage = usage
+
+    _, _, attributes = _parse_span_data(span_data)
+
+    assert attributes.get(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+    assert "usage" not in attributes
+
+
+@pytest.mark.parametrize(
+    ("usage", "expected"),
+    [
+        (
+            {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+            {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+        ),
+        (
+            {"input_tokens": 5, "output_tokens": 10},
+            {"input_tokens": 5, "output_tokens": 10},
+        ),
+        (None, None),
+        ({}, None),
+    ],
+)
+def test_parse_generation_usage(usage, expected):
+    from mlflow.openai._agent_tracer import _parse_generation_usage
+
+    assert _parse_generation_usage(usage) == expected
