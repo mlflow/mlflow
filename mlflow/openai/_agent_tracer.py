@@ -263,11 +263,7 @@ def _parse_generation_usage(usage: dict[str, int] | None) -> dict[str, int] | No
         return None
     try:
         result = {}
-        for key in (
-            TokenUsageKey.INPUT_TOKENS,
-            TokenUsageKey.OUTPUT_TOKENS,
-            TokenUsageKey.TOTAL_TOKENS,
-        ):
+        for key in TokenUsageKey.all_keys():
             if (v := usage.get(key)) is not None:
                 result[key] = v
         return result or None
