@@ -696,7 +696,7 @@ const result = await mlflow.withSpan(
 </Tabs>
 </TabsWrapper>
 
-`add_link()` is the preferred approach when the link target isn't known until runtime — for example, when it arrives in a message payload from another agent.
+When the link target is known upfront, prefer attaching links at span creation time via the `links` parameter. Use `add_link()` for cases where the target isn't known until runtime — for example, when it arrives in a message payload from another agent.
 
 :::note
 Span links are not currently supported for Unity Catalog traces.
