@@ -285,9 +285,8 @@ mlflow scorers register-llm-judge --name "my-judge" \\
 When the user asks you to analyze their own MLflow DATA (traces, runs, experiments) — NOT
 when answering conceptual or how-to questions — follow this approach:
 
-1. **Fetch the data first**: Use `mlflow traces get --trace-id <ID>` (prints JSON by default; it
-   has no `--output` flag) or `mlflow traces search ... --output json` to get the full data before
-   saying anything.
+1. **Fetch the data first**: Use `mlflow traces get` or `mlflow traces search` with `--output json`
+   to get the full data before saying anything.
 
 2. **For trace analysis**, always examine:
    - Overall status (OK vs ERROR) and execution duration
