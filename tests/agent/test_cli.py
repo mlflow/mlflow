@@ -378,11 +378,11 @@ def test_setup_configures_assistant_when_accepted(
         mock.patch("mlflow.agent.setup.cli._record_event") as mock_record,
     ):
         result = CliRunner().invoke(
-            setup, ["--agent", "claude", "--print"], input="3\nhttp://localhost:5001\ny\n"
+            setup, ["--agent", "claude", "--print"], input="3\nhttp://localhost:5001\ny\n1\n"
         )
     assert result.exit_code == 0, result.stderr
     assert "Enabled the MLflow Assistant (Claude Code)" in result.stderr
-    # Enabling the Assistant installs global skills, so the project-level prompt is skipped.
+    # The Assistant installs its own skills, so the coding-agent project prompt is skipped.
     assert "Install MLflow skills at" not in result.stderr
     mock_install.assert_called_once_with(Path.home() / ".claude" / "skills")
     mock_record.assert_called_once_with(
@@ -413,11 +413,56 @@ def test_setup_assistant_maps_codex_to_codex_provider(
         mock.patch("mlflow.agent.setup.cli.install_skills", return_value=[]) as mock_install,
     ):
         result = CliRunner().invoke(
-            setup, ["--agent", "codex", "--print"], input="3\nhttp://127.0.0.1:5001\ny\n"
+            setup, ["--agent", "codex", "--print"], input="3\nhttp://127.0.0.1:5001\ny\n1\n"
         )
     assert result.exit_code == 0, result.stderr
     mock_install.assert_called_once_with(Path.home() / ".codex" / "skills")
     assert json.loads(config_path.read_text())["providers"]["codex"]["selected"] is True
+
+
+def test_setup_assistant_installs_project_skills(
+    tmp_git_repo: Path, monkeypatch: pytest.MonkeyPatch
+):
+    config_path = tmp_git_repo / "assistant" / "config.json"
+    monkeypatch.setattr("mlflow.assistant.config.CONFIG_PATH", config_path)
+    with (
+        mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"),
+        mock.patch("mlflow.agent.setup.cli._git_root", return_value=(tmp_git_repo, None)),
+        mock.patch("mlflow.agent.setup.cli.install_skills", return_value=[]) as mock_install,
+    ):
+        # Accept the Assistant, then pick "Project" (option 2) for the skills location.
+        result = CliRunner().invoke(
+            setup, ["--agent", "claude", "--print"], input="3\nhttp://localhost:5001\ny\n2\n"
+        )
+    assert result.exit_code == 0, result.stderr
+    mock_install.assert_called_once_with(tmp_git_repo / ".claude" / "skills")
+    provider = json.loads(config_path.read_text())["providers"]["claude_code"]
+    assert provider["selected"] is True
+    assert provider["skills"]["type"] == "project"
+
+
+def test_setup_assistant_installs_custom_skills(
+    tmp_git_repo: Path, monkeypatch: pytest.MonkeyPatch
+):
+    config_path = tmp_git_repo / "assistant" / "config.json"
+    monkeypatch.setattr("mlflow.assistant.config.CONFIG_PATH", config_path)
+    custom_dir = tmp_git_repo / "my-skills"
+    with (
+        mock.patch("mlflow.agent.agents.shutil.which", return_value="/usr/local/bin/claude"),
+        mock.patch("mlflow.agent.setup.cli.install_skills", return_value=[]) as mock_install,
+    ):
+        # Accept the Assistant, pick "Custom location" (option 3), then enter the path.
+        result = CliRunner().invoke(
+            setup,
+            ["--agent", "claude", "--print"],
+            input=f"3\nhttp://localhost:5001\ny\n3\n{custom_dir}\n",
+        )
+    assert result.exit_code == 0, result.stderr
+    mock_install.assert_called_once_with(custom_dir)
+    provider = json.loads(config_path.read_text())["providers"]["claude_code"]
+    assert provider["selected"] is True
+    assert provider["skills"]["type"] == "custom"
+    assert provider["skills"]["custom_path"] == str(custom_dir)
 
 
 def test_setup_assistant_preserves_existing_config(
