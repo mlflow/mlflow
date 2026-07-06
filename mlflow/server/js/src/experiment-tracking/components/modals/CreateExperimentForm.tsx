@@ -20,6 +20,7 @@ type Props = {
     formatMessage: (...args: any[]) => any;
   };
   innerRef: any;
+  onValuesChange?: (changedValues: any, allValues: any) => void;
 };
 
 /**
@@ -31,7 +32,7 @@ class CreateExperimentFormComponent extends Component<Props> {
 
     return (
       // @ts-expect-error TS(2322): Type '{ children: Element[]; ref: any; layout: "ve... Remove this comment to see the full error message
-      <LegacyForm ref={this.props.innerRef} layout="vertical">
+      <LegacyForm ref={this.props.innerRef} layout="vertical" onValuesChange={this.props.onValuesChange}>
         <LegacyForm.Item
           label={this.props.intl.formatMessage({
             defaultMessage: 'Experiment Name',

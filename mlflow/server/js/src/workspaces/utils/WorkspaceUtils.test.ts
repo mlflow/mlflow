@@ -236,6 +236,11 @@ describe('WorkspaceUtils', () => {
       expect(isGlobalRoute('/prompts')).toBe(false);
     });
 
+    it('returns true for /account (workspace-agnostic self-service page)', () => {
+      expect(isGlobalRoute('/account')).toBe(true);
+      expect(isGlobalRoute('/account?tab=permissions')).toBe(true);
+    });
+
     it('ignores query params and hash', () => {
       expect(isGlobalRoute('/?workspace=default')).toBe(false);
     });

@@ -220,8 +220,8 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
       <PageContainer>
         <ModelVersionAssistantContextProvider modelName={modelName} version={version} />
         <RequestStateWrapper
+          // prettier-ignore
           requestIds={this.state.criticalInitialRequestIds}
-          // eslint-disable-next-line no-trailing-spaces
         >
           {(loading: any, hasError: any, requests: any) => {
             if (hasError) {

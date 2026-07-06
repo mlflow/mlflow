@@ -1,0 +1,17 @@
+MLflow has been deployed successfully.
+
+Access the UI:
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else if eq .Values.service.type "NodePort" }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "mlflow.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  http://$NODE_IP:$NODE_PORT
+{{- else if eq .Values.service.type "LoadBalancer" }}
+  http://<EXTERNAL-IP>:{{ .Values.server.value_options.port }}
+{{- else }}
+  kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "mlflow.fullname" . }} {{ .Values.server.value_options.port }}:{{ .Values.server.value_options.port }}
+  # Then open: http://127.0.0.1:{{ .Values.server.value_options.port }}
+{{- end }}

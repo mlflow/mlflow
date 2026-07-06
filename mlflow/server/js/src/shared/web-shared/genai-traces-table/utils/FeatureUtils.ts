@@ -50,5 +50,5 @@ export const shouldEnableSessionGrouping = () => {
  * instead of eagerly fetching all pages in a single query.
  */
 export const shouldUseInfinitePaginatedTraces = () => {
-  return false;
+  return true;
 };

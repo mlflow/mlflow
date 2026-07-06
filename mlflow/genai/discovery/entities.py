@@ -57,7 +57,8 @@ class _IdentifiedIssue(pydantic.BaseModel):
     description: str = pydantic.Field(description="What the issue is")
     root_cause: str = pydantic.Field(description="Why this issue occurs")
     example_indices: list[int] = pydantic.Field(
-        description="Indices into the input trace summary list that exemplify this issue"
+        default_factory=list,
+        description="Indices into the input trace summary list that exemplify this issue",
     )
     severity: IssueSeverity = pydantic.Field(
         description=(

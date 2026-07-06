@@ -18,6 +18,7 @@ on:
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
       - ".github/workflows/js.yml"
+      - ".claude/**"
   schedule:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
@@ -34,6 +35,8 @@ env:
   MLFLOW_HOME: ${{ github.workspace }}
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
+permissions: {}
+
 jobs:
   r:
     runs-on: ubuntu-latest
@@ -45,14 +48,14 @@ jobs:
       run:
         working-directory: mlflow/R/mlflow
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: r-lib/actions/setup-r@bd49c52ffe281809afa6f0fecbf37483c5dd0b93 # v2.11.3
+      - uses: r-lib/actions/setup-r@a51a8012b0aab7c32ef9d19bf54da93f3254335e # v2.12.0
       # This step dumps the current set of R dependencies and R version into files to be used
       # as a cache key when caching/restoring R dependencies.
       - name: Dump dependencies
@@ -79,12 +82,18 @@ jobs:
         run: |
           Rscript -e 'source(".install-deps.R", echo=TRUE)'
       - name: Set USE_R_DEVEL
+        env:
+          HAS_R_DEVEL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'r-devel') }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
             USE_R_DEVEL=true
           elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
-            # Use r-devel on a pull request targeted to a release branch
-            USE_R_DEVEL=$([[ $GITHUB_BASE_REF =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
+            # Use r-devel on a pull request targeted to a release branch or with the "r-devel" label
+            if [[ $GITHUB_BASE_REF =~ branch-[0-9]+\.[0-9]+$ ]] || [ "$HAS_R_DEVEL_LABEL" = "true" ]; then
+              USE_R_DEVEL=true
+            else
+              USE_R_DEVEL=false
+            fi
           else
             # Use r-devel on a push to a release branch
             USE_R_DEVEL=$([[ $GITHUB_REF_NAME =~ branch-[0-9]+\.[0-9]+$ ]] && echo true || echo false)
@@ -103,6 +112,8 @@ jobs:
       - name: Run tests
         env:
           LINTR_COMMENT_BOT: false
+          # TODO: Migrate R tests to use a SQLite backend instead of FileStore
+          MLFLOW_ALLOW_FILE_STORE: true
         run: |
           cd tests
           export RETICULATE_PYTHON_BIN=$(which python)

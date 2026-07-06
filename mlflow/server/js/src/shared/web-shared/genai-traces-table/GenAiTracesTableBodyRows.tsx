@@ -85,7 +85,6 @@ export const GenAiTracesTableBodyRow = React.memo(
     enableRowSelection,
     isComparing,
     isSelected,
-    // eslint-disable-next-line react/no-unused-prop-types
     selectedColumns, // Prop needed to force row re-rending when selectedColumns change
     rowSelectionChangeHandler,
     displayCheckbox = true,

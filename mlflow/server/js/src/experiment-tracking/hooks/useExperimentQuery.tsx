@@ -15,6 +15,7 @@ const GET_EXPERIMENT_QUERY = gql`
       experiment {
         artifactLocation
         creationTime
+        effectiveTraceArchivalRetention
         experimentId
         lastUpdateTime
         lifecycleStage

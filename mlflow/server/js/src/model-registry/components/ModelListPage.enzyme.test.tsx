@@ -216,5 +216,4 @@ describe('ModelListPage', () => {
     instance.render();
     expect(navigateSpy).toHaveBeenCalledWith(createMLflowRoutePath(expectedUrl));
   });
-  // eslint-disable-next-line
 });

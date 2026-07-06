@@ -29,6 +29,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "jest",
     "lint": "eslint . --ext .ts --max-warnings 0",
     "lint:fix": "eslint . --ext .ts --fix",
@@ -36,7 +37,7 @@
     "format:check": "prettier --check ."
   },
   "peerDependencies": {
-    "@mlflow/core": "^0.2.0",
+    "@mlflow/core": ">=0.2.0 || >=0.3.0-rc.0",
     "openai": ">=4.0.0"
   },
   "devDependencies": {

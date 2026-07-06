@@ -247,66 +247,10 @@ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '[
 ]'
 ```
 
-## Serving Frameworks
+## Serving Framework
 
-By default, MLflow uses [FastAPI](https://fastapi.tiangolo.com/), a modern ASGI web application framework for Python, to serve the inference endpoint.
+MLflow uses [FastAPI](https://fastapi.tiangolo.com/), a modern ASGI web application framework for Python, to serve the inference endpoint.
 FastAPI handles requests asynchronously and is recognized as one of the fastest Python frameworks. This production-ready framework works well for most use cases.
-Additionally, MLflow also integrates with [MLServer](https://mlserver.readthedocs.io/en/latest) as an alternative serving engine. MLServer achieves
-higher performance and scalability by leveraging asynchronous request/response paradigm and workload offloading. Also MLServer is used as the core Python
-inference server in Kubernetes-native frameworks like [Seldon Core](https://docs.seldon.io/projects/seldon-core/en/latest) and
-[KServe (formerly known as KFServing)](https://kserve.github.io/website), hence which provides advanced features such as canary deployment and
-auto scaling out of the box.
-
-<Table>
-  <thead>
-    <tr>
-      <th></th>
-      <th>
-        <div className="max-height-img-container" style={{ maxHeight: 60 }}>
-          <span>![](/images/logos/fastapi-logo.svg)</span>
-        </div>
-      </th>
-      <th>
-        <div className="max-height-img-container" style={{ maxHeight: 60 }}>
-          <span>![](/images/logos/seldon-mlserver-logo.png)</span>
-        </div>
-      </th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>**Use Case**</td>
-      <td>Standard usecases including local testing.</td>
-      <td>High-scale production environment.</td>
-    </tr>
-    <tr>
-      <td>**Set Up**</td>
-      <td>FastAPI is installed by default with MLflow.</td>
-      <td>Needs to be installed separately.</td>
-    </tr>
-    <tr>
-      <td>**Performance**</td>
-      <td>FastAPI natively supports asynchronous request handling, making it well-suited for I/O-bound tasks including ML workloads. Refer to [FastAPI Benchmark](https://fastapi.tiangolo.com/benchmarks/) for the benchmarks and comparisons with other Python frameworks.</td>
-      <td>Designed for high-performance ML workloads, often delivering better throughput and efficiency. MLServer support asynchronous request/response paradigm, by offloading ML inference workload to a separate worker pool (processes), so that the server can continue to accept new requests while the inference is being processed. Please refer to the [MLServer Parallel Inference](https://mlserver.readthedocs.io/en/latest/user-guide/parallel-inference.html) for more details on how they achieve this. Additionally, MLServer supports [Adaptive Bacthing](https://mlserver.readthedocs.io/en/latest/user-guide/adaptive-batching.html) that transparently batch requests together to improve throughput and efficiency.</td>
-    </tr>
-    <tr>
-      <td>**Scalability**</td>
-      <td>While FastAPI works well in a distributed environment in general, MLflow simply runs it with `uvicorn` and does not support horizontal scaling out of the box.</td>
-      <td>Additionally to the support for parallel inference as mentioned above, MLServer is used as the core inference server in Kubernetes-native frameworks such as [Seldon Core](https://docs.seldon.io/projects/seldon-core/en/latest/) and [KServe](https://kserve.github.io/website/) (formerly known as KFServing). By deploying [MLflow models to Kubernetes with MLServer](/ml/deployment/deploy-model-to-kubernetes), you can leverage the advanced features of these frameworks such as autoscaling to achieve high scalability.</td>
-    </tr>
-  </tbody>
-</Table>
-
-MLServer exposes the same scoring API through the `/invocations` endpoint.
-To deploy with MLServer, first install additional dependencies with `pip install 'mlflow[extras]'`,
-then execute the deployment command with the `--enable-mlserver` option. For example,
-
-```bash
-mlflow models serve -m runs:/<run_id>/model -p 5000 --enable-mlserver
-```
-
-To read more about the integration between MLflow and MLServer, please check the [end-to-end example](https://mlserver.readthedocs.io/en/latest/examples/mlflow/README.html) in the MLServer documentation.
-You can also find guides to deploy MLflow models to a Kubernetes cluster using MLServer in [Deploying a model to Kubernetes](/ml/deployment/deploy-model-to-kubernetes).
 
 ## Running Batch Inference
 

@@ -59,6 +59,7 @@ def _make_endpoint_config(experiment_id=None):
         endpoint_id="ep-test",
         endpoint_name="test-endpoint",
         experiment_id=experiment_id or _get_experiment_id(),
+        usage_tracking=True,
         models=[],
     )
 

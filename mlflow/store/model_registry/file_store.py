@@ -4,7 +4,6 @@ import shutil
 import sys
 import time
 import urllib
-import warnings
 from os.path import join
 
 from mlflow.entities.model_registry import (
@@ -22,7 +21,7 @@ from mlflow.entities.model_registry.model_version_stages import (
     STAGE_NONE,
     get_canonical_stage,
 )
-from mlflow.environment_variables import MLFLOW_REGISTRY_DIR
+from mlflow.environment_variables import MLFLOW_ALLOW_FILE_STORE, MLFLOW_REGISTRY_DIR
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import (
     add_prompt_filter_string,
@@ -134,15 +133,18 @@ class FileStore(AbstractStore):
         """
 
         super().__init__()
-        warnings.warn(
-            "The filesystem model registry backend (e.g., './mlruns') is deprecated as of "
-            "February 2026. Consider transitioning to a database backend (e.g., "
-            "'sqlite:///mlflow.db') to take advantage of the latest MLflow features. "
-            "See https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
-            "for migration guidance.",
-            FutureWarning,
-            stacklevel=2,
-        )
+        if not MLFLOW_ALLOW_FILE_STORE.get():
+            raise MlflowException(
+                "The filesystem model registry backend (e.g., './mlruns') is in maintenance "
+                "mode and will not receive further updates. Please migrate "
+                "to a database backend (e.g., 'sqlite:///mlflow.db') to access the latest "
+                "MLflow features. The `mlflow migrate-filestore` tool migrates your existing "
+                "data losslessly. See "
+                "https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
+                "for migration guidance. If the filesystem backend is required for your "
+                "workflow, set `MLFLOW_ALLOW_FILE_STORE=true` to opt out of this exception.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         # Create models directory if needed
         if not exists(self.models_directory):

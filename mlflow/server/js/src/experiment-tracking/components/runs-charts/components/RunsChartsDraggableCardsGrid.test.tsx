@@ -26,6 +26,7 @@ import type { ChartSectionConfig } from '../../../types';
 import { Checkbox, DesignSystemProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
+import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
@@ -45,15 +46,18 @@ jest.setTimeout(60000); // Larger timeout for integration testing (drag and drop
 describe('RunsChartsDraggableCardsGrid', () => {
   const renderTestComponent = (element: React.ReactElement) => {
     const noopTooltipComponent = () => <div />;
+    const queryClient = new QueryClient();
     render(element, {
       wrapper: ({ children }) => (
         <IntlProvider locale="en">
           <DesignSystemProvider>
             <RunsChartsTooltipWrapper component={noopTooltipComponent} contextData={{}}>
               <TestApolloProvider>
-                <MockedReduxStoreProvider state={{ entities: { sampledMetricsByRunUuid: {} } }}>
-                  {children}
-                </MockedReduxStoreProvider>
+                <QueryClientProvider client={queryClient}>
+                  <MockedReduxStoreProvider state={{ entities: { sampledMetricsByRunUuid: {} } }}>
+                    {children}
+                  </MockedReduxStoreProvider>
+                </QueryClientProvider>
               </TestApolloProvider>
             </RunsChartsTooltipWrapper>
           </DesignSystemProvider>

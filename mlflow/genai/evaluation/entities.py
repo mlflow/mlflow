@@ -3,7 +3,7 @@
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -15,6 +15,36 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import InputDatasetColumn, ResultDataFrameColumn
 from mlflow.genai.evaluation.context import get_context
 from mlflow.genai.evaluation.utils import is_none_or_nan
+
+
+def _assertion_outcome(
+    value: Any,
+    error_msg: str | None,
+    rationale: str | None,
+    pass_if: Callable[[Any], bool] | None,
+) -> tuple[bool, str | None]:
+    """Decide whether one scorer value passes, plus a failure detail."""
+    if error_msg is not None:
+        return False, error_msg
+    if pass_if is not None:
+        try:
+            return bool(pass_if(value)), rationale or f"value={value!r}"
+        except Exception as e:
+            return False, f"pass_if raised {type(e).__name__}: {e}"
+    # CategoricalRating is a StrEnum, so yes/no ratings arrive as strings. Only an
+    # explicit yes/no is a recognized rating; any other string (e.g. "pass") falls
+    # through to the pass_if hint below.
+    if isinstance(value, str) and (rating := value.strip().lower()) in ("yes", "no"):
+        return rating == "yes", rationale or f"value={value!r}"
+    # pd.api.types.is_bool also covers NumPy bool_ from the dataframe.
+    if pd.api.types.is_bool(value):
+        return bool(value), rationale or f"value={value!r}"
+    hint = (
+        f"returned {value!r}; assertions need a yes/no rating or a bool. "
+        f"Declare pass_if=... on the scorer to define what counts as passing."
+    )
+    # Always append the hint; a rationale augments it rather than replacing it.
+    return False, f"{rationale}; {hint}" if rationale else hint
 
 
 @dataclass
@@ -227,6 +257,9 @@ class EvaluationResult:
     run_id: str
     metrics: dict[str, float]
     result_df: pd.DataFrame | None
+    # Per-scorer ``pass_if`` predicates, keyed by scorer name. Populated by the
+    # evaluation harness from the scorers that declare one. In-process only.
+    pass_criteria: dict[str, Callable[[Any], bool]] = field(default_factory=dict)
 
     def __repr__(self) -> str:
         metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
@@ -243,6 +276,60 @@ class EvaluationResult:
             f"  result_df: {result_df_str}\n"
             ")"
         )
+
+    @property
+    def passed(self) -> bool:
+        """``True`` when every scorer passed for every row.
+
+        A value passes when it is a ``yes`` rating (or ``"yes"``) or ``True``.
+        Declare ``@scorer(pass_if=...)`` to define passing for other values.
+
+        Usage::
+
+            result = mlflow.genai.evaluate(...)
+            assert result.passed, result.reason
+        """
+        return not self._failures()
+
+    @property
+    def reason(self) -> str:
+        """Human-readable explanation of which scorers failed and why.
+
+        Empty string when all scorers passed.
+        """
+        failures = self._failures()
+        if not failures:
+            return ""
+        if len(failures) == 1:
+            return failures[0]
+        return f"{len(failures)} assertions failed:\n" + "\n".join(f"  - {f}" for f in failures)
+
+    def _failures(self) -> list[str]:
+        if self.result_df is None:
+            return []
+
+        value_cols = [c for c in self.result_df.columns if c.endswith("/value")]
+        if not value_cols:
+            return []
+
+        failures: list[str] = []
+        for _, row in self.result_df.iterrows():
+            for col in value_cols:
+                scorer_name = col.removesuffix("/value")
+                value = row.get(col)
+                error_msg = row.get(f"{scorer_name}/error_message")
+                error_msg = None if is_none_or_nan(error_msg) else error_msg
+                # Skip cells a scorer did not produce for this row.
+                if error_msg is None and is_none_or_nan(value):
+                    continue
+                rationale = row.get(f"{scorer_name}/rationale")
+                rationale = None if is_none_or_nan(rationale) else rationale
+                passed, detail = _assertion_outcome(
+                    value, error_msg, rationale, self.pass_criteria.get(scorer_name)
+                )
+                if not passed:
+                    failures.append(f"{scorer_name}: {detail}" if detail else scorer_name)
+        return failures
 
     # For backwards compatibility
     @property

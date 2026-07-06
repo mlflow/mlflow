@@ -16,6 +16,8 @@ import type {
   UpdateEndpointRequest,
   UpdateEndpointResponse,
   ListEndpointsResponse,
+  SetEndpointTagRequest,
+  SetEndpointTagResponse,
   CreateModelDefinitionRequest,
   CreateModelDefinitionResponse,
   GetModelDefinitionResponse,
@@ -192,6 +194,15 @@ export const GatewayApi = {
       body: JSON.stringify({ endpoint_id: endpointId }),
       error: defaultErrorHandler,
     });
+  },
+
+  setEndpointTag: (request: SetEndpointTagRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/endpoints/set-tag',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<SetEndpointTagResponse>;
   },
 
   listEndpoints: (provider?: string) => {

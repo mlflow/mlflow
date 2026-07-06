@@ -4,7 +4,9 @@
     "alibaba-qwen3-32b": {
       "mode": "chat",
       "context_window": {
-        "max_tokens": 2048
+        "max_input": 131072,
+        "max_output": 40960,
+        "max_tokens": 40960
       },
       "capabilities": {
         "function_calling": false,
@@ -12,11 +14,14 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-27"
     },
     "anthropic-claude-3-opus": {
       "mode": "chat",
       "context_window": {
+        "max_input": 200000,
+        "max_output": 1024,
         "max_tokens": 1024
       },
       "pricing": {
@@ -29,11 +34,14 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-27"
     },
     "anthropic-claude-3.5-haiku": {
       "mode": "chat",
       "context_window": {
+        "max_input": 200000,
+        "max_output": 1024,
         "max_tokens": 1024
       },
       "pricing": {
@@ -46,11 +54,14 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-27"
     },
     "anthropic-claude-3.5-sonnet": {
       "mode": "chat",
       "context_window": {
+        "max_input": 200000,
+        "max_output": 1024,
         "max_tokens": 1024
       },
       "pricing": {
@@ -63,11 +74,14 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-27"
     },
     "anthropic-claude-3.7-sonnet": {
       "mode": "chat",
       "context_window": {
+        "max_input": 200000,
+        "max_output": 1024,
         "max_tokens": 1024
       },
       "pricing": {
@@ -80,11 +94,14 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-27"
     },
     "deepseek-r1-distill-llama-70b": {
       "mode": "chat",
       "context_window": {
+        "max_input": 32768,
+        "max_output": 8000,
         "max_tokens": 8000
       },
       "pricing": {
@@ -97,11 +114,14 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-27"
     },
     "llama3-8b-instruct": {
       "mode": "chat",
       "context_window": {
+        "max_input": 8192,
+        "max_output": 512,
         "max_tokens": 512
       },
       "pricing": {
@@ -114,11 +134,14 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-27"
     },
     "llama3.3-70b-instruct": {
       "mode": "chat",
       "context_window": {
+        "max_input": 128000,
+        "max_output": 2048,
         "max_tokens": 2048
       },
       "pricing": {
@@ -131,11 +154,14 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-27"
     },
     "mistral-nemo-instruct-2407": {
       "mode": "chat",
       "context_window": {
+        "max_input": 128000,
+        "max_output": 512,
         "max_tokens": 512
       },
       "pricing": {
@@ -148,11 +174,14 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-27"
     },
     "openai-gpt-4o": {
       "mode": "chat",
       "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
         "max_tokens": 16384
       },
       "capabilities": {
@@ -161,11 +190,14 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-27"
     },
     "openai-gpt-4o-mini": {
       "mode": "chat",
       "context_window": {
+        "max_input": 128000,
+        "max_output": 16384,
         "max_tokens": 16384
       },
       "capabilities": {
@@ -174,11 +206,14 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-27"
     },
     "openai-o3": {
       "mode": "chat",
       "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
         "max_tokens": 100000
       },
       "pricing": {
@@ -191,11 +226,14 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-27"
     },
     "openai-o3-mini": {
       "mode": "chat",
       "context_window": {
+        "max_input": 200000,
+        "max_output": 100000,
         "max_tokens": 100000
       },
       "pricing": {
@@ -208,7 +246,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-27"
     }
   }
 }

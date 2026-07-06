@@ -9,6 +9,7 @@ const promoModalSeenStorageKey = '_mlflow_model_registry_promo_modal_dismissed';
 export const ModelsNextUIToggleSwitch = () => {
   const { usingNextModelsUI, setUsingNextModelsUI } = useNextModelsUIContext();
 
+  // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
   const promoModalVisited = window.localStorage.getItem(promoModalSeenStorageKey) === 'true';
 
   const [promoModalVisible, setPromoModalVisible] = useState(!promoModalVisited);
@@ -16,6 +17,7 @@ export const ModelsNextUIToggleSwitch = () => {
 
   const setPromoModalVisited = useCallback(() => {
     setPromoModalVisible(false);
+    // eslint-disable-next-line @databricks/no-direct-storage -- go/no-direct-storage
     window.localStorage.setItem(promoModalSeenStorageKey, 'true');
   }, []);
 

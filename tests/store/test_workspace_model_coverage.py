@@ -1,11 +1,3 @@
-"""Verify that every SQLAlchemy model with a ``workspace`` column is handled
-by at least one workspace store's ``_get_query`` method.
-
-If a new model is added with a ``workspace`` column but the developer forgets
-to add it to ``_get_query``, that model's queries will bypass workspace
-isolation.  This test catches that gap.
-"""
-
 import ast
 from pathlib import Path
 

@@ -25,6 +25,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_TRACE_ARCHIVAL_CONFIG,
     MLFLOW_WORKSPACE,
     MLFLOW_WORKSPACE_STORE_URI,
 )
@@ -36,6 +37,9 @@ from mlflow.store.tracking import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
 )
 from mlflow.store.workspace.utils import get_default_workspace_optional
+from mlflow.telemetry.events import TrackingServerStartEvent
+from mlflow.telemetry.track import _record_event
+from mlflow.tracing.trace_archival_config import load_trace_archival_server_config
 from mlflow.tracking import _get_store
 from mlflow.tracking._tracking_service.utils import (
     _get_default_tracking_uri,
@@ -360,7 +364,7 @@ def _validate_static_prefix(ctx, param, value):
     return value
 
 
-@cli.command()
+@cli.command(short_help="Run the MLflow tracking server (UI + REST API).")
 @click.pass_context
 @click.option(
     "--backend-store-uri",
@@ -370,8 +374,22 @@ def _validate_static_prefix(ctx, param, value):
     help="URI to which to persist experiment and run data. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
-    "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
-    "to the ./mlruns directory.",
+    "(e.g. 'file:///absolute/path/to/directory'). By default, data is logged to a local "
+    "SQLite database (sqlite:///mlflow.db), falling back to the ./mlruns directory when an "
+    "existing ./mlruns store is present.",
+)
+@click.option(
+    "--read-replica-backend-store-uri",
+    envvar="MLFLOW_READ_REPLICA_BACKEND_STORE_URI",
+    metavar="URI",
+    default=None,
+    help="URI for a read-only database replica. When specified, read operations "
+    "(e.g. search_runs, get_experiment) are routed to this URI while write operations "
+    "use --backend-store-uri. Enables horizontal scaling via database read replicas. "
+    "If not specified, all operations use --backend-store-uri. "
+    "Note: there is no automatic failover to the primary if the replica becomes "
+    "unavailable. Cloud-managed databases (Aurora, RDS) handle this at the DNS level. "
+    "For self-hosted setups, use a connection proxy (PgBouncer, HAProxy) for failover.",
 )
 @click.option(
     "--registry-store-uri",
@@ -411,10 +429,6 @@ def _validate_static_prefix(ctx, param, value):
 @cli_args.HOST
 @cli_args.PORT
 @cli_args.WORKERS
-@cli_args.ALLOWED_HOSTS
-@cli_args.CORS_ALLOWED_ORIGINS
-@cli_args.DISABLE_SECURITY_MIDDLEWARE
-@cli_args.X_FRAME_OPTIONS
 @click.option(
     "--static-prefix",
     envvar="MLFLOW_STATIC_PREFIX",
@@ -422,6 +436,10 @@ def _validate_static_prefix(ctx, param, value):
     callback=_validate_static_prefix,
     help="A prefix which will be prepended to the path of all static paths.",
 )
+@cli_args.ALLOWED_HOSTS
+@cli_args.CORS_ALLOWED_ORIGINS
+@cli_args.DISABLE_SECURITY_MIDDLEWARE
+@cli_args.X_FRAME_OPTIONS
 @click.option(
     "--gunicorn-opts",
     envvar="MLFLOW_GUNICORN_OPTS",
@@ -436,6 +454,18 @@ def _validate_static_prefix(ctx, param, value):
     envvar="MLFLOW_UVICORN_OPTS",
     default=None,
     help="Additional command line options forwarded to uvicorn processes (used by default).",
+)
+@click.option(
+    "--dev",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=(
+        "If enabled, run the server with debug logging and auto-reload. "
+        "Should only be used for development purposes. "
+        "Cannot be used with '--gunicorn-opts' or '--uvicorn-opts'. "
+        "Unsupported on Windows."
+    ),
 )
 @click.option(
     "--expose-prometheus",
@@ -456,16 +486,12 @@ def _validate_static_prefix(ctx, param, value):
     ),
 )
 @click.option(
-    "--dev",
-    is_flag=True,
-    default=False,
-    show_default=True,
-    help=(
-        "If enabled, run the server with debug logging and auto-reload. "
-        "Should only be used for development purposes. "
-        "Cannot be used with '--gunicorn-opts' or '--uvicorn-opts'. "
-        "Unsupported on Windows."
-    ),
+    "--trace-archival-config",
+    envvar=MLFLOW_TRACE_ARCHIVAL_CONFIG.name,
+    type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
+    metavar="PATH",
+    default=None,
+    help=("Path to the YAML config file for server-owned trace archival."),
 )
 @click.option(
     "--secrets-cache-ttl",
@@ -513,6 +539,7 @@ def _validate_static_prefix(ctx, param, value):
 def server(
     ctx,
     backend_store_uri,
+    read_replica_backend_store_uri,
     registry_store_uri,
     default_artifact_root,
     serve_artifacts,
@@ -530,6 +557,7 @@ def server(
     waitress_opts,
     expose_prometheus,
     app_name,
+    trace_archival_config,
     dev,
     uvicorn_opts,
     secrets_cache_ttl,
@@ -537,16 +565,31 @@ def server(
     workspace_store_uri,
     enable_workspaces,
 ):
-    """
-    Run the MLflow tracking server with built-in security middleware.
+    """Run the MLflow tracking server (UI + REST API).
 
-    The server listens on http://localhost:5000 by default and only accepts connections
-    from the local machine. To let the server accept connections from other machines, you will need
-    to pass ``--host 0.0.0.0`` to listen on all network interfaces
-    (or a specific interface address).
+    Whether you're doing LLMOps or training classic ML models, the server is the
+    same. Pick your setup by how you're deploying:
 
-    See https://mlflow.org/docs/latest/tracking/server-security.html for detailed documentation
-    and guidance on security configurations for the MLflow tracking server.
+    \b
+      First time user? Try MLflow out locally:
+        mlflow server   (defaults to sqlite:///mlflow.db; reuses an
+                         existing ./mlruns file store if one is present)
+      Team server (shared):
+        mlflow server --backend-store-uri postgresql://... --host 0.0.0.0
+      Cloud artifact storage (proxied through server):
+        ...add --artifacts-destination s3://my-bucket
+      Exposed beyond LAN:
+        ...add --allowed-hosts host.co --cors-allowed-origins https://host.co
+
+    \b
+    Options by topic:
+      Storage   --backend-store-uri, --registry-store-uri, --default-artifact-root, ...
+      Network   --host, --port, --workers, --static-prefix
+      Security  --allowed-hosts, --cors-allowed-origins, --x-frame-options, ...
+      Advanced  --app-name, --expose-prometheus, --enable-workspaces, ...
+
+    \b
+    Full guide: https://mlflow.org/docs/latest/self-hosting/architecture/tracking-server
     """
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
@@ -590,20 +633,7 @@ def server(
         and ctx.get_parameter_source("enable_workspaces") != ParameterSource.COMMANDLINE
     ):
         enable_workspaces = MLFLOW_ENABLE_WORKSPACES.get()
-
     assert_server_workspace_env_unset()
-
-    # Keep environment flag in sync with the resolved boolean so server-side gating
-    # (which reads MLFLOW_ENABLE_WORKSPACES.get()) has a single source of truth.
-    os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true" if enable_workspaces else "false"
-    if enable_workspaces and workspace_store_uri:
-        os.environ[MLFLOW_WORKSPACE_STORE_URI.name] = workspace_store_uri
-    elif workspace_store_uri:
-        click.echo(
-            "Ignoring --workspace-store-uri because workspaces are not enabled. "
-            "Use --enable-workspaces to activate workspace mode.",
-            err=True,
-        )
 
     if disable_security_middleware:
         os.environ["MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE"] = "true"
@@ -639,7 +669,31 @@ def server(
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
     )
-    artifacts_only_config_validation(artifacts_only, backend_store_uri, enable_workspaces)
+    artifacts_only_config_validation(
+        artifacts_only,
+        backend_store_uri,
+        enable_workspaces,
+        trace_archival_config_path=str(trace_archival_config) if trace_archival_config else None,
+    )
+    if trace_archival_config is not None:
+        try:
+            load_trace_archival_server_config(trace_archival_config)
+        except MlflowException as e:
+            raise click.UsageError(e.message) from e
+
+    # Keep environment flag in sync with the resolved boolean so server-side gating
+    # (which reads MLFLOW_ENABLE_WORKSPACES.get()) has a single source of truth.
+    os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true" if enable_workspaces else "false"
+    if enable_workspaces and workspace_store_uri:
+        os.environ[MLFLOW_WORKSPACE_STORE_URI.name] = workspace_store_uri
+    elif workspace_store_uri:
+        click.echo(
+            "Ignoring --workspace-store-uri because workspaces are not enabled. "
+            "Use --enable-workspaces to activate workspace mode.",
+            err=True,
+        )
+    if trace_archival_config is not None:
+        os.environ[MLFLOW_TRACE_ARCHIVAL_CONFIG.name] = str(trace_archival_config)
 
     if not artifacts_only:
         try:
@@ -648,6 +702,7 @@ def server(
                 registry_store_uri,
                 default_artifact_root,
                 workspace_store_uri=workspace_store_uri,
+                read_replica_backend_store_uri=read_replica_backend_store_uri,
             )
         except Exception as e:
             _logger.error("Error initializing backend store")
@@ -681,9 +736,25 @@ def server(
             parts.append(f"CORS origins: {', '.join(origins_list)}")
         click.echo(". ".join(parts) + ".", err=True)
 
+    _record_event(
+        TrackingServerStartEvent,
+        TrackingServerStartEvent.parse({
+            "backend_store_uri": backend_store_uri,
+            "serve_artifacts": serve_artifacts,
+            "artifacts_only": artifacts_only,
+            "expose_prometheus": expose_prometheus,
+            "app_name": app_name,
+            "enable_workspaces": enable_workspaces,
+            "workers": workers,
+            "dev": dev,
+        })
+        or {},
+    )
+
     try:
         _run_server(
             file_store_path=backend_store_uri,
+            read_replica_backend_store_uri=read_replica_backend_store_uri,
             registry_store_uri=registry_store_uri,
             default_artifact_root=default_artifact_root,
             serve_artifacts=serve_artifacts,
@@ -1297,6 +1368,14 @@ from mlflow.cli.demo import demo
 
 cli.add_command(demo)
 
+# Add skills CLI command
+try:
+    from mlflow.cli import skills
+
+    cli.add_command(skills.commands)
+except ImportError:
+    pass
+
 # Add AI commands CLI
 cli.add_command(ai_commands.commands)
 
@@ -1320,6 +1399,14 @@ try:
     import mlflow.assistant.cli
 
     cli.add_command(mlflow.assistant.cli.commands)
+except ImportError:
+    pass
+
+# Add Agent CLI commands
+try:
+    import mlflow.agent.cli
+
+    cli.add_command(mlflow.agent.cli.commands)
 except ImportError:
     pass
 

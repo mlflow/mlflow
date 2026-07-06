@@ -6,9 +6,17 @@ import type { EvaluateTracesParams } from './types';
 import { DEFAULT_TRACE_COUNT } from './constants';
 import { isEmpty } from 'lodash';
 
+// prettier-ignore
+type FetchTracesParams = Required<Pick<EvaluateTracesParams, 'itemCount' | 'locations'>>
+;
+
+// prettier-ignore
 const fetchTracesAndGetIds = async (
   queryClient: QueryClient,
-  { itemCount, locations }: Required<Pick<EvaluateTracesParams, 'itemCount' | 'locations'>>,
+  {
+    itemCount,
+    locations,
+  }: FetchTracesParams,
 ) => {
   const modifiedTraceCount = Math.max(itemCount, DEFAULT_TRACE_COUNT);
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { CheckCircleIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import {
@@ -15,10 +15,8 @@ import {
   // eslint-disable-next-line import/no-deprecated
   Cell,
 } from 'recharts';
-import { useTraceAssessmentChartData } from '../hooks/useTraceAssessmentChartData';
+import type { AssessmentChartDataPoint, DistributionChartDataPoint } from '../hooks/useAssessmentChartsSectionData';
 import {
-  OverviewChartLoadingState,
-  OverviewChartErrorState,
   OverviewChartEmptyState,
   OverviewChartHeader,
   OverviewChartContainer,
@@ -37,7 +35,6 @@ import { useOverviewChartContext } from '../OverviewChartContext';
 import { useMonitoringFilters } from '../../../hooks/useMonitoringFilters';
 import { useNavigate } from '../../../../common/utils/RoutingUtils';
 
-/** Local component for chart panel with label */
 const ChartPanel: React.FC<{ label: React.ReactNode; children: React.ReactElement }> = ({ label, children }) => {
   const { theme } = useDesignSystemTheme();
   return (
@@ -55,15 +52,23 @@ const ChartPanel: React.FC<{ label: React.ReactNode; children: React.ReactElemen
 };
 
 export interface TraceAssessmentChartProps {
-  /** The name of the assessment to display (e.g., "Correctness", "Relevance") */
   assessmentName: string;
-  /** Optional color for the line chart. Defaults to green. */
   lineColor?: string;
-  /** Optional pre-computed average value (to avoid redundant queries). If undefined, moving average chart is hidden. */
+  /** When undefined, the moving average chart is hidden (non-numeric assessments) */
   avgValue?: number;
+  timeSeriesChartData: AssessmentChartDataPoint[];
+  distributionChartData: DistributionChartDataPoint[];
+  enableTraceNavigation?: boolean;
 }
 
-export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ assessmentName, lineColor, avgValue }) => {
+export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({
+  assessmentName,
+  lineColor,
+  avgValue,
+  timeSeriesChartData,
+  distributionChartData,
+  enableTraceNavigation = true,
+}) => {
   const { theme } = useDesignSystemTheme();
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
@@ -72,7 +77,6 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
   const [monitoringFilters] = useMonitoringFilters();
   const navigate = useNavigate();
 
-  // Use provided color or default to green
   const chartLineColor = lineColor || theme.colors.green500;
 
   // Map assessment value names to Tag background colors with increased opacity for chart visibility.
@@ -91,7 +95,6 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
 
   const distributionTooltipFormatter = useCallback((value: number) => [value, 'count'] as [number, string], []);
 
-  // Handle click on tooltip link to navigate to traces filtered by this assessment score
   const handleViewTraces = useCallback(
     (scoreValue: string | undefined) => {
       if (!scoreValue) return;
@@ -103,12 +106,11 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
     [experimentIds, assessmentName, monitoringFilters, navigate],
   );
 
-  const timeSeriestooltipFormatter = useCallback(
+  const timeSeriesTooltipFormatter = useCallback(
     (value: number) => [value.toFixed(2), assessmentName] as [string, string],
     [assessmentName],
   );
 
-  // Handle click on time series tooltip link to navigate to traces filtered by time AND assessment exists
   const handleViewTimeSeriesTraces = useCallback(
     (_label: string | undefined, dataPoint?: { timestampMs?: number }) => {
       if (dataPoint?.timestampMs === undefined) return;
@@ -120,13 +122,17 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
     [experimentIds, timeIntervalSeconds, assessmentName, navigate],
   );
 
-  const timeSeriestooltipContent = (
+  const timeSeriesTooltipContent = (
     <ScrollableTooltip
-      formatter={timeSeriestooltipFormatter}
+      formatter={timeSeriesTooltipFormatter}
       componentId="mlflow.overview.quality.assessment_timeseries.view_traces_link"
-      linkConfig={{
-        onLinkClick: handleViewTimeSeriesTraces,
-      }}
+      linkConfig={
+        enableTraceNavigation
+          ? {
+              onLinkClick: handleViewTimeSeriesTraces,
+            }
+          : undefined
+      }
     />
   );
 
@@ -134,31 +140,23 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
     <ScrollableTooltip
       formatter={distributionTooltipFormatter}
       componentId="mlflow.overview.quality.assessment.view_traces_link"
-      linkConfig={{
-        linkText: (
-          <FormattedMessage
-            defaultMessage="View traces with this score"
-            description="Link text to navigate to traces filtered by assessment score"
-          />
-        ),
-        onLinkClick: handleViewTraces,
-      }}
+      linkConfig={
+        enableTraceNavigation
+          ? {
+              linkText: (
+                <FormattedMessage
+                  defaultMessage="View traces with this score"
+                  description="Link text to navigate to traces filtered by assessment score"
+                />
+              ),
+              onLinkClick: handleViewTraces,
+            }
+          : undefined
+      }
     />
   );
 
-  // Fetch and process all chart data using the custom hook
-  const { timeSeriesChartData, distributionChartData, isLoading, error, hasData } =
-    useTraceAssessmentChartData(assessmentName);
-
-  const reversedDistributionData = useMemo(() => [...distributionChartData].reverse(), [distributionChartData]);
-
-  if (isLoading) {
-    return <OverviewChartLoadingState />;
-  }
-
-  if (error) {
-    return <OverviewChartErrorState />;
-  }
+  const hasData = timeSeriesChartData.length > 0 || distributionChartData.length > 0;
 
   if (!hasData) {
     return (
@@ -182,9 +180,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
         }
       />
 
-      {/* Charts side by side: distribution always shown, moving average only for numeric assessments */}
       <div css={{ display: 'flex', gap: theme.spacing.lg, marginTop: theme.spacing.sm }}>
-        {/* Left: Distribution bar chart (always shown) */}
         <ChartPanel
           label={
             <FormattedMessage
@@ -194,7 +190,7 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
           }
         >
           <BarChart
-            data={reversedDistributionData}
+            data={distributionChartData}
             layout="vertical"
             barCategoryGap="28%"
             margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
@@ -210,10 +206,11 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
             <Tooltip
               content={distributionTooltipContent}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
+              wrapperStyle={{ pointerEvents: 'auto' }}
             />
             <Legend {...scrollableLegendProps} />
             <Bar dataKey="count" fill={chartLineColor} radius={[0, 4, 4, 0]}>
-              {reversedDistributionData.map((entry) => (
+              {distributionChartData.map((entry) => (
                 // eslint-disable-next-line import/no-deprecated
                 <Cell key={entry.name} fill={getBarColor(entry.name)} />
               ))}
@@ -221,7 +218,6 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
           </BarChart>
         </ChartPanel>
 
-        {/* Right: Time series line chart (only for numeric assessments with avgValue) */}
         {avgValue !== undefined && (
           <ChartPanel
             label={
@@ -235,8 +231,9 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
-                content={timeSeriestooltipContent}
+                content={timeSeriesTooltipContent}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               <Legend {...scrollableLegendProps} />
               <Line

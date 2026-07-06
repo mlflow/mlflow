@@ -5,21 +5,27 @@ import type { ModelTraceInfoV3, ModelTrace } from '../../model-trace-explorer/Mo
 import { isV3ModelTraceInfo, isV4TraceId } from '../../model-trace-explorer/ModelTraceExplorer.utils';
 import { useQuery } from '../../query-client/queryClient';
 
-import { createTraceLocationForExperiment, createTraceLocationForUCSchema } from '../utils/TraceLocationUtils';
+import { createTraceLocationForExperiment, createTraceLocationForDestinationPath } from '../utils/TraceLocationUtils';
 import { formatTraceId } from '../utils/TraceUtils';
 
 export type GetTraceFunction = (
   traceId?: string,
   traceInfo?: ModelTrace['info'],
-  // prettier-ignore
+  // should be undefined in OSS
+  sqlWarehouseId?: string,
 ) => Promise<ModelTrace | undefined>;
 
-export function useGetTrace(
-  getTrace?: GetTraceFunction,
-  traceInfo?: ModelTrace['info'],
-  // prettier-ignore
-  enablePolling?: boolean,
-) {
+export function useGetTrace({
+  getTrace,
+  traceInfo,
+  enablePolling,
+  sqlWarehouseId,
+}: {
+  getTrace?: GetTraceFunction;
+  traceInfo?: ModelTrace['info'];
+  enablePolling?: boolean;
+  sqlWarehouseId?: string;
+}) {
   const traceId = useMemo(() => {
     if (!traceInfo) {
       return undefined;
@@ -36,13 +42,10 @@ export function useGetTrace(
       return getTrace(
         traceId,
         traceInfo,
+        sqlWarehouseId,
       );
     },
-    [
-      getTrace,
-      traceId,
-      // prettier-ignore
-    ],
+    [getTrace, traceId, sqlWarehouseId],
   );
 
   // Maximum number of polling attempts after the trace reaches OK state.
@@ -119,7 +122,7 @@ export const useGetTraceByFullTraceId = (getTrace?: GetTraceFunction, fullTraceI
 
       const trace_location = !trace_location_string.includes('.')
         ? createTraceLocationForExperiment(trace_location_string)
-        : createTraceLocationForUCSchema(trace_location_string);
+        : createTraceLocationForDestinationPath(trace_location_string);
 
       return {
         trace_id,

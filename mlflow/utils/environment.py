@@ -12,6 +12,7 @@ from copy import deepcopy
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
+from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
 from mlflow.environment_variables import (
@@ -21,6 +22,7 @@ from mlflow.environment_variables import (
     MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
     MLFLOW_LOCK_MODEL_DEPENDENCIES,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
+    MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK,
     MLFLOW_UV_AUTO_DETECT,
 )
 from mlflow.exceptions import MlflowException
@@ -37,14 +39,17 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
+    _get_local_version_label,
     _infer_requirements,
     _parse_requirements,
+    _strip_local_version_label,
     warn_dependency_requirement_mismatches,
 )
 from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
 from mlflow.utils.uv_utils import (
     detect_uv_project,
     export_uv_requirements,
+    extract_index_urls_from_uv_lock,
 )
 from mlflow.version import VERSION
 
@@ -458,7 +463,9 @@ def infer_pip_requirements(
                     f"Successfully exported {len(uv_requirements)} requirements from uv project. "
                     "Skipping package capture based inference."
                 )
-                return uv_requirements
+                private_index_urls = extract_index_urls_from_uv_lock(uv_project.uv_lock)
+                index_url_reqs = [f"--extra-index-url {url}" for url in private_index_urls]
+                return index_url_reqs + uv_requirements
             else:
                 _logger.warning(
                     "uv export failed or returned no requirements. "
@@ -798,10 +805,10 @@ def _deduplicate_requirements(requirements):
           Output: ["packageA==1.0"]
 
         - Input: ["packageX>1.0", "packageX[extras]", "packageX<2.0"]
-          Output: ["packageX[extras]>1.0,<2.0"]
+          Output: ["packageX[extras]<2.0,>1.0"]
 
         - Input: ["markdown[extra1]>=3.5.1", "markdown[extra2]<4", "markdown"]
-          Output: ["markdown[extra1,extra2]>=3.5.1,<4"]
+          Output: ["markdown[extra1,extra2]<4,>=3.5.1"]
 
         - Input: ["scikit-learn==1.1", "scikit-learn<1"]
           Raises MlflowException indicating incompatible versions.
@@ -832,11 +839,39 @@ def _deduplicate_requirements(requirements):
                     and parsed_req.specifier
                     and existing_req.specifier != parsed_req.specifier
                 ):
-                    _validate_version_constraints([str(existing_req), req])
-                    parsed_req.specifier = ",".join([
-                        str(existing_req.specifier),
-                        str(parsed_req.specifier),
-                    ])
+                    existing_specs = list(existing_req.specifier)
+                    new_specs = list(parsed_req.specifier)
+                    # When uv export preserves local version labels (e.g. torch==2.7.1+cu128)
+                    # but _get_pinned_requirement strips them (e.g. torch==2.7.1), both end up
+                    # in the merged list. Detect this case and prefer the non-local version
+                    # (PyPI-installable) rather than failing validation.
+                    if (
+                        len(existing_specs) == 1
+                        and len(new_specs) == 1
+                        and existing_specs[0].operator == "=="
+                        and new_specs[0].operator == "=="
+                        and _strip_local_version_label(existing_specs[0].version)
+                        == _strip_local_version_label(new_specs[0].version)
+                        and bool(_get_local_version_label(existing_specs[0].version))
+                        != bool(_get_local_version_label(new_specs[0].version))
+                    ):
+                        # Keep whichever specifier has no local label (PyPI-installable)
+                        if local_label := _get_local_version_label(new_specs[0].version):
+                            _logger.debug(
+                                f"Dropping local version label (+{local_label}) from "
+                                f"'{parsed_req.name}=={new_specs[0].version}' to keep the "
+                                f"PyPI-installable version "
+                                f"'{parsed_req.name}=={existing_specs[0].version}'."
+                            )
+                            parsed_req.specifier = existing_req.specifier
+                    else:
+                        _validate_version_constraints([str(existing_req), req])
+                        parsed_req.specifier = SpecifierSet(
+                            ",".join([
+                                str(existing_req.specifier),
+                                str(parsed_req.specifier),
+                            ])
+                        )
 
                 # Preserve existing specifiers
                 if existing_req.specifier and not parsed_req.specifier:
@@ -892,12 +927,17 @@ def _validate_version_constraints(requirements):
     them using pip's `--dry-run` install option. If any version conflicts are detected, it
     raises an MlflowException with details of the conflict.
 
+    Validation is skipped entirely when the ``MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK`` environment
+    variable is set to ``True``, which is useful in air-gapped environments where pip cannot
+    reach external package indexes.
+
     Args:
         requirements (list of str): A list of package requirements (e.g., `["pandas>=1.15",
         "pandas<2"]`).
 
     Raises:
         MlflowException: If any version conflicts are detected among the provided requirements.
+            Not raised when ``MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK`` is ``True``.
 
     Returns:
         None: This function does not return anything. It either completes successfully or raises
@@ -907,6 +947,9 @@ def _validate_version_constraints(requirements):
         _validate_version_constraints(["tensorflow<2.0", "tensorflow>2.3"])
         # This will raise an exception due to boundary validity.
     """
+    if MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK.get():
+        return
+
     with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp_file:
         tmp_file.write("\n".join(requirements))
         tmp_file_name = tmp_file.name

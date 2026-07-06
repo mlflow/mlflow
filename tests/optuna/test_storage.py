@@ -1,7 +1,5 @@
 import gc
-import os
 import random
-import tempfile
 import threading
 import time
 from datetime import datetime
@@ -116,10 +114,8 @@ def _generate_trial(generator: random.Random) -> FrozenTrial:
 
 
 @pytest.fixture
-def setup_storage():
-    tempdir = tempfile.mkdtemp(prefix="optuna_tests_", dir="/tmp")
-    mlflow_uri = "file:" + os.path.join(tempdir, "mlflow")
-    mlflow.set_tracking_uri(mlflow_uri)
+def setup_storage(db_uri):
+    mlflow.set_tracking_uri(db_uri)
     experiment_id = mlflow.create_experiment(name="optuna_mlflow_test")
     storage = MlflowStorage(
         experiment_id=experiment_id, batch_flush_interval=1.0, batch_size_threshold=5
@@ -583,7 +579,8 @@ def test_set_trial_state_values_for_values(setup_storage):
 
     assert storage.get_trial(trial_id_1).value == 0.5
     assert storage.get_trial(trial_id_2).value is None
-    assert storage.get_trial(trial_id_3).value == float("inf")
+    # SQLite/SQLAlchemy sanitizes +inf to max float value
+    assert storage.get_trial(trial_id_3).value == 1.7976931348623157e308
     assert storage.get_trial(trial_id_4).values == [0.1, 0.2, 0.3]
     assert storage.get_trial(trial_id_5).values == [0.1, 0.2, 0.3]
 
@@ -609,11 +606,12 @@ def test_set_trial_intermediate_value(setup_storage):
 
     assert storage.get_trial(trial_id_1).intermediate_values == {0: 0.3, 2: 0.4}
     assert storage.get_trial(trial_id_2).intermediate_values == {}
+    # SQLite/SQLAlchemy sanitizes +inf to max float value
     assert storage.get_trial(trial_id_3).intermediate_values == {
         0: 0.1,
         1: 0.4,
         2: 0.5,
-        3: float("inf"),
+        3: 1.7976931348623157e308,
     }
     assert np.isnan(storage.get_trial(trial_id_4).intermediate_values[0])
 

@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules.forbidden_set_active_model_usage import ForbiddenSetActiveModelUsage
 
 
-def test_forbidden_set_active_model_usage(index_path: Path) -> None:
+def test_forbidden_set_active_model_usage(index: SymbolIndex) -> None:
     code = """
 import mlflow
 
@@ -24,7 +25,7 @@ from mlflow import _set_active_model
 _set_active_model("model_name")
 """
     config = Config(select={ForbiddenSetActiveModelUsage.name})
-    violations = lint_file(Path("test.py"), code, config, index_path)
+    violations = lint_file(Path("test.py"), code, config, index)
     assert len(violations) == 3
     assert all(isinstance(v.rule, ForbiddenSetActiveModelUsage) for v in violations)
     assert violations[0].range == Range(Position(4, 0))  # mlflow.set_active_model call

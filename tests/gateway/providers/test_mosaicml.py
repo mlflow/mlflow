@@ -7,8 +7,8 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow import MlflowException
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.mosaicml import MosaicMLProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -68,7 +68,7 @@ async def test_completions():
                 "inputs": ["This is a test"],
                 "parameters": {"n": 1, "max_new_tokens": 1000},
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -175,6 +175,7 @@ async def test_chat(payload, expected_llm_input):
             "created": 1700242674,
             "object": "chat.completion",
             "model": "llama2-70b-chat",
+            "provider": "mosaicml",
             "choices": [
                 {
                     "message": {
@@ -196,7 +197,7 @@ async def test_chat(payload, expected_llm_input):
         mock_post.assert_called_once_with(
             "https://models.hosted-on.mosaicml.hosting/llama2-70b-chat/v1/predict",
             json=expected_llm_input,
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 

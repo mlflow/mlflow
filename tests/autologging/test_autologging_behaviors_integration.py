@@ -246,6 +246,7 @@ def test_autolog_respects_disable_flag_across_import_orders():
 
 @pytest.mark.usefixtures(test_mode_off.__name__)
 def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
+    pytest.skip("FileStore is no longer supported.")
     # disable progress bar as it is not controlled by `silent` flag
     monkeypatch.setenv("MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR", "false")
 

@@ -1,0 +1,2 @@
+export declare const TypeaheadComboboxSectionHeader: ({ children, ...props }: import("react").HTMLAttributes<HTMLDivElement>) => import("@emotion/react/jsx-runtime").JSX.Element;
+//# sourceMappingURL=TypeaheadComboboxSectionHeader.d.ts.map

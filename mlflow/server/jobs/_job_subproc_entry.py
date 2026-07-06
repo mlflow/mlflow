@@ -14,8 +14,6 @@ import threading
 import traceback
 from contextlib import nullcontext
 
-import cloudpickle
-
 from mlflow.environment_variables import MLFLOW_WORKSPACE
 from mlflow.server.jobs.logging_utils import configure_logging_for_jobs
 from mlflow.server.jobs.progress import JobTracker, _set_job_tracker
@@ -63,21 +61,15 @@ def _main():
         _set_job_tracker(JobTracker(job_id))
 
     transient_error_classes = []
-    try:
-        with open(transient_error_classes_path, "rb") as f:
-            transient_error_classes = cloudpickle.load(f)
-        if transient_error_classes is None:
-            transient_error_classes = []
-    except Exception:
-        with open(transient_error_classes_path) as f:
-            content = f.read()
+    with open(transient_error_classes_path) as f:
+        content = f.read()
 
-        for cls_str in content.split("\n"):
-            if not cls_str:
-                continue
-            *module_parts, cls_name = cls_str.split(".")
-            module = importlib.import_module(".".join(module_parts))
-            transient_error_classes.append(getattr(module, cls_name))
+    for cls_str in content.split("\n"):
+        if not cls_str:
+            continue
+        *module_parts, cls_name = cls_str.split(".")
+        module = importlib.import_module(".".join(module_parts))
+        transient_error_classes.append(getattr(module, cls_name))
 
     try:
         with ctx:

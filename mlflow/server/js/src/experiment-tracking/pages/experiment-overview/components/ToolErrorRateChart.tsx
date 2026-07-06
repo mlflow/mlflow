@@ -112,6 +112,7 @@ export const ToolErrorRateChart: React.FC<ToolErrorRateChartProps> = ({ toolName
                 />
               }
               cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+              wrapperStyle={{ pointerEvents: 'auto' }}
             />
             <Legend iconType="plainline" {...scrollableLegendProps} />
             <Line

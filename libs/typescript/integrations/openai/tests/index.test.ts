@@ -68,6 +68,7 @@ describe('tracedOpenAI', () => {
       const span = trace.data.spans[0];
       expect(span.name).toBe('Completions');
       expect(span.spanType).toBe(mlflow.SpanType.LLM);
+      expect(span.logLevel).toBe(mlflow.SpanLogLevel.INFO);
       expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
       expect(span.inputs).toEqual({
         model: 'gpt-4',
@@ -152,6 +153,8 @@ describe('tracedOpenAI', () => {
       expect(parentSpan.name).toBe('predict');
       expect(parentSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
       expect(parentSpan.spanType).toBe(mlflow.SpanType.CHAIN);
+      // CHAIN spans default to DEBUG; LLM children to INFO (asserted below).
+      expect(parentSpan.logLevel).toBe(mlflow.SpanLogLevel.DEBUG);
       expect(parentSpan.inputs).toEqual('Hello!');
       expect(parentSpan.outputs).toEqual(result);
       expect(parentSpan.startTime).toBeDefined();
@@ -161,6 +164,7 @@ describe('tracedOpenAI', () => {
       expect(childSpan.name).toBe('Completions');
       expect(childSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
       expect(childSpan.spanType).toBe(mlflow.SpanType.LLM);
+      expect(childSpan.logLevel).toBe(mlflow.SpanLogLevel.INFO);
       expect(childSpan.inputs).toEqual({
         model: 'gpt-4',
         messages: [{ role: 'user', content: 'Hello!' }],

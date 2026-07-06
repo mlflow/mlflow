@@ -106,6 +106,29 @@ def fake_chat_response():
     }
 
 
+def test_get_headers_uses_server_key_by_default():
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    merged = provider._get_headers(headers={"x-goog-api-key": "client-key", "X-Custom": "value"})
+    assert merged["x-goog-api-key"] == "key"
+    assert merged["X-Custom"] == "value"
+
+
+@pytest.mark.parametrize(
+    "user_agent",
+    [
+        "claude-cli/2.0.37 (external, cli)",
+        "Codex-Desktop/26.422.2437.0",
+        "GeminiCLI/0.39.0/gemini-2.0-pro (darwin; x64)",
+    ],
+)
+def test_get_headers_preserves_client_key_for_credential_agents(user_agent):
+    provider = GeminiProvider(EndpointConfig(**chat_config()))
+    merged = provider._get_headers(
+        headers={"x-goog-api-key": "client-key", "user-agent": user_agent}
+    )
+    assert merged["x-goog-api-key"] == "client-key"
+
+
 @pytest.mark.asyncio
 async def test_gemini_single_embedding():
     config = embedding_config()
@@ -341,6 +364,7 @@ async def test_gemini_chat():
         "created": 1234567890,
         "object": "chat.completion",
         "model": "gemini-2.0-flash",
+        "provider": "gemini",
         "choices": jsonable_encoder(expected_choices),
         "usage": {
             "prompt_tokens": 6,
@@ -510,6 +534,7 @@ async def test_gemini_chat_function_calling():
         "object": "chat.completion",
         "created": 1234567890,
         "model": "gemini-2.0-flash",
+        "provider": "gemini",
         "choices": [
             {
                 "index": 0,
@@ -629,6 +654,7 @@ async def test_gemini_chat_multi_function_calling():
         "object": "chat.completion",
         "created": 1234567890,
         "model": "gemini-2.0-flash",
+        "provider": "gemini",
         "choices": [
             {
                 "index": 0,
@@ -731,6 +757,7 @@ async def test_gemini_chat_function_calling_second_turn():
         "object": "chat.completion",
         "created": 1234567890,
         "model": "gemini-2.0-flash",
+        "provider": "gemini",
         "choices": [
             {
                 "index": 0,
@@ -764,6 +791,126 @@ async def test_gemini_chat_function_calling_second_turn():
                             "id": "call_001",
                             "name": "get_weather",
                             "args": {"location": "Singapore"},
+                        }
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "functionResponse": {
+                            "id": "call_001",
+                            "name": "get_weather",
+                            "response": {"temperature": 31.2, "condition": "sunny"},
+                        }
+                    }
+                ],
+            },
+        ],
+        "generationConfig": {"temperature": 0.5, "candidateCount": 1},
+        "tools": [
+            {
+                "functionDeclarations": [
+                    {
+                        "name": "get_weather",
+                        "description": "Get current temperature for a given location.",
+                        "parametersJsonSchema": {
+                            "properties": {
+                                "location": {"type": "string", "description": "The name of a city"}
+                            },
+                            "type": "object",
+                            "required": ["location"],
+                        },
+                    }
+                ]
+            }
+        ],
+    }
+
+    mock_post.assert_called_once_with(
+        expected_url,
+        json=expected_payload,
+        timeout=mock.ANY,
+    )
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_thought_signature():
+    config = chat_config()
+    provider = GeminiProvider(EndpointConfig(**config))
+    payload = chat_function_calling_payload()
+
+    payload["messages"].extend([
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_001",
+                    "function": {
+                        "arguments": '{"location": "Singapore"}',
+                        "name": "get_weather",
+                    },
+                    "type": "function",
+                    "thought_signature": "opaque_thought_sig_token",
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "call_001",
+            "content": '{"temperature": 31.2, "condition": "sunny"}',
+        },
+    ])
+
+    expected_url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    )
+
+    resp = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {
+                            "functionCall": {
+                                "name": "get_weather",
+                                "args": {"location": "Kuala Lumpur"},
+                                "id": "call_002",
+                                "thoughtSignature": "new_thought_sig_token",
+                            },
+                        },
+                    ],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ]
+    }
+    with (
+        mock.patch("time.time", return_value=1234567890),
+        mock.patch(
+            "aiohttp.ClientSession.post",
+            return_value=MockAsyncResponse(resp),
+        ) as mock_post,
+    ):
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+    assert response.choices[0].message.tool_calls[0].thought_signature == "new_thought_sig_token"
+
+    expected_payload = {
+        "contents": [
+            {"role": "user", "parts": [{"text": "What's the weather like in Singapore today?"}]},
+            {
+                "role": "model",
+                "parts": [
+                    {
+                        "functionCall": {
+                            "id": "call_001",
+                            "name": "get_weather",
+                            "args": {"location": "Singapore"},
+                            "thoughtSignature": "opaque_thought_sig_token",
                         }
                     }
                 ],
@@ -853,6 +1000,7 @@ async def test_gemini_chat_stream(resp):
             "object": "chat.completion.chunk",
             "created": 1,
             "model": "gemini-2.0-flash",
+            "provider": "gemini",
             "choices": [
                 {
                     "index": 0,
@@ -871,6 +1019,7 @@ async def test_gemini_chat_stream(resp):
             "object": "chat.completion.chunk",
             "created": 1,
             "model": "gemini-2.0-flash",
+            "provider": "gemini",
             "choices": [
                 {
                     "index": 0,
@@ -931,6 +1080,7 @@ async def test_gemini_chat_function_calling_stream():
             "object": "chat.completion.chunk",
             "created": 1,
             "model": "gemini-2.0-flash",
+            "provider": "gemini",
             "choices": [
                 {
                     "index": 0,
@@ -1080,7 +1230,7 @@ async def test_passthrough_gemini_generate_content():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1131,7 +1281,7 @@ async def test_passthrough_gemini_stream_generate_content():
     captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_session_headers.update(headers or {})
         return mock_session_client
 
@@ -1229,6 +1379,55 @@ async def test_chat_with_structured_output():
         call_kwargs = mock_post.call_args[1]
         assert call_kwargs["json"]["generationConfig"]["responseJsonSchema"] == json_schema
         assert call_kwargs["json"]["generationConfig"]["responseMimeType"] == "application/json"
+
+
+@pytest.mark.asyncio
+async def test_chat_with_json_object_response_format():
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "gemini",
+            "name": "gemini-2.0-flash",
+            "config": {
+                "gemini_api_key": "test-key",
+            },
+        },
+    }
+
+    resp = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [{"text": '{"answer": 42}'}],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+            }
+        ],
+        "usageMetadata": {
+            "promptTokenCount": 10,
+            "candidatesTokenCount": 5,
+            "totalTokenCount": 15,
+        },
+    }
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = GeminiProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Give me JSON"}],
+            "response_format": {"type": "json_object"},
+        }
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+        assert response.choices[0].message.content == '{"answer": 42}'
+
+        call_kwargs = mock_post.call_args[1]
+        generation_config = call_kwargs["json"]["generationConfig"]
+        assert generation_config["responseMimeType"] == "application/json"
+        assert "responseJsonSchema" not in generation_config
 
 
 @pytest.mark.asyncio

@@ -8,7 +8,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage, type IntlShape } from 'react-intl';
-import { Spacer, Switch, LegacyTabs, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Spacer, Switch, Tabs, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -28,8 +28,6 @@ import { CompareRunArtifactView } from './CompareRunArtifactView';
 import type { ScrollParams } from 'react-virtualized';
 import type { CompareRunMetricTableRef } from '@mlflow/mlflow/src/experiment-tracking/components/CompareRunMetricTable';
 import { CompareRunMetricTable } from '@mlflow/mlflow/src/experiment-tracking/components/CompareRunMetricTable';
-
-const { TabPane } = LegacyTabs;
 
 type CompareRunViewProps = {
   experiments: any[]; // TODO: PropTypes.instanceOf(Experiment)
@@ -456,57 +454,51 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             description: 'Tabs title for plots on the compare runs page',
           })}
         >
-          <LegacyTabs>
-            <TabPane
-              tab={
+          <Tabs.Root componentId="mlflow.compare-runs.visualizations-tabs" defaultValue="parallel-coordinates-plot">
+            <Tabs.List>
+              <Tabs.Trigger value="parallel-coordinates-plot">
                 <FormattedMessage
                   defaultMessage="Parallel Coordinates Plot"
                   description="Tab pane title for parallel coordinate plots on the compare runs page"
                 />
-              }
-              key="parallel-coordinates-plot"
-            >
-              <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids} />
-            </TabPane>
-            <TabPane
-              tab={
+              </Tabs.Trigger>
+              <Tabs.Trigger value="scatter-plot">
                 <FormattedMessage
                   defaultMessage="Scatter Plot"
                   description="Tab pane title for scatterplots on the compare runs page"
                 />
-              }
-              key="scatter-plot"
-            >
-              <CompareRunScatter runUuids={this.props.runUuids} runDisplayNames={this.props.runDisplayNames} />
-            </TabPane>
-            <TabPane
-              tab={
+              </Tabs.Trigger>
+              <Tabs.Trigger value="box-plot">
                 <FormattedMessage
                   defaultMessage="Box Plot"
                   description="Tab pane title for box plot on the compare runs page"
                 />
-              }
-              key="box-plot"
-            >
+              </Tabs.Trigger>
+              <Tabs.Trigger value="contour-plot">
+                <FormattedMessage
+                  defaultMessage="Contour Plot"
+                  description="Tab pane title for contour plots on the compare runs page"
+                />
+              </Tabs.Trigger>
+            </Tabs.List>
+            <Tabs.Content value="parallel-coordinates-plot">
+              <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids} />
+            </Tabs.Content>
+            <Tabs.Content value="scatter-plot">
+              <CompareRunScatter runUuids={this.props.runUuids} runDisplayNames={this.props.runDisplayNames} />
+            </Tabs.Content>
+            <Tabs.Content value="box-plot">
               <CompareRunBox
                 runUuids={runUuids}
                 runInfos={runInfos}
                 paramLists={paramLists}
                 metricLists={metricLists}
               />
-            </TabPane>
-            <TabPane
-              tab={
-                <FormattedMessage
-                  defaultMessage="Contour Plot"
-                  description="Tab pane title for contour plots on the compare runs page"
-                />
-              }
-              key="contour-plot"
-            >
+            </Tabs.Content>
+            <Tabs.Content value="contour-plot">
               <CompareRunContour runUuids={this.props.runUuids} runDisplayNames={this.props.runDisplayNames} />
-            </TabPane>
-          </LegacyTabs>
+            </Tabs.Content>
+          </Tabs.Root>
         </CollapsibleSection>
         <CollapsibleSection
           title={this.props.intl.formatMessage({

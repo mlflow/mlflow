@@ -99,7 +99,6 @@ export class MetricPageImpl extends Component<MetricPageImplProps> {
       <PageContainer>
         <RequestStateWrapper
           requestIds={this.requestIds}
-          // eslint-disable-next-line no-trailing-spaces
           customRequestErrorHandlerFn={(failedRequests) => {
             const firstFoundError = failedRequests.find((request) => request.error)?.error;
             if (firstFoundError instanceof ErrorWrapper) {

@@ -3,6 +3,7 @@ from mlflow.genai import (
     judges,
     scorers,
 )
+from mlflow.genai.agent_tester import test_agent
 from mlflow.genai.datasets import (
     create_dataset,
     delete_dataset,
@@ -47,6 +48,7 @@ from mlflow.genai.simulators import ConversationSimulator
 
 __all__ = [
     "datasets",
+    "test_agent",
     "evaluate",
     "to_predict_fn",
     "Scorer",

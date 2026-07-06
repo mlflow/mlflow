@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { coy as style, atomDark as darkStyle } from 'react-syntax-highlighter/dist/cjs/styles/prism';
-import { getLanguage } from '../../../common/utils/FileUtils';
+import { getExtension, getLanguage } from '../../../common/utils/FileUtils';
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactTextView.css';
 import type { DesignSystemHocProps } from '@databricks/design-system';
@@ -76,7 +76,9 @@ class ShowArtifactTextView extends Component<Props, State> {
         borderColor: theme.colors.borderDecorative,
         border: 'none',
       };
-      const renderedContent = this.state.text ? prettifyArtifactText(language, this.state.text) : this.state.text;
+      const renderedContent = this.state.text
+        ? prettifyArtifactText(language, this.state.text, this.props.path)
+        : this.state.text;
 
       const syntaxStyle = theme.isDarkMode ? darkStyle : style;
 
@@ -109,15 +111,17 @@ class ShowArtifactTextView extends Component<Props, State> {
   }
 }
 
-export function prettifyArtifactText(language: string, rawText: string) {
+export function prettifyArtifactText(language: string, rawText: string, path?: string) {
+  if (path && getExtension(path).toLowerCase() === 'jsonl') {
+    return rawText;
+  }
   if (language === 'json') {
     try {
       const parsedJson = JSON.parse(rawText);
       return JSON.stringify(parsedJson, null, 2);
     } catch (e) {
-      // No-op
+      return rawText;
     }
-    return rawText;
   }
   return rawText;
 }

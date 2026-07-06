@@ -11,8 +11,8 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-const getProductionMonitoringDocUrl = () => {
-  return 'https://mlflow.org/docs/latest/genai/eval-monitor/';
+const getScorersDocUrl = () => {
+  return 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/';
 };
 
 interface ScorerEmptyStateRendererProps {
@@ -55,7 +55,7 @@ const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({
                 learnMore: (
                   <Typography.Link
                     componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_scoreremptystaterenderer_59"
-                    href={getProductionMonitoringDocUrl()}
+                    href={getScorersDocUrl()}
                     openInNewTab
                   >
                     <FormattedMessage

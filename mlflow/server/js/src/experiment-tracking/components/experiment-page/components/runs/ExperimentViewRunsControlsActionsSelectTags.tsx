@@ -99,7 +99,7 @@ export const ExperimentViewRunsControlsActionsSelectTags = ({
 
   const openDropdown = (newTag?: KeyValueEntity) => {
     setSelectedTags(() => {
-      const selectedValues: Record<string, boolean | undefined> = { ...selectedTags };
+      const selectedValues = { ...selectedTags } satisfies Record<string, boolean | undefined>;
       allTags.forEach((tag) => {
         if (allSelectedTags.includes(tag)) {
           selectedValues[tag] = true;

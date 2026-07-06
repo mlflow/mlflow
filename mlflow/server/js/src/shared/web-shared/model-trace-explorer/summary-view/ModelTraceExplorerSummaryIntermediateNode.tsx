@@ -5,27 +5,40 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerSummaryViewExceptionsSection } from './ModelTraceExplorerSummaryViewExceptionsSection';
 import { type ModelTraceSpanNode } from '../ModelTrace.types';
-import { createListFromObject, getSpanExceptionEvents } from '../ModelTraceExplorer.utils';
+import { CodeSnippetRenderMode } from '../ModelTrace.types';
+import {
+  createListFromObject,
+  buildAggregatedJsonFromKeyValueList,
+  getSpanExceptionEvents,
+} from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { SpanNameDetailViewLink } from '../assessments-pane/SpanNameDetailViewLink';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
+import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { spanTimeFormatter } from '../timeline-tree/TimelineTree.utils';
-
-const CONNECTOR_WIDTH = 12;
-const ROW_HEIGHT = 48;
 
 export const ModelTraceExplorerSummaryIntermediateNode = ({
   node,
   renderMode,
+  className,
 }: {
   node: ModelTraceSpanNode;
-  renderMode: 'default' | 'json';
+  renderMode: 'default' | 'json' | 'table';
+  className?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
   const inputList = useMemo(() => createListFromObject(node.inputs), [node]);
   const outputList = useMemo(() => createListFromObject(node.outputs), [node]);
+  const aggregatedInputJson = useMemo(
+    () => (inputList.length > 0 ? buildAggregatedJsonFromKeyValueList(inputList) : null),
+    [inputList],
+  );
+  const aggregatedOutputJson = useMemo(
+    () => (outputList.length > 0 ? buildAggregatedJsonFromKeyValueList(outputList) : null),
+    [outputList],
+  );
   const exceptionEvents = getSpanExceptionEvents(node);
   const chatMessageFormat = node.chatMessageFormat;
 
@@ -37,14 +50,16 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
 
   return (
     <div
+      className={className}
       css={{
         display: 'flex',
         flexDirection: 'row',
-        minHeight: ROW_HEIGHT,
         flexShrink: 0,
+        padding: theme.spacing.sm,
+        paddingRight: theme.spacing.md,
       }}
     >
-      <div css={{ height: ROW_HEIGHT, display: 'flex', alignItems: 'center' }}>
+      <div css={{ display: 'flex', alignItems: 'flex-start' }}>
         <Button
           size="small"
           data-testid={`toggle-span-expanded-${node.key}`}
@@ -54,32 +69,16 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
           componentId="shared.model-trace-explorer.toggle-span"
         />
       </div>
-      <div
-        css={{
-          position: 'relative',
-          boxSizing: 'border-box',
-          height: ROW_HEIGHT,
-          borderLeft: `2px solid ${theme.colors.border}`,
-          width: CONNECTOR_WIDTH,
-        }}
-      >
+      <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
         <div
           css={{
-            position: 'absolute',
-            left: -2,
-            top: 14,
-            height: CONNECTOR_WIDTH,
-            width: CONNECTOR_WIDTH,
-            boxSizing: 'border-box',
-            borderBottomLeftRadius: theme.borders.borderRadiusMd,
-            borderBottom: `2px solid ${theme.colors.border}`,
-            borderLeft: `2px solid ${theme.colors.border}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: expanded ? theme.spacing.sm : 0,
           }}
-        />
-      </div>
-      <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
-        <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography.Text color="secondary" css={{ display: 'inline-flex', alignItems: 'center', height: ROW_HEIGHT }}>
+        >
+          <Typography.Text color="secondary" css={{ display: 'inline-flex', alignItems: 'center' }}>
             <FormattedMessage
               defaultMessage="{spanName} was called"
               description="Label for an intermediate node in the trace explorer summary view, indicating that a span/function was called in the course of execution."
@@ -123,22 +122,29 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
               >
                 <div
                   css={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: theme.spacing.sm,
-                    paddingLeft: theme.spacing.lg,
                     marginBottom: theme.spacing.sm,
                   }}
                 >
-                  {inputList.map(({ key, value }, index) => (
-                    <ModelTraceExplorerFieldRenderer
-                      key={key || index}
-                      title={key}
-                      data={value}
-                      renderMode={renderMode}
-                      chatMessageFormat={chatMessageFormat}
+                  {renderMode === 'table' && aggregatedInputJson ? (
+                    <ModelTraceExplorerCodeSnippet
+                      title=""
+                      data={aggregatedInputJson}
+                      initialRenderMode={CodeSnippetRenderMode.TABLE}
+                      hideRenderModeDropdown
                     />
-                  ))}
+                  ) : (
+                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                      {inputList.map(({ key, value }, index) => (
+                        <ModelTraceExplorerFieldRenderer
+                          key={key || index}
+                          title={key}
+                          data={value}
+                          renderMode={renderMode}
+                          chatMessageFormat={chatMessageFormat}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </ModelTraceExplorerCollapsibleSection>
             )}
@@ -154,23 +160,30 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
               >
                 <div
                   css={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: theme.spacing.sm,
-                    paddingLeft: theme.spacing.lg,
                     marginBottom: theme.spacing.sm,
                   }}
                 >
-                  {outputList.map(({ key, value }) => (
-                    <ModelTraceExplorerFieldRenderer
-                      key={key}
-                      title={key}
-                      data={value}
-                      renderMode={renderMode}
-                      chatMessageFormat={chatMessageFormat}
-                      assessments={node.assessments}
+                  {renderMode === 'table' && aggregatedOutputJson ? (
+                    <ModelTraceExplorerCodeSnippet
+                      title=""
+                      data={aggregatedOutputJson}
+                      initialRenderMode={CodeSnippetRenderMode.TABLE}
+                      hideRenderModeDropdown
                     />
-                  ))}
+                  ) : (
+                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                      {outputList.map(({ key, value }) => (
+                        <ModelTraceExplorerFieldRenderer
+                          key={key}
+                          title={key}
+                          data={value}
+                          renderMode={renderMode}
+                          chatMessageFormat={chatMessageFormat}
+                          assessments={node.assessments}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </ModelTraceExplorerCollapsibleSection>
             )}

@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: Get your MLflow AI Gateway running in minutes. Step-by-step guide to install MLflow, create API keys, configure LLM endpoints, and make your first API call.
+description: Get your MLflow AI Gateway running in minutes. Step-by-step guide to install MLflow, create LLM connections, configure LLM endpoints, and make your first API call.
 ---
 
 import Tabs from "@theme/Tabs";
@@ -28,17 +28,17 @@ The AI Gateway is built into the MLflow Tracking Server and will be ready at `ht
 The AI Gateway requires a SQL-based backend store (SQLite, PostgreSQL, MySQL, or MSSQL) and the FastAPI tracking server. By default, `mlflow server` uses SQLite and FastAPI, so no additional configuration is needed for this quickstart.
 :::
 
-## Step 2: Create Your First API Key
+## Step 2: Create Your First LLM Connection
 
-Navigate to `http://localhost:5000/#/gateway` and click on the **API Keys** tab.
+Navigate to `http://localhost:5000/#/settings` and click on the **LLM Connections** tab.
 
-1. Click **Create API Key**
+1. Click **Create** button
 2. Enter a name (e.g., `my-openai-key`)
 3. Select your provider (e.g., OpenAI)
 4. Enter your API key from the provider
 5. Click **Create**
 
-![Create API Key](/images/genai/governance/ai-gateway/create-api-key.png)
+![Create LLM Connection](/images/genai/settings/create-api-key.png)
 
 Your API key is now securely stored and encrypted.
 
@@ -49,7 +49,7 @@ Switch to the **Endpoints** tab and click **Create Endpoint**.
 1. Enter an endpoint name (e.g., `my-chat-endpoint`)
 2. Select your provider (e.g., OpenAI)
 3. Choose a model (e.g., `gpt-4o`)
-4. Select your API key from the dropdown (the one you just created)
+4. Select your LLM connection from the dropdown (the one you just created)
 5. Click **Create Endpoint**
 
 ## Step 4: Query Your Endpoint
@@ -110,10 +110,10 @@ Now that you have a working gateway, explore these features:
 <TilesGrid>
   <TileCard
     icon={Key}
-    title="API Keys"
-    description="Learn about credential management and best practices for API keys"
+    title="LLM Connections"
+    description="Learn about LLM connections and best practices for managing API keys"
     href="/genai/governance/ai-gateway/api-keys/create-and-manage"
-    linkText="Manage API keys →"
+    linkText="Manage LLM connections →"
   />
   <TileCard
     icon={Server}

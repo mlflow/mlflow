@@ -11,6 +11,8 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   notify:
     runs-on: ubuntu-slim

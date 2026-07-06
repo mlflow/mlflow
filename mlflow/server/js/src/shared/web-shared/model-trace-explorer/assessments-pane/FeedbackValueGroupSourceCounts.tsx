@@ -1,3 +1,4 @@
+import { FormattedMessage } from '@databricks/i18n';
 import { countBy } from 'lodash';
 
 import {
@@ -11,7 +12,6 @@ import {
 } from '@databricks/design-system';
 
 import type { AssessmentSourceType, FeedbackAssessment } from '../ModelTrace.types';
-import { FormattedMessage } from 'react-intl';
 
 const getSourceTypeIcon = (sourceType: AssessmentSourceType) => {
   const smallIconStyles = {

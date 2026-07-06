@@ -106,11 +106,17 @@ class DBConnectArtifactCache:
         Get unpacked artifact directory path, you can only call this method
         inside Databricks Connect spark UDF sandbox.
         """
+        from pyspark.taskcontext import TaskContext
+
         if cache_key not in self._cache:
             raise RuntimeError(f"The artifact '{cache_key}' does not exist.")
         archive_file_name = self._cache[cache_key]
 
         if session_id := os.environ.get("DB_SESSION_UUID"):
+            task_context = TaskContext.get()
+            if hasattr(task_context, "artifactDir"):
+                return os.path.join(task_context.artifactDir(), "archives", archive_file_name)
+
             return (
                 f"/local_disk0/.ephemeral_nfs/artifacts/{session_id}/archives/{archive_file_name}"
             )
