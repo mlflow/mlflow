@@ -33,7 +33,7 @@ describe('CopyButton', () => {
     );
     expect(screen.getByText('Copy')).toBeInTheDocument();
     await userEvent.click(screen.getByText('Copy'));
-    expect(screen.getByRole('tooltip', { name: 'Copied' })).toBeInTheDocument();
+    expect(await screen.findByRole('tooltip', { name: 'Copied' })).toBeInTheDocument();
     expect(global.navigator.clipboard.writeText).toHaveBeenCalledWith('copyText');
   });
 });

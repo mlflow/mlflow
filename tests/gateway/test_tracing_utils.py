@@ -1090,7 +1090,7 @@ def test_maybe_traced_gateway_call_records_caller(endpoint_config):
         request_headers={"User-Agent": "openai-python/1.0.0"},
     )
 
-    asyncio.get_event_loop().run_until_complete(traced({"prompt": "hi"}))
+    asyncio.run(traced({"prompt": "hi"}))
 
     traces = get_traces()
     assert traces
@@ -1103,7 +1103,7 @@ def test_maybe_traced_gateway_call_no_caller_when_no_headers(endpoint_config):
 
     traced = maybe_traced_gateway_call(fake_func, endpoint_config, request_headers=None)
 
-    asyncio.get_event_loop().run_until_complete(traced({"prompt": "hi"}))
+    asyncio.run(traced({"prompt": "hi"}))
 
     traces = get_traces()
     assert traces

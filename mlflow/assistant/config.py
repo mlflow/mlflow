@@ -26,6 +26,7 @@ class ProviderConfig(BaseModel):
     model: str = "default"
     selected: bool = False
     base_url: str | None = None
+    api_key: str | None = None
     permissions: PermissionsConfig = Field(default_factory=PermissionsConfig)
     skills: SkillsConfig = Field(default_factory=SkillsConfig)
 
@@ -99,6 +100,7 @@ class AssistantConfig(BaseModel):
         model: str,
         permissions: PermissionsConfig | None = None,
         base_url: str | None = None,
+        api_key: str | None = None,
     ) -> None:
         """Set or update a provider configuration and mark it as selected.
 
@@ -107,6 +109,7 @@ class AssistantConfig(BaseModel):
             model: The model to use.
             permissions: Permission settings (None = keep existing/use defaults).
             base_url: Optional base URL for the provider (e.g., Ollama server URL).
+            api_key: Optional bearer token / API key sent as `Authorization: Bearer ...`.
         """
         # Update or create the provider
         if provider_name in self.providers:
@@ -115,11 +118,14 @@ class AssistantConfig(BaseModel):
                 self.providers[provider_name].permissions = permissions
             if base_url is not None:
                 self.providers[provider_name].base_url = base_url
+            if api_key is not None:
+                self.providers[provider_name].api_key = api_key
         else:
             self.providers[provider_name] = ProviderConfig(
                 model=model,
                 selected=False,
                 base_url=base_url,
+                api_key=api_key,
                 permissions=permissions or PermissionsConfig(),
             )
 
@@ -133,12 +139,14 @@ class AssistantConfig(BaseModel):
         model: str | None = None,
         permissions: PermissionsConfig | None = None,
         base_url: str | None = None,
+        api_key: str | None = None,
     ) -> None:
         if provider_name not in self.providers:
             self.providers[provider_name] = ProviderConfig(
                 model=model or "default",
                 selected=False,
                 base_url=base_url,
+                api_key=api_key,
                 permissions=permissions or PermissionsConfig(),
             )
             return
@@ -148,6 +156,8 @@ class AssistantConfig(BaseModel):
             self.providers[provider_name].permissions = permissions
         if base_url is not None:
             self.providers[provider_name].base_url = base_url
+        if api_key is not None:
+            self.providers[provider_name].api_key = api_key
 
 
 __all__ = [

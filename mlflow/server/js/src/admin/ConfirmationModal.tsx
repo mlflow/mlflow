@@ -13,6 +13,10 @@ interface ConfirmationModalProps {
   error?: string | null;
   onErrorDismiss?: () => void;
   okText?: string;
+  /** Label for the secondary action (default: ant-design's "Cancel"). Some
+   * flows read better with custom verbs — e.g. "Back" when the dialog gates
+   * forward progress through a modal step. */
+  cancelText?: string;
   /** Apply the danger style to the OK button (default: ``true`` for delete-style flows). */
   danger?: boolean;
 }
@@ -35,6 +39,7 @@ export const ConfirmationModal = ({
   error,
   onErrorDismiss,
   okText = 'Delete',
+  cancelText,
   danger = true,
 }: ConfirmationModalProps) => {
   const { theme } = useDesignSystemTheme();
@@ -46,6 +51,7 @@ export const ConfirmationModal = ({
       onCancel={onCancel}
       onOk={onConfirm}
       okText={okText}
+      cancelText={cancelText}
       okButtonProps={danger ? { danger: true } : undefined}
       confirmLoading={isLoading}
     >

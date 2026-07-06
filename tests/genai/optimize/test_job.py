@@ -1,10 +1,3 @@
-"""
-Unit tests for the optimize_prompts_job wrapper.
-
-These tests focus on the helper functions and job function logic without
-requiring a full job execution infrastructure.
-"""
-
 import sys
 from unittest import mock
 

@@ -36,6 +36,7 @@
   "scripts": {
     "build": "tsc && npm run build:bundle",
     "build:bundle": "node esbuild.config.mjs",
+    "prepublishOnly": "npm run build",
     "test": "jest --config jest.config.cjs",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
@@ -43,7 +44,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@mlflow/core": "^0.2.0"
+    "@mlflow/core": ">=0.2.0 || >=0.3.0-rc.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

@@ -1,10 +1,3 @@
-"""
-Tests for OpenTelemetry client integration with MLflow otel_api.py endpoint.
-
-This test suite verifies that the experiment ID header functionality works correctly
-when using OpenTelemetry clients to send spans to MLflow's OTel endpoint.
-"""
-
 import gzip
 import time
 import zlib

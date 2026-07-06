@@ -4,6 +4,7 @@ const fs = require('fs');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 const proxyTarget = process.env.MLFLOW_PROXY;
 const useProxyServer = !!proxyTarget && !process.env.MLFLOW_DEV_PROXY_MODE;
@@ -97,11 +98,15 @@ function configureIframeCSSPublicPaths(config, env) {
  *      paths instead of module specifiers.
  *      → Skip babel-loader for pdfjs-dist.
  *
- *   2. Webpack inlines `import.meta.url` for .mjs source files, substituting
- *      `file://<absolute-path>/pdf.mjs`. pdfjs uses this only in Node-specific
- *      code (NodeCanvasFactory), dead code in the browser, but the string
- *      still ships in the bundle.
- *      → Disable `import.meta` evaluation for pdfjs files.
+ *   2. pdfjs uses `import.meta.url` inside Node-only code paths
+ *      (NodeCanvasFactory). Webpack's default is to substitute it with the
+ *      source file's absolute `file://` URL, which leaks the build machine
+ *      path. The previous fix set `parser.javascript.importMeta = false`,
+ *      but that switch tells webpack to leave the token alone, shipping a
+ *      literal `import.meta.url` into a classic-script chunk and triggering
+ *      `SyntaxError: Cannot use 'import.meta' outside a module` in the
+ *      browser (mlflow/mlflow#23720).
+ *      → Strip `import.meta.url` to `""` before webpack parses the file.
  */
 function preservePdfjsBundles(config) {
   const pdfjsPattern = /[\\/]node_modules[\\/]pdfjs-dist[\\/]/;
@@ -130,7 +135,8 @@ function preservePdfjsBundles(config) {
   }
   config.module.rules.push({
     test: pdfjsPattern,
-    parser: { importMeta: false },
+    enforce: 'pre',
+    use: [require.resolve('./PdfjsStripImportMetaLoader')],
   });
   return config;
 }
@@ -346,6 +352,19 @@ module.exports = function () {
     webpack: {
       configure: (webpackConfig, { env }) => {
         webpackConfig.output.publicPath = 'static-files/';
+        // monaco-editor ships vendored CSS (e.g. the hover widget's hover.css) that uses
+        // `justify-content: end`, which autoprefixer flags as "end value has mixed support".
+        // It is third-party CSS we cannot edit, and CRA's production build treats webpack
+        // warnings as errors under CI. Scope the suppression to monaco-editor so the same
+        // warning still surfaces for our own CSS.
+        webpackConfig.ignoreWarnings = [
+          ...(webpackConfig.ignoreWarnings || []),
+          (warning) => {
+            const message = warning?.message ?? '';
+            const resource = warning?.module?.resource ?? '';
+            return /autoprefixer:.*mixed support/.test(message) && resource.includes('monaco-editor');
+          },
+        ];
         webpackConfig = i18nOverrides(webpackConfig);
         webpackConfig = configureIframeCSSPublicPaths(webpackConfig, env);
         webpackConfig = enableOptionalTypescript(webpackConfig);
@@ -466,6 +485,14 @@ module.exports = function () {
         new webpack.EnvironmentPlugin({
           MLFLOW_SHOW_GDPR_PURGING_MESSAGES: process.env.MLFLOW_SHOW_GDPR_PURGING_MESSAGES ? 'true' : 'false',
           MLFLOW_USE_ABSOLUTE_AJAX_URLS: process.env.MLFLOW_USE_ABSOLUTE_AJAX_URLS ? 'true' : 'false',
+        }),
+        // Only the dataset record editor uses Monaco today, and only for JSON. Restricting
+        // languages + dropping the search/quickCommand features keeps the lazy chunk to ~1MB
+        // gz instead of the full ~3MB.
+        new MonacoWebpackPlugin({
+          languages: ['json'],
+          features: ['!gotoSymbol', '!documentSymbols'],
+          filename: 'static/js/monaco-[name].worker.[contenthash:8].js',
         }),
       ],
     },

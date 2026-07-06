@@ -599,6 +599,13 @@ def test_get_provider_delegates_to_get_provider_instance(monkeypatch):
     assert "authorization" in header_keys_lower or "api-key" in header_keys_lower
 
 
+def test_get_provider_openai_honors_custom_api_base(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("OPENAI_API_BASE", "http://127.0.0.1:9876/v1")
+    provider = _get_provider_instance("openai", "gpt-4")
+    assert provider.get_endpoint_url("llm/v1/chat").startswith("http://127.0.0.1:9876/v1")
+
+
 def test_get_provider_anthropic(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     provider = _get_provider_instance("anthropic", "claude-3-5-sonnet")

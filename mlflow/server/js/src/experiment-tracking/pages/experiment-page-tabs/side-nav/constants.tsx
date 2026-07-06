@@ -8,6 +8,7 @@ import {
   GavelIcon,
   ListIcon,
   ModelsIcon,
+  PlayIcon,
   PlusMinusSquareIcon,
   SpeechBubbleIcon,
   TextBoxIcon,
@@ -61,6 +62,17 @@ const ExperimentPageSideNavGenAIConfig = {
     {
       label: (
         <FormattedMessage
+          defaultMessage="Review"
+          description="Label for the review tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <UserGroupIcon />,
+      tabName: ExperimentPageTabName.ReviewQueue,
+      componentId: 'mlflow.experiment-side-nav.genai.review-queue',
+    },
+    {
+      label: (
+        <FormattedMessage
           defaultMessage="Datasets"
           description="Label for the datasets tab in the MLflow experiment navbar"
         />
@@ -82,6 +94,17 @@ const ExperimentPageSideNavGenAIConfig = {
     },
   ],
   'prompts-versions': [
+    {
+      label: (
+        <FormattedMessage
+          defaultMessage="Playground"
+          description="Label for the playground tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <PlayIcon />,
+      tabName: ExperimentPageTabName.Playground,
+      componentId: 'mlflow.experiment-side-nav.genai.playground',
+    },
     {
       label: (
         <FormattedMessage

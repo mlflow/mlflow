@@ -11,6 +11,7 @@ import {
 } from '@databricks/design-system';
 import { FieldLabel } from './FieldLabel';
 import { LongFormSection } from '../../common/components/long-form/LongFormSection';
+import { ConfirmationModal } from '../ConfirmationModal';
 import { AdminApi } from '../api';
 import { useCreateRole } from '../hooks';
 import { useWorkspaces } from '../../workspaces/hooks/useWorkspaces';
@@ -51,6 +52,11 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
   const [description, setDescription] = useState('');
   const [permissions, setPermissions] = useState<StagedRolePermission[]>([]);
   const [usernames, setUsernames] = useState<string[]>([]);
+  // Reported by ``RolePermissionsSection`` whenever the in-progress draft is
+  // dirty. Drives a discard-confirm dialog on ``Create role`` so the admin
+  // can't silently abandon a partially-filled permission.
+  const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Set after the role lands; lets retries skip ``createRole`` and
@@ -72,6 +78,11 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
       setDescription('');
       setPermissions([]);
       setUsernames([]);
+      // ``hasUnsavedDraft`` isn't reset here — the ``key={String(open)}`` on
+      // ``RolePermissionsSection`` below remounts the section on every open
+      // and its first commit-time effect fires ``false`` from the default
+      // draft state.
+      setShowDiscardConfirm(false);
       setSubmitting(false);
       setError(null);
       setCreatedRoleId(null);
@@ -164,7 +175,10 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
           <Button
             componentId="admin.create_role_modal.submit"
             type="primary"
-            onClick={handleSubmit}
+            // Submit isn't blocked on an unsaved draft — instead we gate on
+            // it via a discard-confirm dialog so the admin can either go
+            // back and click Add, or knowingly drop the draft and proceed.
+            onClick={() => (hasUnsavedDraft ? setShowDiscardConfirm(true) : handleSubmit())}
             loading={submitting}
             disabled={!canSubmit}
           >
@@ -237,23 +251,49 @@ export const CreateRoleModal = ({ open, onClose }: CreateRoleModalProps) => {
           </Typography.Paragraph>
         </div>
       </LongFormSection>
-      <LongFormSection title="Permissions">
+      <LongFormSection title="Permissions" collapsible defaultCollapsed>
         <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
           Add one or more permissions to this role. You can add more later from the role detail page.
         </Typography.Text>
+        {/* ``key={String(open)}`` forces a fresh mount on every reopen so
+            the section's internal ``draft`` can't bleed across close →
+            reopen. */}
         <RolePermissionsSection
+          key={String(open)}
           value={permissions}
           onChange={setPermissions}
           workspace={workspace}
           disabled={submitting}
+          onUnsavedDraftChange={setHasUnsavedDraft}
         />
       </LongFormSection>
-      <LongFormSection title="Assign users" hideDivider>
+      <LongFormSection title="Assign users" hideDivider collapsible defaultCollapsed>
         <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
           Assign one or more users to this role. You can assign more later from the role detail page.
         </Typography.Text>
         <RoleUsersSection value={usernames} onChange={setUsernames} disabled={submitting} />
       </LongFormSection>
+      {/* Discard-confirm gate: only intercepts when ``hasUnsavedDraft`` is
+          true (any field touched in the permission picker without a
+          subsequent ``Add`` or ``Clear``). The dialog is the warning
+          surface; submit itself stays enabled so the admin can always
+          click through. */}
+      <ConfirmationModal
+        componentId="admin.create_role_modal.discard_unsaved_draft"
+        title="Discard unsaved role permission?"
+        visible={showDiscardConfirm}
+        message="You started adding a permission to this role but didn't click Add. Continuing will discard it. Go back to either click Add to stage it, or Clear to drop the draft on the spot."
+        okText="Continue"
+        cancelText="Back"
+        // ``danger=false`` — the OK verb is neutral, destructive intent is
+        // in the title's question.
+        danger={false}
+        onCancel={() => setShowDiscardConfirm(false)}
+        onConfirm={() => {
+          setShowDiscardConfirm(false);
+          handleSubmit();
+        }}
+      />
     </Modal>
   );
 };

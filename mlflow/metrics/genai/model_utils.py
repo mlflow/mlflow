@@ -350,7 +350,12 @@ def _get_provider_instance(
             raise MlflowException.invalid_parameter_value(
                 "OPENAI_API_KEY environment variable must be set to use the openai provider."
             )
-        config = OpenAIConfig(openai_api_key=os.environ["OPENAI_API_KEY"])
+        config = OpenAIConfig(
+            openai_api_key=os.environ["OPENAI_API_KEY"],
+            openai_api_base=v
+            if (v := os.environ.get("OPENAI_API_BASE")) is not None
+            else os.environ.get("OPENAI_BASE_URL"),
+        )
         return OpenAIProvider(_get_route_config(config))
 
     elif provider == Provider.AZURE:
