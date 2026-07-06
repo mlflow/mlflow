@@ -928,6 +928,25 @@ MLFLOW_USE_DEFAULT_TRACER_PROVIDER = _BooleanEnvironmentVariable(
     "MLFLOW_USE_DEFAULT_TRACER_PROVIDER", True
 )
 
+#: When ``True`` (and MLflow is in isolated tracer provider mode, i.e.
+#: ``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=True``), MLflow also propagates its active span into the
+#: process-global OpenTelemetry context. This lets pure-OpenTelemetry libraries (e.g.
+#: strands-agents, LangChain, LlamaIndex) that read the global OTel context via
+#: ``opentelemetry.trace.get_current_span()`` nest their spans under an MLflow span created with
+#: ``@mlflow.trace`` or ``mlflow.start_span()``.
+#:
+#: .. warning::
+#:     Enabling this makes MLflow's active span visible to *all* OpenTelemetry instrumentation
+#:     in the process (e.g. FastAPI, ``requests``), which reduces the isolation that isolated
+#:     tracer provider mode normally provides. Leave this disabled unless you need pure-OTel
+#:     libraries to nest under MLflow spans. It has no effect in unified mode
+#:     (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=False``), where the global context is used already.
+#:
+#: (default: ``False``)
+MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT", False
+)
+
 #: When set to ``True``, MLflow uses a private ``random.Random`` instance for trace/span ID
 #: generation, making it immune to ``random.seed()`` calls in user code.  Enable this when
 #: ``random.seed()`` causes duplicate trace/span ID errors.

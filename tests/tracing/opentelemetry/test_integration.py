@@ -8,7 +8,10 @@ import mlflow
 from mlflow.entities.span import SpanStatusCode, encode_span_id
 from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
+from mlflow.environment_variables import (
+    MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT,
+    MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
+)
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.provider import provider, set_destination
 from mlflow.utils.os import is_windows
@@ -311,14 +314,33 @@ def test_initialize_tracer_provider_without_otel_provider_set(
     assert isinstance(processors[0], MlflowV3SpanProcessor)
 
 
-def test_mlflow_trace_decorator_sets_otel_parent_context(monkeypatch):
+def test_mlflow_span_does_not_leak_to_otel_context_by_default(monkeypatch):
     """Regression test for https://github.com/mlflow/mlflow/issues/24105
 
-    @mlflow.trace should propagate the span to the global OTel context so
-    that OTel-based libraries (e.g., strands-agents) can see it as a parent
-    and create properly nested child spans.
+    In isolated tracer provider mode (the default), the MLflow span must NOT leak into the
+    process-global OTel context. This preserves the isolation guarantee so unrelated OTel
+    instrumentation (e.g. FastAPI, requests) does not accidentally nest under MLflow spans.
     """
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    monkeypatch.delenv(MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.name, raising=False)
+    mlflow.set_experiment("test_experiment")
+
+    with mlflow.start_span(name="parent"):
+        current = otel_trace.get_current_span()
+        # Isolated mode keeps the MLflow span out of the global OTel context.
+        assert not current.is_recording()
+        assert type(current).__name__ == "NonRecordingSpan"
+
+
+def test_mlflow_trace_decorator_sets_otel_parent_context_when_opted_in(monkeypatch):
+    """Regression test for https://github.com/mlflow/mlflow/issues/24105
+
+    With MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT enabled, @mlflow.trace should propagate the
+    span to the global OTel context so that pure-OTel libraries (e.g. strands-agents) can see
+    it as a parent and create properly nested child spans.
+    """
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    monkeypatch.setenv(MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.name, "true")
     mlflow.set_experiment("test_experiment")
 
     captured = {}
@@ -338,13 +360,14 @@ def test_mlflow_trace_decorator_sets_otel_parent_context(monkeypatch):
     assert captured["span_type"] != "NonRecordingSpan"
 
 
-def test_mlflow_start_span_sets_otel_parent_context(monkeypatch):
+def test_mlflow_start_span_sets_otel_parent_context_when_opted_in(monkeypatch):
     """Regression test for https://github.com/mlflow/mlflow/issues/24105
 
-    mlflow.start_span() should propagate the span to the global OTel
-    context so that OTel-based libraries can nest their spans under it.
+    With MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT enabled, mlflow.start_span() should propagate
+    the span to the global OTel context so that pure-OTel libraries can nest under it.
     """
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    monkeypatch.setenv(MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.name, "true")
     mlflow.set_experiment("test_experiment")
 
     with mlflow.start_span(name="parent"):
@@ -359,8 +382,9 @@ def test_mlflow_start_span_sets_otel_parent_context(monkeypatch):
 
 
 def test_mlflow_span_cleans_up_otel_context_after_exit(monkeypatch):
-    """Verify the OTel global context is cleaned up when the MLflow span ends."""
+    """Verify the OTel global context is cleaned up when the MLflow span ends (opt-in)."""
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    monkeypatch.setenv(MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.name, "true")
     mlflow.set_experiment("test_experiment")
 
     with mlflow.start_span(name="parent"):
@@ -373,9 +397,10 @@ def test_mlflow_span_cleans_up_otel_context_after_exit(monkeypatch):
     )
 
 
-def test_nested_mlflow_spans_maintain_otel_context(monkeypatch):
-    """Verify nested MLflow spans properly manage the OTel context stack."""
+def test_nested_mlflow_spans_maintain_otel_context_when_opted_in(monkeypatch):
+    """Verify nested MLflow spans properly manage the OTel context stack (opt-in)."""
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+    monkeypatch.setenv(MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.name, "true")
     mlflow.set_experiment("test_experiment")
 
     with mlflow.start_span(name="outer") as outer_span:

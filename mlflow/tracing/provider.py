@@ -33,6 +33,7 @@ from mlflow.entities.trace_location import (
 )
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
+    MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT,
     MLFLOW_TRACE_SAMPLING_RATIO,
     MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR,
     MLFLOW_USE_BATCH_SPAN_PROCESSOR,
@@ -343,13 +344,19 @@ def set_span_in_context(span: "Span") -> object:
     """
     context = trace.set_span_in_context(span._span, context=get_current_context())
     if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+        # In isolated tracer provider mode, attach to MLflow's runtime context so the span does
+        # not get mixed with the native OpenTelemetry runtime context.
         mlflow_token = mlflow_runtime_context.attach(context)
-        # Also propagate the span to the global OTel context so that OTel-based
-        # libraries (e.g., strands-agents, LangChain) can see the MLflow span as
-        # a parent and create properly nested child spans.
-        otel_context = trace.set_span_in_context(span._span)
-        otel_token = context_api.attach(otel_context)
-        return (mlflow_token, otel_token)
+        # Optionally also propagate the span into the process-global OTel context so pure-OTel
+        # libraries (e.g. strands-agents, LangChain) that read
+        # `opentelemetry.trace.get_current_span()` can nest their spans under the MLflow span.
+        # This is opt-in because it exposes the MLflow span to all OTel instrumentation in the
+        # process (e.g. FastAPI, requests), reducing the isolation this mode normally provides.
+        if MLFLOW_TRACE_PROPAGATE_TO_OTEL_CONTEXT.get():
+            otel_context = trace.set_span_in_context(span._span)
+            otel_token = context_api.attach(otel_context)
+            return (mlflow_token, otel_token)
+        return (mlflow_token, None)
     else:
         token = context_api.attach(context)
         return token
@@ -364,7 +371,9 @@ def detach_span_from_context(token: object):
     """
     if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
         mlflow_token, otel_token = token
-        context_api.detach(otel_token)
+        # Detach the global OTel context first (reverse order of attach) if it was set.
+        if otel_token is not None:
+            context_api.detach(otel_token)
         mlflow_runtime_context.detach(mlflow_token)
     else:
         context_api.detach(token)
