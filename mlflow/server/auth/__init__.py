@@ -4802,25 +4802,28 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         request.state.username = user.username
         request.state.user_id = user.id
 
+        # Admins have full access
+        if user.is_admin:
+            return await call_next(request)
+
         # Pre-read request body for after-request handlers that need it (the
         # body is cached by Starlette so the route handler can still read it).
         after_handler = _find_fastapi_after_request_handler(path, request.method)
         if after_handler is not None:
             request.state.raw_body = await request.body()
 
-        if not user.is_admin:
-            # Run the validator
-            try:
-                if not await validator(user.username, request):
-                    return PlainTextResponse(
-                        "Permission denied",
-                        status_code=HTTPStatus.FORBIDDEN,
-                    )
-            except MlflowException as e:
+        # Run the validator
+        try:
+            if not await validator(user.username, request):
                 return PlainTextResponse(
-                    e.message,
-                    status_code=e.get_http_status_code(),
+                    "Permission denied",
+                    status_code=HTTPStatus.FORBIDDEN,
                 )
+        except MlflowException as e:
+            return PlainTextResponse(
+                e.message,
+                status_code=e.get_http_status_code(),
+            )
 
         response = await call_next(request)
 
@@ -4831,7 +4834,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 _logger.exception("after-request handler failed for %s %s", request.method, path)
 
         response_filter = _find_fastapi_response_filter(path, request.method)
-        if response_filter is not None and not user.is_admin and response.status_code < 400:
+        if response_filter is not None and response.status_code < 400:
             body = b""
             async for chunk in response.body_iterator:
                 body += chunk
