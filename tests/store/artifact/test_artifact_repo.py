@@ -272,6 +272,12 @@ def test_download_artifacts_provides_traceback_info(debug, reset_logging_level):
         ("leading / space", "leading / space"),
         ("trailing/ space", "trailing/ space"),
         ("spans/Component: Name /Other", "spans/Component_ Name /Other"),
+        # A literal backslash inside a component is invalid on Windows and must be sanitized
+        # rather than treated as a separator.
+        ("we\\ird", "we_ird"),
+        ("dir/na\\me", "dir/na_me"),
+        # A leading "/" must be preserved so absolute paths stay absolute (see containment check).
+        ("/etc/passwd", "/etc/passwd"),
     ],
 )
 def test_sanitize_path_for_windows(input_path, expected_output):
@@ -349,3 +355,29 @@ def test_create_download_destination_prevents_path_traversal():
                 match="Invalid artifact path.*",
             ):
                 repo._create_download_destination(malicious_path, tmp.path())
+
+
+@pytest.mark.parametrize(
+    "malicious_dir",
+    [
+        "../../../evil",
+        "model/../../evil",
+    ],
+)
+def test_download_artifacts_prevents_empty_dir_path_traversal(malicious_dir):
+    def list_artifacts(path):
+        if path in ("", None):
+            return [FileInfo(_MODEL_DIR, True, _EMPTY_FILE_SIZE)]
+        elif path.endswith(_MODEL_DIR):
+            return [FileInfo(malicious_dir, True, _EMPTY_FILE_SIZE)]
+        else:
+            return []
+
+    with mock.patch.object(
+        ArtifactRepositoryImpl, "list_artifacts", side_effect=list_artifacts
+    ) as list_artifacts_mock:
+        repo = ArtifactRepositoryImpl("")
+        with TempDir() as tmp:
+            with pytest.raises(MlflowException, match="Invalid artifact path.*"):
+                repo.download_artifacts("", dst_path=tmp.path())
+        list_artifacts_mock.assert_called()

@@ -54,8 +54,10 @@ _logger = logging.getLogger(__name__)
 # Chunk size for streaming artifact uploads and downloads (1 MB).
 ARTIFACT_STREAM_CHUNK_SIZE = 1024 * 1024
 
-# Precompiled regex for sanitizing Windows-invalid characters in path components (Windows only)
-_WINDOWS_INVALID_CHARS_REGEX = re.compile(r'[<>:"|?*]') if is_windows() else None
+# Precompiled regex for sanitizing Windows-invalid characters in path components (Windows only).
+# Backslash is included: artifact paths are POSIX-style (only "/" separates components), so a
+# literal "\" inside a component is part of the name and is invalid in a Windows filename.
+_WINDOWS_INVALID_CHARS_REGEX = re.compile(r'[<>:"|?*\\]') if is_windows() else None
 
 
 def _truncate_error(err: str, max_length: int = 10_000) -> str:
@@ -87,8 +89,9 @@ def _sanitize_path_component_for_windows(component: str) -> str:
     """
     Sanitize a path component by replacing Windows-invalid characters with underscores.
 
-    Windows does not allow these characters in filenames: < > : " | ? *
-    (Note: / and \\ are path separators and are handled separately)
+    Windows does not allow these characters in filenames: < > : " | ? * \\
+    (Note: / is the POSIX path separator and is handled separately by splitting the path.
+    A literal \\ inside a component is not a separator here and is sanitized as invalid.)
 
     This function does not handle Windows reserved names (CON, PRN, AUX, NUL, COM1-9,
     LPT1-9, CONIN$, CONOUT$). Artifact paths with these names are rare in practice, but
@@ -100,10 +103,9 @@ def _sanitize_path_component_for_windows(component: str) -> str:
     Returns:
         The sanitized path component with invalid characters replaced by underscores.
     """
-    # On non-Windows platforms, return component unchanged
+    # A None regex means we're not on Windows, so leave the component untouched.
     if _WINDOWS_INVALID_CHARS_REGEX is None:
         return component
-    # Replace Windows-invalid characters with underscores using precompiled regex (single pass)
     return _WINDOWS_INVALID_CHARS_REGEX.sub("_", component)
 
 
@@ -124,11 +126,35 @@ def _sanitize_path_for_windows(path: str) -> str:
     if not is_windows() or not path:
         return path
 
-    # Split by POSIX path separator and sanitize each component
     components = path.split("/")
     sanitized_components = [_sanitize_path_component_for_windows(comp) for comp in components]
-    # Use posixpath.join to explicitly work with POSIX paths before platform conversion
-    return posixpath.join(*sanitized_components) if sanitized_components else ""
+    # Rejoin with "/" rather than posixpath.join, which would drop a leading empty component and
+    # turn an absolute path like "/etc/passwd" into a relative one on Windows (it stays absolute
+    # on POSIX). Preserving it keeps the containment check in _create_download_destination honest.
+    return "/".join(sanitized_components)
+
+
+def _validate_path_within_directory(candidate_path: str, dir_path: str, artifact_path: str) -> None:
+    """
+    Raise ``MlflowException`` if ``candidate_path`` is not contained within ``dir_path``.
+
+    Uses os.path.commonpath on realpath-resolved, normcase-normalized paths so the check is
+    correct on case-insensitive filesystems (Windows) and when ``dir_path`` is a filesystem
+    root (e.g. "/" or "C:\\"), and also accounts for symlinks. A plain startswith() comparison
+    mishandles all of these cases. ``commonpath`` raises ``ValueError`` for paths on different
+    drives or a mix of absolute and relative paths, which likewise means the candidate escapes.
+    """
+    abs_candidate_path = os.path.normcase(os.path.realpath(candidate_path))
+    abs_dir_path = os.path.normcase(os.path.realpath(dir_path))
+    try:
+        within = os.path.commonpath([abs_candidate_path, abs_dir_path]) == abs_dir_path
+    except ValueError:
+        within = False
+    if not within:
+        raise MlflowException(
+            f"Invalid artifact path: '{artifact_path}' resolves outside the destination directory",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 @developer_stable
@@ -279,7 +305,6 @@ class ArtifactRepository:
             for downloading the artifact specified by `src_artifact_path`.
         """
         src_artifact_path = src_artifact_path.rstrip("/")  # Ensure correct dirname for trailing '/'
-        # Sanitize path for Windows by replacing invalid characters (: < > " | ? *)
         src_artifact_path = _sanitize_path_for_windows(src_artifact_path)
         # os.path.normpath() converts forward slashes (/) to OS-specific separators (\\ on Windows)
         if dirpath := posixpath.dirname(src_artifact_path):
@@ -288,19 +313,7 @@ class ArtifactRepository:
             local_dir_path = dst_local_dir_path
         local_file_path = os.path.join(dst_local_dir_path, os.path.normpath(src_artifact_path))
 
-        # Security check: Ensure the resolved path stays within the destination directory
-        abs_local_file_path = os.path.abspath(local_file_path)
-        abs_dst_path = os.path.abspath(dst_local_dir_path)
-        is_outside = (
-            not abs_local_file_path.startswith(abs_dst_path + os.sep)
-            and abs_local_file_path != abs_dst_path
-        )
-        if is_outside:
-            raise MlflowException(
-                f"Invalid artifact path: '{src_artifact_path}' resolves outside "
-                f"the destination directory",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        _validate_path_within_directory(local_file_path, dst_local_dir_path, src_artifact_path)
 
         if not os.path.exists(local_dir_path):
             os.makedirs(local_dir_path, exist_ok=True)
@@ -403,6 +416,9 @@ class ArtifactRepository:
                 if file_info.is_dir:  # Empty directory
                     sanitized_path = _sanitize_path_for_windows(file_info.path)
                     normalized_path = os.path.join(dst_path, os.path.normpath(sanitized_path))
+                    # A malicious listing with ".." segments or an absolute path must not create
+                    # directories outside the destination.
+                    _validate_path_within_directory(normalized_path, dst_path, file_info.path)
                     os.makedirs(normalized_path, exist_ok=True)
                 else:
                     fut = _download_file(file_info.path, dst_path)
