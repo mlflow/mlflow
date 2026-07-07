@@ -4737,6 +4737,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_trace_accessible(session, trace_id)
 
+            if (
+                self._trace_query(session).filter(SqlTraceInfo.request_id == trace_id).one_or_none()
+                is None
+            ):
+                raise MlflowException(
+                    f"Trace with request_id '{trace_id}' not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
             # Build list of prompt version IDs (format: "name/version")
             prompt_ids = [f"{pv.name}/{pv.version}" for pv in prompt_versions]
 
