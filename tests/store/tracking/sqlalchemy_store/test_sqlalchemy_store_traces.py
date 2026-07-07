@@ -3082,6 +3082,16 @@ def test_search_traces_with_prompts_filter_multiple_prompts(store: SqlAlchemySto
     assert traces[0].request_id == trace2_id
 
 
+
+def test_link_prompts_to_trace_nonexistent_trace_raises(store: SqlAlchemyStore):
+    trace_id = "tr-does-not-exist"
+    with pytest.raises(MlflowException, match=f"Trace with ID '{trace_id}' not found."):
+        store.link_prompts_to_trace(
+            trace_id,
+            [PromptVersion(name="my-prompt", version=1, template="Hello {{name}}")],
+        )
+
+
 def test_search_traces_with_span_attributute_backticks(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_span_attribute_backticks")
     trace_info_1 = _create_trace(store, "trace_1", exp_id)

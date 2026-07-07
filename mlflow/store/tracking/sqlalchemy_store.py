@@ -4736,6 +4736,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         with self.ManagedSessionMaker(read_only=False) as session:
             self._validate_trace_accessible(session, trace_id)
+            self._get_sql_trace_info(session, trace_id)
 
             # Build list of prompt version IDs (format: "name/version")
             prompt_ids = [f"{pv.name}/{pv.version}" for pv in prompt_versions]
@@ -4768,7 +4769,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 for prompt_id in prompt_ids_to_add
             )
-
+    
     def calculate_trace_filter_correlation(
         self,
         experiment_ids: list[str],
