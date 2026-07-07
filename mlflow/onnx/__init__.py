@@ -303,8 +303,7 @@ class _OnnxModelWrapper:
         # the retry never fired and declared GPU providers were silently dropped.
         available = set(onnxruntime.get_available_providers())
         usable = [p for p in providers if p in available]
-        missing = [p for p in providers if p not in available]
-        if missing:
+        if missing := [p for p in providers if p not in available]:
             _logger.warning(
                 "ONNX model declares execution providers %s but %s are unavailable in "
                 "this onnxruntime build; serving with %s. GPU acceleration will not be "
@@ -343,8 +342,7 @@ class _OnnxModelWrapper:
         # requested vs actually-activated providers and warn on any drop, so a GPU model
         # quietly running on CPU is surfaced instead of silent.
         active_providers = self.rt.get_providers()
-        inactive_providers = [p for p in requested_providers if p not in active_providers]
-        if inactive_providers:
+        if inactive_providers := [p for p in requested_providers if p not in active_providers]:
             _logger.warning(
                 "ONNX model requested execution providers %s but onnxruntime activated only "
                 "%s; %s failed to initialize at runtime and were dropped. GPU acceleration "
