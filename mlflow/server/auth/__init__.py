@@ -751,7 +751,9 @@ def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
     )
 
 
-_EXPERIMENT_ID_PATTERN = re.compile(r"^(\d+)/")
+# In workspace mode the proxied artifact path is prefixed with `workspaces/<ws>/`, so the
+# experiment id is not necessarily at the start. Allow an optional prefix before it.
+_EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/")
 
 
 def _get_experiment_id_from_view_args():

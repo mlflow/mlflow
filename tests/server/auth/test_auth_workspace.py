@@ -870,6 +870,26 @@ def test_experiment_artifact_proxy_validators_respect_permissions(workspace_perm
         assert not auth_module.validate_can_delete_experiment_artifact_proxy()
 
 
+def test_experiment_artifact_proxy_workspace_prefixed_path_uses_experiment_permission(
+    workspace_permission_setup,
+):
+    # In workspace mode the proxied artifact path is prefixed with `workspaces/<ws>/`.
+    # The experiment id must still be extracted so an experiment-tier EDIT grant authorizes
+    # the write, rather than falling through to the workspace-tier USE grant (can_update=False).
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+    _set_workspace_permission(store, username, USE.name)
+    store.create_experiment_permission("1", username, EDIT.name)
+
+    with auth_module.app.test_request_context(
+        "/ajax-api/2.0/mlflow-artifacts/artifacts/workspaces/team-a/1/path",
+        method="GET",
+    ):
+        request.view_args = {"artifact_path": "workspaces/team-a/1/path"}
+        assert auth_module.validate_can_read_experiment_artifact_proxy()
+        assert auth_module.validate_can_update_experiment_artifact_proxy()
+
+
 def test_experiment_artifact_proxy_without_experiment_id_uses_workspace_permissions(
     workspace_permission_setup,
 ):
