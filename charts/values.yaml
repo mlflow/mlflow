@@ -245,12 +245,12 @@ storage:
   mountPath: /mlflow
 
 # Liveness probe configuration for the mlflow container.
+# Note: successThreshold is always 1 for liveness probes (Kubernetes requirement).
 livenessProbe:
   initialDelaySeconds: 15
   periodSeconds: 20
   timeoutSeconds: 5
   failureThreshold: 3
-  successThreshold: 1
 
 # Readiness probe configuration for the mlflow container.
 readinessProbe:
