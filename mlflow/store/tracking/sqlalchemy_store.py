@@ -4769,7 +4769,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 for prompt_id in prompt_ids_to_add
             )
-    
+
     def calculate_trace_filter_correlation(
         self,
         experiment_ids: list[str],
