@@ -420,6 +420,24 @@ def test_proxy_artifact_authorization_required(client, monkeypatch):
     assert response.status_code == 403
 
 
+def test_proxy_artifact_authorization_required_fastapi(fastapi_client, monkeypatch):
+    username1, password1 = create_user(fastapi_client.tracking_uri)
+    username2, password2 = create_user(fastapi_client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = fastapi_client.create_experiment("proxy-artifact-authz-test-fastapi")
+
+    response = requests.put(
+        url=(
+            fastapi_client.tracking_uri
+            + f"/ajax-api/2.0/mlflow-artifacts/artifacts/{experiment_id}/test.txt"
+        ),
+        data=b"forbidden",
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
 @pytest.mark.parametrize(
     "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],

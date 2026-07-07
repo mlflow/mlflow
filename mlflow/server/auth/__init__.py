@@ -4772,7 +4772,66 @@ def _get_otel_validator(
     return validator
 
 
-def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
+def _extract_experiment_id_from_artifact_proxy_path(path: str) -> str | None:
+    prefixes = (
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts/",
+    )
+    prefix = next((prefix for prefix in prefixes if path.startswith(prefix)), None)
+    if prefix is None:
+        return None
+
+    artifact_path = path.removeprefix(prefix)
+    if m := _EXPERIMENT_ID_PATTERN.match(f"{artifact_path}/"):
+        return m.group(1)
+    return None
+
+
+def _get_proxy_artifact_permission(path: str, username: str) -> Permission:
+    if experiment_id := _extract_experiment_id_from_artifact_proxy_path(path):
+        return _get_role_permission_or_default(
+            _role_permission_for(
+                username=username,
+                resource_type="experiment",
+                resource_key=experiment_id,
+                workspace_lookup_id=experiment_id,
+                workspace_fetcher=_get_tracking_store().get_experiment,
+                workspace_label="experiment",
+            ),
+        )
+
+    if MLFLOW_ENABLE_WORKSPACES.get():
+        if workspace_name := workspace_context.get_request_workspace():
+            user = store.get_user(username)
+            perm = store.get_role_permission_for_resource(user.id, "workspace", "*", workspace_name)
+            if perm is not None:
+                return perm
+            # Honor the default-workspace auto-grant when configured.
+            if _user_inherits_default_workspace_grant(workspace_name):
+                return get_permission(auth_config.default_permission)
+        return NO_PERMISSIONS
+
+    return get_permission(auth_config.default_permission)
+
+
+def _get_fastapi_proxy_artifact_validator(
+    path: str, method: str
+) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    async def validator(username: str, _request: StarletteRequest) -> bool:
+        permission = _get_proxy_artifact_permission(path, username)
+        return {
+            "GET": permission.can_read,
+            "PUT": permission.can_update,
+            "DELETE": permission.can_manage,
+            "POST": permission.can_update,
+        }.get(method, False)
+
+    return validator
+
+
+def _find_fastapi_validator(
+    path: str, method: str
+) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Find the validator for a FastAPI route that bypasses Flask.
 
@@ -4798,8 +4857,13 @@ def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awai
     if path.startswith("/ajax-api/3.0/mlflow/assistant"):
         return _get_require_authentication_validator()
 
+<<<<<<< HEAD
     if is_mcp_server_api_path(path):
         return _get_mcp_server_validator(path)
+=======
+    if _is_proxy_artifact_path(path):
+        return _get_fastapi_proxy_artifact_validator(path, method)
+>>>>>>> e5b800fd6 (fix: enforce authz on FastAPI native artifact routes)
 
     return None
 
@@ -4921,7 +4985,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             return await call_next(request)
 
         # Find validator for this route
-        validator = _find_fastapi_validator(path)
+        validator = _find_fastapi_validator(path, request.method)
         if validator is None:
             return await call_next(request)
 
