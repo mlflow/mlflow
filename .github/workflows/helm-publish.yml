@@ -15,7 +15,9 @@ permissions: {}
 
 jobs:
   publish:
-    if: github.repository == 'mlflow/mlflow'
+    # The ref guard makes workflow_dispatch a no-op on any ref other than
+    # master, so unmerged chart or metadata changes can never be published.
+    if: github.repository == 'mlflow/mlflow' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
@@ -31,6 +33,8 @@ jobs:
 
       - name: Set up ORAS
         uses: oras-project/setup-oras@38de303aac69abb66f3e6255b7198bff35f323e3 # v2.0.0
+        with:
+          version: 1.3.2
 
       - name: Log in to GitHub Container Registry
         env:
@@ -42,21 +46,37 @@ jobs:
       - name: Get chart version
         id: chart
         run: |
-          echo "version=$(grep '^version:' charts/Chart.yaml | awk '{print $2}' | tr -d '"')" >> $GITHUB_OUTPUT
+          # helm normalizes Chart.yaml (indentation, quoting) before printing,
+          # so this parse is robust to formatting variants in the source file.
+          VERSION=$(helm show chart charts/ | awk '$1 == "version:" {print $2}')
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Extracted chart version '$VERSION' is empty or not semver. Aborting."
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Check if chart version is already published
         id: check
         env:
           VERSION: ${{ steps.chart.outputs.version }}
         run: |
-          # Idempotency guard (same pattern as external-secrets): if this
-          # version already resolves in GHCR, skip publishing so re-runs and
-          # chart changes without a version bump don't fail on the push.
-          if helm show chart oci://ghcr.io/mlflow/charts/mlflow --version "$VERSION" > /dev/null 2>&1; then
+          # Idempotency guard (same pattern as external-secrets): skip
+          # publishing when this version already exists in GHCR so re-runs and
+          # chart changes without a version bump don't overwrite a published
+          # version. An unpublished version surfaces as "manifest unknown"
+          # (authenticated GHCR returns that both for a missing tag and for
+          # the not-yet-created package on the very first run); any other
+          # failure (auth, network, 5xx) fails the job instead of guessing.
+          if OUTPUT=$(helm show chart oci://ghcr.io/mlflow/charts/mlflow --version "$VERSION" 2>&1 > /dev/null); then
             echo "Chart version $VERSION is already published. Skipping publish."
             echo "exists=true" >> $GITHUB_OUTPUT
-          else
+          elif grep -qiE 'manifest unknown|not found|name unknown|404' <<< "$OUTPUT"; then
+            echo "Chart version $VERSION is not published yet."
             echo "exists=false" >> $GITHUB_OUTPUT
+          else
+            echo "Could not determine whether chart version $VERSION is already published:"
+            echo "$OUTPUT"
+            exit 1
           fi
 
       - name: Lint chart
