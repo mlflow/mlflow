@@ -59,7 +59,7 @@ helm install mlflow ./charts \
   --create-namespace \
   --set storage.enabled=true \
   --set mlflow.backendStoreUri="sqlite:////mlflow/mlflow.db" \
-  --set mlflow.defaultArtifactRoot="/mlflow/artifacts"
+  --set mlflow.artifactsDestination="/mlflow/artifacts"
 ```
 
 Access the UI via port-forward:
@@ -130,7 +130,7 @@ storage:
 
 mlflow:
   backendStoreUri: "sqlite:////mlflow/mlflow.db"
-  defaultArtifactRoot: "/mlflow/artifacts"
+  artifactsDestination: "/mlflow/artifacts"
 ```
 
 ### TLS
