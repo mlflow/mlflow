@@ -93,36 +93,39 @@ export interface ServerJSONEnvironmentVariable {
   isSecret?: boolean;
 }
 
+export interface ServerJSONTransport {
+  type: string;
+  url?: string;
+  headers?: ServerJSONEnvironmentVariable[];
+  variables?: Record<string, unknown>;
+}
+
 export interface ServerJSONPackage {
   registryType: string;
   identifier: string;
-  transport: string;
+  transport: ServerJSONTransport;
   registryBaseUrl?: string;
   version?: string;
   environmentVariables?: ServerJSONEnvironmentVariable[];
-  [key: string]: unknown;
-}
-
-export interface ServerJSONRemote {
-  type: string;
-  url: string;
+  runtimeHint?: string;
   [key: string]: unknown;
 }
 
 export interface ServerJSONRepository {
   url: string;
-  source: string;
+  source?: string;
   id?: string;
   subfolder?: string;
 }
 
 export interface ServerJSONPayload {
+  $schema?: string;
   name: string;
   version: string;
   title?: string;
   description?: string;
   packages?: ServerJSONPackage[];
-  remotes?: ServerJSONRemote[];
+  remotes?: ServerJSONTransport[];
   repository?: ServerJSONRepository;
   websiteUrl?: string;
   _meta?: Record<string, unknown>;
@@ -141,6 +144,7 @@ export interface UpdateMCPServerRequest {
   display_name?: string | null;
   description?: string | null;
   icons?: MCPIcon[] | null;
+  latest_version?: string | null;
 }
 
 export interface CreateMCPServerVersionRequest {

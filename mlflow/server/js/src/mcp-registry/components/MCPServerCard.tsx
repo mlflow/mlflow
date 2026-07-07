@@ -2,6 +2,7 @@ import { Card, Typography, useDesignSystemTheme } from '@databricks/design-syste
 import { useIntl } from 'react-intl';
 
 import type { MCPServer } from '../types';
+import MCPRegistryRoutes from '../routes';
 import { textClampStyles, textEllipsisStyles, cardBodyStyles, cardHeaderRowStyles } from '../styles';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
@@ -19,11 +20,8 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
     <Card
       componentId="mlflow.mcp_registry.card"
       width="100%"
-      role="button"
-      onClick={() => {
-        // TODO: navigate to server detail page once it exists
-      }}
-      dangerouslyAppendEmotionCSS={{ height: '100%', cursor: 'pointer' }}
+      href={`#${MCPRegistryRoutes.getMCPServerDetailRoute(server.name)}`}
+      dangerouslyAppendEmotionCSS={{ height: '100%' }}
     >
       <div css={cardBodyStyles(theme)}>
         <div css={cardHeaderRowStyles(theme)}>
