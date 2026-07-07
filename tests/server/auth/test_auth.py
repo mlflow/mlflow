@@ -4041,35 +4041,51 @@ def test_mcp_server_creator_gets_manage(fastapi_client, monkeypatch, prefix):
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
 def test_mcp_server_delete_cascades_grants(fastapi_client, monkeypatch, prefix):
-    username, password = create_user(fastapi_client.tracking_uri)
+    creator, creator_pw = create_user(fastapi_client.tracking_uri)
+    other, other_pw = create_user(fastapi_client.tracking_uri)
 
-    # User creates server → auto-grant gives MANAGE (synthetic role)
-    with User(username, password, monkeypatch):
+    # Creator creates server → auto-grant gives MANAGE
+    with User(creator, creator_pw, monkeypatch):
         requests.post(
             url=fastapi_client.tracking_uri + prefix,
             json={"name": "com.test/cascade-server"},
-            auth=(username, password),
+            auth=(creator, creator_pw),
         ).raise_for_status()
 
-    # Admin deletes the server → should cascade-delete auto-granted permissions
-    requests.delete(
-        url=fastapi_client.tracking_uri + f"{prefix}/com.test/cascade-server",
-        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
-    ).raise_for_status()
-
-    # Admin re-creates the server with the same name
+    # Grant MANAGE to other so they can delete
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
     requests.post(
-        url=fastapi_client.tracking_uri + prefix,
-        json={"name": "com.test/cascade-server"},
-        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        url=f"{fastapi_client.tracking_uri}/api/3.0/mlflow/users/permissions/grant",
+        json={
+            "username": other,
+            "resource_type": "mcp_server",
+            "resource_id": "com.test/cascade-server",
+            "permission": "MANAGE",
+        },
+        auth=admin_auth,
     ).raise_for_status()
 
-    # User's auto-granted MANAGE was cleaned up → PATCH denied
-    with User(username, password, monkeypatch):
+    # Non-admin deletes the server → should cascade-delete auto-granted permissions
+    with User(other, other_pw, monkeypatch):
+        requests.delete(
+            url=fastapi_client.tracking_uri + f"{prefix}/com.test/cascade-server",
+            auth=(other, other_pw),
+        ).raise_for_status()
+
+    # Re-create the server as a non-admin
+    with User(creator, creator_pw, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": "com.test/cascade-server"},
+            auth=(creator, creator_pw),
+        ).raise_for_status()
+
+    # Other user's MANAGE was cleaned up by cascade → PATCH denied
+    with User(other, other_pw, monkeypatch):
         response = requests.patch(
             url=fastapi_client.tracking_uri + f"{prefix}/com.test/cascade-server",
             json={"description": "should fail"},
-            auth=(username, password),
+            auth=(other, other_pw),
         )
         assert response.status_code == 403
 
@@ -4272,6 +4288,57 @@ def test_read_predicate_honors_grant_default_workspace_access(
 )
 def test_response_filter_matches_trailing_slash(path):
     assert _find_fastapi_response_filter(path, "GET") is not None
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+@pytest.mark.parametrize("sub", ["bindings", "tags", "aliases"])
+def test_non_version_nested_post_requires_can_update(fastapi_client, monkeypatch, prefix, sub):
+    user, pw = create_user(fastapi_client.tracking_uri)
+
+    with User(user, pw, monkeypatch):
+        response = requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/com.test/no-such-server/{sub}",
+            json={},
+            auth=(user, pw),
+        )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_implicit_parent_create_grants_manage_despite_wildcard(fastapi_client, monkeypatch, prefix):
+    user, pw = create_user(fastapi_client.tracking_uri)
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    server_name = "com.test/wildcard-implicit"
+
+    requests.post(
+        url=f"{fastapi_client.tracking_uri}/api/3.0/mlflow/users/permissions/grant",
+        json={
+            "username": user,
+            "resource_type": "mcp_server",
+            "resource_id": "*",
+            "permission": "EDIT",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+
+    with User(user, pw, monkeypatch):
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/versions",
+            json=_version_create_body(server_name),
+            auth=(user, pw),
+        ).raise_for_status()
+
+    resp = requests.get(
+        url=f"{fastapi_client.tracking_uri}/api/3.0/mlflow/users/permissions/get",
+        params={
+            "username": user,
+            "resource_type": "mcp_server",
+            "resource_id": server_name,
+        },
+        auth=admin_auth,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["permission"] == "MANAGE"
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])

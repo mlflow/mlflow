@@ -58,6 +58,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -4475,7 +4476,12 @@ def _get_mcp_server_validator(
             raise
 
     async def validator(username: str, request: StarletteRequest) -> bool:
-        if request.method == "POST" and len(parts) > 2 and not _server_exists():
+        if (
+            request.method == "POST"
+            and len(parts) > 2
+            and parts[2] == "versions"
+            and not _server_exists()
+        ):
             return validate_can_create_mcp_server(username)
         perm = _get_mcp_server_permission(name, username)
         match request.method:
@@ -4507,10 +4513,11 @@ def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
             return
         if server.created_by != username:
             return
-        workspace = server.workspace or workspace_context.get_active_workspace_name()
-        if store.get_role_permission_for_resource(user.id, "mcp_server", name, workspace):
-            return
-        store.grant_user_permission(username, "mcp_server", name, MANAGE.name)
+        try:
+            store.grant_user_resource_permission(username, "mcp_server", name, MANAGE.name)
+        except MlflowException as e:
+            if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+                raise
         return
 
     body = getattr(request.state, "raw_body", None)
