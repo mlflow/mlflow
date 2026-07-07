@@ -1605,8 +1605,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         run_ids: list[str],
         metric_key: str,
         max_results: int,
-        start_step: int,
-        end_step: int,
+        start_step: int | None,
+        end_step: int | None,
     ) -> list[MetricWithRunId]:
         """Return up to ``max_results`` metrics per run, evenly sampled across the full set
         of values logged for ``metric_key`` (optionally restricted to ``[start_step, end_step]``).
@@ -1620,6 +1620,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         an explicit step), causing large memory spikes. Sampling by row instead of by step keeps
         the response bounded and representative of the whole range in that case.
         """
+        if (start_step is None) != (end_step is None):
+            raise MlflowException(
+                "Both start_step and end_step must be specified together, \
+                or neither may be specified.",
+            )
         max_results = max(1, max_results)
         metrics_with_run_ids = []
         with self.ManagedSessionMaker() as session:
@@ -1641,7 +1646,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             filters.append(SqlMetric.step >= start_step)
             filters.append(SqlMetric.step <= end_step)
 
-        order_by = [SqlMetric.step, SqlMetric.timestamp, SqlMetric.value]
+        order_by = [SqlMetric.step, SqlMetric.timestamp, SqlMetric.value, SqlMetric.is_nan]
 
         # Assign each row to one of ``max_results`` evenly sized buckets across the full ordered
         # result set, then keep the first row of each bucket. NTILE produces one bucket per row
@@ -1658,7 +1663,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             .filter(*filters)
             .subquery()
         )
-        bucket_order = [bucketed.c.step, bucketed.c.timestamp, bucketed.c.value]
+        bucket_order = [bucketed.c.step, bucketed.c.timestamp, bucketed.c.value, bucketed.c.is_nan]
         ranked = session.query(
             bucketed.c.value,
             bucketed.c.timestamp,
@@ -1673,7 +1678,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session
             .query(ranked.c.value, ranked.c.timestamp, ranked.c.step, ranked.c.is_nan)
             .filter(ranked.c.rn == 1)
-            .order_by(ranked.c.step, ranked.c.timestamp, ranked.c.value)
+            .order_by(ranked.c.step, ranked.c.timestamp, ranked.c.value, ranked.c.is_nan)
             .all()
         )
 
@@ -1683,12 +1688,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session
             .query(SqlMetric.value, SqlMetric.timestamp, SqlMetric.step, SqlMetric.is_nan)
             .filter(*filters)
-            .order_by(SqlMetric.step.desc(), SqlMetric.timestamp.desc(), SqlMetric.value.desc())
+            .order_by(
+                SqlMetric.step.desc(),
+                SqlMetric.timestamp.desc(),
+                SqlMetric.value.desc(),
+                SqlMetric.is_nan.desc(),
+            )
             .first()
         )
 
         def _row_key(row):
-            return (row.step, row.timestamp, row.value)
+            return (row.step, row.timestamp, row.value, row.is_nan)
 
         if last_row is not None and (not rows or _row_key(rows[-1]) != _row_key(last_row)):
             rows.append(last_row)

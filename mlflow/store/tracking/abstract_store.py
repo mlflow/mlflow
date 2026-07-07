@@ -920,7 +920,12 @@ class AbstractStore(GatewayStoreMixin):
         ]
 
     def get_metric_history_bulk_interval(
-        self, run_ids: list[str], metric_key: str, max_results: int, start_step: int, end_step: int
+        self,
+        run_ids: list[str],
+        metric_key: str,
+        max_results: int,
+        start_step: int | None,
+        end_step: int | None,
     ) -> list[MetricWithRunId]:
         """
         Return a list of metric objects for a given metric across multiple runs,
@@ -946,6 +951,11 @@ class AbstractStore(GatewayStoreMixin):
         # get a list of all steps for all runs. this is necessary
         # because we can't assume that every step was logged, so
         # sampling needs to be done on the steps that actually exist
+        if (start_step is None) != (end_step is None):
+            raise MlflowException(
+                "Both start_step and end_step must be provided together, \
+                or neither should be provided."
+            )
         all_runs = [
             [m.step for m in self.get_metric_history(run_id, metric_key)] for run_id in run_ids
         ]

@@ -1,4 +1,4 @@
-import { jest, describe, beforeAll, beforeEach, test, expect } from '@jest/globals';
+import { jest, describe, beforeAll, afterAll, beforeEach, test, expect } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useSampledMetricHistory } from './useSampledMetricHistory';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
@@ -32,6 +32,12 @@ jest.useFakeTimers();
 beforeAll(() => {
   notifyManager.setBatchNotifyFunction((callback) => {
     act(callback);
+  });
+});
+
+afterAll(() => {
+  notifyManager.setBatchNotifyFunction((callback) => {
+    callback();
   });
 });
 
