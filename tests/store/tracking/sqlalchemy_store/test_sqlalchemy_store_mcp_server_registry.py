@@ -25,10 +25,14 @@ def _setup_server(store, name, versions=("1.0.0",), aliases=None):
 
 
 def test_create_mcp_server(store):
-    server = store.create_mcp_server("io.github.test/servererver", description="A test server")
-    assert server.name == "io.github.test/servererver"
+    server = store.create_mcp_server(
+        "io.github.test/server", description="A test server", created_by="alice"
+    )
+    assert server.name == "io.github.test/server"
     assert server.description == "A test server"
     assert server.creation_timestamp is not None
+    assert server.created_by == "alice"
+    assert server.last_updated_by == "alice"
 
 
 def test_create_mcp_server_duplicate_raises(store):
@@ -89,6 +93,15 @@ def test_create_mcp_server_with_icons(store):
     icons = [{"src": "https://example.com/icon.png", "sizes": "32x32"}]
     server = store.create_mcp_server("io.github.test/servererver", icons=icons)
     assert server.icons == icons
+
+
+def test_update_mcp_server_sets_last_updated_by(store):
+    store.create_mcp_server("io.github.test/server")
+    server = store.update_mcp_server(
+        "io.github.test/server", description="updated", last_updated_by="bob"
+    )
+    assert server.last_updated_by == "bob"
+    assert server.created_by is None
 
 
 def test_get_mcp_server(store):
@@ -370,18 +383,25 @@ def test_create_mcp_server_version(store):
         _server_json(),
         source="https://github.com/org/repo",
         status=MCPStatus.ACTIVE,
+        created_by="alice",
     )
     assert sv.name == "io.github.test/servererver"
     assert sv.version == "1.0.0"
     assert sv.status == MCPStatus.ACTIVE
     assert sv.source == "https://github.com/org/repo"
     assert sv.server_json == _server_json()
+    assert sv.created_by == "alice"
+    assert sv.last_updated_by == "alice"
 
 
 def test_create_mcp_server_version_auto_creates_parent(store):
-    store.create_mcp_server_version(_server_json("io.github.test/new-server", "1.0.0"))
+    store.create_mcp_server_version(
+        _server_json("io.github.test/new-server", "1.0.0"), created_by="alice"
+    )
     server = store.get_mcp_server("io.github.test/new-server")
     assert server.name == "io.github.test/new-server"
+    assert server.created_by == "alice"
+    assert server.last_updated_by == "alice"
 
 
 def test_create_mcp_server_version_with_existing_parent(store):
@@ -728,9 +748,10 @@ def test_search_mcp_server_versions_scoped(store):
 def test_update_mcp_server_version_status(store):
     store.create_mcp_server_version(_server_json())
     updated = store.update_mcp_server_version(
-        "io.github.test/servererver", "1.0.0", status=MCPStatus.ACTIVE
+        "io.github.test/servererver", "1.0.0", status=MCPStatus.ACTIVE, last_updated_by="bob"
     )
     assert updated.status == MCPStatus.ACTIVE
+    assert updated.last_updated_by == "bob"
 
 
 def test_update_mcp_server_version_null_status_raises(store):
@@ -886,12 +907,17 @@ def test_delete_mcp_server_version_not_found_raises(store):
 def test_create_mcp_access_binding_with_version(store):
     _setup_server(store, "io.github.test/server")
     binding = store.create_mcp_access_binding(
-        "io.github.test/server", "https://mcp.example.com", server_version="1.0.0"
+        "io.github.test/server",
+        "https://mcp.example.com",
+        server_version="1.0.0",
+        created_by="alice",
     )
     assert binding.server_name == "io.github.test/server"
     assert binding.endpoint_url == "https://mcp.example.com"
     assert binding.server_version == "1.0.0"
     assert binding.transport_type == MCPRemoteTransportType.STREAMABLE_HTTP
+    assert binding.created_by == "alice"
+    assert binding.last_updated_by == "alice"
 
 
 def test_create_mcp_access_binding_with_alias(store):
@@ -1453,10 +1479,14 @@ def test_update_mcp_access_binding_version_clears_alias(store):
     )
     assert binding.server_alias == "stable"
     updated = store.update_mcp_access_binding(
-        "io.github.test/server", binding.binding_id, server_version="2.0.0"
+        "io.github.test/server",
+        binding.binding_id,
+        server_version="2.0.0",
+        last_updated_by="bob",
     )
     assert updated.server_version == "2.0.0"
     assert updated.server_alias is None
+    assert updated.last_updated_by == "bob"
 
 
 def test_update_mcp_access_binding_alias_clears_version(store):

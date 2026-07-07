@@ -190,11 +190,12 @@ def test_per_user_grant_does_not_leak_to_other_users(store):
 def test_per_user_grants_share_one_synthetic_role(store):
     user = _user_maker(store, random_str(), random_str())
 
-    # Three grants on different resource types for the same user in the default
-    # workspace. All must land on the same synthetic role row, not three.
+    # Four grants on different resource types for the same user in the default
+    # workspace. All must land on the same synthetic role row, not four.
     store.create_experiment_permission(random_str(), user.username, READ.name)
     store.create_registered_model_permission(random_str(), user.username, EDIT.name)
     store.create_scorer_permission(random_str(), random_str(), user.username, USE.name)
+    store.create_mcp_server_permission(random_str(), user.username, READ.name)
 
     assert _count_synthetic_roles_for(store, user.id) == 1
 
@@ -337,3 +338,74 @@ def test_delete_user_clears_retained_legacy_permission_rows(store):
                 {"uid": user.id},
             ).scalar()
             assert count == 0, f"legacy rows in {table} not cleaned up by delete_user"
+
+
+def test_create_mcp_server_permission(store):
+    user = _user_maker(store, random_str(), random_str())
+    name = random_str()
+
+    perm = store.create_mcp_server_permission(name, user.username, READ.name)
+    assert perm.name == name
+    assert perm.user_id == user.id
+    assert perm.permission == READ.name
+
+    with pytest.raises(MlflowException, match=r"already exists") as exc:
+        store.create_mcp_server_permission(name, user.username, READ.name)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
+
+
+def test_get_mcp_server_permission(store):
+    user = _user_maker(store, random_str(), random_str())
+    name = random_str()
+
+    with pytest.raises(MlflowException, match=r"not found") as exc:
+        store.get_mcp_server_permission(name, user.username)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    store.create_mcp_server_permission(name, user.username, EDIT.name)
+    perm = store.get_mcp_server_permission(name, user.username)
+    assert perm.name == name
+    assert perm.permission == EDIT.name
+
+
+def test_list_mcp_server_permissions(store):
+    user = _user_maker(store, random_str(), random_str())
+
+    assert store.list_mcp_server_permissions(user.username) == []
+
+    names = [random_str() for _ in range(3)]
+    for n in names:
+        store.create_mcp_server_permission(n, user.username, READ.name)
+
+    perms = store.list_mcp_server_permissions(user.username)
+    assert sorted(p.name for p in perms) == sorted(names)
+
+
+def test_update_mcp_server_permission(store):
+    user = _user_maker(store, random_str(), random_str())
+    name = random_str()
+
+    with pytest.raises(MlflowException, match=r"not found") as exc:
+        store.update_mcp_server_permission(name, user.username, MANAGE.name)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    store.create_mcp_server_permission(name, user.username, READ.name)
+    updated = store.update_mcp_server_permission(name, user.username, MANAGE.name)
+    assert updated.permission == MANAGE.name
+    assert store.get_mcp_server_permission(name, user.username).permission == MANAGE.name
+
+
+def test_delete_mcp_server_permission(store):
+    user = _user_maker(store, random_str(), random_str())
+    name = random_str()
+
+    with pytest.raises(MlflowException, match=r"not found") as exc:
+        store.delete_mcp_server_permission(name, user.username)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    store.create_mcp_server_permission(name, user.username, READ.name)
+    store.delete_mcp_server_permission(name, user.username)
+
+    with pytest.raises(MlflowException, match=r"not found") as exc:
+        store.get_mcp_server_permission(name, user.username)
+    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
