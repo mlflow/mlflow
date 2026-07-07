@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783402739754,
+  "lastUpdate": 1783431527086,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -12797,6 +12797,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 7.069654400001468,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "rakshith.bk@moengage.com",
+            "name": "rakshithbk-moeng",
+            "username": "rakshithbk-moeng"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b567ee3812181137ad4100937bc201bba874b607",
+          "message": "Resolve experiment id from workspace-prefixed artifact paths in auth proxy (#24214)\n\nSigned-off-by: rakshithbk-moeng <rakshith.bk@moengage.com>",
+          "timestamp": "2026-07-07T13:35:10Z",
+          "tree_id": "993ad4ae8e1fcff1a86d4122096671ceac05a595",
+          "url": "https://github.com/mlflow/mlflow/commit/b567ee3812181137ad4100937bc201bba874b607"
+        },
+        "date": 1783431526261,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 38.2262286999989,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 27.06210644117637,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 24.174252699999244,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 24.677152851851584,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 22.76574572881234,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.444555600000967,
             "unit": "ms"
           }
         ]
