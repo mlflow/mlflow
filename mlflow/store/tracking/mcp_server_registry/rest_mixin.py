@@ -161,6 +161,7 @@ class RestMCPServerRegistryMixin:
         name: str,
         description: str | None = None,
         icons: list[MCPIcon] | None = None,
+        created_by: str | None = None,
     ) -> MCPServer:
         body = {"name": name}
         if description is not None:
@@ -211,6 +212,7 @@ class RestMCPServerRegistryMixin:
         description: str | None = NOT_SET,
         display_name: str | None = NOT_SET,
         icons: list[MCPIcon] | None = NOT_SET,
+        last_updated_by: str | None = None,
     ) -> MCPServer:
         body: dict[str, Any] = {}
         if description is not NOT_SET:
@@ -234,6 +236,7 @@ class RestMCPServerRegistryMixin:
         source: str | None = None,
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = None,
+        created_by: str | None = None,
     ) -> MCPServerVersion:
         name = server_json.get("name")
         version = server_json.get("version")
@@ -305,6 +308,7 @@ class RestMCPServerRegistryMixin:
         display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
+        last_updated_by: str | None = None,
     ) -> MCPServerVersion:
         body: dict[str, Any] = {}
         if display_name is not NOT_SET:
@@ -330,6 +334,7 @@ class RestMCPServerRegistryMixin:
         transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
         server_version: str | None = None,
         server_alias: str | None = None,
+        created_by: str | None = None,
     ) -> MCPAccessBinding:
         body: dict[str, Any] = {
             "endpoint_url": endpoint_url,
@@ -395,6 +400,7 @@ class RestMCPServerRegistryMixin:
         server_alias: str | None = NOT_SET,
         endpoint_url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
+        last_updated_by: str | None = None,
     ) -> MCPAccessBinding:
         body: dict[str, Any] = {}
         if server_version is not NOT_SET:
