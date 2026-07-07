@@ -1,0 +1,85 @@
+name: Publish Helm Chart
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - charts/**
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  publish:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-slim
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write # to push the chart and Artifact Hub metadata to ghcr.io
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Helm
+        uses: azure/setup-helm@b9e51907a09c216f16ebe8536097933489208112 # v4.3.0
+
+      - name: Set up ORAS
+        uses: oras-project/setup-oras@38de303aac69abb66f3e6255b7198bff35f323e3 # v2.0.0
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GH_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          echo "$GH_TOKEN" | oras login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Get chart version
+        id: chart
+        run: |
+          echo "version=$(grep '^version:' charts/Chart.yaml | awk '{print $2}' | tr -d '"')" >> $GITHUB_OUTPUT
+
+      - name: Check if chart version is already published
+        id: check
+        env:
+          VERSION: ${{ steps.chart.outputs.version }}
+        run: |
+          # Idempotency guard (same pattern as external-secrets): if this
+          # version already resolves in GHCR, skip publishing so re-runs and
+          # chart changes without a version bump don't fail on the push.
+          if helm show chart oci://ghcr.io/mlflow/charts/mlflow --version "$VERSION" > /dev/null 2>&1; then
+            echo "Chart version $VERSION is already published. Skipping publish."
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Lint chart
+        if: steps.check.outputs.exists == 'false'
+        run: helm lint charts/ --set mlflow.backendStoreUri="sqlite:////tmp/mlflow.db"
+
+      - name: Package and push chart
+        if: steps.check.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.chart.outputs.version }}
+        run: |
+          helm package charts/
+          helm push "mlflow-${VERSION}.tgz" oci://ghcr.io/mlflow/charts
+
+      # Runs on every workflow run (not gated by the version check) so that
+      # metadata-only updates, such as filling in repositoryID after the
+      # repository is registered on artifacthub.io, take effect without a
+      # chart version bump. Media types are defined in the Artifact Hub docs:
+      # https://artifacthub.io/docs/topics/repositories/helm-charts/#oci-support
+      - name: Push Artifact Hub repository metadata
+        working-directory: charts
+        run: |
+          oras push \
+            ghcr.io/mlflow/charts/mlflow:artifacthub.io \
+            --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
+            artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml

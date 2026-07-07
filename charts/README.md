@@ -20,6 +20,23 @@ A production-ready Helm chart for deploying [MLflow](https://mlflow.org) on Kube
 
 ## Installation
 
+### From GitHub Container Registry (recommended)
+
+Released chart versions are published to GitHub Container Registry as OCI artifacts:
+
+```bash
+helm install mlflow oci://ghcr.io/mlflow/charts/mlflow \
+  --version <version> \
+  --namespace mlflow \
+  --create-namespace
+```
+
+Available versions are listed under the [mlflow organization packages](https://github.com/orgs/mlflow/packages).
+Publishing happens automatically when a chart version bump (the `version` field in
+[`Chart.yaml`](./Chart.yaml)) lands on the `master` branch.
+
+### From a local checkout
+
 ```bash
 helm install mlflow ./charts --namespace mlflow --create-namespace
 ```
