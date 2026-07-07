@@ -32,8 +32,7 @@ helm install mlflow oci://ghcr.io/mlflow/charts/mlflow \
 ```
 
 Available versions are listed under the [mlflow organization packages](https://github.com/orgs/mlflow/packages).
-Publishing happens automatically when a chart version bump (the `version` field in
-[`Chart.yaml`](./Chart.yaml)) lands on the `master` branch.
+New chart versions are published by the MLflow release automation.
 
 ### From a local checkout
 
