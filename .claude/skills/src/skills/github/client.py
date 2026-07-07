@@ -123,15 +123,18 @@ class GitHubClient:
             if attempt is not None
             else f"/repos/{owner}/{repo}/actions/runs/{run_id}/jobs"
         )
+        # GitHub 502s this endpoint with per_page=100 on runs with many jobs
+        # (e.g. cross-version matrices with 300+ jobs).
+        per_page = 30
         page = 1
         while True:
-            data = await self._get_json(endpoint, {"per_page": 100, "page": page})
+            data = await self._get_json(endpoint, {"per_page": per_page, "page": page})
             jobs = data.get("jobs", [])
             if not jobs:
                 break
             for job in jobs:
                 yield Job.model_validate(job)
-            if len(jobs) < 100:
+            if len(jobs) < per_page:
                 break
             page += 1
 

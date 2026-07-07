@@ -20,10 +20,6 @@ MLFLOW_GATEWAY_ROUTE_BASE = "/gateway/"
 MLFLOW_QUERY_SUFFIX = "/invocations"
 MLFLOW_GATEWAY_SEARCH_ROUTES_PAGE_SIZE = 3000
 
-# Specifies the timeout for the Gateway server to declare a request submitted to a provider has
-# timed out.
-MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS = 300
-
 # Abridged retryable error codes for the interface to the Gateway Server.
 # These are modified from the standard MLflow Tracking server retry codes for the MLflowClient to
 # remove timeouts from the list of the retryable conditions. A long-running timeout with

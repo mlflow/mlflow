@@ -1211,6 +1211,15 @@ def test_mlflow_ui_is_alias_for_mlflow_server():
     )
 
 
+def test_server_help_has_quickstart():
+    out = subprocess.check_output([sys.executable, "-m", "mlflow", "server", "--help"], text=True)
+    assert "Pick your setup" in out
+    assert "Options by topic:" in out
+    assert "sqlite:///mlflow.db" in out
+    # Curated guidance is rendered before the exhaustive flat option list.
+    assert out.index("Pick your setup") < out.index("\nOptions:")
+
+
 def test_cli_with_python_mod():
     stdout = subprocess.check_output(
         [

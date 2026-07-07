@@ -24,6 +24,11 @@ _SPARK_TABLE_INFO_TAG_NAME = "sparkDatasourceInfo"
 
 _logger = logging.getLogger(__name__)
 _lock = threading.Lock()
+
+# Upper bound on how long to wait for the py4j callback server to shut down before
+# abandoning it. A CLOSE_WAIT socket makes shutdown_callback_server() block forever, so
+# we cap the wait and let the daemon thread (and the OS) reclaim the socket on exit.
+_CALLBACK_SERVER_SHUTDOWN_TIMEOUT_SECONDS = 60.0
 _table_infos = []
 _spark_table_info_listener = None
 
@@ -110,10 +115,28 @@ def _set_run_tag(run_id, path, version, data_format):
 
 def _stop_listen_for_spark_activity(spark_context):
     gw = spark_context._gateway
-    try:
-        gw.shutdown_callback_server()
-    except Exception as e:
-        _logger.warning("Failed to shut down Spark callback server for autologging: %s", e)
+
+    def _shutdown():
+        try:
+            gw.shutdown_callback_server()
+        except Exception as e:
+            _logger.warning("Failed to shut down Spark callback server for autologging: %s", e)
+
+    # Run the shutdown in a daemon thread and bound the wait. On a CLOSE_WAIT socket
+    # shutdown_callback_server() never returns and raises no exception, which would hang
+    # spark.stop() forever. Abandoning the thread is safe: the callback server is started
+    # with daemonize=True, so the OS reclaims the socket when the process exits.
+    t = threading.Thread(
+        target=_shutdown, name="mlflow-spark-callback-server-shutdown", daemon=True
+    )
+    t.start()
+    t.join(timeout=_CALLBACK_SERVER_SHUTDOWN_TIMEOUT_SECONDS)
+    if t.is_alive():
+        _logger.warning(
+            "shutdown_callback_server() did not complete within %.0f s "
+            "(likely a CLOSE_WAIT socket); abandoning to allow process exit.",
+            _CALLBACK_SERVER_SHUTDOWN_TIMEOUT_SECONDS,
+        )
 
 
 def _listen_for_spark_activity(spark_context):

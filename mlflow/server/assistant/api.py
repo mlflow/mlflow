@@ -102,6 +102,11 @@ class SessionPatchResponse(BaseModel):
     message: str
 
 
+class PermissionDecision(BaseModel):
+    request_id: str  # the paused tool_call's id
+    decision: Literal["allow", "deny"]
+
+
 # Skills-related models
 class SkillsInstallRequest(BaseModel):
     type: Literal["global", "project", "custom"] = "global"
@@ -166,11 +171,26 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # Get and clear the pending message
+    # A turn is driven by either a pending user message (a new turn) or pending
+    # tool-call decisions (resuming a turn paused at a permission prompt). Both
+    # are consumed here so the stream is replay-safe.
     pending_message = session.clear_pending_message()
-    if not pending_message:
+    tool_decisions = session.pending_tool_decisions
+    session.pending_tool_decisions = {}
+    if not pending_message and not tool_decisions:
         raise HTTPException(status_code=400, detail="No pending message to process")
     SessionManager.save(session_id, session)
+
+    prompt = pending_message.content if pending_message else ""
+    # On resume the decision rides in the context; the provider detects the
+    # pending tool_calls in history and applies it instead of starting a turn.
+    # A new message supersedes a pending decision: if both are present (e.g. a
+    # resume stream never consumed the decision and the user typed again),
+    # forwarding the stale tool_decisions would make the provider resume the
+    # abandoned turn and silently drop the new message. Prefer the message.
+    context = dict(session.context)
+    if tool_decisions and not pending_message:
+        context["tool_decisions"] = tool_decisions
 
     # Extract the MLflow server URL from the request for the assistant to use.
     # This assumes the assistant is accessing the same MLflow server that serves this API,
@@ -189,14 +209,16 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
             ).to_sse_event()
             return
         async for event in provider.astream(
-            prompt=pending_message.content,
+            prompt=prompt,
             tracking_uri=tracking_uri,
             session_id=session.provider_session_id,
             mlflow_session_id=session_id,
             cwd=session.working_dir,
-            context=session.context,
+            context=context,
         ):
-            # Store provider session ID if returned (for conversation continuity)
+            # Store provider session ID if returned (for conversation continuity).
+            # On a paused turn this persists the history with the unanswered
+            # tool_call so a later resume can continue from it.
             if event.type == EventType.DONE:
                 session.provider_session_id = event.data.get("session_id")
                 SessionManager.save(session_id, session)
@@ -234,12 +256,44 @@ async def patch_session(session_id: str, request: SessionPatchRequest) -> Sessio
         raise HTTPException(status_code=404, detail="Session not found")
 
     if request.status == "cancelled":
+        # Terminate any associated subprocess. The OpenAI-compatible provider
+        # holds no in-process state to release (the turn ends at each prompt).
+        # Drop any tool permissions so later stream doesn't see stale decisions.
+        session.pending_tool_decisions = {}
+        SessionManager.save(session_id, session)
         terminated = terminate_session_process(session_id)
         msg = "Session cancelled and process terminated" if terminated else "Session cancelled"
         return SessionPatchResponse(message=msg)
 
     # This branch is unreachable due to Literal type, but satisfies type checker
     raise HTTPException(status_code=400, detail=f"Unknown status: {request.status}")
+
+
+@assistant_router.post("/sessions/{session_id}/permission")
+async def resolve_permission(session_id: str, request: PermissionDecision) -> MessageResponse:
+    """Deliver a tool-call permission decision and resume the paused turn on a new stream.
+
+    The decision is stored on the session and consumed by the next stream, which
+    re-enters the provider with the choice in context. Stateless across requests:
+    any worker can serve the decision because the pending state lives in the
+    session, not process memory.
+    """
+    try:
+        SessionManager.validate_session_id(session_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    session = SessionManager.load(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    session.pending_tool_decisions = {request.request_id: request.decision}
+    SessionManager.save(session_id, session)
+
+    return MessageResponse(
+        session_id=session_id,
+        stream_url=f"/ajax-api/3.0/mlflow/assistant/sessions/{session_id}/stream",
+    )
 
 
 @assistant_router.get("/providers/{provider}/health")

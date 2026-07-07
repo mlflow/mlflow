@@ -149,6 +149,7 @@ export interface EvaluationsOverviewTableSort {
 
 export interface TraceActions {
   exportToEvals?: boolean;
+  addToReviewQueue?: boolean;
   deleteTracesAction?: {
     deleteTraces?: (experimentId: string, traceIds: string[]) => Promise<any>;
     isDisabled?: boolean;
@@ -318,6 +319,7 @@ export enum TracesTableColumnType {
 // This represents columns that are grouped together.
 // For example, each assessment is its own column, but they are all grouped under the "Assessments" column group.
 export enum TracesTableColumnGroup {
+  BASE = 'BASE',
   ASSESSMENT = 'ASSESSMENT',
   EXPECTATION = 'EXPECTATION',
   TAG = 'TAG',
@@ -328,8 +330,9 @@ export const TracesTableColumnGroupToLabelMap = {
   [TracesTableColumnGroup.ASSESSMENT]: 'Assessments',
   [TracesTableColumnGroup.EXPECTATION]: 'Expectations',
   [TracesTableColumnGroup.TAG]: 'Tags',
-  // We don't show a label for the info column group
-  [TracesTableColumnGroup.INFO]: '\u00A0',
+  [TracesTableColumnGroup.INFO]: 'Other Attributes',
+  // BASE is the leading section; we don't show a label band for it in the table header
+  [TracesTableColumnGroup.BASE]: '\u00A0',
 };
 
 export interface TracesTableColumn {
