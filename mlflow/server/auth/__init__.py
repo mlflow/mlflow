@@ -168,9 +168,11 @@ from mlflow.protos.service_pb2 import (
     ListScorerVersions,
     ListWorkspaces,
     LogBatch,
+    LogInputs,
     LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
+    LogOutputs,
     LogParam,
     QueryTraceMetrics,
     RegisterScorer,
@@ -1169,6 +1171,26 @@ def _validate_can_delete_registered_model_or_prompt():
 
 def _validate_can_manage_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_manage
+
+
+def validate_can_create_model_version():
+    # A model version anchors its `source` inside the artifact directory of the run/model
+    # named by `run_id`/`model_id`. Downstream artifact reads are gated on the model version's
+    # registered model, so without a read check here a caller could point `source` at another
+    # user's run/model and read those artifacts through their own registered model. Require read
+    # on the source run/model to keep create-time access consistent with artifact-read gating.
+    if not _validate_can_update_registered_model_or_prompt():
+        return False
+    body = request.get_json(force=True, silent=True)
+    body = body if isinstance(body, dict) else {}
+    # Presence of run_id/model_id means the version is anchored to that source, so require
+    # READ on it. Guard on presence (not truthiness): an explicitly-supplied empty id is
+    # denied here rather than being allowed to slip past the guard as if it were absent.
+    if "run_id" in body and not (body["run_id"] and _get_permission_from_run_id().can_read):
+        return False
+    if "model_id" in body and not (body["model_id"] and _get_permission_from_model_id().can_read):
+        return False
+    return True
 
 
 def validate_can_create_experiment() -> bool:
@@ -2461,7 +2483,9 @@ BEFORE_REQUEST_HANDLERS = {
     UpdateRun: validate_can_update_run,
     LogMetric: validate_can_update_run,
     LogBatch: validate_can_update_run,
+    LogInputs: validate_can_update_run,
     LogModel: validate_can_update_run,
+    LogOutputs: validate_can_update_run,
     SetTag: validate_can_update_run,
     DeleteTag: validate_can_update_run,
     LogParam: validate_can_update_run,
@@ -2475,7 +2499,7 @@ BEFORE_REQUEST_HANDLERS = {
     UpdateRegisteredModel: _validate_can_update_registered_model_or_prompt,
     RenameRegisteredModel: _validate_can_update_registered_model_or_prompt,
     GetLatestVersions: _validate_can_read_registered_model_or_prompt,
-    CreateModelVersion: _validate_can_update_registered_model_or_prompt,
+    CreateModelVersion: validate_can_create_model_version,
     GetModelVersion: _validate_can_read_registered_model_or_prompt,
     DeleteModelVersion: _validate_can_delete_registered_model_or_prompt,
     UpdateModelVersion: _validate_can_update_registered_model_or_prompt,

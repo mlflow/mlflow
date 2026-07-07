@@ -14,6 +14,7 @@ from cryptography.fernet import Fernet
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.entities import Dataset, DatasetInput, InputTag, LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
@@ -614,6 +615,160 @@ def test_graphql_search_model_versions(client, monkeypatch):
     assert names == [f"gql_mv_model{i}" for i in readable]
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_create_model_version_requires_read_on_source_run(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch
+):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("source-run-authz-exp")
+        run = client.create_run(exp_id)
+        run_id = run.info.run_id
+        source = run.info.artifact_uri
+
+    with User(username2, password2, monkeypatch):
+        rm = client.create_registered_model("source-run-authz-model")
+
+    # user2 owns the target model but has no read on user1's experiment/run:
+    # anchoring a model version at user1's run artifact dir must be denied.
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={"name": rm.name, "source": source, "run_id": run_id},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    # grant user2 READ on user1's experiment; creation should now succeed.
+    grant_role_permission(
+        client.tracking_uri,
+        username2,
+        "experiment",
+        exp_id,
+        "READ",
+    )
+
+    with User(username2, password2, monkeypatch):
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/model-versions/create",
+            json_payload={"name": rm.name, "source": source, "run_id": run_id},
+            auth=(username2, password2),
+        )
+        assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_create_model_version_requires_read_on_source_model(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch
+):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("source-model-authz-exp")
+        model = client.create_logged_model(experiment_id=exp_id)
+        model_id = model.model_id
+        source = model.artifact_location
+
+    with User(username2, password2, monkeypatch):
+        rm = client.create_registered_model("source-model-authz-model")
+
+    # user2 owns the target model but has no read on the source logged model.
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={"name": rm.name, "source": source, "model_id": model_id},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+    grant_role_permission(
+        client.tracking_uri,
+        username2,
+        "experiment",
+        exp_id,
+        "READ",
+    )
+
+    with User(username2, password2, monkeypatch):
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/model-versions/create",
+            json_payload={"name": rm.name, "source": source, "model_id": model_id},
+            auth=(username2, password2),
+        )
+        assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_create_model_version_from_own_source_succeeds(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch
+):
+    username1, password1 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("own-source-authz-exp")
+        run = client.create_run(exp_id)
+        run_id = run.info.run_id
+        rm = client.create_registered_model("own-source-authz-model")
+
+    # Under no_permission_auth.ini the creator has no default read, so grant READ on the
+    # source experiment explicitly — the create must succeed with the source-read guard active.
+    grant_role_permission(client.tracking_uri, username1, "experiment", exp_id, "READ")
+
+    with User(username1, password1, monkeypatch):
+        mv = client.create_model_version(rm.name, f"{run.info.artifact_uri}/model", run_id=run_id)
+        assert mv.name == rm.name
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_create_model_version_empty_source_id_does_not_bypass(
+    client: MlflowClient, monkeypatch: pytest.MonkeyPatch
+):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("empty-id-authz-exp")
+        run = client.create_run(exp_id)
+        source = run.info.artifact_uri
+
+    with User(username2, password2, monkeypatch):
+        rm = client.create_registered_model("empty-id-authz-model")
+
+    # An explicitly-supplied empty run_id must not skip the source-read guard: the request
+    # is denied rather than slipping past as if run_id were absent.
+    response = _send_rest_tracking_post_request(
+        client.tracking_uri,
+        "/api/2.0/mlflow/model-versions/create",
+        json_payload={"name": rm.name, "source": source, "run_id": ""},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+    assert "Permission denied" in response.text
+
+
 def _wait(url: str, timeout: int = 10) -> None:
     t = time.time()
     while time.time() - t < timeout:
@@ -962,6 +1117,58 @@ def test_search_runs(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
         inaccessible_runs = set(all_runs[experiment_ids[1]])
         returned_inaccessible = set(all_paginated_runs) & inaccessible_runs
         assert len(returned_inaccessible) == 0
+
+
+def test_log_inputs_authorization(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    dataset_inputs = [
+        DatasetInput(
+            dataset=Dataset(
+                name="name1",
+                digest="digest1",
+                source_type="source_type1",
+                source="source1",
+            ),
+            tags=[InputTag(key="context", value="training")],
+        )
+    ]
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("log_inputs_authz")
+        run_id = client.create_run(experiment_id).info.run_id
+        client.log_inputs(run_id, dataset_inputs)
+
+    with User(username2, password2, monkeypatch):
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.log_inputs(run_id, dataset_inputs)
+
+    grant_role_permission(client.tracking_uri, username2, "experiment", experiment_id, "EDIT")
+
+    with User(username2, password2, monkeypatch):
+        client.log_inputs(run_id, dataset_inputs)
+
+
+def test_log_outputs_authorization(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("log_outputs_authz")
+        run_id = client.create_run(experiment_id).info.run_id
+        model = client.create_logged_model(experiment_id=experiment_id)
+
+    model_outputs = [LoggedModelOutput(model.model_id, 1)]
+
+    with User(username2, password2, monkeypatch):
+        with pytest.raises(MlflowException, match="Permission denied"):
+            client.log_outputs(run_id, model_outputs)
+
+    grant_role_permission(client.tracking_uri, username2, "experiment", experiment_id, "EDIT")
+
+    with User(username2, password2, monkeypatch):
+        client.log_outputs(run_id, model_outputs)
 
 
 def test_reregister_scorer_does_not_raise(client, monkeypatch):
