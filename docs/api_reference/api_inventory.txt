@@ -1786,6 +1786,9 @@ mlflow.server.auth.entities.GatewaySecretPermission.to_json
 mlflow.server.auth.entities.GetUserPermissionResult
 mlflow.server.auth.entities.GetUserPermissionResult.from_json
 mlflow.server.auth.entities.GetUserPermissionResult.to_json
+mlflow.server.auth.entities.MCPServerPermission
+mlflow.server.auth.entities.MCPServerPermission.from_json
+mlflow.server.auth.entities.MCPServerPermission.to_json
 mlflow.server.auth.entities.RegisteredModelPermission
 mlflow.server.auth.entities.RegisteredModelPermission.from_json
 mlflow.server.auth.entities.RegisteredModelPermission.to_json

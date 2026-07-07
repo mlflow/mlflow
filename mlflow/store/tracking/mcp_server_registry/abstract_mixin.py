@@ -41,6 +41,7 @@ class MCPServerRegistryMixin:
         name: str,
         description: str | None = None,
         icons: list[MCPIcon] | None = None,
+        created_by: str | None = None,
     ) -> MCPServer:
         """Create a new MCP server entry.
 
@@ -48,6 +49,7 @@ class MCPServerRegistryMixin:
             name: Unique server name (e.g., "io.github.org/server").
             description: Human-readable description.
             icons: Sized icon variants (src, sizes, mimeType, theme).
+            created_by: Authenticated username of the creator.
 
         Returns:
             The created MCPServer entity.
@@ -91,6 +93,7 @@ class MCPServerRegistryMixin:
         description: str | None = NOT_SET,
         display_name: str | None = NOT_SET,
         icons: list[MCPIcon] | None = NOT_SET,
+        last_updated_by: str | None = None,
     ) -> MCPServer:
         """Update an existing MCP server's metadata.
 
@@ -99,6 +102,7 @@ class MCPServerRegistryMixin:
             description: New description. Omit to leave unchanged; pass None to set null.
             display_name: New display name. Omit to leave unchanged; pass None to set null.
             icons: New icon variants. Omit to leave unchanged; pass None to set null.
+            last_updated_by: Authenticated username of the updater.
 
         Returns:
             The updated MCPServer entity.
@@ -122,6 +126,7 @@ class MCPServerRegistryMixin:
         source: str | None = None,
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = None,
+        created_by: str | None = None,
     ) -> MCPServerVersion:
         """Create a new version of an MCP server.
 
@@ -134,6 +139,7 @@ class MCPServerRegistryMixin:
             source: Origin URL or identifier for this version.
             status: Initial status (defaults to DRAFT).
             tools: List of MCPTool definitions.
+            created_by: Authenticated username of the creator.
 
         Returns:
             The created MCPServerVersion entity.
@@ -212,6 +218,7 @@ class MCPServerRegistryMixin:
         display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
+        last_updated_by: str | None = None,
     ) -> MCPServerVersion:
         """Update a version's metadata or status.
 
@@ -222,6 +229,7 @@ class MCPServerRegistryMixin:
             status: New status. Omit to leave unchanged; non-null values update the status.
                 Non-null values are validated against transition rules.
             tools: New tool definitions. Omit to leave unchanged; pass None to set null.
+            last_updated_by: Authenticated username of the updater.
 
         Returns:
             The updated MCPServerVersion entity.
@@ -246,6 +254,7 @@ class MCPServerRegistryMixin:
         transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
         server_version: str | None = None,
         server_alias: str | None = None,
+        created_by: str | None = None,
     ) -> MCPAccessBinding:
         """Create a direct-access binding for an MCP server.
 
@@ -257,6 +266,7 @@ class MCPServerRegistryMixin:
             transport_type: Transport protocol.
             server_version: Pin to a specific version.
             server_alias: Pin to an alias.
+            created_by: Authenticated username of the creator.
 
         Returns:
             The created MCPAccessBinding entity.
@@ -309,6 +319,7 @@ class MCPServerRegistryMixin:
         server_alias: str | None = NOT_SET,
         endpoint_url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
+        last_updated_by: str | None = None,
     ) -> MCPAccessBinding:
         """Update an existing access binding.
 
@@ -322,6 +333,7 @@ class MCPServerRegistryMixin:
             endpoint_url: New endpoint URL. Omit to leave unchanged; null is invalid.
             transport_type: New transport type. Omit to leave unchanged; non-null values update
                 the transport type.
+            last_updated_by: Authenticated username of the updater.
 
         Returns:
             The updated MCPAccessBinding entity.
