@@ -888,6 +888,8 @@ def test_experiment_artifact_proxy_workspace_prefixed_path_uses_experiment_permi
         request.view_args = {"artifact_path": "workspaces/team-a/1/path"}
         assert auth_module.validate_can_read_experiment_artifact_proxy()
         assert auth_module.validate_can_update_experiment_artifact_proxy()
+        # EDIT has can_delete=False, confirming the path resolves to the experiment grant.
+        assert not auth_module.validate_can_delete_experiment_artifact_proxy()
 
 
 def test_experiment_artifact_proxy_without_experiment_id_uses_workspace_permissions(
