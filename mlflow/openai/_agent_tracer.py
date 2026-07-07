@@ -55,7 +55,7 @@ _SPAN_TYPE_MAP = {
     OpenAISpanType.FUNCTION: SpanType.TOOL,
     OpenAISpanType.GENERATION: SpanType.CHAT_MODEL,
     OpenAISpanType.RESPONSE: SpanType.CHAT_MODEL,
-    OpenAISpanType.GUARDRAIL: SpanType.TOOL,
+    OpenAISpanType.GUARDRAIL: SpanType.GUARDRAIL,
     # Default to chain type
 }
 

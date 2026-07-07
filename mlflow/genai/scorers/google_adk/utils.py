@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import concurrent.futures
 import json
 from typing import Any
 
@@ -142,3 +144,20 @@ def map_scorer_inputs_to_invocation(
             )
 
     return actual_invocation, expected_invocation
+
+
+def _run_async(coro: Any) -> Any:
+    """Run an async coroutine from a synchronous caller.
+
+    Falls back to a worker thread when an event loop is already running
+    (e.g., when called from inside an async test or Jupyter notebook).
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        with concurrent.futures.ThreadPoolExecutor(thread_name_prefix="google_adk_judge") as pool:
+            return pool.submit(asyncio.run, coro).result()
+    return asyncio.run(coro)

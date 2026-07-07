@@ -114,6 +114,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/observe-with-traces/archive-traces',
+                  label: 'Archive Traces',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/observe-with-traces/delete-traces',
                   label: 'Delete Traces',
                 },
@@ -210,6 +215,16 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/autogen',
                   label: 'AutoGen',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/claude_agent_sdk_python',
+                  label: 'Claude Agent SDK (Python)',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/claude_agent_sdk_typescript',
+                  label: 'Claude Agent SDK (TS)',
                 },
                 {
                   type: 'doc',
@@ -376,6 +391,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/hermes_agent',
                   label: 'Hermes Agent',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/omnigent',
+                  label: 'Omnigent',
                 },
                 {
                   type: 'doc',
@@ -666,6 +686,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'eval-monitor/regression-testing',
+          label: 'Regression Testing and CI/CD',
+        },
+        {
+          type: 'doc',
           id: 'eval-monitor/automatic-evaluations/index',
           label: 'Automatic Evaluation',
         },
@@ -910,6 +935,11 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'assessments/expectations',
               label: 'Annotating Ground Truth',
             },
+            {
+              type: 'doc',
+              id: 'assessments/review-queues',
+              label: 'Review Queues',
+            },
           ],
         },
         {
@@ -1002,6 +1032,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'prompt-registry/prompt-engineering',
           label: 'Prompt Engineering UI',
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/playground',
+          label: 'LLM Playground',
         },
       ],
       link: {

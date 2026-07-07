@@ -72,8 +72,17 @@ def commands():
 )
 @click.option("--experiment-id", "-e", help="MLflow experiment ID")
 @click.option("--experiment-name", "-n", help="MLflow experiment name")
-@click.option("--disable", is_flag=True, help="Disable Claude tracing in the specified directory")
+@click.option(
+    "--disable",
+    is_flag=True,
+    help="Disable Claude tracing (removes config from both settings.json and settings.local.json)",
+)
 @click.option("--status", is_flag=True, help="Show current tracing status")
+@click.option(
+    "--local",
+    is_flag=True,
+    help="Write config to settings.local.json instead of settings.json during setup.",
+)
 @click.option(
     "--non-interactive",
     "-y",
@@ -97,6 +106,7 @@ def claude(
     experiment_name: str | None,
     disable: bool,
     status: bool,
+    local: bool,
     non_interactive: bool,
     mlflow_cmd: str | None,
 ) -> None:
@@ -137,17 +147,29 @@ def claude(
             )
         click.echo(f"{_warn('⚠')} {_muted('--mlflow-cmd is deprecated and ignored.')}")
 
+    if local and (status or disable):
+        raise click.UsageError(
+            "--local can only be used during setup, not with --status or --disable"
+        )
+
     target_dir = Path(directory).resolve()
     claude_dir = target_dir / ".claude"
     settings_file = claude_dir / "settings.json"
+    local_settings_file = claude_dir / "settings.local.json"
 
     if status:
         _show_status(target_dir, settings_file)
         return
 
     if disable:
-        _handle_disable(settings_file)
+        removed_shared = _handle_disable(settings_file)
+        removed_local = _handle_disable(local_settings_file)
+        if not removed_shared and not removed_local:
+            click.echo(f"{_error('✗')} No Claude configuration found - tracing was not enabled")
         return
+
+    if local:
+        settings_file = local_settings_file
 
     _print_setup_intro(tracking_uri, experiment_id, experiment_name, non_interactive)
     tracking_uri, experiment_id, experiment_name = _resolve_setup_inputs(
@@ -247,12 +269,16 @@ def _is_interactive_shell() -> bool:
     return sys.stdin.isatty() and sys.stdout.isatty()
 
 
-def _handle_disable(settings_file: Path) -> None:
-    """Handle disable command."""
+def _handle_disable(settings_file: Path) -> bool:
+    """Handle disable for a single settings file.
+
+    Returns:
+        True if config was removed, False if no config found
+    """
     if disable_tracing_plugin(settings_file):
-        click.echo(f"{_ok('✓')} Claude tracing disabled")
-    else:
-        click.echo(f"{_error('✗')} No Claude configuration found - tracing was not enabled")
+        click.echo(f"{_ok('✓')} Claude tracing disabled in {settings_file.name}")
+        return True
+    return False
 
 
 def _show_status(target_dir: Path, settings_file: Path) -> None:

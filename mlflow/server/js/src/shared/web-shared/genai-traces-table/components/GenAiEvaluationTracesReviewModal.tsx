@@ -35,6 +35,7 @@ import type {
   SaveAssessmentsQuery,
 } from '../types';
 import { convertTraceInfoV3ToRunEvalEntry, getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '../utils/TraceUtils';
+import { copyToClipboard } from '../../../../common/utils/copyToClipboard';
 
 const MODAL_SPACING_REM = 4;
 const DEFAULT_MODAL_MARGIN_REM = 1;
@@ -352,11 +353,17 @@ const ModalWrapper = ({
   const { theme, classNamePrefix } = useDesignSystemTheme();
   const useRadixModal = false;
   const [showCopiedNotification, setShowCopiedNotification] = useState(false);
+  const [showCopyError, setShowCopyError] = useState(false);
 
-  const handleShareClick = useCallback(() => {
-    navigator.clipboard.writeText(window.location.href);
-    setShowCopiedNotification(true);
-    setTimeout(() => setShowCopiedNotification(false), 2000);
+  const handleShareClick = useCallback(async () => {
+    const success = await copyToClipboard(window.location.href);
+    if (success) {
+      setShowCopiedNotification(true);
+      setTimeout(() => setShowCopiedNotification(false), 2000);
+    } else {
+      setShowCopyError(true);
+      setTimeout(() => setShowCopyError(false), 2000);
+    }
   }, []);
 
   return (
@@ -482,6 +489,19 @@ const ModalWrapper = ({
               <FormattedMessage
                 defaultMessage="Copied to clipboard"
                 description="Success message after copying trace link"
+              />
+            </Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
+      {showCopyError && (
+        <Notification.Provider>
+          <Notification.Root severity="error" componentId="mlflow.evaluations_review.modal.share-error-notification">
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Failed to copy to clipboard"
+                description="Error message when clipboard copy fails"
               />
             </Notification.Title>
           </Notification.Root>

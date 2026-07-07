@@ -776,7 +776,6 @@ def get_databricks_host_creds(server_uri=None):
 
     .. Warning:: This API is deprecated. In the future it might be removed.
     """
-
     if MLFLOW_ENABLE_DB_SDK.get():
         from databricks.sdk import WorkspaceClient
 
@@ -791,7 +790,7 @@ def get_databricks_host_creds(server_uri=None):
                     token=config.token,
                     use_databricks_sdk=True,
                     use_secret_scope_token=True,
-                    workspace_id=ws.config.workspace_id,
+                    workspace_id=getattr(ws.config, "workspace_id", None),
                 )
             except Exception as e:
                 raise MlflowException(
@@ -823,11 +822,11 @@ def get_databricks_host_creds(server_uri=None):
             # Only pass profile if explicitly set. Passing profile=None causes the SDK to skip
             # environment-variable-based auth methods like OIDC (file-oidc auth type).
             ws = WorkspaceClient(profile=profile) if profile else WorkspaceClient()
-            use_databricks_sdk = True
-            databricks_auth_profile = profile
-            workspace_id = ws.config.workspace_id
         except Exception as e:
-            _logger.debug(f"Failed to create databricks SDK workspace client, error: {e!r}")
+            _logger.warning(
+                f"Failed to create databricks SDK workspace client, error: {e!r}. "
+                "Falling back to legacy authentication."
+            )
             use_databricks_sdk = False
             databricks_auth_profile = None
             # Config resolves workspace_id from env vars, .databrickscfg, or host
@@ -836,9 +835,18 @@ def get_databricks_host_creds(server_uri=None):
             try:
                 from databricks.sdk.config import Config as DatabricksConfig
 
-                workspace_id = DatabricksConfig(profile=profile).workspace_id
+                workspace_id = getattr(DatabricksConfig(profile=profile), "workspace_id", None)
             except Exception:
                 workspace_id = None
+        else:
+            use_databricks_sdk = True
+            databricks_auth_profile = profile
+            # workspace_id is best-effort. Older databricks-sdk releases (<0.30) don't have
+            # Config.workspace_id; pre-fix versions of this function let the resulting
+            # AttributeError nuke `use_databricks_sdk`, which made OAuth M2M fall through
+            # to the legacy auth path and surface a misleading "set MLFLOW_ENABLE_DB_SDK"
+            # error to the user even though they had already set it.
+            workspace_id = getattr(ws.config, "workspace_id", None)
     else:
         use_databricks_sdk = False
         databricks_auth_profile = None

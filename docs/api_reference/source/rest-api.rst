@@ -1371,14 +1371,14 @@ Request Structure
 
 
 
-List all scorers for an experiment.
+List all scorers, optionally scoped to a single experiment.
 
 
-+---------------+------------+--------------------+
-|  Field Name   |    Type    |    Description     |
-+===============+============+====================+
-| experiment_id | ``STRING`` | The experiment ID. |
-+---------------+------------+--------------------+
++---------------+------------+-----------------------------------------------------------------------------------------------------------------------------------+
+|  Field Name   |    Type    |                                                            Description                                                            |
++===============+============+===================================================================================================================================+
+| experiment_id | ``STRING`` | The experiment ID. If empty, returns scorers across all experiments in the active workspace (used by the admin-UI scorer picker). |
++---------------+------------+-----------------------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowListScorersResponse:
 
@@ -6290,6 +6290,8 @@ Experiment
 | tags                               | An array of :ref:`mlflowexperimenttag` | Tags: Additional metadata key-value pairs.                                                                       |
 +------------------------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------------+
 | effective_trace_archival_retention | ``STRING``                             | Effective trace archival retention after broader-scope and experiment overrides are applied.                     |
++------------------------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------------+
+| workspace                          | ``STRING``                             | Workspace name of the experiment (Always `default` if workspace is not enabled).                                 |
 +------------------------------------+----------------------------------------+------------------------------------------------------------------------------------------------------------------+
 
 .. _mlflowExperimentTag:

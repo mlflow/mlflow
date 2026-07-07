@@ -25,7 +25,11 @@ from mlflow.entities import (
     TraceData,
     TraceInfo,
 )
-from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
+from mlflow.entities.trace_location import (
+    MlflowExperimentLocation,
+    TraceLocation,
+    UCSchemaLocation,
+)
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
@@ -772,6 +776,107 @@ def test_start_span_context_manager(async_logging_enabled):
     assert child_span_2.start_time_ns <= child_span_2.end_time_ns - 0.1 * 1e6
 
 
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_start_span_with_run_id(async_logging_enabled):
+    from mlflow.tracking import MlflowClient
+
+    client = MlflowClient()
+    experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    run = client.create_run(experiment_id=experiment_id)
+
+    with mlflow.start_span(
+        name="root_span",
+        trace_destination=MlflowExperimentLocation(experiment_id=experiment_id),
+        run_id=run.info.run_id,
+    ):
+        pass
+
+    traces = mlflow.search_traces(
+        locations=[experiment_id],
+        return_type="list",
+        include_spans=False,
+        flush=True,
+    )
+
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.experiment_id == experiment_id
+    assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_start_span_with_run_id_takes_precedence_over_active_run(async_logging_enabled):
+    from mlflow.tracking import MlflowClient
+
+    client = MlflowClient()
+    active_experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    explicit_experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    active_run = client.create_run(experiment_id=active_experiment_id)
+    explicit_run = client.create_run(experiment_id=explicit_experiment_id)
+
+    with mlflow.start_run(run_id=active_run.info.run_id):
+        with mlflow.start_span(
+            name="root_span",
+            trace_destination=MlflowExperimentLocation(experiment_id=active_experiment_id),
+            run_id=explicit_run.info.run_id,
+        ):
+            pass
+
+    traces = mlflow.search_traces(
+        locations=[active_experiment_id],
+        return_type="list",
+        include_spans=False,
+        flush=True,
+    )
+
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.experiment_id == active_experiment_id
+    assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == explicit_run.info.run_id
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_start_span_with_run_id_warns_for_child_span(async_logging_enabled):
+    from mlflow.tracking import MlflowClient
+
+    client = MlflowClient()
+    experiment_id = client.create_experiment(f"test_experiment_{uuid.uuid4().hex}")
+    run_1 = client.create_run(experiment_id=experiment_id)
+    run_2 = client.create_run(experiment_id=experiment_id)
+
+    with mock.patch("mlflow.tracing.fluent._logger") as mock_logger:
+        with mlflow.start_span(
+            name="root_span",
+            trace_destination=MlflowExperimentLocation(experiment_id=experiment_id),
+            run_id=run_1.info.run_id,
+        ):
+            with mlflow.start_span(name="child_span", run_id=run_2.info.run_id):
+                pass
+
+    traces = mlflow.search_traces(
+        locations=[experiment_id],
+        return_type="list",
+        include_spans=False,
+        flush=True,
+    )
+
+    assert len(traces) == 1
+    trace_info = traces[0].info
+    assert trace_info.experiment_id == experiment_id
+    assert trace_info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_1.info.run_id
+    mock_logger.warning.assert_called_once_with(
+        "The `run_id` parameter can only be used for root spans, but the span "
+        f"`child_span` is not a root span. The specified value `{run_2.info.run_id}` "
+        "will be ignored."
+    )
+
+
 def test_start_span_context_manager_with_imperative_apis(async_logging_enabled):
     # This test is to make sure that the spans created with fluent APIs and imperative APIs
     # (via MLflow client) are correctly linked together. This usage is not recommended but
@@ -1064,6 +1169,7 @@ def test_search_traces_warns_on_uc_location_without_time_range(
 
 
 @skip_when_testing_trace_sdk
+@pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
 def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     model = DefaultTestModel()
     expected_traces = []

@@ -104,6 +104,11 @@ export const useUpdatePassword = () => {
 export const useUserRolesQuery = (username: string, options: { enabled?: boolean } = {}) => {
   return useQuery({
     queryKey: AccountQueryKeys.userRoles(username),
+    // Return roles unfiltered — including the synthetic ``__user_<id>__`` role
+    // that backs direct grants. Consumers filter synthetic roles out of their
+    // own human-facing Roles tables (via ``displayRoles``); PermissionsSection
+    // and the EditAccessModal pre-fill need the synthetic role to surface /
+    // edit direct grants.
     queryFn: () => AccountApi.listUserRoles(username),
     retry: false,
     refetchOnWindowFocus: false,

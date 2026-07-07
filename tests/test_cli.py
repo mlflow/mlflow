@@ -1,4 +1,3 @@
-import json
 import os
 import shutil
 import subprocess
@@ -12,14 +11,12 @@ from urllib.request import url2pathname
 
 import click
 import numpy as np
-import pandas as pd
 import pytest
 import requests
 from botocore.stub import Stubber
 from click.testing import CliRunner
 
 import mlflow
-from mlflow import pyfunc
 from mlflow.cli import cli, doctor, gc, server
 from mlflow.data import numpy_dataset
 from mlflow.entities import Metric, ViewType
@@ -45,10 +42,8 @@ from mlflow.utils.rest_utils import augmented_raise_for_status
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import (
-    PROTOBUF_REQUIREMENT,
     get_safe_port,
     kill_process_tree,
-    pyfunc_serve_and_score_model,
 )
 from tests.tracking.integration_test_utils import _await_server_up_or_die
 
@@ -1120,60 +1115,6 @@ def test_mlflow_gc_sqlite_with_s3_artifact_repository(
             store.get_run(run.info.run_id)
 
 
-@pytest.mark.skip(reason="mlserver is incompatible with the latest version of pydantic")
-@pytest.mark.parametrize(
-    "enable_mlserver",
-    [
-        # MLServer is not supported in Windows yet, so let's skip this test in that case.
-        # https://github.com/SeldonIO/MLServer/issues/361
-        pytest.param(
-            True,
-            marks=pytest.mark.skipif(is_windows(), reason="MLServer is not supported in Windows"),
-        ),
-        False,
-    ],
-)
-def test_mlflow_models_serve(enable_mlserver):
-    class MyModel(pyfunc.PythonModel):
-        def predict(self, context, model_input, params=None):
-            return np.array([1, 2, 3])
-
-    model = MyModel()
-
-    with mlflow.start_run():
-        if enable_mlserver:
-            # We need MLServer to be present on the Conda environment, so we'll
-            # add that as an extra requirement.
-            mlflow.pyfunc.log_model(
-                name="model",
-                python_model=model,
-                extra_pip_requirements=[
-                    "mlserver>=1.2.0,!=1.3.1",
-                    "mlserver-mlflow>=1.2.0,!=1.3.1",
-                    PROTOBUF_REQUIREMENT,
-                ],
-            )
-        else:
-            mlflow.pyfunc.log_model(name="model", python_model=model)
-        model_uri = mlflow.get_artifact_uri("model")
-
-    data = pd.DataFrame({"a": [0]})
-
-    extra_args = ["--env-manager", "local"]
-    if enable_mlserver:
-        extra_args.append("--enable-mlserver")
-
-    scoring_response = pyfunc_serve_and_score_model(
-        model_uri=model_uri,
-        data=data,
-        content_type=pyfunc.scoring_server.CONTENT_TYPE_JSON,
-        extra_args=extra_args,
-    )
-    assert scoring_response.status_code == 200
-    served_model_preds = np.array(json.loads(scoring_response.content)["predictions"])
-    np.testing.assert_array_equal(served_model_preds, model.predict(data, None))
-
-
 def test_mlflow_tracking_disabled_in_artifacts_only_mode(tmp_path: Path):
     port = get_safe_port()
     env = {**os.environ}
@@ -1268,6 +1209,15 @@ def test_mlflow_ui_is_alias_for_mlflow_server():
         mlflow_ui_stdout.replace("Usage: python -m mlflow ui", "Usage: python -m mlflow server")
         == mlflow_server_stdout
     )
+
+
+def test_server_help_has_quickstart():
+    out = subprocess.check_output([sys.executable, "-m", "mlflow", "server", "--help"], text=True)
+    assert "Pick your setup" in out
+    assert "Options by topic:" in out
+    assert "sqlite:///mlflow.db" in out
+    # Curated guidance is rendered before the exhaustive flat option list.
+    assert out.index("Pick your setup") < out.index("\nOptions:")
 
 
 def test_cli_with_python_mod():

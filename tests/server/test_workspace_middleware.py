@@ -114,6 +114,34 @@ def test_fastapi_workspace_middleware_handles_missing_header(monkeypatch):
     assert workspace_context.get_request_workspace() is None
 
 
+def test_fastapi_workspace_middleware_prefers_routed_path(monkeypatch):
+    app, ping_path = _fastapi_workspace_app(monkeypatch)
+    seen: dict[str, str] = {}
+
+    def resolve(path, header):
+        seen["path"] = path
+        return Workspace(name=header)
+
+    monkeypatch.setattr(
+        "mlflow.server.fastapi_app.resolve_workspace_for_request_if_enabled",
+        resolve,
+    )
+
+    client = TestClient(app)
+    resp = client.get(
+        ping_path,
+        headers={
+            WORKSPACE_HEADER_NAME: "team-fast",
+            "Host": "example.com/api/3.0/mlflow/server-info?x=",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() == {"workspace": "team-fast"}
+    assert seen["path"] == ping_path
+    assert workspace_context.get_request_workspace() is None
+
+
 def test_server_info_workspaces_enabled(monkeypatch):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     client = flask_app.test_client()

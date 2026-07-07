@@ -29,6 +29,7 @@ from mlflow.entities import (
     EvaluationDataset,
     Experiment,
     FileInfo,
+    Link,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -108,7 +109,7 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
+from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, TraceMetadataKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.fluent import _flush_pending_async_trace_writes, start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -1127,7 +1128,6 @@ class MlflowClient:
         """
         return self._tracking_client.link_traces_to_run(trace_ids, run_id)
 
-    @experimental(version="3.5.0")
     def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
         """
         Unlink multiple traces from a run by removing entity associations.
@@ -1486,6 +1486,8 @@ class MlflowClient:
         tags: dict[str, str] | None = None,
         experiment_id: str | None = None,
         start_time_ns: int | None = None,
+        run_id: str | None = None,
+        links: list[Link] | None = None,
     ) -> Span:
         """
         Create a new trace object and start a root span under it.
@@ -1514,6 +1516,10 @@ class MlflowClient:
                 ``MLFLOW_EXPERIMENT_NAME`` environment variable, ``MLFLOW_EXPERIMENT_ID``
                 environment variable, or the default experiment as defined by the tracking server.
             start_time_ns: The start time of the trace in nanoseconds since the UNIX epoch.
+            run_id: The ID of the MLflow run to associate with the trace. If provided, the
+                trace will be linked to this run.
+            links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
+                the root span.
 
         Returns:
             An :py:class:`Span <mlflow.entities.Span>` object
@@ -1557,6 +1563,7 @@ class MlflowClient:
                 "and create all traces using `MlflowClient.start_trace()`.",
                 error_code=BAD_REQUEST,
             )
+        metadata = {TraceMetadataKey.SOURCE_RUN: run_id} if run_id is not None else None
 
         return start_span_no_context(
             name=name,
@@ -1564,8 +1571,10 @@ class MlflowClient:
             inputs=inputs,
             attributes=attributes,
             tags=tags,
+            metadata=metadata,
             experiment_id=experiment_id,
             start_time_ns=start_time_ns,
+            links=links,
         )
 
     @deprecated_parameter("request_id", "trace_id", version="3.0.0")
@@ -1649,6 +1658,7 @@ class MlflowClient:
         inputs: Any | None = None,
         attributes: dict[str, Any] | None = None,
         start_time_ns: int | None = None,
+        links: list[Link] | None = None,
     ) -> Span:
         """
         Create a new span and start it without attaching it to the global trace context.
@@ -1724,6 +1734,8 @@ class MlflowClient:
             attributes: A dictionary of attributes to set on the span.
             start_time_ns: The start time of the span in nano seconds since the UNIX epoch.
                 If not provided, the current time will be used.
+            links: A list of :py:class:`Link <mlflow.entities.Link>` objects to associate with
+                the span.
 
         Returns:
             An :py:class:`mlflow.entities.Span` object representing the span.
@@ -1791,6 +1803,7 @@ class MlflowClient:
             inputs=inputs,
             attributes=attributes,
             start_time_ns=start_time_ns,
+            links=links,
         )
 
     @deprecated_parameter("request_id", "trace_id", version="3.0.0")

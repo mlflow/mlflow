@@ -389,6 +389,15 @@ const config: Config = {
             to: '/self-hosting/security/basic-http-auth',
             from: ['/ml/auth'],
           },
+          {
+            to: '/self-hosting#kubernetes',
+            from: [
+              '/ml/deployment/deploy-model-to-kubernetes',
+              '/ml/deployment/deploy-model-to-kubernetes/tutorial',
+              '/deployment/deploy-model-to-kubernetes',
+              '/deployment/deploy-model-to-kubernetes/tutorial',
+            ],
+          },
           // Redirect mlflow 3 pages to migration guide
           {
             to: '/ml/mlflow-3',
@@ -711,7 +720,11 @@ const config: Config = {
           // Evaluation and Monitoring Redirects
           {
             to: '/genai/eval-monitor',
-            from: ['/llms/llm-evaluate'],
+            from: ['/llms/llm-evaluate', '/genai/llm-evaluate'],
+          },
+          {
+            to: '/genai/eval-monitor/scorers',
+            from: ['/genai/llm-evaluate/llm-as-judge', '/llms/llm-evaluate/llm-as-judge'],
           },
           {
             to: '/genai/eval-monitor',
@@ -1021,14 +1034,6 @@ const config: Config = {
           {
             to: '/ml/deployment/deploy-model-locally',
             from: ['/deployment/deploy-model-locally'],
-          },
-          {
-            to: '/ml/deployment/deploy-model-to-kubernetes',
-            from: ['/deployment/deploy-model-to-kubernetes'],
-          },
-          {
-            to: '/ml/deployment/deploy-model-to-kubernetes/tutorial',
-            from: ['/deployment/deploy-model-to-kubernetes/tutorial'],
           },
           {
             to: '/ml/deployment/deploy-model-to-sagemaker',

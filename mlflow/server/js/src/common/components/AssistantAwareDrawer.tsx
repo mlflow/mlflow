@@ -15,6 +15,7 @@ import { createPortal } from 'react-dom';
 import { Global } from '@emotion/react';
 import { Drawer, useDesignSystemTheme } from '@databricks/design-system';
 import { useAssistant } from '../../assistant/AssistantContext';
+import { useRegisterFloatingObstruction } from '../../assistant/useFloatingObstruction';
 
 const ASSISTANT_OPEN_DRAWER_WIDTH = '70vw';
 const MIN_DRAWER_WIDTH = 400;
@@ -89,6 +90,11 @@ function Content({
   useEffect(() => {
     setDrawerWidth(resolveWidthToPixels(isPanelOpen ? ASSISTANT_OPEN_DRAWER_WIDTH : width));
   }, [isPanelOpen, width]);
+
+  // While open on the right, this drawer reserves its width on the right edge so the
+  // floating Assistant button repositions to its left instead of overlapping it. When
+  // the assistant panel is open the drawer flips to the left, leaving the right edge free.
+  useRegisterFloatingObstruction(position === 'right' ? drawerWidth : 0);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {

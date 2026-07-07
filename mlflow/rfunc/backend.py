@@ -24,7 +24,6 @@ class RFuncBackend(FlavorBackend):
         install_java=False,
         install_mlflow=False,
         mlflow_home=None,
-        enable_mlserver=False,
         base_image=None,
     ):
         pass
@@ -36,7 +35,6 @@ class RFuncBackend(FlavorBackend):
         install_java=False,
         install_mlflow=False,
         mlflow_home=None,
-        enable_mlserver=False,
         base_image=None,
     ):
         pass
@@ -77,21 +75,13 @@ class RFuncBackend(FlavorBackend):
         port,
         host,
         timeout,
-        enable_mlserver,
         synchronous=True,
         stdout=None,
         stderr=None,
     ):
         """
         Generate R model locally.
-
-        NOTE: The `enable_mlserver` parameter is there to comply with the
-        FlavorBackend interface but is not supported by MLServer yet.
-        https://github.com/SeldonIO/MLServer/issues/183
         """
-        if enable_mlserver:
-            raise Exception("The MLServer inference server is not yet supported in the R backend.")
-
         if timeout:
             _logger.warning("Timeout is not yet supported in the R backend.")
 

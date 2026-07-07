@@ -29,6 +29,7 @@ import { FormattedMessage } from '@databricks/i18n';
 import { useAssistant } from './AssistantContext';
 import { useAssistantPageContext } from './AssistantPageContext';
 import { AssistantContextTags } from './AssistantContextTags';
+import { ToolPermissionPrompt } from './ToolPermissionPrompt';
 import type { ChatMessage, ToolUseInfo } from './types';
 import { AssistantSetupWizard } from './setup';
 import { useLogTelemetryEvent } from '../telemetry/hooks/useLogTelemetryEvent';
@@ -264,8 +265,19 @@ const PromptSuggestions = ({ onSelect }: { onSelect: (prompt: string) => void })
  */
 const ChatPanelContent = () => {
   const { theme } = useDesignSystemTheme();
-  const { messages, isStreaming, error, activeTools, sendMessage, regenerateLastMessage, cancelSession } =
-    useAssistant();
+  const {
+    messages,
+    isStreaming,
+    error,
+    activeTools,
+    sendMessage,
+    regenerateLastMessage,
+    cancelSession,
+    pendingPrompt,
+    clearPendingPrompt,
+    pendingPermission,
+    respondToPermission,
+  } = useAssistant();
   const logTelemetryEvent = useLogTelemetryEvent();
   const viewId = useMemo(() => uuidv4(), []);
 
@@ -286,6 +298,16 @@ const ChatPanelContent = () => {
       textarea.style.height = `${textarea.scrollHeight}px`;
     }
   }, [inputValue]);
+
+  // Consume a prompt queued by an onboarding card. This component only mounts once setup is
+  // complete, so a prompt queued during the setup wizard lands here on first mount.
+  useEffect(() => {
+    if (pendingPrompt != null) {
+      setInputValue(pendingPrompt);
+      clearPendingPrompt();
+      textareaRef.current?.focus();
+    }
+  }, [pendingPrompt, clearPendingPrompt]);
 
   const handleSend = useCallback(() => {
     if (inputValue.trim() && !isStreaming) {
@@ -368,6 +390,7 @@ const ChatPanelContent = () => {
           flexShrink: 0,
         }}
       >
+        {pendingPermission && <ToolPermissionPrompt request={pendingPermission} onRespond={respondToPermission} />}
         <div
           css={{
             display: 'flex',
@@ -583,7 +606,7 @@ export const AssistantChatPanel = () => {
           <AssistantSetupWizard
             experimentId={experimentId}
             onComplete={handleSetupComplete}
-            initialStep="project"
+            initialStep="provider"
             onBack={handleBackFromSettings}
           />
         );

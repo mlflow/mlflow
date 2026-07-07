@@ -175,10 +175,10 @@ def update_versions(new_py_version: str, helm_app_version: str | None = None) ->
       - a RC version (e.g. "2.1.0rc0")
       - a dev version (e.g. "2.1.0.dev0")
 
-    `helm_app_version` overrides the version written to the Helm chart's
-    `appVersion`. The Helm chart's `appVersion` is used as the default Docker
-    image tag, so it must point to a published release. When omitted, falls
-    back to `new_py_version` (with any dev/rc suffix stripped).
+    `helm_app_version` is the version written to the Helm chart's `appVersion`.
+    The Helm chart's `appVersion` is used as the default Docker image tag, so it
+    must point to a published release. When omitted, the Helm chart is left
+    untouched.
     """
     old_py_version = get_current_py_version()
 
@@ -188,7 +188,8 @@ def update_versions(new_py_version: str, helm_app_version: str | None = None) ->
     replace_java(old_py_version, new_py_version, _JAVA_VERSION_FILES)
     replace_java_pom_xml(old_py_version, new_py_version, _JAVA_POM_XML_FILES)
     replace_r(old_py_version, new_py_version, _R_VERSION_FILES)
-    replace_helm_chart(helm_app_version or new_py_version, _HELM_CHART_FILES)
+    if helm_app_version is not None:
+        replace_helm_chart(helm_app_version, _HELM_CHART_FILES)
 
 
 def validate_new_version(value: str) -> str:

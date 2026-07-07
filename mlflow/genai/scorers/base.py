@@ -4,7 +4,7 @@ import inspect
 import json
 import logging
 from contextvars import ContextVar
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from enum import Enum
 from typing import Any, Callable, ClassVar, Literal, TypeAlias, TypeVar, overload
 
@@ -154,6 +154,34 @@ class SerializedScorer:
                 "present simultaneously"
             )
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "SerializedScorer":
+        """Build a SerializedScorer from a dict, tolerating unknown fields from newer versions.
+
+        Newer mlflow versions sometimes add fields to this dataclass (e.g.
+        ``third_party_scorer_data`` in 3.12). When an older runtime deserializes a payload
+        written by a newer version, raw ``SerializedScorer(**data)`` raises a cryptic
+        ``TypeError: __init__() got an unexpected keyword argument '<field>'``. This
+        wrapper drops the unknown fields and logs a version-aware warning instead, so
+        forward-compatible payloads (additive-only fields) still deserialize.
+        """
+        known_fields = {f.name for f in fields(cls)}
+        if unknown_fields := sorted(set(data) - known_fields):
+            serialized_version = data.get("mlflow_version") or "unknown"
+            scorer_name = data.get("name") or "<unnamed>"
+            _logger.error(
+                "Ignoring unknown field(s) %s while deserializing scorer %r: it was "
+                "serialized with mlflow==%s, but this runtime is on mlflow==%s. "
+                "Upgrade mlflow to >=%s in this environment to pick up these fields.",
+                unknown_fields,
+                scorer_name,
+                serialized_version,
+                mlflow.__version__,
+                serialized_version,
+            )
+            data = {k: v for k, v in data.items() if k in known_fields}
+        return cls(**data)
+
 
 def _record_scorer_call_with_context(func):
     """Wraps a scorer's __call__ method with telemetry, but only for top-level calls.
@@ -196,6 +224,11 @@ class Scorer(BaseModel):
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
     _registered_backend: str | None = PrivateAttr(default=None)
     _experiment_id: str | None = PrivateAttr(default=None)
+    # Predicate deciding whether this scorer's value counts as passing in an
+    # assertion (``EvaluationResult.passed``). In-process only: it is a local
+    # testing concern and is intentionally not serialized. ``None`` falls back to
+    # the default rule (yes/no or bool).
+    _pass_if: Callable[[Any], bool] | None = PrivateAttr(default=None)
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -222,6 +255,16 @@ class Scorer(BaseModel):
         or compute the value dynamically based on their configuration.
         """
         return False
+
+    @property
+    def pass_if(self) -> Callable[[Any], bool] | None:
+        """Predicate deciding whether this scorer's value counts as passing.
+
+        Used by ``EvaluationResult.passed``. ``None`` means
+        the default rule applies (a ``yes``/:class:`~mlflow.genai.judges.CategoricalRating`
+        rating or a ``bool``). Set via ``@scorer(pass_if=...)``.
+        """
+        return self._pass_if
 
     @experimental(version="3.9.0")
     @property
@@ -335,9 +378,8 @@ class Scorer(BaseModel):
             serialized = obj
         # Handle dict object
         elif isinstance(obj, dict):
-            # Parse the serialized data using our dataclass
             try:
-                serialized = SerializedScorer(**obj)
+                serialized = SerializedScorer.from_dict(obj)
             except Exception as e:
                 raise MlflowException.invalid_parameter_value(
                     f"Failed to parse serialized scorer data: {e}"
@@ -1103,6 +1145,7 @@ def scorer(
     name: str | None = None,
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
+    pass_if: Callable[[Any], bool] | None = None,
 ) -> Scorer: ...
 
 
@@ -1113,6 +1156,7 @@ def scorer(
     name: str | None = None,
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
+    pass_if: Callable[[Any], bool] | None = None,
 ) -> Callable[[_F], Scorer]: ...
 
 
@@ -1122,6 +1166,7 @@ def scorer(
     name: str | None = None,
     description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
+    pass_if: Callable[[Any], bool] | None = None,
 ) -> Scorer | Callable[[_F], Scorer]:
     """
     A decorator to define a custom scorer that can be used in ``mlflow.genai.evaluate()``.
@@ -1203,6 +1248,11 @@ def scorer(
             * If a callable, it must take a list of values and return a single value.
 
             By default, "mean" is used as the aggregation function.
+        pass_if: A predicate ``(value) -> bool`` that decides whether the scorer's
+            value counts as passing in ``EvaluationResult.passed``.
+            Use it for scorers whose value is not a ``yes``/``no`` rating or a ``bool``
+            (e.g. a numeric score): ``@scorer(pass_if=lambda v: v >= 0.8)``. When omitted,
+            the default rule applies (a ``yes`` rating or ``True`` passes).
 
     Example:
 
@@ -1286,7 +1336,11 @@ def scorer(
 
     if func is None:
         return functools.partial(
-            scorer, name=name, description=description, aggregations=aggregations
+            scorer,
+            name=name,
+            description=description,
+            aggregations=aggregations,
+            pass_if=pass_if,
         )
 
     func_params = set(inspect.signature(func).parameters.keys())
@@ -1314,6 +1368,7 @@ def scorer(
             # during model initialization, as direct assignment (self._original_func = func) may be
             # ignored or fail in this context
             object.__setattr__(self, "_original_func", func)
+            object.__setattr__(self, "_pass_if", pass_if)
 
         def __call__(self, *args, **kwargs):
             return func(*args, **kwargs)

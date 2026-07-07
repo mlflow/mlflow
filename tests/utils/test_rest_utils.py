@@ -978,6 +978,36 @@ def test_mlflow_host_creds_workspace_id_equality():
     assert hash(creds1) != hash(creds3)
 
 
+def test_oauth_error_when_sdk_enabled(monkeypatch):
+    # When MLFLOW_ENABLE_DB_SDK=true and the SDK failed to initialize, the OAuth error
+    # must acknowledge the env var is set and point at the preceding SDK warning, instead
+    # of telling the user to set an env var they have already set.
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    creds = MlflowHostCreds(
+        "http://my-host",
+        client_id="some-id",
+        client_secret="some-secret",
+    )
+    with pytest.raises(MlflowException, match="SDK is enabled but failed to initialize") as exc:
+        http_request(creds, "/my/endpoint", "GET")
+    msg = str(exc.value)
+    assert "MLFLOW_ENABLE_DB_SDK is currently set to 'True'" in msg
+    assert "Failed to create databricks SDK workspace client" in msg
+
+
+def test_oauth_error_when_sdk_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "false")
+    creds = MlflowHostCreds(
+        "http://my-host",
+        client_id="some-id",
+        client_secret="some-secret",
+    )
+    with pytest.raises(MlflowException, match="Set 'MLFLOW_ENABLE_DB_SDK' to true") as exc:
+        http_request(creds, "/my/endpoint", "GET")
+    msg = str(exc.value)
+    assert "MLFLOW_ENABLE_DB_SDK is currently set to 'False'" in msg
+
+
 @pytest.mark.parametrize(
     ("timeout", "retry_timeout_seconds", "should_warn"),
     [

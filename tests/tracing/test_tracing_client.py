@@ -13,7 +13,12 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.environment_variables import MLFLOW_TRACING_SQL_WAREHOUSE_ID
+from mlflow.environment_variables import (
+    MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS,
+    MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS,
+    MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS,
+    MLFLOW_TRACING_SQL_WAREHOUSE_ID,
+)
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
@@ -42,12 +47,88 @@ def test_get_trace_v4_retry():
     mock_store = Mock()
     mock_store.batch_get_traces.side_effect = [[], ["dummy_trace"]]
 
-    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client.time.sleep"),
+    ):
         client = TracingClient()
         trace = client.get_trace("trace:/catalog.schema/1234567890")
 
     assert trace == "dummy_trace"
     assert mock_store.batch_get_traces.call_count == 2
+
+
+def test_get_trace_v4_retry_timeout_exhausted(monkeypatch):
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS.name, "0")
+    mock_store = Mock()
+    mock_store.batch_get_traces.return_value = []
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        with pytest.raises(MlflowException, match="is not found"):
+            client.get_trace("trace:/catalog.schema/abc")
+
+    assert mock_store.batch_get_traces.call_count == 1
+
+
+def test_get_trace_v4_retry_uses_initial_interval(monkeypatch):
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS.name, "0.25")
+    mock_store = Mock()
+    mock_store.batch_get_traces.side_effect = [[], ["dummy_trace"]]
+
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client.time.sleep") as mock_sleep,
+    ):
+        client = TracingClient()
+        trace = client.get_trace("trace:/catalog.schema/abc")
+
+    assert trace == "dummy_trace"
+    mock_sleep.assert_called_once_with(0.25)
+
+
+def test_get_trace_v4_retry_caps_max_interval(monkeypatch):
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS.name, "60")
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS.name, "1")
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS.name, "3")
+    mock_store = Mock()
+    mock_store.batch_get_traces.side_effect = [[], [], [], [], ["dummy_trace"]]
+
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client.time.sleep") as mock_sleep,
+    ):
+        client = TracingClient()
+        trace = client.get_trace("trace:/catalog.schema/abc")
+
+    assert trace == "dummy_trace"
+    assert [call.args[0] for call in mock_sleep.call_args_list] == [1, 2, 3, 3]
+
+
+def test_get_trace_v4_retry_clamps_sleep_to_deadline(monkeypatch):
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_RETRY_TIMEOUT_SECONDS.name, "5")
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_INITIAL_RETRY_INTERVAL_SECONDS.name, "10")
+    monkeypatch.setenv(MLFLOW_GET_TRACE_OTEL_MAX_RETRY_INTERVAL_SECONDS.name, "20")
+    mock_store = Mock()
+    mock_store.batch_get_traces.return_value = []
+    clock = [1000.0]
+
+    def fake_time():
+        return clock[0]
+
+    def fake_sleep(seconds):
+        clock[0] += seconds
+
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch("mlflow.tracing.client.time.monotonic", side_effect=fake_time),
+        patch("mlflow.tracing.client.time.sleep", side_effect=fake_sleep) as mock_sleep,
+    ):
+        client = TracingClient()
+        with pytest.raises(MlflowException, match="is not found"):
+            client.get_trace("trace:/catalog.schema/abc")
+
+    assert [call.args[0] for call in mock_sleep.call_args_list] == [5]
 
 
 def test_batch_get_traces():

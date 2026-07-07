@@ -10,7 +10,10 @@ from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
 from mlflow.genai.scorers.base import ScorerKind
 from mlflow.genai.scorers.google_adk import (
+    Hallucination,
+    ResponseEvaluation,
     ResponseMatch,
+    Safety,
     ToolTrajectory,
     get_scorer,
 )
@@ -683,3 +686,243 @@ def test_map_scorer_inputs_to_invocation_reads_trace_tool_calls():
     assert actual.intermediate_data is not None
     names = [t.name for t in actual.intermediate_data.tool_uses]
     assert names == ["book_flight"]
+
+
+# ---------------------------------------------------------------------------
+# LLM judge scorer test helpers
+# ---------------------------------------------------------------------------
+
+
+def _mock_llm_evaluator(overall_score):
+    mock_evaluator = Mock()
+    mock_evaluator.evaluate_invocations.return_value = _make_eval_result(overall_score)
+    return mock_evaluator
+
+
+# ---------------------------------------------------------------------------
+# ResponseEvaluation scorer tests (LLM judge, async return)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("score", "expected_value"),
+    [
+        (0.9, CategoricalRating.YES),
+        (0.2, CategoricalRating.NO),
+    ],
+    ids=["pass", "fail"],
+)
+def test_response_evaluation_scorer(score, expected_value):
+    async def async_evaluate(**kwargs):
+        return _make_eval_result(score)
+
+    mock_evaluator = Mock()
+    mock_evaluator.evaluate_invocations = Mock(side_effect=lambda **kw: async_evaluate(**kw))
+
+    with (
+        patch(f"{_PATCH_PREFIX}._create_judge_evaluator", return_value=mock_evaluator),
+        patch(
+            f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
+            return_value=_mock_invocations(),
+        ),
+    ):
+        scorer = ResponseEvaluation(model="gemini-2.5-flash", threshold=0.5)
+        result = scorer(
+            outputs="MLflow is an ML platform.",
+            expectations={"expected_response": "MLflow is an ML lifecycle platform."},
+        )
+
+    assert isinstance(result, Feedback)
+    assert result.name == "ResponseEvaluation"
+    assert result.value == expected_value
+    assert result.metadata["score"] == score
+    assert result.metadata["threshold"] == 0.5
+    assert result.metadata[FRAMEWORK_METADATA_KEY] == "google_adk"
+    assert result.source == AssessmentSource(
+        source_type=AssessmentSourceType.LLM_JUDGE,
+        source_id="gemini-2.5-flash",
+    )
+
+
+def test_response_evaluation_missing_reference():
+    with patch(
+        f"{_PATCH_PREFIX}._create_judge_evaluator",
+        return_value=_mock_llm_evaluator(0.0),
+    ):
+        scorer = ResponseEvaluation()
+        result = scorer(outputs="Some output", expectations=None)
+
+    assert isinstance(result, Feedback)
+    assert result.error is not None
+    assert "expected_response" in str(result.error)
+    assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
+
+
+# ---------------------------------------------------------------------------
+# Safety scorer tests (LLM judge, sync return; ADK ignores model/num_samples)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("score", "expected_value"),
+    [
+        (1.0, CategoricalRating.YES),
+        (0.0, CategoricalRating.NO),
+    ],
+    ids=["safe", "unsafe"],
+)
+def test_safety_scorer(score, expected_value):
+    with (
+        patch(
+            f"{_PATCH_PREFIX}._create_judge_evaluator",
+            return_value=_mock_llm_evaluator(score),
+        ),
+        patch(
+            f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
+            return_value=_mock_invocations(),
+        ),
+    ):
+        scorer = Safety(threshold=0.5)
+        result = scorer(
+            inputs="Tell me about chemistry.",
+            outputs="Chemistry is the study of matter.",
+        )
+
+    assert isinstance(result, Feedback)
+    assert result.name == "Safety"
+    assert result.value == expected_value
+    assert result.metadata["score"] == score
+    assert result.metadata[FRAMEWORK_METADATA_KEY] == "google_adk"
+    # Safety does not expose a judge model, so source_id falls back to the framework prefix.
+    assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert result.source.source_id == "google_adk/Safety"
+
+
+def test_safety_does_not_accept_model_param():
+    # ADK's SafetyEvaluatorV1 ignores judge_model_options. The MLflow wrapper
+    # reflects that by not accepting model/num_samples at all.
+    with patch(f"{_PATCH_PREFIX}._create_judge_evaluator"):
+        with pytest.raises(TypeError, match="model"):
+            Safety(model="gemini-2.5-flash")
+
+
+def test_safety_error_handling():
+    mock_evaluator = Mock()
+    mock_evaluator.evaluate_invocations.side_effect = RuntimeError("Safety check failed")
+
+    with (
+        patch(f"{_PATCH_PREFIX}._create_judge_evaluator", return_value=mock_evaluator),
+        patch(
+            f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
+            return_value=_mock_invocations(),
+        ),
+    ):
+        scorer = Safety()
+        result = scorer(inputs="test", outputs="test")
+
+    assert isinstance(result, Feedback)
+    assert result.error is not None
+    assert "Safety check failed" in str(result.error)
+    assert result.source.source_type == AssessmentSourceType.LLM_JUDGE
+
+
+# ---------------------------------------------------------------------------
+# Hallucination scorer tests (LLM judge, async return)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("score", "expected_value"),
+    [
+        (0.95, CategoricalRating.YES),
+        (0.1, CategoricalRating.NO),
+    ],
+    ids=["grounded", "hallucinated"],
+)
+def test_hallucination_scorer(score, expected_value):
+    async def async_evaluate(**kwargs):
+        return _make_eval_result(score)
+
+    mock_evaluator = Mock()
+    mock_evaluator.evaluate_invocations = Mock(side_effect=lambda **kw: async_evaluate(**kw))
+
+    with (
+        patch(f"{_PATCH_PREFIX}._create_judge_evaluator", return_value=mock_evaluator),
+        patch(
+            f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
+            return_value=_mock_invocations(),
+        ),
+    ):
+        scorer = Hallucination(model="gemini-2.5-flash", threshold=0.5)
+        result = scorer(
+            inputs="What is Python?",
+            outputs="Python is a programming language.",
+        )
+
+    assert isinstance(result, Feedback)
+    assert result.name == "Hallucination"
+    assert result.value == expected_value
+    assert result.metadata["score"] == score
+    assert result.metadata[FRAMEWORK_METADATA_KEY] == "google_adk"
+    assert result.source == AssessmentSource(
+        source_type=AssessmentSourceType.LLM_JUDGE,
+        source_id="gemini-2.5-flash",
+    )
+
+
+def test_hallucination_error_handling():
+    mock_evaluator = Mock()
+    mock_evaluator.evaluate_invocations.side_effect = RuntimeError("Eval failed")
+
+    with (
+        patch(f"{_PATCH_PREFIX}._create_judge_evaluator", return_value=mock_evaluator),
+        patch(
+            f"{_PATCH_PREFIX}.map_scorer_inputs_to_invocation",
+            return_value=_mock_invocations(),
+        ),
+    ):
+        scorer = Hallucination()
+        result = scorer(inputs="test", outputs="test")
+
+    assert isinstance(result, Feedback)
+    assert result.error is not None
+    assert "Eval failed" in str(result.error)
+
+
+# ---------------------------------------------------------------------------
+# LLM judge get_scorer tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("metric_name", "expected_class", "kwargs"),
+    [
+        ("ResponseEvaluation", ResponseEvaluation, {"model": "gemini-2.5-flash", "threshold": 0.7}),
+        ("Safety", Safety, {"threshold": 0.7}),
+        ("Hallucination", Hallucination, {"model": "gemini-2.5-flash", "threshold": 0.7}),
+    ],
+)
+def test_get_scorer_llm_judges(metric_name, expected_class, kwargs):
+    with patch(f"{_PATCH_PREFIX}._create_judge_evaluator"):
+        scorer = get_scorer(metric_name, **kwargs)
+    assert isinstance(scorer, expected_class)
+
+
+def test_llm_judge_model_attribute():
+    with patch(f"{_PATCH_PREFIX}._create_judge_evaluator"):
+        scorer = Hallucination(model="gemini-2.5-pro")
+    assert scorer._model == "gemini-2.5-pro"
+
+
+def test_llm_judge_default_model_and_samples():
+    with patch(f"{_PATCH_PREFIX}._create_judge_evaluator") as mock_create:
+        from google.adk.evaluation.hallucinations_v1 import HallucinationsV1Evaluator
+
+        Hallucination()
+        mock_create.assert_called_once_with(
+            HallucinationsV1Evaluator,
+            "hallucinations_v1",
+            0.5,
+            judge_model="gemini-2.5-flash",
+            num_samples=5,
+        )

@@ -12,6 +12,8 @@ import { FormattedMessage } from 'react-intl';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { TryItPanel } from '../endpoints/TryItPanel';
+import type { CodingAgentType } from '../../types';
+import { CODING_AGENT_LABELS } from '../../hooks/useCreateEndpointForm';
 
 const UNIFIED_COMMENT =
   '# Unified OpenAI compatible API for model invocations. Set the endpoint name as the model parameter.';
@@ -195,6 +197,108 @@ const getDefaultBody = (endpointName: string, variant: ApiVariant): string => {
     case 'gemini-generate':
       return JSON.stringify({ contents: [{ parts: [{ text: 'How are you?' }] }] }, null, 2);
   }
+};
+
+const getCodingAgentSnippets = (
+  base: string,
+  endpointName: string,
+  agent: CodingAgentType,
+): { bash: string; description: string } => {
+  switch (agent) {
+    case 'claude-code':
+      return {
+        description: 'Set the environment variable below, then run `claude` as usual.',
+        bash: `export ANTHROPIC_BASE_URL="${base}/gateway/proxy/${endpointName}"
+
+claude`,
+      };
+    case 'codex':
+      return {
+        description: 'Pass the gateway URL as the base URL when running Codex.',
+        bash: `codex --config 'openai_base_url="${base}/gateway/proxy/${endpointName}/v1"'`,
+      };
+    case 'gemini-cli':
+      return {
+        description: 'Set the environment variable below, then run `gemini` as usual.',
+        bash: `export GOOGLE_GEMINI_BASE_URL="${base}/gateway/proxy/${endpointName}"
+
+gemini`,
+      };
+  }
+};
+
+interface CodingAgentStarterCardProps {
+  endpointName: string;
+  codingAgent: CodingAgentType;
+}
+
+export const CodingAgentStarterCard = ({ endpointName, codingAgent }: CodingAgentStarterCardProps) => {
+  const { theme } = useDesignSystemTheme();
+  const base = useMemo(() => getBaseUrl(), []);
+  const { bash, description } = useMemo(
+    () => getCodingAgentSnippets(base, endpointName, codingAgent),
+    [base, endpointName, codingAgent],
+  );
+
+  return (
+    <div
+      css={{
+        padding: theme.spacing.md,
+        border: `1px solid ${theme.colors.border}`,
+        borderRadius: theme.borders.borderRadiusMd,
+        backgroundColor: theme.colors.backgroundSecondary,
+      }}
+    >
+      <Typography.Title level={3} css={{ margin: 0, marginBottom: theme.spacing.sm }}>
+        <FormattedMessage
+          defaultMessage="View starter code"
+          description="Title for coding agent starter code card on endpoint overview"
+        />
+      </Typography.Title>
+      <Typography.Text color="secondary" css={{ display: 'block', marginBottom: theme.spacing.md }}>
+        {description}
+      </Typography.Text>
+      <div
+        css={{
+          border: `1px solid ${theme.colors.borderDecorative}`,
+          borderRadius: theme.borders.borderRadiusMd,
+          backgroundColor: theme.colors.backgroundPrimary,
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          css={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+            borderBottom: `1px solid ${theme.colors.borderDecorative}`,
+          }}
+        >
+          <Typography.Text bold css={{ fontSize: theme.typography.fontSizeSm }}>
+            {CODING_AGENT_LABELS[codingAgent]}
+          </Typography.Text>
+          <CopyButton
+            componentId="mlflow.gateway.edit-endpoint.coding-agent-starter-code.copy"
+            copyText={bash}
+            icon={<CopyIcon />}
+            showLabel={false}
+          />
+        </div>
+        <CodeSnippet
+          language="text"
+          theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
+          style={{
+            fontSize: theme.typography.fontSizeSm,
+            padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+            margin: 0,
+          }}
+        >
+          {bash}
+        </CodeSnippet>
+      </div>
+    </div>
+  );
 };
 
 interface StarterCodeCardProps {

@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+import mlflow.telemetry.utils
 from mlflow.telemetry.constant import (
     CONFIG_STAGING_URL,
     CONFIG_URL,
@@ -89,6 +90,14 @@ def test_is_telemetry_disabled(monkeypatch, bypass_env_check):
     with monkeypatch.context() as m:
         m.setenv("DO_NOT_TRACK", "true")
         assert is_telemetry_disabled() is True
+
+
+def test_is_telemetry_disabled_does_not_disable_in_databricks(monkeypatch, bypass_env_check):
+    # Running inside DBR / model serving must not disable telemetry — events
+    # are routed to the workspace via _forward_to_databricks. The OSS branch
+    # is independently gated inside TelemetryClient._process_records.
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_IN_DATABRICKS", True)
+    assert is_telemetry_disabled() is False
 
 
 def test_get_config_url(bypass_env_check):

@@ -15,7 +15,13 @@ from mlflow.gateway.providers.base import (
     ProviderAdapter,
     _client_provides_auth,
 )
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
+from mlflow.gateway.providers.utils import (
+    proxy_root_url,
+    rename_payload_keys,
+    send_proxy_request,
+    send_request,
+    send_stream_request,
+)
 from mlflow.gateway.schemas import chat, completions
 from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
@@ -200,7 +206,8 @@ class AnthropicAdapter(ProviderAdapter):
         # Transform response_format for Anthropic structured outputs
         # Anthropic uses output_config.format with {"type": "json_schema", "schema": {...}}
         if response_format := payload.pop("response_format", None):
-            if response_format.get("type") == "json_schema" and "json_schema" in response_format:
+            response_format_type = response_format.get("type")
+            if response_format_type == "json_schema" and "json_schema" in response_format:
                 json_schema = response_format["json_schema"]
                 schema = json_schema.get("schema", {})
                 try:
@@ -220,6 +227,18 @@ class AnthropicAdapter(ProviderAdapter):
                             "schema": schema,
                         }
                     }
+            elif response_format_type == "json_object":
+                # Anthropic has no schema-less JSON mode (its output_config.format
+                # requires a schema), so steer the model to emit JSON via a system
+                # instruction. This is best-effort rather than a hard constraint.
+                json_instruction = (
+                    "Respond with only a single valid JSON object. Do not include any "
+                    "explanatory text, markdown, or code fences before or after the JSON object."
+                )
+                if existing_system := payload.get("system"):
+                    payload["system"] = f"{existing_system}\n{json_instruction}"
+                else:
+                    payload["system"] = json_instruction
 
         return payload
 
@@ -718,6 +737,22 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                     usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
         # Anthropic's input_tokens excludes cache tokens; normalize to include them.
         return _normalize_anthropic_input_tokens(usage) or usage
+
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        gen = send_proxy_request(
+            self._get_headers(payload, headers), proxy_root_url(self.base_url), path, payload
+        )
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
 
     async def _passthrough(
         self,

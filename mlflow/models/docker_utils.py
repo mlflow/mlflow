@@ -54,7 +54,6 @@ WORKDIR /opt/mlflow
 {install_model_and_deps}
 
 ENV MLFLOW_DISABLE_ENV_CREATION={disable_env_creation}
-ENV ENABLE_MLSERVER={enable_mlserver}
 
 # granting read/write access and conditional execution authority to all child directories
 # and files to allow for deployment to AWS Sagemaker Serverless Endpoints
@@ -85,7 +84,6 @@ def generate_dockerfile(
     entrypoint: str,
     env_manager: Literal["conda", "local", "virtualenv"] = em.CONDA,
     mlflow_home: str | None = None,
-    enable_mlserver: bool = False,
     disable_env_creation_at_runtime: bool = True,
     install_java: bool | None = None,
 ):
@@ -132,7 +130,6 @@ def generate_dockerfile(
                 install_mlflow=install_mlflow_steps,
                 install_model_and_deps=model_install_steps,
                 entrypoint=entrypoint,
-                enable_mlserver=enable_mlserver,
                 disable_env_creation=disable_env_creation_at_runtime,
             )
         )

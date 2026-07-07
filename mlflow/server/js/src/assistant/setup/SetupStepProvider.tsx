@@ -1,14 +1,12 @@
-/**
- * Step 1: Provider selection for MLflow Assistant setup.
- */
-
 import { useState } from 'react';
 import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import { toRGBA } from '@mlflow/mlflow/src/common/utils/toRGBA';
 import AnthropicLogo from '@mlflow/mlflow/src/common/static/logos/anthropic.svg';
-import GeminiLogo from '@mlflow/mlflow/src/common/static/logos/gemini.png';
 import OpenAiLogo from '@mlflow/mlflow/src/common/static/logos/openai.svg';
+import GeminiLogo from '@mlflow/mlflow/src/common/static/logos/gemini.png';
+import MLflowGatewayLogo from '@mlflow/mlflow/src/common/static/logos/mlflow-gateway.svg';
+import OllamaLogo from '@mlflow/mlflow/src/common/static/logos/ollama.png';
 
 interface Provider {
   id: string;
@@ -26,9 +24,31 @@ const PROVIDERS: Provider[] = [
     logo: AnthropicLogo,
     available: true,
   },
+  {
+    id: 'mlflow_gateway',
+    name: 'MLflow AI Gateway',
+    description: 'AI assistant backed by an MLflow AI Gateway deployment. Routes to any configured chat endpoint.',
+    logo: MLflowGatewayLogo,
+    available: true,
+  },
+  {
+    id: 'ollama',
+    name: 'Ollama',
+    description: 'AI assistant using a locally running Ollama server. Requires Ollama installed and running.',
+    logo: OllamaLogo,
+    available: true,
+  },
+  {
+    id: 'codex',
+    name: 'OpenAI Codex',
+    description:
+      'AI assistant powered by OpenAI via the Codex CLI. Requires the codex CLI to be installed and authenticated.',
+    logo: OpenAiLogo,
+    available: true,
+  },
 ];
 
-const COMING_SOON_LOGOS = [OpenAiLogo, GeminiLogo];
+const COMING_SOON_LOGOS = [GeminiLogo];
 
 interface SetupStepProviderProps {
   selectedProvider: string;

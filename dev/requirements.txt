@@ -6,3 +6,4 @@ pydantic
 pyyaml
 toml
 ./dev/pypi
+./dev/flavors

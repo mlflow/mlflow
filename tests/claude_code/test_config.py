@@ -69,7 +69,7 @@ def test_get_env_var_from_os_environment_when_no_settings(tmp_path, monkeypatch)
     assert result == "test_os_value"
 
 
-def test_get_env_var_settings_takes_precedence_over_os_env(tmp_path, monkeypatch):
+def test_get_env_var_os_env_takes_precedence_over_settings(tmp_path, monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACING_ENABLED, "os_value")
 
     config_data = {"env": {MLFLOW_TRACING_ENABLED: "settings_value"}}
@@ -80,7 +80,7 @@ def test_get_env_var_settings_takes_precedence_over_os_env(tmp_path, monkeypatch
 
     monkeypatch.chdir(tmp_path)
     result = get_env_var(MLFLOW_TRACING_ENABLED, "default")
-    assert result == "settings_value"
+    assert result == "os_value"
 
 
 def test_get_env_var_falls_back_to_os_env_when_not_in_settings(tmp_path, monkeypatch):
@@ -95,6 +95,108 @@ def test_get_env_var_falls_back_to_os_env_when_not_in_settings(tmp_path, monkeyp
     monkeypatch.chdir(tmp_path)
     result = get_env_var(MLFLOW_TRACING_ENABLED, "default")
     assert result == "os_value"
+
+
+def test_get_env_var_from_settings_local_json(tmp_path, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACING_ENABLED, raising=False)
+
+    config_data = {"env": {MLFLOW_TRACING_ENABLED: "local_value"}}
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True, exist_ok=True)
+    with open(claude_dir / "settings.local.json", "w") as f:
+        json.dump(config_data, f)
+
+    monkeypatch.chdir(tmp_path)
+    result = get_env_var(MLFLOW_TRACING_ENABLED, "default")
+    assert result == "local_value"
+
+
+def test_get_env_var_settings_local_overrides_settings(tmp_path, monkeypatch):
+    monkeypatch.delenv(MLFLOW_TRACING_ENABLED, raising=False)
+
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(claude_dir / "settings.json", "w") as f:
+        json.dump({"env": {MLFLOW_TRACING_ENABLED: "shared_value"}}, f)
+    with open(claude_dir / "settings.local.json", "w") as f:
+        json.dump({"env": {MLFLOW_TRACING_ENABLED: "local_value"}}, f)
+
+    monkeypatch.chdir(tmp_path)
+    result = get_env_var(MLFLOW_TRACING_ENABLED, "default")
+    assert result == "local_value"
+
+
+def test_get_env_var_falls_through_local_to_settings(tmp_path, monkeypatch):
+    monkeypatch.delenv("MLFLOW_TRACKING_URI", raising=False)
+
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True, exist_ok=True)
+
+    # local has ENABLED, shared has URI
+    with open(claude_dir / "settings.local.json", "w") as f:
+        json.dump({"env": {MLFLOW_TRACING_ENABLED: "true"}}, f)
+    with open(claude_dir / "settings.json", "w") as f:
+        json.dump({"env": {"MLFLOW_TRACKING_URI": "https://example.com"}}, f)
+
+    monkeypatch.chdir(tmp_path)
+    assert get_env_var(MLFLOW_TRACING_ENABLED, "default") == "true"
+    assert get_env_var("MLFLOW_TRACKING_URI", "default") == "https://example.com"
+
+
+def test_get_env_var_os_env_takes_precedence_over_local(tmp_path, monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACING_ENABLED, "os_value")
+
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True, exist_ok=True)
+    with open(claude_dir / "settings.local.json", "w") as f:
+        json.dump({"env": {MLFLOW_TRACING_ENABLED: "local_value"}}, f)
+
+    monkeypatch.chdir(tmp_path)
+    result = get_env_var(MLFLOW_TRACING_ENABLED, "default")
+    assert result == "os_value"
+
+
+def test_get_tracing_status_merges_local_and_shared(tmp_path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True, exist_ok=True)
+    settings_path = claude_dir / "settings.json"
+
+    # URI in shared, ENABLED in local
+    with open(settings_path, "w") as f:
+        json.dump({"env": {"MLFLOW_TRACKING_URI": "https://example.com"}}, f)
+    with open(claude_dir / "settings.local.json", "w") as f:
+        json.dump({"env": {MLFLOW_TRACING_ENABLED: "true"}}, f)
+
+    status = get_tracing_status(settings_path)
+    assert status.enabled is True
+    assert status.tracking_uri == "https://example.com"
+
+
+def test_get_tracing_status_local_overrides_shared(tmp_path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True, exist_ok=True)
+    settings_path = claude_dir / "settings.json"
+
+    with open(settings_path, "w") as f:
+        json.dump({"env": {MLFLOW_TRACING_ENABLED: "true"}}, f)
+    with open(claude_dir / "settings.local.json", "w") as f:
+        json.dump({"env": {MLFLOW_TRACING_ENABLED: "false"}}, f)
+
+    status = get_tracing_status(settings_path)
+    assert status.enabled is False
+
+
+def test_get_tracing_status_from_local_only(tmp_path):
+    claude_dir = tmp_path / ".claude"
+    claude_dir.mkdir(parents=True, exist_ok=True)
+    settings_path = claude_dir / "settings.json"
+
+    with open(claude_dir / "settings.local.json", "w") as f:
+        json.dump({"env": {MLFLOW_TRACING_ENABLED: "true"}}, f)
+
+    status = get_tracing_status(settings_path)
+    assert status.enabled is True
 
 
 def test_get_env_var_default_when_not_found(tmp_path, monkeypatch):

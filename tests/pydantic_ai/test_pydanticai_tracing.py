@@ -1,4 +1,6 @@
 import importlib.metadata
+import sys
+import types
 from unittest.mock import patch
 
 import pytest
@@ -10,6 +12,7 @@ from pydantic_ai.usage import Usage
 import mlflow
 import mlflow.pydantic_ai  # ensure the integration module is importable
 from mlflow.entities import SpanLogLevel, SpanType
+from mlflow.pydantic_ai import _get_tool_manager_module_path, _tool_manager_uses_execute_tool_call
 from mlflow.pydantic_ai.autolog import (
     _get_agent_attributes,
     _get_mcp_server_attributes,
@@ -462,3 +465,88 @@ def test_autolog_does_not_capture_client_references(simple_agent):
             assert "provider" not in key.lower()
             assert "_state" not in key.lower()
             assert "httpx" not in key.lower()
+
+
+# ---------------------------------------------------------------------------
+# Tests for _get_tool_manager_module_path and _tool_manager_uses_execute_tool_call
+# (covers both the public path introduced in pydantic-ai >= 1.78.0 and the
+#  legacy private path used by older versions)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("public_available", "expected_path"),
+    [
+        (True, "pydantic_ai.tool_manager"),
+        (False, "pydantic_ai._tool_manager"),
+    ],
+)
+def test_get_tool_manager_module_path(public_available, expected_path):
+    if public_available:
+        fake_module = types.ModuleType("pydantic_ai.tool_manager")
+        modules_override = {"pydantic_ai.tool_manager": fake_module}
+    else:
+        # Setting to None causes import to raise ImportError
+        modules_override = {"pydantic_ai.tool_manager": None}
+
+    with patch.dict(sys.modules, modules_override):
+        result = _get_tool_manager_module_path()
+
+    assert result == expected_path
+
+
+@pytest.mark.parametrize(
+    ("public_available", "has_execute_tool_call", "expected"),
+    [
+        (True, True, True),
+        (True, False, False),
+        (False, True, True),
+        (False, False, False),
+    ],
+)
+def test_tool_manager_uses_execute_tool_call(public_available, has_execute_tool_call, expected):
+    resolved_path = "pydantic_ai.tool_manager" if public_available else "pydantic_ai._tool_manager"
+
+    if has_execute_tool_call:
+
+        class FakeToolManager:
+            def execute_tool_call(self):
+                pass
+
+    else:
+
+        class FakeToolManager:
+            pass
+
+    fake_module = types.ModuleType(resolved_path)
+    fake_module.ToolManager = FakeToolManager
+
+    with (
+        patch("mlflow.pydantic_ai._get_tool_manager_module_path", return_value=resolved_path),
+        patch.dict(sys.modules, {resolved_path: fake_module}),
+    ):
+        result = _tool_manager_uses_execute_tool_call()
+
+    assert result is expected
+
+
+def test_autolog_uses_public_tool_manager_path_on_new_pydantic_ai():
+    with (
+        patch(
+            "mlflow.pydantic_ai._get_tool_manager_module_path",
+            return_value="pydantic_ai.tool_manager",
+        ),
+        patch("mlflow.pydantic_ai._tool_manager_uses_execute_tool_call", return_value=True),
+    ):
+        mlflow.pydantic_ai.autolog(log_traces=True)
+
+
+def test_autolog_uses_private_tool_manager_path_on_old_pydantic_ai():
+    with (
+        patch(
+            "mlflow.pydantic_ai._get_tool_manager_module_path",
+            return_value="pydantic_ai._tool_manager",
+        ),
+        patch("mlflow.pydantic_ai._tool_manager_uses_execute_tool_call", return_value=True),
+    ):
+        mlflow.pydantic_ai.autolog(log_traces=True)

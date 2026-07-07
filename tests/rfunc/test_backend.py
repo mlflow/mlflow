@@ -39,7 +39,6 @@ def test_serve_escapes_malicious_host():
             port=5000,
             host=malicious_host,
             timeout=None,
-            enable_mlserver=False,
         )
 
     mock_download.assert_called_once_with("models:/foo/1")
@@ -72,7 +71,6 @@ def test_serve_benign_host():
             port=5000,
             host="127.0.0.1",
             timeout=None,
-            enable_mlserver=False,
         )
 
     mock_execute.assert_called_once_with(

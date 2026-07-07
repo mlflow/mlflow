@@ -227,6 +227,7 @@ export const useMlflowTracesTableMetadata = ({
   disabled,
   networkFilters,
   filterByAssessmentSourceRun = false,
+  showConsolidatedResultColumn = false,
 }: {
   locations: ModelTraceSearchLocation[];
   runUuid?: string;
@@ -253,6 +254,11 @@ export const useMlflowTracesTableMetadata = ({
    * Defaults to false for other tabs (traces, labeling, etc.).
    */
   filterByAssessmentSourceRun?: boolean;
+  /**
+   * If true, adds a synthetic per-trace "Result" assessment (pass iff all the
+   * trace's assertions pass) used by the regression-test view.
+   */
+  showConsolidatedResultColumn?: boolean;
 }) => {
   const intl = useIntl();
   const filter = createMlflowSearchFilter(runUuid, timeRange, networkFilters, filterByLoggedModelId);
@@ -300,16 +306,20 @@ export const useMlflowTracesTableMetadata = ({
     if (!filteredTraces || isInnerLoading || error || !filteredTraces.length) {
       return [];
     }
-    return filteredTraces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace));
-  }, [filteredTraces, isInnerLoading, error]);
+    return filteredTraces.map((trace) =>
+      convertTraceInfoV3ToRunEvalEntry(trace, { synthesizeResult: showConsolidatedResultColumn }),
+    );
+  }, [filteredTraces, isInnerLoading, error, showConsolidatedResultColumn]);
 
   const otherEvaluatedTraces = useMemo(() => {
     const isOtherLoading = isOtherInnerLoading && Boolean(otherRunUuid);
     if (!filteredOtherTraces || isOtherLoading || otherError || !filteredOtherTraces.length) {
       return [];
     }
-    return filteredOtherTraces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace));
-  }, [filteredOtherTraces, isOtherInnerLoading, otherError, otherRunUuid]);
+    return filteredOtherTraces.map((trace) =>
+      convertTraceInfoV3ToRunEvalEntry(trace, { synthesizeResult: showConsolidatedResultColumn }),
+    );
+  }, [filteredOtherTraces, isOtherInnerLoading, otherError, otherRunUuid, showConsolidatedResultColumn]);
 
   const assessmentInfos = useMemo(() => {
     return getAssessmentInfos(intl, evaluatedTraces || [], otherEvaluatedTraces || []);
@@ -409,15 +419,9 @@ const getNetworkAndClientFilters = (
       // Assessment filters with undefined or 'Error' value must always be filtered client-side
       // because the backend cannot query for absence of an assessment or error state.
       // Note: filter.value is already converted from string 'undefined' to actual undefined by useFilters
-      //
-      // All numeric assessment filters are handled client-side because the backend
-      // does not yet support numeric assessment comparisons.
-      const isNumericValue =
-        typeof filter.value === 'number' ||
-        (typeof filter.value === 'string' && !isNaN(Number(filter.value)) && filter.value.trim() !== '');
       const isClientOnlyAssessmentFilter =
         filter.column === TracesTableColumnGroup.ASSESSMENT &&
-        (filter.value === undefined || filter.value === ERROR_KEY || isNumericValue);
+        (filter.value === undefined || filter.value === ERROR_KEY);
 
       if (isClientOnlyAssessmentFilter) {
         acc.clientFilters.push(filter);
@@ -448,6 +452,7 @@ export const useSearchMlflowTraces = ({
   sqlWarehouseId,
   filterByAssessmentSourceRun = false,
   enablePagination = true,
+  refetchInterval,
 }: {
   locations: ModelTraceSearchLocation[];
   runUuid?: string | null;
@@ -485,6 +490,11 @@ export const useSearchMlflowTraces = ({
    * to join on inputs.
    */
   enablePagination?: boolean;
+  /**
+   * Optional React Query refetch interval (ms). When set, the underlying query
+   * is polled at this interval. Pass `false` to disable polling.
+   */
+  refetchInterval?: number | false;
 }): {
   data: ModelTraceInfoV3[] | undefined;
   isLoading: boolean;
@@ -540,6 +550,7 @@ export const useSearchMlflowTraces = ({
     loggedModelId,
     sqlWarehouseId,
     enablePagination,
+    refetchInterval,
   });
 
   // Merge the trace ID lookup result with the search results. If the lookup found a trace,
@@ -719,6 +730,7 @@ interface UseSearchMlflowTracesInnerParams {
   sqlWarehouseId?: string;
   enabled?: boolean;
   enablePagination?: boolean;
+  refetchInterval?: number | false;
 }
 
 interface UseSearchMlflowTracesInnerResult {
@@ -766,6 +778,7 @@ const useSearchMlflowTracesInfinite = ({
   loggedModelId,
   sqlWarehouseId,
   enabled = true,
+  refetchInterval,
 }: Omit<UseSearchMlflowTracesInnerParams, 'limit' | 'pageSize'>): UseSearchMlflowTracesInnerResult => {
   const { data, isLoading, isFetching, isFetchingNextPage, fetchNextPage, hasNextPage, refetch, error } =
     useInfiniteQuery<SearchMlflowTracesResponse, NetworkRequestError>({
@@ -774,6 +787,7 @@ const useSearchMlflowTracesInfinite = ({
       staleTime: Infinity,
       cacheTime: Infinity,
       enabled,
+      refetchInterval,
       queryKey: [
         SEARCH_MLFLOW_TRACES_QUERY_KEY,
         'infinite',
@@ -843,6 +857,7 @@ const useSearchMlflowTracesInner = ({
   sqlWarehouseId,
   enabled = true,
   enablePagination = true,
+  refetchInterval,
 }: UseSearchMlflowTracesInnerParams): UseSearchMlflowTracesInnerResult => {
   const usingV4APIs = locations?.some(isV4TraceLocation) && shouldUseTracesV4API();
   const usingLongRunningAPI = usingV4APIs && shouldUseLongRunningTracesAPI();
@@ -860,12 +875,14 @@ const useSearchMlflowTracesInner = ({
     loggedModelId,
     sqlWarehouseId,
     enabled: enabled && usingInfinitePagination,
+    refetchInterval,
   });
 
   // Standard synchronous search (only active when not using long-running API or infinite pagination)
   const syncResult = useQuery<ModelTraceInfoV3[], NetworkRequestError>({
     ...queryCacheConfig,
     enabled: enabled && !usingLongRunningAPI && !usingInfinitePagination,
+    refetchInterval,
     queryKey: [
       SEARCH_MLFLOW_TRACES_QUERY_KEY,
       {
@@ -895,6 +912,30 @@ const useSearchMlflowTracesInner = ({
   }
 
   return syncResult;
+};
+
+const NUMERIC_ASSESSMENT_OPERATORS = new Set<FilterOperator>([
+  FilterOperator.GREATER_THAN,
+  FilterOperator.GREATER_THAN_OR_EQUALS,
+  FilterOperator.LESS_THAN,
+  FilterOperator.LESS_THAN_OR_EQUALS,
+]);
+
+const isNumericAssessmentOperator = (operator: TableFilter['operator']) =>
+  NUMERIC_ASSESSMENT_OPERATORS.has(operator as FilterOperator);
+
+const isValidNumericFilterValue = (value: TableFilter['value']) => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value);
+  }
+  return typeof value === 'string' && value.trim() !== '' && Number.isFinite(Number(value));
+};
+
+const serializeAssessmentFilterValue = (operator: TableFilter['operator'], value: TableFilter['value']) => {
+  if (isNumericAssessmentOperator(operator)) {
+    return isValidNumericFilterValue(value) ? String(Number(value)) : undefined;
+  }
+  return `'${value}'`;
 };
 
 export const createMlflowSearchFilter = (
@@ -1002,11 +1043,17 @@ export const createMlflowSearchFilter = (
           } else if (networkFilter.value !== 'undefined') {
             // Skip 'undefined' values - these must be filtered client-side since they represent
             // absence of an assessment, which cannot be queried on the backend
-            filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
+            const serializedValue = serializeAssessmentFilterValue(networkFilter.operator, networkFilter.value);
+            if (serializedValue !== undefined) {
+              filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator} ${serializedValue}`);
+            }
           }
           break;
         case TracesTableColumnGroup.EXPECTATION:
-          filter.push(`expectation.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
+          const serializedValue = serializeAssessmentFilterValue(networkFilter.operator, networkFilter.value);
+          if (serializedValue !== undefined) {
+            filter.push(`expectation.\`${networkFilter.key}\` ${networkFilter.operator} ${serializedValue}`);
+          }
           break;
         case SPAN_NAME_COLUMN_ID:
           if (networkFilter.operator === '=') {
