@@ -1,3 +1,4 @@
+import logging
 import posixpath
 
 from mlflow.entities import FileInfo
@@ -6,8 +7,10 @@ from mlflow.environment_variables import (
 )
 from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
 
+_logger = logging.getLogger(__name__)
 
-def _get_databricks_workspace_client(registry_uri=None):
+
+def _get_databricks_workspace_client(registry_uri: str | None = None):
     from databricks.sdk import WorkspaceClient
 
     from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -20,8 +23,14 @@ def _get_databricks_workspace_client(registry_uri=None):
     try:
         creds = get_databricks_host_creds(registry_uri)
     except Exception:
+        _logger.debug(
+            "Failed to resolve Databricks host credentials for registry URI %r; "
+            "falling back to default auth.",
+            registry_uri,
+            exc_info=True,
+        )
         creds = None
-    if creds and creds.host and getattr(creds, "token", None):
+    if creds and creds.host and creds.token:
         return WorkspaceClient(host=creds.host, token=creds.token)
     return WorkspaceClient()
 
