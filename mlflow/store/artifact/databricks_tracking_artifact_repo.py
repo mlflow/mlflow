@@ -85,6 +85,11 @@ class DatabricksTrackingArtifactRepository(ArtifactRepository, ABC):
             )
             return self.databricks_artifact_repo.list_artifacts(path)
 
+    def download_trace_attachment_to_file(self, path, dst_path):
+        # Bypass the SDK repo — attachment operations require path-scoped credentials
+        # which are only supported by DatabricksArtifactRepository.get_credentials.
+        return self.databricks_artifact_repo.download_trace_attachment_to_file(path, dst_path)
+
     def download_trace_attachment(self, path: str) -> bytes:
         # Bypass the SDK repo — attachment operations require path-scoped credentials
         # which are only supported by DatabricksArtifactRepository.get_credentials.

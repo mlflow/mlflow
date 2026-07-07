@@ -252,20 +252,24 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         ]
         return self._get_credential_infos(_CredentialType.WRITE, relative_remote_paths)
 
-    def download_trace_data(self) -> dict[str, Any]:
+    def download_trace_data_to_file(self, dst_path):
         [cred], _ = self.resource.get_credentials(cred_type=_CredentialType.READ)
         signed_uri = cred.signed_uri
         headers = self._extract_headers_from_credentials(cred.headers)
-        with cloud_storage_http_request("get", signed_uri, headers=headers) as resp:
-            try:
-                augmented_raise_for_status(resp)
-            except requests.HTTPError as e:
-                if e.response.status_code == 404:
-                    raise MlflowTraceDataNotFound(request_id=self.resource.id) from e
-                raise
+        try:
+            download_file_using_http_uri(signed_uri, str(dst_path), headers=headers)
+        except Exception as e:
+            if isinstance(e, requests.HTTPError) and e.response.status_code == 404:
+                raise MlflowTraceDataNotFound(request_id=self.resource.id) from e
+            raise
+        return dst_path
 
+    def download_trace_data(self) -> dict[str, Any]:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dst = Path(temp_dir, "traces.json")
+            self.download_trace_data_to_file(dst)
             try:
-                return json.loads(resp.content)
+                return json.loads(dst.read_text(encoding="utf-8"))
             except json.JSONDecodeError as e:
                 raise MlflowTraceDataCorrupted(request_id=self.resource.id) from e
 
@@ -323,7 +327,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
         return cred
 
-    def download_trace_attachment(self, path: str) -> bytes:
+    def download_trace_attachment_to_file(self, path, dst_path):
         _validate_attachment_path(path)
         artifact_path = posixpath.join("attachments", path)
         [cred], _ = self.resource.get_credentials(
@@ -331,17 +335,23 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             artifact_path=artifact_path,
         )
         headers = self._extract_headers_from_credentials(cred.headers)
-        with cloud_storage_http_request("get", cred.signed_uri, headers=headers) as resp:
-            try:
-                augmented_raise_for_status(resp)
-            except requests.HTTPError as e:
-                if e.response.status_code == 404:
-                    raise MlflowException(
-                        f"Attachment '{path}' not found.",
-                        error_code=RESOURCE_DOES_NOT_EXIST,
-                    ) from e
-                raise
-            return resp.content
+        try:
+            download_file_using_http_uri(cred.signed_uri, str(dst_path), headers=headers)
+        except requests.HTTPError as e:
+            if e.response.status_code == 404:
+                raise MlflowException(
+                    f"Attachment '{path}' not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                ) from e
+            raise
+        return dst_path
+
+    def download_trace_attachment(self, path: str) -> bytes:
+        _validate_attachment_path(path)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dst = Path(temp_dir, path)
+            self.download_trace_attachment_to_file(path, dst)
+            return dst.read_bytes()
 
     def upload_attachment(self, attachment_id: str, content_bytes: bytes) -> None:
         _validate_attachment_path(attachment_id)

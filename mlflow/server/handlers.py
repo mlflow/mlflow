@@ -320,6 +320,7 @@ from mlflow.store.artifact.artifact_repo import (
     MultipartUploadMixin,
     PresignedUploadMixin,
     StreamUploadMixin,
+    _validate_attachment_path,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -4239,6 +4240,7 @@ def get_trace_artifact_handler() -> Response:
 
     if path:
         path = validate_path_is_safe(path)
+        _validate_attachment_path(path)
         trace_info = store.get_trace_info(request_id)
         if trace_info is None:
             raise MlflowException(
@@ -4246,11 +4248,28 @@ def get_trace_artifact_handler() -> Response:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
         repo = _get_trace_artifact_repo(trace_info)
+        attachment_artifact_path = posixpath.join("attachments", path)
+
         try:
-            content_bytes = repo.download_trace_attachment(path)
+            local_path = repo.get_local_path(attachment_artifact_path)
         except MlflowException:
+            local_path = None
+
+        if local_path is not None:
+            return _create_artifact_file_response(os.path.abspath(local_path), path)
+
+        tmp_dir = tempfile.TemporaryDirectory()
+        try:
+            dst = pathlib.Path(tmp_dir.name, path)
+            repo.download_trace_attachment_to_file(path, dst)
+            response = _create_artifact_file_response(str(dst), path)
+            response.call_on_close(tmp_dir.cleanup)
+            return response
+        except MlflowException:
+            tmp_dir.cleanup()
             raise
         except Exception:
+            tmp_dir.cleanup()
             _logger.warning(
                 "Failed to download attachment '%s' for trace '%s'",
                 path,
@@ -4261,14 +4280,6 @@ def get_trace_artifact_handler() -> Response:
                 f"Failed to download attachment '{path}' for trace '{request_id}'.",
                 error_code=INTERNAL_ERROR,
             )
-        buf = io.BytesIO(content_bytes)
-        file_sender_response = send_file(
-            buf,
-            mimetype="application/octet-stream",
-            as_attachment=True,
-            download_name=path,
-        )
-        return _response_with_file_attachment_headers(path, file_sender_response)
 
     trace_data = _fetch_trace_data_from_store(store, request_id)
     if trace_data is None:
@@ -4278,9 +4289,29 @@ def get_trace_artifact_handler() -> Response:
                 _get_trace_archive_repo(trace_info).download_archived_trace_data().to_dict()
             )
         else:
-            trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
+            repo = _get_trace_artifact_repo(trace_info)
 
-    # Write data to a BytesIO buffer instead of needing to save a temp file
+            try:
+                local_path = repo.get_local_path(TRACE_DATA_FILE_NAME)
+            except MlflowException:
+                local_path = None
+
+            if local_path is not None:
+                return _create_artifact_file_response(
+                    os.path.abspath(local_path), TRACE_DATA_FILE_NAME
+                )
+
+            tmp_dir = tempfile.TemporaryDirectory()
+            try:
+                dst = pathlib.Path(tmp_dir.name, TRACE_DATA_FILE_NAME)
+                repo.download_trace_data_to_file(dst)
+                response = _create_artifact_file_response(str(dst), TRACE_DATA_FILE_NAME)
+                response.call_on_close(tmp_dir.cleanup)
+                return response
+            except Exception:
+                tmp_dir.cleanup()
+                raise
+
     buf = io.BytesIO()
     buf.write(json.dumps(trace_data).encode())
     buf.seek(0)

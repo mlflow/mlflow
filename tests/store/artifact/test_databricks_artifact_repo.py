@@ -1662,6 +1662,65 @@ def test_download_trace_data(databricks_artifact_repo_trace, cred_type):
         assert TraceData.from_dict(trace_data) == TraceData(spans=[])
 
 
+@pytest.mark.parametrize(
+    "cred_type",
+    [
+        ArtifactCredentialType.AZURE_SAS_URI,
+        ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+        ArtifactCredentialType.AWS_PRESIGNED_URL,
+        ArtifactCredentialType.GCP_SIGNED_URL,
+    ],
+)
+def test_download_trace_data_to_file(databricks_artifact_repo_trace, cred_type, tmp_path):
+    cred_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI,
+        type=cred_type,
+    )
+    cred = GetCredentialsForTraceDataUpload.Response(credential_info=cred_info)
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
+            return_value=cred,
+        ),
+        mock.patch("requests.Session.request", return_value=MockResponse(b'{"spans": []}')),
+    ):
+        dst = tmp_path / "traces.json"
+        result = databricks_artifact_repo_trace.download_trace_data_to_file(dst)
+        assert result == dst
+        assert json.loads(dst.read_text()) == {"spans": []}
+
+
+@pytest.mark.parametrize(
+    "cred_type",
+    [
+        ArtifactCredentialType.AZURE_SAS_URI,
+        ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+        ArtifactCredentialType.AWS_PRESIGNED_URL,
+        ArtifactCredentialType.GCP_SIGNED_URL,
+    ],
+)
+def test_download_trace_attachment_to_file(databricks_artifact_repo_trace, cred_type, tmp_path):
+    attachment_id = "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
+    cred_info = ArtifactCredentialInfo(signed_uri=MOCK_AWS_SIGNED_URI, type=cred_type)
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.get_credentials",
+            return_value=([cred_info], None),
+        ) as mock_get_creds,
+        mock.patch("requests.Session.request", return_value=MockResponse(b"\x89PNG fake image")),
+    ):
+        dst = tmp_path / attachment_id
+        result = databricks_artifact_repo_trace.download_trace_attachment_to_file(
+            attachment_id, dst
+        )
+    assert result == dst
+    assert dst.read_bytes() == b"\x89PNG fake image"
+    mock_get_creds.assert_called_once_with(
+        cred_type=_CredentialType.READ,
+        artifact_path=f"attachments/{attachment_id}",
+    )
+
+
 def test_download_archived_trace_data_rejects_archive_repo(databricks_artifact_repo_trace):
     with pytest.raises(MlflowNotImplementedException, match="do not yet support ARCHIVE_REPO"):
         databricks_artifact_repo_trace.download_archived_trace_data()

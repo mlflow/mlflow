@@ -3053,9 +3053,14 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_stor
     )
     mock_tracking_store.get_trace_info.return_value = trace_info
 
-    # Mock the artifact repo
     mock_artifact_repo = mock.MagicMock()
-    mock_artifact_repo.download_trace_data.return_value = trace_data
+    mock_artifact_repo.get_local_path.return_value = None
+
+    def fake_download_to_file(dst_path):
+        dst_path.write_text(json.dumps(trace_data))
+        return dst_path
+
+    mock_artifact_repo.download_trace_data_to_file.side_effect = fake_download_to_file
 
     with mock.patch(
         "mlflow.server.handlers._get_trace_artifact_repo", return_value=mock_artifact_repo
@@ -3067,7 +3072,7 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_stor
     mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
     mock_tracking_store.batch_get_traces.assert_called_once_with([trace_id], None)
     mock_tracking_store.get_trace_info.assert_called_once_with(trace_id)
-    mock_artifact_repo.download_trace_data.assert_called_once()
+    mock_artifact_repo.download_trace_data_to_file.assert_called_once()
 
     # Verify successful response
     assert response is not None
@@ -3075,7 +3080,50 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_stor
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
 
 
-def test_get_trace_artifact_handler_with_attachment_path(mock_tracking_store):
+def test_get_trace_artifact_handler_fallback_to_artifact_repo_local_path(
+    mock_tracking_store, tmp_path
+):
+    trace_id = "test-trace-artifact-repo-local"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=EntityTraceLocation.from_experiment_id("3"),
+        request_time=1234567890,
+        execution_duration=4000,
+        state=TraceState.OK,
+    )
+
+    trace_data = {"spans": [{"name": "local_span"}]}
+
+    mock_tracking_store.get_trace.side_effect = MlflowNotImplementedException(
+        "get_trace is not implemented"
+    )
+    mock_tracking_store.batch_get_traces.side_effect = MlflowNotImplementedException(
+        "batch_get_traces is not implemented"
+    )
+    mock_tracking_store.get_trace_info.return_value = trace_info
+
+    trace_file = tmp_path / "traces.json"
+    trace_file.write_text(json.dumps(trace_data))
+
+    mock_artifact_repo = mock.MagicMock()
+    mock_artifact_repo.get_local_path.return_value = str(trace_file)
+
+    with mock.patch(
+        "mlflow.server.handlers._get_trace_artifact_repo", return_value=mock_artifact_repo
+    ):
+        with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+            response = get_trace_artifact_handler()
+
+    mock_artifact_repo.get_local_path.assert_called_once()
+    mock_artifact_repo.download_trace_data_to_file.assert_not_called()
+
+    assert response is not None
+    assert response.status_code == 200
+    assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
+
+
+def test_get_trace_artifact_handler_with_attachment_path(mock_tracking_store, tmp_path):
     trace_id = "tr-test-attachment-123"
     attachment_id = "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
 
@@ -3090,7 +3138,14 @@ def test_get_trace_artifact_handler_with_attachment_path(mock_tracking_store):
     mock_tracking_store.get_trace_info.return_value = trace_info
 
     mock_artifact_repo = mock.MagicMock()
-    mock_artifact_repo.download_trace_attachment.return_value = b"\x89PNG fake image"
+    # get_local_path returns None to exercise the *_to_file fallback
+    mock_artifact_repo.get_local_path.return_value = None
+
+    def fake_download_to_file(path, dst_path):
+        dst_path.write_bytes(b"\x89PNG fake image")
+        return dst_path
+
+    mock_artifact_repo.download_trace_attachment_to_file.side_effect = fake_download_to_file
 
     with mock.patch(
         "mlflow.server.handlers._get_trace_artifact_repo", return_value=mock_artifact_repo
@@ -3100,11 +3155,46 @@ def test_get_trace_artifact_handler_with_attachment_path(mock_tracking_store):
             response = get_trace_artifact_handler()
 
     mock_tracking_store.get_trace_info.assert_called_once_with(trace_id)
-    mock_artifact_repo.download_trace_attachment.assert_called_once_with(attachment_id)
+    mock_artifact_repo.download_trace_attachment_to_file.assert_called_once()
     assert response.status_code == 200
     assert response.headers["Content-Type"] == "application/octet-stream"
     assert response.headers["Content-Disposition"] == f"attachment; filename={attachment_id}"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_get_trace_artifact_handler_with_attachment_local_path(mock_tracking_store, tmp_path):
+    trace_id = "tr-test-attachment-local"
+    attachment_id = "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=EntityTraceLocation.from_experiment_id("3"),
+        request_time=1234567890,
+        execution_duration=4000,
+        state=TraceState.OK,
+    )
+
+    mock_tracking_store.get_trace_info.return_value = trace_info
+
+    # Write a real file for the local fast path
+    att_file = tmp_path / "attachments" / attachment_id
+    att_file.parent.mkdir(parents=True)
+    att_file.write_bytes(b"\x89PNG local image")
+
+    mock_artifact_repo = mock.MagicMock()
+    mock_artifact_repo.get_local_path.return_value = str(att_file)
+
+    with mock.patch(
+        "mlflow.server.handlers._get_trace_artifact_repo", return_value=mock_artifact_repo
+    ):
+        query = {"request_id": trace_id, "path": attachment_id}
+        with app.test_request_context(method="GET", query_string=query):
+            response = get_trace_artifact_handler()
+
+    mock_artifact_repo.get_local_path.assert_called_once()
+    mock_artifact_repo.download_trace_attachment_to_file.assert_not_called()
+    assert response.status_code == 200
+    assert response.headers["Content-Disposition"] == f"attachment; filename={attachment_id}"
 
 
 def test_get_trace_artifact_handler_falls_back_to_archive_repo(mock_tracking_store):
