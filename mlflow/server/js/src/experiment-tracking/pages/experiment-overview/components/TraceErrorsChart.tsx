@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { useDesignSystemTheme, DangerIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, ReferenceLine } from 'recharts';
+import { useNavigate } from '../../../../common/utils/RoutingUtils';
 import { useTraceErrorsChartData } from '../hooks/useTraceErrorsChartData';
 import {
   OverviewChartLoadingState,
@@ -14,17 +15,24 @@ import {
   useChartYAxisProps,
   useScrollableLegendProps,
   DEFAULT_CHART_CONTENT_HEIGHT,
+  getTracesFilteredByTimeRangeUrl,
+  createSpanStatusEqualsFilter,
 } from './OverviewChartComponents';
 import { useLegendHighlight, getLineDotStyle } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
-export const TraceErrorsChart: React.FC = () => {
+interface TraceErrorsChartProps {
+  enableTraceNavigation?: boolean;
+}
+
+export const TraceErrorsChart: React.FC<TraceErrorsChartProps> = ({ enableTraceNavigation = true }) => {
   const { theme } = useDesignSystemTheme();
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
-  const { experimentId, timeIntervalSeconds } = useOverviewChartContext();
+  const { experimentIds, timeIntervalSeconds, tracesNavigationFilters } = useOverviewChartContext();
+  const navigate = useNavigate();
 
   // Fetch and process errors chart data
   const { chartData, totalErrors, overallErrorRate, avgErrorRate, isLoading, error, hasData } =
@@ -36,6 +44,20 @@ export const TraceErrorsChart: React.FC = () => {
     }
     return [`${value.toFixed(1)}%`, name] as [string, string];
   }, []);
+
+  // Handle click on tooltip link to navigate to traces filtered by error status,
+  // merging in any active MetricsFilter selections supplied by the page via context.
+  const handleViewTraces = useCallback(
+    (_label: string | undefined, dataPoint?: { timestampMs?: number }) => {
+      if (dataPoint?.timestampMs === undefined) return;
+      const url = getTracesFilteredByTimeRangeUrl(experimentIds[0], dataPoint.timestampMs, timeIntervalSeconds, [
+        createSpanStatusEqualsFilter('ERROR'),
+        ...(tracesNavigationFilters ?? []),
+      ]);
+      navigate(url);
+    },
+    [experimentIds, timeIntervalSeconds, tracesNavigationFilters, navigate],
+  );
 
   if (isLoading) {
     return <OverviewChartLoadingState />;
@@ -72,14 +94,18 @@ export const TraceErrorsChart: React.FC = () => {
                 content={
                   <ScrollableTooltip
                     formatter={tooltipFormatter}
-                    linkConfig={{
-                      experimentId,
-                      timeIntervalSeconds,
-                      componentId: 'mlflow.overview.usage.errors.view_traces_link',
-                    }}
+                    componentId="mlflow.overview.usage.errors.view_traces_link"
+                    linkConfig={
+                      enableTraceNavigation
+                        ? {
+                            onLinkClick: handleViewTraces,
+                          }
+                        : undefined
+                    }
                   />
                 }
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               <Bar
                 yAxisId="left"

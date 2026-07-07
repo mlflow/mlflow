@@ -1,9 +1,20 @@
+import base64
 from unittest import mock
 
 import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig, get_gateway_litellm_config
+from mlflow.utils.credentials import MlflowCreds
+
+GATEWAY_URI = "http://localhost:5000"
+
+
+@pytest.fixture
+def gateway_env(monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_URI", GATEWAY_URI)
+    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
 
 
 @pytest.mark.parametrize(
@@ -40,6 +51,9 @@ def test_get_gateway_litellm_config(
     else:
         monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
 
+    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+
     with mock.patch(
         "mlflow.genai.utils.gateway_utils.get_tracking_uri",
         return_value=tracking_uri or "http://default:5000",
@@ -50,6 +64,44 @@ def test_get_gateway_litellm_config(
     assert config.api_base == expected_api_base
     assert config.api_key == "mlflow-gateway-auth"
     assert config.model == f"openai/{endpoint_name}"
+    assert config.extra_headers is None
+
+
+def test_get_gateway_litellm_config_with_tracking_credentials(gateway_env, monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "alice")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "secret123")
+
+    config = get_gateway_litellm_config("chat")
+
+    expected_encoded = base64.b64encode(b"alice:secret123").decode("ascii")
+    assert config.extra_headers == {"Authorization": f"Basic {expected_encoded}"}
+    assert config.api_key == "mlflow-gateway-auth"
+
+
+def test_get_gateway_litellm_config_without_tracking_credentials(gateway_env):
+    config = get_gateway_litellm_config("chat")
+
+    assert config.extra_headers is None
+    assert config.api_key == "mlflow-gateway-auth"
+
+
+def test_get_gateway_litellm_config_username_only_no_headers(gateway_env, monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "alice")
+
+    config = get_gateway_litellm_config("chat")
+
+    assert config.extra_headers is None
+
+
+def test_get_gateway_litellm_config_with_credentials_file(gateway_env):
+    with mock.patch(
+        "mlflow.genai.utils.gateway_utils.read_mlflow_creds",
+        return_value=MlflowCreds(username="bob", password="file-password"),
+    ):
+        config = get_gateway_litellm_config("chat")
+
+    expected_encoded = base64.b64encode(b"bob:file-password").decode("ascii")
+    assert config.extra_headers == {"Authorization": f"Basic {expected_encoded}"}
 
 
 @pytest.mark.parametrize(

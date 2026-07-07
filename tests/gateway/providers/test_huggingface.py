@@ -4,8 +4,8 @@ import pytest
 from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -64,6 +64,13 @@ def completions_response():
     }
 
 
+def test_get_provider_name():
+    config = completions_config()
+    provider = HFTextGenerationInferenceServerProvider(EndpointConfig(**config))
+    assert provider.DISPLAY_NAME == "Hugging Face Text Generation Inference"
+    assert provider.get_provider_name() == "huggingface"
+
+
 @pytest.mark.asyncio
 async def test_completions():
     resp = completions_response()
@@ -103,7 +110,7 @@ async def test_completions():
                     "decoder_input_details": True,
                 },
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 

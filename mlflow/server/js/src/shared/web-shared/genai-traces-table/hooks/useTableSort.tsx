@@ -1,14 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useTableSortURL } from './useTableSortURL';
-import { shoudlEnableURLPersistenceForSortAndColumns } from '../../model-trace-explorer/FeatureUtils';
+import { shouldEnableTracesTableStatePersistence } from '../../model-trace-explorer/FeatureUtils';
 import type { EvaluationsOverviewTableSort, TracesTableColumn } from '../types';
 
 export const useTableSort = (
   selectedColumns: TracesTableColumn[],
   initialTableSort?: EvaluationsOverviewTableSort,
 ): [EvaluationsOverviewTableSort | undefined, (sort: EvaluationsOverviewTableSort | undefined) => void] => {
-  const enableURLPersistence = shoudlEnableURLPersistenceForSortAndColumns();
+  const enableURLPersistence = shouldEnableTracesTableStatePersistence();
 
   const [urlTableSort, setUrlTableSort] = useTableSortURL();
 

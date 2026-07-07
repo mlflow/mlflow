@@ -10,6 +10,11 @@ import type {
   JudgePrimitiveOutputType,
 } from '../types';
 import { LLM_TEMPLATE, isGuidelinesTemplate } from '../types';
+import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
+import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
+import { ScorerEvaluationScope, type ScorerType } from '../constants';
+import type { RegisterScorerResponse, MLflowScorer } from '../api';
+import { isUndefined } from 'lodash';
 
 const PRIMITIVE_TO_JSON_SCHEMA: Record<JudgePrimitiveOutputType, string> = {
   bool: 'boolean',
@@ -18,12 +23,12 @@ const PRIMITIVE_TO_JSON_SCHEMA: Record<JudgePrimitiveOutputType, string> = {
   str: 'string',
 };
 
-const JSON_SCHEMA_TO_PRIMITIVE: Record<string, JudgePrimitiveOutputType> = {
+const JSON_SCHEMA_TO_PRIMITIVE = {
   boolean: 'bool',
   integer: 'int',
   number: 'float',
   string: 'str',
-};
+} satisfies Record<string, JudgePrimitiveOutputType>;
 
 /**
  * Convert JudgeOutputTypeSpec to JSON Schema format for API serialization.
@@ -129,7 +134,7 @@ function jsonSchemaToOutputTypeSpec(schema: Record<string, unknown> | undefined)
   // Check for primitive types
   if (schemaType in JSON_SCHEMA_TO_PRIMITIVE) {
     return {
-      kind: JSON_SCHEMA_TO_PRIMITIVE[schemaType],
+      kind: JSON_SCHEMA_TO_PRIMITIVE[schemaType as keyof typeof JSON_SCHEMA_TO_PRIMITIVE],
     };
   }
 
@@ -139,7 +144,8 @@ function jsonSchemaToOutputTypeSpec(schema: Record<string, unknown> | undefined)
     if (additionalProps && typeof additionalProps['type'] === 'string') {
       return {
         kind: 'dict',
-        dictValueType: JSON_SCHEMA_TO_PRIMITIVE[additionalProps['type']] || 'int',
+        dictValueType:
+          JSON_SCHEMA_TO_PRIMITIVE[additionalProps['type'] as keyof typeof JSON_SCHEMA_TO_PRIMITIVE] || 'int',
       };
     }
     return { kind: 'dict', dictValueType: 'int' };
@@ -151,7 +157,7 @@ function jsonSchemaToOutputTypeSpec(schema: Record<string, unknown> | undefined)
     if (items && typeof items['type'] === 'string') {
       return {
         kind: 'list',
-        listElementType: JSON_SCHEMA_TO_PRIMITIVE[items['type']] || 'str',
+        listElementType: JSON_SCHEMA_TO_PRIMITIVE[items['type'] as keyof typeof JSON_SCHEMA_TO_PRIMITIVE] || 'str',
       };
     }
     return { kind: 'list', listElementType: 'str' };
@@ -159,12 +165,6 @@ function jsonSchemaToOutputTypeSpec(schema: Record<string, unknown> | undefined)
 
   return undefined;
 }
-import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
-import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
-import { ScorerEvaluationScope, type ScorerType } from '../constants';
-import type { RegisterScorerResponse, MLflowScorer } from '../api';
-import { isEvaluatingSessionsInScorersEnabled } from '../../../../common/utils/FeatureUtils';
-import { isUndefined } from 'lodash';
 
 // Union type for all form data - combines both form interfaces
 export type ScorerFormData = (LLMScorerFormData | CustomCodeScorerFormData) & {
@@ -205,7 +205,7 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
   try {
     const serializedData = JSON.parse(config.serialized_scorer);
 
-    if (isEvaluatingSessionsInScorersEnabled() && serializedData.is_session_level_scorer) {
+    if (serializedData.is_session_level_scorer) {
       baseFields.isSessionLevelScorer = true;
     }
 
@@ -248,6 +248,75 @@ export function transformScorerConfig(config: ScorerConfig): ScheduledScorer {
         llmTemplate: serializedData.builtin_scorer_class,
         model,
         is_instructions_judge: false,
+      } as LLMScorer;
+    } else if (serializedData.memory_augmented_judge_data) {
+      // Memory-augmented judge (optimized with MemAlign) - unwrap the base judge.
+      const memData = serializedData.memory_augmented_judge_data;
+      const baseJudge = memData.base_judge || {};
+      const semanticGuidelines: string[] = (memData.semantic_memory || [])
+        .map((g: { guideline_text: string }) => g.guideline_text)
+        .filter(Boolean);
+
+      if (baseJudge.instructions_judge_pydantic_data) {
+        const baseInstructions = baseJudge.instructions_judge_pydantic_data.instructions || '';
+        const model = baseJudge.instructions_judge_pydantic_data.model;
+        const outputType = jsonSchemaToOutputTypeSpec(baseJudge.instructions_judge_pydantic_data.feedback_value_type);
+
+        let instructions = baseInstructions;
+        if (semanticGuidelines.length > 0) {
+          instructions += `\n\nDistilled Guidelines (${semanticGuidelines.length}):\n`;
+          instructions += semanticGuidelines.map((g) => `  - ${g}`).join('\n');
+        }
+
+        return {
+          ...baseFields,
+          type: 'llm',
+          llmTemplate: LLM_TEMPLATE.CUSTOM,
+          instructions,
+          model,
+          is_instructions_judge: true,
+          isMemoryAugmented: true,
+          outputType,
+          rawMemoryAugmentedData: memData,
+        } as LLMScorer;
+      } else if (isGuidelinesTemplate(baseJudge.builtin_scorer_class)) {
+        const rawGuidelines = baseJudge.builtin_scorer_pydantic_data?.guidelines || [];
+        const guidelines = Array.isArray(rawGuidelines) ? [...rawGuidelines] : [rawGuidelines].filter(Boolean);
+        if (semanticGuidelines.length > 0) {
+          guidelines.push(...semanticGuidelines);
+        }
+        const model = baseJudge.builtin_scorer_pydantic_data?.model;
+        return {
+          ...baseFields,
+          type: 'llm',
+          llmTemplate: baseJudge.builtin_scorer_class,
+          guidelines,
+          model,
+          is_instructions_judge: false,
+          isMemoryAugmented: true,
+          rawMemoryAugmentedData: memData,
+        } as LLMScorer;
+      } else if (baseJudge.builtin_scorer_class) {
+        const model = baseJudge.builtin_scorer_pydantic_data?.model;
+        return {
+          ...baseFields,
+          type: 'llm',
+          llmTemplate: baseJudge.builtin_scorer_class,
+          model,
+          is_instructions_judge: false,
+          isMemoryAugmented: true,
+          rawMemoryAugmentedData: memData,
+        } as LLMScorer;
+      }
+      // Unrecognized base judge type — return a minimal LLM scorer
+      return {
+        ...baseFields,
+        type: 'llm',
+        llmTemplate: LLM_TEMPLATE.CUSTOM,
+        instructions: '',
+        is_instructions_judge: true,
+        isMemoryAugmented: true,
+        rawMemoryAugmentedData: memData,
       } as LLMScorer;
     } else {
       // Custom scorer - extract code from call_source
@@ -307,7 +376,7 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
     serialization_version: 1,
   };
 
-  if (isEvaluatingSessionsInScorersEnabled() && !isUndefined(scorer.isSessionLevelScorer)) {
+  if (!isUndefined(scorer.isSessionLevelScorer)) {
     baseSerializedScorer.is_session_level_scorer = scorer.isSessionLevelScorer;
   }
 
@@ -315,7 +384,25 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
   if (scorer.type === 'llm') {
     const llmScorer = scorer as LLMScorer;
 
-    if (llmScorer.is_instructions_judge) {
+    if (llmScorer.isMemoryAugmented && llmScorer.rawMemoryAugmentedData) {
+      // Memory-augmented judge: preserve the original memory_augmented_judge_data
+      // structure but update the model field inside the base judge.
+      const memData = structuredClone(llmScorer.rawMemoryAugmentedData) as any;
+      const baseJudge = memData.base_judge || {};
+      if (llmScorer.model) {
+        if (baseJudge.instructions_judge_pydantic_data) {
+          baseJudge.instructions_judge_pydantic_data.model = llmScorer.model;
+        } else if (baseJudge.builtin_scorer_pydantic_data) {
+          baseJudge.builtin_scorer_pydantic_data.model = llmScorer.model;
+        }
+      }
+      config.serialized_scorer = JSON.stringify({
+        ...baseSerializedScorer,
+        name: llmScorer.name,
+        memory_augmented_judge_data: memData,
+      });
+      config.custom = {};
+    } else if (llmScorer.is_instructions_judge) {
       if (!llmScorer.instructions) {
         throw new ScorerTransformationError('Instructions are required for instructions-based LLM scorers');
       }
@@ -334,6 +421,7 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
           ...(llmScorer.model && { model: llmScorer.model }),
           ...(feedbackValueType && { feedback_value_type: feedbackValueType }),
         },
+        is_session_level_scorer: scorer.isSessionLevelScorer || false,
       });
       config.custom = {};
     } else if (llmScorer.llmTemplate) {
@@ -358,6 +446,7 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
         name: llmScorer.name,
         builtin_scorer_class: llmScorer.llmTemplate,
         builtin_scorer_pydantic_data: pydanticData,
+        is_session_level_scorer: scorer.isSessionLevelScorer || false,
       });
       config.builtin = {
         name: llmScorer.name,
@@ -375,6 +464,7 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
       call_source: customCodeScorer.code,
       call_signature: customCodeScorer.callSignature,
       original_func_name: customCodeScorer.originalFuncName,
+      is_session_level_scorer: scorer.isSessionLevelScorer || false,
     });
     config.custom = {}; // this is needed for custom scorers
   }

@@ -12,6 +12,7 @@ from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
+from mlflow.tracing.provider import provider as mlflow_provider
 from mlflow.tracking import MlflowClient
 from mlflow.utils.os import is_windows
 
@@ -144,8 +145,20 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
     model = TestModel()
     model.predict(2, 5)
 
-    # Tracer should be configured to export to OTLP
-    exporter = _get_trace_exporter()
+    # Tracer should be configured to export to OTLP.
+    # In dual-export mode, _get_trace_exporter() returns the MLflow exporter
+    # (since _get_span_processor prefers BaseMlflowSpanProcessor), so we find
+    # the OTLP exporter by looking for the OtelSpanProcessor directly.
+    if dual_export:
+        # In dual-export mode, _get_trace_exporter() returns the MLflow exporter
+        # (since _get_span_processor prefers BaseMlflowSpanProcessor). Find the
+        # OTLP exporter by looking up the OtelSpanProcessor from the tracer provider.
+        tp = mlflow_provider.get()
+        processors = tp._active_span_processor._span_processors
+        otel_processor = next(p for p in processors if isinstance(p, OtelSpanProcessor))
+        exporter = otel_processor.span_exporter
+    else:
+        exporter = _get_trace_exporter()
     assert isinstance(exporter, OTLPSpanExporter)
     assert exporter._endpoint == f"127.0.0.1:{port}"
 
@@ -213,6 +226,8 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
 
     result = parent_function()
     assert result == "Parent: Hello World"
+
+    mlflow.flush_trace_async_logging()
 
     client = MlflowClient()
     traces = client.search_traces(locations=[experiment.experiment_id])

@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from typing import Any
 
 from haystack.tracing import OpenTelemetryTracer, enable_tracing
@@ -27,6 +28,7 @@ from mlflow.tracing.utils import (
     get_mlflow_span_for_otel_span,
     set_span_cost_attribute,
     set_span_model_attribute,
+    should_compute_cost_client_side,
 )
 
 _logger = logging.getLogger(__name__)
@@ -98,29 +100,48 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
     def __init__(self):
         self.span_exporter = SpanExporter()
         self._pipeline_io: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
+        self._processing_local = threading.local()
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
-        tracer = _get_tracer(__name__)
-        tracer.span_processor.on_start(span, parent_context)
+        # Recursion guard: with MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false (shared provider),
+        # tracer.span_processor.on_start() routes back through the same composite processor,
+        # re-entering this method and causing infinite recursion.
+        if getattr(self._processing_local, "in_on_start", False):
+            return
+        self._processing_local.in_on_start = True
+        try:
+            tracer = _get_tracer(__name__)
+            tracer.span_processor.on_start(span, parent_context)
 
-        trace_id = generate_trace_id_v3(span)
-        mlflow_span = create_mlflow_span(span, trace_id)
-        InMemoryTraceManager.get_instance().register_span(mlflow_span)
+            trace_id = generate_trace_id_v3(span)
+            mlflow_span = create_mlflow_span(span, trace_id)
+            InMemoryTraceManager.get_instance().register_span(mlflow_span)
+        finally:
+            self._processing_local.in_on_start = False
 
     def on_end(self, span: OTelReadableSpan) -> None:
-        mlflow_span = get_mlflow_span_for_otel_span(span)
-        if mlflow_span is None:
-            _logger.debug("Span not found in the map. Skipping end.")
+        # Recursion guard: with MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false (shared provider),
+        # tracer.span_processor.on_end() routes back through the same composite processor,
+        # re-entering this method and causing infinite recursion.
+        if getattr(self._processing_local, "in_on_end", False):
             return
+        self._processing_local.in_on_end = True
+        try:
+            mlflow_span = get_mlflow_span_for_otel_span(span)
+            if mlflow_span is None:
+                _logger.debug("Span not found in the map. Skipping end.")
+                return
 
-        with _bypass_attribute_guard(mlflow_span._span):
-            if span.name in ("haystack.pipeline.run", "haystack.async_pipeline.run"):
-                self.set_pipeline_info(mlflow_span, span)
-            elif span.name in ("haystack.component.run"):
-                self.set_component_info(mlflow_span, span)
+            with _bypass_attribute_guard(mlflow_span._span):
+                if span.name in ("haystack.pipeline.run", "haystack.async_pipeline.run"):
+                    self.set_pipeline_info(mlflow_span, span)
+                elif span.name in ("haystack.component.run"):
+                    self.set_component_info(mlflow_span, span)
 
-        tracer = _get_tracer(__name__)
-        tracer.span_processor.on_end(span)
+            tracer = _get_tracer(__name__)
+            tracer.span_processor.on_end(span)
+        finally:
+            self._processing_local.in_on_end = False
 
     def set_component_info(self, mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
         comp_alias = span.attributes.get("haystack.component.name")
@@ -151,9 +172,8 @@ class HaystackSpanProcessor(SimpleSpanProcessor):
 
         if usage := _parse_token_usage(mlflow_span.outputs):
             mlflow_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
-
-        # set cost here explicitly because it doesn't go through mlflow_span.end method
-        set_span_cost_attribute(mlflow_span)
+            if should_compute_cost_client_side():
+                set_span_cost_attribute(mlflow_span)
 
         if parent_id := mlflow_span.parent_id:
             key = comp_alias or comp_type or mlflow_span.name

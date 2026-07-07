@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import inspect
 import logging
+import math
 import time
 import uuid
 from abc import ABC, abstractmethod
@@ -47,8 +49,9 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 _MAX_METADATA_LENGTH = 250
-_EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context", "expectations"}
+_EXPECTED_TEST_CASE_KEYS = {"goal", "persona", "context", "expectations", "simulation_guidelines"}
 _REQUIRED_TEST_CASE_KEYS = {"goal"}
+_RESERVED_CONTEXT_KEYS = {"input", "messages", "mlflow_session_id"}
 
 PGBAR_FORMAT = (
     "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}] {postfix}"
@@ -193,12 +196,15 @@ class SimulatorContext:
         persona: Description of the user's personality and background.
         conversation_history: The full conversation history as a list of message dicts.
         turn: The current turn number (0-indexed).
+        simulation_guidelines: Optional instructions for how the simulated user should
+            conduct the conversation. Can be a string or a list of strings.
     """
 
     goal: str
     persona: str
     conversation_history: list[dict[str, Any]]
     turn: int
+    simulation_guidelines: str | list[str] | None = None
 
     @property
     def is_first_turn(self) -> bool:
@@ -298,24 +304,67 @@ class SimulatedUserAgent(BaseSimulatedUserAgent):
         goal: The objective the simulated user is trying to achieve in the conversation.
         persona: Description of the user's personality and background. If None, uses a
             default helpful user persona.
+        simulation_guidelines: Instructions for how the simulated user should conduct
+            the conversation.
         model: {{ model }}
         **inference_params: Additional parameters passed to the LLM (e.g., temperature).
     """
 
     def generate_message(self, context: SimulatorContext) -> str:
+        if guidelines := context.simulation_guidelines:
+            if isinstance(guidelines, list):
+                formatted = "\n".join(f"- {g}" for g in guidelines)
+            else:
+                formatted = guidelines
+            guidelines_section = (
+                "\n<simulation_guidelines>\n"
+                "Follow these requirements for how YOU (the user) should conduct the "
+                "conversation. Remember, you are the USER seeking help, not the assistant "
+                "providing answers:\n"
+                f"{formatted}\n"
+                "</simulation_guidelines>"
+            )
+        else:
+            guidelines_section = ""
+
         if context.is_first_turn:
-            prompt = INITIAL_USER_PROMPT.format(persona=context.persona, goal=context.goal)
+            prompt = INITIAL_USER_PROMPT.format(
+                persona=context.persona, goal=context.goal, guidelines_section=guidelines_section
+            )
         else:
             history_without_last = context.conversation_history[:-1]
             history_str = format_history(history_without_last)
             prompt = FOLLOWUP_USER_PROMPT.format(
                 persona=context.persona,
                 goal=context.goal,
+                guidelines_section=guidelines_section,
                 conversation_history=history_str if history_str is not None else "",
                 last_response=context.last_assistant_response or "",
             )
 
         return self.invoke_llm(prompt)
+
+
+def _is_missing_context_value(value: Any) -> bool:
+    return value is None or (isinstance(value, float) and math.isnan(value))
+
+
+def _validate_simulator_predict_fn_signature(
+    predict_fn: Callable[..., dict[str, Any]],
+) -> None:
+    parameters = inspect.signature(predict_fn).parameters
+    if "messages" in parameters and "input" in parameters:
+        raise MlflowException(
+            "predict_fn cannot have both 'messages' and 'input' parameters. "
+            "Use 'messages' for Chat Completions API format or 'input' for Responses "
+            "API format."
+        )
+    if "messages" not in parameters and "input" not in parameters:
+        raise MlflowException(
+            "predict_fn must accept either 'messages' or 'input' parameter for the "
+            "conversation history. Use 'messages' for Chat Completions API format or "
+            "'input' for Responses API format."
+        )
 
 
 @format_docstring(_MODEL_API_DOC)
@@ -328,16 +377,23 @@ class ConversationSimulator:
     Each conversation is traced in MLflow, allowing you to evaluate how your agent handles
     various user goals and personas.
 
-    The predict function passed to the simulator must follow the OpenAI Responses API format
-    (https://platform.openai.com/docs/api-reference/responses):
+    The predict function passed to the simulator must accept the conversation history
+    as a list of message dictionaries (e.g., ``[{"role": "user", "content": "..."}]``).
+    Two formats are supported:
 
-    - It must accept an ``input`` parameter containing the conversation history
-      as a list of message dictionaries (e.g., ``[{"role": "user", "content": "..."}]``)
-    - It may accept additional keyword arguments from the test case's ``context`` field
-    - It receives an ``mlflow_session_id`` parameter that uniquely identifies the conversation
+    - **Responses API format**: Use an ``input`` parameter
+      (https://platform.openai.com/docs/api-reference/responses)
+    - **Chat Completions API format**: Use a ``messages`` parameter
+      (https://platform.openai.com/docs/api-reference/chat)
+
+    The predict function:
+
+    - Must accept either ``input`` or ``messages`` (not both) for the conversation history
+    - May accept additional keyword arguments from the test case's ``context`` field
+    - Receives an ``mlflow_session_id`` parameter that uniquely identifies the conversation
       session. This ID is consistent across all turns in the same conversation, allowing you
       to associate related traces or maintain stateful context (e.g., for thread-based agents).
-    - It should return a response (the assistant's message content will be extracted)
+    - Should return a response (the assistant's message content will be extracted)
 
     Args:
         test_cases: List of test case dicts, a DataFrame, or an EvaluationDataset,
@@ -346,10 +402,14 @@ class ConversationSimulator:
             - "goal": Describing what the simulated user wants to achieve.
             - "persona" (optional): Custom persona for the simulated user.
             - "context" (optional): Dict of additional kwargs to pass to predict_fn.
+              Keys ``input``, ``messages``, and ``mlflow_session_id`` are reserved
+              by the simulator and cannot be used.
             - "expectations" (optional): Dict of expected values (ground truth) for
               session-level evaluation. These are logged to the first trace of the
               session with the session ID in metadata, allowing session-level scorers
               to retrieve them.
+            - "simulation_guidelines" (optional): Instructions for how the simulated user
+              should conduct the conversation. Can be a string or a list of strings.
 
         max_turns: Maximum number of conversation turns before stopping. Default is 10.
         user_model: {{ model }}
@@ -387,8 +447,8 @@ class ConversationSimulator:
                 return response
 
 
-            # Each test case requires a "goal". "persona", "context", and "expectations"
-            # are optional.
+            # Each test case requires a "goal". "persona", "context", "expectations",
+            # and "simulation_guidelines" are optional.
             simulator = ConversationSimulator(
                 test_cases=[
                     {"goal": "Learn about MLflow tracking"},
@@ -398,6 +458,10 @@ class ConversationSimulator:
                         "persona": "A beginner",
                         "context": {"user_id": "123"},
                         "expectations": {"expected_topic": "model registry"},
+                        "simulation_guidelines": [
+                            "Ask clarifying questions before proceeding",
+                            "Do not mention deployment until the assistant brings it up",
+                        ],
                     },
                 ],
                 max_turns=5,
@@ -469,6 +533,35 @@ class ConversationSimulator:
         if missing_goal_indices:
             raise ValueError(f"Test cases at indices {missing_goal_indices} must have 'goal' field")
 
+        indices_with_invalid_context = [
+            i
+            for i, test_case in enumerate(test_cases)
+            if not (
+                isinstance(test_case.get("context"), dict)
+                or _is_missing_context_value(test_case.get("context"))
+            )
+        ]
+        if indices_with_invalid_context:
+            raise ValueError(
+                f"Test cases at indices {indices_with_invalid_context} must have 'context' as "
+                "a dict when provided."
+            )
+
+        indices_with_reserved_context_keys = [
+            i
+            for i, test_case in enumerate(test_cases)
+            if isinstance(test_case.get("context"), dict)
+            and set(test_case["context"]) & _RESERVED_CONTEXT_KEYS
+        ]
+        if indices_with_reserved_context_keys:
+            raise ValueError(
+                f"Test cases at indices {indices_with_reserved_context_keys} have context keys "
+                f"that conflict with keys reserved by ConversationSimulator "
+                f"({_RESERVED_CONTEXT_KEYS}). These keys are used to inject conversation "
+                "history ('input', 'messages') or session ID ('mlflow_session_id'). "
+                "Rename the conflicting keys in the test case context."
+            )
+
         indices_with_extra_keys = [
             i
             for i, test_case in enumerate(test_cases)
@@ -514,14 +607,28 @@ class ConversationSimulator:
         is traced in MLflow.
 
         Args:
-            predict_fn: The target function to evaluate. Must accept an ``input``
-                parameter containing the conversation history as a list of message
-                dicts, and may accept additional kwargs from the test case's context.
+            predict_fn: The target function to evaluate. Must accept either an ``input``
+                parameter (Responses API format) or a ``messages`` parameter (Chat
+                Completions API format) containing the conversation history as a list of
+                message dicts. May also accept additional kwargs from the test case's
+                context. Cannot have both ``input`` and ``messages`` parameters.
 
         Returns:
             A list of lists containing Trace objects. Each inner list corresponds to
             a test case and contains the traces for each turn in that conversation.
         """
+        _validate_simulator_predict_fn_signature(predict_fn)
+
+        run_context = (
+            contextmanager(lambda: (yield))()
+            if mlflow.active_run()
+            else mlflow.start_run(run_name=f"simulation-{uuid.uuid4().hex[:8]}")
+        )
+
+        with run_context:
+            return self._execute_simulation(predict_fn)
+
+    def _execute_simulation(self, predict_fn: Callable[..., dict[str, Any]]) -> list[list["Trace"]]:
         num_test_cases = len(self.test_cases)
         all_trace_ids: list[list[str]] = [[] for _ in range(num_test_cases)]
         max_workers = min(num_test_cases, MLFLOW_GENAI_SIMULATOR_MAX_WORKERS.get())
@@ -576,7 +683,9 @@ class ConversationSimulator:
     ) -> list[str]:
         goal = test_case["goal"]
         persona = test_case.get("persona") or DEFAULT_PERSONA
-        context = test_case.get("context", {})
+        simulation_guidelines = test_case.get("simulation_guidelines")
+        context = test_case.get("context")
+        context = context if isinstance(context, dict) else {}
         expectations = test_case.get("expectations", {})
         trace_session_id = f"sim-{uuid.uuid4().hex[:16]}"
 
@@ -596,6 +705,7 @@ class ConversationSimulator:
                     persona=persona,
                     conversation_history=conversation_history,
                     turn=turn,
+                    simulation_guidelines=simulation_guidelines,
                 )
                 user_message_content = user_agent.generate_message(simulator_context)
                 timings.add(generate_message_seconds=time.perf_counter() - start_time)
@@ -610,6 +720,7 @@ class ConversationSimulator:
                     trace_session_id=trace_session_id,
                     goal=goal,
                     persona=persona,
+                    simulation_guidelines=simulation_guidelines,
                     context=context,
                     expectations=expectations if turn == 0 else None,
                     turn=turn,
@@ -648,40 +759,52 @@ class ConversationSimulator:
         trace_session_id: str,
         goal: str,
         persona: str | None,
+        simulation_guidelines: str | list[str] | None,
         context: dict[str, Any],
         expectations: dict[str, Any] | None,
         turn: int,
     ) -> tuple[dict[str, Any], str | None]:
-        # NB: We trace the predict_fn call to add session and simulation metadata to the trace.
-        #     This adds a new root span to the trace, with the same inputs and outputs as the
-        #     predict_fn call. The goal/persona/turn metadata is used for trace comparison UI
-        #     since message content may differ between simulation runs.
-        @mlflow.trace(name=f"simulation_turn_{turn}", span_type="CHAIN")
-        def traced_predict(input: list[dict[str, Any]], **ctx):
-            mlflow.update_current_trace(
-                metadata={
-                    TraceMetadataKey.TRACE_SESSION: trace_session_id,
-                    "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
-                    "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[
-                        :_MAX_METADATA_LENGTH
-                    ],
-                    "mlflow.simulation.turn": str(turn),
-                },
-            )
-            if span := mlflow.get_current_active_span():
-                span.set_attributes(
-                    {
-                        "mlflow.simulation.goal": goal,
-                        "mlflow.simulation.persona": persona or DEFAULT_PERSONA,
-                        "mlflow.simulation.context": context,
-                    }
-                )
-            return predict_fn(input=input, **ctx)
+        sig = inspect.signature(predict_fn)
+        input_key = "messages" if "messages" in sig.parameters else "input"
+        predict_kwargs = {
+            input_key: input_messages,
+            "mlflow_session_id": trace_session_id,
+            **context,
+        }
 
-        response = traced_predict(
-            input=input_messages, mlflow_session_id=trace_session_id, **context
-        )
-        trace_id = mlflow.get_last_active_trace_id(thread_local=True)
+        trace_metadata = {
+            "mlflow.simulation.goal": goal[:_MAX_METADATA_LENGTH],
+            "mlflow.simulation.persona": (persona or DEFAULT_PERSONA)[:_MAX_METADATA_LENGTH],
+            "mlflow.simulation.turn": str(turn),
+        }
+        if simulation_guidelines:
+            guidelines_str = (
+                "\n".join(simulation_guidelines)
+                if isinstance(simulation_guidelines, list)
+                else simulation_guidelines
+            )
+            trace_metadata["mlflow.simulation.simulation_guidelines"] = guidelines_str[
+                :_MAX_METADATA_LENGTH
+            ]
+
+        with mlflow.tracing.context(
+            session_id=trace_session_id,
+            metadata=trace_metadata,
+        ):
+            prev_trace_id = mlflow.get_last_active_trace_id(thread_local=True)
+            response = predict_fn(**predict_kwargs)
+            trace_id = mlflow.get_last_active_trace_id(thread_local=True)
+
+            # If predict_fn didn't create a new trace, create one so that
+            # evaluation still works for untraced predict functions.
+            if trace_id is None or trace_id == prev_trace_id:
+                with mlflow.start_span(
+                    name=getattr(predict_fn, "__name__", "predict"),
+                    span_type="CHAIN",
+                ) as span:
+                    span.set_inputs(predict_kwargs)
+                    span.set_outputs(response)
+                trace_id = mlflow.get_last_active_trace_id(thread_local=True)
 
         # Log expectations to the first trace of the session
         if expectations and trace_id:
@@ -716,7 +839,8 @@ class ConversationSimulator:
                 model_uri=self.user_model,
                 messages=messages,
                 num_retries=3,
-                inference_params={"temperature": 0.0, "response_format": GoalCheckResult},
+                inference_params={"temperature": 0.0},
+                response_format=GoalCheckResult,
             )
             result = GoalCheckResult.model_validate_json(text_result)
             return result.result.strip().lower() == "yes"

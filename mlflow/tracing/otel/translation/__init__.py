@@ -11,23 +11,31 @@ import json
 import logging
 from typing import Any
 
-from mlflow.entities.span import Span
-from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.entities.span import Span, SpanType
+from mlflow.tracing.constant import CostKey, SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
+from mlflow.tracing.otel.translation.gemini_cli import GeminiCliTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
+from mlflow.tracing.otel.translation.laminar import LaminarTranslator
+from mlflow.tracing.otel.translation.langfuse import LangfuseTranslator
 from mlflow.tracing.otel.translation.livekit import LiveKitTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.spring_ai import SpringAiTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
 from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
 from mlflow.tracing.otel.translation.voltagent import VoltAgentTranslator
-from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage, dump_span_attribute_value
+from mlflow.tracing.utils import (
+    calculate_cost_by_model_and_token_usage,
+    dump_span_attribute_value,
+    try_json_loads,
+)
 
 _logger = logging.getLogger(__name__)
 
 _TRANSLATORS: list[OtelSchemaTranslator] = [
     OpenInferenceTranslator(),
+    GeminiCliTranslator(),
     GenAiTranslator(),
     SpringAiTranslator(),
     TraceloopTranslator(),
@@ -35,6 +43,8 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
     VercelAITranslator(),
     VoltAgentTranslator(),
     LiveKitTranslator(),
+    LaminarTranslator(),
+    LangfuseTranslator(),
 ]
 
 # Event-based translators (for frameworks that use events for input/output)
@@ -66,6 +76,13 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     attributes = sanitize_attributes(span_dict.get("attributes", {}))
     events = span_dict.get("events", [])
 
+    # Override UNKNOWN (the LiveSpan default) with the translator-determined type.
+    if mlflow_type := translate_span_type_from_otel(attributes):
+        current_raw = attributes.get(SpanAttributeKey.SPAN_TYPE)
+        current_type = try_json_loads(current_raw) if current_raw else None
+        if current_type in (None, SpanType.UNKNOWN):
+            attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
+
     # Translate inputs and outputs (check both attributes and events)
     if SpanAttributeKey.INPUTS not in attributes and (
         input_value := _get_input_value(attributes, events)
@@ -89,14 +106,20 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     ):
         attributes[SpanAttributeKey.MESSAGE_FORMAT] = dump_span_attribute_value(message_format)
 
+    # Translate tool definitions for chat UI rendering
+    if SpanAttributeKey.CHAT_TOOLS not in attributes and (
+        tools := _get_tool_definitions(attributes)
+    ):
+        attributes[SpanAttributeKey.CHAT_TOOLS] = tools
+
     # Extract and normalize model name from various sources
     if SpanAttributeKey.MODEL not in attributes and (model_name := _get_model_name(attributes)):
-        attributes[SpanAttributeKey.MODEL] = model_name
+        attributes[SpanAttributeKey.MODEL] = dump_span_attribute_value(model_name)
 
     if SpanAttributeKey.MODEL_PROVIDER not in attributes and (
         model_provider := _get_model_provider(attributes)
     ):
-        attributes[SpanAttributeKey.MODEL_PROVIDER] = model_provider
+        attributes[SpanAttributeKey.MODEL_PROVIDER] = dump_span_attribute_value(model_provider)
 
     # Calculate cost if both token usage and model are available
     if (
@@ -161,16 +184,30 @@ def _get_token_usage(attributes: dict[str, Any]) -> dict[str, Any]:
         output_tokens = _parse_int_attribute(translator.get_output_tokens(attributes))
         total_tokens = _parse_int_attribute(translator.get_total_tokens(attributes))
 
-        # Calculate total tokens if not provided but input/output are available
-        if input_tokens and output_tokens and (total_tokens is None):
+        # Calculate total tokens if not provided but both input and output are available
+        if total_tokens is None and input_tokens is not None and output_tokens is not None:
             total_tokens = input_tokens + output_tokens
 
-        if input_tokens and output_tokens and total_tokens:
-            return {
-                TokenUsageKey.INPUT_TOKENS: input_tokens,
-                TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-                TokenUsageKey.TOTAL_TOKENS: total_tokens,
-            }
+        if input_tokens is not None or output_tokens is not None or total_tokens is not None:
+            usage = {}
+            if input_tokens is not None:
+                usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+            if output_tokens is not None:
+                usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+            if total_tokens is not None:
+                usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+            cache_read = _parse_int_attribute(translator.get_cache_read_input_tokens(attributes))
+            if cache_read is not None:
+                usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read
+
+            cache_creation = _parse_int_attribute(
+                translator.get_cache_creation_input_tokens(attributes)
+            )
+            if cache_creation is not None:
+                usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation
+
+            return usage
 
 
 def _get_input_value(attributes: dict[str, Any], events: list[dict[str, Any]] | None = None) -> Any:
@@ -245,6 +282,13 @@ def _get_message_format(attributes: dict[str, Any]) -> str | None:
     return None
 
 
+def _get_tool_definitions(attributes: dict[str, Any]) -> Any:
+    for translator in _TRANSLATORS:
+        if value := translator.get_tool_definitions(attributes):
+            return value
+    return None
+
+
 def _get_model_name(attributes: dict[str, Any]) -> str | None:
     """
     Get model name from span attributes.
@@ -253,7 +297,7 @@ def _get_model_name(attributes: dict[str, Any]) -> str | None:
         attributes: Dictionary of span attributes
 
     Returns:
-        JSON-encoded string of model name or None if not found
+        Model name or None if not found
     """
     for translator in _TRANSLATORS:
         if model_name := translator.get_model_name(attributes):
@@ -265,7 +309,7 @@ def _get_model_name(attributes: dict[str, Any]) -> str | None:
             if isinstance(inputs, str):
                 inputs = json.loads(inputs)
             if isinstance(inputs, dict) and (model := inputs.get("model")):
-                return dump_span_attribute_value(model) if isinstance(model, str) else None
+                return model if isinstance(model, str) else None
         except Exception:
             _logger.debug("Failed to parse inputs for model name", exc_info=True)
 
@@ -275,7 +319,7 @@ def _get_model_name(attributes: dict[str, Any]) -> str | None:
             if isinstance(outputs, str):
                 outputs = json.loads(outputs)
             if isinstance(outputs, dict) and (model := outputs.get("model")):
-                return dump_span_attribute_value(model) if isinstance(model, str) else None
+                return model if isinstance(model, str) else None
         except Exception:
             _logger.debug("Failed to parse outputs for model name", exc_info=True)
 
@@ -290,7 +334,7 @@ def _get_model_provider(attributes: dict[str, Any]) -> str | None:
         attributes: Dictionary of span attributes
 
     Returns:
-        JSON-encoded string of model provider or None if not found
+        model provider or None if not found
     """
     for translator in _TRANSLATORS:
         if model_provider := translator.get_model_provider(attributes):
@@ -332,9 +376,12 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
     attributes = span_dict.get("attributes", {})
 
     try:
-        if SpanAttributeKey.SPAN_TYPE not in attributes:
+        if current_raw := attributes.get(SpanAttributeKey.SPAN_TYPE):
+            current_type = try_json_loads(current_raw)
+        else:
+            current_type = None
+        if current_type in (None, SpanType.UNKNOWN):
             if mlflow_type := translate_span_type_from_otel(attributes):
-                # Serialize to match how MLflow stores attributes
                 attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
     except Exception:
         _logger.debug("Failed to translate span type", exc_info=True)
@@ -362,14 +409,11 @@ def update_token_usage(
         if isinstance(new_token_usage, str):
             new_token_usage = json.loads(new_token_usage) or {}
         if new_token_usage:
-            for key in [
-                TokenUsageKey.INPUT_TOKENS,
-                TokenUsageKey.OUTPUT_TOKENS,
-                TokenUsageKey.TOTAL_TOKENS,
-            ]:
-                current_token_usage[key] = current_token_usage.get(key, 0) + new_token_usage.get(
-                    key, 0
-                )
+            for key in TokenUsageKey.all_keys():
+                if key in new_token_usage or key in current_token_usage:
+                    current_token_usage[key] = current_token_usage.get(
+                        key, 0
+                    ) + new_token_usage.get(key, 0)
     except Exception:
         _logger.debug(
             f"Failed to update token usage with current_token_usage: {current_token_usage}, "
@@ -378,6 +422,40 @@ def update_token_usage(
         )
 
     return current_token_usage
+
+
+def update_cost(
+    current_cost: str | dict[str, Any], new_cost: str | dict[str, Any]
+) -> str | dict[str, Any]:
+    """
+    Update current cost in-place by adding the new cost.
+
+    Args:
+        current_cost: Current cost, dictionary or JSON string
+        new_cost: New cost, dictionary or JSON string
+
+    Returns:
+        Updated cost dictionary or JSON string
+    """
+    try:
+        if isinstance(current_cost, str):
+            current_cost = json.loads(current_cost) or {}
+        if isinstance(new_cost, str):
+            new_cost = json.loads(new_cost) or {}
+        if new_cost:
+            for key in [
+                CostKey.INPUT_COST,
+                CostKey.OUTPUT_COST,
+                CostKey.TOTAL_COST,
+            ]:
+                current_cost[key] = current_cost.get(key, 0.0) + new_cost.get(key, 0.0)
+    except Exception:
+        _logger.debug(
+            f"Failed to update cost with current_cost: {current_cost}, new_cost: {new_cost}",
+            exc_info=True,
+        )
+
+    return current_cost
 
 
 def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
@@ -392,12 +470,11 @@ def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
             result = json.loads(value)
             if isinstance(result, str):
                 try:
-                    # If the original value is a string or dict, we store it as
-                    # a JSON-encoded string.  For other types, we store the original value directly.
-                    # For string type, this is to avoid interpreting "1" as an int accidentally.
-                    # For dictionary, we save the json-encoded-once string so that the UI can render
-                    # it correctly after loading.
-                    if isinstance(json.loads(result), (str, dict)):
+                    # If the value was double-encoded (e.g., via OTLP where from_otel_proto
+                    # calls dump_span_attribute_value on an already-serialized string), strip
+                    # one layer of encoding for str/dict/list types. We intentionally exclude
+                    # primitives like int/bool to avoid misinterpreting e.g. "1" as an integer.
+                    if isinstance(json.loads(result), (str, dict, list)):
                         updated_attributes[key] = result
                         continue
                 except json.JSONDecodeError:

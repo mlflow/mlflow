@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 
@@ -6,10 +6,19 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
 
 import { ModelTraceExplorerLinkedPromptsView } from './ModelTraceExplorerLinkedPromptsView';
-import { BrowserRouter } from '../RoutingUtils';
+import { BrowserRouter, useParams } from '../RoutingUtils';
+
+jest.mock('../RoutingUtils', () => ({
+  ...jest.requireActual<typeof import('../RoutingUtils')>('../RoutingUtils'),
+  useParams: jest.fn(),
+}));
 
 describe('ModelTraceExplorerLinkedPromptsView', () => {
   const mockExperimentId = 'exp-123';
+
+  beforeEach(() => {
+    jest.mocked(useParams).mockReturnValue({});
+  });
 
   const renderWithProviders = (component: React.ReactElement) => {
     return render(
@@ -24,12 +33,31 @@ describe('ModelTraceExplorerLinkedPromptsView', () => {
   const createMockModelTrace = (linkedPromptsTag?: string) => ({
     info: {
       version: '3' as const,
-      trace_metadata: {}, // Required for isV3ModelTraceInfo check
+      trace_metadata: {},
       trace_location: {
         type: 'MLFLOW_EXPERIMENT' as const,
         mlflow_experiment: {
           experiment_id: mockExperimentId,
         },
+      },
+      tags: linkedPromptsTag
+        ? {
+            'mlflow.linkedPrompts': linkedPromptsTag,
+          }
+        : {},
+    },
+    data: {
+      spans: [],
+      exceptions: [],
+    },
+  });
+
+  const createMockUCModelTrace = (linkedPromptsTag?: string) => ({
+    info: {
+      version: '3' as const,
+      trace_metadata: {},
+      trace_location: {
+        type: 'UNITY_CATALOG' as const,
       },
       tags: linkedPromptsTag
         ? {
@@ -80,5 +108,30 @@ describe('ModelTraceExplorerLinkedPromptsView', () => {
 
     // Verify empty state is shown when JSON is invalid
     expect(screen.getByText('Link prompts to traces')).toBeInTheDocument();
+  });
+
+  it('should render linked prompts for UC traces using experimentId from URL params', async () => {
+    jest.mocked(useParams).mockReturnValue({ experimentId: mockExperimentId });
+
+    const linkedPrompts = [
+      { name: 'uc-prompt-1', version: 'v1.0.0' },
+      { name: 'uc-prompt-2', version: 'v2.0.0' },
+    ];
+    const modelTrace = createMockUCModelTrace(JSON.stringify(linkedPrompts));
+
+    renderWithProviders(<ModelTraceExplorerLinkedPromptsView modelTraceInfo={modelTrace.info as any} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('table')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('uc-prompt-1')).toBeInTheDocument();
+    expect(screen.getByText('uc-prompt-2')).toBeInTheDocument();
+
+    const link = screen.getByRole('link', { name: 'uc-prompt-1' });
+    expect(link).toHaveAttribute(
+      'href',
+      expect.stringContaining(`/experiments/${mockExperimentId}/prompts/uc-prompt-1`),
+    );
   });
 });

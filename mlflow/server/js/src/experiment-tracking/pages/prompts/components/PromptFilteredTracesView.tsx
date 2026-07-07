@@ -5,7 +5,8 @@ import { MonitoringConfigProvider, useMonitoringConfig } from '../../../hooks/us
 import { TracesV3PageWrapper } from '../../../components/experiment-page/components/traces-v3/TracesV3PageWrapper';
 import { useMonitoringViewState } from '../../../hooks/useMonitoringViewState';
 import { getAbsoluteStartEndTime, useMonitoringFilters } from '../../../hooks/useMonitoringFilters';
-import { TracesV3Toolbar } from '../../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
+
+import { TracesV3Toolbar as OSSTracesV3Toolbar } from '../../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
 import { TracesV3Logs } from '../../../components/experiment-page/components/traces-v3/TracesV3Logs';
 import { FilterOperator } from '@databricks/web-shared/genai-traces-table';
 import type { RegisteredPromptVersion } from '../types';
@@ -55,14 +56,16 @@ const PromptFilteredTracesViewImpl = ({
         flexDirection: 'column',
         gap: theme.spacing.sm,
         height: '100%',
+        flex: 1,
+        minWidth: 0,
         overflowY: 'hidden',
       }}
     >
-      <TracesV3Toolbar viewState={viewState} />
+      <OSSTracesV3Toolbar viewState={viewState} />
       {viewState === 'logs' && (
         <TracesV3Logs
-          experimentId={experimentId || ''}
-          endpointName={''}
+          experimentIds={[experimentId]}
+          endpointName=""
           timeRange={timeRange}
           additionalFilters={additionalFilters}
         />

@@ -15,6 +15,7 @@ from packaging.version import Version
 from mlflow.entities import (
     DatasetInput,
     Experiment,
+    Issue,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -27,6 +28,7 @@ from mlflow.entities import (
     ScorerVersion,
     ViewType,
 )
+from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.exceptions import MlflowNotImplementedException
 
 # Constants for Databricks API disabled decorator
@@ -50,8 +52,36 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.protos.issues_pb2 import (
+    CreateIssue,
+    GetIssue,
+    SearchIssues,
+    UpdateIssue,
+)
+from mlflow.protos.label_schemas_pb2 import (
+    CreateLabelSchema,
+    DeleteLabelSchema,
+    GetLabelSchema,
+    GetLabelSchemaByName,
+    ListLabelSchemas,
+    UpdateLabelSchema,
+)
+from mlflow.protos.review_queues_pb2 import (
+    AddItemsToReviewQueue,
+    CreateReviewQueue,
+    DeleteReviewQueue,
+    GetOrCreateUserQueue,
+    GetReviewQueue,
+    GetReviewQueueByName,
+    ListReviewQueueItems,
+    ListReviewQueues,
+    RemoveItemsFromReviewQueue,
+    SetReviewQueueItemStatus,
+    UpdateReviewQueue,
+)
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
@@ -128,6 +158,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.rest_mixin import RestGatewayStoreMixin
+from mlflow.store.workspace_rest_store_mixin import WorkspaceRestStoreMixin
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
@@ -138,7 +169,10 @@ from mlflow.utils.databricks_utils import databricks_api_disabled
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
+    _V3_ISSUES_REST_API_PATH_PREFIX,
+    _V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX,
     _V3_REST_API_PATH_PREFIX,
+    _V3_REVIEW_QUEUES_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
     call_endpoint,
@@ -160,7 +194,7 @@ _logger = logging.getLogger(__name__)
 # RestGatewayStoreMixin provides concrete implementations of those methods. For Python's MRO
 # to correctly resolve the Gateway methods to RestGatewayStoreMixin's implementations,
 # RestGatewayStoreMixin must appear first in the parent class list.
-class RestStore(RestGatewayStoreMixin, AbstractStore):
+class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
     """
     Client for a remote tracking server accessed via REST API calls
 
@@ -220,6 +254,7 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
     ):
         # Route v3 APIs to v3 endpoints, all others to v2 endpoints
         method_to_info = self._V3_METHOD_TO_INFO if api in self._V3_APIS else self._METHOD_TO_INFO
+        self._validate_workspace_support_if_specified()
 
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
@@ -526,6 +561,17 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         )
         return [Trace.from_proto(proto) for proto in response_proto.traces]
 
+    def batch_get_trace_infos(
+        self, trace_ids: list[str], location: str | None = None
+    ) -> list[TraceInfo]:
+        req_body = message_to_json(BatchGetTraceInfos(trace_ids=trace_ids))
+        response_proto = self._call_endpoint(
+            BatchGetTraceInfos,
+            req_body,
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGetInfos",
+        )
+        return [TraceInfo.from_proto(proto) for proto in response_proto.trace_infos]
+
     def search_traces(
         self,
         experiment_ids: list[str] | None = None,
@@ -590,7 +636,15 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
                 _logger.debug(
                     "Server does not support SearchTracesV3 API yet. Falling back to V2 API."
                 )
-                response_proto = self._call_endpoint(SearchTraces, req_body)
+                v2_request = SearchTraces(
+                    experiment_ids=locations,
+                    filter=filter_string,
+                    max_results=max_results,
+                    order_by=order_by,
+                    page_token=page_token,
+                )
+                v2_req_body = message_to_json(v2_request)
+                response_proto = self._call_endpoint(SearchTraces, v2_req_body)
             else:
                 raise
 
@@ -804,6 +858,430 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
             req_body,
             endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
         )
+
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: IssueStatus = IssueStatus.PENDING,
+        severity: IssueSeverity | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        categories: list[str] | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status. Defaults to IssueStatus.PENDING.
+            severity: Optional severity level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional MLflow run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        req_body = message_to_json(
+            CreateIssue(
+                experiment_id=experiment_id,
+                name=name,
+                description=description,
+                status=str(status),
+                severity=str(severity) if severity is not None else None,
+                root_causes=root_causes or [],
+                source_run_id=source_run_id,
+                categories=categories or [],
+                created_by=created_by,
+            )
+        )
+        response_proto = self._call_endpoint(
+            CreateIssue, req_body, endpoint=_V3_ISSUES_REST_API_PATH_PREFIX
+        )
+        return Issue.from_proto(response_proto.issue)
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        req_body = message_to_json(GetIssue(issue_id=issue_id))
+        response_proto = self._call_endpoint(
+            GetIssue, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/{issue_id}"
+        )
+        return Issue.from_proto(response_proto.issue)
+
+    def update_issue(
+        self,
+        issue_id: str,
+        status: IssueStatus | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        severity: IssueSeverity | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            severity: Optional new severity level.
+
+        Returns:
+            The updated Issue entity.
+        """
+        req_body = message_to_json(
+            UpdateIssue(
+                issue_id=issue_id,
+                status=str(status) if status is not None else None,
+                name=name,
+                description=description,
+                severity=str(severity) if severity is not None else None,
+            )
+        )
+        response_proto = self._call_endpoint(
+            UpdateIssue, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/{issue_id}"
+        )
+        return Issue.from_proto(response_proto.issue)
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+        include_trace_count: bool = False,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+            include_trace_count: Whether to include the count of traces impacted by each issue.
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        req_body = message_to_json(
+            SearchIssues(
+                experiment_id=experiment_id,
+                filter_string=filter_string,
+                max_results=max_results,
+                page_token=page_token,
+                include_trace_count=include_trace_count,
+            )
+        )
+        response_proto = self._call_endpoint(
+            SearchIssues, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/search"
+        )
+        issues = [Issue.from_proto(issue_proto) for issue_proto in response_proto.issues]
+        return PagedList(issues, response_proto.next_page_token or None)
+
+    # ----- Label schemas (tracking-store CRUD) -----
+
+    def create_label_schema(
+        self,
+        experiment_id,
+        *,
+        name,
+        type,
+        input,
+        instruction=None,
+        enable_comment=False,
+    ):
+        # Lazy import — mlflow.genai.__init__ transitively imports the
+        # artifact-repo registry, which imports RestStore, so a top-level
+        # import here creates a circular load.
+        from mlflow.genai.label_schemas.label_schemas import (
+            LabelSchema,
+            LabelSchemaType,
+            _input_to_proto,
+        )
+
+        type_proto = LabelSchemaType(str(type)).to_proto()
+        req = CreateLabelSchema(
+            experiment_id=str(experiment_id),
+            name=name,
+            type=type_proto,
+            input=_input_to_proto(input),
+            enable_comment=enable_comment,
+        )
+        if instruction is not None:
+            req.instruction = instruction
+        response_proto = self._call_endpoint(
+            CreateLabelSchema,
+            message_to_json(req),
+            endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/create",
+        )
+        return LabelSchema.from_proto(response_proto.label_schema)
+
+    def get_label_schema(self, schema_id):
+        from mlflow.genai.label_schemas.label_schemas import LabelSchema
+
+        req = GetLabelSchema(schema_id=schema_id)
+        response_proto = self._call_endpoint(
+            GetLabelSchema,
+            message_to_json(req),
+            endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/get",
+        )
+        return LabelSchema.from_proto(response_proto.label_schema)
+
+    def get_label_schema_by_name(self, experiment_id, name):
+        from mlflow.genai.label_schemas.label_schemas import LabelSchema
+
+        req = GetLabelSchemaByName(experiment_id=str(experiment_id), name=name)
+        response_proto = self._call_endpoint(
+            GetLabelSchemaByName,
+            message_to_json(req),
+            endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/get-by-name",
+        )
+        return LabelSchema.from_proto(response_proto.label_schema)
+
+    def list_label_schemas(self, experiment_id, max_results=100, page_token=None):
+        from mlflow.genai.label_schemas.label_schemas import LabelSchema
+
+        req = ListLabelSchemas(experiment_id=str(experiment_id), max_results=max_results)
+        if page_token is not None:
+            req.page_token = page_token
+        response_proto = self._call_endpoint(
+            ListLabelSchemas,
+            message_to_json(req),
+            endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/list",
+        )
+        schemas = [LabelSchema.from_proto(s) for s in response_proto.label_schemas]
+        return PagedList(schemas, response_proto.next_page_token or None)
+
+    def update_label_schema(
+        self,
+        schema_id,
+        *,
+        name=None,
+        instruction=None,
+        enable_comment=None,
+        input=None,
+    ):
+        from mlflow.genai.label_schemas.label_schemas import LabelSchema, _input_to_proto
+
+        req = UpdateLabelSchema(schema_id=schema_id)
+        if name is not None:
+            req.name = name
+        if instruction is not None:
+            req.instruction = instruction
+        if enable_comment is not None:
+            req.enable_comment = enable_comment
+        if input is not None:
+            req.input.CopyFrom(_input_to_proto(input))
+        response_proto = self._call_endpoint(
+            UpdateLabelSchema,
+            message_to_json(req),
+            endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/update",
+        )
+        return LabelSchema.from_proto(response_proto.label_schema)
+
+    def delete_label_schema(self, schema_id):
+        req = DeleteLabelSchema(schema_id=schema_id)
+        self._call_endpoint(
+            DeleteLabelSchema,
+            message_to_json(req),
+            endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/delete",
+        )
+
+    # ------------------------------------------------------------------
+    # Review queues. See mlflow/genai/review_queues/. Lazy entity imports
+    # avoid the mlflow.genai -> artifact-repo-registry -> RestStore cycle.
+    # ------------------------------------------------------------------
+
+    def create_review_queue(
+        self,
+        experiment_id,
+        *,
+        name,
+        queue_type,
+        created_by=None,
+        users=None,
+        schema_ids=None,
+    ):
+        from mlflow.genai.review_queues import ReviewQueue
+        from mlflow.genai.review_queues.validation import coerce_queue_type
+
+        req = CreateReviewQueue(
+            experiment_id=str(experiment_id),
+            name=name,
+            queue_type=coerce_queue_type(queue_type).to_proto(),
+            users=list(users) if users is not None else [],
+            schema_ids=list(schema_ids) if schema_ids is not None else [],
+        )
+        if created_by is not None:
+            req.created_by = created_by
+        response_proto = self._call_endpoint(
+            CreateReviewQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/create",
+        )
+        return ReviewQueue.from_proto(response_proto.review_queue)
+
+    def get_or_create_user_queue(self, experiment_id, *, user):
+        from mlflow.genai.review_queues import ReviewQueue
+
+        req = GetOrCreateUserQueue(experiment_id=str(experiment_id), user=user)
+        response_proto = self._call_endpoint(
+            GetOrCreateUserQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/get-or-create-user",
+        )
+        return ReviewQueue.from_proto(response_proto.review_queue)
+
+    def get_review_queue(self, queue_id):
+        from mlflow.genai.review_queues import ReviewQueue
+
+        req = GetReviewQueue(queue_id=queue_id)
+        response_proto = self._call_endpoint(
+            GetReviewQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/get",
+        )
+        return ReviewQueue.from_proto(response_proto.review_queue)
+
+    def get_review_queue_by_name(self, experiment_id, *, name):
+        from mlflow.genai.review_queues import ReviewQueue
+
+        req = GetReviewQueueByName(experiment_id=str(experiment_id), name=name)
+        response_proto = self._call_endpoint(
+            GetReviewQueueByName,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/get-by-name",
+        )
+        return ReviewQueue.from_proto(response_proto.review_queue)
+
+    def list_review_queues(
+        self, experiment_id, *, user=None, item_id=None, max_results=None, page_token=None
+    ):
+        from mlflow.genai.review_queues import ReviewQueue
+
+        req = ListReviewQueues(experiment_id=str(experiment_id))
+        if user is not None:
+            req.user = user
+        if item_id is not None:
+            req.item_id = item_id
+        if max_results is not None:
+            req.max_results = max_results
+        if page_token is not None:
+            req.page_token = page_token
+        response_proto = self._call_endpoint(
+            ListReviewQueues,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/list",
+        )
+        queues = [ReviewQueue.from_proto(q) for q in response_proto.review_queues]
+        return PagedList(queues, response_proto.next_page_token or None)
+
+    def update_review_queue(
+        self, queue_id, *, name=None, new_owner=None, users=None, schema_ids=None
+    ):
+        from mlflow.genai.review_queues import ReviewQueue
+
+        req = UpdateReviewQueue(queue_id=queue_id)
+        if name is not None:
+            req.name = name
+        if new_owner is not None:
+            req.new_owner = new_owner
+        if users is not None:
+            req.update_users = True
+            req.users.extend(users)
+        if schema_ids is not None:
+            req.update_schema_ids = True
+            req.schema_ids.extend(schema_ids)
+        response_proto = self._call_endpoint(
+            UpdateReviewQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/update",
+        )
+        return ReviewQueue.from_proto(response_proto.review_queue)
+
+    def delete_review_queue(self, queue_id):
+        req = DeleteReviewQueue(queue_id=queue_id)
+        self._call_endpoint(
+            DeleteReviewQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/delete",
+        )
+
+    def add_items_to_review_queue(self, queue_id, *, item_ids, item_type="trace"):
+        from mlflow.genai.review_queues import ReviewQueueItem
+        from mlflow.genai.review_queues.validation import coerce_item_type
+
+        req = AddItemsToReviewQueue(
+            queue_id=queue_id,
+            item_type=coerce_item_type(item_type).to_proto(),
+            item_ids=list(item_ids),
+        )
+        response_proto = self._call_endpoint(
+            AddItemsToReviewQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/items/add",
+        )
+        return [ReviewQueueItem.from_proto(i) for i in response_proto.items]
+
+    def remove_items_from_review_queue(self, queue_id, *, item_ids):
+        req = RemoveItemsFromReviewQueue(queue_id=queue_id, item_ids=list(item_ids))
+        self._call_endpoint(
+            RemoveItemsFromReviewQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/items/remove",
+        )
+
+    def list_review_queue_items(self, queue_id, *, status=None, max_results=None, page_token=None):
+        from mlflow.genai.review_queues import ReviewQueueItem
+        from mlflow.genai.review_queues.validation import coerce_status
+
+        req = ListReviewQueueItems(queue_id=queue_id)
+        if status is not None:
+            req.status = coerce_status(status).to_proto()
+        if max_results is not None:
+            req.max_results = max_results
+        if page_token is not None:
+            req.page_token = page_token
+        response_proto = self._call_endpoint(
+            ListReviewQueueItems,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/items/list",
+        )
+        items = [ReviewQueueItem.from_proto(i) for i in response_proto.items]
+        return PagedList(items, response_proto.next_page_token or None)
+
+    def set_review_queue_item_status(self, queue_id, *, item_id, status, completed_by=None):
+        from mlflow.genai.review_queues import ReviewQueueItem
+        from mlflow.genai.review_queues.validation import coerce_status
+
+        req = SetReviewQueueItemStatus(
+            queue_id=queue_id,
+            item_id=item_id,
+            status=coerce_status(status).to_proto(),
+        )
+        if completed_by is not None:
+            req.completed_by = completed_by
+        response_proto = self._call_endpoint(
+            SetReviewQueueItemStatus,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/items/set-status",
+        )
+        return ReviewQueueItem.from_proto(response_proto.item)
 
     def log_metric(self, run_id: str, metric: Metric):
         """
@@ -1956,19 +2434,17 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         Log multiple span entities to the tracking store via the OTel API.
 
         Args:
-            location: The location to log spans to. It should be experiment ID of an MLflow
-                experiment.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            location: Experiment ID of an MLflow experiment.
+            spans: List of Span entities to log.
             tracking_uri: The tracking URI to use. Default to None.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces or the OTel API call fails.
         """
         if not spans:
             return []
+
+        self._validate_workspace_support_if_specified()
 
         server_version = self._get_server_version(self.get_host_creds())
         if server_version is None:
@@ -1979,13 +2455,6 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
             raise NotImplementedError(
                 f"log_spans is not supported: MLflow server version {server_version} is"
                 f" less than 3.4"
-            )
-
-        trace_ids = {span.trace_id for span in spans}
-        if len(trace_ids) > 1:
-            raise MlflowException(
-                f"All spans must belong to the same trace. Found trace IDs: {trace_ids}",
-                error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
             )
 
         request = ExportTraceServiceRequest()
@@ -2010,18 +2479,13 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         return spans
 
     async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
-        """
-        Async wrapper for log_spans method.
+        """Async wrapper for log_spans. Delegates to the synchronous implementation.
 
         Args:
-            location: The location to log spans to. It should be experiment ID of an MLflow
-                experiment.
-            spans: List of Span entities to log. All spans must belong to the same trace.
+            location: Experiment ID of an MLflow experiment.
+            spans: List of Span entities to log.
 
         Returns:
             List of logged Span entities.
-
-        Raises:
-            MlflowException: If spans belong to different traces or the OTel API call fails.
         """
         return self.log_spans(location, spans)

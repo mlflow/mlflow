@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { FeedbackAssessment, ModelTrace } from '../ModelTrace.types';
+import type { FeedbackAssessment, ModelTrace } from '../ModelTrace.types';
 
 interface TraceScorerJudgeEvaluationResult {
   trace: ModelTrace | null;

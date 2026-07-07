@@ -2,7 +2,13 @@
 import type { TreebeardData } from 'react-treebeard';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'reac... Remove this comment to see the full error message
 import { decorators, Treebeard } from 'react-treebeard';
-import { DATA_EXTENSIONS, getExtension, IMAGE_EXTENSIONS, TEXT_EXTENSIONS } from '../../common/utils/FileUtils';
+import {
+  DATA_EXTENSIONS,
+  getExtension,
+  IMAGE_EXTENSIONS,
+  MARKDOWN_EXTENSIONS,
+  TEXT_EXTENSIONS,
+} from '../../common/utils/FileUtils';
 
 import spinner from '../../common/static/mlflow-spinner.png';
 import { useDesignSystemTheme } from '@databricks/design-system';
@@ -47,7 +53,7 @@ decorators.Header = ({ style, node }: DecoratorStyle) => {
       iconType = 'file-image-o';
     } else if (DATA_EXTENSIONS.has(extension)) {
       iconType = 'file-excel-o';
-    } else if (TEXT_EXTENSIONS.has(extension)) {
+    } else if (TEXT_EXTENSIONS.has(extension) || MARKDOWN_EXTENSIONS.has(extension)) {
       iconType = 'file-code-o';
     } else {
       iconType = 'file-text-o';

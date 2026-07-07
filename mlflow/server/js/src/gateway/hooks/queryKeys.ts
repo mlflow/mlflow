@@ -5,4 +5,7 @@ export const GatewayQueryKeys = {
   secrets: ['gateway_secrets'] as const,
   modelDefinitions: ['gateway_model_definitions'] as const,
   providers: ['gateway_providers'] as const,
+  budgetPolicies: ['gateway_budget_policies'] as const,
+  budgetWindows: ['gateway_budget_windows'] as const,
+  guardrails: ['gateway_guardrails'] as const,
 };

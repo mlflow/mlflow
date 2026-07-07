@@ -1,6 +1,5 @@
-import { compact } from 'lodash';
-
-import { SESSION_ID_METADATA_KEY, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { SESSION_ID_METADATA_KEY } from '../../model-trace-explorer/constants';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 
 import type { EvalTraceComparisonEntry } from '../types';
 import { shouldEnableSessionGrouping } from './FeatureUtils';
@@ -15,7 +14,9 @@ export interface SessionHeaderRowData {
   persona?: string;
 }
 
-export type GroupedTraceTableRowData = { type: 'trace'; data: EvalTraceComparisonEntry } | SessionHeaderRowData;
+export type GroupedTraceTableRowData =
+  | { type: 'trace'; data: EvalTraceComparisonEntry; sessionId?: string }
+  | SessionHeaderRowData;
 
 export const SIMULATION_GOAL_KEY = 'mlflow.simulation.goal';
 export const SIMULATION_PERSONA_KEY = 'mlflow.simulation.persona';
@@ -55,36 +56,6 @@ const getSessionMatchKey = (trace: ModelTraceInfoV3, isComparing?: boolean): str
   }
 
   return `unmatched:${trace.trace_id}`;
-};
-
-/**
- * Collect all ModelTraceInfoV3 objects from a list of entries (currentRunValue only).
- */
-const collectTracesFromEntries = (entries: EvalTraceComparisonEntry[]): ModelTraceInfoV3[] => {
-  const traces: ModelTraceInfoV3[] = [];
-
-  entries.forEach((entry) => {
-    if (entry.currentRunValue?.traceInfo) {
-      traces.push(entry.currentRunValue.traceInfo);
-    }
-  });
-
-  return compact(traces);
-};
-
-/**
- * Collect all ModelTraceInfoV3 objects from otherRunValue in entries.
- */
-const collectOtherTracesFromEntries = (entries: EvalTraceComparisonEntry[]): ModelTraceInfoV3[] => {
-  const traces: ModelTraceInfoV3[] = [];
-
-  entries.forEach((entry) => {
-    if (entry.otherRunValue?.traceInfo) {
-      traces.push(entry.otherRunValue.traceInfo);
-    }
-  });
-
-  return compact(traces);
 };
 
 interface SessionData {
@@ -256,6 +227,7 @@ export const groupTracesBySessionForTable = (
         result.push({
           type: 'trace',
           data: entry,
+          sessionId,
         });
 
         const traceId = entry.currentRunValue?.traceInfo?.trace_id;

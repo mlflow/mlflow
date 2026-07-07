@@ -61,20 +61,18 @@ def sample_summarization_prompt() -> PromptVersion:
 
 @pytest.fixture
 def sample_dataset() -> pd.DataFrame:
-    return pd.DataFrame(
-        {
-            "inputs": [
-                {"input_text": "Hello", "language": "Spanish"},
-                {"input_text": "World", "language": "French"},
-                {"input_text": "Goodbye", "language": "Spanish"},
-            ],
-            "outputs": [
-                "Hola",
-                "Monde",
-                "Adiós",
-            ],
-        }
-    )
+    return pd.DataFrame({
+        "inputs": [
+            {"input_text": "Hello", "language": "Spanish"},
+            {"input_text": "World", "language": "French"},
+            {"input_text": "Goodbye", "language": "Spanish"},
+        ],
+        "outputs": [
+            "Hola",
+            "Monde",
+            "Adiós",
+        ],
+    })
 
 
 @pytest.fixture
@@ -339,15 +337,13 @@ def test_optimize_prompts_with_custom_scorers(
     testing_optimizer = MetricTestOptimizer()
 
     # Create dataset with outputs that will test custom scorer
-    test_dataset = pd.DataFrame(
-        {
-            "inputs": [
-                {"input_text": "Hello", "language": "Spanish"},
-                {"input_text": "World", "language": "French"},
-            ],
-            "outputs": ["HOLA", "monde"],  # Different cases to test custom scorer
-        }
-    )
+    test_dataset = pd.DataFrame({
+        "inputs": [
+            {"input_text": "Hello", "language": "Spanish"},
+            {"input_text": "World", "language": "French"},
+        ],
+        "outputs": ["HOLA", "monde"],  # Different cases to test custom scorer
+    })
 
     def predict_fn(input_text, language):
         mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")

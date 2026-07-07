@@ -8,7 +8,6 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import gepa
@@ -21,7 +20,6 @@ EVAL_RESULTS_FILE = "eval_results.json"
 SCORES_FILE = "scores.json"
 
 
-@experimental(version="3.5.0")
 class GepaPromptOptimizer(BasePromptOptimizer):
     """
     A prompt adapter that uses GEPA (Genetic-Pareto) optimization algorithm
@@ -326,19 +324,17 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                                 for span in trace.data.spans
                             ]
 
-                        component_data.append(
-                            {
-                                "component_name": component_name,
-                                "current_text": candidate.get(component_name, ""),
-                                "trace": spans,
-                                "score": score,
-                                "inputs": trajectory.inputs,
-                                "outputs": trajectory.outputs,
-                                "expectations": trajectory.expectations,
-                                "rationales": trajectory.rationales,
-                                "index": i,
-                            }
-                        )
+                        component_data.append({
+                            "component_name": component_name,
+                            "current_text": candidate.get(component_name, ""),
+                            "trace": spans,
+                            "score": score,
+                            "inputs": trajectory.inputs,
+                            "outputs": trajectory.outputs,
+                            "expectations": trajectory.expectations,
+                            "rationales": trajectory.rationales,
+                            "index": i,
+                        })
 
                     reflective_datasets[component_name] = component_data
 

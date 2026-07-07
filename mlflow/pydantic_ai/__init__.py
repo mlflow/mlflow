@@ -4,6 +4,7 @@ import logging
 import typing
 
 from mlflow.pydantic_ai.autolog import (
+    patched_agent_init,
     patched_async_class_call,
     patched_async_stream_call,
     patched_class_call,
@@ -28,16 +29,25 @@ def _returns_sync_streamed_result(func) -> bool:
         return False
 
     try:
-        hints = typing.get_type_hints(func)
-        return_type = hints.get("return")
-        if return_type is None:
-            return False
-
-        origin = typing.get_origin(return_type) or return_type
-
-        return hasattr(origin, "stream_text") and hasattr(origin, "stream_output")
-    except Exception:
+        return_annotation = inspect.signature(func).return_annotation
+    except (ValueError, TypeError):
         return False
+
+    if return_annotation is inspect.Signature.empty:
+        return False
+
+    # pydantic-ai uses `from __future__ import annotations`, so the return
+    # annotation is a raw string rather than a resolved type. We match by class
+    # name to avoid calling `get_type_hints()`, which would try to resolve *all*
+    # parameter annotations (e.g. `AgentSpec` added in 1.71.0) and raise
+    # NameError for any forward reference that isn't importable at call time.
+    # `StreamedRunResultSync` is a unique pydantic-ai class name; substring
+    # matching is sufficient and avoids fragile import-time resolution.
+    if isinstance(return_annotation, str):
+        return "StreamedRunResultSync" in return_annotation
+
+    origin = typing.get_origin(return_annotation) or return_annotation
+    return hasattr(origin, "stream_text") and hasattr(origin, "stream_output")
 
 
 def _patch_streaming_method(cls, method_name, wrapper_func):
@@ -64,6 +74,35 @@ def _patch_method(cls, method_name):
         safe_patch(FLAVOR_NAME, cls, method_name, patched_class_call)
 
 
+def _get_tool_manager_module_path() -> str:
+    """Return the importable module path for ToolManager.
+
+    pydantic-ai >= 1.78.0 renamed _tool_manager to tool_manager (public).
+    Try the public path first; fall back to the private one for older versions.
+    """
+    try:
+        import pydantic_ai.tool_manager  # noqa: F401
+
+        return "pydantic_ai.tool_manager"
+    except ImportError:
+        return "pydantic_ai._tool_manager"
+
+
+def _tool_manager_uses_execute_tool_call() -> bool:
+    """Return True if ToolManager has execute_tool_call (pydantic-ai >= 1.63.0).
+
+    In pydantic-ai >= 1.63.0, _agent_graph._call_tool() calls
+    tool_manager.execute_tool_call() directly rather than handle_call(), so we
+    must patch execute_tool_call to capture the TOOL span.
+    """
+    module_path = _get_tool_manager_module_path()
+    try:
+        module = __import__(module_path, fromlist=["ToolManager"])
+        return hasattr(module.ToolManager, "execute_tool_call")
+    except ImportError:
+        return False
+
+
 @autologging_integration(FLAVOR_NAME)
 def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False):
     """
@@ -86,13 +125,19 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
     except ImportError:
         pass
 
+    tool_manager_path = f"{_get_tool_manager_module_path()}.ToolManager"
     class_map = {
         "pydantic_ai.Agent": agent_methods,
         "pydantic_ai.models.instrumented.InstrumentedModel": [
             "request",
             "request_stream",
         ],
-        "pydantic_ai._tool_manager.ToolManager": ["handle_call"],
+        # In pydantic-ai >= 1.63.0, _agent_graph calls execute_tool_call directly,
+        # bypassing handle_call. Patch execute_tool_call when available; fall back to
+        # handle_call for older versions where execute_tool_call doesn't exist.
+        tool_manager_path: ["execute_tool_call"]
+        if _tool_manager_uses_execute_tool_call()
+        else ["handle_call"],
         "pydantic_ai.mcp.MCPServer": ["call_tool", "list_tools"],
     }
 
@@ -104,6 +149,22 @@ def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False
             class_map["pydantic_ai.Tool"] = ["run"]
     except ImportError:
         pass
+
+    # Patch Agent.__init__ to auto-enable instrument=True so LLM spans
+    # are captured without requiring users to explicitly set it
+    try:
+        from pydantic_ai import Agent
+
+        original_init = Agent.__init__
+
+        @functools.wraps(original_init)
+        def patched_init(self, *args, **kwargs):
+            return patched_agent_init(original_init, self, *args, **kwargs)
+
+        patch = _wrap_patch(Agent, "__init__", patched_init)
+        _store_patch(FLAVOR_NAME, patch)
+    except (ImportError, AttributeError) as e:
+        _logger.error("Error patching Agent.__init__: %s", e)
 
     for cls_path, methods in class_map.items():
         module_name, class_name = cls_path.rsplit(".", 1)

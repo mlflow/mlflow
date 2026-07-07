@@ -37,12 +37,13 @@ def test_trace():
                     "status_message": "",
                     "attributes": {
                         "mlflow.traceRequestId": '"test-trace-123"',
-                        "mlflow.spanInputs": json.dumps(
-                            {"user_id": "12345", "query": "What is the weather today?"}
-                        ),
-                        "mlflow.spanOutputs": json.dumps(
-                            {"response": "I'll help you with the weather information."}
-                        ),
+                        "mlflow.spanInputs": json.dumps({
+                            "user_id": "12345",
+                            "query": "What is the weather today?",
+                        }),
+                        "mlflow.spanOutputs": json.dumps({
+                            "response": "I'll help you with the weather information."
+                        }),
                         "model": "gpt-4",
                         "temperature": "22°C",
                     },

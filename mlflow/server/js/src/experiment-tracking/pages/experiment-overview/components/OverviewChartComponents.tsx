@@ -1,20 +1,30 @@
-import React from 'react';
-import { TableSkeleton, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import React, { useCallback, useContext } from 'react';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  TableSkeleton,
+  TitleSkeleton,
+  Typography,
+  useDesignSystemEventComponentCallbacks,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { useChartInteractionTelemetry } from '../hooks/useChartInteractionTelemetry';
 import { useNavigate } from '../../../../common/utils/RoutingUtils';
+import { OverviewChartContext } from '../OverviewChartContext';
 import Routes from '../../../routes';
 import { ExperimentPageTabName } from '../../../constants';
 import {
   FilterOperator,
   HiddenFilterOperator,
   TracesTableColumnGroup,
+  SPAN_NAME_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
 
-export const DEFAULT_CHART_HEIGHT = 280;
+const DEFAULT_CHART_HEIGHT = 280;
 export const DEFAULT_CHART_CONTENT_HEIGHT = 200;
-export const DEFAULT_TOOLTIP_MAX_HEIGHT = 120;
-export const DEFAULT_LEGEND_MAX_HEIGHT = 60;
+const DEFAULT_TOOLTIP_MAX_HEIGHT = 120;
+const DEFAULT_LEGEND_MAX_HEIGHT = 60;
 
 interface OverviewChartHeaderProps {
   /** Icon component to display before the title */
@@ -66,7 +76,7 @@ interface OverviewChartCardProps {
 /**
  * Common wrapper for overview chart cards with consistent styling
  */
-export const OverviewChartCard: React.FC<OverviewChartCardProps> = ({ children, height = DEFAULT_CHART_HEIGHT }) => {
+const OverviewChartCard: React.FC<OverviewChartCardProps> = ({ children, height = DEFAULT_CHART_HEIGHT }) => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -236,6 +246,26 @@ export function createAssessmentEqualsFilter(assessmentName: string, scoreValue:
   return [TracesTableColumnGroup.ASSESSMENT, FilterOperator.EQUALS, scoreValue, assessmentName].join('::');
 }
 
+/**
+ * Creates a filter string for traces where span name equals the specified value.
+ *
+ * @param spanName - The name of the span to filter by
+ * @returns Filter string in format "column::operator::value"
+ */
+export function createSpanNameEqualsFilter(spanName: string): string {
+  return [SPAN_NAME_COLUMN_ID, FilterOperator.EQUALS, spanName].join('::');
+}
+
+/**
+ * Creates a filter string for traces where span status equals the specified value.
+ *
+ * @param status - The status value to filter by (e.g., 'ERROR', 'OK')
+ * @returns Filter string in format "column::operator::value"
+ */
+export function createSpanStatusEqualsFilter(status: string): string {
+  return [SPAN_STATUS_COLUMN_ID, FilterOperator.EQUALS, status].join('::');
+}
+
 /** Allowed component IDs for tooltip "View traces" links */
 type TooltipLinkComponentId =
   | 'mlflow.overview.usage.traces.view_traces_link'
@@ -244,12 +274,11 @@ type TooltipLinkComponentId =
   | 'mlflow.overview.usage.token_stats.view_traces_link'
   | 'mlflow.overview.usage.token_usage.view_traces_link'
   | 'mlflow.overview.quality.assessment.view_traces_link'
-  | 'mlflow.overview.quality.assessment_timeseries.view_traces_link';
+  | 'mlflow.overview.quality.assessment_timeseries.view_traces_link'
+  | 'mlflow.overview.tools.error_rate.view_traces_link';
 
 /** Optional link configuration for ScrollableTooltip */
 interface TooltipLinkConfig {
-  /** Component ID for telemetry tracking */
-  componentId: TooltipLinkComponentId;
   /** Custom link text. When provided, shows this text instead of the default */
   linkText?: React.ReactNode;
   /**
@@ -272,6 +301,7 @@ interface ScrollableTooltipProps {
   formatter: (value: number, name: string) => [string | number, string];
   /** Optional link configuration. When provided, shows a link to view traces */
   linkConfig?: TooltipLinkConfig;
+  componentId: TooltipLinkComponentId;
 }
 
 /**
@@ -291,15 +321,23 @@ interface ScrollableTooltipProps {
  *       linkConfig={{
  *         experimentId,
  *         timeIntervalSeconds,
- *         componentId: 'mlflow.overview.usage.traces.view_traces_link',
  *       }}
  *     />
  *   }
  * />
  */
-export function ScrollableTooltip({ active, payload, label, formatter, linkConfig }: ScrollableTooltipProps) {
+export function ScrollableTooltip({
+  active,
+  payload,
+  label,
+  formatter,
+  linkConfig,
+  componentId,
+}: ScrollableTooltipProps) {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
+  const { hideTooltipLinks, tooltipLinkUrlBuilder, tooltipLinkText, tracesNavigationFilters } =
+    useContext(OverviewChartContext) ?? {};
 
   if (!active || !payload?.length) {
     return null;
@@ -310,23 +348,33 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
   const hasCustomLinkClick = linkConfig?.onLinkClick !== undefined;
   const hasTimeBasedNavigation =
     linkConfig?.experimentId && linkConfig?.timeIntervalSeconds && dataPoint?.timestampMs !== undefined;
-  const showLink = linkConfig && (hasCustomLinkClick || hasTimeBasedNavigation);
+  const showLink = !hideTooltipLinks && linkConfig && (hasCustomLinkClick || hasTimeBasedNavigation);
 
   const handleLinkClick = () => {
     if (hasCustomLinkClick) {
-      linkConfig.onLinkClick!(label, dataPoint);
+      linkConfig.onLinkClick?.(label, dataPoint);
     } else if (hasTimeBasedNavigation) {
-      const url = getTracesFilteredByTimeRangeUrl(
-        linkConfig.experimentId!,
-        dataPoint.timestampMs!,
-        linkConfig.timeIntervalSeconds!,
-      );
+      const url = tooltipLinkUrlBuilder
+        ? tooltipLinkUrlBuilder(
+            linkConfig.experimentId ?? '',
+            dataPoint.timestampMs ?? 0,
+            linkConfig.timeIntervalSeconds ?? 0,
+          )
+        : getTracesFilteredByTimeRangeUrl(
+            linkConfig.experimentId ?? '',
+            dataPoint.timestampMs ?? 0,
+            linkConfig.timeIntervalSeconds ?? 0,
+            tracesNavigationFilters,
+          );
       navigate(url);
     }
   };
 
   return (
     <div
+      // Stop mouse events from bubbling to the Recharts chart container so the tooltip
+      // position freezes while the cursor is over it, making the link clickable.
+      onMouseMove={(e) => e.stopPropagation()}
       css={{
         // This ensures the tooltip is semi-transparent so the chart is visible through it.
         // 80 hex = 50% opacity
@@ -389,7 +437,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
           }}
         >
           <Typography.Link
-            componentId={linkConfig.componentId}
+            componentId={componentId ?? 'mlflow.overview.usage.traces.view_traces_link'}
             onClick={handleLinkClick}
             css={{
               cursor: 'pointer',
@@ -398,7 +446,7 @@ export function ScrollableTooltip({ active, payload, label, formatter, linkConfi
               gap: theme.spacing.xs,
             }}
           >
-            {linkConfig.linkText ?? (
+            {linkConfig?.linkText ?? tooltipLinkText ?? (
               <FormattedMessage
                 defaultMessage="View traces for this period"
                 description="Link text to navigate to traces tab filtered by the selected time period"
@@ -498,7 +546,21 @@ interface OverviewChartContainerProps extends React.HTMLAttributes<HTMLDivElemen
  */
 export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ children, componentId, ...rest }) => {
   const { theme } = useDesignSystemTheme();
-  const interactionProps = useChartInteractionTelemetry(componentId);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Card,
+    componentId,
+    analyticsEvents: [DesignSystemEventProviderAnalyticsEventTypes.OnClick],
+  });
+
+  const onClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!componentId) {
+        return;
+      }
+      eventContext?.onClick(e);
+    },
+    [componentId, eventContext],
+  );
 
   return (
     <div
@@ -508,7 +570,7 @@ export const OverviewChartContainer: React.FC<OverviewChartContainerProps> = ({ 
         padding: theme.spacing.lg,
         backgroundColor: theme.colors.backgroundPrimary,
       }}
-      {...interactionProps}
+      onClick={onClick}
       {...rest}
     >
       {children}

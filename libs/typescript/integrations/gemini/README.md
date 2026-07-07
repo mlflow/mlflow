@@ -2,17 +2,17 @@
 
 Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with Gemini to automatically trace your Claude API calls.
 
-| Package             | NPM                                                                                                                                         | Description                                  |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| [mlflow-gemini](./) | [![npm package](https://img.shields.io/npm/v/mlflow-tracing-gemini?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing-gemini) | Auto-instrumentation integration for Gemini. |
+| Package              | NPM                                                                                                                               | Description                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| [@mlflow/gemini](./) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fgemini?style=flat-square)](https://www.npmjs.com/package/@mlflow/gemini) | Auto-instrumentation integration for Gemini. |
 
 ## Installation
 
 ```bash
-npm install mlflow-gemini
+npm install @mlflow/gemini
 ```
 
-The package includes the [`mlflow-tracing`](https://github.com/mlflow/mlflow/tree/main/libs/typescript) package and `@google/genai` package as peer dependencies. Depending on your package manager, you may need to install these two packages separately.
+The package includes the [`@mlflow/core`](https://github.com/mlflow/mlflow/tree/main/libs/typescript) package and `@google/genai` package as peer dependencies. Depending on your package manager, you may need to install these two packages separately.
 
 ## Quickstart
 
@@ -28,7 +28,7 @@ Self-hosting MLflow server requires Python 3.10 or higher. If you don't have one
 Instantiate MLflow SDK in your application:
 
 ```typescript
-import * as mlflow from 'mlflow-tracing';
+import * as mlflow from '@mlflow/core';
 
 mlflow.init({
   trackingUri: 'http://localhost:5000',
@@ -39,7 +39,7 @@ mlflow.init({
 Create a trace for Gemini:
 
 ```typescript
-import { tracedGemini } from 'mlflow-gemini';
+import { tracedGemini } from '@mlflow/gemini';
 import { GoogleGenAI } from '@google/genai';
 
 const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });

@@ -26,11 +26,10 @@ export const useUpsertDatasetRecordsMutation = ({
         records: records,
       };
 
-      const response = (await fetchAPI(
-        getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}/records`),
-        'POST',
-        requestBody,
-      )) as UpsertDatasetRecordsResponse;
+      const response = (await fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}/records`), {
+        method: 'POST',
+        body: requestBody,
+      })) as UpsertDatasetRecordsResponse;
 
       return response;
     },

@@ -109,12 +109,22 @@ const SpanCostHoverCard = ({ cost }: { cost: SpanCostInfo }) => {
   );
 };
 
-export const SpanModelCostBadge = ({ activeSpan }: { activeSpan: ModelTraceSpanNode }) => {
+export const SpanModelCostBadge = ({
+  activeSpan,
+  className,
+}: {
+  activeSpan: ModelTraceSpanNode | undefined;
+  className?: string;
+}) => {
   const { theme } = useDesignSystemTheme();
+
+  if (!activeSpan) {
+    return null;
+  }
 
   const { modelName, cost } = activeSpan;
 
-  // Don't render anything if there's no model or cost info
+  // Don't render anything if there's no model or cost
   if (!modelName && !cost) {
     return null;
   }
@@ -125,11 +135,11 @@ export const SpanModelCostBadge = ({ activeSpan }: { activeSpan: ModelTraceSpanN
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
-        gap: theme.spacing.md,
-        paddingLeft: theme.spacing.md,
-        paddingBottom: theme.spacing.sm,
+        gap: theme.spacing.sm,
+        paddingLeft: theme.spacing.xs,
         flexWrap: 'wrap',
       }}
+      className={className}
     >
       {modelName && (
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>

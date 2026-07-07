@@ -63,7 +63,7 @@ export const CreateEndpointModal = ({ open, onClose, onSuccess }: CreateEndpoint
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           onNameBlur={handleNameBlur}
-          componentIdPrefix="mlflow.gateway.create-endpoint-modal"
+          componentId="mlflow.gateway.create-endpoint-modal"
           embedded
         />
       </FormProvider>

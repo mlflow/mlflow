@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 if TYPE_CHECKING:
-    import litellm
-
     from mlflow.entities.trace import Trace
-    from mlflow.types.llm import ToolCall
+    from mlflow.types.llm import ChatMessage, ToolCall
 
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
@@ -38,29 +36,28 @@ def _raise_iteration_limit_exceeded(max_iterations: int) -> NoReturn:
 
 
 def _process_tool_calls(
-    tool_calls: list["litellm.ChatCompletionMessageToolCall"],
+    tool_calls: list[ToolCall],
     trace: Trace | None,
-) -> list["litellm.Message"]:
+) -> list[ChatMessage]:
     """
     Process tool calls and return tool response messages.
 
     Args:
-        tool_calls: List of tool calls from the LLM response.
+        tool_calls: List of ToolCall objects from the model response.
         trace: Optional trace object for context.
 
     Returns:
-        List of litellm Message objects containing tool responses.
+        List of ChatMessage objects containing tool responses.
     """
     from mlflow.genai.judges.tools.registry import _judge_tool_registry
 
     tool_response_messages = []
     for tool_call in tool_calls:
         try:
-            mlflow_tool_call = _create_mlflow_tool_call_from_litellm(litellm_tool_call=tool_call)
-            result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call, trace=trace)
+            result = _judge_tool_registry.invoke(tool_call=tool_call, trace=trace)
         except Exception as e:
             tool_response_messages.append(
-                _create_litellm_tool_response_message(
+                _create_tool_response_message(
                     tool_call_id=tool_call.id,
                     tool_name=tool_call.function.name,
                     content=f"Error: {e!s}",
@@ -69,9 +66,13 @@ def _process_tool_calls(
         else:
             if is_dataclass(result):
                 result = asdict(result)
-            result_json = json.dumps(result, default=str) if not isinstance(result, str) else result
+            result_json = (
+                json.dumps(result, default=str, ensure_ascii=False)
+                if not isinstance(result, str)
+                else result
+            )
             tool_response_messages.append(
-                _create_litellm_tool_response_message(
+                _create_tool_response_message(
                     tool_call_id=tool_call.id,
                     tool_name=tool_call.function.name,
                     content=result_json,
@@ -80,34 +81,9 @@ def _process_tool_calls(
     return tool_response_messages
 
 
-def _create_mlflow_tool_call_from_litellm(
-    litellm_tool_call: "litellm.ChatCompletionMessageToolCall",
-) -> "ToolCall":
+def _create_tool_response_message(tool_call_id: str, tool_name: str, content: str) -> "ChatMessage":
     """
-    Create an MLflow ToolCall from a LiteLLM tool call.
-
-    Args:
-        litellm_tool_call: The LiteLLM ChatCompletionMessageToolCall object.
-
-    Returns:
-        An MLflow ToolCall object.
-    """
-    from mlflow.types.llm import ToolCall
-
-    return ToolCall(
-        id=litellm_tool_call.id,
-        function={
-            "name": litellm_tool_call.function.name,
-            "arguments": litellm_tool_call.function.arguments,
-        },
-    )
-
-
-def _create_litellm_tool_response_message(
-    tool_call_id: str, tool_name: str, content: str
-) -> "litellm.Message":
-    """
-    Create a tool response message for LiteLLM.
+    Create a tool response message.
 
     Args:
         tool_call_id: The ID of the tool call being responded to.
@@ -115,13 +91,38 @@ def _create_litellm_tool_response_message(
         content: The content to include in the response.
 
     Returns:
-        A litellm.Message object representing the tool response message.
+        A ChatMessage representing the tool response.
     """
-    import litellm
+    from mlflow.types.llm import ChatMessage
 
-    return litellm.Message(
+    return ChatMessage(
         tool_call_id=tool_call_id,
         role="tool",
         name=tool_name,
         content=content,
     )
+
+
+def _remove_oldest_tool_call_pair(
+    messages: list[Any],
+) -> list[Any] | None:
+    """Remove the oldest assistant message with tool calls and its corresponding tool responses.
+
+    Works with any message type that has `role`, `tool_calls`, and `tool_call_id` attributes
+    (e.g. ChatMessage, litellm.Message).
+    """
+    result = next(
+        ((i, msg) for i, msg in enumerate(messages) if msg.role == "assistant" and msg.tool_calls),
+        None,
+    )
+    if result is None:
+        return None
+
+    assistant_idx, assistant_msg = result
+    modified = messages[:]
+    modified.pop(assistant_idx)
+
+    tool_call_ids = {tc.id if hasattr(tc, "id") else tc["id"] for tc in assistant_msg.tool_calls}
+    return [
+        msg for msg in modified if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
+    ]

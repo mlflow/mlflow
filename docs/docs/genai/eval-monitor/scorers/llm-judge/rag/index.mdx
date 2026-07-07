@@ -1,3 +1,7 @@
+---
+description: Evaluate RAG applications with MLflow built-in judges for retrieval relevance, groundedness, and context sufficiency assessment.
+---
+
 import { APILink } from "@site/src/components/APILink";
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
@@ -52,7 +56,7 @@ KNOWLEDGE_BASE = {
     "mlflow": [
         Document(
             id="doc_1",
-            page_content="MLflow is an open-source platform for managing the ML lifecycle. It has four main components: Tracking, Projects, Models, and Registry.",
+            page_content="MLflow is an open source AI engineering platform for agents, LLMs, and ML models. Its features include observability, evaluation, prompt management, and an AI Gateway for managing costs and model access.",
             metadata={"source": "mlflow_overview.txt"},
         ),
     ],
@@ -100,11 +104,11 @@ def rag_agent(query: str):
 # Create evaluation dataset with ground truth expectations
 eval_dataset = [
     {
-        "inputs": {"query": "What are the main components of MLflow?"},
+        "inputs": {"query": "What does MLflow offer for agents and LLMs?"},
         "expectations": {
             "expected_facts": [
-                "MLflow has four main components",
-                "The components are Tracking, Projects, Models, and Registry",
+                "MLflow is an open source AI engineering platform",
+                "Features include observability, evaluation, prompt management, and an AI Gateway",
             ]
         },
     }

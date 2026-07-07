@@ -1,3 +1,3 @@
 export { useMediaQuery } from './useMediaQuery';
 export { useResizeObserver } from './useResizeObserver';
-export { useLocalStorage } from './useLocalStorage';
+export { useLocalStorage, getLocalStorageItem, setLocalStorageItem } from './useLocalStorage';

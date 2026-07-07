@@ -8,26 +8,11 @@ import { useUpdateEndpointMutation } from './useUpdateEndpointMutation';
 import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMutation';
 import { useUpdateModelDefinitionMutation } from './useUpdateModelDefinitionMutation';
 import { useCreateSecret } from './useCreateSecret';
-import { MlflowService } from '../../experiment-tracking/sdk/MlflowService';
 import { getReadableErrorMessage } from '../utils/errorUtils';
 import GatewayRoutes from '../routes';
 import type { Endpoint } from '../types';
 
 export { getReadableErrorMessage };
-
-/**
- * Get or create an experiment with the given name.
- * First tries to fetch an existing experiment, then creates one if not found.
- */
-async function getOrCreateExperiment(experimentName: string): Promise<string> {
-  try {
-    const existingExperiment = await MlflowService.getExperimentByName({ experiment_name: experimentName });
-    return existingExperiment.experiment.experimentId;
-  } catch (error: unknown) {
-    const response = (await MlflowService.createExperiment({ name: experimentName })) as { experiment_id: string };
-    return response.experiment_id;
-  }
-}
 
 export interface TrafficSplitModel {
   modelDefinitionId?: string;
@@ -82,6 +67,7 @@ export interface UseEditEndpointFormResult {
   handleSubmit: (values: EditEndpointFormData) => Promise<void>;
   handleCancel: () => void;
   handleNameUpdate: (newName: string) => Promise<void>;
+  handleUsageTrackingUpdate: (enabled: boolean) => Promise<void>;
 }
 
 export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResult {
@@ -107,26 +93,10 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
       const fallbackMappings = endpoint.model_mappings.filter((m) => m.linkage_type === 'FALLBACK') ?? [];
       const totalWeight = primaryMappings.reduce((sum, m) => sum + (m.weight ?? 1.0), 0);
 
-      form.reset({
-        name: endpoint.name ?? '',
-        trafficSplitModels: primaryMappings.map((m) => ({
-          modelDefinitionId: m.model_definition?.model_definition_id,
-          modelDefinitionName: m.model_definition?.name ?? '',
-          provider: m.model_definition?.provider ?? '',
-          modelName: m.model_definition?.model_name ?? '',
-          secretMode: 'existing' as const,
-          existingSecretId: m.model_definition?.secret_id ?? '',
-          newSecret: {
-            name: '',
-            authMode: '',
-            secretFields: {},
-            configFields: {},
-          },
-          weight: totalWeight > 0 ? ((m.weight ?? 1.0) / totalWeight) * 100 : 100 / primaryMappings.length,
-        })),
-        fallbackModels: fallbackMappings
-          .sort((a, b) => (a.fallback_order ?? 0) - (b.fallback_order ?? 0))
-          .map((m, idx) => ({
+      form.reset(
+        {
+          name: endpoint.name ?? '',
+          trafficSplitModels: primaryMappings.map((m) => ({
             modelDefinitionId: m.model_definition?.model_definition_id,
             modelDefinitionName: m.model_definition?.name ?? '',
             provider: m.model_definition?.provider ?? '',
@@ -139,11 +109,32 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
               secretFields: {},
               configFields: {},
             },
-            fallbackOrder: idx + 1,
+            weight: totalWeight > 0 ? ((m.weight ?? 1.0) / totalWeight) * 100 : 100 / primaryMappings.length,
           })),
-        usageTracking: endpoint.usage_tracking ?? false,
-        experimentId: endpoint.experiment_id ?? '',
-      });
+          fallbackModels: fallbackMappings
+            .sort((a, b) => (a.fallback_order ?? 0) - (b.fallback_order ?? 0))
+            .map((m, idx) => ({
+              modelDefinitionId: m.model_definition?.model_definition_id,
+              modelDefinitionName: m.model_definition?.name ?? '',
+              provider: m.model_definition?.provider ?? '',
+              modelName: m.model_definition?.model_name ?? '',
+              secretMode: 'existing' as const,
+              existingSecretId: m.model_definition?.secret_id ?? '',
+              newSecret: {
+                name: '',
+                authMode: '',
+                secretFields: {},
+                configFields: {},
+              },
+              fallbackOrder: idx + 1,
+            })),
+          usageTracking: endpoint.usage_tracking ?? false,
+          experimentId: endpoint.experiment_id ?? '',
+        },
+        {
+          keepDirtyValues: true,
+        },
+      );
     }
   }, [endpoint, form]);
 
@@ -269,18 +260,6 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
               }
             : undefined;
 
-        // If usage tracking is enabled and no experiment is selected, create one
-        let experimentId: string | undefined;
-        if (values.usageTracking) {
-          if (values.experimentId) {
-            experimentId = values.experimentId;
-          } else {
-            // Auto-create experiment with name 'gateway/{endpoint_name}'
-            const endpointName = values.name || endpoint.name || 'endpoint';
-            experimentId = await getOrCreateExperiment(`gateway/${endpointName}`);
-          }
-        }
-
         await updateEndpoint({
           endpointId: endpoint.endpoint_id,
           name: values.name || undefined,
@@ -288,7 +267,6 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
           routing_strategy: routingStrategy,
           fallback_config: fallbackConfig,
           usage_tracking: values.usageTracking,
-          experiment_id: experimentId,
         });
 
         navigate(GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id));
@@ -300,8 +278,8 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
   );
 
   const handleCancel = useCallback(() => {
-    navigate(GatewayRoutes.gatewayPageRoute);
-  }, [navigate]);
+    form.reset();
+  }, [form]);
 
   const handleNameUpdate = useCallback(
     async (newName: string) => {
@@ -317,6 +295,27 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
       queryClient.invalidateQueries({ queryKey: ['gateway', 'endpoints'] });
     },
     [endpoint, updateEndpoint, queryClient, endpointId],
+  );
+
+  const handleUsageTrackingUpdate = useCallback(
+    async (enabled: boolean) => {
+      if (!endpoint) return;
+
+      const previousValue = form.getValues('usageTracking');
+      if (previousValue === enabled) return;
+
+      form.setValue('usageTracking', enabled);
+
+      try {
+        await updateEndpoint({
+          endpointId: endpoint.endpoint_id,
+          usage_tracking: enabled,
+        });
+      } catch {
+        form.setValue('usageTracking', previousValue);
+      }
+    },
+    [endpoint, form, updateEndpoint],
   );
 
   const trafficSplitModels = form.watch('trafficSplitModels');
@@ -352,20 +351,11 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
   }, [trafficSplitModels, fallbackModels]);
 
   const name = form.watch('name');
-  const usageTracking = form.watch('usageTracking');
-  const experimentId = form.watch('experimentId');
-
   const hasChanges = useMemo(() => {
     if (!endpoint) return false;
 
     const originalName = endpoint.name ?? '';
     if (name !== originalName) return true;
-
-    const originalUsageTracking = endpoint.usage_tracking ?? false;
-    if (usageTracking !== originalUsageTracking) return true;
-
-    const originalExperimentId = endpoint.experiment_id ?? '';
-    if (experimentId !== originalExperimentId) return true;
 
     const originalPrimaryMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'PRIMARY') ?? [];
     const originalFallbackMappings = endpoint.model_mappings?.filter((m) => m.linkage_type === 'FALLBACK') ?? [];
@@ -432,7 +422,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     });
 
     return trafficSplitChanged || fallbackChanged;
-  }, [endpoint, name, usageTracking, experimentId, trafficSplitModels, fallbackModels]);
+  }, [endpoint, name, trafficSplitModels, fallbackModels]);
 
   const { data: existingEndpoints } = useEndpointsQuery();
 
@@ -449,5 +439,6 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     handleSubmit,
     handleCancel,
     handleNameUpdate,
+    handleUsageTrackingUpdate,
   };
 }

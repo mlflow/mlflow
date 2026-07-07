@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   useDesignSystemTheme,
   Typography,
@@ -41,8 +41,16 @@ export interface EndpointSelectorProps {
   componentIdPrefix?: string;
   /** Called when a new endpoint is created */
   onEndpointCreated?: (endpoint: Endpoint) => void;
+  /** Whether to show the "Create new endpoint" button. Defaults to true. */
+  showCreateButton?: boolean;
   /** Whether to auto-select the first endpoint */
   autoSelectFirstEndpoint?: boolean;
+  /** Called when the current endpoint name doesn't match any loaded endpoint (e.g., after a rename) */
+  onEndpointNotFound?: () => void;
+  /** Endpoint IDs to exclude from the list (e.g., the guarded endpoint itself) */
+  excludeEndpointIds?: string[];
+  /** Optional max width for the trigger; long endpoint labels truncate with ellipsis when this is set. */
+  triggerMaxWidth?: number | string;
 }
 
 export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
@@ -52,7 +60,11 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   placeholder,
   componentIdPrefix = 'mlflow.endpoint-selector',
   onEndpointCreated,
+  showCreateButton = true,
   autoSelectFirstEndpoint = false,
+  onEndpointNotFound,
+  excludeEndpointIds,
+  triggerMaxWidth,
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -87,20 +99,37 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
 
   // Build endpoint options for the dropdown
   const endpointOptions: EndpointOption[] = useMemo(() => {
-    return endpoints.map((endpoint) => {
-      const displayInfo = getEndpointDisplayInfo(endpoint);
-      return {
-        value: endpoint.name,
-        label: endpoint.name,
-        provider: displayInfo?.provider,
-        modelName: displayInfo?.modelName,
-      };
-    });
-  }, [endpoints]);
+    return endpoints
+      .filter((endpoint) => !excludeEndpointIds?.includes(endpoint.endpoint_id))
+      .map((endpoint) => {
+        const displayInfo = getEndpointDisplayInfo(endpoint);
+        return {
+          value: endpoint.name,
+          label: endpoint.name,
+          provider: displayInfo?.provider,
+          modelName: displayInfo?.modelName,
+        };
+      });
+  }, [endpoints, excludeEndpointIds]);
 
   const currentEndpoint = useMemo(() => {
     return endpointOptions.find((opt) => opt.value === currentEndpointName);
   }, [endpointOptions, currentEndpointName]);
+
+  // When the endpoint name doesn't match any loaded endpoint (e.g., after a rename),
+  // notify the parent so it can refetch scorer data with the resolved endpoint name.
+  const hasTriedRefetch = useRef(false);
+
+  useEffect(() => {
+    hasTriedRefetch.current = false;
+  }, [currentEndpointName]);
+
+  useEffect(() => {
+    if (currentEndpointName && !currentEndpoint && !isLoading && !error && !hasTriedRefetch.current) {
+      hasTriedRefetch.current = true;
+      onEndpointNotFound?.();
+    }
+  }, [currentEndpointName, currentEndpoint, isLoading, error, onEndpointNotFound]);
 
   const defaultPlaceholder = intl.formatMessage({
     defaultMessage: 'Select an endpoint',
@@ -121,7 +150,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   if (error) {
     return (
       <Alert
-        componentId={`${componentIdPrefix}.endpoints-error`}
+        componentId="mlflow.endpoint-selector.endpoints-error"
         type="error"
         message={error.message || 'Failed to load endpoints'}
       />
@@ -131,7 +160,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   return (
     <>
       <DialogCombobox
-        componentId={`${componentIdPrefix}.select`}
+        componentId="mlflow.endpoint-selector.select"
         id={`${componentIdPrefix}.select`}
         value={currentEndpointName ? [currentEndpointName] : []}
       >
@@ -139,6 +168,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
           withInlineLabel={false}
           allowClear={false}
           disabled={disabled}
+          maxWidth={triggerMaxWidth}
           placeholder={placeholder || defaultPlaceholder}
           renderDisplayedValue={() => {
             // Endpoint not found in list - may have been deleted
@@ -147,7 +177,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
                 <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
                   <span>{currentEndpointName}</span>
                   <Tooltip
-                    componentId={`${componentIdPrefix}.deleted-endpoint-tooltip`}
+                    componentId="mlflow.endpoint-selector.deleted-endpoint-tooltip"
                     content={intl.formatMessage({
                       defaultMessage: 'This endpoint may have been deleted',
                       description: 'Tooltip for deleted endpoint',
@@ -195,23 +225,27 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
                 </DialogComboboxOptionListSelectItem>
               ))}
             </DialogComboboxOptionList>
-            <DialogComboboxFooter>
-              <DialogComboboxAddButton onClick={handleOpenCreateModal}>
-                <FormattedMessage
-                  defaultMessage="Create new endpoint"
-                  description="Button text to create a new endpoint"
-                />
-              </DialogComboboxAddButton>
-            </DialogComboboxFooter>
+            {showCreateButton && (
+              <DialogComboboxFooter>
+                <DialogComboboxAddButton onClick={handleOpenCreateModal}>
+                  <FormattedMessage
+                    defaultMessage="Create new endpoint"
+                    description="Button text to create a new endpoint"
+                  />
+                </DialogComboboxAddButton>
+              </DialogComboboxFooter>
+            )}
           </DialogComboboxContent>
         )}
       </DialogCombobox>
 
-      <CreateEndpointModal
-        open={isCreateModalOpen}
-        onClose={handleCloseCreateModal}
-        onSuccess={handleCreateEndpointSuccess}
-      />
+      {showCreateButton && (
+        <CreateEndpointModal
+          open={isCreateModalOpen}
+          onClose={handleCloseCreateModal}
+          onSuccess={handleCreateEndpointSuccess}
+        />
+      )}
     </>
   );
 };

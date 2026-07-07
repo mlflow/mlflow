@@ -1,0 +1,48 @@
+const NOUNS = [
+  'ant',
+  'bear',
+  'bird',
+  'cat',
+  'crow',
+  'deer',
+  'dog',
+  'dolphin',
+  'dove',
+  'duck',
+  'eagle',
+  'elk',
+  'falcon',
+  'finch',
+  'fox',
+  'frog',
+  'goat',
+  'hawk',
+  'heron',
+  'horse',
+  'jay',
+  'lark',
+  'lion',
+  'lynx',
+  'mink',
+  'newt',
+  'owl',
+  'panda',
+  'parrot',
+  'rabbit',
+  'raven',
+  'robin',
+  'seal',
+  'shark',
+  'swan',
+  'tiger',
+  'turtle',
+  'whale',
+  'wolf',
+  'wren',
+];
+
+export const generateRandomName = (prefix: string): string => {
+  const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];
+  const digits = Math.floor(1000 + Math.random() * 9000);
+  return `${prefix}-${noun}-${digits}`;
+};

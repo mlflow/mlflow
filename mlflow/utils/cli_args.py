@@ -101,7 +101,7 @@ environment manager. The following values are supported:
 
 \b
 - local: use the local environment
-- virtualenv: use virtualenv (and pyenv for Python version management)
+- virtualenv: use venv (and pyenv for Python version management)
 - uv: use uv
 - conda: use conda
 
@@ -116,7 +116,7 @@ environment manager. The following values are supported:
 
 \b
 - local: use the local environment
-- virtualenv: use virtualenv (and pyenv for Python version management)
+- virtualenv: use venv (and pyenv for Python version management)
 - uv: use uv
 - conda: use conda
 
@@ -136,7 +136,7 @@ environment manager. The following values are supported:
 
 \b
 - local: use the local environment
-- virtualenv: use virtualenv (and pyenv for Python version management)
+- virtualenv: use venv (and pyenv for Python version management)
 - uv: use uv
 - conda: use conda
 
@@ -203,17 +203,6 @@ MODELS_WORKERS = click.option(
     envvar="MLFLOW_MODELS_WORKERS",
     default=None,
     help="Number of uvicorn workers to handle requests when serving mlflow models (default: 1).",
-)
-
-ENABLE_MLSERVER = click.option(
-    "--enable-mlserver",
-    is_flag=True,
-    default=False,
-    help=(
-        "Enable serving with MLServer through the v2 inference protocol. "
-        "You can use environment variables to configure MLServer. "
-        "(See https://mlserver.readthedocs.io/en/latest/reference/settings.html)"
-    ),
 )
 
 ARTIFACTS_DESTINATION = click.option(

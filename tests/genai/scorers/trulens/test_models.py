@@ -10,7 +10,9 @@ from mlflow.genai.scorers.trulens.models import create_trulens_provider
 
 @pytest.fixture
 def mock_call_chat_completions():
-    with patch("mlflow.genai.scorers.trulens.models.call_chat_completions") as mock:
+    with patch(
+        "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
+    ) as mock:
         result = Mock()
         result.output = "Test output"
         mock.return_value = result
@@ -44,30 +46,21 @@ def test_create_trulens_provider_databricks(mock_call_chat_completions):
         )
 
 
-def test_create_trulens_provider_databricks_endpoint_uses_litellm():
-    mock_litellm_class = Mock()
-    mock_litellm_class.return_value = Mock()
+def test_create_trulens_provider_databricks_endpoint_uses_gateway():
+    from trulens.feedback.llm_provider import LLMProvider
 
-    with patch.dict("sys.modules", {"trulens.providers.litellm": Mock(LiteLLM=mock_litellm_class)}):
-        from mlflow.genai.scorers.trulens import models
-
-        importlib.reload(models)
-
-        models.create_trulens_provider("databricks:/my-endpoint")
-        mock_litellm_class.assert_called_once_with(model_engine="databricks/my-endpoint")
+    provider = create_trulens_provider("databricks:/my-endpoint")
+    assert isinstance(provider, LLMProvider)
+    assert "gateway" in provider.endpoint.name
 
 
-def test_create_trulens_provider_openai():
-    mock_litellm_class = Mock()
-    mock_litellm_class.return_value = Mock()
+def test_create_trulens_provider_openai_uses_gateway(monkeypatch):
+    from trulens.feedback.llm_provider import LLMProvider
 
-    with patch.dict("sys.modules", {"trulens.providers.litellm": Mock(LiteLLM=mock_litellm_class)}):
-        from mlflow.genai.scorers.trulens import models
-
-        importlib.reload(models)
-
-        models.create_trulens_provider("openai:/gpt-4")
-        mock_litellm_class.assert_called_once_with(model_engine="openai/gpt-4")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    provider = create_trulens_provider("openai:/gpt-4")
+    assert isinstance(provider, LLMProvider)
+    assert "gateway" in provider.endpoint.name
 
 
 def test_create_trulens_provider_litellm_format():
@@ -86,3 +79,29 @@ def test_create_trulens_provider_litellm_format():
 def test_create_trulens_provider_invalid_format():
     with pytest.raises(MlflowException, match="Malformed model uri"):
         create_trulens_provider("gpt-4")
+
+
+def test_create_trulens_provider_gateway_uses_native_provider():
+    from trulens.feedback.llm_provider import LLMProvider
+
+    with patch("mlflow.genai.scorers.llm_backend._get_provider_instance") as mock_get_provider:
+        provider = create_trulens_provider("gateway:/my-endpoint")
+    mock_get_provider.assert_called_once()
+
+    assert isinstance(provider, LLMProvider)
+    assert "gateway" in provider.endpoint.name
+
+
+@pytest.mark.parametrize("provider_name", ["cohere", "mosaicml", "palm"])
+def test_create_trulens_provider_registered_but_unsupported_falls_back_to_litellm(provider_name):
+    mock_litellm_class = Mock()
+    mock_litellm_class.return_value = Mock()
+
+    with patch.dict("sys.modules", {"trulens.providers.litellm": Mock(LiteLLM=mock_litellm_class)}):
+        from mlflow.genai.scorers.trulens import models
+
+        importlib.reload(models)
+
+        models.create_trulens_provider(f"{provider_name}:/my-model")
+
+    mock_litellm_class.assert_called_once_with(model_engine=f"{provider_name}/my-model")

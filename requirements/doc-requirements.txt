@@ -31,5 +31,4 @@ deepeval
 # required for ragas scorer documentation
 ragas
 instructor
-litellm
 langchain-community>=0.3.0

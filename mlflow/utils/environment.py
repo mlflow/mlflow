@@ -12,6 +12,7 @@ from copy import deepcopy
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
+from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
 from mlflow.environment_variables import (
@@ -21,6 +22,8 @@ from mlflow.environment_variables import (
     MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
     MLFLOW_LOCK_MODEL_DEPENDENCIES,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
+    MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK,
+    MLFLOW_UV_AUTO_DETECT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -36,11 +39,18 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.os import is_windows
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.requirements_utils import (
+    _get_local_version_label,
     _infer_requirements,
     _parse_requirements,
+    _strip_local_version_label,
     warn_dependency_requirement_mismatches,
 )
 from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
+from mlflow.utils.uv_utils import (
+    detect_uv_project,
+    export_uv_requirements,
+    extract_index_urls_from_uv_lock,
+)
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -397,9 +407,23 @@ _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE = (
 )
 
 
-def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra_env_vars=None):
+def infer_pip_requirements(
+    model_uri,
+    flavor,
+    fallback=None,
+    timeout=None,
+    extra_env_vars=None,
+    uv_project_dir=None,
+    uv_groups=None,
+    uv_extras=None,
+):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
+
+    If a uv project is detected (contains both uv.lock and pyproject.toml), this function
+    will first attempt to export dependencies via ``uv export``. If that succeeds, those
+    requirements are returned. Otherwise, falls back to inferring dependencies by capturing
+    imported packages during model inference.
 
     Args:
         model_uri: The URI of the model.
@@ -409,11 +433,50 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
         timeout: If specified, the inference operation is bound by the timeout (in seconds).
         extra_env_vars: A dictionary of extra environment variables to pass to the subprocess.
             Default to None.
+        uv_project_dir: Explicit path to a uv project directory. When provided, overrides
+            the ``MLFLOW_UV_AUTO_DETECT`` environment variable and searches the specified
+            directory instead of cwd. Default to None (auto-detect from cwd).
+        uv_groups: Optional list of uv dependency groups to include when exporting
+            requirements. Maps to ``uv export --group <name>``.
+        uv_extras: Optional list of uv extras (optional dependency sets) to include
+            when exporting requirements. Maps to ``uv export --extra <name>``.
 
     Returns:
         A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
 
     """
+    # Check for uv project first - if detected, use uv export instead of
+    # inferring model dependencies by capturing imported packages during model inference.
+    # An explicit uv_project_dir overrides the MLFLOW_UV_AUTO_DETECT env var.
+    if uv_project_dir is not None or MLFLOW_UV_AUTO_DETECT.get():
+        if uv_project := detect_uv_project(uv_project_dir):
+            _logger.info(
+                f"Detected uv project at {uv_project.uv_lock.parent}. "
+                "Attempting to export requirements via 'uv export'."
+            )
+            if uv_requirements := export_uv_requirements(
+                uv_project.uv_lock.parent,
+                groups=uv_groups,
+                extras=uv_extras,
+            ):
+                _logger.info(
+                    f"Successfully exported {len(uv_requirements)} requirements from uv project. "
+                    "Skipping package capture based inference."
+                )
+                private_index_urls = extract_index_urls_from_uv_lock(uv_project.uv_lock)
+                index_url_reqs = [f"--extra-index-url {url}" for url in private_index_urls]
+                return index_url_reqs + uv_requirements
+            else:
+                _logger.warning(
+                    "uv export failed or returned no requirements. "
+                    "Falling back to package capture based inference."
+                )
+        elif uv_groups or uv_extras:
+            _logger.warning(
+                "uv_groups and/or uv_extras were specified but no uv project was detected. "
+                "These parameters will be ignored. Falling back to package capture based inference."
+            )
+
     raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
 
     if timeout and is_windows():
@@ -742,10 +805,10 @@ def _deduplicate_requirements(requirements):
           Output: ["packageA==1.0"]
 
         - Input: ["packageX>1.0", "packageX[extras]", "packageX<2.0"]
-          Output: ["packageX[extras]>1.0,<2.0"]
+          Output: ["packageX[extras]<2.0,>1.0"]
 
         - Input: ["markdown[extra1]>=3.5.1", "markdown[extra2]<4", "markdown"]
-          Output: ["markdown[extra1,extra2]>=3.5.1,<4"]
+          Output: ["markdown[extra1,extra2]<4,>=3.5.1"]
 
         - Input: ["scikit-learn==1.1", "scikit-learn<1"]
           Raises MlflowException indicating incompatible versions.
@@ -762,11 +825,12 @@ def _deduplicate_requirements(requirements):
         try:
             parsed_req = Requirement(req)
             base_pkg = parsed_req.name
+            key = (base_pkg, str(parsed_req.marker) if parsed_req.marker else "")
 
-            existing_req = deduped_reqs.get(base_pkg)
+            existing_req = deduped_reqs.get(key)
 
             if not existing_req:
-                deduped_reqs[base_pkg] = parsed_req
+                deduped_reqs[key] = parsed_req
             else:
                 # Verify that there are not unresolvable constraints applied if set and combine
                 # if possible
@@ -775,10 +839,39 @@ def _deduplicate_requirements(requirements):
                     and parsed_req.specifier
                     and existing_req.specifier != parsed_req.specifier
                 ):
-                    _validate_version_constraints([str(existing_req), req])
-                    parsed_req.specifier = ",".join(
-                        [str(existing_req.specifier), str(parsed_req.specifier)]
-                    )
+                    existing_specs = list(existing_req.specifier)
+                    new_specs = list(parsed_req.specifier)
+                    # When uv export preserves local version labels (e.g. torch==2.7.1+cu128)
+                    # but _get_pinned_requirement strips them (e.g. torch==2.7.1), both end up
+                    # in the merged list. Detect this case and prefer the non-local version
+                    # (PyPI-installable) rather than failing validation.
+                    if (
+                        len(existing_specs) == 1
+                        and len(new_specs) == 1
+                        and existing_specs[0].operator == "=="
+                        and new_specs[0].operator == "=="
+                        and _strip_local_version_label(existing_specs[0].version)
+                        == _strip_local_version_label(new_specs[0].version)
+                        and bool(_get_local_version_label(existing_specs[0].version))
+                        != bool(_get_local_version_label(new_specs[0].version))
+                    ):
+                        # Keep whichever specifier has no local label (PyPI-installable)
+                        if local_label := _get_local_version_label(new_specs[0].version):
+                            _logger.debug(
+                                f"Dropping local version label (+{local_label}) from "
+                                f"'{parsed_req.name}=={new_specs[0].version}' to keep the "
+                                f"PyPI-installable version "
+                                f"'{parsed_req.name}=={existing_specs[0].version}'."
+                            )
+                            parsed_req.specifier = existing_req.specifier
+                    else:
+                        _validate_version_constraints([str(existing_req), req])
+                        parsed_req.specifier = SpecifierSet(
+                            ",".join([
+                                str(existing_req.specifier),
+                                str(parsed_req.specifier),
+                            ])
+                        )
 
                 # Preserve existing specifiers
                 if existing_req.specifier and not parsed_req.specifier:
@@ -794,7 +887,7 @@ def _deduplicate_requirements(requirements):
                 elif existing_req.extras and not parsed_req.extras:
                     parsed_req.extras = existing_req.extras
 
-                deduped_reqs[base_pkg] = parsed_req
+                deduped_reqs[key] = parsed_req
 
         except InvalidRequirement:
             # Include non-standard package strings as-is
@@ -834,12 +927,17 @@ def _validate_version_constraints(requirements):
     them using pip's `--dry-run` install option. If any version conflicts are detected, it
     raises an MlflowException with details of the conflict.
 
+    Validation is skipped entirely when the ``MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK`` environment
+    variable is set to ``True``, which is useful in air-gapped environments where pip cannot
+    reach external package indexes.
+
     Args:
         requirements (list of str): A list of package requirements (e.g., `["pandas>=1.15",
         "pandas<2"]`).
 
     Raises:
         MlflowException: If any version conflicts are detected among the provided requirements.
+            Not raised when ``MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK`` is ``True``.
 
     Returns:
         None: This function does not return anything. It either completes successfully or raises
@@ -849,6 +947,9 @@ def _validate_version_constraints(requirements):
         _validate_version_constraints(["tensorflow<2.0", "tensorflow>2.3"])
         # This will raise an exception due to boundary validity.
     """
+    if MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK.get():
+        return
+
     with tempfile.NamedTemporaryFile(mode="w+", delete=False) as tmp_file:
         tmp_file.write("\n".join(requirements))
         tmp_file_name = tmp_file.name
@@ -918,7 +1019,7 @@ def _get_pip_install_mlflow():
     returns "pip install -e {MLFLOW_HOME} 1>&2", otherwise
     "pip install mlflow=={mlflow.__version__} 1>&2".
     """
-    if mlflow_home := os.getenv("MLFLOW_HOME"):  # dev version
+    if mlflow_home := os.environ.get("MLFLOW_HOME"):  # dev version
         return f"pip install -e {mlflow_home} 1>&2"
     else:
         return f"pip install mlflow=={VERSION} 1>&2"

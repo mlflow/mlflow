@@ -5,8 +5,12 @@ const TraceRequestsChart = React.lazy(() =>
   import('./TraceRequestsChart').then((module) => ({ default: module.TraceRequestsChart })),
 );
 
-export const LazyTraceRequestsChart: React.FC = () => (
+interface LazyTraceRequestsChartProps {
+  title?: React.ReactNode;
+}
+
+export const LazyTraceRequestsChart: React.FC<LazyTraceRequestsChartProps> = (props) => (
   <React.Suspense fallback={<LegacySkeleton active />}>
-    <TraceRequestsChart />
+    <TraceRequestsChart {...props} />
   </React.Suspense>
 );

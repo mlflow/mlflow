@@ -4,7 +4,7 @@
 
 import { CompletionUsage } from 'openai/resources/index';
 import { ResponseUsage } from 'openai/resources/responses/responses';
-import { withSpan, LiveSpan, SpanAttributeKey, SpanType, TokenUsage } from 'mlflow-tracing';
+import { withSpan, LiveSpan, SpanAttributeKey, SpanType, TokenUsage } from '@mlflow/core';
 
 // NB: 'Completions' represents chat.completions
 const SUPPORTED_MODULES = ['Completions', 'Responses', 'Embeddings'];

@@ -5,8 +5,12 @@ const TraceErrorsChart = React.lazy(() =>
   import('./TraceErrorsChart').then((module) => ({ default: module.TraceErrorsChart })),
 );
 
-export const LazyTraceErrorsChart: React.FC = () => (
+interface LazyTraceErrorsChartProps {
+  enableTraceNavigation?: boolean;
+}
+
+export const LazyTraceErrorsChart: React.FC<LazyTraceErrorsChartProps> = ({ enableTraceNavigation }) => (
   <React.Suspense fallback={<LegacySkeleton active />}>
-    <TraceErrorsChart />
+    <TraceErrorsChart enableTraceNavigation={enableTraceNavigation} />
   </React.Suspense>
 );

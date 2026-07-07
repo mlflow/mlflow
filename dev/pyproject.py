@@ -64,6 +64,12 @@ Additional dependencies can be installed to leverage the full feature set of MLf
 - To use SQL-based metadata storage, install `sqlalchemy`, `alembic`, and `sqlparse`.
 - To use serving-based features, install `flask` and `pandas`.
 
+**Note:** When using `mlflow-skinny`, set the tracking URI to your remote MLflow server:
+
+```bash
+export MLFLOW_TRACKING_URI="http://your-mlflow-server:5000"
+```
+
 ---
 
 <br>
@@ -291,7 +297,7 @@ def build(package_type: PackageType) -> None:
 
     data = {
         "build-system": {
-            "requires": ["setuptools"],
+            "requires": ["setuptools<=82.0.1"],
             "build-backend": "setuptools.build_meta",
         },
         "project": {
@@ -337,7 +343,6 @@ def build(package_type: PackageType) -> None:
                     # Required by the mlflow.projects module, when running projects against
                     # a remote Kubernetes cluster
                     "kubernetes",
-                    "virtualenv",
                     # Required for exporting metrics from the MLflow server to Prometheus
                     # as part of the MLflow server monitoring add-on
                     "prometheus-flask-exporter",
@@ -356,18 +361,19 @@ def build(package_type: PackageType) -> None:
                     "botocore",
                     "databricks-agents>=1.2.0,<2.0",
                 ],
-                "mlserver": [
-                    # Required to serve models through MLServer
-                    "mlserver>=1.2.0,!=1.3.1,<2.0.0",
-                    "mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0",
-                ],
                 "gateway": gateways_requirements,
                 "genai": genai_requirements,
                 # click 8.3.0 causes MLflow MCP server to fail: https://github.com/mlflow/mlflow/issues/18747
-                "mcp": ["fastmcp<3,>=2.0.0", "click!=8.3.0"],
+                "mcp": ["fastmcp<4,>=2.7.0", "click!=8.3.0"],
+                "azure": [
+                    # Required to log artifacts and models to Azure Blob Storage
+                    "azure-storage-blob>=12",
+                    "azure-identity>=1.6.1",
+                ],
                 "sqlserver": ["mlflow-dbstore"],
                 "aliyun-oss": ["aliyunstoreplugin"],
                 "jfrog": ["mlflow-jfrog-plugin"],
+                "kubernetes": ["kubernetes"],
                 "langchain": langchain_requirements,
                 "auth": ["Flask-WTF<2"],
             }
@@ -465,14 +471,20 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
             "pyspark/ml/log_model_allowlist.txt",
             "server/auth/basic_auth.ini",
             "server/auth/db/migrations/alembic.ini",
+            "server/uvicorn_log_config.yaml",
             "models/notebook_resources/**/*",
             "ai_commands/**/*.md",
             "assistant/skills/**/*",
+            "agent/setup/templates/**/*.md",
         ]
     }
 
     if package_type != PackageType.SKINNY:
-        package_data["mlflow"] += ["models/container/**/*", "server/js/build/**/*"]
+        package_data["mlflow"] += [
+            "models/container/**/*",
+            "server/js/build/**/*",
+            "utils/model_catalog/*.json",
+        ]
 
     return package_data
 

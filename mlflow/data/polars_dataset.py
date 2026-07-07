@@ -5,6 +5,11 @@ from inspect import isclass
 from typing import Any, Final, TypedDict
 
 import polars as pl
+from packaging.version import Version
+
+if Version(pl.__version__).major < 1:
+    raise ImportError(f"mlflow.data.polars_dataset requires polars>=1.0.0, found {pl.__version__}")
+
 from polars.datatypes.classes import DataType as PolarsDataType
 from polars.datatypes.classes import DataTypeClass as PolarsDataTypeClass
 
@@ -113,17 +118,15 @@ def infer_dtype(
                 _raise_unknown_type(dtype)
             return Object([])
 
-        return Object(
-            [
-                Property(
-                    name=field.name,
-                    dtype=infer_dtype(
-                        field.dtype, f"{col_name}.{field.name}", allow_unknown=allow_unknown
-                    ),
-                )
-                for field in dtype.fields
-            ]
-        )
+        return Object([
+            Property(
+                name=field.name,
+                dtype=infer_dtype(
+                    field.dtype, f"{col_name}.{field.name}", allow_unknown=allow_unknown
+                ),
+            )
+            for field in dtype.fields
+        ])
 
     return _handle_unknown_dtype(dtype=dtype, col_name=col_name, allow_unknown=allow_unknown)
 

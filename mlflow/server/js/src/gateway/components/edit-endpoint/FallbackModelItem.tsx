@@ -7,7 +7,6 @@ import {
   Typography,
   useDesignSystemTheme,
   TrashIcon,
-  DragIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useState, useRef } from 'react';
@@ -33,7 +32,7 @@ interface FallbackModelItemProps {
   onModelChange: (index: number, updates: Partial<FallbackModel>) => void;
   onRemove: (index: number) => void;
   onMove: (fromIndex: number, toIndex: number) => void;
-  componentIdPrefix: string;
+  componentId: string;
 }
 
 export const FallbackModelItem = ({
@@ -42,7 +41,7 @@ export const FallbackModelItem = ({
   onModelChange,
   onRemove,
   onMove,
-  componentIdPrefix,
+  componentId,
 }: FallbackModelItemProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -117,26 +116,17 @@ export const FallbackModelItem = ({
       }}
     >
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flex: 1 }}>
-          <div
-            ref={drag}
-            css={{
-              cursor: 'grab',
-              display: 'flex',
-              alignItems: 'center',
-              '&:active': {
-                cursor: 'grabbing',
-              },
-            }}
-          >
-            <DragIcon css={{ color: theme.colors.textSecondary }} />
-          </div>
-          <Button
-            componentId={`${componentIdPrefix}.expand.${index}`}
-            icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-            onClick={() => setIsExpanded(!isExpanded)}
-            size="small"
-          />
+        <div
+          ref={drag}
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.sm,
+            flex: 1,
+            cursor: 'grab',
+            '&:active': { cursor: 'grabbing' },
+          }}
+        >
           <FormUI.Label css={{ margin: 0, fontWeight: 'bold' }}>
             <FormattedMessage
               defaultMessage="Fallback Model {order}"
@@ -144,6 +134,12 @@ export const FallbackModelItem = ({
               values={{ order: index + 1 }}
             />
           </FormUI.Label>
+          <Button
+            componentId={`${componentId}.expand`}
+            icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+            onClick={() => setIsExpanded(!isExpanded)}
+            size="small"
+          />
           {!isExpanded && hasModelInfo && (
             <Typography.Text css={{ fontFamily: 'monospace', color: theme.colors.textSecondary }}>
               {formatProviderName(model.provider)} / {model.modelName}
@@ -151,17 +147,13 @@ export const FallbackModelItem = ({
           )}
         </div>
         <Tooltip
-          componentId={`${componentIdPrefix}.remove-tooltip.${index}`}
+          componentId={`${componentId}.remove-tooltip`}
           content={intl.formatMessage({
             defaultMessage: 'Remove fallback model',
             description: 'Tooltip for remove fallback model button',
           })}
         >
-          <Button
-            componentId={`${componentIdPrefix}.remove.${index}`}
-            icon={<TrashIcon />}
-            onClick={() => onRemove(index)}
-          />
+          <Button componentId={`${componentId}.remove`} icon={<TrashIcon />} onClick={() => onRemove(index)} />
         </Tooltip>
       </div>
 
@@ -183,14 +175,14 @@ export const FallbackModelItem = ({
                 },
               });
             }}
-            componentIdPrefix={`${componentIdPrefix}.provider.${index}`}
+            componentId={`${componentId}.provider`}
           />
 
           <ModelSelect
             provider={model.provider}
             value={model.modelName}
             onChange={(modelName) => onModelChange(index, { modelName })}
-            componentIdPrefix={`${componentIdPrefix}.model.${index}`}
+            componentId={`${componentId}.model`}
           />
 
           <ApiKeyConfigurator
@@ -202,7 +194,7 @@ export const FallbackModelItem = ({
             authModes={authModes}
             defaultAuthMode={defaultAuthMode}
             isLoadingProviderConfig={isLoadingProviderConfig}
-            componentIdPrefix={`${componentIdPrefix}.api-key.${index}`}
+            componentId={`${componentId}.api-key`}
           />
         </>
       )}

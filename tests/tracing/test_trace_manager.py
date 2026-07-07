@@ -91,7 +91,9 @@ def test_add_and_pop_span_thread_safety():
                 _create_test_span(f"tr-{trace_id}", trace_id=trace_id, span_id=thread_id)
             )
 
-    threads = [Thread(target=add_spans, args=[i]) for i in range(num_threads)]
+    threads = [
+        Thread(name=f"trace-manager-{i}", target=add_spans, args=[i]) for i in range(num_threads)
+    ]
 
     for thread in threads:
         thread.start()
@@ -262,7 +264,10 @@ def test_register_prompt_thread_safety():
     def register_prompt(prompt_version):
         trace_manager.register_prompt(request_id_1, prompt_version)
 
-    threads = [Thread(target=register_prompt, args=[pv]) for pv in prompt_versions]
+    threads = [
+        Thread(name=f"trace-manager-prompt-{pv}", target=register_prompt, args=[pv])
+        for pv in prompt_versions
+    ]
     for thread in threads:
         thread.start()
     for thread in threads:

@@ -26,6 +26,7 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
     maybe_get_dependencies_schemas,
     maybe_get_request_id,
+    should_compute_cost_client_side,
     update_trace_state_from_span_conditionally,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME
@@ -52,7 +53,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
     """
 
     def __init__(self, span_exporter: SpanExporter):
-        self.span_exporter = span_exporter
+        super().__init__(span_exporter)
         self._trace_manager = InMemoryTraceManager.get_instance()
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
@@ -143,8 +144,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
             if usage := aggregate_usage_from_spans(spans):
                 trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
-            # Aggregate cost information from all spans
-            if cost := aggregate_cost_from_spans(spans):
+            if should_compute_cost_client_side() and (cost := aggregate_cost_from_spans(spans)):
                 trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
 
         super().on_end(span)

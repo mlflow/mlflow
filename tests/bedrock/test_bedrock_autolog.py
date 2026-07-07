@@ -11,7 +11,9 @@ from botocore.response import StreamingBody
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities import SpanLogLevel
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -229,6 +231,7 @@ def test_bedrock_autolog_invoke_model_llm(model_id, llm_request, llm_response, e
     span = traces[0].data.spans[0]
     assert span.name == "BedrockRuntime.invoke_model"
     assert span.span_type == "LLM"
+    assert span.log_level == SpanLogLevel.INFO
     assert span.inputs == {"body": request_body, "modelId": model_id}
     assert span.outputs == {
         "body": llm_response,
@@ -281,16 +284,14 @@ def test_bedrock_autolog_invoke_model_capture_exception():
 
     client = boto3.client("bedrock-runtime", region_name="us-west-2")
 
-    request_body = json.dumps(
-        {
-            # Invalid user role to trigger an exception
-            "messages": [{"role": "invalid-user", "content": "Hi"}],
-            "max_tokens": 300,
-            "anthropic_version": "bedrock-2023-05-31",
-            "temperature": 0.1,
-            "top_p": 0.9,
-        }
-    )
+    request_body = json.dumps({
+        # Invalid user role to trigger an exception
+        "messages": [{"role": "invalid-user", "content": "Hi"}],
+        "max_tokens": 300,
+        "anthropic_version": "bedrock-2023-05-31",
+        "temperature": 0.1,
+        "top_p": 0.9,
+    })
 
     with pytest.raises(NoCredentialsError, match="Unable to locate credentials"):
         client.invoke_model(
@@ -898,14 +899,15 @@ def test_bedrock_autolog_converse_stream(
 
     # Validate token usage against parameterized expected values
     _assert_token_usage_matches(span, expected_usage)
-    # Verify cost is calculated (input_tokens * 1.0 + output_tokens * 2.0)
-    expected_cost = {
-        "input_cost": float(expected_usage["input_tokens"]),
-        "output_cost": float(expected_usage["output_tokens"]) * 2.0,
-        "total_cost": float(expected_usage["input_tokens"])
-        + float(expected_usage["output_tokens"]) * 2.0,
-    }
-    assert span.llm_cost == expected_cost
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (input_tokens * 1.0 + output_tokens * 2.0)
+        expected_cost = {
+            "input_cost": float(expected_usage["input_tokens"]),
+            "output_cost": float(expected_usage["output_tokens"]) * 2.0,
+            "total_cost": float(expected_usage["input_tokens"])
+            + float(expected_usage["output_tokens"]) * 2.0,
+        }
+        assert span.llm_cost == expected_cost
 
 
 def _event_stream(raw_response, chunk_size=10):

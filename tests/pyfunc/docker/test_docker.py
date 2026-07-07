@@ -8,6 +8,7 @@ from unittest import mock
 import pytest
 import sklearn
 import sklearn.neighbors
+from packaging.version import Version
 
 import mlflow
 from mlflow.environment_variables import _MLFLOW_RUN_SLOW_TESTS
@@ -21,13 +22,18 @@ from mlflow.version import VERSION
 from tests.pyfunc.docker.conftest import RESOURCE_DIR, get_released_mlflow_version
 
 
+def _get_mlflow_install_specifier():
+    if Version(VERSION).is_devrelease:
+        return "https://github.com/mlflow/mlflow/archive/refs/heads/master.zip"
+    return f"mlflow=={VERSION}"
+
+
 def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_path: Path):
-    actual_dockerfile = actual_dockerfile_path.read_text().replace(
-        VERSION, get_released_mlflow_version()
-    )
+    actual_dockerfile = actual_dockerfile_path.read_text()
     expected_dockerfile = (
-        expected_dockerfile_path.read_text()
-        .replace("${{ MLFLOW_VERSION }}", get_released_mlflow_version())
+        expected_dockerfile_path
+        .read_text()
+        .replace("${{ MLFLOW_INSTALL }}", _get_mlflow_install_specifier())
         .replace("${{ PYTHON_VERSION }}", PYTHON_VERSION)
     )
     assert actual_dockerfile == expected_dockerfile, (
@@ -65,7 +71,6 @@ class Param:
     env_manager: str | None = None
     mlflow_home: str | None = None
     install_mlflow: bool = False
-    enable_mlserver: bool = False
     # If True, image is built with --model-uri param
     specify_model_uri: bool = True
 
@@ -78,7 +83,6 @@ class Param:
         Param(expected_dockerfile="Dockerfile_java_flavor", env_manager=VIRTUALENV),
         Param(expected_dockerfile="Dockerfile_conda", env_manager=CONDA),
         Param(install_mlflow=True, expected_dockerfile="Dockerfile_install_mlflow"),
-        Param(enable_mlserver=True, expected_dockerfile="Dockerfile_enable_mlserver"),
         Param(mlflow_home=".", expected_dockerfile="Dockerfile_with_mlflow_home"),
         Param(specify_model_uri=False, expected_dockerfile="Dockerfile_no_model_uri"),
     ],
@@ -90,11 +94,6 @@ def test_build_image(tmp_path, params):
 
     # Copy the context dir to a temp dir so we can verify the generated Dockerfile
     def _build_image_with_copy(context_dir, image_name):
-        # Replace mlflow dev version in Dockerfile with the latest released one
-        dockerfile = Path(context_dir) / "Dockerfile"
-        content = dockerfile.read_text()
-        content = content.replace(VERSION, get_released_mlflow_version())
-        dockerfile.write_text(content)
         shutil.copytree(context_dir, dst_dir)
         # Build the image if the slow-tests flag is enabled
         if _MLFLOW_RUN_SLOW_TESTS.get():
@@ -118,7 +117,6 @@ def test_build_image(tmp_path, params):
             image_name="test_image",
             mlflow_home=params.mlflow_home,
             install_mlflow=params.install_mlflow,
-            enable_mlserver=params.enable_mlserver,
         )
 
     actual = dst_dir / "Dockerfile"

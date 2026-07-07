@@ -39,6 +39,7 @@ def patched_call(original, self, *args, **kwargs):
             # Extract model name from kwargs
             if model := kwargs.get("model"):
                 span.set_attribute(SpanAttributeKey.MODEL, model)
+                span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, "groq")
 
             if tools := kwargs.get("tools"):
                 try:

@@ -20,7 +20,7 @@ def get_traces():
 class MockProvider(BaseProvider):
     """Mock provider for testing tracing functionality built into BaseProvider."""
 
-    NAME = "MockProvider"
+    DISPLAY_NAME = "MockProvider"
 
     class MockConfig:
         pass
@@ -31,6 +31,7 @@ class MockProvider(BaseProvider):
         self.config = mock.MagicMock()
         self.config.model.name = "mock-model"
         self._enable_tracing = enable_tracing
+        self._provider_name = "mock"
         # These will be set by tests to control behavior
         self._chat_response = None
         self._chat_stream_chunks = None
@@ -118,10 +119,10 @@ async def test_chat_stream_captures_usage_from_final_chunk(mock_provider):
     # Find the provider span (child of the root span)
     span_name_to_span = {span.name: span for span in trace.data.spans}
     assert "traced_operation" in span_name_to_span
-    assert "provider/MockProvider/mock-model" in span_name_to_span
+    assert "provider/mockprovider/mock-model" in span_name_to_span
 
-    provider_span = span_name_to_span["provider/MockProvider/mock-model"]
-    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "MockProvider"
+    provider_span = span_name_to_span["provider/mockprovider/mock-model"]
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "mockprovider"
     assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "mock-model"
     assert provider_span.attributes.get("method") == "chat_stream"
     assert provider_span.attributes.get("streaming") is True
@@ -132,6 +133,80 @@ async def test_chat_stream_captures_usage_from_final_chunk(mock_provider):
     assert token_usage[TokenUsageKey.INPUT_TOKENS] == 10
     assert token_usage[TokenUsageKey.OUTPUT_TOKENS] == 5
     assert token_usage[TokenUsageKey.TOTAL_TOKENS] == 15
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_captures_cached_tokens(mock_provider):
+    usage = chat.ChatUsage(
+        prompt_tokens=50,
+        completion_tokens=20,
+        total_tokens=70,
+        prompt_tokens_details=chat.PromptTokensDetails(cached_tokens=30),
+        cache_creation_input_tokens=10,
+    )
+
+    mock_provider._chat_stream_chunks = [
+        chat.StreamResponsePayload(
+            id="1",
+            created=int(time.time()),
+            model="mock-model",
+            choices=[chat.StreamChoice(index=0, delta=chat.StreamDelta(content="Hello"))],
+            usage=usage,
+        ),
+    ]
+
+    @mlflow.trace
+    async def traced_operation():
+        payload = chat.RequestPayload(messages=[chat.RequestMessage(role="user", content="Hi")])
+        return await _collect_chunks(mock_provider.chat_stream(payload))
+
+    await traced_operation()
+
+    traces = get_traces()
+    provider_span = {s.name: s for s in traces[0].data.spans}["provider/mockprovider/mock-model"]
+    token_usage = provider_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] == 50
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] == 20
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] == 70
+    assert token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 30
+    assert token_usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] == 10
+
+
+@pytest.mark.asyncio
+async def test_chat_non_streaming_captures_cached_tokens(mock_provider):
+    mock_provider._chat_response = chat.ResponsePayload(
+        id="1",
+        created=int(time.time()),
+        model="mock-model",
+        choices=[
+            chat.Choice(
+                index=0,
+                message=chat.ResponseMessage(role="assistant", content="Hello!"),
+                finish_reason="stop",
+            )
+        ],
+        usage=chat.ChatUsage(
+            prompt_tokens=50,
+            completion_tokens=20,
+            total_tokens=70,
+            prompt_tokens_details=chat.PromptTokensDetails(cached_tokens=30),
+        ),
+    )
+
+    @mlflow.trace
+    async def traced_operation():
+        payload = chat.RequestPayload(messages=[chat.RequestMessage(role="user", content="Hi")])
+        return await mock_provider.chat(payload)
+
+    await traced_operation()
+
+    traces = get_traces()
+    provider_span = {s.name: s for s in traces[0].data.spans}["provider/mockprovider/mock-model"]
+    token_usage = provider_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage[TokenUsageKey.INPUT_TOKENS] == 50
+    assert token_usage[TokenUsageKey.OUTPUT_TOKENS] == 20
+    assert token_usage[TokenUsageKey.TOTAL_TOKENS] == 70
+    assert token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 30
 
 
 @pytest.mark.asyncio
@@ -165,7 +240,7 @@ async def test_chat_stream_without_usage(mock_provider):
     assert trace.info.state == TraceState.OK
 
     span_name_to_span = {span.name: span for span in trace.data.spans}
-    provider_span = span_name_to_span["provider/MockProvider/mock-model"]
+    provider_span = span_name_to_span["provider/mockprovider/mock-model"]
 
     # Verify no usage attributes were set
     assert provider_span.attributes.get(SpanAttributeKey.CHAT_USAGE) is None
@@ -226,7 +301,7 @@ async def test_chat_stream_handles_error(mock_provider):
     assert trace.info.state == TraceState.ERROR
 
     span_name_to_span = {span.name: span for span in trace.data.spans}
-    provider_span = span_name_to_span["provider/MockProvider/mock-model"]
+    provider_span = span_name_to_span["provider/mockprovider/mock-model"]
 
     # Verify error was captured as an exception event
     exception_events = [e for e in provider_span.events if e.name == "exception"]
@@ -259,7 +334,7 @@ async def test_chat_stream_partial_usage(mock_provider):
     trace = traces[0]
 
     span_name_to_span = {span.name: span for span in trace.data.spans}
-    provider_span = span_name_to_span["provider/MockProvider/mock-model"]
+    provider_span = span_name_to_span["provider/mockprovider/mock-model"]
 
     # Verify only input_tokens was set (partial usage)
     token_usage = provider_span.attributes.get(SpanAttributeKey.CHAT_USAGE)
@@ -299,9 +374,9 @@ async def test_chat_non_streaming(mock_provider):
     assert trace.info.state == TraceState.OK
 
     span_name_to_span = {span.name: span for span in trace.data.spans}
-    provider_span = span_name_to_span["provider/MockProvider/mock-model"]
+    provider_span = span_name_to_span["provider/mockprovider/mock-model"]
 
-    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "MockProvider"
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "mockprovider"
     assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "mock-model"
     assert provider_span.attributes.get("method") == "chat"
     # Non-streaming should not have streaming attribute
@@ -332,7 +407,7 @@ async def test_chat_non_streaming_error(mock_provider):
     trace = traces[0]
 
     span_name_to_span = {span.name: span for span in trace.data.spans}
-    provider_span = span_name_to_span["provider/MockProvider/mock-model"]
+    provider_span = span_name_to_span["provider/mockprovider/mock-model"]
 
     # Verify error was captured as an exception event
     exception_events = [e for e in provider_span.events if e.name == "exception"]
@@ -364,9 +439,9 @@ async def test_embeddings(mock_provider):
     assert trace.info.state == TraceState.OK
 
     span_name_to_span = {span.name: span for span in trace.data.spans}
-    provider_span = span_name_to_span["provider/MockProvider/mock-model"]
+    provider_span = span_name_to_span["provider/mockprovider/mock-model"]
 
-    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "MockProvider"
+    assert provider_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "mockprovider"
     assert provider_span.attributes.get(SpanAttributeKey.MODEL) == "mock-model"
     assert provider_span.attributes.get("method") == "embeddings"
 
@@ -390,10 +465,10 @@ async def test_passthrough_with_tracing(mock_provider):
 
     # The span should have provider attributes and action
     span_name_to_span = {span.name: span for span in trace.data.spans}
-    assert "passthrough" in span_name_to_span
+    assert "provider/mockprovider/mock-model" in span_name_to_span
 
-    passthrough_span = span_name_to_span["passthrough"]
-    assert passthrough_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "MockProvider"
+    passthrough_span = span_name_to_span["provider/mockprovider/mock-model"]
+    assert passthrough_span.attributes.get(SpanAttributeKey.MODEL_PROVIDER) == "mockprovider"
     assert passthrough_span.attributes.get(SpanAttributeKey.MODEL) == "mock-model"
     assert passthrough_span.attributes.get("action") == "openai_chat"
 

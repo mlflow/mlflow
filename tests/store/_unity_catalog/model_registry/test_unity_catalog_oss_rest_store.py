@@ -138,9 +138,7 @@ def test_create_model_version(mock_http, store, creds):
 
     with (
         mock.patch.object(store, "_local_model_dir", return_value=mock_local_model_dir),
-        mock.patch.object(
-            store, "_get_artifact_repo", return_value=mock.Mock()
-        ) as mock_artifact_repo,
+        mock.patch.object(store, "_get_artifact_repo") as mock_artifact_repo,
     ):
         mock_artifact_repo.log_artifacts.return_value = None
 

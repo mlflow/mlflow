@@ -4,10 +4,10 @@ import type { ComponentProps } from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider, useIntl } from '@databricks/i18n';
-import { getUser } from '@databricks/web-shared/global-settings';
-import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
-import type { UseQueryResult } from '@databricks/web-shared/query-client';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { getUser } from '../../global-settings/getUser';
+import type { ModelTrace } from '../../model-trace-explorer/ModelTrace.types';
+import type { UseQueryResult } from '../../query-client/queryClient';
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 
 import { GenAiEvaluationTracesReview } from './GenAiEvaluationTracesReview';
 import { createTestTrace } from '../test-fixtures/EvaluatedTraceTestUtils';
@@ -18,7 +18,7 @@ import { getAssessmentInfos } from '../utils/AggregationUtils';
 jest.setTimeout(120000); // This is quite expensive test
 
 // Mock necessary modules
-jest.mock('@databricks/web-shared/global-settings', () => ({
+jest.mock('../../global-settings/getUser', () => ({
   getUser: jest.fn(),
 }));
 

@@ -53,7 +53,7 @@ const matchPredefinedApolloError = (error: Error) => {
 const getNetworkRequestErrorDetailsFromResponse = (response: Response): NetworkRequestErrorDetails => {
   const status = response.status;
 
-  return { status };
+  return { status, response };
 };
 
 export const matchPredefinedErrorFromResponse = (response: Response, originalError?: CausableError) => {

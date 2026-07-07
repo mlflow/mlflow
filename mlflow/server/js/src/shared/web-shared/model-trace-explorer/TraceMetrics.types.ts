@@ -8,10 +8,13 @@
  */
 export enum TraceMetricKey {
   TRACE_COUNT = 'trace_count',
+  SESSION_COUNT = 'session_count',
   LATENCY = 'latency',
   INPUT_TOKENS = 'input_tokens',
   OUTPUT_TOKENS = 'output_tokens',
   TOTAL_TOKENS = 'total_tokens',
+  CACHE_READ_INPUT_TOKENS = 'cache_read_input_tokens',
+  CACHE_CREATION_INPUT_TOKENS = 'cache_creation_input_tokens',
 }
 
 /**
@@ -55,10 +58,25 @@ export enum TraceFilterKey {
 
 /**
  * Trace status values for filter expressions.
+ *
+ * Mirrors the backend `TraceState` enum (mlflow/entities/trace_state.py) for the
+ * subset accepted by the metrics API's `trace.status = "..."` filter.
  */
 export enum TraceStatus {
+  IN_PROGRESS = 'IN_PROGRESS',
   OK = 'OK',
   ERROR = 'ERROR',
+}
+
+/**
+ * Dimension keys for trace metrics.
+ * Based on mlflow/tracing/constant.py TraceMetricDimensionKey
+ */
+export enum TraceDimensionKey {
+  /** Trace name dimension */
+  TRACE_NAME = 'trace_name',
+  /** Trace status dimension (OK, ERROR) */
+  TRACE_STATUS = 'trace_status',
 }
 
 /**
@@ -69,6 +87,18 @@ export enum TraceStatus {
  */
 export const createTraceFilter = (field: TraceFilterKey, value: string): string =>
   `${TRACE_FILTER_VIEW_TYPE}.${field} = "${value}"`;
+
+/**
+ * Creates a trace metadata filter expression string with a specific key.
+ * @param metadataKey - The metadata key (e.g., "mlflow.auth.userId")
+ * @param value - The value to match (e.g., "123")
+ * @returns Filter expression string (e.g., 'trace.metadata.\`mlflow.auth.userId\` = "123"')
+ */
+export const createTraceMetadataFilter = (metadataKey: string, value: string): string =>
+  `${TRACE_FILTER_VIEW_TYPE}.${TraceFilterKey.METADATA}.\`${metadataKey}\` = "${value}"`;
+
+/** Metadata key for the authenticated user's ID stored in gateway traces. */
+export const AUTH_USER_ID_METADATA_KEY = 'mlflow.auth.userId';
 
 /**
  * Keys for metrics on assessments view type.
@@ -135,6 +165,12 @@ export enum SpanMetricKey {
   SPAN_COUNT = 'span_count',
   /** Span latency in milliseconds */
   LATENCY = 'latency',
+  /** Input cost in USD */
+  INPUT_COST = 'input_cost',
+  /** Output cost in USD */
+  OUTPUT_COST = 'output_cost',
+  /** Total cost in USD */
+  TOTAL_COST = 'total_cost',
 }
 
 /**
@@ -207,6 +243,10 @@ export enum SpanDimensionKey {
   SPAN_TYPE = 'span_type',
   /** Span status dimension */
   SPAN_STATUS = 'span_status',
+  /** Model name dimension */
+  MODEL_NAME = 'span_model_name',
+  /** Model provider dimension */
+  MODEL_PROVIDER = 'span_model_provider',
 }
 
 /**
@@ -261,8 +301,15 @@ export interface QueryTraceMetricsRequest {
   experiment_ids: string[];
   /** Required: The level at which to aggregate metrics */
   view_type: MetricViewType;
-  /** Required: The name of the metric to query (e.g. "latency") */
-  metric_name: string;
+  /** DEPRECATED: Use metric_names instead. The name of the metric to query (e.g. "latency") */
+  metric_name?: string;
+  /**
+   * The name(s) of the metric(s) to query (e.g. ["latency"] or ["input_tokens", "output_tokens"]).
+   * Replaces the deprecated metric_name field. When multiple names are provided, all metrics must
+   * share the same aggregation semantics. Each result data point carries a metric_name field so
+   * the caller can distinguish metrics. One of metric_name or metric_names is required.
+   */
+  metric_names?: string[];
   /** Required: The aggregations to apply */
   aggregations: MetricAggregation[];
   /** Optional: Dimensions to group metrics by (e.g. "name", "status") */

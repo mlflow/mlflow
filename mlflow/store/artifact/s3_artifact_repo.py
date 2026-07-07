@@ -1,9 +1,11 @@
 import json
+import logging
 import os
 import posixpath
 import urllib.parse
 from datetime import datetime, timezone
 from functools import lru_cache
+from io import BytesIO
 from mimetypes import guess_type
 
 from mlflow.entities import FileInfo
@@ -11,6 +13,7 @@ from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
     MultipartUploadCredential,
 )
+from mlflow.entities.presigned_download import PresignedDownloadUrlResponse
 from mlflow.environment_variables import (
     MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE,
     MLFLOW_S3_ENDPOINT_URL,
@@ -27,9 +30,13 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
+    MultipartDownloadMixin,
     MultipartUploadMixin,
+    PresignedUploadMixin,
 )
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+
+_logger = logging.getLogger(__name__)
 
 _MAX_CACHE_SECONDS = 300
 
@@ -39,6 +46,35 @@ BOTO_TO_MLFLOW_ERROR = {
     "NoSuchKey": RESOURCE_DOES_NOT_EXIST,
     "InvalidAccessKeyId": UNAUTHENTICATED,
     "SignatureDoesNotMatch": UNAUTHENTICATED,
+}
+
+# Maps boto3 put_object parameter names to their HTTP header equivalents.
+# Used by create_presigned_upload_url() to build the headers dict that clients
+# must include in the presigned PUT request.
+_S3_PARAM_TO_HEADER = {
+    "ACL": "x-amz-acl",
+    "CacheControl": "Cache-Control",
+    "ContentDisposition": "Content-Disposition",
+    "ContentEncoding": "Content-Encoding",
+    "ContentLanguage": "Content-Language",
+    "Expires": "Expires",
+    "GrantFullControl": "x-amz-grant-full-control",
+    "GrantRead": "x-amz-grant-read",
+    "GrantReadACP": "x-amz-grant-read-acp",
+    "GrantWriteACP": "x-amz-grant-write-acp",
+    "ObjectLockLegalHoldStatus": "x-amz-object-lock-legal-hold",
+    "ObjectLockMode": "x-amz-object-lock-mode",
+    "ObjectLockRetainUntilDate": "x-amz-object-lock-retain-until-date",
+    "RequestPayer": "x-amz-request-payer",
+    "SSECustomerAlgorithm": "x-amz-server-side-encryption-customer-algorithm",
+    "SSECustomerKey": "x-amz-server-side-encryption-customer-key",
+    "SSECustomerKeyMD5": "x-amz-server-side-encryption-customer-key-MD5",
+    "SSEKMSEncryptionContext": "x-amz-server-side-encryption-context",
+    "SSEKMSKeyId": "x-amz-server-side-encryption-aws-kms-key-id",
+    "ServerSideEncryption": "x-amz-server-side-encryption",
+    "StorageClass": "x-amz-storage-class",
+    "Tagging": "x-amz-tagging",
+    "WebsiteRedirectLocation": "x-amz-website-redirect-location",
 }
 
 
@@ -135,7 +171,9 @@ def _get_s3_client(
     )
 
 
-class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
+class S3ArtifactRepository(
+    ArtifactRepository, MultipartUploadMixin, MultipartDownloadMixin, PresignedUploadMixin
+):
     """
     Stores artifacts on Amazon S3.
 
@@ -157,8 +195,9 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE: S3 addressing style ('path' or 'virtual')
 
     Note:
-        This class inherits from both ArtifactRepository and MultipartUploadMixin,
-        providing full artifact management capabilities including efficient large file uploads.
+        This class inherits from ArtifactRepository, MultipartUploadMixin, and
+        MultipartDownloadMixin, providing full artifact management capabilities
+        including efficient large file uploads and multipart downloads.
     """
 
     def __init__(
@@ -184,6 +223,8 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 Used with STS tokens or IAM roles.
             tracking_uri: Optional URI for the MLflow tracking server.
                 If None, uses the current tracking URI context.
+            registry_uri: Optional URI for the MLflow model registry.
+                If None, uses the current registry URI context.
         """
         super().__init__(artifact_uri, tracking_uri, registry_uri)
         self._access_key_id = access_key_id
@@ -308,6 +349,23 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     bucket=bucket,
                     key=posixpath.join(upload_path, f),
                 )
+
+    def upload_archived_trace_data_bytes(self, data: bytes) -> None:
+        from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME
+
+        (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
+        key = posixpath.join(dest_path, TRACE_ARCHIVAL_FILENAME)
+        extra_args = {"ContentType": "application/octet-stream"}
+        extra_args.update(self._bucket_owner_params)
+        environ_extra_args = self.get_s3_file_upload_extra_args()
+        if environ_extra_args is not None:
+            extra_args.update(environ_extra_args)
+        self._get_s3_client().upload_fileobj(
+            Fileobj=BytesIO(data),
+            Bucket=bucket,
+            Key=key,
+            ExtraArgs=extra_args,
+        )
 
     def _iterate_s3_paginated_results(self, bucket, prefix):
         """
@@ -564,3 +622,98 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             UploadId=upload_id,
             **self._bucket_owner_params,
         )
+
+    def create_presigned_upload_url(self, artifact_path, expiration=900):
+        """
+        Generate a presigned URL for uploading an artifact directly to S3.
+
+        Args:
+            artifact_path: Relative path within the run's artifact directory
+                          (e.g. "models/model.pkl").
+            expiration: URL expiration time in seconds (default: 900).
+
+        Returns:
+            CreatePresignedUploadResponse with presigned_url and headers.
+        """
+        from mlflow.entities.presigned_upload import CreatePresignedUploadResponse
+
+        (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
+        dest_path = posixpath.join(dest_path, artifact_path)
+
+        s3_client = self._get_s3_client()
+
+        content_type, _ = guess_type(artifact_path)
+        if not content_type:
+            content_type = "application/octet-stream"
+
+        params = {
+            "Bucket": bucket,
+            "Key": dest_path,
+            "ContentType": content_type,
+            **self._bucket_owner_params,
+        }
+
+        # Honor MLFLOW_S3_UPLOAD_EXTRA_ARGS (e.g., ServerSideEncryption, ACL).
+        # Without this, buckets with policies requiring specific headers (like
+        # x-amz-server-side-encryption) would reject the presigned PUT with 403.
+        # This matches the behavior of _upload_file() for direct S3 uploads.
+        environ_extra_args = self.get_s3_file_upload_extra_args()
+        if environ_extra_args:
+            params.update(environ_extra_args)
+
+        presigned_url = s3_client.generate_presigned_url(
+            "put_object",
+            Params=params,
+            ExpiresIn=expiration,
+        )
+
+        # Build the headers dict that the client MUST send with the PUT request.
+        # Any param that S3 treats as a "presigned condition" (ContentType, plus
+        # any extra args like ServerSideEncryption) must be echoed as headers,
+        # otherwise S3 rejects the request with SignatureDoesNotMatch.
+        headers = {"Content-Type": content_type}
+        if environ_extra_args:
+            for param_key, param_value in environ_extra_args.items():
+                header_name = _S3_PARAM_TO_HEADER.get(param_key)
+                if header_name is None:
+                    _logger.warning(
+                        "Skipping unmapped S3 upload extra arg '%s': no known HTTP "
+                        "header mapping. The presigned URL may fail with "
+                        "SignatureDoesNotMatch.",
+                        param_key,
+                    )
+                    continue
+                headers[header_name] = str(param_value)
+
+        return CreatePresignedUploadResponse(
+            presigned_url=presigned_url,
+            headers=headers,
+        )
+
+    def get_download_presigned_url(self, artifact_path, expiration=300):
+        """Generate a presigned URL for downloading an artifact directly from S3."""
+        from botocore.exceptions import ClientError
+
+        (bucket, dest_path) = self.parse_s3_compliant_uri(self.artifact_uri)
+        key = posixpath.join(dest_path, artifact_path) if artifact_path else dest_path
+        s3_client = self._get_s3_client()
+
+        try:
+            head_response = s3_client.head_object(
+                Bucket=bucket, Key=key, **self._bucket_owner_params
+            )
+        except ClientError as error:
+            error_code = error.response["Error"]["Code"]
+            mlflow_error_code = BOTO_TO_MLFLOW_ERROR.get(error_code, INTERNAL_ERROR)
+            raise MlflowException(
+                error.response["Error"]["Message"],
+                error_code=mlflow_error_code,
+            )
+        file_size = head_response.get("ContentLength")
+
+        url = s3_client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key, **self._bucket_owner_params},
+            ExpiresIn=expiration,
+        )
+        return PresignedDownloadUrlResponse(url=url, headers={}, file_size=file_size)

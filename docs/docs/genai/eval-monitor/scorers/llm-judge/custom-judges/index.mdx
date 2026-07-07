@@ -1,3 +1,7 @@
+---
+description: Create custom LLM judges in MLflow with natural language guidelines using make_judge() or the Judge Builder UI for domain-specific evaluation.
+---
+
 import { APILink } from "@site/src/components/APILink";
 import { Users, Brain, Hammer } from "lucide-react";
 import TileCard from "@site/src/components/TileCard";
@@ -5,7 +9,7 @@ import TilesGrid from "@site/src/components/TilesGrid";
 
 # Custom Judges
 
-Custom LLM judges let you define complex and nuanced judging guidelines for GenAI applications using natural language.
+Custom LLM judges let you define complex and nuanced judging guidelines for LLM applications and AI agents using natural language.
 
 While MLflow [built-in LLM judges](/genai/eval-monitor/scorers/llm-judge/predefined/#available-judges) offer excellent starting points for common quality dimensions, custom judges created using `make_judge()` give you full control over evaluation criteria. You can create these judges using either the **UI** or the **SDK**.
 
@@ -21,7 +25,7 @@ The fastest way to create LLM judges is through the **Judge Builder UI** - no co
 
 ## Prompts and template variables
 
-To create a judge, you provide a prompt with natural language instructions on how to assess the quality of your agent. <APILink fn="mlflow.genai.judges.make_jduge">`make_judge()`</APILink> accepts template variables to access the agent's inputs, outputs, expected outputs or behaviors, and even complete traces.
+To create a judge, you provide a prompt with natural language instructions on how to assess the quality of your agent. <APILink fn="mlflow.genai.judges.make_judge">`make_judge()`</APILink> accepts template variables to access the agent's inputs, outputs, expected outputs or behaviors, and even complete traces.
 
 Your instructions must include at least one template variable, but you don't need to use all of them.
 

@@ -6,6 +6,7 @@ package mlflow.databricks;
 
 import "assessments.proto";
 import "databricks.proto";
+import "databricks_exception_with_details.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
@@ -122,6 +123,43 @@ service DatabricksTrackingService {
     };
   }
 
+  // Long-running equivalent of searchTraces. Returns a SearchTracesOperation
+  // immediately; callers poll getSearchTracesOperation until done is true.
+  rpc searchTracesLongRunning(SearchTracesLongRunning) returns (SearchTracesOperation) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/search-long-running"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Search Traces Long Running"
+    };
+  }
+
+  // Poll a long-running search-traces Operation.
+  rpc getSearchTracesOperation(GetOperationRequest) returns (SearchTracesOperation) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces/search/operations/{name}"
+          since: {
+            major: 4
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Operation"
+    };
+  }
+
   // =============================================================================
   // Enablement RPCs
   // =============================================================================
@@ -174,6 +212,57 @@ service DatabricksTrackingService {
       ]
       visibility: PUBLIC_UNDOCUMENTED
       rpc_doc_title: "Unlink Experiment to UC Trace Location"
+    };
+  }
+
+  rpc getLocation(GetLocation) returns (GetLocation.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/tracing/locations/{location_id}"
+          since: {
+            major: 5
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Location"
+    };
+  }
+
+  rpc createLocation(CreateLocation) returns (CreateLocation.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/tracing/locations"
+          since: {
+            major: 5
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create Location"
+    };
+  }
+
+  rpc linkTraceLocation(LinkTraceLocation) returns (LinkTraceLocation.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/experiments/{experiment_id}/trace-location:link"
+          since: {
+            major: 5
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Link Trace Location"
     };
   }
 
@@ -305,6 +394,17 @@ message UCSchemaLocation {
   optional string otel_logs_table_name = 4;
 }
 
+message UcTablePrefixLocation {
+  optional string catalog_name = 1;
+  optional string schema_name = 2;
+  optional string table_prefix = 3;
+  optional string spans_table_name = 4;
+  optional string logs_table_name = 5;
+  optional string metrics_table_name = 6;
+  optional string location_id = 7;
+  optional string annotations_table_name = 8;
+}
+
 message MlflowExperimentLocation {
   // MLflow experiment ID which is the ACL container holding the trace.
   optional string experiment_id = 1;
@@ -322,6 +422,7 @@ message TraceLocation {
     MLFLOW_EXPERIMENT = 1;
     INFERENCE_TABLE = 2;
     UC_SCHEMA = 3;
+    UC_TABLE_PREFIX = 4;
   }
   optional TraceLocationType type = 1;
 
@@ -329,6 +430,7 @@ message TraceLocation {
     MlflowExperimentLocation mlflow_experiment = 2;
     InferenceTableLocation inference_table = 3;
     UCSchemaLocation uc_schema = 4;
+    UcTablePrefixLocation uc_table_prefix = 5;
   }
 }
 
@@ -519,6 +621,62 @@ message SearchTraces {
   }
 }
 
+// Must be kept in sync with SearchTraces — same fields, different RPC contract
+// (returns an Operation instead of SearchTraces.Response).
+message SearchTracesLongRunning {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[Operation]";
+
+  repeated TraceLocation locations = 1;
+  optional string filter = 2;
+  optional int32 max_results = 3 [default = 100];
+  repeated string order_by = 4;
+  optional string sql_warehouse_id = 5;
+  optional string page_token = 6;
+}
+
+message GetOperationRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[Operation]";
+
+  // Operation name returned by SearchTracesLongRunning.
+  optional string name = 1;
+}
+
+// Metadata for the SearchTracesLongRunning operation.
+message SearchTracesOperationMetadata {
+  optional google.protobuf.Timestamp start_time = 1;
+
+  enum State {
+    STATE_UNSPECIFIED = 0;
+    RUNNING = 1;
+    SUCCEEDED = 2;
+    FAILED = 3;
+  }
+  optional State state = 2;
+}
+
+// Long-running operation resource, mirroring google.longrunning.Operation but
+// specialized for SearchTracesLongRunning — `metadata` and `response` carry the
+// concrete types directly (instead of google.protobuf.Any) so JSON bodies
+// from the REST layer deserialize without needing @type URLs. `error` uses the
+// verbatim `databricks.api.DatabricksServiceExceptionWithDetailsProto` so the
+// wire shape matches universe's `databricks.longrunning.Operation`.
+message SearchTracesOperation {
+  // Server-assigned name of the form "operations/{unique_id}".
+  optional string name = 1;
+
+  // Progress metadata.
+  optional SearchTracesOperationMetadata metadata = 2;
+
+  // If false, the operation is still in progress. If true, exactly one of
+  // `error` or `response` is set.
+  optional bool done = 3;
+
+  oneof result {
+    .databricks.api.DatabricksServiceExceptionWithDetailsProto error = 4;
+    SearchTraces.Response response = 5;
+  }
+}
+
 // =============================================================================
 // Enablement API Messages
 // =============================================================================
@@ -561,6 +719,47 @@ message UnLinkExperimentToUCTraceLocation {
   // Location to unlink.
   oneof location {
     UCSchemaLocation uc_schema = 2;
+  }
+
+  message Response {}
+}
+
+message GetLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string location_id = 1 [(validate_required) = true];
+
+  message Response {
+    optional UcTablePrefixLocation uc_table_prefix = 1;
+  }
+}
+
+message CreateLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  oneof location {
+    UCSchemaLocation uc_schema = 1;
+    UcTablePrefixLocation uc_table_prefix = 2;
+  }
+
+  optional string sql_warehouse_id = 3;
+
+  message Response {
+    oneof location {
+      UCSchemaLocation uc_schema = 1;
+      UcTablePrefixLocation uc_table_prefix = 2;
+    }
+  }
+}
+
+message LinkTraceLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  oneof location {
+    UCSchemaLocation uc_schema = 2;
+    UcTablePrefixLocation uc_table_prefix = 3;
   }
 
   message Response {}

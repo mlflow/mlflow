@@ -11,11 +11,13 @@ from pydantic import BaseModel, ValidationError
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import PromptModelConfig, PromptVersion
+from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
 from mlflow.exceptions import MlflowException
 from mlflow.genai.prompts.utils import format_prompt
 from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY, PROMPT_TYPE_TEXT
 from mlflow.prompt.registry_utils import PromptCache, PromptCacheKey
 from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
+from mlflow.tracking import fluent
 
 
 def join_thread_by_name_prefix(prefix: str):
@@ -170,7 +172,7 @@ def test_prompt_associate_with_run(tmp_path):
         def task():
             mlflow.genai.load_prompt("prompt_1", version=1)
 
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=4, thread_name_prefix="test-load-prompt") as executor:
             futures = [executor.submit(task) for _ in range(10)]
             for future in futures:
                 future.result()
@@ -745,7 +747,8 @@ def test_load_prompt_with_tracing_single_prompt():
         from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
 
         associations = (
-            session.query(SqlEntityAssociation)
+            session
+            .query(SqlEntityAssociation)
             .filter(
                 SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
                 SqlEntityAssociation.source_id == span.trace_id,
@@ -811,7 +814,8 @@ def test_load_prompt_with_tracing_multiple_prompts():
         from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
 
         associations = (
-            session.query(SqlEntityAssociation)
+            session
+            .query(SqlEntityAssociation)
             .filter(
                 SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
                 SqlEntityAssociation.source_id == span.trace_id,
@@ -896,7 +900,8 @@ def test_load_prompt_with_tracing_nested_spans():
         from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
 
         associations = (
-            session.query(SqlEntityAssociation)
+            session
+            .query(SqlEntityAssociation)
             .filter(
                 SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
                 SqlEntityAssociation.source_id == outer_span.trace_id,
@@ -1170,8 +1175,6 @@ def test_prompt_associate_with_run_chat_format():
 
 
 def test_register_prompt_with_pydantic_response_format():
-    from pydantic import BaseModel
-
     class ResponseSchema(BaseModel):
         answer: str
         confidence: float
@@ -1676,8 +1679,6 @@ def test_link_prompt_to_experiment_no_duplicate():
 
 
 def test_prompt_links_to_default_experiment():
-    from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
-    from mlflow.tracking import fluent
 
     # Reset experiment state to ensure we're using the Default experiment
     fluent._active_experiment_id = None
@@ -2062,3 +2063,35 @@ def test_delete_prompt_model_config():
     # Verify model config was deleted
     prompt = mlflow.genai.load_prompt("test_delete_config", version=1)
     assert prompt.model_config is None
+
+
+def test_concurrent_prompt_linking_to_run_and_trace():
+    mlflow.genai.register_prompt(name="test", template="Run prompt: {{x}}")
+
+    join_thread_by_name_prefix("link_prompt_to_experiment_thread")
+
+    client = mlflow.MlflowClient()
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+        @mlflow.trace
+        def traced_function():
+            mlflow.genai.load_prompt("test", version=1)
+
+        traced_function()
+
+    # Verify the prompt was linked to the run
+    run_data = client.get_run(run_id)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
+    assert linked_prompts_tag is not None
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert any(p["name"] == "test" for p in linked_prompts)
+
+    # Verify the prompt was linked to the trace
+    trace_id = mlflow.get_last_active_trace_id()
+    trace = mlflow.get_trace(trace_id)
+    trace_linked_prompts = trace.info.tags.get(TraceTagKey.LINKED_PROMPTS)
+    assert trace_linked_prompts is not None
+    trace_prompts = json.loads(trace_linked_prompts)
+    assert any(p["name"] == "test" for p in trace_prompts)

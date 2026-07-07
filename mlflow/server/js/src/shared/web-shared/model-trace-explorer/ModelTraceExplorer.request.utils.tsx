@@ -1,4 +1,5 @@
-import { matchPredefinedError } from '@databricks/web-shared/errors';
+import { getActiveWorkspace } from './RoutingUtils';
+import { matchPredefinedError } from '../errors/PredefinedErrors';
 
 // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
 const fetchFn = fetch;
@@ -83,7 +84,32 @@ export const getDefaultHeadersFromCookies = (cookieStr: any) => {
 
 export const getDefaultHeaders = (cookieStr: any) => {
   const cookieHeaders = getDefaultHeadersFromCookies(cookieStr);
+
+  // getActiveWorkspace() returns null if workspaces feature is not enabled
+  const workspace = getActiveWorkspace();
+
   return {
     ...cookieHeaders,
+    ...(workspace ? { 'X-MLFLOW-WORKSPACE': workspace } : {}),
   };
 };
+
+export async function fetchOrFail(input: RequestInfo | URL, options?: RequestInit): Promise<Response> {
+  const fetchOptions: RequestInit = {
+    ...options,
+    headers: {
+      ...getDefaultHeaders(document.cookie),
+      ...options?.headers,
+    },
+  };
+
+  const response = await fetchFn(input, fetchOptions);
+  if (!response.ok) {
+    const predefinedError = matchPredefinedError(response);
+    if (predefinedError) {
+      throw predefinedError;
+    }
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+  return response;
+}

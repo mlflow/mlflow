@@ -14,6 +14,7 @@ from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     INTERNAL_ERROR,
     RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
@@ -172,6 +173,40 @@ def test_register_model_prints_uc_model_version_url(monkeypatch):
     mlflow.set_registry_uri(orig_registry_uri)
 
 
+def test_register_model_skips_logged_model_tag_when_not_found(monkeypatch):
+    # When the source logged model doesn't exist (e.g., cross-workspace copy),
+    # register_model should succeed and log a warning instead of raising.
+    orig_registry_uri = mlflow.get_registry_uri()
+    mlflow.set_registry_uri("databricks-uc")
+    model_id = "m-cross-ws"
+    name = "name.mlflow.cross_ws_model"
+    version = "1"
+    with (
+        mock.patch("mlflow.tracking._model_registry.fluent.eprint"),
+        mock.patch("mlflow.tracking._model_registry.fluent.get_workspace_url", return_value=None),
+        mock.patch(
+            "mlflow.MlflowClient.create_registered_model",
+            return_value=RegisteredModel(name),
+        ),
+        mock.patch(
+            "mlflow.MlflowClient._create_model_version",
+            return_value=ModelVersion(name, version, creation_timestamp=123),
+        ),
+        mock.patch(
+            "mlflow.MlflowClient.get_logged_model",
+            side_effect=MlflowException("not found", error_code=RESOURCE_DOES_NOT_EXIST),
+        ) as mock_get_logged_model,
+        mock.patch("mlflow.MlflowClient.set_logged_model_tags") as mock_set_tags,
+    ):
+        # Should not raise even though get_logged_model fails
+        mv = register_model(f"models:/{model_id}", name)
+        assert mv.version == version
+        mock_get_logged_model.assert_called_once()
+        mock_set_tags.assert_not_called()
+
+    mlflow.set_registry_uri(orig_registry_uri)
+
+
 def test_set_model_version_tag():
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, model_input):
@@ -192,16 +227,19 @@ def test_set_model_version_tag():
 
 
 def test_register_model_with_2_x_model(tmp_path: Path):
-    tracking_uri = (tmp_path / "tracking").as_uri()
-    mlflow.set_tracking_uri(tracking_uri)
+    tracking_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
     artifact_location = (tmp_path / "artifacts").as_uri()
-    exp_id = mlflow.create_experiment("test", artifact_location=artifact_location)
-    mlflow.set_experiment(experiment_id=exp_id)
+
     code = """
 import sys
 import mlflow
 
 assert mlflow.__version__.startswith("2."), mlflow.__version__
+
+tracking_uri, artifact_location, out = sys.argv[1:]
+mlflow.set_tracking_uri(tracking_uri)
+exp_id = mlflow.create_experiment("test", artifact_location=artifact_location)
+mlflow.set_experiment(experiment_id=exp_id)
 
 with mlflow.start_run() as run:
     model_info = mlflow.pyfunc.log_model(
@@ -212,12 +250,11 @@ with mlflow.start_run() as run:
         pip_requirements=["mlflow"],
     )
     assert model_info.model_uri.startswith("runs:/")
-    out = sys.argv[1]
     with open(out, "w") as f:
         f.write(model_info.model_uri)
 """
     out = tmp_path / "output.txt"
-    # Log a model using MLflow 2.x
+    # Log a model using MLflow 2.x (let 2.x create the DB)
     subprocess.check_call(
         [
             "uv",
@@ -230,11 +267,14 @@ with mlflow.start_run() as run:
             "-I",
             "-c",
             code,
+            tracking_uri,
+            artifact_location,
             out,
         ],
         env=os.environ.copy() | {"UV_INDEX_STRATEGY": "unsafe-first-match"},
     )
-    # Register the model with MLflow 3.x
+    # Register the model with MLflow 3.x (migration happens automatically)
+    mlflow.set_tracking_uri(tracking_uri)
     model_uri = out.read_text().strip()
     mlflow.register_model(model_uri, "model")
 
@@ -248,6 +288,7 @@ def mock_dbr_version():
             is_client_image=True,
             major=2,  # Supported version
             minor=0,
+            is_gpu_image=False,
         ),
     ):
         yield

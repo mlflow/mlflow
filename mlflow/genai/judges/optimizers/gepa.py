@@ -92,7 +92,7 @@ class GEPAAlignmentOptimizer(DSPyAlignmentOptimizer):
                 Higher values may lead to better results but increase optimization time.
                 If None (default), automatically set to 4x the number of training examples.
             gepa_kwargs: Additional keyword arguments to pass directly to dspy.GEPA().
-            **kwargs: Additional keyword arguments passed to parent class
+            kwargs: Additional keyword arguments passed to parent class
         """
         super().__init__(model=model, **kwargs)
         self._max_metric_calls = max_metric_calls

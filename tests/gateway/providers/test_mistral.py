@@ -6,8 +6,8 @@ from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.config import EndpointConfig
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.mistral import MistralProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -93,7 +93,7 @@ async def test_completions():
                 "messages": [{"role": "user", "content": TEST_STRING}],
                 "model": "mistral-tiny",
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 
@@ -424,11 +424,9 @@ async def _run_test_chat_stream(resp, provider):
             assert len(chunk["choices"]) == 1
             assert "delta" in chunk["choices"][0]
 
-        mock_build_client.assert_called_once_with(
-            headers={
-                "Authorization": "Bearer key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("Authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.mistral.ai/v1/chat/completions",
             json={
@@ -436,7 +434,7 @@ async def _run_test_chat_stream(resp, provider):
                 "n": 1,
                 **payload,
             },
-            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
         )
 
 

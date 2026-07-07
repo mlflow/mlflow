@@ -5,6 +5,7 @@ import os
 import uuid
 from typing import Any
 
+from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
@@ -19,7 +20,21 @@ from mlflow.entities import (
     GatewaySecretInfo,
     RoutingStrategy,
 )
+from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDuration,
+    BudgetTargetScope,
+    BudgetUnit,
+    GatewayBudgetPolicy,
+)
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
+from mlflow.entities.gateway_guardrail import (
+    GatewayGuardrail,
+    GatewayGuardrailConfig,
+    GuardrailAction,
+    GuardrailStage,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -28,6 +43,8 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking._secret_cache import (
     _DEFAULT_CACHE_MAX_SIZE,
     _DEFAULT_CACHE_TTL,
@@ -36,30 +53,52 @@ from mlflow.store.tracking._secret_cache import (
     SecretCache,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlExperiment,
+    SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
     SqlGatewayEndpointModelMapping,
     SqlGatewayEndpointTag,
+    SqlGatewayGuardrail,
+    SqlGatewayGuardrailConfig,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
+    SqlSpanMetrics,
+    SqlTraceInfo,
+    SqlTraceMetadata,
 )
 from mlflow.telemetry.events import (
+    GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
+    GatewayCreateGuardrailEvent,
+    GatewayCreateModelDefinitionEvent,
     GatewayCreateSecretEvent,
+    GatewayDeleteBudgetPolicyEvent,
     GatewayDeleteEndpointEvent,
+    GatewayDeleteGuardrailEvent,
     GatewayDeleteSecretEvent,
     GatewayGetEndpointEvent,
+    GatewayListBudgetPoliciesEvent,
     GatewayListEndpointsEvent,
     GatewayListSecretsEvent,
+    GatewayUpdateBudgetPolicyEvent,
     GatewayUpdateEndpointEvent,
+    GatewayUpdateGuardrailEvent,
     GatewayUpdateSecretEvent,
 )
 from mlflow.telemetry.track import record_usage_event
+from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
 from mlflow.utils.crypto import (
     KEKManager,
     _encrypt_secret,
     _mask_secret_value,
 )
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_IS_GATEWAY,
+    MLFLOW_EXPERIMENT_SOURCE_ID,
+    MLFLOW_EXPERIMENT_SOURCE_TYPE,
+)
+from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.time import get_current_time_millis
 
 
@@ -97,18 +136,19 @@ class SqlAlchemyGatewayStoreMixin:
             self._secret_cache = SecretCache(ttl_seconds=ttl, max_size=max_size)
         return self._secret_cache
 
-    def _get_or_create_experiment_id(self, experiment_name: str) -> str:
+    def _get_or_create_experiment_id(self, experiment_name: str, tags=None) -> str:
         """Get an existing experiment ID or create a new experiment if it doesn't exist.
 
         Args:
             experiment_name: Name of the experiment to get or create.
+            tags: Optional list of ExperimentTag instances to set on the experiment.
 
         Returns:
             The experiment ID.
         """
         try:
             # The class that inherits from this mixin must implement the create_experiment method
-            return self.create_experiment(experiment_name)
+            return self.create_experiment(experiment_name, tags=tags)
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
                 experiment = self.get_experiment_by_name(experiment_name)
@@ -151,7 +191,7 @@ class SqlAlchemyGatewayStoreMixin:
         Returns:
             Secret entity with metadata (encrypted value not included).
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             secret_id = f"s-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
@@ -167,19 +207,21 @@ class SqlAlchemyGatewayStoreMixin:
                 secret_name=secret_name,
             )
 
-            sql_secret = SqlGatewaySecret(
-                secret_id=secret_id,
-                secret_name=secret_name,
-                encrypted_value=encrypted.encrypted_value,
-                wrapped_dek=encrypted.wrapped_dek,
-                masked_value=json.dumps(masked_value),
-                kek_version=encrypted.kek_version,
-                provider=provider,
-                auth_config=json.dumps(auth_config) if auth_config else None,
-                created_at=current_time,
-                last_updated_at=current_time,
-                created_by=created_by,
-                last_updated_by=created_by,
+            sql_secret = self._with_workspace_field(
+                SqlGatewaySecret(
+                    secret_id=secret_id,
+                    secret_name=secret_name,
+                    encrypted_value=encrypted.encrypted_value,
+                    wrapped_dek=encrypted.wrapped_dek,
+                    masked_value=json.dumps(masked_value),
+                    kek_version=encrypted.kek_version,
+                    provider=provider,
+                    auth_config=json.dumps(auth_config) if auth_config else None,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                )
             )
 
             try:
@@ -246,7 +288,7 @@ class SqlAlchemyGatewayStoreMixin:
         Returns:
             Updated Secret entity.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_secret = self._get_entity_or_raise(
                 session, SqlGatewaySecret, {"secret_id": secret_id}, "GatewaySecret"
             )
@@ -294,7 +336,7 @@ class SqlAlchemyGatewayStoreMixin:
         Args:
             secret_id: ID of the secret to delete.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_secret = self._get_entity_or_raise(
                 session, SqlGatewaySecret, {"secret_id": secret_id}, "GatewaySecret"
             )
@@ -314,7 +356,7 @@ class SqlAlchemyGatewayStoreMixin:
             List of Secret entities with metadata (encrypted values not included).
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewaySecret)
+            query = self._get_query(session, SqlGatewaySecret)
 
             if provider is not None:
                 query = query.filter(SqlGatewaySecret.provider == provider)
@@ -322,6 +364,7 @@ class SqlAlchemyGatewayStoreMixin:
             sql_secrets = query.all()
             return [secret.to_mlflow_entity() for secret in sql_secrets]
 
+    @record_usage_event(GatewayCreateModelDefinitionEvent)
     def create_gateway_model_definition(
         self,
         name: str,
@@ -343,7 +386,7 @@ class SqlAlchemyGatewayStoreMixin:
         Returns:
             GatewayModelDefinition entity with metadata.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_secret = self._get_entity_or_raise(
                 session, SqlGatewaySecret, {"secret_id": secret_id}, "GatewaySecret"
             )
@@ -351,16 +394,18 @@ class SqlAlchemyGatewayStoreMixin:
             model_definition_id = f"d-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
-            sql_model_def = SqlGatewayModelDefinition(
-                model_definition_id=model_definition_id,
-                name=name,
-                secret_id=secret_id,
-                provider=provider,
-                model_name=model_name,
-                created_at=current_time,
-                last_updated_at=current_time,
-                created_by=created_by,
-                last_updated_by=created_by,
+            sql_model_def = self._with_workspace_field(
+                SqlGatewayModelDefinition(
+                    model_definition_id=model_definition_id,
+                    name=name,
+                    secret_id=secret_id,
+                    provider=provider,
+                    model_name=model_name,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                )
             )
 
             try:
@@ -433,7 +478,7 @@ class SqlAlchemyGatewayStoreMixin:
             List of GatewayModelDefinition entities with metadata.
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewayModelDefinition)
+            query = self._get_query(session, SqlGatewayModelDefinition)
 
             if provider is not None:
                 query = query.filter(SqlGatewayModelDefinition.provider == provider)
@@ -471,7 +516,7 @@ class SqlAlchemyGatewayStoreMixin:
                 (RESOURCE_DOES_NOT_EXIST), or if the new name conflicts with an existing
                 model definition (RESOURCE_ALREADY_EXISTS).
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_model_def = self._get_entity_or_raise(
                 session,
                 SqlGatewayModelDefinition,
@@ -522,7 +567,7 @@ class SqlAlchemyGatewayStoreMixin:
             MlflowException: If the model definition is not found (RESOURCE_DOES_NOT_EXIST),
                 or if it is currently in use by endpoints (INVALID_STATE).
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_model_def = self._get_entity_or_raise(
                 session,
                 SqlGatewayModelDefinition,
@@ -550,7 +595,7 @@ class SqlAlchemyGatewayStoreMixin:
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
         experiment_id: str | None = None,
-        usage_tracking: bool = False,
+        usage_tracking: bool = True,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -582,12 +627,13 @@ class SqlAlchemyGatewayStoreMixin:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             # Validate all model definitions exist
             all_model_def_ids = {config.model_definition_id for config in model_configs}
 
             existing_model_defs = (
-                session.query(SqlGatewayModelDefinition.model_definition_id)
+                self
+                ._get_query(session, SqlGatewayModelDefinition)
                 .filter(SqlGatewayModelDefinition.model_definition_id.in_(all_model_def_ids))
                 .all()
             )
@@ -603,7 +649,14 @@ class SqlAlchemyGatewayStoreMixin:
 
             # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
             if usage_tracking and experiment_id is None:
-                experiment_id = self._get_or_create_experiment_id(f"gateway/{name}")
+                experiment_id = self._get_or_create_experiment_id(
+                    f"gateway/{name}",
+                    tags=[
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_TYPE, "GATEWAY"),
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_ID, endpoint_id),
+                        ExperimentTag(MLFLOW_EXPERIMENT_IS_GATEWAY, "true"),
+                    ],
+                )
 
             # Build fallback_config_json if fallback_config provided or fallback models exist
             fallback_model_def_ids = [
@@ -613,27 +666,27 @@ class SqlAlchemyGatewayStoreMixin:
             ]
             fallback_config_json = None
             if fallback_config or fallback_model_def_ids:
-                fallback_config_json = json.dumps(
-                    {
-                        "strategy": fallback_config.strategy.value
-                        if fallback_config and fallback_config.strategy
-                        else None,
-                        "max_attempts": fallback_config.max_attempts if fallback_config else None,
-                        "model_definition_ids": fallback_model_def_ids,
-                    }
-                )
+                fallback_config_json = json.dumps({
+                    "strategy": fallback_config.strategy.value
+                    if fallback_config and fallback_config.strategy
+                    else None,
+                    "max_attempts": fallback_config.max_attempts if fallback_config else None,
+                    "model_definition_ids": fallback_model_def_ids,
+                })
 
-            sql_endpoint = SqlGatewayEndpoint(
-                endpoint_id=endpoint_id,
-                name=name,
-                created_at=current_time,
-                last_updated_at=current_time,
-                created_by=created_by,
-                last_updated_by=created_by,
-                routing_strategy=routing_strategy.value if routing_strategy else None,
-                fallback_config_json=fallback_config_json,
-                experiment_id=int(experiment_id) if experiment_id else None,
-                usage_tracking=usage_tracking,
+            sql_endpoint = self._with_workspace_field(
+                SqlGatewayEndpoint(
+                    endpoint_id=endpoint_id,
+                    name=name,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                    routing_strategy=routing_strategy.value if routing_strategy else None,
+                    fallback_config_json=fallback_config_json,
+                    experiment_id=int(experiment_id) if experiment_id else None,
+                    usage_tracking=usage_tracking,
+                )
             )
             session.add(sql_endpoint)
 
@@ -718,7 +771,7 @@ class SqlAlchemyGatewayStoreMixin:
         Returns:
             Updated Endpoint entity.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_endpoint = self._get_entity_or_raise(
                 session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
             )
@@ -733,7 +786,14 @@ class SqlAlchemyGatewayStoreMixin:
             # Auto-create experiment if usage_tracking is enabled and no experiment_id provided
             if usage_tracking and experiment_id is None and sql_endpoint.experiment_id is None:
                 endpoint_name = name if name is not None else sql_endpoint.name
-                experiment_id = self._get_or_create_experiment_id(f"gateway/{endpoint_name}")
+                experiment_id = self._get_or_create_experiment_id(
+                    f"gateway/{endpoint_name}",
+                    tags=[
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_TYPE, "GATEWAY"),
+                        ExperimentTag(MLFLOW_EXPERIMENT_SOURCE_ID, endpoint_id),
+                        ExperimentTag(MLFLOW_EXPERIMENT_IS_GATEWAY, "true"),
+                    ],
+                )
 
             if experiment_id is not None:
                 sql_endpoint.experiment_id = int(experiment_id)
@@ -778,15 +838,13 @@ class SqlAlchemyGatewayStoreMixin:
                     for config in model_configs
                     if config.linkage_type == GatewayModelLinkageType.FALLBACK
                 ]
-                sql_endpoint.fallback_config_json = json.dumps(
-                    {
-                        "strategy": fallback_config.strategy.value
-                        if fallback_config and fallback_config.strategy
-                        else None,
-                        "max_attempts": fallback_config.max_attempts if fallback_config else None,
-                        "model_definition_ids": fallback_model_def_ids,
-                    }
-                )
+                sql_endpoint.fallback_config_json = json.dumps({
+                    "strategy": fallback_config.strategy.value
+                    if fallback_config and fallback_config.strategy
+                    else None,
+                    "max_attempts": fallback_config.max_attempts if fallback_config else None,
+                    "model_definition_ids": fallback_model_def_ids,
+                })
 
             # Update fallback_config_json if only fallback_config provided (without model_configs)
             elif fallback_config is not None:
@@ -796,15 +854,13 @@ class SqlAlchemyGatewayStoreMixin:
                     if sql_endpoint.fallback_config_json
                     else {}
                 )
-                sql_endpoint.fallback_config_json = json.dumps(
-                    {
-                        "strategy": fallback_config.strategy.value
-                        if fallback_config.strategy
-                        else None,
-                        "max_attempts": fallback_config.max_attempts,
-                        "model_definition_ids": existing_config.get("model_definition_ids", []),
-                    }
-                )
+                sql_endpoint.fallback_config_json = json.dumps({
+                    "strategy": fallback_config.strategy.value
+                    if fallback_config.strategy
+                    else None,
+                    "max_attempts": fallback_config.max_attempts,
+                    "model_definition_ids": existing_config.get("model_definition_ids", []),
+                })
 
             sql_endpoint.last_updated_at = get_current_time_millis()
             if updated_by:
@@ -824,7 +880,7 @@ class SqlAlchemyGatewayStoreMixin:
         Args:
             endpoint_id: ID of the endpoint to delete.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_endpoint = self._get_entity_or_raise(
                 session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
             )
@@ -851,7 +907,9 @@ class SqlAlchemyGatewayStoreMixin:
             List of Endpoint entities with model_mappings.
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewayEndpoint).join(SqlGatewayEndpointModelMapping)
+            query = self._get_query(session, SqlGatewayEndpoint).join(
+                SqlGatewayEndpointModelMapping
+            )
 
             if provider or secret_id:
                 query = query.join(
@@ -890,7 +948,7 @@ class SqlAlchemyGatewayStoreMixin:
                 (RESOURCE_DOES_NOT_EXIST), or if the model definition is already
                 attached to this endpoint with the same linkage_type (RESOURCE_ALREADY_EXISTS).
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_endpoint = self._get_entity_or_raise(
                 session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
             )
@@ -954,8 +1012,8 @@ class SqlAlchemyGatewayStoreMixin:
         Raises:
             MlflowException: If the mapping is not found (RESOURCE_DOES_NOT_EXIST).
         """
-        with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewayEndpointModelMapping).filter(
+        with self.ManagedSessionMaker(read_only=False) as session:
+            query = self._get_query(session, SqlGatewayEndpointModelMapping).filter(
                 SqlGatewayEndpointModelMapping.endpoint_id == endpoint_id,
                 SqlGatewayEndpointModelMapping.model_definition_id == model_definition_id,
             )
@@ -964,6 +1022,17 @@ class SqlAlchemyGatewayStoreMixin:
 
             sql_mapping = query.first()
             if not sql_mapping:
+                sql_endpoint = (
+                    self
+                    ._get_query(session, SqlGatewayEndpoint)
+                    .filter(SqlGatewayEndpoint.endpoint_id == endpoint_id)
+                    .first()
+                )
+                if not sql_endpoint:
+                    raise MlflowException(
+                        f"GatewayEndpoint not found (endpoint_id='{endpoint_id}')",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    )
                 linkage_str = f" with linkage type '{linkage_type}'" if linkage_type else ""
                 raise MlflowException(
                     f"Model definition '{model_definition_id}' is not attached to "
@@ -996,7 +1065,7 @@ class SqlAlchemyGatewayStoreMixin:
         Raises:
             MlflowException: If the endpoint is not found (RESOURCE_DOES_NOT_EXIST).
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._get_entity_or_raise(
                 session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
             )
@@ -1034,7 +1103,7 @@ class SqlAlchemyGatewayStoreMixin:
         Raises:
             MlflowException: If the binding is not found (RESOURCE_DOES_NOT_EXIST).
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             sql_binding = self._get_entity_or_raise(
                 session,
                 SqlGatewayEndpointBinding,
@@ -1068,7 +1137,7 @@ class SqlAlchemyGatewayStoreMixin:
             model_mappings populated).
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlGatewayEndpointBinding).options(
+            query = self._get_query(session, SqlGatewayEndpointBinding).options(
                 joinedload(SqlGatewayEndpointBinding.endpoint).joinedload(
                     SqlGatewayEndpoint.model_mappings
                 )
@@ -1096,7 +1165,7 @@ class SqlAlchemyGatewayStoreMixin:
             endpoint_id: ID of the endpoint to tag.
             tag: GatewayEndpointTag with key and value to set.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._get_entity_or_raise(
                 session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
             )
@@ -1120,7 +1189,7 @@ class SqlAlchemyGatewayStoreMixin:
             endpoint_id: ID of the endpoint.
             key: Tag key to delete.
         """
-        with self.ManagedSessionMaker() as session:
+        with self.ManagedSessionMaker(read_only=False) as session:
             self._get_entity_or_raise(
                 session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
             )
@@ -1128,3 +1197,346 @@ class SqlAlchemyGatewayStoreMixin:
                 SqlGatewayEndpointTag.endpoint_id == endpoint_id,
                 SqlGatewayEndpointTag.key == key,
             ).delete()
+
+    # Budget Policy APIs
+
+    @record_usage_event(GatewayCreateBudgetPolicyEvent)
+    def create_budget_policy(
+        self,
+        budget_unit: BudgetUnit,
+        budget_amount: float,
+        duration: BudgetDuration,
+        target_scope: BudgetTargetScope,
+        budget_action: BudgetAction,
+        created_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        with self.ManagedSessionMaker(read_only=False) as session:
+            budget_policy_id = f"bp-{uuid.uuid4().hex}"
+            current_time = get_current_time_millis()
+
+            sql_budget_policy = self._with_workspace_field(
+                SqlGatewayBudgetPolicy(
+                    budget_policy_id=budget_policy_id,
+                    budget_unit=budget_unit.value
+                    if isinstance(budget_unit, BudgetUnit)
+                    else budget_unit,
+                    budget_amount=budget_amount,
+                    duration_unit=duration.unit.value,
+                    duration_value=duration.value,
+                    target_scope=target_scope.value
+                    if isinstance(target_scope, BudgetTargetScope)
+                    else target_scope,
+                    budget_action=budget_action.value
+                    if isinstance(budget_action, BudgetAction)
+                    else budget_action,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                )
+            )
+
+            session.add(sql_budget_policy)
+            session.flush()
+
+            return sql_budget_policy.to_mlflow_entity()
+
+    def get_budget_policy(
+        self,
+        budget_policy_id: str,
+    ) -> GatewayBudgetPolicy:
+        with self.ManagedSessionMaker() as session:
+            sql_budget_policy = self._get_entity_or_raise(
+                session,
+                SqlGatewayBudgetPolicy,
+                {"budget_policy_id": budget_policy_id},
+                "BudgetPolicy",
+            )
+            return sql_budget_policy.to_mlflow_entity()
+
+    @record_usage_event(GatewayUpdateBudgetPolicyEvent)
+    def update_budget_policy(
+        self,
+        budget_policy_id: str,
+        budget_unit: BudgetUnit | None = None,
+        budget_amount: float | None = None,
+        duration: BudgetDuration | None = None,
+        target_scope: BudgetTargetScope | None = None,
+        budget_action: BudgetAction | None = None,
+        updated_by: str | None = None,
+    ) -> GatewayBudgetPolicy:
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_budget_policy = self._get_entity_or_raise(
+                session,
+                SqlGatewayBudgetPolicy,
+                {"budget_policy_id": budget_policy_id},
+                "BudgetPolicy",
+            )
+
+            if budget_unit is not None:
+                sql_budget_policy.budget_unit = (
+                    budget_unit.value if isinstance(budget_unit, BudgetUnit) else budget_unit
+                )
+            if budget_amount is not None:
+                sql_budget_policy.budget_amount = budget_amount
+            if duration is not None:
+                sql_budget_policy.duration_unit = duration.unit.value
+                sql_budget_policy.duration_value = duration.value
+            if target_scope is not None:
+                sql_budget_policy.target_scope = (
+                    target_scope.value
+                    if isinstance(target_scope, BudgetTargetScope)
+                    else target_scope
+                )
+            if budget_action is not None:
+                sql_budget_policy.budget_action = (
+                    budget_action.value
+                    if isinstance(budget_action, BudgetAction)
+                    else budget_action
+                )
+
+            sql_budget_policy.last_updated_at = get_current_time_millis()
+            if updated_by is not None:
+                sql_budget_policy.last_updated_by = updated_by
+
+            session.flush()
+
+            return sql_budget_policy.to_mlflow_entity()
+
+    @record_usage_event(GatewayDeleteBudgetPolicyEvent)
+    def delete_budget_policy(self, budget_policy_id: str) -> None:
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_budget_policy = self._get_entity_or_raise(
+                session,
+                SqlGatewayBudgetPolicy,
+                {"budget_policy_id": budget_policy_id},
+                "BudgetPolicy",
+            )
+            session.delete(sql_budget_policy)
+
+    @record_usage_event(GatewayListBudgetPoliciesEvent)
+    def list_budget_policies(
+        self,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: str | None = None,
+    ) -> PagedList[GatewayBudgetPolicy]:
+        self._validate_max_results_param(max_results)
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        with self.ManagedSessionMaker() as session:
+            query = (
+                self
+                ._get_query(session, SqlGatewayBudgetPolicy)
+                .order_by(SqlGatewayBudgetPolicy.budget_policy_id)
+                .offset(offset)
+                .limit(max_results + 1)
+            )
+            policies = [bp.to_mlflow_entity() for bp in query.all()]
+            next_token = None
+            if len(policies) > max_results:
+                next_token = SearchUtils.create_page_token(offset + max_results)
+            return PagedList(policies[:max_results], next_token)
+
+    def sum_gateway_trace_cost(
+        self,
+        start_time_ms: int,
+        end_time_ms: int,
+        workspace: str | None = None,
+    ) -> float:
+        with self.ManagedSessionMaker() as session:
+            query = (
+                session
+                .query(func.coalesce(func.sum(SqlSpanMetrics.value), 0.0))
+                .join(SqlTraceInfo, SqlTraceInfo.request_id == SqlSpanMetrics.trace_id)
+                .join(
+                    SqlTraceMetadata,
+                    SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
+                )
+                .filter(
+                    SqlSpanMetrics.key == SpanMetricKey.TOTAL_COST,
+                    SqlTraceMetadata.key == TraceMetadataKey.GATEWAY_ENDPOINT_ID,
+                    SqlTraceInfo.timestamp_ms >= start_time_ms,
+                    SqlTraceInfo.timestamp_ms < end_time_ms,
+                )
+            )
+
+            if workspace is not None:
+                query = query.join(
+                    SqlExperiment,
+                    SqlExperiment.experiment_id == SqlTraceInfo.experiment_id,
+                ).filter(SqlExperiment.workspace == workspace)
+
+            return float(query.scalar())
+
+    # Guardrail APIs
+
+    @record_usage_event(GatewayCreateGuardrailEvent)
+    def create_gateway_guardrail(
+        self,
+        name: str,
+        scorer_id: str,
+        scorer_version: int,
+        stage: GuardrailStage,
+        action: GuardrailAction,
+        action_endpoint_id: str | None = None,
+        created_by: str | None = None,
+    ) -> GatewayGuardrail:
+        with self.ManagedSessionMaker(read_only=False) as session:
+            # Ensure the scorer is valid and in the current workspace
+            self._get_scorer_version(session, scorer_id, scorer_version)
+
+            guardrail_id = f"gr-{uuid.uuid4().hex}"
+            current_time = get_current_time_millis()
+
+            sql_guardrail = self._with_workspace_field(
+                SqlGatewayGuardrail(
+                    guardrail_id=guardrail_id,
+                    name=name,
+                    scorer_id=scorer_id,
+                    scorer_version=scorer_version,
+                    stage=stage.value,
+                    action=action.value,
+                    action_endpoint_id=action_endpoint_id,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                )
+            )
+
+            session.add(sql_guardrail)
+            session.flush()
+
+            return sql_guardrail.to_mlflow_entity()
+
+    def get_gateway_guardrail(self, guardrail_id: str) -> GatewayGuardrail:
+        with self.ManagedSessionMaker() as session:
+            sql_guardrail = self._get_entity_or_raise(
+                session,
+                SqlGatewayGuardrail,
+                {"guardrail_id": guardrail_id},
+                "Guardrail",
+            )
+            return sql_guardrail.to_mlflow_entity()
+
+    @record_usage_event(GatewayDeleteGuardrailEvent)
+    def delete_gateway_guardrail(self, guardrail_id: str) -> None:
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_guardrail = self._get_entity_or_raise(
+                session,
+                SqlGatewayGuardrail,
+                {"guardrail_id": guardrail_id},
+                "Guardrail",
+            )
+            session.delete(sql_guardrail)
+
+    def list_gateway_guardrails(
+        self,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: str | None = None,
+    ) -> PagedList[GatewayGuardrail]:
+        self._validate_max_results_param(max_results)
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        with self.ManagedSessionMaker() as session:
+            query = (
+                self
+                ._get_query(session, SqlGatewayGuardrail)
+                .order_by(SqlGatewayGuardrail.guardrail_id)
+                .offset(offset)
+                .limit(max_results + 1)
+            )
+            guardrails = [g.to_mlflow_entity() for g in query.all()]
+            next_token = None
+            if len(guardrails) > max_results:
+                next_token = SearchUtils.create_page_token(offset + max_results)
+            return PagedList(guardrails[:max_results], next_token)
+
+    def add_guardrail_to_endpoint(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+        execution_order: int | None = None,
+        created_by: str | None = None,
+    ) -> GatewayGuardrailConfig:
+        with self.ManagedSessionMaker(read_only=False) as session:
+            # Validate both endpoint and guardrail exist
+            self._get_entity_or_raise(
+                session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "Endpoint"
+            )
+            self._get_entity_or_raise(
+                session, SqlGatewayGuardrail, {"guardrail_id": guardrail_id}, "Guardrail"
+            )
+
+            sql_config = self._with_workspace_field(
+                SqlGatewayGuardrailConfig(
+                    endpoint_id=endpoint_id,
+                    guardrail_id=guardrail_id,
+                    execution_order=execution_order,
+                    created_by=created_by,
+                    created_at=get_current_time_millis(),
+                )
+            )
+
+            try:
+                session.add(sql_config)
+                session.flush()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Guardrail '{guardrail_id}' is already added to endpoint '{endpoint_id}'",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+            return sql_config.to_mlflow_entity()
+
+    @record_usage_event(GatewayUpdateGuardrailEvent)
+    def update_endpoint_guardrail_config(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+        execution_order: int | None = None,
+    ) -> GatewayGuardrailConfig:
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_config = self._get_entity_or_raise(
+                session,
+                SqlGatewayGuardrailConfig,
+                {"endpoint_id": endpoint_id, "guardrail_id": guardrail_id},
+                "GuardrailConfig",
+            )
+            sql_config.execution_order = execution_order
+            session.flush()
+            return sql_config.to_mlflow_entity()
+
+    def remove_guardrail_from_endpoint(
+        self,
+        endpoint_id: str,
+        guardrail_id: str,
+    ) -> None:
+        with self.ManagedSessionMaker(read_only=False) as session:
+            sql_config = self._get_entity_or_raise(
+                session,
+                SqlGatewayGuardrailConfig,
+                {"endpoint_id": endpoint_id, "guardrail_id": guardrail_id},
+                "GuardrailConfig",
+            )
+            session.delete(sql_config)
+
+    def list_endpoint_guardrail_configs(
+        self,
+        endpoint_id: str,
+    ) -> list[GatewayGuardrailConfig]:
+        with self.ManagedSessionMaker() as session:
+            self._get_entity_or_raise(
+                session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "Endpoint"
+            )
+            configs = (
+                self
+                ._get_query(session, SqlGatewayGuardrailConfig)
+                .options(joinedload(SqlGatewayGuardrailConfig.guardrail))
+                .filter(SqlGatewayGuardrailConfig.endpoint_id == endpoint_id)
+                .order_by(
+                    case((SqlGatewayGuardrailConfig.execution_order.is_(None), 1), else_=0).asc(),
+                    SqlGatewayGuardrailConfig.execution_order.asc(),
+                    SqlGatewayGuardrailConfig.guardrail_id,
+                )
+                .all()
+            )
+            return [c.to_mlflow_entity() for c in configs]

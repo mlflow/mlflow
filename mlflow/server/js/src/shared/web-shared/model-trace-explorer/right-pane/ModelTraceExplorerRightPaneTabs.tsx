@@ -10,8 +10,8 @@ import { ModelTraceExplorerChatTab } from './ModelTraceExplorerChatTab';
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
 import { ModelTraceExplorerEventsTab } from './ModelTraceExplorerEventsTab';
 import { SimplifiedAssessmentView } from './SimplifiedAssessmentView';
-import { SpanModelCostBadge } from './SpanModelCostBadge';
 import type { ModelTraceExplorerTab, ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
+import { SpanModelCostBadge } from './SpanModelCostBadge';
 import { getSpanExceptionCount, getTraceLevelAssessments } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerBadge } from '../ModelTraceExplorerBadge';
 import ModelTraceExplorerResizablePane from '../ModelTraceExplorerResizablePane';
@@ -43,7 +43,6 @@ function ModelTraceExplorerRightPaneTabsImpl({
   const {
     assessmentsPaneExpanded,
     assessmentsPaneEnabled,
-    isInComparisonView,
     updatePaneSizeRatios,
     getPaneSizeRatios,
     readOnly: displayReadOnlyAssessments,
@@ -86,12 +85,11 @@ function ModelTraceExplorerRightPaneTabsImpl({
       value={activeTab}
       onValueChange={(tab: string) => setActiveTab(tab as ModelTraceExplorerTab)}
     >
-      <SpanModelCostBadge activeSpan={activeSpan} />
-      {!displayReadOnlyAssessments && (
+      {!displayReadOnlyAssessments && !assessmentsPaneExpanded && (
         <div
           css={{
             position: 'absolute',
-            right: assessmentsPaneExpanded ? theme.spacing.xs : theme.spacing.md,
+            right: theme.spacing.sm,
             top: theme.spacing.xs,
             zIndex: 1,
             backgroundColor: theme.colors.backgroundPrimary,
@@ -142,7 +140,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
       </Tabs.List>
       {activeSpan.chatMessages && (
         <Tabs.Content css={contentStyle} value="chat">
-          <ModelTraceExplorerChatTab chatMessages={activeSpan.chatMessages} chatTools={activeSpan.chatTools} />
+          <ModelTraceExplorerChatTab activeSpan={activeSpan} />
         </Tabs.Content>
       )}
       <Tabs.Content css={contentStyle} value="content">
@@ -177,7 +175,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
     />
   );
 
-  return !isInComparisonView && assessmentsPaneEnabled && assessmentsPaneExpanded ? (
+  return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
       initialRatio={getPaneSizeRatios().detailsSidebar}
       paneWidth={paneWidth}

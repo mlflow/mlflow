@@ -16,6 +16,7 @@ from mlflow.genai.prompts import (
     search_prompts,
     set_prompt_alias,
 )
+from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class PromptsDemoGenerator(BaseDemoGenerator):
     def generate(self) -> DemoResult:
         import mlflow
 
+        self._restore_experiment_if_deleted()
         mlflow.set_experiment(DEMO_EXPERIMENT_NAME)
 
         prompt_names = []
@@ -116,3 +118,14 @@ class PromptsDemoGenerator(BaseDemoGenerator):
                     _logger.debug("Failed to delete prompt %s", prompt.name, exc_info=True)
         except Exception:
             _logger.debug("Failed to delete demo prompts", exc_info=True)
+
+    def _restore_experiment_if_deleted(self) -> None:
+        store = _get_store()
+        try:
+            experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+            if experiment is not None and experiment.lifecycle_stage == "deleted":
+                _logger.info("Restoring soft-deleted demo experiment")
+                client = MlflowClient()
+                client.restore_experiment(experiment.experiment_id)
+        except Exception:
+            _logger.debug("Failed to check/restore demo experiment", exc_info=True)

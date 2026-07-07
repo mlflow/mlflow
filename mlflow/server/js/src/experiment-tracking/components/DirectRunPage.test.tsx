@@ -9,6 +9,12 @@ import { DirectRunPage } from './DirectRunPage';
 import { useEffect } from 'react';
 import { renderWithIntl, screen, act } from '../../common/utils/TestUtils.react18';
 
+jest.mock('../hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../hooks/useServerInfo')>('../hooks/useServerInfo'),
+  getWorkspacesEnabledSync: () => false,
+  useWorkspacesEnabled: () => ({ workspacesEnabled: false, loading: false }),
+}));
+
 jest.mock('../../common/components/PageNotFoundView', () => ({
   PageNotFoundView: () => <div>Page not found</div>,
 }));

@@ -1,7 +1,5 @@
-"""
-This file contains unit tests for the legacy Gemini Python SDK
-https://github.com/google-gemini/generative-ai-python
-"""
+# Tests for the legacy Gemini Python SDK:
+# https://github.com/google-gemini/generative-ai-python
 
 import base64
 from unittest.mock import patch
@@ -215,52 +213,44 @@ def test_generate_content_tool_calling_autolog():
 
 
 def test_generate_content_tool_calling_chat_history_autolog():
-    question_content = genai.protos.Content(
-        {
-            "parts": [
-                {
-                    "text": "I have 57 cats, each owns 44 mittens, how many mittens in total?",
-                }
-            ],
-            "role": "user",
-        }
-    )
+    question_content = genai.protos.Content({
+        "parts": [
+            {
+                "text": "I have 57 cats, each owns 44 mittens, how many mittens in total?",
+            }
+        ],
+        "role": "user",
+    })
 
-    tool_call_content = genai.protos.Content(
-        {
+    tool_call_content = genai.protos.Content({
+        "parts": [
+            {
+                "function_call": {
+                    "name": "multiply",
+                    "args": {
+                        "a": 57.0,
+                        "b": 44.0,
+                    },
+                }
+            }
+        ],
+        "role": "model",
+    })
+
+    tool_response_content = genai.protos.Content({
+        "parts": [{"function_response": {"name": "multiply", "response": {"result": 2508.0}}}],
+        "role": "user",
+    })
+
+    raw_response = _generate_content_response(
+        genai.protos.Content({
             "parts": [
                 {
-                    "function_call": {
-                        "name": "multiply",
-                        "args": {
-                            "a": 57.0,
-                            "b": 44.0,
-                        },
-                    }
+                    "text": "57 cats * 44 mittens/cat = 2508 mittens in total.",
                 }
             ],
             "role": "model",
-        }
-    )
-
-    tool_response_content = genai.protos.Content(
-        {
-            "parts": [{"function_response": {"name": "multiply", "response": {"result": 2508.0}}}],
-            "role": "user",
-        }
-    )
-
-    raw_response = _generate_content_response(
-        genai.protos.Content(
-            {
-                "parts": [
-                    {
-                        "text": "57 cats * 44 mittens/cat = 2508 mittens in total.",
-                    }
-                ],
-                "role": "model",
-            }
-        )
+        })
     )
 
     response = genai.types.GenerateContentResponse.from_response(

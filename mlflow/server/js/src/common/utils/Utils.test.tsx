@@ -151,16 +151,7 @@ test('renderNotebookSource', () => {
     </a>,
   );
   expect(
-    Utils.renderNotebookSource(
-      queryParams,
-      notebookId,
-      revisionId,
-      runUuid,
-      sourceName,
-      // @ts-expect-error TS(2345): Argument of type '"http://databricks"' is not assi... Remove this comment to see the full error message
-      'http://databricks',
-      null,
-    ),
+    Utils.renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName, 'http://databricks', null),
   ).toEqual(
     <a
       title={sourceName}
@@ -214,10 +205,7 @@ test('renderJobSource', () => {
       {jobName}
     </a>,
   );
-  expect(
-    // @ts-expect-error TS(2345): Argument of type '"https://databricks"' is not ass... Remove this comment to see the full error message
-    Utils.renderJobSource(queryParams, jobId, jobRunId, jobName, 'https://databricks', null),
-  ).toEqual(
+  expect(Utils.renderJobSource(queryParams, jobId, jobRunId, jobName, 'https://databricks', null)).toEqual(
     <a title={jobName} href={`https://databricks/${queryParams}#job/${jobId}/run/${jobRunId}`} target="_top">
       {jobName}
     </a>,
@@ -956,4 +944,50 @@ test('isValidHttpUrl', () => {
   // disable no-script-url rule to test that javascript protocol is not seen as valid url
   /* eslint-disable no-script-url*/
   expect(Utils.isValidHttpUrl('javascript:void(0)')).toEqual(false);
+});
+
+test('getJobSourceUrl rejects dangerous workspaceUrl', () => {
+  expect(Utils.getJobSourceUrl(null, '123', '456', 'https://databricks.com')).toEqual(
+    'https://databricks.com/#job/123/run/456',
+  );
+
+  /* eslint-disable no-script-url */
+  expect(Utils.getJobSourceUrl(null, '123', '456', 'javascript://evil.com')).toEqual('');
+  /* eslint-enable no-script-url */
+});
+
+test('getNotebookSourceUrl rejects dangerous workspaceUrl', () => {
+  expect(Utils.getNotebookSourceUrl(null, '789', 'rev1', 'run1', 'https://databricks.com')).toEqual(
+    'https://databricks.com/#notebook/789/revision/rev1/mlflow/run/run1',
+  );
+
+  /* eslint-disable no-script-url */
+  expect(Utils.getNotebookSourceUrl(null, '789', 'rev1', null, 'javascript://evil.com')).toEqual('');
+  /* eslint-enable no-script-url */
+});
+
+test('renderJobSource renders plain text for dangerous workspaceUrl', () => {
+  expect(Utils.renderJobSource(null, '123', '456', 'my job', null)).toEqual(
+    <a title="my job" href="http://localhost/#job/123/run/456" target="_top">
+      my job
+    </a>,
+  );
+
+  /* eslint-disable no-script-url */
+  expect(Utils.renderJobSource(null, '123', '456', 'my job', 'javascript://evil.com', null)).toEqual('my job');
+  /* eslint-enable no-script-url */
+});
+
+test('renderNotebookSource renders plain text for dangerous workspaceUrl', () => {
+  expect(Utils.renderNotebookSource(null, '789', 'rev1', null, '/Users/test/iris', null)).toEqual(
+    <a title="/Users/test/iris" href="http://localhost/#notebook/789/revision/rev1" target="_top">
+      iris
+    </a>,
+  );
+
+  /* eslint-disable no-script-url */
+  expect(
+    Utils.renderNotebookSource(null, '789', 'rev1', null, '/Users/test/iris', 'javascript://evil.com', null),
+  ).toEqual('iris');
+  /* eslint-enable no-script-url */
 });

@@ -28,11 +28,10 @@ export const useCreateEvaluationDatasetMutation = ({
         experiment_ids: experimentIds,
       };
 
-      const response = (await fetchAPI(
-        getAjaxUrl('ajax-api/3.0/mlflow/datasets/create'),
-        'POST',
-        requestBody,
-      )) as CreateDatasetResponse;
+      const response = (await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/datasets/create'), {
+        method: 'POST',
+        body: requestBody,
+      })) as CreateDatasetResponse;
 
       return response.dataset;
     },

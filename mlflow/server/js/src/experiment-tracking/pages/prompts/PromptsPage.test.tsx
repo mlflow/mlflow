@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import PromptsPage from './PromptsPage';
 import { QueryClientProvider, QueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { setupServer } from '../../../common/utils/setup-msw';
+
 import { IntlProvider } from 'react-intl';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import userEvent from '@testing-library/user-event';
@@ -105,10 +106,10 @@ describe('PromptsPage', () => {
 
     renderTestComponent();
     await waitFor(() => {
-      expect(screen.getByText('Prompts')).toBeInTheDocument();
+      expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByText('Create prompt'));
+    await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
 
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -148,10 +149,10 @@ describe('PromptsPage', () => {
 
     renderTestComponent();
     await waitFor(() => {
-      expect(screen.getByText('Prompts')).toBeInTheDocument();
+      expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByText('Create prompt'));
+    await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
 
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -190,6 +191,58 @@ describe('PromptsPage', () => {
         { key: '_mlflow_prompt_type', value: 'chat' },
       ]),
     );
+  });
+
+  it('should disable the Create button while required fields are empty', async () => {
+    server.use(getMockedRegisteredPromptsResponse(0));
+
+    renderTestComponent();
+    await waitFor(() => {
+      expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    const createButton = screen.getByRole('button', { name: 'Create' });
+
+    expect(createButton).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText('Name:'), 'my-prompt');
+    expect(createButton).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText('Prompt:'), 'hello');
+    expect(createButton).toBeEnabled();
+
+    await userEvent.clear(screen.getByLabelText('Name:'));
+    expect(createButton).toBeDisabled();
+
+    await userEvent.type(screen.getByLabelText('Name:'), '   ');
+    expect(createButton).toBeDisabled();
+  });
+
+  it('should disable the Create button in chat mode while user message content is empty', async () => {
+    server.use(getMockedRegisteredPromptsResponse(0));
+
+    renderTestComponent();
+    await waitFor(() => {
+      expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
+    });
+    await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    await userEvent.type(screen.getByLabelText('Name:'), 'my-chat-prompt');
+    await userEvent.click(screen.getByRole('radio', { name: 'Chat' }));
+
+    const createButton = screen.getByRole('button', { name: 'Create' });
+    expect(createButton).toBeDisabled();
+
+    const content = document.querySelector('textarea[name="chatMessages.0.content"]') as HTMLTextAreaElement;
+    await userEvent.type(content, 'Hello');
+    expect(createButton).toBeEnabled();
   });
 
   describe('Experiment-scoped prompts', () => {
@@ -238,10 +291,6 @@ describe('PromptsPage', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Prompts')).toBeInTheDocument();
-      });
-
-      await waitFor(() => {
         expect(screen.getByRole('link', { name: 'exp-prompt1' })).toBeInTheDocument();
       });
     });
@@ -281,10 +330,10 @@ describe('PromptsPage', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Prompts')).toBeInTheDocument();
+        expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
       });
 
-      await userEvent.click(screen.getByText('Create prompt'));
+      await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
 
       await waitFor(() => {
         expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -347,10 +396,10 @@ describe('PromptsPage', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Prompts')).toBeInTheDocument();
+        expect(screen.getByTestId('create-prompt-empty-state-button')).toBeInTheDocument();
       });
 
-      await userEvent.click(screen.getByText('Create prompt'));
+      await userEvent.click(screen.getByTestId('create-prompt-empty-state-button'));
 
       await waitFor(() => {
         expect(screen.getByRole('dialog')).toBeInTheDocument();

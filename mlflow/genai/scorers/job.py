@@ -1,14 +1,18 @@
 """Huey job functions for async scorer invocation."""
 
 import logging
+import os
 import random
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from mlflow.entities import Trace
 from mlflow.environment_variables import (
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
+    MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
     MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS,
     MLFLOW_SERVER_ONLINE_SCORING_MAX_WORKERS,
@@ -28,10 +32,12 @@ from mlflow.genai.scorers.online import (
     OnlineSessionScoringProcessor,
     OnlineTraceScoringProcessor,
 )
+from mlflow.genai.scorers.online.trace_loader import OnlineTraceLoader
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.server.jobs import job, submit_job
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.utils.workspace_context import WorkspaceContext
 
 _logger = logging.getLogger(__name__)
 
@@ -137,6 +143,7 @@ def invoke_scorer_job(
     serialized_scorer: str,
     trace_ids: list[str],
     log_assessments: bool = True,
+    username: str | None = None,
 ) -> dict[str, Any]:
     """
     Huey job function for async scorer invocation.
@@ -149,10 +156,20 @@ def invoke_scorer_job(
         serialized_scorer: JSON string of the serialized scorer.
         trace_ids: List of trace IDs to evaluate.
         log_assessments: Whether to log assessments to the traces.
+        username: The authenticated user who triggered the job, propagated to
+            gateway requests so they are authorised as this user.
 
     Returns:
         Dict mapping trace_id to TraceResult (assessments and failures).
     """
+    # Propagate the original user identity to gateway requests. These env vars
+    # are read by get_gateway_litellm_config() and encoded into a Basic auth
+    # header so the auth middleware can authenticate as the correct user.
+    if username is not None:
+        os.environ["MLFLOW_TRACKING_USERNAME"] = username
+        if internal_token := _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get():
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = internal_token
+
     # Deserialize scorer
     scorer = Scorer.model_validate_json(serialized_scorer)
 
@@ -173,6 +190,11 @@ def _fetch_traces_batch(
     """
     Fetch traces in batch and return a mapping.
 
+    Attempts to load traces from the tracking store first. For any traces
+    whose span data is stored in an artifact repository (e.g. S3) rather
+    than in the tracking store, falls back to downloading from the artifact
+    repository.
+
     Args:
         trace_ids: List of trace IDs to fetch.
         tracking_store: The tracking store instance.
@@ -183,7 +205,8 @@ def _fetch_traces_batch(
     Raises:
         MlflowException: If any trace IDs are not found.
     """
-    traces = tracking_store.batch_get_traces(trace_ids)
+    loader = OnlineTraceLoader(tracking_store)
+    traces = loader.fetch_traces(trace_ids)
     trace_map = {t.info.trace_id: t for t in traces}
 
     if missing_ids := [tid for tid in trace_ids if tid not in trace_map]:
@@ -235,14 +258,13 @@ def _run_session_scorer(
     first_trace_id = first_trace.info.trace_id
 
     try:
-        result = evaluate_session_level_scorers(
+        eval_result = evaluate_session_level_scorers(
             session_id=session_id,
             session_items=session_items,
             multi_turn_scorers=[scorer],
         )
 
-        # result is {first_trace_id: [feedbacks]}
-        feedbacks = result[first_trace_id]
+        feedbacks = eval_result.assessments
 
         failures = _extract_failures_from_feedbacks(feedbacks)
 
@@ -293,10 +315,11 @@ def _run_single_turn_scorer_batch(
         try:
             # Use _compute_eval_scores from harness - supports scorer tracing,
             # captures stack traces on errors
-            feedbacks = _compute_eval_scores(
+            result = _compute_eval_scores(
                 eval_item=eval_item,
                 scorers=[scorer],
             )
+            feedbacks = result.assessments
 
             failures = _extract_failures_from_feedbacks(feedbacks)
 
@@ -415,57 +438,79 @@ def run_online_scoring_scheduler() -> None:
     Groups are shuffled to prevent starvation when there are limited job runners available.
     """
     tracking_store = _get_tracking_store()
-    online_scorers = tracking_store.get_active_online_scorers()
-    _logger.debug(f"Online scoring scheduler found {len(online_scorers)} active scorers")
-
-    scorers_by_experiment: dict[str, list[OnlineScorer]] = defaultdict(list)
-    for scorer in online_scorers:
-        scorers_by_experiment[scorer.online_config.experiment_id].append(scorer)
-
-    # Shuffle configs randomly to prevent scorer starvation when there are
-    # limited job runners available
-    experiment_groups = list(scorers_by_experiment.items())
-    random.shuffle(experiment_groups)
-    _logger.debug(
-        f"Grouped into {len(experiment_groups)} experiments, submitting jobs per experiment"
-    )
-
-    for experiment_id, scorers in experiment_groups:
-        # Separate scorers by type
-        session_level_scorers = []
-        trace_level_scorers = []
-
-        for scorer in scorers:
-            try:
-                scorer_obj = Scorer.model_validate_json(scorer.serialized_scorer)
-                if scorer_obj.is_session_level_scorer:
-                    session_level_scorers.append(scorer)
-                else:
-                    trace_level_scorers.append(scorer)
-            except Exception as e:
-                _logger.warning(
-                    f"Failed to load scorer '{scorer.name}'; scorer will be skipped: {e}"
-                )
-
-        # Only submit jobs for scorer types that exist
-        if trace_level_scorers:
+    # Iterate on each workspaces in the tracking store to run all registered scorers
+    for workspace_ctx in _get_online_scoring_workspace_contexts():
+        with workspace_ctx as workspace:
+            online_scorers = tracking_store.get_active_online_scorers()
+            workspace_label = f" in workspace '{workspace}'" if workspace else ""
             _logger.debug(
-                f"Submitting trace scoring job for experiment {experiment_id} "
-                f"with {len(trace_level_scorers)} scorers"
-            )
-            trace_scorer_dicts = [asdict(scorer) for scorer in trace_level_scorers]
-            submit_job(
-                run_online_trace_scorer_job,
-                {"experiment_id": experiment_id, "online_scorers": trace_scorer_dicts},
+                f"Online scoring scheduler found {len(online_scorers)} active scorers"
+                f"{workspace_label}"
             )
 
-        if session_level_scorers:
+            scorers_by_experiment: dict[str, list[OnlineScorer]] = defaultdict(list)
+            for scorer in online_scorers:
+                scorers_by_experiment[scorer.online_config.experiment_id].append(scorer)
+
+            # Shuffle configs randomly to prevent scorer starvation when there are
+            # limited job runners available
+            experiment_groups = list(scorers_by_experiment.items())
+            random.shuffle(experiment_groups)
             _logger.debug(
-                f"Submitting session scoring job for experiment {experiment_id} "
-                f"with {len(session_level_scorers)} scorers"
+                f"Grouped into {len(experiment_groups)} experiments, submitting jobs per experiment"
             )
-            session_scorer_dicts = [asdict(scorer) for scorer in session_level_scorers]
-            submit_job(
-                run_online_session_scorer_job,
-                {"experiment_id": experiment_id, "online_scorers": session_scorer_dicts},
-            )
+
+            for experiment_id, scorers in experiment_groups:
+                # Separate scorers by type
+                session_level_scorers = []
+                trace_level_scorers = []
+
+                for scorer in scorers:
+                    try:
+                        scorer_obj = Scorer.model_validate_json(scorer.serialized_scorer)
+                        if scorer_obj.is_session_level_scorer:
+                            session_level_scorers.append(scorer)
+                        else:
+                            trace_level_scorers.append(scorer)
+                    except Exception as e:
+                        _logger.warning(
+                            f"Failed to load scorer '{scorer.name}'; scorer will be skipped: {e}"
+                        )
+
+                # Only submit jobs for scorer types that exist
+                if trace_level_scorers:
+                    _logger.debug(
+                        f"Submitting trace scoring job for experiment {experiment_id} "
+                        f"with {len(trace_level_scorers)} scorers"
+                    )
+                    trace_scorer_dicts = [asdict(scorer) for scorer in trace_level_scorers]
+                    submit_job(
+                        run_online_trace_scorer_job,
+                        {"experiment_id": experiment_id, "online_scorers": trace_scorer_dicts},
+                    )
+
+                if session_level_scorers:
+                    _logger.debug(
+                        f"Submitting session scoring job for experiment {experiment_id} "
+                        f"with {len(session_level_scorers)} scorers"
+                    )
+                    session_scorer_dicts = [asdict(scorer) for scorer in session_level_scorers]
+                    submit_job(
+                        run_online_session_scorer_job,
+                        {"experiment_id": experiment_id, "online_scorers": session_scorer_dicts},
+                    )
+
+
+def _get_online_scoring_workspace_contexts():
+    if not MLFLOW_ENABLE_WORKSPACES.get():
+        return [nullcontext()]
+
+    from mlflow.server.workspace_helpers import _get_workspace_store  # avoid circular import
+
+    store = _get_workspace_store()
+    workspaces = list(store.list_workspaces())
+    if not workspaces:
+        _logger.info("Online scoring scheduler found no workspaces; skipping.")
+        return []
+
+    return [WorkspaceContext(workspace.name) for workspace in workspaces]

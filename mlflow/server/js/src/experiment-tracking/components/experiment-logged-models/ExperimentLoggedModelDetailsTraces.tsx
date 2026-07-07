@@ -54,7 +54,7 @@ const TracesComponent = ({
   // prettier-ignore
   return experimentIds.length > 0 ? (
     <TracesV3Logs
-      experimentId={experimentIds[0]}
+      experimentIds={experimentIds}
       endpointName=""
       loggedModelId={loggedModelId}
       isLoadingExperiment={isLoadingExperiment}

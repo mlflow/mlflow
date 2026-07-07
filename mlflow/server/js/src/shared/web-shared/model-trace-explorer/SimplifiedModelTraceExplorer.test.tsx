@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { QueryClient, QueryClientProvider } from '../query-client/queryClient';
 
 import type { Assessment } from './ModelTrace.types';
 import { MOCK_ASSESSMENT, MOCK_SPAN_ASSESSMENT, MOCK_TRACE, MOCK_V3_TRACE } from './ModelTraceExplorer.test-utils';

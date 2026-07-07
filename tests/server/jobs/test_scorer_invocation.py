@@ -1,12 +1,3 @@
-"""
-E2E integration tests for async scorer invocation via the MLflow server.
-
-These tests spin up a real MLflow server with job execution enabled and test
-the full flow of invoking scorers on traces asynchronously.
-
-The MLflow AI Gateway is mocked to avoid real LLM calls during testing.
-"""
-
 import json
 import os
 import signal
@@ -279,7 +270,7 @@ def mock_gateway_server():
 
     port = get_safe_port()
     server = HTTPServer(("127.0.0.1", port), MockGatewayHandler)
-    thread = threading.Thread(target=server.serve_forever)
+    thread = threading.Thread(name="scorer-invocation-server", target=server.serve_forever)
     thread.daemon = True
     thread.start()
     yield f"http://127.0.0.1:{port}"
@@ -388,12 +379,10 @@ def experiment_with_conversation_traces(client: Client):
     session_2_trace_ids = []
 
     # Session 1: Two turns
-    for i, (user_msg, assistant_msg) in enumerate(
-        [
-            ("Hello, how are you?", "I'm doing well, thank you!"),
-            ("What's your name?", "I'm an AI assistant."),
-        ]
-    ):
+    for i, (user_msg, assistant_msg) in enumerate([
+        ("Hello, how are you?", "I'm doing well, thank you!"),
+        ("What's your name?", "I'm an AI assistant."),
+    ]):
         with mlflow.start_span(name=f"session1_turn_{i}") as span:
             mlflow.update_current_trace(metadata={"mlflow.trace.session": session_1_id})
             span.set_inputs({"messages": [{"role": "user", "content": user_msg}]})
@@ -401,12 +390,10 @@ def experiment_with_conversation_traces(client: Client):
             session_1_trace_ids.append(span.trace_id)
 
     # Session 2: Two turns (different conversation)
-    for i, (user_msg, assistant_msg) in enumerate(
-        [
-            ("What's the weather?", "It's sunny today."),
-            ("Thanks!", "You're welcome!"),
-        ]
-    ):
+    for i, (user_msg, assistant_msg) in enumerate([
+        ("What's the weather?", "It's sunny today."),
+        ("Thanks!", "You're welcome!"),
+    ]):
         with mlflow.start_span(name=f"session2_turn_{i}") as span:
             mlflow.update_current_trace(metadata={"mlflow.trace.session": session_2_id})
             span.set_inputs({"messages": [{"role": "user", "content": user_msg}]})
@@ -494,21 +481,19 @@ def test_invoke_builtin_safety_scorer(client: Client, experiment_with_traces):
     trace_id = trace_ids[0]
 
     # Builtin Safety scorer (uses builtin_scorer_class)
-    serialized_scorer = json.dumps(
-        {
-            "name": "safety",
-            "aggregations": [],
-            "description": None,
-            "mlflow_version": "3.6.0rc0",
-            "serialization_version": 1,
-            "builtin_scorer_class": "Safety",
-            "builtin_scorer_pydantic_data": {"name": "safety", "model": "gateway:/mock-safety"},
-            "call_source": None,
-            "call_signature": None,
-            "original_func_name": None,
-            "instructions_judge_pydantic_data": None,
-        }
-    )
+    serialized_scorer = json.dumps({
+        "name": "safety",
+        "aggregations": [],
+        "description": None,
+        "mlflow_version": "3.6.0rc0",
+        "serialization_version": 1,
+        "builtin_scorer_class": "Safety",
+        "builtin_scorer_pydantic_data": {"name": "safety", "model": "gateway:/mock-safety"},
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+        "instructions_judge_pydantic_data": None,
+    })
 
     response = client.invoke_scorer(
         experiment_id=experiment_id,

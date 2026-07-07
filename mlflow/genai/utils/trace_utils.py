@@ -4,6 +4,8 @@ import inspect
 import json
 import logging
 import math
+import threading
+from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Callable
 
 from cachetools.func import cached
@@ -20,7 +22,8 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
+from mlflow.genai.discovery.constants import DEFAULT_TOP_N_SLOWEST_SPANS
+from mlflow.genai.judges.utils import get_chat_completions_with_structured_output, get_default_model
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.genai.utils.prompts.available_tools_extraction import (
     get_available_tools_extraction_prompts,
@@ -315,10 +318,50 @@ def validate_session(session: list[Trace]) -> None:
         )
 
 
+def _extract_trace_timing_info(
+    trace: Trace, *, top_n_slowest_spans: int = DEFAULT_TOP_N_SLOWEST_SPANS
+) -> dict[str, Any] | None:
+    """
+    Extract timing information from a trace for display in evaluations.
+
+    Args:
+        trace: The trace to extract timing from.
+        top_n_slowest_spans: Number of slowest spans to include in the output.
+
+    Returns:
+        Dict containing 'duration_s' (float) and 'slowest_spans_formatted' (str | None),
+        or None if the trace has no execution duration.
+    """
+    if trace.info.execution_duration is None:
+        return None
+
+    duration_s = trace.info.execution_duration / 1000
+    slowest_spans_formatted = None
+
+    # Extract top N slowest spans for context on bottlenecks
+    if trace.data.spans:
+        # Filter out spans that do not have an end time to avoid None arithmetic
+        if completed_spans := [span for span in trace.data.spans if span.end_time_ns is not None]:
+            if sorted_spans := sorted(
+                completed_spans, key=lambda s: s.end_time_ns - s.start_time_ns, reverse=True
+            )[:top_n_slowest_spans]:
+                slow_spans = [
+                    f"{span.name} ({(span.end_time_ns - span.start_time_ns) / 1_000_000_000:.2f}s)"
+                    for span in sorted_spans
+                ]
+                slowest_spans_formatted = ", ".join(slow_spans)
+
+    return {
+        "duration_s": duration_s,
+        "slowest_spans_formatted": slowest_spans_formatted,
+    }
+
+
 def resolve_conversation_from_session(
     session: list[Trace],
     *,
     include_tool_calls: bool = False,
+    include_timing: bool = False,
 ) -> list[dict[str, str]]:
     """
     Extract conversation history from traces in session.
@@ -327,6 +370,8 @@ def resolve_conversation_from_session(
         session: List of traces from the same session.
         include_tool_calls: If True, include tool call information from TOOL type spans
                            in the conversation. Default is False for backward compatibility.
+        include_timing: If True, append timing information to assistant responses.
+                       This includes total duration and slowest spans for latency analysis.
 
     Returns:
         List of conversation messages in the format:
@@ -334,6 +379,7 @@ def resolve_conversation_from_session(
         Each trace contributes user input and assistant output messages.
         If include_tool_calls is True, tool call messages (with inputs/outputs)
         are also included in chronological order.
+        If include_timing is True, assistant messages include performance metadata.
     """
     # Sort traces by creation time (timestamp_ms)
     sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
@@ -355,6 +401,14 @@ def resolve_conversation_from_session(
         if outputs := extract_outputs_from_trace(trace):
             assistant_content = parse_outputs_to_str(outputs)
             if assistant_content and assistant_content.strip():
+                if include_timing:
+                    if timing_info := _extract_trace_timing_info(trace):
+                        timing_parts = [f"\n[Response duration: {timing_info['duration_s']:.2f}s"]
+                        if slowest_spans_formatted := timing_info["slowest_spans_formatted"]:
+                            timing_parts.append(f", slowest spans: {slowest_spans_formatted}")
+                        timing_parts.append("]")
+                        assistant_content += "".join(timing_parts)
+
                 conversation.append({"role": "assistant", "content": assistant_content})
 
     return conversation
@@ -708,7 +762,9 @@ def extract_retrieval_context_from_trace(trace: Trace | None) -> dict[str, list[
 
     for retrieval_span in top_level_retrieval_spans:
         try:
-            contexts = [_parse_chunk(chunk) for chunk in retrieval_span.outputs or []]
+            outputs = retrieval_span.outputs
+            outputs = json.loads(outputs) if isinstance(outputs, str) else outputs
+            contexts = [_parse_chunk(chunk) for chunk in outputs or []]
             retrieved[retrieval_span.span_id] = [c for c in contexts if c is not None]
         except Exception as e:
             _logger.debug(
@@ -759,12 +815,55 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
     return top_level_retrieval_spans
 
 
+_RETRIEVER_DOCUMENT_CONTENT_KEYS = ("page_content", "content", "text")
+_RETRIEVER_DOCUMENT_METADATA_KEYS = ("metadata",)
+_MAX_RETRIEVER_DOCUMENT_WARNING_KEY_SETS = 128
+_WARNED_RETRIEVER_DOCUMENT_KEY_SETS: OrderedDict[frozenset[str], None] = OrderedDict()
+_WARNED_RETRIEVER_DOCUMENT_KEY_SETS_LOCK = threading.Lock()
+
+
+def _should_warn_for_retriever_document_key_set(key_set: frozenset[str]) -> bool:
+    with _WARNED_RETRIEVER_DOCUMENT_KEY_SETS_LOCK:
+        if key_set in _WARNED_RETRIEVER_DOCUMENT_KEY_SETS:
+            _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.move_to_end(key_set)
+            return False
+
+        _WARNED_RETRIEVER_DOCUMENT_KEY_SETS[key_set] = None
+        if len(_WARNED_RETRIEVER_DOCUMENT_KEY_SETS) > _MAX_RETRIEVER_DOCUMENT_WARNING_KEY_SETS:
+            _WARNED_RETRIEVER_DOCUMENT_KEY_SETS.popitem(last=False)
+
+        return True
+
+
 def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
     if not isinstance(chunk, dict):
         return None
 
-    doc = {"content": chunk.get("page_content")}
-    if doc_uri := chunk.get("metadata", {}).get("doc_uri"):
+    content_key = next(
+        (key for key in _RETRIEVER_DOCUMENT_CONTENT_KEYS if key in chunk),
+        None,
+    )
+    content = chunk.get(content_key) if content_key is not None else None
+
+    if content_key is None:
+        # Many retriever libraries store source/citation details under metadata.
+        # Avoid warning for metadata-only chunks, but warn when other fields are
+        # present because they may contain text under an unsupported key.
+        non_metadata_keys = set(chunk) - set(_RETRIEVER_DOCUMENT_METADATA_KEYS)
+        if non_metadata_keys:
+            key_set = frozenset(map(str, chunk.keys()))
+            if _should_warn_for_retriever_document_key_set(key_set):
+                _logger.warning(
+                    "RETRIEVER span document does not contain any recognized text field. "
+                    "Expected one of %s. Found fields: %s",
+                    list(_RETRIEVER_DOCUMENT_CONTENT_KEYS),
+                    sorted(key_set),
+                )
+
+    metadata = chunk.get("metadata")
+    metadata = metadata if isinstance(metadata, dict) else {}
+    doc = {"content": content}
+    if doc_uri := metadata.get("doc_uri"):
         doc["doc_uri"] = doc_uri
     return doc
 
@@ -772,8 +871,9 @@ def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
 def clean_up_extra_traces(
     traces: list[Trace],
     eval_start_time: int,
+    experiment_id: str,
     input_trace_ids: set[str] | None = None,
-) -> list[Trace]:
+) -> None:
     """
     Clean up noisy traces generated outside predict function.
 
@@ -785,14 +885,10 @@ def clean_up_extra_traces(
     Args:
         traces: List of traces to clean up.
         eval_start_time: The start time of the evaluation run.
+        experiment_id: The experiment ID of the evaluation run.
         input_trace_ids: Set of trace IDs that were passed in the input DataFrame.
             These traces should never be deleted.
-
-    Returns:
-        List of traces that are kept after cleaning up extra traces.
     """
-    from mlflow.tracking.fluent import _get_experiment_id
-
     try:
         extra_trace_ids = [
             trace.info.trace_id
@@ -807,9 +903,7 @@ def clean_up_extra_traces(
             # Import MlflowClient locally to avoid issues with tracing-only SDK
             from mlflow.tracking.client import MlflowClient
 
-            MlflowClient().delete_traces(
-                experiment_id=_get_experiment_id(), trace_ids=extra_trace_ids
-            )
+            MlflowClient().delete_traces(experiment_id=experiment_id, trace_ids=extra_trace_ids)
             for trace_id in extra_trace_ids:
                 IPythonTraceDisplayHandler.get_instance().traces_to_display.pop(trace_id, None)
         else:
@@ -898,10 +992,18 @@ def _get_assessment_values(assessments: list[dict[str, Any]], run_id: str) -> di
             and source_run_id != run_id
         ):
             continue
+        name = a["assessment_name"]
         if feedback := a.get("feedback"):
-            result[f"{a['assessment_name']}/value"] = feedback.get("value")
+            result[f"{name}/value"] = feedback.get("value")
+            # Carry the rationale and any scorer error so downstream consumers (e.g.
+            # EvaluationResult.passed/reason) can surface them. Emitted only when
+            # present to keep the result DataFrame compact.
+            if (rationale := a.get("rationale")) is not None:
+                result[f"{name}/rationale"] = rationale
+            if (error := feedback.get("error")) and (msg := error.get("error_message")):
+                result[f"{name}/error_message"] = msg
         elif expectation := a.get("expectation"):
-            result[f"{a['assessment_name']}/value"] = expectation.get("value")
+            result[f"{name}/value"] = expectation.get("value")
 
     return result
 
@@ -1119,12 +1221,7 @@ def _try_extract_available_tools_with_llm(
         List of ChatTool objects extracted by the LLM, or empty list if extraction fails.
     """
     if model is None:
-        if is_databricks_uri(mlflow.get_tracking_uri()):
-            # TODO: Add support for Databricks tool extraction with LLM fallback.
-            _logger.warning("Databricks is not supported for tool extraction with LLM fallback.")
-            return []
-        else:
-            model = "openai:/gpt-4.1-mini"
+        model = get_default_model()
 
     try:
         from mlflow.types.chat import (

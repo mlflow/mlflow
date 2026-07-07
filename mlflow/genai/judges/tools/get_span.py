@@ -12,10 +12,8 @@ from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.genai.judges.tools.types import SpanResult
 from mlflow.genai.judges.tools.utils import create_page_token, parse_page_token
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
-from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.4.0")
 class GetSpanTool(JudgeTool):
     """
     Tool for retrieving a specific span by its ID.

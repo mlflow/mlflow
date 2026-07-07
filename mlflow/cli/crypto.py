@@ -94,7 +94,7 @@ def rotate_kek(new_passphrase, backend_store_uri, yes):
         # Step 6: Restart server
         $ systemctl start mlflow-server
     """
-    old_passphrase = os.getenv(CRYPTO_KEK_PASSPHRASE_ENV_VAR)
+    old_passphrase = os.environ.get(CRYPTO_KEK_PASSPHRASE_ENV_VAR)
     if not old_passphrase:
         raise MlflowException(
             "MLFLOW_CRYPTO_KEK_PASSPHRASE environment variable must be set to the "
@@ -105,7 +105,7 @@ def rotate_kek(new_passphrase, backend_store_uri, yes):
             "  mlflow crypto rotate-kek --new-passphrase 'new-passphrase'"
         )
 
-    old_version = int(os.getenv(CRYPTO_KEK_VERSION_ENV_VAR, "1"))
+    old_version = int(os.environ.get(CRYPTO_KEK_VERSION_ENV_VAR, "1"))
     new_version = old_version + 1
 
     if not yes:
@@ -148,7 +148,8 @@ def rotate_kek(new_passphrase, backend_store_uri, yes):
 
         with store.ManagedSessionMaker() as session:
             secrets = (
-                session.query(SqlGatewaySecret)
+                session
+                .query(SqlGatewaySecret)
                 .filter(SqlGatewaySecret.kek_version == old_version)
                 .all()
             )

@@ -11,10 +11,14 @@ from mlflow.tracing.otel.translation import (
     translate_loaded_span,
     translate_span_type_from_otel,
     translate_span_when_storing,
+    update_token_usage,
 )
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
+from mlflow.tracing.otel.translation.gemini_cli import GeminiCliTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
+from mlflow.tracing.otel.translation.laminar import LaminarTranslator
+from mlflow.tracing.otel.translation.langfuse import LangfuseTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
 from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
@@ -43,6 +47,21 @@ from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
         (GenAiTranslator, "generate_content", SpanType.LLM),
         (GenAiTranslator, "invoke_agent", SpanType.AGENT),
         (GenAiTranslator, "text_completion", SpanType.LLM),
+        (LangfuseTranslator, "generation", SpanType.LLM),
+        (LangfuseTranslator, "embedding", SpanType.EMBEDDING),
+        (LangfuseTranslator, "tool", SpanType.TOOL),
+        (LangfuseTranslator, "retriever", SpanType.RETRIEVER),
+        (LangfuseTranslator, "agent", SpanType.AGENT),
+        (LangfuseTranslator, "chain", SpanType.CHAIN),
+        (LangfuseTranslator, "evaluator", SpanType.EVALUATOR),
+        (LangfuseTranslator, "guardrail", SpanType.GUARDRAIL),
+        (LangfuseTranslator, "span", SpanType.UNKNOWN),
+        (LaminarTranslator, "LLM", SpanType.LLM),
+        (LaminarTranslator, "TOOL", SpanType.TOOL),
+        (LaminarTranslator, "DEFAULT", SpanType.CHAIN),
+        (LaminarTranslator, "PIPELINE", SpanType.CHAIN),
+        (LaminarTranslator, "EXECUTOR", SpanType.AGENT),
+        (LaminarTranslator, "EVALUATOR", SpanType.EVALUATOR),
     ],
 )
 def test_translate_span_type_from_otel(
@@ -51,6 +70,81 @@ def test_translate_span_type_from_otel(
     attributes = {translator.SPAN_KIND_ATTRIBUTE_KEY: otel_kind}
     result = translate_span_type_from_otel(attributes)
     assert result == expected_type
+
+
+@pytest.mark.parametrize(
+    ("operation_name", "expected_type"),
+    [
+        ("llm_call", SpanType.LLM),
+        ("tool_call", SpanType.TOOL),
+        ("agent_call", SpanType.AGENT),
+    ],
+)
+def test_gemini_cli_translator_maps_operation_names(operation_name, expected_type):
+    attributes = {
+        "gen_ai.agent.name": "gemini-cli",
+        "gen_ai.operation.name": operation_name,
+    }
+    result = translate_span_type_from_otel(attributes)
+    assert result == expected_type
+
+
+@pytest.mark.parametrize(
+    "attributes",
+    [
+        # Missing gen_ai.agent.name → should not match GeminiCliTranslator
+        {"gen_ai.operation.name": "llm_call"},
+        # Wrong agent name
+        {"gen_ai.agent.name": "other-agent", "gen_ai.operation.name": "llm_call"},
+        # Unmapped Gemini operation names
+        {"gen_ai.agent.name": "gemini-cli", "gen_ai.operation.name": "user_prompt"},
+        {"gen_ai.agent.name": "gemini-cli", "gen_ai.operation.name": "system_prompt"},
+        {"gen_ai.agent.name": "gemini-cli", "gen_ai.operation.name": "schedule_tool_calls"},
+    ],
+)
+def test_gemini_cli_translator_does_not_map(attributes):
+    translator = GeminiCliTranslator()
+    assert translator.translate_span_type(attributes) is None
+
+
+def test_gemini_cli_translator_message_format():
+    translator = GeminiCliTranslator()
+    attrs = {"gen_ai.agent.name": "gemini-cli", "gen_ai.operation.name": "llm_call"}
+    assert translator.get_message_format(attrs) == "gemini"
+    assert translator.get_message_format({"gen_ai.agent.name": "other"}) is None
+
+
+def test_gemini_cli_translator_wraps_input():
+    translator = GeminiCliTranslator()
+    attrs = {
+        "gen_ai.agent.name": "gemini-cli",
+        "gen_ai.input.messages": '[{"role": "user", "parts": [{"text": "hello"}]}]',
+    }
+    result = translator.get_input_value(attrs)
+    assert '"contents"' in result
+
+
+def test_gemini_cli_translator_rewrites_system_prompt_role():
+    translator = GeminiCliTranslator()
+    messages = json.dumps([{"role": "user", "parts": [{"text": "You are helpful"}]}])
+    attrs = {
+        "gen_ai.agent.name": "gemini-cli",
+        "gen_ai.operation.name": "system_prompt",
+        "gen_ai.input.messages": messages,
+    }
+    result = translator.get_input_value(attrs)
+    parsed = json.loads(result)
+    assert parsed["contents"][0]["role"] == "system"
+
+
+def test_gemini_cli_translator_wraps_output():
+    translator = GeminiCliTranslator()
+    attrs = {
+        "gen_ai.agent.name": "gemini-cli",
+        "gen_ai.output.messages": '[{"role": "model", "parts": [{"text": "hi"}]}]',
+    }
+    result = translator.get_output_value(attrs)
+    assert '"candidates"' in result
 
 
 @pytest.mark.parametrize(
@@ -73,6 +167,7 @@ def test_translate_span_type_returns_none(attributes):
         (TraceloopTranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("agent"), SpanType.AGENT),
         (VercelAITranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("ai.generateText"), SpanType.LLM),
         (VercelAITranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("ai.toolCall"), SpanType.TOOL),
+        (LaminarTranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("LLM"), SpanType.LLM),
     ],
 )
 def test_json_serialized_values(attr_key, attr_value, expected_type):
@@ -100,6 +195,7 @@ def test_translate_loaded_span_sets_span_type(attr_key, attr_value, expected_typ
 @pytest.mark.parametrize(
     ("span_dict", "should_have_span_type", "expected_type"),
     [
+        # Existing non-UNKNOWN span type should NOT be overridden
         (
             {
                 "attributes": {
@@ -109,6 +205,27 @@ def test_translate_loaded_span_sets_span_type(attr_key, attr_value, expected_typ
             },
             True,
             SpanType.TOOL,
+        ),
+        # UNKNOWN span type SHOULD be overridden by OTel attributes
+        (
+            {
+                "attributes": {
+                    SpanAttributeKey.SPAN_TYPE: json.dumps(SpanType.UNKNOWN),
+                    "openinference.span.kind": "LLM",
+                }
+            },
+            True,
+            SpanType.LLM,
+        ),
+        # None/missing span type SHOULD be set from OTel attributes
+        (
+            {
+                "attributes": {
+                    "openinference.span.kind": "AGENT",
+                }
+            },
+            True,
+            SpanType.AGENT,
         ),
         ({"attributes": {"some.other.attribute": "value"}}, False, None),
         ({}, False, None),
@@ -162,13 +279,11 @@ def test_translate_token_usage_from_otel(translator: OtelSchemaTranslator, total
         ),
         (
             {
-                SpanAttributeKey.CHAT_USAGE: json.dumps(
-                    {
-                        TokenUsageKey.INPUT_TOKENS: 200,
-                        TokenUsageKey.OUTPUT_TOKENS: 100,
-                        TokenUsageKey.TOTAL_TOKENS: 300,
-                    }
-                ),
+                SpanAttributeKey.CHAT_USAGE: json.dumps({
+                    TokenUsageKey.INPUT_TOKENS: 200,
+                    TokenUsageKey.OUTPUT_TOKENS: 100,
+                    TokenUsageKey.TOTAL_TOKENS: 300,
+                }),
                 "gen_ai.usage.input_tokens": 50,
                 "gen_ai.usage.output_tokens": 25,
             },
@@ -194,9 +309,119 @@ def test_translate_token_usage_edge_cases(
     assert usage[TokenUsageKey.TOTAL_TOKENS] == expected_total
 
 
+def test_translate_token_usage_with_cache_fields():
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            "gen_ai.usage.input_tokens": 100,
+            "gen_ai.usage.output_tokens": 50,
+            "gen_ai.usage.cache_read.input_tokens": 80,
+            "gen_ai.usage.cache_creation.input_tokens": 20,
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == 100
+    assert usage[TokenUsageKey.OUTPUT_TOKENS] == 50
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == 150
+    assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 80
+    assert usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] == 20
+
+
+def test_translate_token_usage_with_partial_cache_fields():
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            "gen_ai.usage.input_tokens": 100,
+            "gen_ai.usage.output_tokens": 50,
+            "gen_ai.usage.cache_read.input_tokens": 80,
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == 100
+    assert usage[TokenUsageKey.OUTPUT_TOKENS] == 50
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == 150
+    assert usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] == 80
+    assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in usage
+
+
+@pytest.mark.parametrize(
+    ("attributes", "expected_input", "expected_output", "expected_total"),
+    [
+        (
+            {"gen_ai.usage.input_tokens": 0, "gen_ai.usage.output_tokens": 20},
+            0,
+            20,
+            20,
+        ),
+        (
+            {"gen_ai.usage.input_tokens": 10, "gen_ai.usage.output_tokens": 0},
+            10,
+            0,
+            10,
+        ),
+        (
+            {
+                "llm.token_count.prompt": 0,
+                "llm.token_count.completion": 0,
+                "llm.token_count.total": 0,
+            },
+            0,
+            0,
+            0,
+        ),
+    ],
+)
+def test_translate_token_usage_preserves_zero_values(
+    attributes, expected_input, expected_output, expected_total
+):
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {"attributes": attributes}
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    assert SpanAttributeKey.CHAT_USAGE in result["attributes"]
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == expected_input
+    assert usage[TokenUsageKey.OUTPUT_TOKENS] == expected_output
+    assert usage[TokenUsageKey.TOTAL_TOKENS] == expected_total
+
+
+def test_translate_token_usage_omits_missing_fields():
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {"attributes": {"gen_ai.usage.input_tokens": 10}}
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    usage = json.loads(result["attributes"][SpanAttributeKey.CHAT_USAGE])
+    assert usage[TokenUsageKey.INPUT_TOKENS] == 10
+    assert TokenUsageKey.OUTPUT_TOKENS not in usage
+    # total_tokens not computed because output_tokens is missing
+    assert TokenUsageKey.TOTAL_TOKENS not in usage
+
+
 @pytest.mark.parametrize(
     "translator",
-    [OpenInferenceTranslator, GenAiTranslator, GoogleADKTranslator],
+    [
+        OpenInferenceTranslator,
+        GenAiTranslator,
+        GoogleADKTranslator,
+        LangfuseTranslator,
+        LaminarTranslator,
+    ],
 )
 @pytest.mark.parametrize(
     "input_value",
@@ -243,7 +468,13 @@ def test_translate_inputs_for_spans_traceloop(input_key: str, input_value: Any):
 
 @pytest.mark.parametrize(
     "translator",
-    [OpenInferenceTranslator, GenAiTranslator, GoogleADKTranslator],
+    [
+        OpenInferenceTranslator,
+        GenAiTranslator,
+        GoogleADKTranslator,
+        LangfuseTranslator,
+        LaminarTranslator,
+    ],
 )
 @pytest.mark.parametrize("parent_id", [None, "parent_123"])
 def test_translate_outputs_for_spans(parent_id: str | None, translator: OtelSchemaTranslator):
@@ -360,6 +591,11 @@ def test_translate_inputs_outputs_edge_cases(
             {"key": json.dumps([1, 2, 3])},
             {"key": "[1, 2, 3]"},
         ),
+        # Double-encoded list (e.g., gen_ai.input.messages via OTLP)
+        (
+            {"key": json.dumps(json.dumps([{"role": "user", "content": "hello"}]))},
+            {"key": json.dumps([{"role": "user", "content": "hello"}])},
+        ),
     ],
 )
 def test_sanitize_attributes(attributes: dict[str, Any], expected_attributes: dict[str, Any]):
@@ -379,7 +615,7 @@ def test_translate_model_name_from_otel(translator: OtelSchemaTranslator, model_
     span.parent_id = "parent_123"
     # Test with the first MODEL_NAME_KEY from the translator
     model_attr_key = translator.MODEL_NAME_KEYS[0]
-    span_dict = {"attributes": {model_attr_key: json.dumps(model_value)}}
+    span_dict = {"attributes": {model_attr_key: model_value}}
     span.to_dict.return_value = span_dict
 
     result = translate_span_when_storing(span)
@@ -590,3 +826,49 @@ def test_translate_cost_edge_cases(
         }
     else:
         assert SpanAttributeKey.LLM_COST not in result["attributes"]
+
+
+def test_update_token_usage_with_cached_tokens():
+    current = {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 50,
+        TokenUsageKey.TOTAL_TOKENS: 150,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 80,
+    }
+    new = {
+        TokenUsageKey.INPUT_TOKENS: 200,
+        TokenUsageKey.OUTPUT_TOKENS: 100,
+        TokenUsageKey.TOTAL_TOKENS: 300,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 120,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
+    }
+    result = update_token_usage(current, new)
+    assert result == {
+        TokenUsageKey.INPUT_TOKENS: 300,
+        TokenUsageKey.OUTPUT_TOKENS: 150,
+        TokenUsageKey.TOTAL_TOKENS: 450,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 200,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 50,
+    }
+
+
+def test_update_token_usage_without_cached_tokens():
+    current = {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 50,
+        TokenUsageKey.TOTAL_TOKENS: 150,
+    }
+    new = {
+        TokenUsageKey.INPUT_TOKENS: 200,
+        TokenUsageKey.OUTPUT_TOKENS: 100,
+        TokenUsageKey.TOTAL_TOKENS: 300,
+    }
+    result = update_token_usage(current, new)
+    assert result == {
+        TokenUsageKey.INPUT_TOKENS: 300,
+        TokenUsageKey.OUTPUT_TOKENS: 150,
+        TokenUsageKey.TOTAL_TOKENS: 450,
+    }
+    # Cached keys should not appear
+    assert TokenUsageKey.CACHE_READ_INPUT_TOKENS not in result
+    assert TokenUsageKey.CACHE_CREATION_INPUT_TOKENS not in result

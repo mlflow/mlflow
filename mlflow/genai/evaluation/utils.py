@@ -56,34 +56,34 @@ _logger = logging.getLogger(__name__)
 
 USER_DEFINED_ASSESSMENT_NAME_KEY = "_user_defined_assessment_name"
 PGBAR_FORMAT = (
-    "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}] {postfix}"
+    "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}]{postfix}"
 )
 
 
-def _get_eval_data_type(data: "EvaluationDatasetTypes") -> dict[str, Any]:
+def _get_eval_data_type(data: "EvaluationDatasetTypes") -> str:
     data_type = type(data)
 
     if data_type is list:
         if len(data) > 0 and all(isinstance(item, Trace) for item in data):
-            return {"eval_data_type": "list[Trace]"}
-        return {"eval_data_type": "list[dict]"}
+            return "list[Trace]"
+        return "list[dict]"
 
     if data_type is EntityEvaluationDataset:
-        return {"eval_data_type": "EntityEvaluationDataset"}
+        return "EntityEvaluationDataset"
     if data_type is ManagedEvaluationDataset:
-        return {"eval_data_type": "EvaluationDataset"}
+        return "EvaluationDataset"
 
     module = data_type.__module__
     qualname = data_type.__qualname__
 
     if qualname == "DataFrame":
         if module.startswith("pandas"):
-            return {"eval_data_type": "pd.DataFrame"}
+            return "pd.DataFrame"
         if module.startswith("pyspark"):
-            return {"eval_data_type": "pyspark.sql.DataFrame"}
+            return "pyspark.sql.DataFrame"
 
     if qualname == "ConversationSimulator":
-        return {"eval_data_type": "ConversationSimulator"}
+        return "ConversationSimulator"
 
     return "unknown"
 
@@ -156,7 +156,8 @@ def _convert_to_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     df = _convert_eval_set_to_df(data)
 
     return (
-        df.pipe(_deserialize_trace_column_if_needed)
+        df
+        .pipe(_deserialize_trace_column_if_needed)
         .pipe(_extract_request_response_from_trace)
         .pipe(_extract_expectations_from_trace)
     )

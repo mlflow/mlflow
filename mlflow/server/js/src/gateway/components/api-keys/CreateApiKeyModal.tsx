@@ -94,7 +94,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
   const handleSubmit = useCallback(async () => {
     if (!validateForm()) return;
 
-    const authConfig: Record<string, string> = { ...formData.configFields };
+    const authConfig = { ...formData.configFields } satisfies Record<string, string>;
     if (formData.authMode) {
       authConfig['auth_mode'] = formData.authMode;
     }
@@ -196,7 +196,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
           value={provider}
           onChange={handleProviderChange}
           error={errors.provider}
-          componentIdPrefix="mlflow.gateway.create-api-key-modal.provider"
+          componentId="mlflow.gateway.create-api-key-modal.provider"
         />
 
         {provider && (
@@ -205,7 +205,7 @@ export const CreateApiKeyModal = ({ open, onClose, onSuccess }: CreateApiKeyModa
             value={formData}
             onChange={handleFormDataChange}
             errors={errors}
-            componentIdPrefix="mlflow.gateway.create-api-key-modal"
+            componentId="mlflow.gateway.create-api-key-modal"
           />
         )}
 

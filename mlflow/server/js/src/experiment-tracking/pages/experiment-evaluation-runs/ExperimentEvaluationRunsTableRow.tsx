@@ -30,6 +30,7 @@ type TracesViewTableRowProps = {
   columns: EvalRunsTableColumnDef[];
   isHidden: boolean;
   isGrouped?: boolean;
+  enableImprovedComparison?: boolean;
 };
 
 const GroupTag = ({ groupKey, groupValue }: { groupKey: string; groupValue: string }): React.ReactElement => {
@@ -69,16 +70,20 @@ const GroupLabel = ({ groupValues }: { groupValues: RunGroupByGroupingValue }): 
 
 export const ExperimentEvaluationRunsTableRow = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
-  ({ row, isActive, isGrouped }: TracesViewTableRowProps) => {
+  ({ row, isActive, isGrouped, enableImprovedComparison }: TracesViewTableRowProps) => {
     const { theme } = useDesignSystemTheme();
     const navigate = useNavigate();
 
+    // Row click navigation - only enabled when feature flag is on
     const handleRowClick = useCallback(() => {
+      if (!enableImprovedComparison) {
+        return;
+      }
       if ('info' in row.original) {
         const { experimentId, runUuid } = row.original.info;
         navigate(Routes.getRunPageTabRoute(experimentId, runUuid, RunPageTabName.EVALUATIONS));
       }
-    }, [navigate, row.original]);
+    }, [enableImprovedComparison, navigate, row.original]);
 
     if ('groupValues' in row.original) {
       return (
@@ -107,12 +112,16 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
       );
     }
 
+    // Row click navigation and indent for grouped rows - only enabled when feature flag is on
     return (
       <TableRow
         key={row.id}
         className="eval-runs-table-row"
-        onClick={handleRowClick}
-        css={{ cursor: 'pointer', marginLeft: isGrouped && row.depth > 0 ? theme.spacing.lg : undefined }}
+        onClick={enableImprovedComparison ? handleRowClick : undefined}
+        css={{
+          cursor: enableImprovedComparison ? 'pointer' : undefined,
+          marginLeft: enableImprovedComparison && isGrouped && row.depth > 0 ? theme.spacing.lg : undefined,
+        }}
       >
         {row.getVisibleCells().map((cell) => (
           <TableCell
@@ -138,7 +147,8 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
       prev.columns === next.columns &&
       prev.isExpanded === next.isExpanded &&
       prev.isHidden === next.isHidden &&
-      prev.isGrouped === next.isGrouped
+      prev.isGrouped === next.isGrouped &&
+      prev.enableImprovedComparison === next.enableImprovedComparison
     );
   },
 );

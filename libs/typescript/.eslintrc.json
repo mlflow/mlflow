@@ -11,7 +11,15 @@
     "project": "./tsconfig.json"
   },
   "plugins": ["@typescript-eslint"],
-  "ignorePatterns": ["dist/", "build/", "node_modules/", "*.d.ts", "jest.config.js"],
+  "ignorePatterns": [
+    "dist/",
+    "build/",
+    "bundle/",
+    "node_modules/",
+    "*.d.ts",
+    "jest.config.js",
+    "jest.config.cjs"
+  ],
   "rules": {
     // TypeScript-specific rules
     "@typescript-eslint/no-unused-vars": [
@@ -72,6 +80,22 @@
       "rules": {
         // AI SDK does not expose the type of createOpenAI return value
         "@typescript-eslint/no-unsafe-call": "off"
+      }
+    },
+    {
+      "files": ["integrations/opencode/tests/*.test.ts"],
+      "rules": {
+        // OpenCode plugin types are mocked and not fully typed
+        "@typescript-eslint/no-unsafe-call": "off",
+        "@typescript-eslint/unbound-method": "off"
+      }
+    },
+    {
+      "files": ["integrations/claude-code/tests/*.test.ts"],
+      "rules": {
+        // Claude Code transcript types are mocked and not fully typed
+        "@typescript-eslint/no-unsafe-call": "off",
+        "@typescript-eslint/unbound-method": "off"
       }
     }
   ]

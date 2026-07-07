@@ -14,10 +14,8 @@ from mlflow.genai.judges.utils import get_default_optimizer
 from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.telemetry.events import AlignJudgeEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.4.0")
 class AlignmentOptimizer(ABC):
     """
     Abstract base class for judge alignment optimizers.
@@ -52,7 +50,6 @@ class JudgeField(BaseModel):
     value_type: Any = Field(default=str, description="Type of the field's value")
 
 
-@experimental(version="3.4.0")
 class Judge(Scorer):
     """
     Base class for LLM-as-a-judge scorers that can be aligned with human feedback.
@@ -106,7 +103,6 @@ class Judge(Scorer):
             ),
         ]
 
-    @experimental(version="3.4.0")
     @record_usage_event(AlignJudgeEvent)
     def align(self, traces: list[Trace], optimizer: AlignmentOptimizer | None = None) -> Judge:
         """
@@ -114,7 +110,8 @@ class Judge(Scorer):
 
         Args:
             traces: Training traces for alignment
-            optimizer: The alignment optimizer to use. If None, uses the default SIMBA optimizer.
+            optimizer: The alignment optimizer to use. If None, uses the default MemAlign
+                optimizer.
 
         Returns:
             A new Judge instance that is better aligned with the input traces.
@@ -129,8 +126,8 @@ class Judge(Scorer):
 
                 import logging
 
-                # For SIMBA optimizer (default)
-                logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
+                # For MemAlign optimizer (default)
+                logging.getLogger("mlflow.genai.judges.optimizers.memalign").setLevel(logging.DEBUG)
         """
         if self.is_session_level_scorer:
             raise NotImplementedError("Alignment is not supported for session-level scorers.")

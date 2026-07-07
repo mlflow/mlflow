@@ -1,4 +1,4 @@
-import type { QueryClient } from '@databricks/web-shared/query-client';
+import type { QueryClient } from '../../query-client/queryClient';
 
 export const SEARCH_MLFLOW_TRACES_QUERY_KEY = 'searchMlflowTraces';
 

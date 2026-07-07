@@ -1,4 +1,6 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+
+import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 import { assessmentValueToSerializedString, serializedStringToAssessmentValueV2 } from './useAssessmentFilters';
 import {
@@ -17,8 +19,20 @@ const VALUE_SEPARATOR = '::';
  * Query param-powered hook that manages both generic and assessment filters.
  * Each filter is stored in the URL as: key::operator::value::type
  */
-export const useFilters = () => {
+export const useFilters = ({
+  persist = false,
+  loadPersistedValues = false,
+  persistKey,
+}: { persist?: boolean; loadPersistedValues?: boolean; persistKey?: string } = {}) => {
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const [localStorageFilters, setLocalStorageFilters] = useLocalStorage<TableFilter[] | undefined>({
+    initialValue: undefined,
+    key: `traces_useFilters_${persistKey}`,
+    version: 1,
+  });
+
+  const isEmptySearchParams = useMemo(() => !searchParams.get(QUERY_PARAM_KEY), [searchParams]);
 
   const filters: TableFilter[] = useMemo(() => {
     const filtersUrl = searchParams.getAll(QUERY_PARAM_KEY) ?? [];
@@ -49,6 +63,9 @@ export const useFilters = () => {
 
   const setFilters = useCallback(
     (newFilters: TableFilter[] | undefined, replace = false) => {
+      if (persist) {
+        setLocalStorageFilters(newFilters);
+      }
       setSearchParams(
         (params: URLSearchParams) => {
           params.delete(QUERY_PARAM_KEY);
@@ -71,8 +88,16 @@ export const useFilters = () => {
         { replace },
       );
     },
-    [setSearchParams],
+    [setSearchParams, setLocalStorageFilters, persist],
   );
+
+  useEffect(() => {
+    if (isEmptySearchParams && loadPersistedValues && localStorageFilters) {
+      setFilters(localStorageFilters, true);
+    }
+    // Rehydrate from local storage only once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadPersistedValues]);
 
   return [filters, setFilters] as const;
 };

@@ -14,7 +14,7 @@ export const ApiKeysFilterButton = ({ availableProviders, filter, onFilterChange
       availableProviders={availableProviders}
       filter={filter}
       onFilterChange={onFilterChange}
-      componentIdPrefix="mlflow.gateway.api-keys-list"
+      componentId="mlflow.gateway.api-keys.filter"
     />
   );
 };

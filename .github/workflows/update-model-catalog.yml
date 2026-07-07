@@ -1,0 +1,113 @@
+name: Update Model Catalog
+
+on:
+  schedule:
+    # Run every weekday (Mon-Fri) at 00:00 and 12:00 UTC
+    - cron: "0 0,12 * * 1-5"
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+permissions: {}
+
+jobs:
+  update-model-catalog:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: true
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
+
+      - uses: ./.github/actions/setup-node
+
+      - name: Fetch and transform model catalog
+        run: uv run python dev/update_model_catalog.py
+
+      - name: Run pre-commit on generated files
+        run: |
+          uv sync --locked --only-group lint
+          uv run --no-sync pre-commit install --install-hooks
+          uv run --no-sync pre-commit run install-bin -a -v
+          # pre-commit exits 1 when it auto-fixes files (e.g. prettier reformats JSON).
+          # That's expected — the fixes are picked up by the subsequent git diff.
+          uv run --no-sync pre-commit run --files mlflow/utils/model_catalog/*.json || true
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if git diff --quiet mlflow/utils/model_catalog/; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update model-catalog/latest tag
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          git fetch origin master --depth=1
+          git tag -f model-catalog/latest origin/master
+          git push -f origin refs/tags/model-catalog/latest
+
+      - name: Create or update pull request
+        id: pr
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          git config user.name 'mlflow-app[bot]'
+          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+          branch="update-model-catalog"
+          git checkout -b "$branch"
+          git add mlflow/utils/model_catalog/
+          git commit -m "Update model catalog from upstream sources"
+          git push -f -u origin "$branch"
+          existing_pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing_pr" ]; then
+            echo "Existing open PR #$existing_pr found for branch $branch — skipping PR creation."
+            echo "number=$existing_pr" >> "$GITHUB_OUTPUT"
+            echo "is_new_pr=false" >> "$GITHUB_OUTPUT"
+          else
+            pr_url=$(gh pr create \
+              --title "Update model catalog from upstream sources" \
+              --body "Daily refresh of model pricing and context window data from LiteLLM, transformed to MLflow-native schema." \
+              --reviewer "TomeHirata")
+            echo "number=${pr_url##*/}" >> "$GITHUB_OUTPUT"
+            echo "is_new_pr=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Enable auto-merge
+        if: steps.pr.outputs.is_new_pr == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          output=$(gh pr merge "$PR_NUMBER" --auto --squash 2>&1) && exit 0
+          echo "$output" | grep -qi "auto-merge is already enabled" && exit 0
+          echo "$output" >&2
+          exit 1
+
+      - name: Publish to GitHub Releases
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: bash dev/publish_model_catalog.sh

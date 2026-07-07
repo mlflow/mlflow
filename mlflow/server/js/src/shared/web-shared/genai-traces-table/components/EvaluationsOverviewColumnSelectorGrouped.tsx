@@ -13,6 +13,7 @@ import {
   useDesignSystemTheme,
   DialogComboboxOptionListSearch,
   DangerIcon,
+  Tag,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 
@@ -24,16 +25,15 @@ interface Props {
   selectedColumns: TracesTableColumn[];
   toggleColumns: (cols: TracesTableColumn[]) => void;
   setSelectedColumns: (cols: TracesTableColumn[]) => void;
-  isMetadataLoading?: boolean;
-  metadataError?: Error | null;
+  isLoading?: boolean;
+  isError?: boolean;
 }
 
 const OPTION_HEIGHT = 32;
 
 const getGroupLabel = (group: string): string => {
-  return group === TracesTableColumnGroup.INFO
-    ? 'Attributes'
-    : TracesTableColumnGroupToLabelMap[group as TracesTableColumnGroup];
+  if (group === TracesTableColumnGroup.BASE) return 'Base Attributes';
+  return TracesTableColumnGroupToLabelMap[group as TracesTableColumnGroup];
 };
 
 /**
@@ -44,8 +44,8 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
   selectedColumns = [],
   toggleColumns,
   setSelectedColumns,
-  isMetadataLoading = false,
-  metadataError,
+  isLoading,
+  isError,
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -131,8 +131,11 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
             <ColumnsIcon />
             {intl.formatMessage({
               defaultMessage: 'Columns',
-              description: 'Evaluation review > evaluations list > filter dropdown button',
+              description: 'Evaluation review > evaluations list > column selector button',
             })}
+            <Tag componentId="mlflow.evaluations_review.column_count">
+              {selectedColumns.length}/{columns.length}
+            </Tag>
           </div>
         </Button>
       </DialogComboboxCustomButtonTriggerWrapper>
@@ -140,9 +143,9 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
         maxHeight={OPTION_HEIGHT * 15.5}
         minWidth={300}
         maxWidth={500}
-        loading={isMetadataLoading && !metadataError}
+        loading={isLoading && !isError}
       >
-        {metadataError ? (
+        {isError ? (
           <div
             css={{
               display: 'flex',

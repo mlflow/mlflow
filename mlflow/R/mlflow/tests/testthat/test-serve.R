@@ -4,7 +4,7 @@ library("carrier")
 
 wait_for_server_to_start <- function(server_process, port) {
   status_code <- 500
-  for (i in 1:5) {
+  for (i in 1:6) {
     tryCatch(
       {
         status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))

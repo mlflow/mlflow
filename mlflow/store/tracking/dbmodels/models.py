@@ -24,7 +24,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.inspection import inspect
-from sqlalchemy.orm import backref, relationship
+from sqlalchemy.orm import backref, relationship, validates
 
 from mlflow.entities import (
     Assessment,
@@ -48,6 +48,10 @@ from mlflow.entities import (
     GatewayResourceType,
     GatewaySecretInfo,
     InputTag,
+    Issue,
+    IssueReference,
+    IssueSeverity,
+    IssueStatus,
     Metric,
     Param,
     RoutingStrategy,
@@ -61,6 +65,20 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDuration,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+    GatewayBudgetPolicy,
+)
+from mlflow.entities.gateway_guardrail import (
+    GatewayGuardrail,
+    GatewayGuardrailConfig,
+    GuardrailAction,
+    GuardrailStage,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
@@ -74,6 +92,7 @@ from mlflow.store.db.base_sql_model import Base
 from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 SourceTypes = [
     SourceType.to_string(SourceType.NOTEBOOK),
@@ -107,10 +126,20 @@ class SqlExperiment(Base):
     """
     Experiment ID: `Integer`. *Primary Key* for ``experiment`` table.
     """
-    name = Column(String(256), unique=True, nullable=False)
+    name = Column(String(256), nullable=False)
     """
-    Experiment name: `String` (limit 256 characters). Defined as *Unique* and *Non null* in
-                     table schema.
+    Experiment name: `String` (limit 256 characters). Unique *within a workspace* (enforced by
+                     the ``workspace`` + ``name`` constraint) and *Non null* in the table schema.
+    """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace identifier for this experiment: `String` (limit 63 characters). Defaults to
+    ``'default'`` when not explicitly provided.
     """
     artifact_location = Column(String(256), nullable=True)
     """
@@ -137,12 +166,13 @@ class SqlExperiment(Base):
             name="experiments_lifecycle_stage",
         ),
         PrimaryKeyConstraint("experiment_id", name="experiment_pk"),
+        UniqueConstraint("workspace", "name", name="uq_experiments_workspace_name"),
     )
 
     def __repr__(self):
         return f"<SqlExperiment ({self.experiment_id}, {self.name})>"
 
-    def to_mlflow_entity(self):
+    def to_mlflow_entity(self, effective_trace_archival_retention: str | None = None):
         """
         Convert DB model to corresponding MLflow entity.
 
@@ -157,6 +187,8 @@ class SqlExperiment(Base):
             tags=[t.to_mlflow_entity() for t in self.tags],
             creation_time=self.creation_time,
             last_update_time=self.last_update_time,
+            workspace=self.workspace,
+            effective_trace_archival_retention=effective_trace_archival_retention,
         )
 
 
@@ -373,6 +405,7 @@ class SqlMetric(Base):
             "key", "timestamp", "step", "run_uuid", "value", "is_nan", name="metric_pk"
         ),
         Index(f"index_{__tablename__}_run_uuid", "run_uuid"),
+        Index(f"index_{__tablename__}_run_uuid_key_step", "run_uuid", "key", "step"),
     )
 
     key = Column(String(250))
@@ -696,6 +729,17 @@ class SqlTraceInfo(Base):
     """
     Experiment ID to which this trace belongs: *Foreign Key* into ``experiments`` table.
     """
+    experiment = relationship(
+        "SqlExperiment",
+        backref=backref("trace_infos", cascade="all, delete-orphan"),
+    )
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.dbmodels.models.SqlExperiment`. The ``delete-orphan``
+    cascade ensures that ``session.delete(experiment)`` (used by
+    ``_hard_delete_experiment`` and ``mlflow gc``) emits ``DELETE`` statements
+    for all trace_info rows before deleting the parent experiment row.
+    """
     timestamp_ms = Column(BigInteger, nullable=False)
     """
     Start time of the trace, in milliseconds. Named as "request_time" in V3 format.
@@ -722,6 +766,11 @@ class SqlTraceInfo(Base):
     response_preview = Column(String(1000), nullable=True)
     """
     Response preview: `String` (limit 1000 characters). Could be *null*. Newly added in V3 format.
+    """
+    db_payload_generation = Column(Integer, nullable=False, server_default="0")
+    """
+    DB-backed trace payload generation used for concurrency coordination.
+    Defaults to 0.
     """
 
     __table_args__ = (
@@ -835,7 +884,10 @@ class SqlTraceMetrics(Base):
     Metric value: `Float`. Could be *null* if not available. Supports both integer values
     (e.g., token counts) and decimal values (e.g., API costs).
     """
-    trace_info = relationship("SqlTraceInfo", backref=backref("metrics", cascade="all"))
+    trace_info = relationship(
+        "SqlTraceInfo",
+        backref=backref("metrics", cascade="all, delete-orphan", passive_deletes=True),
+    )
     """
     SQLAlchemy relationship (many:one) with
     :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
@@ -845,6 +897,47 @@ class SqlTraceMetrics(Base):
     __table_args__ = (
         PrimaryKeyConstraint("request_id", "key", name="trace_metrics_pk"),
         Index(f"index_{__tablename__}_request_id", "request_id"),
+    )
+
+
+class SqlSpanMetrics(Base):
+    __tablename__ = "span_metrics"
+
+    trace_id = Column(String(50), nullable=False)
+    """
+    Trace ID: `String` (limit 50 characters). Part of composite foreign key to spans table.
+    """
+    span_id = Column(String(50), nullable=False)
+    """
+    Span ID: `String` (limit 50 characters). Part of composite foreign key to spans table.
+    """
+    key = Column(String(250), nullable=False)
+    """
+    Metric key: `String` (limit 250 characters).
+    """
+    value = Column(sa.types.Float(precision=53), nullable=True)
+    """
+    Metric value: `Float`. Could be *null* if not available.
+    """
+    span = relationship(
+        "SqlSpan",
+        backref=backref("metrics", cascade="all, delete-orphan", passive_deletes=True),
+    )
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.dbmodels.models.SqlSpan`.
+    """
+
+    # Composite primary key: (trace_id, span_id, key)
+    __table_args__ = (
+        PrimaryKeyConstraint("trace_id", "span_id", "key", name="span_metrics_pk"),
+        ForeignKeyConstraint(
+            ["trace_id", "span_id"],
+            ["spans.trace_id", "spans.span_id"],
+            name="fk_span_metrics_span",
+            ondelete="CASCADE",
+        ),
+        Index("index_span_metrics_trace_id_span_id", "trace_id", "span_id"),
     )
 
 
@@ -867,7 +960,7 @@ class SqlAssessments(Base):
     """
     assessment_type = Column(String(50), nullable=False)
     """
-    Assessment type: `String` (limit 50 characters). Either "feedback" or "expectation".
+    Assessment type: `String` (limit 50 characters). Either "feedback", "expectation", or "issue".
     """
     value = Column(Text, nullable=False)
     """
@@ -982,6 +1075,21 @@ class SqlAssessments(Base):
             )
             assessment.overrides = self.overrides
             assessment.valid = self.valid
+        elif assessment_type_value == "issue":
+            assessment = IssueReference(
+                issue_id=self.name,
+                issue_name=parsed_value.get("issue_name"),
+                source=source,
+                trace_id=self.trace_id,
+                run_id=self.run_id,
+                rationale=self.rationale,
+                metadata=parsed_metadata,
+                span_id=self.span_id,
+                create_time_ms=self.created_timestamp,
+                last_update_time_ms=self.last_updated_timestamp,
+            )
+            assessment.overrides = self.overrides
+            assessment.valid = self.valid
         else:
             raise ValueError(f"Unknown assessment type: {assessment_type_value}")
 
@@ -1009,9 +1117,13 @@ class SqlAssessments(Base):
             assessment_type = "expectation"
             value_json = json.dumps(assessment.expectation.value)
             error_json = None
+        elif assessment.issue is not None:
+            assessment_type = "issue"
+            value_json = json.dumps(assessment.issue.to_dictionary())
+            error_json = None
         else:
             raise MlflowException.invalid_parameter_value(
-                "Assessment must have either feedback or expectation value"
+                "Assessment must have either feedback, expectation, or issue value"
             )
 
         metadata_json = json.dumps(assessment.metadata) if assessment.metadata else None
@@ -1037,6 +1149,111 @@ class SqlAssessments(Base):
 
     def __repr__(self):
         return f"<SqlAssessments({self.assessment_id}, {self.name}, {self.assessment_type})>"
+
+
+class SqlIssue(Base):
+    __tablename__ = "issues"
+
+    issue_id = Column(String(36), nullable=False)
+    """
+    Issue ID: `String` (limit 36 characters). *Primary Key* for ``issues`` table.
+    Format: "iss-<uuid>".
+    """
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table. Required.
+    """
+    name = Column(String(250), nullable=False)
+    """
+    Issue name/title: `String` (limit 250 characters).
+    """
+    description = Column(Text, nullable=False)
+    """
+    Detailed description of the issue: `Text`.
+    """
+    status = Column(String(50), nullable=False)
+    """
+    Issue status: `String` (limit 50 characters).
+    """
+    severity = Column(String(50), nullable=True)
+    """
+    Severity level: `String` (limit 50 characters). Optional indicator of issue severity.
+    """
+    root_causes = Column(Text, nullable=True)
+    """
+    Root causes analysis stored as JSON array: `Text`. Nullable if root causes are not yet
+    determined.
+    """
+    source_run_id = Column(
+        String(32), ForeignKey("runs.run_uuid", ondelete="SET NULL"), nullable=True
+    )
+    """
+    Source run ID that discovered this issue: `String` (limit 32 characters).
+    *Foreign Key* into ``runs`` table. Nullable for manually created issues.
+    When the source run is deleted, this field is set to NULL.
+    """
+    categories = Column(Text, nullable=True)
+    """
+    Categories stored as JSON array: `Text`. Nullable if categories are not yet
+    determined.
+    """
+    created_timestamp = Column(BigInteger, nullable=False)
+    """
+    Creation timestamp: `BigInteger` in milliseconds.
+    """
+    last_updated_timestamp = Column(BigInteger, nullable=False)
+    """
+    Last update timestamp: `BigInteger` in milliseconds.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator identifier: `String` (limit 255 characters). Optional.
+    """
+
+    run = relationship("SqlRun", foreign_keys=[source_run_id], backref=backref("issues"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlRun`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("issue_id", name="issues_pk"),
+        Index(f"index_{__tablename__}_experiment_id", "experiment_id"),
+        Index(f"index_{__tablename__}_source_run_id", "source_run_id"),
+        Index(f"index_{__tablename__}_status", "status"),
+        Index(f"index_{__tablename__}_created_by", "created_by"),
+    )
+
+    def __repr__(self):
+        return f"<SqlIssue({self.issue_id}, {self.name}, {self.status})>"
+
+    def to_mlflow_entity(self, trace_count: int | None = None) -> Issue:
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Args:
+            trace_count: Optional trace count to include in the Issue entity.
+
+        Returns:
+            :py:class:`mlflow.entities.Issue` object.
+        """
+        return Issue(
+            issue_id=self.issue_id,
+            experiment_id=str(self.experiment_id),
+            name=self.name,
+            description=self.description,
+            status=IssueStatus(self.status),
+            severity=IssueSeverity(self.severity) if self.severity else None,
+            root_causes=json.loads(self.root_causes) if self.root_causes else None,
+            source_run_id=self.source_run_id,
+            categories=json.loads(self.categories) if self.categories else None,
+            created_timestamp=self.created_timestamp,
+            last_updated_timestamp=self.last_updated_timestamp,
+            created_by=self.created_by,
+            trace_count=trace_count,
+        )
 
 
 class SqlLoggedModel(Base):
@@ -1097,6 +1314,7 @@ class SqlLoggedModel(Base):
     Status message: `String` (limit 1000 characters).
     """
 
+    experiment = relationship("SqlExperiment", backref=backref("logged_models", cascade="all"))
     tags = relationship("SqlLoggedModelTag", backref="logged_model", cascade="all")
     params = relationship("SqlLoggedModelParam", backref="logged_model", cascade="all")
     metrics = relationship("SqlLoggedModelMetric", backref="logged_model", cascade="all")
@@ -1346,6 +1564,16 @@ class SqlEvaluationDataset(Base):
     *Primary Key* for ``evaluation_datasets`` table.
     """
 
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace name that scopes this dataset.
+    """
+
     name = Column(String(255), nullable=False)
     """
     Dataset name: `String` (limit 255 characters). *Non null* in table schema.
@@ -1400,6 +1628,7 @@ class SqlEvaluationDataset(Base):
         PrimaryKeyConstraint("dataset_id", name="evaluation_datasets_pk"),
         Index("index_evaluation_datasets_name", "name"),
         Index("index_evaluation_datasets_created_time", "created_time"),
+        Index("idx_evaluation_datasets_workspace", "workspace"),
     )
 
     def to_mlflow_entity(self):
@@ -1795,6 +2024,12 @@ class SqlSpan(Base):
     Uses LONGTEXT in MySQL to support large spans (up to 4GB).
     """
 
+    dimension_attributes = Column(MutableJSON, nullable=True)
+    """
+    Dimension attributes JSON: `JSON`. Optional field for storing reserved span attributes for
+    efficient querying or metrics aggregation.
+    """
+
     trace_info = relationship("SqlTraceInfo", backref=backref("spans", cascade="all"))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
@@ -2080,6 +2315,16 @@ class SqlJob(Base):
     Job parameters: `Text`.
     """
 
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace identifier for this job: `String` (limit 63 characters). Defaults to ``'default'``.
+    """
+
     timeout = Column(sa.types.Float(precision=53), nullable=True)
     """
     Job execution timeout in seconds: `Float`
@@ -2105,11 +2350,18 @@ class SqlJob(Base):
     Last Update time of experiment: `BigInteger`.
     """
 
+    status_details = Column(MutableJSON, nullable=True)
+    """
+    Job status details: `JSON`.
+    Stores additional job status details.
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
             "index_jobs_name_status_creation_time",
             "job_name",
+            "workspace",
             "status",
             "creation_time",
         ),
@@ -2138,6 +2390,8 @@ class SqlJob(Base):
             result=self.result,
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
+            workspace=self.workspace,
+            status_details=self.status_details,
         )
 
 
@@ -2223,10 +2477,20 @@ class SqlGatewaySecret(Base):
     """
     Last update timestamp: `BigInteger`.
     """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("secret_id", name="secrets_pk"),
-        Index("unique_secret_name", "secret_name", unique=True),
+        UniqueConstraint("workspace", "secret_name", name="uq_secrets_workspace_secret_name"),
+        Index("idx_secrets_workspace", "workspace"),
     )
 
     def __repr__(self):
@@ -2246,6 +2510,7 @@ class SqlGatewaySecret(Base):
             last_updated_at=self.last_updated_at,
             provider=self.provider,
             auth_config=json.loads(self.auth_config) if self.auth_config else None,
+            workspace=self.workspace,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
         )
@@ -2301,15 +2566,25 @@ class SqlGatewayEndpoint(Base):
     ID of the MLflow experiment where traces for this endpoint are logged.
     Uses SET NULL on delete - if the experiment is deleted, this becomes NULL.
     """
-    usage_tracking = Column(Boolean, nullable=False, default=False)
+    usage_tracking = Column(Boolean, nullable=False, default=True)
     """
     Usage tracking: `Boolean`. Whether usage tracking is enabled for this endpoint.
     When true, traces will be logged for endpoint invocations.
     """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
-        Index("unique_endpoint_name", "name", unique=True),
+        UniqueConstraint("workspace", "name", name="uq_endpoints_workspace_name"),
+        Index("idx_endpoints_workspace", "workspace"),
     )
 
     def __repr__(self):
@@ -2346,6 +2621,7 @@ class SqlGatewayEndpoint(Base):
             fallback_config=fallback_config,
             experiment_id=str(self.experiment_id) if self.experiment_id is not None else None,
             usage_tracking=self.usage_tracking,
+            workspace=self.workspace,
         )
 
 
@@ -2401,6 +2677,15 @@ class SqlGatewayModelDefinition(Base):
     """
     Last update timestamp: `BigInteger`.
     """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
+    """
 
     secret = relationship("SqlGatewaySecret")
     """
@@ -2410,9 +2695,10 @@ class SqlGatewayModelDefinition(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("model_definition_id", name="model_definitions_pk"),
-        Index("unique_model_definition_name", "name", unique=True),
+        UniqueConstraint("workspace", "name", name="uq_model_definitions_workspace_name"),
         Index("index_model_definitions_secret_id", "secret_id"),
         Index("index_model_definitions_provider", "provider"),
+        Index("idx_model_definitions_workspace", "workspace"),
     )
 
     def __repr__(self):
@@ -2430,6 +2716,7 @@ class SqlGatewayModelDefinition(Base):
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            workspace=self.workspace,
         )
 
 
@@ -2652,3 +2939,839 @@ class SqlGatewayEndpointTag(Base):
 
     def to_mlflow_entity(self):
         return GatewayEndpointTag(key=self.key, value=self.value)
+
+
+class SqlGatewayBudgetPolicy(Base):
+    """
+    DB model for budget policies. These are recorded in ``budget_policies`` table.
+    Represents cost-based budget limits for the AI Gateway with fixed time windows.
+    """
+
+    __tablename__ = "budget_policies"
+
+    budget_policy_id = Column(String(36), nullable=False)
+    """
+    Budget policy ID: `String` (limit 36 characters). *Primary Key*.
+    """
+    budget_unit = Column(String(32), nullable=False)
+    """
+    Budget measurement unit: `String` (USD).
+    """
+    budget_amount = Column(Float, nullable=False)
+    """
+    Budget limit amount: `Float`.
+    """
+    duration_unit = Column(String(32), nullable=False)
+    """
+    Duration unit for the fixed window: `String` (MINUTES, HOURS, DAYS, WEEKS, MONTHS).
+    """
+    duration_value = Column(Integer, nullable=False)
+    """
+    Duration value: `Integer`. Length of the window in units of duration_type.
+    """
+    target_scope = Column(String(32), nullable=False)
+    """
+    Target scope: `String` (GLOBAL, WORKSPACE).
+    """
+    budget_action = Column(String(32), nullable=False)
+    """
+    Action when budget exceeded: `String` (ALERT, REJECT).
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update timestamp: `BigInteger`.
+    """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("budget_policy_id", name="budget_policies_pk"),
+        Index("idx_budget_policies_workspace", "workspace"),
+    )
+
+    def __repr__(self):
+        return f"<SqlGatewayBudgetPolicy ({self.budget_policy_id})>"
+
+    def to_mlflow_entity(self):
+        return GatewayBudgetPolicy(
+            budget_policy_id=self.budget_policy_id,
+            budget_unit=BudgetUnit(self.budget_unit),
+            budget_amount=self.budget_amount,
+            duration=BudgetDuration(
+                unit=BudgetDurationUnit(self.duration_unit),
+                value=self.duration_value,
+            ),
+            target_scope=BudgetTargetScope(self.target_scope),
+            budget_action=BudgetAction(self.budget_action),
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            workspace=self.workspace,
+        )
+
+
+class SqlGatewayGuardrail(Base):
+    """
+    DB model for guardrails. These are recorded in ``guardrails`` table.
+    A guardrail wraps a scorer with a stage (BEFORE/AFTER) and action (VALIDATION/SANITIZATION).
+    """
+
+    __tablename__ = "guardrails"
+
+    guardrail_id = Column(String(36), nullable=False)
+    """
+    Guardrail ID: `String` (limit 36 characters). *Primary Key*.
+    """
+    name = Column(String(255), nullable=False)
+    """
+    Human-readable guardrail name: `String` (limit 255 characters).
+    """
+    scorer_id = Column(String(36), nullable=False)
+    """
+    Scorer ID referencing the MLflow scorer: `String`.
+    """
+    scorer_version = Column(Integer, nullable=False)
+    """
+    Scorer version: `Integer`.
+    """
+
+    scorer_version_ref = relationship(
+        "SqlScorerVersion",
+        foreign_keys=[scorer_id, scorer_version],
+        primaryjoin=(
+            "and_(SqlGatewayGuardrail.scorer_id == SqlScorerVersion.scorer_id, "
+            "SqlGatewayGuardrail.scorer_version == SqlScorerVersion.scorer_version)"
+        ),
+        viewonly=True,
+        lazy="joined",
+    )
+
+    stage = Column(String(32), nullable=False)
+    """
+    Guardrail stage: `String` (BEFORE, AFTER).
+    """
+    action = Column(String(32), nullable=False)
+    """
+    Guardrail action: `String` (VALIDATION, SANITIZATION).
+    """
+    action_endpoint_id = Column(String(36), nullable=True)
+    """
+    Optional endpoint ID for sanitization LLM: `String`. Used when action is SANITIZATION.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update timestamp: `BigInteger`.
+    """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
+    """
+
+    action_endpoint = relationship(
+        "SqlGatewayEndpoint",
+        foreign_keys=[action_endpoint_id],
+        viewonly=True,
+        lazy="joined",
+    )
+
+    configs = relationship(
+        "SqlGatewayGuardrailConfig",
+        backref="guardrail",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("guardrail_id", name="guardrails_pk"),
+        ForeignKeyConstraint(
+            ["scorer_id", "scorer_version"],
+            ["scorer_versions.scorer_id", "scorer_versions.scorer_version"],
+            name="fk_guardrails_scorer_version",
+        ),
+        ForeignKeyConstraint(
+            ["action_endpoint_id"],
+            ["endpoints.endpoint_id"],
+            name="fk_guardrails_action_endpoint_id",
+            ondelete="SET NULL",
+        ),
+        Index("idx_guardrails_workspace", "workspace"),
+        Index("idx_guardrails_scorer", "scorer_id", "scorer_version"),
+    )
+
+    def __repr__(self):
+        return f"<SqlGatewayGuardrail ({self.guardrail_id})>"
+
+    def to_mlflow_entity(self):
+        return GatewayGuardrail(
+            guardrail_id=self.guardrail_id,
+            name=self.name,
+            scorer=self.scorer_version_ref.to_mlflow_entity(),
+            stage=GuardrailStage(self.stage),
+            action=GuardrailAction(self.action),
+            action_endpoint_name=(self.action_endpoint.name if self.action_endpoint else None),
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            workspace=self.workspace,
+        )
+
+
+class SqlGatewayGuardrailConfig(Base):
+    """
+    DB model for guardrail-endpoint associations. These are recorded in
+    ``guardrail_configs`` table. Each row links a guardrail to an endpoint
+    with an execution order.
+    """
+
+    __tablename__ = "guardrail_configs"
+
+    endpoint_id = Column(String(36), nullable=False)
+    """
+    Endpoint ID: `String` (limit 36 characters). *Composite Primary Key*.
+    """
+    guardrail_id = Column(String(36), nullable=False)
+    """
+    Guardrail ID: `String` (limit 36 characters). *Composite Primary Key*.
+    """
+    execution_order = Column(Integer, nullable=True)
+    """
+    Execution order: `Integer`. Lower values run first. NULL if unspecified.
+    Not unique in the DB, and uniqueness is guaranteed by the application logic.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+    """
+    Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("endpoint_id", "guardrail_id", name="guardrail_configs_pk"),
+        ForeignKeyConstraint(
+            ["endpoint_id"],
+            ["endpoints.endpoint_id"],
+            name="fk_guardrail_configs_endpoint_id",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["guardrail_id"],
+            ["guardrails.guardrail_id"],
+            name="fk_guardrail_configs_guardrail_id",
+            ondelete="CASCADE",
+        ),
+        Index("idx_guardrail_configs_endpoint_id", "endpoint_id"),
+        Index("idx_guardrail_configs_guardrail_id", "guardrail_id"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlGatewayGuardrailConfig "
+            f"(endpoint={self.endpoint_id}, guardrail={self.guardrail_id})>"
+        )
+
+    def to_mlflow_entity(self):
+        return GatewayGuardrailConfig(
+            endpoint_id=self.endpoint_id,
+            guardrail_id=self.guardrail_id,
+            execution_order=self.execution_order,
+            created_at=self.created_at,
+            guardrail=self.guardrail.to_mlflow_entity() if self.guardrail else None,
+            created_by=self.created_by,
+            workspace=self.workspace,
+        )
+
+
+class SqlLabelSchema(Base):
+    """
+    DB model for label schemas.
+
+    Schemas are experiment-scoped UI rendering hints; they do not gate
+    or validate assessment writes. See
+    ``mlflow/genai/label_schemas/label_schemas.py`` for the entity
+    dataclass and ``mlflow/genai/label_schemas/validation.py`` for the
+    server-side validation rules.
+
+    The schema inherits its workspace from the parent experiment (the
+    workspace-aware store filters via a join to ``experiments``), so there
+    is no denormalized ``workspace`` column on this table.
+    """
+
+    __tablename__ = "label_schemas"
+
+    LABEL_SCHEMA_ID_PREFIX = "ls-"
+
+    schema_id = Column(String(36), primary_key=True)
+    """
+    Label schema ID: ``String`` (limit 36 characters). *Primary Key* for
+    ``label_schemas`` table.
+    """
+
+    experiment_id = Column(
+        Integer,
+        ForeignKey("experiments.experiment_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Experiment ID the schema belongs to. *Foreign Key* into ``experiments``.
+    Cascade-deletes when the parent experiment is deleted.
+    """
+
+    name = Column(String(250), nullable=False)
+    """
+    Schema name: ``String`` (limit 250 characters, matching the assessment
+    key/name limit used elsewhere in the tracking store). Free text shown
+    to reviewers as the label prompt and used as the assessment key. Unique
+    within ``experiment_id``.
+    """
+
+    type = Column(String(16), nullable=False)
+    """
+    Schema type: ``String`` (limit 16). One of ``'feedback'`` or
+    ``'expectation'``. Immutable after create (enforced at update time
+    by the validation module).
+    """
+
+    instruction = Column(Text, nullable=True)
+    """
+    Optional detailed instructions: ``Text`` (≤ 1000 chars enforced by
+    validation, but stored as ``Text`` for flexibility).
+    """
+
+    enable_comment = Column(Boolean, nullable=False, default=False, server_default="0")
+    """
+    Whether the reviewer widget renders a free-form comment input alongside
+    the schema-typed value. UI-only hint; not consulted server-side.
+    """
+
+    input_type = Column(String(32), nullable=False)
+    """
+    Discriminator for the input config payload. One of ``'pass_fail'``,
+    ``'categorical'``, ``'numeric'``, ``'text'`` for tracking-store schemas. The
+    remaining Databricks-routed types (``'categorical_list'``,
+    ``'text_list'``) are not accepted by the server.
+    """
+
+    input_config = Column(Text, nullable=False)
+    """
+    JSON payload carrying input-type-specific fields. Shape depends on
+    ``input_type``; see :py:func:`_input_to_dict` / :py:func:`_input_from_dict`
+    in this module for the round-trip.
+    """
+
+    created_by = Column(String(255), nullable=True)
+    """
+    User who created the schema.
+    """
+
+    created_time = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation time in milliseconds.
+    """
+
+    last_update_time = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update time in milliseconds.
+    """
+
+    is_default = Column(Boolean, nullable=False, default=False, server_default="0")
+    """
+    Whether this is the experiment's protected default question: server-seeded,
+    undeletable, and uneditable. At most one row per experiment is ``True``.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("schema_id", name="label_schemas_pk"),
+        UniqueConstraint("experiment_id", "name", name="uq_label_schemas_exp_name"),
+        Index("index_label_schemas_experiment_id", "experiment_id"),
+    )
+
+    def to_mlflow_entity(self):
+        """Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.genai.label_schemas.label_schemas.LabelSchema`.
+        """
+        # Imported here to avoid a circular import at module load time:
+        # `mlflow.genai.label_schemas.label_schemas` transitively imports
+        # entities that import this module.
+        from mlflow.genai.label_schemas.label_schemas import LabelSchema, LabelSchemaType
+
+        return LabelSchema(
+            name=self.name,
+            type=LabelSchemaType(self.type),
+            input=_input_from_dict(self.input_type, json.loads(self.input_config)),
+            instruction=self.instruction,
+            enable_comment=self.enable_comment,
+            schema_id=self.schema_id,
+            experiment_id=str(self.experiment_id),
+            created_by=self.created_by,
+            created_at=self.created_time,
+            updated_at=self.last_update_time,
+            is_default=self.is_default,
+        )
+
+    @classmethod
+    def from_mlflow_entity(cls, schema):
+        """Create a ``SqlLabelSchema`` from a LabelSchema entity.
+
+        The ``experiment_id`` is converted from a string to an int for the
+        underlying FK; the entity carries it as a string.
+
+        Args:
+            schema: :py:class:`mlflow.genai.label_schemas.label_schemas.LabelSchema`.
+        """
+        input_type, input_config = _input_to_dict(schema.input)
+        now = get_current_time_millis()
+        return cls(
+            schema_id=schema.schema_id,
+            experiment_id=int(schema.experiment_id),
+            name=schema.name,
+            type=str(schema.type),
+            instruction=schema.instruction,
+            enable_comment=schema.enable_comment,
+            input_type=input_type,
+            input_config=input_config,
+            created_by=schema.created_by,
+            created_time=schema.created_at or now,
+            last_update_time=schema.updated_at or now,
+            is_default=schema.is_default,
+        )
+
+
+class SqlReviewQueue(Base):
+    """
+    DB model for review queues.
+
+    A review queue is a named bundle of attached items, questions
+    (label schemas), and assigned users, scoped to an experiment and
+    keyed on ``(experiment_id, name)``. See
+    ``mlflow/genai/review_queues/review_queues.py`` for the entity
+    dataclasses and ``validation.py`` for the validation rules.
+
+    The queue inherits its workspace from the parent experiment (the
+    workspace-aware store filters via a join to ``experiments``, exactly
+    like ``label_schemas``), so there is no denormalized ``workspace``
+    column. The three child tables (``review_queue_users``,
+    ``review_queue_items``, ``review_queue_label_schemas``) inherit it
+    transitively through this table.
+    """
+
+    __tablename__ = "review_queues"
+
+    QUEUE_ID_PREFIX = "rq-"
+
+    queue_id = Column(String(36), primary_key=True)
+    """
+    Queue ID: ``String`` (limit 36 characters). *Primary Key* for
+    ``review_queues`` table.
+    """
+
+    experiment_id = Column(
+        Integer,
+        ForeignKey("experiments.experiment_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Experiment the queue belongs to. *Foreign Key* into ``experiments``.
+    Cascade-deletes when the parent experiment is hard-deleted.
+    """
+
+    name = Column(String(250), nullable=False)
+    """
+    Queue name: ``String`` (limit 250, matching ``label_schemas.name``).
+    For a user queue this equals the (normalized) user identifier; for a
+    custom queue it is an arbitrary display name, stored case-preserved.
+    ``'default'`` (the no-auth default user queue) is reserved
+    case-insensitively (any casing of ``'default'``) and rejected for
+    custom queues.
+    """
+
+    name_key = Column(String(250), nullable=False)
+    """
+    Case-folded (lowercased) form of ``name``, carrying the uniqueness
+    guarantee. Names are unique within ``experiment_id`` case-insensitively,
+    so ``Foo`` and ``foo`` can't coexist (and a custom queue can't collide
+    with a user queue's normalized name). ``name`` keeps the display casing;
+    this column is the identity key. Kept equal to ``name.lower()`` by the
+    ``@validates("name")`` hook, which derives it whenever ``name`` is assigned.
+    """
+
+    queue_type = Column(String(16), nullable=False)
+    """
+    Queue flavor: ``'user'`` or ``'custom'``. ``String`` (limit 16).
+    """
+
+    created_by = Column(String(255), nullable=True)
+    """
+    User who created the queue.
+    """
+
+    creation_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
+    """
+    Queue creation time in milliseconds since epoch.
+    """
+
+    last_update_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
+    """
+    Time of the most recent change to the queue's own configuration (its
+    assigned users / attached schemas) in milliseconds since epoch. It does
+    NOT track attach/detach or per-item status churn in
+    ``review_queue_items`` — those carry their own timestamps — so a "last
+    activity" view must consult the child rows, not just this field.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("queue_id", name="review_queues_pk"),
+        UniqueConstraint("experiment_id", "name_key", name="uq_review_queues_experiment_name_key"),
+        Index("index_review_queues_experiment_id", "experiment_id"),
+    )
+
+    @validates("name")
+    def _derive_name_key(self, _key, value):
+        # Keep `name_key` in lockstep with `name` from one place. Uses Python's
+        # Unicode-aware `.lower()` (the same casefold the rest of the store uses),
+        # so the key stays consistent across every dialect -- unlike a SQL
+        # `LOWER()` CHECK, which is ASCII-only on SQLite. This fires on ORM
+        # attribute assignment (constructor kwargs and `queue.name = ...`); it does
+        # NOT fire for Core / bulk updates, which this store never uses on `name`.
+        # `name` is non-nullable and always a validated string, so no None guard.
+        self.name_key = value.lower()
+        return value
+
+    def __repr__(self):
+        return (
+            f"<SqlReviewQueue (id={self.queue_id}, experiment_id={self.experiment_id}, "
+            f"name={self.name}, type={self.queue_type})>"
+        )
+
+    def to_mlflow_entity(self, *, users=None, schema_ids=None):
+        """Convert DB model to corresponding MLflow entity.
+
+        ``users`` / ``schema_ids`` are the queue's association sets,
+        loaded separately by the store and passed in (there are no ORM
+        relationships, so lazy-loading them here is impossible by design).
+
+        Returns:
+            :py:class:`mlflow.genai.review_queues.ReviewQueue`.
+        """
+        # Lazy import: importing `mlflow.genai.review_queues` triggers the
+        # `mlflow.genai` package init, which can pull this module back in;
+        # deferring the import avoids that cycle at module load time.
+        from mlflow.genai.review_queues import ReviewQueue, ReviewQueueType
+
+        return ReviewQueue(
+            queue_id=self.queue_id,
+            experiment_id=str(self.experiment_id),
+            name=self.name,
+            queue_type=ReviewQueueType(self.queue_type),
+            created_by=self.created_by,
+            creation_time_ms=self.creation_time_ms,
+            last_update_time_ms=self.last_update_time_ms,
+            users=list(users) if users is not None else [],
+            schema_ids=list(schema_ids) if schema_ids is not None else [],
+        )
+
+
+class SqlReviewQueueUser(Base):
+    """
+    DB model for the assigned-user set of a review queue.
+
+    One row per ``(queue_id, user)``. The assigned users are a *pool*:
+    any one of them may work the queue's items. A user queue has exactly
+    one row (``user == queue.name``); a custom queue has 0..N.
+    """
+
+    __tablename__ = "review_queue_users"
+
+    queue_id = Column(
+        String(36),
+        ForeignKey("review_queues.queue_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Queue this assignment belongs to. *Foreign Key* into ``review_queues``.
+    """
+
+    user_id = Column(String(250), nullable=False)
+    """
+    Assigned user identifier (normalized lowercase). ``VARCHAR(250)`` to
+    mirror ``SqlAssessments.source_id`` so an assigned user can never be
+    too long to also appear as an assessment ``source_id``. Named
+    ``user_id`` (not ``user``) because ``user`` is a reserved word in
+    several SQL dialects.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("queue_id", "user_id", name="review_queue_users_pk"),
+        Index("index_review_queue_users_user_id", "user_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlReviewQueueUser (queue_id={self.queue_id}, user_id={self.user_id})>"
+
+
+class SqlReviewQueueItem(Base):
+    """
+    DB model for an item attached to a review queue + its shared-pool
+    workflow status.
+
+    One row per ``(queue_id, item_id)``. ``status`` is per-``(queue,
+    item)`` (NOT per-user): an item is addressed when **any** assigned
+    user completes/declines it, and ``completed_by`` records who. There is
+    no ``in_progress`` state; status only changes on an explicit reviewer
+    action, never as a side effect of writing an assessment.
+    """
+
+    __tablename__ = "review_queue_items"
+
+    queue_id = Column(
+        String(36),
+        ForeignKey("review_queues.queue_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Queue this item is attached to. *Foreign Key* into ``review_queues``.
+    """
+
+    item_type = Column(String(16), nullable=False)
+    """
+    What kind of object is attached: ``String`` (limit 16). v1 ships
+    ``'trace'`` only; ``'session'`` / ``'span'`` are reserved.
+    """
+
+    item_id = Column(String(50), nullable=False)
+    """
+    The attached object's id — a trace id today. ``String`` (limit 50).
+    """
+
+    status = Column(String(16), nullable=False)
+    """
+    Shared-pool workflow status: ``'pending'``, ``'complete'``, or
+    ``'declined'``. ``String`` (limit 16).
+    """
+
+    completed_by = Column(String(250), nullable=True)
+    """
+    Who completed or declined this item; ``NULL`` while ``pending``.
+    Same shape as ``review_queue_users.user_id``. Cleared on reopen.
+    """
+
+    completed_time_ms = Column(BigInteger, nullable=True)
+    """
+    Time the item reached a terminal status in milliseconds since epoch;
+    ``NULL`` while ``pending``. Cleared on reopen.
+    """
+
+    creation_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
+    """
+    Time the item was attached to the queue in milliseconds since epoch.
+    """
+
+    last_update_time_ms = Column(BigInteger, nullable=False, default=get_current_time_millis)
+    """
+    Time of the most recent status change in milliseconds since epoch.
+    Equals ``creation_time_ms`` for an item that is still ``pending``.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("queue_id", "item_id", name="review_queue_items_pk"),
+        # "Show me this queue's <status> items" — the queue view's status tabs.
+        Index("index_review_queue_items_queue_id_status", "queue_id", "status"),
+        # "Which queues is this item in?" — the per-item review widget.
+        Index("index_review_queue_items_item_id", "item_id"),
+    )
+
+    def __repr__(self):
+        return (
+            f"<SqlReviewQueueItem (queue_id={self.queue_id}, item_id={self.item_id}, "
+            f"status={self.status})>"
+        )
+
+    def to_mlflow_entity(self):
+        """Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.genai.review_queues.ReviewQueueItem`.
+        """
+        from mlflow.genai.review_queues import ReviewItemType, ReviewQueueItem, ReviewStatus
+
+        return ReviewQueueItem(
+            queue_id=self.queue_id,
+            item_type=ReviewItemType(self.item_type),
+            item_id=self.item_id,
+            status=ReviewStatus(self.status),
+            creation_time_ms=self.creation_time_ms,
+            last_update_time_ms=self.last_update_time_ms,
+            completed_by=self.completed_by,
+            completed_time_ms=self.completed_time_ms,
+        )
+
+
+class SqlReviewQueueLabelSchema(Base):
+    """
+    DB model for the questions (label schemas) attached to a *custom*
+    review queue.
+
+    One row per ``(queue_id, schema_id)``. **User queues store no rows
+    here** — they resolve to all of the experiment's label schemas at read
+    time.
+    """
+
+    __tablename__ = "review_queue_label_schemas"
+
+    queue_id = Column(
+        String(36),
+        ForeignKey("review_queues.queue_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    """
+    Queue this question belongs to. *Foreign Key* into ``review_queues``.
+    """
+
+    schema_id = Column(String(36), nullable=False)
+    """
+    The attached label schema's id. Validated against ``label_schemas`` at
+    write time but intentionally NOT a DB foreign key: a second cascading FK
+    here (to ``label_schemas``) would converge with the ``queue_id`` ->
+    ``review_queues`` -> ``experiments`` cascade on a single experiment
+    delete, which MSSQL rejects as a multiple-cascade-path. The reference is
+    therefore soft (like an assessment's ``name`` -> schema link): a row may
+    point at a since-deleted schema. The store read path returns the stored ids
+    as-is (no pruning); orphans are harmless because callers resolve a queue's
+    schema ids against the experiment's live label schemas, so a missing one is
+    simply not surfaced. A periodic sweep to physically prune orphans is deferred.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("queue_id", "schema_id", name="review_queue_label_schemas_pk"),
+        Index("index_review_queue_label_schemas_schema_id", "schema_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlReviewQueueLabelSchema (queue_id={self.queue_id}, schema_id={self.schema_id})>"
+
+
+def _input_to_dict(input_obj) -> tuple[str, str]:
+    """Serialize a LabelSchema input dataclass to (discriminator, JSON).
+
+    Returns a ``(input_type, input_config)`` pair suitable for direct
+    insertion into the ``input_type`` and ``input_config`` columns on
+    ``SqlLabelSchema``.
+
+    Raises:
+        ValueError: if ``input_obj`` is not one of the OSS-supported input types.
+    """
+    from mlflow.genai.label_schemas.label_schemas import (
+        InputCategorical,
+        InputNumeric,
+        InputPassFail,
+        InputText,
+    )
+
+    if isinstance(input_obj, InputPassFail):
+        config = {
+            "positive_label": input_obj.positive_label,
+            "negative_label": input_obj.negative_label,
+        }
+        return "pass_fail", json.dumps(config)
+    if isinstance(input_obj, InputCategorical):
+        config = {
+            "options": input_obj.options,
+            "multi_select": input_obj.multi_select,
+        }
+        return "categorical", json.dumps(config)
+    if isinstance(input_obj, InputNumeric):
+        config = {
+            "min_value": input_obj.min_value,
+            "max_value": input_obj.max_value,
+        }
+        return "numeric", json.dumps(config)
+    if isinstance(input_obj, InputText):
+        config = {"max_length": input_obj.max_length}
+        return "text", json.dumps(config)
+    raise ValueError(
+        f"Cannot persist label schema input of type {type(input_obj).__name__!r}; "
+        "OSS-supported types are InputPassFail, InputCategorical, InputNumeric, InputText."
+    )
+
+
+def _input_from_dict(input_type: str, config: dict[str, Any]):
+    """Reconstruct a LabelSchema input dataclass from a discriminator + dict."""
+    from mlflow.genai.label_schemas.label_schemas import (
+        InputCategorical,
+        InputNumeric,
+        InputPassFail,
+        InputText,
+    )
+
+    match input_type:
+        case "pass_fail":
+            return InputPassFail(
+                positive_label=config["positive_label"],
+                negative_label=config["negative_label"],
+            )
+        case "categorical":
+            return InputCategorical(
+                options=config["options"],
+                multi_select=config.get("multi_select", False),
+            )
+        case "text":
+            return InputText(max_length=config.get("max_length"))
+        case "numeric":
+            return InputNumeric(
+                min_value=config.get("min_value"),
+                max_value=config.get("max_value"),
+            )
+        case _:
+            raise ValueError(
+                f"Unknown label schema input_type {input_type!r}; expected one of "
+                "'pass_fail', 'categorical', 'numeric', 'text'."
+            )

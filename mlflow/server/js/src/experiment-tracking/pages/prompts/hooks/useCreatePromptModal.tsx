@@ -19,12 +19,14 @@ import {
   formDataToModelConfig,
   getChatPromptMessagesFromValue,
   getPromptContentTagValue,
+  getResponseFormatFromTags,
   isChatPrompt,
   PROMPT_EXPERIMENT_IDS_TAG_KEY,
   PROMPT_MODEL_CONFIG_TAG_KEY,
   PROMPT_TYPE_CHAT,
   PROMPT_TYPE_TEXT,
   validateModelConfig,
+  validateResponseFormatJson,
 } from '../utils';
 import { ChatMessageCreator } from '../components/ChatMessageCreator';
 import { ModelConfigForm } from '../components/ModelConfigForm';
@@ -59,6 +61,7 @@ export const useCreatePromptModal = ({
     tags: { key: string; value: string }[];
     promptType: typeof PROMPT_TYPE_CHAT | typeof PROMPT_TYPE_TEXT;
     modelConfig: PromptModelConfigFormData;
+    responseFormatJson: string;
   }>({
     defaultValues: {
       draftName: '',
@@ -68,6 +71,7 @@ export const useCreatePromptModal = ({
       tags: [],
       promptType: PROMPT_TYPE_TEXT,
       modelConfig: {},
+      responseFormatJson: '',
     },
   });
 
@@ -75,6 +79,17 @@ export const useCreatePromptModal = ({
   const isCreatingPromptVersion = mode === CreatePromptModalMode.CreatePromptVersion;
 
   const { mutate: mutateCreateVersion, error, reset: errorsReset, isLoading } = useCreateRegisteredPromptMutation();
+
+  const watchedDraftName = form.watch('draftName');
+  const watchedDraftValue = form.watch('draftValue');
+  const watchedChatMessages = form.watch('chatMessages');
+  const watchedPromptType = form.watch('promptType');
+
+  const isPromptContentEmpty =
+    watchedPromptType === PROMPT_TYPE_CHAT
+      ? watchedChatMessages.length === 0 || watchedChatMessages.some((m) => !m.content || !m.content.trim())
+      : !watchedDraftValue?.trim();
+  const isSubmitDisabled = (isCreatingNewPrompt && !watchedDraftName?.trim()) || isPromptContentEmpty;
 
   const modalElement = (
     <FormProvider {...form}>
@@ -101,7 +116,7 @@ export const useCreatePromptModal = ({
             description="A label for the confirm button in the create prompt modal in the prompt management UI"
           />
         }
-        okButtonProps={{ loading: isLoading }}
+        okButtonProps={{ loading: isLoading, disabled: isSubmitDisabled }}
         onOk={form.handleSubmit(async (values) => {
           const promptName =
             isCreatingPromptVersion && registeredPrompt?.name ? registeredPrompt?.name : values.draftName;
@@ -129,6 +144,21 @@ export const useCreatePromptModal = ({
             return;
           }
 
+          // Validate structured output JSON if provided
+          const responseFormatValidation = validateResponseFormatJson(values.responseFormatJson);
+          if (!responseFormatValidation.valid) {
+            const fallbackMessage = intl.formatMessage({
+              defaultMessage: 'Invalid structured output JSON',
+              description:
+                'Validation error message for the structured output JSON schema field in the prompt creation modal',
+            });
+            form.setError('responseFormatJson', {
+              type: 'validation',
+              message: responseFormatValidation.error ?? fallbackMessage,
+            });
+            return;
+          }
+
           const chatMessages = values.chatMessages.map((message) => ({
             ...message,
             content: message.content.trim(),
@@ -152,6 +182,7 @@ export const useCreatePromptModal = ({
               tags: [...values.tags, ...modelConfigTags],
               promptTags,
               promptType: values.promptType,
+              responseFormatJson: values.responseFormatJson?.trim() || undefined,
             },
             {
               onSuccess: (data) => {
@@ -298,6 +329,31 @@ export const useCreatePromptModal = ({
         {showAdvancedSettings && (
           <>
             <Spacer size="sm" />
+            <FormUI.Label htmlFor="mlflow.prompts.create.response_format">
+              <FormattedMessage
+                defaultMessage="Structured output (JSON schema)"
+                description="Label for the structured output JSON schema field in the prompt creation modal"
+              />
+            </FormUI.Label>
+            <FormUI.Hint>
+              <FormattedMessage
+                defaultMessage="Optional. Define a JSON schema for structured LLM responses."
+                description="Hint for the structured output field in the prompt creation modal"
+              />
+            </FormUI.Hint>
+            <RHFControlledComponents.TextArea
+              control={form.control}
+              id="mlflow.prompts.create.response_format"
+              componentId="mlflow.prompts.create.response_format"
+              name="responseFormatJson"
+              autoSize={{ minRows: 4, maxRows: 12 }}
+              placeholder='{"type": "object", "properties": { ... }}'
+              validationState={form.formState.errors.responseFormatJson ? 'error' : undefined}
+            />
+            {form.formState.errors.responseFormatJson && (
+              <FormUI.Message type="error" message={form.formState.errors.responseFormatJson.message} />
+            )}
+            <Spacer size="sm" />
             <ModelConfigForm />
           </>
         )}
@@ -314,10 +370,11 @@ export const useCreatePromptModal = ({
     const promptType = isChatPrompt(latestVersion) ? PROMPT_TYPE_CHAT : PROMPT_TYPE_TEXT;
     const parsedMessages = getChatPromptMessagesFromValue(tagValue);
 
-    // Check if latest version has model config to auto-expand advanced settings
+    // Check if latest version has model config or response format to auto-expand advanced settings
     const hasModelConfig =
       mode === CreatePromptModalMode.CreatePromptVersion &&
       latestVersion?.tags?.some((tag) => tag.key === PROMPT_MODEL_CONFIG_TAG_KEY && tag.value);
+    const responseFormat = getResponseFormatFromTags(latestVersion?.tags);
 
     form.reset({
       commitMessage: '',
@@ -329,8 +386,17 @@ export const useCreatePromptModal = ({
       tags: [],
       promptType,
       modelConfig: {},
+      responseFormatJson: responseFormat
+        ? (() => {
+            try {
+              return JSON.stringify(JSON.parse(responseFormat), null, 2);
+            } catch {
+              return responseFormat;
+            }
+          })()
+        : '',
     });
-    setShowAdvancedSettings(!!hasModelConfig);
+    setShowAdvancedSettings(Boolean(hasModelConfig || responseFormat !== undefined));
     setOpen(true);
   };
 

@@ -9,12 +9,10 @@
 import {
   BrowserRouter,
   MemoryRouter,
-  HashRouter,
   matchPath,
   generatePath,
   Route,
   UNSAFE_NavigationContext,
-  NavLink,
   Outlet as OutletDirect,
   Link as LinkDirect,
   useNavigate as useNavigateDirect,
@@ -30,6 +28,7 @@ import {
   type Location,
   type NavigateFunction,
   type Params,
+  type PathMatch,
 } from 'react-router-dom';
 
 /**
@@ -37,7 +36,20 @@ import {
  */
 import { HashRouter as HashRouterV5, Link as LinkV5, NavLink as NavLinkV5 } from 'react-router-dom';
 import type { ComponentProps } from 'react';
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  useDesignSystemEventComponentCallbacks,
+} from '@databricks/design-system';
+
+import {
+  prefixRouteWithWorkspace,
+  getActiveWorkspace,
+  isGlobalRoute,
+  WORKSPACE_QUERY_PARAM,
+} from '../../workspaces/utils/WorkspaceUtils';
+import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
 
 const useLocation = useLocationDirect;
 
@@ -45,13 +57,108 @@ const useSearchParams = useSearchParamsDirect;
 
 const useParams = useParamsDirect;
 
-const useNavigate = useNavigateDirect;
-
 const useMatches = useMatchesDirect;
+
+type UseNavigateOptions = {
+  bypassWorkspacePrefix?: boolean;
+};
+
+const useNavigate = (options: UseNavigateOptions = { bypassWorkspacePrefix: false }): NavigateFunction => {
+  const { bypassWorkspacePrefix } = options;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const navigate = useNavigateDirect();
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const wrappedNavigate = useCallback(
+    (to: To | number, options?: NavigateOptions) => {
+      if (typeof to === 'number') {
+        navigate(to);
+        return;
+      }
+      navigate(bypassWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to), options);
+    },
+    [navigate, bypassWorkspacePrefix],
+  );
+
+  return wrappedNavigate as NavigateFunction;
+};
 
 const Outlet = OutletDirect;
 
-const Link = LinkDirect;
+/**
+ * Add workspace query param to a To object (used by Link/NavLink/navigate).
+ * Handles both string and object forms of To.
+ */
+const prefixRouteWithWorkspaceForTo = (to: To): To => {
+  // String form - delegate to prefixRouteWithWorkspace
+  if (typeof to === 'string') {
+    return prefixRouteWithWorkspace(to);
+  }
+
+  // Object form - need to handle pathname and search separately
+  if (typeof to === 'object' && to !== null) {
+    const pathname = 'pathname' in to ? to.pathname : undefined;
+
+    // Keep workspace prefixing when an active workspace is already known, even
+    // if the async server feature flags have not resolved yet.
+    if ((!getWorkspacesEnabledSync() && !getActiveWorkspace()) || typeof pathname !== 'string') {
+      return to;
+    }
+
+    // Skip workspace param for global routes
+    if (isGlobalRoute(pathname)) {
+      // Remove workspace param if present in existing search
+      if (to.search) {
+        const params = new URLSearchParams(to.search);
+        params.delete(WORKSPACE_QUERY_PARAM);
+        const newSearch = params.toString();
+        return {
+          ...to,
+          search: newSearch ? `?${newSearch}` : undefined,
+        };
+      }
+      return to;
+    }
+
+    // Add workspace query param
+    const workspace = getActiveWorkspace();
+    if (!workspace) {
+      return to;
+    }
+
+    // Merge workspace into existing search params
+    const existingSearch = to.search || '';
+    const params = new URLSearchParams(existingSearch.startsWith('?') ? existingSearch.slice(1) : existingSearch);
+    params.set(WORKSPACE_QUERY_PARAM, workspace);
+
+    return {
+      ...to,
+      search: `?${params.toString()}`,
+    };
+  }
+
+  return to;
+};
+
+const Link = React.forwardRef<
+  HTMLAnchorElement,
+  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean; componentId: string }
+>(function Link(props, ref) {
+  const { to, disableWorkspacePrefix, componentId, onClick, ...rest } = props;
+  const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
+  const events = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId,
+    analyticsEvents: events,
+  });
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    eventContext?.onClick(e);
+    onClick?.(e);
+  };
+
+  return <LinkDirect ref={ref} to={finalTo} onClick={handleClick} {...rest} />;
+});
 
 export const createMLflowRoutePath = (routePath: string) => {
   return routePath;
@@ -61,13 +168,11 @@ export {
   // React Router V6 API exports
   BrowserRouter,
   MemoryRouter,
-  HashRouter,
   Link,
   useNavigate,
   useLocation,
   useParams,
   useSearchParams,
-  useMatches,
   generatePath,
   matchPath,
   Route,
@@ -85,6 +190,7 @@ export {
 export const createLazyRouteElement = (
   // Load the module's default export and turn it into React Element
   componentLoader: () => Promise<{ default: React.ComponentType<React.PropsWithChildren<any>> }>,
+  // eslint-disable-next-line @databricks/react-lazy-only-at-top-level
 ) => React.createElement(React.lazy(componentLoader));
 export const createRouteElement = (component: React.ComponentType<React.PropsWithChildren<any>>) =>
   React.createElement(component);
@@ -145,4 +251,4 @@ export const useAssistantPrompts = (): string[] => {
   return DEFAULT_ASSISTANT_PROMPTS;
 };
 
-export type { Location, NavigateFunction, Params, To, NavigateOptions };
+export type { Location, NavigateFunction, Params, To, NavigateOptions, PathMatch };

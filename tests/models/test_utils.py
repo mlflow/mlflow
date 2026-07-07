@@ -6,7 +6,7 @@ from unittest import mock
 import numpy as np
 import pandas as pd
 import pytest
-import sklearn.neighbors as knn
+import sklearn.linear_model as logreg_module
 from sklearn import datasets
 
 import mlflow
@@ -43,9 +43,9 @@ def sklearn_knn_model():
     iris = datasets.load_iris()
     X = iris.data[:, :2]  # we only take the first two features.
     y = iris.target
-    knn_model = knn.KNeighborsClassifier()
-    knn_model.fit(X, y)
-    return ModelWithData(model=knn_model, inference_data=X)
+    logreg_model = logreg_module.LogisticRegression()
+    logreg_model.fit(X, y)
+    return ModelWithData(model=logreg_model, inference_data=X)
 
 
 def random_int(lo=1, hi=1000000000):
@@ -237,22 +237,18 @@ def test_enforce_object():
         "c": ["sentence1", "sentence2"],
         "d": {"str": "value", "arr": [0.1, 0.2]},
     }
-    obj = Object(
-        [
-            Property("a", DataType.string),
-            Property("b", DataType.binary, required=False),
-            Property("c", Array(DataType.string)),
-            Property(
-                "d",
-                Object(
-                    [
-                        Property("str", DataType.string),
-                        Property("arr", Array(DataType.double), required=False),
-                    ]
-                ),
-            ),
-        ]
-    )
+    obj = Object([
+        Property("a", DataType.string),
+        Property("b", DataType.binary, required=False),
+        Property("c", Array(DataType.string)),
+        Property(
+            "d",
+            Object([
+                Property("str", DataType.string),
+                Property("arr", Array(DataType.double), required=False),
+            ]),
+        ),
+    ])
     assert _enforce_object(data, obj) == data
 
     data = {"a": "some_sentence", "c": ["sentence1", "sentence2"], "d": {"str": "some_value"}}
@@ -306,22 +302,18 @@ def test_enforce_property():
     }
     prop = Property(
         "any_name",
-        Object(
-            [
-                Property("a", DataType.string),
-                Property("b", DataType.binary, required=False),
-                Property("c", Array(DataType.string), required=False),
-                Property(
-                    "d",
-                    Object(
-                        [
-                            Property("str", DataType.string),
-                            Property("arr", Array(DataType.double), required=False),
-                        ]
-                    ),
-                ),
-            ]
-        ),
+        Object([
+            Property("a", DataType.string),
+            Property("b", DataType.binary, required=False),
+            Property("c", Array(DataType.string), required=False),
+            Property(
+                "d",
+                Object([
+                    Property("str", DataType.string),
+                    Property("arr", Array(DataType.double), required=False),
+                ]),
+            ),
+        ]),
     )
     assert _enforce_property(data, prop) == data
     data = {"a": "some_sentence", "d": {"str": "some_value"}}
@@ -374,13 +366,11 @@ def test_enforce_property_with_errors():
                 {"a": "some_sentence3", "c": ["some_sentence4", "some_sentence5"]},
             ],
             Array(
-                Object(
-                    [
-                        Property("a", DataType.string),
-                        Property("b", DataType.string, required=False),
-                        Property("c", Array(DataType.string), required=False),
-                    ]
-                )
+                Object([
+                    Property("a", DataType.string),
+                    Property("b", DataType.string, required=False),
+                    Property("c", Array(DataType.string), required=False),
+                ])
             ),
         ),
         # 4. Empty list
@@ -398,12 +388,10 @@ def test_enforce_array_on_list(data, schema):
         (np.array(["some_sentence1", "some_sentence2"]), Array(DataType.string)),
         # 2. 2D array
         (
-            np.array(
-                [
-                    ["a", "b"],
-                    ["c", "d"],
-                ]
-            ),
+            np.array([
+                ["a", "b"],
+                ["c", "d"],
+            ]),
             Array(Array(DataType.string)),
         ),
         # 3. Empty array
@@ -449,9 +437,10 @@ def test_enforce_array_with_errors():
                 {"a": "some_sentence3", "c": ["some_sentence4", "some_sentence5"]},
             ],
             Array(
-                Object(
-                    [Property("a", DataType.string), Property("b", DataType.string, required=False)]
-                )
+                Object([
+                    Property("a", DataType.string),
+                    Property("b", DataType.string, required=False),
+                ])
             ),
         )
 
@@ -641,12 +630,10 @@ def test_validate_and_get_model_code_path_success(tmp_path):
 
 
 def test_suppress_schema_error(monkeypatch):
-    schema = Schema(
-        [
-            ColSpec("double", "id"),
-            ColSpec("string", "name"),
-        ]
-    )
+    schema = Schema([
+        ColSpec("double", "id"),
+        ColSpec("string", "name"),
+    ])
     monkeypatch.setenv(MLFLOW_DISABLE_SCHEMA_DETAILS.name, "true")
     data = pd.DataFrame({"id": [1, 2]}, dtype="float64")
 
@@ -658,12 +645,10 @@ def test_suppress_schema_error(monkeypatch):
 
 
 def test_enforce_schema_with_missing_and_extra_columns(monkeypatch):
-    schema = Schema(
-        [
-            ColSpec("long", "id"),
-            ColSpec("string", "name"),
-        ]
-    )
+    schema = Schema([
+        ColSpec("long", "id"),
+        ColSpec("string", "name"),
+    ])
     monkeypatch.setenv(MLFLOW_DISABLE_SCHEMA_DETAILS.name, "true")
     input_data = pd.DataFrame({"id": [1, 2], "extra_col": ["mlflow", "oss"]})
     with pytest.raises(

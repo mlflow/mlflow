@@ -19,8 +19,7 @@ Since the filters are applied at **client side** before sending the span to the 
 A filtering function must take a single argument, which is a <APILink fn="mlflow.entities.span.Span">`Span`</APILink> object. It can mutate the span in-place. It must not return a value.
 
 ```python
-def filter_function(span: Span) -> None:
-    ...
+def filter_function(span: Span) -> None: ...
 ```
 
 ## Example 1: Redacting E-mail Address
@@ -130,13 +129,9 @@ Now, let's register the filter function and run the application.
 mlflow.tracing.configure(span_processors=[filter_bank_account_number])
 
 # Run the application
-result = graph.invoke(
-    {
-        "messages": [
-            {"role": "user", "content": "What is the bank account number for John Doe?"}
-        ]
-    }
-)
+result = graph.invoke({
+    "messages": [{"role": "user", "content": "What is the bank account number for John Doe?"}]
+})
 ```
 
 The generated trace will have the bank account number redacted from all messages:

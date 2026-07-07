@@ -15544,6 +15544,41 @@ public final class DatabricksArtifacts {
      */
     com.google.protobuf.ByteString
         getRequestIdBytes();
+
+    /**
+     * <pre>
+     * Optional relative path within the trace artifact directory.
+     * If not specified, defaults to "traces.json".
+     * Used for downloading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+     * </pre>
+     *
+     * <code>optional string path = 2;</code>
+     * @return Whether the path field is set.
+     */
+    boolean hasPath();
+    /**
+     * <pre>
+     * Optional relative path within the trace artifact directory.
+     * If not specified, defaults to "traces.json".
+     * Used for downloading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+     * </pre>
+     *
+     * <code>optional string path = 2;</code>
+     * @return The path.
+     */
+    java.lang.String getPath();
+    /**
+     * <pre>
+     * Optional relative path within the trace artifact directory.
+     * If not specified, defaults to "traces.json".
+     * Used for downloading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+     * </pre>
+     *
+     * <code>optional string path = 2;</code>
+     * @return The bytes for path.
+     */
+    com.google.protobuf.ByteString
+        getPathBytes();
   }
   /**
    * Protobuf type {@code mlflow.GetCredentialsForTraceDataDownload}
@@ -15559,6 +15594,7 @@ public final class DatabricksArtifacts {
     }
     private GetCredentialsForTraceDataDownload() {
       requestId_ = "";
+      path_ = "";
     }
 
     @java.lang.Override
@@ -15596,6 +15632,12 @@ public final class DatabricksArtifacts {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
               requestId_ = bs;
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              path_ = bs;
               break;
             }
             default: {
@@ -16311,6 +16353,72 @@ public final class DatabricksArtifacts {
       }
     }
 
+    public static final int PATH_FIELD_NUMBER = 2;
+    private volatile java.lang.Object path_;
+    /**
+     * <pre>
+     * Optional relative path within the trace artifact directory.
+     * If not specified, defaults to "traces.json".
+     * Used for downloading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+     * </pre>
+     *
+     * <code>optional string path = 2;</code>
+     * @return Whether the path field is set.
+     */
+    @java.lang.Override
+    public boolean hasPath() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * Optional relative path within the trace artifact directory.
+     * If not specified, defaults to "traces.json".
+     * Used for downloading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+     * </pre>
+     *
+     * <code>optional string path = 2;</code>
+     * @return The path.
+     */
+    @java.lang.Override
+    public java.lang.String getPath() {
+      java.lang.Object ref = path_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          path_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Optional relative path within the trace artifact directory.
+     * If not specified, defaults to "traces.json".
+     * Used for downloading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+     * </pre>
+     *
+     * <code>optional string path = 2;</code>
+     * @return The bytes for path.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getPathBytes() {
+      java.lang.Object ref = path_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        path_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -16328,6 +16436,9 @@ public final class DatabricksArtifacts {
       if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, requestId_);
       }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, path_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -16339,6 +16450,9 @@ public final class DatabricksArtifacts {
       size = 0;
       if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, requestId_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, path_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -16360,6 +16474,11 @@ public final class DatabricksArtifacts {
         if (!getRequestId()
             .equals(other.getRequestId())) return false;
       }
+      if (hasPath() != other.hasPath()) return false;
+      if (hasPath()) {
+        if (!getPath()
+            .equals(other.getPath())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -16374,6 +16493,10 @@ public final class DatabricksArtifacts {
       if (hasRequestId()) {
         hash = (37 * hash) + REQUEST_ID_FIELD_NUMBER;
         hash = (53 * hash) + getRequestId().hashCode();
+      }
+      if (hasPath()) {
+        hash = (37 * hash) + PATH_FIELD_NUMBER;
+        hash = (53 * hash) + getPath().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -16510,6 +16633,8 @@ public final class DatabricksArtifacts {
         super.clear();
         requestId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
+        path_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -16542,6 +16667,10 @@ public final class DatabricksArtifacts {
           to_bitField0_ |= 0x00000001;
         }
         result.requestId_ = requestId_;
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.path_ = path_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -16594,6 +16723,11 @@ public final class DatabricksArtifacts {
         if (other.hasRequestId()) {
           bitField0_ |= 0x00000001;
           requestId_ = other.requestId_;
+          onChanged();
+        }
+        if (other.hasPath()) {
+          bitField0_ |= 0x00000002;
+          path_ = other.path_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -16709,6 +16843,126 @@ public final class DatabricksArtifacts {
         onChanged();
         return this;
       }
+
+      private java.lang.Object path_ = "";
+      /**
+       * <pre>
+       * Optional relative path within the trace artifact directory.
+       * If not specified, defaults to "traces.json".
+       * Used for downloading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+       * </pre>
+       *
+       * <code>optional string path = 2;</code>
+       * @return Whether the path field is set.
+       */
+      public boolean hasPath() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * Optional relative path within the trace artifact directory.
+       * If not specified, defaults to "traces.json".
+       * Used for downloading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+       * </pre>
+       *
+       * <code>optional string path = 2;</code>
+       * @return The path.
+       */
+      public java.lang.String getPath() {
+        java.lang.Object ref = path_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            path_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Optional relative path within the trace artifact directory.
+       * If not specified, defaults to "traces.json".
+       * Used for downloading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+       * </pre>
+       *
+       * <code>optional string path = 2;</code>
+       * @return The bytes for path.
+       */
+      public com.google.protobuf.ByteString
+          getPathBytes() {
+        java.lang.Object ref = path_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          path_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Optional relative path within the trace artifact directory.
+       * If not specified, defaults to "traces.json".
+       * Used for downloading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+       * </pre>
+       *
+       * <code>optional string path = 2;</code>
+       * @param value The path to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPath(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        path_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional relative path within the trace artifact directory.
+       * If not specified, defaults to "traces.json".
+       * Used for downloading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+       * </pre>
+       *
+       * <code>optional string path = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearPath() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        path_ = getDefaultInstance().getPath();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional relative path within the trace artifact directory.
+       * If not specified, defaults to "traces.json".
+       * Used for downloading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+       * </pre>
+       *
+       * <code>optional string path = 2;</code>
+       * @param value The bytes for path to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPathBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        path_ = value;
+        onChanged();
+        return this;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -16782,6 +17036,41 @@ public final class DatabricksArtifacts {
      */
     com.google.protobuf.ByteString
         getRequestIdBytes();
+
+    /**
+     * <pre>
+     * Optional relative path within the trace artifact directory.
+     * If not specified, defaults to "traces.json".
+     * Used for uploading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+     * </pre>
+     *
+     * <code>optional string path = 2;</code>
+     * @return Whether the path field is set.
+     */
+    boolean hasPath();
+    /**
+     * <pre>
+     * Optional relative path within the trace artifact directory.
+     * If not specified, defaults to "traces.json".
+     * Used for uploading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+     * </pre>
+     *
+     * <code>optional string path = 2;</code>
+     * @return The path.
+     */
+    java.lang.String getPath();
+    /**
+     * <pre>
+     * Optional relative path within the trace artifact directory.
+     * If not specified, defaults to "traces.json".
+     * Used for uploading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+     * </pre>
+     *
+     * <code>optional string path = 2;</code>
+     * @return The bytes for path.
+     */
+    com.google.protobuf.ByteString
+        getPathBytes();
   }
   /**
    * Protobuf type {@code mlflow.GetCredentialsForTraceDataUpload}
@@ -16797,6 +17086,7 @@ public final class DatabricksArtifacts {
     }
     private GetCredentialsForTraceDataUpload() {
       requestId_ = "";
+      path_ = "";
     }
 
     @java.lang.Override
@@ -16834,6 +17124,12 @@ public final class DatabricksArtifacts {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
               requestId_ = bs;
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              path_ = bs;
               break;
             }
             default: {
@@ -17549,6 +17845,72 @@ public final class DatabricksArtifacts {
       }
     }
 
+    public static final int PATH_FIELD_NUMBER = 2;
+    private volatile java.lang.Object path_;
+    /**
+     * <pre>
+     * Optional relative path within the trace artifact directory.
+     * If not specified, defaults to "traces.json".
+     * Used for uploading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+     * </pre>
+     *
+     * <code>optional string path = 2;</code>
+     * @return Whether the path field is set.
+     */
+    @java.lang.Override
+    public boolean hasPath() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * Optional relative path within the trace artifact directory.
+     * If not specified, defaults to "traces.json".
+     * Used for uploading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+     * </pre>
+     *
+     * <code>optional string path = 2;</code>
+     * @return The path.
+     */
+    @java.lang.Override
+    public java.lang.String getPath() {
+      java.lang.Object ref = path_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          path_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Optional relative path within the trace artifact directory.
+     * If not specified, defaults to "traces.json".
+     * Used for uploading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+     * </pre>
+     *
+     * <code>optional string path = 2;</code>
+     * @return The bytes for path.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getPathBytes() {
+      java.lang.Object ref = path_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        path_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -17566,6 +17928,9 @@ public final class DatabricksArtifacts {
       if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, requestId_);
       }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, path_);
+      }
       unknownFields.writeTo(output);
     }
 
@@ -17577,6 +17942,9 @@ public final class DatabricksArtifacts {
       size = 0;
       if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, requestId_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, path_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -17598,6 +17966,11 @@ public final class DatabricksArtifacts {
         if (!getRequestId()
             .equals(other.getRequestId())) return false;
       }
+      if (hasPath() != other.hasPath()) return false;
+      if (hasPath()) {
+        if (!getPath()
+            .equals(other.getPath())) return false;
+      }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -17612,6 +17985,10 @@ public final class DatabricksArtifacts {
       if (hasRequestId()) {
         hash = (37 * hash) + REQUEST_ID_FIELD_NUMBER;
         hash = (53 * hash) + getRequestId().hashCode();
+      }
+      if (hasPath()) {
+        hash = (37 * hash) + PATH_FIELD_NUMBER;
+        hash = (53 * hash) + getPath().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -17748,6 +18125,8 @@ public final class DatabricksArtifacts {
         super.clear();
         requestId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
+        path_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -17780,6 +18159,10 @@ public final class DatabricksArtifacts {
           to_bitField0_ |= 0x00000001;
         }
         result.requestId_ = requestId_;
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.path_ = path_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -17832,6 +18215,11 @@ public final class DatabricksArtifacts {
         if (other.hasRequestId()) {
           bitField0_ |= 0x00000001;
           requestId_ = other.requestId_;
+          onChanged();
+        }
+        if (other.hasPath()) {
+          bitField0_ |= 0x00000002;
+          path_ = other.path_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -17944,6 +18332,126 @@ public final class DatabricksArtifacts {
   }
   bitField0_ |= 0x00000001;
         requestId_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object path_ = "";
+      /**
+       * <pre>
+       * Optional relative path within the trace artifact directory.
+       * If not specified, defaults to "traces.json".
+       * Used for uploading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+       * </pre>
+       *
+       * <code>optional string path = 2;</code>
+       * @return Whether the path field is set.
+       */
+      public boolean hasPath() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * Optional relative path within the trace artifact directory.
+       * If not specified, defaults to "traces.json".
+       * Used for uploading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+       * </pre>
+       *
+       * <code>optional string path = 2;</code>
+       * @return The path.
+       */
+      public java.lang.String getPath() {
+        java.lang.Object ref = path_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            path_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Optional relative path within the trace artifact directory.
+       * If not specified, defaults to "traces.json".
+       * Used for uploading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+       * </pre>
+       *
+       * <code>optional string path = 2;</code>
+       * @return The bytes for path.
+       */
+      public com.google.protobuf.ByteString
+          getPathBytes() {
+        java.lang.Object ref = path_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          path_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Optional relative path within the trace artifact directory.
+       * If not specified, defaults to "traces.json".
+       * Used for uploading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+       * </pre>
+       *
+       * <code>optional string path = 2;</code>
+       * @param value The path to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPath(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        path_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional relative path within the trace artifact directory.
+       * If not specified, defaults to "traces.json".
+       * Used for uploading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+       * </pre>
+       *
+       * <code>optional string path = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearPath() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        path_ = getDefaultInstance().getPath();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Optional relative path within the trace artifact directory.
+       * If not specified, defaults to "traces.json".
+       * Used for uploading individual attachment files (e.g., "attachments/&lt;attachment_id&gt;").
+       * </pre>
+       *
+       * <code>optional string path = 2;</code>
+       * @param value The bytes for path to set.
+       * @return This builder for chaining.
+       */
+      public Builder setPathBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        path_ = value;
         onChanged();
         return this;
       }
@@ -22805,76 +23313,77 @@ public final class DatabricksArtifacts {
       "\031\001\022\031\n\013part_number\030\004 \001(\003B\004\370\206\031\001\032J\n\010Respons" +
       "e\022>\n\026upload_credential_info\030\001 \001(\0132\036.mlfl" +
       "ow.ArtifactCredentialInfo:+\342?(\n&com.data" +
-      "bricks.rpc.RPC[$this.Response]\"\260\001\n\"GetCr" +
+      "bricks.rpc.RPC[$this.Response]\"\276\001\n\"GetCr" +
       "edentialsForTraceDataDownload\022\030\n\nrequest" +
-      "_id\030\001 \001(\tB\004\370\206\031\001\032C\n\010Response\0227\n\017credentia" +
-      "l_info\030\001 \001(\0132\036.mlflow.ArtifactCredential" +
-      "Info:+\342?(\n&com.databricks.rpc.RPC[$this." +
-      "Response]\"\256\001\n GetCredentialsForTraceData" +
-      "Upload\022\030\n\nrequest_id\030\001 \001(\tB\004\370\206\031\001\032C\n\010Resp" +
-      "onse\0227\n\017credential_info\030\001 \001(\0132\036.mlflow.A" +
-      "rtifactCredentialInfo:+\342?(\n&com.databric" +
-      "ks.rpc.RPC[$this.Response]\"\355\001\n\"GetCreden" +
-      "tialsForLoggedModelUpload\022\026\n\010model_id\030\001 " +
-      "\001(\tB\004\370\206\031\001\022\r\n\005paths\030\002 \003(\t\022\022\n\npage_token\030\003" +
-      " \001(\t\032_\n\010Response\022:\n\013credentials\030\001 \003(\0132%." +
-      "mlflow.LoggedModelArtifactCredential\022\027\n\017" +
-      "next_page_token\030\002 \001(\t:+\342?(\n&com.databric" +
-      "ks.rpc.RPC[$this.Response]\"\357\001\n$GetCreden" +
-      "tialsForLoggedModelDownload\022\026\n\010model_id\030" +
-      "\001 \001(\tB\004\370\206\031\001\022\r\n\005paths\030\002 \003(\t\022\022\n\npage_token" +
-      "\030\003 \001(\t\032_\n\010Response\022:\n\013credentials\030\001 \003(\0132" +
-      "%.mlflow.LoggedModelArtifactCredential\022\027" +
-      "\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.databr" +
-      "icks.rpc.RPC[$this.Response]*s\n\026Artifact" +
-      "CredentialType\022\021\n\rAZURE_SAS_URI\020\001\022\025\n\021AWS" +
-      "_PRESIGNED_URL\020\002\022\022\n\016GCP_SIGNED_URL\020\003\022\033\n\027" +
-      "AZURE_ADLS_GEN2_SAS_URI\020\0042\325\r\n Databricks" +
-      "MlflowArtifactsService\022\234\001\n\025getCredential" +
-      "sForRead\022\035.mlflow.GetCredentialsForRead\032" +
-      "&.mlflow.GetCredentialsForRead.Response\"" +
-      "<\362\206\0318\n4\n\004POST\022&/mlflow/artifacts/credent" +
-      "ials-for-read\032\004\010\002\020\000\020\003\022\240\001\n\026getCredentials" +
-      "ForWrite\022\036.mlflow.GetCredentialsForWrite" +
-      "\032\'.mlflow.GetCredentialsForWrite.Respons" +
-      "e\"=\362\206\0319\n5\n\004POST\022\'/mlflow/artifacts/crede" +
-      "ntials-for-write\032\004\010\002\020\000\020\003\022\237\001\n\025createMulti" +
-      "partUpload\022\035.mlflow.CreateMultipartUploa" +
-      "d\032&.mlflow.CreateMultipartUpload.Respons" +
-      "e\"?\362\206\031;\n7\n\004POST\022)/mlflow/artifacts/creat" +
-      "e-multipart-upload\032\004\010\002\020\000\020\003\022\247\001\n\027completeM" +
-      "ultipartUpload\022\037.mlflow.CompleteMultipar" +
-      "tUpload\032(.mlflow.CompleteMultipartUpload" +
-      ".Response\"A\362\206\031=\n9\n\004POST\022+/mlflow/artifac" +
-      "ts/complete-multipart-upload\032\004\010\002\020\000\020\003\022\260\001\n" +
-      "\031getPresignedUploadPartUrl\022!.mlflow.GetP" +
-      "resignedUploadPartUrl\032*.mlflow.GetPresig" +
-      "nedUploadPartUrl.Response\"D\362\206\031@\n<\n\003GET\022/" +
-      "/mlflow/artifacts/get-presigned-upload-p" +
-      "art-url\032\004\010\002\020\000\020\003\022\325\001\n\"getCredentialsForTra" +
-      "ceDataDownload\022*.mlflow.GetCredentialsFo" +
-      "rTraceDataDownload\0323.mlflow.GetCredentia" +
-      "lsForTraceDataDownload.Response\"N\362\206\031J\nF\n" +
-      "\003GET\0229/mlflow/traces/{request_id}/creden" +
-      "tials-for-data-download\032\004\010\002\020\000\020\003\022\315\001\n getC" +
-      "redentialsForTraceDataUpload\022(.mlflow.Ge" +
-      "tCredentialsForTraceDataUpload\0321.mlflow." +
-      "GetCredentialsForTraceDataUpload.Respons" +
-      "e\"L\362\206\031H\nD\n\003GET\0227/mlflow/traces/{request_" +
-      "id}/credentials-for-data-upload\032\004\010\002\020\000\020\003\022" +
-      "\336\001\n\"getCredentialsForLoggedModelUpload\022*" +
-      ".mlflow.GetCredentialsForLoggedModelUplo" +
-      "ad\0323.mlflow.GetCredentialsForLoggedModel" +
-      "Upload.Response\"W\362\206\031S\nO\n\004POST\022A/mlflow/l" +
-      "ogged-models/{model_id}/artifacts/creden" +
-      "tials-for-upload\032\004\010\002\020\000\020\003\022\346\001\n$getCredenti" +
-      "alsForLoggedModelDownload\022,.mlflow.GetCr" +
-      "edentialsForLoggedModelDownload\0325.mlflow" +
-      ".GetCredentialsForLoggedModelDownload.Re" +
-      "sponse\"Y\362\206\031U\nQ\n\004POST\022C/mlflow/logged-mod" +
-      "els/{model_id}/artifacts/credentials-for" +
-      "-download\032\004\010\002\020\000\020\003B,\n\037com.databricks.api." +
-      "proto.mlflow\220\001\001\240\001\001\342?\002\020\001"
+      "_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004path\030\002 \001(\t\032C\n\010Respons" +
+      "e\0227\n\017credential_info\030\001 \001(\0132\036.mlflow.Arti" +
+      "factCredentialInfo:+\342?(\n&com.databricks." +
+      "rpc.RPC[$this.Response]\"\274\001\n GetCredentia" +
+      "lsForTraceDataUpload\022\030\n\nrequest_id\030\001 \001(\t" +
+      "B\004\370\206\031\001\022\014\n\004path\030\002 \001(\t\032C\n\010Response\0227\n\017cred" +
+      "ential_info\030\001 \001(\0132\036.mlflow.ArtifactCrede" +
+      "ntialInfo:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"\355\001\n\"GetCredentialsForLogg" +
+      "edModelUpload\022\026\n\010model_id\030\001 \001(\tB\004\370\206\031\001\022\r\n" +
+      "\005paths\030\002 \003(\t\022\022\n\npage_token\030\003 \001(\t\032_\n\010Resp" +
+      "onse\022:\n\013credentials\030\001 \003(\0132%.mlflow.Logge" +
+      "dModelArtifactCredential\022\027\n\017next_page_to" +
+      "ken\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"\357\001\n$GetCredentialsForLogg" +
+      "edModelDownload\022\026\n\010model_id\030\001 \001(\tB\004\370\206\031\001\022" +
+      "\r\n\005paths\030\002 \003(\t\022\022\n\npage_token\030\003 \001(\t\032_\n\010Re" +
+      "sponse\022:\n\013credentials\030\001 \003(\0132%.mlflow.Log" +
+      "gedModelArtifactCredential\022\027\n\017next_page_" +
+      "token\030\002 \001(\t:+\342?(\n&com.databricks.rpc.RPC" +
+      "[$this.Response]*s\n\026ArtifactCredentialTy" +
+      "pe\022\021\n\rAZURE_SAS_URI\020\001\022\025\n\021AWS_PRESIGNED_U" +
+      "RL\020\002\022\022\n\016GCP_SIGNED_URL\020\003\022\033\n\027AZURE_ADLS_G" +
+      "EN2_SAS_URI\020\0042\325\r\n DatabricksMlflowArtifa" +
+      "ctsService\022\234\001\n\025getCredentialsForRead\022\035.m" +
+      "lflow.GetCredentialsForRead\032&.mlflow.Get" +
+      "CredentialsForRead.Response\"<\362\206\0318\n4\n\004POS" +
+      "T\022&/mlflow/artifacts/credentials-for-rea" +
+      "d\032\004\010\002\020\000\020\003\022\240\001\n\026getCredentialsForWrite\022\036.m" +
+      "lflow.GetCredentialsForWrite\032\'.mlflow.Ge" +
+      "tCredentialsForWrite.Response\"=\362\206\0319\n5\n\004P" +
+      "OST\022\'/mlflow/artifacts/credentials-for-w" +
+      "rite\032\004\010\002\020\000\020\003\022\237\001\n\025createMultipartUpload\022\035" +
+      ".mlflow.CreateMultipartUpload\032&.mlflow.C" +
+      "reateMultipartUpload.Response\"?\362\206\031;\n7\n\004P" +
+      "OST\022)/mlflow/artifacts/create-multipart-" +
+      "upload\032\004\010\002\020\000\020\003\022\247\001\n\027completeMultipartUplo" +
+      "ad\022\037.mlflow.CompleteMultipartUpload\032(.ml" +
+      "flow.CompleteMultipartUpload.Response\"A\362" +
+      "\206\031=\n9\n\004POST\022+/mlflow/artifacts/complete-" +
+      "multipart-upload\032\004\010\002\020\000\020\003\022\260\001\n\031getPresigne" +
+      "dUploadPartUrl\022!.mlflow.GetPresignedUplo" +
+      "adPartUrl\032*.mlflow.GetPresignedUploadPar" +
+      "tUrl.Response\"D\362\206\031@\n<\n\003GET\022//mlflow/arti" +
+      "facts/get-presigned-upload-part-url\032\004\010\002\020" +
+      "\000\020\003\022\325\001\n\"getCredentialsForTraceDataDownlo" +
+      "ad\022*.mlflow.GetCredentialsForTraceDataDo" +
+      "wnload\0323.mlflow.GetCredentialsForTraceDa" +
+      "taDownload.Response\"N\362\206\031J\nF\n\003GET\0229/mlflo" +
+      "w/traces/{request_id}/credentials-for-da" +
+      "ta-download\032\004\010\002\020\000\020\003\022\315\001\n getCredentialsFo" +
+      "rTraceDataUpload\022(.mlflow.GetCredentials" +
+      "ForTraceDataUpload\0321.mlflow.GetCredentia" +
+      "lsForTraceDataUpload.Response\"L\362\206\031H\nD\n\003G" +
+      "ET\0227/mlflow/traces/{request_id}/credenti" +
+      "als-for-data-upload\032\004\010\002\020\000\020\003\022\336\001\n\"getCrede" +
+      "ntialsForLoggedModelUpload\022*.mlflow.GetC" +
+      "redentialsForLoggedModelUpload\0323.mlflow." +
+      "GetCredentialsForLoggedModelUpload.Respo" +
+      "nse\"W\362\206\031S\nO\n\004POST\022A/mlflow/logged-models" +
+      "/{model_id}/artifacts/credentials-for-up" +
+      "load\032\004\010\002\020\000\020\003\022\346\001\n$getCredentialsForLogged" +
+      "ModelDownload\022,.mlflow.GetCredentialsFor" +
+      "LoggedModelDownload\0325.mlflow.GetCredenti" +
+      "alsForLoggedModelDownload.Response\"Y\362\206\031U" +
+      "\nQ\n\004POST\022C/mlflow/logged-models/{model_i" +
+      "d}/artifacts/credentials-for-download\032\004\010" +
+      "\002\020\000\020\003B,\n\037com.databricks.api.proto.mlflow" +
+      "\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -22971,7 +23480,7 @@ public final class DatabricksArtifacts {
     internal_static_mlflow_GetCredentialsForTraceDataDownload_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor,
-        new java.lang.String[] { "RequestId", });
+        new java.lang.String[] { "RequestId", "Path", });
     internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_descriptor =
       internal_static_mlflow_GetCredentialsForTraceDataDownload_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_GetCredentialsForTraceDataDownload_Response_fieldAccessorTable = new
@@ -22983,7 +23492,7 @@ public final class DatabricksArtifacts {
     internal_static_mlflow_GetCredentialsForTraceDataUpload_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor,
-        new java.lang.String[] { "RequestId", });
+        new java.lang.String[] { "RequestId", "Path", });
     internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_descriptor =
       internal_static_mlflow_GetCredentialsForTraceDataUpload_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_GetCredentialsForTraceDataUpload_Response_fieldAccessorTable = new

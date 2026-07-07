@@ -12,6 +12,7 @@ from mlflow.environment_variables import (
 from mlflow.tracing.constant import TRACE_RENDERER_ASSET_PATH
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.uri import is_http_uri
+from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
 
@@ -83,6 +84,9 @@ def _get_query_string_for_traces(traces: list["Trace"]):
     for trace in traces:
         query_params.append(("trace_id", trace.info.request_id))
         query_params.append(("experiment_id", trace.info.experiment_id))
+
+    if workspace := get_request_workspace():
+        query_params.append(("workspace", workspace))
 
     return urlencode(query_params)
 

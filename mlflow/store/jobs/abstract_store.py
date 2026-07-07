@@ -12,6 +12,11 @@ class AbstractJobStore(ABC):
     Abstract class that defines API interfaces for storing Job metadata.
     """
 
+    @property
+    def supports_workspaces(self) -> bool:
+        """Return whether workspaces are supported by this job store."""
+        return False
+
     @abstractmethod
     def create_job(self, job_name: str, params: str, timeout: float | None = None) -> Job:
         """
@@ -143,6 +148,18 @@ class AbstractJobStore(ABC):
 
         Raises:
             MlflowException: If job with the given ID is not found
+        """
+
+    @abstractmethod
+    def update_status_details(self, job_id: str, status_details: dict[str, Any]) -> None:
+        """
+        Update job status details.
+
+        Merges the provided status details with existing job status details.
+
+        Args:
+            job_id: The ID of the job to update
+            status_details: Status details to merge into existing job status details
         """
 
     @abstractmethod

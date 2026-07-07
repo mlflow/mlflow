@@ -10,7 +10,7 @@ import git
 import pytest
 
 import mlflow
-from mlflow.exceptions import ExecutionException
+from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import _project_spec
 from mlflow.projects.utils import (
     _fetch_git_repo,
@@ -19,6 +19,7 @@ from mlflow.projects.utils import (
     _is_valid_branch_name,
     _is_zip_uri,
     _parse_subdirectory,
+    _unzip_repo,
     fetch_and_validate_project,
     get_or_create_run,
     load_project,
@@ -55,7 +56,9 @@ class _SimpleHTTPServer(HTTPServer):
         return f"http://{self.server_address[0]}:{self.server_address[1]}"
 
     def __enter__(self) -> "_SimpleHTTPServer":
-        self._thread = threading.Thread(target=self.serve_forever, daemon=True)
+        self._thread = threading.Thread(
+            name="simple-http-server", target=self.serve_forever, daemon=True
+        )
         self._thread.start()
         return self
 
@@ -261,3 +264,12 @@ def test_fetch_create_and_log(tmp_path):
         assert entry_point_name == run.data.tags[MLFLOW_PROJECT_ENTRY_POINT]
         assert project_uri == run.data.tags[MLFLOW_SOURCE_NAME]
         assert user_param == run.data.params
+
+
+def test_unzip_repo_rejects_path_traversal(tmp_path):
+    malicious_zip = tmp_path / "malicious.zip"
+    with zipfile.ZipFile(malicious_zip, "w") as zf:
+        zf.writestr("../../../etc/passwd", "pwned")
+
+    with pytest.raises(MlflowException, match="path traversal"):
+        _unzip_repo(str(malicious_zip), str(tmp_path / "dst"))

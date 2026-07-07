@@ -71,18 +71,14 @@ with mlflow.start_run():
     model = pipeline.fit(training)
 
     # Log the entire pipeline
-    model_info = mlflow.spark.log_model(
-        spark_model=model, artifact_path="spark-pipeline"
-    )
+    model_info = mlflow.spark.log_model(spark_model=model, artifact_path="spark-pipeline")
 
     # Log parameters manually
-    mlflow.log_params(
-        {
-            "max_iter": lr.getMaxIter(),
-            "reg_param": lr.getRegParam(),
-            "num_features": hashingTF.getNumFeatures(),
-        }
-    )
+    mlflow.log_params({
+        "max_iter": lr.getMaxIter(),
+        "reg_param": lr.getRegParam(),
+        "num_features": hashingTF.getNumFeatures(),
+    })
 
 print(f"Model logged with URI: {model_info.model_uri}")
 ```
@@ -122,9 +118,7 @@ import pandas as pd
 pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
 # Use with pandas DataFrame
-test_data = pd.DataFrame(
-    {"text": ["spark machine learning", "hadoop distributed computing"]}
-)
+test_data = pd.DataFrame({"text": ["spark machine learning", "hadoop distributed computing"]})
 
 predictions = pyfunc_model.predict(test_data)
 print(predictions)
@@ -217,16 +211,12 @@ with mlflow.start_run():
         registered_model_name="CustomerSegmentationModel",
     )
 
-    mlflow.set_tags(
-        {
-            "validation_passed": "true",
-            "deployment_target": "batch_scoring",
-        }
-    )
+    mlflow.set_tags({
+        "validation_passed": "true",
+        "deployment_target": "batch_scoring",
+    })
 
-model_version = client.get_latest_versions(
-    "CustomerSegmentationModel", stages=["None"]
-)[0]
+model_version = client.get_latest_versions("CustomerSegmentationModel", stages=["None"])[0]
 
 client.transition_model_version_stage(
     name="CustomerSegmentationModel", version=model_version.version, stage="Staging"

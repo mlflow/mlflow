@@ -120,6 +120,7 @@ export const BindingsUsingKeyDrawer = ({ open, bindings, endpoints, onClose }: B
                           />
                         </Typography.Text>
                         <Link
+                          componentId="mlflow.gateway.api_keys.binding_endpoint_link"
                           to={GatewayRoutes.getEndpointDetailsRoute(binding.endpoint_id)}
                           css={{
                             fontSize: theme.typography.fontSizeSm,

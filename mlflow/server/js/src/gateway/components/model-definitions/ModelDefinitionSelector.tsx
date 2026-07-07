@@ -9,7 +9,7 @@ interface ModelDefinitionSelectorProps {
   provider?: string;
   disabled?: boolean;
   error?: string;
-  componentIdPrefix?: string;
+  componentId?: string;
 }
 
 export const ModelDefinitionSelector = ({
@@ -18,7 +18,7 @@ export const ModelDefinitionSelector = ({
   provider,
   disabled,
   error,
-  componentIdPrefix = 'mlflow.gateway.model-definition',
+  componentId = 'mlflow.gateway.model-definition',
 }: ModelDefinitionSelectorProps) => {
   const { theme } = useDesignSystemTheme();
   const { data: modelDefinitions, isLoading } = useModelDefinitionsQuery();
@@ -46,16 +46,14 @@ export const ModelDefinitionSelector = ({
       ? `No existing model definitions for ${formatProviderName(provider)}`
       : 'No model definitions available';
 
-  const selectId = `${componentIdPrefix}.select`;
-
   return (
     <div css={{ width: '100%' }}>
-      <FormUI.Label htmlFor={selectId}>
+      <FormUI.Label htmlFor={`${componentId}.select`}>
         <FormattedMessage defaultMessage="Model definition" description="Label for model definition selector" />
       </FormUI.Label>
       <SimpleSelect
-        id={selectId}
-        componentId={selectId}
+        id={`${componentId}.select`}
+        componentId={`${componentId}.select`}
         value={value}
         onChange={({ target }) => onChange(target.value)}
         disabled={disabled || !hasOptions}

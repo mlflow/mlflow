@@ -21,7 +21,7 @@ export const TracesV3Toolbar = ({
         display: 'flex',
         alignItems: 'center',
         width: '100%',
-        borderBottom: `1px solid ${theme.colors.grey100}`,
+        borderBottom: `1px solid ${theme.colors.borderDecorative}`,
         paddingBottom: `${theme.spacing.sm}px`,
       }}
       className={className}
@@ -50,13 +50,7 @@ export const TracesV3Toolbar = ({
           <Typography.Title level={3} withoutMargins>
             {sessionId}
           </Typography.Title>
-          {sessionId && (
-            <CopyActionButton
-              copyText={sessionId}
-              componentId="mlflow.chat-sessions.copy-session-id"
-              buttonProps={{ icon: undefined }}
-            />
-          )}
+          {sessionId && <CopyActionButton copyText={sessionId} componentId="mlflow.chat-sessions.copy-session-id" />}
         </div>
       )}
     </div>

@@ -15,34 +15,30 @@ from tests.tracing.helper import get_traces, reset_autolog_state  # noqa: F401
 if Version(importlib.metadata.version("dspy")) < Version("2.5.17"):
     pytest.skip("Evaluation test requires dspy>=2.5.17", allow_module_level=True)
 
-_EVAL_DATA = pd.DataFrame(
-    {
-        "inputs": [
-            "What is MLflow?",
-            "What is Spark?",
-        ],
-        "ground_truth": [
-            "MLflow is an open-source platform to manage the ML lifecycle.",
-            "Spark is a unified analytics engine for big data processing.",
-        ],
-    }
-)
+_EVAL_DATA = pd.DataFrame({
+    "inputs": [
+        "What is MLflow?",
+        "What is Spark?",
+    ],
+    "ground_truth": [
+        "MLflow is an open-source platform to manage the ML lifecycle.",
+        "Spark is a unified analytics engine for big data processing.",
+    ],
+})
 
 
 def get_fake_model():
     dspy.settings.configure(
-        lm=DummyLM(
-            {
-                "What is MLflow?": {
-                    "answer": "MLflow is an open-source platform to manage the ML lifecycle.",
-                    "reasoning": "No reasoning provided.",
-                },
-                "What is Spark?": {
-                    "answer": "Spark is a unified analytics engine for big data processing.",
-                    "reasoning": "No reasoning provided.",
-                },
-            }
-        )
+        lm=DummyLM({
+            "What is MLflow?": {
+                "answer": "MLflow is an open-source platform to manage the ML lifecycle.",
+                "reasoning": "No reasoning provided.",
+            },
+            "What is Spark?": {
+                "answer": "Spark is a unified analytics engine for big data processing.",
+                "reasoning": "No reasoning provided.",
+            },
+        })
     )
 
     class CoT(dspy.Module):

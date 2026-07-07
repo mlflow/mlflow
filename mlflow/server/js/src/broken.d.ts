@@ -3,7 +3,6 @@
  */
 
 declare module 'cookie';
-declare module 'json-bigint';
 declare module 'js-yaml';
 declare module 'sanitize-html';
 declare module 'enzyme';

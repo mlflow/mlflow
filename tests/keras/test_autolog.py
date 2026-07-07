@@ -19,13 +19,11 @@ def clear_autologging_config():
 
 
 def _create_keras_model():
-    model = keras.Sequential(
-        [
-            keras.Input([28, 28, 3]),
-            keras.layers.Flatten(),
-            keras.layers.Dense(2),
-        ]
-    )
+    model = keras.Sequential([
+        keras.Input([28, 28, 3]),
+        keras.layers.Flatten(),
+        keras.layers.Dense(2),
+    ])
 
     model.compile(
         loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -199,24 +197,18 @@ def test_keras_autolog_log_datasets(log_datasets, log_models):
     dataset_inputs = run_inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
-        feature_schema = Schema(
-            [
-                TensorSpec(np.dtype(np.float32), (-1, 28, 28, 3)),
-            ]
-        )
-        target_schema = Schema(
-            [
-                TensorSpec(np.dtype(np.int64), (-1,)),
-            ]
-        )
-        expected = json.dumps(
-            {
-                "mlflow_tensorspec": {
-                    "features": feature_schema.to_json(),
-                    "targets": target_schema.to_json(),
-                }
+        feature_schema = Schema([
+            TensorSpec(np.dtype(np.float32), (-1, 28, 28, 3)),
+        ])
+        target_schema = Schema([
+            TensorSpec(np.dtype(np.int64), (-1,)),
+        ])
+        expected = json.dumps({
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": target_schema.to_json(),
             }
-        )
+        })
         assert dataset_inputs[0].dataset.schema == expected
     else:
         assert len(dataset_inputs) == 0

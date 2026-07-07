@@ -1059,12 +1059,10 @@ def autolog(
             mlflow.log_dict(best_param_map, artifact_file="best_parameters.json")
 
             # Log best_param_map as autologging parameters as well
-            _log_estimator_params(
-                {
-                    f"best_{param_name}": param_value
-                    for param_name, param_value in best_param_map.items()
-                }
-            )
+            _log_estimator_params({
+                f"best_{param_name}": param_value
+                for param_name, param_value in best_param_map.items()
+            })
 
         if log_models:
             if _should_log_model(spark_model):

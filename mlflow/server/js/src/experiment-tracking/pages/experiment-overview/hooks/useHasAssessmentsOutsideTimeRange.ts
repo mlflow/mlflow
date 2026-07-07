@@ -7,6 +7,7 @@ import {
   AssessmentTypeValue,
   AssessmentDimensionKey,
   createAssessmentFilter,
+  INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import { useOverviewChartContext } from '../OverviewChartContext';
@@ -18,7 +19,7 @@ import { useOverviewChartContext } from '../OverviewChartContext';
  * @returns Whether there are assessments outside the time range and loading state
  */
 export function useHasAssessmentsOutsideTimeRange(enabled: boolean) {
-  const { experimentId } = useOverviewChartContext();
+  const { experimentIds } = useOverviewChartContext();
 
   // Filter for feedback assessments only
   const filters = useMemo(() => [createAssessmentFilter(AssessmentFilterKey.TYPE, AssessmentTypeValue.FEEDBACK)], []);
@@ -29,7 +30,7 @@ export function useHasAssessmentsOutsideTimeRange(enabled: boolean) {
     isLoading,
     error,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs: undefined,
     endTimeMs: undefined,
     viewType: MetricViewType.ASSESSMENTS,
@@ -42,7 +43,9 @@ export function useHasAssessmentsOutsideTimeRange(enabled: boolean) {
 
   const hasAssessments = useMemo(() => {
     if (!countData?.data_points) return false;
-    return countData.data_points.length > 0;
+    return countData.data_points.some(
+      (dp) => dp.dimensions?.[AssessmentDimensionKey.ASSESSMENT_NAME] !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
+    );
   }, [countData?.data_points]);
 
   return {

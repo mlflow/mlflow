@@ -10,28 +10,35 @@ import { TimelineTreeNode } from './TimelineTreeNode';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { MOCK_TRACE } from '../ModelTraceExplorer.test-utils';
 import { parseModelTraceToTree } from '../ModelTraceExplorer.utils';
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
+import { BrowserRouter } from '../RoutingUtils';
 
 const TEST_NODE = parseModelTraceToTree(MOCK_TRACE) as ModelTraceSpanNode;
 
 const TestWrapper = () => {
   const [selectedKey, setSelectedKey] = useState<string | number>(TEST_NODE.key);
   const [expandedKeys, setExpandedKeys] = useState<Set<string | number>>(new Set([]));
+  const [queryClient] = useState(() => new QueryClient());
 
   return (
-    <IntlProvider locale="en">
-      <DesignSystemProvider>
-        <TimelineTreeNode
-          node={TEST_NODE}
-          selectedKey={selectedKey}
-          expandedKeys={expandedKeys}
-          setExpandedKeys={setExpandedKeys}
-          traceStartTime={0}
-          traceEndTime={0}
-          onSelect={(node) => setSelectedKey(node.key)}
-          linesToRender={[]}
-        />
-      </DesignSystemProvider>
-    </IntlProvider>
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <IntlProvider locale="en">
+          <DesignSystemProvider>
+            <TimelineTreeNode
+              node={TEST_NODE}
+              selectedKey={selectedKey}
+              expandedKeys={expandedKeys}
+              setExpandedKeys={setExpandedKeys}
+              traceStartTime={0}
+              traceEndTime={0}
+              onSelect={(node) => setSelectedKey(node.key)}
+              linesToRender={[]}
+            />
+          </DesignSystemProvider>
+        </IntlProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
   );
 };
 

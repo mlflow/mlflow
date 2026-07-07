@@ -4,6 +4,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
+from mlflow.store.artifact.b2_artifact_repo import B2ArtifactRepository
 from mlflow.store.artifact.dbfs_artifact_repo import dbfs_artifact_repo_factory
 from mlflow.store.artifact.ftp_artifact_repo import FTPArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
@@ -19,6 +20,7 @@ from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.store.artifact.uc_volume_artifact_repo import uc_volume_artifact_repo_factory
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.uri import get_uri_scheme, is_uc_volumes_uri
+from mlflow.utils.workspace_context import get_request_workspace
 
 
 class ArtifactRepositoryRegistry:
@@ -80,7 +82,15 @@ class ArtifactRepositoryRegistry:
                 f"Could not find a registered artifact repository for: {artifact_uri}. "
                 f"Currently registered schemes are: {list(self._registry.keys())}"
             )
-        return repository(artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri)
+        repository_instance = repository(
+            artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+        )
+
+        workspace_name = get_request_workspace()
+        if workspace_name and hasattr(repository_instance, "for_workspace"):
+            repository_instance = repository_instance.for_workspace(workspace_name)
+
+        return repository_instance
 
     def get_registered_artifact_repositories(self):
         """
@@ -108,6 +118,7 @@ _artifact_repository_registry.register("", LocalArtifactRepository)
 _artifact_repository_registry.register("file", LocalArtifactRepository)
 _artifact_repository_registry.register("s3", S3ArtifactRepository)
 _artifact_repository_registry.register("r2", R2ArtifactRepository)
+_artifact_repository_registry.register("b2", B2ArtifactRepository)
 _artifact_repository_registry.register("gs", GCSArtifactRepository)
 _artifact_repository_registry.register("wasbs", AzureBlobArtifactRepository)
 _artifact_repository_registry.register("ftp", FTPArtifactRepository)

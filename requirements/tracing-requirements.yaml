@@ -7,7 +7,7 @@
 protobuf:
   pip_release: protobuf
   minimum: "3.12.0"
-  max_major_version: 6
+  max_major_version: 7
 
 packaging:
   pip_release: packaging

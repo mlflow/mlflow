@@ -4,15 +4,14 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { isNil } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Empty, SearchIcon, Spinner, Table, useDesignSystemTheme } from '@databricks/design-system';
+import { Empty, SearchIcon, Table, TableSkeletonRows, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import {
-  isV4TraceId,
-  shouldUseUnifiedModelTraceComparisonUI,
-  type ModelTraceInfoV3,
-} from '@databricks/web-shared/model-trace-explorer';
-import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
+import { isV4TraceId } from '../model-trace-explorer/ModelTraceExplorer.utils';
+import { shouldUseUnifiedModelTraceComparisonUI } from '../model-trace-explorer/FeatureUtils';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '../react-table/useReactTable';
 
+import { GenAITracesTableBodySkeleton } from './GenAITracesTableBodySkeleton';
 import { GenAITracesTableContext } from './GenAITracesTableContext';
 import { sortColumns, sortGroupedColumns } from './GenAiTracesTable.utils';
 import { getColumnConfig } from './GenAiTracesTableBody.utils';
@@ -21,15 +20,23 @@ import { MemoizedGenAiTracesTableSessionGroupedRows } from './GenAiTracesTableSe
 import { GenAiTracesTableHeader } from './GenAiTracesTableHeader';
 import { groupTracesBySessionForTable } from './utils/SessionGroupingUtils';
 import { HeaderCellRenderer } from './cellRenderers/HeaderCellRenderer';
-import { GenAITraceComparisonModal } from './components/GenAITraceComparisonModal';
-import { GenAiEvaluationTracesReviewModal } from './components/GenAiEvaluationTracesReviewModal';
 import type { GetTraceFunction } from './hooks/useGetTrace';
-import { REQUEST_TIME_COLUMN_ID, SESSION_COLUMN_ID, SERVER_SORTABLE_INFO_COLUMNS } from './hooks/useTableColumns';
+import {
+  createAssessmentColumnId,
+  EXECUTION_DURATION_COLUMN_ID,
+  INPUTS_COLUMN_ID,
+  REQUEST_TIME_COLUMN_ID,
+  RESPONSE_COLUMN_ID,
+  SESSION_COLUMN_ID,
+  SERVER_SORTABLE_INFO_COLUMNS,
+  TRACE_ID_COLUMN_ID,
+} from './hooks/useTableColumns';
 import {
   type RunEvaluationTracesDataEntry,
   type EvaluationsOverviewTableSort,
   TracesTableColumnType,
   type AssessmentAggregates,
+  type AssessmentCountMetrics,
   type AssessmentFilter,
   type AssessmentInfo,
   type AssessmentValueType,
@@ -38,9 +45,19 @@ import {
   type TracesTableColumn,
   TracesTableColumnGroup,
 } from './types';
-import { getAssessmentAggregates } from './utils/AggregationUtils';
+import { getAssessmentAggregates, buildAggregatesFromCountMetrics } from './utils/AggregationUtils';
 import { escapeCssSpecialCharacters } from './utils/DisplayUtils';
-import { getRowIdFromEvaluation } from './utils/TraceUtils';
+import { getExperimentIdFromTraceLocation, getRowIdFromEvaluation, RESULT_ASSESSMENT_NAME } from './utils/TraceUtils';
+import { TestCaseDetail } from './TestCaseDetail';
+
+const GenAITraceComparisonModal = React.lazy(() =>
+  import('./components/GenAITraceComparisonModal').then((m) => ({ default: m.GenAITraceComparisonModal })),
+);
+const GenAiEvaluationTracesReviewModal = React.lazy(() =>
+  import('./components/GenAiEvaluationTracesReviewModal').then((m) => ({
+    default: m.GenAiEvaluationTracesReviewModal,
+  })),
+);
 
 export const GenAiTracesTableBody = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
@@ -70,10 +87,17 @@ export const GenAiTracesTableBody = React.memo(
     enableRowSelection,
     enableGrouping = false,
     allColumns,
-    displayLoadingOverlay,
+    isTableLoading,
     isGroupedBySession,
+    searchQuery,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    assessmentCountMetrics,
+    compareAssessmentCountMetrics,
+    regressionTestMode = false,
   }: {
-    experimentId: string;
+    experimentId?: string;
     selectedColumns: TracesTableColumn[];
     evaluations: EvalTraceComparisonEntry[];
     selectedEvaluationId: string | undefined;
@@ -105,13 +129,26 @@ export const GenAiTracesTableBody = React.memo(
     enableRowSelection?: boolean;
     enableGrouping?: boolean;
     allColumns: TracesTableColumn[];
-    displayLoadingOverlay?: boolean;
+    isTableLoading?: boolean;
     isGroupedBySession?: boolean;
+    /** When set, matching text in the Request column is highlighted. */
+    searchQuery?: string;
+    // Infinite scroll props (active when shouldUseInfinitePaginatedTraces is true)
+    fetchNextPage?: () => void;
+    hasNextPage?: boolean;
+    isFetchingNextPage?: boolean;
+    // Server-side assessment count data (active when shouldUseInfinitePaginatedTraces is true)
+    assessmentCountMetrics?: AssessmentCountMetrics;
+    compareAssessmentCountMetrics?: AssessmentCountMetrics;
+    // Regression-test mode: open the test-case detail drawer instead of the
+    // trace review. Defaults to false so ordinary evaluation runs are unaffected.
+    regressionTestMode?: boolean;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
     const [collapsedHeader, setCollapsedHeader] = useState(false);
     const lastSelectedRowIdRef = useRef<string | null>(null);
+    const lastSelectedSessionIdRef = useRef<string | null>(null);
     // Track which sessions are expanded (collapsed by default)
     const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
@@ -151,8 +188,30 @@ export const GenAiTracesTableBody = React.memo(
             experimentId,
             onChangeEvaluationId,
             onTraceTagsEdit,
+            regressionTestMode,
           }),
         );
+
+        if (regressionTestMode) {
+          const typeById = new Map(selectedColumns.map((col) => [String(col.id), col.type]));
+          // Render order only (which columns are visible by default is decided
+          // separately by the caller). Lead columns first, then unhidden metadata,
+          // then "Result" as the left-most assessment, then any other assessments.
+          const resultColumnId = createAssessmentColumnId(RESULT_ASSESSMENT_NAME);
+          const columnRank = (col: ColumnDef<EvalTraceComparisonEntry>) => {
+            const id = String(col.id);
+            if (id === TRACE_ID_COLUMN_ID) return 0;
+            if (typeById.get(id) === TracesTableColumnType.INPUT || id === INPUTS_COLUMN_ID) return 1;
+            if (id === RESPONSE_COLUMN_ID) return 2;
+            if (id === EXECUTION_DURATION_COLUMN_ID) return 3;
+            if (id === resultColumnId) return 5;
+            if (typeById.get(id) === TracesTableColumnType.ASSESSMENT) return 6;
+            return 4;
+          };
+          return {
+            columns: columnsList.sort((a, b) => columnRank(a) - columnRank(b)),
+          };
+        }
 
         return { columns: sortColumns(columnsList, selectedColumns) };
       }
@@ -179,6 +238,7 @@ export const GenAiTracesTableBody = React.memo(
             experimentId,
             onChangeEvaluationId,
             onTraceTagsEdit,
+            regressionTestMode,
           }),
         );
       });
@@ -211,6 +271,7 @@ export const GenAiTracesTableBody = React.memo(
       onTraceTagsEdit,
       enableGrouping,
       allColumns,
+      regressionTestMode,
     ]);
 
     const { setTable, setSelectedRowIds } = React.useContext(GenAITracesTableContext);
@@ -241,6 +302,7 @@ export const GenAiTracesTableBody = React.memo(
         meta: {
           getRunColor,
           traceIdToTurnMap,
+          searchQuery,
         },
         onRowSelectionChange: setRowSelection,
         getRowId: (row) => getRowIdFromEvaluation(row.currentRunValue),
@@ -296,6 +358,65 @@ export const GenAiTracesTableBody = React.memo(
       [table],
     );
 
+    const onToggleSessionSelection = useCallback(
+      (sessionId: string, traces: ModelTraceInfoV3[], event: unknown) => {
+        const traceIds = traces.map((t) => t.trace_id);
+        const currentSelection = table.getState().rowSelection ?? {};
+        const isDeselecting = traceIds.every((id) => currentSelection[id]);
+
+        // Support shift+click to select a range of sessions
+        const eventWithShiftKey = event as KeyboardEvent & MouseEvent;
+        const isShiftPressed = Boolean(eventWithShiftKey?.shiftKey);
+
+        if (isShiftPressed && lastSelectedSessionIdRef.current) {
+          // Find session headers in groupedRows for range selection
+          const sessionHeaders = groupedRows.filter(
+            (r): r is (typeof groupedRows)[number] & { type: 'sessionHeader' } => r.type === 'sessionHeader',
+          );
+          const anchorIndex = sessionHeaders.findIndex((h) => h.sessionId === lastSelectedSessionIdRef.current);
+          const currentIndex = sessionHeaders.findIndex((h) => h.sessionId === sessionId);
+
+          if (anchorIndex !== -1 && currentIndex !== -1) {
+            const [start, end] =
+              anchorIndex <= currentIndex ? [anchorIndex, currentIndex] : [currentIndex, anchorIndex];
+            const updatedSelection: RowSelectionState = { ...currentSelection };
+
+            for (let index = start; index <= end; index += 1) {
+              const header = sessionHeaders[index];
+              header.traces.forEach((t) => {
+                if (isDeselecting) {
+                  delete updatedSelection[t.trace_id];
+                } else {
+                  updatedSelection[t.trace_id] = true;
+                }
+              });
+            }
+
+            table.setRowSelection(updatedSelection);
+            lastSelectedSessionIdRef.current = Object.keys(updatedSelection).length === 0 ? null : sessionId;
+            return;
+          }
+        }
+
+        // Default: toggle single session
+        const updatedSelection: RowSelectionState = { ...currentSelection };
+        traceIds.forEach((id) => {
+          if (isDeselecting) {
+            delete updatedSelection[id];
+          } else {
+            updatedSelection[id] = true;
+          }
+        });
+
+        table.setRowSelection(updatedSelection);
+
+        // Update anchor: clear if nothing is selected after deselecting
+        const hasSelectionAfter = Object.keys(updatedSelection).length > 0;
+        lastSelectedSessionIdRef.current = hasSelectionAfter ? sessionId : null;
+      },
+      [table, groupedRows],
+    );
+
     // Need to check if rowSelection is undefined, otherwise getIsAllRowsSelected throws an error
     const allRowSelected = rowSelection !== undefined && table.getIsAllRowsSelected();
     const someRowSelected = table.getIsSomeRowsSelected();
@@ -311,6 +432,19 @@ export const GenAiTracesTableBody = React.memo(
         setSelectedRowIds(table.getSelectedRowModel().rows.map((r) => r.id));
       }
     }, [table, rowSelection, setSelectedRowIds, enableRowSelection]);
+
+    useEffect(() => {
+      if (!enableRowSelection) {
+        lastSelectedRowIdRef.current = null;
+        lastSelectedSessionIdRef.current = null;
+        return;
+      }
+
+      if (!rowSelection || Object.keys(rowSelection).length === 0) {
+        lastSelectedRowIdRef.current = null;
+        lastSelectedSessionIdRef.current = null;
+      }
+    }, [rowSelection, enableRowSelection]);
 
     // When the table is empty.
     const emptyDescription = intl.formatMessage({
@@ -374,6 +508,8 @@ export const GenAiTracesTableBody = React.memo(
     const tableHeaderGroups = table.getHeaderGroups();
     const columnSizingInfo = table.getState().columnSizingInfo;
 
+    const columnSizeInfo = table.getState().columnSizingInfo;
+
     /**
      * Instead of calling `column.getSize()` on every render for every header
      * and especially every data cell (very expensive),
@@ -400,18 +536,69 @@ export const GenAiTracesTableBody = React.memo(
       }
 
       return { columnSizeVars: colSizes, tableWidth: tableWidth + 'px' };
-      // we need to recompute this whenever columns get resized or changed
+      // columnSizingInfo is not directly referenced but is needed to trigger recalculation
+      // when columns are resized, since getSize() reads from this state internally.
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tableHeaderGroups, rows, columnSizingInfo]);
 
     // Compute assessment aggregates.
+    // When server-side assessment count metrics are available (infinite pagination),
+    // use them for categorical assessments to get accurate counts across all traces.
     const assessmentNameToAggregates = useMemo(() => {
       const result: Record<string, AssessmentAggregates> = {};
+      const currentData = !assessmentCountMetrics?.isLoading ? assessmentCountMetrics?.data : undefined;
+      const otherData = !compareAssessmentCountMetrics?.isLoading ? compareAssessmentCountMetrics?.data : undefined;
       for (const assessmentInfo of selectedAssessmentInfos) {
-        result[assessmentInfo.name] = getAssessmentAggregates(assessmentInfo, evaluations, assessmentFilters);
+        // The synthetic "Result" assessment exists only on the loaded traces (no
+        // server-side count metric), so always aggregate it from the traces;
+        // metric-based counts would be empty (0%).
+        if (currentData && assessmentInfo.dtype !== 'unknown' && assessmentInfo.name !== RESULT_ASSESSMENT_NAME) {
+          result[assessmentInfo.name] = buildAggregatesFromCountMetrics(
+            assessmentInfo,
+            currentData,
+            assessmentFilters,
+            otherData,
+          );
+        } else {
+          result[assessmentInfo.name] = getAssessmentAggregates(assessmentInfo, evaluations, assessmentFilters);
+        }
       }
       return result;
-    }, [selectedAssessmentInfos, evaluations, assessmentFilters]);
+    }, [
+      selectedAssessmentInfos,
+      evaluations,
+      assessmentFilters,
+      assessmentCountMetrics,
+      compareAssessmentCountMetrics,
+    ]);
+
+    const evalEntryMatchesEvaluationId = useCallback((evaluationId: string, entry?: RunEvaluationTracesDataEntry) => {
+      if (isV4TraceId(evaluationId) && entry?.fullTraceId === evaluationId) {
+        return true;
+      }
+      return entry?.evaluationId === evaluationId;
+    }, []);
+
+    // Find the selected evaluation entry to derive experimentId and comparison trace IDs.
+    const selectedEvaluation = useMemo(() => {
+      if (!selectedEvaluationId) {
+        return undefined;
+      }
+      return evaluations.find(
+        (entry) =>
+          evalEntryMatchesEvaluationId(selectedEvaluationId, entry.currentRunValue) ||
+          evalEntryMatchesEvaluationId(selectedEvaluationId, entry.otherRunValue),
+      );
+    }, [selectedEvaluationId, evaluations, evalEntryMatchesEvaluationId]);
+
+    // Derive experimentId from the selected evaluation's trace_location, falling back to the prop
+    const selectedEvaluationExperimentId = useMemo(
+      () =>
+        getExperimentIdFromTraceLocation(selectedEvaluation?.currentRunValue?.traceInfo?.trace_location) ??
+        getExperimentIdFromTraceLocation(selectedEvaluation?.otherRunValue?.traceInfo?.trace_location) ??
+        experimentId,
+      [selectedEvaluation, experimentId],
+    );
 
     // Get the trace IDs for the comparison modal.
     // TODO: after the new comparison modal is rolled out, we can remove the comparison capabilities from <GenAiEvaluationTracesReviewModal>
@@ -419,47 +606,53 @@ export const GenAiTracesTableBody = React.memo(
       if (!shouldUseUnifiedModelTraceComparisonUI()) {
         return null;
       }
-      const evalEntryMatchesEvaluationId = (evaluationId: string, entry?: RunEvaluationTracesDataEntry) => {
-        if (isV4TraceId(evaluationId) && entry?.fullTraceId === evaluationId) {
-          return true;
-        }
-        return entry?.evaluationId === evaluationId;
-      };
 
-      if (selectedEvaluationId) {
-        const evaluation = evaluations.find(
-          (entry) =>
-            evalEntryMatchesEvaluationId(selectedEvaluationId, entry.currentRunValue) ||
-            evalEntryMatchesEvaluationId(selectedEvaluationId, entry.otherRunValue),
-        );
-
-        if (evaluation?.otherRunValue?.fullTraceId && evaluation?.currentRunValue?.fullTraceId) {
-          return [evaluation.currentRunValue.fullTraceId, evaluation.otherRunValue.fullTraceId];
-        }
+      if (selectedEvaluation?.otherRunValue?.fullTraceId && selectedEvaluation?.currentRunValue?.fullTraceId) {
+        return [selectedEvaluation.currentRunValue.fullTraceId, selectedEvaluation.otherRunValue.fullTraceId];
       }
       return null;
-    }, [selectedEvaluationId, evaluations]);
+    }, [selectedEvaluation]);
+
+    const handleScrollForInfiniteFetch = useCallback(
+      (e: React.UIEvent<HTMLDivElement>) => {
+        if (!fetchNextPage || !hasNextPage || isFetchingNextPage) return;
+        const { scrollHeight, scrollTop, clientHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop - clientHeight < 200) {
+          fetchNextPage();
+        }
+      },
+      [fetchNextPage, hasNextPage, isFetchingNextPage],
+    );
+
+    // Auto-fetch next page while the container isn't tall enough to scroll
+    useEffect(() => {
+      const container = tableContainerRef.current;
+      if (!container || !fetchNextPage || !hasNextPage || isFetchingNextPage) return;
+      if (container.scrollHeight <= container.clientHeight) {
+        fetchNextPage();
+      }
+    }, [fetchNextPage, hasNextPage, isFetchingNextPage, virtualizerTotalSize]);
 
     return (
       <>
         <div
           className="container"
           ref={tableContainerRef}
+          onScroll={handleScrollForInfiniteFetch}
           css={{
             height: '100%',
             position: 'relative',
             overflowY: 'auto',
             overflowX: 'auto',
-            minWidth: '100%',
-            width: tableWidth,
           }}
         >
           <Table
             css={{
-              width: '100%',
+              width: tableWidth,
+              minWidth: '100%',
               ...columnSizeVars, // Define column sizes on the <table> element
             }}
-            empty={isEmpty() ? emptyComponent : undefined}
+            empty={isEmpty() && !isTableLoading ? emptyComponent : undefined}
             someRowsSelected={enableRowSelection ? someRowSelected || allRowSelected : undefined}
           >
             <GenAiTracesTableHeader
@@ -480,10 +673,10 @@ export const GenAiTracesTableBody = React.memo(
               allRowSelected={allRowSelected}
               someRowSelected={someRowSelected}
               toggleAllRowsSelectedHandler={table.getToggleAllRowsSelectedHandler}
-              setColumnSizing={table.setColumnSizing}
             />
-
-            {isGroupedBySession ? (
+            {isTableLoading ? (
+              <GenAITracesTableBodySkeleton table={table} />
+            ) : isGroupedBySession ? (
               <MemoizedGenAiTracesTableSessionGroupedRows
                 rows={rows}
                 groupedRows={groupedRows}
@@ -496,11 +689,13 @@ export const GenAiTracesTableBody = React.memo(
                 selectedColumns={sortedGroupedColumns}
                 expandedSessions={expandedSessions}
                 toggleSessionExpanded={toggleSessionExpanded}
+                onToggleSessionSelection={onToggleSessionSelection}
                 experimentId={experimentId}
                 getRunColor={getRunColor}
                 runUuid={runUuid}
                 compareToRunUuid={compareToRunUuid}
                 rowSelectionChangeHandler={rowSelectionChangeHandler}
+                searchQuery={searchQuery}
               />
             ) : (
               <MemoizedGenAiTracesTableBodyRows
@@ -515,47 +710,56 @@ export const GenAiTracesTableBody = React.memo(
                 rowSelectionChangeHandler={rowSelectionChangeHandler}
               />
             )}
+            {isFetchingNextPage && <TableSkeletonRows table={table} />}
           </Table>
         </div>
-        {displayLoadingOverlay && (
-          <div
-            css={{
-              position: 'absolute',
-              inset: 0,
-              backgroundColor: theme.colors.backgroundPrimary,
-              opacity: 0.75,
-              pointerEvents: 'none',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
-            <Spinner size="large" />
-          </div>
-        )}
-        {comparedTraceIds && shouldUseUnifiedModelTraceComparisonUI() ? (
-          <GenAITraceComparisonModal
-            traceIds={comparedTraceIds}
-            onClose={() => onChangeEvaluationId(undefined)}
-            // prettier-ignore
-          />
-        ) : (
-          selectedEvaluationId && (
-            <GenAiEvaluationTracesReviewModal
-              experimentId={experimentId}
-              runUuid={runUuid}
-              runDisplayName={runDisplayName}
-              otherRunDisplayName={compareToRunDisplayName}
-              evaluations={rows.map((row) => row.original)}
-              selectedEvaluationId={selectedEvaluationId}
-              onChangeEvaluationId={onChangeEvaluationId}
-              exportToEvalsInstanceEnabled={exportToEvalsInstanceEnabled}
-              assessmentInfos={assessmentInfos}
-              getTrace={getTrace}
-              saveAssessmentsQuery={saveAssessmentsQuery}
+        <React.Suspense fallback={null}>
+          {/* Regression-test mode takes priority: it shows the single test-case
+              drawer and doesn't support trace comparison. */}
+          {regressionTestMode ? (
+            selectedEvaluationId &&
+            selectedEvaluation &&
+            (() => {
+              // Walk the rows to wire prev/next through the test cases.
+              const curId = selectedEvaluation.currentRunValue?.evaluationId;
+              const idx = rows.findIndex((row) => row.original?.currentRunValue?.evaluationId === curId);
+              const evalIdAt = (j: number) => rows[j]?.original?.currentRunValue?.evaluationId;
+              return (
+                <TestCaseDetail
+                  evaluation={selectedEvaluation}
+                  experimentId={selectedEvaluationExperimentId ?? experimentId}
+                  assessmentInfos={assessmentInfos}
+                  onClose={() => onChangeEvaluationId(undefined)}
+                  onPrev={idx > 0 ? () => onChangeEvaluationId(evalIdAt(idx - 1)) : undefined}
+                  onNext={idx >= 0 && idx < rows.length - 1 ? () => onChangeEvaluationId(evalIdAt(idx + 1)) : undefined}
+                />
+              );
+            })()
+          ) : comparedTraceIds && shouldUseUnifiedModelTraceComparisonUI() ? (
+            <GenAITraceComparisonModal
+              traceIds={comparedTraceIds}
+              onClose={() => onChangeEvaluationId(undefined)}
+              // prettier-ignore
             />
-          )
-        )}
+          ) : (
+            selectedEvaluationId &&
+            selectedEvaluationExperimentId && (
+              <GenAiEvaluationTracesReviewModal
+                experimentId={selectedEvaluationExperimentId}
+                runUuid={runUuid}
+                runDisplayName={runDisplayName}
+                otherRunDisplayName={compareToRunDisplayName}
+                evaluations={rows.map((row) => row.original)}
+                selectedEvaluationId={selectedEvaluationId}
+                onChangeEvaluationId={onChangeEvaluationId}
+                exportToEvalsInstanceEnabled={exportToEvalsInstanceEnabled}
+                assessmentInfos={assessmentInfos}
+                getTrace={getTrace}
+                saveAssessmentsQuery={saveAssessmentsQuery}
+              />
+            )
+          )}
+        </React.Suspense>
       </>
     );
   },

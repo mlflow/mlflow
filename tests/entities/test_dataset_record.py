@@ -354,77 +354,63 @@ def test_dataset_record_from_dict_with_missing_keys():
 
     # Test missing required fields
     with pytest.raises(ValueError, match="dataset_id is required"):
-        DatasetRecord.from_dict(
-            {
-                "dataset_record_id": "rec123",
-                "inputs": {"test": "data"},
-                "created_time": 123,
-                "last_update_time": 123,
-            }
-        )
-
-    with pytest.raises(ValueError, match="dataset_record_id is required"):
-        DatasetRecord.from_dict(
-            {
-                "dataset_id": "dataset123",
-                "inputs": {"test": "data"},
-                "created_time": 123,
-                "last_update_time": 123,
-            }
-        )
-
-    with pytest.raises(ValueError, match="inputs is required"):
-        DatasetRecord.from_dict(
-            {
-                "dataset_record_id": "rec123",
-                "dataset_id": "dataset123",
-                "created_time": 123,
-                "last_update_time": 123,
-            }
-        )
-
-    with pytest.raises(ValueError, match="created_time is required"):
-        DatasetRecord.from_dict(
-            {
-                "dataset_record_id": "rec123",
-                "dataset_id": "dataset123",
-                "inputs": {"test": "data"},
-                "last_update_time": 123,
-            }
-        )
-
-    with pytest.raises(ValueError, match="last_update_time is required"):
-        DatasetRecord.from_dict(
-            {
-                "dataset_record_id": "rec123",
-                "dataset_id": "dataset123",
-                "inputs": {"test": "data"},
-                "created_time": 123,
-            }
-        )
-
-    # Test that empty inputs dict is allowed
-    record_empty_inputs = DatasetRecord.from_dict(
-        {
-            "dataset_record_id": "rec789",
-            "dataset_id": "dataset123",
-            "inputs": {},
+        DatasetRecord.from_dict({
+            "dataset_record_id": "rec123",
+            "inputs": {"test": "data"},
             "created_time": 123,
             "last_update_time": 123,
-        }
-    )
+        })
+
+    with pytest.raises(ValueError, match="dataset_record_id is required"):
+        DatasetRecord.from_dict({
+            "dataset_id": "dataset123",
+            "inputs": {"test": "data"},
+            "created_time": 123,
+            "last_update_time": 123,
+        })
+
+    with pytest.raises(ValueError, match="inputs is required"):
+        DatasetRecord.from_dict({
+            "dataset_record_id": "rec123",
+            "dataset_id": "dataset123",
+            "created_time": 123,
+            "last_update_time": 123,
+        })
+
+    with pytest.raises(ValueError, match="created_time is required"):
+        DatasetRecord.from_dict({
+            "dataset_record_id": "rec123",
+            "dataset_id": "dataset123",
+            "inputs": {"test": "data"},
+            "last_update_time": 123,
+        })
+
+    with pytest.raises(ValueError, match="last_update_time is required"):
+        DatasetRecord.from_dict({
+            "dataset_record_id": "rec123",
+            "dataset_id": "dataset123",
+            "inputs": {"test": "data"},
+            "created_time": 123,
+        })
+
+    # Test that empty inputs dict is allowed
+    record_empty_inputs = DatasetRecord.from_dict({
+        "dataset_record_id": "rec789",
+        "dataset_id": "dataset123",
+        "inputs": {},
+        "created_time": 123,
+        "last_update_time": 123,
+    })
     assert record_empty_inputs.inputs == {}
 
     # Test that missing inputs raises ValueError
     with pytest.raises(ValueError, match="inputs is required"):
-        DatasetRecord.from_dict(
-            {
-                "dataset_record_id": "rec789",
-                "dataset_id": "dataset123",
-                "created_time": 123,
-                "last_update_time": 123,
-            }
-        )
+        DatasetRecord.from_dict({
+            "dataset_record_id": "rec789",
+            "dataset_id": "dataset123",
+            "created_time": 123,
+            "last_update_time": 123,
+        })
 
     data_with_source = {
         "dataset_record_id": "rec456",

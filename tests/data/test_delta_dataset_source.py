@@ -16,7 +16,8 @@ def spark_session():
     from pyspark.sql import SparkSession
 
     with (
-        SparkSession.builder.master("local[*]")
+        SparkSession.builder
+        .master("local[*]")
         .config("spark.jars.packages", "io.delta:delta-spark_2.13:4.0.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(
@@ -153,14 +154,12 @@ def test_uc_table_id_retrieval_works(spark_session, tmp_path):
         )
         loaded_df_spark = delta_datasource.load()
         assert loaded_df_spark.count() == df2_spark.count()
-        assert delta_datasource.to_json() == json.dumps(
-            {
-                "delta_table_name": "default.temp_delta_versioned_with_id",
-                "delta_table_version": 1,
-                "is_databricks_uc_table": True,
-                "delta_table_id": "uc_table_id_1",
-            }
-        )
+        assert delta_datasource.to_json() == json.dumps({
+            "delta_table_name": "default.temp_delta_versioned_with_id",
+            "delta_table_version": 1,
+            "is_databricks_uc_table": True,
+            "delta_table_id": "uc_table_id_1",
+        })
 
 
 def _args(endpoint, json_body):

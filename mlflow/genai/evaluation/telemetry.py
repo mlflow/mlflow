@@ -64,14 +64,12 @@ def emit_metric_usage_event(
             for hashed_name in metric_stats
         ]
 
-        events.append(
-            {
-                "custom_metric_usage_event": {
-                    "eval_count": trace_count,
-                    "metrics": metric_stats,
-                }
+        events.append({
+            "custom_metric_usage_event": {
+                "eval_count": trace_count,
+                "metrics": metric_stats,
             }
-        )
+        })
 
     if builtin_metrics:
         builtin_stats = [
@@ -82,13 +80,11 @@ def emit_metric_usage_event(
             for scorer in builtin_metrics
         ]
 
-        events.append(
-            {
-                "builtin_scorer_usage_event": {
-                    "metrics": builtin_stats,
-                }
+        events.append({
+            "builtin_scorer_usage_event": {
+                "metrics": builtin_stats,
             }
-        )
+        })
 
     if not events:
         return

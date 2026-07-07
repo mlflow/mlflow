@@ -24,7 +24,10 @@ def autolog(
         silent: If ``True``, suppress all event logs and warnings from MLflow during Mistral AI
             autologging. If ``False``, show all events and warnings.
     """
-    from mistralai.chat import Chat
+    try:
+        from mistralai.client.chat import Chat  # mistralai >= 2.0
+    except ImportError:
+        from mistralai.chat import Chat  # mistralai < 2.0
 
     safe_patch(
         FLAVOR_NAME,

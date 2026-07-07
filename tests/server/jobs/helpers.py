@@ -70,7 +70,6 @@ def _setup_job_runner(
         SqlAlchemyJobStore(backend_store_uri)
 
         with _launch_job_runner_for_test() as job_runner_proc:
-            time.sleep(10)
             yield job_runner_proc
     finally:
         # Clear the huey instance cache AFTER killing the runner to ensure clean state for next test
@@ -81,6 +80,18 @@ def _setup_job_runner(
             # close all db connections and drops connection pool
             handlers._job_store.engine.dispose()
         handlers._job_store = None
+
+
+def wait_for_process_exit(pid: int, timeout: float = 5) -> None:
+    """Poll until a process is no longer alive, or fail the test."""
+    from mlflow.server.jobs.utils import is_process_alive
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not is_process_alive(pid):
+            return
+        time.sleep(0.1)
+    pytest.fail(f"Process {pid} still alive after {timeout}s")
 
 
 def wait_job_finalize(job_id, timeout=60):

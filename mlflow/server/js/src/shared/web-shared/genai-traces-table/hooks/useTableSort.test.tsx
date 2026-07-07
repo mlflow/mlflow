@@ -6,7 +6,7 @@ import type { EvaluationsOverviewTableSort, TracesTableColumn } from '../types';
 import { TracesTableColumnType } from '../types';
 
 jest.mock('../../model-trace-explorer/FeatureUtils', () => ({
-  shoudlEnableURLPersistenceForSortAndColumns: () => true,
+  shouldEnableTracesTableStatePersistence: () => true,
 }));
 
 const mockColumns: TracesTableColumn[] = [

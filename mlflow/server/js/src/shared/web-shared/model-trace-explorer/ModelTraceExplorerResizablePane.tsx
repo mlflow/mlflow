@@ -6,7 +6,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
 
-import { useResizeObserver } from '../hooks';
+import { useResizeObserver } from '../hooks/useResizeObserver';
 
 interface ModelTraceExplorerResizablePaneProps {
   initialRatio: number;

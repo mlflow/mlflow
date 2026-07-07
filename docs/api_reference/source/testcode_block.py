@@ -151,23 +151,21 @@ def generate_test_file(location: str, line_num: int, code: str, output_dir: Path
     filename = f"test_{safe_name}_{line_num}.py"
     content = textwrap.indent(code, " " * 4)
 
-    test_code = "\n".join(
-        [
-            f"# Location: {location}",
-            "import pytest",
-            "",
-            "",
-            # Show the code block location in the test report.
-            f"@pytest.mark.parametrize('_', [' {location} '])",
-            "def test(_):",
-            content,
-            "",
-            "",
-            'if __name__ == "__main__":',
-            "    test()",
-            "",
-        ]
-    )
+    test_code = "\n".join([
+        f"# Location: {location}",
+        "import pytest",
+        "",
+        "",
+        # Show the code block location in the test report.
+        f"@pytest.mark.parametrize('_', [' {location} '])",
+        "def test(_):",
+        content,
+        "",
+        "",
+        'if __name__ == "__main__":',
+        "    test()",
+        "",
+    ])
 
     output_path = output_dir / filename
     output_path.write_text(test_code)

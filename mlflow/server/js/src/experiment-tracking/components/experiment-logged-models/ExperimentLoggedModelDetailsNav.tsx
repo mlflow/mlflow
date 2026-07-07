@@ -17,7 +17,10 @@ export const ExperimentLoggedModelDetailsNav = ({
     <NavigationMenu.Root>
       <NavigationMenu.List>
         <NavigationMenu.Item key="overview" active={!activeTabName}>
-          <Link to={Routes.getExperimentLoggedModelDetailsPageRoute(experimentId, modelId)}>
+          <Link
+            componentId="mlflow.logged_models.details_nav.overview_link"
+            to={Routes.getExperimentLoggedModelDetailsPageRoute(experimentId, modelId)}
+          >
             <FormattedMessage
               defaultMessage="Overview"
               description="Label for the overview tab on the logged model details page"
@@ -34,7 +37,10 @@ export const ExperimentLoggedModelDetailsNav = ({
           </Link>
         </NavigationMenu.Item> */}
         <NavigationMenu.Item key="traces" active={activeTabName === 'traces'}>
-          <Link to={Routes.getExperimentLoggedModelDetailsPageRoute(experimentId, modelId, 'traces')}>
+          <Link
+            componentId="mlflow.logged_models.details_nav.traces_link"
+            to={Routes.getExperimentLoggedModelDetailsPageRoute(experimentId, modelId, 'traces')}
+          >
             <FormattedMessage
               defaultMessage="Traces"
               description="Label for the traces tab on the logged model details page"
@@ -42,7 +48,10 @@ export const ExperimentLoggedModelDetailsNav = ({
           </Link>
         </NavigationMenu.Item>
         <NavigationMenu.Item key="artifacts" active={activeTabName === 'artifacts'}>
-          <Link to={Routes.getExperimentLoggedModelDetailsPageRoute(experimentId, modelId, 'artifacts')}>
+          <Link
+            componentId="mlflow.logged_models.details_nav.artifacts_link"
+            to={Routes.getExperimentLoggedModelDetailsPageRoute(experimentId, modelId, 'artifacts')}
+          >
             <FormattedMessage
               defaultMessage="Artifacts"
               description="Label for the artifacts tab on the logged model details page"

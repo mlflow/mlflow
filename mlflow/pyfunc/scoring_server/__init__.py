@@ -52,7 +52,7 @@ try:
     from mlflow.pyfunc import PyFuncModel, load_model
 except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
-from io import StringIO
+from io import BytesIO, StringIO
 
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.pyfunc.utils.serving_data_parser import is_unified_llm_input
@@ -62,10 +62,12 @@ SERVING_MODEL_CONFIG = "SERVING_MODEL_CONFIG"
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
+CONTENT_TYPE_PARQUET = "application/vnd.apache.parquet"
 
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
+    CONTENT_TYPE_PARQUET,
 ]
 
 _logger = logging.getLogger(__name__)
@@ -100,59 +102,6 @@ def load_model_with_mlflow_config(model_uri):
         extra_kwargs["model_config"] = json.loads(model_config_json)
 
     return load_model(model_uri, **extra_kwargs)
-
-
-# Keep this method to maintain compatibility with MLServer
-# https://github.com/SeldonIO/MLServer/blob/caa173ab099a4ec002a7c252cbcc511646c261a6/runtimes/mlflow/mlserver_mlflow/runtime.py#L13C5-L13C31
-def infer_and_parse_json_input(json_input, schema: Schema = None):
-    """
-    Args:
-        json_input: A JSON-formatted string representation of TF serving input or a Pandas
-                    DataFrame, or a stream containing such a string representation.
-        schema: Optional schema specification to be used during parsing.
-    """
-    if isinstance(json_input, dict):
-        decoded_input = json_input
-    else:
-        try:
-            decoded_input = json.loads(json_input)
-        except json.decoder.JSONDecodeError as ex:
-            raise MlflowException(
-                message=(
-                    "Failed to parse input from JSON. Ensure that input is a valid JSON"
-                    f" formatted string. Error: '{ex}'. Input: \n{json_input}\n"
-                ),
-                error_code=BAD_REQUEST,
-            )
-    if isinstance(decoded_input, dict):
-        format_keys = set(decoded_input.keys()).intersection(SUPPORTED_FORMATS)
-        if len(format_keys) != 1:
-            message = f"Received dictionary with input fields: {list(decoded_input.keys())}"
-            raise MlflowException(
-                message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
-                error_code=BAD_REQUEST,
-            )
-        input_format = format_keys.pop()
-        if input_format in (INSTANCES, INPUTS):
-            return parse_tf_serving_input(decoded_input, schema=schema)
-
-        elif input_format in (DF_SPLIT, DF_RECORDS):
-            # NB: skip the dataframe_ prefix
-            pandas_orient = input_format[10:]
-            return dataframe_from_parsed_json(
-                decoded_input[input_format], pandas_orient=pandas_orient, schema=schema
-            )
-    elif isinstance(decoded_input, list):
-        message = "Received a list"
-        raise MlflowException(
-            message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
-            error_code=BAD_REQUEST,
-        )
-    else:
-        message = f"Received unexpected input type '{type(decoded_input)}'"
-        raise MlflowException(
-            message=f"{REQUIRED_INPUT_FORMAT}. {message}.", error_code=BAD_REQUEST
-        )
 
 
 def _decode_json_input(json_input):
@@ -261,6 +210,27 @@ def parse_csv_input(csv_input, schema: Schema = None):
         )
 
 
+def parse_parquet_input(parquet_input):
+    """
+    Args:
+        parquet_input: A Parquet BinaryIO stream containing a representation of a Pandas DataFrame,
+                       or a Parquet file path containing such a representation.
+    """
+    import pandas as pd
+
+    try:
+        return pd.read_parquet(parquet_input)
+    except Exception as e:
+        _handle_serving_error(
+            error_message=(
+                "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
+                " a valid Parquet Pandas DataFrame produced using the"
+                f" `pandas.DataFrame.to_parquet()` method. Error: '{e}'"
+            ),
+            error_code=BAD_REQUEST,
+        )
+
+
 def unwrapped_predictions_to_json(raw_predictions, output):
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
     return json.dump(predictions, output, cls=NumpyEncoder)
@@ -347,6 +317,11 @@ def invocations(data, content_type, model, input_schema):
         data = parsed_json_input.data
         params = parsed_json_input.params
         should_parse_as_unified_llm_input = parsed_json_input.is_unified_llm_input
+    elif mime_type == CONTENT_TYPE_PARQUET:
+        # Convert from Parquet to pandas
+        parquet_input = BytesIO(data)
+        data = parse_parquet_input(parquet_input=parquet_input)
+        params = None
     else:
         return InvocationsResponse(
             response=(
@@ -480,9 +455,7 @@ def init(model: PyFuncModel):
                 media_type="application/json",
             )
 
-    @app.route("/ping", methods=["GET"])
-    @app.route("/health", methods=["GET"])
-    async def ping(request: Request):
+    async def ping():
         """
         Determine if the container is working and healthy.
         We declare it healthy if we can load the model successfully.
@@ -491,14 +464,17 @@ def init(model: PyFuncModel):
         status = 200 if health else 404
         return Response(content="\n", status_code=status, media_type="application/json")
 
-    @app.route("/version", methods=["GET"])
-    async def version(request: Request):
+    app.get("/ping")(ping)
+    app.get("/health")(ping)
+
+    @app.get("/version")
+    async def version():
         """
         Returns the current mlflow version.
         """
         return Response(content=VERSION, status_code=200, media_type="application/json")
 
-    @app.route("/invocations", methods=["POST"])
+    @app.post("/invocations")
     @_async_catch_mlflow_exception
     async def transformation(request: Request):
         """

@@ -10,13 +10,13 @@ import {
   TracesServiceV4,
   TracesServiceV3,
   isV4TraceId,
+  getExperimentTraceV3,
 } from '@databricks/web-shared/model-trace-explorer';
 import {
+  getSpanAttribute,
   getSpansLocation,
   TRACKING_STORE_SPANS_LOCATION,
-} from '../../shared/web-shared/genai-traces-table/utils/TraceUtils';
-import { getExperimentTraceV3 } from '../../shared/web-shared/model-trace-explorer/api';
-import { getSpanAttribute } from '@databricks/web-shared/genai-traces-table';
+} from '@databricks/web-shared/genai-traces-table';
 
 export async function getTrace(
   traceId?: string,
@@ -53,7 +53,6 @@ export async function getTrace(
   if (traceId.startsWith('tr-')) {
     return TracesServiceV3.getTraceV3(traceId);
   }
-
   return getTraceLegacy(traceId);
 }
 

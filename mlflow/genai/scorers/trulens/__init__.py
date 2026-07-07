@@ -27,7 +27,7 @@ from mlflow.entities.trace import Trace
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model
 from mlflow.genai.scorers import FRAMEWORK_METADATA_KEY
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.trulens.models import create_trulens_provider
 from mlflow.genai.scorers.trulens.registry import get_feedback_method_name
 from mlflow.genai.scorers.trulens.utils import (
@@ -59,6 +59,8 @@ class TruLensScorer(Scorer):
     _model: str = PrivateAttr()
     _method_name: str = PrivateAttr()
     _threshold: float = PrivateAttr()
+    _metric_kwargs: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _metric_name: str = PrivateAttr(default="")
 
     def __init__(
         self,
@@ -74,9 +76,15 @@ class TruLensScorer(Scorer):
         model = model or get_default_model()
         self._model = model
         self._threshold = threshold
+        self._metric_name = metric_name
+        self._metric_kwargs = {"threshold": threshold, **kwargs}
 
         self._provider = create_trulens_provider(model, **kwargs)
         self._method_name = get_feedback_method_name(metric_name)
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.THIRD_PARTY
 
     def __call__(
         self,

@@ -28,9 +28,14 @@ def setup_servers():
             ["bin/start-uc-server"],
             cwd="unitycatalog",
         ) as uc_proc,
-        subprocess.Popen(
-            [sys.executable, "-m", "mlflow", "server", "--port", str(port)]
-        ) as mlflow_proc,
+        subprocess.Popen([
+            sys.executable,
+            "-m",
+            "mlflow",
+            "server",
+            "--port",
+            str(port),
+        ]) as mlflow_proc,
     ):
         try:
             _await_server_up_or_die(port)

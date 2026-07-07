@@ -20,11 +20,13 @@ from semantic_kernel.utils.telemetry.model_diagnostics import (
 import mlflow.semantic_kernel
 from mlflow.entities import SpanType
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
 from mlflow.semantic_kernel.autolog import SemanticKernelSpanProcessor
 from mlflow.tracing.constant import (
     SpanAttributeKey,
     TokenUsageKey,
 )
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.semantic_kernel.resources import (
     _create_and_invoke_chat_agent,
@@ -113,12 +115,13 @@ async def test_sk_invoke_simple(mock_openai, with_openai_autolog, mock_litellm_c
     assert chat_usage[TokenUsageKey.TOTAL_TOKENS] == 21
     assert spans[3].get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.CHAT_MODEL
     assert spans[3].model_name == "gpt-4o-mini"
-    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
-    assert spans[3].llm_cost == {
-        "input_cost": 9.0,
-        "output_cost": 24.0,
-        "total_cost": 33.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+        assert spans[3].llm_cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
 
     # OpenAI autologging
     if with_openai_autolog:
@@ -136,11 +139,12 @@ async def test_sk_invoke_simple(mock_openai, with_openai_autolog, mock_litellm_c
             "total_tokens": 21,
         }
         assert spans[4].model_name == "gpt-4o-mini"
-        assert spans[4].llm_cost == {
-            "input_cost": 9.0,
-            "output_cost": 24.0,
-            "total_cost": 33.0,
-        }
+        if not IS_TRACING_SDK_ONLY:
+            assert spans[4].llm_cost == {
+                "input_cost": 9.0,
+                "output_cost": 24.0,
+                "total_cost": 33.0,
+            }
 
     # Trace level token usage should not double-count
     assert trace.info.token_usage == {
@@ -233,11 +237,12 @@ async def test_sk_invoke_complex(mock_openai, mock_litellm_cost):
     assert chat_usage[TokenUsageKey.INPUT_TOKENS] == 9
     assert chat_usage[TokenUsageKey.OUTPUT_TOKENS] == 12
     assert chat_usage[TokenUsageKey.TOTAL_TOKENS] == 21
-    assert chat_span.llm_cost == {
-        "input_cost": 9.0,
-        "output_cost": 24.0,
-        "total_cost": 33.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert chat_span.llm_cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
 
 
 @pytest.mark.asyncio
@@ -498,3 +503,20 @@ async def test_kernel_invoke_function_object(mock_openai):
     assert chat_span.name in ("chat.completions gpt-4o-mini", "chat gpt-4o-mini")
     assert chat_span.span_type == SpanType.CHAT_MODEL
     assert chat_span.model_name == "gpt-4o-mini"
+
+
+@pytest.mark.asyncio
+async def test_sk_shared_provider_no_recursion(monkeypatch, mock_openai):
+    # Verify semantic_kernel.autolog() works with shared tracer provider (no RecursionError)
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
+
+    mlflow.semantic_kernel.autolog()
+    result = await _create_and_invoke_kernel_simple(mock_openai)
+
+    assert isinstance(result, FunctionResult)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+    assert len(spans) >= 3
+    assert spans[0].name == "Kernel.invoke_prompt"

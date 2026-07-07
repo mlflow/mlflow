@@ -9,6 +9,7 @@ from dspy.utils.dummies import DummyLM, dummy_rm
 from packaging.version import Version
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.types.schema import ColSpec, Schema
 
@@ -35,9 +36,9 @@ _REASONING_KEYWORD = "rationale" if _DSPY_UNDER_2_6 else "reasoning"
 
 @pytest.fixture
 def dummy_model():
-    return DummyLM(
-        [{"answer": answer, _REASONING_KEYWORD: "reason"} for answer in ["4", "6", "8", "10"]]
-    )
+    return DummyLM([
+        {"answer": answer, _REASONING_KEYWORD: "reason"} for answer in ["4", "6", "8", "10"]
+    ])
 
 
 class CoT(dspy.Module):
@@ -449,12 +450,10 @@ def test_infer_signature_from_input_examples(dummy_model):
 
         loaded_model = Model.load(model_info.model_uri)
         assert loaded_model.signature.inputs == Schema([ColSpec("string")])
-        assert loaded_model.signature.outputs == Schema(
-            [
-                ColSpec(name="answer", type="string"),
-                ColSpec(name=_REASONING_KEYWORD, type="string"),
-            ]
-        )
+        assert loaded_model.signature.outputs == Schema([
+            ColSpec(name="answer", type="string"),
+            ColSpec(name=_REASONING_KEYWORD, type="string"),
+        ])
 
 
 @skip_if_2_6_23_or_older
@@ -558,3 +557,67 @@ def test_predict_output(dummy_model):
 
     assert isinstance(result, dict)
     assert result == {"answer": "4", "custom_field": "custom_value"}
+
+
+def test_load_model_disallows_pickle_deserialization_legacy_pkl(monkeypatch):
+    dspy_model = CoT()
+    dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            name="model",
+            use_dspy_model_save=False,
+        )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        mlflow.dspy.load_model(model_info.model_uri)
+
+
+@pytest.mark.skipif(
+    _DSPY_VERSION <= Version("3.1.0"),
+    reason="'use_dspy_model_save' = True does not support dspy <= 3.1.0",
+)
+@pytest.mark.parametrize(("env_value", "expected_allow_pickle"), [("false", False), ("true", True)])
+def test_load_model_forwards_allow_pickle_to_dspy(env_value, expected_allow_pickle, monkeypatch):
+    dspy_model = CoT()
+    dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            name="model",
+            use_dspy_model_save=True,
+        )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", env_value)
+    with mock.patch("dspy.load") as mock_load:
+        try:
+            mlflow.dspy.load_model(model_info.model_uri)
+        except Exception:
+            pass  # downstream code may fail on the MagicMock; only the kwarg matters here
+
+    mock_load.assert_called_once()
+    assert mock_load.call_args.kwargs["allow_pickle"] is expected_allow_pickle
+
+
+@pytest.mark.skipif(
+    _DSPY_VERSION <= Version("3.1.0"),
+    reason="'use_dspy_model_save' = True does not support dspy <= 3.1.0",
+)
+def test_load_model_wraps_dspy_error_when_pickle_disabled(monkeypatch):
+    dspy_model = CoT()
+    dspy.settings.configure(lm=dspy.LM(model="openai/gpt-4o-mini", max_tokens=250))
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            name="model",
+            use_dspy_model_save=True,
+        )
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with mock.patch("dspy.load", side_effect=ValueError("pickle disallowed by dspy")):
+        with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+            mlflow.dspy.load_model(model_info.model_uri)

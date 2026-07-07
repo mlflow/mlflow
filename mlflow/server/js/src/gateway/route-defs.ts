@@ -1,4 +1,5 @@
-import { createLazyRouteElement, DocumentTitleHandle } from '../common/utils/RoutingUtils';
+import type { DocumentTitleHandle } from '../common/utils/RoutingUtils';
+import { createLazyRouteElement } from '../common/utils/RoutingUtils';
 import { GatewayPageId, GatewayRoutePaths } from './routes';
 
 export const getGatewayRouteDefs = () => {
@@ -11,9 +12,21 @@ export const getGatewayRouteDefs = () => {
       children: [
         {
           path: 'api-keys',
-          element: createLazyRouteElement(() => import('./pages/ApiKeysPage')),
+          element: createLazyRouteElement(() => import('./pages/RedirectApiKeysToSettings')),
           pageId: GatewayPageId.apiKeysPage,
           handle: { getPageTitle: () => 'API Keys' } satisfies DocumentTitleHandle,
+        },
+        {
+          path: 'usage',
+          element: createLazyRouteElement(() => import('./pages/GatewayUsagePage')),
+          pageId: GatewayPageId.usagePage,
+          handle: { getPageTitle: () => 'Usage' } satisfies DocumentTitleHandle,
+        },
+        {
+          path: 'budgets',
+          element: createLazyRouteElement(() => import('./pages/BudgetsPage')),
+          pageId: GatewayPageId.budgetsPage,
+          handle: { getPageTitle: () => 'Budgets' } satisfies DocumentTitleHandle,
         },
         {
           path: 'endpoints/create',

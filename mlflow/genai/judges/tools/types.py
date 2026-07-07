@@ -11,10 +11,8 @@ from typing import Any
 from mlflow.entities.assessment import FeedbackValueType
 from mlflow.entities.span_status import SpanStatus
 from mlflow.entities.trace_state import TraceState
-from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.4.0")
 @dataclass
 class SpanResult:
     """Result from getting span content."""
@@ -26,7 +24,6 @@ class SpanResult:
     error: str | None = None
 
 
-@experimental(version="3.4.0")
 @dataclass
 class SpanInfo:
     """Information about a single span."""
@@ -43,7 +40,6 @@ class SpanInfo:
     attribute_names: list[str]
 
 
-@experimental(version="3.5.0")
 @dataclass
 class JudgeToolExpectation:
     """Expectation for a trace (simplified for judge tools)."""
@@ -56,7 +52,6 @@ class JudgeToolExpectation:
     value: Any
 
 
-@experimental(version="3.5.0")
 @dataclass
 class JudgeToolFeedback:
     """Feedback for a trace (simplified for judge tools)."""
@@ -74,7 +69,6 @@ class JudgeToolFeedback:
     valid: bool | None
 
 
-@experimental(version="3.5.0")
 @dataclass
 class JudgeToolTraceInfo:
     """Information about a single trace (simplified for judge tools)."""

@@ -23,6 +23,7 @@ def mock_dbr_version():
             is_client_image=True,
             major=2,
             minor=0,
+            is_gpu_image=False,
         ),
     ):
         yield
@@ -61,12 +62,10 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_d
     # Create MLmodel file with correct runtime version
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.2.0",
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.2.0",
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     # Create a mock environment directory
@@ -140,12 +139,10 @@ def test_pack_env_for_databricks_model_serving_pip_requirements_error(tmp_path, 
     # Create MLmodel file with correct runtime version
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.2.0",
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.2.0",
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     with (
@@ -184,6 +181,7 @@ def test_pack_env_for_databricks_model_serving_unsupported_version():
             is_client_image=False,  # Not a client image
             major=13,
             minor=0,
+            is_gpu_image=False,
         ),
     ):
         with pytest.raises(ValueError, match="Serverless environment is required"):
@@ -202,12 +200,10 @@ def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, m
     # Create MLmodel file with different runtime version
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.3.0",  # Different major version
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.3.0",  # Different major version
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     # Set current runtime to client.2.0
@@ -222,12 +218,10 @@ def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, m
 
     # Test that same major version works
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.2.1",  # Same major version
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.2.1",  # Same major version
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     # Create a mock environment directory
@@ -288,11 +282,9 @@ def test_pack_env_for_databricks_model_serving_missing_runtime_version(tmp_path,
     # Create MLmodel file without databricks_runtime field
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     with mock.patch(
@@ -316,12 +308,10 @@ def test_pack_env_for_databricks_model_serving_rejects_existing_databricks_dir(
     # Create MLmodel file with correct runtime version
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.2.0",
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.2.0",
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     # Create existing _databricks directory
@@ -354,12 +344,10 @@ def test_pack_env_with_local_model_path_no_mutation(tmp_path, mock_dbr_version):
     # Create MLmodel file with correct runtime version
     mlmodel_path = local_model_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.2.0",
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.2.0",
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     # Create a mock environment directory
@@ -406,12 +394,10 @@ def test_pack_env_with_download_cleanup(tmp_path, mock_dbr_version):
     # Create MLmodel file with correct runtime version
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump(
-            {
-                "databricks_runtime": "client.2.0",
-                "flavors": {"python_function": {"model_path": "model.pkl"}},
-            }
-        )
+        yaml.dump({
+            "databricks_runtime": "client.2.0",
+            "flavors": {"python_function": {"model_path": "model.pkl"}},
+        })
     )
 
     # Create a mock environment directory

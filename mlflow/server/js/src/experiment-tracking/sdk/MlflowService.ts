@@ -19,11 +19,9 @@ import {
   defaultResponseParser,
   deleteJson,
   fetchEndpoint,
-  getBigIntJson,
   getJson,
   HTTPMethods,
   patchJson,
-  postBigIntJson,
   postJson,
 } from '../../common/utils/FetchUtils';
 import type { RunInfoEntity } from '../types';
@@ -74,23 +72,19 @@ export class MlflowService {
    * Search mlflow experiments
    */
   static searchExperiments = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/search', data }).then(
-      transformSearchExperimentsResponse,
-    );
+    getJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/search', data }).then(transformSearchExperimentsResponse);
 
   /**
    * Get mlflow experiment
    */
   static getExperiment = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/get', data }).then(transformGetExperimentResponse);
+    getJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/get', data }).then(transformGetExperimentResponse);
 
   /**
    * Get mlflow experiment by name
    */
   static getExperimentByName = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/get-by-name', data }).then(
-      transformGetExperimentResponse,
-    );
+    getJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/get-by-name', data }).then(transformGetExperimentResponse);
 
   /**
    * Create a mlflow experiment run
@@ -135,7 +129,7 @@ export class MlflowService {
    * Get mlflow experiment run
    */
   static getRun = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/get', data }).then(transformGetRunResponse);
+    getJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/get', data }).then(transformGetRunResponse);
 
   /**
    * Search mlflow experiment runs
@@ -146,13 +140,13 @@ export class MlflowService {
   /**
    * List model artifacts
    */
-  static listArtifacts = (data: any) => getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/artifacts/list', data });
+  static listArtifacts = (data: any) => getJson({ relativeUrl: 'ajax-api/2.0/mlflow/artifacts/list', data });
 
   /**
    * List model artifacts for logged models
    */
   static listArtifactsLoggedModel = ({ loggedModelId, path }: { loggedModelId: string; path: string }) =>
-    getBigIntJson({
+    getJson({
       relativeUrl: `ajax-api/2.0/mlflow/logged-models/${loggedModelId}/artifacts/directories`,
       data: path ? { artifact_directory_path: path } : {},
     });
@@ -164,7 +158,7 @@ export class MlflowService {
     loggedModelId: string;
     path: string;
   }) =>
-    postBigIntJson({
+    postJson({
       relativeUrl: `ajax-api/2.0/mlflow/logged-models/${loggedModelId}/artifacts/credentials-for-download`,
       data: {
         paths: [path],
@@ -174,8 +168,7 @@ export class MlflowService {
   /**
    * Get metric history
    */
-  static getMetricHistory = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/metrics/get-history', data });
+  static getMetricHistory = (data: any) => getJson({ relativeUrl: 'ajax-api/2.0/mlflow/metrics/get-history', data });
 
   /**
    * Set mlflow experiment run tag

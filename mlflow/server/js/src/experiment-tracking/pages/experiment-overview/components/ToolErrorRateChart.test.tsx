@@ -17,13 +17,16 @@ import {
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
-// Helper to create a data point with time bucket and status
-const createDataPoint = (timeBucket: string, status: string, count: number) => ({
+// Helper to create a data point with time bucket, status, and tool name
+const createDataPoint = (timeBucket: string, status: string, count: number, toolName = 'get_weather') => ({
   metric_name: SpanMetricKey.SPAN_COUNT,
   dimensions: {
     [TIME_BUCKET_DIMENSION_KEY]: timeBucket,
     [SpanDimensionKey.SPAN_STATUS]: status,
+    [SpanDimensionKey.SPAN_NAME]: toolName,
   },
   values: { [AggregationType.COUNT]: count },
 });
@@ -36,7 +39,7 @@ describe('ToolErrorRateChart', () => {
   const timeBuckets = [new Date('2025-12-22T10:00:00Z').getTime(), new Date('2025-12-22T11:00:00Z').getTime()];
 
   const defaultContextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -65,20 +68,22 @@ describe('ToolErrorRateChart', () => {
     const contextProps = { ...defaultContextProps, ...contextOverrides };
     const queryClient = createQueryClient();
     return renderWithIntl(
-      <QueryClientProvider client={queryClient}>
-        <DesignSystemProvider>
-          <OverviewChartProvider {...contextProps}>
-            <ToolErrorRateChart {...defaultProps} {...componentProps} />
-          </OverviewChartProvider>
-        </DesignSystemProvider>
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <DesignSystemProvider>
+            <OverviewChartProvider {...contextProps}>
+              <ToolErrorRateChart {...defaultProps} {...componentProps} />
+            </OverviewChartProvider>
+          </DesignSystemProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
   };
 
   // Helper to setup MSW handler for the trace metrics endpoint
   const setupTraceMetricsHandler = (dataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
         return res(ctx.json({ data_points: dataPoints }));
       }),
     );
@@ -93,7 +98,7 @@ describe('ToolErrorRateChart', () => {
   describe('loading state', () => {
     it('should render loading skeleton while data is being fetched', () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -108,7 +113,7 @@ describe('ToolErrorRateChart', () => {
   describe('error state', () => {
     it('should render error state when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error: 'API Error' }));
         }),
       );
@@ -134,7 +139,7 @@ describe('ToolErrorRateChart', () => {
 
   describe('with data', () => {
     it('should render the tool name as title', async () => {
-      setupTraceMetricsHandler([createDataPoint('2025-12-22T10:00:00Z', SpanStatus.OK, 100)]);
+      setupTraceMetricsHandler([createDataPoint('2025-12-22T10:00:00Z', SpanStatus.OK, 100, 'search_documentation')]);
 
       renderComponent({ toolName: 'search_documentation' });
 
@@ -194,7 +199,7 @@ describe('ToolErrorRateChart', () => {
       });
     });
 
-    it('should filter by tool type and tool name', async () => {
+    it('should filter by TOOL type only and request SPAN_NAME + SPAN_STATUS dimensions', async () => {
       let capturedBody: any = null;
 
       server.use(
@@ -211,25 +216,8 @@ describe('ToolErrorRateChart', () => {
       });
 
       expect(capturedBody.filters).toContain(`span.${SpanFilterKey.TYPE} = "${SpanType.TOOL}"`);
-      expect(capturedBody.filters).toContain(`span.${SpanFilterKey.NAME} = "my_custom_tool"`);
-    });
-
-    it('should include span_status dimension', async () => {
-      let capturedBody: any = null;
-
-      server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
-          capturedBody = await req.json();
-          return res(ctx.json({ data_points: [] }));
-        }),
-      );
-
-      renderComponent();
-
-      await waitFor(() => {
-        expect(capturedBody).not.toBeNull();
-      });
-
+      expect(capturedBody.filters).not.toContainEqual(expect.stringContaining('span.name'));
+      expect(capturedBody.dimensions).toContain(SpanDimensionKey.SPAN_NAME);
       expect(capturedBody.dimensions).toContain(SpanDimensionKey.SPAN_STATUS);
     });
 
@@ -256,7 +244,7 @@ describe('ToolErrorRateChart', () => {
       let capturedBody: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedBody = await req.json();
           return res(ctx.json({ data_points: [] }));
         }),

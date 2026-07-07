@@ -38,6 +38,14 @@ export const ExperimentViewDatasetSourceType = ({ datasetWithTags }: ExperimentV
         />
       );
     }
+    if (sourceType === DatasetSourceTypes.LOCAL) {
+      return (
+        <FormattedMessage
+          defaultMessage="Local"
+          description="Experiment dataset drawer > source type > Local source type label"
+        />
+      );
+    }
     return null;
   };
 

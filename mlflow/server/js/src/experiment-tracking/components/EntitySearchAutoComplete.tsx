@@ -6,7 +6,6 @@ import {
   InfoPopover,
   InfoSmallIcon,
   Input,
-  LegacyTooltip,
   SearchIcon,
   Tooltip,
   useDesignSystemTheme,
@@ -244,6 +243,7 @@ export const EntitySearchAutoComplete = ({
         onSelect={onSelect}
         value={text}
         data-testid="runs-search-autocomplete"
+        // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
         dropdownRender={(menu) => (
           <div
             css={{

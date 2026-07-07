@@ -69,21 +69,6 @@ const MOCK_ANTHROPIC_OUTPUT_WITH_THINKING = {
   type: 'message',
 };
 
-// Output with thinking but no text
-const MOCK_ANTHROPIC_OUTPUT_THINKING_ONLY = {
-  id: 'msg_01ABC',
-  content: [
-    {
-      type: 'thinking',
-      thinking: 'Processing the request...',
-    },
-  ],
-  model: 'claude-sonnet-4-20250514',
-  role: 'assistant',
-  stop_reason: 'end_turn',
-  type: 'message',
-};
-
 // Output with tool use and thinking
 const MOCK_ANTHROPIC_OUTPUT_WITH_THINKING_AND_TOOL = {
   id: 'msg_01DEF',
@@ -158,6 +143,80 @@ describe('normalizeConversation', () => {
     it('handles output without thinking (backward compatibility)', () => {
       const result = normalizeConversation(MOCK_ANTHROPIC_OUTPUT, 'anthropic');
       expect(result?.[0]).not.toHaveProperty('reasoning');
+    });
+  });
+
+  describe('tool_reference content blocks', () => {
+    it('handles tool_result with tool_reference content', () => {
+      const input = {
+        messages: [
+          { role: 'user', content: 'search the web' },
+          {
+            role: 'assistant',
+            content: [{ type: 'tool_use', id: 'toolu_1', name: 'ToolSearch', input: { query: 'WebSearch' } }],
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'tool_result',
+                tool_use_id: 'toolu_1',
+                content: [{ type: 'tool_reference', tool_name: 'WebSearch' }],
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = normalizeConversation(input, 'anthropic');
+      expect(result).not.toBeNull();
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            role: 'tool',
+            content: expect.stringContaining('WebSearch'),
+          }),
+        ]),
+      );
+    });
+
+    it('handles tool_search_tool_result content block', () => {
+      const input = {
+        messages: [
+          { role: 'user', content: 'search for tools' },
+          {
+            role: 'assistant',
+            content: [{ type: 'tool_use', id: 'srvtoolu_01ABC', name: 'ToolSearch', input: { query: 'weather' } }],
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'tool_search_tool_result',
+                tool_use_id: 'srvtoolu_01ABC',
+                content: {
+                  type: 'tool_search_tool_search_result',
+                  tool_references: [
+                    { type: 'tool_reference', tool_name: 'get_weather' },
+                    { type: 'tool_reference', tool_name: 'get_forecast' },
+                  ],
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = normalizeConversation(input, 'anthropic');
+      expect(result).not.toBeNull();
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            role: 'tool',
+            content: expect.stringContaining('get_weather'),
+          }),
+        ]),
+      );
     });
   });
 });

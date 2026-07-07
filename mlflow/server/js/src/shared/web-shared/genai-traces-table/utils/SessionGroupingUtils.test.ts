@@ -1,6 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 
-import { SESSION_ID_METADATA_KEY, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { SESSION_ID_METADATA_KEY } from '../../model-trace-explorer/constants';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 
 import type { EvalTraceComparisonEntry } from '../types';
 import { groupTracesBySessionForTable } from './SessionGroupingUtils';

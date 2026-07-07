@@ -17,7 +17,10 @@ async def test_cli():
             "mcp",
             "run",
         ],
-        env={"MLFLOW_TRACKING_URI": mlflow.get_tracking_uri()},
+        env={
+            "MLFLOW_TRACKING_URI": mlflow.get_tracking_uri(),
+            "MLFLOW_MCP_TOOLS": "traces,scorers",
+        },
     )
     async with Client(transport) as client:
         tools = await client.list_tools()

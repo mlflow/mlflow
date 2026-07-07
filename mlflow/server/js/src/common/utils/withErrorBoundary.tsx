@@ -27,9 +27,8 @@ function ErrorFallback() {
 }
 
 function CustomErrorBoundary({ children, customFallbackComponent }: React.PropsWithChildren<ErrorBoundaryProps>) {
-  function logErrorToConsole(error: Error, info: { componentStack: string }) {
-    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-    console.error('Caught Unexpected Error: ', error, info.componentStack);
+  function logErrorToConsole(_error: Error, _info: { componentStack: string }) {
+    // React already logs error boundary errors to the console
   }
 
   if (customFallbackComponent) {

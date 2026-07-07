@@ -1,6 +1,10 @@
 import pytest
+from fastapi import FastAPI
 from flask import Flask
+from starlette.testclient import TestClient
 from werkzeug.test import Client
+
+from mlflow.server.fastapi_security import init_fastapi_security
 
 
 @pytest.fixture
@@ -12,7 +16,7 @@ def test_app():
     def test_endpoint():
         return "OK"
 
-    @app.route("/api/test", methods=["GET", "POST", "OPTIONS"])
+    @app.route("/api/2.0/mlflow/experiments/list", methods=["GET", "POST", "OPTIONS"])
     def api_endpoint():
         return "OK"
 
@@ -47,3 +51,16 @@ def mlflow_app_client():
 
     security.init_security_middleware(app)
     return Client(app)
+
+
+@pytest.fixture
+def fastapi_client():
+    """Minimal FastAPI app for unit testing."""
+    app = FastAPI()
+
+    @app.api_route("/api/2.0/mlflow/experiments/list", methods=["GET", "POST", "OPTIONS"])
+    async def api_endpoint():
+        return {"ok": True}
+
+    init_fastapi_security(app)
+    return TestClient(app, raise_server_exceptions=False)

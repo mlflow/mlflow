@@ -199,9 +199,6 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       })
       .catch((ex: ErrorWrapper | Error) => {
         this.setState({ isTagsRequestPending: false });
-        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-        console.error(ex);
-
         const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
 
         Utils.displayGlobalErrorNotification(
@@ -222,9 +219,6 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     const { modelName } = this.props;
     const { version } = this.props.modelVersion;
     return this.props.setModelVersionTagApi(modelName, version, name, value).catch((ex: ErrorWrapper | Error) => {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      console.error(ex);
-
       const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
 
       Utils.displayGlobalErrorNotification(
@@ -245,9 +239,6 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     const { modelName } = this.props;
     const { version } = this.props.modelVersion;
     return this.props.deleteModelVersionTagApi(modelName, version, name).catch((ex: ErrorWrapper | Error) => {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      console.error(ex);
-
       const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
 
       Utils.displayGlobalErrorNotification(
@@ -408,6 +399,7 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     const link = (
       <>
         <Link
+          componentId="mlflow.model_registry.version_view.copied_from_link"
           data-testid="copied-from-link"
           to={ModelRegistryRoutes.getModelVersionPageRoute(sourceModelName, sourceModelVersion)}
         >
@@ -537,7 +529,10 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
         artifactPath = extractArtifactPathFromModelSource(modelSource, runInfo.runUuid);
       }
       return (
-        <Link to={Routers.getRunPageRoute(runInfo.experimentId, runInfo.runUuid, artifactPath)}>
+        <Link
+          componentId="mlflow.model_registry.version_view.source_run_link"
+          to={Routers.getRunPageRoute(runInfo.experimentId, runInfo.runUuid, artifactPath)}
+        >
           {this.resolveRunName()}
         </Link>
       );
@@ -613,7 +608,10 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     );
     const breadcrumbs = [
       // eslint-disable-next-line react/jsx-key
-      <Link to={ModelRegistryRoutes.modelListPageRoute}>
+      <Link
+        componentId="mlflow.model_registry.version_view.breadcrumb_registered_models_link"
+        to={ModelRegistryRoutes.modelListPageRoute}
+      >
         <FormattedMessage
           defaultMessage="Registered Models"
           description="Text for link back to models page under the header on the model version
@@ -621,7 +619,11 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
         />
       </Link>,
       // eslint-disable-next-line react/jsx-key
-      <Link data-testid="breadcrumbRegisteredModel" to={ModelRegistryRoutes.getModelPageRoute(modelName)}>
+      <Link
+        componentId="mlflow.model_registry.version_view.breadcrumb_model_link"
+        data-testid="breadcrumbRegisteredModel"
+        to={ModelRegistryRoutes.getModelPageRoute(modelName)}
+      >
         {modelName}
       </Link>,
     ];

@@ -1,0 +1,1 @@
+{"version":3,"file":"index.d.ts","sourceRoot":"","sources":["../../../src/design-system/AccessibleContainer/index.tsx"],"names":[],"mappings":"AAEA,MAAM,WAAW,wBAAwB;IACvC,QAAQ,EAAE,KAAK,CAAC,SAAS,CAAC;IAC1B,KAAK,CAAC,EAAE,KAAK,CAAC,SAAS,CAAC;CACzB;AAED,wBAAgB,mBAAmB,CAAC,EAAE,QAAQ,EAAE,KAAK,EAAE,EAAE,wBAAwB,oDAWhF"}

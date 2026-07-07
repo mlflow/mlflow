@@ -15,17 +15,18 @@ import { first } from 'lodash';
 import { shouldUsePredefinedErrorsInExperimentTracking } from '../../../common/utils/FeatureUtils';
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
 import { usePersistExperimentPageViewState } from './hooks/usePersistExperimentPageViewState';
+import { useSharedViewActions } from './hooks/useSharedViewActions';
+import { ExperimentViewSharedViewBanner } from './components/header/ExperimentViewSharedViewBanner';
 import { useDispatch } from 'react-redux';
 import type { ThunkDispatch } from '../../../redux-types';
 import { useExperimentRuns } from './hooks/useExperimentRuns';
 import type { ExperimentRunsSelectorResult } from './utils/experimentRuns.selector';
 import { useSharedExperimentViewState } from './hooks/useSharedExperimentViewState';
 import { useInitializeUIState } from './hooks/useInitializeUIState';
-import { ExperimentViewDescriptionNotes } from './components/ExperimentViewDescriptionNotes';
+import { ExperimentViewMetadataEditor } from './components/ExperimentViewMetadataEditor';
 import invariant from 'invariant';
 import { useExperimentPageViewMode } from './hooks/useExperimentPageViewMode';
 import { ExperimentViewTraces } from './components/ExperimentViewTraces';
-import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { NotFoundError, PermissionError } from '@databricks/web-shared/errors';
 import { ExperimentViewNotFound } from './components/ExperimentViewNotFound';
@@ -57,12 +58,21 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
 
   const [editing, setEditing] = useState(false);
 
-  const [showAddDescriptionButton, setShowAddDescriptionButton] = useState(true);
-
   // Create new version of the UI state for the experiment page on this level
   const [uiState, setUIState, seedInitialUIState] = useInitializeUIState(experimentIds);
 
-  const { isViewStateShared } = useSharedExperimentViewState(setUIState, first(experiments));
+  const { isViewStateShared, sharedViewActive, exitSharedView } = useSharedExperimentViewState(
+    setUIState,
+    first(experiments),
+  );
+
+  const { handleOverrideSavedView, handleDiscardSharedView } = useSharedViewActions({
+    experimentIds,
+    searchFacets,
+    uiState,
+    setUIState,
+    exitSharedView,
+  });
 
   // Get the maximized state from the new view state model if flag is set
   const isMaximized = uiState.viewMaximized;
@@ -103,7 +113,15 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
 
   const isComparingExperiments = experimentIds.length > 1;
 
-  usePersistExperimentPageViewState(uiState, searchFacets, experimentIds, isViewStateShared || isPreview);
+  // `isViewStateShared` keeps persistence off while the share key is in the URL; `sharedViewActive`
+  // keeps it off after the key leaves the URL (e.g. tab navigation) until the user explicitly saves
+  // or discards — so a shared view never silently overwrites the user's own saved view.
+  usePersistExperimentPageViewState(
+    uiState,
+    searchFacets,
+    experimentIds,
+    isViewStateShared || sharedViewActive || isPreview,
+  );
 
   const isViewInitialized = Boolean(!isLoadingExperiment && experiments[0] && runsData && searchFacets);
 
@@ -225,12 +243,7 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
         css={{ overflowY: 'hidden', flexShrink: 0, transition: 'max-height .12s' }}
       >
         <div ref={observeHeight}>
-          <ExperimentViewDescriptionNotes
-            experiment={firstExperiment}
-            setShowAddDescriptionButton={setShowAddDescriptionButton}
-            editing={editing}
-            setEditing={setEditing}
-          />
+          <ExperimentViewMetadataEditor experiment={firstExperiment} editing={editing} setEditing={setEditing} />
         </div>
       </div>
     </>
@@ -277,6 +290,9 @@ export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) 
             {renderTaskSection()}
           </>
         )}
+        {sharedViewActive ? (
+          <ExperimentViewSharedViewBanner onOverride={handleOverrideSavedView} onDiscard={handleDiscardSharedView} />
+        ) : null}
         {getRenderedView()}
       </div>
     </ExperimentPageUIStateContextProvider>

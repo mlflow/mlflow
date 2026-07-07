@@ -19,7 +19,9 @@ mlflow/demo/
     ├── prompts.py           # Prompt versions and aliases
     ├── traces.py            # Sample traces with various patterns
     ├── evaluation.py        # Evaluation runs and datasets
-    └── scorers.py           # Registered LLM judges
+    ├── judges.py            # Registered LLM judges
+    ├── issues.py            # Detected issues linked to failing traces
+    └── review_queues.py     # Review queues, label schemas, and queued items
 ```
 
 **Generator order matters** - some generators depend on others (e.g., traces depend on prompts, evaluation depends on traces).
@@ -57,12 +59,12 @@ class MyFeatureDemoGenerator(BaseDemoGenerator):
 
 ## Naming Conventions
 
-| Entity Type | Convention                       | Example                   |
-| ----------- | -------------------------------- | ------------------------- |
-| Experiment  | `DEMO_EXPERIMENT_NAME` constant  | `"MLflow Demo"`           |
-| Prompts     | `{DEMO_PROMPT_PREFIX}.<name>`    | `"mlflow-demo.prompts.*"` |
-| Scorers     | `{DEMO_PROMPT_PREFIX}.scorers.*` | `"mlflow-demo.scorers.*"` |
-| Metadata    | `mlflow.demo.*`                  | `mlflow.demo.version`     |
+| Entity Type | Convention                      | Example                  |
+| ----------- | ------------------------------- | ------------------------ |
+| Experiment  | `DEMO_EXPERIMENT_NAME` constant | `"MLflow Demo"`          |
+| Prompts     | `{DEMO_PROMPT_PREFIX}.<name>`   | `"mlflow-demo.<name>"`   |
+| Judges      | `{DEMO_PROMPT_PREFIX}.judges.*` | `"mlflow-demo.judges.*"` |
+| Metadata    | `mlflow.demo.*`                 | `mlflow.demo.version`    |
 
 ## Versioning
 

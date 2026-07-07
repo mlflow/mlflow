@@ -8,7 +8,6 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
     _check_dspy_installed,
     suppress_verbose_logging,
 )
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import dspy
@@ -18,7 +17,6 @@ _check_dspy_installed()
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.4.0")
 class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
     """
     SIMBA (Simplified Multi-Bootstrap Aggregation) alignment optimizer.
@@ -60,7 +58,7 @@ class SIMBAAlignmentOptimizer(DSPyAlignmentOptimizer):
                          - num_threads: Number of threads for parallel optimization
                          - max_steps: Maximum number of optimization steps
                          See https://dspy.ai/api/optimizers/SIMBA/ for full list.
-            **kwargs: Additional keyword arguments passed to parent class
+            kwargs: Additional keyword arguments passed to parent class
         """
         super().__init__(model=model, **kwargs)
         self._batch_size = batch_size

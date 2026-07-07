@@ -9,7 +9,12 @@ from dspy.utils.callback import BaseCallback
 
 import mlflow
 from mlflow.dspy.constant import FLAVOR_NAME
-from mlflow.dspy.util import log_dspy_lm_state, log_dspy_module_params, save_dspy_module_state
+from mlflow.dspy.util import (
+    log_dspy_lm_state,
+    log_dspy_module_params,
+    sanitize_params,
+    save_dspy_module_state,
+)
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
@@ -153,11 +158,7 @@ class MlflowCallback(BaseCallback):
             SpanType.CHAT_MODEL if getattr(instance, "model_type", None) == "chat" else SpanType.LLM
         )
 
-        filtered_kwargs = {
-            key: value
-            for key, value in instance.kwargs.items()
-            if key not in {"api_key", "api_base"}
-        }
+        filtered_kwargs = sanitize_params(instance.kwargs)
         attributes = {
             **filtered_kwargs,
             "model": instance.model,
@@ -166,6 +167,9 @@ class MlflowCallback(BaseCallback):
             SpanAttributeKey.MESSAGE_FORMAT: "dspy",
             SpanAttributeKey.MODEL: instance.model,
         }
+        match instance.model.split("/", 1):
+            case [provider, _]:
+                attributes[SpanAttributeKey.MODEL_PROVIDER] = provider
 
         inputs = self._unpack_kwargs(inputs)
 

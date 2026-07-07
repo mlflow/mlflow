@@ -65,26 +65,26 @@ module.exports = async ({ context, github, core }) => {
     return;
   }
 
-  const yesRegex = /- \[( |x)\] yes \(this PR will be/gi;
+  // TODO: remove the "yes/no" alternatives once all open PRs have switched to the new template
+  const yesRegex = /- \[( |x)\] (yes \()?this PR (will be|is critical)/gi;
   const yesMatches = [...body.matchAll(yesRegex)];
   const yesMatch = yesMatches.length > 0 ? yesMatches[yesMatches.length - 1] : null;
   const yes = yesMatch ? yesMatch[1].toLowerCase() === "x" : false;
-  const noRegex = /- \[( |x)\] no \(this PR will be/gi;
+  // TODO: remove the "yes/no" alternatives once all open PRs have switched to the new template
+  const noRegex = /- \[( |x)\] (no \()?this PR (will be|can wait)/gi;
   const noMatches = [...body.matchAll(noRegex)];
   const noMatch = noMatches.length > 0 ? noMatches[noMatches.length - 1] : null;
   const no = noMatch ? noMatch[1].toLowerCase() === "x" : false;
 
   if (yes && no) {
     core.setFailed(
-      "Both yes and no are selected. Please select only one in the `Should this PR be included in the next patch release?` section."
+      "Both yes and no are selected. Please select only one in the patch release section."
     );
     return;
   }
 
   if (!yes && !no) {
-    core.setFailed(
-      "Please fill in the `Should this PR be included in the next patch release?` section."
-    );
+    core.setFailed("Please fill in the patch release section.");
     return;
   }
 

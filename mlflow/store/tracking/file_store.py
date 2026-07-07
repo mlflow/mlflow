@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import json
 import logging
@@ -6,10 +8,9 @@ import shutil
 import sys
 import time
 import uuid
-import warnings
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, NamedTuple, TypedDict
+from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
 
 from mlflow.entities import (
     Assessment,
@@ -44,7 +45,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_DIR
+from mlflow.environment_variables import MLFLOW_ALLOW_FILE_STORE, MLFLOW_TRACKING_DIR
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
@@ -113,6 +114,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_id,
     _validate_experiment_name,
+    _validate_experiment_tag,
     _validate_logged_model_name,
     _validate_metric,
     _validate_metric_name,
@@ -123,6 +125,9 @@ from mlflow.utils.validation import (
     _validate_tag_name,
 )
 from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
+
+if TYPE_CHECKING:
+    from mlflow.entities.model_registry.prompt_version import PromptVersion
 
 _logger = logging.getLogger(__name__)
 
@@ -216,16 +221,18 @@ class FileStore(AbstractStore):
         Create a new FileStore with the given root directory and a given default artifact root URI.
         """
         super().__init__()
-        warnings.warn(
-            "The filesystem tracking backend (e.g., './mlruns') is deprecated as of "
-            "February 2026. Consider transitioning to a database backend (e.g., "
-            "'sqlite:///mlflow.db') to take advantage of the latest MLflow features. "
-            "See https://github.com/mlflow/mlflow/issues/18534 for more details and migration "
-            "guidance. For migrating existing data, "
-            "https://github.com/mlflow/mlflow-export-import can be used.",
-            FutureWarning,
-            stacklevel=2,
-        )
+        if not MLFLOW_ALLOW_FILE_STORE.get():
+            raise MlflowException(
+                "The filesystem tracking backend (e.g., './mlruns') is in maintenance mode "
+                "and will not receive further updates. Please migrate to a "
+                "database backend (e.g., 'sqlite:///mlflow.db') to access the latest MLflow "
+                "features. The `mlflow migrate-filestore` tool migrates your existing data "
+                "losslessly. See "
+                "https://mlflow.org/docs/latest/self-hosting/migrate-from-file-store "
+                "for migration guidance. If the filesystem backend is required for your "
+                "workflow, set `MLFLOW_ALLOW_FILE_STORE=true` to opt out of this exception.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         if not artifact_root_uri:
             self.artifact_root_uri = path_to_local_file_uri(self.root_directory)
@@ -457,6 +464,9 @@ class FileStore(AbstractStore):
 
         if artifact_location:
             _validate_experiment_artifact_location_length(artifact_location)
+        if tags:
+            for tag in tags:
+                _validate_experiment_tag(tag.key, tag.value)
 
         self._validate_experiment_does_not_exist(name)
         experiment_id = _generate_unique_integer_id()
@@ -1158,7 +1168,7 @@ class FileStore(AbstractStore):
             experiment_id: String ID of the experiment
             tag: ExperimentRunTag instance to log
         """
-        _validate_tag_name(tag.key)
+        _validate_experiment_tag(tag.key, tag.value)
         experiment = self.get_experiment(experiment_id)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
@@ -2143,7 +2153,7 @@ class FileStore(AbstractStore):
         experiment_path = self._get_experiment_path(experiment_id, assert_exists=True)
         traces_path = os.path.join(experiment_path, FileStore.TRACES_FOLDER_NAME)
         deleted_traces = 0
-        if max_timestamp_millis:
+        if max_timestamp_millis is not None:
             trace_paths = list_all(traces_path, lambda x: os.path.isdir(x), full_path=True)
             trace_info_and_paths = []
             for trace_path in trace_paths:
@@ -2880,6 +2890,20 @@ class FileStore(AbstractStore):
         """
         raise MlflowException(
             "Linking traces to runs is not supported in FileStore. "
+            "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
+            error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
+        )
+
+    def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
+        """
+        Link multiple prompt versions to a trace by creating entity associations.
+
+        Args:
+            trace_id: ID of the trace to link prompt versions to.
+            prompt_versions: List of PromptVersion objects to link.
+        """
+        raise MlflowException(
+            "Linking prompts to traces is not supported in FileStore. "
             "Please use a database-backed store (e.g., SQLAlchemy store) for this feature.",
             error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
         )

@@ -23,7 +23,6 @@ from mlflow.genai.judges.utils import (
     get_default_model,
 )
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import experimental
 
 _check_dspy_installed()
 import dspy
@@ -31,7 +30,6 @@ import dspy
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.4.0")
 class DSPyAlignmentOptimizer(AlignmentOptimizer):
     """
     Abstract base class for DSPy-based alignment optimizers.
@@ -65,7 +63,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
         Args:
             model: Model to use for DSPy optimization. If None, uses get_default_model().
-            **kwargs: Additional keyword arguments.
+            kwargs: Additional keyword arguments.
         """
         super().__init__(**kwargs)
         self._logger = logging.getLogger(self.__class__.__name__)
@@ -213,9 +211,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 # Convert traces to DSPy format
                 dspy_examples = []
                 for trace in traces:
-                    example = trace_to_dspy_example(trace, judge)
-                    if example is not None:
-                        dspy_examples.append(example)
+                    dspy_examples.extend(trace_to_dspy_example(trace, judge))
 
                 self._logger.info(
                     f"Preparing optimization with {len(dspy_examples)} examples "

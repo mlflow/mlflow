@@ -198,7 +198,7 @@ class MistralAdapter(ProviderAdapter):
 
 
 class MistralProvider(BaseProvider):
-    NAME = "Mistral"
+    DISPLAY_NAME = "Mistral"
     CONFIG_TYPE = MistralConfig
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:

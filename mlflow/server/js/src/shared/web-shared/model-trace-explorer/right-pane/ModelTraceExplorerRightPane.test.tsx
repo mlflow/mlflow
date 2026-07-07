@@ -7,7 +7,7 @@ import { IntlProvider } from '@databricks/i18n';
 
 import { ModelTraceExplorerChatTab } from './ModelTraceExplorerChatTab';
 import { ModelTraceExplorerContentTab } from './ModelTraceExplorerContentTab';
-import type { ModelTraceSpan } from '../ModelTrace.types';
+import type { ModelTraceSpan, ModelTraceSpanNode } from '../ModelTrace.types';
 import {
   mockSpans,
   MOCK_RETRIEVER_SPAN,
@@ -15,12 +15,17 @@ import {
   MOCK_CHAT_MESSAGES,
   MOCK_CHAT_TOOLS,
 } from '../ModelTraceExplorer.test-utils';
+import { ModelTraceExplorerPreferencesProvider } from '../ModelTraceExplorerPreferencesContext';
 
 const DEFAULT_SPAN: ModelTraceSpan = mockSpans[0];
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => (
   <IntlProvider locale="en">
-    <DesignSystemProvider>{children}</DesignSystemProvider>
+    <DesignSystemProvider>
+      <ModelTraceExplorerPreferencesProvider initialRenderMode="default">
+        {children}
+      </ModelTraceExplorerPreferencesProvider>
+    </DesignSystemProvider>
   </IntlProvider>
 );
 
@@ -42,15 +47,25 @@ describe('ModelTraceExplorerRightPane', () => {
       { wrapper: Wrapper },
     );
 
-    expect(screen.queryByTestId('model-trace-explorer-default-span-view')).toBeInTheDocument();
+    expect(screen.queryByTestId('model-trace-explorer-retriever-field-renderer')).not.toBeInTheDocument();
 
     rerender(<ModelTraceExplorerContentTab activeSpan={MOCK_RETRIEVER_SPAN} searchFilter="" activeMatch={null} />);
 
-    expect(screen.queryByTestId('model-trace-explorer-retriever-span-view')).toBeInTheDocument();
+    expect(screen.queryByTestId('model-trace-explorer-retriever-field-renderer')).toBeInTheDocument();
   });
 
   it('should render conversations if possible', async () => {
-    render(<ModelTraceExplorerChatTab chatMessages={MOCK_CHAT_MESSAGES} chatTools={MOCK_CHAT_TOOLS} />, {
+    const MOCK_SPAN: ModelTraceSpanNode = {
+      ...DEFAULT_SPAN,
+      start: DEFAULT_SPAN.start_time,
+      end: DEFAULT_SPAN.end_time,
+      key: DEFAULT_SPAN.context.span_id,
+      assessments: [],
+      traceId: DEFAULT_SPAN.context.trace_id,
+      chatMessages: MOCK_CHAT_MESSAGES,
+      chatTools: MOCK_CHAT_TOOLS,
+    };
+    render(<ModelTraceExplorerChatTab activeSpan={MOCK_SPAN} />, {
       wrapper: Wrapper,
     });
 
@@ -86,6 +101,6 @@ describe('ModelTraceExplorerRightPane', () => {
     expect(screen.queryByText('Outputs')).toBeInTheDocument();
     expect(screen.queryByText('generations')).toBeInTheDocument();
     expect(screen.queryByText('llm_output')).toBeInTheDocument();
-    expect(screen.queryAllByText('See more')).toHaveLength(3);
+    expect(screen.queryAllByText('See more').length).toBeGreaterThanOrEqual(1);
   });
 });

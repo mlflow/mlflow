@@ -1,16 +1,9 @@
-import {
-  Button,
-  CopyIcon,
-  Input,
-  Modal,
-  LegacyTabPane,
-  LegacyTabs,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Button, CopyIcon, Input, Modal, Tabs, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { CopyButton } from '../../../shared/building_blocks/CopyButton';
+import { extractWorkspaceFromSearchParams } from '../../../workspaces/utils/WorkspaceUtils';
+import { useSearchParams } from '../../../common/utils/RoutingUtils';
 
 type Props = {
   isOpen: boolean;
@@ -20,19 +13,15 @@ type Props = {
 
 const SNIPPET_LINE_HEIGHT = 18;
 
-export const CreateNotebookRunModal = ({ isOpen, closeModal, experimentId }: Props): JSX.Element => {
-  const { theme } = useDesignSystemTheme();
-
-  const codeSnippetTheme = theme.isDarkMode ? 'duotoneDark' : 'light';
-
-  const classical_ml_text = `
-import mlflow
+const getClassicalMLSnippet = (experimentId: string, workspace?: string | null) => {
+  const workspaceLine = workspace ? `\nmlflow.set_workspace("${workspace}")` : '';
+  return `import mlflow
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import load_diabetes
 from sklearn.ensemble import RandomForestRegressor
 
 # set the experiment id
-mlflow.set_experiment(experiment_id="${experimentId}")
+mlflow.set_experiment(experiment_id="${experimentId}")${workspaceLine}
 
 mlflow.autolog()
 db = load_diabetes()
@@ -44,11 +33,12 @@ rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
 rf.fit(X_train, y_train)
 
 # Use the model to make predictions on the test dataset.
-predictions = rf.predict(X_test)
-`.trimStart();
+predictions = rf.predict(X_test)`.trimStart();
+};
 
-  const llm_text = `
-import mlflow
+const getLLMSnippet = (experimentId: string, workspace?: string | null) => {
+  const workspaceLine = workspace ? `\nmlflow.set_workspace("${workspace}")` : '';
+  return `import mlflow
 import openai
 import os
 import pandas as pd
@@ -59,7 +49,7 @@ assert (
 ), "Please set the OPENAI_API_KEY environment variable."
 
 # set the experiment id
-mlflow.set_experiment(experiment_id="${experimentId}")
+mlflow.set_experiment(experiment_id="${experimentId}")${workspaceLine}
 
 system_prompt = (
   "The following is a conversation with an AI assistant."
@@ -97,8 +87,18 @@ mlflow.evaluate(
     model_type="question-answering",
     data=questions,
 )
-mlflow.end_run()
-`.trimStart();
+mlflow.end_run()`.trimStart();
+};
+
+export const CreateNotebookRunModal = ({ isOpen, closeModal, experimentId }: Props): JSX.Element => {
+  const { theme } = useDesignSystemTheme();
+  const [searchParams] = useSearchParams();
+  const activeWorkspace = extractWorkspaceFromSearchParams(searchParams);
+
+  const codeSnippetTheme = theme.isDarkMode ? 'duotoneDark' : 'light';
+
+  const classical_ml_text = getClassicalMLSnippet(experimentId, activeWorkspace);
+  const llm_text = getLLMSnippet(experimentId, activeWorkspace);
 
   const codeSnippetMessage = () => {
     return 'Run this code snippet in a notebook or locally, to create an experiment run';
@@ -140,11 +140,16 @@ mlflow.end_run()
         </div>
       }
     >
-      <LegacyTabs>
-        <LegacyTabPane
-          tab={<FormattedMessage defaultMessage="Classical ML" description="Example text snippet for classical ML" />}
-          key="classical-ml"
-        >
+      <Tabs.Root componentId="mlflow.create-notebook-run-modal.tabs" defaultValue="classical-ml">
+        <Tabs.List>
+          <Tabs.Trigger value="classical-ml">
+            <FormattedMessage defaultMessage="Classical ML" description="Example text snippet for classical ML" />
+          </Tabs.Trigger>
+          <Tabs.Trigger value="llm">
+            <FormattedMessage defaultMessage="LLM" description="Example text snippet for LLM" />
+          </Tabs.Trigger>
+        </Tabs.List>
+        <Tabs.Content value="classical-ml">
           <CodeSnippet
             style={{ padding: '5px', height: snippetHeight }}
             language="python"
@@ -162,11 +167,8 @@ mlflow.end_run()
           >
             {classical_ml_text}
           </CodeSnippet>
-        </LegacyTabPane>
-        <LegacyTabPane
-          tab={<FormattedMessage defaultMessage="LLM" description="Example text snippet for LLM" />}
-          key="llm"
-        >
+        </Tabs.Content>
+        <Tabs.Content value="llm">
           <CodeSnippet
             style={{ padding: '5px', height: snippetHeight }}
             language="python"
@@ -184,8 +186,8 @@ mlflow.end_run()
           >
             {llm_text}
           </CodeSnippet>
-        </LegacyTabPane>
-      </LegacyTabs>
+        </Tabs.Content>
+      </Tabs.Root>
     </Modal>
   );
 };

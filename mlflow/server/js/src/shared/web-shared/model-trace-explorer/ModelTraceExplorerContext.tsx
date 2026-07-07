@@ -12,6 +12,15 @@ export interface RenderExportTracesToDatasetsModalParams {
   setVisible: (visible: boolean) => void;
 }
 
+export interface RenderAddToReviewQueueDropdownParams {
+  selectedTraceInfos: ModelTraceInfoV3[];
+  experimentId: string;
+  children: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  popoverAlign?: 'start' | 'end';
+}
+
 export type DrawerComponentType = {
   Root: (props: {
     open: boolean;
@@ -22,35 +31,60 @@ export type DrawerComponentType = {
   Content: (props: Drawer.DrawerContentProps) => React.ReactElement;
 };
 
+export interface AddToDatasetAction {
+  openModal: () => void;
+}
+
 export interface ModelTraceExplorerContextValue {
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => React.ReactNode;
+  renderAddToReviewQueueDropdown?: React.ComponentType<RenderAddToReviewQueueDropdownParams>;
   DrawerComponent: DrawerComponentType;
+  /** When set (e.g. by the evaluation review drawer), content can show "Add to dataset" that calls openModal */
+  addToDatasetAction?: AddToDatasetAction;
+  drawerWidth?: string | number;
 }
 
 const ModelTraceExplorerContext = createContext<ModelTraceExplorerContextValue>({
   renderExportTracesToDatasetsModal: () => null,
   DrawerComponent: Drawer,
+  addToDatasetAction: undefined,
 });
 
 interface ModelTraceExplorerContextProviderProps {
   children: React.ReactNode;
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => React.ReactNode;
+  renderAddToReviewQueueDropdown?: React.ComponentType<RenderAddToReviewQueueDropdownParams>;
   DrawerComponent?: DrawerComponentType;
+  drawerWidth?: string | number;
 }
 
 export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerContextProviderProps> = ({
   children,
   renderExportTracesToDatasetsModal,
+  renderAddToReviewQueueDropdown,
   DrawerComponent = Drawer,
+  drawerWidth,
 }) => {
   const value = useMemo(
     () => ({
       renderExportTracesToDatasetsModal,
+      renderAddToReviewQueueDropdown,
       DrawerComponent,
+      drawerWidth,
     }),
-    [renderExportTracesToDatasetsModal, DrawerComponent],
+    [renderExportTracesToDatasetsModal, renderAddToReviewQueueDropdown, DrawerComponent, drawerWidth],
   );
 
+  return <ModelTraceExplorerContext.Provider value={value}>{children}</ModelTraceExplorerContext.Provider>;
+};
+
+/** Use inside the drawer to expose "Add to dataset" to trace content (e.g. next to Show assessments). */
+export const ModelTraceExplorerAddToDatasetProvider: React.FC<{
+  openModal: () => void;
+  children: ReactNode;
+}> = ({ openModal, children }) => {
+  const parent = useContext(ModelTraceExplorerContext);
+  const value = useMemo(() => ({ ...parent, addToDatasetAction: { openModal } }), [parent, openModal]);
   return <ModelTraceExplorerContext.Provider value={value}>{children}</ModelTraceExplorerContext.Provider>;
 };
 

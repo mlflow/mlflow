@@ -6,7 +6,7 @@ import React from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { QueryClientProvider, QueryClient } from '@databricks/web-shared/query-client';
+import { QueryClientProvider, QueryClient } from '../../query-client/queryClient';
 
 import { useTraceCachedActions } from './useTraceCachedActions';
 import { useUpdateAssessment } from './useUpdateAssessment';
@@ -20,8 +20,12 @@ jest.mock('../FeatureUtils', () => ({
   doesTraceSupportV4API: jest.fn(() => true),
 }));
 
-jest.mock('@databricks/web-shared/global-settings', () => ({
+jest.mock('../../global-settings/getUser', () => ({
+  ...jest.requireActual<typeof import('../../global-settings/getUser')>('../../global-settings/getUser'),
   getUser: jest.fn(() => 'test-user@databricks.com'),
+}));
+jest.mock('../../global-settings/getOrgID', () => ({
+  ...jest.requireActual<typeof import('../../global-settings/getOrgID')>('../../global-settings/getOrgID'),
   getOrgID: jest.fn(() => '123456'),
 }));
 

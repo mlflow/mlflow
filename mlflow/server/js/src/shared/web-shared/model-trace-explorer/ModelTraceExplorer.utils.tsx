@@ -39,53 +39,54 @@ import type {
   RetrieverDocument,
   ModelTraceEvent,
   ModelTraceLocation,
+  ModelTraceInputAudio,
 } from './ModelTrace.types';
-import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY, type SpanCostInfo } from './ModelTrace.types';
+import {
+  ModelSpanType,
+  ModelIconType,
+  MLFLOW_TRACE_SCHEMA_VERSION_KEY,
+  SpanLogLevel,
+  type SpanCostInfo,
+} from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import { parseJSONSafe } from './TagUtils';
+import { normalizeAnthropicChatInput, normalizeAnthropicChatOutput } from './chat-utils/anthropic';
+import { normalizeAutogenChatInput, normalizeAutogenChatOutput } from './chat-utils/autogen';
+import { normalizeBedrockChatInput, normalizeBedrockChatOutput } from './chat-utils/bedrock';
+import { normalizeGeminiChatInput, normalizeGeminiChatOutput } from './chat-utils/gemini';
 import {
-  normalizeAnthropicChatInput,
-  normalizeAnthropicChatOutput,
-  normalizeAutogenChatInput,
-  normalizeAutogenChatOutput,
-  normalizeBedrockChatInput,
-  normalizeBedrockChatOutput,
-  normalizeGeminiChatInput,
-  normalizeGeminiChatOutput,
-  normalizeMistralChatInput,
-  normalizeMistralChatOutput,
   normalizeOpenAIChatInput,
   normalizeOpenAIChatResponse,
   normalizeOpenAIResponsesInput,
   normalizeOpenAIResponsesOutput,
   normalizeOpenAIAgentInput,
   normalizeOpenAIAgentOutput,
-  normalizeLangchainChatInput,
-  normalizeLangchainChatResult,
-  normalizeLlamaIndexChatInput,
-  normalizeLlamaIndexChatResponse,
-  normalizeDspyChatInput,
-  normalizeDspyChatOutput,
-  normalizeVercelAIChatInput,
-  normalizeVercelAIChatOutput,
-  isOtelGenAIChatMessage,
-  normalizeOtelGenAIChatMessage,
-  normalizePydanticAIChatInput,
-  normalizePydanticAIChatOutput,
+  normalizeOpenAIResponsesStreamingOutput,
+} from './chat-utils/openai';
+import { normalizeLangchainChatInput, normalizeLangchainChatResult } from './chat-utils/langchain';
+import { normalizeLlamaIndexChatInput, normalizeLlamaIndexChatResponse } from './chat-utils/llamaindex';
+import { normalizeDspyChatInput, normalizeDspyChatOutput } from './chat-utils/dspy';
+import { normalizeVercelAIChatInput, normalizeVercelAIChatOutput } from './chat-utils/vercelai';
+import { isOtelGenAIChatMessage, normalizeOtelGenAIChatMessage } from './chat-utils/otel';
+import { normalizePydanticAIChatInput, normalizePydanticAIChatOutput } from './chat-utils/pydanticai';
+import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
+import { getSpanAttribute } from '../genai-traces-table/utils/TraceUtils';
+import { normalizeMistralChatInput, normalizeMistralChatOutput } from './chat-utils/mistral';
+import {
   normalizeVoltAgentChatInput,
   normalizeVoltAgentChatOutput,
   synthesizeVoltAgentChatMessages,
-} from './chat-utils';
-import { normalizeOpenAIResponsesStreamingOutput } from './chat-utils/openai';
+} from './chat-utils/voltagent';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
+  CHUNK_INDEX_KEY,
   COST_METADATA_KEY,
+  MLFLOW_SPAN_OUTPUT_KEY,
   SPAN_ATTRIBUTE_COST_KEY,
+  SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY,
   SPAN_ATTRIBUTE_MODEL_KEY,
   TOKEN_USAGE_METADATA_KEY,
 } from './constants';
-import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
-import { getSpanAttribute } from '../genai-traces-table/utils/TraceUtils';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
@@ -168,6 +169,28 @@ export function tryDeserializeAttribute(value: string): any {
     return value;
   }
 }
+
+export const SPAN_LOG_LEVEL_ATTRIBUTE_KEY = 'mlflow.spanLogLevel';
+
+// Normalize the raw `mlflow.spanLogLevel` attribute value to a SpanLogLevel.
+// The wire shape varies by endpoint:
+//   - artifact endpoint: JSON-stringified int (e.g. "30")
+//   - V3 traces/get + V4 OTLP: int_value extracted as a JS number (e.g. 30)
+// Returns undefined when the attribute is absent or the value is not numeric.
+export const parseSpanLogLevel = (raw: unknown): SpanLogLevel | undefined => {
+  if (raw === undefined || raw === null) return undefined;
+  const parsed = typeof raw === 'number' ? raw : tryDeserializeAttribute(String(raw));
+  return typeof parsed === 'number' ? (parsed as SpanLogLevel) : undefined;
+};
+
+// Returns the span's classified severity. Spans without an explicit level are
+// treated as DEBUG so that pre-feature traces (no `mlflow.spanLogLevel`
+// attribute) and spans from third-party tracers that don't yet stamp a level
+// remain visible at the default threshold and don't disappear unexpectedly
+// when a user bumps the threshold.
+export const getSpanLogLevel = (node: ModelTraceSpanNode): SpanLogLevel => {
+  return node.logLevel ?? SpanLogLevel.DEBUG;
+};
 
 export const getMatchesFromEvent = (span: ModelTraceSpanNode, searchFilter: string): SearchMatch[] => {
   const events = span.events;
@@ -286,9 +309,10 @@ export function searchTree(
   const allSpanTypesSelected = Object.values(spanFilterState.spanTypeDisplayState).every(
     (shouldDisplay) => shouldDisplay,
   );
-  // if there is no search filter and all span types
-  // are selected, then we don't have to do any filtering.
-  if (searchFilterLowercased === '' && allSpanTypesSelected) {
+  // if there is no search filter, all span types are selected, and the log-level
+  // threshold is at the lowest level (DEBUG), no filtering is needed.
+  const logLevelThresholdAtMin = spanFilterState.minLogLevel === SpanLogLevel.DEBUG;
+  if (searchFilterLowercased === '' && allSpanTypesSelected && logLevelThresholdAtMin) {
     return {
       filteredTreeNodes: [rootNode],
       matches: [],
@@ -312,10 +336,11 @@ export function searchTree(
   const spanName = ((rootNode.title as string) ?? '').toLowerCase();
   const spanMatches = getMatchesFromSpan(rootNode, searchFilterLowercased);
 
-  // check if the span passes the text and type filters
+  // check if the span passes the text, type, and log-level filters
   const nodeMatchesSearch = spanMatches.length > 0 || spanName.includes(searchFilterLowercased);
   const spanTypeIsDisplayed = rootNode.type ? spanFilterState.spanTypeDisplayState[rootNode.type] : true;
-  const nodePassesSpanFilters = nodeMatchesSearch && spanTypeIsDisplayed;
+  const spanPassesLogLevel = getSpanLogLevel(rootNode) >= spanFilterState.minLogLevel;
+  const nodePassesSpanFilters = nodeMatchesSearch && spanTypeIsDisplayed && spanPassesLogLevel;
 
   const hasMatchingChild = filteredChildren.length > 0;
   const hasException = getSpanExceptionCount(rootNode) > 0;
@@ -399,9 +424,27 @@ const getChatMessagesFromSpan = (
     }
   }
 
-  // when either input or output is not chat messages, we do not set the chat message fiels.
+  // When the output is a plain string and inputs parsed as chat messages,
+  // wrap the output as an assistant message so the chat UI can render.
+  if (messagesFromInputs.length > 0 && messagesFromOutputs.length === 0 && typeof outputs === 'string') {
+    return messagesFromInputs.concat([{ role: 'assistant', content: outputs }]);
+  }
+
+  // when either input or output is not chat messages, we do not set the chat message field.
   if (messagesFromInputs.length === 0 || messagesFromOutputs.length === 0) {
     return undefined;
+  }
+
+  // LangGraph (and similar frameworks) accumulate all messages in the output state,
+  // so outputs already contain the input messages as a prefix. Detect this overlap
+  // and use only the output messages to avoid duplication.
+  if (
+    messagesFromOutputs.length >= messagesFromInputs.length &&
+    messagesFromInputs.every(
+      (msg, i) => msg.role === messagesFromOutputs[i].role && msg.content === messagesFromOutputs[i].content,
+    )
+  ) {
+    return messagesFromOutputs;
   }
 
   return messagesFromInputs.concat(messagesFromOutputs);
@@ -468,11 +511,15 @@ export const normalizeNewSpanData = (
     inputs,
   );
 
-  // Extract model name and cost info
+  // Extract model name, cost info, and linked gateway trace ID
   const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);
   const cost = getCostFromSpan(
     tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_COST_KEY) as string),
   );
+  const linkedGatewayTraceId = tryDeserializeAttribute(
+    getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY) as string,
+  );
+  const logLevel = parseSpanLogLevel(getSpanAttribute(span.attributes, SPAN_LOG_LEVEL_ATTRIBUTE_KEY));
 
   // remove other private mlflow attributes
   const attributes = mapValues(
@@ -509,6 +556,8 @@ export const normalizeNewSpanData = (
     traceId,
     modelName,
     cost,
+    linkedGatewayTraceId,
+    logLevel,
   };
 };
 
@@ -671,6 +720,7 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
 
     // v1 spans
     const spanType = span.span_type ?? ModelSpanType.UNKNOWN;
+    const logLevel = parseSpanLogLevel(getSpanAttribute(span.attributes, SPAN_LOG_LEVEL_ATTRIBUTE_KEY));
     return {
       title: span.name,
       icon: <ModelTraceExplorerIcon type={getIconTypeForSpan(spanType)} />,
@@ -688,6 +738,7 @@ export function parseModelTraceToTreeWithMultipleRoots(trace: ModelTrace): Model
       parentId: span.parent_id ?? span.parent_span_id,
       assessments: [],
       traceId,
+      logLevel,
     };
   }
 
@@ -807,6 +858,25 @@ export const createListFromObject = (
   return Object.entries(obj).map(([key, value]) => {
     return { key, value: JSON.stringify(value, null, 2) };
   });
+};
+
+/**
+ * Builds a single JSON string from a key-value list
+ * Used for aggregated table view. Duplicate keys overwrite; parse errors fall back to raw string.
+ */
+export const buildAggregatedJsonFromKeyValueList = (list: { key: string; value: string }[]): string => {
+  if (!Array.isArray(list)) {
+    return '{}';
+  }
+  const obj: Record<string, unknown> = {};
+  for (const { key, value } of list) {
+    try {
+      obj[key] = JSON.parse(value);
+    } catch {
+      obj[key] = value;
+    }
+  }
+  return JSON.stringify(obj, null, 2);
 };
 
 export const getHighlightedSpanComponents = ({
@@ -943,6 +1013,9 @@ const isContentPart = (part: any) => {
         return false;
       }
       return isString(input_audio.data) && (isNil(input_audio.format) || ['wav', 'mp3'].includes(input_audio.format));
+    case 'image':
+      // Anthropic format: {"type": "image", "source": {"type": "base64", "data": "..."}}
+      return !isNil(part.source) && isString((part as any).source.data);
     default:
       return false;
   }
@@ -1013,7 +1086,7 @@ export const isModelTraceChoices = (obj: any): obj is ModelTraceChatResponse['ch
   return (
     Array.isArray(obj) &&
     obj.length > 0 &&
-    obj.every((choice: any) => has(choice, 'message') && isModelTraceChatMessage(choice.message))
+    obj.every((choice: any) => has(choice, 'message') && isRawModelTraceChatMessage(choice.message))
   );
 };
 
@@ -1050,6 +1123,12 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
  *  21. PydanticAI inputs
  *  22. PydanticAI outputs
  */
+const normalizeOpenAIFormats = (input: any): ModelTraceChatMessage[] | null =>
+  normalizeOpenAIChatInput(input) ??
+  normalizeOpenAIChatResponse(input) ??
+  normalizeOpenAIResponsesOutput(input) ??
+  normalizeOpenAIResponsesStreamingOutput(input);
+
 export const normalizeConversation = (input: any, messageFormat?: string): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
   // and formatting, and it's possible that we miss some edge cases. in case of an error,
@@ -1061,21 +1140,22 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
     }
 
     switch (messageFormat) {
-      case 'langchain':
-        const langchainMessages = normalizeLangchainChatInput(input) ?? normalizeLangchainChatResult(input);
+      case 'langchain': {
+        const langchainMessages =
+          normalizeLangchainChatInput(input) ??
+          normalizeLangchainChatResult(input) ??
+          // LangChain autolog may serialize messages in OpenAI format
+          normalizeOpenAIFormats(input) ??
+          normalizeOpenAIResponsesInput(input);
         if (langchainMessages) return langchainMessages;
         break;
+      }
       case 'llamaindex':
         const llamaIndexMessages = normalizeLlamaIndexChatInput(input) ?? normalizeLlamaIndexChatResponse(input);
         if (llamaIndexMessages) return llamaIndexMessages;
         break;
       case 'openai':
-        const openAIMessages =
-          normalizeOpenAIChatInput(input) ??
-          normalizeOpenAIChatResponse(input) ??
-          normalizeOpenAIResponsesOutput(input) ??
-          normalizeOpenAIResponsesInput(input) ??
-          normalizeOpenAIResponsesStreamingOutput(input);
+        const openAIMessages = normalizeOpenAIFormats(input) ?? normalizeOpenAIResponsesInput(input);
         if (openAIMessages) return openAIMessages;
         break;
       case 'dspy':
@@ -1119,9 +1199,11 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         if (voltAgentMessages) return voltAgentMessages;
         break;
       default:
-        // Fallback to OpenAI chat format
-        const chatMessages = normalizeOpenAIChatInput(input) ?? normalizeOpenAIChatResponse(input);
+        const chatMessages =
+          normalizeOpenAIFormats(input) ?? normalizeLangchainChatInput(input) ?? normalizeLangchainChatResult(input);
         if (chatMessages) return chatMessages;
+        const geminiFallbackMessages = normalizeGeminiChatInput(input) ?? normalizeGeminiChatOutput(input);
+        if (geminiFallbackMessages) return geminiFallbackMessages;
         break;
     }
 
@@ -1168,15 +1250,42 @@ const formatChatContent = (content?: ModelTraceContentType | null): string | und
         case 'image_url':
           const url = part?.image_url?.url;
           return url ? `![](${url})` : '[image]';
+        case 'image': {
+          // Anthropic format: {"type": "image", "source": {"type": "base64", "media_type": "...", "data": "..."}}
+          const source = (part as any)?.source;
+          const imageData = source?.data;
+          if (!imageData) return '[image]';
+          if (isString(imageData) && imageData.startsWith('mlflow-attachment://')) {
+            return `![](${imageData})`;
+          }
+          const mediaType = source?.media_type;
+          return mediaType ? `![](data:${mediaType};base64,${imageData})` : '[image]';
+        }
         case 'input_audio':
-          // raw encoded audio content is not displayed in the UI
-          return '[audio]';
+          // Audio parts are rendered as <audio> elements by the component,
+          // so they are excluded from the markdown string
+          return undefined;
       }
     })
     .filter((part) => part !== undefined);
 
   // Join with double line breaks for better visual separation
   return contentParts.join('\n\n');
+};
+
+const extractAudioParts = (content?: ModelTraceContentType | null): ModelTraceInputAudio[] => {
+  if (isNil(content) || isString(content)) {
+    return [];
+  }
+  return content
+    .filter(
+      (part): part is { type: 'input_audio'; input_audio: ModelTraceInputAudio } =>
+        part.type === 'input_audio' &&
+        isObject((part as any).input_audio) &&
+        isString(((part as any).input_audio as any).data) &&
+        isString(((part as any).input_audio as any).format),
+    )
+    .map((part) => part.input_audio);
 };
 
 export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): ModelTraceChatMessage | null => {
@@ -1188,10 +1297,21 @@ export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): Model
     return null;
   }
 
+  const audioParts = extractAudioParts(message.content);
+
+  // Extract audio from assistant message output (e.g., gpt-4o-audio-preview response)
+  const messageAudio = (message as any).audio;
+  if (messageAudio && isString(messageAudio.data)) {
+    const format =
+      isString(messageAudio.format) && ['wav', 'mp3'].includes(messageAudio.format) ? messageAudio.format : 'wav';
+    audioParts.push({ data: messageAudio.data, format });
+  }
+
   return {
     ...message,
     content: formatChatContent(message.content),
     tool_calls: message.tool_calls?.map(prettyPrintToolCall),
+    ...(audioParts.length > 0 ? { audioParts } : {}),
   };
 };
 
@@ -1286,13 +1406,7 @@ export const useIntermediateNodes = (rootNode: ModelTraceSpanNode | null) => {
   return intermediateNodes;
 };
 
-/**
- * Determines if a trace (by provided info object) supports being queried using V4 API.
- * For now, only UC_SCHEMA-located traces are supported.
- */
-export const doesTraceSupportV4API = (traceInfo?: ModelTrace['info'] | Partial<ModelTraceInfoV3>) => {
-  return Boolean(traceInfo && isV3ModelTraceInfo(traceInfo) && traceInfo.trace_location?.type === 'UC_SCHEMA');
-};
+export { doesTraceSupportV4API } from '../genai-traces-table/utils/TraceLocationUtils';
 
 export const createTraceV4SerializedLocation = (location: ModelTraceLocation) => {
   if (location.type === 'MLFLOW_EXPERIMENT') {
@@ -1304,13 +1418,22 @@ export const createTraceV4SerializedLocation = (location: ModelTraceLocation) =>
   if (location.type === 'UC_SCHEMA') {
     return `${location.uc_schema?.catalog_name}.${location.uc_schema?.schema_name}`;
   }
+  if (location.type === 'UC_TABLE_PREFIX') {
+    return `${location.uc_table_prefix?.catalog_name}.${location.uc_table_prefix?.schema_name}.${location.uc_table_prefix?.table_prefix}`;
+  }
   return undefined;
 };
 
 export const parseTraceV4SerializedLocation = (locationString: string): ModelTraceLocation => {
-  const [catalog_name, schema_name] = locationString.split('.');
-  if (catalog_name && schema_name) {
-    return { type: 'UC_SCHEMA', uc_schema: { catalog_name, schema_name } };
+  const parts = locationString.split('.');
+  if (parts.length >= 3 && parts[0] && parts[1] && parts[2]) {
+    return {
+      type: 'UC_TABLE_PREFIX',
+      uc_table_prefix: { catalog_name: parts[0], schema_name: parts[1], table_prefix: parts[2] },
+    };
+  }
+  if (parts.length >= 2 && parts[0] && parts[1]) {
+    return { type: 'UC_SCHEMA', uc_schema: { catalog_name: parts[0], schema_name: parts[1] } };
   }
   return { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: locationString } };
 };
@@ -1379,8 +1502,13 @@ export const getTotalTokens = (traceInfo: ModelTraceInfoV3): number | null => {
 
 export const getTraceTokenUsage = (
   traceInfo: ModelTraceInfoV3,
-): { input_tokens?: number; output_tokens?: number; total_tokens?: number } =>
-  parseJSONSafe(traceInfo?.trace_metadata?.[TOKEN_USAGE_METADATA_KEY] ?? '{}');
+): {
+  input_tokens?: number;
+  output_tokens?: number;
+  total_tokens?: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
+} => parseJSONSafe(traceInfo?.trace_metadata?.[TOKEN_USAGE_METADATA_KEY] ?? '{}');
 
 export const getTraceCost = (
   traceInfo: ModelTraceInfoV3,
@@ -1393,10 +1521,10 @@ export const isSessionLevelAssessment = (assessment: Assessment): boolean => {
 
 /**
  * Filters the provided assessments to only include those that are at the trace level
- * (i.e., not associated with a specific session).
+ * (i.e., not associated with a specific session) or are IssueReferenceAssessment types.
  */
 export const getTraceLevelAssessments = (assessments?: Assessment[]) =>
-  assessments?.filter((assessment) => !isSessionLevelAssessment(assessment)) ?? [];
+  assessments?.filter((assessment) => !isSessionLevelAssessment(assessment) || 'issue' in assessment) ?? [];
 
 export const isValidException = (
   event: ModelTraceEvent,
@@ -1417,4 +1545,26 @@ export const isValidException = (
     typeof event.attributes['exception.message'] === 'string' &&
     (stackTraceExists ? stackTraceIsString : true),
   );
+};
+
+const CHUNK_RELEVANCE_ASSESSMENT_NAMES = ['chunk_relevance', 'retrieval_relevance'];
+
+export const isChunkRelevanceAssessment = (assessment: Assessment): boolean =>
+  CHUNK_RELEVANCE_ASSESSMENT_NAMES.includes(assessment.assessment_name);
+
+export const getAssessmentDocumentIndex = (assessment: Assessment): number | undefined => {
+  const spanOutputKey = assessment.metadata?.[MLFLOW_SPAN_OUTPUT_KEY] ?? assessment.metadata?.[CHUNK_INDEX_KEY];
+  if (isNil(spanOutputKey)) return undefined;
+  const index = Number(spanOutputKey);
+  return Number.isNaN(index) ? undefined : index;
+};
+
+export const buildDocumentRelevanceAssessmentMap = (assessments: Assessment[]): Map<number, Assessment> => {
+  const map = new Map<number, Assessment>();
+  for (const assessment of assessments) {
+    if (!isChunkRelevanceAssessment(assessment)) continue;
+    const index = getAssessmentDocumentIndex(assessment);
+    if (index !== undefined) map.set(index, assessment);
+  }
+  return map;
 };

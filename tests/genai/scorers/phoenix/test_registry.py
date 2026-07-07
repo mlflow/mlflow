@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -28,3 +30,14 @@ def test_get_evaluator_class_invalid_metric():
 
     with pytest.raises(MlflowException, match="Unknown Phoenix metric"):
         get_evaluator_class("InvalidMetric")
+
+
+def test_get_evaluator_class_dynamic_import():
+    from mlflow.genai.scorers.phoenix.registry import get_evaluator_class
+
+    mock_evaluator = mock.MagicMock()
+    mock_evaluator.__name__ = "NewMetricEvaluator"
+
+    with mock.patch.object(phoenix_evals, "NewMetricEvaluator", mock_evaluator, create=True):
+        result = get_evaluator_class("NewMetric")
+        assert result is mock_evaluator

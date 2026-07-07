@@ -6,9 +6,9 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths:
       - .github/workflows/protos.yml
+      - dev/gen_rest_api.py
       - dev/generate_protos.py
       - dev/generate-protos.sh
       - dev/test-generate-protos.sh
@@ -31,16 +31,19 @@ defaults:
   run:
     shell: bash
 
+permissions: {}
+
 jobs:
   protos:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          persist-credentials: false
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/setup-python

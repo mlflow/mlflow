@@ -78,9 +78,10 @@ train_loader = torch.utils.data.DataLoader(
         "../data",
         train=True,
         download=True,
-        transform=transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-        ),
+        transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,)),
+        ]),
     ),
     batch_size=args.batch_size,
     shuffle=True,
@@ -90,9 +91,10 @@ test_loader = torch.utils.data.DataLoader(
     datasets.MNIST(
         "../data",
         train=False,
-        transform=transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-        ),
+        transform=transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,)),
+        ]),
     ),
     batch_size=args.test_batch_size,
     shuffle=True,
@@ -224,7 +226,9 @@ with mlflow.start_run():
 
     # Log the model as an artifact of the MLflow run.
     print("\nLogging the trained model as a run artifact...")
-    model_info = mlflow.pytorch.log_model(model, name="pytorch-model", pickle_module=pickle)
+    model_info = mlflow.pytorch.log_model(
+        model, name="pytorch-model", pickle_module=pickle, serialization_format="pickle"
+    )
     print(f"\nThe model is logged at:\n{model_info.artifact_path}")
 
     # Get the device (GPU or CPU)

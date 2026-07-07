@@ -2,8 +2,8 @@ import json
 from unittest import mock
 from unittest.mock import Mock, call, patch
 
+import pydantic
 import pytest
-from litellm.types.utils import ModelResponse
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -11,6 +11,7 @@ from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.adapters.gateway_adapter import InvokeOutput
 from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
@@ -27,7 +28,10 @@ from mlflow.genai.scorers import (
     Fluency,
     Guidelines,
     KnowledgeRetention,
+    PIIDetection,
+    RegexMatch,
     RelevanceToQuery,
+    ResponseLength,
     RetrievalGroundedness,
     RetrievalRelevance,
     RetrievalSufficiency,
@@ -39,6 +43,7 @@ from mlflow.genai.scorers import (
 )
 from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.builtin_scorers import (
+    BuiltInScorer,
     ExtractedFields,
     _construct_field_extraction_config,
     _validate_required_fields,
@@ -228,29 +233,32 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_retrieval_relevance_with_custom_model(sample_rag_trace):
+    def make_feedback(*args, **kwargs):
+        return Feedback(name="retrieval_relevance", value="yes", rationale="Relevant content")
+
     with patch(
         "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
-        return_value=Feedback(
-            name="retrieval_relevance", value="yes", rationale="Relevant content"
-        ),
+        side_effect=make_feedback,
     ) as mock_invoke_judge:
         custom_model = "openai:/gpt-4"
         scorer = RetrievalRelevance(model=custom_model)
         results = scorer(trace=sample_rag_trace)
 
-        # Should be called for each chunk (3 total chunks)
         assert mock_invoke_judge.call_count == 3
-
-        for call_args in mock_invoke_judge.call_args_list:
-            args, kwargs = call_args
-            assert args[0] == custom_model  # First positional arg is model
-            assert kwargs["assessment_name"] == "retrieval_relevance"
-
-        # 2 span-level + 3 chunk-level feedbacks
         assert len(results) == 5
-        # Span-level feedbacks should be 100% relevance
-        assert results[0].value == 1.0
-        assert results[3].value == 1.0
+
+        retriever_span_ids = [
+            s.span_id for s in sample_rag_trace.search_spans(span_type=SpanType.RETRIEVER)
+        ]
+
+        # Retriever 0 has 2 chunks, retriever 1 has 1 chunk. Each chunk feedback
+        # should target its retriever span and carry its index within that span.
+        chunk_feedbacks = [r for r in results if r.name == "retrieval_relevance"]
+        assert [(f.span_id, f.metadata["chunk_index"]) for f in chunk_feedbacks] == [
+            (retriever_span_ids[0], 0),
+            (retriever_span_ids[0], 1),
+            (retriever_span_ids[1], 0),
+        ]
 
 
 def test_retrieval_sufficiency(sample_rag_trace):
@@ -630,6 +638,7 @@ def test_get_all_scorers():
         "KnowledgeRetention",
         "ToolCallEfficiency",
         "ToolCallCorrectness",
+        "PIIDetection",
     }
 
     assert scorer_class_names == expected_scorers
@@ -691,15 +700,20 @@ def test_fluency_get_input_fields():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_default_name():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "The text is fluent.",
-        }
-    )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "The text is fluent.",
+    })
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=InvokeOutput(
+            response=mock_content,
+            request_id=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
+        ),
+    ):
         scorer = Fluency()
         result = scorer(outputs="The cat sat on the mat.")
 
@@ -709,15 +723,20 @@ def test_fluency_default_name():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_with_custom_model():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "The text is fluent.",
-        }
-    )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "The text is fluent.",
+    })
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=InvokeOutput(
+            response=mock_content,
+            request_id=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
+        ),
+    ):
         custom_model = "anthropic:/claude-3-opus"
         scorer = Fluency(model=custom_model)
         result = scorer(outputs="This is a fluent response")
@@ -728,15 +747,20 @@ def test_fluency_with_custom_model():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_with_custom_name():
-    mock_content = json.dumps(
-        {
-            "result": "no",
-            "rationale": "The text has issues.",
-        }
-    )
-    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+    mock_content = json.dumps({
+        "result": "no",
+        "rationale": "The text has issues.",
+    })
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+        return_value=InvokeOutput(
+            response=mock_content,
+            request_id=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
+        ),
+    ):
         scorer = Fluency(name="my_fluency_check")
         result = scorer(outputs="Bad text")
 
@@ -1584,12 +1608,10 @@ def test_completeness_with_trace():
 def test_conversational_safety_with_session():
     session_id = "test_session_safety"
     traces = []
-    for i, (q, a) in enumerate(
-        [
-            ("What is Python?", "Python is a programming language."),
-            ("How do I install it?", "You can download it from python.org."),
-        ]
-    ):
+    for i, (q, a) in enumerate([
+        ("What is Python?", "Python is a programming language."),
+        ("How do I install it?", "You can download it from python.org."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": q})
             span.set_outputs(a)
@@ -1665,12 +1687,10 @@ def test_conversational_safety_instructions():
 def test_conversational_tool_call_efficiency_with_session():
     session_id = "test_session_efficiency"
     traces = []
-    for i, (question, stock, stock_price) in enumerate(
-        [
-            ("What is the price of AAPL?", "AAPL", "150"),
-            ("How about MSFT?", "MSFT", "300"),
-        ]
-    ):
+    for i, (question, stock, stock_price) in enumerate([
+        ("What is the price of AAPL?", "AAPL", "150"),
+        ("How about MSFT?", "MSFT", "300"),
+    ]):
         answer = f"{stock} is ${stock_price}."
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
@@ -1961,12 +1981,10 @@ def test_tool_call_correctness_parse_expectations_empty(expectations):
 def test_conversational_role_adherence_with_session():
     session_id = "test_session_role"
     traces = []
-    for i, (question, answer) in enumerate(
-        [
-            ("What can you cook?", "I can help you make many dishes!"),
-            ("How do I make soup?", "Start by boiling vegetables..."),
-        ]
-    ):
+    for i, (question, answer) in enumerate([
+        ("What can you cook?", "I can help you make many dishes!"),
+        ("How do I make soup?", "Start by boiling vegetables..."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
             span.set_outputs(answer)
@@ -2013,12 +2031,10 @@ def test_conversational_role_adherence_instructions():
 def test_conversational_guidelines_with_session(guidelines):
     session_id = "test_session_guidelines"
     traces = []
-    for i, (question, answer) in enumerate(
-        [
-            ("What are your hours?", "We are open 9am-5pm Monday through Friday."),
-            ("Can I get a refund?", "Yes, we offer refunds within 30 days of purchase."),
-        ]
-    ):
+    for i, (question, answer) in enumerate([
+        ("What are your hours?", "We are open 9am-5pm Monday through Friday."),
+        ("Can I get a refund?", "Yes, we offer refunds within 30 days of purchase."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
             span.set_outputs(answer)
@@ -2387,3 +2403,429 @@ def test_summarization_with_trace():
         assert result.value == "yes"
         assert result.rationale == "Accurate summary"
         mock_invoke_judge.assert_called_once()
+
+
+def test_equivalence_passes_inference_params():
+    inference_params = {"temperature": 0.0, "max_tokens": 100}
+    scorer = Equivalence(inference_params=inference_params)
+
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        return_value=Feedback(name="equivalence", value="yes", rationale="Match"),
+    ) as mock_invoke:
+        scorer(
+            outputs="Paris is the capital",
+            expectations={"expected_response": "The capital is Paris"},
+        )
+
+        mock_invoke.assert_called_once()
+        _, kwargs = mock_invoke.call_args
+        assert kwargs["inference_params"] == inference_params
+
+
+def test_retrieval_relevance_passes_inference_params(sample_rag_trace):
+    inference_params = {"temperature": 0.0}
+    scorer = RetrievalRelevance(inference_params=inference_params)
+
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        return_value=Feedback(name="retrieval_relevance", value="yes", rationale="Relevant"),
+    ) as mock_invoke:
+        scorer(trace=sample_rag_trace)
+
+        for args in mock_invoke.call_args_list:
+            assert args.kwargs["inference_params"] == inference_params
+
+
+@pytest.mark.parametrize(
+    "scorer_cls",
+    [
+        UserFrustration,
+        ConversationCompleteness,
+        ConversationalSafety,
+        ConversationalToolCallEfficiency,
+        ConversationalRoleAdherence,
+    ],
+    ids=[
+        "user_frustration",
+        "conversation_completeness",
+        "conversational_safety",
+        "conversational_tool_call_efficiency",
+        "conversational_role_adherence",
+    ],
+)
+def test_session_level_scorer_passes_inference_params_to_judge(scorer_cls):
+    inference_params = {"temperature": 0.0}
+    scorer = scorer_cls(inference_params=inference_params)
+    assert scorer.inference_params == inference_params
+
+    judge = scorer._get_judge()
+    assert judge.inference_params == inference_params
+
+
+def test_knowledge_retention_propagates_inference_params():
+    inference_params = {"temperature": 0.0}
+    scorer = KnowledgeRetention(inference_params=inference_params)
+    assert scorer.inference_params == inference_params
+    assert scorer.last_turn_scorer.inference_params == inference_params
+
+    judge = scorer.last_turn_scorer._get_judge()
+    assert judge.inference_params == inference_params
+
+
+@pytest.mark.parametrize(
+    "scorer_cls",
+    [Equivalence, RetrievalRelevance, UserFrustration, KnowledgeRetention],
+)
+def test_builtin_scorer_inference_params_defaults_to_none(scorer_cls):
+    scorer = scorer_cls()
+    assert scorer.inference_params is None
+
+
+def test_builtin_scorer_serialization_roundtrip_with_inference_params():
+    inference_params = {"temperature": 0.0, "top_p": 0.9}
+    scorer = Equivalence(inference_params=inference_params)
+
+    serialized = scorer.model_dump()
+    assert serialized["builtin_scorer_pydantic_data"]["inference_params"] == inference_params
+
+    restored = BuiltInScorer.model_validate(serialized)
+    assert restored.inference_params == inference_params
+
+
+# ---------------------------------------------------------------------------
+# Rule-based scorers: RegexMatch, PIIDetection, ResponseLength
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("pattern", "outputs", "expected"),
+    [
+        (r"^Answer:", "Answer: 42", CategoricalRating.YES),
+        (r"^Answer:", "The answer is 42", CategoricalRating.NO),
+        (r"\d+", "There are 5 items", CategoricalRating.YES),
+        (r"^\s*$", "non-empty", CategoricalRating.NO),
+    ],
+)
+def test_regex_match_search(pattern, outputs, expected):
+    scorer = RegexMatch(pattern=pattern)
+    feedback = scorer(outputs=outputs)
+    assert feedback.name == "regex_match"
+    assert feedback.value == expected
+    assert feedback.source.source_type == AssessmentSourceType.CODE
+
+
+def test_regex_match_fullmatch_mode():
+    scorer = RegexMatch(pattern=r"Answer: \d+", match_type="fullmatch")
+
+    feedback = scorer(outputs="Answer: 42")
+    assert feedback.value == CategoricalRating.YES
+
+    feedback = scorer(outputs="Answer: 42 and more")
+    assert feedback.value == CategoricalRating.NO
+
+
+def test_regex_match_case_insensitive():
+    scorer = RegexMatch(pattern=r"^answer:", case_insensitive=True)
+    feedback = scorer(outputs="Answer: 42")
+    assert feedback.value == CategoricalRating.YES
+
+
+def test_regex_match_invalid_pattern_raises_at_construction():
+    with pytest.raises(pydantic.ValidationError, match="invalid regex pattern"):
+        RegexMatch(pattern=r"[unclosed")
+
+
+def test_regex_match_missing_outputs():
+    scorer = RegexMatch(pattern=r".*")
+    feedback = scorer(outputs=None, trace=None)
+    assert feedback.value == CategoricalRating.NO
+    assert "No outputs" in feedback.rationale
+
+
+def test_regex_match_get_input_fields():
+    scorer = RegexMatch(pattern=r".*")
+    field_names = [f.name for f in scorer.get_input_fields()]
+    assert field_names == ["outputs"]
+
+
+@pytest.mark.parametrize(
+    ("outputs", "expected_pii"),
+    [
+        ("Contact alice@example.com", ["email"]),
+        ("Call me at 555-123-4567", ["phone"]),
+        ("SSN: 123-45-6789", ["ssn"]),
+        ("Card: 4532-1234-5678-9010", ["credit_card"]),
+        ("Server at 192.168.1.1", ["ip_address"]),
+        (
+            "Email alice@example.com or call 555-123-4567",
+            ["email", "phone"],
+        ),
+    ],
+)
+def test_pii_detection_flags_pii(outputs, expected_pii):
+    scorer = PIIDetection()
+    feedback = scorer(outputs=outputs)
+    assert feedback.value == CategoricalRating.NO
+    for pii_type in expected_pii:
+        assert pii_type in feedback.rationale
+
+
+def test_pii_detection_clean_output():
+    scorer = PIIDetection()
+    feedback = scorer(outputs="This response contains no personal information.")
+    assert feedback.value == CategoricalRating.YES
+    assert "No PII detected" in feedback.rationale
+
+
+def test_pii_detection_filters_to_specific_types():
+    scorer = PIIDetection(pii_types=["email"])
+    feedback = scorer(outputs="Call 555-123-4567 (not an email)")
+    assert feedback.value == CategoricalRating.YES
+
+
+def test_pii_detection_unsupported_type_raises_at_construction():
+    with pytest.raises(pydantic.ValidationError, match="literal_error"):
+        PIIDetection(pii_types=["nonsense"])
+
+
+def test_pii_detection_get_input_fields():
+    scorer = PIIDetection()
+    field_names = [f.name for f in scorer.get_input_fields()]
+    assert field_names == ["outputs"]
+
+
+@pytest.mark.parametrize(
+    ("min_length", "max_length", "outputs", "expected"),
+    [
+        (10, 100, "A valid short response.", CategoricalRating.YES),
+        (10, 100, "hi", CategoricalRating.NO),
+        (10, 100, "x" * 200, CategoricalRating.NO),
+        (None, 5, "hi", CategoricalRating.YES),
+        (None, 5, "hello!", CategoricalRating.NO),
+        (5, None, "long enough", CategoricalRating.YES),
+        (5, None, "hi", CategoricalRating.NO),
+    ],
+)
+def test_response_length_chars(min_length, max_length, outputs, expected):
+    scorer = ResponseLength(min_length=min_length, max_length=max_length)
+    feedback = scorer(outputs=outputs)
+    assert feedback.value == expected
+    assert feedback.source.source_type == AssessmentSourceType.CODE
+
+
+def test_response_length_words():
+    scorer = ResponseLength(max_length=5, unit="words")
+
+    feedback = scorer(outputs="one two three four")
+    assert feedback.value == CategoricalRating.YES
+
+    feedback = scorer(outputs="one two three four five six seven")
+    assert feedback.value == CategoricalRating.NO
+
+
+def test_response_length_requires_at_least_one_bound():
+    with pytest.raises(pydantic.ValidationError, match="at least one of"):
+        ResponseLength()
+
+
+def test_response_length_rejects_inverted_bounds():
+    with pytest.raises(pydantic.ValidationError, match="must be <="):
+        ResponseLength(min_length=100, max_length=10)
+
+
+def test_response_length_get_input_fields():
+    scorer = ResponseLength(max_length=100)
+    field_names = [f.name for f in scorer.get_input_fields()]
+    assert field_names == ["outputs"]
+
+
+def test_rule_based_scorers_dont_call_llm():
+    """Rule-based scorers must not call invoke_judge_model.
+
+    This guards against accidental LLM calls being added to scorers that
+    are supposed to be free and deterministic.
+    """
+    with patch("mlflow.genai.scorers.builtin_scorers.invoke_judge_model") as mock_judge:
+        RegexMatch(pattern=r".*")(outputs="test")
+        PIIDetection()(outputs="test")
+        ResponseLength(max_length=100)(outputs="test")
+        assert mock_judge.call_count == 0
+
+
+def test_rule_based_scorer_serialization_roundtrip():
+    scorer = RegexMatch(pattern=r"^Answer:", match_type="fullmatch", case_insensitive=True)
+    serialized = scorer.model_dump()
+    restored = BuiltInScorer.model_validate(serialized)
+    assert isinstance(restored, RegexMatch)
+    assert restored.pattern == r"^Answer:"
+    assert restored.match_type == "fullmatch"
+    assert restored.case_insensitive is True
+
+    scorer = PIIDetection(pii_types=["email", "phone"])
+    serialized = scorer.model_dump()
+    restored = BuiltInScorer.model_validate(serialized)
+    assert isinstance(restored, PIIDetection)
+    assert restored.pii_types == ["email", "phone"]
+
+    scorer = ResponseLength(min_length=10, max_length=100, unit="words")
+    serialized = scorer.model_dump()
+    restored = BuiltInScorer.model_validate(serialized)
+    assert isinstance(restored, ResponseLength)
+    assert restored.min_length == 10
+    assert restored.max_length == 100
+    assert restored.unit == "words"
+
+
+# ---------------------------------------------------------------------------
+# Rule-based scorer trace extraction
+# ---------------------------------------------------------------------------
+
+
+def test_regex_match_with_trace():
+    trace = create_simple_trace(outputs="Answer: 42")
+    scorer = RegexMatch(pattern=r"^Answer:")
+    feedback = scorer(trace=trace)
+    assert feedback.value == CategoricalRating.YES
+
+
+def test_pii_detection_with_trace():
+    trace = create_simple_trace(outputs="Contact alice@example.com")
+    scorer = PIIDetection(pii_types=["email"])
+    feedback = scorer(trace=trace)
+    assert feedback.value == CategoricalRating.NO
+    assert "email" in feedback.rationale
+
+
+def test_response_length_with_trace():
+    trace = create_simple_trace(outputs="A short answer")
+    scorer = ResponseLength(min_length=5, max_length=50)
+    feedback = scorer(trace=trace)
+    assert feedback.value == CategoricalRating.YES
+
+
+# ---------------------------------------------------------------------------
+# Rule-based scorer edge cases
+# ---------------------------------------------------------------------------
+
+
+def test_regex_match_empty_string():
+    scorer = RegexMatch(pattern=r".*")
+    feedback = scorer(outputs="")
+    # Empty string matches ".*" via search
+    assert feedback.value == CategoricalRating.YES
+
+    scorer = RegexMatch(pattern=r".+")
+    feedback = scorer(outputs="")
+    assert feedback.value == CategoricalRating.NO
+
+
+def test_pii_detection_empty_string():
+    scorer = PIIDetection()
+    feedback = scorer(outputs="")
+    assert feedback.value == CategoricalRating.YES
+    assert "No PII detected" in feedback.rationale
+
+
+def test_response_length_empty_string():
+    scorer = ResponseLength(min_length=1)
+    feedback = scorer(outputs="")
+    assert feedback.value == CategoricalRating.NO
+    assert "below the minimum" in feedback.rationale
+
+    scorer = ResponseLength(max_length=10)
+    feedback = scorer(outputs="")
+    assert feedback.value == CategoricalRating.YES
+
+
+def test_rule_based_scorers_accept_non_string_outputs():
+    # Dict output (e.g., chat completions response shape)
+    chat_output = {"choices": [{"message": {"content": "Answer: 42"}}]}
+
+    scorer = RegexMatch(pattern=r"^Answer:")
+    feedback = scorer(outputs=chat_output)
+    assert feedback.value == CategoricalRating.YES
+
+    scorer = ResponseLength(min_length=5)
+    feedback = scorer(outputs=chat_output)
+    assert feedback.value == CategoricalRating.YES
+
+
+def test_response_length_words_with_punctuation():
+    scorer = ResponseLength(min_length=2, unit="words")
+
+    feedback = scorer(outputs="hello,world")
+    assert feedback.value == CategoricalRating.NO
+
+    feedback = scorer(outputs="hello world")
+    assert feedback.value == CategoricalRating.YES
+
+
+def test_pii_detection_unicode_and_boundaries():
+    scorer = PIIDetection()
+
+    # Emoji around email should still match
+    feedback = scorer(outputs="Email me 📧 alice@example.com 👋")
+    assert feedback.value == CategoricalRating.NO
+
+    # Non-ASCII text with no PII
+    feedback = scorer(outputs="こんにちは、世界")
+    assert feedback.value == CategoricalRating.YES
+
+
+def test_pii_detection_amex_card():
+    scorer = PIIDetection(pii_types=["credit_card"])
+    feedback = scorer(outputs="Amex card: 3782 822463 10005")
+    assert feedback.value == CategoricalRating.NO
+    assert "credit_card" in feedback.rationale
+
+
+def test_pii_detection_empty_pii_types_checks_nothing():
+    scorer = PIIDetection(pii_types=[])
+    feedback = scorer(outputs="Email alice@example.com, SSN 123-45-6789")
+    assert feedback.value == CategoricalRating.YES
+
+
+@pytest.mark.parametrize("value", [-1, -100])
+def test_response_length_rejects_negative_min_length(value):
+    with pytest.raises(pydantic.ValidationError, match="non-negative"):
+        ResponseLength(min_length=value)
+
+
+@pytest.mark.parametrize("value", [-1, -100])
+def test_response_length_rejects_negative_max_length(value):
+    with pytest.raises(pydantic.ValidationError, match="non-negative"):
+        ResponseLength(max_length=value)
+
+
+# ---------------------------------------------------------------------------
+# Rule-based scorer evaluate() integration
+# ---------------------------------------------------------------------------
+
+
+def test_rule_based_scorers_in_evaluate(is_in_databricks):
+    import pandas as pd
+
+    data = pd.DataFrame({
+        "inputs": [
+            {"question": "What is the capital?"},
+            {"question": "Give me the PII data"},
+        ],
+        "outputs": [
+            "Answer: Paris",
+            "Contact alice@example.com",
+        ],
+    })
+
+    scorers = [
+        RegexMatch(pattern=r"^Answer:"),
+        PIIDetection(pii_types=["email"]),
+        ResponseLength(min_length=5, max_length=200),
+    ]
+
+    result = mlflow.genai.evaluate(data=data, scorers=scorers)
+
+    metric_names = list(result.metrics.keys())
+    assert any("regex_match" in m for m in metric_names)
+    assert any("pii_detection" in m for m in metric_names)
+    assert any("response_length" in m for m in metric_names)

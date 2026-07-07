@@ -1,13 +1,17 @@
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isNil } from 'lodash';
-import { ParagraphSkeleton, Typography, Empty } from '@databricks/design-system';
+import { ParagraphSkeleton, Typography, Empty, Drawer } from '@databricks/design-system';
 import { type KeyValueEntity } from '../../../common/types';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { useCompareToRunUuid } from './hooks/useCompareToRunUuid';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 import { RunColorPill } from '../experiment-page/components/RunColorPill';
-import { getEvalTabTotalTracesLimit } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { EvaluationRunCompareSelector } from './EvaluationRunCompareSelector';
+import {
+  getEvalTabTotalTracesLimit,
+  shouldEnableImprovedEvalRunsComparison,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import {
@@ -33,12 +37,16 @@ import {
   TRACE_ID_COLUMN_ID,
   shouldUseTracesV4API,
   createTraceLocationForExperiment,
-  createTraceLocationForUCSchema,
+  createTraceLocationForDestinationPath,
   useFetchTraceV4LazyQuery,
   doesTraceSupportV4API,
-  getSimulationColumnsToAdd,
+  SESSION_COLUMN_ID,
+  SIMULATION_GOAL_COLUMN_ID,
+  SIMULATION_PERSONA_COLUMN_ID,
+  createAssessmentColumnId,
+  RESULT_ASSESSMENT_NAME,
 } from '@databricks/web-shared/genai-traces-table';
-import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
+import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
@@ -48,10 +56,7 @@ import { RunViewEvaluationsTabArtifacts } from './RunViewEvaluationsTabArtifacts
 import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { checkColumnContents } from '../experiment-page/components/traces-v3/utils/columnUtils';
-import type {
-  ModelTraceLocationMlflowExperiment,
-  ModelTraceLocationUcSchema,
-} from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceSearchLocation } from '@databricks/web-shared/model-trace-explorer';
 import {
   isV3ModelTraceInfo,
   ModelTraceExplorerContextProvider,
@@ -63,8 +68,11 @@ import type { ExperimentEntity } from '../../types';
 import { useGetDeleteTracesAction } from '../experiment-page/components/traces-v3/hooks/useGetDeleteTracesAction';
 import { useIntl } from 'react-intl';
 import { ExportTracesToDatasetModal } from '../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
-import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
+import { useCountInfo } from '../experiment-page/components/traces-v3/hooks/useCountInfo';
+import { useAssessmentCountMetrics } from '../experiment-page/components/traces-v3/hooks/useAssessmentCountMetrics';
+import { useSearchRunsQuery } from '../run-page/hooks/useSearchRunsQuery';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_TEST } from '../../constants';
 
 const ContextProviders = ({
   children,
@@ -89,6 +97,8 @@ const RunViewEvaluationsTabInner = ({
   setCurrentRunUuid,
   showCompareSelector = false,
   showRefreshButton = false,
+  hideCompareSelector = false,
+  runType,
 }: {
   experimentId: string;
   runUuid: string;
@@ -97,13 +107,19 @@ const RunViewEvaluationsTabInner = ({
   showCompareSelector?: boolean;
   compareToRunUuid?: string;
   showRefreshButton?: boolean;
+  hideCompareSelector?: boolean;
+  runType?: string;
 }) => {
+  const isRegressionTest = runType === MLFLOW_RUN_TYPE_VALUE_TEST;
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const makeHtmlFromMarkdown = useMarkdownConverter();
-  const [compareToRunUuid, setCompareToRunUuidBase] = useCompareToRunUuid();
+  const [compareToRunUuidParam, setCompareToRunUuid] = useCompareToRunUuid();
+  // Regression-test runs don't support run comparison (the per-test Result column
+  // and test-case drawer are single-run concepts), so ignore any compare target
+  // and hide the compare selector below.
+  const compareToRunUuid = isRegressionTest ? undefined : compareToRunUuidParam;
   const [isGroupedBySession, setIsGroupedBySession] = useState(false);
-  const hasAutoSelectedGoalPersona = useRef(false);
 
   const traceLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
   const getTrace = getTraceV3;
@@ -125,7 +141,29 @@ const RunViewEvaluationsTabInner = ({
     otherRunUuid: compareToRunUuid,
     disabled: isQueryDisabled,
     filterByAssessmentSourceRun: true,
+    showConsolidatedResultColumn: isRegressionTest,
   });
+
+  // Regression-test view: drop the State column and relabel trace-id to "Test".
+  // Column order is applied by the table body's regression-test mode.
+  const displayColumns = useMemo(() => {
+    if (!isRegressionTest) {
+      return allColumns;
+    }
+    return allColumns
+      .filter((column) => column.id !== STATE_COLUMN_ID)
+      .map((column) =>
+        column.id === TRACE_ID_COLUMN_ID
+          ? {
+              ...column,
+              label: intl.formatMessage({
+                defaultMessage: 'Test',
+                description: 'Column label for the regression test name column',
+              }),
+            }
+          : column,
+      );
+  }, [allColumns, intl, isRegressionTest]);
 
   // Setup table states
   // Row selection state - lifted to provide shared state via context
@@ -139,9 +177,23 @@ const RunViewEvaluationsTabInner = ({
 
   const defaultSelectedColumns = useCallback(
     (columns: TracesTableColumn[]) => {
-      const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(
-        evaluatedTraces.concat(otherEvaluatedTraces),
-      );
+      const allTraces = evaluatedTraces.concat(otherEvaluatedTraces);
+      const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(allTraces);
+      const hasSessionIds = allTraces.some((t) => Boolean(t.traceInfo?.trace_metadata?.[SESSION_ID_METADATA_KEY]));
+
+      // Regression-test view: show the test name, input/output, and the single
+      // consolidated "Result" column; per-scorer columns stay hidden by default.
+      if (isRegressionTest) {
+        const resultColumnId = createAssessmentColumnId(RESULT_ASSESSMENT_NAME);
+        return columns.filter(
+          (col) =>
+            (col.type === TracesTableColumnType.TRACE_INFO && col.id === TRACE_ID_COLUMN_ID) ||
+            (col.type === TracesTableColumnType.ASSESSMENT && col.id === resultColumnId) ||
+            (inputHasContent && col.type === TracesTableColumnType.INPUT) ||
+            (responseHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
+            (col.type === TracesTableColumnType.TRACE_INFO && col.id === EXECUTION_DURATION_COLUMN_ID),
+        );
+      }
 
       return columns.filter(
         (col) =>
@@ -151,15 +203,17 @@ const RunViewEvaluationsTabInner = ({
           (responseHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
           (tokensHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === TOKENS_COLUMN_ID) ||
           (col.type === TracesTableColumnType.TRACE_INFO &&
-            [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, STATE_COLUMN_ID].includes(col.id)),
+            [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, STATE_COLUMN_ID].includes(col.id)) ||
+          (hasSessionIds &&
+            [SESSION_COLUMN_ID, SIMULATION_GOAL_COLUMN_ID, SIMULATION_PERSONA_COLUMN_ID].includes(col.id)),
       );
     },
-    [evaluatedTraces, otherEvaluatedTraces],
+    [evaluatedTraces, otherEvaluatedTraces, isRegressionTest],
   );
 
   const { selectedColumns, toggleColumns, setSelectedColumns } = useSelectedColumns(
     experimentId,
-    allColumns,
+    displayColumns,
     defaultSelectedColumns,
     runUuid,
   );
@@ -173,6 +227,9 @@ const RunViewEvaluationsTabInner = ({
     isFetching: traceInfosFetching,
     error: traceInfosError,
     refetchMlflowTraces,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   } = useSearchMlflowTraces({
     locations: traceLocations,
     currentRunDisplayName: runDisplayName,
@@ -182,6 +239,8 @@ const RunViewEvaluationsTabInner = ({
     tableSort,
     disabled: isQueryDisabled,
     filterByAssessmentSourceRun: true,
+    // Disable pagination in comparison mode — both runs need complete data to join on inputs
+    enablePagination: isNil(compareToRunUuid),
   });
 
   const {
@@ -195,57 +254,10 @@ const RunViewEvaluationsTabInner = ({
     isQueryDisabled,
   });
 
-  // Helper to add goal/persona columns if traces have the metadata
-  const maybeAddGoalPersonaColumns = useCallback(
-    (traces: ModelTraceInfoV3[]) => {
-      if (hasAutoSelectedGoalPersona.current) {
-        return;
-      }
-
-      const columnsToAdd = getSimulationColumnsToAdd(traces, allColumns, selectedColumns);
-      if (columnsToAdd.length > 0) {
-        toggleColumns(columnsToAdd);
-        hasAutoSelectedGoalPersona.current = true;
-      }
-    },
-    [allColumns, selectedColumns, toggleColumns],
-  );
-
   // Handler for toggling session grouping
   const onToggleSessionGrouping = useCallback(() => {
-    const newIsGrouped = !isGroupedBySession;
-    setIsGroupedBySession(newIsGrouped);
-
-    // When enabling grouping while comparing, auto-select goal/persona columns
-    if (newIsGrouped && compareToRunUuid) {
-      const allTraces = (traceInfos || []).concat(compareToRunData || []);
-      maybeAddGoalPersonaColumns(allTraces);
-    }
-
-    // Reset the ref when ungrouping so columns can be auto-selected again later
-    if (!newIsGrouped) {
-      hasAutoSelectedGoalPersona.current = false;
-    }
-  }, [isGroupedBySession, compareToRunUuid, traceInfos, compareToRunData, maybeAddGoalPersonaColumns]);
-
-  // Wrapper for setCompareToRunUuid that handles auto-selecting columns
-  const setCompareToRunUuid = useCallback(
-    (newCompareToRunUuid: string | undefined) => {
-      setCompareToRunUuidBase(newCompareToRunUuid);
-
-      // When starting comparison while grouped, auto-select columns
-      // Note: compareToRunData won't be available yet, so we use current traces
-      if (newCompareToRunUuid && isGroupedBySession && traceInfos) {
-        maybeAddGoalPersonaColumns(traceInfos);
-      }
-
-      // Reset the ref when stopping comparison so columns can be auto-selected again later
-      if (!newCompareToRunUuid) {
-        hasAutoSelectedGoalPersona.current = false;
-      }
-    },
-    [setCompareToRunUuidBase, isGroupedBySession, traceInfos, maybeAddGoalPersonaColumns],
-  );
+    setIsGroupedBySession((prev) => !prev);
+  }, []);
 
   const hasSetInitialGrouping = useRef(false);
   useEffect(() => {
@@ -258,14 +270,29 @@ const RunViewEvaluationsTabInner = ({
     }
   }, [traceInfos]);
 
-  const countInfo = useMemo(() => {
-    return {
-      currentCount: traceInfos?.length,
-      logCountLoading: traceInfosLoading,
-      totalCount: totalCount,
-      maxAllowedCount: getEvalTabTotalTracesLimit(),
-    };
-  }, [traceInfos, traceInfosLoading, totalCount]);
+  const experimentIds = useMemo(() => [experimentId], [experimentId]);
+
+  const countInfo = useCountInfo({
+    experimentIds,
+    runUuid,
+    traceInfos,
+    traceInfosCount: traceInfos?.length,
+    traceInfosLoading,
+    metadataTotalCount: totalCount,
+    disabled: isQueryDisabled,
+  });
+
+  const assessmentCountMetrics = useAssessmentCountMetrics({
+    experimentIds,
+    runUuid,
+    disabled: isQueryDisabled,
+  });
+
+  const compareAssessmentCountMetrics = useAssessmentCountMetrics({
+    experimentIds,
+    runUuid: compareToRunUuid,
+    disabled: isQueryDisabled || isNil(compareToRunUuid),
+  });
 
   // TODO: We should update this to use web-shared/unified-tagging components for the
   // tag editor and react-query mutations for the apis.
@@ -290,7 +317,6 @@ const RunViewEvaluationsTabInner = ({
   }, [deleteTracesAction, showEditTagsModalForTrace, EditTagsModal]);
 
   const isTableLoading = traceInfosLoading || compareToRunLoading;
-  const displayLoadingOverlay = false;
 
   const selectedRunColor = getRunColor(runUuid);
   const compareToRunColor = compareToRunUuid ? getRunColor(compareToRunUuid) : undefined;
@@ -316,6 +342,25 @@ const RunViewEvaluationsTabInner = ({
         overflowY: 'hidden',
       }}
     >
+      {!shouldEnableImprovedEvalRunsComparison() &&
+        !showCompareSelector &&
+        !hideCompareSelector &&
+        !isRegressionTest && (
+          <div
+            css={{
+              width: '100%',
+              padding: `${theme.spacing.xs}px 0`,
+            }}
+          >
+            <EvaluationRunCompareSelector
+              experimentId={experimentId}
+              currentRunUuid={runUuid}
+              compareToRunUuid={compareToRunUuid}
+              setCompareToRunUuid={setCompareToRunUuid}
+              setCurrentRunUuid={setCurrentRunUuid}
+            />
+          </div>
+        )}
       {showCompareSelector && compareToRunUuid && (
         <div
           css={{
@@ -347,7 +392,12 @@ const RunViewEvaluationsTabInner = ({
         DrawerComponent={AssistantAwareDrawer}
       >
         <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
-          <GenAITracesTableProvider experimentId={experimentId} isGroupedBySession={isGroupedBySession}>
+          <GenAITracesTableProvider
+            experimentId={experimentId}
+            getTrace={getTrace}
+            isGroupedBySession={isGroupedBySession}
+            DrawerComponent={AssistantAwareDrawer}
+          >
             <div
               css={{
                 overflowY: 'hidden',
@@ -359,6 +409,7 @@ const RunViewEvaluationsTabInner = ({
               <GenAITracesTableToolbar
                 experimentId={experimentId}
                 searchQuery={searchQuery}
+                pageSource="run-view-traces"
                 setSearchQuery={setSearchQuery}
                 filters={filters}
                 setFilters={setFilters}
@@ -367,7 +418,7 @@ const RunViewEvaluationsTabInner = ({
                 traceActions={traceActions}
                 tableSort={tableSort}
                 setTableSort={setTableSort}
-                allColumns={allColumns}
+                allColumns={displayColumns}
                 selectedColumns={selectedColumns}
                 setSelectedColumns={setSelectedColumns}
                 toggleColumns={toggleColumns}
@@ -400,13 +451,19 @@ const RunViewEvaluationsTabInner = ({
                     setFilters={setFilters}
                     filters={filters}
                     selectedColumns={selectedColumns}
-                    allColumns={allColumns}
+                    allColumns={displayColumns}
                     tableSort={tableSort}
                     currentTraceInfoV3={traceInfos || []}
                     compareToTraceInfoV3={compareToRunData}
                     onTraceTagsEdit={showEditTagsModalForTrace}
-                    displayLoadingOverlay={displayLoadingOverlay}
+                    isTableLoading={isTableLoading}
                     isGroupedBySession={isGroupedBySession}
+                    fetchNextPage={fetchNextPage}
+                    hasNextPage={hasNextPage}
+                    isFetchingNextPage={isFetchingNextPage}
+                    assessmentCountMetrics={assessmentCountMetrics}
+                    compareAssessmentCountMetrics={compareAssessmentCountMetrics}
+                    runType={runType}
                   />
                 </ContextProviders>
               )
@@ -429,6 +486,7 @@ export const RunViewEvaluationsTab = ({
   setCurrentRunUuid,
   showCompareSelector = false,
   showRefreshButton = false,
+  hideCompareSelector = false,
 }: {
   experimentId: string;
   experiment?: ExperimentEntity | UseGetRunQueryResponseExperiment;
@@ -439,7 +497,10 @@ export const RunViewEvaluationsTab = ({
   setCurrentRunUuid?: (runUuid: string) => void;
   showCompareSelector?: boolean;
   showRefreshButton?: boolean;
+  hideCompareSelector?: boolean;
 }) => {
+  const runType = runTags?.[MLFLOW_RUN_TYPE_TAG]?.value;
+
   // Determine which tables are logged in the run
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
   const isArtifactCallEnabled = Boolean(runUuid);
@@ -476,6 +537,8 @@ export const RunViewEvaluationsTab = ({
       setCurrentRunUuid={setCurrentRunUuid}
       showCompareSelector={showCompareSelector}
       showRefreshButton={showRefreshButton}
+      hideCompareSelector={hideCompareSelector}
+      runType={runType}
     />
   );
 };
@@ -493,7 +556,7 @@ const LoadingSkeleton = () => {
 
 const useGetCompareToData = (params: {
   experimentId: string;
-  traceLocations: ModelTraceLocationUcSchema[] | ModelTraceLocationMlflowExperiment[];
+  traceLocations: ModelTraceSearchLocation[];
   compareToRunUuid: string | undefined;
   isQueryDisabled?: boolean;
 }): {
@@ -508,6 +571,7 @@ const useGetCompareToData = (params: {
     runUuid: compareToRunUuid,
     disabled: isNil(compareToRunUuid) || isQueryDisabled,
     filterByAssessmentSourceRun: true,
+    enablePagination: false,
   });
 
   const { data: runData, loading: runDetailsLoading } = useSearchRunsQuery({

@@ -1,14 +1,3 @@
-"""
-This test class is used for comprehensive testing of serving docker images for all MLflow flavors.
-As such, it is not intended to be run on a regular basis and is skipped by default. Rather, it
-should be run manually when making changes to the core docker logic.
-
-To run this test, run the following command manually
-
-    $ pytest tests/pyfunc/test_docker_flavors.py
-
-"""
-
 import contextlib
 import os
 import shutil
@@ -72,7 +61,7 @@ def model_path(tmp_path):
     # Pytest keeps the temporary directory created by `tmp_path` fixture for 3 recent test sessions
     # by default. This is useful for debugging during local testing, but in CI it just wastes the
     # disk space.
-    if os.getenv("GITHUB_ACTIONS") == "true":
+    if os.environ.get("GITHUB_ACTIONS") == "true":
         shutil.rmtree(model_path, ignore_errors=True)
 
 
@@ -89,7 +78,7 @@ def start_container(port: int):
             sys.stdout.write(line.decode("utf-8"))
 
     # Start a thread to stream logs from the container
-    t = threading.Thread(target=stream_logs, daemon=True)
+    t = threading.Thread(name="docker-log-stream", target=stream_logs, daemon=True)
     t.start()
 
     try:

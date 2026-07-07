@@ -1,5 +1,6 @@
 import asyncio
 import json
+from collections import OrderedDict
 from typing import Any
 from unittest import mock
 
@@ -23,6 +24,7 @@ from mlflow.genai.scorers.base import scorer
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     _extract_tool_name_from_span,
+    _parse_chunk,
     _should_keep_trace,
     _try_extract_available_tools_with_llm,
     clean_up_extra_traces,
@@ -347,6 +349,33 @@ def create_span(
                 ],
             },
         ),
+        # one retrieval step - string outputs (UC schema casts attributes to MAP<STRING, STRING>)
+        (
+            [
+                create_span(
+                    span_id=1,
+                    parent_id=None,
+                    inputs="What is the capital of France?",
+                    outputs=json.dumps([
+                        {
+                            "page_content": "document content 1",
+                            "metadata": {"doc_uri": "uri1"},
+                        },
+                        {
+                            "page_content": "document content 2",
+                            "metadata": {"doc_uri": "uri2"},
+                        },
+                    ]),
+                    span_type=SpanType.RETRIEVER,
+                ),
+            ],
+            {
+                "0000000000000001": [
+                    {"doc_uri": "uri1", "content": "document content 1"},
+                    {"doc_uri": "uri2", "content": "document content 2"},
+                ],
+            },
+        ),
         # one retrieval step - empty retrieval span outputs
         (
             [
@@ -618,6 +647,139 @@ def test_parse_outputs_to_str(output_data, expected):
 )
 def test_is_none_or_nan(input_value, expected):
     assert is_none_or_nan(input_value) == expected
+
+
+def test_parse_chunk_preserves_empty_page_content():
+    assert _parse_chunk({"page_content": ""}) == {"content": ""}
+
+
+def test_parse_chunk_non_dict_metadata_does_not_drop_valid_content():
+    assert _parse_chunk({"page_content": "text", "metadata": "bad metadata"}) == {"content": "text"}
+
+
+def test_parse_chunk_page_content_none_beats_populated_aliases():
+    chunk = {
+        "page_content": None,
+        "content": "Fallback content",
+        "text": "Fallback text",
+    }
+
+    assert _parse_chunk(chunk) == {"content": None}
+
+
+def _reset_retriever_document_warning_cache(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._WARNED_RETRIEVER_DOCUMENT_KEY_SETS",
+        OrderedDict(),
+    )
+
+
+def test_parse_chunk_warns_once_per_unrecognized_key_set(monkeypatch):
+    _reset_retriever_document_warning_cache(monkeypatch)
+    logged_messages = []
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._logger.warning",
+        lambda message, *args: logged_messages.append(message % args),
+    )
+
+    _parse_chunk({"body": "Body text", "metadata": {"doc_uri": "doc-1"}})
+    _parse_chunk({"body": "Another body text", "metadata": {"doc_uri": "doc-2"}})
+
+    assert len(logged_messages) == 1
+    assert "does not contain any recognized text field" in logged_messages[0]
+    assert "body" in logged_messages[0]
+
+
+def test_parse_chunk_uses_page_content_by_default():
+    chunk = {
+        "page_content": "Page content text",
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    assert _parse_chunk(chunk) == {
+        "content": "Page content text",
+        "doc_uri": "doc-1",
+    }
+
+
+def test_parse_chunk_falls_back_to_content_field():
+    chunk = {
+        "content": "Content text",
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    assert _parse_chunk(chunk) == {
+        "content": "Content text",
+        "doc_uri": "doc-1",
+    }
+
+
+def test_parse_chunk_falls_back_to_text_field():
+    chunk = {
+        "text": "Text field content",
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    assert _parse_chunk(chunk) == {
+        "content": "Text field content",
+        "doc_uri": "doc-1",
+    }
+
+
+def test_parse_chunk_prefers_page_content_over_aliases():
+    chunk = {
+        "page_content": "Preferred text",
+        "content": "Fallback content",
+        "text": "Fallback text",
+    }
+
+    assert _parse_chunk(chunk) == {"content": "Preferred text"}
+
+
+def test_parse_chunk_warns_for_unrecognized_text_field(monkeypatch):
+    _reset_retriever_document_warning_cache(monkeypatch)
+    logged_messages = []
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._logger.warning",
+        lambda message, *args: logged_messages.append(message % args),
+    )
+
+    chunk = {
+        "body": "Body text",
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    parsed_chunk = _parse_chunk(chunk)
+
+    assert parsed_chunk == {"content": None, "doc_uri": "doc-1"}
+    assert len(logged_messages) == 1
+    assert "does not contain any recognized text field" in logged_messages[0]
+    assert "body" in logged_messages[0]
+
+
+def test_parse_chunk_does_not_warn_for_metadata_only_chunk(monkeypatch):
+    _reset_retriever_document_warning_cache(monkeypatch)
+    logged_messages = []
+
+    monkeypatch.setattr(
+        "mlflow.genai.utils.trace_utils._logger.warning",
+        lambda message, *args: logged_messages.append(message % args),
+    )
+
+    chunk = {
+        "metadata": {"doc_uri": "doc-1"},
+    }
+
+    parsed_chunk = _parse_chunk(chunk)
+
+    assert parsed_chunk == {"content": None, "doc_uri": "doc-1"}
+    assert logged_messages == []
+
+
+def test_parse_chunk_returns_none_for_non_dict_chunk():
+    assert _parse_chunk("not a chunk") is None
 
 
 def test_extract_expectations_from_trace_with_source_filter():
@@ -1005,6 +1167,27 @@ def test_resolve_conversation_from_session_empty():
     assert resolve_conversation_from_session([]) == []
 
 
+@pytest.mark.parametrize("include_timing", [True, False])
+def test_resolve_conversation_from_session_with_timing_parameter(include_timing):
+    session_id = "test_session"
+    traces = []
+
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "What is MLflow?"}]})
+        span.set_outputs("MLflow is an ML platform.")
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    conversation = resolve_conversation_from_session(traces, include_timing=include_timing)
+
+    assert len(conversation) == 2
+    assert conversation[0] == {"role": "user", "content": "What is MLflow?"}
+    assert conversation[1]["role"] == "assistant"
+    assert "MLflow is an ML platform." in conversation[1]["content"]
+    assert ("[Response duration:" in conversation[1]["content"]) is include_timing
+    assert ("slowest spans:" in conversation[1]["content"]) is include_timing
+
+
 def test_session_level_expectations_filtering():
     session_id = "test-session"
 
@@ -1375,15 +1558,13 @@ def test_extract_available_tools_from_trace_with_invalid_tools(has_valid_tool, e
                 set_span_chat_tools(span1, valid_tool)
 
         with mlflow.start_span(name="llm2", span_type="LLM") as span2:
-            span2.set_inputs(
-                {
-                    "messages": [{"role": "user", "content": "test"}],
-                    "tools": [
-                        {"invalid": "tool"},  # Missing required fields
-                        {"type": "function"},  # Missing function field
-                    ],
-                }
-            )
+            span2.set_inputs({
+                "messages": [{"role": "user", "content": "test"}],
+                "tools": [
+                    {"invalid": "tool"},  # Missing required fields
+                    {"type": "function"},  # Missing function field
+                ],
+            })
 
     trace = mlflow.get_trace(parent.trace_id)
     extracted_tools = extract_available_tools_from_trace(trace)
@@ -1401,17 +1582,15 @@ def test_extract_available_tools_from_trace_with_invalid_tools(has_valid_tool, e
 
 def test_extract_available_tools_llm_fallback_triggered_when_no_tools_found(monkeypatch):
     with mlflow.start_span(name="llm_span", span_type=SpanType.LLM) as span:
-        span.set_inputs(
-            {
-                "messages": [{"role": "user", "content": "test"}],
-                "tools": [
-                    {
-                        "tool_name": "hard_to_extract_tool",
-                        "description": "A tool that is hard to extract",
-                    }
-                ],
-            }
-        )
+        span.set_inputs({
+            "messages": [{"role": "user", "content": "test"}],
+            "tools": [
+                {
+                    "tool_name": "hard_to_extract_tool",
+                    "description": "A tool that is hard to extract",
+                }
+            ],
+        })
         span.set_outputs({"response": "result"})
 
     trace = mlflow.get_trace(span.trace_id)
@@ -1502,6 +1681,8 @@ def test_should_keep_trace_deletes_non_input_traces_after_eval_start():
 
 
 def test_clean_up_extra_traces_preserves_input_traces():
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
+
     with mlflow.start_span(name="input_trace_1") as span1:
         span1.set_inputs({"question": "test1"})
         span1.set_outputs({"answer": "answer1"})
@@ -1517,12 +1698,32 @@ def test_clean_up_extra_traces_preserves_input_traces():
     input_trace_ids = {trace1.info.trace_id, trace2.info.trace_id}
     all_traces = [trace1, trace2]
 
-    clean_up_extra_traces(all_traces, eval_start_time, input_trace_ids)
+    clean_up_extra_traces(all_traces, eval_start_time, experiment_id, input_trace_ids)
 
     remaining_traces = get_traces()
     remaining_trace_ids = {t.info.trace_id for t in remaining_traces}
     assert trace1.info.trace_id in remaining_trace_ids
     assert trace2.info.trace_id in remaining_trace_ids
+
+
+def test_clean_up_extra_traces_uses_correct_experiment_id():
+    exp_1 = mlflow.set_experiment("cleanup_test_experiment").experiment_id
+    with mlflow.start_span(name="input_trace") as span1:
+        span1.set_inputs({"question": "test"})
+        span1.set_outputs({"answer": "answer"})
+    input_trace = mlflow.get_trace(span1.trace_id)
+
+    with mlflow.start_span(name="extra_trace") as span2:
+        span2.set_inputs({"question": "extra"})
+        span2.set_outputs({"answer": "extra_answer"})
+    extra_trace = mlflow.get_trace(span2.trace_id)
+
+    mlflow.set_experiment("cleanup_test_experiment_2")
+    clean_up_extra_traces([input_trace, extra_trace], 0, exp_1, {input_trace.info.trace_id})
+
+    remaining_traces = mlflow.search_traces(locations=[exp_1], return_type="list")
+    assert len(remaining_traces) == 1
+    assert remaining_traces[0].info.trace_id == input_trace.info.trace_id
 
 
 def test_evaluate_with_trace_column_preserves_traces():
@@ -1537,15 +1738,13 @@ def test_evaluate_with_trace_column_preserves_traces():
     original_trace = mlflow.get_trace(span.trace_id)
     original_trace_id = original_trace.info.trace_id
 
-    eval_df = pd.DataFrame(
-        [
-            {
-                "trace": original_trace,
-                "inputs": {"question": "What is MLflow?"},
-                "outputs": {"answer": "MLflow is an ML platform"},
-            }
-        ]
-    )
+    eval_df = pd.DataFrame([
+        {
+            "trace": original_trace,
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": {"answer": "MLflow is an ML platform"},
+        }
+    ])
 
     mlflow.genai.evaluate(data=eval_df, scorers=[dummy_scorer])
 

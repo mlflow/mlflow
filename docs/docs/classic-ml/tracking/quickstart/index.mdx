@@ -1,4 +1,6 @@
 ---
+title: MLflow Tracking Quickstart
+description: Get started with MLflow Tracking in minutes. Learn to log parameters, metrics, and models, then view results in the MLflow UI.
 sidebar_position: 2
 sidebar_label: "Quickstart"
 ---
@@ -7,7 +9,7 @@ import ImageBox from "@site/src/components/ImageBox";
 
 # MLflow Tracking Quickstart
 
-:::tip MLflow Assistant
+:::tip[MLflow Assistant]
 Need help setting up tracking? Try <ins>[MLflow Assistant](/genai/getting-started/try-assistant)</ins> - a powerful AI assistant that can help you set up MLflow tracking for your project.
 :::
 
@@ -50,9 +52,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 X, y = datasets.load_iris(return_X_y=True)
 
 # Split the data into training and test sets
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
-)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
 # Define the model hyperparameters
 params = {

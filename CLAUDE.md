@@ -11,6 +11,8 @@ Claude's training data may lag behind current releases. When reviewing docs or c
 - Use top-level imports (only use lazy imports when necessary)
 - Only add docstrings in tests when they provide additional context
 - Only add comments that explain non-obvious logic or provide additional context
+- When touching the SQLAlchemy tracking store, keep all workspace-aware paths and validations intact; never drop workspace plumbing even if the change focuses on single-tenant behavior
+- New functionality in the tracking layer should be mirrored by workspace-aware tests (e.g., add workspace variants in `tests/store/tracking/test_sqlalchemy_store_workspace.py` when applicable)
 
 ## Repository Overview
 
@@ -28,18 +30,28 @@ MLflow is an open-source platform for managing the end-to-end machine learning l
 
 ```bash
 # Start both MLflow backend and React frontend dev servers
-# (The script will automatically clean up any existing servers)
-nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
+LOG=$(mktemp) && echo "Logs: $LOG"
+uv run dev/run_dev_server.py > "$LOG" 2>&1 &
 
-# Monitor the logs
-tail -f /tmp/mlflow-dev-server.log
-
-# Servers will be available at:
-# - MLflow backend: http://localhost:5000
-# - React frontend: http://localhost:3000
+# Monitor the logs (server URLs are printed there)
+tail -f "$LOG"
 ```
 
-This uses `uv` (fast Python package manager) to automatically manage dependencies and run the development environment.
+### Reviewing provider-gated UI without credentials
+
+Features gated on an external provider/credentials can be rendered without real
+keys, cost, or nondeterminism via credential-free stubs (see `dev/dev_stubs/`):
+
+```bash
+uv run dev/run_dev_server.py --stub-providers claude
+```
+
+- `claude` — a fake `claude` CLI on the dev server's PATH, so the MLflow
+  Assistant's Claude Code provider passes its auth probe and the chat panel
+  renders without `ANTHROPIC_API_KEY`.
+
+The stubs are dev/CI-only; the `ui-review` bot always passes `--stub-providers claude`
+so the Assistant is reviewable on any PR.
 
 ## Debugging
 
@@ -61,20 +73,35 @@ export DATABRICKS_TOKEN="your-databricks-token"                # Your Databricks
 export MLFLOW_TRACKING_URI="databricks"                        # Must be set to "databricks"
 export MLFLOW_REGISTRY_URI="databricks-uc"                     # Use "databricks-uc" for Unity Catalog, or "databricks" for workspace model registry
 
-# Start the dev server with these environment variables
-# (The script will automatically clean up any existing servers)
-nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
+# Start the dev server with these environment variables (unique log per invocation)
+LOG=$(mktemp) && echo "Logs: $LOG"
+uv run dev/run_dev_server.py > "$LOG" 2>&1 &
 
-# Monitor the logs
-tail -f /tmp/mlflow-dev-server.log
-
-# The MLflow server will now proxy tracking and model registry requests to Databricks
-# Access the UI at http://localhost:3000 to see your Databricks experiments and models
+# Monitor the logs (server URLs are printed there)
+tail -f "$LOG"
 ```
 
 **Note**: The MLflow server acts as a proxy, forwarding API requests to your Databricks workspace while serving the local React frontend. This allows you to develop and test UI changes against real Databricks data.
 
 ## Development Commands
+
+### Offline / No-Network Usage
+
+If PyPI is unreachable, add `--frozen` to `uv run` commands that should use the existing `uv.lock` as-is without modifying the environment. This works when the required dependencies are already installed or available in the local cache:
+
+```bash
+uv run --frozen pytest tests/
+```
+
+### Package Cooldown Period
+
+7-day cooldown on new package releases to guard against compromised or broken
+versions that get pulled and yanked within a few days. Keep these in sync:
+
+- Python: `exclude-newer = "P7D"` in `pyproject.toml` (`torch`/`torchvision` opted out).
+- JavaScript: `min-release-age=7` in `.npmrc`; `npmMinimalAgeGate: 7d` in `.yarnrc.yml`.
+
+Pass `--min-release-age=7` to any new `npx` invocations.
 
 ### Testing
 
@@ -90,7 +117,7 @@ uv run pytest tests/
 uv run pytest tests/test_version.py
 
 # Run tests with specific package versions
-uv run --with abc==1.2.3 --with xyz==4.5.6 pytest tests/test_version.py
+uv run --with 'abc==1.2.3,xyz==4.5.6' pytest tests/test_version.py
 
 # Run tests with optional dependencies/extras
 uv run --with transformers pytest tests/transformers
@@ -171,7 +198,16 @@ git push origin <your-branch>
 
 ### Creating Pull Requests
 
-When creating pull requests, read the instructions at the top of [the PR template](./.github/pull_request_template.md) and follow them carefully.
+- Follow the instructions at the top of [the PR template](./.github/pull_request_template.md) carefully.
+- Inside `gh pr ... --body "$(cat <<'EOF' ... EOF)"`, write backticks plain. The quoted `'EOF'` delimiter already suppresses command substitution, so escaping as `` \` `` is unnecessary and the backslashes get persisted in the PR body, rendering literally instead of as code spans.
+
+  ```bash
+  gh pr create --body "$(cat <<'EOF'
+  Updated \`pyproject.toml\` to bump the version. # BAD
+  Updated `pyproject.toml` to bump the version.   # GOOD
+  EOF
+  )"
+  ```
 
 ### Checking CI Status
 
