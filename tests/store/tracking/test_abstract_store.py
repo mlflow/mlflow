@@ -257,6 +257,17 @@ def test_get_sampled_steps_from_steps(start_step, end_step, max_results, steps, 
     assert actual_steps == expected
 
 
+def test_get_metric_history_bulk_interval_same_step_is_bounded(store):
+    # Many values logged under a single step (the default step=0) must not return every row.
+    max_results = 10
+    store.metrics = [Metric("accuracy", float(i), 1000 + i, 0, run_id="run1") for i in range(1000)]
+
+    result = store.get_metric_history_bulk_interval(["run1"], "accuracy", max_results, None, None)
+
+    assert len(result) <= max_results
+    assert result[0].value == 0.0
+
+
 # Tests for get_metric_history_bulk_interval_from_steps
 
 

@@ -42,7 +42,6 @@ from mlflow.entities.workspace import TraceArchivalConfig
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
-    MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
@@ -984,6 +983,12 @@ class AbstractStore(GatewayStoreMixin):
             sampled_steps.add(all_steps[end_idx - 1])
 
         steps = sorted(sampled_steps.union(all_mins_and_maxes))
+        # Bound the rows fetched per run to roughly the requested sample size. ``steps`` already
+        # holds at most ~``max_results`` distinct steps, so ``len(steps)`` is the expected result
+        # size when one value is logged per step. Capping here keeps the response bounded when many
+        # values share a single step (e.g. the default ``step=0``), which would otherwise return
+        # up to ``MAX_RESULTS_GET_METRIC_HISTORY`` rows for that step and cause large memory spikes.
+        per_run_max_results = max(max_results, len(steps))
         metrics_with_run_ids = []
         for run_id in run_ids:
             metrics_with_run_ids.extend(
@@ -991,7 +996,7 @@ class AbstractStore(GatewayStoreMixin):
                     run_id=run_id,
                     metric_key=metric_key,
                     steps=steps,
-                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
+                    max_results=per_run_max_results,
                 )
             )
         return metrics_with_run_ids

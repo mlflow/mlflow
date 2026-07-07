@@ -1491,7 +1491,12 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
             "max_results": 5,
         },
     )
-    expected_steps = [0, 4, 8, 9, 12, 16, 19]
+    # Each run is sampled independently to ~max_results points spanning its own full range
+    # (the final/maximum point is always preserved), so the two runs need not share steps.
+    expected_steps_by_run = {
+        run_id1: [0, 2, 4, 6, 8, 9],
+        run_id2: [0, 4, 8, 12, 16, 19],
+    }
     expected_metrics = []
     for run_id, metric_history in [
         (run_id1, metric_history),
@@ -1500,11 +1505,13 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         expected_metrics.extend([
             {**metric, "run_id": run_id}
             for metric in metric_history
-            if metric["step"] in expected_steps
+            if metric["step"] in expected_steps_by_run[run_id]
         ])
     assert response_limited.json().get("metrics") == expected_metrics
 
-    # test metrics with same steps
+    # Multiple values logged at the same step (here two timestamps per step) are sampled by row,
+    # not by step, so the response stays bounded by max_results instead of returning every row
+    # for each sampled step. The final (max-step, latest-timestamp) point is always preserved.
     metric_history_timestamp2 = [
         {"key": "metricA", "timestamp": 2, "step": i, "value": 10.0} for i in range(10)
     ]
@@ -1516,11 +1523,13 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         params={"run_ids": [run_id1], "metric_key": "metricA", "max_results": 5},
     )
     assert response_limited.status_code == 200
-    expected_steps = [0, 2, 4, 6, 8, 9]
     expected_metrics = [
-        {"key": "metricA", "timestamp": j, "step": i, "value": 10.0, "run_id": run_id1}
-        for i in expected_steps
-        for j in [1, 2]
+        {"key": "metricA", "timestamp": 1, "step": 0, "value": 10.0, "run_id": run_id1},
+        {"key": "metricA", "timestamp": 1, "step": 2, "value": 10.0, "run_id": run_id1},
+        {"key": "metricA", "timestamp": 1, "step": 4, "value": 10.0, "run_id": run_id1},
+        {"key": "metricA", "timestamp": 1, "step": 6, "value": 10.0, "run_id": run_id1},
+        {"key": "metricA", "timestamp": 1, "step": 8, "value": 10.0, "run_id": run_id1},
+        {"key": "metricA", "timestamp": 2, "step": 9, "value": 10.0, "run_id": run_id1},
     ]
     assert response_limited.json().get("metrics") == expected_metrics
 
