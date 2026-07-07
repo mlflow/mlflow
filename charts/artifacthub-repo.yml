@@ -1,6 +1,6 @@
 # Artifact Hub repository metadata for the MLflow Helm chart.
 # Pushed to the `artifacthub.io` tag of oci://ghcr.io/mlflow/charts/mlflow by
-# .github/workflows/helm-publish.yml.
+# the MLflow release automation.
 # See https://artifacthub.io/docs/topics/repositories/helm-charts/#oci-support
 #
 # TODO: Uncomment and fill in repositoryID once the chart repository has been
