@@ -27,7 +27,7 @@ The chart ships with:
 
 ## Getting the Chart
 
-Released chart versions are published to GitHub Container Registry as OCI artifacts, so the chart can be installed directly from the registry:
+Released chart versions are published to GitHub Container Registry as OCI artifacts. Published versions can be installed directly from the registry:
 
 ```bash
 helm install mlflow oci://ghcr.io/mlflow/charts/mlflow \
@@ -44,7 +44,7 @@ Alternatively, download [the chart source](https://github.com/mlflow/mlflow/tree
 helm install mlflow ./charts --namespace mlflow --create-namespace
 ```
 
-The examples on this page install from a local checkout. To use the registry instead, replace `./charts` with `oci://ghcr.io/mlflow/charts/mlflow --version <version>` in any command.
+The examples on this page install from a local checkout. In the `helm install` and `helm upgrade` commands, `./charts` can be replaced with `oci://ghcr.io/mlflow/charts/mlflow --version <version>`, but examples that pass repo-local files (such as `charts/example-mlflow-charts.yaml`) still need those files checked out locally.
 
 For the full list of configurable values, see [the chart README](https://github.com/mlflow/mlflow/blob/master/charts/README.md) or run:
 
