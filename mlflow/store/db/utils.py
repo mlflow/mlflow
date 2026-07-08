@@ -85,7 +85,15 @@ def _is_empty_database(engine):
 
 def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
-    InitialBase.metadata.create_all(engine)
+    try:
+        InitialBase.metadata.create_all(engine)
+    except sqlalchemy.exc.OperationalError as e:
+        # If multiple processes attempt to initialize tables concurrently,
+        # the second one may find tables already exist. This is safe to ignore.
+        if "already exists" in str(e).lower():
+            _logger.warning("Database tables already exist, skipping creation.")
+        else:
+            raise
     _upgrade_db(engine)
 
 
