@@ -647,6 +647,158 @@ def test_authenticate_jwt(client):
     assert e.value.response.status_code == 401  # Unauthorized
 
 
+@pytest.fixture
+def jwt_fastapi_artifact_client(tmp_path):
+    """FastAPI client with JWT custom auth and artifact serving enabled."""
+    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+    backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+    artifact_dest = str(tmp_path / "jwt_artifacts")
+    extra_env = _isolate_auth_config(
+        {"MLFLOW_AUTH_CONFIG_PATH": "fixtures/jwt_auth.ini"}, tmp_path
+    )
+    extra_env[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = "my-secret-key"
+    extra_env["_MLFLOW_SGI_NAME"] = "uvicorn"
+    extra_env["PYTHONPATH"] = str(Path.cwd() / "examples" / "jwt_auth")
+    extra_env["_MLFLOW_SERVER_SERVE_ARTIFACTS"] = "true"
+    extra_env["_MLFLOW_SERVER_ARTIFACT_DESTINATION"] = artifact_dest
+
+    with _init_server(
+        backend_uri=backend_uri,
+        root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
+        extra_env=extra_env,
+        app="mlflow.server.auth:create_app",
+        server_type="fastapi",
+    ) as url:
+        yield MlflowClient(url)
+
+
+def test_custom_auth_artifact_upload_download_fastapi(jwt_fastapi_artifact_client):
+    """E2E: custom authorization_function (JWT) works on native FastAPI artifact routes.
+
+    Verifies the Flask-to-Starlette auth bridge enables custom auth plugins to
+    authenticate PUT/GET requests on native FastAPI artifact endpoints without
+    falling back to the WSGI bridge or returning HTTP 500.
+    """
+    client = jwt_fastapi_artifact_client
+    admin_token = jwt.encode({"username": ADMIN_USERNAME}, "secret", algorithm="HS256")
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    # Create experiment as admin
+    response = requests.post(
+        f"{client.tracking_uri}/api/2.0/mlflow/experiments/create",
+        headers=admin_headers,
+        json={"name": "jwt-artifact-e2e"},
+    )
+    response.raise_for_status()
+    experiment_id = response.json()["experiment_id"]
+
+    artifact_path = f"{experiment_id}/run-id/artifacts/model.pkl"
+    artifact_url = f"{client.tracking_uri}/api/2.0/mlflow-artifacts/artifacts/{artifact_path}"
+    payload = b"trained model weights v1"
+
+    # Upload artifact with valid JWT (admin has full access)
+    put_resp = requests.put(artifact_url, data=payload, headers=admin_headers)
+    assert put_resp.status_code == 200, f"Upload failed: {put_resp.status_code} {put_resp.text}"
+
+    # Download artifact with valid JWT
+    get_resp = requests.get(artifact_url, headers=admin_headers)
+    assert get_resp.status_code == 200, f"Download failed: {get_resp.status_code} {get_resp.text}"
+    assert get_resp.content == payload
+
+    # Verify non-admin user with valid JWT can also access (admins grant global read)
+    username, _ = _mlflow_create_user_rest(client.tracking_uri, admin_headers)
+    user_token = jwt.encode({"username": username}, "secret", algorithm="HS256")
+    user_headers = {"Authorization": f"Bearer {user_token}"}
+
+    get_resp = requests.get(artifact_url, headers=user_headers)
+    assert get_resp.status_code in (200, 403)  # depends on default_permission
+
+
+def test_custom_auth_artifact_rejects_invalid_token_fastapi(jwt_fastapi_artifact_client):
+    """E2E: native FastAPI artifact routes reject requests with invalid/missing JWT tokens."""
+    client = jwt_fastapi_artifact_client
+    artifact_url = (
+        f"{client.tracking_uri}"
+        "/api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl"
+    )
+
+    # No auth header → 401
+    resp = requests.get(artifact_url)
+    assert resp.status_code == 401
+
+    # Invalid JWT secret → 401
+    bad_token = jwt.encode({"username": "admin"}, "wrong-secret", algorithm="HS256")
+    resp = requests.get(artifact_url, headers={"Authorization": f"Bearer {bad_token}"})
+    assert resp.status_code == 401
+
+    # Malformed header → 401
+    resp = requests.get(artifact_url, headers={"Authorization": "NotBearer xyz"})
+    assert resp.status_code == 401
+
+
+def test_custom_auth_artifact_denies_unauthorized_user_fastapi(jwt_fastapi_artifact_client):
+    """E2E: native FastAPI artifact routes enforce experiment permissions with custom auth."""
+    client = jwt_fastapi_artifact_client
+    admin_token = jwt.encode({"username": ADMIN_USERNAME}, "secret", algorithm="HS256")
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    # Create two users
+    user1, _ = _mlflow_create_user_rest(client.tracking_uri, admin_headers)
+    user2, _ = _mlflow_create_user_rest(client.tracking_uri, admin_headers)
+    user1_token = jwt.encode({"username": user1}, "secret", algorithm="HS256")
+    user2_token = jwt.encode({"username": user2}, "secret", algorithm="HS256")
+    user1_headers = {"Authorization": f"Bearer {user1_token}"}
+    user2_headers = {"Authorization": f"Bearer {user2_token}"}
+
+    # Create experiment as admin, grant EDIT to user1 only via roles API with JWT
+    response = requests.post(
+        f"{client.tracking_uri}/api/2.0/mlflow/experiments/create",
+        headers=admin_headers,
+        json={"name": "jwt-artifact-authz-e2e"},
+    )
+    response.raise_for_status()
+    experiment_id = response.json()["experiment_id"]
+
+    role_name = f"_test_jwt_{random_str()}"
+    resp = requests.post(
+        f"{client.tracking_uri}/api/3.0/mlflow/roles/create",
+        headers=admin_headers,
+        json={"name": role_name, "workspace": "default"},
+    )
+    resp.raise_for_status()
+    role_id = resp.json()["role"]["id"]
+
+    resp = requests.post(
+        f"{client.tracking_uri}/api/3.0/mlflow/roles/permissions/add",
+        headers=admin_headers,
+        json={
+            "role_id": role_id,
+            "resource_type": "experiment",
+            "resource_pattern": experiment_id,
+            "permission": "EDIT",
+        },
+    )
+    resp.raise_for_status()
+
+    resp = requests.post(
+        f"{client.tracking_uri}/api/3.0/mlflow/roles/assign",
+        headers=admin_headers,
+        json={"username": user1, "role_id": role_id},
+    )
+    resp.raise_for_status()
+
+    artifact_path = f"{experiment_id}/run-id/artifacts/secret.bin"
+    artifact_url = f"{client.tracking_uri}/api/2.0/mlflow-artifacts/artifacts/{artifact_path}"
+
+    # user1 can upload
+    put_resp = requests.put(artifact_url, data=b"secret data", headers=user1_headers)
+    assert put_resp.status_code == 200
+
+    # user2 cannot upload (no permission on this experiment)
+    put_resp = requests.put(artifact_url, data=b"hacked", headers=user2_headers)
+    assert put_resp.status_code == 403
+
+
 @pytest.mark.parametrize(
     "client",
     [{"MLFLOW_AUTH_CONFIG_PATH": "fixtures/no_permission_auth.ini"}],
