@@ -39,6 +39,7 @@ from flask import (
     request,
 )
 from starlette.requests import Request as StarletteRequest
+from starlette.responses import Response as StarletteResponse
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
@@ -4454,6 +4455,63 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         return None
 
 
+def _authenticate_custom_for_fastapi(
+    request: StarletteRequest,
+) -> User | StarletteResponse | None:
+    """Bridge custom authorization_function into the FastAPI middleware path.
+
+    Custom auth functions (configured via ``authorization_function`` in auth config)
+    are written against Flask's request context (``flask.request``). This function
+    creates a synthetic Flask request context from the Starlette request, invokes the
+    custom function within it, and translates the result back.
+
+    Returns:
+        - A ``User`` if authentication succeeds.
+        - A Starlette ``Response`` if the custom auth function returned a Flask Response
+          (converted to preserve status code, headers, and body).
+        - ``None`` if the result could not be interpreted (treated as auth failure).
+    """
+    headers = dict(request.headers)
+    with app.test_request_context(
+        path=request.url.path,
+        method=request.method,
+        headers=headers,
+        query_string=request.url.query or "",
+    ):
+        authorization = authenticate_request()
+        if isinstance(authorization, Response):
+            return _flask_response_to_starlette(authorization)
+        if not isinstance(authorization, Authorization):
+            return None
+        username = authorization.username
+        if not username:
+            return None
+        try:
+            return store.get_user(username)
+        except Exception:
+            return None
+
+
+def _flask_response_to_starlette(flask_resp: Response) -> StarletteResponse:
+    """Convert a Flask/Werkzeug Response to a Starlette Response.
+
+    Preserves status code, headers, and body so custom auth functions can return
+    meaningful error responses (e.g., 403 with a custom message, or a redirect)
+    that get forwarded to the client unchanged.
+    """
+    excluded_headers = {"content-length", "transfer-encoding", "content-encoding"}
+    resp_headers = {
+        k: v
+        for k, v in flask_resp.headers
+        if k.lower() not in excluded_headers
+    }
+    return StarletteResponse(
+        content=flask_resp.get_data(),
+        status_code=flask_resp.status_code,
+        headers=resp_headers,
+    )
+
+
 def _extract_gateway_endpoint_name(path: str, body: dict[str, Any] | None) -> str | None:
     """Extract endpoint name from gateway routes."""
     # Pattern 1: /gateway/{endpoint_name}/mlflow/invocations
@@ -4857,13 +4915,11 @@ def _find_fastapi_validator(
     if path.startswith("/ajax-api/3.0/mlflow/assistant"):
         return _get_require_authentication_validator()
 
-<<<<<<< HEAD
+    if _is_native_fastapi_proxy_artifact_path(path, method):
+        return _get_fastapi_proxy_artifact_validator(path, method)
+
     if is_mcp_server_api_path(path):
         return _get_mcp_server_validator(path)
-=======
-    if _is_proxy_artifact_path(path):
-        return _get_fastapi_proxy_artifact_validator(path, method)
->>>>>>> e5b800fd6 (fix: enforce authz on FastAPI native artifact routes)
 
     return None
 
@@ -4959,18 +5015,22 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
     Add permission middleware to FastAPI app for routes not handled by Flask.
 
     This middleware mirrors the high-level logic of ``_before_request`` for routes that are
-    served directly by FastAPI (e.g., ``/gateway/`` routes) and thus bypass Flask's
-    ``before_request`` hooks. It follows the same authorization flow:
+    served directly by FastAPI (e.g., ``/gateway/`` and native artifact routes) and thus
+    bypass Flask's ``before_request`` hooks. It follows the same authorization flow:
 
     1. Skip unprotected routes
     2. Find the appropriate validator for the route
-    3. Reject if custom authorization_function is configured (not supported for FastAPI routes)
-    4. Authenticate the request
-    5. Resolve workspace context (needed for validators and workspace-scoped after-handlers)
-    6. Allow admins to skip validators (full access) while still running after-handlers
-    7. Run the validator for non-admins
-    8. Run after-request handlers on successful responses (including for admins)
-    9. Apply response filters for non-admins
+    3. Authenticate the request (via custom authorization_function bridge or Basic Auth)
+    4. Resolve workspace context before validator execution
+    5. Allow admins to skip validators while still running after-request handlers
+    6. Run the validator for non-admins
+    7. Run after-request handlers on successful responses
+    8. Apply response filters for non-admins
+
+    When a custom ``authorization_function`` is configured, requests are authenticated by
+    constructing a Flask request context and invoking the custom function within it.
+    This bridges Flask-based auth functions into the ASGI middleware path without requiring
+    users to rewrite their auth plugins.
 
     Args:
         app: The FastAPI application instance.
@@ -4989,18 +5049,15 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         if validator is None:
             return await call_next(request)
 
-        # Check for custom authorization_function (only affects routes with validators)
+        # Authenticate using either the custom authorization_function (via Flask
+        # request context bridge) or the native FastAPI Basic Auth path.
         if auth_config.authorization_function != DEFAULT_AUTHORIZATION_FUNCTION:
-            return PlainTextResponse(
-                f"Custom authorization_function '{auth_config.authorization_function}' is not "
-                f"supported for FastAPI routes (e.g., /gateway/ endpoints). Only the default "
-                f"Basic Auth function is supported. Please use "
-                f"'{DEFAULT_AUTHORIZATION_FUNCTION}' or disable the AI Gateway feature.",
-                status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
-            )
-
-        # Authenticate user
-        user = _authenticate_fastapi_request(request)
+            auth_result = _authenticate_custom_for_fastapi(request)
+            if isinstance(auth_result, StarletteResponse):
+                return auth_result
+            user = auth_result
+        else:
+            user = _authenticate_fastapi_request(request)
         if user is None:
             return PlainTextResponse(
                 "You are not authenticated. Please see "

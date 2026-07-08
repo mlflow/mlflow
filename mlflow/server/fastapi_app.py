@@ -201,49 +201,33 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     Returns:
         FastAPI application instance with the Flask app mounted via WSGIMiddleware.
     """
-    # Create FastAPI app with metadata
     fastapi_app = FastAPI(
         title="MLflow Tracking Server",
         description="MLflow Tracking Server API",
         version=VERSION,
-        # TODO: Enable API documentation when we have native FastAPI endpoints
-        # For now, disable docs since we only have Flask routes via WSGI
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
     )
 
-    # Initialize security middleware BEFORE adding routes
     init_fastapi_security(fastapi_app)
 
     add_fastapi_workspace_middleware(fastapi_app)
     add_gateway_timing_middleware(fastapi_app)
 
-    # Include OpenTelemetry API router BEFORE mounting Flask app
-    # This ensures FastAPI routes take precedence over the catch-all Flask mount
     fastapi_app.include_router(otel_router)
-
     fastapi_app.include_router(job_api_router)
-
-    # Include Gateway API router for database-backed endpoints
-    # This provides /gateway/{endpoint_name}/mlflow/invocations routes
     fastapi_app.include_router(gateway_router)
-
-    # Include Assistant API router for AI-powered trace analysis
-    # This provides /ajax-api/3.0/mlflow/assistant/* endpoints (localhost only)
     fastapi_app.include_router(assistant_router)
-
-    # Include native artifact upload/download router for true streaming under ASGI.
-    # These routes bypass the WSGI bridge, avoiding full-body buffering for large artifacts.
     fastapi_app.include_router(artifact_router)
 
+<<<<<<< HEAD
     add_mcp_exception_handlers(fastapi_app)
     for route_prefix in get_mcp_server_api_route_prefixes():
         fastapi_app.include_router(mcp_server_router, prefix=route_prefix)
 
-    # Mount the entire Flask application at the root path
-    # This ensures compatibility with existing APIs
-    # NOTE: This must come AFTER include_router to avoid Flask catching all requests
+    # Mount the entire Flask application at the root path.
+    # Must come AFTER include_router so native FastAPI routes take precedence.
     fastapi_app.mount("/", _EfficientWSGIMiddleware(flask_app))
 
     return fastapi_app
