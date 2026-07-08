@@ -817,6 +817,8 @@ llama_index:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          # Dispatcher context propagation APIs used by mlflow.llama_index
+          "llama-index-instrumentation>=0.4.3",
         ]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
     test_tracing_sdk: true

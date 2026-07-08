@@ -1,3 +1,5 @@
+import contextlib
+import contextvars
 import inspect
 import json
 import logging
@@ -12,6 +14,7 @@ from llama_index.core.base.llms.base import BaseLLM
 from llama_index.core.base.llms.types import ChatResponse, CompletionResponse
 from llama_index.core.base.response.schema import AsyncStreamingResponse, StreamingResponse
 from llama_index.core.chat_engine.types import StreamingAgentChatResponse
+from llama_index.core.instrumentation import get_dispatcher
 from llama_index.core.instrumentation.event_handlers import BaseEventHandler
 from llama_index.core.instrumentation.events import BaseEvent
 from llama_index.core.instrumentation.events.agent import AgentToolCallEvent
@@ -51,6 +54,14 @@ from mlflow.tracing.utils import set_span_chat_tools
 _logger = logging.getLogger(__name__)
 
 
+# Handoff from restore_propagation_context() to the next new_span() that opens a propagated
+# root. A ContextVar, not a shared field, so concurrent restores stay isolated per thread and
+# per async task. It can't be keyed by span id because the id doesn't exist yet at restore.
+_pending_propagation_context: contextvars.ContextVar[contextlib.AbstractContextManager | None] = (
+    contextvars.ContextVar("mlflow_llama_pending_propagation", default=None)
+)
+
+
 def _get_llama_index_version() -> Version:
     return Version(llama_index.core.__version__)
 
@@ -60,8 +71,6 @@ def set_llama_index_tracer():
     Set the MlflowSpanHandler and MlflowEventHandler to the global dispatcher.
     If the handlers are already set, skip setting.
     """
-    from llama_index.core.instrumentation import get_dispatcher
-
     dsp = get_dispatcher()
     span_handler = None
     for handler in dsp.span_handlers:
@@ -85,8 +94,6 @@ def remove_llama_index_tracer():
     """
     Remove the MlflowSpanHandler and MlflowEventHandler from the global dispatcher.
     """
-    from llama_index.core.instrumentation import get_dispatcher
-
     dsp = get_dispatcher()
     for handler in dsp.span_handlers:
         if isinstance(handler, MlflowSpanHandler):
@@ -179,8 +186,8 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         self._pending_spans: dict[str, _LlamaSpan] = {}
         # Track workflow spans that are pending completion (WorkflowHandler returned)
         self._pending_workflow_span_ids: set[str] = set()
-        self._propagation_context_managers = []
-        self._propagated_root_span_ids: set[str] = set()
+        # Entered propagation contexts keyed by root span id, so each root closes its own.
+        self._root_id_to_propagation_context: dict[str, contextlib.AbstractContextManager] = {}
 
     @classmethod
     def class_name(cls) -> str:
@@ -202,22 +209,55 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         if not headers:
             return
 
+        # An earlier restore in this context that no new_span claimed is now unreachable;
+        # close it before entering the next context so contextvars tokens unwind in order.
+        orphaned = _pending_propagation_context.get()
+        if orphaned is not None:
+            _pending_propagation_context.set(None)
+            self._exit_propagation_context(orphaned)
+
         context_manager = set_tracing_context_from_http_request_headers(headers)
-        context_manager.__enter__()
-        self._propagation_context_managers.append(context_manager)
+        try:
+            context_manager.__enter__()
+        except Exception as e:
+            _logger.debug(f"Failed to restore propagation context: {e}", exc_info=True)
+            return
+        # Ambient propagation stays attached until this restore is claimed, overwritten, or
+        # closed. Reusing the worker context for unrelated work before then can mis-parent it.
+        _pending_propagation_context.set(context_manager)
 
     def close(self) -> None:
-        while self._propagation_context_managers:
-            self._close_latest_propagation_context()
-        self._propagated_root_span_ids.clear()
+        with self.lock:
+            restored_contexts = list(self._root_id_to_propagation_context.values())
+            self._root_id_to_propagation_context.clear()
+        for restored_context in restored_contexts:
+            self._exit_propagation_context(restored_context)
+        pending = _pending_propagation_context.get()
+        if pending is not None:
+            _pending_propagation_context.set(None)
+            self._exit_propagation_context(pending)
 
-    def _close_latest_propagation_context(self) -> None:
-        context_manager = self._propagation_context_managers.pop()
-        context_manager.__exit__(None, None, None)
-
-    @property
-    def _has_restored_context(self) -> bool:
-        return bool(self._propagation_context_managers)
+    @staticmethod
+    def _exit_propagation_context(
+        context_manager: contextlib.AbstractContextManager,
+    ) -> None:
+        try:
+            # __exit__ pops the dummy remote trace, which deletes the OTel trace id ->
+            # MLflow trace id mapping from the InMemoryTraceManager. With async logging
+            # enabled (the default), the spans that just ended under this restored context
+            # are still queued in the batch span processor at this point; the exporter
+            # resolves each queued span through that mapping and silently skips spans it
+            # can't resolve, so popping before the queues drain drops the restored spans
+            # from the backend. Flush both the span queue and the exporter's async write
+            # queue while the mapping is still alive. When async logging is disabled the
+            # queues are empty and this is a no-op.
+            mlflow.flush_trace_async_logging()
+        except Exception as e:
+            _logger.debug(f"Failed to flush restored propagation context: {e}", exc_info=True)
+        try:
+            context_manager.__exit__(None, None, None)
+        except Exception as e:
+            _logger.debug(f"Failed to close propagation context: {e}", exc_info=True)
 
     def new_span(
         self,
@@ -234,11 +274,12 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
 
         try:
             input_args = _extract_workflow_inputs(bound_args.arguments)
-            attributes = self._get_instance_attributes(instance) or {}
+            attributes = self._get_instance_attributes(instance)
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
             name = id_.partition("-")[0]
-            if parent_span is None and self._has_restored_context:
-                self._propagated_root_span_ids.add(id_)
+            pending_context = (
+                _pending_propagation_context.get() if parent_span is None else None
+            )
             span = start_span_no_context(
                 name=name,
                 parent_span=parent_span,
@@ -249,6 +290,10 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
 
             token = set_span_in_context(span)
             self._span_id_to_token[span.span_id] = token
+            if pending_context is not None:
+                with self.lock:
+                    self._root_id_to_propagation_context[id_] = pending_context
+                _pending_propagation_context.set(None)
 
             # NB: The tool definition is passed to LLM via kwargs, but it is not set
             # to the LLM/Chat start event. Therefore, we need to handle it here.
@@ -286,33 +331,38 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                 if token:
                     detach_span_from_context(token)
                 return None  # Keep the span in open_spans
-            elif self._stream_resolver.is_streaming_result(result):
-                # If the result is a generator, we keep the span in progress for streaming
-                # and end it when the generator is exhausted.
-                is_pended = self._stream_resolver.register_stream_span(span, result)
-                if is_pended:
-                    self._pending_spans[id_] = llama_span
-                    # We still need to detach the span from the context, otherwise it will
-                    # be considered as "active"
-                    detach_span_from_context(token)
-                else:
-                    # If the span is not pended successfully, end it immediately
-                    _end_span(span=span, outputs=result, token=token)
-            else:
-                _end_span(span=span, outputs=result, token=token)
 
-            # If a child step returns a StopEvent, close the parent workflow span
-            self._try_close_workflow_span(llama_span.parent_id, result)
-            self._try_close_propagation_context(id_)
+            try:
+                if self._stream_resolver.is_streaming_result(result):
+                    # If the result is a generator, we keep the span in progress for streaming
+                    # and end it when the generator is exhausted.
+                    is_pended = self._stream_resolver.register_stream_span(span, result)
+                    if is_pended:
+                        self._pending_spans[id_] = llama_span
+                        # We still need to detach the span from the context, otherwise it will
+                        # be considered as "active"
+                        detach_span_from_context(token)
+                    else:
+                        # If the span is not pended successfully, end it immediately
+                        _end_span(span=span, outputs=result, token=token)
+                else:
+                    _end_span(span=span, outputs=result, token=token)
+            finally:
+                try:
+                    # If a child step returns a StopEvent, close the parent workflow span
+                    self._try_close_workflow_span(llama_span.parent_id, result)
+                finally:
+                    self._try_close_propagation_context(id_)
 
             return llama_span
         except BaseException as e:
             _logger.debug(f"Failed to end a span: {e}", exc_info=True)
 
     def _try_close_propagation_context(self, id_: str | None):
-        if id_ in self._propagated_root_span_ids:
-            self._propagated_root_span_ids.discard(id_)
-            self._close_latest_propagation_context()
+        with self.lock:
+            restored_context = self._root_id_to_propagation_context.pop(id_, None)
+        if restored_context is not None:
+            self._exit_propagation_context(restored_context)
 
     def _try_close_workflow_span(self, parent_id: str | None, result: Any):
         """Close a pending workflow span when a child step returns a StopEvent."""
@@ -346,18 +396,23 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         span = llama_span._mlflow_span
         token = self._span_id_to_token.pop(span.span_id, None)
 
-        if _get_llama_index_version() >= Version("0.10.59"):
-            # LlamaIndex determines if a workflow is terminated or not by propagating an special
-            # exception WorkflowDone. We should treat this exception as a successful termination.
-            from llama_index.core.workflow.errors import WorkflowDone
+        try:
+            if _get_llama_index_version() >= Version("0.10.59"):
+                # LlamaIndex determines if a workflow is terminated or not by propagating a
+                # special exception WorkflowDone. We should treat this exception as a
+                # successful termination.
+                from llama_index.core.workflow.errors import WorkflowDone
 
-            if err and isinstance(err, WorkflowDone):
-                return _end_span(span=span, status=SpanStatusCode.OK, token=token)
+                if err and isinstance(err, WorkflowDone):
+                    return _end_span(span=span, status=SpanStatusCode.OK, token=token)
 
-        span.add_event(SpanEvent.from_exception(err))
-        _end_span(span=span, status="ERROR", token=token)
-        self._try_close_propagation_context(id_)
-        return llama_span
+            span.add_event(SpanEvent.from_exception(err))
+            _end_span(span=span, status="ERROR", token=token)
+            return llama_span
+        finally:
+            # Close on both the WorkflowDone and error paths, so a propagated root that ends
+            # via WorkflowDone still tears down its context.
+            self._try_close_propagation_context(id_)
 
     def _get_span_type(self, instance: Any) -> SpanType:
         """
