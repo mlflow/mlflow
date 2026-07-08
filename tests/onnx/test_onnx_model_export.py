@@ -855,9 +855,56 @@ def test_onnx_model_load_warns_on_runtime_provider_fallback(onnx_model, model_pa
     _, kwargs = mock_session.call_args
     # We still requested CUDA (it passed the available-providers filter)...
     assert kwargs["providers"] == ["CUDAExecutionProvider", "CPUExecutionProvider"]
-    # ...but the runtime-fallback warning fires because it was not activated.
+    # ...but the runtime-fallback warning fires because it was not activated, and since
+    # nothing accelerated survived the warning says inference runs on CPU.
     assert "CUDAExecutionProvider" in caplog.text
     assert "failed to initialize at runtime" in caplog.text
+    assert "Inference will run on CPU." in caplog.text
+
+
+def test_onnx_model_load_warns_but_keeps_gpu_when_only_some_providers_drop(
+    onnx_model, model_path, caplog
+):
+    # When onnxruntime drops one requested provider (e.g. TensorRT) but a GPU provider
+    # (CUDA) survives, the model still runs on GPU. The warning must report the drop
+    # without claiming acceleration was lost.
+    mlflow.onnx.save_model(
+        onnx_model,
+        model_path,
+        onnx_execution_providers=[
+            "TensorrtExecutionProvider",
+            "CUDAExecutionProvider",
+            "CPUExecutionProvider",
+        ],
+    )
+    onnx_logger = logging.getLogger("mlflow.onnx")
+    onnx_logger.addHandler(caplog.handler)
+    try:
+        with (
+            mock.patch("onnxruntime.InferenceSession") as mock_session,
+            mock.patch(
+                "onnxruntime.get_available_providers",
+                return_value=[
+                    "TensorrtExecutionProvider",
+                    "CUDAExecutionProvider",
+                    "CPUExecutionProvider",
+                ],
+            ),
+            caplog.at_level("WARNING", logger="mlflow.onnx"),
+        ):
+            # TensorRT is dropped at runtime but CUDA survives -> still on GPU.
+            _stub_session(
+                mock_session,
+                active_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+            )
+            mlflow.pyfunc.load_model(model_path)
+    finally:
+        onnx_logger.removeHandler(caplog.handler)
+    assert "TensorrtExecutionProvider" in caplog.text
+    assert "failed to initialize at runtime" in caplog.text
+    # CUDA survived, so the message must NOT claim CPU-only.
+    assert "Inference will still use the remaining accelerated provider(s)." in caplog.text
+    assert "Inference will run on CPU." not in caplog.text
 
 
 def test_onnx_model_load_falls_back_to_cpu_when_provider_construction_raises(

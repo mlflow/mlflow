@@ -339,17 +339,23 @@ class _OnnxModelWrapper:
 
         # Even when construction succeeds, onnxruntime may have silently dropped a requested
         # provider that failed to initialize (activating fewer than requested). Compare
-        # requested vs actually-activated providers and warn on any drop, so a GPU model
-        # quietly running on CPU is surfaced instead of silent.
+        # requested vs actually-activated providers and warn on any drop. Whether this loses
+        # acceleration depends on which providers survived: dropping TensorRT while CUDA
+        # remains still runs on GPU, but dropping every non-CPU provider means CPU-only.
         active_providers = self.rt.get_providers()
         if inactive_providers := [p for p in requested_providers if p not in active_providers]:
+            still_accelerated = any(p != "CPUExecutionProvider" for p in active_providers)
             _logger.warning(
                 "ONNX model requested execution providers %s but onnxruntime activated only "
-                "%s; %s failed to initialize at runtime and were dropped. GPU acceleration "
-                "will not be used.",
+                "%s; %s failed to initialize at runtime and were dropped. %s",
                 requested_providers,
                 active_providers,
                 inactive_providers,
+                (
+                    "Inference will still use the remaining accelerated provider(s)."
+                    if still_accelerated
+                    else "Inference will run on CPU."
+                ),
             )
 
         assert len(self.rt.get_inputs()) >= 1
