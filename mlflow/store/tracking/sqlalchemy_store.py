@@ -71,6 +71,7 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
 from mlflow.entities.model_registry import PromptVersion
+from mlflow.entities.span import LazySpan
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
@@ -6599,9 +6600,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 return
 
+        # Defer OTel Span reconstruction until a caller needs properties or
+        # to_otel_proto(). Callers that only need dicts (e.g. TraceData.to_dict /
+        # get-trace-artifact) skip Span.from_dict entirely.
         return [
-            Span.from_dict(translate_loaded_span(json.loads(span.content)))
-            for span in span_snapshots
+            LazySpan(translate_loaded_span(json.loads(span.content))) for span in span_snapshots
         ]
 
     def _load_tracking_store_span_snapshots(

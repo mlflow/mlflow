@@ -5085,6 +5085,39 @@ def test_get_trace_basic(store: SqlAlchemyStore) -> None:
     assert child_span.end_time_ns == 1_800_000_000
 
 
+def test_get_trace_returns_lazy_spans_that_skip_materialization_on_to_dict(
+    store: SqlAlchemyStore,
+) -> None:
+    from mlflow.entities.span import LazySpan
+
+    experiment_id = store.create_experiment("test_get_trace_lazy")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="root_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            start_ns=1_000_000_000,
+            end_ns=2_000_000_000,
+            trace_num=12345,
+        ),
+    ]
+    store.log_spans(experiment_id, spans)
+
+    trace = store.get_trace(trace_id)
+    assert all(isinstance(span, LazySpan) for span in trace.data.spans)
+    assert all(span.__dict__["_materialized"] is False for span in trace.data.spans)
+
+    dumped = trace.data.to_dict()
+    assert dumped["spans"][0]["name"] == "root_span"
+    assert all(span.__dict__["_materialized"] is False for span in trace.data.spans)
+
+    # Property access still works and materializes only when needed.
+    assert trace.data.spans[0].name == "root_span"
+    assert trace.data.spans[0].__dict__["_materialized"] is True
+
+
 def test_get_trace_not_found(store: SqlAlchemyStore) -> None:
     trace_id = f"tr-{uuid.uuid4().hex}"
     with pytest.raises(MlflowException, match=f"Trace with ID {trace_id} is not found."):

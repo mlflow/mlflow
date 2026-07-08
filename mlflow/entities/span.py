@@ -1271,6 +1271,76 @@ class LiveSpan(Span):
 NO_OP_SPAN_TRACE_ID = "MLFLOW_NO_OP_SPAN_TRACE_ID"
 
 
+class LazySpan(Span):
+    """
+    A span that keeps its stored dict form and only builds an OTel-backed Span
+    when a property or conversion that needs one is accessed.
+
+    TRACKING_STORE rows already persist the span as JSON. Returning ``LazySpan``
+    from the store avoids an eager ``json.loads`` → ``Span.from_dict`` →
+    ``to_dict``/``to_otel_proto`` round-trip when the consumer only needs the
+    dict (for example ``get-trace-artifact`` or ``TraceData.to_dict``).
+    """
+
+    # Attribute names that must not trigger materialization.
+    _LAZY_PASSTHROUGH = frozenset({
+        "__class__",
+        "__dict__",
+        "__getattribute__",
+        "__repr__",
+        "__str__",
+        "_ensure_materialized",
+        "_materialized",
+        "_span_dict",
+        "to_dict",
+    })
+
+    def __init__(self, span_dict: dict[str, Any]):
+        # Skip Span.__init__: we intentionally avoid constructing an OTel span
+        # until a caller needs property access or OTLP conversion.
+        self.__dict__["_span_dict"] = span_dict
+        self.__dict__["_materialized"] = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return self.__dict__["_span_dict"]
+
+    def _ensure_materialized(self) -> None:
+        if self.__dict__["_materialized"]:
+            return
+        span = Span.from_dict(self.__dict__["_span_dict"])
+        self.__dict__["_span"] = span._span
+        self.__dict__["_attributes"] = span._attributes
+        self.__dict__["_attachments"] = span._attachments
+        self.__dict__["_links"] = span._links
+        self.__dict__["_materialized"] = True
+
+    def __getattribute__(self, name: str):
+        if name in LazySpan._LAZY_PASSTHROUGH:
+            return object.__getattribute__(self, name)
+        if not object.__getattribute__(self, "__dict__").get("_materialized"):
+            object.__getattribute__(self, "_ensure_materialized")()
+        return object.__getattribute__(self, name)
+
+    def __repr__(self):
+        if self.__dict__.get("_materialized"):
+            return super().__repr__()
+        span_dict = self.__dict__["_span_dict"]
+        name = span_dict.get("name")
+        attributes = span_dict.get("attributes") or {}
+        request_id = attributes.get(SpanAttributeKey.REQUEST_ID)
+        # request_id may still be JSON-encoded in persisted attributes.
+        if isinstance(request_id, str):
+            try:
+                request_id = json.loads(request_id)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                pass
+        return (
+            f"LazySpan(name={name!r}, trace_id={request_id!r}, "
+            f"span_id={span_dict.get('span_id')!r}, "
+            f"parent_id={span_dict.get('parent_span_id')!r})"
+        )
+
+
 class NoOpSpan(Span):
     """
     No-op implementation of the Span interface.
