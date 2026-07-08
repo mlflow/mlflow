@@ -252,7 +252,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         ]
         return self._get_credential_infos(_CredentialType.WRITE, relative_remote_paths)
 
-    def download_trace_data_to_file(self, dst_path):
+    def download_trace_data_to_file(self, dst_path: Path) -> Path:
         [cred], _ = self.resource.get_credentials(cred_type=_CredentialType.READ)
         signed_uri = cred.signed_uri
         headers = self._extract_headers_from_credentials(cred.headers)
@@ -327,7 +327,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
         return cred
 
-    def download_trace_attachment_to_file(self, path, dst_path):
+    def download_trace_attachment_to_file(self, path: str, dst_path: Path) -> Path:
         _validate_attachment_path(path)
         artifact_path = posixpath.join("attachments", path)
         [cred], _ = self.resource.get_credentials(

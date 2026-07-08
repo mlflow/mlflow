@@ -3072,7 +3072,8 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_stor
     mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
     mock_tracking_store.batch_get_traces.assert_called_once_with([trace_id], None)
     mock_tracking_store.get_trace_info.assert_called_once_with(trace_id)
-    mock_artifact_repo.download_trace_data_to_file.assert_called_once()
+    args, _ = mock_artifact_repo.download_trace_data_to_file.call_args
+    assert args[0].name == "traces.json"
 
     # Verify successful response
     assert response is not None
@@ -3115,7 +3116,7 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo_local_path(
         with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
             response = get_trace_artifact_handler()
 
-    mock_artifact_repo.get_local_path.assert_called_once()
+    mock_artifact_repo.get_local_path.assert_called_once_with("traces.json")
     mock_artifact_repo.download_trace_data_to_file.assert_not_called()
 
     assert response is not None
@@ -3155,7 +3156,9 @@ def test_get_trace_artifact_handler_with_attachment_path(mock_tracking_store, tm
             response = get_trace_artifact_handler()
 
     mock_tracking_store.get_trace_info.assert_called_once_with(trace_id)
-    mock_artifact_repo.download_trace_attachment_to_file.assert_called_once()
+    mock_artifact_repo.download_trace_attachment_to_file.assert_called_once_with(
+        attachment_id, mock.ANY
+    )
     assert response.status_code == 200
     assert response.headers["Content-Type"] == "application/octet-stream"
     assert response.headers["Content-Disposition"] == f"attachment; filename={attachment_id}"
@@ -3191,7 +3194,7 @@ def test_get_trace_artifact_handler_with_attachment_local_path(mock_tracking_sto
         with app.test_request_context(method="GET", query_string=query):
             response = get_trace_artifact_handler()
 
-    mock_artifact_repo.get_local_path.assert_called_once()
+    mock_artifact_repo.get_local_path.assert_called_once_with(f"attachments/{attachment_id}")
     mock_artifact_repo.download_trace_attachment_to_file.assert_not_called()
     assert response.status_code == 200
     assert response.headers["Content-Disposition"] == f"attachment; filename={attachment_id}"
