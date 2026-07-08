@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783507649511,
+  "lastUpdate": 1783524716594,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -13121,6 +13121,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.6832618000006505,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sanatbhargava18@gmail.com",
+            "name": "Sanat Bhargava",
+            "username": "sanatb187"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "16b408ce39345a999381de30b00f5178f2539501",
+          "message": "Fix trace OTLP encoding for lone surrogates (#24318)\n\nSigned-off-by: sanatb187 <sanatbhargava18@gmail.com>",
+          "timestamp": "2026-07-08T15:28:31Z",
+          "tree_id": "f3349ab30ce92a89863ffa0fad9197d87d0cde28",
+          "url": "https://github.com/mlflow/mlflow/commit/16b408ce39345a999381de30b00f5178f2539501"
+        },
+        "date": 1783524715540,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 38.379067050000515,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 27.00578599999207,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 25.415301087716948,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 27.610057960780345,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 24.066336399996544,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 6.87615800002277,
             "unit": "ms"
           }
         ]
