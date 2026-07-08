@@ -3594,6 +3594,7 @@ AFTER_REQUEST_HANDLERS = {
     and "/scorers/online-config" not in http_path
     and "/mlflow/server-info" not in http_path
     and http_path not in _AJAX_GATEWAY_PATHS
+    and handler in AFTER_REQUEST_PATH_HANDLERS.values()
 }
 
 # Precompile workspace parameterized paths for after-request handlers.
