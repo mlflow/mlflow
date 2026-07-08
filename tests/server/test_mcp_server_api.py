@@ -1304,7 +1304,7 @@ def _make_trace(store):
 
 
 def test_link_mcp_server_versions_to_trace(client, store):
-    sj = _server_json("com.example/link-srv", "1.0")
+    sj = _server_json("com.example/link-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/link-srv')}/versions",
         json={"server_json": sj, "status": "active"},
@@ -1315,7 +1315,7 @@ def test_link_mcp_server_versions_to_trace(client, store):
         f"{PREFIX}/traces/link-versions",
         json={
             "trace_id": trace_id,
-            "mcp_server_versions": [{"name": "com.example/link-srv", "version": "1.0"}],
+            "mcp_server_versions": [{"name": "com.example/link-srv", "version": "1.0.0"}],
         },
     )
     assert r.status_code == 200
@@ -1325,7 +1325,7 @@ def test_link_mcp_server_versions_to_trace(client, store):
     versions = r.json()["mcp_server_versions"]
     assert len(versions) == 1
     assert versions[0]["name"] == "com.example/link-srv"
-    assert versions[0]["version"] == "1.0"
+    assert versions[0]["version"] == "1.0.0"
 
 
 def test_link_mcp_server_versions_to_trace_missing_trace(client):
@@ -1333,7 +1333,7 @@ def test_link_mcp_server_versions_to_trace_missing_trace(client):
         f"{PREFIX}/traces/link-versions",
         json={
             "trace_id": "tr-nonexistent",
-            "mcp_server_versions": [{"name": "com.example/srv", "version": "1.0"}],
+            "mcp_server_versions": [{"name": "com.example/srv", "version": "1.0.0"}],
         },
     )
     assert r.status_code == 404

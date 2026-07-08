@@ -2230,42 +2230,42 @@ def _make_trace(store):
     return trace_id
 
 
-def _version_ref(name="io.github.test/s", version="1.0"):
+def _version_ref(name="io.github.test/srv", version="1.0.0"):
     return MCPServerVersion(name=name, version=version, server_json={})
 
 
 def test_link_mcp_server_versions_to_trace(store):
-    store.create_mcp_server_version(_server_json("io.github.test/s", "1.0"))
+    store.create_mcp_server_version(_server_json("io.github.test/srv", "1.0.0"))
     trace_id = _make_trace(store)
 
     store.link_mcp_server_versions_to_trace(trace_id, [_version_ref()])
 
     linked = store.get_mcp_server_versions_for_trace(trace_id)
     assert len(linked) == 1
-    assert linked[0].name == "io.github.test/s"
-    assert linked[0].version == "1.0"
+    assert linked[0].name == "io.github.test/srv"
+    assert linked[0].version == "1.0.0"
 
 
 def test_link_mcp_server_versions_to_trace_multiple(store):
-    store.create_mcp_server_version(_server_json("io.github.test/s", "1.0"))
-    store.create_mcp_server_version(_server_json("io.github.test/s", "2.0"))
+    store.create_mcp_server_version(_server_json("io.github.test/srv", "1.0.0"))
+    store.create_mcp_server_version(_server_json("io.github.test/srv", "2.0.0"))
     trace_id = _make_trace(store)
 
     store.link_mcp_server_versions_to_trace(
         trace_id,
-        [_version_ref(version="1.0"), _version_ref(version="2.0")],
+        [_version_ref(version="1.0.0"), _version_ref(version="2.0.0")],
     )
 
     linked = store.get_mcp_server_versions_for_trace(trace_id)
     assert len(linked) == 2
     assert {(sv.name, sv.version) for sv in linked} == {
-        ("io.github.test/s", "1.0"),
-        ("io.github.test/s", "2.0"),
+        ("io.github.test/srv", "1.0.0"),
+        ("io.github.test/srv", "2.0.0"),
     }
 
 
 def test_link_mcp_server_versions_to_trace_idempotent(store):
-    store.create_mcp_server_version(_server_json("io.github.test/s", "1.0"))
+    store.create_mcp_server_version(_server_json("io.github.test/srv", "1.0.0"))
     trace_id = _make_trace(store)
 
     store.link_mcp_server_versions_to_trace(trace_id, [_version_ref()])
@@ -2292,14 +2292,14 @@ def test_link_mcp_server_versions_to_trace_nonexistent_version_raises(store):
 
     with pytest.raises(MlflowException, match="not found") as exc:
         store.link_mcp_server_versions_to_trace(
-            trace_id, [_version_ref(name="io.github.test/nope", version="9.9")]
+            trace_id, [_version_ref(name="io.github.test/nope", version="9.9.0")]
         )
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
 def test_link_mcp_server_versions_to_trace_deleted_version_raises(store):
-    store.create_mcp_server_version(_server_json("io.github.test/s", "1.0"))
-    store.delete_mcp_server_version("io.github.test/s", "1.0")
+    store.create_mcp_server_version(_server_json("io.github.test/srv", "1.0.0"))
+    store.delete_mcp_server_version("io.github.test/srv", "1.0.0")
     trace_id = _make_trace(store)
 
     with pytest.raises(MlflowException, match="not found") as exc:
@@ -2308,16 +2308,16 @@ def test_link_mcp_server_versions_to_trace_deleted_version_raises(store):
 
 
 def test_get_mcp_server_versions_for_trace_deleted_version_excluded(store):
-    store.create_mcp_server_version(_server_json("io.github.test/s", "1.0"))
-    store.create_mcp_server_version(_server_json("io.github.test/s", "2.0"))
+    store.create_mcp_server_version(_server_json("io.github.test/srv", "1.0.0"))
+    store.create_mcp_server_version(_server_json("io.github.test/srv", "2.0.0"))
     trace_id = _make_trace(store)
 
     store.link_mcp_server_versions_to_trace(
         trace_id,
-        [_version_ref(version="1.0"), _version_ref(version="2.0")],
+        [_version_ref(version="1.0.0"), _version_ref(version="2.0.0")],
     )
-    store.delete_mcp_server_version("io.github.test/s", "1.0")
+    store.delete_mcp_server_version("io.github.test/srv", "1.0.0")
 
     linked = store.get_mcp_server_versions_for_trace(trace_id)
     assert len(linked) == 1
-    assert linked[0].version == "2.0"
+    assert linked[0].version == "2.0.0"

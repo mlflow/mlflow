@@ -616,13 +616,13 @@ def trace_id(store):
     return tid
 
 
-def _version_ref(name="io.github.test/tl-srv", version="1.0"):
+def _version_ref(name="io.github.test/tl-srv", version="1.0.0"):
     return MCPServerVersion(name=name, version=version, server_json={})
 
 
 def test_link_and_get_mcp_server_versions_for_trace(rest_client, trace_id):
     rest_client.create_mcp_server_version(
-        _server_json("io.github.test/tl-srv", "1.0"), status=MCPStatus.ACTIVE
+        _server_json("io.github.test/tl-srv", "1.0.0"), status=MCPStatus.ACTIVE
     )
 
     rest_client.link_mcp_server_versions_to_trace(trace_id, [_version_ref()])
@@ -630,32 +630,32 @@ def test_link_and_get_mcp_server_versions_for_trace(rest_client, trace_id):
     linked = rest_client.get_mcp_server_versions_for_trace(trace_id)
     assert len(linked) == 1
     assert linked[0].name == "io.github.test/tl-srv"
-    assert linked[0].version == "1.0"
+    assert linked[0].version == "1.0.0"
 
 
 def test_link_mcp_server_versions_to_trace_multiple(rest_client, trace_id):
     rest_client.create_mcp_server_version(
-        _server_json("io.github.test/tl-srv", "1.0"), status=MCPStatus.ACTIVE
+        _server_json("io.github.test/tl-srv", "1.0.0"), status=MCPStatus.ACTIVE
     )
     rest_client.create_mcp_server_version(
-        _server_json("io.github.test/tl-srv", "2.0"), status=MCPStatus.ACTIVE
+        _server_json("io.github.test/tl-srv", "2.0.0"), status=MCPStatus.ACTIVE
     )
 
     rest_client.link_mcp_server_versions_to_trace(
-        trace_id, [_version_ref(version="1.0"), _version_ref(version="2.0")]
+        trace_id, [_version_ref(version="1.0.0"), _version_ref(version="2.0.0")]
     )
 
     linked = rest_client.get_mcp_server_versions_for_trace(trace_id)
     assert len(linked) == 2
     assert {(sv.name, sv.version) for sv in linked} == {
-        ("io.github.test/tl-srv", "1.0"),
-        ("io.github.test/tl-srv", "2.0"),
+        ("io.github.test/tl-srv", "1.0.0"),
+        ("io.github.test/tl-srv", "2.0.0"),
     }
 
 
 def test_link_mcp_server_versions_to_trace_idempotent(rest_client, trace_id):
     rest_client.create_mcp_server_version(
-        _server_json("io.github.test/tl-srv", "1.0"), status=MCPStatus.ACTIVE
+        _server_json("io.github.test/tl-srv", "1.0.0"), status=MCPStatus.ACTIVE
     )
 
     rest_client.link_mcp_server_versions_to_trace(trace_id, [_version_ref()])
