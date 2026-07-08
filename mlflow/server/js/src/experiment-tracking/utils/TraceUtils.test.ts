@@ -8,7 +8,7 @@ import {
   getTrace,
 } from './TraceUtils';
 import type { ModelTrace, ModelTraceSpanV2, ModelTraceSpanV3 } from '@databricks/web-shared/model-trace-explorer';
-import { getExperimentTraceV3, TracesServiceV3, TracesServiceV4 } from '@databricks/web-shared/model-trace-explorer';
+import { getExperimentTraceV3, TracesServiceV3 } from '@databricks/web-shared/model-trace-explorer';
 import { getSpansLocation, TRACKING_STORE_SPANS_LOCATION } from '@databricks/web-shared/genai-traces-table';
 
 jest.mock('@databricks/web-shared/model-trace-explorer', () => ({
@@ -1100,7 +1100,6 @@ describe('extractRetrievalContext', () => {
 describe('getTrace', () => {
   const mockGetExperimentTraceV3 = jest.mocked(getExperimentTraceV3);
   const mockGetTraceV3 = jest.mocked(TracesServiceV3.getTraceV3);
-  const mockGetTraceV4 = jest.mocked(TracesServiceV4.getTraceV4);
   const mockGetSpansLocation = jest.mocked(getSpansLocation);
 
   beforeEach(() => {
@@ -1119,9 +1118,20 @@ describe('getTrace', () => {
 
     const result = await getTrace('tr-1', { trace_id: 'tr-1' } as any);
 
-    expect(mockGetExperimentTraceV3).toHaveBeenCalledTimes(1);
+    expect(mockGetExperimentTraceV3).toHaveBeenCalledWith({ traceId: 'tr-1' });
     expect(mockGetTraceV3).not.toHaveBeenCalled();
     expect(result).toEqual({ info: { trace_id: 'tr-1' }, data: { spans } });
+  });
+
+  it('falls back to getTraceV3 when get-trace returns no trace for a TRACKING_STORE trace', async () => {
+    mockGetSpansLocation.mockReturnValue(TRACKING_STORE_SPANS_LOCATION);
+    mockGetExperimentTraceV3.mockResolvedValue({ trace: null } as any);
+    mockGetTraceV3.mockResolvedValue({ info: {}, data: { spans: [] } } as any);
+
+    await getTrace('tr-1', { trace_id: 'tr-1' } as any);
+
+    expect(mockGetExperimentTraceV3).toHaveBeenCalledWith({ traceId: 'tr-1' });
+    expect(mockGetTraceV3).toHaveBeenCalledWith('tr-1');
   });
 
   it('falls back to getTraceV3 for a non-TRACKING_STORE v3 trace', async () => {
