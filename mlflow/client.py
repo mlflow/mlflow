@@ -6,7 +6,23 @@ For a higher level API for managing an "active run", use the :py:mod:`mlflow` mo
 """
 
 from mlflow.tracking.client import MlflowClient
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.requests import Request
+from mlflow import MlflowClient as mlflow_client
+import os
 
-__all__ = [
-    "MlflowClient",
-]
+app = FastAPI()
+
+@app.put("/api/2.0/mlflow-artifacts/artifacts/{path}")
+async def upload_artifact(path: str, file: bytes = File(...)):
+    mlflow_client().upload_artifact(path, file)
+    return {"message": "Artifact uploaded successfully"}
+
+@app.get("/api/2.0/mlflow-artifacts/artifacts/{path}")
+async def download_artifact(path: str, request: Request):
+    artifact_path = mlflow_client().get_artifact_path(path)
+    if os.path.exists(artifact_path):
+        return FileResponse(artifact_path)
+    else:
+        return {"message": "Artifact not found"}
