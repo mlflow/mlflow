@@ -695,6 +695,28 @@ export ARTIFACTORY_ARTIFACTS_DELETE_SKIP=true
 ```
 
   </TabItem>
+  <TabItem value="run-context-governance" label="Run Context & Governance">
+
+#### **falsify Plugin**
+
+Tag every run with a tamper-evident [PRML](https://spec.falsify.dev/v0.1) pre-registration manifest, binding the run to the metric, threshold, and dataset that were committed before the experiment ran:
+
+```bash
+pip install mlflow-falsify
+```
+
+```python
+import mlflow
+
+# With a .prml.yaml (or prml.yaml) in the working directory or any
+# ancestor, every run is automatically tagged with the pre-registered
+# claim: prml.manifest_hash, prml.metric, prml.comparator,
+# prml.threshold, prml.dataset_id, ...
+with mlflow.start_run():
+    mlflow.log_metric("accuracy", 0.95)
+```
+
+  </TabItem>
 </Tabs>
 
 ## Testing Your Plugin
