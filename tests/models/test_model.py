@@ -257,6 +257,7 @@ def test_model_info_with_model_version(tmp_path):
         model_info = Model.log("model", TestFlavor)
         assert model_info.registered_model_version is None
 
+
 def test_model_log_tags_propagated_to_registered_model_version(tmp_path):
     experiment_id = mlflow.create_experiment("test_tags", artifact_location=str(tmp_path))
     tags = {"stage": "training", "framework": "test"}
@@ -269,10 +270,9 @@ def test_model_log_tags_propagated_to_registered_model_version(tmp_path):
         )
 
     client = mlflow.MlflowClient()
-    model_version = client.get_model_version(
-        "model_with_tags", model_info.registered_model_version
-    )
+    model_version = client.get_model_version("model_with_tags", model_info.registered_model_version)
     assert model_version.tags == tags
+
 
 def test_model_metadata():
     with TempDir(chdr=True) as tmp:

@@ -1043,7 +1043,6 @@ class Model:
                     registered_model_name,
                     await_registration_for=await_registration_for,
                     local_model_path=local_path,
-                    
                 )
 
             model_info = mlflow_model.get_model_info()
