@@ -121,6 +121,12 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self.label_list.sort()
 
         if len(self.label_list) == 2:
+            # y_probs columns are aligned with the sorted label order; capture the column
+            # holding the positive class now, before label_list is reordered below.
+            if self.pos_label is not None and self.pos_label in self.label_list:
+                self.pos_index = int(np.where(self.label_list == self.pos_label)[0][0])
+            else:
+                self.pos_index = 1
             if self.pos_label is None:
                 self.pos_label = self.label_list[-1]
             else:
@@ -175,7 +181,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 self.roc_curve = _gen_classifier_curve(
                     is_binomial=True,
                     y=self.y_true,
-                    y_probs=self.y_probs[:, 1],
+                    y_probs=self.y_probs[:, self.pos_index],
                     labels=self.label_list,
                     pos_label=self.pos_label,
                     curve_type="roc",
@@ -189,7 +195,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 self.pr_curve = _gen_classifier_curve(
                     is_binomial=True,
                     y=self.y_true,
-                    y_probs=self.y_probs[:, 1],
+                    y_probs=self.y_probs[:, self.pos_index],
                     labels=self.label_list,
                     pos_label=self.pos_label,
                     curve_type="pr",
@@ -609,7 +615,11 @@ def _gen_classifier_curve(
                 pos_label=_pos_label if _pos_label == pos_label else None,
             )
 
-            auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_y_prob, sample_weight=sample_weights)
+            auc = sk_metrics.roc_auc_score(
+                y_true=np.asarray(_y) == _pos_label,
+                y_score=_y_prob,
+                sample_weight=sample_weights,
+            )
             return fpr, tpr, f"AUC={auc:.3f}", auc
 
         xlabel = "False Positive Rate"
