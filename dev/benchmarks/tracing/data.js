@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783487430257,
+  "lastUpdate": 1783496818166,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -13013,6 +13013,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 34.68732319998935,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "qian.yucheng@gmail.com",
+            "name": "Yucheng Qian",
+            "username": "qyc"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9aee3d75a72731a8e25221a91dc70238d616064b",
+          "message": "Honor declared ONNX execution providers at load time (#24232)\n\nSigned-off-by: Yucheng Qian <yucheng.qian@databricks.com>\nSigned-off-by: qyc <7042909+qyc@users.noreply.github.com>\nCo-authored-by: Yucheng Qian <yucheng.qian@databricks.com>\nCo-authored-by: qyc <7042909+qyc@users.noreply.github.com>",
+          "timestamp": "2026-07-08T07:43:26Z",
+          "tree_id": "15be63f512dc295b01167d669b88368c7141c9d9",
+          "url": "https://github.com/mlflow/mlflow/commit/9aee3d75a72731a8e25221a91dc70238d616064b"
+        },
+        "date": 1783496816830,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 139.6121476499964,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 23.77550948484995,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 20.711471698414172,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 22.474106107143907,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 23.35568144642914,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.557026799996038,
             "unit": "ms"
           }
         ]
