@@ -6,10 +6,12 @@ The API docs can be found here:
 <https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#datasets>
 """
 
+import importlib
 import logging
 import os
 import time
 from contextlib import contextmanager
+from types import ModuleType
 from typing import Any
 
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
@@ -30,7 +32,41 @@ _ERROR_MSG = (
     "Please install it with `pip install databricks-agents`."
 )
 
+_DATASET_VERSIONING_ERROR_MSG = (
+    "Dataset versioning with datasets requires a prerelease build of the "
+    "`databricks-agents` package. Install the Databricks-provided wheel and retry."
+)
+
 _DATABRICKS_CONFIG_PROFILE_ENV_VAR = "DATABRICKS_CONFIG_PROFILE"
+
+
+def _get_databricks_agents_datasets_module(
+    require_dataset_versioning: bool = False,
+) -> ModuleType:
+    try:
+        db_datasets = importlib.import_module("databricks.agents.datasets")
+    except ImportError as e:
+        raise ImportError(_ERROR_MSG) from e
+
+    if require_dataset_versioning and not hasattr(db_datasets, "set_dataset_alias"):
+        raise ImportError(_DATASET_VERSIONING_ERROR_MSG)
+
+    return db_datasets
+
+
+def _get_databricks_agents_dataset_class(
+    db_datasets: ModuleType,
+    method_name: str,
+    operation: str,
+):
+    dataset_class = getattr(db_datasets, "Dataset", None)
+    if dataset_class is None or not hasattr(dataset_class, method_name):
+        raise ImportError(
+            f"{operation} dataset experiment associations in Databricks requires a prerelease "
+            "build of the `databricks-agents` package. Install the Databricks-provided wheel "
+            "and retry."
+        )
+    return dataset_class
 
 
 @contextmanager
@@ -225,13 +261,9 @@ def create_dataset(
                 "Tags are not supported in Databricks environments. "
                 "Tags are managed through Unity Catalog."
             )
-        try:
-            from databricks.agents.datasets import create_dataset as db_create
-
-            with _databricks_profile_env():
-                return EvaluationDataset(db_create(name, experiment_ids))
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
+        db_datasets = _get_databricks_agents_datasets_module()
+        with _databricks_profile_env():
+            return EvaluationDataset(db_datasets.create_dataset(name, experiment_ids))
     else:
         from mlflow.tracking.client import MlflowClient
 
@@ -299,13 +331,9 @@ def delete_dataset(
 
     if is_databricks_uri(get_tracking_uri()):
         _validate_databricks_params(name, dataset_id)
-        try:
-            from databricks.agents.datasets import delete_dataset as db_delete
-
-            with _databricks_profile_env():
-                return db_delete(name)
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
+        db_datasets = _get_databricks_agents_datasets_module()
+        with _databricks_profile_env():
+            return db_datasets.delete_dataset(name)
     else:
         _validate_non_databricks_params(name, dataset_id)
 
@@ -318,7 +346,7 @@ def delete_dataset(
 def get_dataset(
     name: str | None = None,
     dataset_id: str | None = None,
-    version: int | str | None = None,
+    version: int | None = None,
     alias: str | None = None,
 ) -> "EvaluationDataset":
     """
@@ -374,15 +402,16 @@ def get_dataset(
         _validate_databricks_params(name, dataset_id)
         if version is not None and alias is not None:
             raise ValueError("Cannot specify both 'version' and 'alias'. Use only one parameter.")
-        try:
-            from databricks.agents.datasets import get_dataset as db_get
-
-            with _databricks_profile_env():
-                if version is not None or alias is not None:
-                    return EvaluationDataset(db_get(name, version=version, alias=alias))
-                return EvaluationDataset(db_get(name))
-        except ImportError as e:
-            raise ImportError(_ERROR_MSG) from e
+        require_dataset_versioning = version is not None or alias is not None
+        db_datasets = _get_databricks_agents_datasets_module(
+            require_dataset_versioning=require_dataset_versioning,
+        )
+        with _databricks_profile_env():
+            if require_dataset_versioning:
+                return EvaluationDataset(
+                    db_datasets.get_dataset(name, version=version, alias=alias)
+                )
+            return EvaluationDataset(db_datasets.get_dataset(name))
     else:
         if version is not None or alias is not None:
             raise NotImplementedError(
@@ -401,6 +430,7 @@ def search_datasets(
     filter_string: str | None = None,
     max_results: int | None = None,
     order_by: list[str] | None = None,
+    alias: str | None = None,
 ) -> list[EvaluationDataset]:
     """
     Search for datasets.
@@ -427,6 +457,7 @@ def search_datasets(
             - name
             - created_time
             - last_update_time
+        alias: Databricks dataset alias to resolve, such as "dev" or "prod".
 
     Returns:
         List of EvaluationDataset objects matching the search criteria
@@ -536,6 +567,8 @@ def search_datasets(
 
     # Check if we're using Databricks - don't set defaults for unsupported parameters
     is_databricks = is_databricks_uri(get_tracking_uri())
+    if alias is not None and not is_databricks:
+        raise NotImplementedError("Dataset aliases are only supported for Databricks datasets.")
 
     # Set default filter to return datasets created in the last 7 days if no filter provided
     # Skip this for Databricks as filter_string is not supported
@@ -554,13 +587,16 @@ def search_datasets(
     from mlflow.utils import get_results_from_paginated_fn
 
     def pagination_wrapper_func(number_to_get, next_page_token):
-        return MlflowClient().search_datasets(
-            experiment_ids=experiment_ids,
-            filter_string=filter_string,
-            max_results=number_to_get,
-            order_by=order_by,
-            page_token=next_page_token,
-        )
+        search_kwargs = {
+            "experiment_ids": experiment_ids,
+            "filter_string": filter_string,
+            "max_results": number_to_get,
+            "order_by": order_by,
+            "page_token": next_page_token,
+        }
+        if alias is not None:
+            search_kwargs["alias"] = alias
+        return MlflowClient().search_datasets(**search_kwargs)
 
     mlflow_datasets = get_results_from_paginated_fn(
         pagination_wrapper_func,
@@ -573,19 +609,16 @@ def search_datasets(
 def set_dataset_alias(
     dataset_name: str,
     alias: str,
-    version: int | str | None = None,
+    version: int | None = None,
 ) -> None:
     """
     Set or move a Databricks evaluation dataset alias.
     """
     if not is_databricks_uri(get_tracking_uri()):
         raise NotImplementedError("Dataset aliases are only supported for Databricks datasets.")
-    try:
-        from databricks.agents.datasets import set_dataset_alias as db_set_alias
-    except ImportError as e:
-        raise ImportError(_ERROR_MSG) from e
+    db_datasets = _get_databricks_agents_datasets_module(require_dataset_versioning=True)
     with _databricks_profile_env():
-        db_set_alias(dataset_name, alias, version=version)
+        db_datasets.set_dataset_alias(dataset_name, alias, version=version)
 
 
 def delete_dataset_alias(
@@ -597,12 +630,9 @@ def delete_dataset_alias(
     """
     if not is_databricks_uri(get_tracking_uri()):
         raise NotImplementedError("Dataset aliases are only supported for Databricks datasets.")
-    try:
-        from databricks.agents.datasets import delete_dataset_alias as db_delete_alias
-    except ImportError as e:
-        raise ImportError(_ERROR_MSG) from e
+    db_datasets = _get_databricks_agents_datasets_module(require_dataset_versioning=True)
     with _databricks_profile_env():
-        db_delete_alias(dataset_name, alias)
+        db_datasets.delete_dataset_alias(dataset_name, alias)
 
 
 def set_dataset_tags(
@@ -728,12 +758,6 @@ def _validate_association_operation():
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.tracking._tracking_service.utils import _get_store
 
-    if is_databricks_uri(get_tracking_uri()):
-        raise NotImplementedError(
-            "Dataset association operations are not available in Databricks yet. "
-            "Associations are managed through Unity Catalog."
-        )
-
     store = _get_store()
     if isinstance(store, FileStore):
         raise NotImplementedError(
@@ -768,6 +792,17 @@ def add_dataset_to_experiments(dataset_id: str, experiment_ids: list[str]) -> "E
             print(f"Dataset now associated with {len(dataset.experiment_ids)} experiments")
     """
     _validate_association_operation()
+
+    if is_databricks_uri(get_tracking_uri()):
+        db_datasets = _get_databricks_agents_datasets_module()
+        dataset_class = _get_databricks_agents_dataset_class(
+            db_datasets,
+            method_name="add_to_experiments",
+            operation="Adding",
+        )
+        with _databricks_profile_env():
+            dataset = dataset_class(dataset_id=dataset_id)
+            return EvaluationDataset(dataset.add_to_experiments(experiment_ids))
 
     from mlflow.tracking.client import MlflowClient
 
@@ -805,6 +840,17 @@ def remove_dataset_from_experiments(
             print(f"Dataset now associated with {len(dataset.experiment_ids)} experiments")
     """
     _validate_association_operation()
+
+    if is_databricks_uri(get_tracking_uri()):
+        db_datasets = _get_databricks_agents_datasets_module()
+        dataset_class = _get_databricks_agents_dataset_class(
+            db_datasets,
+            method_name="remove_from_experiments",
+            operation="Removing",
+        )
+        with _databricks_profile_env():
+            dataset = dataset_class(dataset_id=dataset_id)
+            return EvaluationDataset(dataset.remove_from_experiments(experiment_ids))
 
     from mlflow.tracking.client import MlflowClient
 

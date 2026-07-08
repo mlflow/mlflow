@@ -1,5 +1,6 @@
 import base64
 import logging
+import re
 import time
 from collections import defaultdict
 from datetime import datetime
@@ -97,6 +98,7 @@ DATABRICKS_UC_TABLE_HEADER = "X-Databricks-UC-Table-Name"
 _V5_TRACE_LOCATION_ENDPOINT = "/api/5.0/mlflow/tracing/locations"
 
 _SEARCH_TRACES_POLL_INTERVAL_SECONDS = 1.0
+_DATASET_ALIAS_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
 
 _logger = logging.getLogger(__name__)
 
@@ -954,6 +956,7 @@ class DatabricksTracingRestStore(RestStore):
         filter_string: str | None,
         order_by: list[str] | None,
         experiment_ids: list[str] | None,
+        alias: str | None,
     ):
         """Validate parameters for search_datasets and raise errors for unsupported ones."""
         if filter_string:
@@ -972,6 +975,19 @@ class DatabricksTracingRestStore(RestStore):
                 "Please search for one experiment at a time.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if alias is not None:
+            if not isinstance(alias, str) or not _DATASET_ALIAS_NAME_PATTERN.match(alias):
+                raise MlflowException(
+                    "Invalid dataset alias. Aliases must be 1-128 characters and contain only "
+                    "letters, numbers, underscores, or hyphens.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if not experiment_ids:
+                raise MlflowException(
+                    "Databricks managed-evals API requires an experiment_id when searching by "
+                    "alias.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
     def _parse_datasets_from_response(self, response_json: dict[str, Any]) -> list[Any]:
         """Parse EvaluationDataset entities from managed-evals API response."""
@@ -1013,6 +1029,9 @@ class DatabricksTracingRestStore(RestStore):
                 profile=None,
                 created_by=dataset_dict.get("created_by"),
                 last_updated_by=dataset_dict.get("last_updated_by"),
+                version=dataset_dict.get("version"),
+                alias=dataset_dict.get("alias"),
+                is_uc_native=dataset_dict.get("is_uc_native"),
             )
             datasets.append(dataset)
 
@@ -1021,13 +1040,19 @@ class DatabricksTracingRestStore(RestStore):
     def _fetch_datasets_page(
         self,
         experiment_ids: list[str] | None = None,
+        alias: str | None = None,
         page_size: int = 1000,
         page_token: str | None = None,
     ):
         """Fetch a single page of datasets from the backend."""
         params = {}
+        filter_conditions = []
         if experiment_ids:
-            params["filter"] = f"experiment_id='{experiment_ids[0]}'"
+            filter_conditions.append(f"experiment_id='{experiment_ids[0]}'")
+        if alias is not None:
+            filter_conditions.append(f"alias = '{alias}'")
+        if filter_conditions:
+            params["filter"] = " AND ".join(filter_conditions)
         if page_size:
             params["page_size"] = str(page_size)
         if page_token:
@@ -1068,6 +1093,7 @@ class DatabricksTracingRestStore(RestStore):
         max_results: int = 1000,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        alias: str | None = None,
     ):
         """
         Search for evaluation datasets in Databricks using managed-evals API.
@@ -1079,11 +1105,12 @@ class DatabricksTracingRestStore(RestStore):
             max_results: Maximum number of results to return
             order_by: Not supported by managed-evals API (raises error)
             page_token: Token for retrieving the next batch of results
+            alias: Dataset alias to resolve, such as "dev" or "prod"
 
         Returns:
             PagedList of EvaluationDataset entities
         """
-        self._validate_search_datasets_params(filter_string, order_by, experiment_ids)
+        self._validate_search_datasets_params(filter_string, order_by, experiment_ids, alias)
 
         token = CompositeToken.parse(page_token)
 
@@ -1098,6 +1125,7 @@ class DatabricksTracingRestStore(RestStore):
 
             page = self._fetch_datasets_page(
                 experiment_ids=experiment_ids,
+                alias=alias,
                 page_size=max_results,
                 page_token=current_backend_token,
             )

@@ -9,7 +9,7 @@ from mlflow.entities.evaluation_dataset import (
 from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
     DatabricksEvaluationDatasetSource,
 )
-from mlflow.genai.datasets.entities import EvaluationDatasetVersion
+from mlflow.genai.datasets.entities import EvaluationDatasetAlias, EvaluationDatasetVersion
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -33,18 +33,46 @@ def _to_evaluation_dataset_version(value: Any) -> EvaluationDatasetVersion | Non
     if isinstance(value, EvaluationDatasetVersion):
         return value
 
-    raw_version = getattr(value, "version", value)
+    if isinstance(value, dict):
+        raw_version = value.get("version")
+        created_at = value.get("created_at") or value.get("create_time")
+        created_by = value.get("created_by")
+        operation = value.get("operation")
+    else:
+        raw_version = getattr(value, "version", value)
+        created_at = getattr(value, "created_at", None) or getattr(value, "create_time", None)
+        created_by = getattr(value, "created_by", None)
+        operation = getattr(value, "operation", None)
     if raw_version in (None, ""):
         return None
 
     return EvaluationDatasetVersion(
         version=int(raw_version),
-        created_at=_parse_datetime(
-            getattr(value, "created_at", None) or getattr(value, "create_time", None)
-        ),
-        created_by=getattr(value, "created_by", None),
-        operation=getattr(value, "operation", None),
+        created_at=_parse_datetime(created_at),
+        created_by=created_by,
+        operation=operation,
     )
+
+
+def _to_evaluation_dataset_alias(
+    alias: Any,
+    version: Any,
+) -> EvaluationDatasetAlias | None:
+    if alias in (None, ""):
+        return None
+    if isinstance(alias, EvaluationDatasetAlias):
+        return alias
+
+    alias_name = getattr(alias, "alias", alias)
+    version_value = version
+    if version_value in (None, ""):
+        version_value = getattr(alias, "version", None)
+
+    resolved_version = _to_evaluation_dataset_version(version_value)
+    if resolved_version is None:
+        raise ValueError(f"Dataset alias '{alias_name}' is missing a resolved version.")
+
+    return EvaluationDatasetAlias(alias=str(alias_name), version=resolved_version)
 
 
 class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
@@ -137,17 +165,22 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def version(self) -> EvaluationDatasetVersion | None:
         """The resolved dataset version."""
         if self._mlflow_dataset:
-            # Dataset versioning is only supported for Databricks managed datasets.
-            return None
+            return _to_evaluation_dataset_version(getattr(self._mlflow_dataset, "version", None))
         return _to_evaluation_dataset_version(getattr(self._databricks_dataset, "version", None))
 
     @property
-    def alias(self) -> str | None:
+    def alias(self) -> EvaluationDatasetAlias | None:
         """The alias used to resolve the dataset."""
         if self._mlflow_dataset:
-            # Dataset aliases are only supported for Databricks managed datasets.
-            return None
-        return getattr(self._databricks_dataset, "alias", None)
+            return _to_evaluation_dataset_alias(
+                getattr(self._mlflow_dataset, "alias", None),
+                getattr(self._mlflow_dataset, "version", None),
+            )
+        alias = getattr(self._databricks_dataset, "alias", None)
+        return _to_evaluation_dataset_alias(
+            alias,
+            getattr(self._databricks_dataset, "version", None),
+        )
 
     @property
     def source(self):
@@ -155,11 +188,12 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         if self._mlflow_dataset:
             return self._mlflow_dataset.source
         version = self.version
+        alias = self.alias
         return DatabricksEvaluationDatasetSource(
             table_name=self.name,
             dataset_id=self.dataset_id,
             version=version.version if version else None,
-            alias=self.alias,
+            alias=alias.alias if alias else None,
         )
 
     @property
@@ -268,9 +302,6 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
             raise NotImplementedError("Dataset aliases are only supported for Databricks datasets.")
 
         from mlflow.genai.datasets import _databricks_profile_env
-        from mlflow.genai.datasets.entities import (
-            EvaluationDatasetAlias,
-        )
 
         with _databricks_profile_env():
             aliases = self._databricks_dataset.list_aliases()

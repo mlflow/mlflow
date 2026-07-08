@@ -2848,6 +2848,7 @@ class FileStore(AbstractStore):
         max_results=1000,
         order_by=None,
         page_token=None,
+        alias=None,
     ):
         pass
 

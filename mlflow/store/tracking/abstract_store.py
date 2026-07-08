@@ -1359,6 +1359,7 @@ class AbstractStore(GatewayStoreMixin):
         max_results: int = 1000,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        alias: str | None = None,
     ) -> PagedList["EvaluationDataset"]:
         """
         Search for evaluation datasets.
@@ -1369,6 +1370,7 @@ class AbstractStore(GatewayStoreMixin):
             max_results: Maximum number of results to return.
             order_by: Ordering criteria.
             page_token: Token for retrieving the next page of results.
+            alias: Databricks dataset alias to resolve.
 
         Returns:
             A PagedList of evaluation datasets.

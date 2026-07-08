@@ -2140,6 +2140,7 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         max_results: int = 1000,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        alias: str | None = None,
     ) -> PagedList["EvaluationDataset"]:
         """
         Search for evaluation datasets.
@@ -2150,11 +2151,18 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             max_results: Maximum number of results to return.
             order_by: Ordering criteria.
             page_token: Token for retrieving the next page of results.
+            alias: Databricks dataset alias to resolve.
 
         Returns:
             A PagedList of evaluation datasets.
         """
         from mlflow.entities import EvaluationDataset
+
+        if alias is not None:
+            raise MlflowException(
+                "alias parameter is only supported in Databricks environments",
+                error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
 
         req = SearchEvaluationDatasets(
             experiment_ids=experiment_ids or [],

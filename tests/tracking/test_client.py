@@ -3651,6 +3651,7 @@ def test_mlflow_client_search_datasets(mock_store):
         max_results=100,
         order_by=["created_time DESC"],
         page_token="page_token_123",
+        alias=None,
     )
 
 
@@ -3679,6 +3680,7 @@ def test_mlflow_client_search_datasets_defaults(mock_store):
         max_results=SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
         order_by=None,
         page_token=None,
+        alias=None,
     )
 
 

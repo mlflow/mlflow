@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import warnings
+from types import SimpleNamespace
 from unittest import mock
 
 import pandas as pd
@@ -19,11 +20,13 @@ from mlflow.genai.datasets import (
     EvaluationDataset,
     EvaluationDatasetAlias,
     EvaluationDatasetVersion,
+    add_dataset_to_experiments,
     create_dataset,
     delete_dataset,
     delete_dataset_alias,
     delete_dataset_tag,
     get_dataset,
+    remove_dataset_from_experiments,
     search_datasets,
     set_dataset_alias,
     set_dataset_tags,
@@ -450,6 +453,49 @@ def test_search_datasets_databricks(mock_databricks_environment, mock_client):
     assert call_kwargs.get("order_by") is None
 
 
+def test_search_datasets_databricks_alias(mock_databricks_environment, mock_client):
+    datasets = [
+        EntityEvaluationDataset(
+            dataset_id="id1",
+            name="dataset1",
+            digest="digest1",
+            created_time=123456789,
+            last_update_time=123456789,
+            version={
+                "version": 7,
+                "create_time": "2025-11-28T20:30:53.195Z",
+                "created_by": "user@example.com",
+                "operation": "WRITE",
+            },
+            alias="prod",
+            is_uc_native=True,
+        ),
+    ]
+    mock_client.search_datasets.return_value = PagedList(datasets, None)
+
+    result = search_datasets(experiment_ids=["exp1"], alias="prod")
+
+    assert len(result) == 1
+    assert result[0].alias.alias == "prod"
+    assert result[0].alias.version.version == 7
+    assert result[0].version.version == 7
+    assert result[0].version.created_by == "user@example.com"
+
+    mock_client.search_datasets.assert_called_once()
+    call_kwargs = mock_client.search_datasets.call_args.kwargs
+    assert call_kwargs["experiment_ids"] == ["exp1"]
+    assert call_kwargs["alias"] == "prod"
+    assert call_kwargs.get("filter_string") is None
+    assert call_kwargs.get("order_by") is None
+
+
+def test_search_datasets_alias_non_databricks_unsupported(monkeypatch):
+    monkeypatch.setattr("mlflow.genai.datasets.is_databricks_uri", lambda _: False)
+
+    with pytest.raises(NotImplementedError, match="Dataset aliases are only supported"):
+        search_datasets(experiment_ids=["exp1"], alias="prod")
+
+
 def test_databricks_import_error():
     with (
         mock.patch("mlflow.genai.datasets.is_databricks_uri", return_value=True),
@@ -494,6 +540,80 @@ def test_databricks_profile_uri_support():
         sys.modules["databricks.agents.datasets"].delete_dataset.assert_called_once_with(
             "catalog.schema.table3"
         )
+
+
+def test_add_dataset_to_experiments_databricks_uses_agents_dataset(monkeypatch):
+    monkeypatch.setattr("mlflow.genai.datasets.is_databricks_uri", lambda _: True)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks://myprofile")
+
+    calls = []
+
+    class MockAgentsDataset:
+        def __init__(self, dataset_id):
+            self.dataset_id = dataset_id
+            self.experiment_ids = []
+
+        def add_to_experiments(self, experiment_ids):
+            calls.append((
+                self.dataset_id,
+                experiment_ids,
+                os.environ.get("DATABRICKS_CONFIG_PROFILE"),
+            ))
+            self.experiment_ids = experiment_ids
+            return self
+
+    monkeypatch.setitem(
+        sys.modules,
+        "databricks.agents.datasets",
+        SimpleNamespace(Dataset=MockAgentsDataset),
+    )
+
+    result = add_dataset_to_experiments("dataset-id", ["exp1", "exp2"])
+
+    assert isinstance(result, EvaluationDataset)
+    assert result.dataset_id == "dataset-id"
+    assert result.experiment_ids == ["exp1", "exp2"]
+    assert calls == [("dataset-id", ["exp1", "exp2"], "myprofile")]
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+
+def test_remove_dataset_from_experiments_databricks_uses_agents_dataset(monkeypatch):
+    monkeypatch.setattr("mlflow.genai.datasets.is_databricks_uri", lambda _: True)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks://myprofile")
+
+    calls = []
+
+    class MockAgentsDataset:
+        def __init__(self, dataset_id):
+            self.dataset_id = dataset_id
+            self.experiment_ids = ["exp1", "exp2", "exp3"]
+
+        def remove_from_experiments(self, experiment_ids):
+            calls.append((
+                self.dataset_id,
+                experiment_ids,
+                os.environ.get("DATABRICKS_CONFIG_PROFILE"),
+            ))
+            self.experiment_ids = [
+                experiment_id
+                for experiment_id in self.experiment_ids
+                if experiment_id not in experiment_ids
+            ]
+            return self
+
+    monkeypatch.setitem(
+        sys.modules,
+        "databricks.agents.datasets",
+        SimpleNamespace(Dataset=MockAgentsDataset),
+    )
+
+    result = remove_dataset_from_experiments("dataset-id", ["exp1", "exp3"])
+
+    assert isinstance(result, EvaluationDataset)
+    assert result.dataset_id == "dataset-id"
+    assert result.experiment_ids == ["exp2"]
+    assert calls == [("dataset-id", ["exp1", "exp3"], "myprofile")]
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
 
 
 def test_databricks_profile_env_var_set_from_uri(monkeypatch):
@@ -665,6 +785,47 @@ def test_databricks_agents_dataset_backend_routes_sdk_apis(monkeypatch):
 
     delete_dataset(name="catalog.schema.table")
     delete_mock.assert_called_once_with("catalog.schema.table")
+
+
+def test_databricks_dataset_versioning_requires_prerelease_sdk(monkeypatch):
+    monkeypatch.setattr("mlflow.genai.datasets.is_databricks_uri", lambda _: True)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks")
+
+    mock_dataset = mock.Mock()
+    get_mock = mock.Mock(return_value=mock_dataset)
+    agents_datasets_module = SimpleNamespace(get_dataset=get_mock)
+    monkeypatch.setitem(sys.modules, "databricks.agents.datasets", agents_datasets_module)
+
+    assert isinstance(get_dataset(name="catalog.schema.table"), EvaluationDataset)
+    get_mock.assert_called_once_with("catalog.schema.table")
+
+    error_msg = "Dataset versioning with datasets requires a prerelease build"
+
+    with pytest.raises(ImportError, match=error_msg):
+        get_dataset(name="catalog.schema.table", version=1)
+    with pytest.raises(ImportError, match=error_msg):
+        set_dataset_alias("catalog.schema.table", "dev", version=1)
+    with pytest.raises(ImportError, match=error_msg):
+        delete_dataset_alias("catalog.schema.table", "dev")
+
+
+def test_remove_dataset_from_experiments_databricks_requires_prerelease_sdk(monkeypatch):
+    monkeypatch.setattr("mlflow.genai.datasets.is_databricks_uri", lambda _: True)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks")
+
+    class MockAgentsDataset:
+        pass
+
+    monkeypatch.setitem(
+        sys.modules,
+        "databricks.agents.datasets",
+        SimpleNamespace(Dataset=MockAgentsDataset),
+    )
+
+    error_msg = "Removing dataset experiment associations in Databricks requires a prerelease build"
+
+    with pytest.raises(ImportError, match=error_msg):
+        remove_dataset_from_experiments("dataset-id", ["exp1"])
 
 
 def test_create_dataset_with_user_tag(experiments):

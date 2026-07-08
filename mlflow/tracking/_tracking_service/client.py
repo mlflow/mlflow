@@ -996,6 +996,7 @@ class TrackingServiceClient:
         max_results: int = 1000,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        alias: str | None = None,
     ) -> PagedList["EvaluationDataset"]:
         """
         Search for datasets.
@@ -1006,6 +1007,7 @@ class TrackingServiceClient:
             max_results: Maximum number of datasets to return.
             order_by: List of columns to order by.
             page_token: Token for retrieving the next page of results.
+            alias: Databricks dataset alias to resolve.
 
         Returns:
             A PagedList of EvaluationDataset objects.
@@ -1016,6 +1018,7 @@ class TrackingServiceClient:
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            alias=alias,
         )
 
     def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:

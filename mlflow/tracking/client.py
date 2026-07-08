@@ -6475,6 +6475,7 @@ class MlflowClient:
         max_results: int = SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        alias: str | None = None,
     ) -> PagedList[EvaluationDataset]:
         """
         Search for datasets.
@@ -6485,6 +6486,7 @@ class MlflowClient:
             max_results: Maximum number of results to return. Defaults to 50.
             order_by: List of columns to order by.
             page_token: Token for the next page of results.
+            alias: Databricks dataset alias to resolve, such as "dev" or "prod".
 
         Returns:
             A PagedList of EvaluationDataset objects.
@@ -6512,6 +6514,7 @@ class MlflowClient:
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            alias=alias,
         )
 
     @_disable_in_databricks(use_uc_message=True)

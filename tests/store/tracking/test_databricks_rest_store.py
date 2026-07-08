@@ -2,6 +2,7 @@ import base64
 import json
 import time
 from unittest import mock
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from google.protobuf.json_format import MessageToDict
@@ -1864,6 +1865,53 @@ def test_search_datasets_basic():
         assert result.token is None
 
 
+def test_search_datasets_with_alias():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    response_data = {
+        "datasets": [
+            {
+                "dataset_id": "dataset_1",
+                "name": "test_dataset",
+                "digest": "abc123",
+                "create_time": "2025-11-28T21:30:53.195Z",
+                "last_update_time": "2025-11-28T21:30:53.195Z",
+                "alias": "prod",
+                "version": {
+                    "dataset_id": "dataset_1",
+                    "dataset": "main.default.test_dataset",
+                    "version": 7,
+                    "create_time": "2025-11-28T20:30:53.195Z",
+                    "created_by": "user@example.com",
+                    "operation": "WRITE",
+                },
+                "is_uc_native": True,
+            }
+        ],
+        "next_page_token": None,
+    }
+
+    with (
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.http_request",
+            return_value=mock.Mock(json=lambda: response_data),
+        ) as mock_http,
+        mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response"),
+    ):
+        result = store.search_datasets(experiment_ids=["exp_1"], max_results=100, alias="prod")
+
+    endpoint = mock_http.call_args[1]["endpoint"]
+    query = parse_qs(urlparse(endpoint).query)
+    assert query["filter"] == ["experiment_id='exp_1' AND alias = 'prod'"]
+    assert query["page_size"] == ["100"]
+    assert len(result) == 1
+    assert result[0].alias == "prod"
+    assert result[0].version["version"] == 7
+    assert result[0].is_uc_native is True
+    assert result.token is None
+
+
 def test_search_datasets_multiple_experiment_ids():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
@@ -1928,6 +1976,23 @@ def test_search_datasets_unsupported_parameters(param_name, param_value, error_m
     kwargs = {"experiment_ids": ["exp_1"], param_name: param_value}
     with pytest.raises(MlflowException, match=error_match):
         store.search_datasets(**kwargs)
+
+
+@pytest.mark.parametrize("alias", ["", ".prod", "prod.v1", "prod v1", "prod/v1", "x" * 129, 1])
+def test_search_datasets_invalid_alias(alias):
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    with pytest.raises(MlflowException, match="Invalid dataset alias"):
+        store.search_datasets(experiment_ids=["exp_1"], alias=alias)
+
+
+def test_search_datasets_alias_requires_experiment_id():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    with pytest.raises(MlflowException, match="requires an experiment_id"):
+        store.search_datasets(alias="prod")
 
 
 def test_search_datasets_endpoint_not_found():

@@ -6968,6 +6968,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         max_results: int = 1000,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        alias: str | None = None,
     ) -> PagedList[EvaluationDataset]:
         """
         Search for evaluation datasets.
@@ -6978,10 +6979,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             max_results: Maximum number of results to return.
             order_by: List of fields to order by.
             page_token: Token for pagination.
+            alias: Databricks dataset alias to resolve.
 
         Returns:
             PagedList of EvaluationDataset objects (without records).
         """
+        if alias is not None:
+            raise MlflowException(
+                "alias parameter is only supported in Databricks environments",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         self._validate_max_results_param(max_results)
 
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
