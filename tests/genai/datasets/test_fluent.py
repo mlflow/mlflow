@@ -17,11 +17,15 @@ from mlflow.entities.evaluation_dataset import (
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import (
     EvaluationDataset,
+    EvaluationDatasetAlias,
+    EvaluationDatasetVersion,
     create_dataset,
     delete_dataset,
+    delete_dataset_alias,
     delete_dataset_tag,
     get_dataset,
     search_datasets,
+    set_dataset_alias,
     set_dataset_tags,
 )
 from mlflow.genai.datasets.evaluation_dataset import (
@@ -605,6 +609,62 @@ def test_databricks_dataset_merge_records_uses_profile(monkeypatch):
     dataset.to_df()
     assert profile_during_to_df == "myprofile"
     assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+
+def test_databricks_agents_dataset_backend_routes_sdk_apis(monkeypatch):
+    monkeypatch.setattr("mlflow.genai.datasets.is_databricks_uri", lambda _: True)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks")
+
+    mock_dataset = mock.Mock()
+    mock_dataset.name = "catalog.schema.table"
+    mock_dataset.dataset_id = "catalog.schema.table"
+    mock_dataset.digest = None
+    mock_dataset.version = 3
+    mock_dataset.alias = None
+    mock_dataset.source_type = "databricks-uc-table"
+    mock_dataset.create_time = None
+    mock_dataset.schema = None
+    mock_dataset.profile = None
+    mock_dataset.experiment_ids = []
+
+    create_mock = mock.Mock(return_value=mock_dataset)
+    get_mock = mock.Mock(return_value=mock_dataset)
+    delete_mock = mock.Mock()
+    set_alias_mock = mock.Mock()
+    delete_alias_mock = mock.Mock()
+    agents_datasets_module = mock.Mock(
+        create_dataset=create_mock,
+        get_dataset=get_mock,
+        delete_dataset=delete_mock,
+        set_dataset_alias=set_alias_mock,
+        delete_dataset_alias=delete_alias_mock,
+    )
+    monkeypatch.setitem(sys.modules, "databricks.agents.datasets", agents_datasets_module)
+    monkeypatch.setitem(
+        sys.modules,
+        "databricks.agents",
+        mock.Mock(datasets=agents_datasets_module),
+    )
+
+    assert isinstance(EvaluationDatasetVersion(1), EvaluationDatasetVersion)
+    assert isinstance(
+        EvaluationDatasetAlias("dev", EvaluationDatasetVersion(1)), EvaluationDatasetAlias
+    )
+
+    assert create_dataset(name="catalog.schema.table").version.version == 3
+    create_mock.assert_called_once_with("catalog.schema.table", None)
+
+    assert get_dataset(name="catalog.schema.table", version=2).version.version == 3
+    get_mock.assert_called_once_with("catalog.schema.table", version=2, alias=None)
+
+    set_dataset_alias("catalog.schema.table", "dev", version=2)
+    set_alias_mock.assert_called_once_with("catalog.schema.table", "dev", version=2)
+
+    delete_dataset_alias("catalog.schema.table", "dev")
+    delete_alias_mock.assert_called_once_with("catalog.schema.table", "dev")
+
+    delete_dataset(name="catalog.schema.table")
+    delete_mock.assert_called_once_with("catalog.schema.table")
 
 
 def test_create_dataset_with_user_tag(experiments):

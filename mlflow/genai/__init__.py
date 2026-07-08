@@ -5,11 +5,15 @@ from mlflow.genai import (
 )
 from mlflow.genai.agent_tester import test_agent
 from mlflow.genai.datasets import (
+    EvaluationDatasetAlias,
+    EvaluationDatasetVersion,
     create_dataset,
     delete_dataset,
+    delete_dataset_alias,
     delete_dataset_tag,
     get_dataset,
     search_datasets,
+    set_dataset_alias,
     set_dataset_tags,
 )
 from mlflow.genai.evaluation import evaluate, to_predict_fn
@@ -59,11 +63,15 @@ __all__ = [
     "judges",
     "make_judge",
     "scorers",
+    "EvaluationDatasetAlias",
+    "EvaluationDatasetVersion",
     "create_dataset",
     "delete_dataset",
+    "delete_dataset_alias",
     "delete_dataset_tag",
     "get_dataset",
     "search_datasets",
+    "set_dataset_alias",
     "set_dataset_tags",
     "load_prompt",
     "register_prompt",

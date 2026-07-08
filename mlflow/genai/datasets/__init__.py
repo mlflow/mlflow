@@ -14,6 +14,7 @@ from typing import Any
 
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets.entities import EvaluationDatasetAlias, EvaluationDatasetVersion
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
@@ -317,6 +318,8 @@ def delete_dataset(
 def get_dataset(
     name: str | None = None,
     dataset_id: str | None = None,
+    version: int | str | None = None,
+    alias: str | None = None,
 ) -> "EvaluationDataset":
     """
     Get the dataset with the given name or ID.
@@ -325,6 +328,8 @@ def get_dataset(
         name: The name of the dataset. In Databricks, this is the UC table name.
             In non-Databricks environments, this will search for a dataset with the given name.
         dataset_id: The ID of the dataset (non-Databricks only).
+        version: The Databricks dataset version to resolve.
+        alias: The Databricks dataset alias to resolve.
 
     Returns:
         An EvaluationDataset object representing the retrieved dataset.
@@ -367,14 +372,22 @@ def get_dataset(
 
     if is_databricks_uri(get_tracking_uri()):
         _validate_databricks_params(name, dataset_id)
+        if version is not None and alias is not None:
+            raise ValueError("Cannot specify both 'version' and 'alias'. Use only one parameter.")
         try:
             from databricks.agents.datasets import get_dataset as db_get
 
             with _databricks_profile_env():
+                if version is not None or alias is not None:
+                    return EvaluationDataset(db_get(name, version=version, alias=alias))
                 return EvaluationDataset(db_get(name))
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
     else:
+        if version is not None or alias is not None:
+            raise NotImplementedError(
+                "`version` and `alias` are only supported for Databricks datasets."
+            )
         _validate_non_databricks_get_params(name, dataset_id)
 
         if name is not None:
@@ -555,6 +568,41 @@ def search_datasets(
         max_results,
     )
     return [EvaluationDataset(dataset) for dataset in mlflow_datasets]
+
+
+def set_dataset_alias(
+    dataset_name: str,
+    alias: str,
+    version: int | str | None = None,
+) -> None:
+    """
+    Set or move a Databricks evaluation dataset alias.
+    """
+    if not is_databricks_uri(get_tracking_uri()):
+        raise NotImplementedError("Dataset aliases are only supported for Databricks datasets.")
+    try:
+        from databricks.agents.datasets import set_dataset_alias as db_set_alias
+    except ImportError as e:
+        raise ImportError(_ERROR_MSG) from e
+    with _databricks_profile_env():
+        db_set_alias(dataset_name, alias, version=version)
+
+
+def delete_dataset_alias(
+    dataset_name: str,
+    alias: str,
+) -> None:
+    """
+    Delete a Databricks evaluation dataset alias.
+    """
+    if not is_databricks_uri(get_tracking_uri()):
+        raise NotImplementedError("Dataset aliases are only supported for Databricks datasets.")
+    try:
+        from databricks.agents.datasets import delete_dataset_alias as db_delete_alias
+    except ImportError as e:
+        raise ImportError(_ERROR_MSG) from e
+    with _databricks_profile_env():
+        db_delete_alias(dataset_name, alias)
 
 
 def set_dataset_tags(
@@ -767,12 +815,16 @@ def remove_dataset_from_experiments(
 
 __all__ = [
     "EvaluationDataset",
+    "EvaluationDatasetAlias",
+    "EvaluationDatasetVersion",
     "add_dataset_to_experiments",
     "create_dataset",
     "delete_dataset",
+    "delete_dataset_alias",
     "delete_dataset_tag",
     "get_dataset",
     "remove_dataset_from_experiments",
     "search_datasets",
+    "set_dataset_alias",
     "set_dataset_tags",
 ]

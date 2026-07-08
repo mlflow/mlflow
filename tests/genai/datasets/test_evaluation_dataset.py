@@ -41,6 +41,8 @@ def create_mock_managed_dataset(source_value: Any) -> Mock:
     mock_dataset.created_by = "test-user"
     mock_dataset.last_update_time = "2024-01-02T00:00:00"
     mock_dataset.last_updated_by = "test-user-2"
+    mock_dataset.version = None
+    mock_dataset.alias = None
 
     # Mock methods
     mock_dataset.to_df.return_value = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
@@ -156,6 +158,24 @@ def test_evaluation_dataset_to_mlflow_entity_with_existing_source():
     assert entity.profile == "test-profile"
 
 
+def test_evaluation_dataset_to_mlflow_entity_with_resolved_databricks_coordinates():
+    source = DatabricksEvaluationDatasetSource(
+        table_name="catalog.schema.table",
+        dataset_id="test-dataset-id",
+        version=7,
+        alias="dev",
+    )
+    dataset = create_dataset_with_source(source)
+    dataset._databricks_dataset.version = 7
+    dataset._databricks_dataset.alias = "dev"
+
+    entity = dataset._to_mlflow_entity()
+    source_dict = json.loads(entity.source)
+    assert source_dict["version"] == 7
+    assert source_dict["alias"] == "dev"
+    assert "snapshot_table" not in source_dict
+
+
 def test_evaluation_dataset_set_profile(mock_managed_dataset):
     dataset = EvaluationDataset(mock_managed_dataset)
 
@@ -179,6 +199,24 @@ def test_evaluation_dataset_delete_records(mock_managed_dataset):
     record_ids = ["record-1", "record-2"]
     dataset.delete_records(record_ids)
     mock_managed_dataset.delete_records.assert_called_once_with(record_ids)
+
+
+def test_evaluation_dataset_list_versions_and_aliases(mock_managed_dataset):
+    versions = [Mock(version=1), Mock(version=2)]
+    aliases = [Mock(alias="dev", version=2)]
+    mock_managed_dataset.list_versions.return_value = versions
+    mock_managed_dataset.list_aliases.return_value = aliases
+
+    dataset = EvaluationDataset(mock_managed_dataset)
+
+    assert dataset.version is None
+    assert dataset.alias is None
+    assert [version.version for version in dataset.list_versions()] == [1, 2]
+    assert [(alias.alias, alias.version.version) for alias in dataset.list_aliases()] == [
+        ("dev", 2)
+    ]
+    mock_managed_dataset.list_versions.assert_called_once_with()
+    mock_managed_dataset.list_aliases.assert_called_once()
 
 
 def test_evaluation_dataset_digest_computation(mock_managed_dataset):
