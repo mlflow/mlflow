@@ -2283,7 +2283,7 @@ def test_gateway_proxy_authenticates_via_mlflow_auth_header(fastapi_client, monk
         },
     )
     assert "You are not authenticated" not in response.text
-    assert response.text != "Permission denied"
+    assert "Permission denied" not in response.text
 
     # Without the MLflow auth header, the decoy Bearer alone must be rejected by the middleware.
     response = requests.post(

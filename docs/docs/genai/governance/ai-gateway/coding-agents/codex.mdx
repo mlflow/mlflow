@@ -50,7 +50,7 @@ env_http_headers = { "X-MLflow-Authorization" = "MLFLOW_AUTH" }
 
 ```bash
 # Base64-encode your MLflow "username:password" as an HTTP Basic credential.
-export MLFLOW_AUTH="Basic $(printf '%s' 'my-user:my-password' | base64)"
+export MLFLOW_AUTH="Basic $(printf '%s' 'my-user:my-password' | base64 | tr -d '\n')"
 ```
 
 MLflow honors `X-MLflow-Authorization` only on `/gateway/` routes and never forwards it to the

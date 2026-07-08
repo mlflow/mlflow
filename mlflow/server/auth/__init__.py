@@ -4300,6 +4300,8 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     # does not shadow a valid Authorization header.
     if not auth:
         auth = request.headers.get("Authorization")
+
+    # Neither header present — unauthenticated.
     if not auth:
         return None
     try:
