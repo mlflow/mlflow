@@ -7,7 +7,7 @@ import {
   waitForRoutesToBeRendered,
   TestRouter,
 } from '../../../common/utils/RoutingTestUtils';
-import { renderWithIntl, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { renderWithIntl, act, screen, within, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import type { ModelEntity } from '../../../experiment-tracking/types';
 import { ModelsTableAliasedVersionsCell } from './ModelsTableAliasedVersionsCell';
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';
@@ -48,7 +48,12 @@ describe('ModelListTableAliasedVersionsCell', () => {
     const { getLocation } = await renderWithRouterWrapper(<ModelsTableAliasedVersionsCell model={modelWithOneAlias} />);
     expect(screen.getByText(/@ alias-version-1/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('link', { name: /alias-version-1 : Version 1/ }));
-    expect(getLocation()?.pathname).toMatch('/models/test-model/versions/1');
+    await waitFor(
+      () => {
+        expect(getLocation()?.pathname).toMatch('/models/test-model/versions/1');
+      },
+      { timeout: 3000 },
+    );
   });
 
   test('display multiple versions and navigate there', async () => {
@@ -57,7 +62,12 @@ describe('ModelListTableAliasedVersionsCell', () => {
     );
     expect(screen.getByText(/@ alias-version-10/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('link', { name: /alias-version-10 : Version 10/ }));
-    expect(getLocation()?.pathname).toMatch('/models/test-model/versions/10');
+    await waitFor(
+      () => {
+        expect(getLocation()?.pathname).toMatch('/models/test-model/versions/10');
+      },
+      { timeout: 3000 },
+    );
 
     await act(async () => {
       await openDropdownMenu(screen.getByRole('button', { name: '+3' }));
@@ -65,6 +75,11 @@ describe('ModelListTableAliasedVersionsCell', () => {
 
     await userEvent.click(within(screen.getByRole('menu')).getByText(/Version 2/));
 
-    expect(getLocation()?.pathname).toMatch('/models/test-model/versions/2');
+    await waitFor(
+      () => {
+        expect(getLocation()?.pathname).toMatch('/models/test-model/versions/2');
+      },
+      { timeout: 3000 },
+    );
   });
 });

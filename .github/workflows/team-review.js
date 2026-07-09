@@ -8,6 +8,7 @@ const MEMBERS = [
   "serena-ruan",
   "TomeHirata",
   "WeichenXu123",
+  "aaronteo-db",
 ];
 
 async function loadStats(github, owner, repo) {

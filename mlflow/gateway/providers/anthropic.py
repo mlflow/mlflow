@@ -13,8 +13,15 @@ from mlflow.gateway.providers.base import (
     BaseProvider,
     PassthroughAction,
     ProviderAdapter,
+    _client_provides_auth,
 )
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
+from mlflow.gateway.providers.utils import (
+    proxy_root_url,
+    rename_payload_keys,
+    send_proxy_request,
+    send_request,
+    send_stream_request,
+)
 from mlflow.gateway.schemas import chat, completions
 from mlflow.gateway.utils import parse_sse_lines
 from mlflow.tracing.constant import TokenUsageKey
@@ -199,7 +206,8 @@ class AnthropicAdapter(ProviderAdapter):
         # Transform response_format for Anthropic structured outputs
         # Anthropic uses output_config.format with {"type": "json_schema", "schema": {...}}
         if response_format := payload.pop("response_format", None):
-            if response_format.get("type") == "json_schema" and "json_schema" in response_format:
+            response_format_type = response_format.get("type")
+            if response_format_type == "json_schema" and "json_schema" in response_format:
                 json_schema = response_format["json_schema"]
                 schema = json_schema.get("schema", {})
                 try:
@@ -219,6 +227,18 @@ class AnthropicAdapter(ProviderAdapter):
                             "schema": schema,
                         }
                     }
+            elif response_format_type == "json_object":
+                # Anthropic has no schema-less JSON mode (its output_config.format
+                # requires a schema), so steer the model to emit JSON via a system
+                # instruction. This is best-effort rather than a hard constraint.
+                json_instruction = (
+                    "Respond with only a single valid JSON object. Do not include any "
+                    "explanatory text, markdown, or code fences before or after the JSON object."
+                )
+                if existing_system := payload.get("system"):
+                    payload["system"] = f"{existing_system}\n{json_instruction}"
+                else:
+                    payload["system"] = json_instruction
 
         return payload
 
@@ -487,7 +507,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
 
     @property
     def base_url(self) -> str:
-        return "https://api.anthropic.com/v1"
+        return self.anthropic_config.anthropic_api_base
 
     @property
     def adapter_class(self) -> type[ProviderAdapter]:
@@ -514,7 +534,10 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             client_headers = headers.copy()
             client_headers.pop("host", None)
             client_headers.pop("content-length", None)
-            # Don't override api key or version headers
+            if _client_provides_auth(headers):
+                # Preserve the client's own credentials for subscription-based tools
+                # (e.g. Claude Code, Codex, Gemini CLI) instead of using the server key.
+                result_headers.pop("x-api-key", None)
             result_headers = client_headers | result_headers
 
         return result_headers
@@ -527,6 +550,15 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         else:
             raise ValueError(f"Invalid route type {route_type}")
 
+    def _get_chat_path(self) -> str:
+        return "messages"
+
+    def _get_chat_stream_path(self) -> str:
+        return "messages"
+
+    def _prepare_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        return payload
+
     async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
@@ -535,13 +567,14 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         payload = AnthropicAdapter.chat_streaming_to_model(payload, self.config)
+        payload = self._prepare_payload(payload)
 
         headers = self._get_headers(payload)
 
         stream = send_stream_request(
             headers=headers,
             base_url=self.base_url,
-            path="messages",
+            path=self._get_chat_stream_path(),
             payload=payload,
         )
 
@@ -607,13 +640,14 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         payload = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload)
         payload = AnthropicAdapter.chat_to_model(payload, self.config)
+        payload = self._prepare_payload(payload)
 
         headers = self._get_headers(payload)
 
         resp = await send_request(
             headers=headers,
             base_url=self.base_url,
-            path="messages",
+            path=self._get_chat_path(),
             payload=payload,
         )
         return AnthropicAdapter.model_to_chat(resp, self.config)
@@ -703,6 +737,22 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                     usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
         # Anthropic's input_tokens excludes cache tokens; normalize to include them.
         return _normalize_anthropic_input_tokens(usage) or usage
+
+    async def _proxy(
+        self,
+        path: str,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | AsyncIterable[Any]:
+        gen = send_proxy_request(
+            self._get_headers(payload, headers), proxy_root_url(self.base_url), path, payload
+        )
+        meta = await gen.__anext__()
+        if meta["is_streaming"]:
+            return gen
+        body = await gen.__anext__()
+        await gen.aclose()
+        return body
 
     async def _passthrough(
         self,

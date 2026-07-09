@@ -19,6 +19,8 @@ module.exports = async ({ github, context }) => {
     failure: "failure",
   };
 
+  const IGNORED_WORKFLOWS = new Set([".github/workflows/rerun.yml"]);
+
   async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -69,8 +71,9 @@ module.exports = async ({ github, context }) => {
         latestCheckRuns[name] = run;
       }
     }
-    const checks = Object.values(latestCheckRuns).map(({ name, status, conclusion }) => ({
+    const checks = Object.values(latestCheckRuns).map(({ name, status, conclusion, html_url }) => ({
       name,
+      url: html_url,
       pendingJobs: 0,
       status:
         conclusion === "cancelled"
@@ -95,7 +98,8 @@ module.exports = async ({ github, context }) => {
         // Exclude this workflow to avoid self-checking
         path !== ".github/workflows/protect.yml" &&
         // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
-        event !== "dynamic"
+        event !== "dynamic" &&
+        !IGNORED_WORKFLOWS.has(path)
     );
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
@@ -114,6 +118,7 @@ module.exports = async ({ github, context }) => {
         // Use run-level status directly (0 extra API calls).
         checks.push({
           name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
+          url: run.html_url,
           pendingJobs: 0,
           status:
             run.conclusion === "cancelled"
@@ -140,6 +145,7 @@ module.exports = async ({ github, context }) => {
         }
         checks.push({
           name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
+          url: run.html_url,
           pendingJobs: failed ? 0 : pendingJobs,
           status: failed ? STATE.failure : STATE.pending,
         });
@@ -157,9 +163,9 @@ module.exports = async ({ github, context }) => {
     ++iterationCount;
     const checks = await fetchChecks(sha);
     const longest = Math.max(...checks.map(({ name }) => name.length));
-    checks.forEach(({ name, status }) => {
+    checks.forEach(({ name, status, url }) => {
       const icon = status === STATE.success ? "✅" : status === STATE.failure ? "❌" : "🕒";
-      console.log(`- ${name.padEnd(longest)}: ${icon} ${status}`);
+      console.log(`- ${name.padEnd(longest)}: ${icon} ${status}${url ? ` (${url})` : ""}`);
     });
 
     if (checks.some(({ status }) => status === STATE.failure)) {

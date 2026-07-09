@@ -49,7 +49,7 @@ export const IssueDetectionRunOverview = ({
     error: jobStatusError,
   } = useFetchJobStatus({
     jobId,
-    enabled: !!jobId,
+    enabled: Boolean(jobId),
   });
 
   // Parse issue-specific result format from job if available
@@ -94,7 +94,7 @@ export const IssueDetectionRunOverview = ({
     result?.total_traces_analyzed ??
     (tags['total_traces']?.value ? parseInt(tags['total_traces'].value, 10) : undefined);
 
-  const jobComplete = isJobComplete(effectiveJobStatus) || !!jobStatusError;
+  const jobComplete = isJobComplete(effectiveJobStatus) || Boolean(jobStatusError);
   const prevJobCompleteRef = useRef(jobComplete);
 
   useEffect(() => {

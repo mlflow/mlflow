@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/rules-of-hooks */
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import type { RunsChartsCardConfig } from '../runs-charts.types';
 import { DragAndDropProvider } from '../../../../common/hooks/useDragAndDropElement';

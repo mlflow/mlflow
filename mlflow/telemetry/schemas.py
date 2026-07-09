@@ -52,6 +52,7 @@ class Environment(str, Enum):
     SAGEMAKER_STUDIO = "sagemaker_studio"
     SAGEMAKER_NOTEBOOK = "sagemaker_notebook"
     DOCKER = "docker"
+    DEMO = "demo"
 
 
 # The following env vars were found by manually inspecting

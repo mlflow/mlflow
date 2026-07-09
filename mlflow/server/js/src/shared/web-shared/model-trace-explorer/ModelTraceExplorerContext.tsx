@@ -12,6 +12,15 @@ export interface RenderExportTracesToDatasetsModalParams {
   setVisible: (visible: boolean) => void;
 }
 
+export interface RenderAddToReviewQueueDropdownParams {
+  selectedTraceInfos: ModelTraceInfoV3[];
+  experimentId: string;
+  children: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  popoverAlign?: 'start' | 'end';
+}
+
 export type DrawerComponentType = {
   Root: (props: {
     open: boolean;
@@ -28,6 +37,7 @@ export interface AddToDatasetAction {
 
 export interface ModelTraceExplorerContextValue {
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => React.ReactNode;
+  renderAddToReviewQueueDropdown?: React.ComponentType<RenderAddToReviewQueueDropdownParams>;
   DrawerComponent: DrawerComponentType;
   /** When set (e.g. by the evaluation review drawer), content can show "Add to dataset" that calls openModal */
   addToDatasetAction?: AddToDatasetAction;
@@ -43,6 +53,7 @@ const ModelTraceExplorerContext = createContext<ModelTraceExplorerContextValue>(
 interface ModelTraceExplorerContextProviderProps {
   children: React.ReactNode;
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => React.ReactNode;
+  renderAddToReviewQueueDropdown?: React.ComponentType<RenderAddToReviewQueueDropdownParams>;
   DrawerComponent?: DrawerComponentType;
   drawerWidth?: string | number;
 }
@@ -50,16 +61,18 @@ interface ModelTraceExplorerContextProviderProps {
 export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerContextProviderProps> = ({
   children,
   renderExportTracesToDatasetsModal,
+  renderAddToReviewQueueDropdown,
   DrawerComponent = Drawer,
   drawerWidth,
 }) => {
   const value = useMemo(
     () => ({
       renderExportTracesToDatasetsModal,
+      renderAddToReviewQueueDropdown,
       DrawerComponent,
       drawerWidth,
     }),
-    [renderExportTracesToDatasetsModal, DrawerComponent, drawerWidth],
+    [renderExportTracesToDatasetsModal, renderAddToReviewQueueDropdown, DrawerComponent, drawerWidth],
   );
 
   return <ModelTraceExplorerContext.Provider value={value}>{children}</ModelTraceExplorerContext.Provider>;

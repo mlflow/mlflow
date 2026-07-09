@@ -137,10 +137,10 @@ def _create_budget_error_trace(
 ) -> None:
     """Create an error trace for a budget limit rejection.
 
-    Only creates a trace when usage tracking is enabled (the endpoint has an
-    experiment_id), matching the guard in ``maybe_traced_gateway_call``.
+    Only creates a trace when usage tracking is enabled, matching the guard
+    in ``maybe_traced_gateway_call``.
     """
-    if not endpoint_config.experiment_id:
+    if not endpoint_config.usage_tracking:
         return
     try:
         with mlflow.start_span(

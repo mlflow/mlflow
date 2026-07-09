@@ -1,13 +1,4 @@
-import {
-  Button,
-  CopyIcon,
-  Input,
-  Modal,
-  LegacyTabPane,
-  LegacyTabs,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Button, CopyIcon, Input, Modal, Tabs, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { CodeSnippet } from '@databricks/web-shared/snippet';
 import { CopyButton } from '../../../shared/building_blocks/CopyButton';
@@ -149,11 +140,16 @@ export const CreateNotebookRunModal = ({ isOpen, closeModal, experimentId }: Pro
         </div>
       }
     >
-      <LegacyTabs>
-        <LegacyTabPane
-          tab={<FormattedMessage defaultMessage="Classical ML" description="Example text snippet for classical ML" />}
-          key="classical-ml"
-        >
+      <Tabs.Root componentId="mlflow.create-notebook-run-modal.tabs" defaultValue="classical-ml">
+        <Tabs.List>
+          <Tabs.Trigger value="classical-ml">
+            <FormattedMessage defaultMessage="Classical ML" description="Example text snippet for classical ML" />
+          </Tabs.Trigger>
+          <Tabs.Trigger value="llm">
+            <FormattedMessage defaultMessage="LLM" description="Example text snippet for LLM" />
+          </Tabs.Trigger>
+        </Tabs.List>
+        <Tabs.Content value="classical-ml">
           <CodeSnippet
             style={{ padding: '5px', height: snippetHeight }}
             language="python"
@@ -171,11 +167,8 @@ export const CreateNotebookRunModal = ({ isOpen, closeModal, experimentId }: Pro
           >
             {classical_ml_text}
           </CodeSnippet>
-        </LegacyTabPane>
-        <LegacyTabPane
-          tab={<FormattedMessage defaultMessage="LLM" description="Example text snippet for LLM" />}
-          key="llm"
-        >
+        </Tabs.Content>
+        <Tabs.Content value="llm">
           <CodeSnippet
             style={{ padding: '5px', height: snippetHeight }}
             language="python"
@@ -193,8 +186,8 @@ export const CreateNotebookRunModal = ({ isOpen, closeModal, experimentId }: Pro
           >
             {llm_text}
           </CodeSnippet>
-        </LegacyTabPane>
-      </LegacyTabs>
+        </Tabs.Content>
+      </Tabs.Root>
     </Modal>
   );
 };

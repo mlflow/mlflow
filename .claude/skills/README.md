@@ -5,7 +5,7 @@ A Python package that provides CLI commands for Claude Code skills.
 ## Usage
 
 ```bash
-uv run skills <command> [args]
+uv run --package skills skills <command> [args]
 ```
 
-Run `uv run skills --help` to see available commands.
+Run `uv run --package skills skills --help` to see available commands.

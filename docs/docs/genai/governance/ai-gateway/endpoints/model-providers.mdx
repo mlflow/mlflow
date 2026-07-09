@@ -27,15 +27,16 @@ The AI Gateway supports providers across these categories:
 
 ### Additional Providers
 
-| Provider         | Chat | Embeddings | Notes                    |
-| ---------------- | ---- | ---------- | ------------------------ |
-| **Cohere**       | Yes  | Yes        | Command and Embed models |
-| **Mistral**      | Yes  | Yes        | Mistral AI models        |
-| **Groq**         | Yes  | No         | Open-source models       |
-| **Together AI**  | Yes  | Yes        | Open-source models       |
-| **Fireworks AI** | Yes  | Yes        | Open-source models       |
-| **Ollama**       | Yes  | Yes        | Local models             |
-| **Databricks**   | Yes  | Yes        | Foundation Model APIs    |
+| Provider         | Chat | Embeddings | Notes                                |
+| ---------------- | ---- | ---------- | ------------------------------------ |
+| **Cohere**       | Yes  | Yes        | Command and Embed models             |
+| **Mistral**      | Yes  | Yes        | Mistral AI models                    |
+| **Groq**         | Yes  | No         | Open-source models                   |
+| **Together AI**  | Yes  | Yes        | Open-source models                   |
+| **Fireworks AI** | Yes  | Yes        | Open-source models                   |
+| **Ollama**       | Yes  | Yes        | Local models                         |
+| **Databricks**   | Yes  | Yes        | Foundation Model APIs                |
+| **Portkey**      | Yes  | Yes        | Unified gateway for any LLM provider |
 
 For a complete list of supported providers, view the provider dropdown when creating an endpoint or see the [LiteLLM documentation](https://docs.litellm.ai/docs/providers).
 
@@ -254,6 +255,34 @@ response = client.chat.completions.create(
     messages=[{"role": "user", "content": "Hello!"}],
 )
 ```
+
+### Portkey
+
+[Portkey](https://portkey.ai) provides a single OpenAI-compatible API.
+
+When creating a Portkey endpoint:
+
+1. Select **Portkey** as the provider
+2. Enter your Portkey API key
+3. Enter your Portkey base URL (e.g. `https://api.portkey.ai/v1`)
+4. Enter the model name as per your Portkey configuration (e.g. a virtual key name, `provider/model-name`, or a custom alias)
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:5000/gateway/openai/v1",
+    api_key="dummy",  # Not needed, configured server-side
+)
+
+response = client.chat.completions.create(
+    model="my-portkey-endpoint",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+print(response.choices[0].message.content)
+```
+
+See [Portkey documentation](https://portkey.ai/docs) for the full list of supported models and configuration options.
 
 ## Model Capabilities
 

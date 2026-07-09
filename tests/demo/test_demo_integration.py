@@ -1,9 +1,3 @@
-"""Integration tests for the demo data framework.
-
-These tests run against a real MLflow tracking server to verify that demo data
-is correctly persisted, retrieved, and cleaned up on version bumps.
-"""
-
 from pathlib import Path
 
 import pytest
@@ -32,6 +26,7 @@ from mlflow.demo.generators.traces import (
     TracesDemoGenerator,
 )
 from mlflow.demo.registry import demo_registry
+from mlflow.entities.issue import IssueStatus
 from mlflow.genai.datasets import search_datasets
 from mlflow.genai.prompts import load_prompt, search_prompts
 from mlflow.genai.scorers.registry import list_scorers
@@ -166,7 +161,6 @@ def test_traces_have_expected_span_types(client, traces_generator):
     assert "rag_pipeline" in all_span_names
     assert "embed_query" in all_span_names
     assert "retrieve_docs" in all_span_names
-    assert "generate_response" in all_span_names
     assert "agent" in all_span_names
     assert "chat_agent" in all_span_names
     assert "prompt_chain" in all_span_names
@@ -175,6 +169,9 @@ def test_traces_have_expected_span_types(client, traces_generator):
     assert "image_generation" in all_span_names
     assert "audio_transcription" in all_span_names
     assert "text_to_speech" in all_span_names
+    assert "chat.completions.create" in all_span_names  # OpenAI
+    assert "messages.create" in all_span_names  # Anthropic
+    assert "generate_content" in all_span_names  # Google
 
 
 def test_traces_session_metadata(client, traces_generator):
@@ -576,3 +573,26 @@ def test_issues_delete_removes_all(client, issues_prerequisites, issues_generato
         max_results=100,
     )
     assert len(runs_after) == 0
+
+
+def test_issues_delete_rejects_pending_demo_issues(client, issues_prerequisites, issues_generator):
+    # No delete_issue API exists, so delete_demo() must mark previously created
+    # demo issues as REJECTED to prevent duplicates on regeneration.
+    issues_generator.generate()
+    issues_generator.store_version()
+
+    store = _get_store()
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+
+    issues_before = store.search_issues(experiment_id=experiment.experiment_id, max_results=1000)
+    demo_issues_before = [i for i in issues_before if i.created_by == "demo"]
+    assert len(demo_issues_before) > 0
+    assert all(i.status == IssueStatus.PENDING for i in demo_issues_before)
+
+    issues_generator.delete_demo()
+
+    issues_after = store.search_issues(experiment_id=experiment.experiment_id, max_results=1000)
+    demo_issues_after = [i for i in issues_after if i.created_by == "demo"]
+    # Same issue records (no delete API), but all now REJECTED.
+    assert len(demo_issues_after) == len(demo_issues_before)
+    assert all(i.status == IssueStatus.REJECTED for i in demo_issues_after)

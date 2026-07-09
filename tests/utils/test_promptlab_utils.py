@@ -6,7 +6,7 @@ import pytest
 from mlflow.entities.param import Param
 from mlflow.entities.run_status import RunStatus
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.tracking.file_store import FileStore
+from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.promptlab_utils import (
     _create_promptlab_run_impl,
     create_eval_results_json,
@@ -44,16 +44,12 @@ def test_eval_results_file():
     assert json.loads(eval_results_file) == expected_eval_results_json
 
 
-@pytest.fixture
-def store(tmp_path):
-    return FileStore(str(tmp_path.joinpath("mlruns")))
-
-
 @pytest.mark.skipif(
     "MLFLOW_SKINNY" in os.environ,
     reason="Skinny does not support the np or pandas dependencies",
 )
-def test_create_promptlab_run(store):
+def test_create_promptlab_run(db_uri):
+    store = _get_store(db_uri)
     exp_id = store.create_experiment("test_create_promptlab_run")
     run = _create_promptlab_run_impl(
         store,

@@ -361,15 +361,10 @@ def build(package_type: PackageType) -> None:
                     "botocore",
                     "databricks-agents>=1.2.0,<2.0",
                 ],
-                "mlserver": [
-                    # Required to serve models through MLServer
-                    "mlserver>=1.2.0,!=1.3.1,<2.0.0",
-                    "mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0",
-                ],
                 "gateway": gateways_requirements,
                 "genai": genai_requirements,
                 # click 8.3.0 causes MLflow MCP server to fail: https://github.com/mlflow/mlflow/issues/18747
-                "mcp": ["fastmcp<3,>=2.0.0", "click!=8.3.0"],
+                "mcp": ["fastmcp<4,>=2.7.0", "click!=8.3.0"],
                 "azure": [
                     # Required to log artifacts and models to Azure Blob Storage
                     "azure-storage-blob>=12",
@@ -478,6 +473,7 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
             "models/notebook_resources/**/*",
             "ai_commands/**/*.md",
             "assistant/skills/**/*",
+            "agent/setup/templates/**/*.md",
         ]
     }
 

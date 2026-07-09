@@ -432,11 +432,17 @@ class InstructionsJudge(Judge):
 
         # Some model providers (like Anthropic) require a user message
         # (i.e. a single-message chat history with role 'system' is not supported),
-        # *and* they require the message to have non-empty content (empty string is not allowed)
+        # *and* they require the message to have non-empty content (empty string is not allowed).
+        # The empty case must explicitly point at the tools, or the judge LLM can self-grade
+        # this chat instead of inspecting the trace.
         return (
             "\n".join(user_message_parts)
             if user_message_parts
-            else "Follow the instructions from the first message"
+            else (
+                "Use the tools to inspect the trace and return the JSON rating per the system "
+                "message. This message and your tool calls in this chat are not the input or "
+                "response being judged. The trace lives only behind the tools."
+            )
         )
 
     def _build_template_values(
@@ -476,7 +482,7 @@ class InstructionsJudge(Judge):
     def _safe_json_dumps(self, value: Any) -> str:
         """Safely serialize a value to JSON, falling back to str() if JSON serialization fails."""
         try:
-            return json.dumps(value, default=str, indent=2)
+            return json.dumps(value, default=str, indent=2, ensure_ascii=False)
         except Exception:
             return str(value)
 
@@ -630,7 +636,7 @@ class InstructionsJudge(Judge):
 
         response_format = self._create_response_format_model()
 
-        return invoke_judge_model(
+        feedback = invoke_judge_model(
             model_uri=self._model,
             prompt=messages,
             assessment_name=self.name,
@@ -641,6 +647,10 @@ class InstructionsJudge(Judge):
             base_url=self._base_url,
             extra_headers=self._extra_headers,
         )
+        # Surface the judge instructions in assessment metadata so the UI can
+        # show the criterion that was evaluated alongside each result.
+        feedback.metadata = {**(feedback.metadata or {}), "guideline": self._instructions}
+        return feedback
 
     def _create_response_format_model(self) -> type[pydantic.BaseModel]:
         output_fields = self.get_output_fields()

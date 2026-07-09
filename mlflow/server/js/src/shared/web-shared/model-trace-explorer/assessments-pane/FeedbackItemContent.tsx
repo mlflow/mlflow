@@ -19,7 +19,6 @@ import {
   MLFLOW_ASSESSMENT_SCORER_TRACE_ID,
 } from '../constants';
 import { getExperimentPageTracesTabRoute } from '../routes';
-import { isSessionLevelAssessment } from '../ModelTraceExplorer.utils';
 import { ModelTraceHeaderSessionIdTag } from '../ModelTraceHeaderSessionIdTag';
 import { formatCostUSD } from '../CostUtils';
 

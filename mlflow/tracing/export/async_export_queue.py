@@ -54,6 +54,11 @@ class AsyncTraceExportQueue:
     def put(self, task: Task):
         """Put a new task to the queue for processing."""
         if not self.is_active():
+            if self._stop_event.is_set():
+                # Queue was terminated via flush(terminate=True); _stop_event will never be
+                # cleared, so activating and then waiting would deadlock. Execute synchronously.
+                task.handle()
+                return
             self.activate()
 
         # If stop event is set, wait for the queue to be drained before putting the task

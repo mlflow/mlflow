@@ -162,6 +162,12 @@ describe('GatewayUsagePage', () => {
       expect(screen.queryByText('User:')).not.toBeInTheDocument();
       expect(screen.getByText('Endpoint:')).toBeInTheDocument();
     });
+
+    test('renders MetricsFilter button on Usage tab', () => {
+      renderComponent();
+
+      expect(screen.getByRole('button', { name: /Filters/ })).toBeInTheDocument();
+    });
   });
 
   describe('when no endpoints have usage tracking enabled', () => {

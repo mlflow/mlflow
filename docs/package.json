@@ -28,11 +28,11 @@
     "eslint": "eslint docs --max-warnings 0"
   },
   "dependencies": {
-    "@docusaurus/core": "^3.6.3",
-    "@docusaurus/faster": "^3.9.2",
-    "@docusaurus/plugin-client-redirects": "^3.6.3",
-    "@docusaurus/preset-classic": "^3.6.3",
-    "@docusaurus/theme-mermaid": "^3.7.0",
+    "@docusaurus/core": "^3.10.0",
+    "@docusaurus/faster": "^3.10.0",
+    "@docusaurus/plugin-client-redirects": "^3.10.0",
+    "@docusaurus/preset-classic": "^3.10.0",
+    "@docusaurus/theme-mermaid": "^3.10.0",
     "@mdx-js/react": "^3.0.0",
     "@signalwire/docusaurus-plugin-llms-txt": "^2.0.0-alpha.6",
     "@signalwire/docusaurus-theme-llms-txt": "^1.0.0-alpha.8",
@@ -50,10 +50,10 @@
     "tsx": "^4.19.2"
   },
   "devDependencies": {
-    "@docusaurus/eslint-plugin": "^3.8.1",
-    "@docusaurus/module-type-aliases": "^3.6.3",
-    "@docusaurus/tsconfig": "^3.5.2",
-    "@docusaurus/types": "^3.5.2",
+    "@docusaurus/eslint-plugin": "^3.10.0",
+    "@docusaurus/module-type-aliases": "^3.10.0",
+    "@docusaurus/tsconfig": "^3.10.0",
+    "@docusaurus/types": "^3.10.0",
     "@types/estree": "^1.0.8",
     "@types/estree-jsx": "^1.0.5",
     "eslint": "^9.29.0",

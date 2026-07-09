@@ -47,8 +47,7 @@ FILE_EDIT_TOOLS = [
     "Read(*)",
     "Write(*)",
     # Allow writing large command output to files in /tmp so it
-    # can be analyzed with bash commands (e.g. grep, jq) without
-    # loading full contents into context
+    # can be analyzed with bash commands without loading full contents into context
     "Edit(//tmp/**)",
     "Read(//tmp/**)",
     "Write(//tmp/**)",
@@ -304,7 +303,6 @@ class ClaudeCodeProvider(AssistantProvider):
                     echo("Authentication verified")
                 return
 
-            # Check for common auth errors in stderr
             stderr = result.stderr.lower()
             if "auth" in stderr or "login" in stderr or "unauthorized" in stderr:
                 error_msg = "Not authenticated. Please run: claude login"
@@ -417,6 +415,9 @@ class ClaudeCodeProvider(AssistantProvider):
                 save_process_pid(mlflow_session_id, process.pid)
 
             try:
+                if process.stdout is None:
+                    raise RuntimeError("Claude CLI stdout pipe was not created")
+
                 async for line in process.stdout:
                     line_str = line.decode("utf-8").strip()
                     if not line_str:
@@ -427,6 +428,11 @@ class ClaudeCodeProvider(AssistantProvider):
 
                         if self._should_filter_out_message(data):
                             continue
+
+                        # Emit token usage before the result event, which closes
+                        # the stream on the client once received.
+                        if data.get("type") == "result" and (usage := data.get("usage")):
+                            yield self._build_usage_event(usage, data.get("total_cost_usd"))
 
                         if msg := self._parse_message_to_event(data):
                             yield msg
@@ -448,7 +454,9 @@ class ClaudeCodeProvider(AssistantProvider):
                 return
 
             if process.returncode != 0:
-                stderr = await process.stderr.read()
+                stderr = b""
+                if process.stderr is not None:
+                    stderr = await process.stderr.read()
                 error_msg = (
                     stderr.decode("utf-8").strip()
                     or f"Process exited with code {process.returncode}"
@@ -462,6 +470,33 @@ class ClaudeCodeProvider(AssistantProvider):
             if process is not None and process.returncode is None:
                 process.kill()
                 await process.wait()
+
+    @staticmethod
+    def _build_usage_event(usage: dict[str, Any], cost_usd: float | None = None) -> Event:
+        """Translate Claude Code CLI token usage into a UI usage stream event.
+
+        The CLI splits input tokens across fresh input and prompt-cache
+        reads/writes, but the model processes all of them, so they're summed
+        into prompt_tokens to reflect the true context size. The CLI also
+        reports an authoritative dollar cost, which we pass through directly
+        rather than recomputing. The shape matches the usage event emitted by
+        the gateway provider so the UI handles both identically.
+        """
+        prompt_tokens = (
+            (usage.get("input_tokens") or 0)
+            + (usage.get("cache_creation_input_tokens") or 0)
+            + (usage.get("cache_read_input_tokens") or 0)
+        )
+        completion_tokens = usage.get("output_tokens") or 0
+        return Event.from_stream_event({
+            "type": "usage",
+            "usage": {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+                "total_cost_usd": cost_usd,
+            },
+        })
 
     def _parse_message_to_event(self, data: dict[str, Any]) -> Event | None:
         """
@@ -504,7 +539,7 @@ class ClaudeCodeProvider(AssistantProvider):
                                             is_error=block.get("is_error"),
                                         )
                                     )
-                            msg = Message(role="user", content=user_content_blocks)
+                        msg = Message(role="user", content=user_content_blocks)
                     else:
                         msg = Message(role="user", content=data["message"]["content"])
                     return Event.from_message(msg)

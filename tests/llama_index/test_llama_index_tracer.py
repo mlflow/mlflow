@@ -3,11 +3,11 @@ import base64
 import inspect
 import random
 from dataclasses import asdict
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 from unittest.mock import ANY
 
-import importlib_metadata
 import llama_index.core
 import openai
 import pytest
@@ -23,6 +23,7 @@ from openai.types.chat import ChatCompletionMessageToolCall
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
@@ -38,13 +39,13 @@ from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
-llama_core_version = Version(importlib_metadata.version("llama-index-core"))
-llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
+llama_core_version = Version(metadata.version("llama-index-core"))
+llama_oai_version = Version(metadata.version("llama-index-llms-openai"))
 
 # Detect llama-index-workflows version to handle API changes
 try:
-    llama_workflows_version = Version(importlib_metadata.version("llama-index-workflows"))
-except importlib_metadata.PackageNotFoundError:
+    llama_workflows_version = Version(metadata.version("llama-index-workflows"))
+except metadata.PackageNotFoundError:
     llama_workflows_version = None
 
 
@@ -75,6 +76,7 @@ def test_trace_llm_complete(is_async, mock_litellm_cost):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.{}complete".format("a" if is_async else "")
     assert spans[0].span_type == SpanType.LLM
+    assert spans[0].log_level == SpanLogLevel.INFO
     assert spans[0].inputs == {"args": ["Hello"]}
     assert spans[0].outputs["text"] == "Hello"
 
@@ -655,7 +657,7 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
     assert len(get_traces()) == 1
 
     # Set different tracking URI and initialize the tracer
-    with _use_tracking_uri(tmp_path / "dummy"):
+    with _use_tracking_uri(f"sqlite:///{tmp_path / 'dummy.db'}"):
         assert len(get_traces()) == 0
 
         # The new trace will be logged to the updated tracking URI

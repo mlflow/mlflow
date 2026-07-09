@@ -2,8 +2,9 @@
 
 import logging
 import os
+from collections import defaultdict
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional
+from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 from mlflow import __version__ as VERSION
 from mlflow.entities.assessment_source import AssessmentSourceType
@@ -35,9 +36,15 @@ except ImportError:
     raise MlflowException("DSPy library is required but not installed")
 
 if TYPE_CHECKING:
+    from mlflow.entities.assessment import Assessment
     from mlflow.genai.judges.base import Judge
 
 _logger = logging.getLogger(__name__)
+
+# OpenAI-compatible base paths for the two Databricks model surfaces. See
+# _get_databricks_api_base_key for how a model is routed to one or the other.
+_DATABRICKS_SERVING_ENDPOINTS_PATH = "serving-endpoints"
+_DATABRICKS_AI_GATEWAY_PATH = "ai-gateway/mlflow/v1"
 
 
 @contextmanager
@@ -130,6 +137,25 @@ def construct_dspy_lm(model: str):
         return dspy.LM(model=model_litellm)
 
 
+def _is_unity_catalog_model_name(model_name: str) -> bool:
+    """
+    Whether a Databricks model name is a Unity Catalog name (and thus served via AI Gateway).
+
+    Unity Catalog model names are three-level (``<catalog>.<schema>.<model>``, e.g.
+    ``system.ai.claude-haiku-4-5``), so they contain at least two ``.`` separators. Databricks
+    serving endpoint names, by contrast, are restricted to ``^[a-zA-Z0-9_-]+$`` and cannot
+    contain ``.`` at all (see the ``name`` field in the create-serving-endpoint API reference:
+    https://docs.databricks.com/api/workspace/servingendpoints/create), so this shape check
+    reliably distinguishes the two surfaces.
+
+    Requiring two separators (rather than just any ``.``) keeps a one-dot name from being
+    misrouted to the AI Gateway. Such a name cannot be a valid serving endpoint either, but
+    leaving it on the legacy path yields a clearer "endpoint not found" error than a malformed
+    gateway URL.
+    """
+    return model_name.count(".") >= 2
+
+
 def _get_api_base_key(model: str) -> tuple[str | None, str | None]:
     """
     Get the api_base URL and api_key for a model.
@@ -141,24 +167,34 @@ def _get_api_base_key(model: str) -> tuple[str | None, str | None]:
         Tuple of (api_base, api_key) - both None if not applicable
     """
     try:
-        scheme, _ = _parse_model_uri(model)
+        scheme, path = _parse_model_uri(model)
         if scheme in ("endpoints", "databricks"):
-            return _get_databricks_api_base_key()
+            return _get_databricks_api_base_key(path)
         return None, None
     except Exception:
         return None, None
 
 
-def _get_databricks_api_base_key() -> tuple[str | None, str | None]:
+def _get_databricks_api_base_key(model_name: str) -> tuple[str | None, str | None]:
     """
-    Get the api_base URL and api_key for Databricks serving endpoints.
+    Get the api_base URL and api_key for a Databricks-hosted model.
 
-    For Databricks endpoints with OpenAI-compatible API, the URL format is:
-    - api_base: https://host/serving-endpoints
-    - model: endpoint-name (passed in request body)
+    Databricks serves OpenAI-compatible models through two surfaces, selected by the shape
+    of ``model_name``:
 
-    LiteLLM appends /chat/completions to api_base, making the final URL:
-    https://host/serving-endpoints/chat/completions with model=endpoint-name in body.
+    * Legacy model serving (``https://<host>/serving-endpoints``) for serving endpoints
+      referenced by their simple name (e.g. ``databricks-claude-haiku-4-5``).
+    * Mosaic AI Gateway (``https://<host>/ai-gateway/mlflow/v1``) for foundation models
+      referenced by their Unity Catalog name (e.g. ``system.ai.claude-haiku-4-5``).
+
+    In both cases LiteLLM appends ``/chat/completions`` (or ``/embeddings``) to ``api_base``
+    and passes ``model_name`` in the request body, so the final URL is, e.g.,
+    ``https://<host>/ai-gateway/mlflow/v1/chat/completions`` with
+    ``model=system.ai.claude-haiku-4-5``.
+
+    Args:
+        model_name: The model/endpoint name parsed from the MLflow URI (the part after
+            ``databricks:/`` or ``endpoints:/``).
 
     Returns:
         Tuple of (api_base, api_key) - both None if credentials cannot be determined
@@ -186,10 +222,18 @@ def _get_databricks_api_base_key() -> tuple[str | None, str | None]:
             if "Authorization" in headers:
                 api_key = headers["Authorization"].replace("Bearer ", "")
 
+    if not host:
+        return None, None
+
     host = host.rstrip("/")
-    # Return api_base with just /serving-endpoints
-    # LiteLLM will append /chat/completions and pass the endpoint name as model
-    return f"{host}/serving-endpoints", api_key
+    # Unity Catalog models live behind the AI Gateway; everything else is a serving endpoint.
+    # LiteLLM appends /chat/completions (or /embeddings) and passes the model name in the body.
+    base_path = (
+        _DATABRICKS_AI_GATEWAY_PATH
+        if _is_unity_catalog_model_name(model_name)
+        else _DATABRICKS_SERVING_ENDPOINTS_PATH
+    )
+    return f"{host}/{base_path}", api_key
 
 
 def _to_attrdict(obj):
@@ -335,9 +379,35 @@ def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:
         raise MlflowException(f"Failed to convert LiteLLM format to MLflow URI: {e}")
 
 
-def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"]:
+def _resolve_assessment_conflicts(assessments: list["Assessment"]) -> list["Assessment"]:
+    if not assessments:
+        return []
+
+    groups: dict[str, list["Assessment"]] = defaultdict(list)
+    for assessment in assessments:
+        if assessment.feedback:
+            label = str(assessment.feedback.value).lower()
+            groups[label].append(assessment)
+
+    if len(groups) == 1:
+        return assessments
+
+    def group_priority(label: str) -> tuple[int, int]:
+        group = groups[label]
+        return len(group), max(a.create_time_ms or 0 for a in group)
+
+    winning_label = max(groups, key=group_priority)
+    return groups[winning_label]
+
+
+def trace_to_dspy_example(trace: Trace, judge: Judge) -> list["dspy.Example"]:
     """
     Convert MLflow trace to DSPy example format.
+
+    When multiple human assessments with the same judge name exist on a trace:
+    - If all assessments agree on the label: returns an example for each assessment
+    - If there's a conflict: returns examples only for the majority label
+    - If there's a tie: returns examples for the group with the most recent assessment
 
     Extracts:
     - inputs/outputs from trace spans
@@ -349,7 +419,7 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
         judge: Judge instance to find assessments for
 
     Returns:
-        DSPy example object or None if conversion fails
+        List of DSPy example objects (empty list if no valid assessments found)
     """
     try:
         judge_input_fields = judge.get_input_fields()
@@ -368,55 +438,52 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
         # Check for missing required fields
         if not request and judge_requires_inputs:
             _logger.warning(f"Missing required request in trace {trace.info.trace_id}")
-            return None
+            return []
         elif not response and judge_requires_outputs:
             _logger.warning(f"Missing required response in trace {trace.info.trace_id}")
-            return None
+            return []
         elif not expectations and judge_requires_expectations:
             _logger.warning(f"Missing required expectations in trace {trace.info.trace_id}")
-            return None
+            return []
 
-        # Find human assessment for this judge
-        expected_result = None
+        # Find all human assessments for this judge
+        matching_assessments = []
 
         if trace.info.assessments:
-            # Sort assessments by creation time (most recent first) then process
-            sorted_assessments = sorted(
-                trace.info.assessments,
-                key=lambda a: (
-                    a.create_time_ms if hasattr(a, "create_time_ms") and a.create_time_ms else 0
-                ),
-                reverse=True,
-            )
             sanitized_judge_name = _sanitize_assessment_name(judge.name)
             matching_assessments = [
                 a
-                for a in sorted_assessments
+                for a in trace.info.assessments
                 if _sanitize_assessment_name(a.name) == sanitized_judge_name
                 and a.source.source_type == AssessmentSourceType.HUMAN
             ]
 
-            if len(matching_assessments) > 1:
-                _logger.warning(
-                    f"Found {len(matching_assessments)} human assessments with name "
-                    f"'{judge.name}' in trace {trace.info.trace_id}. "
-                    f"Only the most recent one will be used for alignment."
-                )
-
-            if matching_assessments:
-                expected_result = matching_assessments[0]
-
-        if not expected_result:
+        if not matching_assessments:
             _logger.warning(
                 f"No human assessment found for judge '{judge.name}' in trace {trace.info.trace_id}"
             )
-            return None
+            return []
 
-        if not expected_result.feedback:
-            _logger.warning(f"No feedback found in assessment for trace {trace.info.trace_id}")
-            return None
+        assessments_with_feedback = [a for a in matching_assessments if a.feedback]
+        if not assessments_with_feedback:
+            _logger.warning(f"No feedback found in assessments for trace {trace.info.trace_id}")
+            return []
 
-        # Create DSPy example
+        resolved_assessments = _resolve_assessment_conflicts(assessments_with_feedback)
+
+        if len(resolved_assessments) < len(assessments_with_feedback):
+            discarded = [a for a in assessments_with_feedback if a not in resolved_assessments]
+            discarded_details = ", ".join(
+                f"[assessment_id='{a.assessment_id}', source_id='{a.source.source_id}', "
+                f"label='{a.feedback.value}', create_time_ms={a.create_time_ms}]"
+                for a in discarded
+            )
+            _logger.warning(
+                f"Discarded {len(discarded)} conflicting assessment(s) for judge "
+                f"'{judge.name}' in trace '{trace.info.trace_id}': {discarded_details}"
+            )
+
+        # Build example kwargs (same for all examples from this trace)
         example_kwargs = {}
         example_inputs = []
         if judge_requires_trace:
@@ -431,18 +498,27 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
         if judge_requires_expectations:
             example_kwargs["expectations"] = expectations
             example_inputs.append("expectations")
-        example = dspy.Example(
-            result=str(expected_result.feedback.value).lower(),
-            rationale=expected_result.rationale or "",
-            **example_kwargs,
-        )
 
-        # Set inputs (what the model should use as input)
-        return example.with_inputs(*example_inputs)
+        # Create a DSPy example for each resolved assessment. Tag with provenance
+        # metadata so callers can identify the originating trace/assessment without
+        # round-tripping through the trace store.
+        examples = []
+        for assessment in resolved_assessments:
+            example = dspy.Example(
+                result=str(assessment.feedback.value).lower(),
+                rationale=assessment.rationale or "",
+                **example_kwargs,
+            ).with_inputs(*example_inputs)
+            example._trace_id = trace.info.trace_id
+            example._assessment_id = assessment.assessment_id
+            example._last_update_time_ms = assessment.last_update_time_ms
+            examples.append(example)
+
+        return examples
 
     except Exception as e:
         _logger.error(f"Failed to create DSPy example from trace: {e}")
-        return None
+        return []
 
 
 def create_dspy_signature(judge: "Judge") -> "dspy.Signature":

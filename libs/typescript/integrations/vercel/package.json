@@ -1,6 +1,6 @@
 {
   "name": "@mlflow/vercel",
-  "version": "0.2.0-rc.0",
+  "version": "0.3.0",
   "description": "Vercel AI SDK integration for MLflow Tracing — SpanProcessor that translates AI SDK span attributes to MLflow format",
   "repository": {
     "type": "git",
@@ -31,6 +31,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "test": "jest",
     "lint": "eslint . --ext .ts --max-warnings 0",
     "lint:fix": "eslint . --ext .ts --fix",

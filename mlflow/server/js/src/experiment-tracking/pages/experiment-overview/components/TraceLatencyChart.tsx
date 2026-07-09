@@ -76,6 +76,7 @@ export const TraceLatencyChart: React.FC = () => {
                   />
                 }
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
+                wrapperStyle={{ pointerEvents: 'auto' }}
               />
               <Line
                 type="monotone"

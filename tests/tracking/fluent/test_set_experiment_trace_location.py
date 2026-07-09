@@ -7,6 +7,7 @@ from mlflow.entities import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.trace_location import UnityCatalog
 from mlflow.exceptions import MlflowException
+from mlflow.tracking._uc_upsell import show_existing_experiment_upsell, show_new_experiment_upsell
 from mlflow.tracking.fluent import (
     _resolve_experiment_to_trace_location,
     _sync_trace_destination_and_provider,
@@ -375,3 +376,94 @@ def test_sync_fresh_session_without_location_is_noop(_clean_tracing_state):
 
     assert destination_registry.get() is None
     assert not prov.once._done
+
+
+def test_show_uc_upsell_message_existing_experiment():
+    with mock.patch("mlflow.tracking._uc_upsell.eprint") as mock_eprint:
+        show_existing_experiment_upsell()
+        mock_eprint.assert_called_once_with(
+            "\033[1;38;5;208mIf you are using MLflow Tracing, you can migrate your traces "
+            "to Unity Catalog for unlimited storage, fine-grained access controls, "
+            "and queryability from notebooks, SQL, and dashboards. "
+            "\033[94mLearn more: https://docs.databricks.com/aws/en/mlflow3/genai/tracing/migrate-traces-to-uc\033[0m"
+        )
+
+
+def test_show_uc_upsell_message_new_experiment():
+    with mock.patch("mlflow.tracking._uc_upsell.eprint") as mock_eprint:
+        show_new_experiment_upsell()
+        mock_eprint.assert_called_once_with(
+            "\033[1;38;5;208mIf you are using MLflow Tracing, consider storing your "
+            "traces in Unity Catalog for unlimited storage (no 100,000 trace limit), "
+            "fine-grained access controls, and queryability from notebooks, SQL, "
+            "and dashboards. \033[94mLearn more: "
+            "https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog"
+            "\033[0m"
+        )
+
+
+def test_uc_upsell_existing_shown_for_existing_non_uc_experiment_on_databricks():
+    exp = _experiment()
+    with (
+        mock.patch("mlflow.tracking.fluent.TrackingServiceClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.tracking.fluent._resolve_experiment_to_trace_location",
+            return_value=None,
+        ),
+        mock.patch("mlflow.tracking.fluent._sync_trace_destination_and_provider"),
+        mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
+        mock.patch("mlflow.tracking._uc_upsell.eprint") as mock_eprint,
+    ):
+        mock_client_cls.return_value.get_experiment_by_name.return_value = exp
+        mlflow.set_experiment("test-experiment")
+        mock_eprint.assert_called_once_with(
+            "\033[1;38;5;208mIf you are using MLflow Tracing, you can migrate your traces "
+            "to Unity Catalog for unlimited storage, fine-grained access controls, "
+            "and queryability from notebooks, SQL, and dashboards. "
+            "\033[94mLearn more: https://docs.databricks.com/aws/en/mlflow3/genai/tracing/migrate-traces-to-uc\033[0m"
+        )
+
+
+def test_uc_upsell_new_shown_for_newly_created_experiment_on_databricks():
+    exp = _experiment()
+    with (
+        mock.patch("mlflow.tracking.fluent.TrackingServiceClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.tracking.fluent._resolve_experiment_to_trace_location",
+            return_value=None,
+        ),
+        mock.patch("mlflow.tracking.fluent._sync_trace_destination_and_provider"),
+        mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
+        mock.patch("mlflow.tracking._uc_upsell.eprint") as mock_eprint,
+    ):
+        client = mock_client_cls.return_value
+        client.get_experiment_by_name.return_value = None
+        client.create_experiment.return_value = "123"
+        client.get_experiment.return_value = exp
+        mlflow.set_experiment("test-experiment")
+        mock_eprint.assert_called_once()
+        message = mock_eprint.call_args[0][0]
+        assert "If you are using MLflow Tracing" in message
+        assert "consider storing your traces in Unity Catalog" in message
+
+
+def test_uc_upsell_not_shown_when_experiment_has_uc_tag():
+    exp = _experiment(
+        tags={MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH: "catalog.schema.prefix"}
+    )
+    with (
+        mock.patch("mlflow.tracking.fluent.TrackingServiceClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.tracking.fluent._resolve_experiment_to_trace_location",
+            return_value=None,
+        ),
+        mock.patch("mlflow.tracking.fluent._sync_trace_destination_and_provider"),
+        mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
+        mock.patch("mlflow.tracking._uc_upsell.eprint") as mock_eprint,
+    ):
+        mock_client_cls.return_value.get_experiment_by_name.return_value = exp
+        mlflow.set_experiment("test-experiment")
+        mock_eprint.assert_not_called()

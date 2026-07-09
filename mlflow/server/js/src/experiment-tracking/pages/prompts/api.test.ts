@@ -1,5 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { setupServer } from '../../../common/utils/setup-msw';
+
 import { NotFoundError } from '@databricks/web-shared/errors';
 import { rest } from 'msw';
 import { RegisteredPromptsApi } from './api';

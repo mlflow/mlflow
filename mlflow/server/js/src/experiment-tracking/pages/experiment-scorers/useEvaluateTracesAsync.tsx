@@ -1,7 +1,7 @@
 import { fetchAPI, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import { useMutation, useQueryClient } from '../../../common/utils/reactQueryHooks';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FeedbackAssessment, ModelTrace } from '../../../shared/web-shared/model-trace-explorer';
+import type { FeedbackAssessment, ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import type { EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
 import type { JudgeEvaluationResult, SessionJudgeEvaluationResult } from './useEvaluateTraces.common';

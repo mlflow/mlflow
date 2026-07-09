@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useMemo } from 'react';
-import { useLocalStorage } from '../../shared/web-shared/hooks/useLocalStorage';
+import { useLocalStorage } from '@databricks/web-shared/hooks';
 import { useNavigate, useParams } from '../utils/RoutingUtils';
 import Routes from '../../experiment-tracking/routes';
 

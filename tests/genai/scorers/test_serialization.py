@@ -1,11 +1,15 @@
 import json
-from unittest.mock import patch
+from typing import Any, ClassVar
+from unittest.mock import Mock, patch
 
 import pytest
 
+import mlflow
 from mlflow.entities import Feedback
+from mlflow.entities.scorer import ScorerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
+from mlflow.genai.scorers.base import SerializedScorer
 from mlflow.genai.scorers.builtin_scorers import Guidelines
 
 
@@ -666,3 +670,229 @@ def test_builtin_scorer_instructions_preserved_through_serialization():
     assert deserialized.instructions == original_instructions
     assert deserialized.name == "test_guidelines"
     assert deserialized.guidelines == ["Be helpful"]
+
+
+# ============================================================================
+# THIRD-PARTY SCORER (de)serialization
+# ============================================================================
+
+
+@pytest.mark.parametrize(
+    ("third_party_data", "match"),
+    [
+        pytest.param(
+            {
+                "module": "os",
+                "class": "system",
+                "metric_name": "system",
+                "model": None,
+                "kwargs": {},
+            },
+            "not in the allow-list",
+            id="module_not_allow_listed",
+        ),
+        pytest.param(
+            {
+                "module": "mlflow.genai.scorers.ragas",
+                "class": "",
+                "metric_name": "Faithfulness",
+                "model": None,
+                "kwargs": {},
+            },
+            "missing required fields",
+            id="missing_class_name",
+        ),
+        pytest.param(
+            {
+                "module": "mlflow.genai.scorers.ragas",
+                "class": "ExactMatch",
+                "metric_name": "",
+                "model": None,
+                "kwargs": {},
+            },
+            "missing required fields",
+            id="missing_metric_name",
+        ),
+    ],
+)
+def test_third_party_scorer_invalid_payload_rejected(third_party_data, match):
+    payload = SerializedScorer(name="bad", third_party_scorer_data=third_party_data)
+    with pytest.raises(MlflowException, match=match):
+        Scorer.model_validate(payload)
+
+
+def test_third_party_scorer_import_failure():
+    payload = SerializedScorer(
+        name="x",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "ExactMatch",
+            "metric_name": "ExactMatch",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with patch(
+        "mlflow.genai.scorers.base.importlib.import_module",
+        side_effect=ImportError("library not installed"),
+    ):
+        with pytest.raises(MlflowException, match="could not import"):
+            Scorer.model_validate(payload)
+
+
+def test_third_party_scorer_class_not_found():
+    payload = SerializedScorer(
+        name="x",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "DoesNotExist",
+            "metric_name": "X",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with patch(
+        "mlflow.genai.scorers.base.importlib.import_module",
+        return_value=Mock(spec=[]),
+    ):
+        with pytest.raises(MlflowException, match="not found in module"):
+            Scorer.model_validate(payload)
+
+
+def test_third_party_scorer_metric_name_mismatch_with_classvar():
+    class RenamedScorer:
+        metric_name: ClassVar[str] = "NewName"
+
+    fake_module = Mock(RenamedScorer=RenamedScorer)
+    payload = SerializedScorer(
+        name="stale",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "RenamedScorer",
+            "metric_name": "OldName",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with patch(
+        "mlflow.genai.scorers.base.importlib.import_module",
+        return_value=fake_module,
+    ):
+        with pytest.raises(MlflowException, match="does not match class"):
+            Scorer.model_validate(payload)
+
+
+def test_third_party_scorer_instantiation_failure():
+    class BoomScorer:
+        def __init__(self, **kwargs):
+            raise RuntimeError("boom")
+
+    fake_module = Mock(BoomScorer=BoomScorer)
+    payload = SerializedScorer(
+        name="x",
+        third_party_scorer_data={
+            "module": "mlflow.genai.scorers.ragas",
+            "class": "BoomScorer",
+            "metric_name": "X",
+            "model": None,
+            "kwargs": {},
+        },
+    )
+    with patch(
+        "mlflow.genai.scorers.base.importlib.import_module",
+        return_value=fake_module,
+    ):
+        with pytest.raises(MlflowException, match="failed to instantiate"):
+            Scorer.model_validate(payload)
+
+
+def test_serialized_scorer_rejects_multiple_scorer_field_types():
+    with pytest.raises(ValueError, match="cannot have multiple types"):
+        SerializedScorer(
+            name="oops",
+            builtin_scorer_class="Safety",
+            third_party_scorer_data={
+                "module": "mlflow.genai.scorers.ragas",
+                "class": "ExactMatch",
+                "metric_name": "ExactMatch",
+                "model": None,
+                "kwargs": {},
+            },
+        )
+
+
+def test_from_dict_round_trips_known_fields():
+    @scorer(name="round_trip")
+    def my_scorer(outputs):
+        return outputs == "ok"
+
+    payload = my_scorer.model_dump()
+    restored = SerializedScorer.from_dict(payload)
+    assert restored.name == "round_trip"
+    assert restored.call_source is not None
+
+
+def _deserialize_via_scorer_version(payload: dict[str, Any]) -> SerializedScorer:
+    return ScorerVersion(
+        experiment_id="123",
+        scorer_name=payload["name"],
+        scorer_version=1,
+        serialized_scorer=json.dumps(payload),
+        creation_time=0,
+    ).serialized_scorer
+
+
+def _formatted_error_logs(mock_logger) -> str:
+    return " ".join(
+        call.args[0] % call.args[1:] if len(call.args) > 1 else call.args[0]
+        for call in mock_logger.error.call_args_list
+    )
+
+
+@pytest.mark.parametrize(
+    "deserialize",
+    [
+        SerializedScorer.from_dict,
+        Scorer.model_validate,
+        _deserialize_via_scorer_version,
+    ],
+    ids=[
+        "SerializedScorer.from_dict",
+        "Scorer.model_validate",
+        "ScorerVersion.serialized_scorer",
+    ],
+)
+def test_unknown_field_is_dropped_with_version_aware_log(deserialize):
+    payload = {
+        "name": "future_scorer",
+        "mlflow_version": "99.0.0",
+        "call_source": "return 1",
+        "call_signature": "(outputs)",
+        "original_func_name": "future_scorer",
+        "field_from_the_future": "value",
+    }
+    with patch("mlflow.genai.scorers.base._logger") as mock_logger:
+        result = deserialize(payload)
+    assert result.name == "future_scorer"
+    assert not hasattr(result, "field_from_the_future")
+    log_message = _formatted_error_logs(mock_logger)
+    assert "field_from_the_future" in log_message
+    assert "future_scorer" in log_message
+    assert "99.0.0" in log_message
+    assert mlflow.__version__ in log_message
+
+
+def test_from_dict_unknown_field_falls_back_to_unknown_serialized_version():
+    payload = {
+        "name": "no_version",
+        "call_source": "return 1",
+        "call_signature": "(outputs)",
+        "original_func_name": "no_version",
+        "mystery_field": True,
+    }
+    with patch("mlflow.genai.scorers.base._logger") as mock_logger:
+        result = SerializedScorer.from_dict(payload)
+    assert result.name == "no_version"
+    log_message = _formatted_error_logs(mock_logger)
+    assert "unknown" in log_message
+    assert "mystery_field" in log_message

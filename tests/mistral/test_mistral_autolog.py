@@ -32,6 +32,7 @@ except ImportError:
 from pydantic import BaseModel
 
 import mlflow.mistral
+from mlflow.entities import SpanLogLevel
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -181,6 +182,7 @@ def test_chat_complete_autolog(mock_litellm_cost):
     span = traces[0].data.spans[0]
     assert span.name == "Chat.complete"
     assert span.span_type == SpanType.CHAT_MODEL
+    assert span.log_level == SpanLogLevel.INFO
     assert span.inputs == DUMMY_CHAT_COMPLETION_REQUEST
     # Only keep input_tokens / output_tokens fields in usage dict.
     span.outputs["usage"] = {

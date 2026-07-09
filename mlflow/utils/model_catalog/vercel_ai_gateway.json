@@ -18,7 +18,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "alibaba/qwen-3-235b": {
       "mode": "chat",
@@ -37,7 +38,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "alibaba/qwen-3-30b": {
       "mode": "chat",
@@ -56,7 +58,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "alibaba/qwen-3-32b": {
       "mode": "chat",
@@ -75,7 +78,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "alibaba/qwen3-coder": {
       "mode": "chat",
@@ -94,7 +98,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "amazon/nova-lite": {
       "mode": "chat",
@@ -113,7 +118,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "amazon/nova-micro": {
       "mode": "chat",
@@ -132,7 +138,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "amazon/nova-pro": {
       "mode": "chat",
@@ -151,7 +158,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "amazon/titan-embed-text-v2": {
       "mode": "chat",
@@ -170,7 +178,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-3-5-sonnet": {
       "mode": "chat",
@@ -191,7 +200,8 @@
         "reasoning": false,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-3-5-sonnet-20241022": {
       "mode": "chat",
@@ -212,7 +222,8 @@
         "reasoning": false,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-3-7-sonnet": {
       "mode": "chat",
@@ -233,7 +244,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-3-haiku": {
       "mode": "chat",
@@ -254,7 +266,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-3-opus": {
       "mode": "chat",
@@ -275,7 +288,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-3.5-haiku": {
       "mode": "chat",
@@ -296,7 +310,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-3.5-sonnet": {
       "mode": "chat",
@@ -317,7 +332,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-3.7-sonnet": {
       "mode": "chat",
@@ -338,7 +354,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-4-opus": {
       "mode": "chat",
@@ -359,7 +376,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-4-sonnet": {
       "mode": "chat",
@@ -380,7 +398,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-haiku-4.5": {
       "mode": "chat",
@@ -401,7 +420,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-opus-4": {
       "mode": "chat",
@@ -422,7 +442,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-opus-4.1": {
       "mode": "chat",
@@ -443,7 +464,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-opus-4.5": {
       "mode": "chat",
@@ -464,7 +486,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-opus-4.6": {
       "mode": "chat",
@@ -485,7 +508,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-sonnet-4": {
       "mode": "chat",
@@ -506,7 +530,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "anthropic/claude-sonnet-4.5": {
       "mode": "chat",
@@ -527,7 +552,8 @@
         "reasoning": true,
         "prompt_caching": true,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "cohere/command-a": {
       "mode": "chat",
@@ -546,7 +572,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "cohere/command-r": {
       "mode": "chat",
@@ -565,7 +592,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "cohere/command-r-plus": {
       "mode": "chat",
@@ -584,7 +612,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "cohere/embed-v4.0": {
       "mode": "chat",
@@ -603,7 +632,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-r1": {
       "mode": "chat",
@@ -622,7 +652,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-r1-distill-llama-70b": {
       "mode": "chat",
@@ -641,7 +672,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek/deepseek-v3": {
       "mode": "chat",
@@ -660,7 +692,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "google/gemini-2.0-flash": {
       "mode": "chat",
@@ -680,7 +713,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "deprecation_date": "2026-06-01"
+      "deprecation_date": "2026-06-01",
+      "last_updated_at": "2026-04-24"
     },
     "google/gemini-2.0-flash-lite": {
       "mode": "chat",
@@ -700,7 +734,8 @@
         "prompt_caching": false,
         "response_schema": true
       },
-      "deprecation_date": "2026-06-01"
+      "deprecation_date": "2026-06-01",
+      "last_updated_at": "2026-04-24"
     },
     "google/gemini-2.5-flash": {
       "mode": "chat",
@@ -719,7 +754,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "google/gemini-2.5-pro": {
       "mode": "chat",
@@ -738,7 +774,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "google/gemini-embedding-001": {
       "mode": "embedding",
@@ -757,7 +794,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "google/gemma-2-9b": {
       "mode": "chat",
@@ -776,7 +814,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "google/text-embedding-005": {
       "mode": "embedding",
@@ -795,7 +834,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "google/text-multilingual-embedding-002": {
       "mode": "embedding",
@@ -814,7 +854,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "inception/mercury-coder-small": {
       "mode": "chat",
@@ -833,7 +874,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta/llama-3-70b": {
       "mode": "chat",
@@ -852,7 +894,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta/llama-3-8b": {
       "mode": "chat",
@@ -871,7 +914,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta/llama-3.1-70b": {
       "mode": "chat",
@@ -890,7 +934,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta/llama-3.1-8b": {
       "mode": "chat",
@@ -909,7 +954,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta/llama-3.2-11b": {
       "mode": "chat",
@@ -928,7 +974,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta/llama-3.2-1b": {
       "mode": "chat",
@@ -947,7 +994,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta/llama-3.2-3b": {
       "mode": "chat",
@@ -966,7 +1014,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta/llama-3.2-90b": {
       "mode": "chat",
@@ -985,7 +1034,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta/llama-3.3-70b": {
       "mode": "chat",
@@ -1004,7 +1054,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta/llama-4-maverick": {
       "mode": "chat",
@@ -1023,7 +1074,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta/llama-4-scout": {
       "mode": "chat",
@@ -1042,7 +1094,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/codestral": {
       "mode": "chat",
@@ -1061,7 +1114,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/codestral-embed": {
       "mode": "chat",
@@ -1080,7 +1134,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/devstral-small": {
       "mode": "chat",
@@ -1099,7 +1154,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/magistral-medium": {
       "mode": "chat",
@@ -1118,7 +1174,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/magistral-small": {
       "mode": "chat",
@@ -1137,7 +1194,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/ministral-3b": {
       "mode": "chat",
@@ -1156,7 +1214,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/ministral-8b": {
       "mode": "chat",
@@ -1175,7 +1234,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/mistral-embed": {
       "mode": "chat",
@@ -1194,7 +1254,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/mistral-large": {
       "mode": "chat",
@@ -1213,7 +1274,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/mistral-saba-24b": {
       "mode": "chat",
@@ -1232,7 +1294,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/mistral-small": {
       "mode": "chat",
@@ -1251,7 +1314,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/mixtral-8x22b-instruct": {
       "mode": "chat",
@@ -1270,7 +1334,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/pixtral-12b": {
       "mode": "chat",
@@ -1289,7 +1354,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "mistral/pixtral-large": {
       "mode": "chat",
@@ -1308,7 +1374,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "moonshotai/kimi-k2": {
       "mode": "chat",
@@ -1327,7 +1394,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "morph/morph-v3-fast": {
       "mode": "chat",
@@ -1346,7 +1414,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "morph/morph-v3-large": {
       "mode": "chat",
@@ -1365,7 +1434,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/gpt-3.5-turbo": {
       "mode": "chat",
@@ -1384,7 +1454,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/gpt-3.5-turbo-instruct": {
       "mode": "chat",
@@ -1403,7 +1474,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/gpt-4-turbo": {
       "mode": "chat",
@@ -1422,7 +1494,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/gpt-4.1": {
       "mode": "chat",
@@ -1443,7 +1516,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/gpt-4.1-mini": {
       "mode": "chat",
@@ -1464,7 +1538,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/gpt-4.1-nano": {
       "mode": "chat",
@@ -1485,7 +1560,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/gpt-4o": {
       "mode": "chat",
@@ -1506,7 +1582,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/gpt-4o-mini": {
       "mode": "chat",
@@ -1527,7 +1604,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/o1": {
       "mode": "chat",
@@ -1548,7 +1626,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/o3": {
       "mode": "chat",
@@ -1569,7 +1648,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/o3-mini": {
       "mode": "chat",
@@ -1590,7 +1670,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/o4-mini": {
       "mode": "chat",
@@ -1611,7 +1692,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": true
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/text-embedding-3-large": {
       "mode": "embedding",
@@ -1630,7 +1712,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/text-embedding-3-small": {
       "mode": "embedding",
@@ -1649,7 +1732,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/text-embedding-ada-002": {
       "mode": "embedding",
@@ -1668,7 +1752,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "perplexity/sonar": {
       "mode": "chat",
@@ -1687,7 +1772,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "perplexity/sonar-pro": {
       "mode": "chat",
@@ -1706,7 +1792,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "perplexity/sonar-reasoning": {
       "mode": "chat",
@@ -1725,7 +1812,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "perplexity/sonar-reasoning-pro": {
       "mode": "chat",
@@ -1744,7 +1832,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "vercel/v0-1.0-md": {
       "mode": "chat",
@@ -1763,7 +1852,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "vercel/v0-1.5-md": {
       "mode": "chat",
@@ -1782,7 +1872,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "xai/grok-2": {
       "mode": "chat",
@@ -1801,7 +1892,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "xai/grok-2-vision": {
       "mode": "chat",
@@ -1820,7 +1912,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "xai/grok-3": {
       "mode": "chat",
@@ -1839,7 +1932,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "xai/grok-3-fast": {
       "mode": "chat",
@@ -1858,7 +1952,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "xai/grok-3-mini": {
       "mode": "chat",
@@ -1877,7 +1972,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "xai/grok-3-mini-fast": {
       "mode": "chat",
@@ -1896,7 +1992,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "xai/grok-4": {
       "mode": "chat",
@@ -1915,7 +2012,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "zai/glm-4.5": {
       "mode": "chat",
@@ -1934,7 +2032,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "zai/glm-4.5-air": {
       "mode": "chat",
@@ -1953,7 +2052,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "zai/glm-4.6": {
       "mode": "chat",
@@ -1973,7 +2073,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }

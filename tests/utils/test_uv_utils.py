@@ -567,6 +567,70 @@ def test_infer_pip_requirements_explicit_uv_project_dir_overrides_disabled_auto_
         assert "numpy==1.24.0" in result
 
 
+def test_infer_pip_requirements_prepends_extra_index_urls_for_private_indexes(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "true")
+
+    uv_lock_content = """version = 1
+requires-python = ">=3.10"
+
+[[package]]
+name = "my-internal-utils"
+version = "0.2.7"
+source = { registry = "https://pypi.internal.example.com/simple" }
+
+[[package]]
+name = "scikit-learn"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+"""
+    (tmp_path / _UV_LOCK_FILE).write_text(uv_lock_content)
+    (tmp_path / _PYPROJECT_FILE).touch()
+
+    mock_result = mock.Mock()
+    mock_result.stdout = "my-internal-utils==0.2.7\nscikit-learn==1.3.0\n"
+
+    with (
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils.subprocess.run", return_value=mock_result),
+    ):
+        result = infer_pip_requirements("runs:/fake/model", "sklearn")
+
+    assert "--extra-index-url https://pypi.internal.example.com/simple" in result
+    assert "my-internal-utils==0.2.7" in result
+    assert "scikit-learn==1.3.0" in result
+
+
+def test_infer_pip_requirements_no_extra_index_urls_when_no_private_indexes(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "true")
+
+    uv_lock_content = """version = 1
+requires-python = ">=3.10"
+
+[[package]]
+name = "scikit-learn"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+"""
+    (tmp_path / _UV_LOCK_FILE).write_text(uv_lock_content)
+    (tmp_path / _PYPROJECT_FILE).touch()
+
+    mock_result = mock.Mock()
+    mock_result.stdout = "scikit-learn==1.3.0\n"
+
+    with (
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
+        mock.patch("mlflow.utils.uv_utils.subprocess.run", return_value=mock_result),
+    ):
+        result = infer_pip_requirements("runs:/fake/model", "sklearn")
+
+    assert not any(req.startswith("--extra-index-url") for req in result)
+    assert "scikit-learn==1.3.0" in result
+
+
 def test_export_uv_requirements_strips_comment_lines(tmp_path):
     uv_output = """requests==2.28.0
 # via

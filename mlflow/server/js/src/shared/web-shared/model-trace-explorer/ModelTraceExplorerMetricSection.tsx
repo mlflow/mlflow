@@ -1,5 +1,6 @@
 import type { TagColors } from '@databricks/design-system';
 import { Tag, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { copyToClipboard } from '../../../common/utils/copyToClipboard';
 
 export const ModelTraceHeaderMetricSection = ({
   label,
@@ -23,14 +24,14 @@ export const ModelTraceHeaderMetricSection = ({
   icon?: React.ReactNode;
   color?: TagColors;
   getTruncatedLabel: (label: string) => string;
-  onCopy: () => void;
+  onCopy: (success: boolean) => void;
   hideLabel?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
 
-  const handleClick = () => {
-    navigator.clipboard.writeText(value);
-    onCopy();
+  const handleClick = async () => {
+    const success = await copyToClipboard(value);
+    onCopy(success);
   };
 
   return (

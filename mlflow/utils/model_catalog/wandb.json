@@ -1,6 +1,26 @@
 {
   "schema_version": "1.0",
   "models": {
+    "MiniMaxAI/MiniMax-M2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 197000,
+        "max_output": 197000,
+        "max_tokens": 197000
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.3,
+        "output_per_million_tokens": 1.2
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-24"
+    },
     "Qwen/Qwen3-235B-A22B-Instruct-2507": {
       "mode": "chat",
       "context_window": {
@@ -18,7 +38,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen3-235B-A22B-Thinking-2507": {
       "mode": "chat",
@@ -37,7 +58,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "Qwen/Qwen3-Coder-480B-A35B-Instruct": {
       "mode": "chat",
@@ -56,7 +78,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-R1-0528": {
       "mode": "chat",
@@ -75,7 +98,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-V3-0324": {
       "mode": "chat",
@@ -94,7 +118,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "deepseek-ai/DeepSeek-V3.1": {
       "mode": "chat",
@@ -113,7 +138,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/Llama-3.1-8B-Instruct": {
       "mode": "chat",
@@ -132,7 +158,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/Llama-3.3-70B-Instruct": {
       "mode": "chat",
@@ -151,7 +178,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "meta-llama/Llama-4-Scout-17B-16E-Instruct": {
       "mode": "chat",
@@ -170,7 +198,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "microsoft/Phi-4-mini-instruct": {
       "mode": "chat",
@@ -189,7 +218,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "moonshotai/Kimi-K2-Instruct": {
       "mode": "chat",
@@ -208,7 +238,29 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
+    },
+    "moonshotai/Kimi-K2.5": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 262144,
+        "max_output": 262144,
+        "max_tokens": 262144
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.6,
+        "output_per_million_tokens": 3.0,
+        "cache_read_per_million_tokens": 0.1
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": true,
+        "reasoning": true,
+        "prompt_caching": false,
+        "response_schema": true
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/gpt-oss-120b": {
       "mode": "chat",
@@ -227,7 +279,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "openai/gpt-oss-20b": {
       "mode": "chat",
@@ -246,7 +299,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     },
     "zai-org/GLM-4.5": {
       "mode": "chat",
@@ -265,7 +319,8 @@
         "reasoning": false,
         "prompt_caching": false,
         "response_schema": false
-      }
+      },
+      "last_updated_at": "2026-04-24"
     }
   }
 }

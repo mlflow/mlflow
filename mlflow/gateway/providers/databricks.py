@@ -95,8 +95,7 @@ class DatabricksProvider(OpenAICompatibleProvider):
         return DatabricksAdapter
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False):
-        self.config = config
-        self._enable_tracing = enable_tracing
+        super().__init__(config, enable_tracing=enable_tracing)
         self._provider_config = config.model.config
         self._workspace_client = None
 

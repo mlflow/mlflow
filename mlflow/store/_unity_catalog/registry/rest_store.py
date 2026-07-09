@@ -372,6 +372,7 @@ class UcModelRegistryStore(BaseRestStore):
 
     def __init__(self, store_uri, tracking_uri):
         super().__init__(get_host_creds=functools.partial(get_databricks_host_creds, store_uri))
+        self.store_uri = store_uri
         self.tracking_uri = tracking_uri
         self.get_tracking_host_creds = functools.partial(get_databricks_host_creds, tracking_uri)
         try:
@@ -966,17 +967,17 @@ class UcModelRegistryStore(BaseRestStore):
         if source_workspace_id is None:
             source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
-        lineage_securable_list = self._get_lineage_input_sources(run)
         job_id = self._get_job_id(run)
-        job_run_id = self._get_job_run_id(run)
         extra_headers = None
         if notebook_id is not None or job_id is not None:
+            lineage_securable_list = self._get_lineage_input_sources(run)
             entity_list = []
             lineage_list = None
             if notebook_id is not None:
                 notebook_entity = Notebook(id=str(notebook_id))
                 entity_list.append(Entity(notebook=notebook_entity))
             if job_id is not None:
+                job_run_id = self._get_job_run_id(run)
                 job_entity = Job(id=job_id, job_run_id=job_run_id)
                 entity_list.append(Entity(job=job_entity))
             if lineage_securable_list is not None:
@@ -1073,7 +1074,9 @@ class UcModelRegistryStore(BaseRestStore):
             )
 
         if is_databricks_sdk_models_artifact_repository_enabled(self.get_host_creds()):
-            return DatabricksSDKModelsArtifactRepository(model_name, model_version.version)
+            return DatabricksSDKModelsArtifactRepository(
+                model_name, model_version.version, registry_uri=self.store_uri
+            )
 
         scoped_token = base_credential_refresh_def()
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:

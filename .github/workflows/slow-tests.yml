@@ -41,6 +41,8 @@ env:
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
+permissions: {}
+
 jobs:
   docker-build:
     runs-on: ubuntu-latest
@@ -55,7 +57,7 @@ jobs:
         include:
           - splits: 3
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
       - uses: ./.github/actions/free-disk-space
@@ -71,7 +73,6 @@ jobs:
             -r requirements/extra-ml-requirements.txt \
             langchain_experimental "pyarrow<18"
       - uses: ./.github/actions/show-versions
-      - uses: ./.github/actions/pipdeptree
       - name: Run tests
         env:
           SPLITS: ${{ matrix.splits }}

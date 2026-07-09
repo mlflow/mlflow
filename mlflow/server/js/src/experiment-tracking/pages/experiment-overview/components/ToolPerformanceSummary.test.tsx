@@ -74,15 +74,17 @@ describe('ToolPerformanceSummary', () => {
     );
   };
 
-  // Handler returns different responses based on metric_name in request body
+  // Handler returns different responses based on metric_name or metric_names in request body
   const setupTraceMetricsHandler = (countDataPoints: any[], latencyDataPoints: any[]) => {
     server.use(
       rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
-        if (body.metric_name === SpanMetricKey.SPAN_COUNT) {
+        const metricName: string | undefined = body.metric_name;
+        const metricNames: string[] = body.metric_names ?? [];
+        if (metricName === SpanMetricKey.SPAN_COUNT || metricNames.includes(SpanMetricKey.SPAN_COUNT)) {
           return res(ctx.json({ data_points: countDataPoints }));
         }
-        if (body.metric_name === SpanMetricKey.LATENCY) {
+        if (metricName === SpanMetricKey.LATENCY || metricNames.includes(SpanMetricKey.LATENCY)) {
           return res(ctx.json({ data_points: latencyDataPoints }));
         }
         return res(ctx.json({ data_points: [] }));

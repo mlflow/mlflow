@@ -9,7 +9,7 @@ import { Table } from "@site/src/components/Table";
 
 # Tutorial: Custom LLM and AI Agent Models using ChatModel
 
-:::warning attention
+:::warning[attention]
 Starting in MLflow 3.0.0, we recommend <APILink fn="mlflow.pyfunc.ResponsesAgent">`ResponsesAgent`</APILink> instead of <APILink fn="mlflow.pyfunc.ChatModel">`ChatModel`</APILink>. See more details in the [ResponsesAgent Introduction](/genai/flavors/responses-agent-intro).
 :::
 
@@ -352,7 +352,7 @@ provider example to use any managed LLM hosting service with ease ([Amazon Bedro
     serving environment, the last thing that you want to deal with is a model that is incapable of being served due to some issue with a decoded
     JSON payload being submitted to your model's `predict()` method.
 
-    MLflow offers the <APILink fn="mlflow.models.validate_serving_input" /> API to ensure that the model that you have logged is capable of being interacted
+    MLflow offers the <APILink fn="mlflow.models.predict" /> API to ensure that the model that you have logged is capable of being interacted
     with by emulating the data processing that occurs with a deployed model.
 
     To use this API, simply navigate to your logged model with the MLflow UI's artifact viewer. The model display pane on the right side of
@@ -362,7 +362,7 @@ provider example to use any managed LLM hosting service with ease ([Amazon Bedro
     For the example in this tutorial, this is the generated code that is copied from the artifact viewer display:
 
     ```python
-    from mlflow.models import validate_serving_input
+    import mlflow.models
 
     model_uri = "runs:/8935b7aff5a84f559b5fcc2af3e2ea31/model"
 
@@ -381,8 +381,13 @@ provider example to use any managed LLM hosting service with ease ([Amazon Bedro
     "stream": false
     }"""
 
-    # Validate the serving payload works on the model
-    validate_serving_input(model_uri, serving_payload)
+    # Validate the serving payload works on the model by running prediction
+    # in an isolated environment that mirrors the serving environment.
+    mlflow.models.predict(
+        model_uri=model_uri,
+        input_data=serving_payload,
+        env_manager="uv",
+    )
     ```
 
   </TabItem>
@@ -793,7 +798,7 @@ Key takeaways from this tutorial include:
   of secrets, validating input examples, and understanding the nuances of loading context. Following these practices ensures that your model
   remains secure, robust, and reliable in production environments.
 - **Validation and Deployment Readiness**: The importance of validating your model before deployment cannot be overstated. By using tools
-  like <APILink fn="mlflow.models.validate_serving_input" />, you can catch and resolve potential deployment issues early, saving time and effort
+  like <APILink fn="mlflow.models.predict" />, you can catch and resolve potential deployment issues early, saving time and effort
   during the production deployment process.
 
 As the landscape of LLM applications and AI agents continues to evolve, building adaptable and standardized models will be crucial to leveraging the exciting

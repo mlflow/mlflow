@@ -19,14 +19,10 @@ Before implementing any feature:
 
 ```bash
 # MUST be run from the repository root
-nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
+uv run dev/run_dev_server.py > /tmp/mlflow-dev-server.log 2>&1 &
 
-# Monitor the logs
+# Monitor the logs (server URLs are printed there)
 tail -f /tmp/mlflow-dev-server.log
-
-# Servers will be available at:
-# - MLflow backend: http://localhost:5000
-# - React frontend: http://localhost:3000 (with hot reload)
 ```
 
 This provides fast edit-refresh for UI development - changes to React components will automatically reload in the browser.

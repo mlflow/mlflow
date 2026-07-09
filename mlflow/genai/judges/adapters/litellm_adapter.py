@@ -590,7 +590,7 @@ class LiteLLMAdapter(BaseJudgeAdapter):
         cleaned_response = _strip_markdown_code_blocks(output.response)
 
         try:
-            response_dict = json.loads(cleaned_response)
+            response_dict = json.loads(cleaned_response, strict=False)
         except json.JSONDecodeError as e:
             raise MlflowException(
                 f"Failed to parse response from judge model. Response: {output.response}"

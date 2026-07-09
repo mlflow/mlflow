@@ -7,7 +7,7 @@ import logging
 import uuid
 from collections import defaultdict
 from contextlib import contextmanager
-from dataclasses import asdict, fields, is_dataclass
+from dataclasses import fields, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
 
@@ -80,13 +80,11 @@ class TraceJSONEncoder(json.JSONEncoder):
         # representation, so we use dict representation instead.
         # E.g. https://github.com/run-llama/llama_index/blob/29ece9b058f6b9a1cf29bc723ed4aa3a39879ad5/llama-index-core/llama_index/core/chat_engine/types.py#L63-L64
         if is_dataclass(obj):
-            try:
-                return asdict(obj)
-            except Exception:
-                pass
-            # asdict() calls copy.deepcopy() on non-dataclass fields, which can fail for
-            # objects with asyncio internals (e.g. HTTP clients). Fall back to shallow
-            # field extraction via getattr() to avoid partially-constructed copies.
+            # Use shallow field extraction instead of asdict() to avoid copy.deepcopy(),
+            # which can leave partially-constructed objects (e.g. AsyncHttpxClientWrapper
+            # missing _state) that crash during garbage collection.
+            # json.dumps will recursively call default() on nested values, so we still
+            # get full recursive serialization without the deepcopy hazard.
             try:
                 return {f.name: getattr(obj, f.name) for f in fields(obj)}
             except Exception:
@@ -128,7 +126,18 @@ def dump_span_attribute_value(value: Any) -> str:
     # NB: OpenTelemetry attribute can store not only string but also a few primitives like
     #   int, float, bool, and list of them. However, we serialize all into JSON string here
     #   for the simplicity in deserialization process.
-    return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
+    try:
+        return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
+    except ValueError:
+        # `json.dumps` raises `ValueError: Circular reference detected` for self-referencing
+        # objects (e.g. pydantic_ai's `run_context`). Fall back to a repr-based dump so the
+        # span attribute is still set and tracing doesn't crash the user's workflow.
+        _logger.debug(
+            "Failed to serialize span attribute value due to circular reference. "
+            "Falling back to repr.",
+            exc_info=True,
+        )
+        return json.dumps(repr(value), ensure_ascii=False)
 
 
 def try_json_loads(value: Any) -> Any:
@@ -775,13 +784,23 @@ def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
     However, we need to set some attributes within `on_end` handler of the span processor,
     where the span is already marked as ended. This context manager is a hacky workaround
     to bypass the attribute guard.
+
+    Since opentelemetry-sdk 1.43.0, `Span.end()` additionally marks the span's
+    `BoundedAttributes` as immutable, which raises a `TypeError` on any write regardless of
+    the end time. We temporarily clear that flag as well and restore it afterwards.
     """
     original_end_time = span._end_time
     span._end_time = None
+    attributes = span._attributes
+    original_immutable = getattr(attributes, "_immutable", None)
+    if original_immutable is not None:
+        attributes._immutable = False
     try:
         yield
     finally:
         span._end_time = original_end_time
+        if original_immutable is not None:
+            attributes._immutable = original_immutable
 
 
 def parse_trace_id_v4(trace_id: str | None) -> tuple[str | None, str | None]:

@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -11,14 +12,20 @@ from fastapi.testclient import TestClient
 
 from mlflow.assistant.config import AssistantConfig, ProjectConfig
 from mlflow.assistant.config import ProviderConfig as AssistantProviderConfig
+from mlflow.assistant.providers import OllamaProvider
 from mlflow.assistant.providers.base import (
     AssistantProvider,
     CLINotInstalledError,
     NotAuthenticatedError,
     ProviderConfig,
+    ProviderNotConfiguredError,
 )
-from mlflow.assistant.types import Event, Message
-from mlflow.server.assistant.api import _require_localhost, assistant_router
+from mlflow.assistant.types import Event, Message, ToolUseBlock
+from mlflow.server.assistant.api import (
+    PermissionDecision,
+    _require_localhost,
+    assistant_router,
+)
 from mlflow.server.assistant.session import SESSION_DIR, SessionManager, save_process_pid
 from mlflow.utils.os import is_windows
 
@@ -54,14 +61,17 @@ class MockProvider(AssistantProvider):
     def resolve_skills_path(self, base_directory: Path) -> Path:
         return base_directory / ".mock" / "skills"
 
+    def list_models(self, base_url: str | None = None, api_key: str | None = None) -> list[str]:
+        raise NotImplementedError
+
     async def astream(
         self,
         prompt: str,
         tracking_uri: str,
         session_id: str | None = None,
+        mlflow_session_id: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
-        mlflow_session_id: str | None = None,
     ):
         yield Event.from_message(message=Message(role="user", content="Hello from mock"))
         yield Event.from_result(result="complete", session_id="mock-session-123")
@@ -103,7 +113,11 @@ def client():
 
     app.dependency_overrides[_require_localhost] = mock_require_localhost
 
-    with patch("mlflow.server.assistant.api._provider", MockProvider()):
+    mock_provider = MockProvider()
+    with (
+        patch("mlflow.server.assistant.api.list_providers", return_value=[mock_provider]),
+        patch("mlflow.server.assistant.api._get_selected_provider", return_value=mock_provider),
+    ):
         yield TestClient(app)
 
 
@@ -191,7 +205,8 @@ def test_health_check_returns_412_when_cli_not_installed():
         def check_connection(self, echo=None):
             raise CLINotInstalledError("CLI not installed")
 
-    with patch("mlflow.server.assistant.api._provider", CLINotInstalledProvider()):
+    provider = CLINotInstalledProvider()
+    with patch("mlflow.server.assistant.api.list_providers", return_value=[provider]):
         client = TestClient(app)
         response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
         assert response.status_code == 412
@@ -211,7 +226,8 @@ def test_health_check_returns_401_when_not_authenticated():
         def check_connection(self, echo=None):
             raise NotAuthenticatedError("Not authenticated")
 
-    with patch("mlflow.server.assistant.api._provider", NotAuthenticatedProvider()):
+    provider = NotAuthenticatedProvider()
+    with patch("mlflow.server.assistant.api.list_providers", return_value=[provider]):
         client = TestClient(app)
         response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/health")
         assert response.status_code == 401
@@ -356,7 +372,7 @@ def test_patch_session_cancel_with_process(client):
     session_id = r.json()["session_id"]
 
     # Start a real subprocess and register it with the session
-    with subprocess.Popen(["sleep", "10"]) as proc:
+    with subprocess.Popen([sys.executable, "-c", "import time; time.sleep(10)"]) as proc:
         save_process_pid(session_id, proc.pid)
 
         assert _is_process_running(proc.pid)
@@ -377,6 +393,160 @@ def test_patch_session_cancel_with_process(client):
         # Skip on Windows because PIDs are reused more aggressively.
         if not is_windows():
             assert not _is_process_running(proc.pid)
+
+
+class _DeferredProvider(MockProvider):
+    """Pauses at the prompt on the first turn; resumes from the decision in context."""
+
+    async def astream(
+        self,
+        prompt,
+        tracking_uri,
+        session_id=None,
+        mlflow_session_id=None,
+        cwd=None,
+        context=None,
+    ):
+        decisions = (context or {}).get("tool_decisions") or {}
+        if not decisions:
+            # First turn: surface the tool, emit the prompt, and end the turn.
+            yield Event.from_message(
+                Message(
+                    role="assistant",
+                    content=[ToolUseBlock(id="t1", name="Bash", input={"command": "echo hi"})],
+                )
+            )
+            yield Event.from_permission_request("t1", "Bash", {"command": "echo hi"})
+            yield Event.from_result(result=None, session_id="prov-paused")
+            return
+        # Resume: apply the delivered decision.
+        allowed = decisions.get("t1") == "allow"
+        yield Event.from_message(Message(role="assistant", content="ran" if allowed else "denied"))
+        yield Event.from_result(result=None, session_id="prov-done")
+
+
+@pytest.mark.parametrize(("decision", "expected_text"), [("allow", "ran"), ("deny", "denied")])
+@pytest.mark.asyncio
+async def test_stream_pauses_then_resumes(decision, expected_text):
+    """The turn ENDS at the permission prompt (no hang, no cross-request state);
+    a resume request then drives a fresh stream to completion.
+    """
+    from mlflow.server.assistant.api import resolve_permission, stream_response
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.set_pending_message(role="user", content="hi")
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    provider = _DeferredProvider()
+
+    # First turn: the stream completes immediately at the prompt (no await).
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        first = "".join([c async for c in response.body_iterator])
+    assert "permission_request" in first
+    assert "event: done" in first
+
+    # Deliver the decision, then a fresh stream resumes to completion.
+    res = await resolve_permission(
+        session_id, PermissionDecision(request_id="t1", decision=decision)
+    )
+    assert res.session_id == session_id
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response2 = await stream_response(mock_request, session_id)
+        second = "".join([c async for c in response2.body_iterator])
+    assert expected_text in second
+    assert "event: done" in second
+
+
+class _CaptureProvider(MockProvider):
+    """Records the prompt and context astream is called with, then completes."""
+
+    def __init__(self):
+        self.captured: dict[str, Any] = {}
+
+    async def astream(
+        self,
+        prompt,
+        tracking_uri,
+        session_id=None,
+        mlflow_session_id=None,
+        cwd=None,
+        context=None,
+    ):
+        self.captured = {"prompt": prompt, "context": context or {}}
+        yield Event.from_result(result=None, session_id="prov-done")
+
+
+@pytest.mark.asyncio
+async def test_stream_prefers_new_message_over_stale_tool_decision():
+    """A pending message and a stale decision can coexist if a resume stream never
+    consumed the decision and the user typed again. The new message must win: the
+    provider sees the prompt and NOT the stale tool_decisions (which would otherwise
+    resume the abandoned turn and silently drop the message).
+    """
+    from mlflow.server.assistant.api import stream_response
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.set_pending_message(role="user", content="what is 2+2")
+    session.pending_tool_decisions = {"t1": "allow"}
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    provider = _CaptureProvider()
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        _ = "".join([c async for c in response.body_iterator])
+
+    assert provider.captured["prompt"] == "what is 2+2"
+    assert "tool_decisions" not in provider.captured["context"]
+
+
+@pytest.mark.asyncio
+async def test_stream_forwards_tool_decision_when_no_pending_message():
+    """A genuine resume (decision delivered, no new message) still forwards the
+    tool_decisions so the provider can continue the paused turn.
+    """
+    from mlflow.server.assistant.api import stream_response
+
+    session_id = "f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47"
+    session = SessionManager.create()
+    session.pending_tool_decisions = {"t1": "allow"}
+    SessionManager.save(session_id, session)
+
+    mock_request = MagicMock()
+    mock_request.base_url = "http://localhost:5000/"
+    provider = _CaptureProvider()
+
+    with patch("mlflow.server.assistant.api._get_selected_provider", return_value=provider):
+        response = await stream_response(mock_request, session_id)
+        _ = "".join([c async for c in response.body_iterator])
+
+    assert provider.captured["prompt"] == ""
+    assert provider.captured["context"]["tool_decisions"] == {"t1": "allow"}
+
+
+def test_resolve_permission_rejects_invalid_session(client):
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/sessions/not-a-uuid/permission",
+        json={"request_id": "t1", "decision": "allow"},
+    )
+    assert response.status_code == 400
+
+
+def test_resolve_permission_returns_404_for_unknown_session(client):
+    # Well-formed UUID, but no such session exists.
+    response = client.post(
+        "/ajax-api/3.0/mlflow/assistant/sessions/f5f28c66-5ec6-46a1-9a2e-ca55fb64bf47/permission",
+        json={"request_id": "t1", "decision": "allow"},
+    )
+    assert response.status_code == 404
 
 
 def test_install_skills_success(client):
@@ -415,3 +585,130 @@ def test_install_skills_skips_when_already_installed(client):
         assert data["installed_skills"] == ["existing_skill"]
         mock_install.assert_not_called()
         mock_list.assert_called_once()
+
+
+def test_update_config_partial_update_preserves_selected_provider(client):
+    ollama = OllamaProvider.OLLAMA_PROVIDER_NAME
+    # Pre-populate config: claude_code selected, ollama exists but not selected
+    config = AssistantConfig(
+        providers={
+            "claude_code": AssistantProviderConfig(model="opus", selected=True),
+            ollama: AssistantProviderConfig(
+                model="llama3", selected=False, base_url="http://localhost:11434"
+            ),
+        }
+    )
+    config.save()
+
+    # Partially update ollama base_url without a selected flag
+    response = client.put(
+        "/ajax-api/3.0/mlflow/assistant/config",
+        json={"providers": {ollama: {"base_url": "http://localhost:12345"}}},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["providers"]["claude_code"]["selected"] is True
+    assert data["providers"][ollama]["selected"] is False
+    assert data["providers"][ollama]["base_url"] == "http://localhost:12345"
+
+
+def test_list_ollama_models_returns_model_list(client):
+    mock_provider = MockProvider()
+    mock_provider.list_models = MagicMock(return_value=["llama3"])
+
+    with patch("mlflow.server.assistant.api.list_providers", return_value=[mock_provider]):
+        response = client.get(
+            "/ajax-api/3.0/mlflow/assistant/providers/mock_provider/models",
+            params={"base_url": "http://localhost:11434"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"models": ["llama3"]}
+    mock_provider.list_models.assert_called_once_with("http://localhost:11434", None)
+
+
+def test_list_models_reads_api_key_from_header_not_query(client):
+    """api_key must travel as the X-API-Key header so it stays out of access
+    logs, browser history, and referer headers. This test pins that
+    contract and verifies the value reaches the provider unchanged.
+    """
+    mock_provider = MockProvider()
+    mock_provider.list_models = MagicMock(return_value=["llama3"])
+
+    with patch("mlflow.server.assistant.api.list_providers", return_value=[mock_provider]):
+        response = client.get(
+            "/ajax-api/3.0/mlflow/assistant/providers/mock_provider/models",
+            params={"base_url": "http://localhost:11434"},
+            headers={"X-API-Key": "sk-test-secret"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"models": ["llama3"]}
+    mock_provider.list_models.assert_called_once_with("http://localhost:11434", "sk-test-secret")
+
+
+def test_list_models_ignores_api_key_query_param(client):
+    """Defense in depth: even if a caller passes api_key as a query param,
+    the endpoint must not forward it to the provider — that would re-enable
+    the access-log leak the header migration was meant to prevent.
+    """
+    mock_provider = MockProvider()
+    mock_provider.list_models = MagicMock(return_value=["llama3"])
+
+    with patch("mlflow.server.assistant.api.list_providers", return_value=[mock_provider]):
+        response = client.get(
+            "/ajax-api/3.0/mlflow/assistant/providers/mock_provider/models",
+            params={"base_url": "http://localhost:11434", "api_key": "sk-leaked"},
+        )
+
+    assert response.status_code == 200
+    mock_provider.list_models.assert_called_once_with("http://localhost:11434", None)
+
+
+def test_list_ollama_models_returns_412_when_not_installed(client):
+    class MissingDependencyProvider(MockProvider):
+        def list_models(self, base_url: str | None = None, api_key: str | None = None) -> list[str]:
+            raise CLINotInstalledError("ollama package missing")
+
+    with patch(
+        "mlflow.server.assistant.api.list_providers",
+        return_value=[MissingDependencyProvider()],
+    ):
+        response = client.get("/ajax-api/3.0/mlflow/assistant/providers/mock_provider/models")
+
+    assert response.status_code == 412
+    assert "ollama" in response.json()["detail"].lower()
+
+
+def test_list_ollama_models_returns_503_on_connection_failure(client):
+    class UnreachableProvider(MockProvider):
+        def list_models(self, base_url: str | None = None, api_key: str | None = None) -> list[str]:
+            raise ProviderNotConfiguredError("Cannot connect to Ollama server")
+
+    with patch("mlflow.server.assistant.api.list_providers", return_value=[UnreachableProvider()]):
+        response = client.get(
+            "/ajax-api/3.0/mlflow/assistant/providers/mock_provider/models",
+            params={"base_url": "http://localhost:11434"},
+        )
+
+    assert response.status_code == 503
+    assert "Cannot connect" in response.json()["detail"]
+
+
+def test_list_provider_models_returns_404_for_unsupported_provider(client):
+    class UnsupportedProvider(MockProvider):
+        @property
+        def name(self) -> str:
+            return "unsupported_provider"
+
+    with patch(
+        "mlflow.server.assistant.api.list_providers",
+        return_value=[UnsupportedProvider()],
+    ):
+        response = client.get(
+            "/ajax-api/3.0/mlflow/assistant/providers/unsupported_provider/models"
+        )
+
+    assert response.status_code == 404
+    assert "not supported" in response.json()["detail"]

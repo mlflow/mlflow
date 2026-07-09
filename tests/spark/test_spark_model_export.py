@@ -390,13 +390,14 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
 
 @pytest.mark.parametrize("should_start_run", [False, True])
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
-def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs_tmpdir):
+def test_sparkml_model_log(
+    tmp_path, tmp_sqlite_uri, spark_model_iris, should_start_run, use_dfs_tmpdir
+):
     old_tracking_uri = mlflow.get_tracking_uri()
     dfs_tmpdir = None if use_dfs_tmpdir else tmp_path.joinpath("test")
 
     try:
-        tracking_dir = tmp_path.joinpath("mlruns")
-        mlflow.set_tracking_uri(f"file://{tracking_dir}")
+        mlflow.set_tracking_uri(tmp_sqlite_uri)
         if should_start_run:
             mlflow.start_run()
         artifact_path = "model"
@@ -466,14 +467,13 @@ def test_load_spark_model_from_models_uri(
 @pytest.mark.parametrize("should_start_run", [False, True])
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
 def test_sparkml_estimator_model_log(
-    tmp_path, spark_model_estimator, should_start_run, use_dfs_tmpdir
+    tmp_path, tmp_sqlite_uri, spark_model_estimator, should_start_run, use_dfs_tmpdir
 ):
     old_tracking_uri = mlflow.get_tracking_uri()
     dfs_tmpdir = None if use_dfs_tmpdir else tmp_path.joinpath("test")
 
     try:
-        tracking_dir = tmp_path.joinpath("mlruns")
-        mlflow.set_tracking_uri(f"file://{tracking_dir}")
+        mlflow.set_tracking_uri(tmp_sqlite_uri)
         if should_start_run:
             mlflow.start_run()
         artifact_path = "model"

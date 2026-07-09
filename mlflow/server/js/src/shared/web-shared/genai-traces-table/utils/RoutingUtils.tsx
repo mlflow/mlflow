@@ -23,7 +23,6 @@ import {
   generatePath,
   Navigate,
   Route,
-  NavLink as NavLinkDirect,
   Outlet as OutletDirect,
   Link as LinkDirect,
   useNavigate as useNavigateDirect,
@@ -60,6 +59,7 @@ const getActiveWorkspace = (): string | null => {
     return null;
   }
   try {
+    // eslint-disable-next-line @databricks/no-direct-storage -- OSS only use-case
     return window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
   } catch {
     return null;
@@ -293,22 +293,12 @@ const Link = React.forwardRef<
   return <LinkDirect ref={ref} to={finalTo} onClick={handleClick} {...rest} />;
 });
 
-const NavLink = React.forwardRef<
-  HTMLAnchorElement,
-  ComponentProps<typeof NavLinkDirect> & { disableWorkspacePrefix?: boolean }
->(function NavLink(props, ref) {
-  const { to, disableWorkspacePrefix, ...rest } = props;
-  const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
-  return <NavLinkDirect ref={ref} to={finalTo} {...rest} />;
-});
-
 export {
   // React Router V6 API exports
   BrowserRouter,
   MemoryRouter,
   HashRouter,
   Link,
-  NavLink,
   useNavigate,
   useLocation,
   useParams,
@@ -328,6 +318,7 @@ export {
 export const createLazyRouteElement = (
   // Load the module's default export and turn it into React Element
   componentLoader: () => Promise<{ default: React.ComponentType<React.PropsWithChildren<any>> }>,
+  // eslint-disable-next-line @databricks/react-lazy-only-at-top-level
 ) => React.createElement(React.lazy(componentLoader));
 export const createRouteElement = (component: React.ComponentType<React.PropsWithChildren<any>>) =>
   React.createElement(component);

@@ -89,6 +89,22 @@ def test_async_queue_activate_thread_safe():
         assert count_threads() == 0
 
 
+def test_put_after_terminate_executes_synchronously():
+    queue = AsyncTraceExportQueue()
+
+    calls = []
+    queue.put(Task(handler=calls.append, args=(1,)))
+    queue.flush(terminate=True)
+
+    assert not queue.is_active()
+    assert queue._stop_event.is_set()
+
+    # Calling put() after termination must not deadlock; task must run synchronously.
+    queue.put(Task(handler=calls.append, args=(2,)))
+
+    assert calls == [1, 2]
+
+
 def test_async_queue_drop_task_when_full(monkeypatch):
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", "3")
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS", "1")

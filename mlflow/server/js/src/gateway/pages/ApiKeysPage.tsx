@@ -1,8 +1,3 @@
-import { Breadcrumb, KeyIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
-import { Link } from '../../common/utils/RoutingUtils';
-import { GatewayLabel } from '../../common/components/GatewayNewTag';
-import GatewayRoutes from '../routes';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { ApiKeysList } from '../components/api-keys/ApiKeysList';
@@ -12,15 +7,7 @@ import { EndpointsUsingKeyDrawer } from '../components/api-keys/EndpointsUsingKe
 import { BindingsUsingKeyDrawer } from '../components/api-keys/BindingsUsingKeyDrawer';
 import { useApiKeysPage } from '../hooks/useApiKeysPage';
 
-/**
- * Container component for the API Keys page.
- * Uses the container/renderer pattern:
- * - useApiKeysPage: Contains all business logic (state, data fetching, handlers)
- * - This component: Handles page layout and renders child components
- */
-const ApiKeysPage = () => {
-  const { theme } = useDesignSystemTheme();
-
+export function ApiKeysPageInner() {
   const {
     // Data
     allEndpoints,
@@ -61,45 +48,17 @@ const ApiKeysPage = () => {
   } = useApiKeysPage();
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-      {/* Header */}
-      <div
-        css={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: theme.spacing.md,
-          borderBottom: `1px solid ${theme.colors.borderDecorative}`,
-        }}
-      >
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-          <Breadcrumb includeTrailingCaret>
-            <Breadcrumb.Item>
-              <Link componentId="mlflow.gateway.api-keys.breadcrumb_gateway_link" to={GatewayRoutes.gatewayPageRoute}>
-                <GatewayLabel />
-              </Link>
-            </Breadcrumb.Item>
-          </Breadcrumb>
-          <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-            <div
-              css={{
-                borderRadius: theme.borders.borderRadiusSm,
-                backgroundColor: theme.colors.backgroundSecondary,
-                padding: theme.spacing.sm,
-                display: 'flex',
-              }}
-            >
-              <KeyIcon />
-            </div>
-            <Typography.Title withoutMargins level={2}>
-              <FormattedMessage defaultMessage="API Keys" description="API Keys page title" />
-            </Typography.Title>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div css={{ flex: 1, overflow: 'auto', padding: theme.spacing.md }}>
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        overflow: 'hidden',
+        width: '100%',
+      }}
+    >
+      <div css={{ flex: 1, overflow: 'auto' }}>
         <ApiKeysList
           onCreateClick={handleCreateClick}
           onKeyClick={handleKeyClick}
@@ -137,6 +96,6 @@ const ApiKeysPage = () => {
       />
     </div>
   );
-};
+}
 
-export default withErrorBoundary(ErrorUtils.mlflowServices.EXPERIMENTS, ApiKeysPage);
+export default withErrorBoundary(ErrorUtils.mlflowServices.EXPERIMENTS, ApiKeysPageInner);

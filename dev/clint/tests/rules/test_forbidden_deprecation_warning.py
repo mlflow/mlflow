@@ -1,11 +1,12 @@
 from pathlib import Path
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import Position, Range, lint_file
 from clint.rules import ForbiddenDeprecationWarning
 
 
-def test_forbidden_deprecation_warning(index_path: Path) -> None:
+def test_forbidden_deprecation_warning(index: SymbolIndex) -> None:
     code = """
 import warnings
 
@@ -25,14 +26,14 @@ warnings.warn("message", stacklevel=2)  # no category specified
 other_function("message", category=DeprecationWarning)  # not warnings.warn
 """
     config = Config(select={ForbiddenDeprecationWarning.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
+    results = lint_file(Path("test.py"), code, config, index)
     assert len(results) == 2
     assert all(isinstance(r.rule, ForbiddenDeprecationWarning) for r in results)
     assert results[0].range == Range(Position(4, 34))  # First warnings.warn call
     assert results[1].range == Range(Position(7, 13))  # Second warnings.warn call
 
 
-def test_forbidden_deprecation_warning_import_variants(index_path: Path) -> None:
+def test_forbidden_deprecation_warning_import_variants(index: SymbolIndex) -> None:
     code = """
 import warnings
 from warnings import warn
@@ -44,12 +45,12 @@ warn("message", category=DeprecationWarning)
 w.warn("message", category=DeprecationWarning)
 """
     config = Config(select={ForbiddenDeprecationWarning.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
+    results = lint_file(Path("test.py"), code, config, index)
     assert len(results) == 3
     assert all(isinstance(r.rule, ForbiddenDeprecationWarning) for r in results)
 
 
-def test_forbidden_deprecation_warning_parameter_order(index_path: Path) -> None:
+def test_forbidden_deprecation_warning_parameter_order(index: SymbolIndex) -> None:
     code = """
 import warnings
 
@@ -58,12 +59,12 @@ warnings.warn("message", category=DeprecationWarning)
 warnings.warn(category=DeprecationWarning, message="test")
 """
     config = Config(select={ForbiddenDeprecationWarning.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
+    results = lint_file(Path("test.py"), code, config, index)
     assert len(results) == 2
     assert all(isinstance(r.rule, ForbiddenDeprecationWarning) for r in results)
 
 
-def test_forbidden_deprecation_warning_positional_args(index_path: Path) -> None:
+def test_forbidden_deprecation_warning_positional_args(index: SymbolIndex) -> None:
     code = """
 import warnings
 
@@ -76,6 +77,6 @@ warnings.warn("message", FutureWarning)
 warnings.warn("message")  # no category specified
 """
     config = Config(select={ForbiddenDeprecationWarning.name})
-    results = lint_file(Path("test.py"), code, config, index_path)
+    results = lint_file(Path("test.py"), code, config, index)
     assert len(results) == 2
     assert all(isinstance(r.rule, ForbiddenDeprecationWarning) for r in results)

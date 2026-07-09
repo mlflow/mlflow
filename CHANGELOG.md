@@ -1,5 +1,430 @@
 # CHANGELOG
 
+## 3.14.0 (2026-06-17)
+
+MLflow 3.14.0 includes several major features and improvements
+
+### Major New Features
+
+- **🚀 [One-command agent onboarding with `mlflow agent setup`](https://mlflow.org/docs/latest/genai/tracing/quickstart/)**: Install MLflow, set up tracing, and hand your favorite coding agent (Claude Code, OpenAI Codex, or OpenCode) the MLflow skills to instrument your app, all from a single command.
+- **⚡ [Durable, low-latency tracing for Claude Code](https://mlflow.org/docs/latest/genai/tracing/integrations/listing/claude_code)**: Roll out Claude Code tracing across a team with confidence: a write-ahead-log keeps it from slowing the agent, overwhelming the tracking server, or losing traces on a network blip or crash.
+- **📝 [Review Queues for traces](https://mlflow.org/docs/latest/genai/assessments/review-queues)**: Assign traces to reviewers (or agents) and collect structured feedback and ground-truth annotations in the UI, written straight back onto the trace so they are immediately usable for evaluation.
+- **🗂️ [Revamped evaluation dataset UI](https://mlflow.org/docs/latest/genai/datasets/)**: Browse, inspect, edit, and bulk-manage evaluation dataset records directly in the UI, with click-through to the source trace.
+- **🧪 [Pytest integration for regression testing](https://mlflow.org/docs/latest/genai/eval-monitor/regression-testing)**: Write GenAI regression tests as plain pytest functions with the `@mlflow.test` marker, gate them in CI, and review test history and per-assertion judge results in the UI.
+- **🎛️ [LLM Playground](https://mlflow.org/docs/latest/genai/prompt-registry/playground)**: Iterate on prompts in the browser against your AI Gateway endpoints and Prompt Registry versions, with settings, tools, structured output, and template variables.
+
+### Breaking Changes
+
+- [Models] Change `mlflow.sklearn` `serialization_format` default from `cloudpickle` to `skops` (#23987, @copilot-swe-agent)
+- [Models] Change `serialization_format` default to `"pt2"` for `mlflow.pytorch.log_model` and `mlflow.pytorch.save_model` (#23988, @copilot-swe-agent)
+- [Models] Change `serialization_format` default to `"skops"` in `mlflow.lightgbm` `log_model`/`save_model` (#23986, @copilot-swe-agent)
+
+### Other Assorted Features & Improvements:
+
+- [Evaluation / UI] [3/3] Show regression-test results in the existing eval-run UI (#23985, @B-Step62)
+- [Prompts / UI] Add "Save prompt to registry" action to the Prompt Playground (#24021, @B-Step62)
+- [Prompts] Prompt Playground (#23273, @TomeHirata)
+- [Evaluation] [2/3] Add `EvaluationResult.passed`/`.reason` for `@mlflow.test` assertions (#23869, @B-Step62)
+- [UI] Review queues: list the affected queues in the delete-question confirmation (#24002, @kriscon-db)
+- [UI] Add shareable review queue URLs with a `startReview` deep link (#23941, @harupy)
+- [UI] Allow editing a completed review in place in focus mode (#23967, @kriscon-db)
+- [Tracing] Add `x-mlflow-run-id` support to OTLP trace ingestion (#23664, @sanatb187)
+- [Evaluation / Tracing] [1/3] Add @mlflow.test pytest marker and assertion framework (#23864, @B-Step62)
+- [UI] Improve review queue empty states with onboarding content (#23903, @B-Step62)
+- [UI] Add `mlflow skills view/list` CLI (#23907, @joshuawong-db)
+- [UI] Improve review queue list: flat layout, sortable columns, status filter (#23902, @B-Step62)
+- [Tracing] Add `MLFLOW_WORKSPACE` support to OSS auth provider (#23927, @Nehanth)
+- [Gateway] Add cached token pricing to Databricks model catalog (#23901, @TomeHirata)
+- [Evaluation] Add `MLFLOW_GENAI_JUDGE_DEFAULT_MODEL` environment variable (#23860, @B-Step62)
+- [Evaluation] Wire "Run judge(s)" submission in "Run Eval" in Evaluations Run page to POST /mlflow/genai/evaluate/invoke (#23781, @aaronteo-db)
+- [Evaluation] Add rule-based built-in scorers: `RegexMatch`, `PIIDetection`, `ResponseLength` (#22571, @debu-sinha)
+- [Tracing] Support Databricks backend in `mlflow agent setup` (#23783, @harupy)
+- [Evaluation] Add POST /mlflow/genai/evaluate/invoke handler & job for UI-triggered eval runs (#23779, @aaronteo-db)
+- [Tracing] [Claude Code] Support UC trace location via `MLFLOW_TRACE_LOCATION` (#23770, @B-Step62)
+- [Tracing] [Codex] Support UC trace location via `MLFLOW_TRACE_LOCATION` (#23771, @B-Step62)
+- [Evaluation / Tracking] [3/N] Label schemas: handlers + SDK + REST client (#23603, @kriscon-db)
+- [Tracing / Tracking] Add `run_id` support for trace APIs (#23629, @sanatb187)
+- [Evaluation / UI] Dataset v2 port (#23560, @B-Step62)
+- [Evaluation / Tracking] Add OSS-native label schema entity, validation, and SQL store (#23597, @kriscon-db)
+- [Tracing] Support mapping gen_ai.conversation.id to MLflow trace session (#23584, @SahilKumar75)
+- [Tracing / UI] Added polling logic to live check and auto-refresh traces tab empty state with trace first ingestion (#23184, @vivian-xie-db)
+- [Tracing] Add MlflowWalSpanExporter to hand traces off to the WAL daemon (#23641, @aaronteo-db)
+- [Tracing] Support native UC trace ingestion from TypeScript SDK (#23562, @B-Step62)
+- [Evaluation] Add Google ADK LLM judge scorers (`Hallucination`, `Safety`, `ResponseEvaluation`) (#22496, @debu-sinha)
+- [Gateway] Add OpenAI `/responses/compact` passthrough route to AI Gateway (#23353, @id-jazzx)
+- [Gateway] Add 21 new models to Databricks model catalog (#23520, @TomeHirata)
+
+Bug fixes:
+
+- [Evaluation] Fix `ChrfScore` RAGAS scorer instantiation due to class name mismatch (#24047, @B-Step62)
+- [Tracing / Tracking] Map OpenAI Agents SDK guardrail spans to `SpanType.GUARDRAIL` (#24044, @B-Step62)
+- [UI] Surface review-question modal failures as toasts (#24035, @kriscon-db)
+- [Tracking] Prevent review queues from shadowing usernames (#24034, @kriscon-db)
+- [Tracking] Make review-queue names unique case-insensitively (defined at table creation) (#24015, @kriscon-db)
+- [Tracking / UI] Normalize review-queue add-items ids before the trace-existence check (#24029, @kriscon-db)
+- [UI] Scope review-queue permission UX gate to the active workspace (#24031, @kriscon-db)
+- [UI] Surface review-queue trace-removal failures and keep the selection on error (#24027, @kriscon-db)
+- [UI] Surface assignable-users load error in review-queue pickers (#24020, @kriscon-db)
+- [UI] Prefill review answers from the most recent assessment by timestamp (#24026, @kriscon-db)
+- [UI] Surface review-queue self-assign failures with an error toast (#24018, @harupy)
+- [Evaluation / Tracing] Fix genai.evaluate() dropping dataset expectations and tags with scorers=[] (#23957, @Incheonkirin)
+- [UI] Require at least one question when saving review queue settings (#24007, @harupy)
+- [UI] Send review-queue schema_ids only when the questions actually change (#24017, @kriscon-db)
+- [UI] Block saving a review when a previously-answered question is cleared (#24008, @kriscon-db)
+- [UI] Compare review-queue picker usernames case-insensitively (#24014, @kriscon-db)
+- [Tracking] Bind review-queue completed_by to the authenticated caller (#24006, @kriscon-db)
+- [UI] Fix non-functional JSON/Table toggle in the review queue full-trace explorer (#24005, @kriscon-db)
+- [UI] Surface review-queue deletion failures instead of swallowing them (#24004, @harupy)
+- [Tracing] Fix TS SDK traces storage when MLflow server uses a local FS artifact root without mlflow-artifacts:// uri schema (#23992, @aaronteo-db)
+- [UI] Show minute fidelity in the review-queue "Date added" column (#23993, @kriscon-db)
+- [UI] Review queues: show the optional rationale box in the question preview (#23995, @kriscon-db)
+- [Tracing] Set model provider in Anthropic autolog so LLM cost is computed (#23972, @B-Step62)
+- [Evaluation] Add missing `ContextUtilization` RAGAS scorer class (#23956, @B-Step62)
+- [UI] Refresh per-trace queue membership after adding/removing review-queue items (#23940, @kriscon-db)
+- [Gateway] Fix JSON response format for Gemini and Anthropic gateway providers (#23932, @tanghaoji)
+- [Tracking] Fix `metrics/get-history` returning empty results when `max_results` is omitted (#23917, @Vedant-Agarwal)
+- [UI] Auto-select default user queue on Review tab load (#23904, @B-Step62)
+- [UI] Require at least one answer before completing a focused review (#23923, @kriscon-db)
+- [Tracing / Tracking] Clean up review-queue items and assessment errors when a trace is deleted (#23913, @harupy)
+- [Evaluation / Tracing] Support common RETRIEVER chunk content fields (#23867, @sanatb187)
+- [Tracing / Tracking] Preserve OTel resource attributes during OTLP trace ingestion (#23829, @TomeHirata)
+- [Gateway] Fix AI Gateway SSE large-frame read limit (#23880, @yashjiv15-jazzx)
+- [Evaluation] Honor `OPENAI_BASE_URL` env var in OpenAI provider config (#23862, @B-Step62)
+- [Build] @mlflow/XXXX package root points to missing dist/index.js (#23874, @WeichenXu123)
+- [Build] Add auth extra for full docker image (#23892, @WeichenXu123)
+- [Artifacts] Return 404 for missing Azure blob artifacts (#23832, @feynmanliang)
+- [Tracking] Fix `_stop_listen_for_spark_activity` hanging indefinitely on CLOSE_WAIT socket (#23839, @kishor-rkrishnan)
+- [UI] Install Codex/OpenCode skills at `.agents/skills` (#23847, @harupy)
+- [Tracing / Tracking] Fix `mlflow.openai.autolog` span type resolution for `ChatCompletions` subclasses (#23759, @harupy)
+- [Tracking] Fix `mlflow db upgrade` on a fresh database (#23752, @harupy)
+- [Tracking] Expose workspace on experiment response (#23593, @joshuawong-db)
+- [UI] Handle missing clipboard API in insecure HTTP contexts (#23598) (#23601, @srinjoy356)
+- [Build / UI] Fix PDF artifact viewer `import.meta` SyntaxError (#23731, @harupy)
+- [Tracking] Fix `_parse_extra_conf` for HDFS config values containing `=` (#23730, @copilot-swe-agent)
+- [Prompts / UI] Hide experiment kebab on prompt details page (#23661, @harupy)
+- [Tracking] Enforce upload artifact size for chunked requests (#23712, @dfgvaetyj3456356-hash)
+- [Projects] Reject path traversal in project zip extraction (#23713, @dfgvaetyj3456356-hash)
+- [Tracking] Prefer routed ASGI paths in FastAPI auth checks. (#23685, @HumairAK)
+- [Tracing / Tracking] Restore `mlflow.crewai` autolog on crewai 1.14.5 (#23682, @harupy)
+- [Tracing] Unwrap JSON-encoded `session.id` / `user.id` span attributes on ingest (#23642, @SahilKumar75)
+- [Evaluation / Tracing / UI] Forward OpenAI custom base URL in Detect Issues flow (#23650, @harupy)
+- [Tracking] Add ON DELETE CASCADE relationship for `SqlTraceInfo` to `SqlExperiment` (#23194, @Mytolo)
+- [Tracing] Extend `mlflow.sourceRun` metrics filter to cover post-hoc linked OTLP traces (#23591, @RudraDudhat2509)
+- [Tracing] UI does not show Judge costs (#23586, @WeichenXu123)
+- [Tracking] [Security] Register auth validator for /ajax-api/3.0/mlflow/get-trace-artifact (#23317, @B-Step62)
+- [Tracing] Fix pydantic-ai >= 1.78.0 ToolManager module rename (#23508) (#23528, @kishor-rkrishnan)
+- [UI] Add `.jsonl` artifact previews (#23532, @bvolpato)
+- [Tracking] Disable credentialed CORS when wildcard origins are configured (#23178, @B-Step62)
+- [Evaluation] Fix judge fallback on event-based traces grading itself (#23445, @james-fletcher-db)
+
+Documentation updates:
+
+- [Docs / Evaluation] Add docs page for `@mlflow.test` pytest regression testing (#24011, @B-Step62)
+- [Docs] Fix `make_judge` doc: self-referential deprecation note and link typo (#24046, @B-Step62)
+- [Docs] Add documentation for review queues and label schemas (#23975, @kriscon-db)
+- [Docs] Surface mlflow agent setup in docs (#23859, @joshuawong-db)
+- [Docs] Document MLFLOW_STATIC_PREFIX behavior change in migration guide (#23851, @Sanket2329)
+- [Docs] Add Colab warning in Quickstart Step 4 (#23831, @Farzah11)
+- [Docs] Fix undefined generate_response in tracing docs (#23814, @llljjjwww333)
+- [Docs / Tracing] Use CLI for Claude Code plugin install in docs (#23679, @harupy)
+- [Docs / Models] Deprecate `validate_serving_input` in favor of `mlflow.models.predict` (#23376, @B-Step62)
+- [Docs] Fix incorrect output comment for best_run.info in tracking docs (#23571, @Aksh123100)
+
+Small bug fixes and documentation updates:
+
+#24045, #24042, #24024, #24023, #23969, #23970, #23961, #23964, #23963, #23866, #23729, #23670, #23310, #23294, @B-Step62; #24022, #24019, #23937, #23758, #23737, #23735, #23605, #23579, #23545, #23511, #23526, @aaronteo-db; #24025, #24003, #23996, #23915, #23912, #23882, @kevin-lyn; #23910, #23994, #23990, #23974, #23984, #23934, #23935, #23946, #23938, #23931, #23925, #23921, #23924, #23846, #23926, #23844, #23886, #23887, #23885, #23884, #23878, #23879, #23876, #23875, #23807, #23804, #23801, #23799, #23795, #23604, #23599, #23613, @kriscon-db; #23997, #23834, #23853, #23823, #23780, #23630, #23614, @joshuawong-db; #23947, #23920, #23858, #23848, #23845, #23841, #23840, #23838, #23837, #23803, #23827, #23826, #23824, #23806, #23802, #23798, #23796, #23788, #23595, #23776, #23764, #23745, #23743, #23742, #23740, #23739, #23718, #23711, #23710, #23708, #23700, #23699, #23697, #23684, #23677, #23672, #23671, #23669, #23668, #23667, #23666, #23663, #23653, #23644, #23643, #23639, #23640, #23638, #23636, #23632, #23631, #23626, #23625, #23618, #23606, #23596, #23588, #23585, #23582, #23581, #23580, #23576, #23573, #23567, #23566, #23565, #23563, #23558, #23553, #23552, #23523, #23506, #23498, @harupy; #23893, @debu-sinha; #23722, @kishor-rkrishnan; #23833, #23741, #23732, #23727, @TomeHirata; #23769, @mprahl; #23589, @charlesverge; #23690, @pvelayudhan; #23658, @copilot-swe-agent; #23540, @jamesbraza
+
+## 3.13.0 (2026-05-29)
+
+MLflow 3.13.0 includes several major features and improvements
+
+### Major New Features
+
+- **🔐 [Role-Based Access Control & Admin UI](https://mlflow.org/docs/latest/self-hosting/security/role-based-access-control)**: A full RBAC system with reusable roles and workspace-scoped grants, plus a new web Admin UI for managing users, roles, and permissions on self-hosted MLflow.
+- **🗄️ [Trace Retention & Auto Archival](https://mlflow.org/docs/latest/genai/tracing/observe-with-traces/archive-traces)**: Automatically move aged trace span data out of your SQL backend into object storage (e.g. S3) while keeping every trace fully readable in the UI and APIs.
+- **🤖 [One-click observability & governance for coding agents](https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/)**: Onboard Claude Code, OpenAI Codex, or Gemini CLI to the AI Gateway in one click for tracing, usage tracking, budgets, and guardrails.
+- **✨ [New engines for MLflow Assistant](https://mlflow.org/docs/latest/genai/getting-started/try-assistant/)**: Run MLflow Assistant on a local Ollama model, the OpenAI Codex CLI, or any MLflow AI Gateway endpoint, in addition to Claude Code.
+- **☸️ [Helm chart for Kubernetes](https://mlflow.org/docs/latest/self-hosting/kubernetes-helm)**: An official, production-ready Helm chart for deploying the MLflow tracking server to any Kubernetes cluster.
+- **🌐 [Hermes Agent support](https://mlflow.org/docs/latest/genai/governance/ai-gateway/coding-agents/hermes-agent)**: Route the Hermes Agent runtime through the AI Gateway and capture its end-to-end traces in MLflow over OpenTelemetry.
+- **🪵 [Span log levels](https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/logging)**: Python-`logging`-style severity levels on spans, with a "Minimum log level" filter in the trace UI to hide low-level noise.
+
+### Breaking Changes
+
+- The permission system has been overhauled into a unified Role-Based Access Control model. The legacy per-resource permission tables, REST endpoints, and client methods are removed and replaced by roles backed by `role_permissions`, `default_permission` now acts as a floor rather than an override, and a workspace `USE` grant is sufficient to create experiments and registered models. Code that relied on the old per-resource permission APIs must migrate to the new role-based APIs. (#22855, #22859, #22941, #23337, #23379, @PattaraS)
+- MLServer is no longer available as a pyfunc serving backend. The previously deprecated `enable_mlserver` option has been removed, so `mlflow models serve` always uses the built-in scoring server. (#23356, @harupy)
+- `mlflow autolog claude` no longer installs the old Python autolog hook; Claude Code tracing is now provided by the official Claude plugin, which must be installed separately. (#23339, @B-Step62)
+- The default optimizer used by `judge.align()` is now MemAlign, so existing alignment workflows may produce different judges than before unless an optimizer is passed explicitly. (#23254, @veronicalyu320)
+- Pointing the tracking or model registry store at a local file-system path now raises an error by default; set `MLFLOW_ALLOW_FILE_STORE=true` to keep using a file-based store. (#22773, @harupy)
+
+### Other Assorted Features & Improvements:
+
+- [Gateway] Support AI Gateway as a backend of MLflow Assistant (#23559, @B-Step62)
+- [UI] Make admin pickers target the workspace they're granting into (#23543, @PattaraS)
+- [UI] Bring direct-grant picker to parity with role picker (#23420, @PattaraS)
+- [UI] Cherry-pick: Add OpenAI Codex CLI as assistant provider (#22566) (#23517, @B-Step62)
+- [Tracing] Support settings.local.json for Claude Code tracing config (#23285, @Gkrumbach07)
+- [UI] Add coding-agent endpoint creation flow in AI Gateway UI (#23430, @TomeHirata)
+- [Tracking / UI] Unified per-user permission APIs: `grant` / `revoke` / `get` / `list` under `/mlflow/users/permissions/*` (#23247, @PattaraS)
+- [Evaluation / Tracing] Add `mlflow.genai.test_agent` for automated agent stress-testing (#22990, @serena-ruan)
+- [Gateway] Add /gateway/proxy/{endpoint_name}/{path} raw proxy endpoint (#23330, @TomeHirata)
+- [UI] Add Ollama as assistant provider (#22098, @SuperSonnix71)
+- [Model Registry / Tracking] feat(tracking): Add reader/writer instance routing for database replicas (#22910, @ravidarbha)
+- [Tracing / Tracking] Add workspace trace archival configuration plumbing (#22164, @HumairAK)
+- [Prompts / Tracking] Promote `prompt` to a first-class RBAC `resource_type` (#23248, @PattaraS)
+- [Tracing] Publish claude code integration as a plugin and add a setup wizard. (#23218, @B-Step62)
+- [UI] Forward Usage tab MetricsFilter metric filters to chart View traces links by translating to Traces page URL DSL (#23239, @aaronteo-db)
+- [Tracing] Claude Code Agent Typescript (#20414, @joelrobin18)
+- [UI] Adding metric filter component for Experiment Usage tab (#23120, @aaronteo-db)
+- [Tracing] Add `Link` entity and `LiveSpan.add_link()` for OpenTelemetry Span Links (#22797, @khaledsulayman)
+- [Docs / Evaluation] Add Google ADK and third-party scorers (#22299, @debu-sinha)
+- [UI] Open `/admin` to workspace managers (scoped per their workspace) (#23086, @PattaraS)
+- [Tracing] Trace `Runner.run_streamed()` in OpenAI Agents SDK autolog (#22962, @ktrk115)
+- [Tracking] Feature/sagemaker build network option (#22996, @pdifranc)
+- [Docs / Tracing / UI] Add log levels for Trace Spans with UI switch to filter (#23017, @rrtheonlyone)
+- [Tracing / UI] Improve trace page empty state onboarding with setup and code blocks (#22533, @vivian-xie-db)
+- [Tracing / Tracking] Add UC traces upsell message for set_experiment calls on Databricks (#23038, @xsh310)
+- [Server-infra / UI] [Admin-UI-3/4] Add Platform Admin pages (#22929, @PattaraS)
+- [UI] [Admin-UI-2/4] Add /account page and bottom-left account widget (#22973, @PattaraS)
+- [Build] Add Helm charts for deploying mlflow to kubernetes cluster (#21973, @WeichenXu123)
+- [Tracking] Fix Databricks unified auth support when MLFLOW_ENABLE_DB_SDK=true (#20599, @vb-dbrks)
+- [Tracking] [Admin-UI-1/4] Add backend auth endpoints (#22928, @PattaraS)- [Evaluation] Support multiple assessments per trace in MemAlign optimizer (#22846, @veronicalyu320)
+- [Docs / Model Registry / Prompts] Include `workspace` in webhook delivery envelopes when workspaces are enabled (#22873, @copilot-swe-agent)
+- [Server-infra] Seed default RBAC roles and grant creator on workspace creation (#22857, @PattaraS)
+
+Bug fixes:
+
+- [UI] Warn on submit with an unsaved direct-grant draft (#23612, @PattaraS)
+- [Tracing] Clear archive-now requests for non-archivable leftovers (#23655, @HumairAK)
+- [Tracking] Forward MLflow client telemetry from inside Databricks workloads (#23483, @smoorjani)
+- [UI] Drop the vestigial `directPermissions` parallel pass; hide synthetic `__user_<id>__` roles on Account/UserDetail (#23578, @PattaraS)
+- [Gateway] Tighten response format JSON schema type (#23290, @fenil210)
+- [Tracking] fix(tracking): return `<console>` for `mlflow.source.name` when `sys.argv[0]` is empty (#23352, @xodn348)
+- [Scoring] Fix UnicodeEncodeError on artifact download with non-ASCII filename (#23241, @1fanwang)
+- [Artifacts / UI] Preserve pdfjs-dist bundles in webpack build (`craco.config.js`) (#23349, @B-Step62)
+- [Tracking] Improve misleading DB SDK auth error (#23374, @B-Step62)
+- [Tracing] Make `mlflow.get_trace` V4 retry policy configurable (#23443, @artjen)
+- [Tracking] Release `_post_import_hooks_lock` before firing hooks (#23466, @harupy)
+- [Model Registry / Prompts] RBAC: extend `prompt` resource_type to after-request handlers (#23426, @PattaraS)
+- [Evaluation] Surface mlflow version mismatch when deserializing scorers (#23215, @smoorjani)
+- [Tracing] Ship compiled `dist/` in @mlflow/mlflow-openclaw so `openclaw plugins install` works (#23220, @B-Step62)
+- [Tracing] Fix ended `LiveSpan` state mutation (#23152, @SahilKumar75)
+- [Gateway] Fix `AmazonBedrockProvider._build_converse_kwargs` tool-call history and validation for Bedrock Converse (#23223, @copilot-swe-agent)
+- [UI] fenil-fix: experiment name error (#23199, @fenil210)
+- [Tracking] Add workspace isolation on scorers when creating a guardrail (#23115, @mprahl)
+- [Evaluation] [Security] Add `MLFLOW_ALLOW_PICKLE_DESERIALIZATION` guard to `PickleEvaluationArtifact` (#23183, @TomeHirata)
+- [UI] Fix `getExperimentNameValidator` showing incorrect "deleted state" error for active experiments (#23169, @copilot-swe-agent)
+- [Tracking] Fix `runs:/<run_id>/<model_name>` loading by resolving logged-model artifacts via `models:/<model_id>` (#23130, @copilot-swe-agent)
+- [Gateway] Fix Vertex AI gateway to use Anthropic API format for Claude models (#23175, @TomeHirata)
+- [Tracing] Fix invalid stop-hook command when using `pixi` environment manager (#23030, @copilot-swe-agent)
+- [Gateway] Fix MySQL-incompatible `NULLS LAST` syntax in `list_endpoint_guardrail_configs` (#23168, @copilot-swe-agent)
+- [Evaluation] `gateway`: honor Anthropic `api_base` from secret `auth_config` (#23167, @copilot-swe-agent)
+- [Gateway] Fix nested array items being stripped from function tool schemas (#23053, @shyamspr)
+- [Tracing / Tracking] Fix OTLP trace ingestion: double-encoded request ID and missing trace tags (#23067, @sairavuri-sudo)
+- [Gateway] Add per-image/video/audio pricing to `amazon.nova-2-multimodal-embeddings-v1:0` in Bedrock catalog (#23117, @copilot-swe-agent)
+- [Evaluation] Skip re-alignment of unchanged traces in `MemAlignOptimizer` (#23008, @veronicalyu320)
+- [Tracing] Fix trace API authorization vulnerability (#23014, @TomeHirata)
+- [Models] Fix `sentence_transformers` pyfunc predict for v5.4+ (#23108, @harupy)
+- [Tracing / UI] Fix grouped trace session counts in the UI (#23012, @lavaFreak)
+- [Tracing] Fix Azure OpenAI streaming usage tracing (#23036, @Genmin)
+- [Tracing] Add `session_count` trace metric for grouped traces (#23011, @lavaFreak)
+- [Evaluation] Fix `gateway_adapter` not forwarding workspace header to judge endpoints (#23047, @sairavuri-sudo)
+- [Scoring] Use `TaskContext.artifactDir` to get the correct unpacked artifacts directory (#22969, @WeichenXu123)
+- [Models / Tracking] Add `MLFLOW_SKIP_PIP_REQUIREMENTS_CHECK` env var to bypass pip validation in air-gapped environments (#22920, @copilot-swe-agent)
+- [Tracking] Aggregate role-based grants in workspace-level permission checks (#22954, @PattaraS)
+- [UI] Fix unclickable "View logs for this period" link in `ScrollableTooltip` when many data series are shown (#22917, @copilot-swe-agent)
+- [Tracking] Fix `delete_user` FK constraint failure when user has dependent rows (#22922, @PattaraS)
+- [Tracing] Preserve cache_read tokens in `@mlflow/claude-code` TypeScript plugin for cache observability (#22906, @dgokeeffe)
+- [Tracing] Add OpenClaw tracing plugin (#22717, @B-Step62)
+- [UI] Fix uncaught rejection in `CreateBudgetPolicyModal` submit (#22903, @PattaraS)
+
+Documentation updates:
+
+- [Tracing] Clarify trace archival max-traces behavior. (#23656, @HumairAK)
+- [Docs] docs: fix admonition rendering broken by Docusaurus 3.10 (#23635, @B-Step62)
+- [Docs / Tracing] Refresh Claude Code tracing docs and split Claude Agent SDK page (#23633, @B-Step62)
+- [Tracing] Document trace archival setup and behavior. (#23371, @HumairAK)
+- [Docs] docs: add Role-Based Access Control page; refresh permissions docs (#23133, @PattaraS)
+- [Docs] Update `codex.mdx` to use Codex `openai_base_url` config (CLI + `~/.codex/config.toml`) (#23272, @copilot-swe-agent)
+- [Docs] Fix `ANTHROPIC_BASE_URL` example in Claude Code gateway docs (#23269, @copilot-swe-agent)
+- [Docs] Add trace integrations docs for n8n and Openweb UI (#23249, @WeichenXu123)
+- [Docs / Tracing] Docs: add Hermes Agent AI Gateway and tracing guides (#23216, @B-Step62)
+- [Docs] Fix webhook auth endpoint placeholders in `basic-http-auth.mdx` (#23198, @copilot-swe-agent)
+
+Small bug fixes and documentation updates:
+
+#23637, #23405, #23181, #23673, #23659, #23293, #23440, #23441, #23127, #23182, #23179, #23180, #22992, @B-Step62; #23557, @AayushShah-904; #23594, #23592, #23583, #23496, #23417, #23415, #23414, #23413, #23412, #23410, #23409, #23408, #23407, #23406, #23399, #23398, #23452, #22861, #22933, #22888, @PattaraS; #23531, #23282, #23281, #23280, #23279, #23278, #23277, #23276, #23275, #23274, #23173, #23189, #23174, #23171, @TomeHirata; #23495, #23447, #23448, #23422, #23360, #23322, #23316, #23313, #23085, #23304, #23268, #23084, @kriscon-db; #23494, #23493, #23489, #23473, #23470, #23468, #23467, #23463, #23461, #23459, #23462, #23457, #23454, #23450, #23449, #23427, #23428, #23424, #23411, #23395, #23391, #23390, #23388, #23387, #23386, #23385, #23383, #23380, #23381, #23373, #23372, #23361, #23357, #23354, #23351, #23348, #23343, #23342, #23331, #23321, #23320, #23318, #23315, #23307, #23297, #23288, #23286, #23283, #23262, #23264, #23256, #23260, #23255, #23240, #23228, #23234, #23233, #23230, #23227, #23207, #23203, #23206, #23197, #23187, #23185, #23177, #23166, #23157, #23156, #23154, #23155, #23153, #23149, #23148, #23143, #23142, #23141, #23140, #23135, #23134, #23132, #23131, #23129, #23126, #23123, #23122, #23118, #23112, #23110, #23107, #23105, #23093, #23090, #23010, #23088, #22999, #22998, #22988, #22989, #22987, #22986, #22981, #22975, #22960, #22958, #22602, #22937, #22923, #22912, #22907, #22908, #22898, #22894, #22893, #22892, #22889, #22887, #22886, @harupy; #23423, #23464, #23287, @aaronteo-db; #23368, @ynachiket; #23366, @mprahl; #23363, #23333, #23136, #23005, #22777, #22934, #22605, #22497, #22256, @HumairAK; #22832, @james-fletcher-db; #23214, @SomtochiUmeh; #23224, #23103, #23101, #22959, #22924, @copilot-swe-agent; #22977, @4binas; #22961, #22955, @serena-ruan; #22865, @iis-MarkKuang; #22799, @artjen
+
+## 3.12.0 (2026-05-04)
+
+MLflow 3.12.0 includes several major features and improvements
+
+### Major New Features
+
+- **🖼️ Multimodal Tracing**: Users can now store multimodal content in tracing spans as artifact attachments instead of inline binary data. We've also patched the UI to support the new mlflow-attachment:// style URI, with rich rendering available for PDFs, audio, and images.
+- **🤖 Codex, Gemini, Qwen coding agent tracing support**: Similar to our Claude Code tracing integration, we've now added support for the Codex, Gemini, and Qwen coding agent platforms as well!
+- **🛡️ Gateway guardrails**: You can now set guardrails on your gateway endpoints to prevent unsafe or non-compliant model inputs and outputs. Try it out in the MLflow UI!
+- **⚡ Trace table pagination**: The traces tab is now paginated, rather than fetching all traces up to a limit of 1000. This improves initial load time, and makes the page feel more responsive overall.
+
+### Breaking Changes
+
+- [Scoring] Deprecate `enable_mlserver` in pyfunc serving backend (#22994, @B-Step62)
+
+### Other Assorted Features & Improvements:
+
+- [UI] Add coding agents section to AI Gateway quick start (#23006, @TomeHirata)
+- [Tracing] feat: record caller in gateway traces from request headers (#22926, @TomeHirata)
+- [] Run guardrails on passthrough endpoints; skip `response_format` for non-chat payloads (#22856, @TomeHirata)
+- [] Gateway: preserve client auth header for subscription-based CLI tools (`claude-cli`, `Codex-Desktop`, `GeminiCLI`) (#22915, @TomeHirata)
+- [Tracing] Expose Codex and Qwen Code hooks as installable CLI binaries (#22853, @kriscon-db)
+- [Tracking / UI] Add Portkey as a supported AI Gateway provider (#22830, @sairavuri-sudo)
+- [Tracking] Cache successful basic-auth credential checks to eliminate per-request PBKDF2 (#22817, @PattaraS)
+- [] Add `last_updated_at` field to model catalog entries (#22838, @copilot-swe-agent)
+- [Evaluation] Enable third-party scorer registration in OSS MLflow (#22634, @smoorjani)
+- [] Add platform-side telemetry fields to Gateway invocation and budget events (#22557, @PattaraS)
+- [Tracing] Auto-start SQL warehouse before V4/V5 MLflow tracing calls (#22798, @artjen)
+- [Tracing] Migrate Claude Code tracing to TypeScript-based plugin for simpler installation and runtime handling. (#22338, @B-Step62)
+- [Tracing] Add TypeScript Qwen Code tracing via Stop hook (#22411, @kriscon-db)
+- [] Support `model_kwargs` in DeepEval scorers for LLM parameter control (#22494, @debu-sinha)
+- [] Add Application Default Credentials auth mode for Vertex AI gateway (#22754, @harupy)
+- [UI] Reorganize Settings into section-based routing with sub-sidebar navigation (#22743, @serena-ruan)
+- [Tracing] Add TypeScript Codex CLI tracing via `notify` hook (#22410, @kriscon-db)
+- [Tracing / UI] Add Share button to trace detail view (#22608, @alkispoly-db)
+- [Docs / Models] Add `mlflow.diffusers` flavor for diffusion model LoRA adapters (#22253, @Rasaboun)
+- [Tracing] Add size limit for trace attachments (#22575, @kriscon-db)
+- [Tracing] Add `GeminiCliTranslator` for Gemini CLI OTLP span type mapping (#22409, @kriscon-db)
+- [Tracing] Add JSON OTLP encoding support for trace ingestion (#22408, @kriscon-db)
+- [Tracing] Extract `service.name` from OTLP resource attributes for usage telemetry (#22407, @kriscon-db)
+- [Tracing] Add MLflow tracing spans to guardrail execution in gateway (#22581, @TomeHirata)
+- [Tracing / UI] Add rendering size guards for large media content (#22574, @kriscon-db)
+- [Tracking] #21037 Add presigned upload URL endpoint for S3 artifact uploads (#21039, @henishborad)
+- [UI] Add Guardrails tab to endpoint editor (#22360, @TomeHirata)
+- [UI] Add click-to-expand modal for trace attachment images (#22461, @kriscon-db)
+- [UI] Enhance Gateway quick start cards with logos, multi-model options, and compact variant (#22513, @xq-yin)
+- [Tracing] Add @mlflow/vercel for better Vercel AI SDK tracing in Databricks UC (#22105, @dbrx-euirim)
+- [UI] [UI] Refactor API keys page: bulk delete, inline drawer editing, consistent list pattern (#22485, @xq-yin)
+- [] Add `Guardrail` base class and `JudgeGuardrail` implementation (#21964, @TomeHirata)
+- [Tracing] Add multimodal demo traces with synthetic image and audio data (#22465, @kriscon-db)
+- [] [FR] #22217 Add configurable provider allow/deny list to AI Gateway (#22291, @etirelli)
+- [UI] [UI] Add bulk duplicate and delete actions to AI Gateway endpoints table (#22404, @xq-yin)
+- [UI] Redesign endpoint details model section with unified Model card (#22376, @xq-yin)
+- [] Add `X-MLflow-Gateway-Duration-Ms` and `X-MLflow-Gateway-Overhead-Duration-Ms` response headers (#22229, @PattaraS)
+- [UI] Redesign AI Gateway endpoint details: Overview tab, starter code, and Try in Browser (#22284, @xq-yin)
+- [] Add guardrail proto definitions, server handlers, and REST store (#21962, @TomeHirata)
+- [Build] Add `aiohttp` as a core dependency of `mlflow` (#22189, @TomeHirata)
+- [] Add gateway guardrail DB layer: schema, store methods, and tests (#21960, @TomeHirata)
+- [UI] Add quick-start template cards to AI Gateway empty state (#22249, @xq-yin)
+- [Tracing / UI] Add freeform Notes section to trace assessments pane (#21676, @smoorjani)
+- [Tracing / UI] [UI] Improve traces table visual design and UX (#20424, @ridgupta26)
+- [UI] Improve Image Grid chart UX for multi-run image comparison (#22118, @Rasaboun)
+- [Models] Add `base_model_path` parameter to save PEFT adapter-only with local base model reference (#22052, @rpathade)
+- [Tracking] Add `mlflow db move-resources` command to move resources between workspaces (#21263, @mprahl)
+- [Tracking] feat(tracking): Add composite index on metrics (run_uuid, key, step) (#21727, @ravidarbha)
+
+Bug fixes:
+
+- [Tracing / Tracking] Redact presigned URL credentials in urllib3 retry logs (#22995, @B-Step62)
+- [Tracing] Fix assessment logging silently dropped in distributed tracing (#22963, @serena-ruan)
+- [] Filter `_list_budget_windows` results by active workspace when request is workspace-scoped (#22885, @copilot-swe-agent)
+- [Models / Scoring] Fix uv custom index URLs omitted from model `requirements.txt` (#22921, @serena-ruan)
+- [Tracing / UI] Set `mlflow.message.format` on gateway passthrough spans to enable Chat tab (#22916, @TomeHirata)
+- [Server-infra] Add RBAC regression tests + gateway validator fix (#22862, @PattaraS)
+- [Server-infra] Include role-based grants in `list_accessible_workspace_names` (#22864, @PattaraS)
+- [Tracing] Preserve cache_read tokens in claude_code tracing for cache observability (#22683, @dgokeeffe)
+- [Tracing] Fix `InferenceTableSpanProcessor` init for opentelemetry-sdk 1.41.0 (#22867, @harupy)
+- [UI] Fix audio artifact viewer failing in non-default workspaces (#22811, @harupy)
+- [Tracking] Fix O(n^2) body buffering in `WSGIMiddleware` for large uploads (#22729, @harupy)
+- [Tracking] Propagate `workspace_id` as `X-Databricks-Org-Id` header for SPOG support (#22554, @B-Step62)
+- [UI] Fix sessions pagination not auto-loading after virtualizer settles (#22808, @daniellok-db)
+- [Tracing] Fix `_get_token_usage` dropping zero-valued token counts (#22748, @copilot-swe-agent)
+- [Tracing] Fix `_get_token_usage` dropping cache token fields (#22818, @harupy)
+- [UI] Remove rendering size guards from artifact image and video views (#22816, @kriscon-db)
+- [UI] Disable `Create Guardrail` in `AddGuardrailModal` until a `Guardrail Model` endpoint is selected (#22766, @copilot-swe-agent)
+- [UI] Disable `Guardrails` tab in `EditEndpointFormRenderer` when `endpoint.experiment_id` is null, refresh i18n messages, and fix JS type-check follow-ups (#22757, @copilot-swe-agent)
+- [] Fix OPENAI_API_KEY requirement when guardrails use gateway:/ judge model (#22769, @TomeHirata)
+- [Tracking] Fix ABFSS URI double-encoding in `_parse_abfss_uri` (#22759, @artjen)
+- [UI] Persist immediate gateway usage-tracking updates and preserve dirty edits in `useEditEndpointForm` (#22734, @copilot-swe-agent)
+- [] Fix Vertex AI gateway `global` location handling for Gemini 3 models (#22696, @harupy)
+- [Tracing] Fix `ValueError: Circular reference detected` crash in `dump_span_attribute_value` (pydantic_ai autolog) (#22693, @barry3406)
+- [Tracing] Add Bedrock Converse models to model catalog (#22515, @ajgassner)
+- [Tracing] Fix incorrect cost calculation for Anthropic cached requests (#22516, @ajgassner)
+- [UI] Disable Create button when experiment name is empty (#22649, @ssam18)
+- [Tracing] Fix `AsyncHttpxClientWrapper` `AttributeError` by avoiding `deepcopy` in `TraceJSONEncoder` (#22742, @harupy)
+- [Evaluation] Fix JSON parsing failure for judge model responses containing newlines (#22736, @harupy)
+- [Evaluation] Fix non-ASCII characters being escaped in judge template variables (#22728, @harupy)
+- [Tracking] Fix pandas 3.x `datetime64` resolution compatibility in `cast_df_types_according_to_schema` (#22705, @copilot-swe-agent)
+- [Tracing] Fix conversation simulator adding wrapper span that breaks custom scorers (#21321, @B-Step62)
+- [] Fix Bedrock tool-use chat response parsing (#22677, @lavaFreak)
+- [UI] Fix AI Gateway provider dropdown by flattening OpenAI / Azure OpenAI (#22701, @harupy)
+- [Evaluation / Tracing] Preserve `predict_fn` signature in simulation turn tracing (#22610, @rogalski)
+- [Tracing / Tracking] fix: Extract `cached_tokens` in OpenAI streaming responses to correct cost tracking (#22620, @Rishabh-git10)
+- [Tracing / UI] Auto-select first endpoint and API key in issue detection modal (#22633, @serena-ruan)
+- [Model Registry] Use SQL `MAX()` in `create_model_version` instead of loading all rows (#22635, @neolunar7)
+- [Tracing] Add modality/tool pricing extraction to `dev/update_model_catalog.py`, backfill `anthropic.json` / `gemini.json`, and skip `reasoning` modality pricing (#22699, @copilot-swe-agent)
+- [Tracing] Fix pydantic-ai `run_stream_sync` autologging broken by `AgentSpec` forward reference in `_returns_sync_streamed_result` (#22666, @copilot-swe-agent)
+- [UI] Unify execution duration cell rendering in session header rows (#22631, @daniellok-db)
+- [] Implement guardrail execution in gateway API handlers (#22306, @TomeHirata)
+- [Tracing / Tracking] Fast-path trace-id search in frontend to avoid `spans.content` scan (#22433, @harupy)
+- [UI] Fix tag cutoff in prompts table (#22507, @nananosirova)
+- [Scoring] Fix pandas 3.0 `StringDtype` mismatch in `cast_df_types_according_to_schema` (#22537, @copilot-swe-agent)
+- [Tracing] Fix exception propagation in `@mlflow.trace` within `@trace_disabled` context (#22501, @harupy)
+- [UI] [UI] Show header and breadcrumb on gateway usage page when no endpoints exist (#22445, @xq-yin)
+- [Model Registry] Fix performance degradation for single-tenant installation (#22405, @abaland)
+- [UI] Render attachments inline in Details & Timeline span view (#22451, @kriscon-db)
+- [UI] Skip markdown rendering for oversized chat content to prevent browser freezes (#22464, @kriscon-db)
+- [UI] Render attachment images embedded in complex JSON structures (#22462, @kriscon-db)
+- [UI] Handle `input_file` content type in Responses API chat rendering (#22466, @kriscon-db)
+- [UI] Fall back to OpenAI parser for LangChain traces with OpenAI-format data (#22456, @kriscon-db)
+- [UI] Combine multi-part Responses API input into a single chat message (#22459, @kriscon-db)
+- [UI] Render text content before audio parts in chat messages (#22460, @kriscon-db)
+- [Tracing] Handle Gemini SDK bytes repr format in `inline_data` extraction (#22453, @kriscon-db)
+- [UI] Show all output fields alongside attachment renderings in summary view (#22449, @kriscon-db)
+- [UI] Handle single dict `contents` in Gemini chat input normalization (#22455, @kriscon-db)
+- [UI] Fix audio player not loading on first render in attachment view (#22450, @kriscon-db)
+- [UI] Allow Gemini chat rendering when `role` field is omitted (#22454, @kriscon-db)
+- [Evaluation] Add server side check for registering custom scorer (#22381, @WeichenXu123)
+- [UI] [UI] Cache gateway provider/model queries to eliminate redundant fetches (#22440, @xq-yin)
+- [Tracing] Eager-load trace relationships in `search_traces` (#22431, @harupy)
+- [Model Registry] Fix cross-workspace `copy_model_version` failure caused by `get_logged_model` call (#22262, @TomeHirata)
+- [UI] [UI] Fix endpoint details to display all API keys for multi-model endpoints (#22406, @xq-yin)
+- [UI] Fix tag cutoff in experiments table (#21871, @nananosirova)
+- [Tracking] Fix `rename_experiment` in `SqlAlchemyStore` to enforce 500-char name limit (#22418, @copilot-swe-agent)
+- [Tracking] Fix download_artifacts and list_artifacts returning wrong status for missing artifacts (#22310, @Karim-siala)
+- [Docs / Tracing] Enable async trace logging by default for OSS MLflow (#22304, @PattaraS)
+- [UI] Show Save/Cancel buttons only when endpoint has unsaved changes (#22367, @xq-yin)
+- [UI] Remove `mp4` from `AUDIO_EXTENSIONS` to fix video artifact preview (#22350, @copilot-swe-agent)
+- [Evaluation] Fix `MetaPromptOptimizer` failing on prompts with no template variables (#22301, @alkispoly-db)
+- [Prompts / UI] Fix misleading placeholder text in `PromptsListFilters` (#22321, @copilot-swe-agent)
+- [Evaluation] Fix `make_judge` with `bool`/numeric types not reporting aggregated metrics in `evaluate()` (#22302, @alkispoly-db)
+- [UI] Fix dark mode CSS not consistently applied in compare runs page (#22254, @DaoDaoNoCode)
+- [Tracking] Fix 500 error in `start_trace` when merging traces with existing metrics (#22257, @alkispoly-db)
+- [Model Registry / Tracing / Tracking] Fix `_all_tables_exist` to derive `expected_tables` from `Base.metadata` dynamically (#22128, @copilot-swe-agent)
+- [UI] Hide 'Show more columns' button when runs are selected (#21867, @nananosirova)
+- [Evaluation] Support `T | None` as top-level `feedback_value_type` in `make_judge` (#22201, @copilot-swe-agent)
+- [UI] Fix dataset details drawer: local source display, profile parsing, broken link (#22143, @Rasaboun)
+- [Tracking] Fix `--static-prefix` not applied to `/api/` REST routes (#22159, @TomeHirata)
+- [Tracing / Tracking] Map user.id span attribute to mlflow.trace.user during OTel ingestion (#22150, @ajgassner)
+
+Documentation updates:
+
+- [Docs] Docs: Add AI Gateway CLI Tools pages (Claude Code, Codex, Gemini CLI) (#22918, @TomeHirata)
+- [Docs / Tracing / UI] Add documentation for Codex CLI, Gemini CLI, and Qwen Code tracing (#22412, @kriscon-db)
+- [Docs] Add Live Demo documentation page for demo.mlflow.org (#22840, @serena-ruan)
+- [Docs] Docs: Adds Middleware in the tracing section for integrated observability platforms (#22791, @luharshekhar2000-dot)
+- [Docs / UI] Rename guardrail stage terminology to `Pre-LLM` / `Post-LLM` across `guardrail_utils.py`, Gateway API, UI, docs, and `guardrailValidation.ts` (#22767, @copilot-swe-agent)
+- [Docs] Fix `EvaluationDataset` type references in GenAI datasets docs (#22761, @harupy)
+- [Docs] docs: add guardrails documentation for AI Gateway (#22577, @TomeHirata)
+- [] Allow different PGPORT in docker compose (#22646, @riklopfer)
+- [Docs] Remove `docs/docs/genai/governance/ai-gateway/legacy/*` and redirect legacy AI Gateway routes to `ai-gateway/index` (#22579, @copilot-swe-agent)
+- [Docs] Remove unused parameter from `invocation()` function example in manual tracing docs (#22524, @prithvipal)
+- [Docs] Document `uv run --frozen` flag for offline/no-network usage in `CLAUDE.md` (#22505, @copilot-swe-agent)
+- [Docs] Add documentation for multimodal trace attachments (#21783, @kriscon-db)
+- [Docs] Add AI Gateway Performance & Benchmarks docs page (#22390, @copilot-swe-agent)
+- [Docs] Update changelog for 3.11.0 release (#22394, @WeichenXu123)
+
+Small bug fixes and documentation updates:
+
+#22993, #22978, #21482, #21321, #22559, #21319, #22483, #22346, #22091, @B-Step62; #22919, #22925, #22854, #22821, #22786, #22820, #22615, #22819, #22781, #22703, #22565, #22200, #22193, @serena-ruan; #22869, #22863, #22843, #22839, #22837, #22815, #22765, #22762, #22749, #22708, #22486, #22481, #22471, #22401, #22366, #22278, #22281, @harupy; #22848, #22775, #22764, #22763, #22772, #22527, #22435, #22358, #22357, #22356, #22355, #22261, #22259, #22202, #22234, #22243, @TomeHirata; #22824, @vinh412; #22805, #22804, #22803, #22802, #22801, #22800, #22447, #22632, #22735, #22697, #22691, #22508, #22628, #22567, #22482, #22441, #22273, #22272, #22190, #22434, #22154, #22147, #22144, #22268, #22241, #22187, #22074, @daniellok-db; #22557, #22722, #22807, #22721, #22558, #22589, #22319, #22145, #21789, @PattaraS; #22825, #22783, #22789, #22787, #22784, #22782, #22757, #22771, #22770, #22758, #22756, #22755, #22744, #22737, #22715, #22718, #22714, #22713, #22711, #22710, #22707, #22704, #22700, #22692, #22686, #22690, #22689, #22688, #22684, #22685, #22682, #22670, #22669, #22668, #22667, #22664, #22663, #22662, #22655, #22657, #22659, #22601, #22580, #22578, #22576, #22563, #22550, #22549, #22548, #22547, #22545, #22544, #22541, #22540, #22539, #22538, #22511, #22532, #22529, #22528, #22526, #22523, #22525, #22519, #22518, #22517, #22514, #22512, #22509, #22510, #22506, #22504, #22490, #22488, #22480, #22478, #22477, #22470, #22468, #22443, #22438, #22436, #21203, #22417, #22403, #22413, #22399, #22395, #22391, #22392, #22388, #22379, #22348, #22347, #22343, #22341, #22342, #22340, #22339, #22337, #22330, #22329, #22328, #22316, #22309, #22305, #22250, #22207, #22204, #22198, #22177, #22174, @copilot-swe-agent; #22795, @rollyjoel; #22629, #22730, #22614, #22573, #22334, #22502, #22448, #22196, #22263, #22186, #22185, #22184, #21956, #22183, #22246, #21955, @kriscon-db; #22627, #22238, @xsh310; #22295, #22212, @smoorjani; #22463, #22370, #22365, #22240, #22226, @xq-yin; #22473, #22439, #22437, @WeichenXu123; #22387, #21419, @mprahl; #22382, #22373, @SeldonAi; #21848, @alkispoly-db; #22160, @amotl
+
 ## 3.11.1 (2026-04-07)
 
 MLflow 3.11.1 includes several major features and improvements.

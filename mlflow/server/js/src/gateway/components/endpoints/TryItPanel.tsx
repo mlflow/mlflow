@@ -1,4 +1,4 @@
-import { Button, Tooltip, Typography, useDesignSystemTheme, Input } from '@databricks/design-system';
+import { Button, InfoTooltip, Typography, useDesignSystemTheme, Input } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
@@ -88,11 +88,7 @@ export const TryItPanel = ({
               <Typography.Text bold>
                 <FormattedMessage defaultMessage="Request" description="Request body label" />
               </Typography.Text>
-              <Tooltip componentId={componentId} content={requestTooltipContent}>
-                <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Request help">
-                  ?
-                </span>
-              </Tooltip>
+              <InfoTooltip componentId={componentId} content={requestTooltipContent} />
             </div>
             <Input.TextArea
               componentId="mlflow.gateway.usage-modal.try-it.request"
@@ -119,7 +115,7 @@ export const TryItPanel = ({
               <Typography.Text bold>
                 <FormattedMessage defaultMessage="Response" description="Response body label" />
               </Typography.Text>
-              <Tooltip
+              <InfoTooltip
                 componentId="mlflow.gateway.usage-modal.try-it.response-tooltip"
                 content={
                   <FormattedMessage
@@ -127,11 +123,7 @@ export const TryItPanel = ({
                     description="Response body tooltip"
                   />
                 }
-              >
-                <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Response help">
-                  ?
-                </span>
-              </Tooltip>
+              />
             </div>
             <div aria-live="polite" aria-atomic="true" role="status">
               <Input.TextArea
