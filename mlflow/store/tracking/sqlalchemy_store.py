@@ -269,9 +269,9 @@ _T = TypeVar("_T")
 _logger = logging.getLogger(__name__)
 
 # Max number of times start_trace()/log_spans() retry their transaction when the DB
-# kills it with a deadlock (issue #24332). Deterministic key ordering (see the sorted
+# kills it with a deadlock. Deterministic key ordering (see the sorted
 # metadata/metrics writes) is the primary defense; this bounded retry is a safety net.
-_TRACE_WRITE_MAX_DEADLOCK_RETRIES = 3
+_TRACE_WRITE_MAX_DEADLOCK_RETRIES = 2
 
 # For each database table, fetch its columns and define an appropriate attribute for each column
 # on the table's associated object representation (Mapper). This is necessary to ensure that
@@ -3466,7 +3466,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         return SqlTraceTag(request_id=trace_id, key=MLFLOW_ARTIFACT_LOCATION, value=artifact_uri)
 
     def _run_with_deadlock_retry(self, fn, *args, **kwargs):
-        """Run a trace-write operation, retrying on DB deadlocks (issue #24332).
+        """Run a trace-write operation, retrying on DB deadlocks.
 
         The managed session (see ``mlflow/store/db/utils.py``) surfaces a psycopg2
         DeadlockDetected / SQLAlchemy OperationalError as an ``MlflowException`` with
@@ -3501,7 +3501,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             The created TraceInfo object from the backend.
         """
         # Retry on DB deadlocks so a concurrent log_spans()/start_trace() race does not
-        # drop the trace (issue #24332). Each attempt opens a fresh managed session.
+        # drop the trace. Each attempt opens a fresh managed session.
         return self._run_with_deadlock_retry(self._start_trace_once, trace_info)
 
     def _start_trace_once(self, trace_info: "TraceInfo") -> TraceInfo:
@@ -3564,7 +3564,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # Happy path: attach metadata/metrics via cascade for a single flush.
                 # Emit rows in sorted key order so concurrent writers acquire the
                 # trace_request_metadata / trace_metrics PK-index locks in a consistent
-                # order across transactions and cannot deadlock (issue #24332).
+                # order across transactions and cannot deadlock.
                 sql_trace_info.request_metadata = [
                     SqlTraceMetadata(request_id=trace_id, key=k, value=v)
                     for k, v in sorted(request_metadata.items())
@@ -3641,7 +3641,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # Upsert metadata and metrics individually so the complete data
                 # from start_trace() overwrites any partial values from log_spans().
                 # Merge in sorted key order to keep PK-index lock acquisition consistent
-                # across transactions and avoid deadlocks (issue #24332).
+                # across transactions and avoid deadlocks.
                 for k, v in sorted(request_metadata.items()):
                     session.merge(SqlTraceMetadata(request_id=trace_id, key=k, value=v))
                 for k, v in sorted(trace_metrics.items()):
@@ -4983,7 +4983,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             List of logged Span entities.
         """
         # Retry on DB deadlocks so a concurrent start_trace()/log_spans() race does not
-        # drop metadata (issue #24332). Each attempt opens a fresh managed session.
+        # drop metadata. Each attempt opens a fresh managed session.
         return self._run_with_deadlock_retry(
             self._log_spans_once, location, spans, tracking_uri=tracking_uri
         )
@@ -5250,7 +5250,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Iterate trace_ids in sorted order, and within each trace emit
             # trace_request_metadata / trace_metrics merges in sorted key order, so that
             # concurrent start_trace()/log_spans() transactions acquire the PK-index locks
-            # in a consistent order and cannot deadlock (issue #24332).
+            # in a consistent order and cannot deadlock
             for trace_id in sorted(all_trace_ids):
                 agg = trace_aggregates[trace_id]
                 sql_trace_info = existing_traces[trace_id]
@@ -7567,7 +7567,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.merge(sql_trace_info)
             # Merge metadata in sorted key order so concurrent writers acquire the
             # trace_request_metadata PK-index locks in a consistent order and cannot
-            # deadlock (issue #24332).
+            # deadlock.
             for k, v in sorted(request_metadata.items()):
                 session.merge(SqlTraceMetadata(request_id=request_id, key=k, value=v))
             for k, v in tags.items():
