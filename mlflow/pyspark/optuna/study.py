@@ -2,7 +2,7 @@ import datetime
 import logging
 import tempfile
 import traceback
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -10,7 +10,7 @@ from typing import Any
 import optuna
 import pandas as pd
 from optuna import exceptions, pruners, samplers, storages
-from optuna.study import Study
+from optuna.study import Study, StudyDirection
 from optuna.trial import FrozenTrial, TrialState
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col
@@ -135,6 +135,29 @@ class MlflowSparkStudy(Study):
     This class automatically resumes existing studies with the same name,
     allowing for interrupted optimization to continue from where it left off.
 
+    Args:
+        study_name: Name of the study.
+        storage: ``MlflowStorage`` instance that persists the study state to an
+            MLflow experiment.
+        sampler: Optuna sampler used on the driver and on every Spark executor.
+            Defaults to :class:`~optuna.samplers.TPESampler`.
+        pruner: Optuna pruner used on the driver and on every Spark executor.
+            Defaults to :class:`~optuna.pruners.MedianPruner`. The pruner is
+            serialized into the Spark task closure, so custom pruners holding
+            unpicklable state (e.g. open connections) are not supported.
+        mlflow_tracking_uri: MLflow tracking URI to use. Defaults to the current
+            tracking URI.
+        direction: Direction of the optimization, either ``"minimize"`` or
+            ``"maximize"`` (or a :class:`~optuna.study.StudyDirection`). Defaults to
+            ``"minimize"``. Only used when a new study is created; a resumed study
+            inherits the direction it was created with, and supplying a conflicting
+            value raises a ``ValueError``. Mutually exclusive with ``directions``.
+        directions: Sequence of directions for multi-objective optimization. Same
+            semantics as ``direction``. For multi-objective studies, use
+            :attr:`~optuna.study.Study.best_trials` (``best_value``/``best_params``
+            are undefined), and note that Optuna does not support pruning for
+            multi-objective optimization.
+
     .. code-block:: python
         :caption: Basic Usage
 
@@ -167,7 +190,11 @@ class MlflowSparkStudy(Study):
         sampler: samplers.BaseSampler | None = None,
         pruner: pruners.BasePruner | None = None,
         mlflow_tracking_uri: str | None = None,
+        direction: str | StudyDirection | None = None,
+        directions: Sequence[str | StudyDirection] | None = None,
     ):
+        if direction is not None and directions is not None:
+            raise ValueError("Specify only one of `direction` and `directions`.")
         self.study_name = study_name
         self._storage = storages.get_storage(storage)
         self.sampler = sampler or samplers.TPESampler()
@@ -190,7 +217,10 @@ class MlflowSparkStudy(Study):
         if self._storage.get_study_id_by_name_if_exists(self.study_name):
             # Load existing study
             self._study = optuna.load_study(
-                study_name=self.study_name, sampler=self.sampler, storage=self._storage
+                study_name=self.study_name,
+                sampler=self.sampler,
+                pruner=self.pruner,
+                storage=self._storage,
             )
             self._study_id = self._storage.get_study_id_from_name(self.study_name)
             self._is_resumed = True
@@ -200,13 +230,37 @@ class MlflowSparkStudy(Study):
         else:
             # Create new study
             self._study = optuna.create_study(
-                study_name=self.study_name, sampler=self.sampler, storage=self._storage
+                study_name=self.study_name,
+                sampler=self.sampler,
+                pruner=self.pruner,
+                storage=self._storage,
+                direction=direction,
+                directions=directions,
             )
             self._study_id = self._storage.get_study_id_from_name(self.study_name)
             self._is_resumed = False
             _logger.info(f"Created new study '{self.study_name}'")
 
         self._directions = self._storage.get_study_directions(self._study_id)
+
+        if self._is_resumed and (direction is not None or directions is not None):
+            requested = [direction] if direction is not None else list(directions)
+            try:
+                requested = [
+                    d if isinstance(d, StudyDirection) else StudyDirection[d.upper()]
+                    for d in requested
+                ]
+            except KeyError as e:
+                raise ValueError(
+                    "Please set either 'minimize' or 'maximize' to direction. You can also set"
+                    " the corresponding `StudyDirection` member."
+                ) from e
+            if requested != self._directions:
+                raise ValueError(
+                    f"Direction(s) {requested} conflict with the existing study "
+                    f"'{self.study_name}' created with {self._directions}. The direction of a "
+                    "study is fixed at creation time; omit `direction`/`directions` to resume."
+                )
 
     @property
     def is_resumed_study(self) -> bool:
@@ -231,18 +285,20 @@ class MlflowSparkStudy(Study):
 
         Returns:
             ResumeInfo dataclass containing resume information including trial
-            counts and best results
+            counts and best results. ``best_value`` and ``best_params`` are ``None``
+            for multi-objective studies and when no trial has completed.
         """
         if not self._is_resumed:
             return ResumeInfo(is_resumed=False)
 
+        has_single_objective_best = len(self._directions) == 1 and self.completed_trials_count > 0
         return ResumeInfo(
             is_resumed=True,
             study_name=self.study_name,
             existing_trials=len(self._study.trials),
             completed_trials=self.completed_trials_count,
-            best_value=self._study.best_value if self._study.trials else None,
-            best_params=self._study.best_params if self._study.trials else None,
+            best_value=self._study.best_value if has_single_objective_best else None,
+            best_params=self._study.best_params if has_single_objective_best else None,
         )
 
     def optimize(
@@ -256,9 +312,15 @@ class MlflowSparkStudy(Study):
     ) -> None:
         # Add logging for resume information
         if self._is_resumed and self._study.trials:
+            # `best_value` is undefined for multi-objective studies and for studies
+            # without completed trials
+            if len(self._directions) == 1 and self.completed_trials_count > 0:
+                best_summary = f"Current best value: {self._study.best_value}"
+            else:
+                best_summary = f"Completed trials: {self.completed_trials_count}"
             _logger.info(f"""
             Continuing optimization with {len(self._study.trials)} existing trials.
-            Current best value: {self._study.best_value}
+            {best_summary}
             """)
         elif self._is_resumed:
             _logger.info("Resuming study with no previous trials")
@@ -269,13 +331,16 @@ class MlflowSparkStudy(Study):
         study_name = self.study_name
         mlflow_tracking_env = self._mlflow_tracking_env
         sampler = self.sampler
+        pruner = self.pruner
 
         def run_task_on_executor_pd(iterator):
             mlflow.set_tracking_uri(mlflow_tracking_env)
             mlflow_client = MlflowClient()
 
             storage = MlflowStorage(experiment_id=experiment_id)
-            study = optuna.load_study(study_name=study_name, sampler=sampler, storage=storage)
+            study = optuna.load_study(
+                study_name=study_name, sampler=sampler, pruner=pruner, storage=storage
+            )
             num_trials = sum(map(len, iterator))
 
             error_message = None
