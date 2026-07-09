@@ -1,0 +1,11 @@
+name: Auto Close PR
+on:
+  pull_request:
+    types: [opened, synchronize]
+jobs:
+  auto-close-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Auto Close PR
+        run: |
+          node auto-close-pr.js

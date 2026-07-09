@@ -1,0 +1,11 @@
+name: Check Component IDs
+on:
+  pull_request:
+    types: [opened, synchronize]
+jobs:
+  check-component-ids:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Component IDs
+        run: |
+          node check-component-ids/index.js

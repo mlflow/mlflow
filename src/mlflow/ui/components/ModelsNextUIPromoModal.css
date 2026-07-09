@@ -1,0 +1,26 @@
+.ModelsNextUIPromoModal {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  background-color: #f0f0f0;
+}
+
+.ModelsNextUIPromoModal-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #fff;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.ModelsNextUIPromoModal-content h2 {
+  margin-top: 0;
+}
+
+.ModelsNextUIPromoModal-content button {
+  margin-top: 10px;
+}
