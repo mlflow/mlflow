@@ -776,8 +776,21 @@ def test_databricks_agents_dataset_backend_routes_sdk_apis(monkeypatch):
 
     assert get_dataset(name="catalog.schema.table", version=2).version.version == 3
     get_mock.assert_called_once_with("catalog.schema.table", version=2, alias=None)
+    get_mock.reset_mock()
+
+    assert (
+        get_dataset(
+            name="catalog.schema.table", version=EvaluationDatasetVersion(2)
+        ).version.version
+        == 3
+    )
+    get_mock.assert_called_once_with("catalog.schema.table", version=2, alias=None)
 
     set_dataset_alias("catalog.schema.table", "dev", version=2)
+    set_alias_mock.assert_called_once_with("catalog.schema.table", "dev", version=2)
+    set_alias_mock.reset_mock()
+
+    set_dataset_alias("catalog.schema.table", "dev", version=EvaluationDatasetVersion(2))
     set_alias_mock.assert_called_once_with("catalog.schema.table", "dev", version=2)
 
     delete_dataset_alias("catalog.schema.table", "dev")

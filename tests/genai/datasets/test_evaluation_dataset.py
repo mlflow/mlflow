@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import Mock
 
@@ -16,6 +17,7 @@ from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
     DatabricksEvaluationDatasetSource,
     DatabricksUCTableDatasetSource,
 )
+from mlflow.genai.datasets.entities import EvaluationDatasetVersion
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 
 
@@ -220,6 +222,27 @@ def test_evaluation_dataset_list_versions_and_aliases(mock_managed_dataset):
     ]
     mock_managed_dataset.list_versions.assert_called_once_with()
     mock_managed_dataset.list_aliases.assert_called_once()
+
+
+def test_evaluation_dataset_version_repr_formats_created_at():
+    version = EvaluationDatasetVersion(
+        version=4,
+        created_at=datetime(2026, 7, 8, 22, 37, 21, tzinfo=timezone.utc),
+        created_by="daniel.seong@databricks.com",
+        operation="OPTIMIZE",
+    )
+
+    assert version.created_at == datetime(2026, 7, 8, 22, 37, 21, tzinfo=timezone.utc)
+    assert repr([version]) == (
+        "[EvaluationDatasetVersion(version=4, created_at='2026-07-08 22:37:21 UTC', "
+        "created_by='daniel.seong@databricks.com', operation='OPTIMIZE')]"
+    )
+
+
+def test_evaluation_dataset_version_repr_handles_missing_created_at():
+    assert repr(EvaluationDatasetVersion(1)) == (
+        "EvaluationDatasetVersion(version=1, created_at=None, created_by=None, operation=None)"
+    )
 
 
 def test_evaluation_dataset_digest_computation(mock_managed_dataset):

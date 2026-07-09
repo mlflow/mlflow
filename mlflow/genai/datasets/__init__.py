@@ -197,6 +197,14 @@ def _get_dataset_by_name(name: str) -> EntityEvaluationDataset:
             )
 
 
+def _resolve_dataset_version_arg(
+    version: int | EvaluationDatasetVersion | None,
+) -> int | None:
+    if isinstance(version, EvaluationDatasetVersion):
+        return version.version
+    return version
+
+
 @deprecated_parameter("uc_table_name", "name")
 def create_dataset(
     name: str | None = None,
@@ -346,7 +354,7 @@ def delete_dataset(
 def get_dataset(
     name: str | None = None,
     dataset_id: str | None = None,
-    version: int | None = None,
+    version: int | EvaluationDatasetVersion | None = None,
     alias: str | None = None,
 ) -> "EvaluationDataset":
     """
@@ -356,7 +364,8 @@ def get_dataset(
         name: The name of the dataset. In Databricks, this is the UC table name.
             In non-Databricks environments, this will search for a dataset with the given name.
         dataset_id: The ID of the dataset (non-Databricks only).
-        version: The Databricks dataset version to resolve.
+        version: The Databricks dataset version to resolve. This can be the version value
+            or an ``EvaluationDatasetVersion`` returned by ``dataset.version``.
         alias: The Databricks dataset alias to resolve.
 
     Returns:
@@ -403,13 +412,14 @@ def get_dataset(
         if version is not None and alias is not None:
             raise ValueError("Cannot specify both 'version' and 'alias'. Use only one parameter.")
         require_dataset_versioning = version is not None or alias is not None
+        resolved_version = _resolve_dataset_version_arg(version)
         db_datasets = _get_databricks_agents_datasets_module(
             require_dataset_versioning=require_dataset_versioning,
         )
         with _databricks_profile_env():
             if require_dataset_versioning:
                 return EvaluationDataset(
-                    db_datasets.get_dataset(name, version=version, alias=alias)
+                    db_datasets.get_dataset(name, version=resolved_version, alias=alias)
                 )
             return EvaluationDataset(db_datasets.get_dataset(name))
     else:
@@ -609,16 +619,17 @@ def search_datasets(
 def set_dataset_alias(
     dataset_name: str,
     alias: str,
-    version: int | None = None,
+    version: int | EvaluationDatasetVersion | None = None,
 ) -> None:
     """
     Set or move a Databricks evaluation dataset alias.
     """
     if not is_databricks_uri(get_tracking_uri()):
         raise NotImplementedError("Dataset aliases are only supported for Databricks datasets.")
+    resolved_version = _resolve_dataset_version_arg(version)
     db_datasets = _get_databricks_agents_datasets_module(require_dataset_versioning=True)
     with _databricks_profile_env():
-        db_datasets.set_dataset_alias(dataset_name, alias, version=version)
+        db_datasets.set_dataset_alias(dataset_name, alias, version=resolved_version)
 
 
 def delete_dataset_alias(
