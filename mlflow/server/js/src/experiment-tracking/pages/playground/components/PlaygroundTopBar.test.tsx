@@ -28,6 +28,7 @@ const renderTopBar = () => {
   const onEndpointSelect = jest.fn();
   const onOpenRegistry = jest.fn();
   const onOpenSave = jest.fn();
+  const onOpenAddToDataset = jest.fn();
   const noop = jest.fn();
   render(
     <IntlProvider locale="en">
@@ -53,21 +54,23 @@ const renderTopBar = () => {
           onVariablesChange={noop}
           onOpenRegistry={onOpenRegistry}
           onOpenSave={onOpenSave}
+          onOpenAddToDataset={onOpenAddToDataset}
         />
       </DesignSystemProvider>
     </IntlProvider>,
   );
-  return { onEndpointSelect, onOpenRegistry, onOpenSave };
+  return { onEndpointSelect, onOpenRegistry, onOpenSave, onOpenAddToDataset };
 };
 
 describe('PlaygroundTopBar', () => {
-  it('renders the endpoint selector and the four top-bar buttons', () => {
+  it('renders the endpoint selector and the five top-bar buttons', () => {
     renderTopBar();
     expect(screen.getByTestId('endpoint-selector-test-input')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /open model parameters/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /open variable values/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /load prompt/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /save prompt/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add to evaluation dataset/i })).toBeInTheDocument();
   });
 
   it('wires onOpenRegistry to the Load button', async () => {
@@ -80,5 +83,11 @@ describe('PlaygroundTopBar', () => {
     const { onOpenSave } = renderTopBar();
     await userEvent.click(screen.getByRole('button', { name: /save prompt/i }));
     expect(onOpenSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('wires onOpenAddToDataset to the Add to dataset button', async () => {
+    const { onOpenAddToDataset } = renderTopBar();
+    await userEvent.click(screen.getByRole('button', { name: /add to evaluation dataset/i }));
+    expect(onOpenAddToDataset).toHaveBeenCalledTimes(1);
   });
 });

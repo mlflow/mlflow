@@ -12,8 +12,10 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import ErrorUtils from '../../../common/utils/ErrorUtils';
+import { useParams } from '../../../common/utils/RoutingUtils';
 import { withErrorBoundary } from '../../../common/utils/withErrorBoundary';
 import { AssistantAwareActionBar } from '../../../common/components/AssistantAwareActionBar';
+import { AddToDatasetModal } from './components/AddToDatasetModal';
 import { PlaygroundTopBar } from './components/PlaygroundTopBar';
 import { PromptInputPanel } from './components/PromptInputPanel';
 import { PromptRegistryPicker } from './components/PromptRegistryPicker';
@@ -36,6 +38,7 @@ const EMPTY_USER_MESSAGE: ConversationMessage = { role: 'user', content: '' };
 const PlaygroundPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const { experimentId } = useParams<{ experimentId: string }>();
   const [endpointName, setEndpointName] = useState<string>('');
   const [messages, setMessages] = useState<ConversationMessage[]>([{ ...EMPTY_USER_MESSAGE }]);
   const [params, setParams] = useState<PlaygroundParams>({});
@@ -48,6 +51,7 @@ const PlaygroundPage = () => {
   const [responseFormatSchemaText, setResponseFormatSchemaText] = useState<string>('');
   const [showRegistryPicker, setShowRegistryPicker] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showAddToDatasetModal, setShowAddToDatasetModal] = useState(false);
   // The registry prompt currently loaded into the playground, if any. Lets the
   // save modal default to appending a new version of that prompt and preserve
   // its type.
@@ -60,6 +64,7 @@ const PlaygroundPage = () => {
     withSettings: boolean;
   } | null>(null);
   const [savedToast, setSavedToast] = useState<{ name: string; version: string } | null>(null);
+  const [addedToDatasetToast, setAddedToDatasetToast] = useState<{ datasetNames: string[] } | null>(null);
 
   const { mutate, error, isLoading, reset } = useChatCompletionMutation();
 
@@ -74,6 +79,12 @@ const PlaygroundPage = () => {
     const t = window.setTimeout(() => setSavedToast(null), 4000);
     return () => window.clearTimeout(t);
   }, [savedToast]);
+
+  useEffect(() => {
+    if (!addedToDatasetToast) return;
+    const t = window.setTimeout(() => setAddedToDatasetToast(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [addedToDatasetToast]);
 
   const handleRegistryLoad = (payload: PromptLoadPayload) => {
     setMessages(payload.messages.length > 0 ? payload.messages : [{ ...EMPTY_USER_MESSAGE }]);
@@ -96,6 +107,11 @@ const PlaygroundPage = () => {
     // Chain subsequent saves onto the freshly created version.
     setLoadedPrompt({ name, version, promptType });
     setSavedToast({ name, version });
+  };
+
+  const handleAddedToDataset = ({ datasetNames }: { datasetNames: string[] }) => {
+    setShowAddToDatasetModal(false);
+    setAddedToDatasetToast({ datasetNames });
   };
 
   const handleAddTool = () => {
@@ -302,6 +318,8 @@ const PlaygroundPage = () => {
         onOpenRegistry={() => setShowRegistryPicker(true)}
         onOpenSave={() => setShowSaveModal(true)}
         saveDisabled={conversationIsEmpty}
+        onOpenAddToDataset={() => setShowAddToDatasetModal(true)}
+        addToDatasetDisabled={conversationIsEmpty}
       />
       <Spacer size="sm" shrinks={false} />
       <div css={{ borderTop: `1px solid ${theme.colors.border}`, flexShrink: 0 }} role="separator" aria-hidden="true" />
@@ -447,6 +465,14 @@ const PlaygroundPage = () => {
         loadedPromptType={loadedPrompt?.promptType}
         onSaved={handleSaved}
       />
+      <AddToDatasetModal
+        visible={showAddToDatasetModal}
+        onCancel={() => setShowAddToDatasetModal(false)}
+        experimentId={experimentId ?? ''}
+        messages={messages}
+        variables={variables}
+        onAdded={handleAddedToDataset}
+      />
       {loadedToast && (
         <Notification.Provider>
           <Notification.Root severity="success" componentId="mlflow.playground.prompt_registry_picker.loaded">
@@ -481,6 +507,21 @@ const PlaygroundPage = () => {
               />
             </Notification.Title>
             <Notification.Close componentId="mlflow.playground.save_prompt_version.saved.close" />
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
+      {addedToDatasetToast && (
+        <Notification.Provider>
+          <Notification.Root severity="success" componentId="mlflow.playground.add_to_dataset.added">
+            <Notification.Title>
+              <FormattedMessage
+                defaultMessage="Added to {count, plural, one {{name}} other {# datasets}}"
+                description="Success toast shown on the playground after adding the current prompt to one or more evaluation datasets"
+                values={{ count: addedToDatasetToast.datasetNames.length, name: addedToDatasetToast.datasetNames[0] }}
+              />
+            </Notification.Title>
+            <Notification.Close componentId="mlflow.playground.add_to_dataset.added.close" />
           </Notification.Root>
           <Notification.Viewport />
         </Notification.Provider>

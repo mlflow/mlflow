@@ -18,7 +18,7 @@ export const AddToDatasetButton = () => {
       size="small"
     >
       <FormattedMessage
-        defaultMessage="Add to dataset"
+        defaultMessage="Add to evaluation datasets"
         description="Button text for adding a trace to an evaluation dataset"
       />
     </Button>

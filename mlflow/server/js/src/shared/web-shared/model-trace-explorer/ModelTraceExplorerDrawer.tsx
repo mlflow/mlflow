@@ -208,7 +208,7 @@ export const ModelTraceExplorerDrawer = ({
                 icon={<PlusIcon />}
               >
                 <FormattedMessage
-                  defaultMessage="Add to dataset"
+                  defaultMessage="Add to evaluation datasets"
                   description="Button text for adding a trace to a dataset"
                 />
               </Button>
