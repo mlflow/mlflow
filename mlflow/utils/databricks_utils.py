@@ -329,6 +329,32 @@ class DBConnectUDFSandboxInfo:
 _dbconnect_udf_sandbox_info_cache: DBConnectUDFSandboxInfo | None = None
 
 
+# DBR ships only a handful of minor versions per major, so this sentinel sorts a `{major}.x`
+# minor above any real cut minor while keeping the parsed version a plain `tuple[int, int]`.
+_UNCUT_MINOR = 999
+
+
+def parse_dbr_runtime_major_minor(dbr_version: str) -> tuple[int, int]:
+    """
+    Extract the leading ``(major, minor)`` integer components from a raw Databricks
+    runtime version string returned by ``current_version().dbr_version``.
+
+    Handles both the legacy ``'{major}.{minor}.x-scala...'`` format and the newer
+    ``'{major}.x-<suffix>'`` format, e.g.::
+
+        '15.4.x-scala2.12'            -> (15, 4)
+        '18.x-aarch64-photon-scala2'  -> (18, 999)
+
+    In DBR, ``{major}.x`` denotes the latest *uncut* minor of that major, which is always ahead
+    of any already-released minor. So a non-numeric minor (e.g. ``'x'``) maps to ``_UNCUT_MINOR``
+    (a ceiling), ensuring ``{major}.x`` compares greater than any concrete ``{major}.{minor}``.
+    """
+    parts = dbr_version.split(".")
+    major = int(parts[0])
+    minor = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else _UNCUT_MINOR
+    return major, minor
+
+
 def get_dbconnect_udf_sandbox_info(spark):
     """
     Get Databricks UDF sandbox info which includes the following fields:
@@ -347,10 +373,14 @@ def get_dbconnect_udf_sandbox_info(spark):
     ):
         return _dbconnect_udf_sandbox_info_cache
 
-    # version is like '15.4.x-scala2.12'
+    # version is like '15.4.x-scala2.12' (legacy) or '18.x-aarch64-photon-scala2' (newer images).
     version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
-    major, minor, *_rest = version.split(".")
-    runtime_version = f"{major}.{minor}"
+    major, minor = parse_dbr_runtime_major_minor(version)
+    # Render an uncut minor as the honest '{major}.x' (not '{major}.999'); both round-trip through
+    # `parse_dbr_runtime_major_minor`. In the serverless-connect branch below this value also
+    # becomes `image_version`, where being dashless keeps `_verify_prebuilt_env`'s archive-name
+    # `split("-")` intact. (The Databricks-runtime branch sets `image_version` independently.)
+    runtime_version = f"{major}.x" if minor == _UNCUT_MINOR else f"{major}.{minor}"
 
     # For Databricks Serverless python REPL,
     # the UDF sandbox runs on client image, which has version like 'client.1.1'

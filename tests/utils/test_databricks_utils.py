@@ -800,21 +800,30 @@ def test_get_workspace_url(input_url, expected_result):
         assert result == expected_result
 
 
+@pytest.mark.parametrize(
+    ("dbr_version", "expected_runtime_version"),
+    [
+        ("15.4.x-scala2.12", "15.4"),
+        ("18.x-aarch64-photon-scala2", "18.x"),
+        ("16.2.x-scala2.13", "16.2"),
+    ],
+)
 @pytest.mark.skipif(is_windows(), reason="This test doesn't work on Windows")
-def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch):
+def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch, dbr_version, expected_runtime_version):
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.1.2")
     databricks_utils._dbconnect_udf_sandbox_info_cache = None
 
     spark.udf.register(
         "current_version",
-        lambda: {"dbr_version": "15.4.x-scala2.12"},
+        lambda: {"dbr_version": dbr_version},
         returnType="dbr_version string",
     )
 
     info = get_dbconnect_udf_sandbox_info(spark)
     assert info.mlflow_version == mlflow.__version__
+    # `image_version` comes from DATABRICKS_RUNTIME_VERSION and must stay raw for archive naming.
     assert info.image_version == "client.1.2"
-    assert info.runtime_version == "15.4"
+    assert info.runtime_version == expected_runtime_version
     assert info.platform_machine == platform.machine()
 
     monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION")
@@ -822,9 +831,33 @@ def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch):
 
     info = get_dbconnect_udf_sandbox_info(spark)
     assert info.mlflow_version == mlflow.__version__
-    assert info.image_version == "15.4"
-    assert info.runtime_version == "15.4"
+    assert info.image_version == expected_runtime_version
+    assert info.runtime_version == expected_runtime_version
     assert info.platform_machine == platform.machine()
+
+
+@pytest.mark.parametrize(
+    ("dbr_version", "expected"),
+    [
+        ("15.4.x-scala2.12", (15, 4)),
+        ("18.x-aarch64-photon-scala2", (18, databricks_utils._UNCUT_MINOR)),
+        ("16.2.x-scala2.13", (16, 2)),
+        ("15.3", (15, 3)),
+        ("18", (18, databricks_utils._UNCUT_MINOR)),
+    ],
+)
+def test_parse_dbr_runtime_major_minor(dbr_version, expected):
+    assert databricks_utils.parse_dbr_runtime_major_minor(dbr_version) == expected
+
+
+def test_parse_dbr_runtime_uncut_minor_sorts_above_concrete_minor():
+    # '{major}.x' is the latest uncut minor and must compare greater than any released minor,
+    # including a hypothetical future gate threshold within the same major.
+    uncut = databricks_utils.parse_dbr_runtime_major_minor("18.x-aarch64-photon-scala2")
+    assert uncut > (18, 0)
+    assert uncut > (18, 9)
+    assert uncut > (18, 99)
+    assert uncut < (19, 0)
 
 
 def test_construct_databricks_uc_registered_model_url():
