@@ -18,6 +18,7 @@ CREATE TABLE budget_policies (
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
+	endpoint_id VARCHAR(36),
 	PRIMARY KEY (budget_policy_id)
 )
 

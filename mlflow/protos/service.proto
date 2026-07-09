@@ -5524,6 +5524,8 @@ enum BudgetTargetScope {
   TARGET_SCOPE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
   GLOBAL = 1;
   WORKSPACE = 2;
+  // Applies only to requests routed to a specific gateway endpoint
+  ENDPOINT = 3;
 }
 
 // Action to take when a budget is exceeded
@@ -5761,7 +5763,7 @@ message GatewayBudgetPolicy {
   optional double budget_amount = 3;
   // Fixed time window (unit + length pair)
   optional BudgetDuration duration = 4;
-  // Scope of the budget (GLOBAL or WORKSPACE)
+  // Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT)
   optional BudgetTargetScope target_scope = 5;
   // Action when budget is exceeded
   optional BudgetAction budget_action = 6;
@@ -5773,6 +5775,8 @@ message GatewayBudgetPolicy {
   optional string last_updated_by = 9;
   // Last update timestamp in milliseconds
   optional int64 last_updated_at = 10;
+  // Gateway endpoint this policy applies to. Required when target_scope is ENDPOINT.
+  optional string endpoint_id = 11;
 }
 
 message CreateGatewayBudgetPolicy {
@@ -5782,6 +5786,8 @@ message CreateGatewayBudgetPolicy {
   optional BudgetTargetScope target_scope = 4;
   optional BudgetAction budget_action = 5;
   optional string created_by = 6;
+  // Gateway endpoint this policy applies to. Required when target_scope is ENDPOINT.
+  optional string endpoint_id = 7;
 
   message Response {
     optional GatewayBudgetPolicy budget_policy = 1;
@@ -5804,6 +5810,8 @@ message UpdateGatewayBudgetPolicy {
   optional BudgetTargetScope target_scope = 5;
   optional BudgetAction budget_action = 6;
   optional string updated_by = 7;
+  // Gateway endpoint this policy applies to. Required when target_scope is ENDPOINT.
+  optional string endpoint_id = 8;
 
   message Response {
     optional GatewayBudgetPolicy budget_policy = 1;
@@ -5837,6 +5845,9 @@ message ListGatewayBudgetWindows {
     optional int64 window_end_ms = 3;
 
     optional double current_spend = 4;
+
+    // Gateway endpoint this window is scoped to (only set for ENDPOINT-scoped policies)
+    optional string endpoint_id = 5;
   }
 
   message Response {

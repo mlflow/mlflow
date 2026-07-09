@@ -101,12 +101,15 @@ class BudgetTracker(ABC):
         self,
         cost_usd: float,
         workspace: str | None = None,
+        endpoint_id: str | None = None,
     ) -> list[BudgetWindow]:
         """Record a cost against all applicable policies.
 
         Args:
             cost_usd: The cost in USD to record.
             workspace: The workspace the request was made from (None for default).
+            endpoint_id: The gateway endpoint the request was routed to. Used to
+                match ENDPOINT-scoped policies.
 
         Returns:
             List of windows that were newly exceeded (limit exceeded for the first
@@ -117,11 +120,14 @@ class BudgetTracker(ABC):
     def should_reject_request(
         self,
         workspace: str | None = None,
+        endpoint_id: str | None = None,
     ) -> tuple[bool, BudgetWindow | None]:
         """Check if any REJECT-capable policy is exceeded.
 
         Args:
             workspace: The workspace to check against.
+            endpoint_id: The gateway endpoint to check against. Used to match
+                ENDPOINT-scoped policies.
 
         Returns:
             Tuple of (exceeded, window). If exceeded is True, window is the
@@ -228,13 +234,22 @@ def _compute_window_end(
     raise ValueError(f"Unknown duration type: {duration.unit}")
 
 
-def _policy_applies(policy: GatewayBudgetPolicy, workspace: str | None) -> bool:
-    """Check if a policy applies to a given workspace.
+def _policy_applies(
+    policy: GatewayBudgetPolicy,
+    workspace: str | None,
+    endpoint_id: str | None = None,
+) -> bool:
+    """Check if a policy applies to a given request.
 
-    GLOBAL policies apply to all workspaces. WORKSPACE policies only apply
-    when the request workspace matches the policy's workspace.
+    - GLOBAL policies apply to all requests.
+    - WORKSPACE policies only apply when the request workspace matches the
+      policy's workspace.
+    - ENDPOINT policies only apply when the request endpoint matches the
+      policy's ``endpoint_id``.
     """
     if policy.target_scope == BudgetTargetScope.GLOBAL:
         return True
+    if policy.target_scope == BudgetTargetScope.ENDPOINT:
+        return endpoint_id is not None and policy.endpoint_id == endpoint_id
     effective_workspace = workspace or DEFAULT_WORKSPACE_NAME
     return policy.workspace == effective_workspace

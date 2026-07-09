@@ -38,6 +38,7 @@ class BudgetTargetScope(str, Enum):
 
     GLOBAL = "GLOBAL"
     WORKSPACE = "WORKSPACE"
+    ENDPOINT = "ENDPOINT"
 
     @classmethod
     def from_proto(cls, proto: ProtoBudgetTargetScope) -> BudgetTargetScope | None:
@@ -114,20 +115,22 @@ class GatewayBudgetPolicy(_MlflowObject):
     Represents a budget policy for the AI Gateway.
 
     Budget policies set limits with fixed time windows,
-    supporting global or per-workspace scoping.
+    supporting global, per-workspace, or per-endpoint scoping.
 
     Args:
         budget_policy_id: Unique identifier for this budget policy.
         budget_unit: Budget measurement unit (e.g. USD).
         budget_amount: Budget limit amount.
         duration: Fixed time window (unit + length pair).
-        target_scope: Scope of the budget (GLOBAL or WORKSPACE).
+        target_scope: Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT).
         budget_action: Action when budget is exceeded (ALERT, REJECT).
         created_at: Timestamp (milliseconds) when the policy was created.
         last_updated_at: Timestamp (milliseconds) when the policy was last updated.
         created_by: User ID who created the policy.
         last_updated_by: User ID who last updated the policy.
         workspace: Workspace that owns the policy.
+        endpoint_id: Gateway endpoint the policy applies to. Set only when
+            ``target_scope`` is ``ENDPOINT``.
     """
 
     budget_policy_id: str
@@ -141,6 +144,7 @@ class GatewayBudgetPolicy(_MlflowObject):
     created_by: str | None = None
     last_updated_by: str | None = None
     workspace: str | None = None
+    endpoint_id: str | None = None
 
     def __post_init__(self):
         self.workspace = resolve_entity_workspace_name(self.workspace)
@@ -163,6 +167,8 @@ class GatewayBudgetPolicy(_MlflowObject):
         proto.created_at = self.created_at
         proto.last_updated_by = self.last_updated_by or ""
         proto.last_updated_at = self.last_updated_at
+        if self.endpoint_id is not None:
+            proto.endpoint_id = self.endpoint_id
         return proto
 
     @classmethod
@@ -178,4 +184,5 @@ class GatewayBudgetPolicy(_MlflowObject):
             created_at=proto.created_at,
             last_updated_by=proto.last_updated_by or None,
             last_updated_at=proto.last_updated_at,
+            endpoint_id=proto.endpoint_id or None,
         )

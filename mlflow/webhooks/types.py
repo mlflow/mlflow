@@ -474,8 +474,9 @@ class BudgetPolicyExceededPayload(TypedDict):
             "current_spend": 105.50,
             "duration_unit": "MONTHS",
             "duration_value": 1,
-            "target_scope": "WORKSPACE",
+            "target_scope": "ENDPOINT",
             "workspace": "default",
+            "endpoint_id": "ep-abc123",
             "window_start": 1704067200000,
         }
 
@@ -493,10 +494,12 @@ class BudgetPolicyExceededPayload(TypedDict):
     """The duration unit (MINUTES, HOURS, DAYS, MONTHS)."""
     duration_value: int
     """The duration value."""
-    target_scope: Literal["GLOBAL", "WORKSPACE"]
-    """The target scope (GLOBAL or WORKSPACE)."""
+    target_scope: Literal["GLOBAL", "WORKSPACE", "ENDPOINT"]
+    """The target scope (GLOBAL, WORKSPACE, or ENDPOINT)."""
     workspace: str
     """The workspace this budget applies to."""
+    endpoint_id: str | None
+    """The gateway endpoint this budget applies to (set only for ENDPOINT-scoped policies)."""
     window_start: int
     """The start timestamp (milliseconds) of the current budget window."""
 
@@ -509,8 +512,9 @@ class BudgetPolicyExceededPayload(TypedDict):
             current_spend=105.50,
             duration_unit="MONTHS",
             duration_value=1,
-            target_scope="WORKSPACE",
+            target_scope="ENDPOINT",
             workspace="default",
+            endpoint_id="ep-abc123",
             window_start=1704067200000,
         )
 

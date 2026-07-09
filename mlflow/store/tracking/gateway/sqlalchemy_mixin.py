@@ -113,6 +113,25 @@ def _validate_one_of(
         )
 
 
+def _normalize_budget_endpoint_id(target_scope: str | None, endpoint_id: str | None) -> str | None:
+    """Enforce the budget policy endpoint_id/target_scope invariant at the store layer.
+
+    ENDPOINT-scoped policies must carry an ``endpoint_id`` (an ENDPOINT policy with
+    ``endpoint_id=None`` silently never matches any request and thus never enforces).
+    Policies with any other scope must not carry one, so a stray ``endpoint_id`` is
+    dropped. This mirrors the REST handler validation so direct/programmatic store
+    callers cannot persist a policy that violates the invariant.
+    """
+    if target_scope == BudgetTargetScope.ENDPOINT.value:
+        if not endpoint_id:
+            raise MlflowException(
+                message="endpoint_id is required when target_scope is ENDPOINT.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return endpoint_id
+    return None
+
+
 class SqlAlchemyGatewayStoreMixin:
     """Mixin class providing SQLAlchemy Gateway implementations for tracking stores.
 
@@ -1209,8 +1228,20 @@ class SqlAlchemyGatewayStoreMixin:
         target_scope: BudgetTargetScope,
         budget_action: BudgetAction,
         created_by: str | None = None,
+        endpoint_id: str | None = None,
     ) -> GatewayBudgetPolicy:
+        scope_value = (
+            target_scope.value if isinstance(target_scope, BudgetTargetScope) else target_scope
+        )
+        endpoint_id = _normalize_budget_endpoint_id(scope_value, endpoint_id)
         with self.ManagedSessionMaker(read_only=False) as session:
+            if endpoint_id is not None:
+                # An ENDPOINT policy referencing a nonexistent endpoint would never
+                # match any request (a REJECT cap that silently never rejects), so
+                # require the endpoint to exist up front.
+                self._get_entity_or_raise(
+                    session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
+                )
             budget_policy_id = f"bp-{uuid.uuid4().hex}"
             current_time = get_current_time_millis()
 
@@ -1233,6 +1264,7 @@ class SqlAlchemyGatewayStoreMixin:
                     last_updated_at=current_time,
                     created_by=created_by,
                     last_updated_by=created_by,
+                    endpoint_id=endpoint_id,
                 )
             )
 
@@ -1264,6 +1296,7 @@ class SqlAlchemyGatewayStoreMixin:
         target_scope: BudgetTargetScope | None = None,
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
+        endpoint_id: str | None = None,
     ) -> GatewayBudgetPolicy:
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_budget_policy = self._get_entity_or_raise(
@@ -1294,6 +1327,18 @@ class SqlAlchemyGatewayStoreMixin:
                     if isinstance(budget_action, BudgetAction)
                     else budget_action
                 )
+            if endpoint_id is not None:
+                self._get_entity_or_raise(
+                    session, SqlGatewayEndpoint, {"endpoint_id": endpoint_id}, "GatewayEndpoint"
+                )
+                sql_budget_policy.endpoint_id = endpoint_id
+            # Enforce the endpoint_id/scope invariant on the resulting row: only
+            # ENDPOINT-scoped policies retain an endpoint_id, and they must always
+            # have one (an ENDPOINT policy with endpoint_id=None silently never
+            # matches any request, so reject it rather than persist a dead policy).
+            sql_budget_policy.endpoint_id = _normalize_budget_endpoint_id(
+                sql_budget_policy.target_scope, sql_budget_policy.endpoint_id
+            )
 
             sql_budget_policy.last_updated_at = get_current_time_millis()
             if updated_by is not None:
@@ -1341,6 +1386,7 @@ class SqlAlchemyGatewayStoreMixin:
         start_time_ms: int,
         end_time_ms: int,
         workspace: str | None = None,
+        endpoint_id: str | None = None,
     ) -> float:
         with self.ManagedSessionMaker() as session:
             query = (
@@ -1358,6 +1404,9 @@ class SqlAlchemyGatewayStoreMixin:
                     SqlTraceInfo.timestamp_ms < end_time_ms,
                 )
             )
+
+            if endpoint_id is not None:
+                query = query.filter(SqlTraceMetadata.value == endpoint_id)
 
             if workspace is not None:
                 query = query.join(

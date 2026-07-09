@@ -452,6 +452,7 @@ class GatewayStoreMixin:
         target_scope: BudgetTargetScope,
         budget_action: BudgetAction,
         created_by: str | None = None,
+        endpoint_id: str | None = None,
     ) -> GatewayBudgetPolicy:
         """
         Create a new budget policy.
@@ -460,9 +461,11 @@ class GatewayStoreMixin:
             budget_unit: Budget measurement unit (e.g. USD).
             budget_amount: Budget limit amount.
             duration: Fixed time window (unit + length pair).
-            target_scope: Scope of the budget (GLOBAL or WORKSPACE).
+            target_scope: Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT).
             budget_action: Action when budget is exceeded.
             created_by: Username of the creator.
+            endpoint_id: Gateway endpoint the policy applies to. Required when
+                ``target_scope`` is ENDPOINT.
 
         Returns:
             GatewayBudgetPolicy entity.
@@ -493,6 +496,7 @@ class GatewayStoreMixin:
         target_scope: BudgetTargetScope | None = None,
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
+        endpoint_id: str | None = None,
     ) -> GatewayBudgetPolicy:
         """
         Update a budget policy.
@@ -505,6 +509,8 @@ class GatewayStoreMixin:
             target_scope: Optional new target type.
             budget_action: Optional new budget action.
             updated_by: Username of the updater.
+            endpoint_id: Optional new gateway endpoint the policy applies to.
+                Cleared automatically when ``target_scope`` becomes non-ENDPOINT.
 
         Returns:
             Updated GatewayBudgetPolicy entity.
@@ -538,6 +544,7 @@ class GatewayStoreMixin:
         start_time_ms: int,
         end_time_ms: int,
         workspace: str | None = None,
+        endpoint_id: str | None = None,
     ) -> float:
         """
         Sum total_cost from span metrics for gateway traces within a time range.
@@ -547,6 +554,8 @@ class GatewayStoreMixin:
             end_time_ms: Window end in epoch milliseconds (exclusive).
             workspace: If provided, filter to traces in experiments belonging
                 to this workspace.
+            endpoint_id: If provided, filter to traces routed to this gateway
+                endpoint.
 
         Returns:
             Total cost in USD.

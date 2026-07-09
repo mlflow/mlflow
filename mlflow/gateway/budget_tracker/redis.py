@@ -108,6 +108,7 @@ def _serialize_policy(policy: GatewayBudgetPolicy) -> str:
         "target_scope": policy.target_scope.value,
         "budget_action": policy.budget_action.value,
         "workspace": policy.workspace,
+        "endpoint_id": policy.endpoint_id,
         "created_at": policy.created_at,
         "last_updated_at": policy.last_updated_at,
     })
@@ -126,6 +127,7 @@ def _deserialize_policy(data: str) -> GatewayBudgetPolicy:
         target_scope=BudgetTargetScope(d["target_scope"]),
         budget_action=BudgetAction(d["budget_action"]),
         workspace=d.get("workspace"),
+        endpoint_id=d.get("endpoint_id"),
         created_at=d.get("created_at", 0),
         last_updated_at=d.get("last_updated_at", 0),
     )
@@ -241,6 +243,7 @@ class RedisBudgetTracker(BudgetTracker):
         self,
         cost_usd: float,
         workspace: str | None = None,
+        endpoint_id: str | None = None,
     ) -> list[BudgetWindow]:
         now = datetime.now(timezone.utc)
         newly_exceeded: list[BudgetWindow] = []
@@ -254,7 +257,7 @@ class RedisBudgetTracker(BudgetTracker):
                     continue
                 policy = _deserialize_policy(policy_data)
 
-            if not _policy_applies(policy, workspace):
+            if not _policy_applies(policy, workspace, endpoint_id):
                 continue
 
             window, _created = self._ensure_window(policy, now)
@@ -280,6 +283,7 @@ class RedisBudgetTracker(BudgetTracker):
     def should_reject_request(
         self,
         workspace: str | None = None,
+        endpoint_id: str | None = None,
     ) -> tuple[bool, BudgetWindow | None]:
         now = datetime.now(timezone.utc)
 
@@ -291,7 +295,7 @@ class RedisBudgetTracker(BudgetTracker):
                     continue
                 policy = _deserialize_policy(policy_data)
 
-            if not _policy_applies(policy, workspace):
+            if not _policy_applies(policy, workspace, endpoint_id):
                 continue
 
             if policy.budget_action != BudgetAction.REJECT:
