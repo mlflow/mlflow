@@ -37,6 +37,22 @@ uv run dev/run_dev_server.py > "$LOG" 2>&1 &
 tail -f "$LOG"
 ```
 
+### Reviewing provider-gated UI without credentials
+
+Features gated on an external provider/credentials can be rendered without real
+keys, cost, or nondeterminism via credential-free stubs (see `dev/dev_stubs/`):
+
+```bash
+uv run dev/run_dev_server.py --stub-providers claude
+```
+
+- `claude` — a fake `claude` CLI on the dev server's PATH, so the MLflow
+  Assistant's Claude Code provider passes its auth probe and the chat panel
+  renders without `ANTHROPIC_API_KEY`.
+
+The stubs are dev/CI-only; the `ui-review` bot always passes `--stub-providers claude`
+so the Assistant is reviewable on any PR.
+
 ## Debugging
 
 For debugging errors, enable debug logging (must be set before importing mlflow):

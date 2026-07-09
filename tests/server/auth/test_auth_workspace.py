@@ -901,6 +901,35 @@ def test_experiment_artifact_proxy_without_experiment_id_denied_without_workspac
         assert not auth_module.validate_can_read_experiment_artifact_proxy()
 
 
+def test_experiment_artifact_proxy_resolves_experiment_id_under_workspace_prefix(
+    workspace_permission_setup,
+):
+    # In a non-default workspace the proxied artifact path is prefixed with
+    # ``workspaces/<ws>/``. The experiment id must still be resolved from the path so
+    # per-experiment grants apply, instead of falling back to the workspace-tier grant
+    # (which, for a USE member, has no can_update and would wrongly reject writes).
+    store = workspace_permission_setup["store"]
+    username = workspace_permission_setup["username"]
+
+    # "DataScientist" shape: workspace USE (member, no can_update at the workspace tier)
+    # plus an explicit experiment-level EDIT grant.
+    _set_workspace_permission(store, username, USE.name)
+    store.create_experiment_permission("1", username, EDIT.name)
+
+    prefixed_path = "workspaces/team-a/1/run-1/artifacts/plots/x.png"
+    with auth_module.app.test_request_context(
+        f"/ajax-api/2.0/mlflow-artifacts/artifacts/{prefixed_path}",
+        method="GET",
+    ):
+        request.view_args = {"artifact_path": prefixed_path}
+        # EDIT on the experiment resolves through the workspace prefix -> reads and
+        # writes are allowed even though the workspace-tier grant is only USE.
+        assert auth_module.validate_can_read_experiment_artifact_proxy()
+        assert auth_module.validate_can_update_experiment_artifact_proxy()
+        # EDIT does not confer delete.
+        assert not auth_module.validate_can_delete_experiment_artifact_proxy()
+
+
 def test_filter_experiment_ids_respects_workspace_permissions(
     workspace_permission_setup, monkeypatch
 ):
@@ -1000,6 +1029,56 @@ def test_run_validators_workspace_use_blocks_reads_and_writes(workspace_permissi
         assert not auth_module.validate_can_update_run()
         assert not auth_module.validate_can_delete_run()
         assert not auth_module.validate_can_manage_run()
+
+
+def test_create_model_version_source_read_blocks_cross_workspace(
+    workspace_permission_setup, monkeypatch
+):
+    # Target model lives in team-a (user has MANAGE); source run/model live in team-b
+    # (user has no access). The source-read check must block anchoring the model version
+    # at a run/model the caller cannot read, even though they can update the target model.
+    tracking_store = _TrackingStore(
+        experiment_workspaces={"exp-a": "team-a", "exp-b": "team-b"},
+        run_experiments={"run-a": "exp-a", "run-b": "exp-b"},
+        trace_experiments={},
+        logged_model_experiments={"model-a": "exp-a", "model-b": "exp-b"},
+    )
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: tracking_store)
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "run_id": "run-b"},
+    ):
+        assert not auth_module.validate_can_create_model_version()
+
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "model_id": "model-b"},
+    ):
+        assert not auth_module.validate_can_create_model_version()
+
+    # Same-workspace source (team-a) is allowed.
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json={"name": "model-xyz", "source": "s3://bucket/x", "run_id": "run-a"},
+    ):
+        assert auth_module.validate_can_create_model_version()
+
+    # A truthy non-dict JSON body must be coerced to {} rather than raising
+    # AttributeError on `.get(...)`. Bypass the target-model check (which reads
+    # `name` from the body) to isolate the source-read coercion.
+    monkeypatch.setattr(
+        auth_module, "_validate_can_update_registered_model_or_prompt", lambda: True
+    )
+    with auth_module.app.test_request_context(
+        "/api/2.0/mlflow/model-versions/create",
+        method="POST",
+        json=[1],
+    ):
+        assert auth_module.validate_can_create_model_version()
 
 
 def test_logged_model_validators_respect_permissions(workspace_permission_setup):

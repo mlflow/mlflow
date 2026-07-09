@@ -12,6 +12,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import AlignmentOptimizer, Judge, JudgeField
 from mlflow.genai.judges.optimizers.dspy_utils import (
     _check_dspy_installed,
+    _get_api_base_key,
     construct_dspy_lm,
     create_dspy_signature,
     trace_to_dspy_example,
@@ -59,6 +60,28 @@ def _get_embedding_batch_size(litellm_model: str) -> int:
     if litellm_model.startswith("databricks/"):
         return _DATABRICKS_EMBEDDING_BATCH_SIZE
     return _DEFAULT_EMBEDDING_BATCH_SIZE
+
+
+def _build_embedder(embedding_model: str, embedding_dim: int) -> "dspy.Embedder":
+    """Create a ``dspy.Embedder``, routing Databricks models to the correct API surface.
+
+    Mirrors ``construct_dspy_lm`` for embeddings: for ``databricks:/`` and ``endpoints:/``
+    models we resolve the workspace ``api_base``/``api_key`` (Unity Catalog names go to the
+    AI Gateway, simple names to legacy serving), so gateway-hosted embedding models resolve
+    correctly instead of failing with ENDPOINT_NOT_FOUND.
+    """
+    import dspy
+
+    litellm_embedding_model = convert_mlflow_uri_to_litellm(embedding_model)
+    api_base, api_key = _get_api_base_key(embedding_model)
+    extra_kwargs = {"api_base": api_base, "api_key": api_key} if api_base else {}
+    return dspy.Embedder(
+        litellm_embedding_model,
+        dimensions=embedding_dim,
+        drop_params=True,
+        batch_size=_get_embedding_batch_size(litellm_embedding_model),
+        **extra_kwargs,
+    )
 
 
 def _generate_fingerprint(
@@ -193,13 +216,7 @@ class MemoryAugmentedJudge(Judge):
         effective_base_judge = base_judge or self._base_judge
 
         self._base_signature = create_dspy_signature(effective_base_judge)
-        litellm_embedding_model = convert_mlflow_uri_to_litellm(self._embedding_model)
-        self._embedder = dspy.Embedder(
-            litellm_embedding_model,
-            dimensions=self._embedding_dim,
-            drop_params=True,
-            batch_size=_get_embedding_batch_size(litellm_embedding_model),
-        )
+        self._embedder = _build_embedder(self._embedding_model, self._embedding_dim)
         self._retriever = None
 
         # Inherit memory from base_judge if it's a MemoryAugmentedJudge.
@@ -418,13 +435,7 @@ class MemoryAugmentedJudge(Judge):
 
         self._base_signature = create_dspy_signature(self._base_judge)
 
-        litellm_embedding_model = convert_mlflow_uri_to_litellm(self._embedding_model)
-        self._embedder = dspy.Embedder(
-            litellm_embedding_model,
-            dimensions=self._embedding_dim,
-            drop_params=True,
-            batch_size=_get_embedding_batch_size(litellm_embedding_model),
-        )
+        self._embedder = _build_embedder(self._embedding_model, self._embedding_dim)
 
         extended_signature = create_extended_signature(self._base_signature)
         self._predict_module = dspy.Predict(extended_signature)

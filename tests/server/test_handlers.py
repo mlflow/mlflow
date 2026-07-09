@@ -227,6 +227,7 @@ from mlflow.server.handlers import (
     _update_model_version,
     _update_registered_model,
     _update_review_queue,
+    _upload_artifact,
     _upsert_dataset_records_handler,
     _validate_source_run,
     catch_mlflow_exception,
@@ -240,6 +241,7 @@ from mlflow.server.handlers import (
     upload_artifact_handler,
 )
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -4106,6 +4108,50 @@ def test_download_artifact_uses_local_path_fast_path(enable_serve_artifacts, tmp
     mock_artifact_repo.get_local_path.assert_called_once_with(artifact_path)
     mock_artifact_repo.download_artifacts.assert_not_called()
     mock_tmp_dir.assert_not_called()
+
+
+def test_upload_artifact_uses_stream_upload_when_mixin_supported(enable_serve_artifacts):
+    artifact_path = "nested/model.pkl"
+    test_data = b"streamed artifact"
+
+    with (
+        app.test_request_context(
+            method="PUT", data=test_data, content_type="application/octet-stream"
+        ),
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+    ):
+        mock_artifact_repo = mock.MagicMock(spec=LocalArtifactRepository)
+        mock_repo.return_value = mock_artifact_repo
+
+        response = _upload_artifact(artifact_path)
+
+    mock_artifact_repo.log_artifact_from_stream.assert_called_once()
+    args, kwargs = mock_artifact_repo.log_artifact_from_stream.call_args
+    assert args[1] == "model.pkl"
+    assert kwargs["artifact_path"] == "nested"
+    assert response.status_code == 200
+
+
+def test_upload_artifact_falls_back_to_log_artifact_without_mixin(enable_serve_artifacts):
+    artifact_path = "nested/model.pkl"
+    test_data = b"streamed artifact"
+
+    with (
+        app.test_request_context(
+            method="PUT", data=test_data, content_type="application/octet-stream"
+        ),
+        mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_repo,
+    ):
+        mock_artifact_repo = mock.MagicMock(spec=ArtifactRepository)
+        mock_repo.return_value = mock_artifact_repo
+
+        response = _upload_artifact(artifact_path)
+
+    mock_artifact_repo.log_artifact.assert_called_once()
+    args, kwargs = mock_artifact_repo.log_artifact.call_args
+    assert args[0].endswith("model.pkl")
+    assert kwargs["artifact_path"] == "nested"
+    assert response.status_code == 200
 
 
 def test_download_artifact_streams_in_chunks(enable_serve_artifacts, tmp_path):
