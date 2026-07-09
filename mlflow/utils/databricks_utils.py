@@ -329,6 +329,11 @@ class DBConnectUDFSandboxInfo:
 _dbconnect_udf_sandbox_info_cache: DBConnectUDFSandboxInfo | None = None
 
 
+# DBR ships only a handful of minor versions per major, so this sentinel sorts a `{major}.x`
+# minor above any real cut minor while keeping the parsed version a plain `tuple[int, int]`.
+_UNCUT_MINOR = 999
+
+
 def parse_dbr_runtime_major_minor(dbr_version: str) -> tuple[int, int]:
     """
     Extract the leading ``(major, minor)`` integer components from a raw Databricks
@@ -338,15 +343,15 @@ def parse_dbr_runtime_major_minor(dbr_version: str) -> tuple[int, int]:
     ``'{major}.x-<suffix>'`` format, e.g.::
 
         '15.4.x-scala2.12'            -> (15, 4)
-        '18.x-aarch64-photon-scala2'  -> (18, 0)
+        '18.x-aarch64-photon-scala2'  -> (18, 999)
 
-    The major is always parsed as an int; a non-numeric minor (e.g. ``'x'``) is unknown and
-    degrades to ``0``. In DBR, ``{major}.x`` denotes the latest uncut minor of that major, so
-    ``(major, 0)`` is a lower bound, not an exact version — only use it for ``>=``-style gates.
+    In DBR, ``{major}.x`` denotes the latest *uncut* minor of that major, which is always ahead
+    of any already-released minor. So a non-numeric minor (e.g. ``'x'``) maps to ``_UNCUT_MINOR``
+    (a ceiling), ensuring ``{major}.x`` compares greater than any concrete ``{major}.{minor}``.
     """
     parts = dbr_version.split(".")
     major = int(parts[0])
-    minor = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+    minor = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else _UNCUT_MINOR
     return major, minor
 
 
@@ -371,7 +376,9 @@ def get_dbconnect_udf_sandbox_info(spark):
     # version is like '15.4.x-scala2.12' (legacy) or '18.x-aarch64-photon-scala2' (newer images).
     version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
     major, minor = parse_dbr_runtime_major_minor(version)
-    runtime_version = f"{major}.{minor}"
+    # Normalize to a clean, dashless '{major}.{minor}' (or '{major}.x' for an uncut minor) that
+    # round-trips through `parse_dbr_runtime_major_minor` and is safe for archive-name splitting.
+    runtime_version = f"{major}.x" if minor == _UNCUT_MINOR else f"{major}.{minor}"
 
     # For Databricks Serverless python REPL,
     # the UDF sandbox runs on client image, which has version like 'client.1.1'
