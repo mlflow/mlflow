@@ -205,6 +205,53 @@ def _resolve_dataset_version_arg(
     return version
 
 
+def _entity_to_databricks_dataset(entity: EntityEvaluationDataset):
+    """Convert a search-returned MLflow dataset entity into a databricks-agents Dataset.
+
+    ``search_datasets`` resolves through the MLflow tracking store and returns metadata-only
+    entities whose record loading targets the OSS ``/api/3.0/mlflow`` endpoint, which is not
+    served by the managed-evals backend. Re-wrapping the entity as a databricks-agents
+    ``Dataset`` (carrying the same id/version/alias metadata the search already returned) makes
+    ``to_df`` / evaluation route through the managed-evals records endpoint, matching the handle
+    ``get_dataset`` returns. No extra backend call is made.
+    """
+    db_datasets = _get_databricks_agents_datasets_module()
+    dataset_cls = getattr(db_datasets, "Dataset", None)
+    if dataset_cls is None or not hasattr(dataset_cls, "from_dict"):
+        # Prerelease agents build not present; leave the entity as-is.
+        return entity
+
+    # The entity carries version/alias exactly as the managed-evals API returned them (raw dict,
+    # or a bare int / alias string). Reassemble that response shape and let the agents Dataset
+    # dataclass (dataclass_json) decode it, reusing its version/alias parsing instead of building
+    # those objects by hand. Mirror the scalar->object normalization managed-evals applies.
+    payload: dict[str, Any] = {
+        "dataset_id": entity.dataset_id,
+        "name": entity.name,
+        "digest": entity.digest,
+        # Databricks managed datasets are always UC-table backed; setting this ensures downstream
+        # DatasetInput logging has a non-null source_type.
+        "source_type": getattr(entity, "source_type", None) or "databricks-uc-table",
+        "is_uc_native": getattr(entity, "is_uc_native", None),
+    }
+
+    version = getattr(entity, "version", None)
+    if isinstance(version, int):
+        version = {"version": version}
+    if version not in (None, ""):
+        payload["version"] = version
+
+    alias = getattr(entity, "alias", None)
+    if isinstance(alias, str):
+        alias = {"alias": alias, "version": payload.get("version")}
+    elif isinstance(alias, dict) and isinstance(alias.get("version"), int):
+        alias = {**alias, "version": {"version": alias["version"]}}
+    if alias not in (None, ""):
+        payload["alias"] = alias
+
+    return dataset_cls.from_dict(payload)
+
+
 @deprecated_parameter("uc_table_name", "name")
 def create_dataset(
     name: str | None = None,
@@ -613,6 +660,13 @@ def search_datasets(
         SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
         max_results,
     )
+    if is_databricks:
+        # Re-wrap as databricks-agents datasets so record loading / evaluation routes through
+        # the managed-evals backend rather than the OSS records endpoint (which the backend
+        # does not serve). Uses only the metadata the search already returned; no extra call.
+        return [
+            EvaluationDataset(_entity_to_databricks_dataset(dataset)) for dataset in mlflow_datasets
+        ]
     return [EvaluationDataset(dataset) for dataset in mlflow_datasets]
 
 
@@ -629,7 +683,7 @@ def set_dataset_alias(
     resolved_version = _resolve_dataset_version_arg(version)
     db_datasets = _get_databricks_agents_datasets_module(require_dataset_versioning=True)
     with _databricks_profile_env():
-        db_datasets.set_dataset_alias(dataset_name, alias, version=resolved_version)
+        db_datasets.set_dataset_alias(dataset_name, alias=alias, version=resolved_version)
 
 
 def delete_dataset_alias(
