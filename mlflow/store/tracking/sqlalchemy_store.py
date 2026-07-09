@@ -3483,7 +3483,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 is_deadlock = (
                     e.error_code == temporarily_unavailable and "deadlock" in str(e).lower()
                 )
-                if not is_deadlock or attempt == _TRACE_WRITE_MAX_DEADLOCK_RETRIES:
+                if not is_deadlock or attempt >= _TRACE_WRITE_MAX_DEADLOCK_RETRIES:
                     raise
                 # Exponential backoff with jitter, matching `_try_insert_tags`.
                 sleep_duration = (2**attempt) - 1
