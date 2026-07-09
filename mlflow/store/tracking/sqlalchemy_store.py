@@ -205,12 +205,13 @@ from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME, spans_to_
 from mlflow.tracing.otel.translation import (
     translate_loaded_span,
     translate_span_when_storing,
-    update_cost,
-    update_token_usage,
 )
 from mlflow.tracing.trace_archival_config import get_trace_archival_server_config
 from mlflow.tracing.utils import (
+    SpanAggregationNode,
     TraceJSONEncoder,
+    aggregate_cost_from_span_nodes,
+    aggregate_usage_from_span_nodes,
     generate_request_id_v2,
 )
 from mlflow.tracing.utils.artifact_utils import (
@@ -4961,8 +4962,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             max_end_ms = (max(end_times) // 1_000_000) if end_times else None
             root_span_status = self._get_trace_status_from_root_span(trace_spans)
 
-            aggregated_token_usage = {}
-            aggregated_cost = {}
+            usage_nodes: list[SpanAggregationNode] = []
+            cost_nodes: list[SpanAggregationNode] = []
             session_id = None
             user_id = None
             root_span_dict = None
@@ -4970,13 +4971,28 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             for span in trace_spans:
                 span_dict = translate_span_when_storing(span)
                 span_cost = None
-                if span_attributes := span_dict.get("attributes", {}):
-                    if span_token_usage := span_attributes.get(SpanAttributeKey.CHAT_USAGE):
-                        aggregated_token_usage = update_token_usage(
-                            aggregated_token_usage, span_token_usage
-                        )
-                    if span_cost := span_attributes.get(SpanAttributeKey.LLM_COST):
-                        aggregated_cost = update_cost(aggregated_cost, span_cost)
+                span_attributes = span_dict.get("attributes", {})
+                # Collect a node for every span (even without usage/cost data) so the
+                # tree-aware aggregation can traverse parent chains through them.
+                usage_nodes.append(
+                    SpanAggregationNode(
+                        span_id=span.span_id,
+                        parent_id=span.parent_id,
+                        data=_parse_span_aggregation_data(
+                            span_attributes.get(SpanAttributeKey.CHAT_USAGE)
+                        ),
+                    )
+                )
+                cost_nodes.append(
+                    SpanAggregationNode(
+                        span_id=span.span_id,
+                        parent_id=span.parent_id,
+                        data=_parse_span_aggregation_data(
+                            span_attributes.get(SpanAttributeKey.LLM_COST)
+                        ),
+                    )
+                )
+                if span_attributes:
                     # Session ID from OTel semantic conventions:
                     # https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
                     if session_id is None and (
@@ -5049,17 +5065,23 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                                 continue
                             trace_tags_from_root_attr[tag_key] = tag_value
 
+            # Tree-aware aggregation matching the client-side aggregator
+            # (aggregate_usage_from_spans): rollup autologgers (e.g. pydantic_ai, agno,
+            # dspy) set cumulative usage on parent spans, so a flat sum over all spans
+            # would double-count parent and children.
             trace_aggregates[trace_id] = _TraceAggregate(
                 min_start_ms=min_start_ms,
                 max_end_ms=max_end_ms,
                 root_span_status=root_span_status,
                 trace_status=root_span_status or TraceState.IN_PROGRESS.value,
-                aggregated_token_usage=aggregated_token_usage,
-                aggregated_cost=aggregated_cost,
+                aggregated_token_usage=aggregate_usage_from_span_nodes(usage_nodes) or {},
+                aggregated_cost=aggregate_cost_from_span_nodes(cost_nodes) or {},
                 session_id=session_id,
                 user_id=user_id,
                 root_span_dict=root_span_dict,
                 trace_tags=trace_tags_from_root_attr,
+                usage_nodes=usage_nodes,
+                cost_nodes=cost_nodes,
             )
 
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -5076,6 +5098,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # On IntegrityError (concurrent start_trace race), roll back and retry so that
             # previously flushed trace_infos (which session.rollback() would undo) are
             # re-created in the next attempt. Loop until all traces are in existing_traces.
+            # Traces created by this call cannot have spans stored by earlier calls, so
+            # their batch-local aggregates are authoritative (no recompute needed later).
+            created_trace_ids: set[str] = set()
             if any(tid not in existing_traces for tid in all_trace_ids):
                 experiment = self.get_experiment(location)
                 for _attempt in range(_LOG_SPANS_MAX_TRACE_CREATE_RETRIES):
@@ -5109,7 +5134,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             conflict = trace_id
                             break
                         existing_traces[trace_id] = sql_trace_info
+                        created_trace_ids.add(trace_id)
                     if conflict is not None:
+                        # The rollback undid every trace this attempt created; traces
+                        # found by the re-fetch below were created by another process.
+                        created_trace_ids.clear()
                         # Re-fetch whatever now exists in DB (created by start_trace or us)
                         existing_traces = {
                             t.request_id: t
@@ -5198,6 +5227,63 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     .all()
                 }
 
+            # For traces that existed before this call, the batch-local aggregate is not
+            # authoritative: a rollup parent and its children may arrive in separate
+            # batches (e.g. BatchSpanProcessor exports of a distributed trace), and
+            # accumulating per-batch sums onto the stored value would double-count.
+            # Fetch the trace's already-stored spans so Phase 5 can recompute the
+            # tree-aware aggregate over the full span tree (stored + batch).
+            recompute_trace_ids = [
+                tid
+                for tid in set(trace_ids_with_token_usage) | set(trace_ids_with_cost)
+                if tid not in created_trace_ids
+            ]
+            stored_usage_nodes: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
+            stored_cost_nodes: defaultdict[str, list[SpanAggregationNode]] = defaultdict(list)
+            if recompute_trace_ids:
+                batch_span_keys = {(row["trace_id"], row["span_id"]) for row in all_span_rows}
+                stored_span_rows = (
+                    session
+                    .query(
+                        SqlSpan.trace_id,
+                        SqlSpan.span_id,
+                        SqlSpan.parent_span_id,
+                        SqlSpan.content,
+                    )
+                    .filter(
+                        SqlSpan.trace_id.in_(recompute_trace_ids),
+                        SqlSpan.content != "",
+                    )
+                    .all()
+                )
+                for row_trace_id, row_span_id, row_parent_span_id, row_content in stored_span_rows:
+                    # Spans upserted by this batch are already covered by the in-memory
+                    # nodes in trace_aggregates.
+                    if (row_trace_id, row_span_id) in batch_span_keys:
+                        continue
+                    try:
+                        row_attributes = json.loads(row_content).get("attributes") or {}
+                    except (json.JSONDecodeError, AttributeError):
+                        continue
+                    stored_usage_nodes[row_trace_id].append(
+                        SpanAggregationNode(
+                            span_id=row_span_id,
+                            parent_id=row_parent_span_id,
+                            data=_parse_span_aggregation_data(
+                                row_attributes.get(SpanAttributeKey.CHAT_USAGE)
+                            ),
+                        )
+                    )
+                    stored_cost_nodes[row_trace_id].append(
+                        SpanAggregationNode(
+                            span_id=row_span_id,
+                            parent_id=row_parent_span_id,
+                            data=_parse_span_aggregation_data(
+                                row_attributes.get(SpanAttributeKey.LLM_COST)
+                            ),
+                        )
+                    )
+
             # --- Phase 5: Per-trace updates (UPDATE + merges) ---
             for trace_id in all_trace_ids:
                 agg = trace_aggregates[trace_id]
@@ -5252,43 +5338,55 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # record exists yet (start_trace() lost the race or didn't include token
                 # usage), log_spans() must still write it to avoid data loss.
                 if aggregated_token_usage := agg.aggregated_token_usage:
-                    existing_record = existing_token_usage.get(trace_id)
-                    if trace_id not in finalized_trace_ids or not existing_record:
-                        trace_token_usage = update_token_usage(
-                            existing_record.value if existing_record else {},
-                            aggregated_token_usage,
-                        )
-                        session.merge(
-                            SqlTraceMetadata(
-                                request_id=trace_id,
-                                key=TraceMetadataKey.TOKEN_USAGE,
-                                value=json.dumps(trace_token_usage),
+                    if trace_id not in finalized_trace_ids or not existing_token_usage.get(
+                        trace_id
+                    ):
+                        if trace_id in created_trace_ids:
+                            trace_token_usage = aggregated_token_usage
+                        else:
+                            # Recompute over the full span tree (stored + batch) instead
+                            # of accumulating onto the stored value, so rollup parents
+                            # arriving in a different batch than their children are
+                            # de-duplicated. Spans logged by earlier calls are included
+                            # via stored_usage_nodes, so overwriting is lossless.
+                            trace_token_usage = aggregate_usage_from_span_nodes(
+                                agg.usage_nodes + stored_usage_nodes[trace_id]
                             )
-                        )
-                        for key in TokenUsageKey.all_keys():
-                            if (value := trace_token_usage.get(key)) is not None:
-                                session.merge(
-                                    SqlTraceMetrics(
-                                        request_id=trace_id, key=key, value=float(value)
-                                    )
+                        if trace_token_usage:
+                            session.merge(
+                                SqlTraceMetadata(
+                                    request_id=trace_id,
+                                    key=TraceMetadataKey.TOKEN_USAGE,
+                                    value=json.dumps(trace_token_usage),
                                 )
+                            )
+                            for key in TokenUsageKey.all_keys():
+                                if (value := trace_token_usage.get(key)) is not None:
+                                    session.merge(
+                                        SqlTraceMetrics(
+                                            request_id=trace_id, key=key, value=float(value)
+                                        )
+                                    )
 
                 # Cost metadata — skip only if start_trace() has already written the
                 # authoritative value (flag set AND existing record present). If the flag
                 # is set but no record exists, still write to avoid data loss.
                 if aggregated_cost := agg.aggregated_cost:
-                    existing_record = existing_cost.get(trace_id)
-                    if trace_id not in finalized_trace_ids or not existing_record:
-                        recorded_cost = update_cost(
-                            existing_record.value if existing_record else {}, aggregated_cost
-                        )
-                        session.merge(
-                            SqlTraceMetadata(
-                                request_id=trace_id,
-                                key=TraceMetadataKey.COST,
-                                value=json.dumps(recorded_cost),
+                    if trace_id not in finalized_trace_ids or not existing_cost.get(trace_id):
+                        if trace_id in created_trace_ids:
+                            recorded_cost = aggregated_cost
+                        else:
+                            recorded_cost = aggregate_cost_from_span_nodes(
+                                agg.cost_nodes + stored_cost_nodes[trace_id]
                             )
-                        )
+                        if recorded_cost:
+                            session.merge(
+                                SqlTraceMetadata(
+                                    request_id=trace_id,
+                                    key=TraceMetadataKey.COST,
+                                    value=json.dumps(recorded_cost),
+                                )
+                            )
 
                 # Session ID metadata
                 if (
@@ -9711,6 +9809,16 @@ def _try_parse_json_string(value: str) -> str:
     return parsed if isinstance(parsed, str) else value
 
 
+def _parse_span_aggregation_data(value: Any) -> dict[str, Any] | None:
+    """Parse a (possibly JSON-encoded) usage/cost span attribute into a dict."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return None
+    return value if isinstance(value, dict) else None
+
+
 @dataclass
 class _TraceAggregate:
     """Pre-computed per-trace aggregates used by log_spans() to minimize DB round-trips."""
@@ -9726,6 +9834,10 @@ class _TraceAggregate:
     root_span_dict: dict[str, Any] | None = None
     # User-defined tags from mlflow.update_current_trace(tags=...) carried via OTLP export
     trace_tags: dict[str, str] = field(default_factory=dict)
+    # Per-span usage/cost nodes of this batch, kept so pre-existing traces can recompute
+    # the tree-aware aggregate across batches (batch nodes + spans already in the DB).
+    usage_nodes: list[SpanAggregationNode] = field(default_factory=list)
+    cost_nodes: list[SpanAggregationNode] = field(default_factory=list)
 
 
 # Maximum number of attempts to create trace_info rows in log_spans() Phase 2.

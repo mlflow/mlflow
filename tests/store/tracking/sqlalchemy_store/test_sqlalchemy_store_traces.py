@@ -4483,6 +4483,160 @@ def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
     assert trace.info.cost["total_cost"] == 0.045
 
 
+def _rollup_trace_spans(trace_id: str) -> tuple[Span, list[Span]]:
+    """Span tree shaped like rollup autologgers (pydantic_ai, agno, dspy): the parent
+    AGENT span carries the cumulative usage of its LLM children.
+    """
+    parent = create_test_span(
+        trace_id,
+        name="agent",
+        span_id=1,
+        parent_id=None,
+        span_type="AGENT",
+        attributes={
+            SpanAttributeKey.CHAT_USAGE: {
+                "input_tokens": 120,
+                "output_tokens": 15,
+                "total_tokens": 135,
+            }
+        },
+    )
+    children = [
+        create_test_span(
+            trace_id,
+            name=f"llm_{i}",
+            span_id=10 + i,
+            parent_id=1,
+            span_type="LLM",
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 40,
+                    "output_tokens": 5,
+                    "total_tokens": 45,
+                }
+            },
+        )
+        for i in range(3)
+    ]
+    return parent, children
+
+
+def test_log_spans_token_usage_dedups_rollup_parent(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_token_usage_dedup")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    parent, children = _rollup_trace_spans(trace_id)
+
+    store.log_spans(experiment_id, [parent, *children])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 120,
+        "output_tokens": 15,
+        "total_tokens": 135,
+    }
+
+
+@pytest.mark.parametrize("parent_first", [True, False])
+def test_log_spans_token_usage_dedups_rollup_parent_across_batches(
+    store: SqlAlchemyStore, parent_first: bool
+) -> None:
+    experiment_id = store.create_experiment(
+        f"test_log_spans_token_usage_dedup_batches_{parent_first}"
+    )
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    parent, children = _rollup_trace_spans(trace_id)
+
+    batches = [[parent], children] if parent_first else [children, [parent]]
+    for batch in batches:
+        store.log_spans(experiment_id, batch)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 120,
+        "output_tokens": 15,
+        "total_tokens": 135,
+    }
+
+
+def test_log_spans_token_usage_dedups_nested_rollup_chain(store: SqlAlchemyStore) -> None:
+    # pydantic_ai emits Agent.run_sync -> Agent.run, both carrying the same cumulative
+    # usage as the LLM leaf; only the topmost value must be counted.
+    experiment_id = store.create_experiment("test_log_spans_token_usage_dedup_chain")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    usage = {"input_tokens": 150, "output_tokens": 27, "total_tokens": 177}
+
+    spans = [
+        create_test_span(
+            trace_id,
+            name=name,
+            span_id=span_id,
+            parent_id=parent_id,
+            span_type=span_type,
+            attributes={SpanAttributeKey.CHAT_USAGE: usage},
+        )
+        for name, span_id, parent_id, span_type in [
+            ("Agent.run_sync", 1, None, "AGENT"),
+            ("Agent.run", 2, 1, "AGENT"),
+            ("chat_completion", 3, 2, "LLM"),
+        ]
+    ]
+    store.log_spans(experiment_id, spans)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == usage
+
+
+@pytest.mark.parametrize("single_batch", [True, False])
+def test_log_spans_cost_dedups_rollup_parent(store: SqlAlchemyStore, single_batch: bool) -> None:
+    experiment_id = store.create_experiment(f"test_log_spans_cost_dedup_{single_batch}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    parent = create_test_span(
+        trace_id,
+        name="agent",
+        span_id=1,
+        parent_id=None,
+        span_type="AGENT",
+        attributes={
+            SpanAttributeKey.LLM_COST: {
+                "input_cost": 0.02,
+                "output_cost": 0.01,
+                "total_cost": 0.03,
+            }
+        },
+    )
+    children = [
+        create_test_span(
+            trace_id,
+            name=f"llm_{i}",
+            span_id=10 + i,
+            parent_id=1,
+            span_type="LLM",
+            attributes={
+                SpanAttributeKey.LLM_COST: {
+                    "input_cost": 0.01,
+                    "output_cost": 0.005,
+                    "total_cost": 0.015,
+                }
+            },
+        )
+        for i in range(2)
+    ]
+
+    if single_batch:
+        store.log_spans(experiment_id, [parent, *children])
+    else:
+        store.log_spans(experiment_id, children)
+        store.log_spans(experiment_id, [parent])
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.cost == {
+        "input_cost": 0.02,
+        "output_cost": 0.01,
+        "total_cost": 0.03,
+    }
+
+
 def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
     """start_trace() sets TRACE_INFO_FINALIZED; subsequent log_spans() must not overwrite
     request_time, execution_duration, session_id, token_usage, or cost.
