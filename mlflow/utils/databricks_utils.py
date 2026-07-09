@@ -340,8 +340,9 @@ def parse_dbr_runtime_major_minor(dbr_version: str) -> tuple[int, int]:
         '15.4.x-scala2.12'            -> (15, 4)
         '18.x-aarch64-photon-scala2'  -> (18, 0)
 
-    The major is always parsed as an int; a non-numeric minor (e.g. ``'x'``) degrades
-    to ``0`` so the rebuilt ``'{major}.{minor}'`` string is always ``Version()``-parseable.
+    The major is always parsed as an int; a non-numeric minor (e.g. ``'x'``) is unknown and
+    degrades to ``0``. In DBR, ``{major}.x`` denotes the latest uncut minor of that major, so
+    ``(major, 0)`` is a lower bound, not an exact version — only use it for ``>=``-style gates.
     """
     parts = dbr_version.split(".")
     major = int(parts[0])

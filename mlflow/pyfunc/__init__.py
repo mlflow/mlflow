@@ -417,7 +417,7 @@ import numpy as np
 import pandas
 import pydantic
 import yaml
-from packaging.version import InvalidVersion, Version
+from packaging.version import Version
 
 import mlflow
 import mlflow.models.signature
@@ -2284,21 +2284,18 @@ def spark_udf(
                 "Databricks Connect requires UDF sandbox image installed with MLflow "
                 "of version >= 2.18.0"
             )
-        # `udf_sandbox_info.runtime_version` is normalized to '{major}.{minor}' by
-        # `get_dbconnect_udf_sandbox_info`, so `Version` should parse it. Guard against a
-        # non-numeric minor (e.g. "18.x") leaking through by falling back to comparing the
-        # leading numeric (major, minor) components rather than crashing on InvalidVersion.
-        try:
-            dbr_runtime_version = Version(udf_sandbox_info.runtime_version)
-        except InvalidVersion:
-            major, minor = parse_dbr_runtime_major_minor(udf_sandbox_info.runtime_version)
-            dbr_runtime_version = Version(f"{major}.{minor}")
-        if dbr_runtime_version < Version("15.4"):
+        # Compare on the leading numeric (major, minor) components instead of constructing a
+        # `Version`, which crashes with `InvalidVersion` on newer image strings whose minor is
+        # non-numeric (e.g. "18.x-aarch64-photon-scala2"). A `.x` minor is unknown and floors to
+        # 0 -> (18, 0): a valid lower bound for this `>= 15.4` gate, but not an exact minor (a
+        # future `18.x` cut could really be 18.3), so it must only be used for `>=`-style checks.
+        dbr_runtime_version = parse_dbr_runtime_major_minor(udf_sandbox_info.runtime_version)
+        if dbr_runtime_version < (15, 4):
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
                 "Databricks Connect requires Databricks runtime version >= 15.4."
             )
-        if dbr_runtime_version == Version("15.4"):
+        if dbr_runtime_version == (15, 4):
             if spark.conf.get("spark.databricks.pyspark.udf.isolation.enabled").lower() == "true":
                 # The connected cluster is standard (shared) mode.
                 if (
