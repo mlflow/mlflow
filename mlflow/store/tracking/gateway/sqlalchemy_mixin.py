@@ -1235,6 +1235,19 @@ class SqlAlchemyGatewayStoreMixin:
             target_scope.value if isinstance(target_scope, BudgetTargetScope) else target_scope
         )
         endpoint_id = _normalize_budget_endpoint_id(scope_value, endpoint_id)
+        # A USER-scoped policy with no principal never matches any request, so a REJECT
+        # cap silently never rejects. Enforce the invariant here so programmatic callers
+        # can't reach that state by bypassing the REST-handler validation.
+        if scope_value == BudgetTargetScope.USER.value and not principal:
+            raise MlflowException(
+                message="principal is required when target_scope is USER",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        # Mirror the endpoint_id treatment: a stray principal on a non-USER policy is
+        # dropped rather than persisted, so a later switch to USER can't silently adopt
+        # a principal the caller never specified.
+        if scope_value != BudgetTargetScope.USER.value:
+            principal = None
         with self.ManagedSessionMaker(read_only=False) as session:
             if endpoint_id is not None:
                 # An ENDPOINT policy referencing a nonexistent endpoint would never
@@ -1255,9 +1268,7 @@ class SqlAlchemyGatewayStoreMixin:
                     budget_amount=budget_amount,
                     duration_unit=duration.unit.value,
                     duration_value=duration.value,
-                    target_scope=target_scope.value
-                    if isinstance(target_scope, BudgetTargetScope)
-                    else target_scope,
+                    target_scope=scope_value,
                     budget_action=budget_action.value
                     if isinstance(budget_action, BudgetAction)
                     else budget_action,
@@ -1355,6 +1366,18 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_budget_policy.target_scope == BudgetTargetScope.USER.value
             ):
                 sql_budget_policy.principal = principal
+            # Symmetric half of the invariant: a USER-scoped policy must always carry a
+            # principal, otherwise it never matches any request (a REJECT cap that never
+            # rejects). Enforce it here so programmatic callers that bypass the handler
+            # can't switch a policy to USER and leave the principal empty.
+            if (
+                sql_budget_policy.target_scope == BudgetTargetScope.USER.value
+                and not sql_budget_policy.principal
+            ):
+                raise MlflowException(
+                    message="principal is required when target_scope is USER",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
             sql_budget_policy.last_updated_at = get_current_time_millis()
             if updated_by is not None:

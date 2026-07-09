@@ -2704,6 +2704,37 @@ def test_create_budget_policy_non_user_scope_has_no_principal(store: SqlAlchemyS
     assert policy.principal is None
 
 
+def test_create_budget_policy_non_user_drops_stray_principal(store: SqlAlchemyStore):
+    policy = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.WORKSPACE,
+        budget_action=BudgetAction.ALERT,
+        principal="stray-user",
+    )
+    assert policy.principal is None
+    assert store.get_budget_policy(policy.budget_policy_id).principal is None
+
+
+def test_update_to_user_scope_cannot_adopt_stray_principal(store: SqlAlchemyStore):
+    # With the stray principal dropped at create time, switching a non-USER policy to
+    # USER without an explicit principal must fail instead of silently adopting one.
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.WORKSPACE,
+        budget_action=BudgetAction.ALERT,
+        principal="stray-user",
+    )
+    with pytest.raises(MlflowException, match="principal is required"):
+        store.update_budget_policy(
+            budget_policy_id=created.budget_policy_id,
+            target_scope=BudgetTargetScope.USER,
+        )
+
+
 def test_update_budget_policy_principal(store: SqlAlchemyStore):
     created = store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
@@ -2787,6 +2818,39 @@ def test_update_budget_policy_principal_ignored_on_non_user_policy(store: SqlAlc
     )
     assert updated.target_scope == BudgetTargetScope.GLOBAL
     assert updated.principal is None
+
+
+def test_create_budget_policy_user_scope_without_principal_raises(store: SqlAlchemyStore):
+    # The store enforces the USER-requires-principal invariant directly, so a
+    # programmatic caller bypassing the REST handler still can't create an inert
+    # (never-matching) USER policy.
+    with pytest.raises(MlflowException, match="principal is required when target_scope is USER"):
+        store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=25.0,
+            duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+            target_scope=BudgetTargetScope.USER,
+            budget_action=BudgetAction.REJECT,
+        )
+
+
+def test_update_budget_policy_switch_to_user_without_principal_raises(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+    )
+    with pytest.raises(MlflowException, match="principal is required when target_scope is USER"):
+        store.update_budget_policy(
+            budget_policy_id=created.budget_policy_id,
+            target_scope=BudgetTargetScope.USER,
+        )
+    # The failed update rolled back: the policy is unchanged (still GLOBAL, no principal).
+    fetched = store.get_budget_policy(budget_policy_id=created.budget_policy_id)
+    assert fetched.target_scope == BudgetTargetScope.GLOBAL
+    assert fetched.principal is None
 
 
 # =============================================================================

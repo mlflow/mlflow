@@ -1738,6 +1738,31 @@ def test_budget_policies_are_workspace_scoped(gateway_workspace_store):
         assert policies[0].endpoint_id == endpoint.endpoint_id
 
 
+def test_user_budget_policies_are_workspace_scoped_rows(gateway_workspace_store):
+    # USER-scoped policies match requests across workspaces at enforcement time, but
+    # the policy rows themselves live in the workspace that created them.
+    store = gateway_workspace_store
+    with WorkspaceContext("team-user-budget-a"):
+        policy_a = store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=25.0,
+            duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+            target_scope=BudgetTargetScope.USER,
+            budget_action=BudgetAction.REJECT,
+            principal="alice",
+        )
+
+    with WorkspaceContext("team-user-budget-b"):
+        assert len(store.list_budget_policies()) == 0
+        with pytest.raises(MlflowException, match="not found"):
+            store.get_budget_policy(budget_policy_id=policy_a.budget_policy_id)
+
+    with WorkspaceContext("team-user-budget-a"):
+        policies = store.list_budget_policies()
+        assert [p.budget_policy_id for p in policies] == [policy_a.budget_policy_id]
+        assert policies[0].principal == "alice"
+
+
 def test_model_definitions_are_workspace_scoped(gateway_workspace_store):
     with WorkspaceContext("team-def-a"):
         secret_a = gateway_workspace_store.create_gateway_secret(
