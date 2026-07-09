@@ -1,7 +1,4 @@
-import base64
 import json
-import os
-import shutil
 from itertools import combinations
 from unittest import mock
 from unittest.mock import ANY
@@ -9,8 +6,6 @@ from unittest.mock import ANY
 import pandas as pd
 import pytest
 import yaml
-from botocore.client import BaseClient
-from google.cloud.storage import Client
 from requests import Response
 
 from mlflow.data.dataset import Dataset
@@ -21,7 +16,6 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
-    RegisteredModel,
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt import Prompt
@@ -53,19 +47,15 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     StorageMode,
     TemporaryCredentials,
 )
-from mlflow.protos.service_pb2 import GetRun
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     LinkPromptsToTracesRequest,
     LinkPromptVersionsToModelsRequest,
     LinkPromptVersionsToRunsRequest,
 )
 from mlflow.store._unity_catalog.registry.rest_store import (
-    _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
     UcModelRegistryStore,
 )
-from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
-from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
 from mlflow.tracing.constant import TraceTagKey
@@ -74,8 +64,6 @@ from mlflow.utils._unity_catalog_utils import (
     _ACTIVE_CATALOG_QUERY,
     _ACTIVE_SCHEMA_QUERY,
     get_artifact_repo_from_storage_info,
-    uc_model_version_tag_from_mlflow_tags,
-    uc_registered_model_tag_from_mlflow_tags,
 )
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_JOB_ID,
@@ -88,7 +76,6 @@ from tests.helper_functions import mock_http_200
 from tests.resources.data.dataset_source import SampleDatasetSource
 from tests.store._unity_catalog.conftest import (
     _REGISTRY_HOST_CREDS,
-    _TRACKING_HOST_CREDS,
 )
 
 
@@ -1620,7 +1607,8 @@ def test_get_model_version_uses_native_endpoint(store):
     native_call.assert_called_once()
     legacy_call.assert_not_called()
     assert result.name == "catalog.schema.model"
-    assert result.version == 3
+    # MLflow entity version is a string (int64 governance version is stringified).
+    assert result.version == "3"
     assert result.model_id == "m-1"
 
 
@@ -1777,7 +1765,7 @@ def test_update_model_version_uses_native(store):
         result = store.update_model_version("catalog.schema.model", 2, "new")
     native_call.assert_called_once()
     legacy_call.assert_not_called()
-    assert result.version == 2
+    assert result.version == "2"
     assert result.description == "new"
 
 
@@ -1821,7 +1809,7 @@ def test_create_model_version_uses_native_when_no_dependencies(store, tmp_path):
     legacy_call.assert_not_called()
     mock_repo.log_artifacts.assert_called_once()
     assert result.name == "catalog.schema.model"
-    assert result.version == 1
+    assert result.version == "1"
 
 
 def test_create_model_version_translates_dependencies_to_governance(store, tmp_path):

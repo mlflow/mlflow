@@ -1,5 +1,7 @@
 import pytest
 
+from mlflow.entities.logged_model_parameter import LoggedModelParameter as ModelParam
+from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionDeploymentJobState,
@@ -11,27 +13,23 @@ from mlflow.entities.model_registry import (
 from mlflow.entities.model_registry.model_version_search import ModelVersionSearch
 from mlflow.entities.model_registry.registered_model_search import RegisteredModelSearch
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    EncryptionDetails,
-    SseEncryptionAlgorithm,
-    SseEncryptionDetails,
-    TemporaryCredentials,
-)
-from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    ModelVersionStatus as ProtoModelVersionStatus,
-)
-from mlflow.entities.logged_model_parameter import LoggedModelParameter as ModelParam
-from mlflow.entities.metric import Metric
-from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     DeploymentJobConnection,
+    EncryptionDetails,
     ModelVersionInfo,
     RegisteredModelAliasInfo,
     RegisteredModelInfo,
+    SseEncryptionAlgorithm,
+    SseEncryptionDetails,
     TagKeyValue,
+    TemporaryCredentials,
 )
 from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelMetric as ProtoModelMetric
 from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelParam as ProtoModelParam
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersionDeploymentJobState as ProtoModelVersionDeploymentJobState,
+)
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    ModelVersionStatus as ProtoModelVersionStatus,
 )
 from mlflow.utils._unity_catalog_utils import (
     _parse_aws_sse_credential,
@@ -193,7 +191,8 @@ def test_registered_model_from_uc_proto():
 def test_model_version_from_uc_proto():
     expected_model_version = ModelVersion(
         name="catalog.schema.model",
-        version=3,
+        # MLflow entity version is a string (int64 governance version is stringified).
+        version="3",
         creation_timestamp=1,
         last_updated_timestamp=2,
         description="description",
@@ -296,7 +295,8 @@ def test_registered_model_search_from_uc_proto():
 def test_model_version_search_from_uc_proto():
     expected_model_version = ModelVersionSearch(
         name="catalog.schema.model",
-        version=3,
+        # MLflow entity version is a string (int64 governance version is stringified).
+        version="3",
         creation_timestamp=1,
         last_updated_timestamp=2,
         description="description",

@@ -84,7 +84,9 @@ def registered_model_from_uc_proto(uc_proto: RegisteredModelInfo) -> RegisteredM
 def model_version_from_uc_proto(uc_proto: ModelVersionInfo) -> ModelVersion:
     return ModelVersion(
         name=f"{uc_proto.catalog_name}.{uc_proto.schema_name}.{uc_proto.model_name}",
-        version=uc_proto.version,
+        # The governance proto types version as int64; the MLflow entity's version is a string
+        # (matching the legacy MLflow-dialect surface, which sent it as a string field).
+        version=str(uc_proto.version),
         creation_timestamp=uc_proto.created_at,
         last_updated_timestamp=uc_proto.updated_at,
         description=uc_proto.comment,
@@ -138,7 +140,8 @@ def model_version_search_from_uc_proto(
     # Search results intentionally omit tags/aliases (ModelVersionSearch forces them empty).
     return ModelVersionSearch(
         name=f"{uc_proto.catalog_name}.{uc_proto.schema_name}.{uc_proto.model_name}",
-        version=uc_proto.version,
+        # int64 governance version -> string entity version (see model_version_from_uc_proto).
+        version=str(uc_proto.version),
         creation_timestamp=uc_proto.created_at,
         last_updated_timestamp=uc_proto.updated_at,
         description=uc_proto.comment,
