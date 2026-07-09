@@ -262,14 +262,14 @@ export const MCPServerVersionDetail = ({
         key={version.version}
         componentId="mlflow.mcp_registry.detail.version_tabs"
         valueHasNoPii
-        defaultValue="configuration"
+        defaultValue="connect"
         css={{ marginTop: theme.spacing.md, '& svg': { width: 14, height: 14 } }}
       >
         <Tabs.List>
-          <Tabs.Trigger value="configuration">
+          <Tabs.Trigger value="connect">
             <FormattedMessage
-              defaultMessage="Configuration"
-              description="MCP server version detail configuration tab"
+              defaultMessage="Connect"
+              description="MCP server version detail connect tab"
             />
           </Tabs.Trigger>
           {version.tools && version.tools.length > 0 && (
@@ -283,7 +283,7 @@ export const MCPServerVersionDetail = ({
           )}
         </Tabs.List>
 
-        <Tabs.Content value="configuration" css={{ paddingTop: theme.spacing.md }}>
+        <Tabs.Content value="connect" css={{ paddingTop: theme.spacing.md }}>
           {version.server_json && <ServerJSONSection serverJson={version.server_json} />}
         </Tabs.Content>
 

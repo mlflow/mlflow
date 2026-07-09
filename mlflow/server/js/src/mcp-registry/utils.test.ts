@@ -1,8 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import {
   resolveDisplayName,
-  resolveVersionDisplayName,
-  buildSearchFilterClause,
   STATUS_TAG_COLOR,
   STATUS_TRANSITIONS,
   validateServerJson,
@@ -20,62 +18,6 @@ describe('resolveDisplayName', () => {
 
   it('falls back to name when display_name is empty string', () => {
     expect(resolveDisplayName({ display_name: '', name: 'io.test/server' })).toBe('io.test/server');
-  });
-});
-
-describe('resolveVersionDisplayName', () => {
-  it('returns version display_name first', () => {
-    expect(
-      resolveVersionDisplayName({ display_name: 'Custom Name', server_json: { title: 'Title' } }, 'fallback'),
-    ).toBe('Custom Name');
-  });
-
-  it('falls back to server_json.title', () => {
-    expect(resolveVersionDisplayName({ server_json: { title: 'JSON Title' } }, 'fallback')).toBe('JSON Title');
-  });
-
-  it('falls back to fallback when no display_name or title', () => {
-    expect(resolveVersionDisplayName({ server_json: {} }, 'fallback')).toBe('fallback');
-  });
-
-  it('falls back to fallback when version is null', () => {
-    expect(resolveVersionDisplayName(null, 'fallback')).toBe('fallback');
-  });
-
-  it('falls back to fallback when version is undefined', () => {
-    expect(resolveVersionDisplayName(undefined, 'fallback')).toBe('fallback');
-  });
-});
-
-describe('buildSearchFilterClause', () => {
-  it('returns undefined for empty filter', () => {
-    expect(buildSearchFilterClause(undefined, 'name')).toBeUndefined();
-    expect(buildSearchFilterClause('', 'name')).toBeUndefined();
-  });
-
-  it('wraps plain text in LIKE clause', () => {
-    expect(buildSearchFilterClause('test', 'name')).toBe("name LIKE '%test%'");
-  });
-
-  it('uses the specified field name', () => {
-    expect(buildSearchFilterClause('test', 'server_name')).toBe("server_name LIKE '%test%'");
-  });
-
-  it('escapes single quotes in the search term', () => {
-    expect(buildSearchFilterClause("it's", 'name')).toBe("name LIKE '%it''s%'");
-  });
-
-  it('passes through explicit SQL filter syntax', () => {
-    expect(buildSearchFilterClause("status = 'active'", 'name')).toBe("status = 'active'");
-  });
-
-  it('passes through LIKE and ILIKE expressions', () => {
-    expect(buildSearchFilterClause("name LIKE '%foo%'", 'name')).toBe("name LIKE '%foo%'");
-    expect(buildSearchFilterClause("name ILIKE '%foo%'", 'name')).toBe("name ILIKE '%foo%'");
-  });
-
-  it('passes through comparison operators', () => {
-    expect(buildSearchFilterClause('version != 1.0', 'name')).toBe('version != 1.0');
   });
 });
 

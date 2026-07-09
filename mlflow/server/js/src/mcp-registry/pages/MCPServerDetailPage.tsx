@@ -74,13 +74,14 @@ const MCPServerDetailPage = () => {
       setSelectedVersion(undefined);
       return;
     }
-    const currentStillValid = versions.some((v) => v.version === selectedVersion);
-    if (!currentStillValid) {
+    setSelectedVersion((prev) => {
+      const currentStillValid = prev && versions.some((v) => v.version === prev);
+      if (currentStillValid) return prev;
       const urlVersion =
         versionFromUrl && versions.some((v) => v.version === versionFromUrl) ? versionFromUrl : undefined;
-      setSelectedVersion(urlVersion ?? versions[0].version);
-    }
-  }, [versions, selectedVersion, versionFromUrl]);
+      return urlVersion ?? versions[0].version;
+    });
+  }, [versions, versionFromUrl]);
 
   const currentVersion = versions?.find((v) => v.version === selectedVersion);
 
@@ -111,7 +112,7 @@ const MCPServerDetailPage = () => {
 
   const { CreateMCPServerVersionModal, openModal: openCreateVersionModal } = useCreateMCPServerVersionModal({
     serverName: serverName,
-    latestVersion: currentVersion,
+    latestVersion: versions?.[0],
     onSuccess: async ({ version }) => {
       await refetchAll();
       setSelectedVersion(version);

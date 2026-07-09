@@ -89,6 +89,7 @@ export const useCreateMCPServerVersionModal = ({
   };
 
   const handleSubmit = () => {
+    if (isLoading) return;
     const serverJsonResult = validateServerJson(formState.serverJsonText);
     if (!serverJsonResult.valid || !serverJsonResult.parsed) {
       setValidationError(serverJsonResult.error);

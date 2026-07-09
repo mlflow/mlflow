@@ -7,10 +7,12 @@ import { textClampStyles, textEllipsisStyles, cardBodyStyles, cardHeaderRowStyle
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
 import Utils from '../../common/utils/Utils';
+import { useNavigate } from '../../common/utils/RoutingUtils';
 
 export const MCPServerCard = ({ server }: { server: MCPServer }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const navigate = useNavigate();
 
   const timestamp = server.last_updated_timestamp
     ? Utils.formatTimestamp(server.last_updated_timestamp, intl)
@@ -20,7 +22,7 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
     <Card
       componentId="mlflow.mcp_registry.card"
       width="100%"
-      href={`#${MCPRegistryRoutes.getMCPServerDetailRoute(server.name)}`}
+      onClick={() => navigate(MCPRegistryRoutes.getMCPServerDetailRoute(server.name))}
       dangerouslyAppendEmotionCSS={{ height: '100%' }}
     >
       <div css={cardBodyStyles(theme)}>

@@ -3491,10 +3491,6 @@
     "defaultMessage": "{count} selected",
     "description": "Label for item selector showing count of selected items"
   },
-  "ED/0qk": {
-    "defaultMessage": "Packages ({count})",
-    "description": "MCP server version detail packages subsection heading"
-  },
   "ED1+Xu": {
     "defaultMessage": "Prompts & versions",
     "description": "Label for the versions section in the MLflow experiment navbar"
@@ -4950,6 +4946,10 @@
   "LuOEnE": {
     "defaultMessage": "Add",
     "description": "Categorical add-option button"
+  },
+  "LvP1vX": {
+    "defaultMessage": "Official endpoints",
+    "description": "MCP server version detail official endpoints subsection heading"
   },
   "LvcRxz": {
     "defaultMessage": "Delete version",
@@ -7003,6 +7003,10 @@
     "defaultMessage": "Using the list of logged table artifacts, select at least one to start comparing results.",
     "description": "Experiment page > artifact compare view > table select dropdown tooltip"
   },
+  "VZvAgw": {
+    "defaultMessage": "Run locally",
+    "description": "MCP server version detail run locally subsection heading"
+  },
   "VamxJ7": {
     "defaultMessage": "Version control and manage prompts with aliases across teams.",
     "description": "Feature card summary for prompts"
@@ -7438,6 +7442,10 @@
   "XOUsyq": {
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
+  },
+  "XQxPdm": {
+    "defaultMessage": "Install and run this MCP server on your local machine using a package manager.",
+    "description": "Tooltip for run locally subsection heading"
   },
   "XR45oU": {
     "defaultMessage": "Inherited by {count, plural, one {# user queue} other {# user queues}}.",
@@ -8931,6 +8939,10 @@
     "defaultMessage": "Reset example",
     "description": "Reset example button"
   },
+  "eLVtfR": {
+    "defaultMessage": "Remote endpoints provided by the server maintainer for direct connections.",
+    "description": "Tooltip for official endpoints subsection heading"
+  },
   "eLgTRT": {
     "defaultMessage": "Key",
     "description": "Tag key label in unified trace tag assignment modal"
@@ -9534,6 +9546,10 @@
   "gn1eO9": {
     "defaultMessage": "Assessment added by LLM-as-a-judge",
     "description": "Evaluation review > assessments > tooltip > assessment added by LLM-as-a-judge"
+  },
+  "gpx+Zx": {
+    "defaultMessage": "Connect",
+    "description": "MCP server version detail connect tab"
   },
   "gq5QX+": {
     "defaultMessage": "New record",
@@ -10234,10 +10250,6 @@
   "jo4LfR": {
     "defaultMessage": "Pending",
     "description": "Label for pending state of a experiment logged model"
-  },
-  "joZkJS": {
-    "defaultMessage": "Remotes ({count})",
-    "description": "MCP server version detail remotes subsection heading"
   },
   "joh88n": {
     "defaultMessage": "{numValue} for run \"{runName}\"",
@@ -11226,10 +11238,6 @@
   "oHW+ks": {
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
-  },
-  "oHglm6": {
-    "defaultMessage": "Configuration",
-    "description": "MCP server version detail configuration tab"
   },
   "oKNOju": {
     "defaultMessage": "Conversational tool call efficiency",

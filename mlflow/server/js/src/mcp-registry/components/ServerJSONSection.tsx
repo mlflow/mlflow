@@ -4,6 +4,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   CopyIcon,
+  InfoSmallIcon,
   Tag,
   Tooltip,
   Typography,
@@ -21,8 +22,8 @@ export const ServerJSONSection = ({ serverJson }: { serverJson: ServerJSONPayloa
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      {packages.length > 0 && <PackagesSubsection packages={packages} />}
       {remotes.length > 0 && <RemotesSubsection remotes={remotes} />}
+      {packages.length > 0 && <PackagesSubsection packages={packages} />}
       <RawJSONToggle serverJson={serverJson} />
     </div>
   );
@@ -43,6 +44,7 @@ const INITIAL_VISIBLE_PACKAGES = 5;
 
 const PackagesSubsection = ({ packages }: { packages: NonNullable<ServerJSONPayload['packages']> }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [showAll, setShowAll] = useState(false);
   const visiblePackages = showAll ? packages : packages.slice(0, INITIAL_VISIBLE_PACKAGES);
@@ -50,13 +52,23 @@ const PackagesSubsection = ({ packages }: { packages: NonNullable<ServerJSONPayl
 
   return (
     <div>
-      <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.sm }}>
-        <FormattedMessage
-          defaultMessage="Packages ({count})"
-          description="MCP server version detail packages subsection heading"
-          values={{ count: packages.length }}
-        />
-      </Typography.Text>
+      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.sm }}>
+        <Typography.Text bold>
+          <FormattedMessage
+            defaultMessage="Run locally"
+            description="MCP server version detail run locally subsection heading"
+          />
+        </Typography.Text>
+        <Tooltip
+          componentId="mlflow.mcp_registry.detail.packages_tooltip"
+          content={intl.formatMessage({
+            defaultMessage: 'Install and run this MCP server on your local machine using a package manager.',
+            description: 'Tooltip for run locally subsection heading',
+          })}
+        >
+          <InfoSmallIcon css={{ color: theme.colors.textSecondary }} />
+        </Tooltip>
+      </div>
       <div
         css={{
           border: `1px solid ${theme.colors.borderDecorative}`,
@@ -196,6 +208,7 @@ const PackageRow = ({
             display: 'flex',
             flexDirection: 'column',
             gap: theme.spacing.sm,
+            textAlign: 'left',
           }}
         >
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
@@ -340,17 +353,28 @@ const EnvVarList = ({
 
 const RemotesSubsection = ({ remotes }: { remotes: NonNullable<ServerJSONPayload['remotes']> }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   return (
     <div>
-      <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.sm }}>
-        <FormattedMessage
-          defaultMessage="Remotes ({count})"
-          description="MCP server version detail remotes subsection heading"
-          values={{ count: remotes.length }}
-        />
-      </Typography.Text>
+      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.sm }}>
+        <Typography.Text bold>
+          <FormattedMessage
+            defaultMessage="Official endpoints"
+            description="MCP server version detail official endpoints subsection heading"
+          />
+        </Typography.Text>
+        <Tooltip
+          componentId="mlflow.mcp_registry.detail.remotes_tooltip"
+          content={intl.formatMessage({
+            defaultMessage: 'Remote endpoints provided by the server maintainer for direct connections.',
+            description: 'Tooltip for official endpoints subsection heading',
+          })}
+        >
+          <InfoSmallIcon css={{ color: theme.colors.textSecondary }} />
+        </Tooltip>
+      </div>
       <div
         css={{
           border: `1px solid ${theme.colors.borderDecorative}`,
@@ -453,6 +477,7 @@ const RemoteRow = ({
             display: 'flex',
             flexDirection: 'column',
             gap: theme.spacing.sm,
+            textAlign: 'left',
           }}
         >
           {remote.url && (
@@ -741,6 +766,7 @@ const jsonPreStyles = (theme: ReturnType<typeof useDesignSystemTheme>['theme'], 
     borderRadius: theme.borders.borderRadiusSm,
     overflow: 'auto' as const,
     fontSize: theme.typography.fontSizeSm,
+    maxHeight: 400,
   }) as const;
 
 const InputSchemaToggle = ({ data }: { data: unknown }) => {

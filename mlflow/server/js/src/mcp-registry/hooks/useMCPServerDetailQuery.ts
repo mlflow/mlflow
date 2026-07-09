@@ -2,6 +2,8 @@ import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MCPRegistryApi } from '../api';
 import type { MCPServer, MCPServerVersion, SearchMCPServerVersionsResponse } from '../types';
 import { MCP_QUERY_KEYS } from '../utils';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { ErrorCodes } from '../../common/constants';
 
 export const useMCPServerQuery = (name: string) => {
   return useQuery<MCPServer, Error>([MCP_QUERY_KEYS.SERVER, name], {
@@ -30,7 +32,10 @@ export const useLatestMCPServerVersionQuery = (name: string, enabled = true) => 
       try {
         return await MCPRegistryApi.getLatestMCPServerVersion(name);
       } catch (e: unknown) {
-        if (e instanceof Error && (e.message.includes('404') || e.message.includes('RESOURCE_DOES_NOT_EXIST'))) {
+        if (
+          e instanceof ErrorWrapper &&
+          (e.getStatus() === 404 || e.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST)
+        ) {
           return undefined;
         }
         throw e;

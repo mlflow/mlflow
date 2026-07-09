@@ -157,29 +157,39 @@ export const MCPServerVersionList = ({
             return (
               <TableRow
                 key={row.id}
+                tabIndex={0}
+                aria-selected={isSelected}
                 css={{
                   backgroundColor: isSelected ? theme.colors.actionDefaultBackgroundPress : 'transparent',
                   cursor: 'pointer',
                 }}
                 onClick={() => onSelectVersion(version)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onSelectVersion(version);
+                  }
+                }}
               >
                 {row.getAllCells().map((cell) => (
                   <TableCell key={cell.id} css={{ alignItems: 'center' }}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {isSelected && (
+                        <div
+                          css={{
+                            width: theme.spacing.md * 2,
+                            display: 'flex',
+                            alignItems: 'center',
+                            paddingRight: theme.spacing.sm,
+                          }}
+                        >
+                          <ChevronRightIcon />
+                        </div>
+                      )}
+                    </div>
                   </TableCell>
                 ))}
-                {isSelected && (
-                  <div
-                    css={{
-                      width: theme.spacing.md * 2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      paddingRight: theme.spacing.sm,
-                    }}
-                  >
-                    <ChevronRightIcon />
-                  </div>
-                )}
               </TableRow>
             );
           })

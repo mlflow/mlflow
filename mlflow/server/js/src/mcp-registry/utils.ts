@@ -19,22 +19,6 @@ export const LATEST_ALIAS = 'latest';
 
 export const RESERVED_ALIASES = [LATEST_ALIAS];
 
-export const emptyCenterStyles = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  height: '100%',
-  minHeight: 400,
-  width: '100%',
-  '& > div': {
-    height: '100%',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-};
-
 export const MCP_QUERY_KEYS = {
   SERVERS_LIST: 'mcp_servers_list',
   SERVER: 'mcp_server',
@@ -42,33 +26,12 @@ export const MCP_QUERY_KEYS = {
   SERVER_LATEST_VERSION: 'mcp_server_latest_version',
 } as const;
 
-export const DEFAULT_PAGE_SIZE = 25;
-export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
-
 export const resolveDisplayName = (server: { display_name?: string; name: string }): string => {
   return server.display_name || server.name;
 };
 
 export const tagsRecordToArray = (tags: Record<string, string> = {}): { key: string; value: string }[] =>
   Object.entries(tags).map(([key, value]) => ({ key, value }));
-
-export const resolveVersionDisplayName = (
-  version: { display_name?: string; server_json?: { title?: string } } | null | undefined,
-  fallback: string,
-): string => {
-  return version?.display_name || version?.server_json?.title || fallback;
-};
-
-export const buildSearchFilterClause = (searchFilter: string | undefined, field: string): string | undefined => {
-  if (!searchFilter) {
-    return undefined;
-  }
-  const sqlKeywordPattern = /(\s+(ILIKE|LIKE|IN|IS)\s+)|=|!=|<=|>=|<|>/i;
-  if (sqlKeywordPattern.test(searchFilter)) {
-    return searchFilter;
-  }
-  return `${field} LIKE '%${searchFilter.replace(/'/g, "''")}%'`;
-};
 
 export interface ServerJsonValidationResult {
   valid: boolean;
