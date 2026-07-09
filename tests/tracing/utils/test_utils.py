@@ -101,6 +101,46 @@ def test_aggregate_usage_from_spans():
     }
 
 
+def test_aggregate_usage_from_spans_deep_tree():
+    depth = 1100
+
+    spans = []
+    parent_id = None
+
+    for i in range(depth):
+        span_id = i + 1
+
+    spans.append(
+        LiveSpan(
+            create_mock_otel_span(
+                "trace_id",
+                span_id=span_id,
+                parent_id=parent_id,
+                name=f"span_{i}",
+            ),
+            trace_id="tr-123",
+        )
+    )
+    parent_id = span_id
+
+    spans[-1].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 5,
+            TokenUsageKey.TOTAL_TOKENS: 15,
+        },
+    )
+
+    usage = aggregate_usage_from_spans(spans)
+
+    assert usage == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 5,
+        TokenUsageKey.TOTAL_TOKENS: 15,
+    }
+
+
 def test_aggregate_usage_from_spans_skips_descendant_usage():
     spans = [
         LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123"),
