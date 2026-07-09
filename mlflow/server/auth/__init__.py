@@ -4500,11 +4500,7 @@ def _flask_response_to_starlette(flask_resp: Response) -> StarletteResponse:
     that get forwarded to the client unchanged.
     """
     excluded_headers = {"content-length", "transfer-encoding", "content-encoding"}
-    resp_headers = {
-        k: v
-        for k, v in flask_resp.headers
-        if k.lower() not in excluded_headers
-    }
+    resp_headers = {k: v for k, v in flask_resp.headers if k.lower() not in excluded_headers}
     return StarletteResponse(
         content=flask_resp.get_data(),
         status_code=flask_resp.status_code,

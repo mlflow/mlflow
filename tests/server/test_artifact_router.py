@@ -43,9 +43,7 @@ class TestDownloadArtifact:
         test_file = tmp_path / "model.pkl"
         test_file.write_bytes(test_data)
 
-        with mock.patch(
-            "mlflow.server.artifact_router._get_artifact_repo"
-        ) as mock_get_repo:
+        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
             mock_repo = mock.MagicMock()
             mock_repo.get_local_path.return_value = str(test_file)
             mock_get_repo.return_value = mock_repo
@@ -64,9 +62,7 @@ class TestDownloadArtifact:
         test_file = tmp_path / "model.pkl"
         test_file.write_bytes(test_data)
 
-        with mock.patch(
-            "mlflow.server.artifact_router._get_artifact_repo"
-        ) as mock_get_repo:
+        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
             mock_repo = mock.MagicMock()
             mock_repo.get_local_path.return_value = None
             mock_repo.download_artifacts.return_value = str(test_file)
@@ -83,9 +79,7 @@ class TestDownloadArtifact:
         test_file = tmp_path / "data.bin"
         test_file.write_bytes(b"data")
 
-        with mock.patch(
-            "mlflow.server.artifact_router._get_artifact_repo"
-        ) as mock_get_repo:
+        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
             mock_repo = mock.MagicMock()
             mock_repo.get_local_path.return_value = str(test_file)
             mock_get_repo.return_value = mock_repo
@@ -99,9 +93,7 @@ class TestDownloadArtifact:
         dir_path = tmp_path / "model_dir"
         dir_path.mkdir()
 
-        with mock.patch(
-            "mlflow.server.artifact_router._get_artifact_repo"
-        ) as mock_get_repo:
+        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
             mock_repo = mock.MagicMock()
             mock_repo.get_local_path.return_value = str(dir_path)
             mock_get_repo.return_value = mock_repo
@@ -119,9 +111,7 @@ class TestUploadArtifact:
     def test_upload_with_stream_upload_mixin(self, client):
         test_data = b"uploaded artifact"
 
-        with mock.patch(
-            "mlflow.server.artifact_router._get_artifact_repo"
-        ) as mock_get_repo:
+        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
             mock_repo = mock.MagicMock(spec=LocalArtifactRepository)
             mock_get_repo.return_value = mock_repo
 
@@ -139,9 +129,7 @@ class TestUploadArtifact:
     def test_upload_without_stream_mixin_uses_log_artifact(self, client):
         test_data = b"uploaded artifact"
 
-        with mock.patch(
-            "mlflow.server.artifact_router._get_artifact_repo"
-        ) as mock_get_repo:
+        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
             mock_repo = mock.MagicMock(spec=ArtifactRepository)
             mock_get_repo.return_value = mock_repo
 
@@ -164,9 +152,7 @@ class TestUploadArtifact:
             nonlocal uploaded_content
             uploaded_content = stream.read()
 
-        with mock.patch(
-            "mlflow.server.artifact_router._get_artifact_repo"
-        ) as mock_get_repo:
+        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
             mock_repo = mock.MagicMock(spec=LocalArtifactRepository)
             mock_repo.log_artifact_from_stream.side_effect = capture_stream
             mock_get_repo.return_value = mock_repo
@@ -180,9 +166,7 @@ class TestUploadArtifact:
         assert uploaded_content == test_data
 
     def test_upload_ajax_prefix(self, client):
-        with mock.patch(
-            "mlflow.server.artifact_router._get_artifact_repo"
-        ) as mock_get_repo:
+        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
             mock_repo = mock.MagicMock(spec=ArtifactRepository)
             mock_get_repo.return_value = mock_repo
 
@@ -211,9 +195,7 @@ class TestRoutingExplicitness:
         test_file.write_bytes(b"test")
 
         with (
-            mock.patch(
-                "mlflow.server.artifact_router._get_artifact_repo"
-            ) as mock_get_repo,
+            mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo,
             mock.patch("mlflow.server.handlers._download_artifact") as mock_flask_handler,
         ):
             mock_repo = mock.MagicMock()
@@ -227,9 +209,7 @@ class TestRoutingExplicitness:
 
     def test_upload_does_not_hit_flask_handler(self, client):
         with (
-            mock.patch(
-                "mlflow.server.artifact_router._get_artifact_repo"
-            ) as mock_get_repo,
+            mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo,
             mock.patch("mlflow.server.handlers._upload_artifact") as mock_flask_handler,
         ):
             mock_repo = mock.MagicMock(spec=ArtifactRepository)
@@ -246,9 +226,7 @@ class TestRoutingExplicitness:
 
 class TestPathSafety:
     def test_path_traversal_rejected(self, client):
-        with mock.patch(
-            "mlflow.server.artifact_router._get_artifact_repo"
-        ) as mock_get_repo:
+        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
             mock_repo = mock.MagicMock()
             mock_get_repo.return_value = mock_repo
 
