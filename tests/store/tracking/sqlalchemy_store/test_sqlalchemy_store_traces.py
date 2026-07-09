@@ -9665,10 +9665,15 @@ def _extract_metadata_write_pairs(statement, parameters):
     else:
         param_rows = [parameters]
 
-    # Determine positional column order from the INSERT (…cols…) VALUES clause.
+    # Determine positional column order from the INSERT (…cols…) VALUES clause. The table
+    # name may be quoted or schema-qualified by the dialect (e.g. "trace_request_metadata",
+    # `trace_request_metadata`, [dbo].[trace_request_metadata]), so match the bare identifier
+    # via a word boundary and allow any quoting/qualifier around it.
     col_order = None
     if m := re.search(
-        r"insert\s+into\s+trace_request_metadata\s*\(([^)]*)\)", statement, re.IGNORECASE
+        r"insert\s+into\s+[^(]*\btrace_request_metadata\b[^(]*\(([^)]*)\)",
+        statement,
+        re.IGNORECASE,
     ):
         col_order = [c.strip().strip('"').strip("`").strip("[]") for c in m.group(1).split(",")]
 
@@ -9825,6 +9830,32 @@ def test_log_spans_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
         keys_by_request.setdefault(rid, []).append(key)
     for rid, keys in keys_by_request.items():
         assert keys == sorted(keys), f"keys for {rid} not sorted: {keys}"
+
+
+@pytest.mark.parametrize(
+    "table_ref",
+    [
+        "trace_request_metadata",
+        '"trace_request_metadata"',
+        "`trace_request_metadata`",
+        "[trace_request_metadata]",
+        "[dbo].[trace_request_metadata]",
+        'public."trace_request_metadata"',
+    ],
+)
+def test_extract_metadata_write_pairs_parses_quoted_and_qualified_table_names(table_ref):
+    """The INSERT column-list parser must recover positional (request_id, key) tuples
+    regardless of how the dialect quotes or schema-qualifies the table name. If the
+    column order can't be parsed, tuple-param writes are silently dropped and the
+    sorted-order assertions become vacuous across backends.
+    """
+    statement = f"INSERT INTO {table_ref} (request_id, key, value) VALUES (?, ?, ?)"
+    # Positional tuple params (executemany-style), two rows.
+    parameters = [("tr-1", "alpha", "v1"), ("tr-1", "beta", "v2")]
+
+    pairs = _extract_metadata_write_pairs(statement, parameters)
+
+    assert pairs == [("tr-1", "alpha"), ("tr-1", "beta")]
 
 
 def _make_deadlock_exception() -> MlflowException:
