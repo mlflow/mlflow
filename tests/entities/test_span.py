@@ -1217,3 +1217,38 @@ def test_lazy_span_round_trips_through_trace_data_to_dict():
     dumped = trace_data.to_dict()
     assert dumped["spans"][0]["name"] == "child"
     assert lazy.__dict__["_materialized"] is False
+
+
+def test_lazy_span_matches_eager_span_after_materialization():
+    from mlflow.entities.link import Link
+    from mlflow.entities.span import LazySpan
+    from mlflow.tracing.otel.translation import translate_loaded_span
+
+    trace_id = "tr-12345"
+    tracer = _get_tracer("test")
+    with tracer.start_as_current_span("parent"):
+        with tracer.start_as_current_span("child") as otel_span:
+            span = create_mlflow_span(otel_span, trace_id=trace_id, span_type=SpanType.LLM)
+            span.set_inputs({"input": 1})
+            span.set_outputs({"output": 2})
+            span.set_status("OK")
+            span.add_event(SpanEvent("test_event", timestamp=0, attributes={"foo": "bar"}))
+            span.add_link(
+                Link(trace_id="tr-abc123", span_id="aabbccddeeff0011", attributes={"type": "test"})
+            )
+
+    span_dict = translate_loaded_span(span.to_dict())
+    eager = Span.from_dict(span_dict)
+    lazy = LazySpan(span_dict)
+
+    assert lazy.to_dict() == eager.to_dict()
+    assert lazy.to_otel_proto().SerializeToString() == eager.to_otel_proto().SerializeToString()
+
+    _ = lazy.name
+    assert lazy.__dict__["_materialized"] is True
+    assert lazy.to_dict() == eager.to_dict()
+    assert lazy.attributes == eager.attributes
+    assert lazy.links == eager.links
+    assert lazy.status == eager.status
+    assert lazy.events == eager.events
+    assert lazy.to_otel_proto().SerializeToString() == eager.to_otel_proto().SerializeToString()

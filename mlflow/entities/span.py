@@ -1282,19 +1282,6 @@ class LazySpan(Span):
     dict (for example ``get-trace-artifact`` or ``TraceData.to_dict``).
     """
 
-    # Attribute names that must not trigger materialization.
-    _LAZY_PASSTHROUGH = frozenset({
-        "__class__",
-        "__dict__",
-        "__getattribute__",
-        "__repr__",
-        "__str__",
-        "_ensure_materialized",
-        "_materialized",
-        "_span_dict",
-        "to_dict",
-    })
-
     def __init__(self, span_dict: dict[str, Any]):
         # Skip Span.__init__: we intentionally avoid constructing an OTel span
         # until a caller needs property access or OTLP conversion.
@@ -1314,11 +1301,8 @@ class LazySpan(Span):
         self.__dict__["_links"] = span._links
         self.__dict__["_materialized"] = True
 
-    def __getattribute__(self, name: str):
-        if name in LazySpan._LAZY_PASSTHROUGH:
-            return object.__getattribute__(self, name)
-        if not object.__getattribute__(self, "__dict__").get("_materialized"):
-            object.__getattribute__(self, "_ensure_materialized")()
+    def __getattr__(self, name: str):
+        self._ensure_materialized()
         return object.__getattribute__(self, name)
 
     def __repr__(self):
