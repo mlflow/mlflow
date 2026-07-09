@@ -1347,7 +1347,13 @@ class SqlAlchemyGatewayStoreMixin:
             sql_budget_policy.endpoint_id = _normalize_budget_endpoint_id(
                 sql_budget_policy.target_scope, sql_budget_policy.endpoint_id
             )
-            if principal is not None:
+            # Set the principal only when the effective scope is USER, so this can't
+            # silently undo the scope-based clearing above (and so a non-USER policy
+            # can never carry a principal, even for programmatic callers that bypass
+            # the REST-handler validation).
+            if principal is not None and (
+                sql_budget_policy.target_scope == BudgetTargetScope.USER.value
+            ):
                 sql_budget_policy.principal = principal
 
             sql_budget_policy.last_updated_at = get_current_time_millis()

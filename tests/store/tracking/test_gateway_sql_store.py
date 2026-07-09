@@ -2748,6 +2748,47 @@ def test_update_budget_policy_switch_to_non_user_clears_principal(store: SqlAlch
     assert updated.principal is None
 
 
+def test_update_budget_policy_switch_to_non_user_with_principal_drops_principal(
+    store: SqlAlchemyStore,
+):
+    # A single call that both switches away from USER and passes a principal must not
+    # leave the policy with a stale principal. The store enforces the invariant even
+    # for programmatic callers that bypass the REST-handler validation.
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        principal="alice@example.com",
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_scope=BudgetTargetScope.WORKSPACE,
+        principal="alice@example.com",
+    )
+    assert updated.target_scope == BudgetTargetScope.WORKSPACE
+    assert updated.principal is None
+
+
+def test_update_budget_policy_principal_ignored_on_non_user_policy(store: SqlAlchemyStore):
+    # Setting a principal on a policy that stays non-USER is a no-op: a GLOBAL/WORKSPACE
+    # policy can never carry a principal.
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        principal="alice@example.com",
+    )
+    assert updated.target_scope == BudgetTargetScope.GLOBAL
+    assert updated.principal is None
+
+
 # =============================================================================
 # Guardrail Tests
 # =============================================================================
