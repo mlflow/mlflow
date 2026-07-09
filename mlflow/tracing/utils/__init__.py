@@ -235,8 +235,10 @@ def _aggregate_from_spans(
         else:
             roots.append(span)
 
-    def dfs(span: LiveSpan, ancestor_has_data: bool) -> None:
-        nonlocal has_data
+    stack: list[tuple[LiveSpan, bool]] = [(root, False) for root in reversed(roots)]
+
+    while stack:
+        span, ancestor_has_data = stack.pop()
 
         data = span.get_attribute(attribute_key)
         span_has_data = data is not None
@@ -250,11 +252,9 @@ def _aggregate_from_spans(
             has_data = True
 
         next_ancestor_has_data = ancestor_has_data or span_has_data
-        for child in children_map.get(span.span_id, []):
-            dfs(child, next_ancestor_has_data)
 
-    for root in roots:
-        dfs(root, False)
+        children = children_map.get(span.span_id, [])
+        stack.extend((child, next_ancestor_has_data) for child in reversed(children))
 
     if not has_data:
         return None
