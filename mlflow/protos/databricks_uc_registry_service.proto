@@ -11,347 +11,7 @@ option java_package = "com.databricks.api.proto.ucmodelregistry";
 option py_generic_services = true;
 option (scalapb.options) = {flat_package: true};
 
-service UcModelRegistryService {
-  rpc CreateRegisteredModel(CreateRegisteredModelRequest) returns (CreateRegisteredModelResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "POST"
-          path: "/mlflow/unity-catalog/registered-models/create"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Create RegisteredModel"
-    };
-  }
-
-  rpc UpdateRegisteredModel(UpdateRegisteredModelRequest) returns (UpdateRegisteredModelResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "PATCH"
-          path: "/mlflow/unity-catalog/registered-models/update"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Update RegisteredModel"
-    };
-  }
-
-  rpc DeleteRegisteredModel(DeleteRegisteredModelRequest) returns (DeleteRegisteredModelResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "DELETE"
-          path: "/mlflow/unity-catalog/registered-models/delete"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Delete RegisteredModel"
-    };
-  }
-
-  rpc GetRegisteredModel(GetRegisteredModelRequest) returns (GetRegisteredModelResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "GET"
-          path: "/mlflow/unity-catalog/registered-models/get"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Get RegisteredModel"
-    };
-  }
-
-  rpc SearchRegisteredModels(SearchRegisteredModelsRequest) returns (SearchRegisteredModelsResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "GET"
-          path: "/mlflow/unity-catalog/registered-models/search"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Search RegisteredModels"
-    };
-  }
-
-  rpc CreateModelVersion(CreateModelVersionRequest) returns (CreateModelVersionResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "POST"
-          path: "/mlflow/unity-catalog/model-versions/create"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Create ModelVersion"
-    };
-  }
-
-  rpc UpdateModelVersion(UpdateModelVersionRequest) returns (UpdateModelVersionResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "PATCH"
-          path: "/mlflow/unity-catalog/model-versions/update"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Update ModelVersion"
-    };
-  }
-
-  rpc DeleteModelVersion(DeleteModelVersionRequest) returns (DeleteModelVersionResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "DELETE"
-          path: "/mlflow/unity-catalog/model-versions/delete"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Delete ModelVersion"
-    };
-  }
-
-  rpc GetModelVersion(GetModelVersionRequest) returns (GetModelVersionResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "GET"
-          path: "/mlflow/unity-catalog/model-versions/get"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Get ModelVersion"
-    };
-  }
-
-  rpc SearchModelVersions(SearchModelVersionsRequest) returns (SearchModelVersionsResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "GET"
-          path: "/mlflow/unity-catalog/model-versions/search"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Search ModelVersions"
-    };
-  }
-
-  rpc GenerateTemporaryModelVersionCredentials(GenerateTemporaryModelVersionCredentialsRequest) returns (GenerateTemporaryModelVersionCredentialsResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "POST"
-          path: "/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Generate Temporary Model Version Credentials"
-    };
-  }
-
-  rpc GetModelVersionDownloadUri(GetModelVersionDownloadUriRequest) returns (GetModelVersionDownloadUriResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "GET"
-          path: "/mlflow/unity-catalog/model-versions/get-download-uri"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Get Download URI For ModelVersion Artifacts"
-    };
-  }
-
-  rpc FinalizeModelVersion(FinalizeModelVersionRequest) returns (FinalizeModelVersionResponse) {
-    option (mlflow.rpc) = {
-      endpoints: [
-        {
-          method: "POST"
-          path: "/mlflow/unity-catalog/model-versions/finalize"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Finalize Model Version"
-    };
-  }
-
-  rpc SetRegisteredModelAlias(SetRegisteredModelAliasRequest) returns (SetRegisteredModelAliasResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "POST"
-          path: "/mlflow/unity-catalog/registered-models/alias"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Set RegisteredModel Alias"
-    };
-  }
-
-  rpc DeleteRegisteredModelAlias(DeleteRegisteredModelAliasRequest) returns (DeleteRegisteredModelAliasResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "DELETE"
-          path: "/mlflow/unity-catalog/registered-models/alias"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Delete RegisteredModel Alias"
-    };
-  }
-
-  rpc GetModelVersionByAlias(GetModelVersionByAliasRequest) returns (GetModelVersionByAliasResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "GET"
-          path: "/mlflow/unity-catalog/registered-models/alias"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Get ModelVersion By Alias"
-    };
-  }
-
-  rpc SetRegisteredModelTag(SetRegisteredModelTagRequest) returns (SetRegisteredModelTagResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "POST"
-          path: "/mlflow/unity-catalog/registered-models/set-tag"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Set RegisteredModel Tag"
-    };
-  }
-
-  rpc DeleteRegisteredModelTag(DeleteRegisteredModelTagRequest) returns (DeleteRegisteredModelTagResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "DELETE"
-          path: "/mlflow/unity-catalog/registered-models/delete-tag"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Delete RegisteredModel Tag"
-    };
-  }
-
-  rpc SetModelVersionTag(SetModelVersionTagRequest) returns (SetModelVersionTagResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "POST"
-          path: "/mlflow/unity-catalog/model-versions/set-tag"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Set ModelVersion Tag"
-    };
-  }
-
-  rpc DeleteModelVersionTag(DeleteModelVersionTagRequest) returns (DeleteModelVersionTagResponse) {
-    option (rpc) = {
-      endpoints: [
-        {
-          method: "DELETE"
-          path: "/mlflow/unity-catalog/model-versions/delete-tag"
-          since: {
-            major: 2
-            minor: 0
-          }
-        }
-      ]
-      visibility: PUBLIC_UNDOCUMENTED
-      rpc_doc_title: "(Unity Catalog) Delete ModelVersion Tag"
-    };
-  }
-
+service MlflowModelRegistryService {
   rpc EmitModelVersionLineage(EmitModelVersionLineageRequest) returns (EmitModelVersionLineageResponse) {
     option (rpc) = {
       endpoints: [
@@ -384,5 +44,64 @@ service UcModelRegistryService {
       visibility: PUBLIC_UNDOCUMENTED
       rpc_doc_title: "(Unity Catalog) Use DatabricksSdkModelsArtifactRepository in mlflow client for model registry"
     };
+  }
+}
+
+// UC-native (governance + MLflow enrichment) model-registry endpoints. Served on the
+// /api/2.1/unity-catalog/* surface (the client resolves these with the /api/2.1 prefix and
+// substitutes the {full_name}/{version}/{alias}/{securable_*}/{subentity_name} path segments).
+// These replace the legacy /mlflow/unity-catalog/* model RPCs; the declared response types are
+// advisory (the client passes the concrete response proto to parse into at call time).
+service UnityCatalogModelRegistryService {
+  rpc getRegisteredModel(GetRegisteredModel) returns (RegisteredModelInfo) {
+    option (rpc) = {endpoints: [{method: "GET" path: "/unity-catalog/models/{full_name}" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc listRegisteredModels(ListRegisteredModels) returns (ListRegisteredModels.Response) {
+    option (rpc) = {endpoints: [{method: "GET" path: "/unity-catalog/models" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc createRegisteredModel(CreateRegisteredModel) returns (RegisteredModelInfo) {
+    option (rpc) = {endpoints: [{method: "POST" path: "/unity-catalog/models" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc updateRegisteredModel(UpdateRegisteredModel) returns (RegisteredModelInfo) {
+    option (rpc) = {endpoints: [{method: "PATCH" path: "/unity-catalog/models/{full_name}" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc deleteRegisteredModel(DeleteRegisteredModel) returns (DeleteRegisteredModel.Response) {
+    option (rpc) = {endpoints: [{method: "DELETE" path: "/unity-catalog/models/{full_name}" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc setRegisteredModelAlias(SetRegisteredModelAlias) returns (SetRegisteredModelAlias.Response) {
+    option (rpc) = {endpoints: [{method: "PUT" path: "/unity-catalog/models/{full_name}/aliases/{alias}" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc deleteRegisteredModelAlias(DeleteRegisteredModelAlias) returns (DeleteRegisteredModelAlias.Response) {
+    option (rpc) = {endpoints: [{method: "DELETE" path: "/unity-catalog/models/{full_name}/aliases/{alias}" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc getModelVersionByAlias(GetModelVersionByAlias) returns (ModelVersionInfo) {
+    option (rpc) = {endpoints: [{method: "GET" path: "/unity-catalog/models/{full_name}/aliases/{alias}" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc createModelVersion(CreateModelVersion) returns (ModelVersionInfo) {
+    option (rpc) = {endpoints: [{method: "POST" path: "/unity-catalog/models/versions" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc updateModelVersion(UpdateModelVersion) returns (ModelVersionInfo) {
+    option (rpc) = {endpoints: [{method: "PATCH" path: "/unity-catalog/models/{full_name}/versions/{version}" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc getModelVersion(GetModelVersion) returns (ModelVersionInfo) {
+    option (rpc) = {endpoints: [{method: "GET" path: "/unity-catalog/models/{full_name}/versions/{version}" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc listModelVersions(ListModelVersions) returns (ListModelVersions.Response) {
+    option (rpc) = {endpoints: [{method: "GET" path: "/unity-catalog/models/{full_name}/versions" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc finalizeModelVersion(FinalizeModelVersion) returns (ModelVersionInfo) {
+    option (rpc) = {endpoints: [{method: "PATCH" path: "/unity-catalog/models/{full_name}/versions/{version}/finalize" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc deleteModelVersion(DeleteModelVersion) returns (DeleteModelVersion.Response) {
+    option (rpc) = {endpoints: [{method: "DELETE" path: "/unity-catalog/models/{full_name}/versions/{version}" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc generateTemporaryModelVersionCredential(GenerateTemporaryModelVersionCredential) returns (GenerateTemporaryModelVersionCredential.Response) {
+    option (rpc) = {endpoints: [{method: "POST" path: "/unity-catalog/temporary-model-version-credentials" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc updateTagSecurableAssignments(UpdateTagSecurableAssignments) returns (UpdateTagSecurableAssignments.Response) {
+    option (rpc) = {endpoints: [{method: "PATCH" path: "/unity-catalog/securable-tags/{securable_type}/{securable_full_name}" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
+  }
+  rpc updateTagSubentityAssignments(UpdateTagSubentityAssignments) returns (UpdateTagSubentityAssignments.Response) {
+    option (rpc) = {endpoints: [{method: "PATCH" path: "/unity-catalog/subentity-tags/{securable_type}/{securable_full_name}/{subentity_name}" since: {major: 2 minor: 1}}] visibility: PUBLIC_UNDOCUMENTED};
   }
 }

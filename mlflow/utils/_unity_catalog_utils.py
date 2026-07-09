@@ -21,11 +21,12 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     EmitModelVersionLineageResponse,
     IsDatabricksSdkModelsArtifactRepositoryEnabledRequest,
     IsDatabricksSdkModelsArtifactRepositoryEnabledResponse,
+    ModelVersionInfo,
     ModelVersionLineageInfo,
+    RegisteredModelInfo,
     SseEncryptionAlgorithm,
     TemporaryCredentials,
 )
-from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersionStatus as ProtoModelVersionStatus,
 )
@@ -33,12 +34,9 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersionTag as ProtoModelVersionTag,
 )
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    RegisteredModel as ProtoRegisteredModel,
-)
-from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     RegisteredModelTag as ProtoRegisteredModelTag,
 )
-from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
+from mlflow.protos.databricks_uc_registry_service_pb2 import MlflowModelRegistryService
 from mlflow.protos.unity_catalog_oss_messages_pb2 import (
     TemporaryCredentials as TemporaryCredentialsOSS,
 )
@@ -51,7 +49,7 @@ from mlflow.utils.rest_utils import (
 )
 
 _logger = logging.getLogger(__name__)
-_METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
+_METHOD_TO_INFO = extract_api_info_for_service(MlflowModelRegistryService, _REST_API_PATH_PREFIX)
 _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k) for k in ProtoModelVersionStatus.keys()}
 _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
 _ACTIVE_CATALOG_QUERY = "SELECT current_catalog() AS catalog"
@@ -62,19 +60,39 @@ def uc_model_version_status_to_string(status):
     return _STATUS_TO_STRING[status]
 
 
-def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
+def registered_model_from_uc_proto(uc_proto: RegisteredModelInfo) -> RegisteredModel:
+    return RegisteredModel(
+        name=uc_proto.full_name
+        or f"{uc_proto.catalog_name}.{uc_proto.schema_name}.{uc_proto.name}",
+        creation_timestamp=uc_proto.created_at,
+        last_updated_timestamp=uc_proto.updated_at,
+        description=uc_proto.comment,
+        # Governance aliases are {alias_name, version_num}; the MLflow entity expects
+        # {alias, version} with a string version.
+        aliases=[
+            RegisteredModelAlias(alias=alias.alias_name, version=str(alias.version_num))
+            for alias in (uc_proto.aliases or [])
+        ],
+        tags=[RegisteredModelTag(key=tag.key, value=tag.value) for tag in (uc_proto.tags or [])],
+        deployment_job_id=uc_proto.deployment_job_id,
+        deployment_job_state=RegisteredModelDeploymentJobState.to_string(
+            uc_proto.deployment_job_state
+        ),
+    )
+
+
+def model_version_from_uc_proto(uc_proto: ModelVersionInfo) -> ModelVersion:
     return ModelVersion(
-        name=uc_proto.name,
+        name=f"{uc_proto.catalog_name}.{uc_proto.schema_name}.{uc_proto.model_name}",
         version=uc_proto.version,
-        creation_timestamp=uc_proto.creation_timestamp,
-        last_updated_timestamp=uc_proto.last_updated_timestamp,
-        description=uc_proto.description,
-        user_id=uc_proto.user_id,
+        creation_timestamp=uc_proto.created_at,
+        last_updated_timestamp=uc_proto.updated_at,
+        description=uc_proto.comment,
+        user_id=uc_proto.created_by,
         source=uc_proto.source,
         run_id=uc_proto.run_id,
         status=uc_model_version_status_to_string(uc_proto.status),
-        status_message=uc_proto.status_message,
-        aliases=[alias.alias for alias in (uc_proto.aliases or [])],
+        aliases=[alias.alias_name for alias in (uc_proto.aliases or [])],
         tags=[ModelVersionTag(key=tag.key, value=tag.value) for tag in (uc_proto.tags or [])],
         model_id=uc_proto.model_id,
         params=[
@@ -99,52 +117,40 @@ def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
     )
 
 
-def model_version_search_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersionSearch:
+def registered_model_search_from_uc_proto(
+    uc_proto: RegisteredModelInfo,
+) -> RegisteredModelSearch:
+    # Search results intentionally omit tags/aliases (RegisteredModelSearch forces them empty).
+    return RegisteredModelSearch(
+        name=uc_proto.full_name
+        or f"{uc_proto.catalog_name}.{uc_proto.schema_name}.{uc_proto.name}",
+        creation_timestamp=uc_proto.created_at,
+        last_updated_timestamp=uc_proto.updated_at,
+        description=uc_proto.comment,
+        aliases=[],
+        tags=[],
+    )
+
+
+def model_version_search_from_uc_proto(
+    uc_proto: ModelVersionInfo,
+) -> ModelVersionSearch:
+    # Search results intentionally omit tags/aliases (ModelVersionSearch forces them empty).
     return ModelVersionSearch(
-        name=uc_proto.name,
+        name=f"{uc_proto.catalog_name}.{uc_proto.schema_name}.{uc_proto.model_name}",
         version=uc_proto.version,
-        creation_timestamp=uc_proto.creation_timestamp,
-        last_updated_timestamp=uc_proto.last_updated_timestamp,
-        description=uc_proto.description,
-        user_id=uc_proto.user_id,
+        creation_timestamp=uc_proto.created_at,
+        last_updated_timestamp=uc_proto.updated_at,
+        description=uc_proto.comment,
+        user_id=uc_proto.created_by,
         source=uc_proto.source,
         run_id=uc_proto.run_id,
         status=uc_model_version_status_to_string(uc_proto.status),
-        status_message=uc_proto.status_message,
         aliases=[],
         tags=[],
         deployment_job_state=ModelVersionDeploymentJobState.from_proto(
             uc_proto.deployment_job_state
         ),
-    )
-
-
-def registered_model_from_uc_proto(uc_proto: ProtoRegisteredModel) -> RegisteredModel:
-    return RegisteredModel(
-        name=uc_proto.name,
-        creation_timestamp=uc_proto.creation_timestamp,
-        last_updated_timestamp=uc_proto.last_updated_timestamp,
-        description=uc_proto.description,
-        aliases=[
-            RegisteredModelAlias(alias=alias.alias, version=alias.version)
-            for alias in (uc_proto.aliases or [])
-        ],
-        tags=[RegisteredModelTag(key=tag.key, value=tag.value) for tag in (uc_proto.tags or [])],
-        deployment_job_id=uc_proto.deployment_job_id,
-        deployment_job_state=RegisteredModelDeploymentJobState.to_string(
-            uc_proto.deployment_job_state
-        ),
-    )
-
-
-def registered_model_search_from_uc_proto(uc_proto: ProtoRegisteredModel) -> RegisteredModelSearch:
-    return RegisteredModelSearch(
-        name=uc_proto.name,
-        creation_timestamp=uc_proto.creation_timestamp,
-        last_updated_timestamp=uc_proto.last_updated_timestamp,
-        description=uc_proto.description,
-        aliases=[],
-        tags=[],
     )
 
 

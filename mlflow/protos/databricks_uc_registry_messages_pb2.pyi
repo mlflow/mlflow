@@ -15,12 +15,6 @@ class ModelVersionStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FAILED_REGISTRATION: _ClassVar[ModelVersionStatus]
     READY: _ClassVar[ModelVersionStatus]
 
-class ModelVersionOperation(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    MODEL_VERSION_OPERATION_UNSPECIFIED: _ClassVar[ModelVersionOperation]
-    MODEL_VERSION_OPERATION_READ: _ClassVar[ModelVersionOperation]
-    MODEL_VERSION_OPERATION_READ_WRITE: _ClassVar[ModelVersionOperation]
-
 class StorageMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     STORAGE_MODE_UNSPECIFIED: _ClassVar[StorageMode]
@@ -55,13 +49,16 @@ class ModelVersionLineageDirection(int, metaclass=_enum_type_wrapper.EnumTypeWra
     __slots__ = ()
     UPSTREAM: _ClassVar[ModelVersionLineageDirection]
     DOWNSTREAM: _ClassVar[ModelVersionLineageDirection]
+
+class TemporaryCredentialOperation(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    UNKNOWN_MODEL_VERSION_OPERATION: _ClassVar[TemporaryCredentialOperation]
+    READ_MODEL_VERSION: _ClassVar[TemporaryCredentialOperation]
+    READ_WRITE_MODEL_VERSION: _ClassVar[TemporaryCredentialOperation]
 UNSPECIFIED: ModelVersionStatus
 PENDING_REGISTRATION: ModelVersionStatus
 FAILED_REGISTRATION: ModelVersionStatus
 READY: ModelVersionStatus
-MODEL_VERSION_OPERATION_UNSPECIFIED: ModelVersionOperation
-MODEL_VERSION_OPERATION_READ: ModelVersionOperation
-MODEL_VERSION_OPERATION_READ_WRITE: ModelVersionOperation
 STORAGE_MODE_UNSPECIFIED: StorageMode
 CUSTOMER_HOSTED: StorageMode
 DEFAULT_STORAGE: StorageMode
@@ -82,6 +79,9 @@ STREAMING_LIVE_TABLE: TableType
 PATH: TableType
 UPSTREAM: ModelVersionLineageDirection
 DOWNSTREAM: ModelVersionLineageDirection
+UNKNOWN_MODEL_VERSION_OPERATION: TemporaryCredentialOperation
+READ_MODEL_VERSION: TemporaryCredentialOperation
+READ_WRITE_MODEL_VERSION: TemporaryCredentialOperation
 
 class RegisteredModel(_message.Message):
     __slots__ = ("name", "creation_timestamp", "last_updated_timestamp", "user_id", "description", "aliases", "tags", "deployment_job_id", "deployment_job_state")
@@ -309,80 +309,6 @@ class SseEncryptionDetails(_message.Message):
     aws_kms_key_arn: str
     def __init__(self, algorithm: _Optional[_Union[SseEncryptionAlgorithm, str]] = ..., aws_kms_key_arn: _Optional[str] = ...) -> None: ...
 
-class CreateRegisteredModelRequest(_message.Message):
-    __slots__ = ("name", "tags", "description", "deployment_job_id")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    TAGS_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    DEPLOYMENT_JOB_ID_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    tags: _containers.RepeatedCompositeFieldContainer[RegisteredModelTag]
-    description: str
-    deployment_job_id: str
-    def __init__(self, name: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[RegisteredModelTag, _Mapping]]] = ..., description: _Optional[str] = ..., deployment_job_id: _Optional[str] = ...) -> None: ...
-
-class CreateRegisteredModelResponse(_message.Message):
-    __slots__ = ("registered_model",)
-    REGISTERED_MODEL_FIELD_NUMBER: _ClassVar[int]
-    registered_model: RegisteredModel
-    def __init__(self, registered_model: _Optional[_Union[RegisteredModel, _Mapping]] = ...) -> None: ...
-
-class UpdateRegisteredModelRequest(_message.Message):
-    __slots__ = ("name", "new_name", "description", "deployment_job_id")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    NEW_NAME_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    DEPLOYMENT_JOB_ID_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    new_name: str
-    description: str
-    deployment_job_id: str
-    def __init__(self, name: _Optional[str] = ..., new_name: _Optional[str] = ..., description: _Optional[str] = ..., deployment_job_id: _Optional[str] = ...) -> None: ...
-
-class UpdateRegisteredModelResponse(_message.Message):
-    __slots__ = ("registered_model",)
-    REGISTERED_MODEL_FIELD_NUMBER: _ClassVar[int]
-    registered_model: RegisteredModel
-    def __init__(self, registered_model: _Optional[_Union[RegisteredModel, _Mapping]] = ...) -> None: ...
-
-class DeleteRegisteredModelRequest(_message.Message):
-    __slots__ = ("name",)
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    def __init__(self, name: _Optional[str] = ...) -> None: ...
-
-class DeleteRegisteredModelResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class GetRegisteredModelRequest(_message.Message):
-    __slots__ = ("name",)
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    def __init__(self, name: _Optional[str] = ...) -> None: ...
-
-class GetRegisteredModelResponse(_message.Message):
-    __slots__ = ("registered_model",)
-    REGISTERED_MODEL_FIELD_NUMBER: _ClassVar[int]
-    registered_model: RegisteredModel
-    def __init__(self, registered_model: _Optional[_Union[RegisteredModel, _Mapping]] = ...) -> None: ...
-
-class SearchRegisteredModelsRequest(_message.Message):
-    __slots__ = ("max_results", "page_token")
-    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
-    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
-    max_results: int
-    page_token: str
-    def __init__(self, max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
-
-class SearchRegisteredModelsResponse(_message.Message):
-    __slots__ = ("registered_models", "next_page_token")
-    REGISTERED_MODELS_FIELD_NUMBER: _ClassVar[int]
-    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
-    registered_models: _containers.RepeatedCompositeFieldContainer[RegisteredModel]
-    next_page_token: str
-    def __init__(self, registered_models: _Optional[_Iterable[_Union[RegisteredModel, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
-
 class Dependency(_message.Message):
     __slots__ = ("type", "name")
     TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -390,234 +316,6 @@ class Dependency(_message.Message):
     type: DependencyType
     name: str
     def __init__(self, type: _Optional[_Union[DependencyType, str]] = ..., name: _Optional[str] = ...) -> None: ...
-
-class CreateModelVersionRequest(_message.Message):
-    __slots__ = ("name", "source", "run_id", "description", "run_tracking_server_id", "feature_deps", "tags", "model_version_dependencies", "model_id")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    SOURCE_FIELD_NUMBER: _ClassVar[int]
-    RUN_ID_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    RUN_TRACKING_SERVER_ID_FIELD_NUMBER: _ClassVar[int]
-    FEATURE_DEPS_FIELD_NUMBER: _ClassVar[int]
-    TAGS_FIELD_NUMBER: _ClassVar[int]
-    MODEL_VERSION_DEPENDENCIES_FIELD_NUMBER: _ClassVar[int]
-    MODEL_ID_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    source: str
-    run_id: str
-    description: str
-    run_tracking_server_id: str
-    feature_deps: str
-    tags: _containers.RepeatedCompositeFieldContainer[ModelVersionTag]
-    model_version_dependencies: _containers.RepeatedCompositeFieldContainer[Dependency]
-    model_id: str
-    def __init__(self, name: _Optional[str] = ..., source: _Optional[str] = ..., run_id: _Optional[str] = ..., description: _Optional[str] = ..., run_tracking_server_id: _Optional[str] = ..., feature_deps: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[ModelVersionTag, _Mapping]]] = ..., model_version_dependencies: _Optional[_Iterable[_Union[Dependency, _Mapping]]] = ..., model_id: _Optional[str] = ...) -> None: ...
-
-class CreateModelVersionResponse(_message.Message):
-    __slots__ = ("model_version",)
-    MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
-    model_version: ModelVersion
-    def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
-
-class UpdateModelVersionRequest(_message.Message):
-    __slots__ = ("name", "version", "description")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    version: str
-    description: str
-    def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
-
-class UpdateModelVersionResponse(_message.Message):
-    __slots__ = ("model_version",)
-    MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
-    model_version: ModelVersion
-    def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
-
-class DeleteModelVersionRequest(_message.Message):
-    __slots__ = ("name", "version")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    version: str
-    def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
-
-class DeleteModelVersionResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class GetModelVersionRequest(_message.Message):
-    __slots__ = ("name", "version")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    version: str
-    def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
-
-class GetModelVersionResponse(_message.Message):
-    __slots__ = ("model_version",)
-    MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
-    model_version: ModelVersion
-    def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
-
-class SearchModelVersionsRequest(_message.Message):
-    __slots__ = ("filter", "max_results", "page_token")
-    FILTER_FIELD_NUMBER: _ClassVar[int]
-    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
-    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
-    filter: str
-    max_results: int
-    page_token: str
-    def __init__(self, filter: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
-
-class SearchModelVersionsResponse(_message.Message):
-    __slots__ = ("model_versions", "next_page_token")
-    MODEL_VERSIONS_FIELD_NUMBER: _ClassVar[int]
-    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
-    model_versions: _containers.RepeatedCompositeFieldContainer[ModelVersion]
-    next_page_token: str
-    def __init__(self, model_versions: _Optional[_Iterable[_Union[ModelVersion, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
-
-class GenerateTemporaryModelVersionCredentialsRequest(_message.Message):
-    __slots__ = ("name", "version", "operation")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    OPERATION_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    version: str
-    operation: ModelVersionOperation
-    def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ..., operation: _Optional[_Union[ModelVersionOperation, str]] = ...) -> None: ...
-
-class GenerateTemporaryModelVersionCredentialsResponse(_message.Message):
-    __slots__ = ("credentials",)
-    CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
-    credentials: TemporaryCredentials
-    def __init__(self, credentials: _Optional[_Union[TemporaryCredentials, _Mapping]] = ...) -> None: ...
-
-class GetModelVersionDownloadUriRequest(_message.Message):
-    __slots__ = ("name", "version")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    version: str
-    def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
-
-class GetModelVersionDownloadUriResponse(_message.Message):
-    __slots__ = ("artifact_uri",)
-    ARTIFACT_URI_FIELD_NUMBER: _ClassVar[int]
-    artifact_uri: str
-    def __init__(self, artifact_uri: _Optional[str] = ...) -> None: ...
-
-class FinalizeModelVersionRequest(_message.Message):
-    __slots__ = ("name", "version")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    version: str
-    def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
-
-class FinalizeModelVersionResponse(_message.Message):
-    __slots__ = ("model_version",)
-    MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
-    model_version: ModelVersion
-    def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
-
-class SetRegisteredModelAliasRequest(_message.Message):
-    __slots__ = ("name", "alias", "version")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    ALIAS_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    alias: str
-    version: str
-    def __init__(self, name: _Optional[str] = ..., alias: _Optional[str] = ..., version: _Optional[str] = ...) -> None: ...
-
-class SetRegisteredModelAliasResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class DeleteRegisteredModelAliasRequest(_message.Message):
-    __slots__ = ("name", "alias")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    ALIAS_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    alias: str
-    def __init__(self, name: _Optional[str] = ..., alias: _Optional[str] = ...) -> None: ...
-
-class DeleteRegisteredModelAliasResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class SetRegisteredModelTagRequest(_message.Message):
-    __slots__ = ("name", "key", "value")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    KEY_FIELD_NUMBER: _ClassVar[int]
-    VALUE_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    key: str
-    value: str
-    def __init__(self, name: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-
-class SetRegisteredModelTagResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class DeleteRegisteredModelTagRequest(_message.Message):
-    __slots__ = ("name", "key")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    KEY_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    key: str
-    def __init__(self, name: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
-
-class DeleteRegisteredModelTagResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class SetModelVersionTagRequest(_message.Message):
-    __slots__ = ("name", "version", "key", "value")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    KEY_FIELD_NUMBER: _ClassVar[int]
-    VALUE_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    version: str
-    key: str
-    value: str
-    def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
-
-class SetModelVersionTagResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class DeleteModelVersionTagRequest(_message.Message):
-    __slots__ = ("name", "version", "key")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    KEY_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    version: str
-    key: str
-    def __init__(self, name: _Optional[str] = ..., version: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
-
-class DeleteModelVersionTagResponse(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
-
-class GetModelVersionByAliasRequest(_message.Message):
-    __slots__ = ("name", "alias")
-    NAME_FIELD_NUMBER: _ClassVar[int]
-    ALIAS_FIELD_NUMBER: _ClassVar[int]
-    name: str
-    alias: str
-    def __init__(self, name: _Optional[str] = ..., alias: _Optional[str] = ...) -> None: ...
-
-class GetModelVersionByAliasResponse(_message.Message):
-    __slots__ = ("model_version",)
-    MODEL_VERSION_FIELD_NUMBER: _ClassVar[int]
-    model_version: ModelVersion
-    def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
 
 class Entity(_message.Message):
     __slots__ = ("job", "notebook", "pipeline")
@@ -726,3 +424,384 @@ class IsDatabricksSdkModelsArtifactRepositoryEnabledResponse(_message.Message):
     IS_DATABRICKS_SDK_MODELS_ARTIFACT_REPOSITORY_ENABLED_FIELD_NUMBER: _ClassVar[int]
     is_databricks_sdk_models_artifact_repository_enabled: bool
     def __init__(self, is_databricks_sdk_models_artifact_repository_enabled: bool = ...) -> None: ...
+
+class TagKeyValue(_message.Message):
+    __slots__ = ("key", "value")
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    key: str
+    value: str
+    def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+class RegisteredModelAliasInfo(_message.Message):
+    __slots__ = ("alias_name", "version_num", "id", "model_name", "catalog_name", "schema_name")
+    ALIAS_NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_NUM_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    alias_name: str
+    version_num: int
+    id: str
+    model_name: str
+    catalog_name: str
+    schema_name: str
+    def __init__(self, alias_name: _Optional[str] = ..., version_num: _Optional[int] = ..., id: _Optional[str] = ..., model_name: _Optional[str] = ..., catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ...) -> None: ...
+
+class TableDependency(_message.Message):
+    __slots__ = ("table_full_name",)
+    TABLE_FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    table_full_name: str
+    def __init__(self, table_full_name: _Optional[str] = ...) -> None: ...
+
+class FunctionDependency(_message.Message):
+    __slots__ = ("function_full_name",)
+    FUNCTION_FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    function_full_name: str
+    def __init__(self, function_full_name: _Optional[str] = ...) -> None: ...
+
+class ConnectionDependency(_message.Message):
+    __slots__ = ("connection_name",)
+    CONNECTION_NAME_FIELD_NUMBER: _ClassVar[int]
+    connection_name: str
+    def __init__(self, connection_name: _Optional[str] = ...) -> None: ...
+
+class ModelVersionDependency(_message.Message):
+    __slots__ = ("table", "function", "connection")
+    TABLE_FIELD_NUMBER: _ClassVar[int]
+    FUNCTION_FIELD_NUMBER: _ClassVar[int]
+    CONNECTION_FIELD_NUMBER: _ClassVar[int]
+    table: TableDependency
+    function: FunctionDependency
+    connection: ConnectionDependency
+    def __init__(self, table: _Optional[_Union[TableDependency, _Mapping]] = ..., function: _Optional[_Union[FunctionDependency, _Mapping]] = ..., connection: _Optional[_Union[ConnectionDependency, _Mapping]] = ...) -> None: ...
+
+class DependencyList(_message.Message):
+    __slots__ = ("dependencies",)
+    DEPENDENCIES_FIELD_NUMBER: _ClassVar[int]
+    dependencies: _containers.RepeatedCompositeFieldContainer[ModelVersionDependency]
+    def __init__(self, dependencies: _Optional[_Iterable[_Union[ModelVersionDependency, _Mapping]]] = ...) -> None: ...
+
+class RegisteredModelInfo(_message.Message):
+    __slots__ = ("name", "catalog_name", "schema_name", "owner", "comment", "storage_location", "metastore_id", "full_name", "created_at", "created_by", "updated_at", "updated_by", "id", "aliases", "tags", "browse_only", "deployment_job_id", "deployment_job_state")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    COMMENT_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_LOCATION_FIELD_NUMBER: _ClassVar[int]
+    METASTORE_ID_FIELD_NUMBER: _ClassVar[int]
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    ALIASES_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    BROWSE_ONLY_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_JOB_STATE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    catalog_name: str
+    schema_name: str
+    owner: str
+    comment: str
+    storage_location: str
+    metastore_id: str
+    full_name: str
+    created_at: int
+    created_by: str
+    updated_at: int
+    updated_by: str
+    id: str
+    aliases: _containers.RepeatedCompositeFieldContainer[RegisteredModelAliasInfo]
+    tags: _containers.RepeatedCompositeFieldContainer[TagKeyValue]
+    browse_only: bool
+    deployment_job_id: str
+    deployment_job_state: DeploymentJobConnection.State
+    def __init__(self, name: _Optional[str] = ..., catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., owner: _Optional[str] = ..., comment: _Optional[str] = ..., storage_location: _Optional[str] = ..., metastore_id: _Optional[str] = ..., full_name: _Optional[str] = ..., created_at: _Optional[int] = ..., created_by: _Optional[str] = ..., updated_at: _Optional[int] = ..., updated_by: _Optional[str] = ..., id: _Optional[str] = ..., aliases: _Optional[_Iterable[_Union[RegisteredModelAliasInfo, _Mapping]]] = ..., tags: _Optional[_Iterable[_Union[TagKeyValue, _Mapping]]] = ..., browse_only: bool = ..., deployment_job_id: _Optional[str] = ..., deployment_job_state: _Optional[_Union[DeploymentJobConnection.State, str]] = ...) -> None: ...
+
+class ModelVersionInfo(_message.Message):
+    __slots__ = ("model_name", "catalog_name", "schema_name", "comment", "source", "run_id", "run_workspace_id", "status", "version", "storage_location", "metastore_id", "created_at", "created_by", "updated_at", "updated_by", "id", "aliases", "tags", "model_version_dependencies", "model_id", "model_params", "model_metrics", "deployment_job_state")
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    COMMENT_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    RUN_WORKSPACE_ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_LOCATION_FIELD_NUMBER: _ClassVar[int]
+    METASTORE_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    ID_FIELD_NUMBER: _ClassVar[int]
+    ALIASES_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    MODEL_VERSION_DEPENDENCIES_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ID_FIELD_NUMBER: _ClassVar[int]
+    MODEL_PARAMS_FIELD_NUMBER: _ClassVar[int]
+    MODEL_METRICS_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_JOB_STATE_FIELD_NUMBER: _ClassVar[int]
+    model_name: str
+    catalog_name: str
+    schema_name: str
+    comment: str
+    source: str
+    run_id: str
+    run_workspace_id: int
+    status: ModelVersionStatus
+    version: int
+    storage_location: str
+    metastore_id: str
+    created_at: int
+    created_by: str
+    updated_at: int
+    updated_by: str
+    id: str
+    aliases: _containers.RepeatedCompositeFieldContainer[RegisteredModelAliasInfo]
+    tags: _containers.RepeatedCompositeFieldContainer[TagKeyValue]
+    model_version_dependencies: DependencyList
+    model_id: str
+    model_params: _containers.RepeatedCompositeFieldContainer[ModelParam]
+    model_metrics: _containers.RepeatedCompositeFieldContainer[ModelMetric]
+    deployment_job_state: ModelVersionDeploymentJobState
+    def __init__(self, model_name: _Optional[str] = ..., catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., comment: _Optional[str] = ..., source: _Optional[str] = ..., run_id: _Optional[str] = ..., run_workspace_id: _Optional[int] = ..., status: _Optional[_Union[ModelVersionStatus, str]] = ..., version: _Optional[int] = ..., storage_location: _Optional[str] = ..., metastore_id: _Optional[str] = ..., created_at: _Optional[int] = ..., created_by: _Optional[str] = ..., updated_at: _Optional[int] = ..., updated_by: _Optional[str] = ..., id: _Optional[str] = ..., aliases: _Optional[_Iterable[_Union[RegisteredModelAliasInfo, _Mapping]]] = ..., tags: _Optional[_Iterable[_Union[TagKeyValue, _Mapping]]] = ..., model_version_dependencies: _Optional[_Union[DependencyList, _Mapping]] = ..., model_id: _Optional[str] = ..., model_params: _Optional[_Iterable[_Union[ModelParam, _Mapping]]] = ..., model_metrics: _Optional[_Iterable[_Union[ModelMetric, _Mapping]]] = ..., deployment_job_state: _Optional[_Union[ModelVersionDeploymentJobState, _Mapping]] = ...) -> None: ...
+
+class GetRegisteredModel(_message.Message):
+    __slots__ = ("full_name", "include_aliases", "include_browse")
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_ALIASES_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_BROWSE_FIELD_NUMBER: _ClassVar[int]
+    full_name: str
+    include_aliases: bool
+    include_browse: bool
+    def __init__(self, full_name: _Optional[str] = ..., include_aliases: bool = ..., include_browse: bool = ...) -> None: ...
+
+class ListRegisteredModels(_message.Message):
+    __slots__ = ("catalog_name", "schema_name", "include_browse", "max_results", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("registered_models", "next_page_token")
+        REGISTERED_MODELS_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        registered_models: _containers.RepeatedCompositeFieldContainer[RegisteredModelInfo]
+        next_page_token: str
+        def __init__(self, registered_models: _Optional[_Iterable[_Union[RegisteredModelInfo, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_BROWSE_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    catalog_name: str
+    schema_name: str
+    include_browse: bool
+    max_results: int
+    page_token: str
+    def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., include_browse: bool = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class CreateRegisteredModel(_message.Message):
+    __slots__ = ("name", "catalog_name", "schema_name", "comment", "tags", "deployment_job_id")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    COMMENT_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    catalog_name: str
+    schema_name: str
+    comment: str
+    tags: _containers.RepeatedCompositeFieldContainer[TagKeyValue]
+    deployment_job_id: str
+    def __init__(self, name: _Optional[str] = ..., catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., comment: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[TagKeyValue, _Mapping]]] = ..., deployment_job_id: _Optional[str] = ...) -> None: ...
+
+class UpdateRegisteredModel(_message.Message):
+    __slots__ = ("full_name", "comment", "new_name", "deployment_job_id")
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    COMMENT_FIELD_NUMBER: _ClassVar[int]
+    NEW_NAME_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    full_name: str
+    comment: str
+    new_name: str
+    deployment_job_id: str
+    def __init__(self, full_name: _Optional[str] = ..., comment: _Optional[str] = ..., new_name: _Optional[str] = ..., deployment_job_id: _Optional[str] = ...) -> None: ...
+
+class GetModelVersion(_message.Message):
+    __slots__ = ("full_name", "version", "include_aliases", "include_browse")
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_ALIASES_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_BROWSE_FIELD_NUMBER: _ClassVar[int]
+    full_name: str
+    version: int
+    include_aliases: bool
+    include_browse: bool
+    def __init__(self, full_name: _Optional[str] = ..., version: _Optional[int] = ..., include_aliases: bool = ..., include_browse: bool = ...) -> None: ...
+
+class ListModelVersions(_message.Message):
+    __slots__ = ("full_name", "max_results", "page_token", "include_browse")
+    class Response(_message.Message):
+        __slots__ = ("model_versions", "next_page_token")
+        MODEL_VERSIONS_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        model_versions: _containers.RepeatedCompositeFieldContainer[ModelVersionInfo]
+        next_page_token: str
+        def __init__(self, model_versions: _Optional[_Iterable[_Union[ModelVersionInfo, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_BROWSE_FIELD_NUMBER: _ClassVar[int]
+    full_name: str
+    max_results: int
+    page_token: str
+    include_browse: bool
+    def __init__(self, full_name: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ..., include_browse: bool = ...) -> None: ...
+
+class GetModelVersionByAlias(_message.Message):
+    __slots__ = ("full_name", "alias", "include_aliases")
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    ALIAS_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_ALIASES_FIELD_NUMBER: _ClassVar[int]
+    full_name: str
+    alias: str
+    include_aliases: bool
+    def __init__(self, full_name: _Optional[str] = ..., alias: _Optional[str] = ..., include_aliases: bool = ...) -> None: ...
+
+class CreateModelVersion(_message.Message):
+    __slots__ = ("model_name", "catalog_name", "schema_name", "comment", "source", "run_id", "tags", "model_version_dependencies", "model_id", "feature_deps", "run_tracking_server_id")
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    COMMENT_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    MODEL_VERSION_DEPENDENCIES_FIELD_NUMBER: _ClassVar[int]
+    MODEL_ID_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_DEPS_FIELD_NUMBER: _ClassVar[int]
+    RUN_TRACKING_SERVER_ID_FIELD_NUMBER: _ClassVar[int]
+    model_name: str
+    catalog_name: str
+    schema_name: str
+    comment: str
+    source: str
+    run_id: str
+    tags: _containers.RepeatedCompositeFieldContainer[TagKeyValue]
+    model_version_dependencies: DependencyList
+    model_id: str
+    feature_deps: str
+    run_tracking_server_id: str
+    def __init__(self, model_name: _Optional[str] = ..., catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., comment: _Optional[str] = ..., source: _Optional[str] = ..., run_id: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[TagKeyValue, _Mapping]]] = ..., model_version_dependencies: _Optional[_Union[DependencyList, _Mapping]] = ..., model_id: _Optional[str] = ..., feature_deps: _Optional[str] = ..., run_tracking_server_id: _Optional[str] = ...) -> None: ...
+
+class UpdateModelVersion(_message.Message):
+    __slots__ = ("full_name", "version", "comment")
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    COMMENT_FIELD_NUMBER: _ClassVar[int]
+    full_name: str
+    version: int
+    comment: str
+    def __init__(self, full_name: _Optional[str] = ..., version: _Optional[int] = ..., comment: _Optional[str] = ...) -> None: ...
+
+class FinalizeModelVersion(_message.Message):
+    __slots__ = ("full_name", "version")
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    full_name: str
+    version: int
+    def __init__(self, full_name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
+
+class DeleteRegisteredModel(_message.Message):
+    __slots__ = ("full_name", "force")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    FORCE_FIELD_NUMBER: _ClassVar[int]
+    full_name: str
+    force: bool
+    def __init__(self, full_name: _Optional[str] = ..., force: bool = ...) -> None: ...
+
+class DeleteModelVersion(_message.Message):
+    __slots__ = ("full_name", "version")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    full_name: str
+    version: int
+    def __init__(self, full_name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
+
+class SetRegisteredModelAlias(_message.Message):
+    __slots__ = ("full_name", "alias", "version_num")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    ALIAS_FIELD_NUMBER: _ClassVar[int]
+    VERSION_NUM_FIELD_NUMBER: _ClassVar[int]
+    full_name: str
+    alias: str
+    version_num: int
+    def __init__(self, full_name: _Optional[str] = ..., alias: _Optional[str] = ..., version_num: _Optional[int] = ...) -> None: ...
+
+class DeleteRegisteredModelAlias(_message.Message):
+    __slots__ = ("full_name", "alias")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    ALIAS_FIELD_NUMBER: _ClassVar[int]
+    full_name: str
+    alias: str
+    def __init__(self, full_name: _Optional[str] = ..., alias: _Optional[str] = ...) -> None: ...
+
+class GenerateTemporaryModelVersionCredential(_message.Message):
+    __slots__ = ("catalog_name", "schema_name", "model_name", "version", "operation")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_FIELD_NUMBER: _ClassVar[int]
+    catalog_name: str
+    schema_name: str
+    model_name: str
+    version: int
+    operation: TemporaryCredentialOperation
+    def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., model_name: _Optional[str] = ..., version: _Optional[int] = ..., operation: _Optional[_Union[TemporaryCredentialOperation, str]] = ...) -> None: ...
+
+class TagAssignmentsChange(_message.Message):
+    __slots__ = ("remove", "add_tags")
+    REMOVE_FIELD_NUMBER: _ClassVar[int]
+    ADD_TAGS_FIELD_NUMBER: _ClassVar[int]
+    remove: _containers.RepeatedScalarFieldContainer[str]
+    add_tags: _containers.RepeatedCompositeFieldContainer[TagKeyValue]
+    def __init__(self, remove: _Optional[_Iterable[str]] = ..., add_tags: _Optional[_Iterable[_Union[TagKeyValue, _Mapping]]] = ...) -> None: ...
+
+class UpdateTagSecurableAssignments(_message.Message):
+    __slots__ = ("changes",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    CHANGES_FIELD_NUMBER: _ClassVar[int]
+    changes: TagAssignmentsChange
+    def __init__(self, changes: _Optional[_Union[TagAssignmentsChange, _Mapping]] = ...) -> None: ...
+
+class UpdateTagSubentityAssignments(_message.Message):
+    __slots__ = ("changes",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    CHANGES_FIELD_NUMBER: _ClassVar[int]
+    changes: TagAssignmentsChange
+    def __init__(self, changes: _Optional[_Union[TagAssignmentsChange, _Mapping]] = ...) -> None: ...

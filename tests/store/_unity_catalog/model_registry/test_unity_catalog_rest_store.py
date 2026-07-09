@@ -18,7 +18,12 @@ from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.pandas_dataset import PandasDataset
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_tag import LoggedModelTag
-from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
+from mlflow.entities.model_registry import (
+    ModelVersion,
+    ModelVersionTag,
+    RegisteredModel,
+    RegisteredModelTag,
+)
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.run import Run
@@ -38,45 +43,16 @@ from mlflow.prompt.constants import (
 )
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    MODEL_VERSION_OPERATION_READ_WRITE,
     AwsCredentials,
-    AzureUserDelegationSAS,
-    CreateModelVersionRequest,
-    CreateModelVersionResponse,
-    CreateRegisteredModelRequest,
-    DeleteModelVersionRequest,
-    DeleteModelVersionTagRequest,
-    DeleteRegisteredModelAliasRequest,
-    DeleteRegisteredModelRequest,
-    DeleteRegisteredModelTagRequest,
-    EncryptionDetails,
-    Entity,
-    FinalizeModelVersionRequest,
-    FinalizeModelVersionResponse,
-    GcpOauthToken,
-    GenerateTemporaryModelVersionCredentialsRequest,
-    GenerateTemporaryModelVersionCredentialsResponse,
-    GetModelVersionByAliasRequest,
-    GetModelVersionDownloadUriRequest,
-    GetModelVersionRequest,
-    GetRegisteredModelRequest,
-    Job,
-    LineageHeaderInfo,
+    CreateModelVersion,
+    DeploymentJobConnection,
+    ListModelVersions,
     ModelVersion,
-    Notebook,
-    SearchModelVersionsRequest,
-    SearchRegisteredModelsRequest,
-    SetModelVersionTagRequest,
-    SetRegisteredModelAliasRequest,
-    SetRegisteredModelTagRequest,
-    SseEncryptionAlgorithm,
-    SseEncryptionDetails,
+    ModelVersionInfo,
+    RegisteredModelInfo,
     StorageMode,
     TemporaryCredentials,
-    UpdateModelVersionRequest,
-    UpdateRegisteredModelRequest,
 )
-from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.service_pb2 import GetRun
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     LinkPromptsToTracesRequest,
@@ -184,96 +160,50 @@ def _expected_unsupported_arg_error_message(arg):
     return f"Argument '{arg}' is unsupported for models in the Unity Catalog"
 
 
-@mock_http_200
-def test_create_registered_model(mock_http, store):
-    description = "best model ever"
-    tags = [
-        RegisteredModelTag(key="key", value="value"),
-        RegisteredModelTag(key="anotherKey", value="some other value"),
-    ]
-    store.create_registered_model(name="model_1", description=description, tags=tags)
-    _verify_requests(
-        mock_http,
-        "registered-models/create",
-        "POST",
-        CreateRegisteredModelRequest(
-            name="model_1",
-            description=description,
-            tags=uc_registered_model_tag_from_mlflow_tags(tags),
-        ),
-    )
-
-
 def test_create_registered_model_three_level_name_hint(store):
-    # Mock the _call_endpoint method to raise a RestException with
-    # "specify all three levels" message
-    original_error_message = "Model name must specify all three levels"
-    rest_exception = RestException({
-        "error_code": "INVALID_PARAMETER_VALUE",
-        "message": original_error_message,
-    })
+    # The native create flow validates the three-level UC name client-side (before issuing any
+    # request) and raises with a legacy-registry hint when the name is not catalog.schema.model.
+    with pytest.raises(MlflowException, match="three levels") as exc_info:
+        store.create_registered_model(name="invalid_model")
 
-    with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
-        with pytest.raises(MlflowException, match=original_error_message) as exc_info:
-            store.create_registered_model(name="invalid_model")
-
-    # Verify the exception message includes the original error and the legacy registry hint
-    expected_hint = (
-        "If you are trying to use the legacy Workspace Model Registry, instead of the"
-        " recommended Unity Catalog Model Registry, set the Model Registry URI to"
-        " 'databricks' (legacy) instead of 'databricks-uc' (recommended)."
-    )
-    assert original_error_message in str(exc_info.value)
-    assert expected_hint in str(exc_info.value)
-
-
-def test_create_registered_model_three_level_name_hint_with_period(store):
-    original_error_message = "Model name must specify all three levels."
-    rest_exception = RestException({
-        "error_code": "INVALID_PARAMETER_VALUE",
-        "message": original_error_message,
-    })
-
-    with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
-        with pytest.raises(MlflowException, match=original_error_message) as exc_info:
-            store.create_registered_model(name="invalid_model")
-
-    # Verify the period is removed before adding the hint
-    expected_hint = (
-        "If you are trying to use the legacy Workspace Model Registry, instead of the"
-        " recommended Unity Catalog Model Registry, set the Model Registry URI to"
-        " 'databricks' (legacy) instead of 'databricks-uc' (recommended)."
-    )
     error_message = str(exc_info.value)
-    assert "Model name must specify all three levels" in error_message
-    assert expected_hint in error_message
+    assert "Not a valid Unity Catalog model name: 'invalid_model'" in error_message
+    assert "set the Model Registry URI to 'databricks' (legacy) instead of" in error_message
+
+
+def test_create_registered_model_two_level_name_hint(store):
+    # A two-level name is still not a valid UC (three-level) model name.
+    with pytest.raises(MlflowException, match="three levels") as exc_info:
+        store.create_registered_model(name="schema.invalid_model")
+
+    error_message = str(exc_info.value)
+    assert "Not a valid Unity Catalog model name: 'schema.invalid_model'" in error_message
     # Should not have double periods
     assert ". ." not in error_message
 
 
 def test_create_registered_model_metastore_does_not_exist_hint(store):
     """
-    Test that creating a registered model when metastore doesn't exist
-    provides legacy registry hint.
+    Test that creating a registered model when the metastore doesn't exist
+    provides a legacy registry hint. The name is three-level so it passes
+    client-side validation and reaches the native endpoint call.
     """
-    # Mock the _call_endpoint method to raise a RestException with
-    # "METASTORE_DOES_NOT_EXIST" message
     original_error_message = "METASTORE_DOES_NOT_EXIST: Metastore not found"
     rest_exception = RestException({
         "error_code": "METASTORE_DOES_NOT_EXIST",
         "message": original_error_message,
     })
 
-    with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
-        with pytest.raises(MlflowException, match=original_error_message) as exc_info:
-            store.create_registered_model(name="test_model")
+    with mock.patch.object(store, "_edit_endpoint_and_call", side_effect=rest_exception):
+        with pytest.raises(MlflowException, match="METASTORE_DOES_NOT_EXIST") as exc_info:
+            store.create_registered_model(name="catalog.schema.test_model")
 
     # Verify the exception message includes the original error and the legacy registry hint
     expected_hint = (
-        "If you are trying to use the Model Registry in a Databricks workspace that"
-        " does not have Unity Catalog enabled, either enable Unity Catalog in the"
-        " workspace (recommended) or set the Model Registry URI to 'databricks' to"
-        " use the legacy Workspace Model Registry."
+        "If you are trying to use the Model Registry in a Databricks workspace"
+        " that does not have Unity Catalog enabled, either enable Unity Catalog in"
+        " the workspace (recommended) or set the Model Registry URI to 'databricks'"
+        " to use the legacy Workspace Model Registry."
     )
     error_message = str(exc_info.value)
     assert original_error_message in error_message
@@ -291,9 +221,9 @@ def test_create_registered_model_other_rest_exceptions_not_modified(store):
         "message": original_error_message,
     })
 
-    with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
+    with mock.patch.object(store, "_edit_endpoint_and_call", side_effect=rest_exception):
         with pytest.raises(RestException, match=original_error_message) as exc_info:
-            store.create_registered_model(name="some_model")
+            store.create_registered_model(name="catalog.schema.some_model")
 
     # Verify the original RestException is re-raised without modification
     assert str(exc_info.value) == "INTERNAL_ERROR: Some other error"
@@ -487,262 +417,6 @@ def langchain_local_model_dir_no_dependencies(tmp_path):
     return tmp_path
 
 
-def test_create_model_version_with_langchain_dependencies(store, langchain_local_model_dir):
-    access_key_id = "fake-key"
-    secret_access_key = "secret-key"
-    session_token = "session-token"
-    aws_temp_creds = TemporaryCredentials(
-        aws_temp_credentials=AwsCredentials(
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-        )
-    )
-    storage_location = "s3://blah"
-    source = str(langchain_local_model_dir)
-    model_name = "model_1"
-    version = "1"
-    tags = [
-        ModelVersionTag(key="key", value="value"),
-        ModelVersionTag(key="anotherKey", value="some other value"),
-    ]
-    model_version_dependencies = [
-        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
-        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
-    ]
-
-    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
-    with (
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=aws_temp_creds,
-                storage_location=storage_location,
-                source=source,
-                tags=tags,
-                model_version_dependencies=model_version_dependencies,
-            ),
-        ) as request_mock,
-        mock.patch(
-            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
-            return_value=mock_artifact_repo,
-        ) as optimized_s3_artifact_repo_class_mock,
-        mock.patch.dict("sys.modules", {"boto3": {}}),
-    ):
-        store.create_model_version(name=model_name, source=source, tags=tags)
-        # Verify that s3 artifact repo mock was called with expected args
-        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=storage_location,
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-            credential_refresh_def=ANY,
-            s3_upload_extra_args={},
-        )
-        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
-        _assert_create_model_version_endpoints_called(
-            request_mock=request_mock,
-            name=model_name,
-            source=source,
-            version=version,
-            tags=tags,
-            model_version_dependencies=model_version_dependencies,
-        )
-
-
-def test_create_model_version_with_resources(store, langchain_local_model_dir_with_resources):
-    source, model_version_dependencies = langchain_local_model_dir_with_resources
-    source = str(source)
-    access_key_id = "fake-key"
-    secret_access_key = "secret-key"
-    session_token = "session-token"
-    aws_temp_creds = TemporaryCredentials(
-        aws_temp_credentials=AwsCredentials(
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-        )
-    )
-    storage_location = "s3://blah"
-    model_name = "model_1"
-    version = "1"
-    tags = [
-        ModelVersionTag(key="key", value="value"),
-        ModelVersionTag(key="anotherKey", value="some other value"),
-    ]
-
-    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
-    with (
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=aws_temp_creds,
-                storage_location=storage_location,
-                source=source,
-                tags=tags,
-                model_version_dependencies=model_version_dependencies,
-            ),
-        ) as request_mock,
-        mock.patch(
-            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
-            return_value=mock_artifact_repo,
-        ) as optimized_s3_artifact_repo_class_mock,
-        mock.patch.dict("sys.modules", {"boto3": {}}),
-    ):
-        store.create_model_version(name=model_name, source=source, tags=tags)
-        # Verify that s3 artifact repo mock was called with expected args
-        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=storage_location,
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-            credential_refresh_def=ANY,
-            s3_upload_extra_args={},
-        )
-        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
-        _assert_create_model_version_endpoints_called(
-            request_mock=request_mock,
-            name=model_name,
-            source=source,
-            version=version,
-            tags=tags,
-            model_version_dependencies=model_version_dependencies,
-        )
-
-
-def test_create_model_version_with_invoker_resources(
-    store, langchain_local_model_dir_with_invoker_resources
-):
-    source, model_version_dependencies = langchain_local_model_dir_with_invoker_resources
-    source = str(source)
-    access_key_id = "fake-key"
-    secret_access_key = "secret-key"
-    session_token = "session-token"
-    aws_temp_creds = TemporaryCredentials(
-        aws_temp_credentials=AwsCredentials(
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-        )
-    )
-    storage_location = "s3://blah"
-    model_name = "model_1"
-    version = "1"
-    tags = [
-        ModelVersionTag(key="key", value="value"),
-        ModelVersionTag(key="anotherKey", value="some other value"),
-    ]
-
-    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
-    with (
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=aws_temp_creds,
-                storage_location=storage_location,
-                source=source,
-                tags=tags,
-                model_version_dependencies=model_version_dependencies,
-            ),
-        ) as request_mock,
-        mock.patch(
-            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
-            return_value=mock_artifact_repo,
-        ) as optimized_s3_artifact_repo_class_mock,
-        mock.patch.dict("sys.modules", {"boto3": {}}),
-    ):
-        store.create_model_version(name=model_name, source=source, tags=tags)
-        # Verify that s3 artifact repo mock was called with expected args
-        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=storage_location,
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-            credential_refresh_def=ANY,
-            s3_upload_extra_args={},
-        )
-        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
-        _assert_create_model_version_endpoints_called(
-            request_mock=request_mock,
-            name=model_name,
-            source=source,
-            version=version,
-            tags=tags,
-            model_version_dependencies=model_version_dependencies,
-        )
-
-
-def test_create_model_version_with_langchain_no_dependencies(
-    store, langchain_local_model_dir_no_dependencies
-):
-    access_key_id = "fake-key"
-    secret_access_key = "secret-key"
-    session_token = "session-token"
-    aws_temp_creds = TemporaryCredentials(
-        aws_temp_credentials=AwsCredentials(
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-        )
-    )
-    storage_location = "s3://blah"
-    source = str(langchain_local_model_dir_no_dependencies)
-    model_name = "model_1"
-    version = "1"
-    tags = [
-        ModelVersionTag(key="key", value="value"),
-        ModelVersionTag(key="anotherKey", value="some other value"),
-    ]
-    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
-    with (
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=aws_temp_creds,
-                storage_location=storage_location,
-                source=source,
-                tags=tags,
-                model_version_dependencies=None,
-            ),
-        ) as request_mock,
-        mock.patch(
-            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
-            return_value=mock_artifact_repo,
-        ) as optimized_s3_artifact_repo_class_mock,
-        mock.patch.dict("sys.modules", {"boto3": {}}),
-    ):
-        store.create_model_version(name=model_name, source=source, tags=tags)
-        # Verify that s3 artifact repo mock was called with expected args
-        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=storage_location,
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-            credential_refresh_def=ANY,
-            s3_upload_extra_args={},
-        )
-        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
-        _assert_create_model_version_endpoints_called(
-            request_mock=request_mock,
-            name=model_name,
-            source=source,
-            version=version,
-            tags=tags,
-            model_version_dependencies=None,
-        )
-
-
 def test_create_model_version_nonexistent_directory(store, tmp_path):
     fake_directory = str(tmp_path.joinpath("myfakepath"))
     with pytest.raises(
@@ -750,41 +424,6 @@ def test_create_model_version_nonexistent_directory(store, tmp_path):
         match="Unable to download model artifacts from source artifact location",
     ):
         store.create_model_version(name="mymodel", source=fake_directory)
-
-
-def test_create_model_version_missing_python_deps(store, local_model_dir):
-    access_key_id = "fake-key"
-    secret_access_key = "secret-key"
-    session_token = "session-token"
-    aws_temp_creds = TemporaryCredentials(
-        aws_temp_credentials=AwsCredentials(
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-        )
-    )
-    storage_location = "s3://blah"
-    source = str(local_model_dir)
-    model_name = "model_1"
-    version = "1"
-    with (
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=aws_temp_creds,
-                storage_location=storage_location,
-                source=source,
-            ),
-        ),
-        mock.patch.dict("sys.modules", {"boto3": None}),
-        pytest.raises(
-            MlflowException,
-            match="Unable to import necessary dependencies to access model version files",
-        ),
-    ):
-        store.create_model_version(name=model_name, source=str(local_model_dir))
 
 
 _TEST_SIGNATURE = ModelSignature(
@@ -844,109 +483,36 @@ def test_create_model_version_missing_output_signature(store, tmp_path):
         store.create_model_version(name="mymodel", source=str(tmp_path))
 
 
-def test_create_model_version_with_optional_signature_validation_bypass_enabled(store, tmp_path):
-    # Create a model directory without proper signature
-    tmp_path.joinpath(MLMODEL_FILE_NAME).write_text(json.dumps({"a": "b"}))
-
-    # Mock only the essential methods needed to test signature validation bypass
+@pytest.mark.parametrize("bypass", [True, False])
+def test_create_model_version_optional_signature_validation(store, tmp_path, bypass):
+    # Mock the post-name-resolution create flow so the test isolates the signature-validation
+    # decision. A three-level name is used because the native create flow rejects non-UC names
+    # before issuing the CreateModelVersion request.
+    store.spark = None
+    mock_mv = mock.Mock(version="1", storage_location="s3://blah/loc")
+    rest_store = "mlflow.store._unity_catalog.registry.rest_store"
     with (
         mock.patch.object(store, "_validate_model_signature") as mock_validate_signature,
         mock.patch.object(store, "_local_model_dir") as mock_local_model_dir,
-        mock.patch.object(store, "_call_endpoint") as mock_call_endpoint,
-        mock.patch.object(store, "_get_artifact_repo") as mock_get_artifact_repo,
-        mock.patch.object(store, "_finalize_model_version") as mock_finalize,
+        mock.patch.object(store, "_download_model_weights_if_not_saved"),
+        mock.patch(f"{rest_store}.get_feature_dependencies", return_value=""),
+        mock.patch(f"{rest_store}.get_model_version_dependencies", return_value=[]),
+        mock.patch.object(store, "_edit_endpoint_and_call", return_value=mock_mv),
+        mock.patch.object(store, "_get_artifact_repo"),
+        mock.patch(f"{rest_store}.model_version_from_uc_proto", return_value=mock.Mock()),
     ):
-        # Setup minimal mocks
         mock_local_model_dir.return_value.__enter__.return_value = tmp_path
         mock_local_model_dir.return_value.__exit__.return_value = None
 
-        # Mock the model version response
-        mock_model_version = mock.Mock()
-        mock_response = mock.Mock()
-        mock_response.model_version = mock_model_version
-        mock_call_endpoint.return_value = mock_response
-
-        # Mock artifact repo
-        mock_artifact_repo = mock.Mock()
-        mock_get_artifact_repo.return_value = mock_artifact_repo
-
-        # Mock finalization
-        mock_finalized_mv = mock.Mock()
-        mock_finalized_mv.status = 1
-        mock_finalized_mv.name = "test_model"
-        mock_finalized_mv.version = "1"
-        mock_finalized_mv.aliases = []
-        mock_finalized_mv.tags = []
-        mock_finalized_mv.model_params = []
-        mock_finalized_mv.model_metrics = []
-        mock_deployment_job_state = mock.Mock()
-        mock_deployment_job_state.job_id = "job123"
-        mock_deployment_job_state.run_id = "run123"
-        mock_deployment_job_state.job_state = 1
-        mock_deployment_job_state.run_state = 1
-        mock_deployment_job_state.current_task_name = "task1"
-        mock_finalized_mv.deployment_job_state = mock_deployment_job_state
-        mock_finalize.return_value = mock_finalized_mv
-
-        # Call the method with bypass_signature_validation=True
         store._create_model_version_with_optional_signature_validation(
-            name="test_model", source=str(tmp_path), bypass_signature_validation=True
+            name="catalog.schema.test_model",
+            source=str(tmp_path),
+            bypass_signature_validation=bypass,
         )
 
-        # Verify that signature validation was bypassed
+    if bypass:
         mock_validate_signature.assert_not_called()
-
-
-def test_create_model_version_with_optional_signature_validation_bypass_disabled(store, tmp_path):
-    # Create a model directory without proper signature
-    tmp_path.joinpath(MLMODEL_FILE_NAME).write_text(json.dumps({"a": "b"}))
-
-    # Mock only the essential methods needed to test signature validation
-    with (
-        mock.patch.object(store, "_validate_model_signature") as mock_validate_signature,
-        mock.patch.object(store, "_local_model_dir") as mock_local_model_dir,
-        mock.patch.object(store, "_call_endpoint") as mock_call_endpoint,
-        mock.patch.object(store, "_get_artifact_repo") as mock_get_artifact_repo,
-        mock.patch.object(store, "_finalize_model_version") as mock_finalize,
-    ):
-        # Setup minimal mocks
-        mock_local_model_dir.return_value.__enter__.return_value = tmp_path
-        mock_local_model_dir.return_value.__exit__.return_value = None
-
-        # Mock the model version response
-        mock_model_version = mock.Mock()
-        mock_response = mock.Mock()
-        mock_response.model_version = mock_model_version
-        mock_call_endpoint.return_value = mock_response
-
-        # Mock artifact repo
-        mock_artifact_repo = mock.Mock()
-        mock_get_artifact_repo.return_value = mock_artifact_repo
-
-        # Mock finalization
-        mock_finalized_mv = mock.Mock()
-        mock_finalized_mv.status = 1
-        mock_finalized_mv.name = "test_model"
-        mock_finalized_mv.version = "1"
-        mock_finalized_mv.aliases = []
-        mock_finalized_mv.tags = []
-        mock_finalized_mv.model_params = []
-        mock_finalized_mv.model_metrics = []
-        mock_deployment_job_state = mock.Mock()
-        mock_deployment_job_state.job_id = "job123"
-        mock_deployment_job_state.run_id = "run123"
-        mock_deployment_job_state.job_state = 1
-        mock_deployment_job_state.run_state = 1
-        mock_deployment_job_state.current_task_name = "task1"
-        mock_finalized_mv.deployment_job_state = mock_deployment_job_state
-        mock_finalize.return_value = mock_finalized_mv
-
-        # Call the method with bypass_signature_validation=False
-        store._create_model_version_with_optional_signature_validation(
-            name="test_model", source=str(tmp_path), bypass_signature_validation=False
-        )
-
-        # Verify that signature validation was performed
+    else:
         mock_validate_signature.assert_called_once_with(tmp_path)
 
 
@@ -986,225 +552,6 @@ def test_get_logged_model_from_model_id_reraises_other_exceptions(store):
     ):
         with pytest.raises(MlflowException, match="Some other error"):
             store._get_logged_model_from_model_id("model123")
-
-
-def test_create_model_version_succeeds_when_logged_model_not_found(store, local_model_dir):
-    access_key_id = "fake-key"
-    secret_access_key = "secret-key"
-    session_token = "session-token"
-    aws_temp_creds = TemporaryCredentials(
-        aws_temp_credentials=AwsCredentials(
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-        )
-    )
-    storage_location = "s3://blah"
-    source = str(local_model_dir)
-    model_name = "model_1"
-    version = "1"
-    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
-    with (
-        mock.patch(
-            "mlflow.get_logged_model",
-            side_effect=MlflowException(
-                "Node ID does not exist", error_code=RESOURCE_DOES_NOT_EXIST
-            ),
-        ),
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=aws_temp_creds,
-                storage_location=storage_location,
-                source=source,
-            ),
-        ) as request_mock,
-        mock.patch(
-            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
-            return_value=mock_artifact_repo,
-        ),
-        mock.patch.dict("sys.modules", {"boto3": {}}),
-    ):
-        store.create_model_version(name=model_name, source=source, model_id="nonexistent_model_id")
-        _assert_create_model_version_endpoints_called(
-            request_mock=request_mock,
-            name=model_name,
-            source=source,
-            version=version,
-            model_id=None,
-        )
-
-
-@pytest.mark.parametrize(
-    ("encryption_details", "extra_args"),
-    [
-        (
-            SseEncryptionDetails(
-                algorithm=SseEncryptionAlgorithm.AWS_SSE_S3,
-            ),
-            {
-                "ServerSideEncryption": "AES256",
-            },
-        ),
-        (
-            SseEncryptionDetails(
-                algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
-                aws_kms_key_arn="some:arn:test:key/key_id",
-            ),
-            {
-                "ServerSideEncryption": "aws:kms",
-                "SSEKMSKeyId": "some:arn:test:key/key_id",
-            },
-        ),
-    ],
-)
-def test_create_model_version_with_sse_kms_client(
-    store, langchain_local_model_dir, encryption_details, extra_args
-):
-    access_key_id = "fake-key"
-    secret_access_key = "secret-key"
-    session_token = "session-token"
-    aws_temp_creds = TemporaryCredentials(
-        aws_temp_credentials=AwsCredentials(
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-        ),
-        encryption_details=EncryptionDetails(sse_encryption_details=encryption_details),
-    )
-    storage_location = "s3://blah"
-    source = str(langchain_local_model_dir)
-    model_name = "model_1"
-    version = "1"
-    tags = [
-        ModelVersionTag(key="key", value="value"),
-        ModelVersionTag(key="anotherKey", value="some other value"),
-    ]
-    model_version_dependencies = [
-        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
-        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
-    ]
-
-    optimized_s3_repo_package = "mlflow.store.artifact.optimized_s3_artifact_repo"
-    mock_s3_client = mock.MagicMock(autospec=BaseClient)
-    with (
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=aws_temp_creds,
-                storage_location=storage_location,
-                source=source,
-                tags=tags,
-                model_version_dependencies=model_version_dependencies,
-            ),
-        ),
-        mock.patch(
-            f"{optimized_s3_repo_package}.OptimizedS3ArtifactRepository._get_s3_client",
-            return_value=mock_s3_client,
-        ),
-        mock.patch(
-            f"{optimized_s3_repo_package}.OptimizedS3ArtifactRepository._get_region_name",
-            return_value="us-east-1",
-        ),
-        mock.patch.dict("sys.modules", {"boto3": {}}),
-    ):
-        store.create_model_version(name=model_name, source=source, tags=tags)
-
-        mock_s3_client.upload_file.assert_called_once_with(
-            Filename=ANY, Bucket=ANY, Key=ANY, ExtraArgs=extra_args
-        )
-
-
-@pytest.mark.parametrize(
-    ("encryption_details", "extra_args"),
-    [
-        (
-            SseEncryptionDetails(
-                algorithm=SseEncryptionAlgorithm.AWS_SSE_S3,
-            ),
-            {
-                "ServerSideEncryption": "AES256",
-            },
-        ),
-        (
-            SseEncryptionDetails(
-                algorithm=SseEncryptionAlgorithm.AWS_SSE_KMS,
-                aws_kms_key_arn="some:arn:test:key/key_id",
-            ),
-            {
-                "ServerSideEncryption": "aws:kms",
-                "SSEKMSKeyId": "some:arn:test:key/key_id",
-            },
-        ),
-    ],
-)
-def test_create_model_version_with_sse_kms_store(
-    store, langchain_local_model_dir, encryption_details, extra_args
-):
-    access_key_id = "fake-key"
-    secret_access_key = "secret-key"
-    session_token = "session-token"
-    aws_temp_creds = TemporaryCredentials(
-        aws_temp_credentials=AwsCredentials(
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-        ),
-        encryption_details=EncryptionDetails(sse_encryption_details=encryption_details),
-    )
-    storage_location = "s3://blah"
-    source = str(langchain_local_model_dir)
-    model_name = "model_1"
-    version = "1"
-    tags = [
-        ModelVersionTag(key="key", value="value"),
-        ModelVersionTag(key="anotherKey", value="some other value"),
-    ]
-    model_version_dependencies = [
-        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index1"},
-        {"type": "DATABRICKS_VECTOR_INDEX", "name": "index2"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "embedding_endpoint"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "llm_endpoint"},
-        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "chat_endpoint"},
-    ]
-
-    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
-    with (
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=aws_temp_creds,
-                storage_location=storage_location,
-                source=source,
-                tags=tags,
-                model_version_dependencies=model_version_dependencies,
-            ),
-        ),
-        mock.patch(
-            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
-            return_value=mock_artifact_repo,
-        ) as optimized_s3_artifact_repo_class_mock,
-        mock.patch.dict("sys.modules", {"boto3": {}}),
-    ):
-        store.create_model_version(name=model_name, source=source, tags=tags)
-        # Verify that s3 artifact repo mock was called with expected args
-        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=storage_location,
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-            credential_refresh_def=ANY,
-            s3_upload_extra_args=extra_args,
-        )
 
 
 @pytest.mark.parametrize(
@@ -1264,88 +611,6 @@ def test_download_model_weights_if_not_saved(
             transformers_mock.persist_pretrained_model.assert_not_called()
 
 
-@mock_http_200
-def test_update_registered_model_name(mock_http, store):
-    name = "model_1"
-    new_name = "model_2"
-    store.rename_registered_model(name=name, new_name=new_name)
-    _verify_requests(
-        mock_http,
-        "registered-models/update",
-        "PATCH",
-        UpdateRegisteredModelRequest(name=name, new_name=new_name),
-    )
-
-
-@mock_http_200
-def test_update_registered_model_description(mock_http, store):
-    name = "model_1"
-    description = "test model"
-    store.update_registered_model(name=name, description=description)
-    _verify_requests(
-        mock_http,
-        "registered-models/update",
-        "PATCH",
-        UpdateRegisteredModelRequest(name=name, description=description),
-    )
-
-
-@mock_http_200
-@pytest.mark.parametrize(
-    "deployment_job_id",
-    [
-        "123",  # Actual deployment job id
-        "",  # Empty string is preserved to disconnect the model from a deployment job
-        None,  # Test with None
-    ],
-)
-def test_update_registered_model_deployment_job_id(mock_http, store, deployment_job_id):
-    name = "model_1"
-    description = "test model"
-
-    store.update_registered_model(
-        name=name, description=description, deployment_job_id=deployment_job_id
-    )
-    _verify_requests(
-        mock_http,
-        "registered-models/update",
-        "PATCH",
-        UpdateRegisteredModelRequest(
-            name=name, description=description, deployment_job_id=deployment_job_id
-        ),
-    )
-
-
-@mock_http_200
-def test_delete_registered_model(mock_http, store):
-    name = "model_1"
-    store.delete_registered_model(name=name)
-    _verify_requests(
-        mock_http, "registered-models/delete", "DELETE", DeleteRegisteredModelRequest(name=name)
-    )
-
-
-@mock_http_200
-def test_search_registered_model(mock_http, store):
-    store.search_registered_models()
-    _verify_requests(mock_http, "registered-models/search", "GET", SearchRegisteredModelsRequest())
-    params_list = [
-        {"max_results": 400},
-        {"page_token": "blah"},
-    ]
-    # test all combination of params
-    for sz in range(3):
-        for combination in combinations(params_list, sz):
-            params = {k: v for d in combination for k, v in d.items()}
-            store.search_registered_models(**params)
-            _verify_requests(
-                mock_http,
-                "registered-models/search",
-                "GET",
-                SearchRegisteredModelsRequest(**params),
-            )
-
-
 def test_search_registered_models_invalid_args(store):
     params_list = [
         {"filter_string": "model = 'yo'"},
@@ -1359,15 +624,6 @@ def test_search_registered_models_invalid_args(store):
                 MlflowException, match="unsupported for models in the Unity Catalog"
             ):
                 store.search_registered_models(**params)
-
-
-@mock_http_200
-def test_get_registered_model(mock_http, store):
-    name = "model_1"
-    store.get_registered_model(name=name)
-    _verify_requests(
-        mock_http, "registered-models/get", "GET", GetRegisteredModelRequest(name=name)
-    )
 
 
 def test_get_latest_versions_unsupported(store):
@@ -1385,31 +641,6 @@ def test_get_latest_versions_unsupported(store):
         "Detected attempt to load latest model version in stages",
     ):
         store.get_latest_versions(name=name, stages=["Production"])
-
-
-@mock_http_200
-def test_set_registered_model_tag(mock_http, store):
-    name = "model_1"
-    tag = RegisteredModelTag(key="key", value="value")
-    store.set_registered_model_tag(name=name, tag=tag)
-    _verify_requests(
-        mock_http,
-        "registered-models/set-tag",
-        "POST",
-        SetRegisteredModelTagRequest(name=name, key=tag.key, value=tag.value),
-    )
-
-
-@mock_http_200
-def test_delete_registered_model_tag(mock_http, store):
-    name = "model_1"
-    store.delete_registered_model_tag(name=name, key="key")
-    _verify_requests(
-        mock_http,
-        "registered-models/delete-tag",
-        "DELETE",
-        DeleteRegisteredModelTagRequest(name=name, key="key"),
-    )
 
 
 def test_get_notebook_id_returns_none_if_empty_run(store):
@@ -1521,538 +752,6 @@ def _get_workspace_id_for_run(run_id=None):
     return "123" if run_id is not None else None
 
 
-def get_request_mock(
-    name,
-    version,
-    source,
-    storage_location,
-    temp_credentials,
-    description=None,
-    run_id=None,
-    tags=None,
-    model_version_dependencies=None,
-    model_id=None,
-):
-    def request_mock(
-        host_creds,
-        endpoint,
-        method,
-        max_retries=None,
-        backoff_factor=None,
-        retry_codes=None,
-        timeout=None,
-        **kwargs,
-    ):
-        run_workspace_id = _get_workspace_id_for_run(run_id)
-        model_version_temp_credentials_response = GenerateTemporaryModelVersionCredentialsResponse(
-            credentials=temp_credentials
-        )
-        uc_tags = uc_model_version_tag_from_mlflow_tags(tags) if tags is not None else []
-        req_info_to_response = {
-            (
-                _REGISTRY_HOST_CREDS.host,
-                "/api/2.0/mlflow/unity-catalog/model-versions/create",
-                "POST",
-                message_to_json(
-                    CreateModelVersionRequest(
-                        name=name,
-                        source=source,
-                        description=description,
-                        run_id=run_id,
-                        run_tracking_server_id=run_workspace_id,
-                        tags=uc_tags,
-                        feature_deps="",
-                        model_version_dependencies=model_version_dependencies,
-                        model_id=model_id,
-                    )
-                ),
-            ): CreateModelVersionResponse(
-                model_version=ProtoModelVersion(
-                    name=name, version=version, storage_location=storage_location, tags=uc_tags
-                )
-            ),
-            (
-                _REGISTRY_HOST_CREDS.host,
-                "/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
-                "POST",
-                message_to_json(
-                    GenerateTemporaryModelVersionCredentialsRequest(
-                        name=name, version=version, operation=MODEL_VERSION_OPERATION_READ_WRITE
-                    )
-                ),
-            ): model_version_temp_credentials_response,
-            (
-                _REGISTRY_HOST_CREDS.host,
-                "/api/2.0/mlflow/unity-catalog/model-versions/finalize",
-                "POST",
-                message_to_json(FinalizeModelVersionRequest(name=name, version=version)),
-            ): FinalizeModelVersionResponse(),
-        }
-        if run_id is not None:
-            req_info_to_response[
-                (
-                    _TRACKING_HOST_CREDS.host,
-                    "/api/2.0/mlflow/runs/get",
-                    "GET",
-                    message_to_json(GetRun(run_id=run_id)),
-                )
-            ] = GetRun.Response()
-
-        json_dict = kwargs["json"] if method == "POST" else kwargs["params"]
-        response_message = req_info_to_response[
-            (host_creds.host, endpoint, method, json.dumps(json_dict, indent=2))
-        ]
-        mock_resp = mock.MagicMock(autospec=Response)
-        mock_resp.status_code = 200
-        mock_resp.text = message_to_json(response_message)
-        mock_resp.headers = {_DATABRICKS_ORG_ID_HEADER: run_workspace_id}
-        return mock_resp
-
-    return request_mock
-
-
-def _assert_create_model_version_endpoints_called(
-    request_mock,
-    name,
-    source,
-    version,
-    run_id=None,
-    description=None,
-    extra_headers=None,
-    tags=None,
-    model_version_dependencies=None,
-    model_id=None,
-):
-    """
-    Asserts that endpoints related to the model version creation flow were called on the provided
-    `request_mock`
-    """
-    uc_tags = uc_model_version_tag_from_mlflow_tags(tags) if tags is not None else []
-    for endpoint, proto_message in [
-        (
-            "model-versions/create",
-            CreateModelVersionRequest(
-                name=name,
-                source=source,
-                run_id=run_id,
-                description=description,
-                run_tracking_server_id=_get_workspace_id_for_run(run_id),
-                tags=uc_tags,
-                feature_deps="",
-                model_version_dependencies=model_version_dependencies,
-                model_id=model_id,
-            ),
-        ),
-        (
-            "model-versions/generate-temporary-credentials",
-            GenerateTemporaryModelVersionCredentialsRequest(
-                name=name, version=version, operation=MODEL_VERSION_OPERATION_READ_WRITE
-            ),
-        ),
-        (
-            "model-versions/finalize",
-            FinalizeModelVersionRequest(name=name, version=version),
-        ),
-    ]:
-        if endpoint == "model-versions/create" and extra_headers is not None:
-            _verify_requests(
-                http_request=request_mock,
-                endpoint=endpoint,
-                method="POST",
-                proto_message=proto_message,
-                extra_headers=extra_headers,
-            )
-        else:
-            _verify_requests(
-                http_request=request_mock,
-                endpoint=endpoint,
-                method="POST",
-                proto_message=proto_message,
-            )
-
-
-def test_create_model_version_aws(store, local_model_dir):
-    access_key_id = "fake-key"
-    secret_access_key = "secret-key"
-    session_token = "session-token"
-    aws_temp_creds = TemporaryCredentials(
-        aws_temp_credentials=AwsCredentials(
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-        )
-    )
-    storage_location = "s3://blah"
-    source = str(local_model_dir)
-    model_name = "model_1"
-    version = "1"
-    tags = [
-        ModelVersionTag(key="key", value="value"),
-        ModelVersionTag(key="anotherKey", value="some other value"),
-    ]
-    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
-    with (
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=aws_temp_creds,
-                storage_location=storage_location,
-                source=source,
-                tags=tags,
-            ),
-        ) as request_mock,
-        mock.patch(
-            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
-            return_value=mock_artifact_repo,
-        ) as optimized_s3_artifact_repo_class_mock,
-        mock.patch.dict("sys.modules", {"boto3": {}}),
-    ):
-        store.create_model_version(name=model_name, source=source, tags=tags)
-        # Verify that s3 artifact repo mock was called with expected args
-        optimized_s3_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=storage_location,
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-            credential_refresh_def=ANY,
-            s3_upload_extra_args={},
-        )
-        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
-        _assert_create_model_version_endpoints_called(
-            request_mock=request_mock, name=model_name, source=source, version=version, tags=tags
-        )
-
-
-def test_create_model_version_local_model_path(store, local_model_dir):
-    access_key_id = "fake-key"
-    secret_access_key = "secret-key"
-    session_token = "session-token"
-    aws_temp_creds = TemporaryCredentials(
-        aws_temp_credentials=AwsCredentials(
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-        )
-    )
-    storage_location = "s3://blah"
-    source = "s3://model/version/source"
-    model_name = "model_1"
-    version = "1"
-    tags = [
-        ModelVersionTag(key="key", value="value"),
-        ModelVersionTag(key="anotherKey", value="some other value"),
-    ]
-    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
-    with (
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=aws_temp_creds,
-                storage_location=storage_location,
-                source=source,
-                tags=tags,
-            ),
-        ) as request_mock,
-        mock.patch("mlflow.artifacts.download_artifacts") as mock_download_artifacts,
-        mock.patch(
-            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
-            return_value=mock_artifact_repo,
-        ),
-    ):
-        store.create_model_version(
-            name=model_name, source=source, tags=tags, local_model_path=local_model_dir
-        )
-        # Assert that we don't attempt to download model version files, and that we instead log
-        # artifacts directly to the destination s3 location from the passed-in local_model_path
-        mock_download_artifacts.assert_not_called()
-        mock_artifact_repo.log_artifacts.assert_called_once_with(
-            local_dir=local_model_dir, artifact_path=""
-        )
-        _assert_create_model_version_endpoints_called(
-            request_mock=request_mock, name=model_name, source=source, version=version, tags=tags
-        )
-
-
-def test_create_model_version_doesnt_redownload_model_from_local_dir(store, local_model_dir):
-    access_key_id = "fake-key"
-    secret_access_key = "secret-key"
-    session_token = "session-token"
-    aws_temp_creds = TemporaryCredentials(
-        aws_temp_credentials=AwsCredentials(
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-        )
-    )
-    storage_location = "s3://blah"
-    model_name = "model_1"
-    version = "1"
-    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
-    model_dir = str(local_model_dir)
-    with (
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=aws_temp_creds,
-                storage_location=storage_location,
-                source=model_dir,
-            ),
-        ),
-        mock.patch(
-            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
-            return_value=mock_artifact_repo,
-        ),
-    ):
-        # Assert that we create the model version from the local model dir directly,
-        # rather than downloading it to a tmpdir + creating from there
-        store.create_model_version(name=model_name, source=model_dir)
-        mock_artifact_repo.log_artifacts.assert_called_once_with(
-            local_dir=model_dir, artifact_path=""
-        )
-
-
-def test_create_model_version_remote_source(store, local_model_dir, tmp_path):
-    access_key_id = "fake-key"
-    secret_access_key = "secret-key"
-    session_token = "session-token"
-    aws_temp_creds = TemporaryCredentials(
-        aws_temp_credentials=AwsCredentials(
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            session_token=session_token,
-        )
-    )
-    storage_location = "s3://blah"
-    source = "s3://model/version/source"
-    model_name = "model_1"
-    version = "1"
-    mock_artifact_repo = mock.MagicMock(autospec=OptimizedS3ArtifactRepository)
-    local_tmpdir = str(tmp_path.joinpath("local_tmpdir"))
-    shutil.copytree(local_model_dir, local_tmpdir)
-    with (
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=aws_temp_creds,
-                storage_location=storage_location,
-                source=source,
-            ),
-        ) as request_mock,
-        mock.patch(
-            "mlflow.artifacts.download_artifacts",
-            return_value=local_tmpdir,
-        ) as mock_download_artifacts,
-        mock.patch(
-            "mlflow.store.artifact.optimized_s3_artifact_repo.OptimizedS3ArtifactRepository",
-            return_value=mock_artifact_repo,
-        ),
-    ):
-        store.create_model_version(name=model_name, source=source)
-        # Assert that we attempt to download model version files and attempt to log
-        # artifacts from the download destination directory
-        mock_download_artifacts.assert_called_once_with(
-            artifact_uri=source, tracking_uri="databricks"
-        )
-        mock_artifact_repo.log_artifacts.assert_called_once_with(
-            local_dir=local_tmpdir, artifact_path=""
-        )
-        _assert_create_model_version_endpoints_called(
-            request_mock=request_mock,
-            name=model_name,
-            source=source,
-            version=version,
-        )
-        assert not os.path.exists(local_tmpdir)
-
-
-def test_create_model_version_azure(store, local_model_dir):
-    storage_location = "abfss://filesystem@account.dfs.core.windows.net"
-    fake_sas_token = "fake_session_token"
-    temporary_creds = TemporaryCredentials(
-        azure_user_delegation_sas=AzureUserDelegationSAS(sas_token=fake_sas_token)
-    )
-    source = str(local_model_dir)
-    model_name = "model_1"
-    version = "1"
-    tags = [
-        ModelVersionTag(key="key", value="value"),
-        ModelVersionTag(key="anotherKey", value="some other value"),
-    ]
-    mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
-    with (
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=temporary_creds,
-                storage_location=storage_location,
-                source=source,
-                tags=tags,
-            ),
-        ) as request_mock,
-        mock.patch(
-            "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository",
-            return_value=mock_adls_repo,
-        ) as adls_artifact_repo_class_mock,
-    ):
-        store.create_model_version(name=model_name, source=source, tags=tags)
-        adls_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=storage_location,
-            credential=ANY,
-            credential_refresh_def=ANY,
-        )
-        adls_repo_args = adls_artifact_repo_class_mock.call_args_list[0]
-        credential = adls_repo_args[1]["credential"]
-        assert credential.signature == fake_sas_token
-        mock_adls_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
-        _assert_create_model_version_endpoints_called(
-            request_mock=request_mock, name=model_name, source=source, version=version, tags=tags
-        )
-
-
-def test_create_model_version_unknown_storage_creds(store, local_model_dir):
-    storage_location = "abfss://filesystem@account.dfs.core.windows.net"
-    fake_sas_token = "fake_session_token"
-    temporary_creds = TemporaryCredentials(
-        azure_user_delegation_sas=AzureUserDelegationSAS(sas_token=fake_sas_token)
-    )
-    unknown_credential_type = "some_new_credential_type"
-    source = str(local_model_dir)
-    model_name = "model_1"
-    version = "1"
-    with (
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=get_request_mock(
-                name=model_name,
-                version=version,
-                temp_credentials=temporary_creds,
-                storage_location=storage_location,
-                source=source,
-            ),
-        ),
-        mock.patch.object(TemporaryCredentials, "WhichOneof", return_value=unknown_credential_type),
-        pytest.raises(
-            MlflowException,
-            match=f"Got unexpected credential type {unknown_credential_type} when "
-            "attempting to access model version files",
-        ),
-    ):
-        store.create_model_version(name=model_name, source=source)
-
-
-@pytest.mark.parametrize(
-    "create_args",
-    [
-        ("name", "source"),
-        ("name", "source", "description", "run_id"),
-    ],
-)
-def test_create_model_version_gcp(store, local_model_dir, create_args):
-    storage_location = "gs://test_bucket/some/path"
-    fake_oauth_token = "fake_session_token"
-    temporary_creds = TemporaryCredentials(
-        gcp_oauth_token=GcpOauthToken(oauth_token=fake_oauth_token)
-    )
-    source = str(local_model_dir)
-    model_name = "model_1"
-    all_create_args = {
-        "name": model_name,
-        "source": source,
-        "description": "my_description",
-        "run_id": "some_run_id",
-        "tags": [
-            ModelVersionTag(key="key", value="value"),
-            ModelVersionTag(key="anotherKey", value="some other value"),
-        ],
-    }
-    create_kwargs = {key: value for key, value in all_create_args.items() if key in create_args}
-    mock_gcs_repo = mock.MagicMock(autospec=GCSArtifactRepository)
-    version = "1"
-    mock_request_fn = get_request_mock(
-        **create_kwargs,
-        version=version,
-        temp_credentials=temporary_creds,
-        storage_location=storage_location,
-    )
-    get_run_and_headers_retval = None, None
-    if "run_id" in create_kwargs:
-        test_notebook_tag = RunTag(key=MLFLOW_DATABRICKS_NOTEBOOK_ID, value="321")
-        test_job_tag = RunTag(key=MLFLOW_DATABRICKS_JOB_ID, value="456")
-        test_job_run_tag = RunTag(key=MLFLOW_DATABRICKS_JOB_RUN_ID, value="789")
-        test_run_data = RunData(tags=[test_notebook_tag, test_job_tag, test_job_run_tag])
-        test_run_info = RunInfo(
-            "run_uuid",
-            "experiment_id",
-            "user_id",
-            "status",
-            "start_time",
-            "end_time",
-            "lifecycle_stage",
-        )
-        test_run = Run(run_data=test_run_data, run_info=test_run_info)
-        get_run_and_headers_retval = ({_DATABRICKS_ORG_ID_HEADER: "123"}, test_run)
-    with (
-        mock.patch(
-            "mlflow.store._unity_catalog.registry.rest_store.http_request",
-            side_effect=mock_request_fn,
-        ),
-        mock.patch(
-            "mlflow.store._unity_catalog.registry.rest_store.UcModelRegistryStore._get_run_and_headers",
-            # Set the headers and Run retvals when the run_id is set
-            return_value=get_run_and_headers_retval,
-        ),
-        mock.patch(
-            "mlflow.utils.rest_utils.http_request",
-            side_effect=mock_request_fn,
-        ) as request_mock,
-        mock.patch(
-            "google.cloud.storage.Client", return_value=mock.MagicMock(autospec=Client)
-        ) as gcs_client_class_mock,
-        mock.patch(
-            "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository",
-            return_value=mock_gcs_repo,
-        ) as gcs_artifact_repo_class_mock,
-    ):
-        store.create_model_version(**create_kwargs)
-        # Verify that gcs artifact repo mock was called with expected args
-        gcs_artifact_repo_class_mock.assert_called_once_with(
-            artifact_uri=storage_location, client=ANY, credential_refresh_def=ANY
-        )
-        mock_gcs_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
-        gcs_client_args = gcs_client_class_mock.call_args_list[0]
-        credentials = gcs_client_args[1]["credentials"]
-        assert credentials.token == fake_oauth_token
-        if "run_id" in create_kwargs:
-            _, run = store._get_run_and_headers("some_run_id")
-            notebook_id = store._get_notebook_id(run)
-            job_id = store._get_job_id(run)
-            job_run_id = store._get_job_run_id(run)
-            notebook_entity = Notebook(id=str(notebook_id))
-            job_entity = Job(id=str(job_id), job_run_id=str(job_run_id))
-            notebook_entity = Entity(notebook=notebook_entity)
-            job_entity = Entity(job=job_entity)
-            lineage_header_info = LineageHeaderInfo(entities=[notebook_entity, job_entity])
-            expected_lineage_json = message_to_json(lineage_header_info)
-            expected_lineage_header = base64.b64encode(expected_lineage_json.encode())
-            assert expected_lineage_header.isascii()
-            create_kwargs["extra_headers"] = {
-                _DATABRICKS_LINEAGE_ID_HEADER: expected_lineage_header,
-            }
-        _assert_create_model_version_endpoints_called(
-            request_mock=request_mock, version=version, **create_kwargs
-        )
-
-
 def test_local_model_dir_preserves_uc_volumes_path(tmp_path):
     store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks-uc")
     with (
@@ -2147,112 +846,11 @@ def test_transition_model_version_stage_unsupported(store):
         )
 
 
-@mock_http_200
-def test_update_model_version_description(mock_http, store):
-    name = "model_1"
-    version = "5"
-    description = "test model version"
-    store.update_model_version(name=name, version=version, description=description)
-    _verify_requests(
-        mock_http,
-        "model-versions/update",
-        "PATCH",
-        UpdateModelVersionRequest(name=name, version=version, description="test model version"),
-    )
-
-
-@mock_http_200
-def test_delete_model_version(mock_http, store):
-    name = "model_1"
-    version = "12"
-    store.delete_model_version(name=name, version=version)
-    _verify_requests(
-        mock_http,
-        "model-versions/delete",
-        "DELETE",
-        DeleteModelVersionRequest(name=name, version=version),
-    )
-
-
-@mock_http_200
-def test_get_model_version_details(mock_http, store):
-    name = "model_11"
-    version = "8"
-    store.get_model_version(name=name, version=version)
-    _verify_requests(
-        mock_http, "model-versions/get", "GET", GetModelVersionRequest(name=name, version=version)
-    )
-
-
-@mock_http_200
-def test_get_model_version_download_uri(mock_http, store):
-    name = "model_11"
-    version = "8"
-    store.get_model_version_download_uri(name=name, version=version)
-    _verify_requests(
-        mock_http,
-        "model-versions/get-download-uri",
-        "GET",
-        GetModelVersionDownloadUriRequest(name=name, version=version),
-    )
-
-
-@mock_http_200
-def test_search_model_versions(mock_http, store):
-    store.search_model_versions(filter_string="name='model_12'")
-    _verify_requests(
-        mock_http,
-        "model-versions/search",
-        "GET",
-        SearchModelVersionsRequest(filter="name='model_12'"),
-    )
-
-
-@mock_http_200
-def test_search_model_versions_with_pagination(mock_http, store):
-    store.search_model_versions(
-        filter_string="name='model_12'", page_token="fake_page_token", max_results=123
-    )
-    _verify_requests(
-        mock_http,
-        "model-versions/search",
-        "GET",
-        SearchModelVersionsRequest(
-            filter="name='model_12'", page_token="fake_page_token", max_results=123
-        ),
-    )
-
-
 def test_search_model_versions_order_by_unsupported(store):
     with pytest.raises(MlflowException, match=_expected_unsupported_arg_error_message("order_by")):
         store.search_model_versions(
             filter_string="name='model_12'", page_token="fake_page_token", order_by=["name ASC"]
         )
-
-
-@mock_http_200
-def test_set_model_version_tag(mock_http, store):
-    name = "model_1"
-    tag = ModelVersionTag(key="key", value="value")
-    store.set_model_version_tag(name=name, version="1", tag=tag)
-    _verify_requests(
-        mock_http,
-        "model-versions/set-tag",
-        "POST",
-        SetModelVersionTagRequest(name=name, version="1", key=tag.key, value=tag.value),
-    )
-
-
-@mock_http_200
-def test_delete_model_version_tag(mock_http, store):
-    name = "model_1"
-    store.delete_model_version_tag(name=name, version="1", key="key")
-    _verify_requests(
-        mock_http,
-        "model-versions/delete-tag",
-        "DELETE",
-        DeleteModelVersionTagRequest(name=name, version="1", key="key"),
-    )
 
 
 @mock_http_200
@@ -2263,83 +861,38 @@ def test_default_values_for_tags(store, tags):
     store.create_model_version(name="mymodel", source="source")
 
 
-@mock_http_200
-def test_set_registered_model_alias(mock_http, store):
-    name = "model_1"
-    alias = "test_alias"
-    version = "1"
-    store.set_registered_model_alias(name=name, alias=alias, version=version)
-    _verify_requests(
-        mock_http,
-        "registered-models/alias",
-        "POST",
-        SetRegisteredModelAliasRequest(name=name, alias=alias, version=version),
-    )
-
-
-@mock_http_200
-def test_delete_registered_model_alias(mock_http, store):
-    name = "model_1"
-    alias = "test_alias"
-    store.delete_registered_model_alias(name=name, alias=alias)
-    _verify_requests(
-        mock_http,
-        "registered-models/alias",
-        "DELETE",
-        DeleteRegisteredModelAliasRequest(name=name, alias=alias),
-    )
-
-
-@mock_http_200
-def test_get_model_version_by_alias(mock_http, store):
-    name = "model_1"
-    alias = "test_alias"
-    store.get_model_version_by_alias(name=name, alias=alias)
-    _verify_requests(
-        mock_http,
-        "registered-models/alias",
-        "GET",
-        GetModelVersionByAliasRequest(name=name, alias=alias),
-    )
-
-
-@mock_http_200
 @pytest.mark.parametrize("spark_session", ["main"], indirect=True)  # set the catalog name to "main"
-def test_store_uses_catalog_and_schema_from_spark_session(mock_http, spark_session, store):
-    name = "model_1"
-    full_name = "main.default.model_1"
-    store.get_registered_model(name=name)
+def test_store_uses_catalog_and_schema_from_spark_session(spark_session, store):
+    with mock.patch.object(
+        store, "_edit_endpoint_and_call", return_value=RegisteredModelInfo()
+    ) as native_call:
+        store.get_registered_model(name="model_1")
     spark_session.sql.assert_any_call(_ACTIVE_CATALOG_QUERY)
     spark_session.sql.assert_any_call(_ACTIVE_SCHEMA_QUERY)
     assert spark_session.sql.call_count == 2
-    _verify_requests(
-        mock_http, "registered-models/get", "GET", GetRegisteredModelRequest(name=full_name)
-    )
+    assert native_call.call_args.kwargs["full_name"] == "main.default.model_1"
 
 
-@mock_http_200
 @pytest.mark.parametrize("spark_session", ["main"], indirect=True)
-def test_store_uses_catalog_from_spark_session(mock_http, spark_session, store):
-    name = "default.model_1"
-    full_name = "main.default.model_1"
-    store.get_registered_model(name=name)
+def test_store_uses_catalog_from_spark_session(spark_session, store):
+    with mock.patch.object(
+        store, "_edit_endpoint_and_call", return_value=RegisteredModelInfo()
+    ) as native_call:
+        store.get_registered_model(name="default.model_1")
     spark_session.sql.assert_any_call(_ACTIVE_CATALOG_QUERY)
     assert spark_session.sql.call_count == 1
-    _verify_requests(
-        mock_http, "registered-models/get", "GET", GetRegisteredModelRequest(name=full_name)
-    )
+    assert native_call.call_args.kwargs["full_name"] == "main.default.model_1"
 
 
-@mock_http_200
 @pytest.mark.parametrize("spark_session", ["hive_metastore", "spark_catalog"], indirect=True)
-def test_store_ignores_hive_metastore_default_from_spark_session(mock_http, spark_session, store):
-    name = "model_1"
-    store.get_registered_model(name=name)
+def test_store_ignores_hive_metastore_default_from_spark_session(spark_session, store):
+    with mock.patch.object(
+        store, "_edit_endpoint_and_call", return_value=RegisteredModelInfo()
+    ) as native_call:
+        store.get_registered_model(name="model_1")
     spark_session.sql.assert_any_call(_ACTIVE_CATALOG_QUERY)
     assert spark_session.sql.call_count == 1
-    _verify_requests(
-        mock_http, "registered-models/get", "GET", GetRegisteredModelRequest(name=name)
-    )
+    assert native_call.call_args.kwargs["full_name"] == "model_1"
 
 
 def test_store_use_presigned_url_store_when_disabled(monkeypatch):
@@ -2367,7 +920,9 @@ def test_store_use_presigned_url_store_when_disabled(monkeypatch):
             side_effect=get_artifact_repo_from_storage_info,
         ) as get_repo_mock,
     ):
-        aws_store = uc_store._get_artifact_repo(model_version)
+        aws_store = uc_store._get_artifact_repo(
+            model_version.name, model_version.version, model_version.storage_location
+        )
 
         assert type(aws_store) is OptimizedS3ArtifactRepository
         temp_cred_mock.assert_called_once_with(
@@ -2392,14 +947,17 @@ def test_store_use_presigned_url_store_when_enabled(monkeypatch):
     ):
         uc_store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks-uc")
         model_version = ModelVersion(name="catalog.schema.model_1", version="1")
-        presigned_store = uc_store._get_artifact_repo(model_version)
+        presigned_store = uc_store._get_artifact_repo(
+            model_version.name, model_version.version, model_version.storage_location
+        )
 
     assert type(presigned_store) is PresignedUrlArtifactRepository
 
 
 @mock_http_200
 def test_create_and_update_registered_model_print_job_url(mock_http, store):
-    name = "model_for_job_url_test"
+    # UC model names must be three-level; the native create/update flow rejects non-UC names.
+    name = "catalog.schema.model_for_job_url_test"
     description = "test model with job id"
     deployment_job_id = "123"
 
@@ -3002,3 +1560,447 @@ def test_link_prompt_version_to_run_sets_tag(store):
 
         expected_value = [{"name": "test_prompt", "version": "1"}]
         assert json.loads(run_tag.value) == expected_value
+
+
+# ---------------------------------------------------------------------------
+# Native (/api/2.1/unity-catalog/*) path: governance + enrichment, used by default
+# with transparent ENDPOINT_NOT_FOUND fallback to the legacy endpoints.
+# ---------------------------------------------------------------------------
+
+
+def test_get_registered_model_uses_native_endpoint(store):
+    native_info = RegisteredModelInfo(
+        name="model",
+        catalog_name="catalog",
+        schema_name="schema",
+        full_name="catalog.schema.model",
+        comment="d",
+        deployment_job_id="42",
+        deployment_job_state=DeploymentJobConnection.State.Value("CONNECTED"),
+    )
+    with (
+        mock.patch.object(
+            store, "_edit_endpoint_and_call", return_value=native_info
+        ) as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        result = store.get_registered_model("catalog.schema.model")
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+    assert result.name == "catalog.schema.model"
+    assert result.deployment_job_id == "42"
+    assert result.deployment_job_state == "CONNECTED"
+
+
+def test_get_registered_model_propagates_errors(store):
+    # Native-only: errors from the native endpoint propagate (no legacy fallback).
+    err = RestException({"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "missing"})
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call", side_effect=err),
+        pytest.raises(RestException, match="missing"),
+    ):
+        store.get_registered_model("catalog.schema.model")
+
+
+def test_get_model_version_uses_native_endpoint(store):
+    native_info = ModelVersionInfo(
+        model_name="model",
+        catalog_name="catalog",
+        schema_name="schema",
+        version=3,
+        model_id="m-1",
+    )
+    with (
+        mock.patch.object(
+            store, "_edit_endpoint_and_call", return_value=native_info
+        ) as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        result = store.get_model_version("catalog.schema.model", 3)
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+    assert result.name == "catalog.schema.model"
+    assert result.version == 3
+    assert result.model_id == "m-1"
+
+
+def test_search_model_versions_uses_native_for_name_filter(store):
+    resp = ListModelVersions.Response(
+        model_versions=[
+            ModelVersionInfo(
+                model_name="model", catalog_name="catalog", schema_name="schema", version=1
+            )
+        ],
+        next_page_token="tok",
+    )
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call", return_value=resp) as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        result = store.search_model_versions(filter_string="name = 'catalog.schema.model'")
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+    assert [mv.name for mv in result] == ["catalog.schema.model"]
+    assert result.token == "tok"
+
+
+@pytest.mark.parametrize(
+    "filter_string",
+    [
+        # run_id search was never supported on UC (the legacy registry rejected it too); only a
+        # `name = '...'` filter maps to the native per-model list endpoint. The unsupported
+        # filter is rejected client-side (in parse_model_name) before any HTTP request, so no
+        # http mock is needed here.
+        "run_id = 'abc'",
+        "source_path = 's3://x'",
+    ],
+)
+def test_search_model_versions_rejects_unsupported_filter(store, filter_string):
+    with pytest.raises(MlflowException, match="name = 'model_name'"):
+        store.search_model_versions(filter_string=filter_string)
+
+
+def test_get_temporary_model_version_write_credentials_uses_native(store):
+    # The temp-credentials passthrough returns a json_inline'd TemporaryCredentials. The request
+    # sends the catalog/schema/model split, the version (int64 -> JSON string), and the
+    # READ_WRITE_MODEL_VERSION operation.
+    creds = TemporaryCredentials(storage_mode=StorageMode.DEFAULT_STORAGE)
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call", return_value=creds) as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        result = store._get_temporary_model_version_write_credentials("catalog.schema.model", 2)
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+    assert result is creds
+    body = json.loads(native_call.call_args.kwargs["req_body"])
+    assert body == {
+        "catalog_name": "catalog",
+        "schema_name": "schema",
+        "model_name": "model",
+        "version": 2,
+        "operation": "READ_WRITE_MODEL_VERSION",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Native write paths: the governance entity rides with the MLflow write inputs as
+# siblings (deployment_job_id / model_id / feature_deps / run_tracking_server_id).
+# ---------------------------------------------------------------------------
+
+
+def test_create_registered_model_uses_native(store):
+    native_info = RegisteredModelInfo(
+        name="model",
+        catalog_name="catalog",
+        schema_name="schema",
+        full_name="catalog.schema.model",
+        deployment_job_id="9",
+    )
+    with (
+        mock.patch.object(
+            store, "_edit_endpoint_and_call", return_value=native_info
+        ) as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        result = store.create_registered_model("catalog.schema.model", description="d")
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+    assert result.name == "catalog.schema.model"
+    assert result.deployment_job_id == "9"
+
+
+def test_create_registered_model_rejects_non_three_level_name(store):
+    # UC model names must be three-level; a non-three-level name errors with guidance.
+    # Validated client-side before any HTTP request, so no http mock is needed.
+    # Disable the Spark session so the name is not auto-qualified to three levels.
+    store.spark = None
+    with pytest.raises(MlflowException, match="three levels"):
+        store.create_registered_model(name="model_1", description="d")
+
+
+def test_update_registered_model_uses_native(store):
+    native_info = RegisteredModelInfo(
+        name="model",
+        catalog_name="catalog",
+        schema_name="schema",
+        full_name="catalog.schema.model",
+        comment="new",
+    )
+    with (
+        mock.patch.object(
+            store, "_edit_endpoint_and_call", return_value=native_info
+        ) as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        result = store.update_registered_model("catalog.schema.model", description="new")
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+    assert result.description == "new"
+
+
+def test_rename_registered_model_uses_native(store):
+    native_info = RegisteredModelInfo(
+        name="newname",
+        catalog_name="catalog",
+        schema_name="schema",
+        full_name="catalog.schema.newname",
+    )
+    with (
+        mock.patch.object(
+            store, "_edit_endpoint_and_call", return_value=native_info
+        ) as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        result = store.rename_registered_model(
+            "catalog.schema.model", new_name="catalog.schema.newname"
+        )
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+    assert result.name == "catalog.schema.newname"
+
+
+def test_update_model_version_uses_native(store):
+    native_info = ModelVersionInfo(
+        model_name="model",
+        catalog_name="catalog",
+        schema_name="schema",
+        version=2,
+        comment="new",
+    )
+    with (
+        mock.patch.object(
+            store, "_edit_endpoint_and_call", return_value=native_info
+        ) as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        result = store.update_model_version("catalog.schema.model", 2, "new")
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+    assert result.version == 2
+    assert result.description == "new"
+
+
+def test_create_model_version_uses_native_when_no_dependencies(store, tmp_path):
+    # With the flag on, a three-level name, and no model-version dependencies to translate, the
+    # create + finalize go through the native endpoints; the artifact upload happens in between.
+    native_mv = ModelVersionInfo(
+        model_name="model",
+        catalog_name="catalog",
+        schema_name="schema",
+        version=1,
+        storage_location="s3://blah",
+        source=str(tmp_path),
+    )
+    mock_repo = mock.MagicMock()
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call", return_value=native_mv) as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+        mock.patch.object(store, "_get_artifact_repo", return_value=mock_repo),
+        mock.patch.object(store, "_get_logged_model_from_model_id", return_value=None),
+        mock.patch.object(store, "_get_run_and_headers", return_value=(None, None)),
+        mock.patch.object(store, "_get_workspace_id", return_value=None),
+        mock.patch.object(store, "_get_notebook_id", return_value=None),
+        mock.patch.object(store, "_get_job_id", return_value=None),
+        mock.patch.object(store, "_validate_model_signature"),
+        mock.patch.object(store, "_download_model_weights_if_not_saved"),
+        mock.patch(
+            "mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies",
+            return_value="",
+        ),
+        mock.patch(
+            "mlflow.store._unity_catalog.registry.rest_store.get_model_version_dependencies",
+            return_value=[],
+        ),
+        mock.patch.object(store, "_local_model_dir") as local_model_dir,
+    ):
+        local_model_dir.return_value.__enter__.return_value = str(tmp_path)
+        result = store.create_model_version(name="catalog.schema.model", source=str(tmp_path))
+    # create + finalize both go native; the legacy create endpoint is never used.
+    assert native_call.call_count == 2
+    legacy_call.assert_not_called()
+    mock_repo.log_artifacts.assert_called_once()
+    assert result.name == "catalog.schema.model"
+    assert result.version == 1
+
+
+def test_create_model_version_translates_dependencies_to_governance(store, tmp_path):
+    # The MLflow resource dependencies are translated into the governance DependencyList on the
+    # CreateModelVersion request, mirroring the legacy UCMR server: vector-index and table both
+    # become a table securable, UC function a function, UC connection a connection; model-endpoint
+    # (and any other kind) has no governance representation and is dropped.
+    mlflow_deps = [
+        {"type": "DATABRICKS_VECTOR_INDEX", "name": "catalog.schema.index"},
+        {"type": "DATABRICKS_TABLE", "name": "catalog.schema.table"},
+        {"type": "DATABRICKS_UC_FUNCTION", "name": "catalog.schema.fn"},
+        {"type": "DATABRICKS_UC_CONNECTION", "name": "my_connection"},
+        {"type": "DATABRICKS_MODEL_ENDPOINT", "name": "my_endpoint"},
+        {"type": "SOME_UNKNOWN_KIND", "name": "whatever"},
+    ]
+    native_mv = ModelVersionInfo(
+        model_name="model", catalog_name="catalog", schema_name="schema", version=1
+    )
+    rest_store = "mlflow.store._unity_catalog.registry.rest_store"
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call", return_value=native_mv) as native_call,
+        mock.patch.object(store, "_get_artifact_repo", return_value=mock.MagicMock()),
+        mock.patch.object(store, "_get_logged_model_from_model_id", return_value=None),
+        mock.patch.object(store, "_get_run_and_headers", return_value=(None, None)),
+        mock.patch.object(store, "_get_workspace_id", return_value=None),
+        mock.patch.object(store, "_get_notebook_id", return_value=None),
+        mock.patch.object(store, "_get_job_id", return_value=None),
+        mock.patch.object(store, "_validate_model_signature"),
+        mock.patch.object(store, "_download_model_weights_if_not_saved"),
+        mock.patch(f"{rest_store}.get_feature_dependencies", return_value=""),
+        mock.patch(f"{rest_store}.get_model_version_dependencies", return_value=mlflow_deps),
+        mock.patch.object(store, "_local_model_dir") as local_model_dir,
+    ):
+        local_model_dir.return_value.__enter__.return_value = str(tmp_path)
+        store.create_model_version(name="catalog.schema.model", source=str(tmp_path))
+
+    # The first native call is CreateModelVersion; inspect its serialized request body.
+    create_call = native_call.call_args_list[0]
+    assert create_call.kwargs["proto_name"] is CreateModelVersion
+    body = json.loads(create_call.kwargs["req_body"])
+    deps = body["model_version_dependencies"]["dependencies"]
+    assert deps == [
+        {"table": {"table_full_name": "catalog.schema.index"}},
+        {"table": {"table_full_name": "catalog.schema.table"}},
+        {"function": {"function_full_name": "catalog.schema.fn"}},
+        {"connection": {"connection_name": "my_connection"}},
+    ]
+
+
+def test_create_model_version_omits_dependencies_when_none_supported(store, tmp_path):
+    # When every dependency is an unsupported kind, no DependencyList is attached (the field is
+    # left unset rather than sent as an empty list).
+    mlflow_deps = [{"type": "DATABRICKS_MODEL_ENDPOINT", "name": "my_endpoint"}]
+    native_mv = ModelVersionInfo(
+        model_name="model", catalog_name="catalog", schema_name="schema", version=1
+    )
+    rest_store = "mlflow.store._unity_catalog.registry.rest_store"
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call", return_value=native_mv) as native_call,
+        mock.patch.object(store, "_get_artifact_repo", return_value=mock.MagicMock()),
+        mock.patch.object(store, "_get_logged_model_from_model_id", return_value=None),
+        mock.patch.object(store, "_get_run_and_headers", return_value=(None, None)),
+        mock.patch.object(store, "_get_workspace_id", return_value=None),
+        mock.patch.object(store, "_get_notebook_id", return_value=None),
+        mock.patch.object(store, "_get_job_id", return_value=None),
+        mock.patch.object(store, "_validate_model_signature"),
+        mock.patch.object(store, "_download_model_weights_if_not_saved"),
+        mock.patch(f"{rest_store}.get_feature_dependencies", return_value=""),
+        mock.patch(f"{rest_store}.get_model_version_dependencies", return_value=mlflow_deps),
+        mock.patch.object(store, "_local_model_dir") as local_model_dir,
+    ):
+        local_model_dir.return_value.__enter__.return_value = str(tmp_path)
+        store.create_model_version(name="catalog.schema.model", source=str(tmp_path))
+
+    body = json.loads(native_call.call_args_list[0].kwargs["req_body"])
+    assert "model_version_dependencies" not in body
+
+
+# ---------------------------------------------------------------------------
+# Native passthrough (delete / alias), the generic UC tag API, and client-side
+# download-uri derivation.
+# ---------------------------------------------------------------------------
+
+
+def test_delete_registered_model_uses_native(store):
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call") as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        store.delete_registered_model("catalog.schema.model")
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+
+
+def test_delete_model_version_uses_native(store):
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call") as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        store.delete_model_version("catalog.schema.model", 3)
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+    assert native_call.call_args.kwargs["version"] == 3
+
+
+def test_set_registered_model_alias_uses_native(store):
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call") as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        store.set_registered_model_alias("catalog.schema.model", "champion", 3)
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+    kwargs = native_call.call_args.kwargs
+    assert kwargs["alias"] == "champion"
+    # The request body carries the full name and the version_num (int64, serialized as a
+    # JSON number by mlflow's message_to_json).
+    body = json.loads(kwargs["req_body"])
+    assert body["full_name"] == "catalog.schema.model"
+    assert body["version_num"] == 3
+
+
+def test_delete_registered_model_alias_uses_native(store):
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call") as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        store.delete_registered_model_alias("catalog.schema.model", "champion")
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+
+
+def test_set_registered_model_tag_uses_native_tag_api(store):
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call") as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        store.set_registered_model_tag(
+            "catalog.schema.model", RegisteredModelTag(key="k", value="v")
+        )
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+    # Targets the FUNCTION securable by full name via the generic UC tag API.
+    kwargs = native_call.call_args.kwargs
+    assert kwargs["securable_type"] == "FUNCTION"
+    assert kwargs["securable_full_name"] == "catalog.schema.model"
+    body = json.loads(kwargs["req_body"])
+    assert body["changes"]["add_tags"] == [{"key": "k", "value": "v"}]
+
+
+def test_set_model_version_tag_uses_native_subentity_tag_api(store):
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call") as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        store.set_model_version_tag("catalog.schema.model", 2, ModelVersionTag(key="k", value="v"))
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+    kwargs = native_call.call_args.kwargs
+    assert kwargs["securable_type"] == "FUNCTION"
+    assert kwargs["securable_full_name"] == "catalog.schema.model"
+    assert kwargs["subentity_name"] == 2
+    body = json.loads(kwargs["req_body"])
+    assert body["changes"]["add_tags"] == [{"key": "k", "value": "v"}]
+
+
+def test_get_model_version_download_uri_native_derives_storage_location(store):
+    native_mv = ModelVersionInfo(
+        model_name="model",
+        catalog_name="catalog",
+        schema_name="schema",
+        version=1,
+        storage_location="s3://blah/loc",
+    )
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call", return_value=native_mv) as native_call,
+        mock.patch.object(store, "_call_endpoint") as legacy_call,
+    ):
+        uri = store.get_model_version_download_uri("catalog.schema.model", 1)
+    native_call.assert_called_once()
+    legacy_call.assert_not_called()
+    assert uri == "s3://blah/loc"

@@ -3,13 +3,13 @@ import base64
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
-    MODEL_VERSION_OPERATION_READ,
-    GenerateTemporaryModelVersionCredentialsRequest,
-    GenerateTemporaryModelVersionCredentialsResponse,
+    GenerateTemporaryModelVersionCredential,
     ModelVersionLineageDirection,
     StorageMode,
+    TemporaryCredentialOperation,
+    TemporaryCredentials,
 )
-from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
+from mlflow.protos.databricks_uc_registry_service_pb2 import UnityCatalogModelRegistryService
 from mlflow.store._unity_catalog.lineage.constants import _DATABRICKS_LINEAGE_ID_HEADER
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
@@ -29,7 +29,7 @@ from mlflow.utils._unity_catalog_utils import (
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
-    _REST_API_PATH_PREFIX,
+    _UC_OSS_REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
 )
@@ -40,7 +40,9 @@ from mlflow.utils.uri import (
     is_databricks_unity_catalog_uri,
 )
 
-_METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
+_METHOD_TO_INFO = extract_api_info_for_service(
+    UnityCatalogModelRegistryService, _UC_OSS_REST_API_PATH_PREFIX
+)
 
 
 class UnityCatalogModelsArtifactRepository(ArtifactRepository):
@@ -103,15 +105,30 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
             extra_headers[_DATABRICKS_LINEAGE_ID_HEADER] = header_base64
 
         db_creds = get_databricks_host_creds(self.registry_uri)
-        endpoint, method = _METHOD_TO_INFO[GenerateTemporaryModelVersionCredentialsRequest]
+        match self.model_name.split("."):
+            case [catalog, schema, model] if all((catalog, schema, model)):
+                pass
+            case _:
+                raise MlflowException(
+                    f"Not a valid Unity Catalog model name: '{self.model_name}'. Unity Catalog "
+                    "model names must have three levels (catalog.schema.model).",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        endpoint, method = _METHOD_TO_INFO[GenerateTemporaryModelVersionCredential]
         req_body = message_to_json(
-            GenerateTemporaryModelVersionCredentialsRequest(
-                name=self.model_name,
-                version=self.model_version,
-                operation=MODEL_VERSION_OPERATION_READ,
+            GenerateTemporaryModelVersionCredential(
+                catalog_name=catalog,
+                schema_name=schema,
+                model_name=model,
+                version=int(self.model_version),
+                operation=TemporaryCredentialOperation.Value("READ_MODEL_VERSION"),
             )
         )
-        response_proto = GenerateTemporaryModelVersionCredentialsResponse()
+        # The passthrough response json_inlines a managed-catalog TemporaryCredentials, so the flat
+        # body parses directly into the proto. The lineage header is still attached above: the
+        # managed-catalog credential handler reads it and emits downstream lineage on READ, exactly
+        # as the legacy path did (both routes forward to the same backend RPC).
+        response_proto = TemporaryCredentials()
         return call_endpoint(
             host_creds=db_creds,
             endpoint=endpoint,
@@ -119,7 +136,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
             json_body=req_body,
             response_proto=response_proto,
             extra_headers=extra_headers,
-        ).credentials
+        )
 
     def _get_artifact_repo(self, lineage_header_info=None):
         """
