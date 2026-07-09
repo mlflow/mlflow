@@ -4495,17 +4495,21 @@ def _authenticate_custom_for_fastapi(
 def _flask_response_to_starlette(flask_resp: Response) -> StarletteResponse:
     """Convert a Flask/Werkzeug Response to a Starlette Response.
 
-    Preserves status code, headers, and body so custom auth functions can return
-    meaningful error responses (e.g., 403 with a custom message, or a redirect)
-    that get forwarded to the client unchanged.
+    Preserves status code, headers (including multi-value headers like Set-Cookie),
+    and body so custom auth functions can return meaningful error responses
+    (e.g., 403 with a custom message, or a redirect) that get forwarded to the
+    client unchanged.
     """
-    excluded_headers = {"content-length", "transfer-encoding", "content-encoding"}
-    resp_headers = {k: v for k, v in flask_resp.headers if k.lower() not in excluded_headers}
-    return StarletteResponse(
+    _hop_by_hop_headers = {"content-length", "transfer-encoding"}
+    response = StarletteResponse(
         content=flask_resp.get_data(),
         status_code=flask_resp.status_code,
-        headers=resp_headers,
     )
+    for key, value in flask_resp.headers:
+        if key.lower() in _hop_by_hop_headers:
+            continue
+        response.headers.append(key, value)
+    return response
 
 
 def _extract_gateway_endpoint_name(path: str, body: dict[str, Any] | None) -> str | None:

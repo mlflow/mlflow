@@ -10,6 +10,7 @@ When MLflow runs under gunicorn/waitress (Flask-only), the Flask handlers in
 handlers.py serve these same URL patterns as the natural fallback.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -92,7 +93,11 @@ async def download_artifact(artifact_path: str):
 
         tmp_dir = tempfile.TemporaryDirectory()
         try:
-            dst = os.path.abspath(artifact_repo.download_artifacts(artifact_path, tmp_dir.name))
+            dst = os.path.abspath(
+                await asyncio.to_thread(
+                    artifact_repo.download_artifacts, artifact_path, tmp_dir.name
+                )
+            )
         except Exception:
             tmp_dir.cleanup()
             raise
@@ -100,7 +105,8 @@ async def download_artifact(artifact_path: str):
         mime_type = _guess_mime_type(dst)
         filename = os.path.basename(artifact_path)
 
-        async def _stream_file():
+        def _stream_file():
+            """Sync generator — Starlette iterates it in a threadpool automatically."""
             try:
                 with open(dst, "rb") as f:
                     while chunk := f.read(ARTIFACT_STREAM_CHUNK_SIZE):
@@ -141,6 +147,13 @@ async def upload_artifact(artifact_path: str, request: Request):
         artifact_path = validate_path_is_safe(artifact_path)
         artifact_path = _get_workspace_scoped_path(artifact_path)
         head, tail = posixpath.split(artifact_path)
+
+        if not tail:
+            raise HTTPException(
+                status_code=400,
+                detail="Artifact path must include a filename (cannot end with '/').",
+            )
+
         artifact_repo = _get_artifact_repo()
 
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -150,10 +163,17 @@ async def upload_artifact(artifact_path: str, request: Request):
                     f.write(chunk)
 
             if isinstance(artifact_repo, StreamUploadMixin):
-                with open(tmp_path, "rb") as f:
-                    artifact_repo.log_artifact_from_stream(f, tail, artifact_path=head or None)
+                with open(tmp_path, "rb") as stream_file:
+                    await asyncio.to_thread(
+                        artifact_repo.log_artifact_from_stream,
+                        stream_file,
+                        tail,
+                        artifact_path=head or None,
+                    )
             else:
-                artifact_repo.log_artifact(tmp_path, artifact_path=head or None)
+                await asyncio.to_thread(
+                    artifact_repo.log_artifact, tmp_path, artifact_path=head or None
+                )
 
         return Response(status_code=200)
     except MlflowException as e:

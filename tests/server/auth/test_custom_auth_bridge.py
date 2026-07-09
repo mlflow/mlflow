@@ -41,10 +41,24 @@ class TestFlaskResponseToStarlette:
     def test_excludes_hop_by_hop_headers(self):
         flask_resp = FlaskResponse("OK", status=200)
         flask_resp.headers["Transfer-Encoding"] = "chunked"
-        flask_resp.headers["Content-Encoding"] = "gzip"
         result = _flask_response_to_starlette(flask_resp)
         assert "transfer-encoding" not in result.headers
-        assert "content-encoding" not in result.headers
+
+    def test_preserves_content_encoding(self):
+        flask_resp = FlaskResponse("OK", status=200)
+        flask_resp.headers["Content-Encoding"] = "gzip"
+        result = _flask_response_to_starlette(flask_resp)
+        assert result.headers["content-encoding"] == "gzip"
+
+    def test_preserves_multi_value_headers(self):
+        flask_resp = FlaskResponse("OK", status=200)
+        flask_resp.headers.add("Set-Cookie", "session=abc; Path=/")
+        flask_resp.headers.add("Set-Cookie", "token=xyz; Path=/api")
+        result = _flask_response_to_starlette(flask_resp)
+        cookie_values = result.headers.getlist("set-cookie")
+        assert len(cookie_values) == 2
+        assert "session=abc; Path=/" in cookie_values
+        assert "token=xyz; Path=/api" in cookie_values
 
 
 class TestAuthenticateCustomForFastapi:

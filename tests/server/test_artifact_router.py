@@ -236,3 +236,16 @@ class TestPathSafety:
         # or by validate_path_is_safe (400/500). The key assertion is that it does
         # NOT return 200 with file content.
         assert resp.status_code != 200
+
+    def test_upload_trailing_slash_rejected(self, client):
+        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
+            mock_repo = mock.MagicMock(spec=ArtifactRepository)
+            mock_get_repo.return_value = mock_repo
+
+            resp = client.put(
+                "/api/2.0/mlflow-artifacts/artifacts/nested/",
+                content=b"data",
+            )
+
+        assert resp.status_code == 400
+        assert "filename" in resp.json()["detail"].lower()
