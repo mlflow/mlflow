@@ -476,10 +476,8 @@ def test_search_datasets_databricks_alias(mock_databricks_environment, mock_clie
     result = search_datasets(experiment_ids=["exp1"], alias="prod")
 
     assert len(result) == 1
-    assert result[0].alias.alias == "prod"
-    assert result[0].alias.version.version == 7
-    assert result[0].version.version == 7
-    assert result[0].version.created_by == "user@example.com"
+    assert result[0].alias == "prod"
+    assert result[0].version == 7
 
     mock_client.search_datasets.assert_called_once()
     call_kwargs = mock_client.search_datasets.call_args.kwargs
@@ -771,27 +769,24 @@ def test_databricks_agents_dataset_backend_routes_sdk_apis(monkeypatch):
         EvaluationDatasetAlias("dev", EvaluationDatasetVersion(1)), EvaluationDatasetAlias
     )
 
-    assert create_dataset(name="catalog.schema.table").version.version == 3
+    assert create_dataset(name="catalog.schema.table").version == 3
     create_mock.assert_called_once_with("catalog.schema.table", None)
 
-    assert get_dataset(name="catalog.schema.table", version=2).version.version == 3
+    assert get_dataset(name="catalog.schema.table", version=2).version == 3
     get_mock.assert_called_once_with("catalog.schema.table", version=2, alias=None)
     get_mock.reset_mock()
 
     assert (
-        get_dataset(
-            name="catalog.schema.table", version=EvaluationDatasetVersion(2)
-        ).version.version
-        == 3
+        get_dataset(name="catalog.schema.table", version=EvaluationDatasetVersion(2)).version == 3
     )
     get_mock.assert_called_once_with("catalog.schema.table", version=2, alias=None)
 
     set_dataset_alias("catalog.schema.table", "dev", version=2)
-    set_alias_mock.assert_called_once_with("catalog.schema.table", "dev", version=2)
+    set_alias_mock.assert_called_once_with("catalog.schema.table", alias="dev", version=2)
     set_alias_mock.reset_mock()
 
     set_dataset_alias("catalog.schema.table", "dev", version=EvaluationDatasetVersion(2))
-    set_alias_mock.assert_called_once_with("catalog.schema.table", "dev", version=2)
+    set_alias_mock.assert_called_once_with("catalog.schema.table", alias="dev", version=2)
 
     delete_dataset_alias("catalog.schema.table", "dev")
     delete_alias_mock.assert_called_once_with("catalog.schema.table", "dev")

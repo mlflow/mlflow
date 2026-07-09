@@ -162,38 +162,50 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._databricks_dataset.dataset_id if self._databricks_dataset else None
 
     @property
-    def version(self) -> EvaluationDatasetVersion | None:
-        """The resolved dataset version."""
+    def version(self) -> int | None:
+        """The resolved dataset version number.
+
+        Returns the version number only. Use :meth:`list_versions` to retrieve full
+        version metadata (``created_at``, ``created_by``, ``operation``).
+        """
         if self._mlflow_dataset:
-            return _to_evaluation_dataset_version(getattr(self._mlflow_dataset, "version", None))
-        return _to_evaluation_dataset_version(getattr(self._databricks_dataset, "version", None))
+            resolved = _to_evaluation_dataset_version(
+                getattr(self._mlflow_dataset, "version", None)
+            )
+        else:
+            resolved = _to_evaluation_dataset_version(
+                getattr(self._databricks_dataset, "version", None)
+            )
+        return resolved.version if resolved else None
 
     @property
-    def alias(self) -> EvaluationDatasetAlias | None:
-        """The alias used to resolve the dataset."""
+    def alias(self) -> str | None:
+        """The alias used to resolve the dataset.
+
+        Returns the alias name only. Use :meth:`list_aliases` to retrieve full alias
+        metadata (including the version each alias resolves to).
+        """
         if self._mlflow_dataset:
-            return _to_evaluation_dataset_alias(
-                getattr(self._mlflow_dataset, "alias", None),
-                getattr(self._mlflow_dataset, "version", None),
-            )
-        alias = getattr(self._databricks_dataset, "alias", None)
-        return _to_evaluation_dataset_alias(
-            alias,
-            getattr(self._databricks_dataset, "version", None),
-        )
+            alias = getattr(self._mlflow_dataset, "alias", None)
+        else:
+            alias = getattr(self._databricks_dataset, "alias", None)
+        if alias in (None, ""):
+            return None
+        if isinstance(alias, dict):
+            return alias.get("alias")
+        # ``alias`` may be a rich DatasetAlias object or a bare string.
+        return getattr(alias, "alias", alias)
 
     @property
     def source(self):
         """Source information for the dataset."""
         if self._mlflow_dataset:
             return self._mlflow_dataset.source
-        version = self.version
-        alias = self.alias
         return DatabricksEvaluationDatasetSource(
             table_name=self.name,
             dataset_id=self.dataset_id,
-            version=version.version if version else None,
-            alias=alias.alias if alias else None,
+            version=self.version,
+            alias=self.alias,
         )
 
     @property

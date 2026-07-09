@@ -249,7 +249,13 @@ def _entity_to_databricks_dataset(entity: EntityEvaluationDataset):
     if alias not in (None, ""):
         payload["alias"] = alias
 
-    return dataset_cls.from_dict(payload)
+    dataset = dataset_cls.from_dict(payload)
+    # Older agents builds may drop prerelease version/alias fields during dataclass_json
+    # decoding. Preserve the search metadata so the public wrapper can still expose it.
+    for key in ("version", "alias"):
+        if key in payload and getattr(dataset, key, None) in (None, ""):
+            setattr(dataset, key, payload[key])
+    return dataset
 
 
 @deprecated_parameter("uc_table_name", "name")

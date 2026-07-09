@@ -171,8 +171,8 @@ def test_evaluation_dataset_to_mlflow_entity_with_resolved_databricks_coordinate
     dataset._databricks_dataset.version = 7
     dataset._databricks_dataset.alias = "dev"
 
-    assert dataset.alias.alias == "dev"
-    assert dataset.alias.version.version == 7
+    assert dataset.alias == "dev"
+    assert dataset.version == 7
 
     entity = dataset._to_mlflow_entity()
     source_dict = json.loads(entity.source)
