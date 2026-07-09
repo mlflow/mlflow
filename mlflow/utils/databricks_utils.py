@@ -329,6 +329,26 @@ class DBConnectUDFSandboxInfo:
 _dbconnect_udf_sandbox_info_cache: DBConnectUDFSandboxInfo | None = None
 
 
+def parse_dbr_runtime_major_minor(dbr_version: str) -> tuple[int, int]:
+    """
+    Extract the leading ``(major, minor)`` integer components from a raw Databricks
+    runtime version string returned by ``current_version().dbr_version``.
+
+    Handles both the legacy ``'{major}.{minor}.x-scala...'`` format and the newer
+    ``'{major}.x-<suffix>'`` format, e.g.::
+
+        '15.4.x-scala2.12'            -> (15, 4)
+        '18.x-aarch64-photon-scala2'  -> (18, 0)
+
+    The major is always parsed as an int; a non-numeric minor (e.g. ``'x'``) degrades
+    to ``0`` so the rebuilt ``'{major}.{minor}'`` string is always ``Version()``-parseable.
+    """
+    parts = dbr_version.split(".")
+    major = int(parts[0])
+    minor = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 0
+    return major, minor
+
+
 def get_dbconnect_udf_sandbox_info(spark):
     """
     Get Databricks UDF sandbox info which includes the following fields:
@@ -347,9 +367,9 @@ def get_dbconnect_udf_sandbox_info(spark):
     ):
         return _dbconnect_udf_sandbox_info_cache
 
-    # version is like '15.4.x-scala2.12'
+    # version is like '15.4.x-scala2.12' (legacy) or '18.x-aarch64-photon-scala2' (newer images).
     version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
-    major, minor, *_rest = version.split(".")
+    major, minor = parse_dbr_runtime_major_minor(version)
     runtime_version = f"{major}.{minor}"
 
     # For Databricks Serverless python REPL,

@@ -417,7 +417,7 @@ import numpy as np
 import pandas
 import pydantic
 import yaml
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 import mlflow
 import mlflow.models.signature
@@ -551,6 +551,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_runtime,
     is_in_databricks_serverless_runtime,
     is_in_databricks_shared_cluster_runtime,
+    parse_dbr_runtime_major_minor,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -2283,9 +2284,15 @@ def spark_udf(
                 "Databricks Connect requires UDF sandbox image installed with MLflow "
                 "of version >= 2.18.0"
             )
-        # `udf_sandbox_info.runtime_version` format is like '<major_version>.<minor_version>'.
-        # It's safe to apply `Version`.
-        dbr_runtime_version = Version(udf_sandbox_info.runtime_version)
+        # `udf_sandbox_info.runtime_version` is normalized to '{major}.{minor}' by
+        # `get_dbconnect_udf_sandbox_info`, so `Version` should parse it. Guard against a
+        # non-numeric minor (e.g. "18.x") leaking through by falling back to comparing the
+        # leading numeric (major, minor) components rather than crashing on InvalidVersion.
+        try:
+            dbr_runtime_version = Version(udf_sandbox_info.runtime_version)
+        except InvalidVersion:
+            major, minor = parse_dbr_runtime_major_minor(udf_sandbox_info.runtime_version)
+            dbr_runtime_version = Version(f"{major}.{minor}")
         if dbr_runtime_version < Version("15.4"):
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
