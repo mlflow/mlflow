@@ -169,6 +169,9 @@ class Skill(_MlflowObject):
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
 
+    def to_proto(self):
+        raise NotImplementedError
+
     @classmethod
     def from_proto(cls, proto):
         raise NotImplementedError
@@ -188,6 +191,9 @@ class Subagent(_MlflowObject):
     last_updated_by: str | None = None
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
+
+    def to_proto(self):
+        raise NotImplementedError
 
     @classmethod
     def from_proto(cls, proto):
@@ -209,6 +215,9 @@ class Hook(_MlflowObject):
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
 
+    def to_proto(self):
+        raise NotImplementedError
+
     @classmethod
     def from_proto(cls, proto):
         raise NotImplementedError
@@ -228,6 +237,9 @@ class SkillBundle(_MlflowObject):
     last_updated_by: str | None = None
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
+
+    def to_proto(self):
+        raise NotImplementedError
 
     @classmethod
     def from_proto(cls, proto):
@@ -257,6 +269,9 @@ class SkillVersion(_MlflowObject):
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
 
+    def to_proto(self):
+        raise NotImplementedError
+
     @classmethod
     def from_proto(cls, proto):
         raise NotImplementedError
@@ -279,6 +294,9 @@ class SubagentVersion(_MlflowObject):
     last_updated_by: str | None = None
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
+
+    def to_proto(self):
+        raise NotImplementedError
 
     @classmethod
     def from_proto(cls, proto):
@@ -303,6 +321,9 @@ class HookVersion(_MlflowObject):
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
 
+    def to_proto(self):
+        raise NotImplementedError
+
     @classmethod
     def from_proto(cls, proto):
         raise NotImplementedError
@@ -316,8 +337,8 @@ class SkillBundleVersion(_MlflowObject):
     source_type: SkillSourceType | None = None
     source: str | None = None
     subpath: str | None = None
-    content_digest: str | None = None
     status: SkillStatus = SkillStatus.DRAFT
+    content_digest: str | None = None
     tags: dict[str, str] = field(default_factory=dict)
     skills: list[SkillMemberRef] = field(default_factory=list)
     subagents: list[SubagentMemberRef] = field(default_factory=list)
@@ -329,6 +350,9 @@ class SkillBundleVersion(_MlflowObject):
     last_updated_by: str | None = None
     creation_timestamp: int | None = None
     last_updated_timestamp: int | None = None
+
+    def to_proto(self):
+        raise NotImplementedError
 
     @classmethod
     def from_proto(cls, proto):
