@@ -376,8 +376,10 @@ def get_dbconnect_udf_sandbox_info(spark):
     # version is like '15.4.x-scala2.12' (legacy) or '18.x-aarch64-photon-scala2' (newer images).
     version = spark.sql("SELECT current_version().dbr_version").collect()[0][0]
     major, minor = parse_dbr_runtime_major_minor(version)
-    # Normalize to a clean, dashless '{major}.{minor}' (or '{major}.x' for an uncut minor) that
-    # round-trips through `parse_dbr_runtime_major_minor` and is safe for archive-name splitting.
+    # Render an uncut minor as the honest '{major}.x' (not '{major}.999'); both round-trip through
+    # `parse_dbr_runtime_major_minor`. In the serverless-connect branch below this value also
+    # becomes `image_version`, where being dashless keeps `_verify_prebuilt_env`'s archive-name
+    # `split("-")` intact. (The Databricks-runtime branch sets `image_version` independently.)
     runtime_version = f"{major}.x" if minor == _UNCUT_MINOR else f"{major}.{minor}"
 
     # For Databricks Serverless python REPL,
