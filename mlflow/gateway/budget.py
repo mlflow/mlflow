@@ -59,11 +59,17 @@ def calculate_existing_cost_for_windows(
                 if window.policy.target_scope == BudgetTargetScope.ENDPOINT
                 else None
             )
+            principal = (
+                window.policy.principal
+                if window.policy.target_scope == BudgetTargetScope.USER
+                else None
+            )
             spend = store.sum_gateway_trace_cost(
                 start_time_ms=start_ms,
                 end_time_ms=end_ms,
                 workspace=workspace,
                 endpoint_id=endpoint_id,
+                principal=principal,
             )
             if spend > 0:
                 result[window.policy.budget_policy_id] = spend
@@ -133,6 +139,7 @@ def fire_budget_exceeded_webhooks(
             target_scope=policy.target_scope.value,
             workspace=workspace or (policy.workspace or DEFAULT_WORKSPACE_NAME),
             endpoint_id=policy.endpoint_id,
+            principal=policy.principal,
             window_start=int(window.window_start.timestamp() * 1000),
         )
         deliver_webhook(event=event, payload=payload, store=registry_store)
@@ -165,6 +172,7 @@ def check_budget_limit(
     store: SqlAlchemyStore,
     endpoint_config: GatewayEndpointConfig,
     workspace: str | None = None,
+    principal: str | None = None,
 ) -> None:
     """Check if any REJECT-capable budget policy is exceeded.
 
@@ -173,7 +181,7 @@ def check_budget_limit(
     maybe_refresh_budget_policies(store)
     tracker = get_budget_tracker()
     exceeded, window = tracker.should_reject_request(
-        workspace=workspace, endpoint_id=endpoint_config.endpoint_id
+        workspace=workspace, endpoint_id=endpoint_config.endpoint_id, principal=principal
     )
     if exceeded:
         policy = window.policy
@@ -197,6 +205,7 @@ def make_budget_on_complete(
     store: SqlAlchemyStore,
     workspace: str | None,
     endpoint_id: str | None = None,
+    principal: str | None = None,
 ):
     """Create an on_complete callback that records budget cost from child span attributes."""
     from mlflow.server.handlers import _get_model_registry_store
@@ -219,7 +228,7 @@ def make_budget_on_complete(
             maybe_refresh_budget_policies(store)
             tracker = get_budget_tracker()
             if newly_exceeded := tracker.record_cost(
-                total_cost, workspace=workspace, endpoint_id=endpoint_id
+                total_cost, workspace=workspace, endpoint_id=endpoint_id, principal=principal
             ):
                 if registry_store:
                     fire_budget_exceeded_webhooks(newly_exceeded, workspace, registry_store)

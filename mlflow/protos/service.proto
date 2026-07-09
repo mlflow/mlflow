@@ -5526,6 +5526,7 @@ enum BudgetTargetScope {
   WORKSPACE = 2;
   // Applies only to requests routed to a specific gateway endpoint
   ENDPOINT = 3;
+  USER = 4;
 }
 
 // Action to take when a budget is exceeded
@@ -5763,7 +5764,7 @@ message GatewayBudgetPolicy {
   optional double budget_amount = 3;
   // Fixed time window (unit + length pair)
   optional BudgetDuration duration = 4;
-  // Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT)
+  // Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER)
   optional BudgetTargetScope target_scope = 5;
   // Action when budget is exceeded
   optional BudgetAction budget_action = 6;
@@ -5777,6 +5778,9 @@ message GatewayBudgetPolicy {
   optional int64 last_updated_at = 10;
   // Gateway endpoint this policy applies to. Required when target_scope is ENDPOINT.
   optional string endpoint_id = 11;
+  // Principal (user identity) the budget applies to. Required for USER scope,
+  // ignored for other scopes.
+  optional string principal = 12;
 }
 
 message CreateGatewayBudgetPolicy {
@@ -5788,6 +5792,8 @@ message CreateGatewayBudgetPolicy {
   optional string created_by = 6;
   // Gateway endpoint this policy applies to. Required when target_scope is ENDPOINT.
   optional string endpoint_id = 7;
+  // Principal (user identity) the budget applies to. Required for USER scope.
+  optional string principal = 8;
 
   message Response {
     optional GatewayBudgetPolicy budget_policy = 1;
@@ -5812,6 +5818,8 @@ message UpdateGatewayBudgetPolicy {
   optional string updated_by = 7;
   // Gateway endpoint this policy applies to. Required when target_scope is ENDPOINT.
   optional string endpoint_id = 8;
+  // Principal (user identity) the budget applies to. Required for USER scope.
+  optional string principal = 9;
 
   message Response {
     optional GatewayBudgetPolicy budget_policy = 1;

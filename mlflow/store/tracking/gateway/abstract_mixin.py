@@ -453,6 +453,7 @@ class GatewayStoreMixin:
         budget_action: BudgetAction,
         created_by: str | None = None,
         endpoint_id: str | None = None,
+        principal: str | None = None,
     ) -> GatewayBudgetPolicy:
         """
         Create a new budget policy.
@@ -461,11 +462,13 @@ class GatewayStoreMixin:
             budget_unit: Budget measurement unit (e.g. USD).
             budget_amount: Budget limit amount.
             duration: Fixed time window (unit + length pair).
-            target_scope: Scope of the budget (GLOBAL, WORKSPACE, or ENDPOINT).
+            target_scope: Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER).
             budget_action: Action when budget is exceeded.
             created_by: Username of the creator.
             endpoint_id: Gateway endpoint the policy applies to. Required when
                 ``target_scope`` is ENDPOINT.
+            principal: User identity the budget applies to. Required for USER scope,
+                ignored otherwise.
 
         Returns:
             GatewayBudgetPolicy entity.
@@ -497,6 +500,7 @@ class GatewayStoreMixin:
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
         endpoint_id: str | None = None,
+        principal: str | None = None,
     ) -> GatewayBudgetPolicy:
         """
         Update a budget policy.
@@ -511,6 +515,7 @@ class GatewayStoreMixin:
             updated_by: Username of the updater.
             endpoint_id: Optional new gateway endpoint the policy applies to.
                 Cleared automatically when ``target_scope`` becomes non-ENDPOINT.
+            principal: Optional new user identity the budget applies to (USER scope).
 
         Returns:
             Updated GatewayBudgetPolicy entity.
@@ -545,6 +550,7 @@ class GatewayStoreMixin:
         end_time_ms: int,
         workspace: str | None = None,
         endpoint_id: str | None = None,
+        principal: str | None = None,
     ) -> float:
         """
         Sum total_cost from span metrics for gateway traces within a time range.
@@ -556,6 +562,8 @@ class GatewayStoreMixin:
                 to this workspace.
             endpoint_id: If provided, filter to traces routed to this gateway
                 endpoint.
+            principal: If provided, filter to traces whose recorded auth username
+                matches this principal (used for USER-scoped budgets).
 
         Returns:
             Total cost in USD.

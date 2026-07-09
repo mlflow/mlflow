@@ -10,18 +10,19 @@ from mlflow.entities.gateway_budget_policy import (
 )
 
 
-def _make_policy(target_scope=BudgetTargetScope.GLOBAL, endpoint_id=None):
-    return GatewayBudgetPolicy(
-        budget_policy_id="bp-1",
-        budget_unit=BudgetUnit.USD,
-        budget_amount=100.0,
-        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
-        target_scope=target_scope,
-        budget_action=BudgetAction.REJECT,
-        created_at=0,
-        last_updated_at=0,
-        endpoint_id=endpoint_id,
-    )
+def _make_policy(**overrides):
+    kwargs = {
+        "budget_policy_id": "bp-1",
+        "budget_unit": BudgetUnit.USD,
+        "budget_amount": 42.0,
+        "duration": BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        "target_scope": BudgetTargetScope.GLOBAL,
+        "budget_action": BudgetAction.ALERT,
+        "created_at": 10,
+        "last_updated_at": 20,
+    }
+    kwargs.update(overrides)
+    return GatewayBudgetPolicy(**kwargs)
 
 
 def test_endpoint_scope_enum_value():
@@ -72,3 +73,30 @@ def test_to_proto_omits_endpoint_id_when_none():
     policy = _make_policy(target_scope=BudgetTargetScope.GLOBAL, endpoint_id=None)
     proto = policy.to_proto()
     assert proto.endpoint_id == ""
+
+
+def test_budget_target_scope_user_proto_roundtrip():
+    assert BudgetTargetScope.from_proto(BudgetTargetScope.USER.to_proto()) == BudgetTargetScope.USER
+
+
+def test_user_policy_proto_roundtrip_preserves_principal():
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, principal="alice@example.com")
+    restored = GatewayBudgetPolicy.from_proto(policy.to_proto())
+    assert restored.target_scope == BudgetTargetScope.USER
+    assert restored.principal == "alice@example.com"
+
+
+def test_non_user_policy_principal_defaults_none():
+    policy = _make_policy()
+    assert policy.principal is None
+    proto = policy.to_proto()
+    # Unset optional fields must not be marked present, so JSON responses omit them.
+    assert not proto.HasField("principal")
+    assert not proto.HasField("endpoint_id")
+    restored = GatewayBudgetPolicy.from_proto(proto)
+    assert restored.principal is None
+
+
+def test_string_target_scope_coerced_to_enum():
+    policy = _make_policy(target_scope="USER", principal="bob")
+    assert policy.target_scope is BudgetTargetScope.USER

@@ -2676,6 +2676,78 @@ def test_update_budget_policy_amount_only_preserves_endpoint_scope(store: SqlAlc
     assert updated.endpoint_id == endpoint_id
 
 
+def test_create_budget_policy_user_scope(store: SqlAlchemyStore):
+    policy = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        principal="alice@example.com",
+    )
+    assert policy.target_scope == BudgetTargetScope.USER
+    assert policy.principal == "alice@example.com"
+
+    fetched = store.get_budget_policy(budget_policy_id=policy.budget_policy_id)
+    assert fetched.target_scope == BudgetTargetScope.USER
+    assert fetched.principal == "alice@example.com"
+
+
+def test_create_budget_policy_non_user_scope_has_no_principal(store: SqlAlchemyStore):
+    policy = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+    )
+    assert policy.principal is None
+
+
+def test_update_budget_policy_principal(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        principal="alice@example.com",
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        principal="bob@example.com",
+    )
+    assert updated.principal == "bob@example.com"
+    # Unchanged fields are preserved.
+    assert updated.target_scope == BudgetTargetScope.USER
+
+    # Omitting principal on a subsequent update leaves it unchanged.
+    again = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        budget_amount=50.0,
+    )
+    assert again.principal == "bob@example.com"
+    assert again.budget_amount == 50.0
+
+
+def test_update_budget_policy_switch_to_non_user_clears_principal(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        principal="alice@example.com",
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_scope=BudgetTargetScope.GLOBAL,
+    )
+    assert updated.target_scope == BudgetTargetScope.GLOBAL
+    # Switching away from USER clears the stale principal.
+    assert updated.principal is None
+
+
 # =============================================================================
 # Guardrail Tests
 # =============================================================================
@@ -3200,6 +3272,7 @@ def _insert_trace_with_cost(
     span_costs,
     is_gateway=True,
     endpoint_id="ep-test",
+    username=None,
 ):
     trace = SqlTraceInfo(
         request_id=trace_id,
@@ -3218,6 +3291,15 @@ def _insert_trace_with_cost(
             value=endpoint_id,
         )
         session.add(metadata)
+
+    if username is not None:
+        session.add(
+            SqlTraceMetadata(
+                request_id=trace_id,
+                key=TraceMetadataKey.AUTH_USERNAME,
+                value=username,
+            )
+        )
 
     for span_id, cost in span_costs:
         span = SqlSpan(
@@ -3341,3 +3423,53 @@ def test_sum_gateway_trace_cost_endpoint_filter(store: SqlAlchemyStore):
     # No endpoint filter includes both.
     total_all = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
     assert abs(total_all - 0.35) < 1e-9
+
+
+def test_sum_gateway_trace_cost_principal_filter(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-principal")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker(read_only=False) as session:
+        _insert_trace_with_cost(session, exp_id, "t-alice", 1000, [("s1", 0.10)], username="alice")
+        _insert_trace_with_cost(session, exp_id, "t-bob", 1000, [("s1", 0.25)], username="bob")
+        # A gateway trace without any recorded username should be excluded when
+        # filtering by principal.
+        _insert_trace_with_cost(session, exp_id, "t-anon", 1000, [("s1", 0.99)])
+
+    total_alice = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, principal="alice")
+    assert abs(total_alice - 0.10) < 1e-9
+
+    total_bob = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, principal="bob")
+    assert abs(total_bob - 0.25) < 1e-9
+
+    # No principal filter includes every gateway trace.
+    total_all = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total_all - 1.34) < 1e-9
+
+    # Unknown principal matches nothing.
+    total_none = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000, principal="carol")
+    assert total_none == 0.0
+
+
+def test_sum_gateway_trace_cost_principal_and_workspace(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker(read_only=False) as session:
+        exp_ws = SqlExperiment(
+            name=f"cost-principal-ws-{uuid.uuid4().hex}",
+            artifact_location="/tmp/pw",
+            lifecycle_stage="active",
+            workspace="workspace-p",
+        )
+        session.add(exp_ws)
+        session.flush()
+
+        _insert_trace_with_cost(
+            session, exp_ws.experiment_id, "t-a1", 1000, [("s1", 0.10)], username="alice"
+        )
+        _insert_trace_with_cost(
+            session, exp_ws.experiment_id, "t-a2", 1000, [("s1", 0.20)], username="bob"
+        )
+
+    total = store.sum_gateway_trace_cost(
+        start_time_ms=0, end_time_ms=5000, workspace="workspace-p", principal="alice"
+    )
+    assert abs(total - 0.10) < 1e-9

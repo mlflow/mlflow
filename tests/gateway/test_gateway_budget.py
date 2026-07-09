@@ -43,6 +43,7 @@ def _make_policy(
     budget_action=BudgetAction.ALERT,
     target_scope=BudgetTargetScope.GLOBAL,
     endpoint_id=None,
+    principal=None,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
@@ -54,6 +55,7 @@ def _make_policy(
         created_at=0,
         last_updated_at=0,
         endpoint_id=endpoint_id,
+        principal=principal,
     )
 
 
@@ -775,3 +777,141 @@ def test_endpoint_budget_overuse_fires_webhook_only_once():
 
         assert tracker._get_window_info("bp-ep").cumulative_spend == pytest.approx(170.0)
         mock_deliver.assert_called_once()
+
+
+# --- per-user (USER scope) tests ---
+
+
+def test_check_budget_limit_user_scope():
+    policy = _make_policy(
+        budget_amount=100.0,
+        budget_action=BudgetAction.REJECT,
+        target_scope=BudgetTargetScope.USER,
+        principal="alice",
+    )
+    store = _make_store(policies=[policy])
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(150.0, principal="alice")
+
+    with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+        check_budget_limit(store, _NO_TRACE_CONFIG, principal="alice")
+
+    # A different user is not rejected by alice's budget.
+    check_budget_limit(store, _NO_TRACE_CONFIG, principal="bob")
+    # Neither is an unauthenticated request.
+    check_budget_limit(store, _NO_TRACE_CONFIG, principal=None)
+
+
+@pytest.mark.asyncio
+async def test_budget_on_complete_user_scope_records_for_matching_principal():
+    policy = _make_policy(
+        budget_amount=100.0, target_scope=BudgetTargetScope.USER, principal="alice"
+    )
+    store = _make_store(policies=[policy])
+
+    on_complete = make_budget_on_complete(store, workspace=None, principal="alice")
+    await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
+
+    window = get_budget_tracker()._get_window_info("bp-test")
+    assert window.cumulative_spend == pytest.approx(0.075)
+
+
+@pytest.mark.asyncio
+async def test_budget_on_complete_user_scope_ignores_other_principal():
+    policy = _make_policy(
+        budget_amount=100.0, target_scope=BudgetTargetScope.USER, principal="alice"
+    )
+    store = _make_store(policies=[policy])
+
+    on_complete = make_budget_on_complete(store, workspace=None, principal="bob")
+    await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
+
+    window = get_budget_tracker()._get_window_info("bp-test")
+    assert window.cumulative_spend == 0.0
+
+
+@pytest.mark.asyncio
+async def test_budget_on_complete_user_webhook_includes_principal():
+    with patch(_DELIVER_FUNC) as mock_deliver:
+        policy = _make_policy(
+            budget_amount=0.05,
+            budget_action=BudgetAction.ALERT,
+            target_scope=BudgetTargetScope.USER,
+            principal="alice",
+        )
+        store = _make_store(policies=[policy])
+
+        on_complete = make_budget_on_complete(store, workspace=None, principal="alice")
+        await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
+
+        mock_deliver.assert_called_once()
+        payload = mock_deliver.call_args.kwargs["payload"]
+        assert payload["target_scope"] == "USER"
+        assert payload["principal"] == "alice"
+
+
+def test_calculate_existing_cost_user_scope_passes_principal():
+    tracker = get_budget_tracker()
+    windows = tracker.refresh_policies([
+        _make_policy(target_scope=BudgetTargetScope.USER, principal="alice", budget_amount=100.0)
+    ])
+
+    store = MagicMock()
+    store.sum_gateway_trace_cost.return_value = 30.0
+
+    existing_spend = calculate_existing_cost_for_windows(store, windows)
+    tracker.backfill_spend(existing_spend)
+
+    store.sum_gateway_trace_cost.assert_called_once()
+    assert store.sum_gateway_trace_cost.call_args.kwargs["principal"] == "alice"
+    assert store.sum_gateway_trace_cost.call_args.kwargs["workspace"] is None
+    assert tracker._get_window_info("bp-test").cumulative_spend == 30.0
+
+
+def test_check_budget_limit_user_scope_zero_budget_rejects_first_request():
+    policy = _make_policy(
+        budget_amount=0.0,
+        budget_action=BudgetAction.REJECT,
+        target_scope=BudgetTargetScope.USER,
+        principal="alice",
+    )
+    store = _make_store(policies=[policy])
+
+    # A $0 REJECT budget blocks alice with no spend recorded at all.
+    with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+        check_budget_limit(store, _NO_TRACE_CONFIG, principal="alice")
+    # Other users are still allowed.
+    check_budget_limit(store, _NO_TRACE_CONFIG, principal="bob")
+
+
+@pytest.mark.asyncio
+async def test_user_budget_overshoots_crossing_request_then_rejects_next():
+    # A budget is enforced *before* each request and cost is recorded *after* the
+    # response completes (token usage is only known then). So the request that
+    # crosses the limit is allowed to finish (overshoot), and the *next* request
+    # from the same user is rejected.
+    policy = _make_policy(
+        budget_amount=0.05,
+        budget_action=BudgetAction.REJECT,
+        target_scope=BudgetTargetScope.USER,
+        principal="alice",
+    )
+    store = _make_store(policies=[policy])
+
+    # Request 1: nothing spent yet → pre-request check passes → request completes,
+    # recording $0.075 (overshooting the $0.05 limit).
+    check_budget_limit(store, _NO_TRACE_CONFIG, principal="alice")
+    on_complete = make_budget_on_complete(store, workspace=None, principal="alice")
+    await maybe_traced_call(_provider_with_cost, _make_endpoint_config(), on_complete)
+
+    tracker = get_budget_tracker()
+    assert tracker._get_window_info("bp-test").cumulative_spend == pytest.approx(0.075)
+
+    # Request 2 from alice is now rejected.
+    with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+        check_budget_limit(store, _NO_TRACE_CONFIG, principal="alice")
+
+    # A different user is unaffected by alice's overspend.
+    check_budget_limit(store, _NO_TRACE_CONFIG, principal="bob")

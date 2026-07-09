@@ -109,6 +109,7 @@ def _serialize_policy(policy: GatewayBudgetPolicy) -> str:
         "budget_action": policy.budget_action.value,
         "workspace": policy.workspace,
         "endpoint_id": policy.endpoint_id,
+        "principal": policy.principal,
         "created_at": policy.created_at,
         "last_updated_at": policy.last_updated_at,
     })
@@ -128,6 +129,7 @@ def _deserialize_policy(data: str) -> GatewayBudgetPolicy:
         budget_action=BudgetAction(d["budget_action"]),
         workspace=d.get("workspace"),
         endpoint_id=d.get("endpoint_id"),
+        principal=d.get("principal"),
         created_at=d.get("created_at", 0),
         last_updated_at=d.get("last_updated_at", 0),
     )
@@ -244,6 +246,7 @@ class RedisBudgetTracker(BudgetTracker):
         cost_usd: float,
         workspace: str | None = None,
         endpoint_id: str | None = None,
+        principal: str | None = None,
     ) -> list[BudgetWindow]:
         now = datetime.now(timezone.utc)
         newly_exceeded: list[BudgetWindow] = []
@@ -257,7 +260,7 @@ class RedisBudgetTracker(BudgetTracker):
                     continue
                 policy = _deserialize_policy(policy_data)
 
-            if not _policy_applies(policy, workspace, endpoint_id):
+            if not _policy_applies(policy, workspace, endpoint_id=endpoint_id, principal=principal):
                 continue
 
             window, _created = self._ensure_window(policy, now)
@@ -284,6 +287,7 @@ class RedisBudgetTracker(BudgetTracker):
         self,
         workspace: str | None = None,
         endpoint_id: str | None = None,
+        principal: str | None = None,
     ) -> tuple[bool, BudgetWindow | None]:
         now = datetime.now(timezone.utc)
 
@@ -295,7 +299,7 @@ class RedisBudgetTracker(BudgetTracker):
                     continue
                 policy = _deserialize_policy(policy_data)
 
-            if not _policy_applies(policy, workspace, endpoint_id):
+            if not _policy_applies(policy, workspace, endpoint_id=endpoint_id, principal=principal):
                 continue
 
             if policy.budget_action != BudgetAction.REJECT:

@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlalchemy import case, func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import aliased, joinedload
 
 from mlflow.entities import (
     FallbackConfig,
@@ -1229,6 +1229,7 @@ class SqlAlchemyGatewayStoreMixin:
         budget_action: BudgetAction,
         created_by: str | None = None,
         endpoint_id: str | None = None,
+        principal: str | None = None,
     ) -> GatewayBudgetPolicy:
         scope_value = (
             target_scope.value if isinstance(target_scope, BudgetTargetScope) else target_scope
@@ -1265,6 +1266,7 @@ class SqlAlchemyGatewayStoreMixin:
                     created_by=created_by,
                     last_updated_by=created_by,
                     endpoint_id=endpoint_id,
+                    principal=principal,
                 )
             )
 
@@ -1297,6 +1299,7 @@ class SqlAlchemyGatewayStoreMixin:
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
         endpoint_id: str | None = None,
+        principal: str | None = None,
     ) -> GatewayBudgetPolicy:
         with self.ManagedSessionMaker(read_only=False) as session:
             sql_budget_policy = self._get_entity_or_raise(
@@ -1316,11 +1319,16 @@ class SqlAlchemyGatewayStoreMixin:
                 sql_budget_policy.duration_unit = duration.unit.value
                 sql_budget_policy.duration_value = duration.value
             if target_scope is not None:
-                sql_budget_policy.target_scope = (
+                scope_value = (
                     target_scope.value
                     if isinstance(target_scope, BudgetTargetScope)
                     else target_scope
                 )
+                sql_budget_policy.target_scope = scope_value
+                # Enforce the invariant that only USER policies carry a principal, so
+                # switching a policy away from USER can't leave a stale principal behind.
+                if scope_value != BudgetTargetScope.USER.value:
+                    sql_budget_policy.principal = None
             if budget_action is not None:
                 sql_budget_policy.budget_action = (
                     budget_action.value
@@ -1339,6 +1347,8 @@ class SqlAlchemyGatewayStoreMixin:
             sql_budget_policy.endpoint_id = _normalize_budget_endpoint_id(
                 sql_budget_policy.target_scope, sql_budget_policy.endpoint_id
             )
+            if principal is not None:
+                sql_budget_policy.principal = principal
 
             sql_budget_policy.last_updated_at = get_current_time_millis()
             if updated_by is not None:
@@ -1387,6 +1397,7 @@ class SqlAlchemyGatewayStoreMixin:
         end_time_ms: int,
         workspace: str | None = None,
         endpoint_id: str | None = None,
+        principal: str | None = None,
     ) -> float:
         with self.ManagedSessionMaker() as session:
             query = (
@@ -1413,6 +1424,19 @@ class SqlAlchemyGatewayStoreMixin:
                     SqlExperiment,
                     SqlExperiment.experiment_id == SqlTraceInfo.experiment_id,
                 ).filter(SqlExperiment.workspace == workspace)
+
+            if principal is not None:
+                # Filter to traces whose recorded auth username matches the principal.
+                # Uses a separate aliased join because SqlTraceMetadata is already
+                # joined above for the gateway-endpoint marker.
+                user_metadata = aliased(SqlTraceMetadata)
+                query = query.join(
+                    user_metadata,
+                    user_metadata.request_id == SqlTraceInfo.request_id,
+                ).filter(
+                    user_metadata.key == TraceMetadataKey.AUTH_USERNAME,
+                    user_metadata.value == principal,
+                )
 
             return float(query.scalar())
 

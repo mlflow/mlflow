@@ -2971,7 +2971,7 @@ class SqlGatewayBudgetPolicy(Base):
     """
     target_scope = Column(String(32), nullable=False)
     """
-    Target scope: `String` (GLOBAL, WORKSPACE, ENDPOINT).
+    Target scope: `String` (GLOBAL, WORKSPACE, ENDPOINT, USER).
     """
     budget_action = Column(String(32), nullable=False)
     """
@@ -3008,11 +3008,17 @@ class SqlGatewayBudgetPolicy(Base):
     ``target_scope`` is ENDPOINT; the policy then applies solely to requests
     routed to this endpoint.
     """
+    principal = Column(String(255), nullable=True)
+    """
+    Principal: `String` (limit 255 characters). User identity a USER-scoped budget
+    applies to. NULL for other scopes.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("budget_policy_id", name="budget_policies_pk"),
         Index("idx_budget_policies_workspace", "workspace"),
         Index("idx_budget_policies_endpoint_id", "endpoint_id"),
+        Index("idx_budget_policies_principal", "principal"),
     )
 
     def __repr__(self):
@@ -3035,6 +3041,7 @@ class SqlGatewayBudgetPolicy(Base):
             last_updated_by=self.last_updated_by,
             workspace=self.workspace,
             endpoint_id=self.endpoint_id,
+            principal=self.principal,
         )
 
 
