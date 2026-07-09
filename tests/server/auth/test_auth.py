@@ -649,13 +649,10 @@ def test_authenticate_jwt(client):
 
 @pytest.fixture
 def jwt_fastapi_artifact_client(tmp_path):
-    """FastAPI client with JWT custom auth and artifact serving enabled."""
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
     artifact_dest = str(tmp_path / "jwt_artifacts")
-    extra_env = _isolate_auth_config(
-        {"MLFLOW_AUTH_CONFIG_PATH": "fixtures/jwt_auth.ini"}, tmp_path
-    )
+    extra_env = _isolate_auth_config({"MLFLOW_AUTH_CONFIG_PATH": "fixtures/jwt_auth.ini"}, tmp_path)
     extra_env[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = "my-secret-key"
     extra_env["_MLFLOW_SGI_NAME"] = "uvicorn"
     extra_env["PYTHONPATH"] = str(Path.cwd() / "examples" / "jwt_auth")
@@ -673,12 +670,6 @@ def jwt_fastapi_artifact_client(tmp_path):
 
 
 def test_custom_auth_artifact_upload_download_fastapi(jwt_fastapi_artifact_client):
-    """E2E: custom authorization_function (JWT) works on native FastAPI artifact routes.
-
-    Verifies the Flask-to-Starlette auth bridge enables custom auth plugins to
-    authenticate PUT/GET requests on native FastAPI artifact endpoints without
-    falling back to the WSGI bridge or returning HTTP 500.
-    """
     client = jwt_fastapi_artifact_client
     admin_token = jwt.encode({"username": ADMIN_USERNAME}, "secret", algorithm="HS256")
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
@@ -715,12 +706,9 @@ def test_custom_auth_artifact_upload_download_fastapi(jwt_fastapi_artifact_clien
 
 
 def test_custom_auth_artifact_rejects_invalid_token_fastapi(jwt_fastapi_artifact_client):
-    """E2E: native FastAPI artifact routes reject requests with invalid/missing JWT tokens."""
     client = jwt_fastapi_artifact_client
-    artifact_url = (
-        f"{client.tracking_uri}"
-        "/api/2.0/mlflow-artifacts/artifacts/1/run-id/artifacts/model.pkl"
-    )
+    base = f"{client.tracking_uri}/api/2.0/mlflow-artifacts/artifacts"
+    artifact_url = f"{base}/1/run-id/artifacts/model.pkl"
 
     # No auth header → 401
     resp = requests.get(artifact_url)
@@ -737,7 +725,6 @@ def test_custom_auth_artifact_rejects_invalid_token_fastapi(jwt_fastapi_artifact
 
 
 def test_custom_auth_artifact_denies_unauthorized_user_fastapi(jwt_fastapi_artifact_client):
-    """E2E: native FastAPI artifact routes enforce experiment permissions with custom auth."""
     client = jwt_fastapi_artifact_client
     admin_token = jwt.encode({"username": ADMIN_USERNAME}, "secret", algorithm="HS256")
     admin_headers = {"Authorization": f"Bearer {admin_token}"}

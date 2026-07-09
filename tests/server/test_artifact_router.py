@@ -1,15 +1,3 @@
-"""Tests for native FastAPI artifact upload/download endpoints (artifact_router.py).
-
-Verifies that:
-1. Download uses FileResponse for local artifacts (get_local_path fast path)
-2. Download uses StreamingResponse for remote artifacts
-3. Upload streams request body to disk without full-body buffering
-4. Upload uses log_artifact_from_stream when StreamUploadMixin is available
-5. Upload falls back to log_artifact for non-StreamUploadMixin repos
-6. Endpoints return 503 when serve-artifacts is disabled
-7. Routing explicitly serves these paths via FastAPI (not WSGI bridge)
-"""
-
 from unittest import mock
 
 import pytest
@@ -37,215 +25,214 @@ def client_no_serve(monkeypatch):
     return TestClient(create_fastapi_app())
 
 
-class TestDownloadArtifact:
-    def test_local_path_returns_file_response(self, client, tmp_path):
-        test_data = b"local artifact content"
-        test_file = tmp_path / "model.pkl"
-        test_file.write_bytes(test_data)
+def test_download_local_path_returns_file_response(client, tmp_path):
+    test_data = b"local artifact content"
+    test_file = tmp_path / "model.pkl"
+    test_file.write_bytes(test_data)
 
-        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
-            mock_repo = mock.MagicMock()
-            mock_repo.get_local_path.return_value = str(test_file)
-            mock_get_repo.return_value = mock_repo
+    with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
+        mock_repo = mock.MagicMock()
+        mock_repo.get_local_path.return_value = str(test_file)
+        mock_get_repo.return_value = mock_repo
 
-            resp = client.get("/api/2.0/mlflow-artifacts/artifacts/test/model.pkl")
+        resp = client.get("/api/2.0/mlflow-artifacts/artifacts/test/model.pkl")
 
-        assert resp.status_code == 200
-        assert resp.content == test_data
-        assert "attachment" in resp.headers["Content-Disposition"]
-        assert "model.pkl" in resp.headers["Content-Disposition"]
-        mock_repo.get_local_path.assert_called_once()
-        mock_repo.download_artifacts.assert_not_called()
-
-    def test_remote_path_returns_streaming_response(self, client, tmp_path):
-        test_data = b"remote artifact content"
-        test_file = tmp_path / "model.pkl"
-        test_file.write_bytes(test_data)
-
-        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
-            mock_repo = mock.MagicMock()
-            mock_repo.get_local_path.return_value = None
-            mock_repo.download_artifacts.return_value = str(test_file)
-            mock_get_repo.return_value = mock_repo
-
-            resp = client.get("/api/2.0/mlflow-artifacts/artifacts/nested/model.pkl")
-
-        assert resp.status_code == 200
-        assert resp.content == test_data
-        assert "attachment" in resp.headers["Content-Disposition"]
-        mock_repo.download_artifacts.assert_called_once()
-
-    def test_ajax_prefix_also_works(self, client, tmp_path):
-        test_file = tmp_path / "data.bin"
-        test_file.write_bytes(b"data")
-
-        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
-            mock_repo = mock.MagicMock()
-            mock_repo.get_local_path.return_value = str(test_file)
-            mock_get_repo.return_value = mock_repo
-
-            resp = client.get("/ajax-api/2.0/mlflow-artifacts/artifacts/data.bin")
-
-        assert resp.status_code == 200
-        assert resp.content == b"data"
-
-    def test_directory_path_returns_400(self, client, tmp_path):
-        dir_path = tmp_path / "model_dir"
-        dir_path.mkdir()
-
-        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
-            mock_repo = mock.MagicMock()
-            mock_repo.get_local_path.return_value = str(dir_path)
-            mock_get_repo.return_value = mock_repo
-
-            resp = client.get("/api/2.0/mlflow-artifacts/artifacts/model_dir")
-
-        assert resp.status_code == 400
-
-    def test_disabled_returns_503(self, client_no_serve):
-        resp = client_no_serve.get("/api/2.0/mlflow-artifacts/artifacts/model.pkl")
-        assert resp.status_code == 503
+    assert resp.status_code == 200
+    assert resp.content == test_data
+    assert "attachment" in resp.headers["Content-Disposition"]
+    assert "model.pkl" in resp.headers["Content-Disposition"]
+    mock_repo.get_local_path.assert_called_once()
+    mock_repo.download_artifacts.assert_not_called()
 
 
-class TestUploadArtifact:
-    def test_upload_with_stream_upload_mixin(self, client):
-        test_data = b"uploaded artifact"
+def test_download_remote_path_returns_streaming_response(client, tmp_path):
+    test_data = b"remote artifact content"
+    test_file = tmp_path / "model.pkl"
+    test_file.write_bytes(test_data)
 
-        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
-            mock_repo = mock.MagicMock(spec=LocalArtifactRepository)
-            mock_get_repo.return_value = mock_repo
+    with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
+        mock_repo = mock.MagicMock()
+        mock_repo.get_local_path.return_value = None
+        mock_repo.download_artifacts.return_value = str(test_file)
+        mock_get_repo.return_value = mock_repo
 
-            resp = client.put(
-                "/api/2.0/mlflow-artifacts/artifacts/nested/model.pkl",
-                content=test_data,
-            )
+        resp = client.get("/api/2.0/mlflow-artifacts/artifacts/nested/model.pkl")
 
-        assert resp.status_code == 200
-        mock_repo.log_artifact_from_stream.assert_called_once()
-        args, kwargs = mock_repo.log_artifact_from_stream.call_args
-        assert args[1] == "model.pkl"
-        assert kwargs["artifact_path"] == "nested"
+    assert resp.status_code == 200
+    assert resp.content == test_data
+    assert "attachment" in resp.headers["Content-Disposition"]
+    mock_repo.download_artifacts.assert_called_once()
 
-    def test_upload_without_stream_mixin_uses_log_artifact(self, client):
-        test_data = b"uploaded artifact"
 
-        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
-            mock_repo = mock.MagicMock(spec=ArtifactRepository)
-            mock_get_repo.return_value = mock_repo
+def test_download_ajax_prefix_also_works(client, tmp_path):
+    test_file = tmp_path / "data.bin"
+    test_file.write_bytes(b"data")
 
-            resp = client.put(
-                "/api/2.0/mlflow-artifacts/artifacts/nested/model.pkl",
-                content=test_data,
-            )
+    with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
+        mock_repo = mock.MagicMock()
+        mock_repo.get_local_path.return_value = str(test_file)
+        mock_get_repo.return_value = mock_repo
 
-        assert resp.status_code == 200
-        mock_repo.log_artifact.assert_called_once()
-        args, kwargs = mock_repo.log_artifact.call_args
-        assert args[0].endswith("model.pkl")
-        assert kwargs["artifact_path"] == "nested"
+        resp = client.get("/ajax-api/2.0/mlflow-artifacts/artifacts/data.bin")
 
-    def test_upload_preserves_content(self, client, tmp_path):
-        test_data = b"x" * (ARTIFACT_STREAM_CHUNK_SIZE * 2 + 500)
-        uploaded_content = None
+    assert resp.status_code == 200
+    assert resp.content == b"data"
 
-        def capture_stream(stream, filename, artifact_path=None):
-            nonlocal uploaded_content
-            uploaded_content = stream.read()
 
-        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
-            mock_repo = mock.MagicMock(spec=LocalArtifactRepository)
-            mock_repo.log_artifact_from_stream.side_effect = capture_stream
-            mock_get_repo.return_value = mock_repo
+def test_download_directory_path_returns_400(client, tmp_path):
+    dir_path = tmp_path / "model_dir"
+    dir_path.mkdir()
 
-            resp = client.put(
-                "/api/2.0/mlflow-artifacts/artifacts/big_model.bin",
-                content=test_data,
-            )
+    with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
+        mock_repo = mock.MagicMock()
+        mock_repo.get_local_path.return_value = str(dir_path)
+        mock_get_repo.return_value = mock_repo
 
-        assert resp.status_code == 200
-        assert uploaded_content == test_data
+        resp = client.get("/api/2.0/mlflow-artifacts/artifacts/model_dir")
 
-    def test_upload_ajax_prefix(self, client):
-        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
-            mock_repo = mock.MagicMock(spec=ArtifactRepository)
-            mock_get_repo.return_value = mock_repo
+    assert resp.status_code == 400
 
-            resp = client.put(
-                "/ajax-api/2.0/mlflow-artifacts/artifacts/model.pkl",
-                content=b"data",
-            )
 
-        assert resp.status_code == 200
+def test_download_disabled_returns_503(client_no_serve):
+    resp = client_no_serve.get("/api/2.0/mlflow-artifacts/artifacts/model.pkl")
+    assert resp.status_code == 503
 
-    def test_disabled_returns_503(self, client_no_serve):
-        resp = client_no_serve.put(
-            "/api/2.0/mlflow-artifacts/artifacts/model.pkl",
+
+def test_upload_with_stream_upload_mixin(client):
+    test_data = b"uploaded artifact"
+
+    with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
+        mock_repo = mock.MagicMock(spec=LocalArtifactRepository)
+        mock_get_repo.return_value = mock_repo
+
+        resp = client.put(
+            "/api/2.0/mlflow-artifacts/artifacts/nested/model.pkl",
+            content=test_data,
+        )
+
+    assert resp.status_code == 200
+    mock_repo.log_artifact_from_stream.assert_called_once()
+    args, kwargs = mock_repo.log_artifact_from_stream.call_args
+    assert args[1] == "model.pkl"
+    assert kwargs["artifact_path"] == "nested"
+
+
+def test_upload_without_stream_mixin_uses_log_artifact(client):
+    test_data = b"uploaded artifact"
+
+    with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
+        mock_repo = mock.MagicMock(spec=ArtifactRepository)
+        mock_get_repo.return_value = mock_repo
+
+        resp = client.put(
+            "/api/2.0/mlflow-artifacts/artifacts/nested/model.pkl",
+            content=test_data,
+        )
+
+    assert resp.status_code == 200
+    mock_repo.log_artifact.assert_called_once()
+    args, kwargs = mock_repo.log_artifact.call_args
+    assert args[0].endswith("model.pkl")
+    assert kwargs["artifact_path"] == "nested"
+
+
+def test_upload_preserves_content(client, tmp_path):
+    test_data = b"x" * (ARTIFACT_STREAM_CHUNK_SIZE * 2 + 500)
+    uploaded_content = None
+
+    def capture_stream(stream, filename, artifact_path=None):
+        nonlocal uploaded_content
+        uploaded_content = stream.read()
+
+    with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
+        mock_repo = mock.MagicMock(spec=LocalArtifactRepository)
+        mock_repo.log_artifact_from_stream.side_effect = capture_stream
+        mock_get_repo.return_value = mock_repo
+
+        resp = client.put(
+            "/api/2.0/mlflow-artifacts/artifacts/big_model.bin",
+            content=test_data,
+        )
+
+    assert resp.status_code == 200
+    assert uploaded_content == test_data
+
+
+def test_upload_ajax_prefix(client):
+    with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
+        mock_repo = mock.MagicMock(spec=ArtifactRepository)
+        mock_get_repo.return_value = mock_repo
+
+        resp = client.put(
+            "/ajax-api/2.0/mlflow-artifacts/artifacts/model.pkl",
             content=b"data",
         )
-        assert resp.status_code == 503
+
+    assert resp.status_code == 200
 
 
-class TestRoutingExplicitness:
-    """Verify that under FastAPI/ASGI, the native router handles artifact requests
-    instead of falling through to the WSGI bridge (Flask handlers).
-    """
-
-    def test_download_does_not_hit_flask_handler(self, client, tmp_path):
-        test_file = tmp_path / "model.pkl"
-        test_file.write_bytes(b"test")
-
-        with (
-            mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo,
-            mock.patch("mlflow.server.handlers._download_artifact") as mock_flask_handler,
-        ):
-            mock_repo = mock.MagicMock()
-            mock_repo.get_local_path.return_value = str(test_file)
-            mock_get_repo.return_value = mock_repo
-
-            resp = client.get("/api/2.0/mlflow-artifacts/artifacts/model.pkl")
-
-        assert resp.status_code == 200
-        mock_flask_handler.assert_not_called()
-
-    def test_upload_does_not_hit_flask_handler(self, client):
-        with (
-            mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo,
-            mock.patch("mlflow.server.handlers._upload_artifact") as mock_flask_handler,
-        ):
-            mock_repo = mock.MagicMock(spec=ArtifactRepository)
-            mock_get_repo.return_value = mock_repo
-
-            resp = client.put(
-                "/api/2.0/mlflow-artifacts/artifacts/model.pkl",
-                content=b"test",
-            )
-
-        assert resp.status_code == 200
-        mock_flask_handler.assert_not_called()
+def test_upload_disabled_returns_503(client_no_serve):
+    resp = client_no_serve.put(
+        "/api/2.0/mlflow-artifacts/artifacts/model.pkl",
+        content=b"data",
+    )
+    assert resp.status_code == 503
 
 
-class TestPathSafety:
-    def test_path_traversal_rejected(self, client):
-        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
-            mock_repo = mock.MagicMock()
-            mock_get_repo.return_value = mock_repo
+def test_download_does_not_hit_flask_handler(client, tmp_path):
+    test_file = tmp_path / "model.pkl"
+    test_file.write_bytes(b"test")
 
-            resp = client.get("/api/2.0/mlflow-artifacts/artifacts/../../../etc/passwd")
+    with (
+        mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo,
+        mock.patch("mlflow.server.handlers._download_artifact") as mock_flask_handler,
+    ):
+        mock_repo = mock.MagicMock()
+        mock_repo.get_local_path.return_value = str(test_file)
+        mock_get_repo.return_value = mock_repo
 
-        # Path traversal is blocked — either by Starlette URL normalization (404)
-        # or by validate_path_is_safe (400/500). The key assertion is that it does
-        # NOT return 200 with file content.
-        assert resp.status_code != 200
+        resp = client.get("/api/2.0/mlflow-artifacts/artifacts/model.pkl")
 
-    def test_upload_trailing_slash_rejected(self, client):
-        with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
-            mock_repo = mock.MagicMock(spec=ArtifactRepository)
-            mock_get_repo.return_value = mock_repo
+    assert resp.status_code == 200
+    mock_flask_handler.assert_not_called()
 
-            resp = client.put(
-                "/api/2.0/mlflow-artifacts/artifacts/nested/",
-                content=b"data",
-            )
 
-        assert resp.status_code == 400
-        assert "filename" in resp.json()["detail"].lower()
+def test_upload_does_not_hit_flask_handler(client):
+    with (
+        mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo,
+        mock.patch("mlflow.server.handlers._upload_artifact") as mock_flask_handler,
+    ):
+        mock_repo = mock.MagicMock(spec=ArtifactRepository)
+        mock_get_repo.return_value = mock_repo
+
+        resp = client.put(
+            "/api/2.0/mlflow-artifacts/artifacts/model.pkl",
+            content=b"test",
+        )
+
+    assert resp.status_code == 200
+    mock_flask_handler.assert_not_called()
+
+
+def test_path_traversal_rejected(client):
+    with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
+        mock_repo = mock.MagicMock()
+        mock_get_repo.return_value = mock_repo
+
+        resp = client.get("/api/2.0/mlflow-artifacts/artifacts/../../../etc/passwd")
+
+    assert resp.status_code != 200
+
+
+def test_upload_trailing_slash_rejected(client):
+    with mock.patch("mlflow.server.artifact_router._get_artifact_repo") as mock_get_repo:
+        mock_repo = mock.MagicMock(spec=ArtifactRepository)
+        mock_get_repo.return_value = mock_repo
+
+        resp = client.put(
+            "/api/2.0/mlflow-artifacts/artifacts/nested/",
+            content=b"data",
+        )
+
+    assert resp.status_code == 400
+    assert "filename" in resp.json()["detail"].lower()
