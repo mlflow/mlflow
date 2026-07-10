@@ -755,3 +755,15 @@ def test_dump_span_attribute_value_handles_circular_reference():
     loaded = json.loads(result)
     assert isinstance(loaded, str)
     assert "run_context" in loaded
+
+
+def test_dump_span_attribute_value_handles_type_error():
+    value = {frozenset({"listener"}): "handler"}
+
+    with pytest.raises(TypeError, match="frozenset"):
+        json.dumps(value)
+
+    result = dump_span_attribute_value(value)
+
+    # Must not raise; fall back result is a valid JSON string containing repr(value).
+    assert result == json.dumps(repr(value), ensure_ascii=False)
