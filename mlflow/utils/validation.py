@@ -20,9 +20,9 @@ from mlflow.environment_variables import (
     _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS,
     _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
-    MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS,
-    MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS,
-    MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES,
+    MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS,
+    MLFLOW_ICON_URL_ALLOWED_DOMAINS,
+    MLFLOW_ICON_URL_ALLOWED_SCHEMES,
     MLFLOW_TRUNCATE_LONG_VALUES,
 )
 from mlflow.exceptions import MlflowException
@@ -890,6 +890,28 @@ def _validate_webhook_name(name: str) -> None:
         )
 
 
+def _validate_hostname_resolves_to_public_ips(hostname: str, field_name: str) -> None:
+    try:
+        addr_infos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror as e:
+        raise MlflowException.invalid_parameter_value(
+            f"Cannot resolve {field_name} hostname {hostname!r}: {e}"
+        ) from e
+
+    for addr_info in addr_infos:
+        try:
+            ip = ipaddress.ip_address(addr_info[4][0])
+        except ValueError as e:
+            raise MlflowException.invalid_parameter_value(
+                f"{field_name} hostname {hostname!r} resolved to an invalid IP address: {e}"
+            ) from e
+        if not ip.is_global:
+            raise MlflowException.invalid_parameter_value(
+                f"{field_name} must not resolve to a non-public IP address. "
+                f"{hostname!r} resolves to {ip}."
+            )
+
+
 def _validate_public_https_url(
     url: str,
     field_name: str = "URL",
@@ -930,23 +952,8 @@ def _validate_public_https_url(
             f"{field_name} must include a hostname: {url!r}"
         )
 
-    if allow_private_ips:
-        return
-
-    if hostname.lower() == "localhost":
-        raise MlflowException.invalid_parameter_value(
-            f"{field_name} must not target localhost: {url!r}"
-        )
-
-    try:
-        ip = ipaddress.ip_address(hostname)
-    except ValueError:
-        return
-
-    if not ip.is_global:
-        raise MlflowException.invalid_parameter_value(
-            f"{field_name} must not resolve to a non-public IP address: {ip}."
-        )
+    if not allow_private_ips:
+        _validate_hostname_resolves_to_public_ips(hostname, field_name)
 
 
 def _validate_mcp_icon_url(url: str) -> None:
@@ -957,13 +964,13 @@ def _validate_mcp_icon_url(url: str) -> None:
     optional hostname allowlist layered on top for stricter deployments.
 
     Operators can further configure:
-    - ``MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES`` to allow schemes like ``http``
-    - ``MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS=true`` to allow localhost /
+    - ``MLFLOW_ICON_URL_ALLOWED_SCHEMES`` to allow schemes like ``http``
+    - ``MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS=true`` to allow localhost /
       loopback / private-network targets
-    - ``MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS`` for a strict hostname allowlist
+    - ``MLFLOW_ICON_URL_ALLOWED_DOMAINS`` for a strict hostname allowlist
     """
-    allowed_schemes = MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES.get()
-    allow_private_ips = MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS.get()
+    allowed_schemes = MLFLOW_ICON_URL_ALLOWED_SCHEMES.get()
+    allow_private_ips = MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS.get()
     _validate_public_https_url(
         url,
         field_name="Icon URL",
@@ -971,7 +978,7 @@ def _validate_mcp_icon_url(url: str) -> None:
         allow_private_ips=allow_private_ips,
     )
 
-    allowed_domains = MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS.get()
+    allowed_domains = MLFLOW_ICON_URL_ALLOWED_DOMAINS.get()
     if not allowed_domains:
         return
 
@@ -1017,25 +1024,7 @@ def _validate_webhook_url(url: str) -> None:
         )
 
     if not _MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS.get():
-        try:
-            addr_infos = socket.getaddrinfo(hostname, None)
-        except socket.gaierror as e:
-            raise MlflowException.invalid_parameter_value(
-                f"Cannot resolve webhook URL hostname {hostname!r}: {e}"
-            ) from e
-
-        for addr_info in addr_infos:
-            try:
-                ip = ipaddress.ip_address(addr_info[4][0])
-            except ValueError as e:
-                raise MlflowException.invalid_parameter_value(
-                    f"Webhook URL hostname {hostname!r} resolved to an invalid IP address: {e}"
-                ) from e
-            if not ip.is_global:
-                raise MlflowException.invalid_parameter_value(
-                    f"Webhook URL must not resolve to a non-public IP address. "
-                    f"{hostname!r} resolves to {ip}."
-                )
+        _validate_hostname_resolves_to_public_ips(hostname, "Webhook URL")
 
 
 def _validate_webhook_events(events: list[WebhookEvent]) -> None:

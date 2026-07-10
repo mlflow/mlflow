@@ -54,6 +54,21 @@ def client(store):
         yield TestClient(_create_registry_fastapi_app())
 
 
+@pytest.fixture(autouse=True)
+def mock_icon_url_dns_resolution():
+    def _resolve(host, port, *a, **kw):
+        if host == "localhost":
+            ip = "127.0.0.1"
+        elif host == "example.com" or host.endswith(".example.com"):
+            ip = "8.8.8.8"
+        else:
+            ip = host
+        return [(None, None, None, None, (ip, 0))]
+
+    with mock.patch("mlflow.utils.validation.socket.getaddrinfo", side_effect=_resolve):
+        yield
+
+
 def test_create_server(client):
     r = client.post(PREFIX, json={"name": "com.example/my-server", "description": "A test server"})
     assert r.status_code == 200
@@ -102,7 +117,7 @@ def test_create_server_rejects_risky_icon_urls(client, icons):
 
 def test_create_server_rejects_icon_url_outside_allowlist(client, monkeypatch):
     monkeypatch.setenv(
-        "MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS",
+        "MLFLOW_ICON_URL_ALLOWED_DOMAINS",
         "assets.example.com,*.cdn.example.com",
     )
     r = client.post(
@@ -118,7 +133,7 @@ def test_create_server_rejects_icon_url_outside_allowlist(client, monkeypatch):
 
 def test_create_server_accepts_icon_url_inside_allowlist(client, monkeypatch):
     monkeypatch.setenv(
-        "MLFLOW_MCP_ICON_URL_ALLOWED_DOMAINS",
+        "MLFLOW_ICON_URL_ALLOWED_DOMAINS",
         "assets.example.com,*.cdn.example.com",
     )
     r = client.post(
@@ -132,7 +147,7 @@ def test_create_server_accepts_icon_url_inside_allowlist(client, monkeypatch):
 
 
 def test_create_server_accepts_public_http_icon_url_when_scheme_enabled(client, monkeypatch):
-    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES", "http,https")
+    monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_SCHEMES", "http,https")
     r = client.post(
         PREFIX,
         json={
@@ -144,7 +159,7 @@ def test_create_server_accepts_public_http_icon_url_when_scheme_enabled(client, 
 
 
 def test_create_server_accepts_local_icon_url_when_private_ips_enabled(client, monkeypatch):
-    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS", "true")
+    monkeypatch.setenv("MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS", "true")
     r = client.post(
         PREFIX,
         json={
@@ -158,8 +173,8 @@ def test_create_server_accepts_local_icon_url_when_private_ips_enabled(client, m
 def test_create_server_accepts_local_http_icon_when_scheme_and_private_flags_enabled(
     client, monkeypatch
 ):
-    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOWED_SCHEMES", "http,https")
-    monkeypatch.setenv("MLFLOW_MCP_ICON_URL_ALLOW_PRIVATE_IPS", "true")
+    monkeypatch.setenv("MLFLOW_ICON_URL_ALLOWED_SCHEMES", "http,https")
+    monkeypatch.setenv("MLFLOW_ICON_URL_ALLOW_PRIVATE_IPS", "true")
     r = client.post(
         PREFIX,
         json={
