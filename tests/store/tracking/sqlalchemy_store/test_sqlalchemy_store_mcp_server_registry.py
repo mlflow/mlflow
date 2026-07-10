@@ -1241,6 +1241,14 @@ def test_search_mcp_servers_filter_by_name_like(store):
     assert names == {"io.github.test/alpha", "io.github.test/beta"}
 
 
+def test_search_mcp_servers_filter_by_display_name(store):
+    store.create_mcp_server("io.github.test/alpha")
+    store.update_mcp_server("io.github.test/alpha", display_name="Pretty Alpha")
+    result = store.search_mcp_servers(filter_string="display_name ILIKE '%pretty%'")
+    assert len(result) == 1
+    assert result[0].name == "io.github.test/alpha"
+
+
 def test_search_mcp_servers_filter_by_tag(store):
     store.create_mcp_server("io.github.test/server1")
     store.create_mcp_server("io.github.test/server2")

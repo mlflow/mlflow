@@ -6,7 +6,14 @@ from typing import TYPE_CHECKING, Any
 from fastapi import APIRouter, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from mlflow.entities.mcp_access_binding import MCPAccessBinding
 from mlflow.entities.mcp_server import (
@@ -18,6 +25,7 @@ from mlflow.entities.mcp_server import (
 )
 from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.exceptions import MlflowException
+from mlflow.utils.validation import _validate_mcp_icon_url
 
 if TYPE_CHECKING:
     from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
@@ -42,7 +50,7 @@ def is_mcp_server_api_path(path: str) -> bool:
     )
 
 
-class MCPIconPayload(BaseModel):
+class _BaseMCPIconPayload(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     src: str
@@ -63,6 +71,31 @@ class MCPIconPayload(BaseModel):
         return icon
 
 
+class MCPIconRequestPayload(_BaseMCPIconPayload):
+    @field_validator("src")
+    @classmethod
+    def _validate_src(cls, value: str) -> str:
+        _validate_mcp_icon_url(value)
+        return value
+
+    @field_validator("mimeType")
+    @classmethod
+    def _validate_mime_type(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        normalized = value.strip().lower()
+        if not normalized.startswith("image/") or normalized == "image/":
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid icon mimeType {value!r}. Allowed values must use the 'image/*' "
+                "media type."
+            )
+        return normalized
+
+
+class MCPIconResponsePayload(_BaseMCPIconPayload):
+    pass
+
+
 class ServerJSONRepositoryPayload(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
@@ -79,6 +112,7 @@ class ServerJSONPayload(BaseModel):
     version: str
     title: str | None = None
     description: str | None = None
+    icons: list[MCPIconRequestPayload] | None = None
     packages: list[ServerJSONPackagePayload] | None = None
     remotes: list[ServerJSONRemotePayload] | None = None
     repository: ServerJSONRepositoryPayload | None = None
@@ -113,27 +147,38 @@ class ServerJSONRemotePayload(BaseModel):
     url: str
 
 
-class MCPToolPayload(BaseModel):
+class MCPToolRequestPayload(BaseModel):
     name: str
     title: str | None = None
     description: str | None = None
     inputSchema: dict[str, Any] | None = None
     outputSchema: dict[str, Any] | None = None
     annotations: dict[str, Any] | None = None
-    icons: list[MCPIconPayload] | None = None
+    icons: list[MCPIconRequestPayload] | None = None
+    execution: dict[str, Any] | None = None
+
+
+class MCPToolResponsePayload(BaseModel):
+    name: str
+    title: str | None = None
+    description: str | None = None
+    inputSchema: dict[str, Any] | None = None
+    outputSchema: dict[str, Any] | None = None
+    annotations: dict[str, Any] | None = None
+    icons: list[MCPIconResponsePayload] | None = None
     execution: dict[str, Any] | None = None
 
 
 class CreateMCPServerRequest(BaseModel):
     name: str
     description: str | None = None
-    icons: list[MCPIconPayload] | None = None
+    icons: list[MCPIconRequestPayload] | None = None
 
 
 class UpdateMCPServerRequest(BaseModel):
     display_name: str | None = None
     description: str | None = None
-    icons: list[MCPIconPayload] | None = None
+    icons: list[MCPIconRequestPayload] | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -151,13 +196,13 @@ class CreateMCPServerVersionRequest(BaseModel):
     display_name: str | None = None
     status: str = "draft"
     source: str | None = None
-    tools: list[MCPToolPayload] | None = None
+    tools: list[MCPToolRequestPayload] | None = None
 
 
 class UpdateMCPServerVersionRequest(BaseModel):
     display_name: str | None = None
     status: str | None = None
-    tools: list[MCPToolPayload] | None = None
+    tools: list[MCPToolRequestPayload] | None = None
 
 
 class CreateMCPAccessBindingRequest(BaseModel):
@@ -229,7 +274,7 @@ class MCPServerResponse(BaseModel):
     name: str
     display_name: str | None = None
     description: str | None = None
-    icons: list[MCPIconPayload] | None = None
+    icons: list[MCPIconResponsePayload] | None = None
     workspace: str | None = None
     status: str | None = None
     access_bindings: list[MCPAccessBindingSummaryResponse] = Field(default_factory=list)
@@ -270,7 +315,7 @@ class MCPServerVersionResponse(BaseModel):
     display_name: str | None = None
     workspace: str | None = None
     status: str = "draft"
-    tools: list[MCPToolPayload] = Field(default_factory=list)
+    tools: list[MCPToolResponsePayload] = Field(default_factory=list)
     aliases: list[str] = Field(default_factory=list)
     tags: dict[str, str] = Field(default_factory=dict)
     source: str | None = None
@@ -289,7 +334,7 @@ class MCPServerVersionResponse(BaseModel):
             workspace=entity.workspace,
             status=str(entity.status),
             # Normalize unset tools to [] so clients can iterate without null guards.
-            tools=[MCPToolPayload(**t.to_dict()) for t in (entity.tools or [])],
+            tools=[MCPToolResponsePayload(**t.to_dict()) for t in (entity.tools or [])],
             aliases=entity.aliases,
             tags=entity.tags,
             source=entity.source,
@@ -306,7 +351,7 @@ class MCPAccessBindingResponse(BaseModel):
     endpoint_url: str
     transport_type: str = "streamable-http"
     workspace: str | None = None
-    tools: list[MCPToolPayload] | None = None
+    tools: list[MCPToolResponsePayload] | None = None
     server_version: str | None = None
     server_alias: str | None = None
     resolved_version: MCPServerVersionResponse | None = None
@@ -319,7 +364,7 @@ class MCPAccessBindingResponse(BaseModel):
     def from_entity(cls, entity: MCPAccessBinding) -> MCPAccessBindingResponse:
         tools = None
         if entity.resolved_version is not None and entity.resolved_version.tools is not None:
-            tools = [MCPToolPayload(**t.to_dict()) for t in entity.resolved_version.tools]
+            tools = [MCPToolResponsePayload(**t.to_dict()) for t in entity.resolved_version.tools]
         return cls(
             binding_id=entity.binding_id,
             server_name=entity.server_name,
@@ -399,14 +444,14 @@ def _request_validation_error_response(exc: RequestValidationError) -> JSONRespo
     )
 
 
-def _tool_payloads_to_entities(tools: list[MCPToolPayload] | None) -> list[MCPTool] | None:
+def _tool_payloads_to_entities(tools: list[MCPToolRequestPayload] | None) -> list[MCPTool] | None:
     if tools is None:
         return None
     return [MCPTool.from_dict(t.model_dump(exclude_none=True)) for t in tools]
 
 
 def _icon_payloads_to_entities(
-    icons: list[MCPIconPayload] | None,
+    icons: list[MCPIconRequestPayload] | None,
 ) -> list[MCPIcon] | None:
     if icons is None:
         return None
