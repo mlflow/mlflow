@@ -295,10 +295,11 @@ def _entra_login(interactive):
                 "while running in non-interactive mode."
             )
         while True:
-            host = input("MLflow tracking server URI (should begin with https://): ").strip()
+            host = input("MLflow tracking server URI (should begin with http(s)://): ").strip()
             if host.startswith(("http://", "https://")):
                 break
-            _logger.error(f"Invalid URI: {host}, URI must begin with https://, please retry.")
+            _logger.error(f"Invalid URI: {host}, URI must begin with http(s)://, please retry.")
+        MLFLOW_TRACKING_URI.set(host)
 
     try:
         # Failed validation will throw an error.

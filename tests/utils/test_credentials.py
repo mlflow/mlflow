@@ -180,6 +180,7 @@ def test_mlflow_login_entra(monkeypatch):
     validate_mock.assert_called_once()
     assert MLFLOW_ENTRA_ID_SCOPE.get() == "api://dummy-client-id/.default"
     assert MLFLOW_TRACKING_AUTH.get() == "entra"
+    assert MLFLOW_TRACKING_URI.get() == "https://mlflow.example.com"
     assert get_tracking_uri() == "https://mlflow.example.com"
 
 
