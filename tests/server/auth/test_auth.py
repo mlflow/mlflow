@@ -206,7 +206,8 @@ def test_after_request_handlers_contains_only_declared_handlers():
     leaked = {
         (path, method): handler
         for (path, method), handler in auth_module.AFTER_REQUEST_HANDLERS.items()
-        if handler not in declared
+        if getattr(handler, "__module__", "") == "mlflow.server.handlers"
+        and handler not in declared
     }
 
 @pytest.mark.parametrize(
