@@ -153,67 +153,73 @@ def test_aggregate_usage_from_spans_skips_descendant_usage():
     }
 
 
-def test_aggregate_usage_from_spans_deep_tree():
-    # A linearly nested trace deeper than the default recursion limit (1000) must not
-    # raise RecursionError during aggregation. Regression test for the deep-trace
-    # corruption bug (#24344). Spans are constructed INSIDE the loop.
-    depth = 1100
-    spans = []
-    parent_id = None
-    for i in range(depth):
-        span_id = i + 1
+def _deep_chain(spans, start_id, length, parent_id, name):
+    # Append a chain of `length` spans (no usage) under `parent_id`, returning the id of
+    # the deepest span. Used to push traversal past the recursion limit.
+    for i in range(length):
+        span_id = start_id + i
         spans.append(
             LiveSpan(
                 create_mock_otel_span(
-                    "trace_id", span_id=span_id, name=f"span_{i}", parent_id=parent_id
+                    "trace_id", span_id=span_id, name=f"{name}_{i}", parent_id=parent_id
                 ),
                 trace_id="tr-123",
             )
         )
         parent_id = span_id
+    return parent_id
 
-    spans[-1].set_attribute(
-        SpanAttributeKey.CHAT_USAGE,
-        {
-            TokenUsageKey.INPUT_TOKENS: 10,
-            TokenUsageKey.OUTPUT_TOKENS: 5,
-            TokenUsageKey.TOTAL_TOKENS: 15,
-        },
-    )
 
+def test_aggregate_usage_from_spans_deep_tree_aggregates_leaves():
+    # A deep backbone (no usage) that exceeds the recursion limit, ending in a fan of
+    # sibling leaves that each carry usage. None of the leaves is an ancestor of another,
+    # so aggregation must SUM all of them — the fix must survive the depth AND still
+    # aggregate. Regression test for #24344.
+    spans = [LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123")]
+    deepest = _deep_chain(spans, start_id=2, length=1100, parent_id=1, name="backbone")
+
+    num_leaves = 5
+    for j in range(num_leaves):
+        leaf = LiveSpan(
+            create_mock_otel_span(
+                "trace_id", span_id=10_000 + j, name=f"leaf_{j}", parent_id=deepest
+            ),
+            trace_id="tr-123",
+        )
+        leaf.set_attribute(
+            SpanAttributeKey.CHAT_USAGE,
+            {
+                TokenUsageKey.INPUT_TOKENS: 2,
+                TokenUsageKey.OUTPUT_TOKENS: 3,
+                TokenUsageKey.TOTAL_TOKENS: 5,
+            },
+        )
+        spans.append(leaf)
+
+    # All 5 sibling leaves are summed: 5 * {2, 3, 5}.
     assert aggregate_usage_from_spans(spans) == {
         TokenUsageKey.INPUT_TOKENS: 10,
-        TokenUsageKey.OUTPUT_TOKENS: 5,
-        TokenUsageKey.TOTAL_TOKENS: 15,
+        TokenUsageKey.OUTPUT_TOKENS: 15,
+        TokenUsageKey.TOTAL_TOKENS: 25,
     }
 
 
-def test_aggregate_usage_from_spans_deep_tree_skips_descendant_usage():
-    # The anti-double-counting invariant must survive the deep-tree traversal: usage on
-    # an ancestor should suppress the same attribute on all its descendants, even past
-    # the recursion limit. Guards the iterative conversion against ancestor-flag bugs.
-    depth = 1100
-    spans = []
-    parent_id = None
-    for i in range(depth):
-        span_id = i + 1
-        spans.append(
-            LiveSpan(
-                create_mock_otel_span(
-                    "trace_id", span_id=span_id, name=f"span_{i}", parent_id=parent_id
-                ),
-                trace_id="tr-123",
-            )
-        )
-        parent_id = span_id
+def test_aggregate_usage_from_spans_deep_tree_sums_and_skips_descendants():
+    # A deep tree where usage lives on two independent branches (both counted and summed)
+    # and also on a descendant of a data-bearing span (skipped). Verifies that both real
+    # summation AND the anti-double-counting invariant survive past the recursion limit.
+    spans = [LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123")]
 
-    # Usage on the root (counted) and on the leaf (must be skipped as a descendant).
-    spans[0].set_attribute(
+    # Branch 1: a deep chain off the root. Its top node carries usage (counted); its
+    # deepest node also carries usage (a descendant of the top -> must be skipped).
+    _deep_chain(spans, start_id=100, length=1100, parent_id=1, name="b1")
+    branch1_top = spans[1]  # first span appended by the chain, child of root
+    branch1_top.set_attribute(
         SpanAttributeKey.CHAT_USAGE,
         {
-            TokenUsageKey.INPUT_TOKENS: 10,
-            TokenUsageKey.OUTPUT_TOKENS: 20,
-            TokenUsageKey.TOTAL_TOKENS: 30,
+            TokenUsageKey.INPUT_TOKENS: 100,
+            TokenUsageKey.OUTPUT_TOKENS: 200,
+            TokenUsageKey.TOTAL_TOKENS: 300,
         },
     )
     spans[-1].set_attribute(
@@ -225,10 +231,26 @@ def test_aggregate_usage_from_spans_deep_tree_skips_descendant_usage():
         },
     )
 
+    # Branch 2: an independent node off the root (not a descendant of branch 1) -> counted.
+    branch2 = LiveSpan(
+        create_mock_otel_span("trace_id", span_id=5000, name="b2", parent_id=1),
+        trace_id="tr-123",
+    )
+    branch2.set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 1,
+            TokenUsageKey.OUTPUT_TOKENS: 2,
+            TokenUsageKey.TOTAL_TOKENS: 3,
+        },
+    )
+    spans.append(branch2)
+
+    # branch1_top (100/200/300) + branch2 (1/2/3); the deep descendant of branch1 is skipped.
     assert aggregate_usage_from_spans(spans) == {
-        TokenUsageKey.INPUT_TOKENS: 10,
-        TokenUsageKey.OUTPUT_TOKENS: 20,
-        TokenUsageKey.TOTAL_TOKENS: 30,
+        TokenUsageKey.INPUT_TOKENS: 101,
+        TokenUsageKey.OUTPUT_TOKENS: 202,
+        TokenUsageKey.TOTAL_TOKENS: 303,
     }
 
 
