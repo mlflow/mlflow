@@ -4,6 +4,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from mlflow.server import ARTIFACTS_DESTINATION_ENV_VAR, SERVE_ARTIFACTS_ENV_VAR
+from mlflow.server import app as flask_app
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.store.artifact.artifact_repo import ARTIFACT_STREAM_CHUNK_SIZE, ArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
@@ -236,3 +237,42 @@ def test_upload_trailing_slash_rejected(client):
 
     assert resp.status_code == 400
     assert "filename" in resp.json()["detail"].lower()
+
+
+@pytest.fixture
+def flask_client(monkeypatch):
+    monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
+    monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "/tmp/mlflow-artifacts-test")
+    return flask_app.test_client()
+
+
+def test_flask_fallback_download(flask_client, tmp_path):
+    test_data = b"flask fallback content"
+    test_file = tmp_path / "model.pkl"
+    test_file.write_bytes(test_data)
+
+    with mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_get_repo:
+        mock_repo = mock.MagicMock()
+        mock_repo.get_local_path.return_value = str(test_file)
+        mock_get_repo.return_value = mock_repo
+
+        resp = flask_client.get("/api/2.0/mlflow-artifacts/artifacts/test/model.pkl")
+
+    assert resp.status_code == 200
+    assert resp.data == test_data
+
+
+def test_flask_fallback_upload(flask_client, tmp_path):
+    test_data = b"flask upload content"
+
+    with mock.patch("mlflow.server.handlers._get_artifact_repo_mlflow_artifacts") as mock_get_repo:
+        mock_repo = mock.MagicMock(spec=LocalArtifactRepository)
+        mock_get_repo.return_value = mock_repo
+
+        resp = flask_client.put(
+            "/api/2.0/mlflow-artifacts/artifacts/nested/model.pkl",
+            data=test_data,
+        )
+
+    assert resp.status_code == 200
+    mock_repo.log_artifact_from_stream.assert_called_once()
