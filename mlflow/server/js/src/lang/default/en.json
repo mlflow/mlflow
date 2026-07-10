@@ -115,6 +115,10 @@
     "defaultMessage": "Persona",
     "description": "Label for the simulation persona metadata in chat session metrics"
   },
+  "+Z4/JQ": {
+    "defaultMessage": "The budget applies only to requests made by this authenticated user. Requires server authentication to be enabled.",
+    "description": "Helper text for per-user budget principal in edit modal"
+  },
   "+a87Om": {
     "defaultMessage": "{count, plural, one {# question} other {# questions}} selected",
     "description": "Queue settings: questions dropdown selected-count summary"
@@ -5847,6 +5851,10 @@
     "defaultMessage": "Compare runs",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > title"
   },
+  "RDXmoF": {
+    "defaultMessage": "The budget applies only to requests made by this authenticated user. Requires server authentication to be enabled.",
+    "description": "Helper text for per-user budget scope"
+  },
   "RDg+Pl": {
     "defaultMessage": "Time",
     "description": "Label for the time select dropdown for experiment runs view"
@@ -9526,6 +9534,10 @@
   "iCdWsS": {
     "defaultMessage": "Adheres to guidelines",
     "description": "Evaluation results > conversational guidelines assessment > positive value label. Displayed if the assistant adheres to guidelines throughout the conversation."
+  },
+  "iCiZbd": {
+    "defaultMessage": "Username, e.g., alice",
+    "description": "Budget principal (username) placeholder"
   },
   "iDpAK8": {
     "defaultMessage": "Add tags",

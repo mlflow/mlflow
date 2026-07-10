@@ -159,6 +159,34 @@ describe('BudgetsList', () => {
     expect(screen.getByText('e-deleted')).toBeInTheDocument();
   });
 
+  test('renders the applies-to column for user and non-user policies', () => {
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: [
+        mockPolicies[0],
+        {
+          ...mockPolicies[0],
+          budget_policy_id: 'bp-user',
+          target_scope: 'USER' as const,
+          principal: 'alice',
+        },
+      ],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText('Applies to')).toBeInTheDocument();
+    // The GLOBAL policy applies to everyone; the USER policy shows its principal.
+    expect(screen.getByText('All endpoints')).toBeInTheDocument();
+    expect(screen.getByText('alice')).toBeInTheDocument();
+  });
+
   test('renders window columns with spend data when available', () => {
     jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
       data: [mockPolicies[0]],

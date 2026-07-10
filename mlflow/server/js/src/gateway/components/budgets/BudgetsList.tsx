@@ -53,6 +53,9 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
     if (policy.target_scope === 'ENDPOINT') {
       return endpointNamesById.get(policy.endpoint_id ?? '') ?? policy.endpoint_id;
     }
+    if (policy.target_scope === 'USER') {
+      return policy.principal;
+    }
     return formatMessage({
       defaultMessage: 'All endpoints',
       description: 'Budget scope label for global or workspace-wide policies',

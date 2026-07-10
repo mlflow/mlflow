@@ -17,7 +17,9 @@ import type { BudgetAction, DurationUnit } from '../../types';
 import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
 
 type DurationPreset = 'DAILY' | 'WEEKLY' | 'MONTHLY';
-type BudgetScopeChoice = 'ALL' | 'ENDPOINT';
+
+// 'ALL' maps to WORKSPACE when workspaces are enabled, GLOBAL otherwise.
+type BudgetScopeChoice = 'ALL' | 'ENDPOINT' | 'USER';
 
 const DURATION_MAP: Record<DurationPreset, { unit: DurationUnit; value: number }> = {
   DAILY: { unit: 'DAYS', value: 1 },
@@ -37,6 +39,7 @@ interface FormData {
   budgetAction: BudgetAction;
   scope: BudgetScopeChoice;
   endpointId: string;
+  principal: string;
 }
 
 const INITIAL_FORM_DATA: FormData = {
@@ -45,6 +48,7 @@ const INITIAL_FORM_DATA: FormData = {
   budgetAction: 'REJECT',
   scope: 'ALL',
   endpointId: '',
+  principal: '',
 };
 
 export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudgetPolicyModalProps) => {
@@ -76,13 +80,15 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
   const isFormValid = useMemo(() => {
     const amount = parseFloat(formData.budgetAmount);
     if (isNaN(amount) || amount <= 0) return false;
-    return formData.scope !== 'ENDPOINT' || Boolean(formData.endpointId);
-  }, [formData.budgetAmount, formData.scope, formData.endpointId]);
+    if (formData.scope === 'ENDPOINT') return Boolean(formData.endpointId);
+    return formData.scope !== 'USER' || formData.principal.trim().length > 0;
+  }, [formData.budgetAmount, formData.scope, formData.endpointId, formData.principal]);
 
   const handleSubmit = useCallback(async () => {
     if (!isFormValid) return;
 
     const { unit, value } = DURATION_MAP[formData.duration];
+    const isUserScope = formData.scope === 'USER';
 
     try {
       await createBudgetPolicy({
@@ -91,8 +97,11 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
         duration: { unit, value },
         ...(formData.scope === 'ENDPOINT'
           ? { target_scope: 'ENDPOINT' as const, endpoint_id: formData.endpointId }
-          : { target_scope: getWorkspacesEnabledSync() ? ('WORKSPACE' as const) : ('GLOBAL' as const) }),
+          : isUserScope
+            ? { target_scope: 'USER' as const }
+            : { target_scope: getWorkspacesEnabledSync() ? ('WORKSPACE' as const) : ('GLOBAL' as const) }),
         budget_action: formData.budgetAction,
+        ...(isUserScope && { principal: formData.principal.trim() }),
       });
     } catch {
       // `mutationError` is populated by `useCreateBudgetPolicy` and rendered
@@ -180,8 +189,9 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
             value={formData.scope}
             onChange={({ target }) => handleFieldChange('scope', target.value as BudgetScopeChoice)}
           >
-            <SimpleSelectOption value="ALL">All endpoints</SimpleSelectOption>
+            <SimpleSelectOption value="ALL">All endpoints and users</SimpleSelectOption>
             <SimpleSelectOption value="ENDPOINT">Specific endpoint</SimpleSelectOption>
+            <SimpleSelectOption value="USER">Specific user</SimpleSelectOption>
           </SimpleSelect>
           {formData.scope === 'ENDPOINT' && (
             <SimpleSelect
@@ -200,6 +210,25 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
                 </SimpleSelectOption>
               ))}
             </SimpleSelect>
+          )}
+          {formData.scope === 'USER' && (
+            <>
+              <Input
+                componentId="mlflow.gateway.create-budget-policy-modal.principal"
+                value={formData.principal}
+                onChange={(e) => handleFieldChange('principal', e.target.value)}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Username, e.g., alice',
+                  description: 'Budget principal (username) placeholder',
+                })}
+              />
+              <Typography.Text color="secondary" size="sm">
+                <FormattedMessage
+                  defaultMessage="The budget applies only to requests made by this authenticated user. Requires server authentication to be enabled."
+                  description="Helper text for per-user budget scope"
+                />
+              </Typography.Text>
+            </>
           )}
         </div>
 

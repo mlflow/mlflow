@@ -1,6 +1,6 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
-import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
+import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { EditBudgetPolicyModal } from './EditBudgetPolicyModal';
 import { useUpdateBudgetPolicy } from '../../hooks/useUpdateBudgetPolicy';
 import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
@@ -30,6 +30,14 @@ const mockEndpointPolicy: BudgetPolicy = {
   budget_policy_id: 'bp-ep',
   target_scope: 'ENDPOINT',
   endpoint_id: 'e-1',
+};
+
+const mockUserPolicy: BudgetPolicy = {
+  ...mockPolicy,
+  budget_policy_id: 'bp-user',
+  target_scope: 'USER',
+  budget_action: 'REJECT',
+  principal: 'alice',
 };
 
 describe('EditBudgetPolicyModal', () => {
@@ -115,7 +123,7 @@ describe('EditBudgetPolicyModal', () => {
 
     const [scopeSelect] = screen.getAllByRole('combobox');
     await userEvent.click(scopeSelect);
-    await userEvent.click(screen.getByRole('option', { name: 'All endpoints' }));
+    await userEvent.click(screen.getByRole('option', { name: 'All endpoints and users' }));
 
     await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
@@ -127,6 +135,98 @@ describe('EditBudgetPolicyModal', () => {
       target_scope: 'GLOBAL',
       budget_action: 'ALERT',
     });
+  });
+
+  test('renders principal field populated for a USER-scoped policy', () => {
+    renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockUserPolicy} onClose={jest.fn()} />);
+
+    expect(screen.getByText('Specific user')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('alice')).toBeInTheDocument();
+  });
+
+  test('does not render principal field for a non-USER policy', () => {
+    renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockPolicy} onClose={jest.fn()} />);
+
+    expect(screen.queryByPlaceholderText('Username, e.g., alice')).not.toBeInTheDocument();
+  });
+
+  test('preserves USER scope and submits edited principal', async () => {
+    renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockUserPolicy} onClose={jest.fn()} />);
+
+    const principalInput = screen.getByDisplayValue('alice');
+    await userEvent.clear(principalInput);
+    await userEvent.type(principalInput, 'bob');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      budget_policy_id: 'bp-user',
+      budget_unit: 'USD',
+      budget_amount: 200,
+      duration: { unit: 'WEEKS', value: 1 },
+      target_scope: 'USER',
+      budget_action: 'REJECT',
+      principal: 'bob',
+    });
+  });
+
+  test('disables save when the principal of a USER policy is cleared', async () => {
+    renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockUserPolicy} onClose={jest.fn()} />);
+
+    await userEvent.clear(screen.getByDisplayValue('alice'));
+
+    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+  });
+
+  test('does not propagate unhandled rejection when submit fails (e.g. USER scope without auth)', async () => {
+    const onClose = jest.fn();
+    const onSuccess = jest.fn();
+    // Lazy-construct the rejection so it isn't created at mock-setup time
+    // (which would briefly look unhandled before the modal awaits it).
+    const rejectingMutateAsync = jest
+      .fn()
+      .mockImplementation(() =>
+        Promise.reject(new Error('USER-scoped budget policies require server authentication to be enabled.')),
+      );
+    jest.mocked(useUpdateBudgetPolicy).mockReturnValue({
+      mutateAsync: rejectingMutateAsync,
+      isLoading: false,
+      error: null,
+      reset: jest.fn(),
+    } as any);
+
+    const unhandledRejections: unknown[] = [];
+    const handler = (event: PromiseRejectionEvent) => {
+      // Suppress the runtime's default behavior so a reintroduced unhandled
+      // rejection surfaces as a clean assertion failure below rather than
+      // crashing the whole jest worker.
+      event.preventDefault();
+      unhandledRejections.push(event.reason);
+    };
+    window.addEventListener('unhandledrejection', handler);
+
+    try {
+      renderWithDesignSystem(
+        <EditBudgetPolicyModal open policy={mockPolicy} onClose={onClose} onSuccess={onSuccess} />,
+      );
+
+      await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+      // `unhandledrejection` is dispatched asynchronously, so a regression
+      // could fire it on a later turn. Wait for the rejected mutation to be
+      // observed, then advance one macrotask so any pending rejection event
+      // has had a chance to run before we assert.
+      await waitFor(() => expect(rejectingMutateAsync).toHaveBeenCalledTimes(1));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(unhandledRejections).toEqual([]);
+      // Modal stays open and onSuccess does not fire on failure.
+      expect(onClose).not.toHaveBeenCalled();
+      expect(onSuccess).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener('unhandledrejection', handler);
+    }
   });
 
   test('displays error message on mutation failure', () => {
