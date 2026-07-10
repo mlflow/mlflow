@@ -1,0 +1,159 @@
+"""SAP AI Core Orchestration v2 provider for MLflow Gateway.
+
+URI scheme: ``sap-ai-core:/<model-name>``
+
+The model name is embedded in the Orchestration v2 request body under
+``config.modules.prompt_templating.model.name``.  Auth is not handled here —
+requests are routed through an HTTP egress gateway (``http://`` scheme) that
+intercepts the call, attaches a bearer token, and forwards it externally.
+
+Environment variable:
+    ``MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL`` — full URL of the AI Core
+    Orchestration endpoint (required). Supports ``http://`` for egress-gateway
+    routing as well as ``https://``.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from mlflow.exceptions import MlflowException
+from mlflow.gateway.config import EndpointConfig, _OpenAICompatibleConfig
+from mlflow.gateway.providers.base import ProviderAdapter
+from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter, OpenAICompatibleProvider
+from mlflow.gateway.schemas import chat
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+#: Inference parameter keys that are forwarded to the model's ``params`` block.
+_FORWARDED_PARAMS = frozenset(
+    {
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "frequency_penalty",
+        "presence_penalty",
+        "stop",
+        "n",
+        "seed",
+    }
+)
+
+
+class SapAiCoreAdapter(ProviderAdapter):
+    """Translates between MLflow's OpenAI-style payload and the AI Core
+    Orchestration v2 request/response format.
+
+    Request mapping
+    ---------------
+    OpenAI ``messages`` list → ``config.modules.prompt_templating.prompt.template``
+    OpenAI model name        → ``config.modules.prompt_templating.model.name``
+    OpenAI inference params  → ``config.modules.prompt_templating.model.params``
+
+    Response mapping
+    ----------------
+    The Orchestration v2 response wraps the LLM completion under a
+    ``final_result`` key.  The adapter unwraps it and delegates to
+    :class:`~mlflow.gateway.providers.openai_compatible.OpenAICompatibleAdapter`.
+    """
+
+    @classmethod
+    def chat_to_model(cls, payload: dict[str, Any], config: EndpointConfig) -> dict[str, Any]:
+        messages = payload.get("messages", [])
+        model_name = config.model.name
+
+        params = {k: payload[k] for k in _FORWARDED_PARAMS if k in payload}
+
+        prompt_templating: dict[str, Any] = {
+            "prompt": {
+                "template": [
+                    {"role": m["role"], "content": m.get("content") or ""}
+                    for m in messages
+                ]
+            },
+            "model": {
+                "name": model_name,
+                **({"params": params} if params else {}),
+            },
+        }
+
+        return {
+            "config": {
+                "modules": {
+                    "prompt_templating": prompt_templating,
+                }
+            },
+            "placeholder_values": payload.get("placeholder_values", {}),
+        }
+
+    @classmethod
+    def model_to_chat(cls, resp: dict[str, Any], config: EndpointConfig) -> chat.ResponsePayload:
+        # The Orchestration v2 wrapper: {"request_id": "...", "final_result": {...}, ...}
+        # ``final_result`` is a standard OpenAI chat completion object.
+        final = resp.get("final_result", resp)
+        return OpenAICompatibleAdapter.model_to_chat(final, config)
+
+    # ------------------------------------------------------------------ #
+    # Required abstract stubs — not exercised via the judge path           #
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    def model_to_embeddings(cls, resp, config):
+        raise NotImplementedError
+
+    @classmethod
+    def model_to_completions(cls, resp, config):
+        raise NotImplementedError
+
+    @classmethod
+    def completions_to_model(cls, payload, config):
+        raise NotImplementedError
+
+    @classmethod
+    def embeddings_to_model(cls, payload, config):
+        raise NotImplementedError
+
+
+class SapAiCoreProvider(OpenAICompatibleProvider):
+    """MLflow Gateway provider for SAP AI Core Orchestration v2.
+
+    Reads the endpoint URL from ``MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL``.
+    No ``Authorization`` header is added — the egress gateway is responsible
+    for attaching credentials before the request leaves the cluster.
+    ``extra_headers`` (e.g. ``AI-Resource-Group``) are merged in by the
+    :class:`~mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter`
+    caller and forwarded as-is.
+    """
+
+    DISPLAY_NAME = "SAP AI Core"
+    CONFIG_TYPE = _OpenAICompatibleConfig
+    DEFAULT_API_BASE = ""
+
+    @property
+    def adapter_class(self) -> type[SapAiCoreAdapter]:
+        return SapAiCoreAdapter
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        from mlflow.environment_variables import MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL
+
+        url = MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL.get()
+        if not url:
+            raise MlflowException(
+                "MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL environment variable must be set "
+                "when using the sap-ai-core:/ provider.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return url.rstrip("/")
+
+    @property
+    def headers(self) -> dict[str, str]:
+        # Auth is handled by the egress gateway — return empty dict intentionally.
+        return {}
+
+    async def chat(self, payload):
+        raise NotImplementedError
+
+    async def completions(self, payload):
+        raise NotImplementedError
+
+    async def embeddings(self, payload):
+        raise NotImplementedError

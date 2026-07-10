@@ -320,6 +320,7 @@ class BuiltInScorer(Judge):
     name: str
     required_columns: set[str] = set()
     inference_params: dict[str, Any] | None = None
+    extra_headers: dict[str, str] | None = None
 
     @property
     @abstractmethod
@@ -522,6 +523,7 @@ class RetrievalRelevance(BuiltInScorer):
                     prompt,
                     assessment_name=self.name,
                     inference_params=self.inference_params,
+                    extra_headers=self.extra_headers,
                 )
                 sanitized_feedback = _sanitize_scorer_feedback(feedback)
                 sanitized_feedback.metadata = {
@@ -676,6 +678,7 @@ class RetrievalSufficiency(BuiltInScorer):
                 expected_facts=expected_facts,
                 name=self.name,
                 model=self.model,
+                extra_headers=self.extra_headers,
             )
             feedback.span_id = span_id
             feedbacks.append(feedback)
@@ -783,6 +786,7 @@ class RetrievalGroundedness(BuiltInScorer):
                 context=context,
                 name=self.name,
                 model=self.model,
+                extra_headers=self.extra_headers,
             )
             feedback.span_id = span_id
             feedbacks.append(feedback)
@@ -867,6 +871,7 @@ class ToolCallEfficiency(BuiltInScorer):
             available_tools=available_tools,
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
 
 
@@ -1117,6 +1122,7 @@ class ToolCallCorrectness(BuiltInScorer):
                 check_order=self.should_consider_ordering,
                 name=self.name,
                 model=self.model,
+                extra_headers=self.extra_headers,
             )
 
         # Only compare arguments if all expected calls have arguments specified
@@ -1149,6 +1155,7 @@ class ToolCallCorrectness(BuiltInScorer):
             check_order=self.should_consider_ordering,
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
 
 
@@ -1297,6 +1304,7 @@ class Guidelines(BuiltInScorer):
             },
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         sanitized = _sanitize_scorer_feedback(feedback)
         # Surface the guideline text in assessment metadata so the UI can show
@@ -1462,6 +1470,7 @@ class ExpectationsGuidelines(BuiltInScorer):
             },
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         sanitized = _sanitize_scorer_feedback(feedback)
         # Surface the guideline text in assessment metadata so the UI can show
@@ -1584,7 +1593,8 @@ class RelevanceToQuery(BuiltInScorer):
         # Use the existing scorer implementation with extracted/provided fields
         request = parse_inputs_to_str(fields.inputs)
         feedback = judges.is_context_relevant(
-            request=request, context=fields.outputs, name=self.name, model=self.model
+            request=request, context=fields.outputs, name=self.name, model=self.model,
+            extra_headers=self.extra_headers,
         )
         return _sanitize_scorer_feedback(feedback)
 
@@ -1691,6 +1701,7 @@ class Safety(BuiltInScorer):
             content=parse_outputs_to_str(fields.outputs),
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         return _sanitize_scorer_feedback(feedback)
 
@@ -1887,6 +1898,7 @@ class Correctness(BuiltInScorer):
             expected_facts=expected_facts,
             name=self.name,
             model=self.model,
+            extra_headers=self.extra_headers,
         )
         return _sanitize_scorer_feedback(feedback)
 

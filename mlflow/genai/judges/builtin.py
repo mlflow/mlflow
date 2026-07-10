@@ -67,7 +67,12 @@ def requires_databricks_agents(func):
 
 @format_docstring(_MODEL_API_DOC)
 def is_context_relevant(
-    *, request: str, context: Any, name: str | None = None, model: str | None = None
+    *,
+    request: str,
+    context: Any,
+    name: str | None = None,
+    model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given context is relevant to the input request.
@@ -124,7 +129,11 @@ def is_context_relevant(
     else:
         prompt = get_prompt(request, str(context))
         feedback = invoke_judge_model(
-            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+            model,
+            prompt,
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
@@ -139,6 +148,7 @@ def is_context_sufficient(
     expected_response: str | None = None,
     name: str | None = None,
     model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given context is sufficient to answer the input request.
@@ -207,7 +217,11 @@ def is_context_sufficient(
             expected_facts=expected_facts,
         )
         feedback = invoke_judge_model(
-            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+            model,
+            prompt,
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
@@ -222,6 +236,7 @@ def is_correct(
     expected_response: str | None = None,
     name: str | None = None,
     model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the expected facts are supported by the response.
@@ -296,7 +311,11 @@ def is_correct(
             expected_facts=expected_facts,
         )
         feedback = invoke_judge_model(
-            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+            model,
+            prompt,
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
@@ -310,6 +329,7 @@ def is_grounded(
     context: Any,
     name: str | None = None,
     model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response is grounded in the given context.
@@ -375,7 +395,11 @@ def is_grounded(
             context=context,
         )
         feedback = invoke_judge_model(
-            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+            model,
+            prompt,
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
@@ -390,6 +414,7 @@ def is_tool_call_efficient(
     available_tools: list["ChatTool"],
     name: str | None = None,
     model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the agent's tool usage is efficient and free of redundancy.
@@ -482,7 +507,11 @@ def is_tool_call_efficient(
 
     prompt = get_prompt(request=request, tools_called=tools_called, available_tools=available_tools)
     feedback = invoke_judge_model(
-        model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+        model,
+        prompt,
+        assessment_name=assessment_name,
+        use_case=USE_CASE_BUILTIN_JUDGE,
+        extra_headers=extra_headers,
     )
 
     return _sanitize_feedback(feedback)
@@ -500,6 +529,7 @@ def is_tool_call_correct(
     check_order: bool = False,
     name: str | None = None,
     model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the agent's tool calls and their arguments are correct
@@ -583,14 +613,24 @@ def is_tool_call_correct(
         check_order=check_order,
     )
     feedback = invoke_judge_model(
-        model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+        model,
+        prompt,
+        assessment_name=assessment_name,
+        use_case=USE_CASE_BUILTIN_JUDGE,
+        extra_headers=extra_headers,
     )
 
     return _sanitize_feedback(feedback)
 
 
 @format_docstring(_MODEL_API_DOC)
-def is_safe(*, content: str, name: str | None = None, model: str | None = None) -> Feedback:
+def is_safe(
+    *,
+    content: str,
+    name: str | None = None,
+    model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
+) -> Feedback:
     """
     LLM judge determines whether the given response is safe.
 
@@ -624,7 +664,11 @@ def is_safe(*, content: str, name: str | None = None, model: str | None = None) 
     else:
         prompt = get_prompt(content=content)
         feedback = invoke_judge_model(
-            model, prompt, assessment_name=assessment_name, use_case=USE_CASE_BUILTIN_JUDGE
+            model,
+            prompt,
+            assessment_name=assessment_name,
+            use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
@@ -637,6 +681,7 @@ def meets_guidelines(
     context: dict[str, Any],
     name: str | None = None,
     model: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response meets the given guideline(s).
@@ -693,6 +738,7 @@ def meets_guidelines(
             prompt,
             assessment_name=name or GUIDELINES_FEEDBACK_NAME,
             use_case=USE_CASE_BUILTIN_JUDGE,
+            extra_headers=extra_headers,
         )
 
     return _sanitize_feedback(feedback)
