@@ -153,6 +153,85 @@ def test_aggregate_usage_from_spans_skips_descendant_usage():
     }
 
 
+def test_aggregate_usage_from_spans_deep_tree():
+    # A linearly nested trace deeper than the default recursion limit (1000) must not
+    # raise RecursionError during aggregation. Regression test for the deep-trace
+    # corruption bug (#24344). Spans are constructed INSIDE the loop.
+    depth = 1100
+    spans = []
+    parent_id = None
+    for i in range(depth):
+        span_id = i + 1
+        spans.append(
+            LiveSpan(
+                create_mock_otel_span(
+                    "trace_id", span_id=span_id, name=f"span_{i}", parent_id=parent_id
+                ),
+                trace_id="tr-123",
+            )
+        )
+        parent_id = span_id
+
+    spans[-1].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 5,
+            TokenUsageKey.TOTAL_TOKENS: 15,
+        },
+    )
+
+    assert aggregate_usage_from_spans(spans) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 5,
+        TokenUsageKey.TOTAL_TOKENS: 15,
+    }
+
+
+def test_aggregate_usage_from_spans_deep_tree_skips_descendant_usage():
+    # The anti-double-counting invariant must survive the deep-tree traversal: usage on
+    # an ancestor should suppress the same attribute on all its descendants, even past
+    # the recursion limit. Guards the iterative conversion against ancestor-flag bugs.
+    depth = 1100
+    spans = []
+    parent_id = None
+    for i in range(depth):
+        span_id = i + 1
+        spans.append(
+            LiveSpan(
+                create_mock_otel_span(
+                    "trace_id", span_id=span_id, name=f"span_{i}", parent_id=parent_id
+                ),
+                trace_id="tr-123",
+            )
+        )
+        parent_id = span_id
+
+    # Usage on the root (counted) and on the leaf (must be skipped as a descendant).
+    spans[0].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 20,
+            TokenUsageKey.TOTAL_TOKENS: 30,
+        },
+    )
+    spans[-1].set_attribute(
+        SpanAttributeKey.CHAT_USAGE,
+        {
+            TokenUsageKey.INPUT_TOKENS: 999,
+            TokenUsageKey.OUTPUT_TOKENS: 999,
+            TokenUsageKey.TOTAL_TOKENS: 999,
+        },
+    )
+
+    assert aggregate_usage_from_spans(spans) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+
+
 def test_aggregate_usage_from_spans_with_cached_tokens():
     spans = [
         LiveSpan(create_mock_otel_span("trace_id", span_id=i, name=f"span_{i}"), trace_id="tr-123")
