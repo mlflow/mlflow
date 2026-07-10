@@ -2631,6 +2631,13 @@ BEFORE_REQUEST_VALIDATORS = {
     for http_path, handler, methods in get_endpoints(get_before_request_handler)
     for method in methods
     if "/scorers/online-config" not in http_path
+    # ``get_endpoints`` hardcodes the view function as the handler for explicitly
+    # defined endpoints (e.g. ``/mlflow/issues/invoke``), ignoring the selector we
+    # pass. Keep only genuine auth validators so a view function like
+    # ``_invoke_issue_detection_handler`` isn't mistakenly invoked as a before-request
+    # validator (which would run the endpoint's side effects — creating runs and
+    # submitting jobs — a second time, before the real handler runs).
+    and handler in BEFORE_REQUEST_HANDLERS.values()
 }
 
 # Auth-related routes

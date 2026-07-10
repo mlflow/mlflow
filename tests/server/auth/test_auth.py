@@ -200,6 +200,37 @@ def test_proxy_artifact_mpu_validator_returns_update_for_post():
     assert validator is auth_module.validate_can_update_experiment_artifact_proxy
 
 
+@pytest.mark.parametrize(
+    ("path", "method"),
+    [
+        ("/ajax-api/3.0/mlflow/issues/invoke", "POST"),
+        ("/ajax-api/3.0/mlflow/genai/evaluate/invoke", "POST"),
+        ("/ajax-api/3.0/mlflow/demo/generate", "POST"),
+        ("/ajax-api/3.0/mlflow/demo/delete", "POST"),
+        ("/ajax-api/3.0/mlflow/jobs/<job_id>", "GET"),
+        ("/ajax-api/3.0/mlflow/jobs/cancel/<job_id>", "PATCH"),
+        ("/graphql", "GET"),
+        ("/api/3.0/mlflow/server-info", "GET"),
+    ],
+)
+def test_before_request_validators_excludes_view_function_endpoints(path, method):
+    # ``get_endpoints`` hardcodes the view function for explicitly defined endpoints,
+    # so without filtering these leak into BEFORE_REQUEST_VALIDATORS and get called as
+    # validators — re-running the endpoint's side effects. Guard against that.
+    assert (path, method) not in auth_module.BEFORE_REQUEST_VALIDATORS
+
+
+def test_before_request_validators_only_contains_real_validators():
+    proto_validators = set(auth_module.BEFORE_REQUEST_HANDLERS.values())
+    leaked = {
+        (path, method): handler
+        for (path, method), handler in auth_module.BEFORE_REQUEST_VALIDATORS.items()
+        if getattr(handler, "__module__", "") == "mlflow.server.handlers"
+        and handler not in proto_validators
+    }
+    assert leaked == {}
+
+
 def test_proxy_artifact_authorization_required(client, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
