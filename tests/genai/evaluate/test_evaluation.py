@@ -2091,6 +2091,36 @@ def test_run_predict_clone_read_hit_sets_trace_without_error(mlflow_experiment_t
     assert eval_item.error_message is None
 
 
+def test_evaluate_completes_when_cloned_trace_read_back_misses():
+    # Reproduce #24355: a real cross-experiment clone (searched traces live in a different
+    # experiment than the eval run), where the cloned trace's async read-back misses and
+    # returns None. evaluate() must complete without the AttributeError instead of crashing.
+    exp_id = mlflow.set_experiment("traces exp").experiment_id
+    with mlflow.start_span(name="qa") as span:
+        span.set_inputs({"question": "What is MLflow?"})
+        span.set_outputs("MLflow is a tool for ML")
+    mlflow.set_experiment("diff exp")
+
+    trace_df = mlflow.search_traces(locations=[exp_id])
+
+    real_get_trace = mlflow.get_trace
+    first_call = {"seen": False}
+
+    def fake_get_trace(trace_id, *args, **kwargs):
+        # The first get_trace in the pipeline is the clone read-back in _run_predict; null it
+        # to simulate the read-after-write miss. Later calls pass through unchanged.
+        if not first_call["seen"]:
+            first_call["seen"] = True
+            return None
+        return real_get_trace(trace_id, *args, **kwargs)
+
+    with mock.patch("mlflow.get_trace", side_effect=fake_get_trace) as mock_get_trace:
+        result = mlflow.genai.evaluate(data=trace_df, scorers=[has_trace])
+
+    mock_get_trace.assert_any_call(mock.ANY, flush=True)
+    assert result.metrics is not None
+
+
 def _make_score_submitter(session_groups):
     return _ScoreSubmitter(
         eval_items=[item for items in session_groups.values() for item in items],
