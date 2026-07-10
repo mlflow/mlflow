@@ -199,11 +199,16 @@ def test_proxy_artifact_mpu_validator_returns_update_for_post():
     assert validator is auth_module.validate_can_update_experiment_artifact_proxy
 
 
-def test_after_request_handlers_excludes_issue_detection_endpoint():
-    assert (
-        ("/ajax-api/3.0/mlflow/issues/invoke", "POST")
-        not in auth_module.AFTER_REQUEST_HANDLERS
-    )
+def test_after_request_handlers_contains_only_declared_handlers():
+    declared = set(auth_module.AFTER_REQUEST_PATH_HANDLERS.values())
+
+    leaked = {
+        (path, method): handler
+        for (path, method), handler in auth_module.AFTER_REQUEST_HANDLERS.items()
+        if handler not in declared
+    }
+
+    assert leaked == {}
 
 
 def test_proxy_artifact_authorization_required(client, monkeypatch):
