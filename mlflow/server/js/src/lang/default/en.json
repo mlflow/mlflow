@@ -731,6 +731,10 @@
     "defaultMessage": "Prompts",
     "description": "Title for linked prompts table on logged model details page"
   },
+  "1TTYjs": {
+    "defaultMessage": "Close guidance",
+    "description": "Aria label for closing the analyze with assistant guidance popover"
+  },
   "1Ujhc3": {
     "defaultMessage": "True",
     "description": "True assessment label"
@@ -882,6 +886,10 @@
   "2Hf+yU": {
     "defaultMessage": "Time (wall)",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option is for the absolute time that the metrics were logged."
+  },
+  "2HyEkO": {
+    "defaultMessage": "Analyze traces with the MLflow assistant",
+    "description": "Aria label for the analyze with assistant button"
   },
   "2I27Yy": {
     "defaultMessage": "(empty)",
@@ -1371,6 +1379,10 @@
     "defaultMessage": "Close",
     "description": "Close button for tag details modal"
   },
+  "4b6A7E": {
+    "defaultMessage": "Undo",
+    "description": "Experiment page > shared view > undo button on the override confirmation toast"
+  },
   "4cnExh": {
     "defaultMessage": "{count, plural, one {# reviewer} other {# reviewers}} selected",
     "description": "Queue settings: reviewers dropdown selected-count summary"
@@ -1431,6 +1443,10 @@
     "defaultMessage": "Unique identifier for the trace",
     "description": "Tooltip description for the Trace ID column in the traces table"
   },
+  "4yuYDg": {
+    "defaultMessage": "Got it",
+    "description": "Analyze with assistant guidance dismiss button"
+  },
   "4zJtO4": {
     "defaultMessage": "Copy for coding agent",
     "description": "Tab label for the copy-prompt-to-coding-agent path in the agent action card"
@@ -1474,6 +1490,10 @@
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
+  },
+  "5K6npM": {
+    "defaultMessage": "Analyze with Assistant",
+    "description": "Button that opens the MLflow assistant side panel to analyze the current trace"
   },
   "5LORfM": {
     "defaultMessage": "Key name cannot be changed. Create a new key if a different name is needed.",
@@ -2483,6 +2503,10 @@
     "defaultMessage": "avg per request",
     "description": "Subtitle for average tokens per request in gateway"
   },
+  "A0m0mR": {
+    "defaultMessage": "You're viewing a shared view. Your changes won't be saved unless you override your own saved view.",
+    "description": "Experiment page > shared view banner > explanation that the shared view is read-only"
+  },
   "A1ljDC": {
     "defaultMessage": "Docs",
     "description": "Sidebar link for docs page"
@@ -2722,6 +2746,10 @@
   "BD8ZUj": {
     "defaultMessage": "{isTraces, select, true {Trace} other {Session}} {index} of {total}",
     "description": "Index of the current trace and total number of traces"
+  },
+  "BDmDMg": {
+    "defaultMessage": "Your saved view was overridden.",
+    "description": "Experiment page > shared view > confirmation toast after overriding the user's saved view with a shared view"
   },
   "BDnRzZ": {
     "defaultMessage": "Total cost: {cost}",
@@ -2971,6 +2999,10 @@
     "defaultMessage": "System Metrics",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > system metrics heading"
   },
+  "CIpiSM": {
+    "defaultMessage": "Allow",
+    "description": "Button to allow a tool-call permission request"
+  },
   "CKwhUr": {
     "defaultMessage": "Move to Todo",
     "description": "Review focused view: send a completed/declined trace back to the to-do list"
@@ -3190,6 +3222,10 @@
   "DQ3XQT": {
     "defaultMessage": "Diff highlighting is not supported in Markdown view. Switch to Text view to see differences.",
     "description": "Warning message shown in prompt comparison view when markdown rendering is enabled"
+  },
+  "DSBiYz": {
+    "defaultMessage": "Discard",
+    "description": "Experiment page > shared view banner > button that discards the shared view and restores the user's own view"
   },
   "DSu+/R": {
     "defaultMessage": "Select reviewers",
@@ -5059,6 +5095,10 @@
     "defaultMessage": "Is the text grammatically correct and naturally flowing?",
     "description": "Hint for Fluency template"
   },
+  "NX60WQ": {
+    "defaultMessage": "Override saved view",
+    "description": "Experiment page > shared view banner > button that overwrites the user's own saved view with the shared view"
+  },
   "NekUba": {
     "defaultMessage": "Add to dataset",
     "description": "Button text for adding a trace to an evaluation dataset"
@@ -6551,6 +6591,10 @@
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
     "description": "Tooltip message for the export button when the trace is not exportable"
   },
+  "V0IJuy": {
+    "defaultMessage": "Allow the assistant to run {toolName}?",
+    "description": "Title of the prompt asking the user to approve a tool call"
+  },
   "V1kYC+": {
     "defaultMessage": "Select element type",
     "description": "Placeholder for list element type"
@@ -6871,6 +6915,10 @@
     "defaultMessage": "Failed to update workspace. Please try again.",
     "description": "Generic error message for edit workspace modal"
   },
+  "WLGBoB": {
+    "defaultMessage": "Chat with Traces in Assistant",
+    "description": "Analyze with assistant guidance popover title"
+  },
   "WP1pyQ": {
     "defaultMessage": "Created by",
     "description": "Column title for created by column for a model in the registered model page"
@@ -7010,6 +7058,10 @@
   "X/TTxm": {
     "defaultMessage": "Previous trace",
     "description": "Review focused view: previous-trace button"
+  },
+  "X1/rxD": {
+    "defaultMessage": "MLflow Assistant",
+    "description": "Label revealed when hovering the floating MLflow assistant button"
   },
   "X11caV": {
     "defaultMessage": "Failed to override assessment. Error: {error}",
@@ -7666,6 +7718,10 @@
   "aAAHaS": {
     "defaultMessage": "Context insufficient",
     "description": "Evaluation results > context sufficiency assessment > negative value label. Displayed if retrieved context is insufficient to generate the expected response."
+  },
+  "aAcCh2": {
+    "defaultMessage": "Analyze with Assistant",
+    "description": "Traces table toolbar button that opens the MLflow assistant to analyze the current traces"
   },
   "aB6xFd": {
     "defaultMessage": "Outputs",
@@ -8414,6 +8470,10 @@
   "dft8gv": {
     "defaultMessage": "Permanently delete \"{name}\" and remove its traces from review? This cannot be undone.",
     "description": "Delete review queue: confirm body"
+  },
+  "dkw8bG": {
+    "defaultMessage": "Deny",
+    "description": "Button to deny a tool-call permission request"
   },
   "dl0TeT": {
     "defaultMessage": "Save",
@@ -11335,6 +11395,10 @@
     "defaultMessage": "Duplicate",
     "description": "Gateway > Endpoints list > Duplicate button"
   },
+  "r9EsGo": {
+    "defaultMessage": "This view is too large to fit in a link. The link will open the experiment with your filters and sorting, but without the saved column layout and charts.",
+    "description": "Warning shown in the experiment share-link modal when the view is too large to embed in the URL and a simplified link is shared instead"
+  },
   "rAAy4b": {
     "defaultMessage": "Open dataset record {recordId}",
     "description": "Aria label for the record-id activator in the V2 dataset records table"
@@ -12178,6 +12242,10 @@
   "vbRrqF": {
     "defaultMessage": "Add question",
     "description": "Add review question modal title"
+  },
+  "vcZc8z": {
+    "defaultMessage": "Open the MLflow Assistant to ask questions about your traces, debug failures, and investigate quality issues right alongside your data.",
+    "description": "Analyze with assistant guidance popover message"
   },
   "vedifc": {
     "defaultMessage": "Enter API key or select saved key",
