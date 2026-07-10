@@ -46,7 +46,8 @@ def register_mcp_server(
     tools: list[MCPTool] | None = None,
     create_access_bindings_from_remotes: bool = False,
 ) -> MCPServerVersion:
-    """Register an MCP server from a ``server_json`` payload.
+    """
+    Register an MCP server from a ``server_json`` payload.
 
     If the parent ``MCPServer`` does not exist, it is created automatically.
     If the version already exists, a ``MlflowException`` is raised.
@@ -179,7 +180,8 @@ def register_mcp_server_from_url(
     tools: list[MCPTool] | None = None,
     create_access_bindings_from_remotes: bool = False,
 ) -> MCPServerVersion:
-    """Fetch a ``server.json`` from a URL or local file path and register the MCP server.
+    """
+    Fetch a ``server.json`` from a URL or local file path and register the MCP server.
 
     Args:
         url: HTTP/HTTPS URL or local file path (absolute path or ``file://`` URI)
@@ -221,7 +223,8 @@ def register_mcp_server_from_url(
 
 @experimental(version="3.15.0")
 def get_mcp_server(name: str) -> MCPServer:
-    """Get an MCP server by name.
+    """
+    Get an MCP server by name.
 
     Args:
         name: Server name.
@@ -240,7 +243,8 @@ def search_mcp_servers(
     order_by: list[str] | None = None,
     page_token: str | None = None,
 ) -> PagedList[MCPServer]:
-    """Search MCP servers with optional filtering and pagination.
+    """
+    Search MCP servers with optional filtering and pagination.
 
     Args:
         filter_string: SQL-like filter expression (e.g., ``"status = 'active'"``,
@@ -278,7 +282,8 @@ def update_mcp_server(
     description: str | None = NOT_SET,
     icons: list[MCPIcon] | None = NOT_SET,
 ) -> MCPServer:
-    """Update mutable fields of an MCP server.
+    """
+    Update mutable fields of an MCP server.
 
     Only fields that are explicitly passed are updated; omitted fields are left
     unchanged. Pass ``None`` to clear a field.
@@ -302,7 +307,8 @@ def update_mcp_server(
 
 @experimental(version="3.15.0")
 def delete_mcp_server(name: str) -> None:
-    """Delete an MCP server and all its child entities.
+    """
+    Delete an MCP server and all its child entities.
 
     Args:
         name: Server name.
@@ -320,7 +326,8 @@ def get_mcp_server_version(name: str, version: str) -> MCPServerVersion:
 
 @experimental(version="3.15.0")
 def get_mcp_server_version_by_alias(name: str, alias: str) -> MCPServerVersion:
-    """Resolve an alias to an MCP server version.
+    """
+    Resolve an alias to an MCP server version.
 
     The reserved alias ``"latest"`` delegates to latest-version resolution logic.
 
@@ -336,7 +343,8 @@ def get_mcp_server_version_by_alias(name: str, alias: str) -> MCPServerVersion:
 
 @experimental(version="3.15.0")
 def get_latest_mcp_server_version(name: str) -> MCPServerVersion:
-    """Get the latest version of an MCP server.
+    """
+    Get the latest version of an MCP server.
 
     Resolves using semantic-version ordering: highest semver among ACTIVE versions
     if one exists, otherwise highest semver among non-DELETED versions.
@@ -358,7 +366,8 @@ def search_mcp_server_versions(
     order_by: list[str] | None = None,
     page_token: str | None = None,
 ) -> PagedList[MCPServerVersion]:
-    """Search versions of a specific MCP server.
+    """
+    Search versions of a specific MCP server.
 
     Args:
         name: Server name.
@@ -388,7 +397,8 @@ def update_mcp_server_version(
     status: Literal["draft", "active", "deprecated", "deleted"] | None = NOT_SET,
     tools: list[MCPTool] | None = NOT_SET,
 ) -> MCPServerVersion:
-    """Update mutable fields of an MCP server version.
+    """
+    Update mutable fields of an MCP server version.
 
     Only fields that are explicitly passed are updated; omitted fields are left
     unchanged. Pass ``None`` to clear a field.
@@ -397,8 +407,8 @@ def update_mcp_server_version(
         name: Server name.
         version: Version string.
         display_name: New display name. Pass ``None`` to clear.
-        status: New status (``"draft"``, ``"active"``, ``"deprecated"``, ``"deleted"``).
-            Transition rules are enforced.
+        status: New status (``"draft"``, ``"active"``, ``"deprecated"``,
+            ``"deleted"``). Transition rules are enforced.
         tools: New tool definitions. Pass ``None`` to clear.
 
     Returns:
@@ -429,7 +439,8 @@ def create_mcp_access_binding(
     server_version: str | None = None,
     server_alias: str | None = None,
 ) -> MCPAccessBinding:
-    """Record an approved direct-access binding for an MCP server.
+    """
+    Record an approved direct-access binding for an MCP server.
 
     Exactly one of ``server_version`` or ``server_alias`` must be provided.
 
@@ -480,7 +491,8 @@ def search_mcp_access_bindings(
     order_by: list[str] | None = None,
     page_token: str | None = None,
 ) -> PagedList[MCPAccessBinding]:
-    """Search access bindings across the workspace.
+    """
+    Search access bindings across the workspace.
 
     Args:
         server_name: If provided, limit results to this server.
@@ -515,7 +527,8 @@ def update_mcp_access_binding(
     server_version: str | None = NOT_SET,
     server_alias: str | None = NOT_SET,
 ) -> MCPAccessBinding:
-    """Update an existing access binding.
+    """
+    Update an existing access binding.
 
     Only fields that are explicitly passed are updated; omitted fields are left
     unchanged. Pass ``None`` to clear a field.
@@ -551,7 +564,8 @@ def delete_mcp_access_binding(server_name: str, binding_id: int) -> None:
 
 @experimental(version="3.15.0")
 def set_mcp_server_tag(name: str, key: str, value: str) -> None:
-    """Set a tag on an MCP server (upsert).
+    """
+    Set a tag on an MCP server (upsert).
 
     Args:
         name: Server name.
@@ -568,7 +582,8 @@ def delete_mcp_server_tag(name: str, key: str) -> None:
 
 @experimental(version="3.15.0")
 def set_mcp_server_version_tag(name: str, version: str, key: str, value: str) -> None:
-    """Set a tag on an MCP server version (upsert).
+    """
+    Set a tag on an MCP server version (upsert).
 
     Args:
         name: Server name.
@@ -589,7 +604,8 @@ def delete_mcp_server_version_tag(name: str, version: str, key: str) -> None:
 
 @experimental(version="3.15.0")
 def set_mcp_server_alias(name: str, alias: str, version: str) -> None:
-    """Set an alias on an MCP server pointing to a specific version (upsert).
+    """
+    Set an alias on an MCP server pointing to a specific version (upsert).
 
     The alias name ``"latest"`` is reserved and cannot be set here.
 
