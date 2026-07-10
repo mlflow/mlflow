@@ -13,6 +13,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
 from mlflow.tracking.client import MlflowClient
+from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.uri import get_uri_scheme, is_local_uri
 
@@ -36,6 +37,7 @@ def _parse_enum(value: Any, enum_cls: type[Enum], param_name: str) -> Any:
         ) from None
 
 
+@experimental(version="3.15.0")
 def register_mcp_server(
     server_json: dict[str, Any],
     display_name: str | None = None,
@@ -168,6 +170,7 @@ def _read_server_json_remote(url: str) -> dict[str, Any]:
         ) from e
 
 
+@experimental(version="3.15.0")
 def register_mcp_server_from_url(
     url: str,
     display_name: str | None = None,
@@ -216,6 +219,7 @@ def register_mcp_server_from_url(
 # --- MCPServer CRUD ---
 
 
+@experimental(version="3.15.0")
 def get_mcp_server(name: str) -> MCPServer:
     """Get an MCP server by name.
 
@@ -229,6 +233,7 @@ def get_mcp_server(name: str) -> MCPServer:
     return MlflowClient().get_mcp_server(name=name)
 
 
+@experimental(version="3.15.0")
 def search_mcp_servers(
     filter_string: str | None = None,
     max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
@@ -266,6 +271,7 @@ def search_mcp_servers(
     )
 
 
+@experimental(version="3.15.0")
 def update_mcp_server(
     name: str,
     display_name: str | None = NOT_SET,
@@ -294,6 +300,7 @@ def update_mcp_server(
     )
 
 
+@experimental(version="3.15.0")
 def delete_mcp_server(name: str) -> None:
     """Delete an MCP server and all its child entities.
 
@@ -306,10 +313,12 @@ def delete_mcp_server(name: str) -> None:
 # --- MCPServerVersion CRUD ---
 
 
+@experimental(version="3.15.0")
 def get_mcp_server_version(name: str, version: str) -> MCPServerVersion:
     return MlflowClient().get_mcp_server_version(name=name, version=version)
 
 
+@experimental(version="3.15.0")
 def get_mcp_server_version_by_alias(name: str, alias: str) -> MCPServerVersion:
     """Resolve an alias to an MCP server version.
 
@@ -325,6 +334,7 @@ def get_mcp_server_version_by_alias(name: str, alias: str) -> MCPServerVersion:
     return MlflowClient().get_mcp_server_version_by_alias(name=name, alias=alias)
 
 
+@experimental(version="3.15.0")
 def get_latest_mcp_server_version(name: str) -> MCPServerVersion:
     """Get the latest version of an MCP server.
 
@@ -340,6 +350,7 @@ def get_latest_mcp_server_version(name: str) -> MCPServerVersion:
     return MlflowClient().get_latest_mcp_server_version(name=name)
 
 
+@experimental(version="3.15.0")
 def search_mcp_server_versions(
     name: str,
     filter_string: str | None = None,
@@ -369,6 +380,7 @@ def search_mcp_server_versions(
     )
 
 
+@experimental(version="3.15.0")
 def update_mcp_server_version(
     name: str,
     version: str,
@@ -401,6 +413,7 @@ def update_mcp_server_version(
     )
 
 
+@experimental(version="3.15.0")
 def delete_mcp_server_version(name: str, version: str) -> None:
     MlflowClient().delete_mcp_server_version(name=name, version=version)
 
@@ -408,6 +421,7 @@ def delete_mcp_server_version(name: str, version: str) -> None:
 # --- MCPAccessBinding CRUD ---
 
 
+@experimental(version="3.15.0")
 def create_mcp_access_binding(
     server_name: str,
     endpoint_url: str,
@@ -451,10 +465,12 @@ def create_mcp_access_binding(
     )
 
 
+@experimental(version="3.15.0")
 def get_mcp_access_binding(server_name: str, binding_id: int) -> MCPAccessBinding:
     return MlflowClient().get_mcp_access_binding(server_name=server_name, binding_id=binding_id)
 
 
+@experimental(version="3.15.0")
 def search_mcp_access_bindings(
     server_name: str | None = None,
     server_version: str | None = None,
@@ -490,6 +506,7 @@ def search_mcp_access_bindings(
     )
 
 
+@experimental(version="3.15.0")
 def update_mcp_access_binding(
     server_name: str,
     binding_id: int,
@@ -524,6 +541,7 @@ def update_mcp_access_binding(
     )
 
 
+@experimental(version="3.15.0")
 def delete_mcp_access_binding(server_name: str, binding_id: int) -> None:
     MlflowClient().delete_mcp_access_binding(server_name=server_name, binding_id=binding_id)
 
@@ -531,6 +549,7 @@ def delete_mcp_access_binding(server_name: str, binding_id: int) -> None:
 # --- Tag operations ---
 
 
+@experimental(version="3.15.0")
 def set_mcp_server_tag(name: str, key: str, value: str) -> None:
     """Set a tag on an MCP server (upsert).
 
@@ -542,10 +561,12 @@ def set_mcp_server_tag(name: str, key: str, value: str) -> None:
     MlflowClient().set_mcp_server_tag(name=name, key=key, value=value)
 
 
+@experimental(version="3.15.0")
 def delete_mcp_server_tag(name: str, key: str) -> None:
     MlflowClient().delete_mcp_server_tag(name=name, key=key)
 
 
+@experimental(version="3.15.0")
 def set_mcp_server_version_tag(name: str, version: str, key: str, value: str) -> None:
     """Set a tag on an MCP server version (upsert).
 
@@ -558,6 +579,7 @@ def set_mcp_server_version_tag(name: str, version: str, key: str, value: str) ->
     MlflowClient().set_mcp_server_version_tag(name=name, version=version, key=key, value=value)
 
 
+@experimental(version="3.15.0")
 def delete_mcp_server_version_tag(name: str, version: str, key: str) -> None:
     MlflowClient().delete_mcp_server_version_tag(name=name, version=version, key=key)
 
@@ -565,6 +587,7 @@ def delete_mcp_server_version_tag(name: str, version: str, key: str) -> None:
 # --- Alias operations ---
 
 
+@experimental(version="3.15.0")
 def set_mcp_server_alias(name: str, alias: str, version: str) -> None:
     """Set an alias on an MCP server pointing to a specific version (upsert).
 
@@ -578,5 +601,6 @@ def set_mcp_server_alias(name: str, alias: str, version: str) -> None:
     MlflowClient().set_mcp_server_alias(name=name, alias=alias, version=version)
 
 
+@experimental(version="3.15.0")
 def delete_mcp_server_alias(name: str, alias: str) -> None:
     MlflowClient().delete_mcp_server_alias(name=name, alias=alias)
