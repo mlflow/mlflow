@@ -25,7 +25,7 @@ from typing import Any, Awaitable, Callable
 import sqlalchemy
 from cachetools import TTLCache
 from fastapi import FastAPI
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from flask import (
     Flask,
     Request,
@@ -4558,9 +4558,9 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 path, request.headers.get(WORKSPACE_HEADER_NAME)
             )
         except MlflowException as e:
-            return PlainTextResponse(
-                e.message,
+            return JSONResponse(
                 status_code=e.get_http_status_code(),
+                content=json.loads(e.serialize_as_json()),
             )
         workspace_context.set_server_request_workspace(workspace.name if workspace else None)
 
