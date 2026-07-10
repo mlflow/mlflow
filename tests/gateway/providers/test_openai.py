@@ -821,6 +821,97 @@ async def test_azuread_openai():
         )
 
 
+def azure_entra_config(**config_overrides):
+    config = azure_config(api_type="azuread")
+    del config["model"]["config"]["openai_api_key"]
+    config["model"]["config"].update(config_overrides)
+    return config
+
+
+@pytest.mark.asyncio
+async def test_azuread_openai_entra_id_default_credential():
+    resp = chat_response()
+    config = azure_entra_config()
+    mock_client = mock_http_client(MockAsyncResponse(resp))
+
+    with (
+        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+        mock.patch(
+            "mlflow.utils.azure_auth.get_azure_openai_token", return_value="entra-token"
+        ) as mock_get_token,
+    ):
+        provider = OpenAIProvider(EndpointConfig(**config))
+        payload = {
+            "prompt": "This is a test",
+        }
+        await provider.completions(completions.RequestPayload(**payload))
+        mock_get_token.assert_called_once_with(client_id=None, tenant_id=None, client_secret=None)
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer entra-token"
+        mock_client.post.assert_called_once_with(
+            (
+                "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
+                "/completions?api-version=2023-05-15"
+            ),
+            json={
+                "n": 1,
+                "prompt": "This is a test",
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS.get()),
+        )
+
+
+@pytest.mark.asyncio
+async def test_azuread_openai_entra_id_service_principal():
+    resp = chat_response()
+    config = azure_entra_config(
+        openai_ad_client_id="client-id",
+        openai_ad_tenant_id="tenant-id",
+        openai_ad_client_secret="client-secret",
+    )
+    mock_client = mock_http_client(MockAsyncResponse(resp))
+
+    with (
+        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+        mock.patch(
+            "mlflow.utils.azure_auth.get_azure_openai_token", return_value="entra-token"
+        ) as mock_get_token,
+    ):
+        provider = OpenAIProvider(EndpointConfig(**config))
+        payload = {
+            "prompt": "This is a test",
+        }
+        await provider.completions(completions.RequestPayload(**payload))
+        mock_get_token.assert_called_once_with(
+            client_id="client-id", tenant_id="tenant-id", client_secret="client-secret"
+        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer entra-token"
+
+
+@pytest.mark.asyncio
+async def test_azuread_openai_static_token_does_not_acquire_entra_token():
+    resp = chat_response()
+    config = azure_config(api_type="azuread")
+    mock_client = mock_http_client(MockAsyncResponse(resp))
+
+    with (
+        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+        mock.patch("mlflow.utils.azure_auth.get_azure_openai_token") as mock_get_token,
+    ):
+        provider = OpenAIProvider(EndpointConfig(**config))
+        payload = {
+            "prompt": "This is a test",
+        }
+        await provider.completions(completions.RequestPayload(**payload))
+        mock_get_token.assert_not_called()
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
+
+
 @pytest.mark.parametrize(
     ("api_type", "api_base", "deployment_name", "api_version", "organization"),
     [
@@ -900,6 +991,83 @@ def test_invalid_openai_configs_throw_on_construction(
             openai_deployment_name=deployment_name,
             openai_api_version=api_version,
             openai_organization=organization,
+        )
+
+
+@pytest.mark.parametrize(
+    ("api_key", "ad_client_id", "ad_tenant_id", "ad_client_secret"),
+    [
+        # No API key: tokens are acquired at request time via DefaultAzureCredential
+        (None, None, None, None),
+        # Service principal fields: tokens are acquired via ClientSecretCredential
+        (None, "client-id", "tenant-id", "client-secret"),
+        # Static pre-fetched Entra ID token
+        ("static-token", None, None, None),
+    ],
+)
+def test_azuread_configs_support_entra_id_auth(
+    api_key,
+    ad_client_id,
+    ad_tenant_id,
+    ad_client_secret,
+):
+    config = OpenAIConfig(
+        openai_api_key=api_key,
+        openai_api_type="azuread",
+        openai_api_base="https://test.openai.azure.com",
+        openai_deployment_name="mock-dep",
+        openai_api_version="2023-05-15",
+        openai_ad_client_id=ad_client_id,
+        openai_ad_tenant_id=ad_tenant_id,
+        openai_ad_client_secret=ad_client_secret,
+    )
+    assert config.openai_api_key == api_key
+    assert config.openai_ad_client_id == ad_client_id
+    assert config.openai_ad_tenant_id == ad_tenant_id
+    assert config.openai_ad_client_secret == ad_client_secret
+
+
+@pytest.mark.parametrize(
+    ("api_type", "api_key", "ad_client_id", "ad_tenant_id", "ad_client_secret"),
+    [
+        # Missing API key when the api type is not 'azuread'
+        ("openai", None, None, None, None),
+        ("azure", None, None, None, None),
+        # Entra ID service principal fields require the 'azuread' api type
+        ("openai", "key", "client-id", "tenant-id", "client-secret"),
+        ("azure", "key", "client-id", "tenant-id", "client-secret"),
+        # Both a static token and service principal fields
+        ("azuread", "token", "client-id", "tenant-id", "client-secret"),
+        # Partial service principal fields
+        ("azuread", None, "client-id", None, None),
+        ("azuread", None, "client-id", "tenant-id", None),
+        ("azuread", None, None, None, "client-secret"),
+    ],
+)
+def test_invalid_entra_id_openai_configs_throw_on_construction(
+    api_type,
+    api_key,
+    ad_client_id,
+    ad_tenant_id,
+    ad_client_secret,
+):
+    azure_fields = (
+        {
+            "openai_api_base": "https://test.openai.azure.com",
+            "openai_deployment_name": "mock-dep",
+            "openai_api_version": "2023-05-15",
+        }
+        if api_type != "openai"
+        else {}
+    )
+    with pytest.raises(MlflowException, match="OpenAI"):
+        OpenAIConfig(
+            openai_api_key=api_key,
+            openai_api_type=api_type,
+            openai_ad_client_id=ad_client_id,
+            openai_ad_tenant_id=ad_tenant_id,
+            openai_ad_client_secret=ad_client_secret,
+            **azure_fields,
         )
 
 

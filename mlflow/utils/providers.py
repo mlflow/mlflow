@@ -519,45 +519,65 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                 },
             ],
         },
-        # TODO: uncomment this once it's supported by OpenAIConfig
-        # "service_principal": {
-        #     "display_name": "Service Principal",
-        #     "description": "Use Azure AD Service Principal (client credentials)",
-        #     "runtime_auth": "azure_service_principal",
-        #     "fields": [
-        #         {
-        #             "name": "client_secret",
-        #             "description": "Azure AD Client Secret",
-        #             "secret": True,
-        #             "required": True,
-        #         },
-        #         {
-        #             "name": "api_base",
-        #             "description": "Azure OpenAI endpoint URL",
-        #             "secret": False,
-        #             "required": True,
-        #         },
-        #         {
-        #             "name": "client_id",
-        #             "description": "Azure AD Application (Client) ID",
-        #             "secret": False,
-        #             "required": True,
-        #         },
-        #         {
-        #             "name": "tenant_id",
-        #             "description": "Azure AD Tenant ID",
-        #             "secret": False,
-        #             "required": True,
-        #         },
-        #         {
-        #             "name": "api_version",
-        #             "description": "API version (e.g., 2024-02-01)",
-        #             "secret": False,
-        #             "required": False,
-        #             "default": "2024-02-01",
-        #         },
-        #     ],
-        # },
+        "service_principal": {
+            "display_name": "Service Principal",
+            "description": "Use Azure AD Service Principal (client credentials)",
+            "runtime_auth": "azure_service_principal",
+            "fields": [
+                {
+                    "name": "client_secret",
+                    "description": "Azure AD Client Secret",
+                    "secret": True,
+                    "required": True,
+                },
+                {
+                    "name": "api_base",
+                    "description": "Azure OpenAI endpoint URL",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "client_id",
+                    "description": "Azure AD Application (Client) ID",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "tenant_id",
+                    "description": "Azure AD Tenant ID",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "api_version",
+                    "description": "API version (e.g., 2024-02-01)",
+                    "secret": False,
+                    "required": False,
+                    "default": "2024-02-01",
+                },
+            ],
+        },
+        "default_credential": {
+            "display_name": "Default Azure Credential",
+            "description": "Use the server's Azure identity (managed identity, workload "
+            "identity, Azure CLI login, or environment credentials)",
+            "runtime_auth": "azure_default_credential",
+            "fields": [
+                {
+                    "name": "api_base",
+                    "description": "Azure OpenAI endpoint URL",
+                    "secret": False,
+                    "required": True,
+                },
+                {
+                    "name": "api_version",
+                    "description": "API version (e.g., 2024-02-01)",
+                    "secret": False,
+                    "required": False,
+                    "default": "2024-02-01",
+                },
+            ],
+        },
     },
     "vertex_ai": {
         "service_account_json": {

@@ -846,6 +846,18 @@ MLFLOW_GENAI_JUDGE_DEFAULT_MODEL = _EnvironmentVariable(
     "MLFLOW_GENAI_JUDGE_DEFAULT_MODEL", str, None
 )
 
+#: Authentication mode for the direct Azure OpenAI model provider
+#: (``azure:/<deployment>`` judge/scorer model URIs). Allowed values: ``api_key``
+#: (default, requires ``AZURE_API_KEY``) and ``entra_id`` (Microsoft Entra ID via
+#: azure-identity's ``DefaultAzureCredential``, which supports environment-based
+#: service principals through ``AZURE_CLIENT_ID``/``AZURE_TENANT_ID``/
+#: ``AZURE_CLIENT_SECRET``, managed identity, Azure CLI login, etc.).
+#: ``AZURE_API_BASE`` and ``AZURE_API_VERSION`` are required in both modes.
+#: (default: ``api_key``)
+MLFLOW_AZURE_OPENAI_AUTH_MODE = _EnvironmentVariable(
+    "MLFLOW_AZURE_OPENAI_AUTH_MODE", str, "api_key"
+)
+
 
 #: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
 #: the given predict function generates a valid trace, and otherwise wraps it with @mlflow.trace

@@ -1,5 +1,3 @@
-import re
-
 import pytest
 import yaml
 
@@ -188,6 +186,64 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     assert claude_conf.anthropic_api_key == "api_key"
 
 
+def test_azuread_entra_id_route_configuration_parsing(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV", "true")
+    monkeypatch.setenv("AZURE_SP_CLIENT_SECRET", "resolved-client-secret")
+    config = {
+        "endpoints": [
+            {
+                "name": "chat-default-credential",
+                "endpoint_type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_type": "azuread",
+                        "openai_api_base": "https://test.openai.azure.com",
+                        "openai_deployment_name": "test-gpt4",
+                        "openai_api_version": "2024-02-01",
+                    },
+                },
+            },
+            {
+                "name": "chat-service-principal",
+                "endpoint_type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_type": "azuread",
+                        "openai_api_base": "https://test.openai.azure.com",
+                        "openai_deployment_name": "test-gpt4",
+                        "openai_api_version": "2024-02-01",
+                        "openai_ad_client_id": "client-id",
+                        "openai_ad_tenant_id": "tenant-id",
+                        "openai_ad_client_secret": "$AZURE_SP_CLIENT_SECRET",
+                    },
+                },
+            },
+        ]
+    }
+    conf_path = tmp_path.joinpath("config.yaml")
+    conf_path.write_text(yaml.safe_dump(config))
+    loaded_config = _load_gateway_config(conf_path)
+
+    default_credential_conf = loaded_config.endpoints[0].model.config
+    assert isinstance(default_credential_conf, OpenAIConfig)
+    assert default_credential_conf.openai_api_type == "azuread"
+    assert default_credential_conf.openai_api_key is None
+    assert default_credential_conf.openai_ad_client_id is None
+    assert default_credential_conf.openai_ad_tenant_id is None
+    assert default_credential_conf.openai_ad_client_secret is None
+
+    sp_conf = loaded_config.endpoints[1].model.config
+    assert isinstance(sp_conf, OpenAIConfig)
+    assert sp_conf.openai_api_key is None
+    assert sp_conf.openai_ad_client_id == "client-id"
+    assert sp_conf.openai_ad_tenant_id == "tenant-id"
+    assert sp_conf.openai_ad_client_secret == "resolved-client-secret"
+
+
 def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(basic_config_dict))
@@ -281,7 +337,7 @@ def test_invalid_model_definition(tmp_path):
     conf_path.write_text(yaml.safe_dump(invalid_partial_config))
 
     with pytest.raises(
-        MlflowException, match=re.compile(r"validation error.+openai_api_key", re.DOTALL)
+        MlflowException, match=r"OpenAI route configuration must specify 'openai_api_key'"
     ):
         _load_gateway_config(conf_path)
 

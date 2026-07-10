@@ -211,9 +211,14 @@ Azure OpenAI uses the same passthrough as OpenAI with additional configuration:
 When creating an Azure OpenAI endpoint:
 
 1. Select **Azure OpenAI** as the provider
-2. Enter your Azure endpoint URL
-3. Enter your Azure API key
-4. Specify your deployment name
+2. Choose the authentication method: **API Key**, **Service Principal** (Microsoft Entra ID client credentials), or **Default Azure Credential** (the server's own Azure identity)
+3. Enter your Azure endpoint URL
+4. For **API Key**, enter your Azure API key; for **Service Principal**, enter the client ID, tenant ID, and client secret of your Microsoft Entra ID application; for **Default Azure Credential**, no credentials are entered — tokens are resolved from the server's environment (managed identity, workload identity, Azure CLI login, or `AZURE_*` environment variables)
+5. Specify your deployment name
+
+:::note
+The Service Principal and Default Azure Credential options acquire Microsoft Entra ID tokens at request time and require the `azure-identity` package on the MLflow server (`pip install azure-identity`). With Default Azure Credential, the server's identity (for example, an Azure Container Apps managed identity) must have the **Cognitive Services OpenAI User** role on the Azure OpenAI resource; to select a user-assigned managed identity, set the `AZURE_CLIENT_ID` environment variable on the server.
+:::
 
 ```python
 from openai import OpenAI

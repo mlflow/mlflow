@@ -304,14 +304,31 @@ def _build_endpoint_config(
         provider_config = OpenAIConfig(**openai_config)
     elif model_config.provider == Provider.AZURE:
         auth_config = model_config.auth_config or {}
+        auth_mode = auth_config.get(_AuthConfigKey.AUTH_MODE, "api_key")
         model_config.provider = Provider.OPENAI
-        provider_config = OpenAIConfig(
-            openai_api_type=OpenAIAPIType.AZURE,
-            openai_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
-            openai_api_base=auth_config.get(_AuthConfigKey.API_BASE),
-            openai_deployment_name=model_config.model_name,
-            openai_api_version=auth_config.get("api_version"),
-        )
+        if auth_mode in ("service_principal", "default_credential"):
+            # Entra ID: 'service_principal' carries explicit client credentials, while
+            # 'default_credential' leaves them unset so the provider falls back to
+            # DefaultAzureCredential (managed identity, workload identity, Azure CLI, ...)
+            secret_value = model_config.secret_value or {}
+            provider_config = OpenAIConfig(
+                openai_api_type=OpenAIAPIType.AZUREAD,
+                openai_api_key=None,
+                openai_api_base=auth_config.get(_AuthConfigKey.API_BASE),
+                openai_deployment_name=model_config.model_name,
+                openai_api_version=auth_config.get("api_version") or "2024-02-01",
+                openai_ad_client_id=auth_config.get("client_id"),
+                openai_ad_tenant_id=auth_config.get("tenant_id"),
+                openai_ad_client_secret=secret_value.get("client_secret"),
+            )
+        else:
+            provider_config = OpenAIConfig(
+                openai_api_type=OpenAIAPIType.AZURE,
+                openai_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
+                openai_api_base=auth_config.get(_AuthConfigKey.API_BASE),
+                openai_deployment_name=model_config.model_name,
+                openai_api_version=auth_config.get("api_version"),
+            )
     elif model_config.provider == Provider.ANTHROPIC:
         anthropic_config = {
             "anthropic_api_key": model_config.secret_value.get(_AuthConfigKey.API_KEY),

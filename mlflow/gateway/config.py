@@ -143,22 +143,41 @@ class OpenAIAPIType(str, Enum):
 
 
 class OpenAIConfig(ConfigModel):
-    openai_api_key: str
+    openai_api_key: str | None = None
     openai_api_type: OpenAIAPIType = OpenAIAPIType.OPENAI
     openai_api_base: str | None = None
     openai_api_version: str | None = None
     openai_deployment_name: str | None = None
     openai_organization: str | None = None
+    # Microsoft Entra ID service principal fields, only valid with the 'azuread' api type.
+    # When 'openai_api_type' is 'azuread' and no 'openai_api_key' (static token) is given,
+    # tokens are acquired at request time via azure-identity: 'ClientSecretCredential' if
+    # these fields are set, 'DefaultAzureCredential' otherwise.
+    openai_ad_client_id: str | None = None
+    openai_ad_tenant_id: str | None = None
+    openai_ad_client_secret: str | None = None
 
     @field_validator("openai_api_key", mode="before")
     def validate_openai_api_key(cls, value):
-        return _resolve_api_key_from_input(value)
+        return None if value is None else _resolve_api_key_from_input(value)
+
+    @field_validator("openai_ad_client_secret", mode="before")
+    def validate_openai_ad_client_secret(cls, value):
+        return None if value is None else _resolve_api_key_from_input(value)
 
     @classmethod
     def _validate_field_compatibility(cls, info: dict[str, Any]):
         if not isinstance(info, dict):
             return info
         api_type = (info.get("openai_api_type") or OpenAIAPIType.OPENAI).lower()
+        sp_fields = ("openai_ad_client_id", "openai_ad_tenant_id", "openai_ad_client_secret")
+        provided_sp_fields = [field for field in sp_fields if info.get(field) is not None]
+        if api_type != OpenAIAPIType.AZUREAD and provided_sp_fields:
+            raise MlflowException.invalid_parameter_value(
+                f"OpenAI route configuration can only specify values for "
+                f"'openai_ad_client_id', 'openai_ad_tenant_id', and 'openai_ad_client_secret' "
+                f"if 'openai_api_type' is '{OpenAIAPIType.AZUREAD}'. Found type: '{api_type}'"
+            )
         if api_type == OpenAIAPIType.OPENAI:
             if info.get("openai_deployment_name") is not None:
                 raise MlflowException.invalid_parameter_value(
@@ -168,6 +187,11 @@ class OpenAIConfig(ConfigModel):
                 )
             if info.get("openai_api_base") is None:
                 info["openai_api_base"] = "https://api.openai.com/v1"
+            if info.get("openai_api_key") is None:
+                raise MlflowException.invalid_parameter_value(
+                    f"OpenAI route configuration must specify 'openai_api_key' if "
+                    f"'openai_api_type' is '{OpenAIAPIType.OPENAI}'."
+                )
         elif api_type in (OpenAIAPIType.AZURE, OpenAIAPIType.AZUREAD):
             if info.get("openai_organization") is not None:
                 raise MlflowException.invalid_parameter_value(
@@ -183,6 +207,27 @@ class OpenAIConfig(ConfigModel):
                     f"'openai_deployment_name', and 'openai_api_version' if 'openai_api_type' is "
                     f"'{OpenAIAPIType.AZURE}' or '{OpenAIAPIType.AZUREAD}'."
                 )
+            if api_type == OpenAIAPIType.AZURE and info.get("openai_api_key") is None:
+                raise MlflowException.invalid_parameter_value(
+                    f"OpenAI route configuration must specify 'openai_api_key' if "
+                    f"'openai_api_type' is '{OpenAIAPIType.AZURE}'."
+                )
+            if api_type == OpenAIAPIType.AZUREAD:
+                if info.get("openai_api_key") is not None and provided_sp_fields:
+                    raise MlflowException.invalid_parameter_value(
+                        f"OpenAI route configuration with 'openai_api_type: "
+                        f"{OpenAIAPIType.AZUREAD}' must specify either 'openai_api_key' "
+                        f"(a static Microsoft Entra ID token) or the 'openai_ad_client_id', "
+                        f"'openai_ad_tenant_id', and 'openai_ad_client_secret' service "
+                        f"principal fields, not both."
+                    )
+                if provided_sp_fields and len(provided_sp_fields) < len(sp_fields):
+                    missing_fields = sorted(set(sp_fields) - set(provided_sp_fields))
+                    raise MlflowException.invalid_parameter_value(
+                        f"OpenAI route configuration must specify 'openai_ad_client_id', "
+                        f"'openai_ad_tenant_id', and 'openai_ad_client_secret' together. "
+                        f"Missing: {missing_fields}"
+                    )
         else:
             raise MlflowException.invalid_parameter_value(f"Invalid OpenAI API type '{api_type}'")
 

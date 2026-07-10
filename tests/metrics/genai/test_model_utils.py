@@ -37,6 +37,14 @@ def set_azure_envs(monkeypatch):
     monkeypatch.setenv("AZURE_API_VERSION", "2023-05-15")
 
 
+@pytest.fixture
+def set_azure_entra_envs(monkeypatch):
+    monkeypatch.delenv("AZURE_API_KEY", raising=False)
+    monkeypatch.setenv("MLFLOW_AZURE_OPENAI_AUTH_MODE", "entra_id")
+    monkeypatch.setenv("AZURE_API_BASE", "https://openai-for.openai.azure.com/")
+    monkeypatch.setenv("AZURE_API_VERSION", "2023-05-15")
+
+
 @pytest.fixture(autouse=True)
 def force_reload_openai():
     # Force reloading OpenAI module in the next test case. This is because they store
@@ -208,6 +216,50 @@ def test_score_model_azure_openai(set_azure_envs):
                 "temperature": 0.1,
             },
         )
+
+
+def test_score_model_azure_openai_entra_id(set_azure_entra_envs):
+    with (
+        mock.patch(
+            "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
+        ) as mock_post,
+        mock.patch(
+            "mlflow.utils.azure_auth.get_azure_openai_token", return_value="entra-token"
+        ) as mock_get_token,
+    ):
+        resp = score_model_on_payload("azure:/test-openai", "my prompt", {"temperature": 0.1})
+
+        assert resp == "\n\nThis is a test!"
+        mock_get_token.assert_called_once_with(client_id=None, tenant_id=None, client_secret=None)
+        mock_post.assert_called_once_with(
+            endpoint="https://openai-for.openai.azure.com/openai/deployments/test-openai/chat/completions?api-version=2023-05-15",
+            headers={"authorization": "Bearer entra-token"},
+            payload={
+                "messages": [{"role": "user", "content": "my prompt"}],
+                "temperature": 0.1,
+            },
+        )
+
+
+@pytest.mark.parametrize("missing_env_var", ["AZURE_API_BASE", "AZURE_API_VERSION"])
+def test_score_model_azure_openai_entra_id_missing_env_vars(
+    set_azure_entra_envs, monkeypatch, missing_env_var
+):
+    monkeypatch.delenv(missing_env_var)
+    with pytest.raises(MlflowException, match=missing_env_var):
+        score_model_on_payload("azure:/test-openai", "my prompt")
+
+
+def test_score_model_azure_openai_invalid_auth_mode(monkeypatch):
+    monkeypatch.setenv("MLFLOW_AZURE_OPENAI_AUTH_MODE", "managed_identity")
+    with pytest.raises(MlflowException, match="Invalid value 'managed_identity'"):
+        score_model_on_payload("azure:/test-openai", "my prompt")
+
+
+def test_score_model_azure_openai_without_key(monkeypatch):
+    monkeypatch.delenv("AZURE_API_KEY", raising=False)
+    with pytest.raises(MlflowException, match="AZURE_API_KEY environment variable must be set"):
+        score_model_on_payload("azure:/test-openai", "my prompt")
 
 
 def test_score_model_anthropic(monkeypatch):

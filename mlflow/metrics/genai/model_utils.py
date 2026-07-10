@@ -5,7 +5,10 @@ from typing import TYPE_CHECKING, Any
 import requests
 from pydantic import BaseModel
 
-from mlflow.environment_variables import MLFLOW_GENAI_EVAL_LLM_TIMEOUT
+from mlflow.environment_variables import (
+    MLFLOW_AZURE_OPENAI_AUTH_MODE,
+    MLFLOW_GENAI_EVAL_LLM_TIMEOUT,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
@@ -359,10 +362,36 @@ def _get_provider_instance(
         return OpenAIProvider(_get_route_config(config))
 
     elif provider == Provider.AZURE:
+        auth_mode = MLFLOW_AZURE_OPENAI_AUTH_MODE.get().lower()
+        if auth_mode not in ("api_key", "entra_id"):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid value {auth_mode!r} for {MLFLOW_AZURE_OPENAI_AUTH_MODE.name}. "
+                "Allowed values: 'api_key', 'entra_id'."
+            )
+        if auth_mode == "entra_id":
+            if missing_env_vars := [
+                env_var
+                for env_var in (AZURE_API_BASE_ENV_VAR, AZURE_API_VERSION_ENV_VAR)
+                if not os.environ.get(env_var)
+            ]:
+                raise MlflowException.invalid_parameter_value(
+                    f"{missing_env_vars} environment variable(s) must be set to use the "
+                    f"azure provider with {MLFLOW_AZURE_OPENAI_AUTH_MODE.name}='entra_id'."
+                )
+            config = OpenAIConfig(
+                openai_api_key=None,
+                openai_api_type="azuread",
+                openai_api_base=os.environ[AZURE_API_BASE_ENV_VAR],
+                openai_api_version=os.environ[AZURE_API_VERSION_ENV_VAR],
+                openai_deployment_name=model,
+            )
+            return OpenAIProvider(_get_route_config(config))
         if not os.environ.get(AZURE_API_KEY_ENV_VAR):
             raise MlflowException.invalid_parameter_value(
                 f"{AZURE_API_KEY_ENV_VAR} environment variable must be set "
-                "to use the azure provider."
+                "to use the azure provider. Alternatively, set "
+                f"{MLFLOW_AZURE_OPENAI_AUTH_MODE.name}='entra_id' to authenticate with "
+                "Microsoft Entra ID instead of an API key."
             )
         config = OpenAIConfig(
             openai_api_key=os.environ[AZURE_API_KEY_ENV_VAR],

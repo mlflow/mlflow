@@ -211,9 +211,18 @@ class OpenAIProvider(BaseProvider):
                 headers["OpenAI-Organization"] = org
             return headers
         elif api_type == OpenAIAPIType.AZUREAD:
-            return {
-                "authorization": f"Bearer {self.openai_config.openai_api_key}",
-            }
+            if self.openai_config.openai_api_key is not None:
+                return {
+                    "authorization": f"Bearer {self.openai_config.openai_api_key}",
+                }
+            from mlflow.utils.azure_auth import get_azure_openai_token
+
+            token = get_azure_openai_token(
+                client_id=self.openai_config.openai_ad_client_id,
+                tenant_id=self.openai_config.openai_ad_tenant_id,
+                client_secret=self.openai_config.openai_ad_client_secret,
+            )
+            return {"authorization": f"Bearer {token}"}
         elif api_type == OpenAIAPIType.AZURE:
             return {
                 "api-key": self.openai_config.openai_api_key,

@@ -250,6 +250,35 @@ def test_get_provider_config_vertex_ai_has_default_chain():
     assert project_field["required"] is True
 
 
+def test_get_provider_config_azure_has_entra_id_modes():
+    config = get_provider_config_response("azure")
+    modes = {m["mode"] for m in config["auth_modes"]}
+    assert modes == {"api_key", "service_principal", "default_credential"}
+    assert config["default_mode"] == "api_key"
+
+    service_principal = next(m for m in config["auth_modes"] if m["mode"] == "service_principal")
+    assert service_principal["display_name"] == "Service Principal"
+    assert [f["name"] for f in service_principal["secret_fields"]] == ["client_secret"]
+    assert {f["name"] for f in service_principal["config_fields"]} == {
+        "api_base",
+        "client_id",
+        "tenant_id",
+        "api_version",
+    }
+    api_version_field = next(
+        f for f in service_principal["config_fields"] if f["name"] == "api_version"
+    )
+    assert api_version_field["required"] is False
+    assert api_version_field["default"] == "2024-02-01"
+
+    default_credential = next(m for m in config["auth_modes"] if m["mode"] == "default_credential")
+    assert default_credential["display_name"] == "Default Azure Credential"
+    assert default_credential["secret_fields"] == []
+    assert {f["name"] for f in default_credential["config_fields"]} == {"api_base", "api_version"}
+    api_base_field = next(f for f in default_credential["config_fields"] if f["name"] == "api_base")
+    assert api_base_field["required"] is True
+
+
 _MOCK_PROVIDER_DATA = {
     "test_provider": {
         "test-model": {

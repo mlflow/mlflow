@@ -249,6 +249,106 @@ def test_create_provider_from_endpoint_name_azure_openai_with_azuread(store: Sql
     assert provider.config.model.config.openai_api_key == "azuread-api-key-test"
 
 
+@pytest.mark.parametrize(
+    ("api_version", "expected_api_version"),
+    [
+        ("2024-06-01", "2024-06-01"),
+        (None, "2024-02-01"),
+    ],
+)
+def test_create_provider_from_endpoint_name_azure_service_principal(
+    store: SqlAlchemyStore, api_version, expected_api_version
+):
+    auth_config = {
+        "auth_mode": "service_principal",
+        "api_base": "https://my-resource-sp.openai.azure.com",
+        "client_id": "sp-client-id",
+        "tenant_id": "sp-tenant-id",
+    }
+    if api_version is not None:
+        auth_config["api_version"] = api_version
+    secret = store.create_gateway_secret(
+        secret_name=f"azure-sp-secret-{api_version}",
+        secret_value={"client_secret": "sp-client-secret"},
+        provider="azure",
+        auth_config=auth_config,
+    )
+    model_def = store.create_gateway_model_definition(
+        name=f"azure-sp-model-{api_version}",
+        secret_id=secret.secret_id,
+        provider="azure",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name=f"test-azure-sp-endpoint-{api_version}",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
+
+    assert isinstance(provider, OpenAIProvider)
+    assert isinstance(provider.config.model.config, OpenAIConfig)
+    assert provider.config.model.config.openai_api_type == OpenAIAPIType.AZUREAD
+    assert provider.config.model.config.openai_api_key is None
+    assert provider.config.model.config.openai_api_base == "https://my-resource-sp.openai.azure.com"
+    assert provider.config.model.config.openai_deployment_name == "gpt-4"
+    assert provider.config.model.config.openai_api_version == expected_api_version
+    assert provider.config.model.config.openai_ad_client_id == "sp-client-id"
+    assert provider.config.model.config.openai_ad_tenant_id == "sp-tenant-id"
+    assert provider.config.model.config.openai_ad_client_secret == "sp-client-secret"
+
+
+def test_create_provider_from_endpoint_name_azure_default_credential(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="azure-default-credential",
+        secret_value={},
+        provider="azure",
+        auth_config={
+            "auth_mode": "default_credential",
+            "api_base": "https://my-resource-dc.openai.azure.com",
+        },
+    )
+    model_def = store.create_gateway_model_definition(
+        name="azure-dc-model",
+        secret_id=secret.secret_id,
+        provider="azure",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="test-azure-dc-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    provider, _ = _create_provider_from_endpoint_name(
+        store, endpoint.name, EndpointType.LLM_V1_CHAT
+    )
+
+    assert isinstance(provider, OpenAIProvider)
+    assert isinstance(provider.config.model.config, OpenAIConfig)
+    assert provider.config.model.config.openai_api_type == OpenAIAPIType.AZUREAD
+    assert provider.config.model.config.openai_api_key is None
+    assert provider.config.model.config.openai_api_base == "https://my-resource-dc.openai.azure.com"
+    assert provider.config.model.config.openai_deployment_name == "gpt-4"
+    assert provider.config.model.config.openai_api_version == "2024-02-01"
+    assert provider.config.model.config.openai_ad_client_id is None
+    assert provider.config.model.config.openai_ad_tenant_id is None
+    assert provider.config.model.config.openai_ad_client_secret is None
+
+
 def test_create_provider_from_endpoint_name_anthropic(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(
         secret_name="anthropic-key",

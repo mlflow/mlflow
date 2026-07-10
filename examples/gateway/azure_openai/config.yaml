@@ -34,3 +34,28 @@ endpoints:
         openai_deployment_name: "{your_deployment_name}"
         openai_api_base: "https://{your_resource_name}-azureopenai.openai.azure.com/"
         openai_api_version: "2023-05-15"
+
+  - name: chat_entra_id
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-4o-mini
+      config:
+        openai_api_type: "azuread"
+        openai_deployment_name: "{your_deployment_name}"
+        openai_api_base: "https://{your_resource_name}-azureopenai.openai.azure.com/"
+        openai_api_version: "2023-05-15"
+
+  - name: chat_service_principal
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-4o-mini
+      config:
+        openai_api_type: "azuread"
+        openai_ad_client_id: "{your_client_id}"
+        openai_ad_tenant_id: "{your_tenant_id}"
+        openai_ad_client_secret: $AZURE_CLIENT_SECRET
+        openai_deployment_name: "{your_deployment_name}"
+        openai_api_base: "https://{your_resource_name}-azureopenai.openai.azure.com/"
+        openai_api_version: "2023-05-15"
