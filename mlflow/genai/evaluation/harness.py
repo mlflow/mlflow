@@ -487,17 +487,26 @@ class _ScoreSubmitter:
     def run_multi_turn(self, multi_turn_eval_results: dict[str, EvalResult], progress_bar) -> None:
         if not self._multi_turn_scorers or not self._session_groups:
             return
-        futures = [
-            self._pool.submit(
-                self._timed_multi_turn_score,
-                session_id=session_id,
-                session_items=session_items,
-                multi_turn_scorers=self._multi_turn_scorers,
-                scorer_rate_limiter=self._limiter,
-                max_retries=self._max_retries,
+        futures = []
+        for session_id, session_items in self._session_groups.items():
+            # Session groups are built before prediction; a clone read-back miss can null an
+            # item's trace afterwards. Drop those items here since session scoring dereferences
+            # trace (e.g. get_first_trace_in_session reads trace.info.request_time), and skip
+            # sessions left with no scorable trace.
+            scorable_items = [item for item in session_items if item.trace is not None]
+            if not scorable_items:
+                _logger.warning(f"Skipping multi-turn session {session_id} with no traces.")
+                continue
+            futures.append(
+                self._pool.submit(
+                    self._timed_multi_turn_score,
+                    session_id=session_id,
+                    session_items=scorable_items,
+                    multi_turn_scorers=self._multi_turn_scorers,
+                    scorer_rate_limiter=self._limiter,
+                    max_retries=self._max_retries,
+                )
             )
-            for session_id, session_items in self._session_groups.items()
-        ]
         for future in as_completed(futures):
             eval_result = future.result()
             if eval_result.eval_item.trace is None:

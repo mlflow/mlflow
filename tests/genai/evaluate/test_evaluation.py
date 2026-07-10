@@ -2091,13 +2091,12 @@ def test_run_predict_clone_read_hit_sets_trace_without_error(mlflow_experiment_t
     assert eval_item.error_message is None
 
 
-def test_run_multi_turn_skips_result_with_none_trace():
-    eval_item = _make_eval_item(trace=None)
-    submitter = _ScoreSubmitter(
-        eval_items=[eval_item],
+def _make_score_submitter(session_groups):
+    return _ScoreSubmitter(
+        eval_items=[item for items in session_groups.values() for item in items],
         single_turn_scorers=[],
         multi_turn_scorers=[mock.Mock()],
-        session_groups={"session-1": [eval_item]},
+        session_groups=session_groups,
         run_id=None,
         max_retries=0,
         rps=None,
@@ -2105,11 +2104,29 @@ def test_run_multi_turn_skips_result_with_none_trace():
         max_rps_multiplier=1.0,
         pool_workers=1,
     )
+
+
+def test_run_multi_turn_skips_session_with_only_none_traces():
+    submitter = _make_score_submitter({"session-1": [_make_eval_item(trace=None)]})
     multi_turn_eval_results: dict[str, EvalResult] = {}
     with mock.patch(
         "mlflow.genai.evaluation.harness.evaluate_session_level_scorers",
-        return_value=EvalResult(eval_item=eval_item),
+    ) as mock_eval_session:
+        submitter.run_multi_turn(multi_turn_eval_results, progress_bar=None)
+    mock_eval_session.assert_not_called()
+    assert multi_turn_eval_results == {}
+
+
+def test_run_multi_turn_filters_none_trace_items_from_session(mlflow_experiment_trace):
+    valid_item = _make_eval_item(trace=mlflow_experiment_trace)
+    none_item = _make_eval_item(trace=None)
+    submitter = _make_score_submitter({"session-1": [none_item, valid_item]})
+    multi_turn_eval_results: dict[str, EvalResult] = {}
+    with mock.patch(
+        "mlflow.genai.evaluation.harness.evaluate_session_level_scorers",
+        return_value=EvalResult(eval_item=valid_item),
     ) as mock_eval_session:
         submitter.run_multi_turn(multi_turn_eval_results, progress_bar=None)
     mock_eval_session.assert_called_once()
-    assert multi_turn_eval_results == {}
+    assert mock_eval_session.call_args.kwargs["session_items"] == [valid_item]
+    assert multi_turn_eval_results == {"tr-123": mock_eval_session.return_value}
