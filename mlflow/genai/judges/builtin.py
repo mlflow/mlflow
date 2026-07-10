@@ -83,6 +83,9 @@ def is_context_relevant(
             Supports any JSON-serializable object.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
@@ -160,6 +163,9 @@ def is_context_sufficient(
         expected_response: The expected response from the application. Optional.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -256,6 +262,9 @@ def is_correct(
         expected_response: The expected response containing facts that should be supported.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -340,6 +349,9 @@ def is_grounded(
         context: Context to evaluate the response against. Supports any JSON-serializable object.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -430,6 +442,9 @@ def is_tool_call_efficient(
             Each element should be a dictionary containing the tool name and description.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
@@ -553,6 +568,9 @@ def is_tool_call_correct(
         check_order: If True, ask LLM to consider ordering of tool calls.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
@@ -638,6 +656,9 @@ def is_safe(
         content: Text content to evaluate for safety.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
@@ -693,6 +714,9 @@ def meets_guidelines(
             the given guidelines.
         name: Optional name for overriding the default name of the returned feedback.
         model: {{ model }}
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+            requests to the judge model (e.g. ``{"AI-Resource-Group": "default"}``
+            for SAP AI Core). Default: ``None``.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"

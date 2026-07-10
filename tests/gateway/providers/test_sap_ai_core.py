@@ -5,8 +5,8 @@ from unittest import mock
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import EndpointConfig, _OpenAICompatibleConfig
-from mlflow.gateway.providers.sap_ai_core import SapAiCoreAdapter, SapAiCoreProvider
+from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.providers.sap_ai_core import SapAiCoreAdapter, SapAiCoreConfig, SapAiCoreProvider
 
 
 def _make_endpoint_config(model_name: str = "gpt-4o-mini") -> EndpointConfig:
@@ -16,7 +16,7 @@ def _make_endpoint_config(model_name: str = "gpt-4o-mini") -> EndpointConfig:
         model={
             "provider": "sap-ai-core",
             "name": model_name,
-            "config": {"api_key": ""},
+            "config": {},
         },
     )
 
@@ -207,7 +207,12 @@ class TestSapAiCoreProvider:
         assert SapAiCoreProvider.DISPLAY_NAME == "SAP AI Core"
 
     def test_config_type(self):
-        assert SapAiCoreProvider.CONFIG_TYPE is _OpenAICompatibleConfig
+        assert SapAiCoreProvider.CONFIG_TYPE is SapAiCoreConfig
+
+    def test_config_requires_no_api_key(self):
+        # SapAiCoreConfig should be constructable with no arguments
+        config = SapAiCoreConfig()
+        assert config is not None
 
     def test_get_endpoint_url_reads_env(self, monkeypatch):
         monkeypatch.setenv(
@@ -240,6 +245,12 @@ class TestSapAiCoreProvider:
         provider = _make_provider()
         url = provider.get_endpoint_url("llm/v1/chat")
         assert url.startswith("http://")
+
+    def test_get_endpoint_url_raises_on_invalid_scheme(self, monkeypatch):
+        monkeypatch.setenv("MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL", "ftp://bad-scheme/completions")
+        provider = _make_provider()
+        with pytest.raises(MlflowException, match="http://"):
+            provider.get_endpoint_url("llm/v1/chat")
 
     def test_https_scheme_accepted(self, monkeypatch):
         monkeypatch.setenv(

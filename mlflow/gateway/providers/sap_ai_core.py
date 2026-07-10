@@ -9,8 +9,8 @@ intercepts the call, attaches a bearer token, and forwards it externally.
 
 Environment variable:
     ``MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL`` — full URL of the AI Core
-    Orchestration endpoint (required). Supports ``http://`` for egress-gateway
-    routing as well as ``https://``.
+    Orchestration endpoint (required). Must use ``http://`` or ``https://``
+    scheme (e.g. ``http://egress-gw.cluster.local/v2/.../chat/completions``).
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from __future__ import annotations
 from typing import Any
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import EndpointConfig, _OpenAICompatibleConfig
+from mlflow.gateway.base_models import ConfigModel
 from mlflow.gateway.providers.base import ProviderAdapter
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter, OpenAICompatibleProvider
 from mlflow.gateway.schemas import chat
@@ -39,6 +39,16 @@ _FORWARDED_PARAMS = frozenset(
 )
 
 
+class SapAiCoreConfig(ConfigModel):
+    """Configuration for the SAP AI Core Orchestration v2 provider.
+
+    No API key is stored here — authentication is handled by the egress
+    gateway that intercepts requests before they leave the cluster.
+    The endpoint URL is read at request time from
+    ``MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL``.
+    """
+
+
 class SapAiCoreAdapter(ProviderAdapter):
     """Translates between MLflow's OpenAI-style payload and the AI Core
     Orchestration v2 request/response format.
@@ -57,7 +67,7 @@ class SapAiCoreAdapter(ProviderAdapter):
     """
 
     @classmethod
-    def chat_to_model(cls, payload: dict[str, Any], config: EndpointConfig) -> dict[str, Any]:
+    def chat_to_model(cls, payload: dict[str, Any], config) -> dict[str, Any]:
         messages = payload.get("messages", [])
         model_name = config.model.name
 
@@ -86,7 +96,7 @@ class SapAiCoreAdapter(ProviderAdapter):
         }
 
     @classmethod
-    def model_to_chat(cls, resp: dict[str, Any], config: EndpointConfig) -> chat.ResponsePayload:
+    def model_to_chat(cls, resp: dict[str, Any], config) -> chat.ResponsePayload:
         # The Orchestration v2 wrapper: {"request_id": "...", "final_result": {...}, ...}
         # ``final_result`` is a standard OpenAI chat completion object.
         final = resp.get("final_result", resp)
@@ -116,16 +126,17 @@ class SapAiCoreAdapter(ProviderAdapter):
 class SapAiCoreProvider(OpenAICompatibleProvider):
     """MLflow Gateway provider for SAP AI Core Orchestration v2.
 
-    Reads the endpoint URL from ``MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL``.
-    No ``Authorization`` header is added — the egress gateway is responsible
-    for attaching credentials before the request leaves the cluster.
-    ``extra_headers`` (e.g. ``AI-Resource-Group``) are merged in by the
+    Reads the endpoint URL from ``MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL``
+    at request time.  No ``Authorization`` header is added — the egress
+    gateway is responsible for attaching credentials before the request
+    leaves the cluster.  ``extra_headers`` (e.g. ``AI-Resource-Group``)
+    are merged in by the
     :class:`~mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter`
     caller and forwarded as-is.
     """
 
     DISPLAY_NAME = "SAP AI Core"
-    CONFIG_TYPE = _OpenAICompatibleConfig
+    CONFIG_TYPE = SapAiCoreConfig
     DEFAULT_API_BASE = ""
 
     @property
@@ -142,18 +153,15 @@ class SapAiCoreProvider(OpenAICompatibleProvider):
                 "when using the sap-ai-core:/ provider.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if not url.startswith(("http://", "https://")):
+            raise MlflowException(
+                f"MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL must use http:// or https:// scheme, "
+                f"got: {url!r}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         return url.rstrip("/")
 
     @property
     def headers(self) -> dict[str, str]:
-        # Auth is handled by the egress gateway — return empty dict intentionally.
+        # Auth is handled by the egress gateway — no Authorization header here.
         return {}
-
-    async def chat(self, payload):
-        raise NotImplementedError
-
-    async def completions(self, payload):
-        raise NotImplementedError
-
-    async def embeddings(self, payload):
-        raise NotImplementedError

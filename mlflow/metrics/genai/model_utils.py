@@ -513,12 +513,11 @@ def _get_provider_instance(
         return VertexAIProvider(_get_route_config(config))
 
     elif provider == Provider.SAP_AI_CORE:
-        from mlflow.gateway.config import _OpenAICompatibleConfig
-        from mlflow.gateway.providers.sap_ai_core import SapAiCoreProvider
+        from mlflow.gateway.providers.sap_ai_core import SapAiCoreConfig, SapAiCoreProvider
 
         # SapAiCoreProvider reads MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL at request time.
-        # Auth is handled by the egress gateway; no API key is stored here.
-        config = _OpenAICompatibleConfig(api_key="")
+        # Auth is handled by the egress gateway; no API key is stored.
+        config = SapAiCoreConfig()
         return SapAiCoreProvider(_get_route_config(config))
 
     raise MlflowException(
