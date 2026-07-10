@@ -25,7 +25,7 @@ from typing import Any, Awaitable, Callable
 import sqlalchemy
 from cachetools import TTLCache
 from fastapi import FastAPI
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from flask import (
     Flask,
     Request,
@@ -168,9 +168,11 @@ from mlflow.protos.service_pb2 import (
     ListScorerVersions,
     ListWorkspaces,
     LogBatch,
+    LogInputs,
     LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
+    LogOutputs,
     LogParam,
     QueryTraceMetrics,
     RegisterScorer,
@@ -331,7 +333,11 @@ from mlflow.server.handlers import (
     _disable_if_workspaces_disabled as _disable_if_workspaces_disabled,
 )
 from mlflow.server.jobs import get_job
-from mlflow.server.workspace_helpers import _get_workspace_store
+from mlflow.server.workspace_helpers import (
+    WORKSPACE_HEADER_NAME,
+    _get_workspace_store,
+    resolve_workspace_for_request_if_enabled,
+)
 from mlflow.store.entities import PagedList
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.utils import workspace_context
@@ -388,6 +394,9 @@ _USER_AUTH_CACHE_HMAC_KEY = secrets.token_bytes(32)
 def _auth_cache_key(username: str, password: str) -> tuple[str, bytes]:
     digest = hmac.new(_USER_AUTH_CACHE_HMAC_KEY, password.encode("utf-8"), "sha256").digest()
     return (username, digest)
+
+
+from mlflow.gateway.constants import MLFLOW_GATEWAY_AUTH_HEADER
 
 
 def _authenticate_cached(username: str, password: str) -> User | None:
@@ -751,7 +760,12 @@ def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
     )
 
 
-_EXPERIMENT_ID_PATTERN = re.compile(r"^(\d+)/")
+# Proxied artifact paths are ``<experiment_id>/<run_id>/artifacts/...``. When
+# workspaces are enabled, non-default workspaces prefix the path with
+# ``workspaces/<workspace>/``. Accept the optional prefix so the experiment id is
+# resolved in both layouts; otherwise the prefixed form fails to match and the
+# artifact-proxy validator falls back to the coarser workspace-tier grant.
+_EXPERIMENT_ID_PATTERN = re.compile(r"^(?:workspaces/[^/]+/)?(\d+)/")
 
 
 def _get_experiment_id_from_view_args():
@@ -1169,6 +1183,26 @@ def _validate_can_delete_registered_model_or_prompt():
 
 def _validate_can_manage_registered_model_or_prompt():
     return _get_permission_from_registered_model_or_prompt_name().can_manage
+
+
+def validate_can_create_model_version():
+    # A model version anchors its `source` inside the artifact directory of the run/model
+    # named by `run_id`/`model_id`. Downstream artifact reads are gated on the model version's
+    # registered model, so without a read check here a caller could point `source` at another
+    # user's run/model and read those artifacts through their own registered model. Require read
+    # on the source run/model to keep create-time access consistent with artifact-read gating.
+    if not _validate_can_update_registered_model_or_prompt():
+        return False
+    body = request.get_json(force=True, silent=True)
+    body = body if isinstance(body, dict) else {}
+    # Presence of run_id/model_id means the version is anchored to that source, so require
+    # READ on it. Guard on presence (not truthiness): an explicitly-supplied empty id is
+    # denied here rather than being allowed to slip past the guard as if it were absent.
+    if "run_id" in body and not (body["run_id"] and _get_permission_from_run_id().can_read):
+        return False
+    if "model_id" in body and not (body["model_id"] and _get_permission_from_model_id().can_read):
+        return False
+    return True
 
 
 def validate_can_create_experiment() -> bool:
@@ -2461,7 +2495,9 @@ BEFORE_REQUEST_HANDLERS = {
     UpdateRun: validate_can_update_run,
     LogMetric: validate_can_update_run,
     LogBatch: validate_can_update_run,
+    LogInputs: validate_can_update_run,
     LogModel: validate_can_update_run,
+    LogOutputs: validate_can_update_run,
     SetTag: validate_can_update_run,
     DeleteTag: validate_can_update_run,
     LogParam: validate_can_update_run,
@@ -2475,7 +2511,7 @@ BEFORE_REQUEST_HANDLERS = {
     UpdateRegisteredModel: _validate_can_update_registered_model_or_prompt,
     RenameRegisteredModel: _validate_can_update_registered_model_or_prompt,
     GetLatestVersions: _validate_can_read_registered_model_or_prompt,
-    CreateModelVersion: _validate_can_update_registered_model_or_prompt,
+    CreateModelVersion: validate_can_create_model_version,
     GetModelVersion: _validate_can_read_registered_model_or_prompt,
     DeleteModelVersion: _validate_can_delete_registered_model_or_prompt,
     UpdateModelVersion: _validate_can_update_registered_model_or_prompt,
@@ -2599,6 +2635,13 @@ BEFORE_REQUEST_VALIDATORS = {
     for http_path, handler, methods in get_endpoints(get_before_request_handler)
     for method in methods
     if "/scorers/online-config" not in http_path
+    # ``get_endpoints`` hardcodes the view function as the handler for explicitly
+    # defined endpoints (e.g. ``/mlflow/issues/invoke``), ignoring the selector we
+    # pass. Keep only genuine auth validators so a view function like
+    # ``_invoke_issue_detection_handler`` isn't mistakenly invoked as a before-request
+    # validator (which would run the endpoint's side effects — creating runs and
+    # submitting jobs — a second time, before the real handler runs).
+    and handler in BEFORE_REQUEST_HANDLERS.values()
 }
 
 # Auth-related routes
@@ -4256,11 +4299,22 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     Returns:
         User object if authentication succeeds, None otherwise.
     """
-    if "Authorization" not in request.headers:
-        return None
-
     request_path = get_routed_asgi_path(request)
-    auth = request.headers["Authorization"]
+
+    # On /gateway/ routes, a coding agent's own provider key occupies the standard
+    # Authorization header (forwarded upstream), so MLflow credentials ride in a dedicated
+    # header. Prefer it there; fall back to Authorization for backward compat.
+    auth = None
+    if request_path.startswith("/gateway/"):
+        auth = request.headers.get(MLFLOW_GATEWAY_AUTH_HEADER)
+    # Treat a missing OR empty header as absent so an empty X-MLflow-Authorization
+    # does not shadow a valid Authorization header.
+    if not auth:
+        auth = request.headers.get("Authorization")
+
+    # Neither header present — unauthenticated.
+    if not auth:
+        return None
     try:
         scheme, credentials = auth.split()
         if scheme.lower() != "basic":
@@ -4492,6 +4546,24 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         if user.is_admin:
             return await call_next(request)
 
+        # The workspace-context middleware registered in ``create_fastapi_app`` runs
+        # *inside* this middleware (Starlette runs the most recently added middleware
+        # first), so the request workspace is not resolved yet when validators execute.
+        # Workspace-scoped lookups inside validators (e.g. resolving a gateway endpoint
+        # by name for the USE check) would fail and deny every non-admin request when
+        # workspaces are enabled. Resolve and set the workspace for the validator run,
+        # mirroring ``workspace_context_middleware``.
+        try:
+            workspace = resolve_workspace_for_request_if_enabled(
+                path, request.headers.get(WORKSPACE_HEADER_NAME)
+            )
+        except MlflowException as e:
+            return JSONResponse(
+                status_code=e.get_http_status_code(),
+                content=json.loads(e.serialize_as_json()),
+            )
+        workspace_context.set_server_request_workspace(workspace.name if workspace else None)
+
         # Run the validator
         try:
             if not await validator(user.username, request):
@@ -4504,6 +4576,8 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 e.message,
                 status_code=e.get_http_status_code(),
             )
+        finally:
+            workspace_context.clear_server_request_workspace()
 
         return await call_next(request)
 

@@ -24,7 +24,33 @@ The chart ships with:
 - Kubernetes 1.23+
 - Helm 3.8+
 - `kubectl` configured to point at your cluster
-- Download [the MLflow Helm chart](https://github.com/mlflow/mlflow/tree/master/charts) to your current working directory.
+
+## Getting the Chart
+
+Released chart versions are published to GitHub Container Registry as OCI artifacts. Published versions can be installed directly from the registry:
+
+```bash
+helm install mlflow oci://ghcr.io/mlflow/charts/mlflow \
+  --version <version> \
+  --namespace mlflow \
+  --create-namespace
+```
+
+Available versions are listed under the [mlflow organization packages](https://github.com/orgs/mlflow/packages). New chart versions are published by the MLflow release automation.
+
+Alternatively, download [the chart source](https://github.com/mlflow/mlflow/tree/master/charts) to your current working directory and install from the local path:
+
+```bash
+helm install mlflow ./charts --namespace mlflow --create-namespace
+```
+
+The examples on this page install from a local checkout. In the `helm install` and `helm upgrade` commands, `./charts` can be replaced with `oci://ghcr.io/mlflow/charts/mlflow --version <version>`, but examples that pass repo-local files (such as `charts/example-mlflow-charts.yaml`) still need those files checked out locally.
+
+For the full list of configurable values, see [the chart README](https://github.com/mlflow/mlflow/blob/master/charts/README.md) or run:
+
+```bash
+helm show values oci://ghcr.io/mlflow/charts/mlflow --version <version>
+```
 
 ## Quick Start
 
@@ -297,6 +323,17 @@ helm install mlflow ./charts \
 ```
 
 ## Upgrade
+
+From the registry, pass the chart version to upgrade to:
+
+```bash
+helm upgrade mlflow oci://ghcr.io/mlflow/charts/mlflow \
+  --version <version> \
+  --namespace mlflow \
+  -f my-values.yaml
+```
+
+From a local checkout:
 
 ```bash
 helm upgrade mlflow ./charts \
