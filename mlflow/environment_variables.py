@@ -213,6 +213,12 @@ MLFLOW_TRACKING_AWS_SIGV4 = _BooleanEnvironmentVariable("MLFLOW_TRACKING_AWS_SIG
 #: (default: ``None``). When set, it will overwrite the "Authorization" HTTP header.
 MLFLOW_TRACKING_AUTH = _EnvironmentVariable("MLFLOW_TRACKING_AUTH", str, None)
 
+#: Specifies the Microsoft Entra ID token scope used by ``mlflow.login(backend="entra")``
+#: and the ``entra`` request auth provider (``MLFLOW_TRACKING_AUTH=entra``), e.g.
+#: ``api://<client-id>/.default`` for a tracking server registered as an Entra ID
+#: application (default: ``None``).
+MLFLOW_ENTRA_ID_SCOPE = _EnvironmentVariable("MLFLOW_ENTRA_ID_SCOPE", str, None)
+
 #: Specifies the chunk size to use when downloading a file from GCS
 #: (default: ``None``). If None, the chunk size is automatically determined by the
 #: ``google-cloud-storage`` package.

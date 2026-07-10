@@ -4,7 +4,13 @@ from unittest.mock import patch
 import pytest
 
 from mlflow import get_tracking_uri
-from mlflow.environment_variables import MLFLOW_TRACKING_PASSWORD, MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import (
+    MLFLOW_ENTRA_ID_SCOPE,
+    MLFLOW_TRACKING_AUTH,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_URI,
+    MLFLOW_TRACKING_USERNAME,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.utils.credentials import login, read_mlflow_creds
 
@@ -148,3 +154,86 @@ def test_mlflow_login_noninteractive():
             match="No valid Databricks credentials found while running in non-interactive mode",
         ):
             login(backend="databricks", interactive=False)
+
+
+def _clear_env_var(monkeypatch, env_var):
+    # `monkeypatch.setenv` records the original state (including absence) so that
+    # values set by the code under test are reverted after the test.
+    monkeypatch.setenv(env_var.name, "placeholder")
+    monkeypatch.delenv(env_var.name)
+
+
+def test_mlflow_login_entra(monkeypatch):
+    for env_var in (MLFLOW_ENTRA_ID_SCOPE, MLFLOW_TRACKING_AUTH, MLFLOW_TRACKING_URI):
+        _clear_env_var(monkeypatch, env_var)
+
+    # Mock `input()` to return the token scope and host in order.
+    with (
+        patch(
+            "builtins.input",
+            side_effect=["api://dummy-client-id/.default", "https://mlflow.example.com"],
+        ),
+        patch("mlflow.utils.credentials._validate_entra_auth") as validate_mock,
+    ):
+        login(backend="entra")
+
+    validate_mock.assert_called_once()
+    assert MLFLOW_ENTRA_ID_SCOPE.get() == "api://dummy-client-id/.default"
+    assert MLFLOW_TRACKING_AUTH.get() == "entra"
+    assert get_tracking_uri() == "https://mlflow.example.com"
+
+
+def test_mlflow_login_entra_from_env(monkeypatch):
+    _clear_env_var(monkeypatch, MLFLOW_TRACKING_AUTH)
+    monkeypatch.setenv(MLFLOW_ENTRA_ID_SCOPE.name, "api://dummy-client-id/.default")
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, "https://mlflow.example.com")
+
+    with patch("mlflow.utils.credentials._validate_entra_auth") as validate_mock:
+        login(backend="entra", interactive=False)
+
+    validate_mock.assert_called_once()
+    assert MLFLOW_TRACKING_AUTH.get() == "entra"
+    assert get_tracking_uri() == "https://mlflow.example.com"
+
+
+def test_mlflow_login_entra_noninteractive_missing_scope(monkeypatch):
+    for env_var in (MLFLOW_ENTRA_ID_SCOPE, MLFLOW_TRACKING_AUTH, MLFLOW_TRACKING_URI):
+        _clear_env_var(monkeypatch, env_var)
+
+    with pytest.raises(
+        MlflowException,
+        match=f"{MLFLOW_ENTRA_ID_SCOPE.name} must be set while running in non-interactive mode",
+    ):
+        login(backend="entra", interactive=False)
+
+
+def test_mlflow_login_entra_noninteractive_missing_uri(monkeypatch):
+    for env_var in (MLFLOW_TRACKING_AUTH, MLFLOW_TRACKING_URI):
+        _clear_env_var(monkeypatch, env_var)
+    monkeypatch.setenv(MLFLOW_ENTRA_ID_SCOPE.name, "api://dummy-client-id/.default")
+
+    with pytest.raises(
+        MlflowException,
+        match=f"{MLFLOW_TRACKING_URI.name} must be set to an HTTP\\(S\\) tracking server URI",
+    ):
+        login(backend="entra", interactive=False)
+
+
+def test_mlflow_login_entra_invalid_credentials(monkeypatch):
+    _clear_env_var(monkeypatch, MLFLOW_TRACKING_AUTH)
+    monkeypatch.setenv(MLFLOW_ENTRA_ID_SCOPE.name, "api://dummy-client-id/.default")
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, "https://mlflow.example.com")
+
+    with patch(
+        "mlflow.utils.credentials._validate_entra_auth",
+        side_effect=MlflowException("Failed to validate Microsoft Entra ID credentials."),
+    ):
+        with pytest.raises(MlflowException, match="`mlflow.login\\(\\)` failed with error"):
+            login(backend="entra", interactive=False)
+
+    assert MLFLOW_TRACKING_AUTH.get() is None
+
+
+def test_mlflow_login_unsupported_backend():
+    with pytest.raises(MlflowException, match="received `backend=foo`"):
+        login(backend="foo")
