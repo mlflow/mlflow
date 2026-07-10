@@ -2049,7 +2049,13 @@ class SqlSpan(Base):
 
     __table_args__ = (
         PrimaryKeyConstraint("trace_id", "span_id", name="spans_pk"),
-        Index("index_spans_experiment_id", "experiment_id"),
+        # The leftmost experiment_id column also supports experiment-only filters, so this
+        # composite index replaces a separate index on experiment_id.
+        Index(
+            "index_spans_experiment_id_start_time",
+            "experiment_id",
+            "start_time_unix_nano",
+        ),
         # Two indexes needed to support both filter patterns efficiently:
         Index(
             "index_spans_experiment_id_status_type", "experiment_id", "status", "type"

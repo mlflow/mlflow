@@ -285,6 +285,8 @@ _TRACE_WRITE_MAX_DEADLOCK_RETRIES = 2
 # and https://docs.sqlalchemy.org/en/latest/orm/mapping_api.html#sqlalchemy.orm.mapper.Mapper
 sqlalchemy.orm.configure_mappers()
 
+_SPAN_SEARCH_TIMESTAMP_TOLERANCE_MS = 10_000
+
 
 class DatasetFilter(TypedDict, total=False):
     """
@@ -3692,6 +3694,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         statement: _SqlAlchemyStatement,
         attribute_filters: list[ColumnElement],
         non_attribute_filters: list[Subquery],
+        span_attribute_filters: list[ColumnElement],
         span_filters: list[Subquery],
         run_id_filter: str | None,
     ) -> _SqlAlchemyStatement:
@@ -3699,13 +3702,14 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         Apply trace filter clauses to a SQLAlchemy statement.
 
         This helper consolidates the logic for applying trace filters that is shared
-        between search_traces() and find_completed_sessions().
+        between search_traces(), find_completed_sessions(), and correlation queries.
 
         Args:
             statement: SQLAlchemy statement (Select or Query) to apply filters to
             attribute_filters: List of attribute filter conditions (e.g., WHERE clauses)
             non_attribute_filters: List of subqueries for tag/metadata filters to join
-            span_filters: List of subqueries for span filters to join
+            span_attribute_filters: Filters combined in a correlated SqlSpan EXISTS clause
+            span_filters: List of subqueries for non-SqlSpan filters to join
             run_id_filter: Optional run_id to filter by
 
         Returns:
@@ -3715,7 +3719,17 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         for non_attr_filter in non_attribute_filters:
             statement = statement.join(non_attr_filter)
 
-        # Apply span filters with explicit join condition
+        # Apply direct span filters in a single correlated EXISTS clause so combined
+        # predicates target the same span without duplicating matching trace rows.
+        if span_attribute_filters:
+            statement = statement.filter(
+                exists().where(
+                    SqlSpan.trace_id == SqlTraceInfo.request_id,
+                    *span_attribute_filters,
+                )
+            )
+
+        # Apply subquery-backed span filters with explicit join condition
         for span_filter in span_filters:
             statement = statement.join(
                 span_filter, SqlTraceInfo.request_id == span_filter.c.request_id
@@ -3787,23 +3801,38 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         self._validate_max_results_param(max_results)
 
         with self.ManagedSessionMaker() as session:
-            locations = self._filter_experiment_ids(session, locations)
+            if locations is not None:
+                locations = self._filter_experiment_ids(session, locations)
+                location_filter = SqlTraceInfo.experiment_id.in_([int(e) for e in locations])
+            else:
+                location_filter = None
 
             cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses_for_search_traces(
                 order_by or [], session
             )
-            stmt = select(SqlTraceInfo, *cases_orderby).options(
+            stmt = self._trace_query(session).options(
                 sqlalchemy.orm.selectinload(SqlTraceInfo.tags),
                 sqlalchemy.orm.selectinload(SqlTraceInfo.request_metadata),
                 sqlalchemy.orm.selectinload(SqlTraceInfo.assessments),
             )
+            if cases_orderby:
+                stmt = stmt.add_columns(*cases_orderby)
 
-            attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
-                _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
-            )
+            (
+                attribute_filters,
+                non_attribute_filters,
+                span_attribute_filters,
+                span_filters,
+                run_id_filter,
+            ) = _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
 
             stmt = self._apply_trace_filter_clauses(
-                stmt, attribute_filters, non_attribute_filters, span_filters, run_id_filter
+                stmt,
+                attribute_filters,
+                non_attribute_filters,
+                span_attribute_filters,
+                span_filters,
+                run_id_filter,
             )
 
             # using an outer join is necessary here because we want to be able to sort
@@ -3813,23 +3842,15 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
                 stmt = stmt.outerjoin(j)
 
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
-            locations = [int(e) for e in locations]
+            if location_filter is not None:
+                stmt = stmt.filter(location_filter)
 
-            stmt = (
-                # NB: We don't need to distinct the results of joins because of the fact that
-                #   the right tables of the joins are unique on the join key, trace_id.
-                #   This is because the subquery that is joined on the right side is conditioned
-                #   by a key and value pair of tags/metadata, and the combination of key and
-                #   trace_id is unique in those tables.
-                #   Be careful when changing the query building logic, as it may break this
-                #   uniqueness property and require deduplication, which can be expensive.
-                stmt
-                .filter(SqlTraceInfo.experiment_id.in_(locations))
-                .order_by(*parsed_orderby)
-                .offset(offset)
-                .limit(max_results)
+            stmt = stmt.order_by(*parsed_orderby).offset(offset).limit(max_results)
+
+            queried_results = stmt.all()
+            queried_traces = (
+                [row[0] for row in queried_results] if cases_orderby else queried_results
             )
-            queried_traces = session.execute(stmt).scalars(SqlTraceInfo).all()
             trace_infos = [t.to_mlflow_entity() for t in queried_traces]
 
             # Compute next search token
@@ -3985,9 +4006,13 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             return candidate_sessions
 
         # Parse the filter string to get filter clauses
-        attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
-            _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
-        )
+        (
+            attribute_filters,
+            non_attribute_filters,
+            span_attribute_filters,
+            span_filters,
+            run_id_filter,
+        ) = _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
 
         # Subquery: first trace timestamp for each session
         first_trace_metadata = aliased(SqlTraceMetadata)
@@ -4027,6 +4052,7 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
             filtered_trace_query,
             attribute_filters,
             non_attribute_filters,
+            span_attribute_filters,
             span_filters,
             run_id_filter,
         )
@@ -4878,18 +4904,22 @@ class SqlAlchemyStore(SqlAlchemyMCPServerRegistryMixin, SqlAlchemyGatewayStoreMi
         stmt = select(SqlTraceInfo.request_id).where(SqlTraceInfo.experiment_id.in_(experiment_ids))
 
         if filter_string:
-            attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
-                _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
+            (
+                attribute_filters,
+                non_attribute_filters,
+                span_attribute_filters,
+                span_filters,
+                run_id_filter,
+            ) = _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
+
+            stmt = self._apply_trace_filter_clauses(
+                stmt,
+                attribute_filters,
+                non_attribute_filters,
+                span_attribute_filters,
+                span_filters,
+                run_id_filter,
             )
-
-            for non_attr_filter in non_attribute_filters:
-                stmt = stmt.join(non_attr_filter)
-
-            for span_filter in span_filters:
-                stmt = stmt.join(span_filter, SqlTraceInfo.request_id == span_filter.c.request_id)
-
-            for attr_filter in attribute_filters:
-                stmt = stmt.where(attr_filter)
 
         return stmt
 
@@ -9399,14 +9429,16 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
     Returns:
         attribute_filters: Direct filters on SqlTraceInfo attributes
         non_attribute_filters: Subqueries for tags and metadata
-        span_filters: Subqueries for span filters
+        span_attribute_filters: Direct filters on SqlSpan
+        span_filters: Subqueries for non-SqlSpan filters
         run_id_filter: Special run_id value for linked trace handling
     """
     attribute_filters = []
     non_attribute_filters = []
+    span_attribute_filters = []
     span_filters = []
-    span_filter_conditions = []
     run_id_filter = None
+    span_start_time_lower_bound_ms = None
 
     parsed_filters = SearchTraceUtils.parse_search_filter_for_search_traces(filter_string)
     for sql_statement in parsed_filters:
@@ -9436,6 +9468,12 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             continue
 
         if SearchTraceUtils.is_attribute(key_type, key_name, comparator):
+            if key_name == "timestamp_ms" and comparator in (">", ">="):
+                span_start_time_lower_bound_ms = (
+                    value
+                    if span_start_time_lower_bound_ms is None
+                    else max(span_start_time_lower_bound_ms, value)
+                )
             if key_name in ("end_time_ms", "end_time"):
                 # end_time = timestamp_ms + execution_time_ms
                 attribute = SqlTraceInfo.timestamp_ms + func.coalesce(
@@ -9558,7 +9596,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
                         span_column, value
                     )
-                span_filter_conditions.append(val_filter)
+                span_attribute_filters.append(val_filter)
                 continue
             elif SearchTraceUtils.is_assessment(key_type, key_name, comparator):
                 # Create subquery to find traces with matching assessments
@@ -9627,24 +9665,26 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 session.query(entity).filter(key_filter, val_filter).subquery()
             )
 
-    # Combine all span filter conditions into a single subquery
-    # This ensures all conditions are applied to the SAME span
-    # Example trace:
-    # span 1. name: foo          status: OK
-    # span 2. name: search_web   status: ERROR
-    # This trace shouldn't be returned for filter_string
-    # 'span.name = "search_web" AND span.status = "OK"'
-    if span_filter_conditions:
-        combined_span_subquery = (
-            session
-            .query(SqlSpan.trace_id.label("request_id"))
-            .filter(*span_filter_conditions)
-            .distinct()
-            .subquery()
-        )
-        span_filters.append(combined_span_subquery)
+    if span_attribute_filters:
+        span_scope_filters = [SqlSpan.experiment_id == SqlTraceInfo.experiment_id]
+        if span_start_time_lower_bound_ms is not None:
+            # Allow minor clock skew between trace and span timestamps while still pruning spans
+            # that are well outside the trace search range.
+            span_start_time_lower_bound_ns = (
+                span_start_time_lower_bound_ms - _SPAN_SEARCH_TIMESTAMP_TOLERANCE_MS
+            ) * 1_000_000
+            span_scope_filters.append(
+                SqlSpan.start_time_unix_nano >= span_start_time_lower_bound_ns
+            )
+        span_attribute_filters[:] = [*span_scope_filters, *span_attribute_filters]
 
-    return attribute_filters, non_attribute_filters, span_filters, run_id_filter
+    return (
+        attribute_filters,
+        non_attribute_filters,
+        span_attribute_filters,
+        span_filters,
+        run_id_filter,
+    )
 
 
 def _get_search_datasets_filter_clauses(parsed_filters, dialect):
