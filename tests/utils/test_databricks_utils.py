@@ -858,9 +858,19 @@ def test_parse_dbr_runtime_major_minor(dbr_version, expected):
     assert databricks_utils.parse_dbr_runtime_major_minor(dbr_version) == expected
 
 
-@pytest.mark.parametrize("dbr_version", ["17.yyy", "18.foo-bar"])
+@pytest.mark.parametrize(
+    "dbr_version",
+    [
+        "17.yyy",
+        "18.foo-bar",
+        # Non-ASCII digits (superscript '²', Thai '๓') satisfy str.isdigit() but are not valid
+        # DBR minors and must raise rather than be treated as numeric.
+        "15.²",
+        "15.๓",
+    ],
+)
 def test_parse_dbr_runtime_major_minor_malformed(dbr_version):
-    # A malformed minor (not numeric and not the uncut 'x' marker) must raise, not silently
+    # A malformed minor (not ASCII-numeric and not the uncut 'x' marker) must raise, not silently
     # degrade to the uncut sentinel.
     with pytest.raises(ValueError, match="Unrecognized Databricks runtime minor version token"):
         databricks_utils.parse_dbr_runtime_major_minor(dbr_version)

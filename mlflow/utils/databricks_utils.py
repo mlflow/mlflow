@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import platform
+import re
 import subprocess
 import time
 from dataclasses import dataclass
@@ -333,6 +334,9 @@ _dbconnect_udf_sandbox_info_cache: DBConnectUDFSandboxInfo | None = None
 # minor above any real cut minor while keeping the parsed version a plain `tuple[int, int]`.
 _UNCUT_MINOR = 999
 
+# ASCII-only decimal digits; `str.isdigit()`/`isdecimal()` also accept non-ASCII digits.
+_ASCII_DIGITS = re.compile(r"[0-9]+")
+
 
 def _parse_minor_token(minor_token: str) -> int:
     """
@@ -343,8 +347,11 @@ def _parse_minor_token(minor_token: str) -> int:
     of any already-released minor, so it maps to ``_UNCUT_MINOR`` (a ceiling) — ensuring
     ``{major}.x`` sorts above every concrete minor. Any other token (e.g. ``'yyy'``) is malformed
     and raises ``ValueError`` so callers surface it rather than silently treating it as uncut.
+
+    Matching uses an explicit ASCII-digit regex rather than ``str.isdigit()``, which also accepts
+    non-ASCII digits (e.g. superscripts, other scripts) that DBR version strings never contain.
     """
-    if minor_token.isdigit():
+    if _ASCII_DIGITS.fullmatch(minor_token):
         return int(minor_token)
     if minor_token == "x" or minor_token.startswith("x-"):
         return _UNCUT_MINOR
