@@ -4769,6 +4769,68 @@ def test_nested_post_does_not_re_promote_downgraded_creator(fastapi_client, monk
         assert resp.status_code == 403
 
 
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_non_version_nested_post_does_not_re_promote_downgraded_creator(
+    fastapi_client, monkeypatch, prefix
+):
+    creator, creator_pw = create_user(fastapi_client.tracking_uri)
+    server_name = "com.test/re-promote-tag"
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+
+    with User(creator, creator_pw, monkeypatch):
+        requests.post(
+            url=fastapi_client.tracking_uri + prefix,
+            json={"name": server_name},
+            auth=(creator, creator_pw),
+        ).raise_for_status()
+
+    _send_rest_tracking_post_request(
+        fastapi_client.tracking_uri,
+        "/api/3.0/mlflow/users/permissions/revoke",
+        {"username": creator, "resource_type": "mcp_server", "resource_id": server_name},
+        auth=admin_auth,
+    ).raise_for_status()
+    _send_rest_tracking_post_request(
+        fastapi_client.tracking_uri,
+        "/api/3.0/mlflow/users/permissions/grant",
+        {
+            "username": creator,
+            "resource_type": "mcp_server",
+            "resource_id": server_name,
+            "permission": "EDIT",
+        },
+        auth=admin_auth,
+    ).raise_for_status()
+
+    # A nested POST like /tags should be allowed with EDIT, but must not
+    # restore MANAGE to the original creator.
+    with User(creator, creator_pw, monkeypatch):
+        requests.post(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}/tags",
+            json={"key": "env", "value": "dev"},
+            auth=(creator, creator_pw),
+        ).raise_for_status()
+
+    resp = requests.get(
+        url=f"{fastapi_client.tracking_uri}/api/3.0/mlflow/users/permissions/get",
+        params={
+            "username": creator,
+            "resource_type": "mcp_server",
+            "resource_id": server_name,
+        },
+        auth=admin_auth,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["permission"] == "EDIT"
+
+    with User(creator, creator_pw, monkeypatch):
+        resp = requests.delete(
+            url=f"{fastapi_client.tracking_uri}{prefix}/{server_name}",
+            auth=(creator, creator_pw),
+        )
+        assert resp.status_code == 403
+
+
 def _version_create_body(name):
     return {
         "server_json": {"name": name, "version": "1.0.0"},

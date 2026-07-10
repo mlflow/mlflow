@@ -4473,6 +4473,10 @@ def _mcp_server_suffix(path: str) -> str:
     raise MlflowException(f"Not an MCP server path: {path}", error_code=BAD_REQUEST)
 
 
+def _is_mcp_server_version_create_path(parts: list[str]) -> bool:
+    return len(parts) == 3 and parts[2] == "versions"
+
+
 def _get_mcp_server_validator(
     path: str,
 ) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
@@ -4501,13 +4505,11 @@ def _get_mcp_server_validator(
             raise
 
     async def validator(username: str, request: StarletteRequest) -> bool:
-        if (
-            request.method == "POST"
-            and len(parts) > 2
-            and parts[2] == "versions"
-            and not _server_exists()
-        ):
-            return validate_can_create_mcp_server(username)
+        if request.method == "POST" and _is_mcp_server_version_create_path(parts):
+            parent_missing = not _server_exists()
+            request.state.mcp_server_parent_auto_created = parent_missing
+            if parent_missing:
+                return validate_can_create_mcp_server(username)
         perm = _get_mcp_server_permission(name, username)
         match request.method:
             case "GET":
@@ -4530,7 +4532,9 @@ def _mcp_server_after_create(username: str, request: StarletteRequest) -> None:
     suffix = _mcp_server_suffix(get_routed_asgi_path(request))
     parts = suffix.split("/") if suffix else []
 
-    if len(parts) > 2:
+    if _is_mcp_server_version_create_path(parts):
+        if not getattr(request.state, "mcp_server_parent_auto_created", False):
+            return
         name = f"{parts[0]}/{parts[1]}"
         try:
             server = _get_tracking_store().get_mcp_server(name)
