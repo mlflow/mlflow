@@ -477,7 +477,8 @@ class _ScoreSubmitter:
                 assessments=eval_result.assessments,
             )
         except Exception as e:
-            trace_id = eval_result.eval_item.trace.info.trace_id
+            trace = eval_result.eval_item.trace
+            trace_id = trace.info.trace_id if trace else "<unknown>"
             _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
         with self._time_lock:
             self._times.append(time.monotonic() - start)
@@ -499,6 +500,9 @@ class _ScoreSubmitter:
         ]
         for future in as_completed(futures):
             eval_result = future.result()
+            if eval_result.eval_item.trace is None:
+                _logger.warning("Skipping multi-turn result with no trace.")
+                continue
             trace_id = eval_result.eval_item.trace.info.trace_id
             multi_turn_eval_results[trace_id] = eval_result
             if progress_bar:
@@ -784,7 +788,20 @@ def _run_predict(
         if _should_clone_trace(eval_item.trace, run_id, experiment_id):
             try:
                 trace_id = copy_trace_to_experiment(eval_item.trace.to_dict())
-                eval_item.trace = mlflow.get_trace(trace_id)
+                # copy_trace_to_experiment exports asynchronously and returns before the write
+                # is durable; flush=True drains pending async writes on a store miss so this
+                # read-after-write resolves deterministically (no-op on a hit).
+                cloned_trace = mlflow.get_trace(trace_id, flush=True)
+                if cloned_trace is None:
+                    # get_trace returns None (does not raise) on a residual miss, so the except
+                    # below never fires. Record it and null the trace; scoring degrades via the
+                    # guard in _get_new_expectations rather than crashing.
+                    eval_item.error_message = (
+                        f"Cloned trace could not be read back from the tracking store "
+                        f"(trace_id={trace_id}); dataset expectations/tags for this row "
+                        f"were not persisted."
+                    )
+                eval_item.trace = cloned_trace
             except Exception as e:
                 eval_item.error_message = f"Failed to clone trace to the current experiment: {e}"
         else:
@@ -932,6 +949,8 @@ def _compute_eval_scores(
 
 
 def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
+    if eval_item.trace is None:
+        return []
     existing_expectations = {
         a.name for a in eval_item.trace.info.assessments if a.expectation is not None
     }
