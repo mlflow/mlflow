@@ -338,11 +338,17 @@ def _parse_minor_token(minor_token: str) -> int:
     """
     Parse a Databricks runtime minor-version token into a comparable int.
 
-    In DBR, an ``x`` (or ``x-<suffix>``) minor denotes the latest *uncut* minor of a major, which
-    is always ahead of any already-released minor. A numeric token parses as-is; any non-numeric
-    token maps to ``_UNCUT_MINOR`` (a ceiling) so ``{major}.x`` sorts above every concrete minor.
+    A numeric token (``'4'``) parses as-is. In DBR, an ``x`` (or ``x-<suffix>`` such as
+    ``x-photon-scala2``) minor denotes the latest *uncut* minor of a major, which is always ahead
+    of any already-released minor, so it maps to ``_UNCUT_MINOR`` (a ceiling) — ensuring
+    ``{major}.x`` sorts above every concrete minor. Any other token (e.g. ``'yyy'``) is malformed
+    and raises ``ValueError`` so callers surface it rather than silently treating it as uncut.
     """
-    return int(minor_token) if minor_token.isdigit() else _UNCUT_MINOR
+    if minor_token.isdigit():
+        return int(minor_token)
+    if minor_token == "x" or minor_token.startswith("x-"):
+        return _UNCUT_MINOR
+    raise ValueError(f"Unrecognized Databricks runtime minor version token: {minor_token!r}")
 
 
 def parse_dbr_runtime_major_minor(dbr_version: str) -> tuple[int, int]:

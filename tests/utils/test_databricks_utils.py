@@ -850,6 +850,14 @@ def test_parse_dbr_runtime_major_minor(dbr_version, expected):
     assert databricks_utils.parse_dbr_runtime_major_minor(dbr_version) == expected
 
 
+@pytest.mark.parametrize("dbr_version", ["17.yyy", "18.foo-bar"])
+def test_parse_dbr_runtime_major_minor_malformed(dbr_version):
+    # A malformed minor (not numeric and not the uncut 'x' marker) must raise, not silently
+    # degrade to the uncut sentinel.
+    with pytest.raises(ValueError, match="Unrecognized Databricks runtime minor version token"):
+        databricks_utils.parse_dbr_runtime_major_minor(dbr_version)
+
+
 def test_parse_dbr_runtime_uncut_minor_sorts_above_concrete_minor():
     # '{major}.x' is the latest uncut minor and must compare greater than any released minor,
     # including a hypothetical future gate threshold within the same major.
@@ -1089,6 +1097,10 @@ def test_databricks_runtime_version_parse_from_env_version(monkeypatch):
         "client",
         "client.invalid",
         "13",
+        # A malformed minor (not numeric, not the uncut 'x' marker) must still raise.
+        "17.yyy",
+        "18.foo-bar",
+        "client.5.yyy",
     ],
 )
 def test_databricks_runtime_version_parse_invalid(invalid_version):
