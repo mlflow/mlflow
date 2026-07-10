@@ -39,6 +39,7 @@ from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
+    TokenUsageKey,
     TraceMetadataKey,
     TraceTagKey,
 )
@@ -271,6 +272,51 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
         "mlflow.spanLogLevel": SpanLogLevel.DEBUG,
         "mlflow.spanInputs": {"t": 8},
         "mlflow.spanOutputs": 64,
+    }
+
+
+def test_deep_trace_is_not_corrupted_by_aggregation(async_logging_enabled):
+    # Regression test for #24344: a trace nested deeper than the recursion limit used to
+    # raise RecursionError while aggregating token usage during root-span finalization,
+    # aborting export and leaving the trace permanently stuck IN_PROGRESS with corrupted
+    # span data. The trace must (a) finalize to a terminal state and be loadable, and
+    # (b) still aggregate token usage correctly across multiple LLM spans.
+    depth = 1100  # > sys.getrecursionlimit() default of 1000
+
+    # A deep backbone (no usage) that exceeds the recursion limit...
+    spans = [start_span_no_context("root", span_type=SpanType.AGENT)]
+    for i in range(depth):
+        spans.append(start_span_no_context(f"level_{i}", parent_span=spans[-1]))
+
+    # ...ending in a fan of sibling LLM leaves that each carry usage. None is an ancestor
+    # of another, so aggregation must SUM all of them (3 * {10, 5, 15}).
+    backbone_leaf = spans[-1]
+    for j in range(3):
+        leaf = start_span_no_context(f"llm_{j}", span_type=SpanType.LLM, parent_span=backbone_leaf)
+        leaf.set_attribute(
+            SpanAttributeKey.CHAT_USAGE,
+            {
+                TokenUsageKey.INPUT_TOKENS: 10,
+                TokenUsageKey.OUTPUT_TOKENS: 5,
+                TokenUsageKey.TOTAL_TOKENS: 15,
+            },
+        )
+        leaf.end()
+
+    for s in reversed(spans):
+        s.end()
+
+    if async_logging_enabled:
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    trace_id = spans[0].trace_id
+    trace = mlflow.get_trace(trace_id)
+    assert trace is not None
+    assert trace.info.state == TraceState.OK
+    assert trace.info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 30,
+        TokenUsageKey.OUTPUT_TOKENS: 15,
+        TokenUsageKey.TOTAL_TOKENS: 45,
     }
 
 

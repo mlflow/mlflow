@@ -235,8 +235,16 @@ def _aggregate_from_spans(
         else:
             roots.append(span)
 
-    def dfs(span: LiveSpan, ancestor_has_data: bool) -> None:
-        nonlocal has_data
+    # Iterative DFS with an explicit stack, instead of recursion, to avoid overflowing
+    # Python's call stack for deeply nested traces (~1000+ levels). A recursive walk here
+    # used to abort root-span finalization and permanently corrupt the trace.
+    #
+    # Visit order is irrelevant: totals is a sum and has_data an OR (both commutative), and
+    # each span's ancestor_has_data is fixed by its ancestor chain, not by sibling visit
+    # order. So a plain stack (no reversed()) yields identical results.
+    stack: list[tuple[LiveSpan, bool]] = [(root, False) for root in roots]
+    while stack:
+        span, ancestor_has_data = stack.pop()
 
         data = span.get_attribute(attribute_key)
         span_has_data = data is not None
@@ -250,11 +258,9 @@ def _aggregate_from_spans(
             has_data = True
 
         next_ancestor_has_data = ancestor_has_data or span_has_data
-        for child in children_map.get(span.span_id, []):
-            dfs(child, next_ancestor_has_data)
-
-    for root in roots:
-        dfs(root, False)
+        stack.extend(
+            (child, next_ancestor_has_data) for child in children_map.get(span.span_id, [])
+        )
 
     if not has_data:
         return None
