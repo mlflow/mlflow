@@ -334,6 +334,17 @@ _dbconnect_udf_sandbox_info_cache: DBConnectUDFSandboxInfo | None = None
 _UNCUT_MINOR = 999
 
 
+def _parse_minor_token(minor_token: str) -> int:
+    """
+    Parse a Databricks runtime minor-version token into a comparable int.
+
+    In DBR, an ``x`` (or ``x-<suffix>``) minor denotes the latest *uncut* minor of a major, which
+    is always ahead of any already-released minor. A numeric token parses as-is; any non-numeric
+    token maps to ``_UNCUT_MINOR`` (a ceiling) so ``{major}.x`` sorts above every concrete minor.
+    """
+    return int(minor_token) if minor_token.isdigit() else _UNCUT_MINOR
+
+
 def parse_dbr_runtime_major_minor(dbr_version: str) -> tuple[int, int]:
     """
     Extract the leading ``(major, minor)`` integer components from a raw Databricks
@@ -351,7 +362,7 @@ def parse_dbr_runtime_major_minor(dbr_version: str) -> tuple[int, int]:
     """
     parts = dbr_version.split(".")
     major = int(parts[0])
-    minor = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else _UNCUT_MINOR
+    minor = _parse_minor_token(parts[1]) if len(parts) > 1 else _UNCUT_MINOR
     return major, minor
 
 
@@ -1404,11 +1415,14 @@ class DatabricksRuntimeVersion(NamedTuple):
             if dbr_version_splits[0] == "client":
                 is_client_image = True
                 major = int(dbr_version_splits[1])
-                minor = int(dbr_version_splits[2]) if len(dbr_version_splits) > 2 else 0
+                has_minor = len(dbr_version_splits) > 2
+                minor = _parse_minor_token(dbr_version_splits[2]) if has_minor else 0
             else:
                 is_client_image = False
                 major = int(dbr_version_splits[0])
-                minor = int(dbr_version_splits[1])
+                # A missing minor (e.g. bare "13") is still an error; a present but non-numeric
+                # minor (e.g. "18.x-photon-scala2") is the latest uncut minor of that major.
+                minor = _parse_minor_token(dbr_version_splits[1])
             return cls(is_client_image, major, minor, is_gpu_image)
         except Exception:
             raise MlflowException(f"Failed to parse databricks runtime version '{dbr_version}'.")

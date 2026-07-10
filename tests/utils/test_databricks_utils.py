@@ -976,6 +976,11 @@ def test_print_databricks_deployment_job_url():
         ("client.10.0-gpu", True, 10, 0, True),
         ("14.3-gpu", False, 14, 3, True),
         ("15.1-gpu", False, 15, 1, True),
+        # Newer uncut images have a non-numeric minor -> latest uncut minor of that major.
+        ("18.x-photon-scala2", False, 18, databricks_utils._UNCUT_MINOR, False),
+        ("18.x-aarch64-photon-scala2", False, 18, databricks_utils._UNCUT_MINOR, False),
+        ("client.5.x", True, 5, databricks_utils._UNCUT_MINOR, False),
+        ("18.x-gpu", False, 18, databricks_utils._UNCUT_MINOR, True),
     ],
 )
 def test_databricks_runtime_version_parse(
