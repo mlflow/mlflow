@@ -1,4 +1,5 @@
 import { Empty, useDesignSystemTheme } from '@databricks/design-system';
+import { chunk } from 'lodash';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useUpdateRunsChartsUIConfiguration } from '../hooks/useRunsChartsUIConfiguration';
 import type { RunsChartsCardConfig } from '../runs-charts.types';
@@ -14,11 +15,19 @@ import {
   useRunsChartsDraggableGridStateContext,
 } from './RunsChartsDraggableCardsGridContext';
 import { RunsChartsDraggablePreview } from './RunsChartsDraggablePreview';
+import { RunsChartsVirtualizedGroup } from './RunsChartsVirtualizedGroup';
 import { DRAGGABLE_CARD_TRANSITION_NAME, type RunsChartCardSetFullscreenFn } from './cards/ChartCard.common';
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
 import type { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
 
 const rowHeightSuggestions = [300, 330, 360, 400, 500];
+
+// Number of chart cards per virtualization group. Larger groups reduce the
+// number of IntersectionObserver targets but increase the work per visible group.
+const CHART_CARDS_PER_VIRTUAL_GROUP = 30;
+
+// Disable virtualization for small grids where the overhead is not worth it.
+const VIRTUALIZATION_DISABLE_THRESHOLD = CHART_CARDS_PER_VIRTUAL_GROUP;
 
 const getColumnSuggestions = (containerWidth: number, gapSize = 8) =>
   [1, 2, 3, 4, 5].map((n) => ({
@@ -167,6 +176,13 @@ export const RunsChartsDraggableCardsGridSection = memo(
         return !isEmptyChartCard(cardConfig);
       });
     }, [cardsConfig, chartRunData, hideEmptyCharts]);
+
+    const cardGroups = useMemo(() => {
+      if (cardsToRender.length <= VIRTUALIZATION_DISABLE_THRESHOLD) {
+        return null;
+      }
+      return chunk(cardsToRender, CHART_CARDS_PER_VIRTUAL_GROUP);
+    }, [cardsToRender]);
 
     // Calculate the transforms for each card based on the dragged card and its position.
     const cardTransforms = useMemo(() => {
@@ -358,33 +374,58 @@ export const RunsChartsDraggableCardsGridSection = memo(
             />
           </div>
         )}
-        {cardsToRender.map((cardConfig, index, array) => {
-          return (
-            <RunsChartsDraggableCard
-              key={cardConfig.uuid}
-              uuid={cardConfig.uuid ?? ''}
-              translateBy={cardTransforms[cardConfig.uuid ?? '']}
-              onResizeStart={onResizeStart}
-              onResizeStop={onResizeStop}
-              onResize={onResize}
-              cardConfig={cardConfig}
-              chartRunData={chartRunData}
-              onReorderWith={onSwapCards}
-              index={index}
-              height={cardHeight}
-              canMoveDown={Boolean(array[index + 1])}
-              canMoveUp={Boolean(array[index - 1])}
-              canMoveToTop={index > 0}
-              canMoveToBottom={index < array.length - 1}
-              previousChartUuid={array[index - 1]?.uuid}
-              nextChartUuid={array[index + 1]?.uuid}
-              hideEmptyCharts={hideEmptyCharts}
-              firstChartUuid={array[0]?.uuid}
-              lastChartUuid={array[array.length - 1]?.uuid}
-              {...cardProps}
-            />
-          );
-        })}
+        {cardGroups
+          ? cardGroups.map((groupCards, groupIndex) => (
+              <RunsChartsVirtualizedGroup
+                key={`virtual-group-${sectionId}-${groupIndex}`}
+                cards={groupCards}
+                allCards={cardsToRender}
+                groupStartIndex={groupIndex * CHART_CARDS_PER_VIRTUAL_GROUP}
+                columns={columns}
+                cardHeight={cardHeight}
+                gap={theme.spacing.sm}
+                chartRunData={chartRunData}
+                onRemoveChart={cardProps.onRemoveChart}
+                onStartEditChart={cardProps.onStartEditChart}
+                setFullScreenChart={cardProps.setFullScreenChart}
+                groupBy={cardProps.groupBy}
+                autoRefreshEnabled={cardProps.autoRefreshEnabled}
+                hideEmptyCharts={hideEmptyCharts}
+                globalLineChartConfig={cardProps.globalLineChartConfig}
+                onResizeStart={onResizeStart}
+                onResizeStop={onResizeStop}
+                onResize={onResize}
+                onReorderWith={onSwapCards}
+                getTranslateBy={(uuid) => cardTransforms[uuid ?? '']}
+              />
+            ))
+          : cardsToRender.map((cardConfig, index, array) => {
+              return (
+                <RunsChartsDraggableCard
+                  key={cardConfig.uuid}
+                  uuid={cardConfig.uuid ?? ''}
+                  translateBy={cardTransforms[cardConfig.uuid ?? '']}
+                  onResizeStart={onResizeStart}
+                  onResizeStop={onResizeStop}
+                  onResize={onResize}
+                  cardConfig={cardConfig}
+                  chartRunData={chartRunData}
+                  onReorderWith={onSwapCards}
+                  index={index}
+                  height={cardHeight}
+                  canMoveDown={Boolean(array[index + 1])}
+                  canMoveUp={Boolean(array[index - 1])}
+                  canMoveToTop={index > 0}
+                  canMoveToBottom={index < array.length - 1}
+                  previousChartUuid={array[index - 1]?.uuid}
+                  nextChartUuid={array[index + 1]?.uuid}
+                  hideEmptyCharts={hideEmptyCharts}
+                  firstChartUuid={array[0]?.uuid}
+                  lastChartUuid={array[array.length - 1]?.uuid}
+                  {...cardProps}
+                />
+              );
+            })}
         {dragPreview && <RunsChartsDraggablePreview {...dragPreview} />}
         {resizePreview && <RunsChartsDraggablePreview {...resizePreview} />}
       </div>

@@ -1,28 +1,36 @@
 import { useEffect, useRef, useState } from 'react';
 
-// Define a module-global observer and a WeakMap on elements to hold callbacks
-let sharedObserver: IntersectionObserver | null = null;
+// Define module-global observers keyed by rootMargin and a WeakMap on elements to hold callbacks
+const sharedObservers: Record<string, IntersectionObserver> = {};
 const entryCallbackMap = new WeakMap();
 
-const ensureSharedObserverExists = () => {
-  if (!sharedObserver) {
-    sharedObserver = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        const entryCallback = entryCallbackMap.get(entry.target);
-        entryCallback?.(entry.isIntersecting);
-      }
-    });
+const getObserverKey = (rootMargin?: string) => rootMargin ?? 'default';
+
+const ensureSharedObserverExists = (rootMargin?: string) => {
+  const observerKey = getObserverKey(rootMargin);
+  if (!sharedObservers[observerKey]) {
+    sharedObservers[observerKey] = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const entryCallback = entryCallbackMap.get(entry.target);
+          entryCallback?.(entry.isIntersecting);
+        }
+      },
+      { rootMargin },
+    );
   }
 };
 
-function observeElement(element: Element, callback: (isIntersecting: boolean) => void) {
-  ensureSharedObserverExists();
+function observeElement(element: Element, callback: (isIntersecting: boolean) => void, rootMargin?: string) {
+  ensureSharedObserverExists(rootMargin);
+  const observerKey = getObserverKey(rootMargin);
+  const observer = sharedObservers[observerKey];
   entryCallbackMap.set(element, callback);
-  sharedObserver?.observe(element);
+  observer?.observe(element);
 
   return () => {
     if (element) {
-      sharedObserver?.unobserve(element);
+      observer?.unobserve(element);
       entryCallbackMap.delete(element);
     }
   };
@@ -32,7 +40,10 @@ function observeElement(element: Element, callback: (isIntersecting: boolean) =>
  * Checks if the element is currently visible within the viewport using IntersectionObserver.
  * If "enabled" is set to false, the returned value will always be true.
  */
-export const useIsInViewport = <T extends Element>({ enabled = true }: { enabled?: boolean } = {}) => {
+export const useIsInViewport = <T extends Element>({
+  enabled = true,
+  rootMargin,
+}: { enabled?: boolean; rootMargin?: string } = {}) => {
   const [element, setElementRef] = useState<T | null>(null);
   const [isInViewport, setIsInViewport] = useState(!enabled);
 
@@ -48,8 +59,8 @@ export const useIsInViewport = <T extends Element>({ enabled = true }: { enabled
       return;
     }
 
-    return observeElement(element, setIsInViewport);
-  }, [enabled, element]);
+    return observeElement(element, setIsInViewport, rootMargin);
+  }, [enabled, element, rootMargin]);
 
   // When the flag is disabled, deferred result is the same as the regular one
   return { isInViewport, setElementRef };
