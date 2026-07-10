@@ -148,10 +148,11 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
 
                 if should_compute_cost_client_side() and (cost := aggregate_cost_from_spans(spans)):
                     trace.info.request_metadata[TraceMetadataKey.COST] = json.dumps(cost)
-            except Exception:
+            except Exception as e:
                 _logger.warning(
-                    "Failed to aggregate token usage/cost for the trace; continuing "
-                    "finalization without it.",
+                    f"Failed to aggregate token usage/cost for trace {trace_id}: {e}. "
+                    "Continuing finalization without it. For full traceback, set logging "
+                    "level to debug.",
                     exc_info=_logger.isEnabledFor(logging.DEBUG),
                 )
 
