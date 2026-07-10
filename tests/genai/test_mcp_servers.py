@@ -262,6 +262,18 @@ def test_register_mcp_server_from_url_sanitizes_source():
     assert version.source == "https://example.com:8080/server.json"
 
 
+def test_register_mcp_server_from_url_sanitizes_ipv6_source():
+    payload = b'{"name": "io.github.test/ipv6-server", "version": "1.0.0"}'
+    url = "https://user:token@[::1]:8080/server.json?sig=secret&expires=123#frag"
+    with mock.patch.object(
+        urllib.request, "urlopen", return_value=_FakeResponse(payload)
+    ) as mock_urlopen:
+        version = genai.register_mcp_server_from_url(url=url)
+
+    mock_urlopen.assert_called_once_with(url, timeout=30)
+    assert version.source == "https://[::1]:8080/server.json"
+
+
 def test_register_mcp_server_from_url_explicit_source_preserved():
     payload = b'{"name": "io.github.test/explicit-src", "version": "1.0.0"}'
     url = "https://user:pass@example.com/server.json?token=secret"

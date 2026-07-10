@@ -123,6 +123,8 @@ _MAX_SERVER_JSON_BYTES = 10 * 1024 * 1024  # 10 MiB
 def _sanitize_url(url: str) -> str:
     parsed = urllib.parse.urlparse(url)
     host = parsed.hostname or ""
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
     if parsed.port:
         host = f"{host}:{parsed.port}"
     return urllib.parse.urlunparse((parsed.scheme, host, parsed.path, "", "", ""))
