@@ -3,13 +3,20 @@ import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { CreateBudgetPolicyModal } from './CreateBudgetPolicyModal';
 import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
+import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 
 jest.mock('../../hooks/useCreateBudgetPolicy');
+jest.mock('../../hooks/useEndpointsQuery');
 jest.mock('../../../experiment-tracking/hooks/useServerInfo', () => ({
   getWorkspacesEnabledSync: () => false,
 }));
 
 const mockMutateAsync = jest.fn().mockReturnValue(Promise.resolve());
+
+const mockEndpoints = [
+  { endpoint_id: 'e-1', name: 'my-endpoint' },
+  { endpoint_id: 'e-2', name: 'other-endpoint' },
+];
 
 describe('CreateBudgetPolicyModal', () => {
   beforeEach(() => {
@@ -19,6 +26,12 @@ describe('CreateBudgetPolicyModal', () => {
       isLoading: false,
       error: null,
       reset: jest.fn(),
+    } as any);
+    jest.mocked(useEndpointsQuery).mockReturnValue({
+      data: mockEndpoints,
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
     } as any);
   });
 
@@ -67,6 +80,65 @@ describe('CreateBudgetPolicyModal', () => {
       budget_amount: 100,
       duration: { unit: 'MONTHS', value: 1 },
       target_scope: 'GLOBAL',
+      budget_action: 'REJECT',
+    });
+  });
+
+  test('defaults to all-endpoints scope without endpoint picker', () => {
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    expect(screen.getByText('Applies to')).toBeInTheDocument();
+    expect(screen.queryByText('Select an endpoint')).not.toBeInTheDocument();
+  });
+
+  test('requires an endpoint selection when scope is a specific endpoint', async () => {
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
+
+    const amountInput = screen.getByPlaceholderText('e.g., 100.00');
+    await userEvent.type(amountInput, '50');
+
+    const createButton = screen.getByRole('button', { name: 'Create' });
+    expect(createButton).not.toBeDisabled();
+
+    const [scopeSelect] = screen.getAllByRole('combobox');
+    await userEvent.click(scopeSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'Specific endpoint' }));
+
+    // No endpoint chosen yet, so Create stays disabled.
+    expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+
+    const endpointSelect = screen.getAllByRole('combobox')[1];
+    await userEvent.click(endpointSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'my-endpoint' }));
+
+    expect(screen.getByRole('button', { name: 'Create' })).not.toBeDisabled();
+  });
+
+  test('submits ENDPOINT payload with endpoint_id', async () => {
+    const onClose = jest.fn();
+    const onSuccess = jest.fn();
+
+    renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={onClose} onSuccess={onSuccess} />);
+
+    const amountInput = screen.getByPlaceholderText('e.g., 100.00');
+    await userEvent.type(amountInput, '25');
+
+    const [scopeSelect] = screen.getAllByRole('combobox');
+    await userEvent.click(scopeSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'Specific endpoint' }));
+
+    const endpointSelect = screen.getAllByRole('combobox')[1];
+    await userEvent.click(endpointSelect);
+    await userEvent.click(screen.getByRole('option', { name: 'other-endpoint' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      budget_unit: 'USD',
+      budget_amount: 25,
+      duration: { unit: 'MONTHS', value: 1 },
+      target_scope: 'ENDPOINT',
+      endpoint_id: 'e-2',
       budget_action: 'REJECT',
     });
   });

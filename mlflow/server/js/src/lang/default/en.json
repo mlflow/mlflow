@@ -995,6 +995,10 @@
     "defaultMessage": "We couldn't find any models matching your search criteria. Try changing your search filters.",
     "description": "Empty state message displayed when all models are filtered out in the logged models list page"
   },
+  "2eiOIO": {
+    "defaultMessage": "All endpoints",
+    "description": "Budget scope label for global or workspace-wide policies"
+  },
   "2f2qeb": {
     "defaultMessage": "Type",
     "description": "Text for type column in schema table in model version page"
@@ -2014,6 +2018,10 @@
   "7pkOrA": {
     "defaultMessage": "Model",
     "description": "Summary model label"
+  },
+  "7qIHOl": {
+    "defaultMessage": "Select an endpoint",
+    "description": "Placeholder for budget policy endpoint selector"
   },
   "7rO5IT": {
     "defaultMessage": "Select reviewers",
@@ -3539,6 +3547,10 @@
     "defaultMessage": "Type a value",
     "description": "Key-value tag editor modal > Value input placeholder"
   },
+  "FGnPTW": {
+    "defaultMessage": "Applies to",
+    "description": "Budget scope label"
+  },
   "FHJ1NN": {
     "defaultMessage": "Endpoint Name",
     "description": "Label for endpoint name input"
@@ -3590,6 +3602,10 @@
   "FbFEvH": {
     "defaultMessage": "Comparing {count} traces",
     "description": "Comparing traces title"
+  },
+  "FbhstH": {
+    "defaultMessage": "Applies to",
+    "description": "Budget scope column header"
   },
   "FcddG+": {
     "defaultMessage": "Zoom Out",

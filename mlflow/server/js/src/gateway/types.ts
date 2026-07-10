@@ -300,7 +300,7 @@ export interface ListUsersResponse {
 // Budget Policy types
 export type BudgetUnit = 'USD';
 export type DurationUnit = 'MINUTES' | 'HOURS' | 'DAYS' | 'WEEKS' | 'MONTHS';
-export type TargetScope = 'GLOBAL' | 'WORKSPACE';
+export type TargetScope = 'GLOBAL' | 'WORKSPACE' | 'ENDPOINT';
 export type BudgetAction = 'ALERT' | 'REJECT';
 
 export interface BudgetDuration {
@@ -320,6 +320,7 @@ export interface BudgetPolicy {
   created_by?: string | null;
   last_updated_by?: string | null;
   workspace?: string | null;
+  endpoint_id?: string | null;
 }
 
 export interface CreateBudgetPolicyRequest {
@@ -328,6 +329,7 @@ export interface CreateBudgetPolicyRequest {
   duration: BudgetDuration;
   target_scope: TargetScope;
   budget_action: BudgetAction;
+  endpoint_id?: string;
 }
 
 export interface CreateBudgetPolicyResponse {
@@ -345,6 +347,7 @@ export interface UpdateBudgetPolicyRequest {
   duration?: BudgetDuration;
   target_scope?: TargetScope;
   budget_action?: BudgetAction;
+  endpoint_id?: string;
 }
 
 export interface UpdateBudgetPolicyResponse {
@@ -361,6 +364,7 @@ export interface BudgetPolicyWindow {
   window_start_ms: number;
   window_end_ms: number;
   current_spend: number;
+  endpoint_id?: string;
 }
 
 export interface ListBudgetWindowsResponse {

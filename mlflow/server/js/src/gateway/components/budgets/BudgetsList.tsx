@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Button,
   ChevronLeftIcon,
@@ -20,6 +20,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
 import { useBudgetWindowsQuery } from '../../hooks/useBudgetWindowsQuery';
+import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import { formatBudgetAmount, formatDuration, formatOnExceeded } from './budgetFormatUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import { Link } from '../../../common/utils/RoutingUtils';
@@ -41,6 +42,22 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
 
   const { data: budgetPolicies, nextPageToken, isLoading } = useBudgetPoliciesQuery(PAGE_SIZE, pageToken);
   const { data: budgetWindows } = useBudgetWindowsQuery();
+  const { data: endpoints } = useEndpointsQuery();
+
+  const endpointNamesById = useMemo(
+    () => new Map(endpoints.map((endpoint) => [endpoint.endpoint_id, endpoint.name])),
+    [endpoints],
+  );
+
+  const getScopeLabel = (policy: BudgetPolicy) => {
+    if (policy.target_scope === 'ENDPOINT') {
+      return endpointNamesById.get(policy.endpoint_id ?? '') ?? policy.endpoint_id;
+    }
+    return formatMessage({
+      defaultMessage: 'All endpoints',
+      description: 'Budget scope label for global or workspace-wide policies',
+    });
+  };
 
   const handleNextPage = () => {
     if (nextPageToken) {
@@ -128,6 +145,9 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
           <TableHeader componentId="mlflow.gateway.budgets-list.limit-header" css={{ flex: 1 }}>
             <FormattedMessage defaultMessage="Budget" description="Budget amount column header" />
           </TableHeader>
+          <TableHeader componentId="mlflow.gateway.budgets-list.scope-header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Applies to" description="Budget scope column header" />
+          </TableHeader>
           <TableHeader componentId="mlflow.gateway.budgets-list.duration-header" css={{ flex: 1 }}>
             <FormattedMessage defaultMessage="Reset period" description="Budget reset period column header" />
           </TableHeader>
@@ -164,6 +184,9 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
                     <Typography.Text>{formatBudgetAmount(policy.budget_amount, policy.budget_unit)}</Typography.Text>
                   </span>
                 </Tooltip>
+              </TableCell>
+              <TableCell css={{ flex: 1 }}>
+                <Typography.Text>{getScopeLabel(policy)}</Typography.Text>
               </TableCell>
               <TableCell css={{ flex: 1 }}>
                 <Typography.Text>{formatDuration(policy.duration.value, policy.duration.unit)}</Typography.Text>

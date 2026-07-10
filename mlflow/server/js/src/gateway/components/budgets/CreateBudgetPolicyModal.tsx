@@ -12,10 +12,12 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
+import { useEndpointsQuery } from '../../hooks/useEndpointsQuery';
 import type { BudgetAction, DurationUnit } from '../../types';
 import { getWorkspacesEnabledSync } from '../../../experiment-tracking/hooks/useServerInfo';
 
 type DurationPreset = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+type BudgetScopeChoice = 'ALL' | 'ENDPOINT';
 
 const DURATION_MAP: Record<DurationPreset, { unit: DurationUnit; value: number }> = {
   DAILY: { unit: 'DAYS', value: 1 },
@@ -33,12 +35,16 @@ interface FormData {
   budgetAmount: string;
   duration: DurationPreset;
   budgetAction: BudgetAction;
+  scope: BudgetScopeChoice;
+  endpointId: string;
 }
 
 const INITIAL_FORM_DATA: FormData = {
   budgetAmount: '',
   duration: 'MONTHLY',
   budgetAction: 'REJECT',
+  scope: 'ALL',
+  endpointId: '',
 };
 
 export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudgetPolicyModalProps) => {
@@ -51,6 +57,7 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
     error: mutationError,
     reset: resetMutation,
   } = useCreateBudgetPolicy();
+  const { data: endpoints } = useEndpointsQuery();
 
   const handleClose = useCallback(() => {
     setFormData(INITIAL_FORM_DATA);
@@ -68,8 +75,9 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
 
   const isFormValid = useMemo(() => {
     const amount = parseFloat(formData.budgetAmount);
-    return !isNaN(amount) && amount > 0;
-  }, [formData.budgetAmount]);
+    if (isNaN(amount) || amount <= 0) return false;
+    return formData.scope !== 'ENDPOINT' || Boolean(formData.endpointId);
+  }, [formData.budgetAmount, formData.scope, formData.endpointId]);
 
   const handleSubmit = useCallback(async () => {
     if (!isFormValid) return;
@@ -81,7 +89,9 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
         budget_unit: 'USD',
         budget_amount: parseFloat(formData.budgetAmount),
         duration: { unit, value },
-        target_scope: getWorkspacesEnabledSync() ? 'WORKSPACE' : 'GLOBAL',
+        ...(formData.scope === 'ENDPOINT'
+          ? { target_scope: 'ENDPOINT' as const, endpoint_id: formData.endpointId }
+          : { target_scope: getWorkspacesEnabledSync() ? ('WORKSPACE' as const) : ('GLOBAL' as const) }),
         budget_action: formData.budgetAction,
       });
     } catch {
@@ -158,6 +168,39 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
               step="0.01"
             />
           </div>
+        </div>
+
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text bold>
+            <FormattedMessage defaultMessage="Applies to" description="Budget scope label" />
+          </Typography.Text>
+          <SimpleSelect
+            id="create-budget-policy-scope"
+            componentId="mlflow.gateway.create-budget-policy-modal.scope"
+            value={formData.scope}
+            onChange={({ target }) => handleFieldChange('scope', target.value as BudgetScopeChoice)}
+          >
+            <SimpleSelectOption value="ALL">All endpoints</SimpleSelectOption>
+            <SimpleSelectOption value="ENDPOINT">Specific endpoint</SimpleSelectOption>
+          </SimpleSelect>
+          {formData.scope === 'ENDPOINT' && (
+            <SimpleSelect
+              id="create-budget-policy-endpoint"
+              componentId="mlflow.gateway.create-budget-policy-modal.endpoint"
+              value={formData.endpointId}
+              onChange={({ target }) => handleFieldChange('endpointId', target.value)}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'Select an endpoint',
+                description: 'Placeholder for budget policy endpoint selector',
+              })}
+            >
+              {endpoints.map((endpoint) => (
+                <SimpleSelectOption key={endpoint.endpoint_id} value={endpoint.endpoint_id}>
+                  {endpoint.name}
+                </SimpleSelectOption>
+              ))}
+            </SimpleSelect>
+          )}
         </div>
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
