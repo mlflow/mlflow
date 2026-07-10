@@ -332,6 +332,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                     detach_span_from_context(token)
                 return None  # Keep the span in open_spans
 
+            is_pended = False
             try:
                 if self._stream_resolver.is_streaming_result(result):
                     # If the result is a generator, we keep the span in progress for streaming
@@ -352,7 +353,8 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
                     # If a child step returns a StopEvent, close the parent workflow span
                     self._try_close_workflow_span(llama_span.parent_id, result)
                 finally:
-                    self._try_close_propagation_context(id_)
+                    if not is_pended:
+                        self._try_close_propagation_context(id_)
 
             return llama_span
         except BaseException as e:
@@ -386,8 +388,17 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
 
     def resolve_pending_stream_span(self, span: LiveSpan, event: Any):
         """End the pending streaming span(s)"""
-        self._stream_resolver.resolve(span, event)
-        self._pending_spans.pop(event.span_id, None)
+        resolved_span_ids = self._stream_resolver.resolve(span, event)
+        with self.lock:
+            resolved_llama_span_ids = [
+                id_
+                for id_, llama_span in self._pending_spans.items()
+                if llama_span._mlflow_span.span_id in resolved_span_ids
+            ]
+            for id_ in resolved_llama_span_ids:
+                self._pending_spans.pop(id_, None)
+        for id_ in resolved_llama_span_ids:
+            self._try_close_propagation_context(id_)
 
     def prepare_to_drop_span(self, id_: str, err: Exception | None, **kwargs) -> _LlamaSpan:
         """Logic for handling errors during the model execution."""
@@ -725,14 +736,14 @@ class StreamResolver:
         self._span_id_to_span_and_gen[span.span_id] = (span, stream)
         return True
 
-    def resolve(self, span: LiveSpan, event: _StreamEndEvent):
+    def resolve(self, span: LiveSpan, event: _StreamEndEvent) -> set[str]:
         """
         Finish the streaming span and recursively resolve the parent spans that
         returns the same (or derived) stream.
         """
         _, stream = self._span_id_to_span_and_gen.pop(span.span_id, (None, None))
         if not stream:
-            return
+            return set()
 
         if isinstance(event, (LLMChatEndEvent, LLMCompletionEndEvent)):
             outputs = event.response
@@ -745,6 +756,7 @@ class StreamResolver:
             raise ValueError(f"Unsupported event type to resolve streaming: {type(event)}")
 
         _end_span(span=span, status=status, outputs=outputs)
+        resolved_span_ids = {span.span_id}
 
         # Extract the complete text from the event.
         if isinstance(outputs, ChatResponse):
@@ -763,3 +775,6 @@ class StreamResolver:
                 # as token stream can be modified by callers. However, it is technically
                 # challenging to track the modified stream across multiple spans.
                 _end_span(span=span, status=status, outputs=output_text)
+                resolved_span_ids.add(span.span_id)
+
+        return resolved_span_ids

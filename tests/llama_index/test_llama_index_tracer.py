@@ -166,6 +166,47 @@ def test_tracer_restores_propagated_mlflow_context_for_instrumented_span():
     not hasattr(Dispatcher, "capture_propagation_context"),
     reason="Dispatcher propagation APIs require llama-index-instrumentation>=0.4.3",
 )
+def test_tracer_keeps_restored_context_until_stream_resolves():
+    dispatcher = get_dispatcher()
+    llm = OpenAI(model="gpt-3.5-turbo")
+
+    @dispatcher.span
+    def instrumented_stream():
+        message = ChatMessage(role="system", content="Hello")
+        return llm.stream_chat([message], stream_options={"include_usage": True})
+
+    with mlflow.start_span("workflow-root") as root:
+        context = dispatcher.capture_propagation_context()
+        root_trace_id = root.trace_id
+        root_span_id = root.span_id
+
+    dispatcher.restore_propagation_context(context)
+    response_gen = instrumented_stream()
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    with trace_manager.get_trace(root_trace_id) as restored_trace:
+        assert restored_trace is not None
+
+    assert [response.message.content for response in response_gen] == ["Hello", "Hello world"]
+
+    with trace_manager.get_trace(root_trace_id) as restored_trace:
+        assert restored_trace is None
+
+    traces = get_traces()
+    assert len(traces) == 1
+    instrumented_span = next(
+        span for span in traces[0].data.spans if span.name.endswith("instrumented_stream")
+    )
+    stream_span = next(span for span in traces[0].data.spans if span.name == "OpenAI.stream_chat")
+    assert instrumented_span.trace_id == root_trace_id
+    assert instrumented_span.parent_id == root_span_id
+    assert stream_span.parent_id == instrumented_span.span_id
+
+
+@pytest.mark.skipif(
+    not hasattr(Dispatcher, "capture_propagation_context"),
+    reason="Dispatcher propagation APIs require llama-index-instrumentation>=0.4.3",
+)
 def test_tracer_exports_restored_remote_spans_before_context_cleanup(tmp_path):
     dispatcher = get_dispatcher()
     tracking_uri = f"sqlite:///{tmp_path / 'mlflow.sqlite'}"
