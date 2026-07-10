@@ -365,6 +365,12 @@ def parse_dbr_runtime_major_minor(dbr_version: str) -> tuple[int, int]:
     In DBR, ``{major}.x`` denotes the latest *uncut* minor of that major, which is always ahead
     of any already-released minor. So a non-numeric minor (e.g. ``'x'``) maps to ``_UNCUT_MINOR``
     (a ceiling), ensuring ``{major}.x`` compares greater than any concrete ``{major}.{minor}``.
+
+    Note: the SQL ``dbr_version`` string always carries a minor (or ``.x``), so a bare major
+    (``'18'``) is not expected here and is tolerated as uncut. This differs from
+    ``DatabricksRuntimeVersion.parse``, whose env-var input treats a bare major as malformed and
+    raises — the two entry points parse different-shaped inputs, so the contracts intentionally
+    differ.
     """
     parts = dbr_version.split(".")
     major = int(parts[0])
@@ -1430,8 +1436,10 @@ class DatabricksRuntimeVersion(NamedTuple):
                 # minor (e.g. "18.x-photon-scala2") is the latest uncut minor of that major.
                 minor = _parse_minor_token(dbr_version_splits[1])
             return cls(is_client_image, major, minor, is_gpu_image)
-        except Exception:
-            raise MlflowException(f"Failed to parse databricks runtime version '{dbr_version}'.")
+        except Exception as e:
+            raise MlflowException(
+                f"Failed to parse databricks runtime version '{dbr_version}'."
+            ) from e
 
 
 def get_databricks_runtime_major_minor_version():
