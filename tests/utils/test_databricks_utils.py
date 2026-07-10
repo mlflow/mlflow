@@ -760,9 +760,17 @@ def test_get_databricks_runtime_major_minor_version(
     assert dbr_version.minor == minor
 
 
-def test_get_dbr_major_minor_version_throws_on_invalid_version_key(monkeypatch):
-    # minor version is not allowed to be a string
+def test_get_dbr_major_minor_version_uncut_minor(monkeypatch):
+    # '{major}.x' is the latest uncut minor of that major, not an error.
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.x")
+    dbr_version = get_databricks_runtime_major_minor_version()
+    assert dbr_version.major == 12
+    assert dbr_version.minor == databricks_utils._UNCUT_MINOR
+
+
+def test_get_dbr_major_minor_version_throws_on_invalid_version_key(monkeypatch):
+    # A malformed minor (not numeric, not the uncut 'x' marker) is still an error.
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.yyy")
     with pytest.raises(MlflowException, match="Failed to parse databricks runtime version"):
         get_databricks_runtime_major_minor_version()
 
