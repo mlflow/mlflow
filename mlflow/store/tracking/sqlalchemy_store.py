@@ -1622,8 +1622,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         if (start_step is None) != (end_step is None):
             raise MlflowException(
-                "Both start_step and end_step must be specified together, \
-                or neither may be specified.",
+                "Both start_step and end_step must be specified together, "
+                "or neither may be specified."
             )
         max_results = max(1, max_results)
         metrics_with_run_ids = []
@@ -1638,6 +1638,19 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
         return metrics_with_run_ids
 
+    def _supports_window_functions(self, session) -> bool:
+        # NTILE / ROW_NUMBER are available on every backend MLflow targets except MySQL < 8.0 and
+        # MariaDB < 10.2, both of which MLflow still supports (e.g. MySQL 5.7).
+        if self.db_type != MYSQL:
+            return True
+        dialect = session.get_bind().dialect
+        version = getattr(dialect, "server_version_info", None)
+        if not version:
+            return True
+        if getattr(dialect, "_is_mariadb", False):
+            return version >= (10, 2)
+        return version >= (8, 0)
+
     def _sample_metric_history_single_run(
         self, session, run_id, metric_key, max_results, start_step, end_step
     ) -> list[MetricWithRunId]:
@@ -1646,8 +1659,29 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             filters.append(SqlMetric.step >= start_step)
             filters.append(SqlMetric.step <= end_step)
 
+        # ``is_nan`` is part of the metric primary key, so include it in every ordering to keep
+        # sampling deterministic and preserve a NaN boundary point on ties.
         order_by = [SqlMetric.step, SqlMetric.timestamp, SqlMetric.value, SqlMetric.is_nan]
 
+        if self._supports_window_functions(session):
+            rows = self._sample_rows_with_window_functions(session, filters, order_by, max_results)
+        else:
+            rows = self._sample_rows_in_python(session, filters, order_by, max_results)
+
+        return [
+            MetricWithRunId(
+                run_id=run_id,
+                metric=Metric(
+                    key=metric_key,
+                    value=row.value if not row.is_nan else float("nan"),
+                    timestamp=row.timestamp,
+                    step=row.step,
+                ),
+            )
+            for row in rows
+        ]
+
+    def _sample_rows_with_window_functions(self, session, filters, order_by, max_results):
         # Assign each row to one of ``max_results`` evenly sized buckets across the full ordered
         # result set, then keep the first row of each bucket. NTILE produces one bucket per row
         # when there are fewer than ``max_results`` rows, so all rows are returned in that case.
@@ -1702,19 +1736,31 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         if last_row is not None and (not rows or _row_key(rows[-1]) != _row_key(last_row)):
             rows.append(last_row)
+        return rows
 
-        return [
-            MetricWithRunId(
-                run_id=run_id,
-                metric=Metric(
-                    key=metric_key,
-                    value=row.value if not row.is_nan else float("nan"),
-                    timestamp=row.timestamp,
-                    step=row.step,
-                ),
-            )
-            for row in rows
-        ]
+    def _sample_rows_in_python(self, session, filters, order_by, max_results):
+        # Fallback for backends without window functions (MySQL < 8.0 / MariaDB < 10.2). The rows
+        # are streamed server-side and an evenly spaced sample is kept, so the server holds at most
+        # ~``max_results`` rows in memory regardless of how many values were logged.
+        total = session.query(func.count()).select_from(SqlMetric).filter(*filters).scalar()
+        if not total:
+            return []
+        if total <= max_results:
+            target_indices = set(range(total))
+        else:
+            interval = total / max_results
+            target_indices = {int(i * interval) for i in range(max_results)}
+        # Always keep the final row to preserve the metric's end boundary on the chart.
+        target_indices.add(total - 1)
+
+        rows_iter = (
+            session
+            .query(SqlMetric.value, SqlMetric.timestamp, SqlMetric.step, SqlMetric.is_nan)
+            .filter(*filters)
+            .order_by(*order_by)
+            .yield_per(1000)
+        )
+        return [row for idx, row in enumerate(rows_iter) if idx in target_indices]
 
     def _search_datasets(self, experiment_ids):
         """
