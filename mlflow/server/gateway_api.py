@@ -337,6 +337,7 @@ def _build_endpoint_config(
         Provider.DEEPSEEK,
         Provider.XAI,
         Provider.OPENROUTER,
+        Provider.REQUESTY,
         Provider.OLLAMA,
         Provider.PORTKEY,
     }:

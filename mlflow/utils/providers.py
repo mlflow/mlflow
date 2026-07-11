@@ -1024,6 +1024,7 @@ _CORE_PROVIDER_ENV_VARS = {
     "deepseek": "DEEPSEEK_API_KEY",
     "xai": "XAI_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
+    "requesty": "REQUESTY_API_KEY",
     "togetherai": "TOGETHERAI_API_KEY",
     "bedrock": {
         "aws_access_key_id": "AWS_ACCESS_KEY_ID",

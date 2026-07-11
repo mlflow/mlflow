@@ -30,6 +30,17 @@ export const OPENAI_COMPATIBLE_GATEWAYS: OpenAICompatibleGateway[] = [
       'Before following the steps below, you need to create an <ins><a href="https://openrouter.ai/">OpenRouter account</a></ins> and generate an API key from the <ins><a href="https://openrouter.ai/keys">Keys page</a></ins>.',
   },
   {
+    id: 'requesty',
+    name: 'Requesty',
+    description:
+      '<a href="https://requesty.ai/">Requesty</a> is a unified API gateway that provides access to 300+ LLMs from providers like OpenAI, Anthropic, Google, DeepSeek, and many others through a single OpenAI-compatible API. This allows developers to easily switch between models without changing their code.',
+    baseUrl: 'https://router.requesty.ai/v1',
+    apiKeyPlaceholder: '<YOUR_REQUESTY_API_KEY>',
+    sampleModel: 'anthropic/claude-sonnet-4-5',
+    prerequisite:
+      'Before following the steps below, you need to create a <ins><a href="https://app.requesty.ai/">Requesty account</a></ins> and generate an API key from the <ins><a href="https://app.requesty.ai/api-keys">API Keys page</a></ins>.',
+  },
+  {
     id: 'vercel-ai-gateway',
     name: 'Vercel AI Gateway',
     description:
