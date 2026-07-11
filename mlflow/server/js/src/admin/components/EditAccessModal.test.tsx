@@ -5,11 +5,6 @@ import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/
 
 import { EditAccessModal } from './EditAccessModal';
 
-// Increase timeout: the grant-flow tests drive multi-step userEvent
-// interactions through the full modal, which exceeds the default 5s
-// on slower CI runners.
-jest.setTimeout(30000);
-
 // Per-test override for ``useUserRolesQuery`` so each case can pick its own
 // success / error shape. ``mockReset`` in ``beforeEach`` keeps cross-test
 // state from leaking.
