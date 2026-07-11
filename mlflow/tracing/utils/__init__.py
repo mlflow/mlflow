@@ -135,7 +135,7 @@ def dump_span_attribute_value(value: Any) -> str:
         # Fall back to a repr-based dump so the span attribute is still set and tracing
         # doesn't crash the user's workflow.
         _logger.debug(
-            "Failed to serialize span attribute value due to %s . Falling back to repr. ",
+            "Failed to serialize span attribute value due to %s. Falling back to repr. ",
             type(e).__name__,
             exc_info=True,
         )
