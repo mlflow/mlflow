@@ -38,6 +38,8 @@ from mlflow.genai.mcp_servers import (
     get_mcp_server,
     get_mcp_server_version,
     get_mcp_server_version_by_alias,
+    get_mcp_server_versions_for_trace,
+    link_mcp_server_versions_to_trace,
     register_mcp_server,
     register_mcp_server_from_url,
     search_mcp_access_bindings,
@@ -142,4 +144,6 @@ __all__ = [
     "delete_mcp_server_version_tag",
     "set_mcp_server_alias",
     "delete_mcp_server_alias",
+    "link_mcp_server_versions_to_trace",
+    "get_mcp_server_versions_for_trace",
 ]
