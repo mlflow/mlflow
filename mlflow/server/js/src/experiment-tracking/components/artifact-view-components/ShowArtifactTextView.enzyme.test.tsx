@@ -10,6 +10,7 @@ import React from 'react';
 import { shallow, mount } from 'enzyme';
 import ShowArtifactTextView, { prettifyArtifactText } from './ShowArtifactTextView';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { VirtualizedSyntaxHighlighter } from './VirtualizedSyntaxHighlighter';
 import { mountWithIntl } from '../../../common/utils/TestUtils.enzyme';
 
 describe('ShowArtifactTextView', () => {
@@ -165,5 +166,35 @@ describe('ShowArtifactTextView', () => {
   test('should leave jsonl content unformatted', () => {
     const outputText = prettifyArtifactText('json', '{"key1":"val1"}\n{"key2":"val2"}', 'events.jsonl');
     expect(outputText).toBe('{"key1":"val1"}\n{"key2":"val2"}');
+  });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should render plain SyntaxHighlighter for small content', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve('line1\nline2\nline3');
+    });
+    const props = { path: 'fake.log', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find(SyntaxHighlighter).length).toBe(1);
+      expect(wrapper.find(VirtualizedSyntaxHighlighter).length).toBe(0);
+      done();
+    });
+  });
+
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('should render VirtualizedSyntaxHighlighter for content above line threshold', (done) => {
+    const getArtifact = jest.fn((artifactLocation) => {
+      return Promise.resolve(Array.from({ length: 5001 }, (_, i) => `line ${i}`).join('\n'));
+    });
+    const props = { path: 'fake.log', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
+    wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
+    setImmediate(() => {
+      wrapper.update();
+      expect(wrapper.find(VirtualizedSyntaxHighlighter).length).toBe(1);
+      expect(wrapper.find(SyntaxHighlighter).length).toBe(0);
+      done();
+    });
   });
 });

@@ -10,8 +10,10 @@ import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
+import { VirtualizedSyntaxHighlighter } from './VirtualizedSyntaxHighlighter';
 
 const LARGE_ARTIFACT_SIZE = 100 * 1024;
+const VIRTUALIZED_LINE_THRESHOLD = 5000;
 
 type Props = DesignSystemHocProps & {
   runUuid: string;
@@ -81,13 +83,21 @@ class ShowArtifactTextView extends Component<Props, State> {
         : this.state.text;
 
       const syntaxStyle = theme.isDarkMode ? darkStyle : style;
+      const lineCount = (renderedContent ?? '').split('\n').length;
+      const shouldVirtualize = lineCount > VIRTUALIZED_LINE_THRESHOLD;
 
       return (
         <div className="mlflow-ShowArtifactPage">
           <div className="text-area-border-box">
-            <SyntaxHighlighter language={language} style={syntaxStyle} customStyle={overrideStyles}>
-              {renderedContent ?? ''}
-            </SyntaxHighlighter>
+            {shouldVirtualize ? (
+              <VirtualizedSyntaxHighlighter language={language} style={syntaxStyle} customStyle={overrideStyles}>
+                {renderedContent ?? ''}
+              </VirtualizedSyntaxHighlighter>
+            ) : (
+              <SyntaxHighlighter language={language} style={syntaxStyle} customStyle={overrideStyles}>
+                {renderedContent ?? ''}
+              </SyntaxHighlighter>
+            )}
           </div>
         </div>
       );
