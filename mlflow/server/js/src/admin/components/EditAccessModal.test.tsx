@@ -1,4 +1,5 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import userEventGlobal from '@testing-library/user-event';
 import React from 'react';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
@@ -8,6 +9,9 @@ import { EditAccessModal } from './EditAccessModal';
 // success / error shape. ``mockReset`` in ``beforeEach`` keeps cross-test
 // state from leaking.
 const mockUseUserRolesQuery = jest.fn();
+// Typed as ``(...args: any[]) => any`` so ``mockResolvedValue`` accepts the
+// realistic response shapes the component awaits.
+const mockGrantPermissionMutateAsync = jest.fn<(...args: any[]) => any>();
 
 jest.mock('../hooks', () => ({
   AdminQueryKeys: {
@@ -17,7 +21,8 @@ jest.mock('../hooks', () => ({
     resourceOptions: (resourceType: string) => ['admin_resource_options', resourceType],
   },
   useCurrentUserIsAdmin: () => false,
-  useGrantUserPermission: () => ({ mutateAsync: jest.fn() }),
+  useGrantUserPermission: () => ({ mutateAsync: mockGrantPermissionMutateAsync }),
+  useResourceOptionsQuery: () => ({ options: [], isLoading: false, error: null }),
   useRevokeUserPermission: () => ({ mutateAsync: jest.fn() }),
   useRolesQuery: () => ({ data: { roles: [] }, isLoading: false, error: null }),
   useUserRolesQuery: (username: string) => mockUseUserRolesQuery(username),
@@ -73,5 +78,40 @@ describe('EditAccessModal — rolesError handling', () => {
     });
     renderWithDesignSystem(<EditAccessModal open onClose={jest.fn()} username="alice" />);
     expect(screen.getByRole('button', { name: /Review changes/ })).toBeDisabled();
+  });
+});
+
+describe('EditAccessModal — workspace targeting on direct grants', () => {
+  beforeEach(() => {
+    mockUseUserRolesQuery.mockReset();
+    mockGrantPermissionMutateAsync.mockReset();
+  });
+
+  it('omits the workspace on grant when workspaces are disabled', async () => {
+    // Regression: single-tenant servers reject ANY ``X-MLFLOW-WORKSPACE``
+    // header (even ``default``) with FEATURE_DISABLED, so the modal must not
+    // coerce "no active workspace" into ``default`` on the grant request.
+    const userEvent = userEventGlobal.setup();
+    mockUseUserRolesQuery.mockReturnValue({ data: { roles: [] }, isLoading: false, error: null });
+    mockGrantPermissionMutateAsync.mockResolvedValue({});
+    const onClose = jest.fn();
+    renderWithDesignSystem(<EditAccessModal open onClose={onClose} username="alice" />);
+
+    await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Review changes$/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Apply changes$/ }));
+
+    expect(mockGrantPermissionMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockGrantPermissionMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resource_type: 'experiment',
+        resource_id: '*',
+        username: 'alice',
+        permission: 'READ',
+      }),
+    );
+    expect(mockGrantPermissionMutateAsync.mock.calls[0][0].workspace).toBeUndefined();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

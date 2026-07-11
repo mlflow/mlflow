@@ -8,6 +8,7 @@ import { CreateUserModal } from './CreateUserModal';
 let userEvent: ReturnType<typeof userEventGlobal.setup>;
 beforeEach(() => {
   userEvent = userEventGlobal.setup();
+  mockUseWorkspacesEnabled.mockReturnValue({ workspacesEnabled: false });
 });
 
 // Typed as ``(...args: any[]) => any`` so ``mockResolvedValue`` accepts the
@@ -15,6 +16,7 @@ beforeEach(() => {
 // signature is ``() => never``, which would reject the payload.
 const mockCreateUserMutateAsync = jest.fn<(...args: any[]) => any>();
 const mockGrantPermissionMutateAsync = jest.fn<(...args: any[]) => any>();
+const mockUseWorkspacesEnabled = jest.fn<() => { workspacesEnabled: boolean }>();
 
 jest.mock('../hooks', () => ({
   AdminQueryKeys: {
@@ -43,7 +45,7 @@ jest.mock('../../workspaces/hooks/useWorkspaces', () => ({
 }));
 
 jest.mock('../../experiment-tracking/hooks/useServerInfo', () => ({
-  useWorkspacesEnabled: () => ({ workspacesEnabled: false }),
+  useWorkspacesEnabled: () => mockUseWorkspacesEnabled(),
 }));
 
 jest.mock('@mlflow/mlflow/src/common/utils/reactQueryHooks', () => ({
@@ -164,5 +166,57 @@ describe('CreateUserModal — discard-confirm gate on unsaved direct-grant draft
     await userEvent.click(screen.getByRole('button', { name: /^Back$/ }));
     expect(mockCreateUserMutateAsync).not.toHaveBeenCalled();
     expect(mockGrantPermissionMutateAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('CreateUserModal — workspace targeting on direct grants', () => {
+  beforeEach(() => {
+    mockCreateUserMutateAsync.mockReset();
+    mockGrantPermissionMutateAsync.mockReset();
+  });
+
+  const stageGrantAndSubmit = async () => {
+    await userEvent.click(screen.getByRole('button', { name: /Direct permissions/ }));
+    await userEvent.click(screen.getByRole('radio', { name: /^All experiments$/ }));
+    await userEvent.click(screen.getByRole('button', { name: /^Add$/ }));
+    await userEvent.type(screen.getByPlaceholderText('Enter username'), 'newbie');
+    await userEvent.type(screen.getByPlaceholderText('Enter password'), 'hunter2');
+    await userEvent.click(screen.getByRole('button', { name: /^Create user and grant access$/ }));
+  };
+
+  it('omits the workspace when workspaces are disabled', async () => {
+    // Regression: single-tenant servers reject ANY ``X-MLFLOW-WORKSPACE``
+    // header (even ``default``) with FEATURE_DISABLED, so the modal must not
+    // coerce "no active workspace" into ``default`` on the grant request.
+    mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
+    mockGrantPermissionMutateAsync.mockResolvedValue({});
+    const onClose = jest.fn();
+    renderWithDesignSystem(<CreateUserModal open onClose={onClose} />);
+
+    await stageGrantAndSubmit();
+
+    expect(mockGrantPermissionMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockGrantPermissionMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        resource_type: 'experiment',
+        resource_id: '*',
+        username: 'newbie',
+        permission: 'READ',
+      }),
+    );
+    expect(mockGrantPermissionMutateAsync.mock.calls[0][0].workspace).toBeUndefined();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('targets the selected workspace when workspaces are enabled', async () => {
+    mockUseWorkspacesEnabled.mockReturnValue({ workspacesEnabled: true });
+    mockCreateUserMutateAsync.mockResolvedValue({ user: { username: 'newbie' } });
+    mockGrantPermissionMutateAsync.mockResolvedValue({});
+    renderWithDesignSystem(<CreateUserModal open onClose={jest.fn()} />);
+
+    await stageGrantAndSubmit();
+
+    expect(mockGrantPermissionMutateAsync).toHaveBeenCalledTimes(1);
+    expect(mockGrantPermissionMutateAsync.mock.calls[0][0].workspace).toBe('default');
   });
 });
