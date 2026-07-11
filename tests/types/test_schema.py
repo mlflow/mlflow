@@ -1804,6 +1804,23 @@ def test_convert_dataclass_to_schema_complex():
     ]
 
 
+def test_convert_dataclass_to_schema_float_maps_to_double():
+    # Python's float is 64-bit, so a dataclass float field must map to "double"
+    # (mirroring int -> long); mapping it to 32-bit "float" makes the inferred
+    # signature reject the very float64 values it describes.
+    @dataclass
+    class Output:
+        label: str = "a"
+        score: float = 0.0
+        scores: list[float] = field(default_factory=lambda: [0.0])
+
+    assert convert_dataclass_to_schema(Output).to_dict() == [
+        {"type": "string", "name": "label", "required": True},
+        {"type": "double", "name": "score", "required": True},
+        {"type": "array", "items": {"type": "double"}, "name": "scores", "required": True},
+    ]
+
+
 def test_convert_dataclass_to_schema_invalid():
     # Invalid dataclass with Union
     @dataclass
