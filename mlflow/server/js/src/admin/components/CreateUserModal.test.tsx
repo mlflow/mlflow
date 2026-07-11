@@ -5,6 +5,11 @@ import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/
 
 import { CreateUserModal } from './CreateUserModal';
 
+// Increase timeout: the grant-flow tests mount the collapsed direct-permissions
+// form and type credentials through userEvent, which exceeds the default 5s
+// on slower CI runners.
+jest.setTimeout(30000);
+
 let userEvent: ReturnType<typeof userEventGlobal.setup>;
 beforeEach(() => {
   userEvent = userEventGlobal.setup();
