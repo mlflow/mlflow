@@ -44,12 +44,13 @@ describe('isTraceCostType', () => {
     expect(isTraceCostType({})).toBe(false);
   });
 
-  it('should return false for object missing input_cost', () => {
-    expect(isTraceCostType({ output_cost: 0.002, total_cost: 0.003 })).toBe(false);
+  it('should return true for object with only total_cost (non-LLM span)', () => {
+    expect(isTraceCostType({ total_cost: 0.003 })).toBe(true);
   });
 
-  it('should return false for object missing output_cost', () => {
-    expect(isTraceCostType({ input_cost: 0.001, total_cost: 0.003 })).toBe(false);
+  it('should return true for object with total_cost and span-type-specific cost', () => {
+    expect(isTraceCostType({ tool_cost: 0.001, total_cost: 0.001 })).toBe(true);
+    expect(isTraceCostType({ embedding_cost: 0.0005, total_cost: 0.0005 })).toBe(true);
   });
 
   it('should return false for object missing total_cost', () => {
@@ -118,11 +119,17 @@ describe('ModelTraceExplorerCostHoverCard', () => {
 
     expect(screen.getByText('$0.00')).toBeInTheDocument();
 
-    // Hover to see breakdown
+    // Hover over the cost tag to trigger the hover card
     const costTrigger = screen.getByText('$0.00');
     await userEvent.hover(costTrigger);
 
-    expect(await screen.findByText('Cost breakdown')).toBeInTheDocument();
+    // Should show "Cost" header (not "Cost breakdown") when there's no breakdown
+    await screen.findByText('Cost');
+    // Should not show input/output costs when they're zero
+    expect(screen.queryByText('Input cost')).not.toBeInTheDocument();
+    expect(screen.queryByText('Output cost')).not.toBeInTheDocument();
+    // Should still show total
+    expect(await screen.findByText('Total')).toBeInTheDocument();
   });
 
   it('handles large costs correctly', () => {

@@ -9633,3 +9633,101 @@ def test_archive_traces_rejects_unsupported_resolved_root_override(store: SqlAlc
                 default_retention="1d",
             )
     assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_log_spans_float_cost_values(store: SqlAlchemyStore) -> None:
+    """Test that float cost values (not dicts) work correctly for all cost attribute types."""
+    experiment_id = store.create_experiment("test_log_spans_float_cost")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = []
+
+    otel_span1 = create_test_otel_span(
+        trace_id=trace_id,
+        name="database_query",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.TOOL_COST: json.dumps(0.001),
+    }
+    spans.append(create_mlflow_span(otel_span1, trace_id, "TOOL"))
+
+    otel_span2 = create_test_otel_span(
+        trace_id=trace_id,
+        name="generate_embedding",
+        start_time=3_000_000_000,
+        end_time=4_000_000_000,
+        trace_id_num=12345,
+        span_id_num=222,
+    )
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.EMBEDDING_COST: json.dumps(0.0005),
+    }
+    spans.append(create_mlflow_span(otel_span2, trace_id, "EMBEDDING"))
+
+    otel_span3 = create_test_otel_span(
+        trace_id=trace_id,
+        name="vector_search",
+        start_time=5_000_000_000,
+        end_time=6_000_000_000,
+        trace_id_num=12345,
+        span_id_num=333,
+    )
+    otel_span3._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.RETRIEVAL_COST: json.dumps(0.0003),
+    }
+    spans.append(create_mlflow_span(otel_span3, trace_id, "RETRIEVER"))
+
+    otel_span4 = create_test_otel_span(
+        trace_id=trace_id,
+        name="custom_processing",
+        start_time=7_000_000_000,
+        end_time=8_000_000_000,
+        trace_id_num=12345,
+        span_id_num=444,
+    )
+    otel_span4._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.SPAN_COST: json.dumps(0.005),
+    }
+    spans.append(create_mlflow_span(otel_span4, trace_id, "UNKNOWN"))
+
+    store.log_spans(experiment_id, spans)
+
+    with store.ManagedSessionMaker() as session:
+        expected_span_data = [
+            (0.001, CostKey.TOOL_COST),
+            (0.0005, CostKey.EMBEDDING_COST),
+            (0.0003, CostKey.RETRIEVAL_COST),
+            (0.005, CostKey.OTHER_COST),
+        ]
+
+        for span, (expected_cost, expected_type_key) in zip(spans, expected_span_data):
+            metrics = (
+                session.query(SqlSpanMetrics)
+                .filter(
+                    SqlSpanMetrics.trace_id == trace_id,
+                    SqlSpanMetrics.span_id == span.span_id,
+                )
+                .all()
+            )
+            assert len(metrics) == 2
+            metrics_by_key = {m.key: m.value for m in metrics}
+            assert metrics_by_key[CostKey.TOTAL_COST] == expected_cost
+            assert metrics_by_key[expected_type_key] == expected_cost
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.cost is not None
+    assert trace_info.cost[CostKey.TOOL_COST] == 0.001
+    assert trace_info.cost[CostKey.EMBEDDING_COST] == 0.0005
+    assert trace_info.cost[CostKey.RETRIEVAL_COST] == 0.0003
+    assert trace_info.cost[CostKey.OTHER_COST] == 0.005
+    assert trace_info.cost["total_cost"] == 0.001 + 0.0005 + 0.0003 + 0.005
+    assert trace_info.cost.get("input_cost", 0) == 0
+    assert trace_info.cost.get("output_cost", 0) == 0
