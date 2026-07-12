@@ -1,7 +1,9 @@
+import functools
 import ipaddress
+import logging
 import uuid
 from pathlib import Path
-from typing import Any, AsyncGenerator, Literal
+from typing import Any, AsyncGenerator, Callable, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -17,8 +19,10 @@ from mlflow.assistant.providers.base import (
     clear_config_cache,
 )
 from mlflow.assistant.skill_installer import install_skills, list_installed_skills
-from mlflow.assistant.types import EventType
+from mlflow.assistant.types import Event, EventType
 from mlflow.server.assistant.session import SessionManager, terminate_session_process
+
+_logger = logging.getLogger(__name__)
 
 
 def _get_provider(name: str):
@@ -81,6 +85,19 @@ class MessageRequest(BaseModel):
 class MessageResponse(BaseModel):
     session_id: str
     stream_url: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    experiment_id: str | None = None
+    context: dict[str, Any] = Field(default_factory=dict)
+    # Full conversation history as a JSON blob carried by the client (None on the
+    # first turn). Passed straight to the provider; never persisted server-side.
+    conversation_history: str | None = None
+    # tool_call_id -> "allow" | "deny". Carried by the client when resuming a turn paused at a
+    # permission prompt; the provider applies it to the matching pending tool_call already in the
+    # carried history. Keeps permission state off the server on the stateless path.
+    tool_decisions: dict[str, Literal["allow", "deny"]] | None = None
 
 
 # Config-related models
@@ -155,6 +172,42 @@ async def send_message(request: MessageRequest) -> MessageResponse:
     )
 
 
+async def stream_provider_events(
+    start_stream: Callable[[], AsyncGenerator[Event, None]] | None,
+) -> AsyncGenerator[Event, None]:
+    """Relay a provider's event stream, or a single error event if none is configured.
+
+    ``start_stream`` is a thunk that opens the provider's ``astream``/``astream_stateless``
+    generator (the caller binds the right one for its path), or ``None`` when no provider is
+    available. The thunk is invoked *inside* the try block so a provider that raises on entry
+    (e.g. one missing the method for this path) still terminates the turn with a clean error
+    event instead of dropping the connection. Yields ``Event`` objects so callers can both
+    serialize them to SSE and react to specific events (e.g. the stateful path persisting the
+    provider session id on DONE).
+    """
+    if start_stream is None:
+        yield Event.from_error("No assistant provider is configured or available.")
+        return
+    try:
+        async for event in start_stream():
+            yield event
+    except Exception:
+        # A provider blowing up mid-stream would otherwise drop the connection with no terminal
+        # event, leaving the client spinning forever. Emit a clean error event instead so every
+        # turn ends with either a done or an error frame. This path is reachable by a remote
+        # client (the stateless backend is meant for remotely hosted MLflow), so don't leak the
+        # raw exception — log the full detail server-side and return a generic message.
+        _logger.exception("Assistant provider stream failed")
+        yield Event.from_error("The assistant encountered an unexpected error. Please try again.")
+
+
+_SSE_HEADERS = {
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+}
+
+
 @assistant_router.get("/sessions/{session_id}/stream")
 async def stream_response(request: Request, session_id: str) -> StreamingResponse:
     """
@@ -199,23 +252,21 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     tracking_uri = str(request.base_url).rstrip("/")
 
     async def event_generator() -> AsyncGenerator[str, None]:
-        nonlocal session
         provider = _get_selected_provider()
-        if provider is None:
-            from mlflow.assistant.types import Event
-
-            yield Event.from_error(
-                "No assistant provider is configured or available."
-            ).to_sse_event()
-            return
-        async for event in provider.astream(
-            prompt=prompt,
-            tracking_uri=tracking_uri,
-            session_id=session.provider_session_id,
-            mlflow_session_id=session_id,
-            cwd=session.working_dir,
-            context=context,
-        ):
+        start_stream = (
+            functools.partial(
+                provider.astream,
+                prompt=prompt,
+                tracking_uri=tracking_uri,
+                session_id=session.provider_session_id,
+                mlflow_session_id=session_id,
+                cwd=session.working_dir,
+                context=context,
+            )
+            if provider is not None
+            else None
+        )
+        async for event in stream_provider_events(start_stream):
             # Store provider session ID if returned (for conversation continuity).
             # On a paused turn this persists the history with the unanswered
             # tool_call so a later resume can continue from it.
@@ -228,11 +279,49 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
+        headers=_SSE_HEADERS,
+    )
+
+
+@assistant_router.post("/chat")
+async def chat(request: Request, body: ChatRequest) -> StreamingResponse:
+    """Stateless streaming chat for client-carried-history providers (e.g. MLflow AI Gateway).
+
+    The full conversation history travels with the client in ``conversation_history`` and is
+    passed straight to the provider. Nothing is persisted server-side — no session file, no
+    SessionManager — so any host/worker can serve any turn.
+    """
+    provider = _get_selected_provider()
+    project_path = get_project_path(body.experiment_id) if body.experiment_id else None
+    cwd = Path(project_path) if project_path else None
+    tracking_uri = str(request.base_url).rstrip("/")
+
+    # On resume the decision rides in the context; the provider detects the pending tool_calls in
+    # the carried history and applies it instead of starting a new turn.
+    context = dict(body.context)
+    if body.tool_decisions:
+        context["tool_decisions"] = body.tool_decisions
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        start_stream = (
+            functools.partial(
+                provider.astream_stateless,
+                prompt=body.message,
+                tracking_uri=tracking_uri,
+                conversation_history=body.conversation_history,
+                cwd=cwd,
+                context=context,
+            )
+            if provider is not None
+            else None
+        )
+        async for event in stream_provider_events(start_stream):
+            yield event.to_sse_event()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers=_SSE_HEADERS,
     )
 
 
@@ -326,8 +415,14 @@ async def get_config() -> ConfigResponse:
         Current configuration including providers and projects.
     """
     config = AssistantConfig.load()
+    capabilities = {p.name: p.client_carries_history for p in list_providers()}
+    providers = {}
+    for name, p in config.providers.items():
+        data = p.model_dump()
+        data["client_carries_history"] = capabilities.get(name, False)
+        providers[name] = data
     return ConfigResponse(
-        providers={name: p.model_dump() for name, p in config.providers.items()},
+        providers=providers,
         projects={exp_id: p.model_dump() for exp_id, p in config.projects.items()},
     )
 

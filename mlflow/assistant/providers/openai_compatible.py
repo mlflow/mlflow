@@ -37,8 +37,8 @@ from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
 
 _logger = logging.getLogger(__name__)
 
-# OpenAI-compatible servers have no server-side session state, so we encode
-# the full message history as JSON in the session_id field. 500 KB stays
+# OpenAI-compatible servers have no server-side session state, so the client
+# carries the full message history as JSON in conversation_history. 500 KB stays
 # well below typical LLM context windows and gives tool-heavy multi-turn
 # conversations enough headroom to avoid frequent trimming. Older turns
 # are dropped first; the system message at index 0 is always kept.
@@ -224,16 +224,27 @@ def _merge_tool_call_chunk(accumulator: list[dict[str, Any]], chunk: dict[str, A
     """Merge a streamed tool-call delta into the accumulator.
 
     OpenAI streams tool calls in pieces keyed by `index`: the first chunk
-    typically carries `id` and `function.name`, subsequent chunks append to
-    `function.arguments`.
+    typically carries `id` and `function.name`, subsequent chunks carry no `id`
+    and append to `function.arguments`.
+
+    A chunk bearing a *new* `id` begins a new tool call, so we key on `id` when
+    present and only fall back to `index` for id-less continuation chunks. Some
+    servers (e.g. the MLflow gateway with certain models) emit each complete
+    parallel call as its own chunk reusing `index: 0` but with distinct ids;
+    keying purely on `index` would merge those into one call with a doubled name
+    and concatenated (invalid-JSON) arguments.
     """
-    idx = chunk.get("index", 0)
-    while len(accumulator) <= idx:
-        accumulator.append({"id": "", "function": {"name": "", "arguments": ""}})
-    entry = accumulator[idx]
-    if call_id := chunk.get("id"):
-        entry["id"] = call_id
     fn = chunk.get("function") or {}
+    if call_id := chunk.get("id"):
+        entry = next((e for e in accumulator if e["id"] == call_id), None)
+        if entry is None:
+            entry = {"id": call_id, "function": {"name": "", "arguments": ""}}
+            accumulator.append(entry)
+    else:
+        idx = chunk.get("index", 0)
+        while len(accumulator) <= idx:
+            accumulator.append({"id": "", "function": {"name": "", "arguments": ""}})
+        entry = accumulator[idx]
     if name := fn.get("name"):
         entry["function"]["name"] = name
     if args := fn.get("arguments"):
@@ -253,7 +264,9 @@ class OpenAICompatibleProvider(AssistantProvider):
         chat_url_builder: ChatUrlBuilder = _default_chat_url_builder,
         default_base_url: str | None = None,
         skills_dirname: str | None = None,
+        client_carries_history: bool = False,
     ):
+        self.client_carries_history = client_carries_history
         self._name = name
         self._display_name = display_name
         self._description = description
@@ -352,12 +365,11 @@ class OpenAICompatibleProvider(AssistantProvider):
     def resolve_skills_path(self, base_directory: Path) -> Path:
         return base_directory / self._skills_dirname / "skills"
 
-    async def astream(
+    async def astream_stateless(
         self,
         prompt: str,
         tracking_uri: str,
-        session_id: str | None = None,
-        mlflow_session_id: str | None = None,
+        conversation_history: str | None = None,
         cwd: Path | None = None,
         context: dict[str, Any] | None = None,
     ) -> AsyncGenerator[Event, None]:
@@ -405,11 +417,11 @@ class OpenAICompatibleProvider(AssistantProvider):
             user_text = prompt
 
         messages: list[dict[str, Any]] = []
-        if session_id:
+        if conversation_history:
             try:
-                messages = json.loads(session_id)
+                messages = json.loads(conversation_history)
             except (json.JSONDecodeError, TypeError):
-                _logger.warning("Failed to decode session history; starting a new session")
+                _logger.warning("Failed to decode conversation history; starting fresh")
                 messages = []
 
         if not messages:
@@ -533,8 +545,11 @@ class OpenAICompatibleProvider(AssistantProvider):
                                         _merge_tool_call_chunk(tool_calls_acc, tc)
 
                         if not tool_calls_acc:
-                            if visible_text:
-                                messages.append({"role": "assistant", "content": visible_text})
+                            # No tool calls this round: the model's turn is done. Persist whatever
+                            # text it produced (possibly empty) and fall through to finalize with
+                            # the updated history, so a retry resumes from it rather than re-running
+                            # any tools already executed this turn.
+                            messages.append({"role": "assistant", "content": visible_text})
                             break
 
                         # Normalize accumulated tool calls into the OpenAI
@@ -569,25 +584,19 @@ class OpenAICompatibleProvider(AssistantProvider):
                             tool_input = {}
 
                         # Permission gating. With full access (config) tools run without
-                        # prompting. Otherwise we prompt only for a call that BOTH has a session
-                        # (so a decision can be delivered on resume) AND isn't already permitted by
-                        # the static policy: allowlisted Bash commands (e.g. `mlflow`) and
-                        # in-workspace file ops run without a prompt, as they did before tool-call
-                        # permissions existed; the prompt is kept as an override for the previously
-                        # hard-denied calls. The session pauses the turn at a per-call Yes/No
-                        # prompt; a later resume delivers the choice via `tool_decisions`, and an
-                        # explicit allow overrides the static allowlist for that call. Anything not
-                        # gated (no session, or a statically-allowed call) is left to the static
-                        # policy enforced by execute_tool.
+                        # prompting. Otherwise we prompt only for a call the static policy wouldn't
+                        # already permit: allowlisted Bash commands (e.g. `mlflow`) and in-workspace
+                        # file ops run without a prompt, as they did before tool-call permissions
+                        # existed; the prompt is kept as an override for the previously hard-denied
+                        # calls. The turn pauses at a per-call Yes/No prompt; a later resume
+                        # delivers the choice via `tool_decisions`, and an explicit allow overrides
+                        # the static allowlist for that call. Calls the static policy already allows
+                        # are left to it, enforced by execute_tool.
                         needs_prompt = (
                             static_permission_error(tool_name, tool_input, config.permissions, cwd)
                             is not None
                         )
-                        gated = (
-                            not config.permissions.full_access
-                            and bool(mlflow_session_id)
-                            and needs_prompt
-                        )
+                        gated = not config.permissions.full_access and needs_prompt
                         decision = tool_decisions.get(tc["id"])
 
                         # Emit the tool-use block when a call is first surfaced
@@ -664,8 +673,8 @@ class OpenAICompatibleProvider(AssistantProvider):
                     if paused:
                         break
 
-            new_session_id = json.dumps(_trim_session(messages))
-            yield Event.from_result(result=None, session_id=new_session_id)
+            new_history = json.dumps(_trim_session(messages))
+            yield Event.from_conversation_history(new_history)
 
         except Exception as e:
             _logger.exception("Error communicating with %s", self._display_name)
