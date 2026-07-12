@@ -30,6 +30,7 @@ from mlflow.gateway.config import (
     MistralConfig,
     OpenAIAPIType,
     OpenAIConfig,
+    PortkeyConfig,
     Provider,
     VertexAIConfig,
     _AuthConfigKey,
@@ -338,9 +339,17 @@ def _build_endpoint_config(
         Provider.XAI,
         Provider.OPENROUTER,
         Provider.OLLAMA,
-        Provider.PORTKEY,
     }:
         provider_config = _build_openai_compatible_config(model_config)
+    elif model_config.provider == Provider.PORTKEY:
+        auth_config = model_config.auth_config or {}
+        provider_config = PortkeyConfig(
+            api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
+            api_base=auth_config.get(_AuthConfigKey.API_BASE),
+            portkey_provider=auth_config.get("portkey_provider"),
+            portkey_config=auth_config.get("portkey_config"),
+            provider_api_key=model_config.secret_value.get("provider_api_key"),
+        )
     elif normalize_provider_name(model_config.provider) == Provider.DATABRICKS:
         from mlflow.gateway.providers.databricks import DatabricksConfig
 

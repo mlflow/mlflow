@@ -232,6 +232,21 @@ def test_get_provider_config_bedrock_has_default_chain():
     assert all(not f["required"] for f in default_chain["config_fields"])
 
 
+def test_get_provider_config_portkey_has_routing_fields():
+    config = get_provider_config_response("portkey")
+    assert config["default_mode"] == "api_key"
+
+    api_key_mode = next(m for m in config["auth_modes"] if m["mode"] == "api_key")
+    secret_fields = {f["name"]: f for f in api_key_mode["secret_fields"]}
+    config_fields = {f["name"]: f for f in api_key_mode["config_fields"]}
+
+    assert secret_fields["api_key"]["required"]
+    assert not secret_fields["provider_api_key"]["required"]
+    assert not config_fields["portkey_provider"]["required"]
+    assert not config_fields["portkey_config"]["required"]
+    assert not config_fields["api_base"]["required"]
+
+
 def test_get_provider_config_sagemaker_has_default_chain():
     config = get_provider_config_response("sagemaker")
     modes = {m["mode"] for m in config["auth_modes"]}
