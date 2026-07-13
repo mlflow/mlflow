@@ -896,6 +896,8 @@ class Linter(ast.NodeVisitor):
     def visit_For(self, node: ast.For) -> None:
         if self.prev_stmt and rules.AssignBeforeAppend.check(node, self.prev_stmt):
             self._check(Range.from_node(node), rules.AssignBeforeAppend())
+        if rules.ForbiddenTraceChildMerge.check(node):
+            self._check(Range.from_node(node), rules.ForbiddenTraceChildMerge())
         self.generic_visit(node)
 
     def visit_type_annotation(self, node: ast.expr) -> None:
