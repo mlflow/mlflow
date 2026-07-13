@@ -1452,7 +1452,7 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         params={"run_ids": [run_id1], "metric_key": "metricA", "max_results": 5},
     )
     assert response_limited.status_code == 200
-    expected_steps = [0, 2, 4, 6, 8, 9]
+    expected_steps = [0, 2, 4, 6, 9]
     expected_metrics = [
         {**metric, "run_id": run_id1}
         for metric in metric_history
@@ -1494,8 +1494,8 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
     # Each run is sampled independently to ~max_results points spanning its own full range
     # (the final/maximum point is always preserved), so the two runs need not share steps.
     expected_steps_by_run = {
-        run_id1: [0, 2, 4, 6, 8, 9],
-        run_id2: [0, 4, 8, 12, 16, 19],
+        run_id1: [0, 2, 4, 6, 9],
+        run_id2: [0, 4, 8, 12, 19],
     }
     expected_metrics = []
     for run_id, metric_history in [
@@ -1528,7 +1528,6 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         {"key": "metricA", "timestamp": 1, "step": 2, "value": 10.0, "run_id": run_id1},
         {"key": "metricA", "timestamp": 1, "step": 4, "value": 10.0, "run_id": run_id1},
         {"key": "metricA", "timestamp": 1, "step": 6, "value": 10.0, "run_id": run_id1},
-        {"key": "metricA", "timestamp": 1, "step": 8, "value": 10.0, "run_id": run_id1},
         {"key": "metricA", "timestamp": 2, "step": 9, "value": 10.0, "run_id": run_id1},
     ]
     assert response_limited.json().get("metrics") == expected_metrics

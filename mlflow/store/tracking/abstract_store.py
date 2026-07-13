@@ -939,9 +939,10 @@ class AbstractStore(GatewayStoreMixin):
             run_ids: List of unique identifiers for runs.
             metric_key: Metric name to retrieve across runs.
             max_results: Maximum number of steps to sample from the step range.
-            start_step: Starting step of the range (inclusive). If None, starts from 0.
-            end_step: Ending step of the range (inclusive). If None, uses the maximum
-                step found across all runs.
+            start_step: Starting step of the range (inclusive). Must be provided together with
+                end_step; if both are None the full range is used (starting from 0).
+            end_step: Ending step of the range (inclusive). Must be provided together with
+                start_step; if both are None the full range is used (up to the maximum step).
 
         Returns:
             A list of `MetricWithRunId` objects containing metric data for the sampled

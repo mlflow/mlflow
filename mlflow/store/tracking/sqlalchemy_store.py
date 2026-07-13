@@ -18,7 +18,6 @@ from urllib.parse import urlparse
 
 import sqlalchemy
 import sqlalchemy.orm
-import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, case, exists, func, or_, select, sql
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Query, Session, aliased, joinedload, selectinload
@@ -1608,8 +1607,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         start_step: int | None,
         end_step: int | None,
     ) -> list[MetricWithRunId]:
-        """Return up to ``max_results`` metrics per run, evenly sampled across the full set
-        of values logged for ``metric_key`` (optionally restricted to ``[start_step, end_step]``).
+        """Return up to ``max_results`` metrics per run, evenly sampled across the values logged
+        for ``metric_key`` (optionally restricted to ``[start_step, end_step]``), always keeping
+        the first and last points when ``max_results`` > 1 and returns only the last point when
+        ``max_results`` == 1.
 
         The sampling is performed entirely in SQL using window functions, so the server
         materializes at most ~``max_results`` rows per run regardless of how many values were
@@ -1716,8 +1717,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             .all()
         )
 
-        # NTILE always captures the first (minimum) row but not necessarily the last (maximum)
-        # one, so explicitly include it to preserve the metric's end boundary on the chart.
+        # NTILE captures each bucket's first row but not necessarily the global last (maximum) one,
+        # so include it to preserve the metric's end boundary. Replace the last sampled point when
+        # already at ``max_results`` so the response never exceeds the requested size.
         last_row = (
             session
             .query(SqlMetric.value, SqlMetric.timestamp, SqlMetric.step, SqlMetric.is_nan)
@@ -1732,10 +1734,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         )
 
         def _row_key(row):
-            return (row.step, row.timestamp, row.value, row.is_nan)
+            value = None if row.is_nan else row.value
+            return (row.step, row.timestamp, value, row.is_nan)
 
         if last_row is not None and (not rows or _row_key(rows[-1]) != _row_key(last_row)):
-            rows.append(last_row)
+            if len(rows) >= max_results:
+                rows[-1] = last_row
+            else:
+                rows.append(last_row)
         return rows
 
     def _sample_rows_in_python(self, session, filters, order_by, max_results):
@@ -1747,11 +1753,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return []
         if total <= max_results:
             target_indices = set(range(total))
+        elif max_results == 1:
+            target_indices = {total - 1}
         else:
-            interval = total / max_results
-            target_indices = {int(i * interval) for i in range(max_results)}
-        # Always keep the final row to preserve the metric's end boundary on the chart.
-        target_indices.add(total - 1)
+            # Evenly spaced indices spanning the full range inclusive, so the first and last
+            # rows are always kept without exceeding ``max_results`` points.
+            step = (total - 1) / (max_results - 1)
+            target_indices = {round(i * step) for i in range(max_results)}
 
         rows_iter = (
             session

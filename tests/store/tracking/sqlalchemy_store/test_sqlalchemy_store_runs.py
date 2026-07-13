@@ -2850,10 +2850,8 @@ def test_get_metric_history_bulk_interval_same_step_is_bounded(store: SqlAlchemy
         end_step=None,
     )
 
-    # Bounded to ~max_results (plus the explicitly preserved final boundary point),
-    # not the full 5000 rows logged at step 0.
-    assert len(result) <= max_results + 1
-    assert len(result) >= max_results
+    # Bounded to max_results, not the full 5000 rows logged at step 0.
+    assert len(result) == max_results
     values = [m.value for m in result]
     # The sample spans the full range: first and last logged values are both present.
     assert values[0] == 0.0
@@ -2895,8 +2893,7 @@ def test_get_metric_history_bulk_interval_python_fallback_is_bounded(store: SqlA
         )
     supports.assert_called()
 
-    assert len(result) <= max_results + 1
-    assert len(result) >= max_results
+    assert len(result) == max_results
     values = [m.value for m in result]
     assert values[0] == 0.0
     assert values[-1] == float(n - 1)
