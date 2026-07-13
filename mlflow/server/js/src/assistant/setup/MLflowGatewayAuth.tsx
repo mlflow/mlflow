@@ -14,7 +14,7 @@ import { useEndpointsQuery } from '../../gateway/hooks/useEndpointsQuery';
 import { GatewayRoutePaths } from '../../gateway/routes';
 import { updateConfig } from '../AssistantService';
 import { useAssistantConfigQuery } from '../hooks/useAssistantConfigQuery';
-const PROVIDER_ID = 'mlflow_gateway';
+import { GATEWAY_PROVIDER_ID } from '../constants';
 
 interface MLflowGatewayAuthProps {
   onBack: () => void;
@@ -37,7 +37,7 @@ export const MLflowGatewayAuth = ({ onBack, onContinue }: MLflowGatewayAuthProps
   // initialized to when the gateway is first selected — treat it as unset
   // so EndpointSelector doesn't render it as a deleted endpoint.
   useEffect(() => {
-    const configured = config?.providers?.[PROVIDER_ID]?.model;
+    const configured = config?.providers?.[GATEWAY_PROVIDER_ID]?.model;
     if (configured && configured !== 'default') {
       setSelectedEndpoint(configured);
     }
@@ -55,7 +55,7 @@ export const MLflowGatewayAuth = ({ onBack, onContinue }: MLflowGatewayAuthProps
       return;
     }
     await updateConfig({
-      providers: { [PROVIDER_ID]: { model: selectedEndpoint, selected: true } },
+      providers: { [GATEWAY_PROVIDER_ID]: { model: selectedEndpoint, selected: true } },
     });
     onContinue();
   }, [onContinue, selectedEndpoint]);

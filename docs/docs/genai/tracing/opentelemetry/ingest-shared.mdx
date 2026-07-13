@@ -23,6 +23,12 @@ export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:5000/v1/traces
 export OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=123
 ```
 
+When [workspaces](/self-hosting/workspaces/getting-started) are enabled on your MLflow server, OTLP clients can also send the `X-MLFLOW-WORKSPACE` header to override the default workspace for a request.
+
+```bash
+export OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=123,X-MLFLOW-WORKSPACE=team-a
+```
+
 :::note
 
 Currently, MLflow Server supports only the OTLP/HTTP endpoint, and the OTLP/gRPC endpoint is not yet supported.

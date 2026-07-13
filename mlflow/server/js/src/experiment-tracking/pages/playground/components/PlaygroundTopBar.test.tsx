@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
-import type { ToolChoice } from '../types';
 
 jest.mock('../../../components/EndpointSelector', () => ({
   EndpointSelector: ({
@@ -38,10 +37,11 @@ const renderTopBar = () => {
           onEndpointSelect={onEndpointSelect}
           params={{}}
           onParamsChange={noop}
-          toolsText=""
-          onToolsChange={noop}
-          toolsError={null}
-          toolChoice={'none' as ToolChoice}
+          tools={[]}
+          onAddTool={noop}
+          onRemoveTool={noop}
+          onUpdateTool={noop}
+          toolChoice="auto"
           onToolChoiceChange={noop}
           responseFormatType="text"
           onResponseFormatTypeChange={noop}

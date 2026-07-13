@@ -99,13 +99,12 @@ Not every provider accepts every parameter. Values the provider doesn't understa
 
 ### Tools
 
-The **Tools** section accepts a JSON array of tool definitions plus a **tool choice** strategy:
+By default, tools are not sent with the request. Click **Add tools** to start defining them and pick a **tool choice** strategy:
 
-- **None** (default) — tools are not sent with the request.
-- **Auto** — the model decides whether to call a tool.
-- **Required** — the model must call one of the supplied tools.
+- **Auto** (default) — the model decides whether to call one or more tools.
+- **Required** — the model must call at least one tool.
 
-When **tool choice** is `Auto` or `Required`, at least one valid tool definition is required. The Submit button stays disabled with a "Add at least one tool definition" or "Fix the Tools JSON" blocker until the JSON parses as a non-empty array.
+Each tool is its own card with a **Function name**, an optional **Function description**, and a syntax-highlighted **Function parameters schema** editor for the function's JSON Schema (pre-filled with a minimal object schema). Use **Add tool** to define more and the trash icon to remove an individual tool. Every tool needs a function name and a valid parameters schema — the Submit button stays disabled (its hover popup lists the missing function name or invalid parameters schema) until each tool is complete.
 
 ### Response format
 

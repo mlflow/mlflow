@@ -27,7 +27,7 @@ from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.base import BaseProvider
-from mlflow.gateway.providers.gemini import GeminiProvider
+from mlflow.gateway.providers.gemini import GeminiAdapter, GeminiProvider
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleProvider
 
 _DEFAULT_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
@@ -38,6 +38,35 @@ _VERTEX_ANTHROPIC_VERSION = "vertex-2023-10-16"
 # No-slash model name prefixes that belong to the MaaS (OpenAI-compatible) type
 # rather than the Google (Gemini API) type.
 _MAAS_PREFIXES = ("mistral", "codestral", "jamba")
+
+
+def _strip_function_call_ids(gemini_payload: dict[str, Any]) -> dict[str, Any]:
+    """Remove ``id`` from functionCall/functionResponse parts of a Gemini request body.
+
+    The shared GeminiAdapter targets the Developer Gemini API
+    (generativelanguage.googleapis.com), which uses ``functionCall``/``functionResponse``
+    ``id`` to correlate parallel tool calls. Vertex AI's generateContent proto rejects
+    that field with ``400 INVALID_ARGUMENT`` at ``contents[].parts[].function_call.id``,
+    so strip it while leaving ``name`` and ``thoughtSignature`` intact. Mutates and
+    returns ``gemini_payload``.
+    """
+    for content in gemini_payload.get("contents") or []:
+        for part in content.get("parts") or []:
+            if function_call := part.get("functionCall"):
+                function_call.pop("id", None)
+            if function_response := part.get("functionResponse"):
+                function_response.pop("id", None)
+    return gemini_payload
+
+
+class _VertexGeminiAdapter(GeminiAdapter):
+    """GeminiAdapter for Gemini models on Vertex AI, which strips the Vertex-illegal
+    ``functionCall``/``functionResponse`` ``id`` from the translated request.
+    """
+
+    @classmethod
+    def chat_to_model(cls, payload, config):
+        return _strip_function_call_ids(super().chat_to_model(payload, config))
 
 
 def _classify_model(model_name: str) -> str:
@@ -143,6 +172,14 @@ class VertexAIProvider(GeminiProvider):
 
     def get_provider_name(self) -> str:
         return "vertex_ai"
+
+    @property
+    def adapter_class(self):
+        # Claude/MaaS models are formatted by their delegate's adapter; only Gemini
+        # models use the Gemini adapter (stripped for Vertex).
+        if self._delegate is not None:
+            return self._delegate.adapter_class
+        return _VertexGeminiAdapter
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
         if not isinstance(config.model.config, VertexAIConfig):

@@ -128,13 +128,15 @@ def dump_span_attribute_value(value: Any) -> str:
     #   for the simplicity in deserialization process.
     try:
         return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
-    except ValueError:
+    except (ValueError, TypeError) as e:
         # `json.dumps` raises `ValueError: Circular reference detected` for self-referencing
-        # objects (e.g. pydantic_ai's `run_context`). Fall back to a repr-based dump so the
-        # span attribute is still set and tracing doesn't crash the user's workflow.
+        # objects (e.g. pydantic_ai's `run_context`) and `TypeError` for unsupported
+        # structures such as dictionaries with non-serializable keys (e.g. `frozenset`).
+        # Fall back to a repr-based dump so the span attribute is still set and tracing
+        # doesn't crash the user's workflow.
         _logger.debug(
-            "Failed to serialize span attribute value due to circular reference. "
-            "Falling back to repr.",
+            "Failed to serialize span attribute value due to %s. Falling back to repr. ",
+            type(e).__name__,
             exc_info=True,
         )
         return json.dumps(repr(value), ensure_ascii=False)
@@ -235,8 +237,16 @@ def _aggregate_from_spans(
         else:
             roots.append(span)
 
-    def dfs(span: LiveSpan, ancestor_has_data: bool) -> None:
-        nonlocal has_data
+    # Iterative DFS with an explicit stack, instead of recursion, to avoid overflowing
+    # Python's call stack for deeply nested traces (~1000+ levels). A recursive walk here
+    # used to abort root-span finalization and permanently corrupt the trace.
+    #
+    # Visit order is irrelevant: totals is a sum and has_data an OR (both commutative), and
+    # each span's ancestor_has_data is fixed by its ancestor chain, not by sibling visit
+    # order. So a plain stack (no reversed()) yields identical results.
+    stack: list[tuple[LiveSpan, bool]] = [(root, False) for root in roots]
+    while stack:
+        span, ancestor_has_data = stack.pop()
 
         data = span.get_attribute(attribute_key)
         span_has_data = data is not None
@@ -250,11 +260,9 @@ def _aggregate_from_spans(
             has_data = True
 
         next_ancestor_has_data = ancestor_has_data or span_has_data
-        for child in children_map.get(span.span_id, []):
-            dfs(child, next_ancestor_has_data)
-
-    for root in roots:
-        dfs(root, False)
+        stack.extend(
+            (child, next_ancestor_has_data) for child in children_map.get(span.span_id, [])
+        )
 
     if not has_data:
         return None
@@ -784,13 +792,23 @@ def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
     However, we need to set some attributes within `on_end` handler of the span processor,
     where the span is already marked as ended. This context manager is a hacky workaround
     to bypass the attribute guard.
+
+    Since opentelemetry-sdk 1.43.0, `Span.end()` additionally marks the span's
+    `BoundedAttributes` as immutable, which raises a `TypeError` on any write regardless of
+    the end time. We temporarily clear that flag as well and restore it afterwards.
     """
     original_end_time = span._end_time
     span._end_time = None
+    attributes = span._attributes
+    original_immutable = getattr(attributes, "_immutable", None)
+    if original_immutable is not None:
+        attributes._immutable = False
     try:
         yield
     finally:
         span._end_time = original_end_time
+        if original_immutable is not None:
+            attributes._immutable = original_immutable
 
 
 def parse_trace_id_v4(trace_id: str | None) -> tuple[str | None, str | None]:
