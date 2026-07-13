@@ -921,6 +921,3 @@ def test_bsp_export_preserves_workspace_context(monkeypatch):
     assert captured_start_trace_workspace[0] == "bsp-workspace"
     assert len(captured_log_spans_workspace) == 1
     assert captured_log_spans_workspace[0] == "bsp-workspace"
-
-
-
