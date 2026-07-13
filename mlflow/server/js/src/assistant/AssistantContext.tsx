@@ -210,15 +210,17 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // Setup actions
-  const refreshConfig = useCallback(async () => {
+  const refreshConfig = useCallback(async (): Promise<boolean> => {
     setIsLoadingConfig(true);
     try {
       const config = await getConfig();
       const isComplete = await resolveSetupComplete(config);
       setSetupComplete(isComplete);
+      return isComplete;
     } catch {
       // On error, assume setup is not complete
       setSetupComplete(false);
+      return false;
     } finally {
       setIsLoadingConfig(false);
     }
@@ -226,11 +228,6 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
   const completeSetup = useCallback(() => {
     setSetupComplete(true);
-    refreshConfig();
-  }, [refreshConfig]);
-
-  // Fetch config on mount
-  useEffect(() => {
     refreshConfig();
   }, [refreshConfig]);
 
@@ -329,6 +326,18 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     streamingMessageRef.current = '';
     setPendingPermission(null);
   }, []);
+
+  // On mount, resolve setup once. messages are seeded synchronously from localStorage, so if setup
+  // turns out incomplete, drop that possibly-stale transcript (the persist effect then clears
+  // storage too). Only the mount check does this — later refreshConfig() calls from openPanel()/
+  // completeSetup() must not wipe a conversation the user is actively having.
+  useEffect(() => {
+    refreshConfig().then((isComplete) => {
+      if (!isComplete) {
+        reset();
+      }
+    });
+  }, [refreshConfig, reset]);
 
   // Begin a new in-flight send: stamp a fresh token in closure,
   // return a checker for whether this send is
@@ -734,7 +743,7 @@ const disabledAssistantContext: AssistantAgentContextType = {
   regenerateLastMessage: () => {},
   reset: () => {},
   cancelSession: () => {},
-  refreshConfig: () => Promise.resolve(),
+  refreshConfig: () => Promise.resolve(false),
   completeSetup: () => {},
   respondToPermission: () => {},
 };

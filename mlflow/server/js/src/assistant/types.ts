@@ -109,8 +109,8 @@ export interface AssistantAgentActions {
   reset: () => void;
   /** Cancel the current streaming session */
   cancelSession: () => void;
-  /** Fetch/refresh config from backend */
-  refreshConfig: () => Promise<void>;
+  /** Fetch/refresh config from backend; resolves to whether setup is complete */
+  refreshConfig: () => Promise<boolean>;
   /** Mark setup as complete (after wizard finishes) */
   completeSetup: () => void;
   /** Answer the pending tool-call permission prompt */

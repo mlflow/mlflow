@@ -350,6 +350,63 @@ describe('AssistantProvider setup completeness', () => {
     expect(result.current.setupComplete).toBe(true);
     expect(mockListEndpoints).not.toHaveBeenCalled();
   });
+
+  test('no provider selected => clears a stale transcript left over from a previous setup', async () => {
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages: [makeMessage({ id: 'stale' })] }));
+    mockGetConfig.mockResolvedValue(config({}));
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.setupComplete).toBe(false);
+    expect(result.current.messages).toHaveLength(0);
+    // The persist effect writes the cleared state back on a render after isLoadingConfig settles.
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? '{}');
+      expect(stored.messages).toEqual([]);
+    });
+  });
+
+  test('config fetch fails => clears a stale transcript rather than assuming setup is still complete', async () => {
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages: [makeMessage({ id: 'stale' })] }));
+    mockGetConfig.mockRejectedValue(new Error('network error'));
+
+    const result = await renderAndWaitForConfig();
+
+    expect(result.current.setupComplete).toBe(false);
+    expect(result.current.messages).toHaveLength(0);
+    // Same persist-effect indirection as the success path — assert localStorage too, so a
+    // regression where the catch branch stops triggering the effect would fail this test.
+    await waitFor(() => {
+      const stored = JSON.parse(localStorage.getItem(CHAT_STORAGE_KEY) ?? '{}');
+      expect(stored.messages).toEqual([]);
+    });
+  });
+
+  test('a later refreshConfig() (e.g. via openPanel) does not drop an active conversation', async () => {
+    // Setup starts complete, so the mount-time check leaves the conversation alone.
+    mockGetConfig.mockResolvedValue(config({ claude_code: providerConfig({ selected: true }) }));
+
+    const result = await renderAndWaitForConfig();
+    expect(result.current.setupComplete).toBe(true);
+
+    await act(async () => {
+      result.current.sendMessage('hello');
+    });
+    expect(result.current.messages.length).toBeGreaterThan(0);
+
+    // The provider was removed server-side between the initial check and now; openPanel() refetches.
+    mockGetConfig.mockResolvedValue(config({}));
+    act(() => {
+      result.current.openPanel();
+    });
+
+    // openPanel() fires refreshConfig() without awaiting it, so wait for its config fetch to
+    // resolve before asserting — otherwise this reads state from before the refetch lands.
+    await waitFor(() => expect(result.current.setupComplete).toBe(false));
+    // The conversation the user was having must survive — only the initial mount-time check may
+    // clear a stale transcript; later checks must not silently drop an active one.
+    expect(result.current.messages.length).toBeGreaterThan(0);
+  });
 });
 
 describe('AssistantContext — a new message supersedes a pending permission prompt', () => {
@@ -458,6 +515,8 @@ describe('trimForStorage', () => {
 
 describe('AssistantContext — localStorage chat persistence', () => {
   it('restores messages from localStorage on mount', async () => {
+    // A configured provider — setup completeness is orthogonal to storage restore/clear.
+    mockGetConfig.mockResolvedValue(config({ claude_code: providerConfig({ selected: true }) }));
     localStorage.setItem(
       CHAT_STORAGE_KEY,
       JSON.stringify({ messages: [makeMessage({ id: 'restored', content: 'from storage' })] }),
@@ -487,6 +546,7 @@ describe('AssistantContext — localStorage chat persistence', () => {
   });
 
   it('clears persisted messages when reset() is called', async () => {
+    mockGetConfig.mockResolvedValue(config({ claude_code: providerConfig({ selected: true }) }));
     localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify({ messages: [makeMessage({ id: 'restored' })] }));
 
     const { result } = await renderAssistant();
