@@ -515,7 +515,7 @@ def _get_provider_instance(
     elif provider == Provider.SAP_AI_CORE:
         from mlflow.gateway.providers.sap_ai_core import SapAiCoreConfig, SapAiCoreProvider
 
-        # SapAiCoreProvider reads MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL at request time.
+        # SapAiCoreProvider reads MLFLOW_GENAI_JUDGE_BASE_URL at request time.
         # Auth is handled by the egress gateway; no API key is stored.
         config = SapAiCoreConfig()
         return SapAiCoreProvider(_get_route_config(config))

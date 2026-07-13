@@ -8,9 +8,8 @@ requests are routed through an HTTP egress gateway (``http://`` scheme) that
 intercepts the call, attaches a bearer token, and forwards it externally.
 
 Environment variable:
-    ``MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL`` — full URL of the AI Core
-    Orchestration endpoint (required). Must use ``http://`` or ``https://``
-    scheme (e.g. ``http://egress-gw.cluster.local/v2/.../chat/completions``).
+    ``MLFLOW_GENAI_JUDGE_BASE_URL`` — full URL of the AI Core Orchestration
+    endpoint (required). Must use ``http://`` or ``https://`` scheme.
 """
 
 from __future__ import annotations
@@ -20,11 +19,14 @@ from typing import Any
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel
 from mlflow.gateway.providers.base import ProviderAdapter
-from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter, OpenAICompatibleProvider
+from mlflow.gateway.providers.openai_compatible import (
+    OpenAICompatibleAdapter,
+    OpenAICompatibleProvider,
+)
 from mlflow.gateway.schemas import chat
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
-#: Inference parameter keys that are forwarded to the model's ``params`` block.
+#: Scalar inference parameter keys forwarded to the model's ``params`` block.
 _FORWARDED_PARAMS = frozenset(
     {
         "max_tokens",
@@ -44,8 +46,7 @@ class SapAiCoreConfig(ConfigModel):
 
     No API key is stored here — authentication is handled by the egress
     gateway that intercepts requests before they leave the cluster.
-    The endpoint URL is read at request time from
-    ``MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL``.
+    The endpoint URL is read at request time from ``MLFLOW_GENAI_JUDGE_BASE_URL``.
     """
 
 
@@ -58,6 +59,8 @@ class SapAiCoreAdapter(ProviderAdapter):
     OpenAI ``messages`` list → ``config.modules.prompt_templating.prompt.template``
     OpenAI model name        → ``config.modules.prompt_templating.model.name``
     OpenAI inference params  → ``config.modules.prompt_templating.model.params``
+    ``response_format``      → ``config.modules.prompt_templating.model.params.response_format``
+    ``tools`` / ``tool_choice`` → ``config.modules.prompt_templating.model.params``
 
     Response mapping
     ----------------
@@ -71,7 +74,13 @@ class SapAiCoreAdapter(ProviderAdapter):
         messages = payload.get("messages", [])
         model_name = config.model.name
 
-        params = {k: payload[k] for k in _FORWARDED_PARAMS if k in payload}
+        params: dict[str, Any] = {k: payload[k] for k in _FORWARDED_PARAMS if k in payload}
+
+        # Pass response_format and tool-calling fields into model params so
+        # structured-output enforcement and trace-loop tool calling are preserved.
+        for key in ("response_format", "tools", "tool_choice"):
+            if key in payload:
+                params[key] = payload[key]
 
         prompt_templating: dict[str, Any] = {
             "prompt": {
@@ -126,11 +135,11 @@ class SapAiCoreAdapter(ProviderAdapter):
 class SapAiCoreProvider(OpenAICompatibleProvider):
     """MLflow Gateway provider for SAP AI Core Orchestration v2.
 
-    Reads the endpoint URL from ``MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL``
-    at request time.  No ``Authorization`` header is added — the egress
-    gateway is responsible for attaching credentials before the request
-    leaves the cluster.  ``extra_headers`` (e.g. ``AI-Resource-Group``)
-    are merged in by the
+    Reads the endpoint URL from ``MLFLOW_GENAI_JUDGE_BASE_URL`` at request
+    time.  No ``Authorization`` header is added — the egress gateway is
+    responsible for attaching credentials before the request leaves the
+    cluster.  ``extra_headers`` (e.g. ``AI-Resource-Group``) are merged in
+    by the
     :class:`~mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter`
     caller and forwarded as-is.
     """
@@ -144,19 +153,18 @@ class SapAiCoreProvider(OpenAICompatibleProvider):
         return SapAiCoreAdapter
 
     def get_endpoint_url(self, route_type: str) -> str:
-        from mlflow.environment_variables import MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL
+        from mlflow.environment_variables import MLFLOW_GENAI_JUDGE_BASE_URL
 
-        url = MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL.get()
+        url = MLFLOW_GENAI_JUDGE_BASE_URL.get()
         if not url:
             raise MlflowException(
-                "MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL environment variable must be set "
+                "MLFLOW_GENAI_JUDGE_BASE_URL environment variable must be set "
                 "when using the sap-ai-core:/ provider.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         if not url.startswith(("http://", "https://")):
             raise MlflowException(
-                f"MLFLOW_SAP_AI_CORE_ORCHESTRATION_URL must use http:// or https:// scheme, "
-                f"got: {url!r}",
+                f"MLFLOW_GENAI_JUDGE_BASE_URL must use http:// or https:// scheme, got: {url!r}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return url.rstrip("/")

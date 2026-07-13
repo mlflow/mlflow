@@ -652,3 +652,85 @@ def test_is_tool_call_correct_with_custom_name_and_model():
     args, kwargs = mock_invoke.call_args
     assert args[0] == "anthropic:/claude-3-sonnet"
     assert kwargs["assessment_name"] == "custom_correctness_check"
+
+
+# ---------------------------------------------------------------------------
+# extra_headers — BuiltInScorer field and scorer/judge forwarding
+# ---------------------------------------------------------------------------
+
+
+def test_builtin_scorer_extra_headers_field():
+    assert Safety(extra_headers={"AI-Resource-Group": "grp"}).extra_headers == {
+        "AI-Resource-Group": "grp"
+    }
+    assert Safety().extra_headers is None
+
+
+@pytest.mark.parametrize(
+    ("scorer_cls", "scorer_kwargs", "judge_patch", "call_kwargs"),
+    [
+        (
+            Safety,
+            {"model": "openai:/gpt-4o-mini", "extra_headers": {"k": "v"}},
+            "mlflow.genai.scorers.builtin_scorers.judges.is_safe",
+            {"outputs": "hello"},
+        ),
+        (
+            RelevanceToQuery,
+            {"model": "openai:/gpt-4o-mini", "extra_headers": {"k": "v"}},
+            "mlflow.genai.scorers.builtin_scorers.judges.is_context_relevant",
+            {"inputs": {"question": "q"}, "outputs": "a"},
+        ),
+    ],
+)
+def test_builtin_scorer_forwards_extra_headers(scorer_cls, scorer_kwargs, judge_patch, call_kwargs):
+    feedback = create_test_feedback("yes")
+    with mock.patch(judge_patch, return_value=feedback) as mock_judge:
+        scorer_cls(**scorer_kwargs)(**call_kwargs)
+    _, kwargs = mock_judge.call_args
+    assert kwargs.get("extra_headers") == {"k": "v"}
+
+
+@pytest.mark.parametrize(
+    ("judge_fn", "judge_kwargs"),
+    [
+        (
+            judges.is_safe,
+            {"content": "hello", "extra_headers": {"k": "v"}},
+        ),
+        (
+            judges.is_correct,
+            {
+                "request": "q",
+                "response": "a",
+                "expected_response": "a",
+                "extra_headers": {"k": "v"},
+            },
+        ),
+        (
+            judges.is_grounded,
+            {
+                "request": "q",
+                "response": "a",
+                "context": [{"content": "c"}],
+                "extra_headers": {"k": "v"},
+            },
+        ),
+        (
+            judges.is_context_relevant,
+            {"request": "q", "context": "c", "extra_headers": {"k": "v"}},
+        ),
+        (
+            judges.meets_guidelines,
+            {"guidelines": "be polite", "context": {"response": "hi"}, "extra_headers": {"k": "v"}},
+        ),
+    ],
+)
+def test_judge_function_forwards_extra_headers(judge_fn, judge_kwargs):
+    with mock.patch(
+        "mlflow.genai.judges.builtin.invoke_judge_model",
+        return_value=create_test_feedback("yes"),
+    ) as mock_invoke:
+        judge_fn(**judge_kwargs)
+    _, kwargs = mock_invoke.call_args
+    assert kwargs.get("extra_headers") == {"k": "v"}
