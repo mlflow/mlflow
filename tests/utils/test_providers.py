@@ -242,8 +242,9 @@ def test_get_provider_config_portkey_has_routing_fields():
 
     assert secret_fields["api_key"]["required"]
     assert not secret_fields["provider_api_key"]["required"]
+    # portkey_config is a secret because a raw JSON config may embed credentials
+    assert not secret_fields["portkey_config"]["required"]
     assert not config_fields["portkey_provider"]["required"]
-    assert not config_fields["portkey_config"]["required"]
     assert not config_fields["api_base"]["required"]
 
 

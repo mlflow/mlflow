@@ -675,8 +675,10 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                 },
                 {
                     "name": "portkey_config",
-                    "description": "Portkey config ID (e.g. pc-xxxx) or JSON config",
-                    "secret": False,
+                    "description": "Portkey config ID (e.g. pc-xxxx) or JSON config. "
+                    "Stored as a secret since a raw JSON config may embed "
+                    "upstream credentials",
+                    "secret": True,
                     "required": False,
                 },
                 {

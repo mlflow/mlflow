@@ -266,7 +266,7 @@ to route each request to. Configure one of the following when creating the endpo
 - **Provider Slug**: a [Model Catalog](https://portkey.ai/docs/product/model-catalog)
   integration slug prefixed with `@` (e.g. `@openai-prod`), or a bare provider slug
   (e.g. `openai`) together with a **Provider API Key** for that provider
-- **Config ID or JSON**: a saved Portkey config ID (e.g. `pc-xxxx`) or a raw JSON config
+- **Config ID or JSON**: a saved Portkey config ID (e.g. `pc-xxxx`) or a raw JSON config. This is stored as a secret, since a raw JSON config may embed upstream credentials
 - Neither, if your model name already embeds the routing target
   (e.g. `@openai-prod/gpt-4o`) or your Portkey API key has a default config attached
 

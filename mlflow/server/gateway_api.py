@@ -347,7 +347,9 @@ def _build_endpoint_config(
             api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
             api_base=auth_config.get(_AuthConfigKey.API_BASE),
             portkey_provider=auth_config.get("portkey_provider"),
-            portkey_config=auth_config.get("portkey_config"),
+            # portkey_config is a secret because a raw JSON config may embed
+            # upstream credentials, so it is read from secret_value
+            portkey_config=model_config.secret_value.get("portkey_config"),
             provider_api_key=model_config.secret_value.get("provider_api_key"),
         )
     elif normalize_provider_name(model_config.provider) == Provider.DATABRICKS:

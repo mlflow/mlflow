@@ -21,3 +21,23 @@ class PortkeyProvider(OpenAICompatibleProvider):
         if provider_api_key := self._provider_config.provider_api_key:
             headers["Authorization"] = f"Bearer {provider_api_key}"
         return headers
+
+    def _get_headers(
+        self,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, str]:
+        result = super()._get_headers(headers)
+        # On the passthrough routes, the base class lets a subscription tool's
+        # own Authorization header (Claude Code, Codex, Gemini CLI) pass through
+        # to the upstream. For Portkey, Authorization carries the configured
+        # upstream `provider_api_key`, not a Portkey credential, so an explicitly
+        # configured key must win: a client Authorization targets MLflow, not
+        # Portkey's upstream provider. When no key is configured, the base
+        # behavior is preserved.
+        if self._provider_config.provider_api_key:
+            # drop any client-provided Authorization (any casing) so it cannot
+            # shadow the configured upstream key
+            for key in [k for k in result if k.lower() == "authorization"]:
+                del result[key]
+            result["Authorization"] = f"Bearer {self._provider_config.provider_api_key}"
+        return result

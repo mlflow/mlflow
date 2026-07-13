@@ -120,3 +120,36 @@ async def test_chat():
 
     mock_client.post.assert_called_once()
     assert mock_client.post.call_args.args[0] == "https://api.portkey.ai/v1/chat/completions"
+
+
+def test_configured_upstream_key_wins_over_client_auth():
+    # A subscription tool (e.g. Claude Code) sends its own Authorization header
+    # on a passthrough request. For Portkey, Authorization carries the upstream
+    # `provider_api_key`, so a configured key must win and the client's key,
+    # which targets MLflow rather than the upstream, must not be forwarded.
+    provider = _make_provider({"portkey_provider": "openai", "provider_api_key": "sk-upstream"})
+    client_headers = {
+        "user-agent": "claude-cli/1.2.3",
+        "authorization": "Bearer sk-client-token",
+    }
+    result = provider._get_headers(client_headers)
+    auth = [v for k, v in result.items() if k.lower() == "authorization"]
+    # exactly one Authorization header, and it is the configured upstream key
+    assert auth == ["Bearer sk-upstream"]
+    assert result["x-portkey-api-key"] == "pk-test-key"
+    assert result["x-portkey-provider"] == "openai"
+
+
+def test_client_auth_preserved_when_no_upstream_key():
+    # Without a configured provider_api_key (e.g. Model Catalog @slug routing),
+    # the base behavior is preserved: a subscription tool may pass its own
+    # Authorization through.
+    provider = _make_provider({"portkey_provider": "@openai-prod"})
+    client_headers = {
+        "user-agent": "claude-cli/1.2.3",
+        "authorization": "Bearer sk-client-token",
+    }
+    result = provider._get_headers(client_headers)
+    auth = [v for k, v in result.items() if k.lower() == "authorization"]
+    assert auth == ["Bearer sk-client-token"]
+    assert result["x-portkey-api-key"] == "pk-test-key"

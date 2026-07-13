@@ -351,10 +351,16 @@ def test_create_provider_from_endpoint_name_mistral(store: SqlAlchemyStore):
 
 
 def test_create_provider_from_endpoint_name_portkey(store: SqlAlchemyStore):
-    # Portkey routing fields flow from auth_config/secret_value into PortkeyConfig
+    # Portkey routing fields flow from auth_config/secret_value into PortkeyConfig.
+    # portkey_config is a secret (it may embed credentials), so it lives in
+    # secret_value; portkey_provider is non-sensitive and lives in auth_config.
     secret = store.create_gateway_secret(
         secret_name="portkey-key",
-        secret_value={"api_key": "pk-test-123", "provider_api_key": "sk-upstream-456"},
+        secret_value={
+            "api_key": "pk-test-123",
+            "provider_api_key": "sk-upstream-456",
+            "portkey_config": "pc-test-789",
+        },
         provider="portkey",
         auth_config={"portkey_provider": "openai"},
     )
@@ -384,10 +390,12 @@ def test_create_provider_from_endpoint_name_portkey(store: SqlAlchemyStore):
     assert isinstance(provider_config, PortkeyConfig)
     assert provider_config.api_key == "pk-test-123"
     assert provider_config.portkey_provider == "openai"
+    assert provider_config.portkey_config == "pc-test-789"
     assert provider_config.provider_api_key == "sk-upstream-456"
     assert provider.headers == {
         "x-portkey-api-key": "pk-test-123",
         "x-portkey-provider": "openai",
+        "x-portkey-config": "pc-test-789",
         "Authorization": "Bearer sk-upstream-456",
     }
 
