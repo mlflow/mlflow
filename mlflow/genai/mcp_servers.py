@@ -607,6 +607,9 @@ def set_mcp_server_tag(name: str, key: str, value: str) -> None:
     """
     Set a tag on an MCP server (upsert).
 
+    Tags are the API term for these user-defined metadata entries. Some UI
+    surfaces may label the same concept as metadata.
+
     Args:
         name: Server name.
         key: Tag key.
@@ -624,6 +627,9 @@ def delete_mcp_server_tag(name: str, key: str) -> None:
 def set_mcp_server_version_tag(name: str, version: str, key: str, value: str) -> None:
     """
     Set a tag on an MCP server version (upsert).
+
+    Tags are the API term for these user-defined metadata entries. Some UI
+    surfaces may label the same concept as metadata.
 
     Args:
         name: Server name.

@@ -5,6 +5,9 @@ from dataclasses import dataclass
 
 from mlflow.exceptions import MlflowException
 
+# Keep this SemVer-specific implementation instead of ``packaging.Version``:
+# MLflow needs SemVer 2.0.0 precedence, while ``packaging.Version`` implements
+# PEP 440 and would normalize or reject valid SemVer cases used by MCP versions.
 _MAX_SEMVER_LENGTH = 128
 _MAX_SEMVER_CORE_VALUE = 2_147_483_647
 _RELEASE_PRERELEASE_SORT_KEY = "2"

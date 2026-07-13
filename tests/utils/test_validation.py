@@ -1,5 +1,6 @@
 import copy
 import socket
+import time
 from unittest.mock import patch
 
 import pytest
@@ -631,6 +632,19 @@ def test_validate_public_https_url_rejects_unresolvable_hostname():
             _validate_public_https_url(
                 "https://does-not-exist.invalid/icon.png", field_name="Icon URL"
             )
+
+
+def test_validate_public_https_url_rejects_resolution_timeout():
+    def slow_resolve(*args, **kwargs):
+        time.sleep(0.1)
+        return [(None, None, None, None, ("8.8.8.8", 0))]
+
+    with (
+        patch("mlflow.utils.validation._HOSTNAME_RESOLUTION_TIMEOUT_SECONDS", 0.01),
+        patch("mlflow.utils.validation.socket.getaddrinfo", side_effect=slow_resolve),
+    ):
+        with pytest.raises(MlflowException, match="Timed out resolving Icon URL hostname"):
+            _validate_public_https_url("https://example.com/icon.png", field_name="Icon URL")
 
 
 def test_validate_public_https_url_rejects_if_any_resolved_address_is_private():

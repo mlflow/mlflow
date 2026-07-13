@@ -9,6 +9,7 @@ import numbers
 import posixpath
 import re
 import socket
+import threading
 import urllib.parse
 from fnmatch import fnmatch
 from typing import Any
@@ -34,6 +35,7 @@ _logger = logging.getLogger(__name__)
 
 _MAX_MCP_ICONS_PER_LIST = 100
 _MAX_MCP_TOOLS_PER_LIST = 1000
+_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS = 5.0
 
 # Regex for valid run IDs: must be an alphanumeric string of length 1 to 256.
 _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
@@ -893,9 +895,31 @@ def _validate_webhook_name(name: str) -> None:
         )
 
 
+def _resolve_hostname_with_timeout(hostname: str, field_name: str):
+    result: dict[str, Any] = {}
+
+    def _resolve():
+        try:
+            result["addr_infos"] = socket.getaddrinfo(hostname, None)
+        except Exception as e:
+            result["error"] = e
+
+    thread = threading.Thread(target=_resolve, daemon=True, name="mlflow-hostname-resolution")
+    thread.start()
+    thread.join(timeout=_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS)
+    if thread.is_alive():
+        raise MlflowException.invalid_parameter_value(
+            f"Timed out resolving {field_name} hostname {hostname!r} after "
+            f"{_HOSTNAME_RESOLUTION_TIMEOUT_SECONDS:g} seconds"
+        )
+    if "error" in result:
+        raise result["error"]
+    return result["addr_infos"]
+
+
 def _validate_hostname_resolves_to_public_ips(hostname: str, field_name: str) -> None:
     try:
-        addr_infos = socket.getaddrinfo(hostname, None)
+        addr_infos = _resolve_hostname_with_timeout(hostname, field_name)
     except socket.gaierror as e:
         raise MlflowException.invalid_parameter_value(
             f"Cannot resolve {field_name} hostname {hostname!r}: {e}"

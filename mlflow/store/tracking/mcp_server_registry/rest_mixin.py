@@ -25,112 +25,6 @@ def _server_path(name: str) -> str:
     return f"/{_encode_path_param(name)}"
 
 
-def _server_from_response(data: dict[str, Any]) -> MCPServer:
-    try:
-        if not isinstance(data, dict):
-            raise MlflowException.invalid_parameter_value(
-                "Failed to parse MCP server response: expected a dictionary"
-            )
-        return MCPServer(
-            name=data["name"],
-            display_name=data.get("display_name"),
-            description=data.get("description"),
-            icons=data.get("icons"),
-            workspace=data.get("workspace"),
-            status=MCPStatus(data["status"]) if data.get("status") else None,
-            tags=data.get("tags", {}),
-            aliases={a["alias"]: a["version"] for a in data.get("aliases", [])},
-            access_bindings=[_binding_from_response(b) for b in data.get("access_bindings", [])],
-            latest_version=data.get("latest_version"),
-            created_by=data.get("created_by"),
-            last_updated_by=data.get("last_updated_by"),
-            creation_timestamp=data.get("creation_timestamp"),
-            last_updated_timestamp=data.get("last_updated_timestamp"),
-        )
-    except KeyError as e:
-        raise MlflowException.invalid_parameter_value(
-            f"Failed to parse MCP server response: missing required field {e}"
-        ) from None
-    except (ValueError, TypeError) as e:
-        raise MlflowException.invalid_parameter_value(
-            f"Failed to parse MCP server response: {e}"
-        ) from None
-
-
-def _version_from_response(data: dict[str, Any]) -> MCPServerVersion:
-    try:
-        if not isinstance(data, dict):
-            raise MlflowException.invalid_parameter_value(
-                "Failed to parse MCP server version response: expected a dictionary"
-            )
-        tools = []
-        if data.get("tools") is not None:
-            try:
-                tools = [MCPTool.from_dict(t) for t in data["tools"]]
-            except MlflowException as e:
-                raise MlflowException.invalid_parameter_value(
-                    f"Failed to parse MCP server version response: {e.message}"
-                ) from None
-        return MCPServerVersion(
-            name=data["name"],
-            version=data["version"],
-            server_json=data["server_json"],
-            display_name=data.get("display_name"),
-            workspace=data.get("workspace"),
-            status=MCPStatus(data["status"]) if data.get("status") else MCPStatus.DRAFT,
-            tools=tools,
-            aliases=data.get("aliases", []),
-            tags=data.get("tags", {}),
-            source=data.get("source"),
-            created_by=data.get("created_by"),
-            last_updated_by=data.get("last_updated_by"),
-            creation_timestamp=data.get("creation_timestamp"),
-            last_updated_timestamp=data.get("last_updated_timestamp"),
-        )
-    except KeyError as e:
-        raise MlflowException.invalid_parameter_value(
-            f"Failed to parse MCP server version response: missing required field {e}"
-        ) from None
-    except (ValueError, TypeError) as e:
-        raise MlflowException.invalid_parameter_value(
-            f"Failed to parse MCP server version response: {e}"
-        ) from None
-
-
-def _binding_from_response(data: dict[str, Any]) -> MCPAccessBinding:
-    try:
-        if not isinstance(data, dict):
-            raise MlflowException.invalid_parameter_value(
-                "Failed to parse MCP access binding response: expected a dictionary"
-            )
-        return MCPAccessBinding(
-            binding_id=data["binding_id"],
-            server_name=data["server_name"],
-            endpoint_url=data["endpoint_url"],
-            transport_type=MCPRemoteTransportType(data.get("transport_type", "streamable-http")),
-            workspace=data.get("workspace"),
-            server_version=data.get("server_version"),
-            server_alias=data.get("server_alias"),
-            resolved_version=(
-                None
-                if data.get("resolved_version") is None
-                else _version_from_response(data["resolved_version"])
-            ),
-            created_by=data.get("created_by"),
-            last_updated_by=data.get("last_updated_by"),
-            creation_timestamp=data.get("creation_timestamp"),
-            last_updated_timestamp=data.get("last_updated_timestamp"),
-        )
-    except KeyError as e:
-        raise MlflowException.invalid_parameter_value(
-            f"Failed to parse MCP access binding response: missing required field {e}"
-        ) from None
-    except (ValueError, TypeError) as e:
-        raise MlflowException.invalid_parameter_value(
-            f"Failed to parse MCP access binding response: {e}"
-        ) from None
-
-
 class RestMCPServerRegistryMixin:
     """REST implementation of MCPServerRegistryMixin.
 
@@ -169,11 +63,11 @@ class RestMCPServerRegistryMixin:
         if icons is not None:
             body["icons"] = icons
         data = self._mcp_request("POST", "", json=body)
-        return _server_from_response(data)
+        return MCPServer.from_dict(data)
 
     def get_mcp_server(self, name: str) -> MCPServer:
         data = self._mcp_request("GET", _server_path(name))
-        return _server_from_response(data)
+        return MCPServer.from_dict(data)
 
     def search_mcp_servers(
         self,
@@ -199,7 +93,7 @@ class RestMCPServerRegistryMixin:
                 raise MlflowException.invalid_parameter_value(
                     "Failed to parse search response: mcp_servers field is null"
                 )
-            servers = [_server_from_response(s) for s in data["mcp_servers"]]
+            servers = [MCPServer.from_dict(s) for s in data["mcp_servers"]]
             return PagedList(servers, data.get("next_page_token"))
         except (KeyError, TypeError, ValueError) as e:
             raise MlflowException.invalid_parameter_value(
@@ -222,7 +116,7 @@ class RestMCPServerRegistryMixin:
         if icons is not NOT_SET:
             body["icons"] = icons
         data = self._mcp_request("PATCH", _server_path(name), json=body)
-        return _server_from_response(data)
+        return MCPServer.from_dict(data)
 
     def delete_mcp_server(self, name: str) -> None:
         self._mcp_request("DELETE", _server_path(name))
@@ -254,17 +148,17 @@ class RestMCPServerRegistryMixin:
         if tools is not None:
             body["tools"] = [t.to_dict() for t in tools]
         data = self._mcp_request("POST", f"{_server_path(name)}/versions", json=body)
-        return _version_from_response(data)
+        return MCPServerVersion.from_dict(data)
 
     def get_mcp_server_version(self, name: str, version: str) -> MCPServerVersion:
         data = self._mcp_request(
             "GET", f"{_server_path(name)}/versions/{_encode_path_param(version)}"
         )
-        return _version_from_response(data)
+        return MCPServerVersion.from_dict(data)
 
     def get_mcp_server_version_by_alias(self, name: str, alias: str) -> MCPServerVersion:
         data = self._mcp_request("GET", f"{_server_path(name)}/aliases/{_encode_path_param(alias)}")
-        return _version_from_response(data)
+        return MCPServerVersion.from_dict(data)
 
     def get_latest_mcp_server_version(self, name: str) -> MCPServerVersion:
         return self.get_mcp_server_version_by_alias(name, "latest")
@@ -294,7 +188,7 @@ class RestMCPServerRegistryMixin:
                 raise MlflowException.invalid_parameter_value(
                     "Failed to parse search response: mcp_server_versions field is null"
                 )
-            versions = [_version_from_response(v) for v in data["mcp_server_versions"]]
+            versions = [MCPServerVersion.from_dict(v) for v in data["mcp_server_versions"]]
             return PagedList(versions, data.get("next_page_token"))
         except (KeyError, TypeError, ValueError) as e:
             raise MlflowException.invalid_parameter_value(
@@ -320,7 +214,7 @@ class RestMCPServerRegistryMixin:
         data = self._mcp_request(
             "PATCH", f"{_server_path(name)}/versions/{_encode_path_param(version)}", json=body
         )
-        return _version_from_response(data)
+        return MCPServerVersion.from_dict(data)
 
     def delete_mcp_server_version(self, name: str, version: str) -> None:
         self._mcp_request("DELETE", f"{_server_path(name)}/versions/{_encode_path_param(version)}")
@@ -345,13 +239,13 @@ class RestMCPServerRegistryMixin:
         if server_alias is not None:
             body["server_alias"] = server_alias
         data = self._mcp_request("POST", f"{_server_path(server_name)}/bindings", json=body)
-        return _binding_from_response(data)
+        return MCPAccessBinding.from_dict(data)
 
     def get_mcp_access_binding(self, server_name: str, binding_id: int) -> MCPAccessBinding:
         data = self._mcp_request(
             "GET", f"{_server_path(server_name)}/bindings/{_encode_path_param(binding_id)}"
         )
-        return _binding_from_response(data)
+        return MCPAccessBinding.from_dict(data)
 
     def search_mcp_access_bindings(
         self,
@@ -385,7 +279,7 @@ class RestMCPServerRegistryMixin:
                 raise MlflowException.invalid_parameter_value(
                     "Failed to parse search response: mcp_access_bindings field is null"
                 )
-            bindings = [_binding_from_response(b) for b in data["mcp_access_bindings"]]
+            bindings = [MCPAccessBinding.from_dict(b) for b in data["mcp_access_bindings"]]
             return PagedList(bindings, data.get("next_page_token"))
         except (KeyError, TypeError, ValueError) as e:
             raise MlflowException.invalid_parameter_value(
@@ -416,7 +310,7 @@ class RestMCPServerRegistryMixin:
             f"{_server_path(server_name)}/bindings/{_encode_path_param(binding_id)}",
             json=body,
         )
-        return _binding_from_response(data)
+        return MCPAccessBinding.from_dict(data)
 
     def delete_mcp_access_binding(self, server_name: str, binding_id: int) -> None:
         self._mcp_request(
