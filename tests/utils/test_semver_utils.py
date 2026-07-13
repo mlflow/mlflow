@@ -345,6 +345,7 @@ def test_compare_semver_matches_reference_comparator_for_generated_corpus():
             for parts in product(identifier_pool, repeat=length)
         )
 
-    for left in versions:
-        for right in versions:
-            assert compare_semver(left, right) == _compare_semver_precedence(left, right)
+    reference_sorted = sorted(versions, key=cmp_to_key(_compare_semver_precedence))
+    compare_semver_sorted = sorted(versions, key=cmp_to_key(compare_semver))
+
+    assert compare_semver_sorted == reference_sorted

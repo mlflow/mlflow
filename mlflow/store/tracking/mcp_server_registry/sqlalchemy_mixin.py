@@ -43,10 +43,25 @@ from mlflow.utils.search_utils import (
 )
 from mlflow.utils.semver_utils import encode_prerelease_sort_key, parse_semver
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.validation import _validate_mcp_icon_payloads
 
 SEARCH_MCP_SERVER_MAX_RESULTS_THRESHOLD = 1000
 
 _VALID_FILTER_COMPARATORS = {"=", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE", "IN"}
+
+
+def _validate_server_json_icon_fields(server_json: dict[str, Any]) -> None:
+    # Keep validation aligned with schema-defined icon locations only. Extra free-form
+    # metadata (for example under ``_meta``) must continue to round-trip untouched.
+    _validate_mcp_icon_payloads(server_json.get("icons"), "server_json.icons")
+
+
+def _validate_tool_icons(tools: list[MCPTool] | None, field_name: str = "tools") -> None:
+    if tools is None:
+        return
+
+    for idx, tool in enumerate(tools):
+        _validate_mcp_icon_payloads(tool.icons, f"{field_name}[{idx}].icons")
 
 
 class SqlAlchemyMCPServerRegistryMixin:
@@ -69,6 +84,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         created_by: str | None = None,
     ) -> MCPServer:
         validate_mcp_server_name(name)
+        _validate_mcp_icon_payloads(icons, "icons")
         now = get_current_time_millis()
         with self.ManagedSessionMaker(read_only=False) as session:
             try:
@@ -181,6 +197,8 @@ class SqlAlchemyMCPServerRegistryMixin:
         icons: list[MCPIcon] | None = NOT_SET,
         last_updated_by: str | None = None,
     ) -> MCPServer:
+        if icons is not NOT_SET:
+            _validate_mcp_icon_payloads(icons, "icons")
         with self.ManagedSessionMaker(read_only=False) as session:
             server = self._get_entity_or_raise(session, SqlMCPServer, {"name": name}, "MCPServer")
             if description is not NOT_SET:
@@ -200,6 +218,21 @@ class SqlAlchemyMCPServerRegistryMixin:
     def delete_mcp_server(self, name: str) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
             server = self._get_entity_or_raise(session, SqlMCPServer, {"name": name}, "MCPServer")
+            active_version = (
+                self
+                ._get_query(session, SqlMCPServerVersion)
+                .filter(
+                    SqlMCPServerVersion.name == name,
+                    SqlMCPServerVersion.status == MCPStatus.ACTIVE.value,
+                )
+                .first()
+            )
+            if active_version is not None:
+                raise MlflowException(
+                    f"Cannot delete MCP server '{name}' while it still has an active version "
+                    f"('{active_version.version}'). Delete or deactivate the active version first.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             session.delete(server)
 
     # --- MCPServerVersion operations ---
@@ -221,10 +254,12 @@ class SqlAlchemyMCPServerRegistryMixin:
                 error_code=INVALID_PARAMETER_VALUE,
             )
         validate_mcp_server_name(name)
+        _validate_server_json_icon_fields(server_json)
         parsed_version = parse_semver(version, param_name="server_json.version")
 
         now = get_current_time_millis()
         status = status or MCPStatus.DRAFT
+        _validate_tool_icons(tools)
         tools_json = None if tools is None else [t.to_dict() for t in tools]
 
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -410,6 +445,8 @@ class SqlAlchemyMCPServerRegistryMixin:
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
     ) -> MCPServerVersion:
+        if tools is not NOT_SET:
+            _validate_tool_icons(tools)
         with self.ManagedSessionMaker(read_only=False) as session:
             sv = self._get_live_mcp_server_version_or_raise(session, name, version)
 

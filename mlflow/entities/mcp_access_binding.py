@@ -4,12 +4,14 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from mlflow.entities.mcp_server import MCPRemoteTransportType
+from mlflow.utils.annotations import experimental
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 if TYPE_CHECKING:
     from mlflow.entities.mcp_server_version import MCPServerVersion
 
 
+@experimental(version="3.15.0")
 @dataclass
 class MCPAccessBinding:
     binding_id: int

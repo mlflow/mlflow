@@ -6,11 +6,26 @@ from mlflow.exceptions import MlflowException
 pytestmark = pytest.mark.notrackingurimock
 
 
-def _server_json(name="io.github.test/servererver", version="1.0.0", description=None):
+def _server_json(name="io.github.test/servererver", version="1.0.0", description=None, **extra):
     server_json = {"name": name, "version": version, "title": f"Test {name}"}
     if description is not None:
         server_json["description"] = description
+    server_json.update(extra)
     return server_json
+
+
+@pytest.fixture(autouse=True)
+def mock_icon_url_dns_resolution(monkeypatch):
+    def _resolve(host, port, *a, **kw):
+        if host == "localhost":
+            ip = "127.0.0.1"
+        elif host == "example.com" or host.endswith(".example.com"):
+            ip = "8.8.8.8"
+        else:
+            ip = host
+        return [(None, None, None, None, (ip, 0))]
+
+    monkeypatch.setattr("mlflow.utils.validation.socket.getaddrinfo", _resolve)
 
 
 def _setup_server(store, name, versions=("1.0.0",), aliases=None):
@@ -93,6 +108,14 @@ def test_create_mcp_server_with_icons(store):
     icons = [{"src": "https://example.com/icon.png", "sizes": "32x32"}]
     server = store.create_mcp_server("io.github.test/servererver", icons=icons)
     assert server.icons == icons
+
+
+def test_create_mcp_server_rejects_risky_icons(store):
+    with pytest.raises(MlflowException, match="Icon URL"):
+        store.create_mcp_server(
+            "io.github.test/risky-icons",
+            icons=[{"src": "https://127.0.0.1/icon.png"}],
+        )
 
 
 def test_update_mcp_server_sets_last_updated_by(store):
@@ -188,6 +211,15 @@ def test_update_mcp_server_description(store):
     store.create_mcp_server("io.github.test/servererver", description="old")
     updated = store.update_mcp_server("io.github.test/servererver", description="new")
     assert updated.description == "new"
+
+
+def test_update_mcp_server_rejects_risky_icons(store):
+    store.create_mcp_server("io.github.test/update-icons")
+    with pytest.raises(MlflowException, match="Icon URL"):
+        store.update_mcp_server(
+            "io.github.test/update-icons",
+            icons=[{"src": "https://127.0.0.1/icon.png"}],
+        )
 
 
 def test_update_mcp_server_display_name(store):
@@ -375,6 +407,15 @@ def test_delete_mcp_server_cascades_to_bindings(store):
     assert len(result) == 0
 
 
+def test_delete_mcp_server_with_active_version_raises(store):
+    store.create_mcp_server_version(
+        _server_json("io.github.test/delete-active-server", "1.0.0"),
+        status=MCPStatus.ACTIVE,
+    )
+    with pytest.raises(MlflowException, match="active version"):
+        store.delete_mcp_server("io.github.test/delete-active-server")
+
+
 # --- MCPServerVersion CRUD ---
 
 
@@ -392,6 +433,28 @@ def test_create_mcp_server_version(store):
     assert sv.server_json == _server_json()
     assert sv.created_by == "alice"
     assert sv.last_updated_by == "alice"
+
+
+def test_create_mcp_server_version_rejects_risky_server_json_icons(store):
+    with pytest.raises(MlflowException, match="Icon URL"):
+        store.create_mcp_server_version(
+            _server_json(
+                "io.github.test/server-json-icons",
+                "1.0.0",
+                icons=[{"src": "https://127.0.0.1/icon.png"}],
+            )
+        )
+
+
+def test_create_mcp_server_version_preserves_meta_icons_metadata(store):
+    sv = store.create_mcp_server_version(
+        _server_json(
+            "io.github.test/meta-icons",
+            "1.0.0",
+            _meta={"icons": {"not": "an-icon-list"}, "other": "preserved"},
+        )
+    )
+    assert sv.server_json["_meta"] == {"icons": {"not": "an-icon-list"}, "other": "preserved"}
 
 
 def test_create_mcp_server_version_auto_creates_parent(store):
@@ -492,6 +555,14 @@ def test_create_mcp_server_version_with_tools(store):
     assert sv.tools is not None
     assert len(sv.tools) == 1
     assert sv.tools[0].name == "web_search"
+
+
+def test_create_mcp_server_version_rejects_risky_tool_icons(store):
+    with pytest.raises(MlflowException, match="Icon URL"):
+        store.create_mcp_server_version(
+            _server_json(),
+            tools=[MCPTool(name="search", icons=[{"src": "https://127.0.0.1/icon.png"}])],
+        )
 
 
 def test_create_mcp_server_version_with_empty_tools_preserves_empty_list(store):
@@ -813,6 +884,16 @@ def test_update_mcp_server_version_tools(store):
     updated = store.update_mcp_server_version("io.github.test/servererver", "1.0.0", tools=tools)
     assert len(updated.tools) == 1
     assert updated.tools[0].name == "calculator"
+
+
+def test_update_mcp_server_version_rejects_risky_tool_icons(store):
+    store.create_mcp_server_version(_server_json())
+    with pytest.raises(MlflowException, match="Icon URL"):
+        store.update_mcp_server_version(
+            "io.github.test/servererver",
+            "1.0.0",
+            tools=[MCPTool(name="search", icons=[{"src": "https://127.0.0.1/icon.png"}])],
+        )
 
 
 def test_update_mcp_server_version_tools_empty_list_preserved(store):
