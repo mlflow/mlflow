@@ -106,13 +106,13 @@ def test_mcp_registry_mixin_signatures_match_exactly():
         assert rest_sig == abstract_sig, method_name
 
 
-def test_rest_client_url_encodes_slashed_name_and_version():
+def test_rest_client_url_encodes_slashed_name():
     client = _TestRestClient(TestClient(FastAPI()))
     response = mock.Mock(status_code=200, text="ok")
     response.json.return_value = {
         "name": "io.github.user/my-server",
-        "version": "2025/06",
-        "server_json": {"name": "io.github.user/my-server", "version": "2025/06"},
+        "version": "2025.6.0",
+        "server_json": {"name": "io.github.user/my-server", "version": "2025.6.0"},
         "status": "draft",
         "aliases": [],
         "tags": {},
@@ -121,11 +121,11 @@ def test_rest_client_url_encodes_slashed_name_and_version():
         "mlflow.store.tracking.mcp_server_registry.rest_mixin.http_request",
         return_value=response,
     ) as http_request_mock:
-        client.get_mcp_server_version("io.github.user/my-server", "2025/06")
+        client.get_mcp_server_version("io.github.user/my-server", "2025.6.0")
 
     assert (
         http_request_mock.call_args.kwargs["endpoint"]
-        == "/api/3.0/mlflow/mcp-servers/io.github.user%2Fmy-server/versions/2025%2F06"
+        == "/api/3.0/mlflow/mcp-servers/io.github.user%2Fmy-server/versions/2025.6.0"
     )
 
 
@@ -257,12 +257,63 @@ def test_create_and_get_version_with_slashed_name(rest_client):
     assert fetched.version == version
 
 
+def test_create_and_get_version_with_slashed_name_uses_current_rest_path_behavior(rest_client):
+    name = "io.github.user/versioned-server"
+    version = "2025.6.0"
+    ver = rest_client.create_mcp_server_version(
+        _server_json(name, version), status=MCPStatus.ACTIVE
+    )
+    assert ver.name == name
+    assert ver.version == version
+
+    fetched = rest_client.get_mcp_server_version(name, version)
+    assert fetched.name == name
+    assert fetched.version == version
+
+
 def test_create_version_with_tools(rest_client):
     sj = _server_json("io.github.test/tools-srv", "1.0.0")
     tools = [MCPTool(name="search", description="Search the web")]
     ver = rest_client.create_mcp_server_version(sj, status=MCPStatus.ACTIVE, tools=tools)
     assert len(ver.tools) == 1
     assert ver.tools[0].name == "search"
+
+
+@pytest.mark.parametrize("status", [MCPStatus.DEPRECATED, MCPStatus.DELETED])
+def test_create_version_rejects_non_initial_statuses(rest_client, status):
+    with pytest.raises(
+        MlflowException,
+        match="Initial MCP server registration status must be 'draft' or 'active'",
+    ):
+        rest_client.create_mcp_server_version(
+            _server_json(f"io.github.test/rest-status-{status.value}", "1.0.0"),
+            status=status,
+        )
+
+
+def test_create_version_accepts_remote_with_null_type(rest_client):
+    ver = rest_client.create_mcp_server_version(
+        _server_json(
+            "io.github.test/null-remote-type",
+            "1.0.0",
+            remotes=[{"type": None, "url": "https://example.com/mcp"}],
+        ),
+        status=MCPStatus.ACTIVE,
+    )
+    assert ver.server_json["remotes"][0]["type"] is None
+
+
+def test_create_version_accepts_remote_without_url(rest_client):
+    ver = rest_client.create_mcp_server_version(
+        _server_json(
+            "io.github.test/missing-remote-url",
+            "1.0.0",
+            remotes=[{"type": "streamable-http"}],
+        ),
+        status=MCPStatus.ACTIVE,
+    )
+    assert ver.server_json["remotes"][0]["type"] == "streamable-http"
+    assert "url" not in ver.server_json["remotes"][0]
 
 
 def test_create_version_preserves_empty_tools_list(rest_client):
@@ -351,108 +402,108 @@ def test_create_version_missing_name_raises_mlflow_exception(rest_client):
     assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
-def test_create_and_get_binding(rest_client):
+def test_create_and_get_endpoint(rest_client):
     rest_client.create_mcp_server_version(
         _server_json("io.github.test/b-srv", "1.0.0"), status=MCPStatus.ACTIVE
     )
-    binding = rest_client.create_mcp_access_binding(
+    endpoint = rest_client.create_mcp_access_endpoint(
         server_name="io.github.test/b-srv",
-        endpoint_url="https://mcp.example.com",
+        url="https://mcp.example.com",
         server_version="1.0.0",
     )
-    assert binding.server_name == "io.github.test/b-srv"
-    assert binding.endpoint_url == "https://mcp.example.com"
+    assert endpoint.server_name == "io.github.test/b-srv"
+    assert endpoint.url == "https://mcp.example.com"
 
-    fetched = rest_client.get_mcp_access_binding("io.github.test/b-srv", binding.binding_id)
-    assert fetched.endpoint_url == "https://mcp.example.com"
+    fetched = rest_client.get_mcp_access_endpoint("io.github.test/b-srv", endpoint.id)
+    assert fetched.url == "https://mcp.example.com"
 
 
-def test_get_binding_includes_resolved_version(rest_client):
+def test_get_endpoint_includes_resolved_version(rest_client):
     rest_client.create_mcp_server_version(
         _server_json("io.github.test/brv", "1.0.0"), status=MCPStatus.ACTIVE
     )
-    binding = rest_client.create_mcp_access_binding(
+    endpoint = rest_client.create_mcp_access_endpoint(
         server_name="io.github.test/brv",
-        endpoint_url="https://mcp.example.com/brv",
+        url="https://mcp.example.com/brv",
         server_version="1.0.0",
     )
-    fetched = rest_client.get_mcp_access_binding("io.github.test/brv", binding.binding_id)
+    fetched = rest_client.get_mcp_access_endpoint("io.github.test/brv", endpoint.id)
     assert fetched.resolved_version is not None
     assert fetched.resolved_version.name == "io.github.test/brv"
     assert fetched.resolved_version.version == "1.0.0"
     assert fetched.resolved_version.tools == []
 
 
-def test_search_bindings_workspace_wide(rest_client):
+def test_search_endpoints_workspace_wide(rest_client):
     for name in ["io.github.test/ws-a", "io.github.test/ws-b"]:
         rest_client.create_mcp_server_version(_server_json(name, "1.0.0"), status=MCPStatus.ACTIVE)
-        rest_client.create_mcp_access_binding(
+        rest_client.create_mcp_access_endpoint(
             server_name=name,
-            endpoint_url=f"https://mcp.example.com/{name}",
+            url=f"https://mcp.example.com/{name}",
             server_version="1.0.0",
         )
-    results = rest_client.search_mcp_access_bindings()
+    results = rest_client.search_mcp_access_endpoints()
     assert len(results) == 2
 
 
-def test_search_bindings_include_resolved_version_via_alias(rest_client):
+def test_search_endpoints_include_resolved_version_via_alias(rest_client):
     rest_client.create_mcp_server_version(
         _server_json("io.github.test/sbra", "1.0.0"), status=MCPStatus.ACTIVE
     )
     rest_client.set_mcp_server_alias("io.github.test/sbra", "prod", "1.0.0")
-    rest_client.create_mcp_access_binding(
+    rest_client.create_mcp_access_endpoint(
         server_name="io.github.test/sbra",
-        endpoint_url="https://mcp.example.com/sbra",
+        url="https://mcp.example.com/sbra",
         server_alias="prod",
     )
-    results = rest_client.search_mcp_access_bindings(server_name="io.github.test/sbra")
+    results = rest_client.search_mcp_access_endpoints(server_name="io.github.test/sbra")
     assert len(results) == 1
     assert results[0].resolved_version is not None
     assert results[0].resolved_version.version == "1.0.0"
 
 
-def test_search_bindings_server_scoped(rest_client):
+def test_search_endpoints_server_scoped(rest_client):
     for name in ["io.github.test/sc-a", "io.github.test/sc-b"]:
         rest_client.create_mcp_server_version(_server_json(name, "1.0.0"), status=MCPStatus.ACTIVE)
-        rest_client.create_mcp_access_binding(
+        rest_client.create_mcp_access_endpoint(
             server_name=name,
-            endpoint_url=f"https://mcp.example.com/{name}",
+            url=f"https://mcp.example.com/{name}",
             server_version="1.0.0",
         )
-    results = rest_client.search_mcp_access_bindings(server_name="io.github.test/sc-a")
+    results = rest_client.search_mcp_access_endpoints(server_name="io.github.test/sc-a")
     assert len(results) == 1
     assert results[0].server_name == "io.github.test/sc-a"
 
 
-def test_update_binding(rest_client):
+def test_update_endpoint(rest_client):
     rest_client.create_mcp_server_version(
         _server_json("io.github.test/ub", "1.0.0"), status=MCPStatus.ACTIVE
     )
-    binding = rest_client.create_mcp_access_binding(
+    endpoint = rest_client.create_mcp_access_endpoint(
         server_name="io.github.test/ub",
-        endpoint_url="https://old.example.com",
+        url="https://old.example.com",
         server_version="1.0.0",
     )
-    updated = rest_client.update_mcp_access_binding(
+    updated = rest_client.update_mcp_access_endpoint(
         server_name="io.github.test/ub",
-        binding_id=binding.binding_id,
-        endpoint_url="https://new.example.com",
+        endpoint_id=endpoint.id,
+        url="https://new.example.com",
     )
-    assert updated.endpoint_url == "https://new.example.com"
+    assert updated.url == "https://new.example.com"
 
 
-def test_delete_binding(rest_client):
+def test_delete_endpoint(rest_client):
     rest_client.create_mcp_server_version(
         _server_json("io.github.test/db", "1.0.0"), status=MCPStatus.ACTIVE
     )
-    binding = rest_client.create_mcp_access_binding(
+    endpoint = rest_client.create_mcp_access_endpoint(
         server_name="io.github.test/db",
-        endpoint_url="https://mcp.example.com",
+        url="https://mcp.example.com",
         server_version="1.0.0",
     )
-    rest_client.delete_mcp_access_binding("io.github.test/db", binding.binding_id)
+    rest_client.delete_mcp_access_endpoint("io.github.test/db", endpoint.id)
     with pytest.raises(MlflowException, match="not found"):
-        rest_client.get_mcp_access_binding("io.github.test/db", binding.binding_id)
+        rest_client.get_mcp_access_endpoint("io.github.test/db", endpoint.id)
 
 
 def test_server_tags(rest_client):
@@ -544,19 +595,19 @@ def test_server_aliases_dict_format(rest_client):
     assert server.aliases["prod"] == "1.0.0"
 
 
-def test_server_access_bindings_include_resolved_version(rest_client):
+def test_server_access_endpoints_include_resolved_version(rest_client):
     rest_client.create_mcp_server_version(
         _server_json("io.github.test/srv-bind", "1.0.0"), status=MCPStatus.ACTIVE
     )
-    rest_client.create_mcp_access_binding(
+    rest_client.create_mcp_access_endpoint(
         server_name="io.github.test/srv-bind",
-        endpoint_url="https://mcp.example.com/srv-bind",
+        url="https://mcp.example.com/srv-bind",
         server_version="1.0.0",
     )
     server = rest_client.get_mcp_server("io.github.test/srv-bind")
-    assert len(server.access_bindings) == 1
-    assert server.access_bindings[0].resolved_version is not None
-    assert server.access_bindings[0].resolved_version.version == "1.0.0"
+    assert len(server.access_endpoints) == 1
+    assert server.access_endpoints[0].resolved_version is not None
+    assert server.access_endpoints[0].resolved_version.version == "1.0.0"
 
 
 def test_server_json_extra_fields(rest_client):
@@ -573,6 +624,16 @@ def test_server_json_explicit_nulls_preserved(rest_client):
     assert "custom_field" in ver.server_json
     assert ver.server_json["custom_field"] is None
     assert "repository" not in ver.server_json
+
+
+def test_server_json_meta_icons_metadata_preserved(rest_client):
+    sj = _server_json(
+        "io.github.test/meta-icons",
+        "1.0.0",
+        _meta={"icons": {"not": "an-icon-list"}, "other": "preserved"},
+    )
+    ver = rest_client.create_mcp_server_version(sj, status=MCPStatus.ACTIVE)
+    assert ver.server_json["_meta"] == sj["_meta"]
 
 
 def test_tools_round_trip(rest_client):

@@ -2772,7 +2772,7 @@ class SearchMCPServerUtils(SearchUtils):
         "name",
         "display_name",
         "status",
-        "has_access_bindings",
+        "has_access_endpoints",
         "created_at",
         "last_updated_at",
     }
@@ -2802,13 +2802,13 @@ class SearchMCPServerVersionUtils(SearchUtils):
             )
 
 
-class SearchMCPAccessBindingUtils(SearchUtils):
-    """Utility class for parsing MCP access binding search filters."""
+class SearchMCPAccessEndpointUtils(SearchUtils):
+    """Utility class for parsing MCP access endpoint search filters."""
 
     VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "status",
         "server_name",
         "transport_type",
-        "status",
         "created_at",
         "last_updated_at",
     }

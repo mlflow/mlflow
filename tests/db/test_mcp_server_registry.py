@@ -24,11 +24,24 @@ def _server_json(name: str, version: str) -> dict[str, str]:
     return {"name": name, "version": version, "title": f"Test {name}"}
 
 
+def _create_mcp_server_version(store, name: str, version: str, status: MCPStatus):
+    initial_status = status if status in (MCPStatus.DRAFT, MCPStatus.ACTIVE) else MCPStatus.ACTIVE
+    created = store.create_mcp_server_version(
+        _server_json(name, version),
+        status=initial_status,
+    )
+    if status != initial_status:
+        created = store.update_mcp_server_version(name, version, status=status)
+    return created
+
+
 def test_db_backend_mcp_latest_prefers_semver_prerelease_ordering(store):
     for version in ("1.0.0-alpha.2", "1.0.0-alpha.10", "1.0.0-beta.1"):
-        store.create_mcp_server_version(
-            _server_json("io.github.test/backend-prerelease", version),
-            status=MCPStatus.ACTIVE,
+        _create_mcp_server_version(
+            store,
+            "io.github.test/backend-prerelease",
+            version,
+            MCPStatus.ACTIVE,
         )
 
     latest = store.get_latest_mcp_server_version("io.github.test/backend-prerelease")
@@ -46,9 +59,11 @@ def test_db_backend_mcp_latest_uses_created_at_before_raw_version_as_tiebreaker(
         lambda: next(times),
     )
     for version in ("1.0.0+xyz", "1.0.0+abc"):
-        store.create_mcp_server_version(
-            _server_json("io.github.test/backend-build-meta", version),
-            status=MCPStatus.ACTIVE,
+        _create_mcp_server_version(
+            store,
+            "io.github.test/backend-build-meta",
+            version,
+            MCPStatus.ACTIVE,
         )
 
     latest = store.get_latest_mcp_server_version("io.github.test/backend-build-meta")
@@ -60,9 +75,11 @@ def test_db_backend_mcp_latest_uses_created_at_before_raw_version_as_tiebreaker(
 
 def test_db_backend_mcp_latest_respects_ascii_prerelease_order(store):
     for version in ("1.0.0-Z", "1.0.0-a"):
-        store.create_mcp_server_version(
-            _server_json("io.github.test/backend-ascii", version),
-            status=MCPStatus.ACTIVE,
+        _create_mcp_server_version(
+            store,
+            "io.github.test/backend-ascii",
+            version,
+            MCPStatus.ACTIVE,
         )
 
     latest = store.get_latest_mcp_server_version("io.github.test/backend-ascii")
@@ -73,14 +90,13 @@ def test_db_backend_mcp_latest_respects_ascii_prerelease_order(store):
 
 
 def test_db_backend_mcp_latest_falls_back_to_highest_non_active_semver(store):
-    store.create_mcp_server_version(
-        _server_json("io.github.test/backend-fallback", "1.2.0"),
-        status=MCPStatus.DEPRECATED,
+    _create_mcp_server_version(
+        store,
+        "io.github.test/backend-fallback",
+        "1.2.0",
+        MCPStatus.DEPRECATED,
     )
-    store.create_mcp_server_version(
-        _server_json("io.github.test/backend-fallback", "1.3.0"),
-        status=MCPStatus.DRAFT,
-    )
+    _create_mcp_server_version(store, "io.github.test/backend-fallback", "1.3.0", MCPStatus.DRAFT)
 
     latest = store.get_latest_mcp_server_version("io.github.test/backend-fallback")
     assert latest.version == "1.3.0"
@@ -92,13 +108,17 @@ def test_db_backend_mcp_latest_falls_back_to_highest_non_active_semver(store):
 
 
 def test_db_backend_mcp_latest_prefers_active_pool_over_higher_non_active_versions(store):
-    store.create_mcp_server_version(
-        _server_json("io.github.test/backend-active-priority", "1.0.0"),
-        status=MCPStatus.ACTIVE,
+    _create_mcp_server_version(
+        store,
+        "io.github.test/backend-active-priority",
+        "1.0.0",
+        MCPStatus.ACTIVE,
     )
-    store.create_mcp_server_version(
-        _server_json("io.github.test/backend-active-priority", "99.0.0"),
-        status=MCPStatus.DEPRECATED,
+    _create_mcp_server_version(
+        store,
+        "io.github.test/backend-active-priority",
+        "99.0.0",
+        MCPStatus.DEPRECATED,
     )
 
     latest = store.get_latest_mcp_server_version("io.github.test/backend-active-priority")
@@ -111,17 +131,23 @@ def test_db_backend_mcp_latest_prefers_active_pool_over_higher_non_active_versio
 
 
 def test_db_backend_mcp_status_filter_uses_resolved_latest_status(store):
-    store.create_mcp_server_version(
-        _server_json("io.github.test/backend-status-active", "1.0.0"),
-        status=MCPStatus.ACTIVE,
+    _create_mcp_server_version(
+        store,
+        "io.github.test/backend-status-active",
+        "1.0.0",
+        MCPStatus.ACTIVE,
     )
-    store.create_mcp_server_version(
-        _server_json("io.github.test/backend-status-active", "2.0.0"),
-        status=MCPStatus.DEPRECATED,
+    _create_mcp_server_version(
+        store,
+        "io.github.test/backend-status-active",
+        "2.0.0",
+        MCPStatus.DEPRECATED,
     )
-    store.create_mcp_server_version(
-        _server_json("io.github.test/backend-status-draft", "1.0.0"),
-        status=MCPStatus.DRAFT,
+    _create_mcp_server_version(
+        store,
+        "io.github.test/backend-status-draft",
+        "1.0.0",
+        MCPStatus.DRAFT,
     )
 
     active_results = store.search_mcp_servers(filter_string="status = 'active'")

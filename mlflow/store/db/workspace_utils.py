@@ -26,7 +26,7 @@ OTHER_WORKSPACE_CHILD_TABLES = [
     "mcp_server_tags",
     "mcp_server_version_tags",
     "mcp_server_aliases",
-    "mcp_access_bindings",
+    "mcp_access_endpoints",
 ]
 
 

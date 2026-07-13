@@ -1,4 +1,6 @@
+import asyncio
 import base64
+import json
 import re
 import subprocess
 import sys
@@ -27,6 +29,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
+    RESOURCE_DOES_NOT_EXIST,
     UNAUTHENTICATED,
     ErrorCode,
 )
@@ -4240,9 +4243,9 @@ _MCP_SUBPATHS = [
     "/my-server/versions/1",
     "/my-server/versions/1/tags",
     "/my-server/versions/1/tags/k",
-    "/bindings",
-    "/my-server/bindings",
-    "/my-server/bindings/123",
+    "/endpoints",
+    "/my-server/endpoints",
+    "/my-server/endpoints/123",
     "/my-server/tags",
     "/my-server/tags/k",
     "/my-server/aliases",
@@ -4628,14 +4631,43 @@ def test_read_predicate_honors_grant_default_workspace_access(
 @pytest.mark.parametrize(
     "path",
     [f"{prefix}/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)]
-    + [f"{prefix}/bindings/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)],
+    + [f"{prefix}/endpoints/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)],
 )
 def test_response_filter_matches_trailing_slash(path):
     assert _find_fastapi_response_filter(path, "GET") is not None
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-@pytest.mark.parametrize("sub", ["bindings", "tags", "aliases"])
+@pytest.mark.parametrize("path_suffix", ["/com.test/server", "/endpoints/123"])
+def test_response_filter_requires_exact_collection_route_match(prefix, path_suffix):
+    assert _find_fastapi_response_filter(f"{prefix}{path_suffix}", "GET") is None
+
+
+def test_apply_fastapi_response_filter_fails_closed():
+    request = SimpleNamespace(method="GET")
+    response = SimpleNamespace(
+        status_code=200,
+        headers={"content-length": "2", "x-test": "1"},
+        media_type="application/json",
+    )
+
+    filtered = auth_module._apply_fastapi_response_filter(
+        response_filter=lambda *_: (_ for _ in ()).throw(ValueError("boom")),
+        username="alice",
+        body=b'{"mcp_servers":[]}',
+        request=request,
+        response=response,
+        path=_MCP_REST_PREFIX,
+    )
+
+    assert filtered.status_code == 500
+    payload = json.loads(filtered.body)
+    assert payload["error_code"] == "INTERNAL_ERROR"
+    assert "Failed to filter response" in payload["message"]
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+@pytest.mark.parametrize("sub", ["endpoints", "tags", "aliases"])
 def test_non_version_nested_post_requires_can_update(fastapi_client, monkeypatch, prefix, sub):
     user, pw = create_user(fastapi_client.tracking_uri)
 
@@ -4683,6 +4715,41 @@ def test_implicit_parent_create_grants_manage_despite_wildcard(fastapi_client, m
     )
     assert resp.status_code == 200
     assert resp.json()["permission"] == "MANAGE"
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix):
+    validator = _find_fastapi_validator(f"{prefix}/com.test/race-server/versions")
+    assert validator is not None
+
+    class _Store:
+        exists = False
+
+        def get_mcp_server(self, name):
+            if self.exists:
+                return SimpleNamespace(name=name)
+            raise MlflowException("not found", error_code=RESOURCE_DOES_NOT_EXIST)
+
+    store = _Store()
+    permission_helper = mock.Mock(
+        side_effect=lambda name, username: SimpleNamespace(
+            can_read=False,
+            can_update=store.exists,
+            can_delete=False,
+        )
+    )
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: store)
+    monkeypatch.setattr(auth_module, "_get_mcp_server_permission", permission_helper)
+    monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda username: True)
+
+    request = SimpleNamespace(method="POST", state=SimpleNamespace())
+    assert asyncio.run(validator("alice", request)) is True
+    assert request.state.mcp_server_parent_auto_created is True
+    assert permission_helper.call_count == 0
+
+    store.exists = True
+    assert request.state.mcp_server_can_update_existing_recheck() is True
+    permission_helper.assert_called_once_with("com.test/race-server", "alice")
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
@@ -5017,7 +5084,7 @@ def test_mcp_server_search_filters_unreadable(fastapi_client, monkeypatch, prefi
     indirect=True,
 )
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-def test_mcp_server_binding_search_filters_by_parent(fastapi_client, monkeypatch, prefix):
+def test_mcp_server_endpoint_search_filters_by_parent(fastapi_client, monkeypatch, prefix):
     reader, reader_pw = create_user(fastapi_client.tracking_uri)
     admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
 
@@ -5038,26 +5105,26 @@ def test_mcp_server_binding_search_filters_by_parent(fastapi_client, monkeypatch
         ver_resp.raise_for_status()
         version = ver_resp.json()["version"]
         requests.post(
-            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/bindings",
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
             json={
                 "server_version": version,
-                "endpoint_url": f"https://example.com/{name}",
+                "url": f"https://example.com/{name}",
             },
             auth=admin_auth,
         ).raise_for_status()
 
     grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", visible, "READ")
 
-    # Reader sees only bindings whose parent server is readable.
+    # Reader sees only endpoints whose parent server is readable.
     with User(reader, reader_pw, monkeypatch):
         resp = requests.get(
-            url=f"{fastapi_client.tracking_uri}{prefix}/bindings",
+            url=f"{fastapi_client.tracking_uri}{prefix}/endpoints",
             auth=(reader, reader_pw),
         )
         assert resp.status_code == 200
-        binding_servers = {b["server_name"] for b in resp.json()["mcp_access_bindings"]}
-        assert binding_servers == {visible}
-        assert hidden not in binding_servers
+        endpoint_servers = {e["server_name"] for e in resp.json()["mcp_access_endpoints"]}
+        assert endpoint_servers == {visible}
+        assert hidden not in endpoint_servers
 
 
 @pytest.mark.parametrize(

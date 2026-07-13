@@ -33,7 +33,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlIssue,
     SqlLabelSchema,
     SqlLoggedModel,
-    SqlMCPAccessBinding,
+    SqlMCPAccessEndpoint,
     SqlMCPServer,
     SqlMCPServerAlias,
     SqlMCPServerTag,
@@ -164,7 +164,7 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             SqlMCPServerTag,
             SqlMCPServerVersionTag,
             SqlMCPServerAlias,
-            SqlMCPAccessBinding,
+            SqlMCPAccessEndpoint,
         ):
             return query.filter(model.workspace == workspace)
 
