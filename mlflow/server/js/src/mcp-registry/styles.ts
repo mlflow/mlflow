@@ -73,3 +73,101 @@ export const cardHeaderRowStyles = (theme: ThemeType) => ({
   justifyContent: 'space-between',
   gap: theme.spacing.sm,
 });
+
+export const expandableRowButtonStyles = (theme: ThemeType) => ({
+  display: 'flex',
+  alignItems: 'center',
+  width: '100%',
+  padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+  background: 'none' as const,
+  border: 'none' as const,
+  cursor: 'pointer' as const,
+  gap: theme.spacing.sm,
+  textAlign: 'left' as const,
+  '&:hover': {
+    backgroundColor: theme.colors.actionTertiaryBackgroundHover,
+  },
+});
+
+export const chevronContainerStyles = (theme: ThemeType) => ({
+  flexShrink: 0,
+  width: theme.spacing.md,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+});
+
+export const borderedListContainerStyles = (theme: ThemeType) => ({
+  display: 'flex',
+  flexDirection: 'column' as const,
+  border: `1px solid ${theme.colors.border}`,
+  borderRadius: theme.borders.borderRadiusSm,
+  overflow: 'hidden' as const,
+});
+
+export const borderedListItemStyles = (theme: ThemeType, showTopBorder: boolean) => ({
+  padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+  borderTop: showTopBorder ? `1px solid ${theme.colors.border}` : ('none' as const),
+});
+
+export const borderedSectionContainerStyles = (theme: ThemeType) => ({
+  border: `1px solid ${theme.colors.border}`,
+  borderRadius: theme.borders.borderRadiusMd,
+  overflow: 'hidden' as const,
+});
+
+export const expandedContentPanelStyles = (theme: ThemeType) => ({
+  padding: `${theme.spacing.xs}px ${theme.spacing.md}px ${theme.spacing.md}px`,
+  paddingLeft: theme.spacing.md + theme.spacing.md + theme.spacing.sm,
+  display: 'flex',
+  flexDirection: 'column' as const,
+  gap: theme.spacing.sm,
+  textAlign: 'left' as const,
+});
+
+export const popoverTriggerStyles = (theme: ThemeType) => ({
+  border: 0,
+  background: 'none' as const,
+  padding: 0,
+  display: 'inline-flex',
+  cursor: 'pointer' as const,
+  color: theme.colors.textSecondary,
+  '&:hover': { color: theme.colors.textPrimary },
+});
+
+export const monoEllipsisStyles = (theme: ThemeType) => ({
+  fontFamily: 'monospace',
+  fontSize: theme.typography.fontSizeSm,
+  overflow: 'hidden' as const,
+  textOverflow: 'ellipsis' as const,
+  whiteSpace: 'nowrap' as const,
+  flex: 1,
+  minWidth: 0,
+});
+
+export const selectedRowIndicatorStyles = (theme: ThemeType) => ({
+  width: theme.spacing.md * 2,
+  display: 'flex',
+  alignItems: 'center',
+  paddingRight: theme.spacing.sm,
+});
+
+export const inlineFlexRowStyles = (theme: ThemeType) => ({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: theme.spacing.sm,
+  maxWidth: '100%',
+});
+
+export const showMoreRowStyles = (theme: ThemeType) => ({
+  borderTop: `1px solid ${theme.colors.border}`,
+  padding: `${theme.spacing.xs}px ${theme.spacing.md}px`,
+  textAlign: 'center' as const,
+});
+
+export const tagListStyles = (theme: ThemeType) => ({
+  display: 'flex',
+  flexWrap: 'wrap' as const,
+  alignItems: 'center',
+  gap: theme.spacing.xs,
+});

@@ -26,8 +26,43 @@ export const MCP_QUERY_KEYS = {
   SERVER_LATEST_VERSION: 'mcp_server_latest_version',
 } as const;
 
+
+
+export const DEFAULT_PAGE_SIZE = 25;
+export const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
 export const resolveDisplayName = (server: { display_name?: string; name: string }): string => {
   return server.display_name || server.name;
+};
+
+export const resolveVersionDisplayName = (
+  version: { display_name?: string; server_json?: { title?: string } } | null | undefined,
+  fallback: string,
+): string => {
+  return version?.display_name || version?.server_json?.title || fallback;
+};
+
+
+export const buildSearchFilterClause = (searchFilter: string | undefined, field: string): string | undefined => {
+  if (!searchFilter) {
+    return undefined;
+  }
+  const sqlKeywordPattern = /(\s+(ILIKE|LIKE|IN|IS)\s+)|=|!=|<=|>=|<|>/i;
+  if (sqlKeywordPattern.test(searchFilter)) {
+    return searchFilter;
+  }
+  const escaped = searchFilter.replace(/'/g, "''").replace(/%/g, '\\%').replace(/_/g, '\\_');
+  return `${field} ILIKE '%${escaped}%'`;
+};
+
+export const isValidEndpointUrl = (url: string): boolean => {
+  const trimmed = url.trim();
+  if (!/^https?:\/\//.test(trimmed)) return false;
+  try {
+    return Boolean(new URL(trimmed).hostname);
+  } catch {
+    return false;
+  }
 };
 
 export const tagsRecordToArray = (tags: Record<string, string> = {}): { key: string; value: string }[] =>
