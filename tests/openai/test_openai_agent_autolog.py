@@ -586,7 +586,6 @@ def test_parse_generation_usage(usage, expected):
     assert _parse_generation_usage(usage) == expected
 
 
-
 def test_calculate_span_cost_uses_generation_span_model_attribute():
     from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
     from mlflow.tracing.utils import calculate_span_cost
