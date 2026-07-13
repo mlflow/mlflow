@@ -5,11 +5,9 @@ from mlflow.entities.mcp_server import (
     VALID_STATUS_TRANSITIONS,
     MCPRemoteTransportType,
     MCPServer,
-    MCPServerTag,
     MCPStatus,
     MCPTool,
 )
-from mlflow.entities.mcp_server_alias import MCPServerAlias
 from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.exceptions import MlflowException
 
@@ -149,7 +147,7 @@ def test_mcp_access_binding_from_dict():
 
 @pytest.mark.parametrize(
     "cls",
-    [MCPAccessBinding, MCPServer, MCPServerAlias, MCPServerTag, MCPServerVersion, MCPTool],
+    [MCPAccessBinding, MCPServer, MCPServerVersion, MCPTool],
 )
 def test_mcp_entities_are_marked_experimental(cls):
     assert cls.__doc__ is not None

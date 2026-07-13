@@ -512,8 +512,6 @@ mlflow.entities.LoggedModelTag.to_proto
 mlflow.entities.MCPAccessBinding
 mlflow.entities.MCPRemoteTransportType
 mlflow.entities.MCPServer
-mlflow.entities.MCPServerAlias
-mlflow.entities.MCPServerTag
 mlflow.entities.MCPServerVersion
 mlflow.entities.MCPStatus
 mlflow.entities.MCPTool
@@ -724,10 +722,8 @@ mlflow.entities.logged_model_tag.LoggedModelTag
 mlflow.entities.mcp_access_binding.MCPAccessBinding
 mlflow.entities.mcp_server.MCPRemoteTransportType
 mlflow.entities.mcp_server.MCPServer
-mlflow.entities.mcp_server.MCPServerTag
 mlflow.entities.mcp_server.MCPStatus
 mlflow.entities.mcp_server.MCPTool
-mlflow.entities.mcp_server_alias.MCPServerAlias
 mlflow.entities.mcp_server_version.MCPServerVersion
 mlflow.entities.metric.Metric
 mlflow.entities.model_registry.ModelVersion

@@ -129,13 +129,6 @@ class MCPTool:
 
 
 @experimental(version="3.15.0")
-@dataclass(frozen=True)
-class MCPServerTag:
-    key: str
-    value: str
-
-
-@experimental(version="3.15.0")
 @dataclass
 class MCPServer:
     name: str
