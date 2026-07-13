@@ -1189,6 +1189,8 @@ describe('convertOtelAttributesToMap', () => {
         { key: 'bool_attr', value: { bool_value: true } },
         { key: 'int_attr', value: { int_value: 42 } },
         { key: 'double_attr', value: { double_value: 3.14 } },
+        // an empty AnyValue is how OTLP represents null
+        { key: 'null_attr', value: {} },
       ],
     } as any;
 
@@ -1202,6 +1204,7 @@ describe('convertOtelAttributesToMap', () => {
         bool_attr: true,
         int_attr: 42,
         double_attr: 3.14,
+        null_attr: null,
       },
     });
   });

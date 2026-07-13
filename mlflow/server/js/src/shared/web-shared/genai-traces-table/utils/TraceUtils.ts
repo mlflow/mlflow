@@ -520,7 +520,11 @@ const OTEL_ANY_VALUE_KEYS = [
  * returned by OTLP-based endpoints such as V3 traces/get and V4 batchGet).
  */
 export const isOtelAnyValue = (value: unknown): value is ModelTraceOtelAnyValue =>
-  typeof value === 'object' && value !== null && OTEL_ANY_VALUE_KEYS.some((key) => key in value);
+  typeof value === 'object' &&
+  value !== null &&
+  !Array.isArray(value) &&
+  // an empty object is how OTLP represents null, so it is a valid AnyValue
+  (Object.keys(value).length === 0 || OTEL_ANY_VALUE_KEYS.some((key) => key in value));
 
 /**
  * Decode an OTLP AnyValue into a plain JS value. Complex values (dicts and
@@ -539,8 +543,13 @@ export const decodeOtelAnyValue = (value: ModelTraceOtelAnyValue | undefined | n
     return value.bool_value;
   }
   if (!isNil(value.int_value)) {
-    // int64 values may be serialized as strings in proto3 JSON
-    return typeof value.int_value === 'string' ? Number(value.int_value) : value.int_value;
+    if (typeof value.int_value !== 'string') {
+      return value.int_value;
+    }
+    // int64 values may be serialized as strings in proto3 JSON; keep the string
+    // when the value cannot be represented exactly as a JS number
+    const parsed = Number(value.int_value);
+    return Number.isSafeInteger(parsed) ? parsed : value.int_value;
   }
   if (!isNil(value.double_value)) {
     return value.double_value;

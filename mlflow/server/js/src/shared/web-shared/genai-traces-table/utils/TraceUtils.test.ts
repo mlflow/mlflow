@@ -1103,6 +1103,8 @@ describe('decodeOtelAnyValue', () => {
     expect(decodeOtelAnyValue({ bool_value: false })).toBe(false);
     expect(decodeOtelAnyValue({ int_value: 42 })).toBe(42);
     expect(decodeOtelAnyValue({ int_value: '9007199254740000' })).toBe(9007199254740000);
+    // int64 strings beyond the safe integer range are kept as strings to avoid losing precision
+    expect(decodeOtelAnyValue({ int_value: '9007199254740993' })).toBe('9007199254740993');
     expect(decodeOtelAnyValue({ double_value: 3.14 })).toBe(3.14);
     expect(decodeOtelAnyValue({ bytes_value: 'aGVsbG8=' })).toBe('aGVsbG8=');
   });
@@ -1156,12 +1158,15 @@ describe('isOtelAnyValue', () => {
     expect(isOtelAnyValue({ string_value: 'hello' })).toBe(true);
     expect(isOtelAnyValue({ kvlist_value: { values: [] } })).toBe(true);
     expect(isOtelAnyValue({ array_value: { values: [] } })).toBe(true);
+    // an empty object is how OTLP represents null
+    expect(isOtelAnyValue({})).toBe(true);
   });
 
   it('returns false for other values', () => {
     expect(isOtelAnyValue('hello')).toBe(false);
     expect(isOtelAnyValue(42)).toBe(false);
     expect(isOtelAnyValue(null)).toBe(false);
+    expect(isOtelAnyValue([])).toBe(false);
     expect(isOtelAnyValue({ custom_field: 'value' })).toBe(false);
   });
 });
