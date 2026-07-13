@@ -872,16 +872,16 @@ message ListRegisteredModels {
 }
 
 message CreateRegisteredModel {
-  optional string name = 1;
-  optional string catalog_name = 2;
-  optional string schema_name = 3;
+  optional string name = 1 [(validate_required) = true];
+  optional string catalog_name = 2 [(validate_required) = true];
+  optional string schema_name = 3 [(validate_required) = true];
   optional string comment = 5;
   repeated TagKeyValue tags = 20;
   optional string deployment_job_id = 30;
 }
 
 message UpdateRegisteredModel {
-  optional string full_name = 1;
+  optional string full_name = 1 [(validate_required) = true];
   optional string comment = 2;
   optional string new_name = 3;
   optional string deployment_job_id = 30;
@@ -913,11 +913,11 @@ message GetModelVersionByAlias {
 }
 
 message CreateModelVersion {
-  optional string model_name = 1;
-  optional string catalog_name = 2;
-  optional string schema_name = 3;
+  optional string model_name = 1 [(validate_required) = true];
+  optional string catalog_name = 2 [(validate_required) = true];
+  optional string schema_name = 3 [(validate_required) = true];
   optional string comment = 4;
-  optional string source = 5;
+  optional string source = 5 [(validate_required) = true];
   optional string run_id = 6;
   repeated TagKeyValue tags = 18;
   optional DependencyList model_version_dependencies = 19;
@@ -927,42 +927,42 @@ message CreateModelVersion {
 }
 
 message UpdateModelVersion {
-  optional string full_name = 1;
-  optional int64 version = 2;
+  optional string full_name = 1 [(validate_required) = true];
+  optional int64 version = 2 [(validate_required) = true];
   optional string comment = 3;
 }
 
 message FinalizeModelVersion {
-  optional string full_name = 1;
-  optional int64 version = 2;
+  optional string full_name = 1 [(validate_required) = true];
+  optional int64 version = 2 [(validate_required) = true];
 }
 
 // ----- Passthrough request messages (bare governance / empty responses) -----
 message DeleteRegisteredModel {
-  optional string full_name = 1;
+  optional string full_name = 1 [(validate_required) = true];
   optional bool force = 2;
 
   message Response {}
 }
 
 message DeleteModelVersion {
-  optional string full_name = 1;
-  optional int64 version = 2;
+  optional string full_name = 1 [(validate_required) = true];
+  optional int64 version = 2 [(validate_required) = true];
 
   message Response {}
 }
 
 message SetRegisteredModelAlias {
-  optional string full_name = 1;
-  optional string alias = 2;
-  optional int64 version_num = 3;
+  optional string full_name = 1 [(validate_required) = true];
+  optional string alias = 2 [(validate_required) = true];
+  optional int64 version_num = 3 [(validate_required) = true];
 
   message Response {}
 }
 
 message DeleteRegisteredModelAlias {
-  optional string full_name = 1;
-  optional string alias = 2;
+  optional string full_name = 1 [(validate_required) = true];
+  optional string alias = 2 [(validate_required) = true];
 
   message Response {}
 }
