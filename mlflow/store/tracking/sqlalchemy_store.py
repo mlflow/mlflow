@@ -3796,7 +3796,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
             attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
-                _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
+                _get_filter_clauses_for_search_traces(
+                    filter_string, session, self._get_dialect(), locations
+                )
             )
 
             stmt = self._apply_trace_filter_clauses(
@@ -3983,7 +3985,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         # Parse the filter string to get filter clauses
         attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
-            _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
+            _get_filter_clauses_for_search_traces(
+                filter_string, session, self._get_dialect(), [experiment_id]
+            )
         )
 
         # Subquery: first trace timestamp for each session
@@ -4876,7 +4880,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         if filter_string:
             attribute_filters, non_attribute_filters, span_filters, run_id_filter = (
-                _get_filter_clauses_for_search_traces(filter_string, session, self._get_dialect())
+                _get_filter_clauses_for_search_traces(
+                    filter_string, session, self._get_dialect(), experiment_ids
+                )
             )
 
             for non_attr_filter in non_attribute_filters:
@@ -9387,11 +9393,17 @@ def _get_session_scoped_trace_ids(session, assessment_filters):
     )
 
 
-def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
+def _get_filter_clauses_for_search_traces(filter_string, session, dialect, experiment_ids=None):
     """
     Creates trace attribute filters and subqueries that will be inner-joined
     to SqlTraceInfo to act as multi-clause filters and return them as a tuple.
     Also extracts run_id filter if present for special handling.
+
+    Args:
+        filter_string: Search filter string.
+        session: SQLAlchemy session.
+        dialect: SQL dialect string.
+        experiment_ids: Optional list of experiment IDs to scope span subqueries.
 
     Returns:
         attribute_filters: Direct filters on SqlTraceInfo attributes
@@ -9631,11 +9643,19 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
     # span 2. name: search_web   status: ERROR
     # This trace shouldn't be returned for filter_string
     # 'span.name = "search_web" AND span.status = "OK"'
+    #
+    # Performance note: apply experiment_id filter directly on the spans
+    # subquery to avoid scanning spans from unrelated experiments.
+    # Without this, the spans table is fully scanned before the join
+    # with trace_info, where the experiment_id filter is applied later.
     if span_filter_conditions:
+        span_where = list(span_filter_conditions)
+        if experiment_ids:
+            span_where.append(SqlSpan.experiment_id.in_(experiment_ids))
         combined_span_subquery = (
             session
             .query(SqlSpan.trace_id.label("request_id"))
-            .filter(*span_filter_conditions)
+            .filter(*span_where)
             .distinct()
             .subquery()
         )
