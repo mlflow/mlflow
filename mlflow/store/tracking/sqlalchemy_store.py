@@ -1628,7 +1628,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         the response bounded and representative of the whole range in that case.
         """
         if (start_step is None) != (end_step is None):
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 "Both start_step and end_step must be specified together, "
                 "or neither may be specified."
             )

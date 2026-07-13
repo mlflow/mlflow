@@ -36,9 +36,8 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  notifyManager.setBatchNotifyFunction((callback) => {
-    callback();
-  });
+  const { unstable_batchedUpdates } = jest.requireActual('react-dom');
+  notifyManager.setBatchNotifyFunction(unstable_batchedUpdates);
 });
 
 const hookWrapper: React.FC<React.PropsWithChildren<unknown>> = ({ children }) => {

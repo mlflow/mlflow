@@ -953,7 +953,7 @@ class AbstractStore(GatewayStoreMixin):
         # because we can't assume that every step was logged, so
         # sampling needs to be done on the steps that actually exist
         if (start_step is None) != (end_step is None):
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 "Both start_step and end_step must be provided together, "
                 "or neither should be provided."
             )
