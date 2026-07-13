@@ -236,7 +236,7 @@ def _parse_span_data(span_data: oai.SpanData) -> tuple[Any, Any, dict[str, Any]]
         inputs = span_data.input
         outputs = span_data.output
         attributes = {
-            "model": span_data.model,
+            SpanAttributeKey.MODEL: span_data.model,
             "model_config": span_data.model_config,
         }
         if usage := _parse_generation_usage(span_data.usage):

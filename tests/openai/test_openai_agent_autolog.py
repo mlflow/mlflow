@@ -582,3 +582,46 @@ def test_parse_generation_usage(usage, expected):
     from mlflow.openai._agent_tracer import _parse_generation_usage
 
     assert _parse_generation_usage(usage) == expected
+
+
+def test_generation_span_model_stored_under_span_attribute_key():
+    from agents.tracing import GenerationSpanData
+
+    from mlflow.openai._agent_tracer import _parse_span_data
+    from mlflow.tracing.constant import SpanAttributeKey
+
+    span_data = mock.MagicMock(spec=GenerationSpanData)
+    span_data.type = "generation"
+    span_data.input = [{"role": "user", "content": "hello"}]
+    span_data.output = [{"role": "assistant", "content": "hi"}]
+    span_data.model = "gpt-4o-mini"
+    span_data.model_config = {}
+    span_data.usage = None
+
+    _, _, attributes = _parse_span_data(span_data)
+
+    assert attributes.get(SpanAttributeKey.MODEL) == "gpt-4o-mini"
+    assert "model" not in attributes
+
+
+def test_calculate_span_cost_uses_generation_span_model_attribute():
+    from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+    from mlflow.tracing.utils import calculate_span_cost
+
+    usage = {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+    attribute_store = {
+        SpanAttributeKey.MODEL: "gpt-4o-mini",
+        SpanAttributeKey.CHAT_USAGE: usage,
+        SpanAttributeKey.MODEL_PROVIDER: None,
+    }
+    mock_span = mock.MagicMock()
+    mock_span.get_attribute.side_effect = attribute_store.get
+
+    result = calculate_span_cost(mock_span)
+
+    assert result is not None
+    assert result["total_cost"] > 0
