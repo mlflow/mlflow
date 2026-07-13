@@ -5802,6 +5802,9 @@ def _create_gateway_endpoint():
     usage_tracking = (
         request_message.usage_tracking if request_message.HasField("usage_tracking") else True
     )
+    exclude_content = (
+        request_message.exclude_content if request_message.HasField("exclude_content") else False
+    )
 
     endpoint = _get_tracking_store().create_gateway_endpoint(
         name=request_message.name or None,
@@ -5813,6 +5816,7 @@ def _create_gateway_endpoint():
         fallback_config=fallback_config,
         experiment_id=experiment_id,
         usage_tracking=usage_tracking,
+        exclude_content=exclude_content,
     )
     response_message = CreateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
@@ -5882,6 +5886,9 @@ def _update_gateway_endpoint():
     usage_tracking = (
         request_message.usage_tracking if request_message.HasField("usage_tracking") else None
     )
+    exclude_content = (
+        request_message.exclude_content if request_message.HasField("exclude_content") else None
+    )
 
     endpoint = _get_tracking_store().update_gateway_endpoint(
         endpoint_id=request_message.endpoint_id,
@@ -5894,6 +5901,7 @@ def _update_gateway_endpoint():
         fallback_config=fallback_config,
         experiment_id=experiment_id,
         usage_tracking=usage_tracking,
+        exclude_content=exclude_content,
     )
     response_message = UpdateGatewayEndpoint.Response()
     response_message.endpoint.CopyFrom(endpoint.to_proto())
