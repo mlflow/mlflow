@@ -534,7 +534,7 @@ def test_autolog_disable_openai_agent_tracer():
     assert isinstance(processors[0], MlflowOpenAgentTracingProcessor)
 
 
-def test_generation_span_token_usage_stored_under_chat_usage_key():
+def test_generation_span_attributes_stored_under_span_attribute_keys():
     from agents.tracing import GenerationSpanData
 
     from mlflow.openai._agent_tracer import _parse_span_data
@@ -555,6 +555,8 @@ def test_generation_span_token_usage_stored_under_chat_usage_key():
 
     _, _, attributes = _parse_span_data(span_data)
 
+    assert attributes.get(SpanAttributeKey.MODEL) == "gpt-4o-mini"
+    assert "model" not in attributes
     assert attributes.get(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 10,
         TokenUsageKey.OUTPUT_TOKENS: 20,
@@ -584,25 +586,6 @@ def test_parse_generation_usage(usage, expected):
     assert _parse_generation_usage(usage) == expected
 
 
-def test_generation_span_model_stored_under_span_attribute_key():
-    from agents.tracing import GenerationSpanData
-
-    from mlflow.openai._agent_tracer import _parse_span_data
-    from mlflow.tracing.constant import SpanAttributeKey
-
-    span_data = mock.MagicMock(spec=GenerationSpanData)
-    span_data.type = "generation"
-    span_data.input = [{"role": "user", "content": "hello"}]
-    span_data.output = [{"role": "assistant", "content": "hi"}]
-    span_data.model = "gpt-4o-mini"
-    span_data.model_config = {}
-    span_data.usage = None
-
-    _, _, attributes = _parse_span_data(span_data)
-
-    assert attributes.get(SpanAttributeKey.MODEL) == "gpt-4o-mini"
-    assert "model" not in attributes
-
 
 def test_calculate_span_cost_uses_generation_span_model_attribute():
     from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
@@ -614,14 +597,19 @@ def test_calculate_span_cost_uses_generation_span_model_attribute():
         TokenUsageKey.TOTAL_TOKENS: 30,
     }
     attribute_store = {
-        SpanAttributeKey.MODEL: "gpt-4o-mini",
+        SpanAttributeKey.MODEL: "some-model",
         SpanAttributeKey.CHAT_USAGE: usage,
         SpanAttributeKey.MODEL_PROVIDER: None,
     }
     mock_span = mock.MagicMock()
     mock_span.get_attribute.side_effect = attribute_store.get
 
-    result = calculate_span_cost(mock_span)
+    expected_cost = {"input_cost": 0.01, "output_cost": 0.02, "total_cost": 0.03}
+    with mock.patch(
+        "mlflow.tracing.utils.calculate_cost_by_model_and_token_usage",
+        return_value=expected_cost,
+    ) as mock_cost:
+        result = calculate_span_cost(mock_span)
 
-    assert result is not None
-    assert result["total_cost"] > 0
+    mock_cost.assert_called_once_with("some-model", usage, None)
+    assert result == expected_cost
