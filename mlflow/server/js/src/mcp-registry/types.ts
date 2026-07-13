@@ -65,7 +65,7 @@ export interface MCPServerVersion {
   tools?: MCPTool[];
   aliases: string[];
   tags: Record<string, string>;
-  hidden_connect_options?: string[];
+  hidden_connect_options?: string[] | null;
   source?: string;
   created_by?: string;
   last_updated_by?: string;

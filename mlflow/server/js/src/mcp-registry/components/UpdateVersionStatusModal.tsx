@@ -11,7 +11,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPStatus } from '../types';
 import { STATUS_TRANSITIONS } from '../utils';
-import { flexColumnGapStyles, flexRowStyles } from '../styles';
+import { flexColumnGapStyles } from '../styles';
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 

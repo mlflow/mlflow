@@ -60,6 +60,7 @@ def register_mcp_server(
         source: Provenance URI (e.g., a git repository URL).
         status: Initial status (default ``"draft"``).
         tools: Declared tool definitions for this version.
+        hidden_connect_options: List of connect-option keys to hide from the UI.
         create_access_bindings_from_remotes: When ``True``, create one direct-access
             binding per ``remotes[]`` entry in ``server_json``.
 
@@ -193,6 +194,7 @@ def register_mcp_server_from_url(
         source: Provenance URI; defaults to ``url`` when not provided.
         status: Initial status (default ``"draft"``).
         tools: Declared tool definitions for this version.
+        hidden_connect_options: List of connect-option keys to hide from the UI.
         create_access_bindings_from_remotes: When ``True``, create one direct-access
             binding per ``remotes[]`` entry in ``server_json``.
 
@@ -415,6 +417,8 @@ def update_mcp_server_version(
         status: New status (``"draft"``, ``"active"``, ``"deprecated"``,
             ``"deleted"``). Transition rules are enforced.
         tools: New tool definitions. Pass ``None`` to clear.
+        hidden_connect_options: List of connect-option keys to hide from the
+            UI. Pass ``None`` to clear.
 
     Returns:
         The updated :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>`.
