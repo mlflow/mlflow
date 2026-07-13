@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Breadcrumb,
@@ -96,6 +96,12 @@ const MCPServerDetailPage = () => {
     },
     [setSearchParams],
   );
+
+  useEffect(() => {
+    if (selectedVersion && selectedVersion !== versionFromUrl) {
+      setSelectedVersion(selectedVersion);
+    }
+  }, [selectedVersion, versionFromUrl, setSelectedVersion]);
 
   const currentVersion = versions?.find((v) => v.version === selectedVersion);
 

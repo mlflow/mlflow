@@ -22,15 +22,13 @@ const useJSONToggle = (data: unknown) => {
 const JSONPreBlock = ({
   jsonString,
   copyTooltip,
-  copyButton,
   smSpacing,
-  maxHeightArg,
+  maxHeight,
 }: {
   jsonString: string;
   copyTooltip: React.ReactNode;
-  copyButton: React.ReactNode;
   smSpacing?: boolean;
-  maxHeightArg?: number;
+  maxHeight?: number;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -43,7 +41,7 @@ const JSONPreBlock = ({
           defaultMessage: 'JSON content',
           description: 'Aria label for JSON code block',
         })}
-        css={jsonPreStyles(theme, maxHeightArg)}
+        css={jsonPreStyles(theme, maxHeight)}
       >
         <code>{jsonString}</code>
       </pre>
@@ -84,7 +82,6 @@ export const InputSchemaToggle = ({ data }: { data: unknown }) => {
               />
             </Tooltip>
           }
-          copyButton={null}
         />
       )}
     </div>
@@ -124,7 +121,6 @@ export const OutputSchemaToggle = ({ data }: { data: unknown }) => {
               />
             </Tooltip>
           }
-          copyButton={null}
         />
       )}
     </div>
@@ -155,7 +151,7 @@ export const RawJSONToggle = ({ serverJson }: { serverJson: ServerJSONPayload })
         <JSONPreBlock
           jsonString={jsonString}
           smSpacing
-          maxHeightArg={16}
+          maxHeight={16}
           copyTooltip={
             <Tooltip
               componentId="mlflow.mcp_registry.detail.raw_json.copy"
@@ -170,7 +166,6 @@ export const RawJSONToggle = ({ serverJson }: { serverJson: ServerJSONPayload })
               />
             </Tooltip>
           }
-          copyButton={null}
         />
       )}
     </div>
@@ -201,7 +196,7 @@ export const RawToolsJSONToggle = ({ tools }: { tools: MCPTool[] }) => {
         <JSONPreBlock
           jsonString={jsonString}
           smSpacing
-          maxHeightArg={16}
+          maxHeight={16}
           copyTooltip={
             <Tooltip
               componentId="mlflow.mcp_registry.detail.raw_tools_json.copy"
@@ -216,7 +211,6 @@ export const RawToolsJSONToggle = ({ tools }: { tools: MCPTool[] }) => {
               />
             </Tooltip>
           }
-          copyButton={null}
         />
       )}
     </div>
