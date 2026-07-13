@@ -1,4 +1,5 @@
 import base64
+import json
 import re
 import subprocess
 import sys
@@ -4632,6 +4633,35 @@ def test_read_predicate_honors_grant_default_workspace_access(
 )
 def test_response_filter_matches_trailing_slash(path):
     assert _find_fastapi_response_filter(path, "GET") is not None
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+@pytest.mark.parametrize("path_suffix", ["/com.test/server", "/bindings/123"])
+def test_response_filter_requires_exact_collection_route_match(prefix, path_suffix):
+    assert _find_fastapi_response_filter(f"{prefix}{path_suffix}", "GET") is None
+
+
+def test_apply_fastapi_response_filter_fails_closed():
+    request = SimpleNamespace(method="GET")
+    response = SimpleNamespace(
+        status_code=200,
+        headers={"content-length": "2", "x-test": "1"},
+        media_type="application/json",
+    )
+
+    filtered = auth_module._apply_fastapi_response_filter(
+        response_filter=lambda *_: (_ for _ in ()).throw(ValueError("boom")),
+        username="alice",
+        body=b'{"mcp_servers":[]}',
+        request=request,
+        response=response,
+        path=_MCP_REST_PREFIX,
+    )
+
+    assert filtered.status_code == 500
+    payload = json.loads(filtered.body)
+    assert payload["error_code"] == "INTERNAL_ERROR"
+    assert "Failed to filter response" in payload["message"]
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])

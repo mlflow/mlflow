@@ -25,13 +25,15 @@ from mlflow.entities.mcp_server import (
 )
 from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.exceptions import MlflowException
-from mlflow.utils.validation import _validate_mcp_icon_url
+from mlflow.utils.validation import _validate_mcp_icon_mime_type, _validate_mcp_icon_url
 
 if TYPE_CHECKING:
     from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
 
 _MCP_SERVER_AJAX_API_PREFIX = "/ajax-api/3.0/mlflow/mcp-servers"
 _MCP_SERVER_API_PREFIX = "/api/3.0/mlflow/mcp-servers"
+_MAX_MCP_ICONS_PER_LIST = 100
+_MAX_MCP_TOOLS_PER_LIST = 1000
 
 
 def get_mcp_server_api_route_prefixes() -> tuple[str, ...]:
@@ -81,15 +83,8 @@ class MCPIconRequestPayload(_BaseMCPIconPayload):
     @field_validator("mimeType")
     @classmethod
     def _validate_mime_type(cls, value: str | None) -> str | None:
-        if value is None:
-            return value
-        normalized = value.strip().lower()
-        if not normalized.startswith("image/") or normalized == "image/":
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid icon mimeType {value!r}. Allowed values must use the 'image/*' "
-                "media type."
-            )
-        return normalized
+        _validate_mcp_icon_mime_type(value)
+        return None if value is None else value.strip().lower()
 
 
 class MCPIconResponsePayload(_BaseMCPIconPayload):
@@ -112,7 +107,9 @@ class ServerJSONPayload(BaseModel):
     version: str
     title: str | None = None
     description: str | None = None
-    icons: list[MCPIconRequestPayload] | None = None
+    icons: list[MCPIconRequestPayload] | None = Field(
+        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+    )
     packages: list[ServerJSONPackagePayload] | None = None
     remotes: list[ServerJSONRemotePayload] | None = None
     repository: ServerJSONRepositoryPayload | None = None
@@ -143,8 +140,8 @@ class ServerJSONPackagePayload(BaseModel):
 class ServerJSONRemotePayload(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
-    type: str
-    url: str
+    type: str | None = None
+    url: str | None = None
 
 
 class MCPToolRequestPayload(BaseModel):
@@ -154,7 +151,9 @@ class MCPToolRequestPayload(BaseModel):
     inputSchema: dict[str, Any] | None = None
     outputSchema: dict[str, Any] | None = None
     annotations: dict[str, Any] | None = None
-    icons: list[MCPIconRequestPayload] | None = None
+    icons: list[MCPIconRequestPayload] | None = Field(
+        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+    )
     execution: dict[str, Any] | None = None
 
 
@@ -172,13 +171,17 @@ class MCPToolResponsePayload(BaseModel):
 class CreateMCPServerRequest(BaseModel):
     name: str
     description: str | None = None
-    icons: list[MCPIconRequestPayload] | None = None
+    icons: list[MCPIconRequestPayload] | None = Field(
+        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+    )
 
 
 class UpdateMCPServerRequest(BaseModel):
     display_name: str | None = None
     description: str | None = None
-    icons: list[MCPIconRequestPayload] | None = None
+    icons: list[MCPIconRequestPayload] | None = Field(
+        default=None, max_length=_MAX_MCP_ICONS_PER_LIST
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -196,13 +199,17 @@ class CreateMCPServerVersionRequest(BaseModel):
     display_name: str | None = None
     status: str = "draft"
     source: str | None = None
-    tools: list[MCPToolRequestPayload] | None = None
+    tools: list[MCPToolRequestPayload] | None = Field(
+        default=None, max_length=_MAX_MCP_TOOLS_PER_LIST
+    )
 
 
 class UpdateMCPServerVersionRequest(BaseModel):
     display_name: str | None = None
     status: str | None = None
-    tools: list[MCPToolRequestPayload] | None = None
+    tools: list[MCPToolRequestPayload] | None = Field(
+        default=None, max_length=_MAX_MCP_TOOLS_PER_LIST
+    )
 
 
 class CreateMCPAccessBindingRequest(BaseModel):

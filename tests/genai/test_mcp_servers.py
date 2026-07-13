@@ -33,6 +33,21 @@ def patch_store(store):
         yield
 
 
+@pytest.fixture(autouse=True)
+def mock_icon_url_dns_resolution():
+    def _resolve(host, port, *a, **kw):
+        if host == "localhost":
+            ip = "127.0.0.1"
+        elif host == "example.com" or host.endswith(".example.com"):
+            ip = "8.8.8.8"
+        else:
+            ip = host
+        return [(None, None, None, None, (ip, 0))]
+
+    with mock.patch("mlflow.utils.validation.socket.getaddrinfo", side_effect=_resolve):
+        yield
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -119,7 +134,7 @@ def test_register_mcp_server_no_bindings_when_flag_false():
 
 
 @pytest.mark.parametrize("status", ["draft", None])
-def test_register_mcp_server_skips_auto_bindings_for_draft(status):
+def test_register_mcp_server_rejects_auto_bindings_for_inactive_initial_status(status):
     kwargs = {
         "server_json": _server_json(
             f"io.github.test/draft-no-bind-{status}",
@@ -130,26 +145,37 @@ def test_register_mcp_server_skips_auto_bindings_for_draft(status):
     }
     if status is not None:
         kwargs["status"] = status
-    version = genai.register_mcp_server(**kwargs)
+    with pytest.raises(
+        MlflowException, match="create_access_bindings_from_remotes=True requires status='active'"
+    ):
+        genai.register_mcp_server(**kwargs)
 
-    bindings = genai.search_mcp_access_bindings(server_name=version.name)
-    assert len(bindings) == 0
-    assert version.status == MCPStatus.DRAFT
+    with pytest.raises(MlflowException, match="not found"):
+        genai.get_mcp_server(name=kwargs["server_json"]["name"])
 
 
-@pytest.mark.parametrize("status", ["active", "deprecated"])
-def test_register_mcp_server_creates_bindings_for_published_statuses(status):
+def test_register_mcp_server_creates_bindings_for_active_status():
     sj = _server_json(
-        f"io.github.test/published-bind-{status}",
+        "io.github.test/published-bind-active",
         "1.0.0",
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/pub"}],
     )
     version = genai.register_mcp_server(
-        server_json=sj, status=status, create_access_bindings_from_remotes=True
+        server_json=sj, status="active", create_access_bindings_from_remotes=True
     )
 
     bindings = genai.search_mcp_access_bindings(server_name=version.name)
     assert len(bindings) == 1
+
+
+@pytest.mark.parametrize("status", ["deprecated", "deleted"])
+def test_register_mcp_server_rejects_non_initial_statuses(status):
+    sj = _server_json(f"io.github.test/reject-status-{status}", "1.0.0")
+
+    with pytest.raises(
+        MlflowException, match="Initial MCP server registration status must be 'draft' or 'active'"
+    ):
+        genai.register_mcp_server(server_json=sj, status=status)
 
 
 def test_register_mcp_server_skips_remotes_without_url():
@@ -173,6 +199,46 @@ def test_register_mcp_server_accepts_null_remotes():
 
     bindings = genai.search_mcp_access_bindings(server_name=version.name)
     assert len(bindings) == 0
+
+
+@pytest.mark.parametrize("url", [123, True])
+def test_register_mcp_server_rejects_remote_with_non_string_url(url):
+    sj = _server_json(
+        "io.github.test/bad-remote-url-type",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": url}],
+    )
+    with pytest.raises(MlflowException, match="remote.url"):
+        genai.register_mcp_server(
+            server_json=sj, status="active", create_access_bindings_from_remotes=True
+        )
+
+
+def test_register_mcp_server_rejects_remote_with_blank_url():
+    sj = _server_json(
+        "io.github.test/bad-remote-url-blank",
+        "1.0.0",
+        remotes=[{"type": "streamable-http", "url": "   "}],
+    )
+    with pytest.raises(MlflowException, match="remote.url"):
+        genai.register_mcp_server(
+            server_json=sj, status="active", create_access_bindings_from_remotes=True
+        )
+
+
+def test_register_mcp_server_defaults_null_remote_type_to_streamable_http():
+    sj = _server_json(
+        "io.github.test/null-remote-type",
+        "1.0.0",
+        remotes=[{"type": None, "url": "https://mcp.example.com/default-type"}],
+    )
+    version = genai.register_mcp_server(
+        server_json=sj, status="active", create_access_bindings_from_remotes=True
+    )
+
+    bindings = genai.search_mcp_access_bindings(server_name=version.name)
+    assert len(bindings) == 1
+    assert bindings[0].transport_type == MCPRemoteTransportType.STREAMABLE_HTTP
 
 
 def test_register_mcp_server_rejects_non_list_remotes():
@@ -380,6 +446,16 @@ def test_delete_mcp_server():
     genai.delete_mcp_server(name="io.github.test/del-server")
     with pytest.raises(MlflowException, match="MCP server .* not found"):
         genai.get_mcp_server(name="io.github.test/del-server")
+
+
+def test_delete_mcp_server_rejects_active_version():
+    name = "io.github.test/del-active-server"
+    genai.register_mcp_server(server_json=_server_json(name, "1.0.0"), status="active")
+
+    with pytest.raises(MlflowException, match="active version"):
+        genai.delete_mcp_server(name=name)
+
+    assert genai.get_mcp_server(name=name).name == name
 
 
 # ---------------------------------------------------------------------------
@@ -651,6 +727,15 @@ def test_mlflow_client_create_and_get_server():
     assert fetched.description == "via client"
 
 
+def test_mlflow_client_create_server_rejects_risky_icons():
+    client = MlflowClient()
+    with pytest.raises(MlflowException, match="Icon URL"):
+        client.create_mcp_server(
+            name="io.github.test/client-icon-server",
+            icons=[{"src": "https://127.0.0.1/icon.png"}],
+        )
+
+
 def test_mlflow_client_version_lifecycle():
     client = MlflowClient()
     sj = _server_json("io.github.test/lifecycle-ver", "1.0.0")
@@ -673,6 +758,30 @@ def test_mlflow_client_version_lifecycle():
 
     with pytest.raises(MlflowException, match="not found"):
         client.get_mcp_server_version(name="io.github.test/lifecycle-ver", version="1.0.0")
+
+
+def test_mlflow_client_create_version_rejects_risky_server_json_icons():
+    client = MlflowClient()
+    with pytest.raises(MlflowException, match="Icon URL"):
+        client.create_mcp_server_version(
+            server_json=_server_json(
+                "io.github.test/client-server-json-icons",
+                "1.0.0",
+                icons=[{"src": "https://127.0.0.1/icon.png"}],
+            )
+        )
+
+
+def test_mlflow_client_update_version_rejects_risky_tool_icons():
+    client = MlflowClient()
+    client.create_mcp_server_version(_server_json("io.github.test/client-tool-icons", "1.0.0"))
+
+    with pytest.raises(MlflowException, match="Icon URL"):
+        client.update_mcp_server_version(
+            name="io.github.test/client-tool-icons",
+            version="1.0.0",
+            tools=[MCPTool(name="search", icons=[{"src": "https://127.0.0.1/icon.png"}])],
+        )
 
 
 # ---------------------------------------------------------------------------

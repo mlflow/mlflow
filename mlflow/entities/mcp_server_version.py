@@ -4,9 +4,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from mlflow.entities.mcp_server import MCPStatus, MCPTool
+from mlflow.utils.annotations import experimental
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
+@experimental(version="3.15.0")
 @dataclass
 class MCPServerVersion:
     name: str

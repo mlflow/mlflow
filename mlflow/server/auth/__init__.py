@@ -4773,6 +4773,42 @@ def _find_fastapi_response_filter(
     )
 
 
+def _apply_fastapi_response_filter(
+    response_filter: Callable[[str, bytes, StarletteRequest], bytes],
+    username: str,
+    body: bytes,
+    request: StarletteRequest,
+    response,
+    path: str,
+):
+    headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+    try:
+        filtered_content = response_filter(username, body, request)
+    except MlflowException as e:
+        _logger.exception("response filter failed for %s %s", request.method, path)
+        return JSONResponse(
+            status_code=e.get_http_status_code(),
+            content=json.loads(e.serialize_as_json()),
+        )
+    except Exception:
+        _logger.exception("response filter failed for %s %s", request.method, path)
+        error = MlflowException(
+            "Failed to filter response for protected collection route",
+            error_code=INTERNAL_ERROR,
+        )
+        return JSONResponse(
+            status_code=error.get_http_status_code(),
+            content=json.loads(error.serialize_as_json()),
+        )
+
+    return FilteredResponse(
+        content=filtered_content,
+        status_code=response.status_code,
+        headers=headers,
+        media_type=response.media_type,
+    )
+
+
 def add_fastapi_permission_middleware(app: FastAPI) -> None:
     """
     Add permission middleware to FastAPI app for routes not handled by Flask.
@@ -4887,12 +4923,13 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             body = bytearray()
             async for chunk in response.body_iterator:
                 body.extend(chunk)
-            headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
-            return FilteredResponse(
-                content=response_filter(user.username, bytes(body), request),
-                status_code=response.status_code,
-                headers=headers,
-                media_type=response.media_type,
+            return _apply_fastapi_response_filter(
+                response_filter=response_filter,
+                username=user.username,
+                body=bytes(body),
+                request=request,
+                response=response,
+                path=path,
             )
 
         return response

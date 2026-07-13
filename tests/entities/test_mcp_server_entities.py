@@ -5,9 +5,11 @@ from mlflow.entities.mcp_server import (
     VALID_STATUS_TRANSITIONS,
     MCPRemoteTransportType,
     MCPServer,
+    MCPServerTag,
     MCPStatus,
     MCPTool,
 )
+from mlflow.entities.mcp_server_alias import MCPServerAlias
 from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.exceptions import MlflowException
 
@@ -96,3 +98,12 @@ def test_mcp_access_binding_workspace_resolution():
         endpoint_url="https://example.com/mcp",
     )
     assert binding.workspace == "default"
+
+
+@pytest.mark.parametrize(
+    "cls",
+    [MCPAccessBinding, MCPServer, MCPServerAlias, MCPServerTag, MCPServerVersion, MCPTool],
+)
+def test_mcp_entities_are_marked_experimental(cls):
+    assert cls.__doc__ is not None
+    assert "Experimental: This class may change" in cls.__doc__

@@ -85,6 +85,13 @@ def test_create_server_with_icons(client):
     assert r.json()["icons"] == icons
 
 
+def test_create_server_rejects_too_many_icons(client):
+    icons = [{"src": f"https://example.com/icon-{i}.png"} for i in range(101)]
+    r = client.post(PREFIX, json={"name": "com.example/too-many-icons", "icons": icons})
+    assert r.status_code == 400
+    assert "at most 100 items" in r.text
+
+
 def test_create_server_with_icons_preserves_extra_fields(client):
     icons = [
         {
@@ -361,6 +368,19 @@ def test_delete_server(client):
     assert client.get(f"{PREFIX}/{_encode_path_param('com.example/del')}").status_code == 404
 
 
+def test_delete_server_rejects_active_version(client):
+    name = "com.example/del-active"
+    sj = _server_json(name, "1.0.0")
+    client.post(
+        f"{PREFIX}/{_encode_path_param(name)}/versions",
+        json={"server_json": sj, "status": "active"},
+    )
+
+    r = client.delete(f"{PREFIX}/{_encode_path_param(name)}")
+    assert r.status_code == 400
+    assert "active version" in r.text
+
+
 def test_server_crud_with_slashed_name(client):
     name = "io.github.org/my-server"
     client.post(PREFIX, json={"name": name})
@@ -535,6 +555,17 @@ def test_create_version_with_tools(client):
     assert data["tools"][0]["name"] == "web_search"
 
 
+def test_create_version_rejects_too_many_tools(client):
+    sj = _server_json("com.example/too-many-tools", "1.0.0")
+    tools = [{"name": f"tool-{i}"} for i in range(1001)]
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/too-many-tools')}/versions",
+        json={"server_json": sj, "tools": tools, "status": "active"},
+    )
+    assert r.status_code == 400
+    assert "at most 1000 items" in r.text
+
+
 def test_create_version_with_tool_icons_preserves_extra_fields(client):
     sj = _server_json("com.example/tool-icons-server", "1.0.0")
     tools = [
@@ -581,6 +612,49 @@ def test_create_version_rejects_risky_server_json_icon_urls(client):
     )
     assert r.status_code == 400
     assert "Icon URL" in r.text
+
+
+def test_create_version_accepts_remote_with_null_type(client):
+    sj = _server_json(
+        "com.example/null-remote-type",
+        "1.0.0",
+        remotes=[{"type": None, "url": "https://example.com/mcp"}],
+    )
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/null-remote-type')}/versions",
+        json={"server_json": sj, "status": "active"},
+    )
+    assert r.status_code == 200
+    assert r.json()["server_json"]["remotes"][0]["type"] is None
+
+
+def test_create_version_accepts_remote_without_url(client):
+    sj = _server_json(
+        "com.example/missing-remote-url",
+        "1.0.0",
+        remotes=[{"type": "streamable-http"}],
+    )
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/missing-remote-url')}/versions",
+        json={"server_json": sj, "status": "active"},
+    )
+    assert r.status_code == 200
+    assert r.json()["server_json"]["remotes"][0]["type"] == "streamable-http"
+    assert "url" not in r.json()["server_json"]["remotes"][0]
+
+
+def test_create_version_preserves_meta_icons_metadata(client):
+    sj = _server_json(
+        "com.example/meta-icons",
+        "1.0.0",
+        _meta={"icons": {"not": "an-icon-list"}, "other": "preserved"},
+    )
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param('com.example/meta-icons')}/versions",
+        json={"server_json": sj, "status": "active"},
+    )
+    assert r.status_code == 200
+    assert r.json()["server_json"]["_meta"] == sj["_meta"]
 
 
 def test_create_version_preserves_empty_tools_list(client):

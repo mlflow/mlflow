@@ -995,6 +995,46 @@ def _validate_mcp_icon_url(url: str) -> None:
         )
 
 
+def _validate_mcp_icon_mime_type(mime_type: str | None) -> None:
+    if mime_type is None:
+        return
+
+    if not isinstance(mime_type, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid icon mimeType {mime_type!r}. Allowed values must use the 'image/*' media "
+            "type."
+        )
+
+    normalized = mime_type.strip().lower()
+    if not normalized.startswith("image/") or normalized == "image/":
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid icon mimeType {mime_type!r}. Allowed values must use the 'image/*' "
+            "media type."
+        )
+
+
+def _validate_mcp_icon_payloads(icons: Any, field_name: str = "icons") -> None:
+    if icons is None:
+        return
+
+    if not isinstance(icons, list):
+        raise MlflowException.invalid_parameter_value(f"Invalid {field_name}. Expected a list.")
+
+    for idx, icon in enumerate(icons):
+        icon_field_name = f"{field_name}[{idx}]"
+        if not isinstance(icon, dict):
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid {icon_field_name}. Expected an object."
+            )
+        if "src" not in icon:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid {icon_field_name}. Missing required key 'src'."
+            )
+
+        _validate_mcp_icon_url(icon["src"])
+        _validate_mcp_icon_mime_type(icon.get("mimeType"))
+
+
 def _validate_webhook_url(url: str) -> None:
     if not isinstance(url, str):
         raise MlflowException.invalid_parameter_value(

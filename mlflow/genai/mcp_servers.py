@@ -53,11 +53,15 @@ def _validate_binding_remotes(
                 "Invalid server_json.remotes entry. Expected each remote to be an object."
             )
         url = remote.get("url")
-        if not url:
+        if url is None:
             continue
-        transport_str = remote.get("type", "streamable-http")
+        if not isinstance(url, str) or not url.strip():
+            raise MlflowException.invalid_parameter_value(
+                "Invalid server_json.remotes entry. Expected remote.url to be a non-empty string."
+            )
+        transport_str = "streamable-http" if remote.get("type") is None else remote.get("type")
         transport = _parse_enum(transport_str, MCPRemoteTransportType, "transport_type")
-        validated_remotes.append((url, transport))
+        validated_remotes.append((url.strip(), transport))
 
     return validated_remotes
 
@@ -67,7 +71,7 @@ def register_mcp_server(
     server_json: dict[str, Any],
     display_name: str | None = None,
     source: str | None = None,
-    status: Literal["draft", "active", "deprecated", "deleted"] = "draft",
+    status: Literal["draft", "active"] = "draft",
     tools: list[MCPTool] | None = None,
     create_access_bindings_from_remotes: bool = False,
 ) -> MCPServerVersion:
@@ -82,10 +86,12 @@ def register_mcp_server(
             and ``version`` at the top level.
         display_name: Human-readable label for the version.
         source: Provenance URI (e.g., a git repository URL).
-        status: Initial status (default ``"draft"``).
+        status: Initial status. Only ``"draft"`` and ``"active"`` are supported
+            during registration.
         tools: Declared tool definitions for this version.
         create_access_bindings_from_remotes: When ``True``, create one direct-access
-            binding per ``remotes[]`` entry in ``server_json``.
+            binding per ``remotes[]`` entry in ``server_json``. This requires
+            ``status="active"``.
 
     Returns:
         The created :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>`.
@@ -107,14 +113,18 @@ def register_mcp_server(
     """
     client = MlflowClient()
     parsed_status = _parse_enum(status, MCPStatus, "status")
+    if parsed_status not in (MCPStatus.DRAFT, MCPStatus.ACTIVE):
+        raise MlflowException.invalid_parameter_value(
+            "Initial MCP server registration status must be 'draft' or 'active'."
+        )
 
-    should_create_bindings = create_access_bindings_from_remotes and parsed_status in (
-        MCPStatus.ACTIVE,
-        MCPStatus.DEPRECATED,
-    )
+    if create_access_bindings_from_remotes and parsed_status != MCPStatus.ACTIVE:
+        raise MlflowException.invalid_parameter_value(
+            "create_access_bindings_from_remotes=True requires status='active'."
+        )
 
     validated_remotes: list[tuple[str, MCPRemoteTransportType]] = []
-    if should_create_bindings:
+    if create_access_bindings_from_remotes:
         validated_remotes = _validate_binding_remotes(server_json)
 
     version = client.create_mcp_server_version(
@@ -197,7 +207,7 @@ def register_mcp_server_from_url(
     url: str,
     display_name: str | None = None,
     source: str | None = None,
-    status: Literal["draft", "active", "deprecated", "deleted"] = "draft",
+    status: Literal["draft", "active"] = "draft",
     tools: list[MCPTool] | None = None,
     create_access_bindings_from_remotes: bool = False,
 ) -> MCPServerVersion:
@@ -209,10 +219,12 @@ def register_mcp_server_from_url(
             pointing to a ``server.json`` document.
         display_name: Human-readable label for the version.
         source: Provenance URI; defaults to ``url`` when not provided.
-        status: Initial status (default ``"draft"``).
+        status: Initial status. Only ``"draft"`` and ``"active"`` are supported
+            during registration.
         tools: Declared tool definitions for this version.
         create_access_bindings_from_remotes: When ``True``, create one direct-access
-            binding per ``remotes[]`` entry in ``server_json``.
+            binding per ``remotes[]`` entry in ``server_json``. This requires
+            ``status="active"``.
 
     Returns:
         The created :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>`.
@@ -270,6 +282,9 @@ def search_mcp_servers(
     Args:
         filter_string: SQL-like filter expression (e.g., ``"status = 'active'"``,
             ``"tags.team = 'platform'"``, ``"has_access_bindings = 'true'"``).
+            See
+            ``https://mlflow.org/docs/latest/ml/search/search-runs/#search-query-syntax-deep-dive``
+            for the filter syntax guide.
         max_results: Maximum number of results to return.
         order_by: List of columns to order by.
         page_token: Token for retrieving the next page of results.
@@ -330,6 +345,8 @@ def update_mcp_server(
 def delete_mcp_server(name: str) -> None:
     """
     Delete an MCP server and all its child entities.
+
+    Deletion is rejected while any version of the server is still ``ACTIVE``.
 
     Args:
         name: Server name.
@@ -392,7 +409,9 @@ def search_mcp_server_versions(
 
     Args:
         name: Server name.
-        filter_string: SQL-like filter (e.g., ``"status = 'active'"``).
+        filter_string: SQL-like filter (e.g., ``"status = 'active'"``). See
+            ``https://mlflow.org/docs/latest/ml/search/search-runs/#search-query-syntax-deep-dive``
+            for the filter syntax guide.
         max_results: Maximum number of results.
         order_by: List of columns to order by.
         page_token: Token for the next page.
@@ -519,7 +538,9 @@ def search_mcp_access_bindings(
         server_name: If provided, limit results to this server.
         server_version: If provided, limit results to bindings targeting this version.
         server_alias: If provided, limit results to bindings targeting this alias.
-        filter_string: SQL-like filter.
+        filter_string: SQL-like filter. See
+            ``https://mlflow.org/docs/latest/ml/search/search-runs/#search-query-syntax-deep-dive``
+            for the filter syntax guide.
         max_results: Maximum number of results.
         order_by: List of columns to order by.
         page_token: Token for the next page.

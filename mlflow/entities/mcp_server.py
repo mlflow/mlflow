@@ -6,6 +6,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils.annotations import experimental
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 if TYPE_CHECKING:
@@ -79,6 +80,7 @@ def validate_mcp_server_name(name: str) -> None:
         )
 
 
+@experimental(version="3.15.0")
 @dataclass(frozen=True)
 class MCPTool:
     name: str
@@ -126,12 +128,14 @@ class MCPTool:
         )
 
 
+@experimental(version="3.15.0")
 @dataclass(frozen=True)
 class MCPServerTag:
     key: str
     value: str
 
 
+@experimental(version="3.15.0")
 @dataclass
 class MCPServer:
     name: str

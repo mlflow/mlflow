@@ -265,6 +265,31 @@ def test_create_version_with_tools(rest_client):
     assert ver.tools[0].name == "search"
 
 
+def test_create_version_accepts_remote_with_null_type(rest_client):
+    ver = rest_client.create_mcp_server_version(
+        _server_json(
+            "io.github.test/null-remote-type",
+            "1.0.0",
+            remotes=[{"type": None, "url": "https://example.com/mcp"}],
+        ),
+        status=MCPStatus.ACTIVE,
+    )
+    assert ver.server_json["remotes"][0]["type"] is None
+
+
+def test_create_version_accepts_remote_without_url(rest_client):
+    ver = rest_client.create_mcp_server_version(
+        _server_json(
+            "io.github.test/missing-remote-url",
+            "1.0.0",
+            remotes=[{"type": "streamable-http"}],
+        ),
+        status=MCPStatus.ACTIVE,
+    )
+    assert ver.server_json["remotes"][0]["type"] == "streamable-http"
+    assert "url" not in ver.server_json["remotes"][0]
+
+
 def test_create_version_preserves_empty_tools_list(rest_client):
     sj = _server_json("io.github.test/empty-tools-srv", "1.0.0")
     ver = rest_client.create_mcp_server_version(sj, status=MCPStatus.ACTIVE, tools=[])
@@ -573,6 +598,16 @@ def test_server_json_explicit_nulls_preserved(rest_client):
     assert "custom_field" in ver.server_json
     assert ver.server_json["custom_field"] is None
     assert "repository" not in ver.server_json
+
+
+def test_server_json_meta_icons_metadata_preserved(rest_client):
+    sj = _server_json(
+        "io.github.test/meta-icons",
+        "1.0.0",
+        _meta={"icons": {"not": "an-icon-list"}, "other": "preserved"},
+    )
+    ver = rest_client.create_mcp_server_version(sj, status=MCPStatus.ACTIVE)
+    assert ver.server_json["_meta"] == sj["_meta"]
 
 
 def test_tools_round_trip(rest_client):
