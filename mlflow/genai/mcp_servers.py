@@ -16,6 +16,7 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.uri import get_uri_scheme, is_local_uri
+from mlflow.utils.validation import _validate_mcp_initial_status
 
 if TYPE_CHECKING:
     from enum import Enum
@@ -113,10 +114,7 @@ def register_mcp_server(
     """
     client = MlflowClient()
     parsed_status = _parse_enum(status, MCPStatus, "status")
-    if parsed_status not in (MCPStatus.DRAFT, MCPStatus.ACTIVE):
-        raise MlflowException.invalid_parameter_value(
-            "Initial MCP server registration status must be 'draft' or 'active'."
-        )
+    _validate_mcp_initial_status(parsed_status or MCPStatus.DRAFT)
 
     if create_access_bindings_from_remotes and parsed_status != MCPStatus.ACTIVE:
         raise MlflowException.invalid_parameter_value(

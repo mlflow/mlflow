@@ -736,6 +736,15 @@ def test_mlflow_client_create_server_rejects_risky_icons():
         )
 
 
+def test_mlflow_client_create_server_rejects_too_many_icons():
+    client = MlflowClient()
+    with pytest.raises(MlflowException, match="at most 100 items"):
+        client.create_mcp_server(
+            name="io.github.test/client-too-many-icons",
+            icons=[{"src": f"https://example.com/icon-{i}.png"} for i in range(101)],
+        )
+
+
 def test_mlflow_client_version_lifecycle():
     client = MlflowClient()
     sj = _server_json("io.github.test/lifecycle-ver", "1.0.0")
@@ -769,6 +778,28 @@ def test_mlflow_client_create_version_rejects_risky_server_json_icons():
                 "1.0.0",
                 icons=[{"src": "https://127.0.0.1/icon.png"}],
             )
+        )
+
+
+@pytest.mark.parametrize("status", [MCPStatus.DEPRECATED, MCPStatus.DELETED])
+def test_mlflow_client_create_version_rejects_non_initial_statuses(status):
+    client = MlflowClient()
+    with pytest.raises(
+        MlflowException,
+        match="Initial MCP server registration status must be 'draft' or 'active'",
+    ):
+        client.create_mcp_server_version(
+            server_json=_server_json(f"io.github.test/client-status-{status.value}", "1.0.0"),
+            status=status,
+        )
+
+
+def test_mlflow_client_create_version_rejects_too_many_tools():
+    client = MlflowClient()
+    with pytest.raises(MlflowException, match="at most 1000 items"):
+        client.create_mcp_server_version(
+            server_json=_server_json("io.github.test/client-too-many-tools", "1.0.0"),
+            tools=[MCPTool(name=f"tool-{i}") for i in range(1001)],
         )
 
 

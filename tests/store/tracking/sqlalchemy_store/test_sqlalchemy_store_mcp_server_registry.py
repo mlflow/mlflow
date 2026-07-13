@@ -118,6 +118,14 @@ def test_create_mcp_server_rejects_risky_icons(store):
         )
 
 
+def test_create_mcp_server_rejects_too_many_icons(store):
+    with pytest.raises(MlflowException, match="at most 100 items"):
+        store.create_mcp_server(
+            "io.github.test/too-many-icons",
+            icons=[{"src": f"https://example.com/icon-{i}.png"} for i in range(101)],
+        )
+
+
 def test_update_mcp_server_sets_last_updated_by(store):
     store.create_mcp_server("io.github.test/server")
     server = store.update_mcp_server(
@@ -222,6 +230,15 @@ def test_update_mcp_server_rejects_risky_icons(store):
         )
 
 
+def test_update_mcp_server_rejects_too_many_icons(store):
+    store.create_mcp_server("io.github.test/update-too-many-icons")
+    with pytest.raises(MlflowException, match="at most 100 items"):
+        store.update_mcp_server(
+            "io.github.test/update-too-many-icons",
+            icons=[{"src": f"https://example.com/icon-{i}.png"} for i in range(101)],
+        )
+
+
 def test_update_mcp_server_display_name(store):
     store.create_mcp_server("io.github.test/servererver")
     updated = store.update_mcp_server("io.github.test/servererver", display_name="My Server")
@@ -259,6 +276,18 @@ def test_create_mcp_server_version_rejects_semver_component_exceeding_db_integer
         store.create_mcp_server_version(
             _server_json("io.github.test/servererver", "2147483648.0.0"),
             status=MCPStatus.ACTIVE,
+        )
+
+
+@pytest.mark.parametrize("status", [MCPStatus.DEPRECATED, MCPStatus.DELETED])
+def test_create_mcp_server_version_rejects_non_initial_statuses(store, status):
+    with pytest.raises(
+        MlflowException,
+        match="Initial MCP server registration status must be 'draft' or 'active'",
+    ):
+        store.create_mcp_server_version(
+            _server_json(f"io.github.test/non-initial-{status.value}", "1.0.0"),
+            status=status,
         )
 
 
@@ -562,6 +591,14 @@ def test_create_mcp_server_version_rejects_risky_tool_icons(store):
         store.create_mcp_server_version(
             _server_json(),
             tools=[MCPTool(name="search", icons=[{"src": "https://127.0.0.1/icon.png"}])],
+        )
+
+
+def test_create_mcp_server_version_rejects_too_many_tools(store):
+    with pytest.raises(MlflowException, match="at most 1000 items"):
+        store.create_mcp_server_version(
+            _server_json("io.github.test/too-many-tools", "1.0.0"),
+            tools=[MCPTool(name=f"tool-{i}") for i in range(1001)],
         )
 
 
@@ -893,6 +930,16 @@ def test_update_mcp_server_version_rejects_risky_tool_icons(store):
             "io.github.test/servererver",
             "1.0.0",
             tools=[MCPTool(name="search", icons=[{"src": "https://127.0.0.1/icon.png"}])],
+        )
+
+
+def test_update_mcp_server_version_rejects_too_many_tools(store):
+    store.create_mcp_server_version(_server_json())
+    with pytest.raises(MlflowException, match="at most 1000 items"):
+        store.update_mcp_server_version(
+            "io.github.test/servererver",
+            "1.0.0",
+            tools=[MCPTool(name=f"tool-{i}") for i in range(1001)],
         )
 
 

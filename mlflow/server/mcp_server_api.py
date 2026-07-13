@@ -26,15 +26,18 @@ from mlflow.entities.mcp_server import (
 from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
-from mlflow.utils.validation import _validate_mcp_icon_mime_type, _validate_mcp_icon_url
+from mlflow.utils.validation import (
+    _MAX_MCP_ICONS_PER_LIST,
+    _MAX_MCP_TOOLS_PER_LIST,
+    _validate_mcp_icon_mime_type,
+    _validate_mcp_icon_url,
+)
 
 if TYPE_CHECKING:
     from mlflow.store.tracking.mcp_server_registry.abstract_mixin import MCPIcon
 
 _MCP_SERVER_AJAX_API_PREFIX = "/ajax-api/3.0/mlflow/mcp-servers"
 _MCP_SERVER_API_PREFIX = "/api/3.0/mlflow/mcp-servers"
-_MAX_MCP_ICONS_PER_LIST = 100
-_MAX_MCP_TOOLS_PER_LIST = 1000
 
 
 def get_mcp_server_api_route_prefixes() -> tuple[str, ...]:

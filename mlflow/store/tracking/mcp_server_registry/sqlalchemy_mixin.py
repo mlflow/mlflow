@@ -43,7 +43,11 @@ from mlflow.utils.search_utils import (
 )
 from mlflow.utils.semver_utils import encode_prerelease_sort_key, parse_semver
 from mlflow.utils.time import get_current_time_millis
-from mlflow.utils.validation import _validate_mcp_icon_payloads
+from mlflow.utils.validation import (
+    _validate_mcp_icon_payloads,
+    _validate_mcp_initial_status,
+    _validate_mcp_tool_payloads,
+)
 
 SEARCH_MCP_SERVER_MAX_RESULTS_THRESHOLD = 1000
 
@@ -60,6 +64,7 @@ def _validate_tool_icons(tools: list[MCPTool] | None, field_name: str = "tools")
     if tools is None:
         return
 
+    _validate_mcp_tool_payloads(tools, field_name)
     for idx, tool in enumerate(tools):
         _validate_mcp_icon_payloads(tool.icons, f"{field_name}[{idx}].icons")
 
@@ -259,6 +264,7 @@ class SqlAlchemyMCPServerRegistryMixin:
 
         now = get_current_time_millis()
         status = status or MCPStatus.DRAFT
+        _validate_mcp_initial_status(status)
         _validate_tool_icons(tools)
         tools_json = None if tools is None else [t.to_dict() for t in tools]
 

@@ -438,6 +438,17 @@ def test_create_version(client):
     assert data["tools"] == []
 
 
+@pytest.mark.parametrize("status", ["deprecated", "deleted"])
+def test_create_version_rejects_non_initial_statuses(client, status):
+    sj = _server_json(f"com.example/{status}-create", "1.0.0")
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param(f'com.example/{status}-create')}" + "/versions",
+        json={"server_json": sj, "status": status},
+    )
+    assert r.status_code == 400
+    assert "Initial MCP server registration status must be 'draft' or 'active'" in r.text
+
+
 def test_ensure_version_create_parent_access_rejects_raced_existing_parent_without_update():
     can_update_existing = mock.Mock(return_value=False)
     request = SimpleNamespace(
