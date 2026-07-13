@@ -28,7 +28,7 @@ from mlflow.tracing.utils import (
 )
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
 from mlflow.utils.uri import is_databricks_uri
-from mlflow.utils.workspace_context import ServerWorkspaceContext, get_request_workspace
+from mlflow.utils.workspace_context import ServerWorkspaceContext
 
 _logger = logging.getLogger(__name__)
 
@@ -88,8 +88,8 @@ class MlflowV3SpanExporter(SpanExporter):
             )
             return
 
-        mlflow_spans_by_target = self._collect_mlflow_spans_for_export(spans)
-        for (experiment_id, workspace), spans_to_log in mlflow_spans_by_target.items():
+        mlflow_spans_by_experiment_and_workspace = self._collect_mlflow_spans_for_export(spans)
+        for (experiment_id, workspace), spans_to_log in mlflow_spans_by_experiment_and_workspace.items():
             if self._should_log_async():
                 self._async_queue.put(
                     task=Task(
@@ -118,7 +118,7 @@ class MlflowV3SpanExporter(SpanExporter):
             Dictionary mapping (experiment_id, workspace) to list of MLflow Span objects.
         """
         manager = InMemoryTraceManager.get_instance()
-        spans_by_target = defaultdict(list)
+        spans_by_experiment_and_workspace = defaultdict(list)
 
         for span in spans:
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
@@ -137,15 +137,13 @@ class MlflowV3SpanExporter(SpanExporter):
                 except AttributeError:
                     # Remote/distributed traces may have trace_location=None
                     experiment_id = None
-                if trace and getattr(trace, "workspace", None) is not None:
+                if trace is not None:
                     workspace = trace.workspace
             if experiment_id is None:
                 experiment_id = get_experiment_id_for_trace(span)
-            if workspace is None:
-                workspace = get_request_workspace()
-            spans_by_target[(experiment_id, workspace)].append(mlflow_span)
+            spans_by_experiment_and_workspace[(experiment_id, workspace)].append(mlflow_span)
 
-        return spans_by_target
+        return spans_by_experiment_and_workspace
 
     def _export_traces(self, spans: Sequence[ReadableSpan]) -> None:
         """
@@ -207,7 +205,7 @@ class MlflowV3SpanExporter(SpanExporter):
         if not maybe_get_request_id(is_evaluate=True):
             self._display_handler.display_traces([trace])
 
-        workspace = getattr(manager_trace, "workspace", None) or get_request_workspace()
+        workspace = manager_trace.workspace
         if self._should_log_async():
             self._async_queue.put(
                 task=Task(

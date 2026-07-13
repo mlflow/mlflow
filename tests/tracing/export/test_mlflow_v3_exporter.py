@@ -798,8 +798,6 @@ def test_async_export_preserves_workspace_context(monkeypatch):
 
     trace_manager = InMemoryTraceManager.get_instance()
     trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
-    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
-    trace_manager.register_span(span)
 
     with (
         mock.patch(
@@ -815,13 +813,18 @@ def test_async_export_preserves_workspace_context(monkeypatch):
     ):
         exporter = MlflowV3SpanExporter()
 
-        # Set a workspace on the originating thread, then export.
-        # The workspace must survive the async hop to the worker thread.
+        # Capture workspace on the originating thread at trace registration time.
         with WorkspaceContext("test-workspace"):
-            exporter.export([otel_span])
+            trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+            trace_manager.register_span(span)
 
-        # After exiting WorkspaceContext, the workspace is cleared on this thread.
-        # The async worker thread should still see "test-workspace".
+        # Context exited: the originating thread no longer has a workspace.
+        assert get_request_workspace() is None
+
+        # Export the span — the async queue dispatches to a worker thread.
+        exporter.export([otel_span])
+
+        # Flush the async queue to ensure the worker thread has completed.
         exporter._async_queue.flush(terminate=True)
 
     # start_trace (called inside _log_trace) should see the workspace on the worker thread
@@ -845,22 +848,27 @@ def test_async_export_preserves_workspace_context(monkeypatch):
 
 def test_bsp_export_preserves_workspace_context(monkeypatch):
     """
-    Regression test verifying that BatchSpanProcessor (BSP) thread hops preserve
+    Regression test verifying that BatchSpanProcessor (BSP) daemon thread hops preserve
     the workspace context captured on the originating thread at trace creation time.
+
+    Uses a real BatchSpanProcessor so the export runs on the BSP's own daemon worker
+    thread, not the originating thread.
     """
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
     from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
 
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "false")
 
-    captured_log_spans_workspace = []
     captured_start_trace_workspace = []
-
-    def mock_log_spans(*args, **kwargs):
-        captured_log_spans_workspace.append(get_request_workspace())
+    captured_log_spans_workspace = []
 
     def mock_start_trace(*args, **kwargs):
         captured_start_trace_workspace.append(get_request_workspace())
         return trace_info
+
+    def mock_log_spans(*args, **kwargs):
+        captured_log_spans_workspace.append(get_request_workspace())
 
     now_ns = int(time.time() * 1e9)
     otel_span = create_mock_otel_span(
@@ -877,29 +885,42 @@ def test_bsp_export_preserves_workspace_context(monkeypatch):
     trace_manager = InMemoryTraceManager.get_instance()
     trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
 
-    with WorkspaceContext("bsp-workspace"):
-        trace_manager.register_trace(otel_span.context.trace_id, trace_info)
-        trace_manager.register_span(span)
-
-    exporter = MlflowV3SpanExporter()
-
     with (
-        mock.patch(
-            "mlflow.tracing.client.TracingClient.log_spans",
-            side_effect=mock_log_spans,
-        ),
         mock.patch(
             "mlflow.tracing.client.TracingClient.start_trace",
             side_effect=mock_start_trace,
         ),
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.log_spans",
+            side_effect=mock_log_spans,
+        ),
         mock.patch("mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None),
         mock.patch("mlflow.tracing.client.TracingClient._upload_attachments", return_value=None),
     ):
-        exporter.export([otel_span])
+        exporter = MlflowV3SpanExporter()
+        bsp = BatchSpanProcessor(exporter, max_export_batch_size=1)
 
+        # Capture workspace on the originating thread at trace registration time.
+        with WorkspaceContext("bsp-workspace"):
+            trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+            trace_manager.register_span(span)
+
+        # Context exited: the originating thread no longer has a workspace.
+        assert get_request_workspace() is None
+
+        # Enqueue the span — BSP daemon thread picks it up and calls
+        # exporter.export([span]) on its own thread.
+        bsp.on_end(otel_span)
+
+        # Deterministically drain: shutdown() joins the worker thread after it
+        # has exported everything queued.
+        bsp.shutdown()
+
+    # Assert workspace survived the BSP daemon thread hop
     assert len(captured_start_trace_workspace) == 1
     assert captured_start_trace_workspace[0] == "bsp-workspace"
     assert len(captured_log_spans_workspace) == 1
     assert captured_log_spans_workspace[0] == "bsp-workspace"
+
 
 
