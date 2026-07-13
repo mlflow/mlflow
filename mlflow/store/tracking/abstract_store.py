@@ -957,6 +957,7 @@ class AbstractStore(GatewayStoreMixin):
                 "Both start_step and end_step must be provided together, "
                 "or neither should be provided."
             )
+        max_results = max(1, max_results)
         all_runs = [
             [m.step for m in self.get_metric_history(run_id, metric_key)] for run_id in run_ids
         ]
