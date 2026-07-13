@@ -6824,6 +6824,7 @@ class MlflowClient:
         source: str | None = None,
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = None,
+        hidden_connect_options: list[str] | None = None,
     ) -> MCPServerVersion:
         return self._tracking_client.store.create_mcp_server_version(
             server_json=server_json,
@@ -6831,6 +6832,7 @@ class MlflowClient:
             source=source,
             status=status,
             tools=tools,
+            hidden_connect_options=hidden_connect_options,
         )
 
     def get_mcp_server_version(self, name: str, version: str) -> MCPServerVersion:
@@ -6865,6 +6867,7 @@ class MlflowClient:
         display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
+        hidden_connect_options: list[str] | None = NOT_SET,
     ) -> MCPServerVersion:
         return self._tracking_client.store.update_mcp_server_version(
             name=name,
@@ -6872,6 +6875,7 @@ class MlflowClient:
             display_name=display_name,
             status=status,
             tools=tools,
+            hidden_connect_options=hidden_connect_options,
         )
 
     def delete_mcp_server_version(self, name: str, version: str) -> None:
@@ -6884,6 +6888,7 @@ class MlflowClient:
         transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
         server_version: str | None = None,
         server_alias: str | None = None,
+        visible: bool = True,
     ) -> MCPAccessBinding:
         return self._tracking_client.store.create_mcp_access_binding(
             server_name=server_name,
@@ -6891,6 +6896,7 @@ class MlflowClient:
             transport_type=transport_type,
             server_version=server_version,
             server_alias=server_alias,
+            visible=visible,
         )
 
     def get_mcp_access_binding(self, server_name: str, binding_id: int) -> MCPAccessBinding:
@@ -6926,6 +6932,7 @@ class MlflowClient:
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         server_version: str | None = NOT_SET,
         server_alias: str | None = NOT_SET,
+        visible: bool | None = NOT_SET,
     ) -> MCPAccessBinding:
         return self._tracking_client.store.update_mcp_access_binding(
             server_name=server_name,
@@ -6934,6 +6941,7 @@ class MlflowClient:
             transport_type=transport_type,
             server_version=server_version,
             server_alias=server_alias,
+            visible=visible,
         )
 
     def delete_mcp_access_binding(self, server_name: str, binding_id: int) -> None:

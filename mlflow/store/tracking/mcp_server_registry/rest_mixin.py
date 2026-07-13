@@ -81,6 +81,7 @@ def _version_from_response(data: dict[str, Any]) -> MCPServerVersion:
             tools=tools,
             aliases=data.get("aliases", []),
             tags=data.get("tags", {}),
+            hidden_connect_options=data.get("hidden_connect_options"),
             source=data.get("source"),
             created_by=data.get("created_by"),
             last_updated_by=data.get("last_updated_by"),
@@ -116,6 +117,7 @@ def _binding_from_response(data: dict[str, Any]) -> MCPAccessBinding:
                 if data.get("resolved_version") is None
                 else _version_from_response(data["resolved_version"])
             ),
+            visible=data.get("visible", True),
             created_by=data.get("created_by"),
             last_updated_by=data.get("last_updated_by"),
             creation_timestamp=data.get("creation_timestamp"),
@@ -237,6 +239,7 @@ class RestMCPServerRegistryMixin:
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = None,
         created_by: str | None = None,
+        hidden_connect_options: list[str] | None = None,
     ) -> MCPServerVersion:
         name = server_json.get("name")
         version = server_json.get("version")
@@ -253,6 +256,8 @@ class RestMCPServerRegistryMixin:
             body["status"] = str(status)
         if tools is not None:
             body["tools"] = [t.to_dict() for t in tools]
+        if hidden_connect_options is not None:
+            body["hidden_connect_options"] = hidden_connect_options
         data = self._mcp_request("POST", f"{_server_path(name)}/versions", json=body)
         return _version_from_response(data)
 
@@ -309,6 +314,7 @@ class RestMCPServerRegistryMixin:
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
+        hidden_connect_options: list[str] | None = NOT_SET,
     ) -> MCPServerVersion:
         body: dict[str, Any] = {}
         if display_name is not NOT_SET:
@@ -317,6 +323,8 @@ class RestMCPServerRegistryMixin:
             body["status"] = str(status) if status is not None else None
         if tools is not NOT_SET:
             body["tools"] = None if tools is None else [t.to_dict() for t in tools]
+        if hidden_connect_options is not NOT_SET:
+            body["hidden_connect_options"] = hidden_connect_options
         data = self._mcp_request(
             "PATCH", f"{_server_path(name)}/versions/{_encode_path_param(version)}", json=body
         )
@@ -335,10 +343,12 @@ class RestMCPServerRegistryMixin:
         server_version: str | None = None,
         server_alias: str | None = None,
         created_by: str | None = None,
+        visible: bool = True,
     ) -> MCPAccessBinding:
         body: dict[str, Any] = {
             "endpoint_url": endpoint_url,
             "transport_type": str(transport_type),
+            "visible": visible,
         }
         if server_version is not None:
             body["server_version"] = server_version
@@ -401,6 +411,7 @@ class RestMCPServerRegistryMixin:
         endpoint_url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         last_updated_by: str | None = None,
+        visible: bool | None = NOT_SET,
     ) -> MCPAccessBinding:
         body: dict[str, Any] = {}
         if server_version is not NOT_SET:
@@ -411,6 +422,8 @@ class RestMCPServerRegistryMixin:
             body["endpoint_url"] = endpoint_url
         if transport_type is not NOT_SET:
             body["transport_type"] = str(transport_type) if transport_type is not None else None
+        if visible is not NOT_SET:
+            body["visible"] = visible
         data = self._mcp_request(
             "PATCH",
             f"{_server_path(server_name)}/bindings/{_encode_path_param(binding_id)}",

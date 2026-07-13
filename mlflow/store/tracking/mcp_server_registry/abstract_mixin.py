@@ -127,6 +127,7 @@ class MCPServerRegistryMixin:
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = None,
         created_by: str | None = None,
+        hidden_connect_options: list[str] | None = None,
     ) -> MCPServerVersion:
         """Create a new version of an MCP server.
 
@@ -219,6 +220,7 @@ class MCPServerRegistryMixin:
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
+        hidden_connect_options: list[str] | None = NOT_SET,
     ) -> MCPServerVersion:
         """Update a version's metadata or status.
 
@@ -255,6 +257,7 @@ class MCPServerRegistryMixin:
         server_version: str | None = None,
         server_alias: str | None = None,
         created_by: str | None = None,
+        visible: bool = True,
     ) -> MCPAccessBinding:
         """Create a direct-access binding for an MCP server.
 
@@ -320,6 +323,7 @@ class MCPServerRegistryMixin:
         endpoint_url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         last_updated_by: str | None = None,
+        visible: bool | None = NOT_SET,
     ) -> MCPAccessBinding:
         """Update an existing access binding.
 

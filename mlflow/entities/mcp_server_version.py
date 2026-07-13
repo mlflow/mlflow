@@ -17,6 +17,7 @@ class MCPServerVersion:
     tools: list[MCPTool] | None = None
     aliases: list[str] = field(default_factory=list)
     tags: dict[str, str] = field(default_factory=dict)
+    hidden_connect_options: list[str] | None = None
     source: str | None = None
     workspace: str | None = None
     created_by: str | None = None

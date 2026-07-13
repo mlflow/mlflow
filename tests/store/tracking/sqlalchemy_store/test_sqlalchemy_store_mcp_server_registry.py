@@ -855,6 +855,33 @@ def test_update_mcp_server_version_deleted_raises(store):
     assert exc.value.error_code == "RESOURCE_DOES_NOT_EXIST"
 
 
+def test_create_mcp_server_version_with_hidden_connect_options(store):
+    sv = store.create_mcp_server_version(
+        _server_json(), hidden_connect_options=["packages"]
+    )
+    assert sv.hidden_connect_options == ["packages"]
+
+
+def test_create_mcp_server_version_hidden_connect_options_none_by_default(store):
+    sv = store.create_mcp_server_version(_server_json())
+    assert sv.hidden_connect_options is None
+
+
+def test_update_mcp_server_version_hidden_connect_options(store):
+    store.create_mcp_server_version(_server_json())
+    updated = store.update_mcp_server_version(
+        "io.github.test/servererver", "1.0.0",
+        hidden_connect_options=["packages", "remotes"],
+    )
+    assert updated.hidden_connect_options == ["packages", "remotes"]
+
+    updated2 = store.update_mcp_server_version(
+        "io.github.test/servererver", "1.0.0",
+        hidden_connect_options=None,
+    )
+    assert updated2.hidden_connect_options is None
+
+
 def test_delete_mcp_server_version_soft_delete(store):
     store.create_mcp_server_version(_server_json())
     store.delete_mcp_server_version("io.github.test/servererver", "1.0.0")

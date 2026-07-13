@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -212,6 +213,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = None,
         created_by: str | None = None,
+        hidden_connect_options: list[str] | None = None,
     ) -> MCPServerVersion:
         name = server_json.get("name")
         version = server_json.get("version")
@@ -272,6 +274,11 @@ class SqlAlchemyMCPServerRegistryMixin:
                         source=source,
                         created_by=created_by,
                         last_updated_by=created_by,
+                        hidden_connect_options=(
+                            json.dumps(hidden_connect_options)
+                            if hidden_connect_options is not None
+                            else None
+                        ),
                         created_at=now,
                         last_updated_at=now,
                     )
@@ -409,6 +416,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
+        hidden_connect_options: list[str] | None = NOT_SET,
     ) -> MCPServerVersion:
         with self.ManagedSessionMaker(read_only=False) as session:
             sv = self._get_live_mcp_server_version_or_raise(session, name, version)
@@ -424,6 +432,12 @@ class SqlAlchemyMCPServerRegistryMixin:
                 sv.display_name = display_name
             if tools is not NOT_SET:
                 sv.tools = None if tools is None else [t.to_dict() for t in tools]
+            if hidden_connect_options is not NOT_SET:
+                sv.hidden_connect_options = (
+                    json.dumps(hidden_connect_options)
+                    if hidden_connect_options is not None
+                    else None
+                )
 
             sv.last_updated_by = last_updated_by
             sv.last_updated_at = get_current_time_millis()
@@ -543,6 +557,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         server_version: str | None = None,
         server_alias: str | None = None,
         created_by: str | None = None,
+        visible: bool = True,
     ) -> MCPAccessBinding:
         _validate_exactly_one("server_version", server_version, "server_alias", server_alias)
 
@@ -581,6 +596,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                     server_alias=server_alias,
                     created_by=created_by,
                     last_updated_by=created_by,
+                    visible=visible,
                     created_at=now,
                     last_updated_at=now,
                 )
@@ -682,6 +698,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         endpoint_url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         last_updated_by: str | None = None,
+        visible: bool | None = NOT_SET,
     ) -> MCPAccessBinding:
         if server_version is not NOT_SET and server_alias is not NOT_SET:
             if server_version is not None and server_alias is not None:
@@ -737,6 +754,8 @@ class SqlAlchemyMCPServerRegistryMixin:
                 binding.endpoint_url = endpoint_url
             if transport_type is not NOT_SET and transport_type is not None:
                 binding.transport_type = transport_type.value
+            if visible is not NOT_SET and visible is not None:
+                binding.visible = visible
 
             binding.last_updated_by = last_updated_by
             binding.last_updated_at = get_current_time_millis()
