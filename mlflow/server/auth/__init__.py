@@ -337,7 +337,7 @@ from mlflow.server.handlers import (
 )
 from mlflow.server.jobs import get_job
 from mlflow.server.mcp_server_api import (
-    MCPAccessBindingResponse,
+    MCPAccessEndpointResponse,
     MCPServerResponse,
     get_mcp_server_api_route_prefixes,
     is_mcp_server_api_path,
@@ -4506,6 +4506,9 @@ def _get_mcp_server_validator(
 
     async def validator(username: str, request: StarletteRequest) -> bool:
         if request.method == "POST" and _is_mcp_server_version_create_path(parts):
+            request.state.mcp_server_can_update_existing_recheck = lambda: (
+                _get_mcp_server_permission(name, username).can_update
+            )
             parent_missing = not _server_exists()
             request.state.mcp_server_parent_auto_created = parent_missing
             if parent_missing:
@@ -4627,10 +4630,10 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
     return json.dumps(data).encode()
 
 
-def _filter_search_mcp_bindings(username: str, body: bytes, request: StarletteRequest) -> bytes:
+def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
     can_read = _role_based_read_predicate(username, "mcp_server")
-    readable = [b for b in data.get("mcp_access_bindings", []) if can_read(b["server_name"])]
+    readable = [e for e in data.get("mcp_access_endpoints", []) if can_read(e["server_name"])]
 
     params = request.query_params
     max_results = int(params.get("max_results", 100))
@@ -4644,7 +4647,7 @@ def _filter_search_mcp_bindings(username: str, body: bytes, request: StarletteRe
         readable=readable,
         max_results=max_results,
         next_token=data.get("next_page_token"),
-        fetch_page=lambda token: _get_tracking_store().search_mcp_access_bindings(
+        fetch_page=lambda token: _get_tracking_store().search_mcp_access_endpoints(
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
@@ -4652,10 +4655,10 @@ def _filter_search_mcp_bindings(username: str, body: bytes, request: StarletteRe
             server_version=server_version,
             server_alias=server_alias,
         ),
-        get_name=lambda b: b.server_name,
-        to_dict=lambda b: MCPAccessBindingResponse.from_entity(b).model_dump(mode="json"),
+        get_name=lambda e: e.server_name,
+        to_dict=lambda e: MCPAccessEndpointResponse.from_entity(e).model_dump(mode="json"),
     )
-    data["mcp_access_bindings"] = readable[:max_results]
+    data["mcp_access_endpoints"] = readable[:max_results]
     return json.dumps(data).encode()
 
 
@@ -4755,7 +4758,7 @@ FASTAPI_RESPONSE_FILTERS: dict[
 ] = {
     (prefix, "GET"): _filter_search_mcp_servers for prefix in get_mcp_server_api_route_prefixes()
 } | {
-    (f"{prefix}/bindings", "GET"): _filter_search_mcp_bindings
+    (f"{prefix}/endpoints", "GET"): _filter_search_mcp_endpoints
     for prefix in get_mcp_server_api_route_prefixes()
 }
 
@@ -4770,6 +4773,42 @@ def _find_fastapi_response_filter(
             if m == method and path.rstrip("/") == route.rstrip("/")
         ),
         None,
+    )
+
+
+def _apply_fastapi_response_filter(
+    response_filter: Callable[[str, bytes, StarletteRequest], bytes],
+    username: str,
+    body: bytes,
+    request: StarletteRequest,
+    response,
+    path: str,
+):
+    headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+    try:
+        filtered_content = response_filter(username, body, request)
+    except MlflowException as e:
+        _logger.exception("response filter failed for %s %s", request.method, path)
+        return JSONResponse(
+            status_code=e.get_http_status_code(),
+            content=json.loads(e.serialize_as_json()),
+        )
+    except Exception:
+        _logger.exception("response filter failed for %s %s", request.method, path)
+        error = MlflowException(
+            "Failed to filter response for protected collection route",
+            error_code=INTERNAL_ERROR,
+        )
+        return JSONResponse(
+            status_code=error.get_http_status_code(),
+            content=json.loads(error.serialize_as_json()),
+        )
+
+    return FilteredResponse(
+        content=filtered_content,
+        status_code=response.status_code,
+        headers=headers,
+        media_type=response.media_type,
     )
 
 
@@ -4887,12 +4926,13 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             body = bytearray()
             async for chunk in response.body_iterator:
                 body.extend(chunk)
-            headers = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
-            return FilteredResponse(
-                content=response_filter(user.username, bytes(body), request),
-                status_code=response.status_code,
-                headers=headers,
-                media_type=response.media_type,
+            return _apply_fastapi_response_filter(
+                response_filter=response_filter,
+                username=user.username,
+                body=bytes(body),
+                request=request,
+                response=response,
+                path=path,
             )
 
         return response

@@ -103,7 +103,7 @@ _SPEC_BY_MODEL: dict[type, _ResourceSpec] = {
             "mcp_server_tags",
             "mcp_server_version_tags",
             "mcp_server_aliases",
-            ("mcp_access_bindings", "server_name"),
+            ("mcp_access_endpoints", "server_name"),
         ),
     ),
 }

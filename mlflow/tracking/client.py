@@ -47,7 +47,7 @@ from mlflow.entities import (
     Workspace,
     WorkspaceDeletionMode,
 )
-from mlflow.entities.mcp_access_binding import MCPAccessBinding
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
 from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
@@ -6877,28 +6877,28 @@ class MlflowClient:
     def delete_mcp_server_version(self, name: str, version: str) -> None:
         self._tracking_client.store.delete_mcp_server_version(name=name, version=version)
 
-    def create_mcp_access_binding(
+    def create_mcp_access_endpoint(
         self,
         server_name: str,
-        endpoint_url: str,
+        url: str,
         transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
         server_version: str | None = None,
         server_alias: str | None = None,
-    ) -> MCPAccessBinding:
-        return self._tracking_client.store.create_mcp_access_binding(
+    ) -> MCPAccessEndpoint:
+        return self._tracking_client.store.create_mcp_access_endpoint(
             server_name=server_name,
-            endpoint_url=endpoint_url,
+            url=url,
             transport_type=transport_type,
             server_version=server_version,
             server_alias=server_alias,
         )
 
-    def get_mcp_access_binding(self, server_name: str, binding_id: int) -> MCPAccessBinding:
-        return self._tracking_client.store.get_mcp_access_binding(
-            server_name=server_name, binding_id=binding_id
+    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> MCPAccessEndpoint:
+        return self._tracking_client.store.get_mcp_access_endpoint(
+            server_name=server_name, endpoint_id=endpoint_id
         )
 
-    def search_mcp_access_bindings(
+    def search_mcp_access_endpoints(
         self,
         server_name: str | None = None,
         server_version: str | None = None,
@@ -6907,8 +6907,8 @@ class MlflowClient:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
-    ) -> PagedList[MCPAccessBinding]:
-        return self._tracking_client.store.search_mcp_access_bindings(
+    ) -> PagedList[MCPAccessEndpoint]:
+        return self._tracking_client.store.search_mcp_access_endpoints(
             server_name=server_name,
             server_version=server_version,
             server_alias=server_alias,
@@ -6918,27 +6918,27 @@ class MlflowClient:
             page_token=page_token,
         )
 
-    def update_mcp_access_binding(
+    def update_mcp_access_endpoint(
         self,
         server_name: str,
-        binding_id: int,
-        endpoint_url: str | None = NOT_SET,
+        endpoint_id: str,
+        url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         server_version: str | None = NOT_SET,
         server_alias: str | None = NOT_SET,
-    ) -> MCPAccessBinding:
-        return self._tracking_client.store.update_mcp_access_binding(
+    ) -> MCPAccessEndpoint:
+        return self._tracking_client.store.update_mcp_access_endpoint(
             server_name=server_name,
-            binding_id=binding_id,
-            endpoint_url=endpoint_url,
+            endpoint_id=endpoint_id,
+            url=url,
             transport_type=transport_type,
             server_version=server_version,
             server_alias=server_alias,
         )
 
-    def delete_mcp_access_binding(self, server_name: str, binding_id: int) -> None:
-        self._tracking_client.store.delete_mcp_access_binding(
-            server_name=server_name, binding_id=binding_id
+    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> None:
+        self._tracking_client.store.delete_mcp_access_endpoint(
+            server_name=server_name, endpoint_id=endpoint_id
         )
 
     def set_mcp_server_tag(self, name: str, key: str, value: str) -> None:

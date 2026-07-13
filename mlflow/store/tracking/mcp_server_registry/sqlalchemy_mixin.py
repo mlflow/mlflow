@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import re
+import uuid
 from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import contains_eager, subqueryload
 
-from mlflow.entities.mcp_access_binding import MCPAccessBinding
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import (
     VALID_STATUS_TRANSITIONS,
     MCPRemoteTransportType,
@@ -27,7 +28,7 @@ from mlflow.store.db.db_types import MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.dbmodels.models import (
-    SqlMCPAccessBinding,
+    SqlMCPAccessEndpoint,
     SqlMCPServer,
     SqlMCPServerAlias,
     SqlMCPServerTag,
@@ -36,17 +37,37 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.store.tracking.mcp_server_registry.abstract_mixin import NOT_SET, MCPIcon
 from mlflow.utils.search_utils import (
-    SearchMCPAccessBindingUtils,
+    SearchMCPAccessEndpointUtils,
     SearchMCPServerUtils,
     SearchMCPServerVersionUtils,
     SearchUtils,
 )
 from mlflow.utils.semver_utils import encode_prerelease_sort_key, parse_semver
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.validation import (
+    _validate_mcp_icon_payloads,
+    _validate_mcp_initial_status,
+    _validate_mcp_tool_payloads,
+)
 
 SEARCH_MCP_SERVER_MAX_RESULTS_THRESHOLD = 1000
 
 _VALID_FILTER_COMPARATORS = {"=", "!=", ">", ">=", "<", "<=", "LIKE", "ILIKE", "IN"}
+
+
+def _validate_server_json_icon_fields(server_json: dict[str, Any]) -> None:
+    # Keep validation aligned with schema-defined icon locations only. Extra free-form
+    # metadata (for example under ``_meta``) must continue to round-trip untouched.
+    _validate_mcp_icon_payloads(server_json.get("icons"), "server_json.icons")
+
+
+def _validate_tool_icons(tools: list[MCPTool] | None, field_name: str = "tools") -> None:
+    if tools is None:
+        return
+
+    _validate_mcp_tool_payloads(tools, field_name)
+    for idx, tool in enumerate(tools):
+        _validate_mcp_icon_payloads(tool.icons, f"{field_name}[{idx}].icons")
 
 
 class SqlAlchemyMCPServerRegistryMixin:
@@ -69,6 +90,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         created_by: str | None = None,
     ) -> MCPServer:
         validate_mcp_server_name(name)
+        _validate_mcp_icon_payloads(icons, "icons")
         now = get_current_time_millis()
         with self.ManagedSessionMaker(read_only=False) as session:
             try:
@@ -98,39 +120,36 @@ class SqlAlchemyMCPServerRegistryMixin:
         query = self._get_query(session, SqlMCPServer).options(
             subqueryload(SqlMCPServer.tags),
             subqueryload(SqlMCPServer.server_aliases),
-            subqueryload(SqlMCPServer.access_bindings),
+            subqueryload(SqlMCPServer.access_endpoints),
         )
         return SqlMCPServer.with_resolved_latest(query)
 
-    def _resolve_binding_target_orm(
-        self, session, binding: SqlMCPAccessBinding
+    def _resolve_endpoint_target_orm(
+        self, session, endpoint: SqlMCPAccessEndpoint
     ) -> SqlMCPServerVersion:
-        if binding.server_version is not None:
+        if endpoint.server_version is not None:
             return self._get_live_mcp_server_version_or_raise(
-                session, binding.server_name, binding.server_version
+                session, endpoint.server_name, endpoint.server_version
             )
-        if binding.server_alias is not None:
+        if endpoint.server_alias is not None:
             return self._get_alias_target_version_or_raise(
-                session, binding.server_name, binding.server_alias
+                session, endpoint.server_name, endpoint.server_alias
             )
         raise MlflowException(
-            f"MCPAccessBinding {binding.binding_id} has no target version or alias",
+            f"MCPAccessEndpoint {endpoint.id} has no target version or alias",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    def _get_nested_binding_resolved_versions(
+    def _get_nested_endpoint_resolved_versions(
         self, session, servers
-    ) -> dict[int, MCPServerVersion | None]:
-        binding_ids = [
-            binding.binding_id for server in servers for binding in server.access_bindings
-        ]
-        if not binding_ids:
+    ) -> dict[str, MCPServerVersion | None]:
+        endpoint_ids = [ep.id for server in servers for ep in server.access_endpoints]
+        if not endpoint_ids:
             return {}
-        resolved_bindings = self._binding_query_with_version(session, binding_ids=binding_ids).all()
-        return {
-            binding.binding_id: binding.to_mlflow_entity().resolved_version
-            for binding in resolved_bindings
-        }
+        resolved_endpoints = self._endpoint_query_with_version(
+            session, endpoint_ids=endpoint_ids
+        ).all()
+        return {ep.id: ep.to_mlflow_entity().resolved_version for ep in resolved_endpoints}
 
     def get_mcp_server(self, name: str) -> MCPServer:
         with self.ManagedSessionMaker() as session:
@@ -141,7 +160,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             return server.to_mlflow_entity(
-                self._get_nested_binding_resolved_versions(session, [server])
+                self._get_nested_endpoint_resolved_versions(session, [server])
             )
 
     def search_mcp_servers(
@@ -166,7 +185,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             order_clauses = _parse_search_mcp_servers_order_by(order_by)
             query = query.order_by(*order_clauses).offset(offset).limit(max_results + 1)
             server_rows = query.all()
-            resolved_versions = self._get_nested_binding_resolved_versions(session, server_rows)
+            resolved_versions = self._get_nested_endpoint_resolved_versions(session, server_rows)
             servers = [server.to_mlflow_entity(resolved_versions) for server in server_rows]
             next_token = None
             if len(servers) > max_results:
@@ -181,6 +200,8 @@ class SqlAlchemyMCPServerRegistryMixin:
         icons: list[MCPIcon] | None = NOT_SET,
         last_updated_by: str | None = None,
     ) -> MCPServer:
+        if icons is not NOT_SET:
+            _validate_mcp_icon_payloads(icons, "icons")
         with self.ManagedSessionMaker(read_only=False) as session:
             server = self._get_entity_or_raise(session, SqlMCPServer, {"name": name}, "MCPServer")
             if description is not NOT_SET:
@@ -194,12 +215,27 @@ class SqlAlchemyMCPServerRegistryMixin:
             session.flush()
             server = self._mcp_server_query(session).filter(SqlMCPServer.name == name).one()
             return server.to_mlflow_entity(
-                self._get_nested_binding_resolved_versions(session, [server])
+                self._get_nested_endpoint_resolved_versions(session, [server])
             )
 
     def delete_mcp_server(self, name: str) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
             server = self._get_entity_or_raise(session, SqlMCPServer, {"name": name}, "MCPServer")
+            active_version = (
+                self
+                ._get_query(session, SqlMCPServerVersion)
+                .filter(
+                    SqlMCPServerVersion.name == name,
+                    SqlMCPServerVersion.status == MCPStatus.ACTIVE.value,
+                )
+                .first()
+            )
+            if active_version is not None:
+                raise MlflowException(
+                    f"Cannot delete MCP server '{name}' while it still has an active version "
+                    f"('{active_version.version}'). Delete or deactivate the active version first.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             session.delete(server)
 
     # --- MCPServerVersion operations ---
@@ -221,10 +257,13 @@ class SqlAlchemyMCPServerRegistryMixin:
                 error_code=INVALID_PARAMETER_VALUE,
             )
         validate_mcp_server_name(name)
+        _validate_server_json_icon_fields(server_json)
         parsed_version = parse_semver(version, param_name="server_json.version")
 
         now = get_current_time_millis()
         status = status or MCPStatus.DRAFT
+        _validate_mcp_initial_status(status)
+        _validate_tool_icons(tools)
         tools_json = None if tools is None else [t.to_dict() for t in tools]
 
         with self.ManagedSessionMaker(read_only=False) as session:
@@ -365,16 +404,16 @@ class SqlAlchemyMCPServerRegistryMixin:
             .order_by(status_priority.asc(), *SqlMCPServer._version_order_by())
         )
 
-    def _delete_latest_alias_bindings_if_unresolvable(self, session, server_name: str) -> None:
-        """Delete "latest" bindings when latest no longer resolves."""
+    def _delete_latest_alias_endpoints_if_unresolvable(self, session, server_name: str) -> None:
+        """Delete "latest" endpoints when latest no longer resolves."""
         remaining_versions = self._latest_resolved_version_query(session, server_name).first()
         if not remaining_versions:
             (
                 self
-                ._get_query(session, SqlMCPAccessBinding)
+                ._get_query(session, SqlMCPAccessEndpoint)
                 .filter(
-                    SqlMCPAccessBinding.server_name == server_name,
-                    SqlMCPAccessBinding.server_alias == "latest",
+                    SqlMCPAccessEndpoint.server_name == server_name,
+                    SqlMCPAccessEndpoint.server_alias == "latest",
                 )
                 .delete(synchronize_session=False)
             )
@@ -410,6 +449,8 @@ class SqlAlchemyMCPServerRegistryMixin:
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
     ) -> MCPServerVersion:
+        if tools is not NOT_SET:
+            _validate_tool_icons(tools)
         with self.ManagedSessionMaker(read_only=False) as session:
             sv = self._get_live_mcp_server_version_or_raise(session, name, version)
 
@@ -430,7 +471,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             session.add(sv)
             session.flush()
             if status is not NOT_SET:
-                self._delete_latest_alias_bindings_if_unresolvable(session, name)
+                self._delete_latest_alias_endpoints_if_unresolvable(session, name)
             return sv.to_mlflow_entity()
 
     def delete_mcp_server_version(self, name: str, version: str) -> None:
@@ -461,10 +502,10 @@ class SqlAlchemyMCPServerRegistryMixin:
             if alias_names := [a.alias for a in alias_rows]:
                 (
                     self
-                    ._get_query(session, SqlMCPAccessBinding)
+                    ._get_query(session, SqlMCPAccessEndpoint)
                     .filter(
-                        SqlMCPAccessBinding.server_name == name,
-                        SqlMCPAccessBinding.server_alias.in_(alias_names),
+                        SqlMCPAccessEndpoint.server_name == name,
+                        SqlMCPAccessEndpoint.server_alias.in_(alias_names),
                     )
                     .delete(synchronize_session=False)
                 )
@@ -472,10 +513,10 @@ class SqlAlchemyMCPServerRegistryMixin:
                     session.delete(alias_row)
             (
                 self
-                ._get_query(session, SqlMCPAccessBinding)
+                ._get_query(session, SqlMCPAccessEndpoint)
                 .filter(
-                    SqlMCPAccessBinding.server_name == name,
-                    SqlMCPAccessBinding.server_version == version,
+                    SqlMCPAccessEndpoint.server_name == name,
+                    SqlMCPAccessEndpoint.server_version == version,
                 )
                 .delete(synchronize_session=False)
             )
@@ -483,9 +524,9 @@ class SqlAlchemyMCPServerRegistryMixin:
             sv.status = MCPStatus.DELETED.value
             sv.last_updated_at = get_current_time_millis()
             session.flush()
-            self._delete_latest_alias_bindings_if_unresolvable(session, name)
+            self._delete_latest_alias_endpoints_if_unresolvable(session, name)
 
-    # --- MCPAccessBinding operations ---
+    # --- MCPAccessEndpoint operations ---
 
     def _get_alias_target_version_or_raise(
         self,
@@ -535,15 +576,15 @@ class SqlAlchemyMCPServerRegistryMixin:
             )
         return target_sv
 
-    def create_mcp_access_binding(
+    def create_mcp_access_endpoint(
         self,
         server_name: str,
-        endpoint_url: str,
+        url: str,
         transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
         server_version: str | None = None,
         server_alias: str | None = None,
         created_by: str | None = None,
-    ) -> MCPAccessBinding:
+    ) -> MCPAccessEndpoint:
         _validate_exactly_one("server_version", server_version, "server_alias", server_alias)
 
         now = get_current_time_millis()
@@ -566,16 +607,18 @@ class SqlAlchemyMCPServerRegistryMixin:
                     )
                 if sv.status == MCPStatus.DELETED.value:
                     raise MlflowException(
-                        f"Cannot create MCP access binding to deleted "
+                        f"Cannot create MCP access endpoint to deleted "
                         f"MCP server version '{server_name}' version '{server_version}'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             if server_alias is not None:
                 self._get_alias_target_version_or_raise(session, server_name, server_alias)
-            binding = self._with_workspace_field(
-                SqlMCPAccessBinding(
+            endpoint_id = f"ae-{uuid.uuid4().hex}"
+            endpoint = self._with_workspace_field(
+                SqlMCPAccessEndpoint(
+                    id=endpoint_id,
                     server_name=server_name,
-                    endpoint_url=endpoint_url,
+                    url=url,
                     transport_type=transport_type.value,
                     server_version=server_version,
                     server_alias=server_alias,
@@ -585,36 +628,36 @@ class SqlAlchemyMCPServerRegistryMixin:
                     last_updated_at=now,
                 )
             )
-            session.add(binding)
+            session.add(endpoint)
             session.flush()
             return (
                 self
-                ._binding_query_with_version(session, binding_ids=[binding.binding_id])
+                ._endpoint_query_with_version(session, endpoint_ids=[endpoint.id])
                 .one()
                 .to_mlflow_entity()
             )
 
-    def _binding_query_with_version(
+    def _endpoint_query_with_version(
         self,
         session,
-        binding_ids: list[int] | None = None,
+        endpoint_ids: list[str] | None = None,
         server_name: str | None = None,
         server_version: str | None = None,
         server_alias: str | None = None,
     ):
-        resolved_targets = _resolved_binding_targets_subquery(
-            binding_ids=binding_ids,
+        resolved_targets = _resolved_endpoint_targets_subquery(
+            endpoint_ids=endpoint_ids,
             server_name=server_name,
             server_version=server_version,
             server_alias=server_alias,
         )
         return (
             self
-            ._get_query(session, SqlMCPAccessBinding)
+            ._get_query(session, SqlMCPAccessEndpoint)
             .populate_existing()
             .join(
                 resolved_targets,
-                SqlMCPAccessBinding.binding_id == resolved_targets.c.binding_id,
+                SqlMCPAccessEndpoint.id == resolved_targets.c.id,
             )
             .join(
                 SqlMCPServerVersion,
@@ -624,27 +667,27 @@ class SqlAlchemyMCPServerRegistryMixin:
                     SqlMCPServerVersion.version == resolved_targets.c.resolved_version,
                 ),
             )
-            .options(contains_eager(SqlMCPAccessBinding.resolved_version_rel))
+            .options(contains_eager(SqlMCPAccessEndpoint.resolved_version_rel))
         )
 
-    def get_mcp_access_binding(self, server_name: str, binding_id: int) -> MCPAccessBinding:
+    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> MCPAccessEndpoint:
         with self.ManagedSessionMaker() as session:
-            binding = self._binding_query_with_version(
-                session, binding_ids=[binding_id]
+            endpoint = self._endpoint_query_with_version(
+                session, endpoint_ids=[endpoint_id]
             ).one_or_none()
-            if not binding:
+            if not endpoint:
                 raise MlflowException(
-                    f"MCPAccessBinding {binding_id} not found",
+                    f"MCPAccessEndpoint {endpoint_id} not found",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
-            if binding.server_name != server_name:
+            if endpoint.server_name != server_name:
                 raise MlflowException(
-                    f"MCPAccessBinding {binding_id} does not belong to server '{server_name}'",
+                    f"MCPAccessEndpoint {endpoint_id} does not belong to server '{server_name}'",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
-            return binding.to_mlflow_entity()
+            return endpoint.to_mlflow_entity()
 
-    def search_mcp_access_bindings(
+    def search_mcp_access_endpoints(
         self,
         server_name: str | None = None,
         server_version: str | None = None,
@@ -653,36 +696,36 @@ class SqlAlchemyMCPServerRegistryMixin:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
-    ) -> PagedList[MCPAccessBinding]:
+    ) -> PagedList[MCPAccessEndpoint]:
         self._validate_max_results_param(max_results)
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
         with self.ManagedSessionMaker() as session:
-            query = self._binding_query_with_version(
+            query = self._endpoint_query_with_version(
                 session,
                 server_name=server_name,
                 server_version=server_version,
                 server_alias=server_alias,
             )
             if filter_string:
-                query = _apply_mcp_access_binding_filter(query, filter_string, self._get_dialect())
-            order_clauses = _parse_search_mcp_access_bindings_order_by(order_by)
+                query = _apply_mcp_access_endpoint_filter(query, filter_string, self._get_dialect())
+            order_clauses = _parse_search_mcp_access_endpoints_order_by(order_by)
             query = query.order_by(*order_clauses).offset(offset).limit(max_results + 1)
-            bindings = [b.to_mlflow_entity() for b in query.all()]
+            endpoints = [e.to_mlflow_entity() for e in query.all()]
             next_token = None
-            if len(bindings) > max_results:
+            if len(endpoints) > max_results:
                 next_token = SearchUtils.create_page_token(offset + max_results)
-            return PagedList(bindings[:max_results], next_token)
+            return PagedList(endpoints[:max_results], next_token)
 
-    def update_mcp_access_binding(
+    def update_mcp_access_endpoint(
         self,
         server_name: str,
-        binding_id: int,
+        endpoint_id: str,
         server_version: str | None = NOT_SET,
         server_alias: str | None = NOT_SET,
-        endpoint_url: str | None = NOT_SET,
+        url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         last_updated_by: str | None = None,
-    ) -> MCPAccessBinding:
+    ) -> MCPAccessEndpoint:
         if server_version is not NOT_SET and server_alias is not NOT_SET:
             if server_version is not None and server_alias is not None:
                 raise MlflowException(
@@ -690,15 +733,15 @@ class SqlAlchemyMCPServerRegistryMixin:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         with self.ManagedSessionMaker(read_only=False) as session:
-            binding = self._get_entity_or_raise(
+            endpoint = self._get_entity_or_raise(
                 session,
-                SqlMCPAccessBinding,
-                {"binding_id": binding_id},
-                "MCPAccessBinding",
+                SqlMCPAccessEndpoint,
+                {"id": endpoint_id},
+                "MCPAccessEndpoint",
             )
-            if binding.server_name != server_name:
+            if endpoint.server_name != server_name:
                 raise MlflowException(
-                    f"MCPAccessBinding {binding_id} does not belong to server '{server_name}'",
+                    f"MCPAccessEndpoint {endpoint_id} does not belong to server '{server_name}'",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             if server_version is not NOT_SET and server_version is not None:
@@ -718,53 +761,53 @@ class SqlAlchemyMCPServerRegistryMixin:
                     )
                 if sv.status == MCPStatus.DELETED.value:
                     raise MlflowException(
-                        f"Cannot update MCP access binding to deleted "
+                        f"Cannot update MCP access endpoint to deleted "
                         f"MCP server version '{server_name}' version '{server_version}'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                binding.server_version = server_version
-                binding.server_alias = None
+                endpoint.server_version = server_version
+                endpoint.server_alias = None
             if server_alias is not NOT_SET and server_alias is not None:
                 self._get_alias_target_version_or_raise(session, server_name, server_alias)
-                binding.server_alias = server_alias
-                binding.server_version = None
-            if endpoint_url is not NOT_SET:
-                if endpoint_url is None:
+                endpoint.server_alias = server_alias
+                endpoint.server_version = None
+            if url is not NOT_SET:
+                if url is None:
                     raise MlflowException(
-                        "MCP access binding endpoint_url cannot be None",
+                        "MCP access endpoint url cannot be None",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                binding.endpoint_url = endpoint_url
+                endpoint.url = url
             if transport_type is not NOT_SET and transport_type is not None:
-                binding.transport_type = transport_type.value
+                endpoint.transport_type = transport_type.value
 
-            binding.last_updated_by = last_updated_by
-            binding.last_updated_at = get_current_time_millis()
-            session.add(binding)
+            endpoint.last_updated_by = last_updated_by
+            endpoint.last_updated_at = get_current_time_millis()
+            session.add(endpoint)
             session.flush()
-            bid = binding.binding_id
-            session.expunge(binding)
+            eid = endpoint.id
+            session.expunge(endpoint)
             return (
                 self
-                ._binding_query_with_version(session, binding_ids=[bid])
+                ._endpoint_query_with_version(session, endpoint_ids=[eid])
                 .one()
                 .to_mlflow_entity()
             )
 
-    def delete_mcp_access_binding(self, server_name: str, binding_id: int) -> None:
+    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
-            binding = self._get_entity_or_raise(
+            endpoint = self._get_entity_or_raise(
                 session,
-                SqlMCPAccessBinding,
-                {"binding_id": binding_id},
-                "MCPAccessBinding",
+                SqlMCPAccessEndpoint,
+                {"id": endpoint_id},
+                "MCPAccessEndpoint",
             )
-            if binding.server_name != server_name:
+            if endpoint.server_name != server_name:
                 raise MlflowException(
-                    f"MCPAccessBinding {binding_id} does not belong to server '{server_name}'",
+                    f"MCPAccessEndpoint {endpoint_id} does not belong to server '{server_name}'",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
-            session.delete(binding)
+            session.delete(endpoint)
 
     # --- Tag operations ---
 
@@ -907,10 +950,10 @@ class SqlAlchemyMCPServerRegistryMixin:
                 )
             (
                 self
-                ._get_query(session, SqlMCPAccessBinding)
+                ._get_query(session, SqlMCPAccessEndpoint)
                 .filter(
-                    SqlMCPAccessBinding.server_name == name,
-                    SqlMCPAccessBinding.server_alias == alias,
+                    SqlMCPAccessEndpoint.server_name == name,
+                    SqlMCPAccessEndpoint.server_alias == alias,
                 )
                 .delete(synchronize_session=False)
             )
@@ -979,8 +1022,8 @@ def _validate_status_transition(current: MCPStatus, new: MCPStatus) -> None:
         )
 
 
-def _resolved_binding_targets_subquery(
-    binding_ids: list[int] | None = None,
+def _resolved_endpoint_targets_subquery(
+    endpoint_ids: list[str] | None = None,
     server_name: str | None = None,
     server_version: str | None = None,
     server_alias: str | None = None,
@@ -988,18 +1031,18 @@ def _resolved_binding_targets_subquery(
     alias_row = sa.orm.aliased(SqlMCPServerAlias)
 
     def _apply_common_filters(stmt):
-        if binding_ids is not None:
-            if not binding_ids:
+        if endpoint_ids is not None:
+            if not endpoint_ids:
                 stmt = stmt.where(sa.false())
             else:
-                stmt = stmt.where(SqlMCPAccessBinding.binding_id.in_(binding_ids))
+                stmt = stmt.where(SqlMCPAccessEndpoint.id.in_(endpoint_ids))
         if server_name is not None:
-            stmt = stmt.where(SqlMCPAccessBinding.server_name == server_name)
+            stmt = stmt.where(SqlMCPAccessEndpoint.server_name == server_name)
         return stmt
 
     # All branches include a defensive `status != DELETED` filter on the final
     # SqlMCPServerVersion join. Under normal operation deleted versions cannot
-    # appear here because deleting a version also removes affected bindings and
+    # appear here because deleting a version also removes affected endpoints and
     # aliases, but the filter keeps the branches consistent and guards against
     # data-integrity edge cases.
 
@@ -1007,31 +1050,31 @@ def _resolved_binding_targets_subquery(
 
     # Build only the query branches we'll actually need based on filter parameters
     if server_alias is None:
-        # Direct version bindings
+        # Direct version endpoints
         direct_stmt = _apply_common_filters(
             sa
             .select(
-                SqlMCPAccessBinding.binding_id.label("binding_id"),
-                SqlMCPAccessBinding.workspace.label("binding_workspace"),
-                SqlMCPAccessBinding.server_name.label("binding_server_name"),
+                SqlMCPAccessEndpoint.id.label("id"),
+                SqlMCPAccessEndpoint.workspace.label("endpoint_workspace"),
+                SqlMCPAccessEndpoint.server_name.label("endpoint_server_name"),
                 SqlMCPServerVersion.workspace.label("resolved_workspace"),
                 SqlMCPServerVersion.name.label("resolved_name"),
                 SqlMCPServerVersion.version.label("resolved_version"),
             )
-            .select_from(SqlMCPAccessBinding)
+            .select_from(SqlMCPAccessEndpoint)
             .join(
                 SqlMCPServerVersion,
                 sa.and_(
-                    SqlMCPAccessBinding.workspace == SqlMCPServerVersion.workspace,
-                    SqlMCPAccessBinding.server_name == SqlMCPServerVersion.name,
-                    SqlMCPAccessBinding.server_version == SqlMCPServerVersion.version,
+                    SqlMCPAccessEndpoint.workspace == SqlMCPServerVersion.workspace,
+                    SqlMCPAccessEndpoint.server_name == SqlMCPServerVersion.name,
+                    SqlMCPAccessEndpoint.server_version == SqlMCPServerVersion.version,
                     SqlMCPServerVersion.status != MCPStatus.DELETED.value,
                 ),
             )
-            .where(SqlMCPAccessBinding.server_version.is_not(None))
+            .where(SqlMCPAccessEndpoint.server_version.is_not(None))
         )
         if server_version is not None:
-            direct_stmt = direct_stmt.where(SqlMCPAccessBinding.server_version == server_version)
+            direct_stmt = direct_stmt.where(SqlMCPAccessEndpoint.server_version == server_version)
         branches.append(direct_stmt)
 
     if server_version is None:
@@ -1040,20 +1083,20 @@ def _resolved_binding_targets_subquery(
             stored_alias_stmt = _apply_common_filters(
                 sa
                 .select(
-                    SqlMCPAccessBinding.binding_id.label("binding_id"),
-                    SqlMCPAccessBinding.workspace.label("binding_workspace"),
-                    SqlMCPAccessBinding.server_name.label("binding_server_name"),
+                    SqlMCPAccessEndpoint.id.label("id"),
+                    SqlMCPAccessEndpoint.workspace.label("endpoint_workspace"),
+                    SqlMCPAccessEndpoint.server_name.label("endpoint_server_name"),
                     SqlMCPServerVersion.workspace.label("resolved_workspace"),
                     SqlMCPServerVersion.name.label("resolved_name"),
                     SqlMCPServerVersion.version.label("resolved_version"),
                 )
-                .select_from(SqlMCPAccessBinding)
+                .select_from(SqlMCPAccessEndpoint)
                 .join(
                     alias_row,
                     sa.and_(
-                        SqlMCPAccessBinding.workspace == alias_row.workspace,
-                        SqlMCPAccessBinding.server_name == alias_row.name,
-                        SqlMCPAccessBinding.server_alias == alias_row.alias,
+                        SqlMCPAccessEndpoint.workspace == alias_row.workspace,
+                        SqlMCPAccessEndpoint.server_name == alias_row.name,
+                        SqlMCPAccessEndpoint.server_alias == alias_row.alias,
                     ),
                 )
                 .join(
@@ -1066,13 +1109,13 @@ def _resolved_binding_targets_subquery(
                     ),
                 )
                 .where(
-                    SqlMCPAccessBinding.server_alias.is_not(None),
-                    SqlMCPAccessBinding.server_alias != "latest",
+                    SqlMCPAccessEndpoint.server_alias.is_not(None),
+                    SqlMCPAccessEndpoint.server_alias != "latest",
                 )
             )
             if server_alias is not None and server_alias != "latest":
                 stored_alias_stmt = stored_alias_stmt.where(
-                    SqlMCPAccessBinding.server_alias == server_alias
+                    SqlMCPAccessEndpoint.server_alias == server_alias
                 )
             branches.append(stored_alias_stmt)
 
@@ -1084,32 +1127,32 @@ def _resolved_binding_targets_subquery(
             latest_alias_stmt = _apply_common_filters(
                 sa
                 .select(
-                    SqlMCPAccessBinding.binding_id.label("binding_id"),
-                    SqlMCPAccessBinding.workspace.label("binding_workspace"),
-                    SqlMCPAccessBinding.server_name.label("binding_server_name"),
+                    SqlMCPAccessEndpoint.id.label("id"),
+                    SqlMCPAccessEndpoint.workspace.label("endpoint_workspace"),
+                    SqlMCPAccessEndpoint.server_name.label("endpoint_server_name"),
                     SqlMCPServerVersion.workspace.label("resolved_workspace"),
                     SqlMCPServerVersion.name.label("resolved_name"),
                     SqlMCPServerVersion.version.label("resolved_version"),
                 )
-                .select_from(SqlMCPAccessBinding)
+                .select_from(SqlMCPAccessEndpoint)
                 .join(
                     latest_candidates,
                     sa.and_(
-                        latest_candidates.c.workspace == SqlMCPAccessBinding.workspace,
-                        latest_candidates.c.name == SqlMCPAccessBinding.server_name,
+                        latest_candidates.c.workspace == SqlMCPAccessEndpoint.workspace,
+                        latest_candidates.c.name == SqlMCPAccessEndpoint.server_name,
                         latest_candidates.c.row_num == 1,
                     ),
                 )
                 .join(
                     SqlMCPServerVersion,
                     sa.and_(
-                        SqlMCPServerVersion.workspace == SqlMCPAccessBinding.workspace,
-                        SqlMCPServerVersion.name == SqlMCPAccessBinding.server_name,
+                        SqlMCPServerVersion.workspace == SqlMCPAccessEndpoint.workspace,
+                        SqlMCPServerVersion.name == SqlMCPAccessEndpoint.server_name,
                         SqlMCPServerVersion.version == latest_candidates.c.version,
                         SqlMCPServerVersion.status != MCPStatus.DELETED.value,
                     ),
                 )
-                .where(SqlMCPAccessBinding.server_alias == "latest")
+                .where(SqlMCPAccessEndpoint.server_alias == "latest")
             )
             branches.append(latest_alias_stmt)
 
@@ -1118,29 +1161,29 @@ def _resolved_binding_targets_subquery(
         empty_stmt = _apply_common_filters(
             sa
             .select(
-                SqlMCPAccessBinding.binding_id.label("binding_id"),
-                SqlMCPAccessBinding.workspace.label("binding_workspace"),
-                SqlMCPAccessBinding.server_name.label("binding_server_name"),
+                SqlMCPAccessEndpoint.id.label("id"),
+                SqlMCPAccessEndpoint.workspace.label("endpoint_workspace"),
+                SqlMCPAccessEndpoint.server_name.label("endpoint_server_name"),
                 SqlMCPServerVersion.workspace.label("resolved_workspace"),
                 SqlMCPServerVersion.name.label("resolved_name"),
                 SqlMCPServerVersion.version.label("resolved_version"),
             )
-            .select_from(SqlMCPAccessBinding)
+            .select_from(SqlMCPAccessEndpoint)
             .join(
                 SqlMCPServerVersion,
                 sa.and_(
-                    SqlMCPAccessBinding.workspace == SqlMCPServerVersion.workspace,
-                    SqlMCPAccessBinding.server_name == SqlMCPServerVersion.name,
-                    SqlMCPAccessBinding.server_version == SqlMCPServerVersion.version,
+                    SqlMCPAccessEndpoint.workspace == SqlMCPServerVersion.workspace,
+                    SqlMCPAccessEndpoint.server_name == SqlMCPServerVersion.name,
+                    SqlMCPAccessEndpoint.server_version == SqlMCPServerVersion.version,
                 ),
             )
             .where(sa.false())
         )
-        return empty_stmt.subquery("resolved_binding_targets")
+        return empty_stmt.subquery("resolved_endpoint_targets")
 
     # Use sa.union_all to combine multiple branches
     stmt = branches[0] if len(branches) == 1 else sa.union_all(*branches)
-    return stmt.subquery("resolved_binding_targets")
+    return stmt.subquery("resolved_endpoint_targets")
 
 
 def _apply_mcp_server_filter(query, filter_string, dialect):
@@ -1163,23 +1206,24 @@ def _apply_mcp_server_filter(query, filter_string, dialect):
                 attribute_filters.append(
                     _get_expression_comparison_func(comparator, dialect)(resolved_status, value)
                 )
-            elif key == "has_access_bindings":
+            elif key == "has_access_endpoints":
                 if comparator != "=" or value.lower() not in ("true", "false"):
                     raise MlflowException(
-                        "has_access_bindings only supports '= true' or '= false'",
+                        "has_access_endpoints only supports '= true' or '= false'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                resolved_binding_targets = _resolved_binding_targets_subquery()
-                live_binding_exists = sa.exists(
-                    sa.select(resolved_binding_targets.c.binding_id).where(
+                resolved_endpoint_targets = _resolved_endpoint_targets_subquery()
+                live_endpoint_exists = sa.exists(
+                    sa.select(resolved_endpoint_targets.c.id).where(
                         sa.and_(
-                            resolved_binding_targets.c.binding_workspace == SqlMCPServer.workspace,
-                            resolved_binding_targets.c.binding_server_name == SqlMCPServer.name,
+                            resolved_endpoint_targets.c.endpoint_workspace
+                            == SqlMCPServer.workspace,
+                            resolved_endpoint_targets.c.endpoint_server_name == SqlMCPServer.name,
                         )
                     )
                 )
                 attribute_filters.append(
-                    live_binding_exists if value.lower() == "true" else ~live_binding_exists
+                    live_endpoint_exists if value.lower() == "true" else ~live_endpoint_exists
                 )
             else:
                 attr = getattr(SqlMCPServer, key)
@@ -1231,8 +1275,8 @@ def _apply_mcp_server_filter(query, filter_string, dialect):
     return query
 
 
-def _apply_mcp_access_binding_filter(query, filter_string, dialect):
-    parsed = SearchMCPAccessBindingUtils.parse_search_filter(filter_string)
+def _apply_mcp_access_endpoint_filter(query, filter_string, dialect):
+    parsed = SearchMCPAccessEndpointUtils.parse_search_filter(filter_string)
     for f in parsed:
         type_ = f["type"]
         key = f["key"]
@@ -1248,7 +1292,7 @@ def _apply_mcp_access_binding_filter(query, filter_string, dialect):
                 f"Invalid comparator '{comparator}' for attribute '{key}'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        attr = SqlMCPServerVersion.status if key == "status" else getattr(SqlMCPAccessBinding, key)
+        attr = SqlMCPServerVersion.status if key == "status" else getattr(SqlMCPAccessEndpoint, key)
         query = query.filter(SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value))
     return query
 
@@ -1334,13 +1378,13 @@ def _semver_version_order_clauses(is_ascending: bool):
     )
 
 
-def _parse_search_mcp_access_bindings_order_by(order_by_list):
-    valid_keys = {"binding_id", "server_name", "created_at", "last_updated_at"}
+def _parse_search_mcp_access_endpoints_order_by(order_by_list):
+    valid_keys = {"id", "server_name", "created_at", "last_updated_at"}
     column_map = {
-        "binding_id": SqlMCPAccessBinding.binding_id,
-        "server_name": SqlMCPAccessBinding.server_name,
-        "created_at": SqlMCPAccessBinding.created_at,
-        "last_updated_at": SqlMCPAccessBinding.last_updated_at,
+        "id": SqlMCPAccessEndpoint.id,
+        "server_name": SqlMCPAccessEndpoint.server_name,
+        "created_at": SqlMCPAccessEndpoint.created_at,
+        "last_updated_at": SqlMCPAccessEndpoint.last_updated_at,
     }
     clauses = []
     observed = set()
@@ -1360,8 +1404,8 @@ def _parse_search_mcp_access_bindings_order_by(order_by_list):
                 )
             observed.add(key)
             clauses.append(column_map[key].asc() if is_ascending else column_map[key].desc())
-    if "binding_id" not in observed:
-        clauses.append(SqlMCPAccessBinding.binding_id.asc())
+    if "id" not in observed:
+        clauses.append(SqlMCPAccessEndpoint.id.asc())
     return clauses
 
 
