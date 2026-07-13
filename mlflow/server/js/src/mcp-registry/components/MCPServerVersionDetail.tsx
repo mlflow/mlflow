@@ -1,25 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { tagListStyles, textEllipsisStyles, mcpIconStyles, noShrinkStyles } from '../styles';
 import {
-  tagListStyles,
-  textEllipsisStyles,
-  mcpIconStyles,
-  flexColumnGapStyles,
-  blockLabelStyles,
-  monoFontStyles,
-  noShrinkStyles,
-} from '../styles';
-import {
-  Alert,
   Button,
-  Input,
   McpIcon,
-  Modal,
   PencilIcon,
   Spacer,
   Tabs,
   Tag,
-  SimpleSelect,
-  SimpleSelectOption,
   TrashIcon,
   Typography,
   useDesignSystemTheme,
@@ -27,15 +14,13 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPServer, MCPServerVersion } from '../types';
-import { STATUS_TAG_COLOR, STATUS_TRANSITIONS, resolveDisplayName } from '../utils';
-import type { MCPStatus } from '../types';
+import { STATUS_TAG_COLOR, resolveDisplayName } from '../utils';
 import { ServerJSONSection, ToolsSection } from './ServerJSONSection';
 import { ConfirmationModal } from '../../admin/ConfirmationModal';
 import { MCPServerAliasesCell } from './MCPServerAliasesCell';
 import { useUpdateMCPServerVersion, useDeleteMCPServerVersion } from '../hooks/useMCPServerVersionMutations';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
-import { AliasSelect } from '../../common/components/AliasSelect';
-import { LATEST_ALIAS, RESERVED_ALIASES, validateToolsJson } from '../utils';
+import { EditVersionModal } from './EditVersionModal';
 import { useCurrentUserIsAdmin, useIsAuthAvailable } from '../../account/hooks';
 import Utils from '../../common/utils/Utils';
 
@@ -58,12 +43,7 @@ export const MCPServerVersionDetail = ({
   const isUserAdmin = useCurrentUserIsAdmin();
   const isAdmin = !isAuthAvailable || isUserAdmin;
   const [editVersionModalVisible, setEditVersionModalVisible] = useState(false);
-  const [editVersionDisplayName, setEditVersionDisplayName] = useState('');
-  const [editVersionStatus, setEditVersionStatus] = useState<MCPStatus>('draft');
-  const [editVersionAliases, setEditVersionAliases] = useState<string[]>([]);
-  const [editVersionToolsText, setEditVersionToolsText] = useState('');
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [toolsValidationError, setToolsValidationError] = useState<string | null>(null);
   const [localHiddenOptions, setLocalHiddenOptions] = useState<string[] | undefined>(undefined);
   const currentVersionRef = useRef(version?.version);
   currentVersionRef.current = version?.version;
@@ -73,16 +53,6 @@ export const MCPServerVersionDetail = ({
   }, [version?.version]);
   const updateVersionMutation = useUpdateMCPServerVersion(server.name);
   const deleteVersionMutation = useDeleteMCPServerVersion(server.name);
-
-  const openEditVersionModal = () => {
-    if (!version) return;
-    setEditVersionDisplayName(version.display_name || version.server_json?.title || '');
-    setEditVersionStatus(version.status);
-    const currentAliases = (aliasesByVersion[version.version] ?? []).filter((a) => a !== LATEST_ALIAS);
-    setEditVersionAliases(currentAliases);
-    setEditVersionToolsText(version.tools?.length ? JSON.stringify(version.tools, null, 2) : '');
-    setEditVersionModalVisible(true);
-  };
 
   const handleToggleConnectOption = (key: string, visible: boolean) => {
     if (!version) return;
@@ -155,7 +125,7 @@ export const MCPServerVersionDetail = ({
             <Button
               componentId="mlflow.mcp_registry.detail.edit_version"
               icon={<PencilIcon />}
-              onClick={openEditVersionModal}
+              onClick={() => setEditVersionModalVisible(true)}
             >
               <FormattedMessage defaultMessage="Edit" description="MCP server edit version button" />
             </Button>
@@ -322,7 +292,7 @@ export const MCPServerVersionDetail = ({
               serverName={server.name}
               isAdmin={isAdmin}
               isAuthAvailable={isAuthAvailable}
-              hiddenConnectOptions={localHiddenOptions ?? version.hidden_connect_options}
+              hiddenConnectOptions={localHiddenOptions ?? version.hidden_connect_options ?? undefined}
               onToggleConnectOption={handleToggleConnectOption}
             />
           )}
@@ -335,156 +305,13 @@ export const MCPServerVersionDetail = ({
         )}
       </Tabs.Root>
 
-      <Modal
-        componentId="mlflow.mcp_registry.detail.version.edit_version_modal"
-        title={
-          <FormattedMessage
-            defaultMessage="Edit version details"
-            description="MCP server version edit details modal title"
-          />
-        }
+      <EditVersionModal
         visible={editVersionModalVisible}
-        size="wide"
-        destroyOnClose
-        confirmLoading={updateVersionMutation.isLoading}
-        okText={<FormattedMessage defaultMessage="Save" description="Save button" />}
-        onOk={() => {
-          const payload: Parameters<typeof updateVersionMutation.mutate>[0] = { version: version.version };
-
-          if (editVersionDisplayName !== (version.display_name || version.server_json?.title || '')) {
-            payload.displayName = editVersionDisplayName;
-          }
-          if (editVersionStatus !== version.status) {
-            payload.status = editVersionStatus;
-          }
-
-          setToolsValidationError(null);
-          const currentToolsJson = version.tools?.length ? JSON.stringify(version.tools, null, 2) : '';
-          if (editVersionToolsText !== currentToolsJson) {
-            if (editVersionToolsText.trim()) {
-              const toolsResult = validateToolsJson(editVersionToolsText);
-              if (!toolsResult.valid) {
-                setToolsValidationError(toolsResult.error ?? 'Invalid tools JSON');
-                return;
-              }
-              payload.tools = toolsResult.parsed ?? null;
-            } else {
-              payload.tools = [];
-            }
-          }
-
-          const existingAliases = (aliasesByVersion[version.version] ?? []).filter((a) => a !== LATEST_ALIAS);
-          const addedAliases = editVersionAliases.filter((a) => !existingAliases.includes(a));
-          const deletedAliases = existingAliases.filter((a) => !editVersionAliases.includes(a));
-          if (addedAliases.length > 0 || deletedAliases.length > 0) {
-            payload.aliases = { add: addedAliases, remove: deletedAliases };
-          }
-
-          updateVersionMutation.mutate(payload, {
-            onSuccess: () => setEditVersionModalVisible(false),
-          });
-        }}
-        onCancel={() => {
-          updateVersionMutation.reset();
-          setToolsValidationError(null);
-          setEditVersionModalVisible(false);
-        }}
-      >
-        {updateVersionMutation.error && (
-          <Alert
-            componentId="mlflow.mcp_registry.detail.version.edit_version_error"
-            type="error"
-            closable
-            onClose={() => updateVersionMutation.reset()}
-            message={
-              updateVersionMutation.error instanceof Error
-                ? updateVersionMutation.error.message
-                : String(updateVersionMutation.error)
-            }
-            css={{ marginBottom: theme.spacing.sm }}
-          />
-        )}
-        <div css={flexColumnGapStyles(theme, theme.spacing.md)}>
-          <div>
-            <Typography.Text bold css={blockLabelStyles(theme)}>
-              <FormattedMessage defaultMessage="Display name" description="Version edit display name label" />
-            </Typography.Text>
-            <Input
-              componentId="mlflow.mcp_registry.detail.version.edit_display_name_input"
-              value={editVersionDisplayName}
-              onChange={(e) => setEditVersionDisplayName(e.target.value)}
-              placeholder={intl.formatMessage({
-                defaultMessage: 'Enter display name',
-                description: 'Placeholder for version display name input',
-              })}
-            />
-          </div>
-          <div>
-            <Typography.Text bold css={blockLabelStyles(theme)}>
-              <FormattedMessage defaultMessage="Status" description="Version edit status label" />
-            </Typography.Text>
-            <SimpleSelect
-              id="mcp-registry-edit-version-status"
-              componentId="mlflow.mcp_registry.detail.version.edit_status_select"
-              value={editVersionStatus}
-              onChange={({ target }) => setEditVersionStatus(target.value as MCPStatus)}
-            >
-              {(['draft', 'active', 'deprecated'] as MCPStatus[]).map((s) => (
-                <SimpleSelectOption
-                  key={s}
-                  value={s}
-                  disabled={s !== version.status && !STATUS_TRANSITIONS[version.status]?.includes(s)}
-                >
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
-                </SimpleSelectOption>
-              ))}
-            </SimpleSelect>
-          </div>
-          <div>
-            <Typography.Text bold css={blockLabelStyles(theme)}>
-              <FormattedMessage defaultMessage="Aliases" description="Version edit aliases label" />
-            </Typography.Text>
-            <AliasSelect
-              renderKey={editVersionModalVisible}
-              disabled={false}
-              draftAliases={editVersionAliases}
-              existingAliases={(server.aliases ?? []).map((a) => a.alias).filter((a) => !RESERVED_ALIASES.includes(a))}
-              setDraftAliases={setEditVersionAliases}
-              version={version.version}
-              aliasToVersionMap={Object.fromEntries((server.aliases ?? []).map((a) => [a.alias, a.version]))}
-            />
-          </div>
-          <div>
-            <Typography.Text bold css={blockLabelStyles(theme)}>
-              <FormattedMessage defaultMessage="Tools" description="Version edit tools label" />
-            </Typography.Text>
-            {toolsValidationError && (
-              <Alert
-                componentId="mlflow.mcp_registry.detail.version.tools_validation_error"
-                type="error"
-                closable
-                onClose={() => setToolsValidationError(null)}
-                message={toolsValidationError}
-                css={{ marginBottom: theme.spacing.xs }}
-              />
-            )}
-            <Input.TextArea
-              componentId="mlflow.mcp_registry.detail.version.edit_tools_input"
-              value={editVersionToolsText}
-              onChange={(e) => {
-                setEditVersionToolsText(e.target.value);
-                setToolsValidationError(null);
-              }}
-              autoSize={{ minRows: 4, maxRows: 12 }}
-              css={monoFontStyles}
-              placeholder={intl.formatMessage({
-                defaultMessage: 'Enter tools JSON array',
-                description: 'Placeholder for version tools input',
-              })}
-            />
-          </div>
-        </div>
-      </Modal>
+        server={server}
+        version={version}
+        aliasesByVersion={aliasesByVersion}
+        onClose={() => setEditVersionModalVisible(false)}
+      />
 
       <ConfirmationModal
         componentId="mlflow.mcp_registry.detail.delete_version_modal"

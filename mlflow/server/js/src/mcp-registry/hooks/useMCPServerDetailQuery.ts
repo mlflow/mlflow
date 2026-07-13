@@ -15,7 +15,7 @@ export const useMCPServerQuery = (name: string) => {
 
 export const useMCPServerVersionsQuery = (name: string) => {
   const queryResult = useQuery<SearchMCPServerVersionsResponse, Error>([MCP_QUERY_KEYS.SERVER_VERSIONS, name], {
-    queryFn: () => MCPRegistryApi.searchMCPServerVersions(name, { order_by: ['created_at DESC'] }),
+    queryFn: () => MCPRegistryApi.searchMCPServerVersions(name, { order_by: ['created_at DESC'], max_results: 100 }),
     retry: false,
     enabled: Boolean(name),
   });

@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Breadcrumb,
   Button,
   DropdownMenu,
+  GenericSkeleton,
   Header,
   OverflowIcon,
   Spacer,
-  Spinner,
+  TableSkeleton,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -51,10 +52,9 @@ const MCPServerDetailPage = () => {
   const isUserAdmin = useCurrentUserIsAdmin();
   const canManage = !isAuthAvailable || isUserAdmin;
   const params = useParams<{ serverName: string }>();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const versionFromUrl = searchParams.get('version') ?? undefined;
   const serverName = decodeURIComponent(params.serverName ?? '');
-  const [selectedVersion, setSelectedVersion] = useState<string | undefined>(undefined);
   const [deleteServerModalVisible, setDeleteServerModalVisible] = useState(false);
   const [editServerDisplayNameVisible, setEditServerDisplayNameVisible] = useState(false);
   const deleteServerMutation = useDeleteMCPServer();
@@ -73,19 +73,29 @@ const MCPServerDetailPage = () => {
   } = useMCPServerVersionsQuery(serverName);
   const { data: latestVersion, refetch: refetchLatestVersion } = useLatestMCPServerVersionQuery(serverName);
 
-  useEffect(() => {
-    if (!versions?.length) {
-      setSelectedVersion(undefined);
-      return;
-    }
-    setSelectedVersion((prev) => {
-      const currentStillValid = prev && versions.some((v) => v.version === prev);
-      if (currentStillValid) return prev;
-      const urlVersion =
-        versionFromUrl && versions.some((v) => v.version === versionFromUrl) ? versionFromUrl : undefined;
-      return urlVersion ?? versions[0].version;
-    });
+  const selectedVersion = useMemo(() => {
+    if (!versions?.length) return undefined;
+    if (versionFromUrl && versions.some((v) => v.version === versionFromUrl)) return versionFromUrl;
+    return versions[0].version;
   }, [versions, versionFromUrl]);
+
+  const setSelectedVersion = useCallback(
+    (version: string | undefined) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (version) {
+            next.set('version', version);
+          } else {
+            next.delete('version');
+          }
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   const currentVersion = versions?.find((v) => v.version === selectedVersion);
 
@@ -163,16 +173,20 @@ const MCPServerDetailPage = () => {
   if (serverLoading) {
     return (
       <ScrollablePageWrapper>
-        <div
-          css={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            height: '100%',
-            minHeight: 400,
-          }}
-        >
-          <Spinner size="small" />
+        <Spacer shrinks={false} />
+        <Header
+          breadcrumbs={breadcrumbs}
+          title={<GenericSkeleton css={{ height: theme.general.heightBase, width: 200 }} />}
+          buttons={<GenericSkeleton css={{ height: theme.general.heightBase, width: 120 }} />}
+        />
+        <Spacer shrinks={false} />
+        <div css={{ display: 'flex', gap: theme.spacing.lg }}>
+          <div css={{ flex: '0 0 320px' }}>
+            <TableSkeleton lines={6} />
+          </div>
+          <div css={{ flex: 1 }}>
+            <TableSkeleton lines={4} />
+          </div>
         </div>
       </ScrollablePageWrapper>
     );

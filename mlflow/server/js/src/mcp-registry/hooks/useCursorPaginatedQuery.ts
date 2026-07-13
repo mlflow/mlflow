@@ -61,14 +61,16 @@ export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TDa
   );
 
   const onNextPage = useCallback(() => {
+    if (queryResult.isFetching) return;
     previousPageTokens.current.push(currentPageToken);
     setCurrentPageToken(queryResult.data?.next_page_token ?? undefined);
-  }, [queryResult.data?.next_page_token, currentPageToken]);
+  }, [queryResult.data?.next_page_token, queryResult.isFetching, currentPageToken]);
 
   const onPreviousPage = useCallback(() => {
+    if (queryResult.isFetching) return;
     const previousPageToken = previousPageTokens.current.pop();
     setCurrentPageToken(previousPageToken);
-  }, []);
+  }, [queryResult.isFetching]);
 
   return {
     data: queryResult.data ? extractData(queryResult.data) : undefined,
