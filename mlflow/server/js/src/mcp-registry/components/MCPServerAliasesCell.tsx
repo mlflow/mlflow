@@ -1,4 +1,5 @@
 import { Button, PencilIcon, Tag, useDesignSystemTheme } from '@databricks/design-system';
+import { useIntl } from 'react-intl';
 import { AliasTag } from '../../common/components/AliasTag';
 import { tagListStyles } from '../styles';
 import { LATEST_ALIAS } from '../utils';
@@ -11,6 +12,7 @@ interface MCPServerAliasesCellProps {
 
 export const MCPServerAliasesCell = ({ aliases, onEdit, className }: MCPServerAliasesCellProps) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
 
   return (
     <div css={tagListStyles(theme)} className={className}>
@@ -29,6 +31,10 @@ export const MCPServerAliasesCell = ({ aliases, onEdit, className }: MCPServerAl
           size="small"
           icon={<PencilIcon />}
           onClick={onEdit}
+          aria-label={intl.formatMessage({
+            defaultMessage: 'Edit aliases',
+            description: 'Aria label for edit aliases button',
+          })}
         />
       )}
     </div>

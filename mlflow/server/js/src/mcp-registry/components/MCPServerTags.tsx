@@ -1,4 +1,5 @@
 import { Overflow, Tag, useDesignSystemTheme } from '@databricks/design-system';
+import { inlineFlexRowStyles } from '../styles';
 
 export const MCPServerTags = ({ tags }: { tags: Record<string, string> }) => {
   const { theme } = useDesignSystemTheme();
@@ -6,7 +7,7 @@ export const MCPServerTags = ({ tags }: { tags: Record<string, string> }) => {
   if (entries.length === 0) return <span aria-label="No tags">—</span>;
   return (
     <div
-      css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm, maxWidth: '100%' }}
+      css={inlineFlexRowStyles(theme)}
       onClick={(e) => {
         if ((e.target as HTMLElement).closest('button')) {
           e.stopPropagation();

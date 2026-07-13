@@ -860,11 +860,8 @@ def test_create_mcp_server_version_with_hidden_connect_options(store):
         _server_json(), hidden_connect_options=["packages"]
     )
     assert sv.hidden_connect_options == ["packages"]
-
-
-def test_create_mcp_server_version_hidden_connect_options_none_by_default(store):
-    sv = store.create_mcp_server_version(_server_json())
-    assert sv.hidden_connect_options is None
+    reloaded = store.get_mcp_server_version("io.github.test/servererver", "1.0.0")
+    assert reloaded.hidden_connect_options == ["packages"]
 
 
 def test_update_mcp_server_version_hidden_connect_options(store):
@@ -874,12 +871,16 @@ def test_update_mcp_server_version_hidden_connect_options(store):
         hidden_connect_options=["packages", "remotes"],
     )
     assert updated.hidden_connect_options == ["packages", "remotes"]
+    reloaded = store.get_mcp_server_version("io.github.test/servererver", "1.0.0")
+    assert reloaded.hidden_connect_options == ["packages", "remotes"]
 
     updated2 = store.update_mcp_server_version(
         "io.github.test/servererver", "1.0.0",
         hidden_connect_options=None,
     )
     assert updated2.hidden_connect_options is None
+    reloaded2 = store.get_mcp_server_version("io.github.test/servererver", "1.0.0")
+    assert reloaded2.hidden_connect_options is None
 
 
 def test_delete_mcp_server_version_soft_delete(store):
@@ -945,6 +946,46 @@ def test_create_mcp_access_binding_with_version(store):
     assert binding.transport_type == MCPRemoteTransportType.STREAMABLE_HTTP
     assert binding.created_by == "alice"
     assert binding.last_updated_by == "alice"
+    assert binding.visible is True
+    reloaded = store.get_mcp_access_binding("io.github.test/server", binding.binding_id)
+    assert reloaded.visible is True
+
+
+def test_create_mcp_access_binding_visible_false(store):
+    _setup_server(store, "io.github.test/server")
+    binding = store.create_mcp_access_binding(
+        "io.github.test/server",
+        "https://mcp.example.com",
+        server_version="1.0.0",
+        visible=False,
+    )
+    assert binding.visible is False
+    reloaded = store.get_mcp_access_binding("io.github.test/server", binding.binding_id)
+    assert reloaded.visible is False
+
+
+def test_update_mcp_access_binding_visible(store):
+    _setup_server(store, "io.github.test/server")
+    binding = store.create_mcp_access_binding(
+        "io.github.test/server", "https://mcp.example.com", server_version="1.0.0"
+    )
+    updated = store.update_mcp_access_binding(
+        "io.github.test/server", binding.binding_id, visible=False
+    )
+    assert updated.visible is False
+    reloaded = store.get_mcp_access_binding("io.github.test/server", binding.binding_id)
+    assert reloaded.visible is False
+
+
+def test_update_mcp_access_binding_visible_none_is_ignored(store):
+    _setup_server(store, "io.github.test/server")
+    binding = store.create_mcp_access_binding(
+        "io.github.test/server", "https://mcp.example.com", server_version="1.0.0"
+    )
+    updated = store.update_mcp_access_binding(
+        "io.github.test/server", binding.binding_id, visible=None
+    )
+    assert updated.visible is True
 
 
 def test_create_mcp_access_binding_with_alias(store):

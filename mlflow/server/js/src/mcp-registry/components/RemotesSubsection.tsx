@@ -24,25 +24,27 @@ import {
   borderedListItemStyles,
   expandedContentPanelStyles,
   popoverTriggerStyles,
-  monoEllipsisStyles,
+  ellipsisStyles,
+  sectionHeadingRowStyles,
+  flexRowStyles,
+  noShrinkStyles,
+  blockLabelStyles,
+  monoFontStyles,
 } from '../styles';
+import { buildRemoteConnectOptionKey } from '../utils';
 import { ViewDetailsDrawer, DetailField } from './ViewDetailsDrawer';
 import { ConnectionInstructions } from './ConnectionInstructions';
 
 export const RemotesSubsection = ({
   remotes,
-  serverName,
   derivedName,
-  serverJson,
   isAdmin,
   isAuthAvailable,
   hiddenConnectOptions,
   onToggleConnectOption,
 }: {
   remotes: NonNullable<ServerJSONPayload['remotes']>;
-  serverName: string;
   derivedName: string;
-  serverJson: ServerJSONPayload;
   isAdmin?: boolean;
   isAuthAvailable?: boolean;
   hiddenConnectOptions?: string[];
@@ -55,17 +57,29 @@ export const RemotesSubsection = ({
 
   return (
     <div>
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.sm }}>
+      <div css={sectionHeadingRowStyles(theme)}>
         <Typography.Text bold>
-          <FormattedMessage defaultMessage="Official endpoints" description="MCP server official endpoints subsection heading" />
+          <FormattedMessage
+            defaultMessage="Official endpoints"
+            description="MCP server official endpoints subsection heading"
+          />
         </Typography.Text>
         <Popover.Root componentId="mlflow.mcp_registry.detail.remotes_help">
-          <Popover.Trigger css={popoverTriggerStyles(theme)}>
+          <Popover.Trigger
+            css={popoverTriggerStyles(theme)}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'About official endpoints',
+              description: 'Aria label for remotes subsection help popover',
+            })}
+          >
             <InfoIcon />
           </Popover.Trigger>
           <Popover.Content align="start" css={{ maxWidth: 360 }}>
             <Typography.Paragraph withoutMargins>
-              <FormattedMessage defaultMessage="Remote endpoints provided by the server maintainer for direct connections." description="Help text for MCP server official endpoints subsection" />
+              <FormattedMessage
+                defaultMessage="Remote endpoints provided by the server maintainer for direct connections."
+                description="Help text for MCP server official endpoints subsection"
+              />
             </Typography.Paragraph>
             <Popover.Arrow />
           </Popover.Content>
@@ -76,15 +90,13 @@ export const RemotesSubsection = ({
           <RemoteRow
             key={`${remote.type}-${remote.url ?? index}`}
             remote={remote}
-            serverName={serverName}
             derivedName={derivedName}
-            serverJson={serverJson}
             expanded={expandedIndex === index}
             onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
             showTopBorder={index > 0}
             showVisibilityControls={showVisibilityControls}
-            isHidden={hiddenConnectOptions?.includes(`remote:${remote.url ?? remote.type}`) ?? false}
-            onToggleVisibility={(visible) => onToggleConnectOption?.(`remote:${remote.url ?? remote.type}`, visible)}
+            isHidden={hiddenConnectOptions?.includes(buildRemoteConnectOptionKey(remote)) ?? false}
+            onToggleVisibility={(visible) => onToggleConnectOption?.(buildRemoteConnectOptionKey(remote), visible)}
           />
         ))}
       </div>
@@ -94,9 +106,7 @@ export const RemotesSubsection = ({
 
 const RemoteRow = ({
   remote,
-  serverName,
   derivedName,
-  serverJson,
   expanded,
   onToggle,
   showTopBorder,
@@ -105,9 +115,7 @@ const RemoteRow = ({
   onToggleVisibility,
 }: {
   remote: NonNullable<ServerJSONPayload['remotes']>[number];
-  serverName: string;
   derivedName: string;
-  serverJson: ServerJSONPayload;
   expanded: boolean;
   onToggle: () => void;
   showTopBorder: boolean;
@@ -142,32 +150,33 @@ const RemoteRow = ({
         )}
         css={expandableRowButtonStyles(theme)}
       >
-        <div css={chevronContainerStyles(theme)}>
-          {expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-        </div>
-        <Tag componentId="mlflow.mcp_registry.detail.remote_transport_tag" color="charcoal" css={{ flexShrink: 0 }}>
+        <div css={chevronContainerStyles(theme)}>{expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}</div>
+        <Tag componentId="mlflow.mcp_registry.detail.remote_transport_tag" color="charcoal" css={noShrinkStyles}>
           {remote.type}
         </Tag>
-        <Typography.Text
-          color="secondary"
-          css={{ ...monoEllipsisStyles(theme), fontFamily: 'inherit' }}
-        >
-          <strong>{remote.type}</strong>{remote.url ? ` ${remote.url}` : ''}
+        <Typography.Text color="secondary" css={ellipsisStyles(theme)}>
+          {remote.url ?? ''}
         </Typography.Text>
         {showVisibilityControls && isDisabled && (
-          <Tag componentId="mlflow.mcp_registry.detail.remote.disabled_tag" color="charcoal" css={{ flexShrink: 0 }}>
+          <Tag componentId="mlflow.mcp_registry.detail.remote.disabled_tag" color="charcoal" css={noShrinkStyles}>
             <FormattedMessage defaultMessage="Disabled" description="Label for disabled remote endpoint" />
           </Tag>
         )}
         {showVisibilityControls && (
-          <div css={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+          <div css={noShrinkStyles} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
             <Tooltip
               componentId="mlflow.mcp_registry.detail.remote.visibility_tooltip"
               content={
                 isVisible ? (
-                  <FormattedMessage defaultMessage="Visible to developers. Click to hide." description="Tooltip for visible endpoint toggle" />
+                  <FormattedMessage
+                    defaultMessage="Visible to developers. Click to hide."
+                    description="Tooltip for visible endpoint toggle"
+                  />
                 ) : (
-                  <FormattedMessage defaultMessage="Hidden from developers. Click to show." description="Tooltip for hidden endpoint toggle" />
+                  <FormattedMessage
+                    defaultMessage="Hidden from developers. Click to show."
+                    description="Tooltip for hidden endpoint toggle"
+                  />
                 )
               }
             >
@@ -177,6 +186,13 @@ const RemoteRow = ({
                 size="small"
                 icon={isVisible ? <VisibleIcon /> : <VisibleOffIcon />}
                 onClick={() => onToggleVisibility?.(!!isHidden)}
+                aria-label={intl.formatMessage(
+                  {
+                    defaultMessage: '{action} endpoint {url}',
+                    description: 'Aria label for remote endpoint visibility toggle',
+                  },
+                  { action: isVisible ? 'Hide' : 'Show', url: remote.url ?? remote.type },
+                )}
               />
             </Tooltip>
           </div>
@@ -191,11 +207,25 @@ const RemoteRow = ({
             derivedName={derivedName}
             detailLink={
               <ViewDetailsDrawer title={remote.url ?? remote.type}>
-                <DetailField label={intl.formatMessage({ defaultMessage: 'Transport type', description: 'Remote transport type label' })} value={remote.type} tagColor="default" />
-                {remote.url && <DetailField label={intl.formatMessage({ defaultMessage: 'URL', description: 'Remote URL label' })} value={remote.url} mono link />}
+                <DetailField
+                  label={intl.formatMessage({
+                    defaultMessage: 'Transport type',
+                    description: 'Remote transport type label',
+                  })}
+                  value={remote.type}
+                  tagColor="default"
+                />
+                {remote.url && (
+                  <DetailField
+                    label={intl.formatMessage({ defaultMessage: 'URL', description: 'Remote URL label' })}
+                    value={remote.url}
+                    mono
+                    link
+                  />
+                )}
                 {remote.headers && remote.headers.length > 0 && (
                   <div>
-                    <Typography.Text bold size="sm" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+                    <Typography.Text bold size="sm" css={blockLabelStyles(theme)}>
                       <FormattedMessage
                         defaultMessage="Headers ({count})"
                         description="MCP server remote headers heading with count"
@@ -205,8 +235,8 @@ const RemoteRow = ({
                     <div css={borderedListContainerStyles(theme)}>
                       {remote.headers.map((header, i) => (
                         <div key={header.name} css={borderedListItemStyles(theme, i > 0)}>
-                          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-                            <Typography.Text bold size="sm" css={{ fontFamily: 'monospace' }}>
+                          <div css={flexRowStyles(theme)}>
+                            <Typography.Text bold size="sm" css={monoFontStyles}>
                               {header.name}
                             </Typography.Text>
                             {header.isRequired && (
@@ -232,14 +262,17 @@ const RemoteRow = ({
                 )}
                 {remote.variables && Object.keys(remote.variables).length > 0 && (
                   <div>
-                    <Typography.Text bold size="sm" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
-                      <FormattedMessage defaultMessage="URL Variables" description="MCP server remote URL variables heading" />
+                    <Typography.Text bold size="sm" css={blockLabelStyles(theme)}>
+                      <FormattedMessage
+                        defaultMessage="URL Variables"
+                        description="MCP server remote URL variables heading"
+                      />
                     </Typography.Text>
                     <div css={borderedListContainerStyles(theme)}>
                       {Object.entries(remote.variables).map(([name, variable], i) => {
                         return (
                           <div key={name} css={borderedListItemStyles(theme, i > 0)}>
-                            <Typography.Text bold size="sm" css={{ fontFamily: 'monospace' }}>
+                            <Typography.Text bold size="sm" css={monoFontStyles}>
                               {`{${name}}`}
                             </Typography.Text>
                             {variable.description && (

@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { setupServer } from '../../common/utils/setup-msw';
 import MCPServerDetailPage from './MCPServerDetailPage';
+import { TransportType } from '../types';
 import {
   createMockMCPServer,
   createMockMCPServerVersion,
@@ -41,7 +42,7 @@ const mockVersion = createMockMCPServerVersion({
         identifier: '@mainline/mcp-server',
         version: '1.0.0',
         runtimeHint: 'npx',
-        transport: { type: 'stdio' },
+        transport: { type: TransportType.STDIO },
         environmentVariables: [
           { name: 'API_KEY', description: 'API key for authentication', isRequired: true, isSecret: true },
           { name: 'LOG_LEVEL', description: 'Logging verbosity' },
@@ -50,10 +51,10 @@ const mockVersion = createMockMCPServerVersion({
       {
         registryType: 'pypi',
         identifier: 'mainline-mcp-server',
-        transport: { type: 'stdio' },
+        transport: { type: TransportType.STDIO },
       },
     ],
-    remotes: [{ type: 'streamable-http', url: 'https://api.mainline.dev/mcp' }],
+    remotes: [{ type: TransportType.STREAMABLE_HTTP, url: 'https://api.mainline.dev/mcp' }],
   },
 });
 
@@ -131,7 +132,7 @@ describe('MCPServerDetailPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Packages (2)')).toBeInTheDocument();
+      expect(screen.getByText('Run locally')).toBeInTheDocument();
     });
     expect(screen.getByText('npm')).toBeInTheDocument();
     expect(screen.getByText('pypi')).toBeInTheDocument();
@@ -144,7 +145,7 @@ describe('MCPServerDetailPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Remotes (1)')).toBeInTheDocument();
+      expect(screen.getByText('Official endpoints')).toBeInTheDocument();
     });
     expect(screen.getByText('streamable-http')).toBeInTheDocument();
     expect(screen.getByText('https://api.mainline.dev/mcp')).toBeInTheDocument();

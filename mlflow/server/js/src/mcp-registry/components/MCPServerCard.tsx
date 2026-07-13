@@ -3,7 +3,7 @@ import { useIntl } from 'react-intl';
 
 import type { MCPServer } from '../types';
 import MCPRegistryRoutes from '../routes';
-import { textClampStyles, textEllipsisStyles, cardBodyStyles, cardHeaderRowStyles } from '../styles';
+import { textClampStyles, textEllipsisStyles, cardBodyStyles, cardHeaderRowStyles, noShrinkStyles } from '../styles';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
 import Utils from '../../common/utils/Utils';
@@ -22,7 +22,9 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
     <Card
       componentId="mlflow.mcp_registry.card"
       width="100%"
-      onClick={() => navigate(MCPRegistryRoutes.getMCPServerDetailRoute(server.name))}
+      navigateFn={async () => {
+        navigate(MCPRegistryRoutes.getMCPServerDetailRoute(server.name));
+      }}
       dangerouslyAppendEmotionCSS={{ height: '100%' }}
     >
       <div css={cardBodyStyles(theme)}>
@@ -32,7 +34,7 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
             {server.name}
           </Typography.Text>
           {server.latest_version && (
-            <Typography.Text color="secondary" size="sm" css={{ flexShrink: 0 }}>
+            <Typography.Text color="secondary" size="sm" css={noShrinkStyles}>
               v{server.latest_version}
             </Typography.Text>
           )}

@@ -1,5 +1,11 @@
 import { useMemo } from 'react';
-import { selectedRowIndicatorStyles } from '../styles';
+import {
+  selectedRowIndicatorStyles,
+  textEllipsisStyles,
+  flexColumnGapStyles,
+  flexRowWrapStyles,
+  spaceBetweenRowStyles,
+} from '../styles';
 import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   ChevronRightIcon,
@@ -23,10 +29,8 @@ import { MCPServerAliasesCell } from './MCPServerAliasesCell';
 import Utils from '../../common/utils/Utils';
 
 interface MCPServerVersionListMeta {
-  serverName: string;
   serverDisplayName: string;
   aliasesByVersion: Record<string, string[]>;
-  showEditAliasesModal?: (versionNumber: string) => void;
 }
 
 const MCPServerVersionCell: ColumnDef<MCPServerVersion>['cell'] = ({
@@ -37,15 +41,15 @@ const MCPServerVersionCell: ColumnDef<MCPServerVersion>['cell'] = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { serverName, serverDisplayName, aliasesByVersion, showEditAliasesModal } = meta as MCPServerVersionListMeta;
+  const { serverDisplayName, aliasesByVersion } = meta as MCPServerVersionListMeta;
   const aliases = aliasesByVersion[original.version] || [];
 
   const rawDisplayName = original.display_name || original.server_json?.title;
   const versionDisplayName = rawDisplayName && rawDisplayName !== serverDisplayName ? rawDisplayName : undefined;
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
+    <div css={flexColumnGapStyles(theme)}>
+      <div css={flexRowWrapStyles(theme)}>
         <Typography.Text bold>
           <FormattedMessage
             defaultMessage="{version}"
@@ -59,12 +63,7 @@ const MCPServerVersionCell: ColumnDef<MCPServerVersion>['cell'] = ({
         <MCPServerAliasesCell aliases={aliases} />
       </div>
       {versionDisplayName && (
-        <Typography.Text
-          size="sm"
-          color="secondary"
-          css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-          title={versionDisplayName}
-        >
+        <Typography.Text size="sm" color="secondary" css={textEllipsisStyles} title={versionDisplayName}>
           {versionDisplayName}
         </Typography.Text>
       )}
@@ -82,19 +81,15 @@ export const MCPServerVersionList = ({
   selectedVersion,
   onSelectVersion,
   isLoading,
-  serverName,
   serverDisplayName,
   aliasesByVersion,
-  showEditAliasesModal,
 }: {
   versions?: MCPServerVersion[];
   selectedVersion?: string;
   onSelectVersion: (version: string) => void;
   isLoading?: boolean;
-  serverName: string;
   serverDisplayName: string;
   aliasesByVersion: Record<string, string[]>;
-  showEditAliasesModal?: (versionNumber: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -119,7 +114,7 @@ export const MCPServerVersionList = ({
     columns,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.version,
-    meta: { serverName, serverDisplayName, aliasesByVersion, showEditAliasesModal },
+    meta: { serverDisplayName, aliasesByVersion },
   });
 
   const emptyState =
@@ -167,7 +162,7 @@ export const MCPServerVersionList = ({
               >
                 {row.getAllCells().map((cell) => (
                   <TableCell key={cell.id} css={{ alignItems: 'center' }}>
-                    <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                    <div css={spaceBetweenRowStyles}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       {isSelected && (
                         <div css={selectedRowIndicatorStyles(theme)}>

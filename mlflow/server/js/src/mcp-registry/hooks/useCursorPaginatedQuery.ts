@@ -1,34 +1,33 @@
-import type { QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalStorage } from '@databricks/web-shared/hooks';
 import type { CursorPaginationProps } from '@databricks/design-system';
-import { MCPRegistryApi } from '../api';
-import type { SearchMCPServersResponse } from '../types';
-import { DEFAULT_PAGE_SIZE } from '../utils';
-import { buildSearchFilterClause } from '../../common/utils/SearchUtils';
-const STORE_KEY = 'mcp_registry.page_size';
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from '../utils';
 
-type MCPServersListQueryKey = ['mcp_servers_list', { searchFilter?: string; pageToken?: string; pageSize: number }];
+interface PaginatedResponse {
+  next_page_token?: string;
+}
 
-const queryFn = ({ queryKey }: QueryFunctionContext<MCPServersListQueryKey>) => {
-  const [, { searchFilter, pageToken, pageSize }] = queryKey;
-  return MCPRegistryApi.searchMCPServers({
-    filter_string: buildSearchFilterClause(searchFilter),
-    page_token: pageToken,
-    max_results: pageSize,
-  });
-};
-
-export const useMCPServersListQuery = ({
+export const useCursorPaginatedQuery = <TResponse extends PaginatedResponse, TData>({
+  queryKeyPrefix,
   searchFilter,
-  enabled = true,
-}: { searchFilter?: string; enabled?: boolean } = {}) => {
+  storageKey,
+  queryFn,
+  extractData,
+  enabled,
+}: {
+  queryKeyPrefix: string;
+  searchFilter?: string;
+  storageKey: string;
+  queryFn: (params: { searchFilter?: string; pageToken?: string; pageSize: number }) => Promise<TResponse>;
+  extractData: (response: TResponse) => TData | undefined;
+  enabled?: boolean;
+}) => {
   const previousPageTokens = useRef<(string | undefined)[]>([]);
   const [currentPageToken, setCurrentPageToken] = useState<string | undefined>(undefined);
 
   const [pageSize, setPageSize] = useLocalStorage({
-    key: STORE_KEY,
+    key: storageKey,
     version: 0,
     initialValue: DEFAULT_PAGE_SIZE,
   });
@@ -40,7 +39,7 @@ export const useMCPServersListQuery = ({
 
   const pageSizeSelect = useMemo<CursorPaginationProps['pageSizeSelect']>(
     () => ({
-      options: [10, 25, 50, 100],
+      options: PAGE_SIZE_OPTIONS,
       default: pageSize,
       onChange(newPageSize) {
         setPageSize(newPageSize);
@@ -51,10 +50,10 @@ export const useMCPServersListQuery = ({
     [pageSize, setPageSize],
   );
 
-  const queryResult = useQuery<SearchMCPServersResponse, Error, SearchMCPServersResponse, MCPServersListQueryKey>(
-    ['mcp_servers_list', { searchFilter, pageToken: currentPageToken, pageSize }],
+  const queryResult = useQuery<TResponse, Error>(
+    [queryKeyPrefix, { searchFilter, pageToken: currentPageToken, pageSize }],
     {
-      queryFn,
+      queryFn: () => queryFn({ searchFilter, pageToken: currentPageToken, pageSize }),
       retry: false,
       keepPreviousData: true,
       enabled,
@@ -62,19 +61,17 @@ export const useMCPServersListQuery = ({
   );
 
   const onNextPage = useCallback(() => {
-    if (queryResult.isFetching) return;
     previousPageTokens.current.push(currentPageToken);
     setCurrentPageToken(queryResult.data?.next_page_token ?? undefined);
-  }, [queryResult.data?.next_page_token, queryResult.isFetching, currentPageToken]);
+  }, [queryResult.data?.next_page_token, currentPageToken]);
 
   const onPreviousPage = useCallback(() => {
-    if (queryResult.isFetching) return;
     const previousPageToken = previousPageTokens.current.pop();
     setCurrentPageToken(previousPageToken);
-  }, [queryResult.isFetching]);
+  }, []);
 
   return {
-    data: queryResult.data?.mcp_servers,
+    data: queryResult.data ? extractData(queryResult.data) : undefined,
     error: queryResult.error ?? undefined,
     isLoading: queryResult.isLoading,
     hasNextPage: Boolean(queryResult.data?.next_page_token),

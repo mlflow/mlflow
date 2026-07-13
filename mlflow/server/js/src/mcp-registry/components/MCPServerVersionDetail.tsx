@@ -1,5 +1,13 @@
-import { useEffect, useState } from 'react';
-import { tagListStyles } from '../styles';
+import { useEffect, useRef, useState } from 'react';
+import {
+  tagListStyles,
+  textEllipsisStyles,
+  mcpIconStyles,
+  flexColumnGapStyles,
+  blockLabelStyles,
+  monoFontStyles,
+  noShrinkStyles,
+} from '../styles';
 import {
   Alert,
   Button,
@@ -21,7 +29,6 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import type { MCPServer, MCPServerVersion } from '../types';
 import { STATUS_TAG_COLOR, STATUS_TRANSITIONS, resolveDisplayName } from '../utils';
 import type { MCPStatus } from '../types';
-import { MCPRegistryApi } from '../api';
 import { ServerJSONSection, ToolsSection } from './ServerJSONSection';
 import { ConfirmationModal } from '../../admin/ConfirmationModal';
 import { MCPServerAliasesCell } from './MCPServerAliasesCell';
@@ -58,7 +65,12 @@ export const MCPServerVersionDetail = ({
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [toolsValidationError, setToolsValidationError] = useState<string | null>(null);
   const [localHiddenOptions, setLocalHiddenOptions] = useState<string[] | undefined>(undefined);
-  useEffect(() => setLocalHiddenOptions(undefined), [version?.version]);
+  const currentVersionRef = useRef(version?.version);
+  currentVersionRef.current = version?.version;
+
+  useEffect(() => {
+    setLocalHiddenOptions(undefined);
+  }, [version?.version]);
   const updateVersionMutation = useUpdateMCPServerVersion(server.name);
   const deleteVersionMutation = useDeleteMCPServerVersion(server.name);
 
@@ -74,16 +86,23 @@ export const MCPServerVersionDetail = ({
 
   const handleToggleConnectOption = (key: string, visible: boolean) => {
     if (!version) return;
+    const toggledVersion = version.version;
     const current = localHiddenOptions ?? version.hidden_connect_options ?? [];
-    const updated = visible
-      ? current.filter((k) => k !== key)
-      : [...current, key];
+    const updated = visible ? current.filter((k) => k !== key) : [...current.filter((k) => k !== key), key];
     setLocalHiddenOptions(updated);
-    MCPRegistryApi.updateMCPServerVersion(server.name, version.version, {
-      hidden_connect_options: updated.length > 0 ? updated : null,
-    }).catch(() => {
-      setLocalHiddenOptions(current);
-    });
+    updateVersionMutation.mutate(
+      {
+        version: toggledVersion,
+        hiddenConnectOptions: updated.length > 0 ? updated : null,
+      },
+      {
+        onError: () => {
+          if (currentVersionRef.current === toggledVersion) {
+            setLocalHiddenOptions(current);
+          }
+        },
+      },
+    );
   };
 
   if (!version) {
@@ -123,11 +142,7 @@ export const MCPServerVersionDetail = ({
             />
           </Typography.Title>
           {showVersionDisplayName && (
-            <Typography.Text
-              color="secondary"
-              css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-              title={versionDisplayName}
-            >
+            <Typography.Text color="secondary" css={textEllipsisStyles} title={versionDisplayName}>
               {versionDisplayName}
             </Typography.Text>
           )}
@@ -136,7 +151,7 @@ export const MCPServerVersionDetail = ({
           )}
         </div>
         {isAdmin && (
-          <div css={{ display: 'flex', gap: theme.spacing.sm, flexShrink: 0 }}>
+          <div css={{ display: 'flex', gap: theme.spacing.sm, ...noShrinkStyles }}>
             <Button
               componentId="mlflow.mcp_registry.detail.edit_version"
               icon={<PencilIcon />}
@@ -159,7 +174,7 @@ export const MCPServerVersionDetail = ({
 
       <Spacer shrinks={false} />
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-        <McpIcon css={{ flexShrink: 0, color: theme.colors.textSecondary }} />
+        <McpIcon css={mcpIconStyles(theme)} />
         <div css={{ display: 'flex', flexDirection: 'column' }}>
           <Typography.Text bold>{displayName}</Typography.Text>
           <Typography.Text color="secondary" size="sm">
@@ -291,17 +306,11 @@ export const MCPServerVersionDetail = ({
       >
         <Tabs.List>
           <Tabs.Trigger value="connect">
-            <FormattedMessage
-              defaultMessage="Connect"
-              description="MCP server version detail connect tab"
-            />
+            <FormattedMessage defaultMessage="Connect" description="MCP server version detail connect tab" />
           </Tabs.Trigger>
           {version.tools && version.tools.length > 0 && (
             <Tabs.Trigger value="tools">
-              <FormattedMessage
-                defaultMessage="Tools"
-                description="MCP server version detail tools tab"
-              />
+              <FormattedMessage defaultMessage="Tools" description="MCP server version detail tools tab" />
             </Tabs.Trigger>
           )}
         </Tabs.List>
@@ -395,9 +404,9 @@ export const MCPServerVersionDetail = ({
             css={{ marginBottom: theme.spacing.sm }}
           />
         )}
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+        <div css={flexColumnGapStyles(theme, theme.spacing.md)}>
           <div>
-            <Typography.Text bold css={{ marginBottom: theme.spacing.xs, display: 'block' }}>
+            <Typography.Text bold css={blockLabelStyles(theme)}>
               <FormattedMessage defaultMessage="Display name" description="Version edit display name label" />
             </Typography.Text>
             <Input
@@ -411,7 +420,7 @@ export const MCPServerVersionDetail = ({
             />
           </div>
           <div>
-            <Typography.Text bold css={{ marginBottom: theme.spacing.xs, display: 'block' }}>
+            <Typography.Text bold css={blockLabelStyles(theme)}>
               <FormattedMessage defaultMessage="Status" description="Version edit status label" />
             </Typography.Text>
             <SimpleSelect
@@ -432,7 +441,7 @@ export const MCPServerVersionDetail = ({
             </SimpleSelect>
           </div>
           <div>
-            <Typography.Text bold css={{ marginBottom: theme.spacing.xs, display: 'block' }}>
+            <Typography.Text bold css={blockLabelStyles(theme)}>
               <FormattedMessage defaultMessage="Aliases" description="Version edit aliases label" />
             </Typography.Text>
             <AliasSelect
@@ -446,7 +455,7 @@ export const MCPServerVersionDetail = ({
             />
           </div>
           <div>
-            <Typography.Text bold css={{ marginBottom: theme.spacing.xs, display: 'block' }}>
+            <Typography.Text bold css={blockLabelStyles(theme)}>
               <FormattedMessage defaultMessage="Tools" description="Version edit tools label" />
             </Typography.Text>
             {toolsValidationError && (
@@ -467,7 +476,7 @@ export const MCPServerVersionDetail = ({
                 setToolsValidationError(null);
               }}
               autoSize={{ minRows: 4, maxRows: 12 }}
-              css={{ fontFamily: 'monospace' }}
+              css={monoFontStyles}
               placeholder={intl.formatMessage({
                 defaultMessage: 'Enter tools JSON array',
                 description: 'Placeholder for version tools input',

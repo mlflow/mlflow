@@ -21,6 +21,7 @@ import { validateServerJson, validateToolsJson } from '../utils';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
 import type { KeyValueEntity } from '../../common/types';
 import { TagKeySelectDropdown } from '../../common/components/TagSelectDropdown';
+import { monoFontStyles } from '../styles';
 
 interface CreateMCPServerVersionFormState {
   displayName: string;
@@ -213,7 +214,7 @@ export const useCreateMCPServerVersionModal = ({
           description: 'Placeholder for server.json in create MCP server modal',
         })}
         autoSize={{ minRows: 6, maxRows: 14 }}
-        css={{ fontFamily: 'monospace' }}
+        css={monoFontStyles}
       />
       <Spacer />
       <FormUI.Label htmlFor="mlflow.mcp_registry.create.status">
@@ -264,7 +265,7 @@ export const useCreateMCPServerVersionModal = ({
         onChange={(e) => handleFieldChange('toolsText', e.target.value)}
         placeholder='[{"name": "search", "description": "Search the web"}]'
         autoSize={{ minRows: 3, maxRows: 8 }}
-        css={{ fontFamily: 'monospace' }}
+        css={monoFontStyles}
       />
       <Spacer />
       <FormUI.Label>

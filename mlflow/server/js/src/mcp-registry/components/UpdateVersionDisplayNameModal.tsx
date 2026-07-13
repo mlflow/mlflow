@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Input, Modal, useDesignSystemTheme } from '@databricks/design-system';
+import { flexColumnGapStyles } from '../styles';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 export const UpdateVersionDisplayNameModal = ({
@@ -45,7 +46,7 @@ export const UpdateVersionDisplayNameModal = ({
       })}
       confirmLoading={isLoading}
     >
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      <div css={flexColumnGapStyles(theme, theme.spacing.md)}>
         {error && (
           <Alert
             componentId="mlflow.mcp_registry.detail.update_display_name_error"

@@ -33,6 +33,7 @@ import { MCPServerVersionDetail } from '../components/MCPServerVersionDetail';
 import { UpdateVersionDisplayNameModal } from '../components/UpdateVersionDisplayNameModal';
 import { MCPServerTagsBox } from '../components/MCPServerTagsBox';
 import { LATEST_ALIAS, resolveDisplayName } from '../utils';
+import { useCurrentUserIsAdmin, useIsAuthAvailable } from '../../account/hooks';
 
 const getAliasesModalTitle = (version: string) => (
   <FormattedMessage
@@ -46,6 +47,9 @@ const MCPServerDetailPage = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const navigate = useNavigate();
+  const isAuthAvailable = useIsAuthAvailable();
+  const isUserAdmin = useCurrentUserIsAdmin();
+  const canManage = !isAuthAvailable || isUserAdmin;
   const params = useParams<{ serverName: string }>();
   const [searchParams] = useSearchParams();
   const versionFromUrl = searchParams.get('version') ?? undefined;
@@ -204,47 +208,49 @@ const MCPServerDetailPage = () => {
         breadcrumbs={breadcrumbs}
         title={displayName}
         buttons={
-          <>
-            <DropdownMenu.Root>
-              <DropdownMenu.Trigger asChild>
-                <Button
-                  componentId="mlflow.mcp_registry.detail.actions"
-                  icon={<OverflowIcon />}
-                  aria-label={intl.formatMessage({
-                    defaultMessage: 'More actions',
-                    description: 'Aria label for MCP server detail actions overflow menu',
-                  })}
-                />
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Content>
-                <DropdownMenu.Item
-                  componentId="mlflow.mcp_registry.detail.actions.edit_display_name"
-                  onClick={() => setEditServerDisplayNameVisible(true)}
-                >
-                  <FormattedMessage
-                    defaultMessage="Edit display name"
-                    description="MCP server detail edit server display name action"
+          canManage ? (
+            <>
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <Button
+                    componentId="mlflow.mcp_registry.detail.actions"
+                    icon={<OverflowIcon />}
+                    aria-label={intl.formatMessage({
+                      defaultMessage: 'More actions',
+                      description: 'Aria label for MCP server detail actions overflow menu',
+                    })}
                   />
-                </DropdownMenu.Item>
-                <DropdownMenu.Item
-                  componentId="mlflow.mcp_registry.detail.actions.delete"
-                  onClick={() => setDeleteServerModalVisible(true)}
-                >
-                  <FormattedMessage defaultMessage="Delete" description="MCP server detail delete server action" />
-                </DropdownMenu.Item>
-              </DropdownMenu.Content>
-            </DropdownMenu.Root>
-            <Button
-              componentId="mlflow.mcp_registry.detail.create_version"
-              type="primary"
-              onClick={openCreateVersionModal}
-            >
-              <FormattedMessage
-                defaultMessage="Create MCP server version"
-                description="MCP server detail create version button"
-              />
-            </Button>
-          </>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Content>
+                  <DropdownMenu.Item
+                    componentId="mlflow.mcp_registry.detail.actions.edit_display_name"
+                    onClick={() => setEditServerDisplayNameVisible(true)}
+                  >
+                    <FormattedMessage
+                      defaultMessage="Edit display name"
+                      description="MCP server detail edit server display name action"
+                    />
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item
+                    componentId="mlflow.mcp_registry.detail.actions.delete"
+                    onClick={() => setDeleteServerModalVisible(true)}
+                  >
+                    <FormattedMessage defaultMessage="Delete" description="MCP server detail delete server action" />
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
+              <Button
+                componentId="mlflow.mcp_registry.detail.create_version"
+                type="primary"
+                onClick={openCreateVersionModal}
+              >
+                <FormattedMessage
+                  defaultMessage="Create MCP server version"
+                  description="MCP server detail create version button"
+                />
+              </Button>
+            </>
+          ) : undefined
         }
       />
       <MCPServerTagsBox server={server} onTagsUpdated={refetchAll} />
@@ -264,10 +270,8 @@ const MCPServerDetailPage = () => {
               selectedVersion={selectedVersion}
               onSelectVersion={setSelectedVersion}
               isLoading={versionsLoading}
-              serverName={serverName}
               serverDisplayName={displayName}
               aliasesByVersion={aliasesByVersion}
-              showEditAliasesModal={showEditAliasesModal}
             />
           )}
         </div>

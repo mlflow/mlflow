@@ -135,16 +135,6 @@ export const popoverTriggerStyles = (theme: ThemeType) => ({
   '&:hover': { color: theme.colors.textPrimary },
 });
 
-export const monoEllipsisStyles = (theme: ThemeType) => ({
-  fontFamily: 'monospace',
-  fontSize: theme.typography.fontSizeSm,
-  overflow: 'hidden' as const,
-  textOverflow: 'ellipsis' as const,
-  whiteSpace: 'nowrap' as const,
-  flex: 1,
-  minWidth: 0,
-});
-
 export const selectedRowIndicatorStyles = (theme: ThemeType) => ({
   width: theme.spacing.md * 2,
   display: 'flex',
@@ -170,4 +160,87 @@ export const tagListStyles = (theme: ThemeType) => ({
   flexWrap: 'wrap' as const,
   alignItems: 'center',
   gap: theme.spacing.xs,
+});
+
+export const ellipsisStyles = (theme: ThemeType) => ({
+  fontSize: theme.typography.fontSizeSm,
+  overflow: 'hidden' as const,
+  textOverflow: 'ellipsis' as const,
+  whiteSpace: 'nowrap' as const,
+  flex: 1,
+  minWidth: 0,
+});
+
+export const sectionHeadingRowStyles = (theme: ThemeType) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing.xs,
+  marginBottom: theme.spacing.sm,
+});
+
+export const flexRowStyles = (theme: ThemeType) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing.xs,
+});
+
+export const fallbackInfoBoxStyles = (theme: ThemeType) => ({
+  display: 'flex',
+  gap: theme.spacing.sm,
+  padding: theme.spacing.sm,
+  backgroundColor: theme.colors.backgroundSecondary,
+  borderRadius: theme.borders.borderRadiusSm,
+  border: `1px solid ${theme.colors.border}`,
+});
+
+export const jsonPreStyles = (theme: ThemeType, padding = theme.spacing.sm) =>
+  ({
+    margin: 0,
+    padding,
+    paddingTop: theme.spacing.xl,
+    backgroundColor: theme.colors.backgroundSecondary,
+    borderRadius: theme.borders.borderRadiusSm,
+    overflow: 'auto' as const,
+    fontSize: theme.typography.fontSizeSm,
+    maxHeight: 400,
+  }) as const;
+
+export const overlayButtonStyles = (theme: ThemeType) => ({
+  position: 'absolute' as const,
+  top: theme.spacing.xs,
+  right: theme.spacing.xs,
+  zIndex: 1,
+});
+
+export const flexColumnGapStyles = (theme: ThemeType, gap = theme.spacing.sm) => ({
+  display: 'flex',
+  flexDirection: 'column' as const,
+  gap,
+});
+
+export const flexRowWrapStyles = (theme: ThemeType) => ({
+  display: 'flex',
+  alignItems: 'center',
+  gap: theme.spacing.sm,
+  flexWrap: 'wrap' as const,
+});
+
+export const spaceBetweenRowStyles = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  width: '100%',
+};
+
+export const monoFontStyles = {
+  fontFamily: 'monospace',
+};
+
+export const noShrinkStyles = {
+  flexShrink: 0,
+};
+
+export const blockLabelStyles = (theme: ThemeType) => ({
+  display: 'block' as const,
+  marginBottom: theme.spacing.xs,
 });

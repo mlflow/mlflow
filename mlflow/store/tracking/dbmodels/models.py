@@ -3982,7 +3982,7 @@ class SqlMCPServerVersion(Base):
     )
     tools = Column(JSON, nullable=True)
     source = Column(String(512), nullable=True)
-    hidden_connect_options = Column(Text, nullable=True)
+    hidden_connect_options = Column(JSON, nullable=True)
     created_by = Column(String(256), nullable=True)
     last_updated_by = Column(String(256), nullable=True)
     created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
@@ -4042,11 +4042,7 @@ class SqlMCPServerVersion(Base):
             tools=tools,
             aliases=alias_names,
             tags=tags,
-            hidden_connect_options=(
-                json.loads(self.hidden_connect_options)
-                if self.hidden_connect_options
-                else None
-            ),
+            hidden_connect_options=self.hidden_connect_options,
             source=self.source,
             workspace=self.workspace,
             created_by=self.created_by,
@@ -4198,7 +4194,7 @@ class SqlMCPAccessBinding(Base):
         default=MCPRemoteTransportType.STREAMABLE_HTTP.value,
         server_default=sa.text(f"'{MCPRemoteTransportType.STREAMABLE_HTTP.value}'"),
     )
-    visible = Column(Boolean, nullable=False, server_default="1")
+    visible = Column(Boolean, nullable=False, default=True, server_default="1")
     created_by = Column(String(256), nullable=True)
     last_updated_by = Column(String(256), nullable=True)
     created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)

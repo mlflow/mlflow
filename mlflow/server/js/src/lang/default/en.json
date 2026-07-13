@@ -1159,10 +1159,6 @@
     "defaultMessage": "Cancel",
     "description": "experiment page > edit experiment modal > cancel button"
   },
-  "3OsFSW": {
-    "defaultMessage": "View documentation",
-    "description": "Link to documentation for unsupported install method"
-  },
   "3PBIB8": {
     "defaultMessage": "Appearance, product feedback, telemetry, and workspace demo data.",
     "description": "Settings content section subtitle for general preferences including demo data"
@@ -2574,10 +2570,6 @@
   "9ygCGK": {
     "defaultMessage": "Reset period",
     "description": "Budget reset period label"
-  },
-  "9yiunK": {
-    "defaultMessage": "Copy JSON",
-    "description": "Tooltip for copy raw server.json button"
   },
   "9zZeT2": {
     "defaultMessage": "Delete records",
@@ -8607,10 +8599,6 @@
     "defaultMessage": "Something went wrong",
     "description": "Generic title used when a dataset action surfaces an unexpected error"
   },
-  "cTwsmx": {
-    "defaultMessage": "Copy JSON",
-    "description": "Tooltip for copy raw tools JSON button"
-  },
   "cXNimy": {
     "defaultMessage": "Runtime hint",
     "description": "Package runtime hint label"
@@ -9330,6 +9318,10 @@
   "frPtD/": {
     "defaultMessage": "Metrics",
     "description": "Row group title for metrics of runs on the experiment compare runs page"
+  },
+  "fsDPRX": {
+    "defaultMessage": "View setup instructions",
+    "description": "Link to publisher documentation for manual install"
   },
   "fscXHt": {
     "defaultMessage": "Cancel",

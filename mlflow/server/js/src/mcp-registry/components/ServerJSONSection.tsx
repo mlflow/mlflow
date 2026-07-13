@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useDesignSystemTheme } from '@databricks/design-system';
+import { flexColumnGapStyles } from '../styles';
 
 import type { MCPTool, ServerJSONPayload } from '../types';
 import { deriveClientName } from '../installInstructions';
@@ -29,13 +30,11 @@ export const ServerJSONSection = ({
   const derivedName = useMemo(() => deriveClientName(serverName), [serverName]);
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+    <div css={flexColumnGapStyles(theme, theme.spacing.md)}>
       {remotes.length > 0 && (
         <RemotesSubsection
           remotes={remotes}
-          serverName={serverName}
           derivedName={derivedName}
-          serverJson={serverJson}
           isAdmin={isAdmin}
           isAuthAvailable={isAuthAvailable}
           hiddenConnectOptions={hiddenConnectOptions}
@@ -45,16 +44,14 @@ export const ServerJSONSection = ({
       {packages.length > 0 && (
         <PackagesSubsection
           packages={packages}
-          serverName={serverName}
           derivedName={derivedName}
-          serverJson={serverJson}
           isAdmin={isAdmin}
           isAuthAvailable={isAuthAvailable}
           hiddenConnectOptions={hiddenConnectOptions}
           onToggleConnectOption={onToggleConnectOption}
         />
       )}
-      {(!isAuthAvailable || isAdmin) && <RawJSONToggle serverJson={serverJson} />}
+      {isAdmin && <RawJSONToggle serverJson={serverJson} />}
     </div>
   );
 };
@@ -63,7 +60,7 @@ export const ToolsSection = ({ tools }: { tools: MCPTool[] }) => {
   const { theme } = useDesignSystemTheme();
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+    <div css={flexColumnGapStyles(theme, theme.spacing.md)}>
       <ToolsSubsection tools={tools} />
       <RawToolsJSONToggle tools={tools} />
     </div>

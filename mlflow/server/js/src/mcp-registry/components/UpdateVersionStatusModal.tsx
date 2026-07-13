@@ -11,6 +11,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPStatus } from '../types';
 import { STATUS_TRANSITIONS } from '../utils';
+import { flexColumnGapStyles, flexRowStyles } from '../styles';
 
 const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -61,7 +62,7 @@ export const UpdateVersionStatusModal = ({
       confirmLoading={isLoading}
       okButtonProps={{ disabled: isTerminal || !selectedStatus }}
     >
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+      <div css={flexColumnGapStyles(theme, theme.spacing.md)}>
         {error && (
           <Alert
             componentId="mlflow.mcp_registry.detail.update_status_error"
@@ -83,7 +84,7 @@ export const UpdateVersionStatusModal = ({
         )}
         {!isTerminal && (
           <>
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+            <div css={flexColumnGapStyles(theme, theme.spacing.xs)}>
               <Typography.Text bold>
                 <FormattedMessage
                   defaultMessage="Current status:"
@@ -92,7 +93,7 @@ export const UpdateVersionStatusModal = ({
               </Typography.Text>
               <Typography.Text color="secondary">{capitalize(currentStatus)}</Typography.Text>
             </div>
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+            <div css={flexColumnGapStyles(theme, theme.spacing.xs)}>
               <Typography.Text bold>
                 <FormattedMessage
                   defaultMessage="New status:"

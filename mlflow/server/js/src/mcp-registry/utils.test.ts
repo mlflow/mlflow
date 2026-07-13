@@ -5,6 +5,8 @@ import {
   STATUS_TRANSITIONS,
   validateServerJson,
   validateToolsJson,
+  buildPackageConnectOptionKey,
+  buildRemoteConnectOptionKey,
 } from './utils';
 
 describe('resolveDisplayName', () => {
@@ -188,5 +190,21 @@ describe('validateToolsJson', () => {
     const result = validateToolsJson('[{"name": "search", "description": "Search the web"}]');
     expect(result.valid).toBe(true);
     expect(result.parsed).toEqual([{ name: 'search', description: 'Search the web' }]);
+  });
+});
+
+describe('buildPackageConnectOptionKey', () => {
+  it('joins registry type and identifier', () => {
+    expect(buildPackageConnectOptionKey({ registryType: 'npm', identifier: '@acme/pkg' })).toBe('npm:@acme/pkg');
+  });
+});
+
+describe('buildRemoteConnectOptionKey', () => {
+  it('prefers url when present', () => {
+    expect(buildRemoteConnectOptionKey({ type: 'sse', url: 'https://example.com' })).toBe('remote:https://example.com');
+  });
+
+  it('falls back to type when url is missing', () => {
+    expect(buildRemoteConnectOptionKey({ type: 'sse' })).toBe('remote:sse');
   });
 });

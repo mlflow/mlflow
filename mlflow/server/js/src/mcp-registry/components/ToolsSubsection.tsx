@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { Button, ChevronDownIcon, ChevronRightIcon, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  Tag,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPTool } from '../types';
@@ -9,6 +16,9 @@ import {
   expandableRowButtonStyles,
   expandedContentPanelStyles,
   showMoreRowStyles,
+  ellipsisStyles,
+  tagListStyles,
+  noShrinkStyles,
 } from '../styles';
 import { InputSchemaToggle, OutputSchemaToggle } from './JSONToggles';
 
@@ -51,15 +61,11 @@ export const ToolsSubsection = ({ tools }: { tools: MCPTool[] }) => {
               <div css={chevronContainerStyles(theme)}>
                 {expandedIndex === index ? <ChevronDownIcon /> : <ChevronRightIcon />}
               </div>
-              <Tag componentId="mlflow.mcp_registry.detail.tool_name_tag" color="turquoise" css={{ flexShrink: 0 }}>
+              <Tag componentId="mlflow.mcp_registry.detail.tool_name_tag" color="turquoise" css={noShrinkStyles}>
                 {tool.name}
               </Tag>
               {tool.description && (
-                <Typography.Text
-                  color="secondary"
-                  size="sm"
-                  css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}
-                >
+                <Typography.Text color="secondary" size="sm" css={ellipsisStyles(theme)}>
                   {tool.description}
                 </Typography.Text>
               )}
@@ -68,7 +74,7 @@ export const ToolsSubsection = ({ tools }: { tools: MCPTool[] }) => {
             {expandedIndex === index && (
               <div css={expandedContentPanelStyles(theme)}>
                 {tool.annotations && Object.keys(tool.annotations).length > 0 && (
-                  <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs }}>
+                  <div css={tagListStyles(theme)}>
                     {Object.entries(tool.annotations).map(([key, value]) => (
                       <Tag key={key} componentId="mlflow.mcp_registry.detail.tool_annotation_tag">
                         {key}: {String(value)}

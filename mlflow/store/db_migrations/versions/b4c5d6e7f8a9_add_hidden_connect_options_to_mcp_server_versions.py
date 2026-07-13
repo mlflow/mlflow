@@ -16,7 +16,7 @@ depends_on = None
 
 def upgrade():
     with op.batch_alter_table("mcp_server_versions") as batch_op:
-        batch_op.add_column(sa.Column("hidden_connect_options", sa.Text(), nullable=True))
+        batch_op.add_column(sa.Column("hidden_connect_options", sa.JSON(), nullable=True))
 
 
 def downgrade():

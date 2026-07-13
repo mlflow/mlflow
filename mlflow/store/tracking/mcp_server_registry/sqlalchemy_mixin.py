@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 from typing import Any
 
@@ -274,11 +273,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                         source=source,
                         created_by=created_by,
                         last_updated_by=created_by,
-                        hidden_connect_options=(
-                            json.dumps(hidden_connect_options)
-                            if hidden_connect_options is not None
-                            else None
-                        ),
+                        hidden_connect_options=hidden_connect_options,
                         created_at=now,
                         last_updated_at=now,
                     )
@@ -433,11 +428,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             if tools is not NOT_SET:
                 sv.tools = None if tools is None else [t.to_dict() for t in tools]
             if hidden_connect_options is not NOT_SET:
-                sv.hidden_connect_options = (
-                    json.dumps(hidden_connect_options)
-                    if hidden_connect_options is not None
-                    else None
-                )
+                sv.hidden_connect_options = hidden_connect_options
 
             sv.last_updated_by = last_updated_by
             sv.last_updated_at = get_current_time_millis()

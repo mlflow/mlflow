@@ -4662,7 +4662,9 @@ def _get_otel_validator(
     return validator
 
 
-def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
+def _find_fastapi_validator(
+    path: str,
+) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Find the validator for a FastAPI route that bypasses Flask.
 

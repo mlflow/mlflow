@@ -97,7 +97,7 @@ export interface ServerJSONNamedArgument extends ServerJSONInput {
   name: string;
 }
 
-export interface ServerJSONPositionalArgument extends ServerJSONInput {}
+export type ServerJSONPositionalArgument = ServerJSONInput;
 
 export type ServerJSONArgument = ServerJSONNamedArgument | ServerJSONPositionalArgument;
 
@@ -119,6 +119,7 @@ export interface ServerJSONPackage {
   runtimeArguments?: ServerJSONArgument[];
   packageArguments?: ServerJSONArgument[];
   fileSha256?: string;
+  websiteUrl?: string;
   [key: string]: unknown;
 }
 

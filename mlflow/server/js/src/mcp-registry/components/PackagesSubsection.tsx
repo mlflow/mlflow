@@ -25,15 +25,35 @@ import {
   borderedListItemStyles,
   expandedContentPanelStyles,
   popoverTriggerStyles,
-  monoEllipsisStyles,
+  ellipsisStyles,
+  sectionHeadingRowStyles,
+  flexRowStyles,
   showMoreRowStyles,
+  noShrinkStyles,
+  blockLabelStyles,
+  monoFontStyles,
 } from '../styles';
+import { buildPackageConnectOptionKey } from '../utils';
 import { ViewDetailsDrawer, DetailField, ArgumentList } from './ViewDetailsDrawer';
 import { ConnectionInstructions } from './ConnectionInstructions';
 
 const INITIAL_VISIBLE_PACKAGES = 5;
 
-export const PackagesSubsection = ({ packages, serverName, derivedName, serverJson, isAdmin, isAuthAvailable, hiddenConnectOptions, onToggleConnectOption }: { packages: NonNullable<ServerJSONPayload['packages']>; serverName: string; derivedName: string; serverJson: ServerJSONPayload; isAdmin?: boolean; isAuthAvailable?: boolean; hiddenConnectOptions?: string[]; onToggleConnectOption?: (key: string, visible: boolean) => void }) => {
+export const PackagesSubsection = ({
+  packages,
+  derivedName,
+  isAdmin,
+  isAuthAvailable,
+  hiddenConnectOptions,
+  onToggleConnectOption,
+}: {
+  packages: NonNullable<ServerJSONPayload['packages']>;
+  derivedName: string;
+  isAdmin?: boolean;
+  isAuthAvailable?: boolean;
+  hiddenConnectOptions?: string[];
+  onToggleConnectOption?: (key: string, visible: boolean) => void;
+}) => {
   const showVisibilityControls = isAuthAvailable && isAdmin;
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -44,17 +64,26 @@ export const PackagesSubsection = ({ packages, serverName, derivedName, serverJs
 
   return (
     <div>
-      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.sm }}>
+      <div css={sectionHeadingRowStyles(theme)}>
         <Typography.Text bold>
           <FormattedMessage defaultMessage="Run locally" description="MCP server packages subsection heading" />
         </Typography.Text>
         <Popover.Root componentId="mlflow.mcp_registry.detail.packages_help">
-          <Popover.Trigger css={popoverTriggerStyles(theme)}>
+          <Popover.Trigger
+            css={popoverTriggerStyles(theme)}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'About run locally',
+              description: 'Aria label for packages subsection help popover',
+            })}
+          >
             <InfoIcon />
           </Popover.Trigger>
           <Popover.Content align="start" css={{ maxWidth: 360 }}>
             <Typography.Paragraph withoutMargins>
-              <FormattedMessage defaultMessage="Install and run this MCP server on your local machine using a package manager." description="Help text for MCP server packages subsection" />
+              <FormattedMessage
+                defaultMessage="Install and run this MCP server on your local machine using a package manager."
+                description="Help text for MCP server packages subsection"
+              />
             </Typography.Paragraph>
             <Popover.Arrow />
           </Popover.Content>
@@ -65,15 +94,13 @@ export const PackagesSubsection = ({ packages, serverName, derivedName, serverJs
           <PackageRow
             key={`${pkg.registryType}-${pkg.identifier}`}
             pkg={pkg}
-            serverName={serverName}
             derivedName={derivedName}
-            serverJson={serverJson}
             expanded={expandedIndex === index}
             onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
             showTopBorder={index > 0}
             showVisibilityControls={showVisibilityControls}
-            isHidden={hiddenConnectOptions?.includes(`${pkg.registryType}:${pkg.identifier}`) ?? false}
-            onToggleVisibility={(visible) => onToggleConnectOption?.(`${pkg.registryType}:${pkg.identifier}`, visible)}
+            isHidden={hiddenConnectOptions?.includes(buildPackageConnectOptionKey(pkg)) ?? false}
+            onToggleVisibility={(visible) => onToggleConnectOption?.(buildPackageConnectOptionKey(pkg), visible)}
           />
         ))}
         {hiddenCount > 0 && (
@@ -105,9 +132,7 @@ export const PackagesSubsection = ({ packages, serverName, derivedName, serverJs
 
 const PackageRow = ({
   pkg,
-  serverName,
   derivedName,
-  serverJson,
   expanded,
   onToggle,
   showTopBorder,
@@ -116,9 +141,7 @@ const PackageRow = ({
   onToggleVisibility,
 }: {
   pkg: NonNullable<ServerJSONPayload['packages']>[number];
-  serverName: string;
   derivedName: string;
-  serverJson: ServerJSONPayload;
   expanded: boolean;
   onToggle: () => void;
   showTopBorder: boolean;
@@ -159,16 +182,11 @@ const PackageRow = ({
         )}
         css={expandableRowButtonStyles(theme)}
       >
-        <div css={chevronContainerStyles(theme)}>
-          {expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
-        </div>
-        <Tag componentId="mlflow.mcp_registry.detail.package_registry_tag" color="turquoise" css={{ flexShrink: 0 }}>
+        <div css={chevronContainerStyles(theme)}>{expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}</div>
+        <Tag componentId="mlflow.mcp_registry.detail.package_registry_tag" color="turquoise" css={noShrinkStyles}>
           {pkg.registryType}
         </Tag>
-        <Typography.Text
-          color="secondary"
-          css={{ ...monoEllipsisStyles(theme), fontFamily: 'inherit' }}
-        >
+        <Typography.Text color="secondary" css={ellipsisStyles(theme)}>
           <FormattedMessage
             defaultMessage="<strong>Run locally with {runner}</strong> {identifier}"
             description="Package row description showing runner and identifier"
@@ -180,19 +198,25 @@ const PackageRow = ({
           />
         </Typography.Text>
         {showVisibilityControls && isDisabled && (
-          <Tag componentId="mlflow.mcp_registry.detail.package.disabled_tag" color="charcoal" css={{ flexShrink: 0 }}>
+          <Tag componentId="mlflow.mcp_registry.detail.package.disabled_tag" color="charcoal" css={noShrinkStyles}>
             <FormattedMessage defaultMessage="Disabled" description="Label for disabled package" />
           </Tag>
         )}
         {showVisibilityControls && (
-          <div css={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+          <div css={noShrinkStyles} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
             <Tooltip
               componentId="mlflow.mcp_registry.detail.package.visibility_tooltip"
               content={
                 isVisible ? (
-                  <FormattedMessage defaultMessage="Visible to developers. Click to hide." description="Tooltip for visible package toggle" />
+                  <FormattedMessage
+                    defaultMessage="Visible to developers. Click to hide."
+                    description="Tooltip for visible package toggle"
+                  />
                 ) : (
-                  <FormattedMessage defaultMessage="Hidden from developers. Click to show." description="Tooltip for hidden package toggle" />
+                  <FormattedMessage
+                    defaultMessage="Hidden from developers. Click to show."
+                    description="Tooltip for hidden package toggle"
+                  />
                 )
               }
             >
@@ -202,6 +226,13 @@ const PackageRow = ({
                 size="small"
                 icon={isVisible ? <VisibleIcon /> : <VisibleOffIcon />}
                 onClick={() => onToggleVisibility?.(!!isHidden)}
+                aria-label={intl.formatMessage(
+                  {
+                    defaultMessage: '{action} package {identifier}',
+                    description: 'Aria label for package visibility toggle',
+                  },
+                  { action: isVisible ? 'Hide' : 'Show', identifier: pkg.identifier },
+                )}
               />
             </Tooltip>
           </div>
@@ -216,20 +247,88 @@ const PackageRow = ({
             derivedName={derivedName}
             detailLink={
               <ViewDetailsDrawer title={pkg.identifier}>
-                <DetailField label={intl.formatMessage({ defaultMessage: 'Identifier', description: 'Package identifier label' })} value={pkg.identifier} mono />
-                <DetailField label={intl.formatMessage({ defaultMessage: 'Registry type', description: 'Package registry type label' })} value={pkg.registryType} tagColor="turquoise" />
-                {pkg.version && <DetailField label={intl.formatMessage({ defaultMessage: 'Version', description: 'Package version label' })} value={pkg.version} mono />}
-                <DetailField label={intl.formatMessage({ defaultMessage: 'Transport', description: 'Package transport label' })} value={transportLabel} tagColor="default" />
-                {pkg.runtimeHint && <DetailField label={intl.formatMessage({ defaultMessage: 'Runtime hint', description: 'Package runtime hint label' })} value={pkg.runtimeHint} mono />}
-                {pkg.registryBaseUrl && <DetailField label={intl.formatMessage({ defaultMessage: 'Registry URL', description: 'Package registry URL label' })} value={pkg.registryBaseUrl} mono link />}
-                {pkg.fileSha256 && <DetailField label={intl.formatMessage({ defaultMessage: 'SHA-256', description: 'Package file hash label' })} value={pkg.fileSha256} mono />}
-                {pkg.transport?.url && <DetailField label={intl.formatMessage({ defaultMessage: 'Transport URL', description: 'Package transport URL label' })} value={pkg.transport.url} mono link />}
+                <DetailField
+                  label={intl.formatMessage({ defaultMessage: 'Identifier', description: 'Package identifier label' })}
+                  value={pkg.identifier}
+                  mono
+                />
+                <DetailField
+                  label={intl.formatMessage({
+                    defaultMessage: 'Registry type',
+                    description: 'Package registry type label',
+                  })}
+                  value={pkg.registryType}
+                  tagColor="turquoise"
+                />
+                {pkg.version && (
+                  <DetailField
+                    label={intl.formatMessage({ defaultMessage: 'Version', description: 'Package version label' })}
+                    value={pkg.version}
+                    mono
+                  />
+                )}
+                <DetailField
+                  label={intl.formatMessage({ defaultMessage: 'Transport', description: 'Package transport label' })}
+                  value={transportLabel}
+                  tagColor="default"
+                />
+                {pkg.runtimeHint && (
+                  <DetailField
+                    label={intl.formatMessage({
+                      defaultMessage: 'Runtime hint',
+                      description: 'Package runtime hint label',
+                    })}
+                    value={pkg.runtimeHint}
+                    mono
+                  />
+                )}
+                {pkg.registryBaseUrl && (
+                  <DetailField
+                    label={intl.formatMessage({
+                      defaultMessage: 'Registry URL',
+                      description: 'Package registry URL label',
+                    })}
+                    value={pkg.registryBaseUrl}
+                    mono
+                    link
+                  />
+                )}
+                {pkg.fileSha256 && (
+                  <DetailField
+                    label={intl.formatMessage({ defaultMessage: 'SHA-256', description: 'Package file hash label' })}
+                    value={pkg.fileSha256}
+                    mono
+                  />
+                )}
+                {pkg.transport?.url && (
+                  <DetailField
+                    label={intl.formatMessage({
+                      defaultMessage: 'Transport URL',
+                      description: 'Package transport URL label',
+                    })}
+                    value={pkg.transport.url}
+                    mono
+                    link
+                  />
+                )}
                 {allEnvVars.length > 0 && <EnvVarList envVars={allEnvVars} />}
                 {pkg.runtimeArguments && pkg.runtimeArguments.length > 0 && (
-                  <ArgumentList label={intl.formatMessage({ defaultMessage: 'Runtime arguments', description: 'Package runtime arguments label' })} args={pkg.runtimeArguments} />
+                  <ArgumentList
+                    label={intl.formatMessage({
+                      defaultMessage: 'Runtime arguments',
+                      description: 'Package runtime arguments label',
+                    })}
+                    args={pkg.runtimeArguments}
+                  />
                 )}
                 {pkg.packageArguments && pkg.packageArguments.length > 0 && (
-                  <ArgumentList label={intl.formatMessage({ defaultMessage: 'Package arguments', description: 'Package arguments label' })} args={pkg.packageArguments} />
+                  <ArgumentList
+                    label={intl.formatMessage({
+                      defaultMessage: 'Package arguments',
+                      description: 'Package arguments label',
+                    })}
+                    args={pkg.packageArguments}
+                  />
                 )}
               </ViewDetailsDrawer>
             }
@@ -255,7 +354,7 @@ const EnvVarList = ({
 
   return (
     <div>
-      <Typography.Text bold size="sm" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+      <Typography.Text bold size="sm" css={blockLabelStyles(theme)}>
         <FormattedMessage
           defaultMessage="Environment Variables ({count})"
           description="MCP server package environment variables heading with count"
@@ -264,12 +363,9 @@ const EnvVarList = ({
       </Typography.Text>
       <div css={borderedListContainerStyles(theme)}>
         {visibleVars.map((envVar, i) => (
-          <div
-            key={envVar.name}
-            css={borderedListItemStyles(theme, i > 0)}
-          >
-            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-              <Typography.Text bold size="sm" css={{ fontFamily: 'monospace' }}>
+          <div key={envVar.name} css={borderedListItemStyles(theme, i > 0)}>
+            <div css={flexRowStyles(theme)}>
+              <Typography.Text bold size="sm" css={monoFontStyles}>
                 {envVar.name}
               </Typography.Text>
               {envVar.isRequired && (

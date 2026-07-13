@@ -1,5 +1,11 @@
 import { TransportType } from './types';
-import type { ServerJSONArgument, ServerJSONInput, ServerJSONPackage, ServerJSONPayload, ServerJSONTransport } from './types';
+import type {
+  ServerJSONArgument,
+  ServerJSONInput,
+  ServerJSONPackage,
+  ServerJSONPayload,
+  ServerJSONTransport,
+} from './types';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -65,22 +71,33 @@ export function deriveClientName(registryName: string): string {
     raw = registryName;
   }
 
-  return raw
+  const derived = raw
     .replace(/[^A-Za-z0-9_-]/g, '-')
     .replace(/-{2,}/g, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase();
+  return derived || 'mcp-server';
+}
+
+function hasUnsafePackageMetadata(
+  identifier: string,
+  version: string | undefined,
+  registryBaseUrl: string | undefined,
+  packageSpec: string,
+): boolean {
+  return (
+    hasShellMetacharacters(identifier) ||
+    (version != null && hasShellMetacharacters(version)) ||
+    (registryBaseUrl != null && hasShellMetacharacters(registryBaseUrl)) ||
+    hasShellMetacharacters(packageSpec)
+  );
 }
 
 // ---------------------------------------------------------------------------
 // Input resolution
 // ---------------------------------------------------------------------------
 
-export function substituteTokens(
-  template: string,
-  variables: Record<string, ServerJSONInput>,
-  maxDepth = 10,
-): string {
+export function substituteTokens(template: string, variables: Record<string, ServerJSONInput>, maxDepth = 10): string {
   if (maxDepth <= 0) return template;
   return template.replace(/\{([^}]+)\}/g, (match, token: string) => {
     const variable = variables[token];
@@ -90,23 +107,21 @@ export function substituteTokens(
   });
 }
 
-export function resolveInputValue(input: ServerJSONInput): string {
-  if (input.isSecret) {
-    return placeholderFor(input);
-  }
-
+function resolveNonSecretValue(input: ServerJSONInput): string {
   if (input.value != null) {
     const vars = input.variables ?? {};
     return Object.keys(vars).length > 0 ? substituteTokens(input.value, vars) : input.value;
   }
-
   if (input.default != null) return input.default;
-
   if (input.choices && input.choices.length > 0) {
     return `<${input.choices.join('|')}>`;
   }
-
   return placeholderFor(input);
+}
+
+export function resolveInputValue(input: ServerJSONInput): string {
+  if (input.isSecret) return placeholderFor(input);
+  return resolveNonSecretValue(input);
 }
 
 export function resolveInputValueForJson(input: ServerJSONInput & { name?: string }): string {
@@ -114,19 +129,7 @@ export function resolveInputValueForJson(input: ServerJSONInput & { name?: strin
     const envName = input.name ?? input.valueHint ?? 'SECRET';
     return `\${${envName.toUpperCase().replace(/[^A-Z0-9_]/g, '_')}}`;
   }
-
-  if (input.value != null) {
-    const vars = input.variables ?? {};
-    return Object.keys(vars).length > 0 ? substituteTokens(input.value, vars) : input.value;
-  }
-
-  if (input.default != null) return input.default;
-
-  if (input.choices && input.choices.length > 0) {
-    return `<${input.choices.join('|')}>`;
-  }
-
-  return placeholderFor(input);
+  return resolveNonSecretValue(input);
 }
 
 function placeholderFor(input: ServerJSONInput): string {
@@ -149,16 +152,7 @@ function placeholderFor(input: ServerJSONInput): string {
 // Runners
 // ---------------------------------------------------------------------------
 
-const KNOWN_RUNNERS = new Set([
-  'npx',
-  'uvx',
-  'pipx',
-  'docker',
-  'dnx',
-  'node',
-  'python',
-  'bunx',
-]);
+const KNOWN_RUNNERS = new Set(['npx', 'uvx', 'pipx', 'docker', 'dnx', 'node', 'python', 'bunx']);
 
 const REGISTRY_DEFAULTS = {
   npm: 'npx',
@@ -178,20 +172,21 @@ const CANONICAL_REGISTRIES = {
   pypi: 'https://pypi.org/simple',
 } satisfies Record<string, string>;
 
+function lookup(map: Record<string, string>, key: string): string | undefined {
+  return (map as Record<string, string>)[key];
+}
+
 export interface ResolvedRunner {
   runner: string | null;
   prerequisiteNote?: string;
 }
 
-export function resolveRunner(
-  runtimeHint: string | undefined,
-  registryType: string,
-): ResolvedRunner {
+export function resolveRunner(runtimeHint: string | undefined, registryType: string): ResolvedRunner {
   if (runtimeHint && KNOWN_RUNNERS.has(runtimeHint)) {
     return { runner: runtimeHint };
   }
 
-  const defaultRunner = (REGISTRY_DEFAULTS as Record<string, string>)[registryType.toLowerCase()];
+  const defaultRunner = lookup(REGISTRY_DEFAULTS, registryType.toLowerCase());
 
   if (runtimeHint && !KNOWN_RUNNERS.has(runtimeHint)) {
     return {
@@ -205,11 +200,7 @@ export function resolveRunner(
   return { runner: defaultRunner ?? null };
 }
 
-export function buildPackageSpec(
-  identifier: string,
-  version: string | undefined,
-  registryType: string,
-): string {
+export function buildPackageSpec(identifier: string, version: string | undefined, registryType: string): string {
   if (!version) return identifier;
 
   const rt = registryType.toLowerCase();
@@ -221,8 +212,6 @@ export function buildPackageSpec(
     return `${identifier}:${version}`;
   }
 
-  if (rt === 'nuget') return `${identifier}@${version}`;
-
   return `${identifier}@${version}`;
 }
 
@@ -231,17 +220,13 @@ export function mapTransportForCli(transport: TransportType): string {
   return transport;
 }
 
-export function getRegistryFlag(
-  registryType: string,
-  registryBaseUrl: string | undefined,
-  runner: string,
-): string[] {
+export function getRegistryFlag(registryType: string, registryBaseUrl: string | undefined, runner: string): string[] {
   if (!registryBaseUrl) return [];
 
   const rt = registryType.toLowerCase();
   if (rt === 'oci' || rt === 'docker' || rt === 'mcpb') return [];
 
-  const canonical = (CANONICAL_REGISTRIES as Record<string, string>)[rt];
+  const canonical = lookup(CANONICAL_REGISTRIES, rt);
   if (canonical && registryBaseUrl === canonical) return [];
 
   if (runner === 'npx') return [`--registry=${registryBaseUrl}`];
@@ -259,10 +244,7 @@ function resolveUrl(urlTemplate: string, variables?: Record<string, ServerJSONIn
   return substituteTokens(urlTemplate, variables);
 }
 
-export function buildRemoteInstruction(
-  remote: ServerJSONTransport,
-  serverName: string,
-): InstructionBlock {
+export function buildRemoteInstruction(remote: ServerJSONTransport, serverName: string): InstructionBlock {
   const transport = remote.type;
   const cliTransport = mapTransportForCli(transport);
   const label = `${transport}: ${remote.url ?? '(no URL)'}`;
@@ -311,7 +293,6 @@ export function buildRemoteInstruction(
     );
   }
 
-
   return {
     kind: 'remote',
     label,
@@ -352,10 +333,15 @@ function resolveArgForJson(arg: ServerJSONArgument): string[] {
   return [resolveInputValueForJson(arg)];
 }
 
+export interface FallbackContext {
+  websiteUrl?: string;
+  repositoryUrl?: string;
+}
 
 export function buildPackageInstruction(
   pkg: ServerJSONPackage,
   serverName: string,
+  fallbackContext?: FallbackContext,
 ): InstructionBlock {
   const registryType = pkg.registryType.toLowerCase();
   const label = `${pkg.registryType}: ${pkg.identifier}`;
@@ -369,14 +355,18 @@ export function buildPackageInstruction(
 
   const { runner, prerequisiteNote } = resolveRunner(pkg.runtimeHint, pkg.registryType);
   if (!runner) {
+    const fallbackUrl =
+      pkg.registryBaseUrl ?? pkg.websiteUrl ?? fallbackContext?.websiteUrl ?? fallbackContext?.repositoryUrl;
     return {
-      kind: 'package',
+      kind: 'fallback',
       label,
       claudeCodeCommand: null,
       mcpJsonConfig: null,
       notes: prerequisiteNote ? [prerequisiteNote] : [],
-      fallbackReason: `No known runner for registry type "${pkg.registryType}".`,
-      fallbackUrl: typeof pkg['websiteUrl'] === 'string' ? pkg['websiteUrl'] : undefined,
+      fallbackReason: fallbackUrl
+        ? `This package uses a custom registry (${pkg.registryType}). See the publisher's documentation for setup steps.`
+        : `This package uses a custom registry (${pkg.registryType}). Contact the publisher for installation instructions.`,
+      fallbackUrl,
     };
   }
 
@@ -384,6 +374,7 @@ export function buildPackageInstruction(
 
   const packageSpec = buildPackageSpec(pkg.identifier, pkg.version, pkg.registryType);
   const registryFlags = getRegistryFlag(pkg.registryType, pkg.registryBaseUrl, runner);
+  const unsafePackageMetadata = hasUnsafePackageMetadata(pkg.identifier, pkg.version, pkg.registryBaseUrl, packageSpec);
   const runtimeArgs = collectRequiredArgs(pkg.runtimeArguments ?? []);
   const packageArgs = collectRequiredArgs(pkg.packageArguments ?? []);
   const optionalRuntimeArgs = collectOptionalArgs(pkg.runtimeArguments ?? []);
@@ -391,16 +382,9 @@ export function buildPackageInstruction(
   const envVars = (pkg.environmentVariables ?? []).filter((e) => e.isRequired !== false);
   const optionalEnvVars = (pkg.environmentVariables ?? []).filter((e) => e.isRequired === false);
 
-  for (const arg of optionalRuntimeArgs) {
+  for (const arg of [...optionalRuntimeArgs, ...optionalPackageArgs]) {
     optionalSettings.push({
-      flag: isNamedArgument(arg) ? arg.name : arg.valueHint ?? '<arg>',
-      description: arg.description ?? '',
-      default: arg.default,
-    });
-  }
-  for (const arg of optionalPackageArgs) {
-    optionalSettings.push({
-      flag: isNamedArgument(arg) ? arg.name : arg.valueHint ?? '<arg>',
+      flag: isNamedArgument(arg) ? arg.name : (arg.valueHint ?? '<arg>'),
       description: arg.description ?? '',
       default: arg.default,
     });
@@ -415,17 +399,49 @@ export function buildPackageInstruction(
 
   if (transport === TransportType.STDIO) {
     return buildStdioPackage({
-      serverName, runner, packageSpec, registryFlags, runtimeArgs, packageArgs, envVars, transport, label, notes, optionalSettings, pkg,
+      serverName,
+      runner,
+      packageSpec,
+      registryFlags,
+      runtimeArgs,
+      packageArgs,
+      envVars,
+      label,
+      notes,
+      optionalSettings,
+      unsafePackageMetadata,
     });
   }
 
   return buildNetworkPackage({
-    serverName, runner, packageSpec, registryFlags, runtimeArgs, packageArgs, envVars, transport, label, notes, optionalSettings, pkg,
+    serverName,
+    runner,
+    packageSpec,
+    registryFlags,
+    runtimeArgs,
+    packageArgs,
+    envVars,
+    transport,
+    label,
+    notes,
+    optionalSettings,
+    pkg,
+    unsafePackageMetadata,
   });
 }
 
 function buildStdioPackage({
-  serverName, runner, packageSpec, registryFlags, runtimeArgs, packageArgs, envVars, label, notes, optionalSettings, pkg,
+  serverName,
+  runner,
+  packageSpec,
+  registryFlags,
+  runtimeArgs,
+  packageArgs,
+  envVars,
+  label,
+  notes,
+  optionalSettings,
+  unsafePackageMetadata,
 }: {
   serverName: string;
   runner: string;
@@ -434,15 +450,14 @@ function buildStdioPackage({
   runtimeArgs: ServerJSONArgument[];
   packageArgs: ServerJSONArgument[];
   envVars: { name: string; isSecret?: boolean; value?: string; default?: string }[];
-  transport: TransportType;
   label: string;
   notes: string[];
   optionalSettings: OptionalSetting[];
-  pkg: ServerJSONPackage;
+  unsafePackageMetadata: boolean;
 }): InstructionBlock {
   const cliEnvFlags: string[] = [];
   const jsonEnv: { [key: string]: string } = {};
-  let unsafeForCli = false;
+  let unsafeForCli = unsafePackageMetadata;
 
   for (const env of envVars) {
     const cliValue = resolveInputValue(env);
@@ -461,7 +476,10 @@ function buildStdioPackage({
   const cliRuntimeArgs: string[] = [];
   for (const arg of runtimeArgs) {
     const resolved = resolveArgForCli(arg);
-    if (resolved === null) { unsafeForCli = true; break; }
+    if (resolved === null) {
+      unsafeForCli = true;
+      break;
+    }
     cliRuntimeArgs.push(resolved);
   }
 
@@ -469,14 +487,17 @@ function buildStdioPackage({
   if (!unsafeForCli) {
     for (const arg of packageArgs) {
       const resolved = resolveArgForCli(arg);
-      if (resolved === null) { unsafeForCli = true; break; }
+      if (resolved === null) {
+        unsafeForCli = true;
+        break;
+      }
       cliPackageArgs.push(resolved);
     }
   }
 
   let claudeCodeCommand: string | null = null;
   if (!unsafeForCli) {
-    const separator = (RUNNER_SEPARATORS as Record<string, string>)[runner] ?? '';
+    const separator = lookup(RUNNER_SEPARATORS, runner) ?? '';
     const innerParts = [runner, ...registryFlags, ...cliRuntimeArgs];
     if (runner === 'npx') innerParts.push('-y');
     if (runner === 'docker') innerParts.push('run', '-i', '--rm');
@@ -507,7 +528,7 @@ function buildStdioPackage({
     }
   }
   jsonArgs.push(packageSpec);
-  const sep = (RUNNER_SEPARATORS as Record<string, string>)[runner];
+  const sep = lookup(RUNNER_SEPARATORS, runner);
   if (sep) jsonArgs.push(sep);
   for (const arg of packageArgs) {
     jsonArgs.push(...resolveArgForJson(arg));
@@ -537,7 +558,19 @@ function buildStdioPackage({
 }
 
 function buildNetworkPackage({
-  serverName, runner, packageSpec, registryFlags, runtimeArgs, packageArgs, envVars, transport, label, notes, optionalSettings, pkg,
+  serverName,
+  runner,
+  packageSpec,
+  registryFlags,
+  runtimeArgs,
+  packageArgs,
+  envVars,
+  transport,
+  label,
+  notes,
+  optionalSettings,
+  pkg,
+  unsafePackageMetadata,
 }: {
   serverName: string;
   runner: string;
@@ -551,21 +584,40 @@ function buildNetworkPackage({
   notes: string[];
   optionalSettings: OptionalSetting[];
   pkg: ServerJSONPackage;
+  unsafePackageMetadata: boolean;
 }): InstructionBlock {
   const cliTransport = mapTransportForCli(transport);
+  let unsafeForCli = unsafePackageMetadata;
 
   const startParts = [runner, ...registryFlags];
   for (const arg of runtimeArgs) {
     const resolved = resolveArgForCli(arg);
-    if (resolved) startParts.push(resolved);
+    if (resolved === null) {
+      unsafeForCli = true;
+      break;
+    }
+    startParts.push(resolved);
   }
-  if (runner === 'npx') startParts.push('-y');
-  startParts.push(packageSpec);
-  const sep = (RUNNER_SEPARATORS as Record<string, string>)[runner];
-  if (sep) startParts.push(sep);
-  for (const arg of packageArgs) {
-    const resolved = resolveArgForCli(arg);
-    if (resolved) startParts.push(resolved);
+  if (!unsafeForCli) {
+    if (runner === 'npx') startParts.push('-y');
+    startParts.push(packageSpec);
+    const sep = lookup(RUNNER_SEPARATORS, runner);
+    if (sep) startParts.push(sep);
+    for (const arg of packageArgs) {
+      const resolved = resolveArgForCli(arg);
+      if (resolved === null) {
+        unsafeForCli = true;
+        break;
+      }
+      startParts.push(resolved);
+    }
+  }
+
+  for (const env of envVars) {
+    if (env.value != null && hasShellMetacharacters(env.value)) {
+      unsafeForCli = true;
+      break;
+    }
   }
 
   const envExports = envVars.map((e) => `export ${shellQuote(`${e.name}=${resolveInputValue(e)}`)}`);
@@ -587,9 +639,14 @@ function buildNetworkPackage({
     resolvedUrl = substituteTokens(resolvedUrl, allVars);
   }
 
-  const step1 = [...envExports, startParts.join(' ')].join('\n');
-  const step2 = `claude mcp add --transport ${cliTransport} ${serverName} ${shellQuote(resolvedUrl)}`;
-  const claudeCodeCommand = `# Step 1: Start the server\n${step1}\n\n# Step 2: Connect\n${step2}`;
+  let claudeCodeCommand: string | null = null;
+  if (!unsafeForCli) {
+    const step1 = [...envExports, startParts.join(' ')].join('\n');
+    const step2 = `claude mcp add --transport ${cliTransport} ${serverName} ${shellQuote(resolvedUrl)}`;
+    claudeCodeCommand = `# Step 1: Start the server\n${step1}\n\n# Step 2: Connect\n${step2}`;
+  } else {
+    notes.push('CLI command omitted due to unsafe characters in fixed values. Use .mcp.json instead.');
+  }
 
   const mcpJsonConfig: { [key: string]: unknown } = {
     url: resolvedUrl,
@@ -608,6 +665,7 @@ function buildNetworkPackage({
     mcpJsonConfig,
     notes,
     optionalSettings: optionalSettings.length > 0 ? optionalSettings : undefined,
+    fallbackReason: unsafeForCli ? 'Fixed values contain shell metacharacters.' : undefined,
   };
 }
 
@@ -627,7 +685,7 @@ function buildMcpbFallback(pkg: ServerJSONPackage, label: string): InstructionBl
     mcpJsonConfig: null,
     notes,
     fallbackReason: 'MCPB packages require a client that supports MCPB bundles.',
-    fallbackUrl: typeof pkg['websiteUrl'] === 'string' ? pkg['websiteUrl'] : undefined,
+    fallbackUrl: pkg.websiteUrl,
   };
 }
 
@@ -651,10 +709,7 @@ function collectOptionalArgs(args: ServerJSONArgument[]): ServerJSONArgument[] {
 // Generate install instructions (orchestrator)
 // ---------------------------------------------------------------------------
 
-export function generateInstallInstructions(
-  serverJson: ServerJSONPayload,
-  registryName: string,
-): InstallInstructions {
+export function generateInstallInstructions(serverJson: ServerJSONPayload, registryName: string): InstallInstructions {
   const serverName = deriveClientName(registryName);
   const blocks: InstructionBlock[] = [];
 
@@ -673,11 +728,16 @@ export function generateInstallInstructions(
     return t !== TransportType.STDIO;
   });
 
+  const ctx: FallbackContext = {
+    websiteUrl: serverJson.websiteUrl,
+    repositoryUrl: serverJson.repository?.url,
+  };
+
   for (const pkg of stdioPackages) {
-    blocks.push(buildPackageInstruction(pkg, serverName));
+    blocks.push(buildPackageInstruction(pkg, serverName, ctx));
   }
   for (const pkg of networkPackages) {
-    blocks.push(buildPackageInstruction(pkg, serverName));
+    blocks.push(buildPackageInstruction(pkg, serverName, ctx));
   }
 
   for (const remote of remotes) {
@@ -688,13 +748,17 @@ export function generateInstallInstructions(
 
   for (const remote of remotes) {
     if (remote.type !== TransportType.STREAMABLE_HTTP && remote.type !== TransportType.SSE) {
+      const fallbackUrl = remote.url ?? serverJson.websiteUrl ?? serverJson.repository?.url;
       blocks.push({
         kind: 'fallback',
         label: `${remote.type}: ${remote.url ?? '(no URL)'}`,
         claudeCodeCommand: null,
         mcpJsonConfig: null,
         notes: [],
-        fallbackReason: `Unknown remote transport type "${remote.type}".`,
+        fallbackReason: fallbackUrl
+          ? `This endpoint uses ${remote.type} transport, which requires manual setup. See the publisher's documentation for connection steps.`
+          : `This endpoint uses ${remote.type} transport, which requires manual setup. Contact the publisher for connection instructions.`,
+        fallbackUrl,
       });
     }
   }
