@@ -6,7 +6,6 @@ const BASE_URL = 'ajax-api/3.0/mlflow/mcp-servers';
 
 export const createMockMCPServer = (overrides: Partial<MCPServer> = {}): MCPServer => ({
   name: 'io.github.test/server',
-  access_bindings: [],
   aliases: [],
   tags: {},
   ...overrides,
@@ -82,3 +81,4 @@ export const getMockedSetMCPServerTagResponse = () =>
 
 export const getMockedDeleteMCPServerTagResponse = () =>
   rest.delete(getAjaxUrl(`${BASE_URL}/:name/tags/:key`), (_req, res, ctx) => res(ctx.json({})));
+

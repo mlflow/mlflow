@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { selectedRowIndicatorStyles } from '../styles';
 import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   ChevronRightIcon,
@@ -18,7 +19,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPServerVersion } from '../types';
 import { STATUS_TAG_COLOR } from '../utils';
-import { ModelVersionTableAliasesCell } from '../../model-registry/components/aliases/ModelVersionTableAliasesCell';
+import { MCPServerAliasesCell } from './MCPServerAliasesCell';
 import Utils from '../../common/utils/Utils';
 
 interface MCPServerVersionListMeta {
@@ -55,14 +56,7 @@ const MCPServerVersionCell: ColumnDef<MCPServerVersion>['cell'] = ({
         <Tag componentId="mlflow.mcp_registry.detail.version_status_tag" color={STATUS_TAG_COLOR[original.status]}>
           {original.status}
         </Tag>
-        <ModelVersionTableAliasesCell
-          modelName={serverName}
-          version={original.version}
-          aliases={aliases}
-          onAddEdit={() => {
-            showEditAliasesModal?.(original.version);
-          }}
-        />
+        <MCPServerAliasesCell aliases={aliases} />
       </div>
       {versionDisplayName && (
         <Typography.Text
@@ -176,14 +170,7 @@ export const MCPServerVersionList = ({
                     <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       {isSelected && (
-                        <div
-                          css={{
-                            width: theme.spacing.md * 2,
-                            display: 'flex',
-                            alignItems: 'center',
-                            paddingRight: theme.spacing.sm,
-                          }}
-                        >
+                        <div css={selectedRowIndicatorStyles(theme)}>
                           <ChevronRightIcon />
                         </div>
                       )}

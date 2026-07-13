@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { tagListStyles } from '../styles';
 import {
   Alert,
   Button,
@@ -20,16 +21,16 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import type { MCPServer, MCPServerVersion } from '../types';
 import { STATUS_TAG_COLOR, STATUS_TRANSITIONS, resolveDisplayName } from '../utils';
 import type { MCPStatus } from '../types';
+import { MCPRegistryApi } from '../api';
 import { ServerJSONSection, ToolsSection } from './ServerJSONSection';
 import { ConfirmationModal } from '../../admin/ConfirmationModal';
-import { ModelVersionTableAliasesCell } from '../../model-registry/components/aliases/ModelVersionTableAliasesCell';
+import { MCPServerAliasesCell } from './MCPServerAliasesCell';
 import { useUpdateMCPServerVersion, useDeleteMCPServerVersion } from '../hooks/useMCPServerVersionMutations';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
 import { AliasSelect } from '../../common/components/AliasSelect';
 import { LATEST_ALIAS, RESERVED_ALIASES, validateToolsJson } from '../utils';
+import { useCurrentUserIsAdmin, useIsAuthAvailable } from '../../account/hooks';
 import Utils from '../../common/utils/Utils';
-
-const EMPTY_ALIASES: string[] = [];
 
 export const MCPServerVersionDetail = ({
   server,
@@ -46,6 +47,9 @@ export const MCPServerVersionDetail = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const isAuthAvailable = useIsAuthAvailable();
+  const isUserAdmin = useCurrentUserIsAdmin();
+  const isAdmin = !isAuthAvailable || isUserAdmin;
   const [editVersionModalVisible, setEditVersionModalVisible] = useState(false);
   const [editVersionDisplayName, setEditVersionDisplayName] = useState('');
   const [editVersionStatus, setEditVersionStatus] = useState<MCPStatus>('draft');
@@ -53,8 +57,34 @@ export const MCPServerVersionDetail = ({
   const [editVersionToolsText, setEditVersionToolsText] = useState('');
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [toolsValidationError, setToolsValidationError] = useState<string | null>(null);
+  const [localHiddenOptions, setLocalHiddenOptions] = useState<string[] | undefined>(undefined);
+  useEffect(() => setLocalHiddenOptions(undefined), [version?.version]);
   const updateVersionMutation = useUpdateMCPServerVersion(server.name);
   const deleteVersionMutation = useDeleteMCPServerVersion(server.name);
+
+  const openEditVersionModal = () => {
+    if (!version) return;
+    setEditVersionDisplayName(version.display_name || version.server_json?.title || '');
+    setEditVersionStatus(version.status);
+    const currentAliases = (aliasesByVersion[version.version] ?? []).filter((a) => a !== LATEST_ALIAS);
+    setEditVersionAliases(currentAliases);
+    setEditVersionToolsText(version.tools?.length ? JSON.stringify(version.tools, null, 2) : '');
+    setEditVersionModalVisible(true);
+  };
+
+  const handleToggleConnectOption = (key: string, visible: boolean) => {
+    if (!version) return;
+    const current = localHiddenOptions ?? version.hidden_connect_options ?? [];
+    const updated = visible
+      ? current.filter((k) => k !== key)
+      : [...current, key];
+    setLocalHiddenOptions(updated);
+    MCPRegistryApi.updateMCPServerVersion(server.name, version.version, {
+      hidden_connect_options: updated.length > 0 ? updated : null,
+    }).catch(() => {
+      setLocalHiddenOptions(current);
+    });
+  };
 
   if (!version) {
     return (
@@ -105,31 +135,26 @@ export const MCPServerVersionDetail = ({
             <Typography.Hint css={{ marginTop: theme.spacing.xs }}>{version.server_json.description}</Typography.Hint>
           )}
         </div>
-        <div css={{ display: 'flex', gap: theme.spacing.sm, flexShrink: 0 }}>
-          <Button
-            componentId="mlflow.mcp_registry.detail.edit_version"
-            icon={<PencilIcon />}
-            onClick={() => {
-              setEditVersionDisplayName(version.display_name || version.server_json?.title || '');
-              setEditVersionStatus(version.status);
-              const currentAliases = (aliasesByVersion[version.version] ?? []).filter((a) => a !== LATEST_ALIAS);
-              setEditVersionAliases(currentAliases);
-              setEditVersionToolsText(version.tools?.length ? JSON.stringify(version.tools, null, 2) : '');
-              setEditVersionModalVisible(true);
-            }}
-          >
-            <FormattedMessage defaultMessage="Edit" description="MCP server edit version button" />
-          </Button>
-          <Button
-            componentId="mlflow.mcp_registry.detail.delete_version"
-            icon={<TrashIcon />}
-            type="primary"
-            danger
-            onClick={() => setDeleteModalVisible(true)}
-          >
-            <FormattedMessage defaultMessage="Delete version" description="MCP server delete version button" />
-          </Button>
-        </div>
+        {isAdmin && (
+          <div css={{ display: 'flex', gap: theme.spacing.sm, flexShrink: 0 }}>
+            <Button
+              componentId="mlflow.mcp_registry.detail.edit_version"
+              icon={<PencilIcon />}
+              onClick={openEditVersionModal}
+            >
+              <FormattedMessage defaultMessage="Edit" description="MCP server edit version button" />
+            </Button>
+            <Button
+              componentId="mlflow.mcp_registry.detail.delete_version"
+              icon={<TrashIcon />}
+              type="primary"
+              danger
+              onClick={() => setDeleteModalVisible(true)}
+            >
+              <FormattedMessage defaultMessage="Delete version" description="MCP server delete version button" />
+            </Button>
+          </div>
+        )}
       </div>
 
       <Spacer shrinks={false} />
@@ -163,15 +188,14 @@ export const MCPServerVersionDetail = ({
           <FormattedMessage defaultMessage="Aliases:" description="MCP server version detail aliases label" />
         </Typography.Text>
         <div>
-          <ModelVersionTableAliasesCell
-            css={{ maxWidth: 'none' }}
-            modelName={server.name}
-            version={version.version}
-            aliases={aliasesByVersion[version.version] ?? EMPTY_ALIASES}
-            onAddEdit={() => {
-              showEditAliasesModal?.(version.version);
-            }}
-          />
+          {(aliasesByVersion[version.version] ?? []).length > 0 || isAdmin ? (
+            <MCPServerAliasesCell
+              aliases={aliasesByVersion[version.version] ?? []}
+              onEdit={isAdmin ? () => showEditAliasesModal?.(version.version) : undefined}
+            />
+          ) : (
+            <Typography.Hint>—</Typography.Hint>
+          )}
         </div>
 
         <Typography.Text bold>
@@ -226,7 +250,7 @@ export const MCPServerVersionDetail = ({
           <FormattedMessage defaultMessage="Metadata:" description="MCP server version detail metadata label" />
         </Typography.Text>
         <div>
-          <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs, alignItems: 'center' }}>
+          <div css={tagListStyles(theme)}>
             {Object.keys(version.tags ?? {}).length > 0
               ? Object.entries(version.tags ?? {}).map(([key, value]) => (
                   <KeyValueTag css={{ margin: 0 }} key={key} tag={{ key, value }} />
@@ -275,16 +299,24 @@ export const MCPServerVersionDetail = ({
           {version.tools && version.tools.length > 0 && (
             <Tabs.Trigger value="tools">
               <FormattedMessage
-                defaultMessage="Tools ({count})"
+                defaultMessage="Tools"
                 description="MCP server version detail tools tab"
-                values={{ count: version.tools.length }}
               />
             </Tabs.Trigger>
           )}
         </Tabs.List>
 
         <Tabs.Content value="connect" css={{ paddingTop: theme.spacing.md }}>
-          {version.server_json && <ServerJSONSection serverJson={version.server_json} />}
+          {version.server_json && (
+            <ServerJSONSection
+              serverJson={version.server_json}
+              serverName={server.name}
+              isAdmin={isAdmin}
+              isAuthAvailable={isAuthAvailable}
+              hiddenConnectOptions={localHiddenOptions ?? version.hidden_connect_options}
+              onToggleConnectOption={handleToggleConnectOption}
+            />
+          )}
         </Tabs.Content>
 
         {version.tools && version.tools.length > 0 && (
@@ -303,6 +335,7 @@ export const MCPServerVersionDetail = ({
           />
         }
         visible={editVersionModalVisible}
+        size="wide"
         destroyOnClose
         confirmLoading={updateVersionMutation.isLoading}
         okText={<FormattedMessage defaultMessage="Save" description="Save button" />}
