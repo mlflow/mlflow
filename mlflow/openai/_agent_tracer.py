@@ -263,9 +263,18 @@ def _parse_generation_usage(usage: dict[str, int] | None) -> dict[str, int] | No
         return None
     try:
         result = {}
-        for key in TokenUsageKey.all_keys():
+        for key in [
+            TokenUsageKey.INPUT_TOKENS,
+            TokenUsageKey.OUTPUT_TOKENS,
+            TokenUsageKey.TOTAL_TOKENS,
+        ]:
             if (v := usage.get(key)) is not None:
                 result[key] = v
+        if details := usage.get("input_tokens_details"):
+            if (v := details.get("cached_tokens")) is not None:
+                result[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = v
+            if (v := details.get("cache_write_tokens")) is not None:
+                result[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = v
         return result or None
     except Exception:
         _logger.debug("Failed to parse generation span usage", exc_info=True)

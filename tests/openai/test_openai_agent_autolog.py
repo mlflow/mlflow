@@ -576,6 +576,37 @@ def test_generation_span_attributes_stored_under_span_attribute_keys():
             {"input_tokens": 5, "output_tokens": 10},
             {"input_tokens": 5, "output_tokens": 10},
         ),
+        # cached tokens are nested inside input_tokens_details
+        (
+            {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15,
+                "input_tokens_details": {"cached_tokens": 4, "cache_write_tokens": 2},
+            },
+            {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15,
+                "cache_read_input_tokens": 4,
+                "cache_creation_input_tokens": 2,
+            },
+        ),
+        # partial cache details — only cached_tokens present
+        (
+            {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15,
+                "input_tokens_details": {"cached_tokens": 3},
+            },
+            {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15,
+                "cache_read_input_tokens": 3,
+            },
+        ),
         (None, None),
         ({}, None),
     ],
