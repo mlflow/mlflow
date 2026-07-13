@@ -25,6 +25,7 @@ from mlflow.entities.mcp_server import (
 )
 from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.utils.validation import _validate_mcp_icon_mime_type, _validate_mcp_icon_url
 
 if TYPE_CHECKING:
@@ -496,6 +497,25 @@ def _update_mcp_server_version_kwargs(
     return kwargs
 
 
+def _ensure_version_create_parent_access(
+    store, name: str, username: str | None, request: Request
+) -> None:
+    if not getattr(request.state, "mcp_server_parent_auto_created", False):
+        return
+
+    try:
+        store.create_mcp_server(name=name, created_by=username)
+    except MlflowException as e:
+        if e.error_code != ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+            raise
+        request.state.mcp_server_parent_auto_created = False
+        can_update_existing = getattr(
+            request.state, "mcp_server_can_update_existing_recheck", lambda: False
+        )
+        if not can_update_existing():
+            raise MlflowException("Permission denied.", error_code=PERMISSION_DENIED)
+
+
 def _update_mcp_access_binding_kwargs(
     server_name: str, binding_id: int, body: UpdateMCPAccessBindingRequest
 ) -> dict[str, Any]:
@@ -646,7 +666,9 @@ def create_mcp_server_version(
     status = _parse_status(body.status)
     tools = _tool_payloads_to_entities(body.tools)
     server_json = body.server_json.model_dump(by_alias=True, exclude_unset=True)
-    ver = _get_tracking_store().create_mcp_server_version(
+    store = _get_tracking_store()
+    _ensure_version_create_parent_access(store, name, username, request)
+    ver = store.create_mcp_server_version(
         server_json=server_json,
         display_name=body.display_name,
         source=body.source,

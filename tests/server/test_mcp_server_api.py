@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest import mock
 from urllib.parse import quote
@@ -9,8 +10,14 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.server.fastapi_app import add_mcp_exception_handlers
-from mlflow.server.mcp_server_api import get_mcp_server_api_route_prefixes, mcp_server_router
+from mlflow.server.mcp_server_api import (
+    _ensure_version_create_parent_access,
+    get_mcp_server_api_route_prefixes,
+    mcp_server_router,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 PREFIX = "/ajax-api/3.0/mlflow/mcp-servers"
@@ -429,6 +436,48 @@ def test_create_version(client):
     assert data["status"] == "active"
     assert data["server_json"]["title"] == "Test"
     assert data["tools"] == []
+
+
+def test_ensure_version_create_parent_access_rejects_raced_existing_parent_without_update():
+    can_update_existing = mock.Mock(return_value=False)
+    request = SimpleNamespace(
+        state=SimpleNamespace(
+            mcp_server_parent_auto_created=True,
+            mcp_server_can_update_existing_recheck=can_update_existing,
+        )
+    )
+    store = mock.Mock()
+    store.create_mcp_server.side_effect = MlflowException(
+        "server exists",
+        error_code=RESOURCE_ALREADY_EXISTS,
+    )
+
+    with pytest.raises(MlflowException, match="Permission denied") as exc:
+        _ensure_version_create_parent_access(store, "com.example/race", "alice", request)
+
+    assert exc.value.error_code == ErrorCode.Name(PERMISSION_DENIED)
+    assert request.state.mcp_server_parent_auto_created is False
+    can_update_existing.assert_called_once_with()
+
+
+def test_ensure_version_create_parent_access_allows_raced_existing_parent_with_update():
+    can_update_existing = mock.Mock(return_value=True)
+    request = SimpleNamespace(
+        state=SimpleNamespace(
+            mcp_server_parent_auto_created=True,
+            mcp_server_can_update_existing_recheck=can_update_existing,
+        )
+    )
+    store = mock.Mock()
+    store.create_mcp_server.side_effect = MlflowException(
+        "server exists",
+        error_code=RESOURCE_ALREADY_EXISTS,
+    )
+
+    _ensure_version_create_parent_access(store, "com.example/race", "alice", request)
+
+    assert request.state.mcp_server_parent_auto_created is False
+    can_update_existing.assert_called_once_with()
 
 
 def test_create_version_name_mismatch(client):
