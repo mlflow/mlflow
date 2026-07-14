@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784014914867,
+  "lastUpdate": 1784036097241,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -13823,6 +13823,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 9.791949600003136,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "vatsal.y.official@gmail.com",
+            "name": "Vatsal Yadav",
+            "username": "vatsalyd"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fb4ec7c36c53242257e3b55b1f0fef3105d8bf7e",
+          "message": "Fix async trace export dropping workspace context (#24093) (#24275)\n\nSigned-off-by: vatsalyd <vatsal.y.official@gmail.com>",
+          "timestamp": "2026-07-14T13:30:53Z",
+          "tree_id": "4d7102610b69509dc6c12214aae79291f569bbfd",
+          "url": "https://github.com/mlflow/mlflow/commit/fb4ec7c36c53242257e3b55b1f0fef3105d8bf7e"
+        },
+        "date": 1784036095365,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 39.95713354999921,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 21.869096945945284,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 14.347847428573298,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 21.927226033332897,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 20.975291934426007,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 7.126378799998179,
             "unit": "ms"
           }
         ]
