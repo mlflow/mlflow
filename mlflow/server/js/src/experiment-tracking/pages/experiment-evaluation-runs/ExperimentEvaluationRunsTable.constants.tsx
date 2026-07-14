@@ -8,6 +8,7 @@ import {
   RunNameCell,
   SortableHeaderCell,
   StatusCell,
+  TypeCell,
   VisiblityCell,
 } from './ExperimentEvaluationRunsTableCellRenderers';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -37,6 +38,7 @@ export enum EvalRunsTableColumnId {
   visibility = 'visibility',
   runName = 'run_name',
   status = 'status',
+  type = 'type',
   dataset = 'dataset',
   modelVersion = 'model_version',
   createdAt = 'created_at',
@@ -60,6 +62,7 @@ export const EVAL_RUNS_TABLE_BASE_SELECTION_STATE: { [key: string]: boolean } = 
   [EvalRunsTableColumnId.visibility]: true,
   [EvalRunsTableColumnId.runName]: true,
   [EvalRunsTableColumnId.status]: true,
+  [EvalRunsTableColumnId.type]: true,
   [EvalRunsTableColumnId.createdAt]: true,
   [EvalRunsTableColumnId.dataset]: true,
   [EvalRunsTableColumnId.modelVersion]: false,
@@ -81,6 +84,10 @@ export const EVAL_RUNS_COLUMN_LABELS: Record<EvalRunsTableColumnId, MessageDescr
   [EvalRunsTableColumnId.status]: defineMessage({
     defaultMessage: 'Status',
     description: 'Column header for run status in the evaluation runs table',
+  }),
+  [EvalRunsTableColumnId.type]: defineMessage({
+    defaultMessage: 'Type',
+    description: 'Column header for run type (Eval vs Test) in the evaluation runs table',
   }),
   [EvalRunsTableColumnId.createdAt]: defineMessage({
     defaultMessage: 'Created at',
@@ -168,6 +175,18 @@ export const getExperimentEvalRunsDefaultColumns = (
         styles: {
           minWidth: 60,
           maxWidth: 80,
+        },
+      },
+    },
+    {
+      id: EvalRunsTableColumnId.type,
+      header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.type]} />,
+      cell: TypeCell,
+      enableResizing: false,
+      meta: {
+        styles: {
+          minWidth: 80,
+          maxWidth: 110,
         },
       },
     },

@@ -12,8 +12,12 @@ import { Bot, GitBranch, Shield } from "lucide-react";
 Google ADK scorers require the `google-adk` package:
 
 ```bash
-pip install google-adk
+pip install "mlflow>=3.13" "google-adk"
 ```
+
+MLflow 3.11 added `ToolTrajectory` and `ResponseMatch`. MLflow 3.13 added the three LLM-judge scorers (`ResponseEvaluation`, `Safety`, `Hallucination`). Install MLflow 3.13 or later for the full set.
+
+If you're also tracing your agent, see the [Google ADK tracing integration](/genai/tracing/integrations/listing/google-adk) for one-line auto-tracing setup. The deterministic scorers on this page read tool calls directly from those traces.
 
 ## Quick Start
 
@@ -97,12 +101,22 @@ LLM judge scorers use a Gemini model to grade the agent's response:
 | <APILink fn="mlflow.genai.scorers.google_adk.Hallucination">Hallucination</APILink>           | Is the agent's response factually grounded (not hallucinated)?     | [Link](https://google.github.io/adk-docs/evaluate/) |
 
 :::note
-LLM judge scorers require a model that ADK's `LlmRegistry` can resolve, such as `gemini-2.5-flash`. MLflow model URIs like `databricks` or `openai:/gpt-4o` are not supported by these scorers.
+LLM judge scorers require a model that ADK's `LlmRegistry` can resolve, such as `gemini-2.5-flash`. MLflow model URIs like `databricks` or `openai:/gpt-4o` aren't supported here, because ADK's evaluators wire directly into Google's model registry. If you need an OpenAI, Anthropic, or Databricks judge backend, the [TruLens](/genai/eval-monitor/scorers/third-party/trulens) and [DeepEval](/genai/eval-monitor/scorers/third-party/deepeval) integrations cover the broader provider set.
 :::
 
 :::caution
 `ResponseEvaluation` and `Hallucination` call the Gemini Developer API and accept a `GEMINI_API_KEY` or `GOOGLE_API_KEY` plus `GOOGLE_GENAI_USE_VERTEXAI=false`. `Safety` is routed by ADK through the Vertex AI Evaluation Service (`_SingleTurnVertexAiEvalFacade`) and requires Google Cloud project credentials (`GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, and `gcloud auth application-default login` or a service account). When auth is missing, scorers return a `Feedback` with an `error` field rather than raising, so evaluation runs can continue and surface the misconfiguration per-sample.
 :::
+
+## How Tool Calls Are Resolved
+
+`ToolTrajectory` needs both the expected tool calls (from `expectations["expected_tool_calls"]`) and the actual tool calls the agent made. It resolves the actual calls in this order:
+
+1. **`expectations["actual_tool_calls"]` when present.** Useful for offline evaluation where you've captured tool calls as data, or for synthetic test cases.
+2. **`TOOL` spans on the MLflow trace.** When no explicit override is provided, the scorer walks the trace and reads tool calls from spans tagged as `TOOL`. This is the path for live evaluations that use `mlflow.genai.evaluate(predict_fn=...)` or pass a trace directly.
+3. **Empty list.** If neither is available, the scorer compares the expected list against an empty actual list, which results in a 0.0 score for non-empty expectations.
+
+Returned tool call dicts have `name` and `args` keys, matching the shape used under `expectations["expected_tool_calls"]`. This keeps the same call format consistent across offline data and live trace extraction.
 
 ## Creating Scorers by Name
 

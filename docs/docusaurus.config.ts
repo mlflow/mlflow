@@ -720,7 +720,11 @@ const config: Config = {
           // Evaluation and Monitoring Redirects
           {
             to: '/genai/eval-monitor',
-            from: ['/llms/llm-evaluate'],
+            from: ['/llms/llm-evaluate', '/genai/llm-evaluate'],
+          },
+          {
+            to: '/genai/eval-monitor/scorers',
+            from: ['/genai/llm-evaluate/llm-as-judge', '/llms/llm-evaluate/llm-as-judge'],
           },
           {
             to: '/genai/eval-monitor',

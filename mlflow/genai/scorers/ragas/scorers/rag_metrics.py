@@ -38,6 +38,28 @@ class ContextPrecision(RagasScorer):
     metric_name: ClassVar[str] = "ContextPrecision"
 
 
+@experimental(version="3.14.0")
+@format_docstring(_MODEL_API_DOC)
+class ContextUtilization(RagasScorer):
+    """
+    Evaluates how effectively the retrieved context is utilized in the generated response.
+
+    Args:
+        model: {{ model }}
+        **metric_kwargs: Additional metric-specific parameters
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.scorers.ragas import ContextUtilization
+
+            scorer = ContextUtilization(model="openai:/gpt-4")
+            feedback = scorer(trace=trace)
+    """
+
+    metric_name: ClassVar[str] = "ContextUtilization"
+
+
 @experimental(version="3.8.0")
 class NonLLMContextPrecisionWithReference(RagasScorer):
     """

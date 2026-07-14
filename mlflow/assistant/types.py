@@ -57,6 +57,7 @@ class EventType(str, Enum):
     DONE = "done"
     ERROR = "error"
     INTERRUPTED = "interrupted"
+    PERMISSION_REQUEST = "permission_request"
 
     def __str__(self):
         return self.value
@@ -77,6 +78,14 @@ class Event(BaseModel):
         return cls(type=EventType.ERROR, data={"error": error})
 
     @classmethod
+    def from_exception(cls, exc: Exception) -> "Event":
+        # Some exceptions (e.g. NotImplementedError()) stringify to an empty
+        # string, which would surface to the client as an undiagnosable
+        # `{"error": ""}`. Fall back to the exception's repr so the error is
+        # always identifiable.
+        return cls.from_error(str(exc) or repr(exc))
+
+    @classmethod
     def from_message(cls, message: Message) -> "Event":
         return cls(type=EventType.MESSAGE, data={"message": message.model_dump()})
 
@@ -91,3 +100,12 @@ class Event(BaseModel):
     @classmethod
     def from_interrupted(cls) -> "Event":
         return cls(type=EventType.INTERRUPTED, data={"message": "Assistant was interrupted"})
+
+    @classmethod
+    def from_permission_request(
+        cls, request_id: str, tool_name: str, tool_input: dict[str, Any]
+    ) -> "Event":
+        return cls(
+            type=EventType.PERMISSION_REQUEST,
+            data={"request_id": request_id, "tool_name": tool_name, "tool_input": tool_input},
+        )

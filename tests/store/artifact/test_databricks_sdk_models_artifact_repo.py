@@ -14,10 +14,12 @@ from mlflow.store._unity_catalog.registry.rest_store import (
 )
 from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
     DatabricksSDKModelsArtifactRepository,
+    _get_databricks_workspace_client,
 )
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
+from mlflow.utils.rest_utils import MlflowHostCreds
 
 TEST_MODEL_NAME = "catalog.schema.model"
 TEST_CATALOG = "catalog"
@@ -171,6 +173,54 @@ def test_log_artifact(mock_databricks_workspace_client, tmp_path):
     mock_databricks_workspace_client.files.upload.assert_called_once_with(
         expected_remote_file_path, mock.ANY, overwrite=mock.ANY
     )
+
+
+def test_get_workspace_client_uses_resolved_creds_when_token_present():
+    creds = MlflowHostCreds(host="https://my-host", token="my-token")
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=creds,
+        ) as mock_get_creds,
+        mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
+    ):
+        _get_databricks_workspace_client("databricks-uc")
+
+    mock_get_creds.assert_called_once_with("databricks-uc")
+    mock_workspace_client.assert_called_once_with(host="https://my-host", token="my-token")
+
+
+@pytest.mark.parametrize(
+    "creds",
+    [
+        MlflowHostCreds(host="https://my-host"),  # host resolved but no token
+        None,  # creds resolution returns nothing usable
+    ],
+)
+def test_get_workspace_client_falls_back_to_default_auth_without_token(creds):
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            return_value=creds,
+        ),
+        mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
+    ):
+        _get_databricks_workspace_client("databricks-uc")
+
+    mock_workspace_client.assert_called_once_with()
+
+
+def test_get_workspace_client_falls_back_when_creds_resolution_raises():
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds",
+            side_effect=Exception("cannot resolve creds"),
+        ),
+        mock.patch("databricks.sdk.WorkspaceClient") as mock_workspace_client,
+    ):
+        _get_databricks_workspace_client("databricks-uc")
+
+    mock_workspace_client.assert_called_once_with()
 
 
 def test_mlflow_use_databricks_sdk_model_artifacts_repo_for_uc(tmp_path, monkeypatch):

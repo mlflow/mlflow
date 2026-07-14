@@ -38,13 +38,13 @@ AGENTS: dict[AgentName, AgentTool] = {
         name="codex",
         display_name="OpenAI Codex",
         binary="codex",
-        skills_dir=".codex/skills",
+        skills_dir=".agents/skills",
     ),
     "opencode": AgentTool(
         name="opencode",
         display_name="OpenCode",
         binary="opencode",
-        skills_dir=".opencode/skills",
+        skills_dir=".agents/skills",
         interactive_args=("--prompt",),
     ),
 }

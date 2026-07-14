@@ -139,7 +139,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
-    serialization_format="cloudpickle",
+    serialization_format="skops",
     skops_trusted_types=None,
     extra_files=None,
     uv=None,
@@ -369,7 +369,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
-    serialization_format="cloudpickle",
+    serialization_format="skops",
     skops_trusted_types: list[str] | None = None,
     uv=None,
     **kwargs,
@@ -456,7 +456,7 @@ def log_model(
 
         artifacts: ['model/MLmodel',
                     'model/conda.yaml',
-                    'model/model.pkl',
+                    'model/model.skops',
                     'model/python_env.yaml',
                     'model/requirements.txt']
     """
