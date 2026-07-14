@@ -23,12 +23,12 @@ const JSONPreBlock = ({
   jsonString,
   copyTooltip,
   smSpacing,
-  maxHeight,
+  padding,
 }: {
   jsonString: string;
   copyTooltip: React.ReactNode;
   smSpacing?: boolean;
-  maxHeight?: number;
+  padding?: number;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -41,7 +41,7 @@ const JSONPreBlock = ({
           defaultMessage: 'JSON content',
           description: 'Aria label for JSON code block',
         })}
-        css={jsonPreStyles(theme, maxHeight)}
+        css={jsonPreStyles(theme, padding)}
       >
         <code>{jsonString}</code>
       </pre>
@@ -151,7 +151,7 @@ export const RawJSONToggle = ({ serverJson }: { serverJson: ServerJSONPayload })
         <JSONPreBlock
           jsonString={jsonString}
           smSpacing
-          maxHeight={16}
+          padding={16}
           copyTooltip={
             <Tooltip
               componentId="mlflow.mcp_registry.detail.raw_json.copy"
@@ -196,7 +196,7 @@ export const RawToolsJSONToggle = ({ tools }: { tools: MCPTool[] }) => {
         <JSONPreBlock
           jsonString={jsonString}
           smSpacing
-          maxHeight={16}
+          padding={16}
           copyTooltip={
             <Tooltip
               componentId="mlflow.mcp_registry.detail.raw_tools_json.copy"

@@ -141,6 +141,7 @@ class MCPServerRegistryMixin:
             status: Initial status (defaults to DRAFT).
             tools: List of MCPTool definitions.
             created_by: Authenticated username of the creator.
+            hidden_connect_options: List of connect-option keys to hide from the UI.
 
         Returns:
             The created MCPServerVersion entity.
@@ -232,6 +233,8 @@ class MCPServerRegistryMixin:
                 Non-null values are validated against transition rules.
             tools: New tool definitions. Omit to leave unchanged; pass None to set null.
             last_updated_by: Authenticated username of the updater.
+            hidden_connect_options: List of connect-option keys to hide from the
+                UI. Omit to leave unchanged; pass None to clear.
 
         Returns:
             The updated MCPServerVersion entity.
@@ -270,6 +273,7 @@ class MCPServerRegistryMixin:
             server_version: Pin to a specific version.
             server_alias: Pin to an alias.
             created_by: Authenticated username of the creator.
+            visible: Whether the binding is visible to non-admin users.
 
         Returns:
             The created MCPAccessBinding entity.
@@ -338,6 +342,8 @@ class MCPServerRegistryMixin:
             transport_type: New transport type. Omit to leave unchanged; non-null values update
                 the transport type.
             last_updated_by: Authenticated username of the updater.
+            visible: Whether the binding is visible to non-admin users.
+                Omit to leave unchanged.
 
         Returns:
             The updated MCPAccessBinding entity.
