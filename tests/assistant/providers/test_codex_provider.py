@@ -204,9 +204,8 @@ async def test_astream_yields_error_on_nonzero_exit():
 
 @pytest.mark.asyncio
 async def test_astream_surfaces_non_empty_error_for_empty_exception():
-    # On Windows with >1 server worker, the subprocess spawn raises a bare
-    # NotImplementedError() whose str() is "". The error must still be
-    # diagnosable rather than an empty `{"error": ""}`.
+    # A bare exception whose str() is "" (e.g. NotImplementedError()) must
+    # still surface a diagnosable error rather than an empty `{"error": ""}`.
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
