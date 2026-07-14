@@ -70,6 +70,7 @@ const MCPServerDetailPage = () => {
     isLoading: versionsLoading,
     error: versionsError,
     refetch: refetchVersions,
+    hasMoreVersions,
   } = useMCPServerVersionsQuery(serverName);
   const { data: latestVersion, refetch: refetchLatestVersion } = useLatestMCPServerVersionQuery(serverName);
 
@@ -292,6 +293,7 @@ const MCPServerDetailPage = () => {
               isLoading={versionsLoading}
               serverDisplayName={displayName}
               aliasesByVersion={aliasesByVersion}
+              hasMoreVersions={hasMoreVersions}
             />
           )}
         </div>

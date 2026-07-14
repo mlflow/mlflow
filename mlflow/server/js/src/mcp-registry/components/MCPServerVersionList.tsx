@@ -83,6 +83,7 @@ export const MCPServerVersionList = ({
   isLoading,
   serverDisplayName,
   aliasesByVersion,
+  hasMoreVersions,
 }: {
   versions?: MCPServerVersion[];
   selectedVersion?: string;
@@ -90,6 +91,7 @@ export const MCPServerVersionList = ({
   isLoading?: boolean;
   serverDisplayName: string;
   aliasesByVersion: Record<string, string[]>;
+  hasMoreVersions?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -177,6 +179,14 @@ export const MCPServerVersionList = ({
           })
         )}
       </Table>
+      {hasMoreVersions && (
+        <Typography.Hint css={{ padding: theme.spacing.sm, textAlign: 'center' }}>
+          <FormattedMessage
+            defaultMessage="Only the most recent 100 versions are shown."
+            description="Warning shown when the MCP server has more versions than can be displayed"
+          />
+        </Typography.Hint>
+      )}
     </div>
   );
 };

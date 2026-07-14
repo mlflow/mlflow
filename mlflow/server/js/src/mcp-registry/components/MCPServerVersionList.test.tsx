@@ -77,4 +77,16 @@ describe('MCPServerVersionList', () => {
     renderVersionList({ versions, serverDisplayName: 'Server Name' });
     expect(screen.getByText('Custom Name')).toBeInTheDocument();
   });
+
+  it('shows truncation warning when hasMoreVersions is true', () => {
+    const versions = Array.from({ length: 100 }, (_, i) => createMockMCPServerVersion({ version: `${i + 1}.0.0` }));
+    renderVersionList({ versions, hasMoreVersions: true });
+    expect(screen.getByText('Only the most recent 100 versions are shown.')).toBeInTheDocument();
+  });
+
+  it('does not show truncation warning when hasMoreVersions is false', () => {
+    const versions = [createMockMCPServerVersion({ version: '1.0.0' })];
+    renderVersionList({ versions, hasMoreVersions: false });
+    expect(screen.queryByText('Only the most recent 100 versions are shown.')).not.toBeInTheDocument();
+  });
 });

@@ -23,6 +23,7 @@ export const useMCPServerVersionsQuery = (name: string) => {
   return {
     ...queryResult,
     data: queryResult.data?.mcp_server_versions,
+    hasMoreVersions: Boolean(queryResult.data?.next_page_token),
   };
 };
 
