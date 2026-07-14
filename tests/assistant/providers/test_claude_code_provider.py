@@ -338,8 +338,9 @@ async def test_astream_surfaces_non_empty_error_for_empty_exception():
         events = [e async for e in provider.astream("test prompt", "http://localhost:5000")]
 
     mock_exec.assert_called_once()
-    assert events[-1].type == EventType.ERROR
-    assert events[-1].data["error"] == "NotImplementedError()"
+    error_events = [e for e in events if e.type == EventType.ERROR]
+    assert len(error_events) == 1
+    assert error_events[0].data["error"] == "NotImplementedError()"
 
 
 @pytest.mark.asyncio
