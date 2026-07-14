@@ -1,4 +1,4 @@
-import { describe, beforeEach, jest, test, expect } from '@jest/globals';
+import { describe, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { coy } from 'react-syntax-highlighter/dist/cjs/styles/prism';

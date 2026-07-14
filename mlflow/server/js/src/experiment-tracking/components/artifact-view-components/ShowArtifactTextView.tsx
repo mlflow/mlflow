@@ -10,7 +10,7 @@ import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
-import { VirtualizedSyntaxHighlighter } from './VirtualizedSyntaxHighlighter';
+import { countLines, VirtualizedSyntaxHighlighter } from './VirtualizedSyntaxHighlighter';
 
 const LARGE_ARTIFACT_SIZE = 100 * 1024;
 const VIRTUALIZED_LINE_THRESHOLD = 5000;
@@ -83,7 +83,7 @@ class ShowArtifactTextView extends Component<Props, State> {
         : this.state.text;
 
       const syntaxStyle = theme.isDarkMode ? darkStyle : style;
-      const lineCount = (renderedContent ?? '').split('\n').length;
+      const lineCount = countLines(renderedContent ?? '');
       const shouldVirtualize = lineCount > VIRTUALIZED_LINE_THRESHOLD;
 
       return (

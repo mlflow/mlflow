@@ -15,6 +15,21 @@ type rendererNode = {
 const ESTIMATED_LINE_HEIGHT = 20;
 const OVERSCAN_LINES = 10;
 
+/**
+ * Counts lines without allocating one array entry per line (unlike
+ * `text.split('\n').length`), which matters for very large artifacts.
+ * Matches split semantics: an empty string counts as one line.
+ */
+export function countLines(text: string): number {
+  let lines = 1;
+  for (let i = 0; i < text.length; i++) {
+    if (text.charCodeAt(i) === 10 /* \n */) {
+      lines++;
+    }
+  }
+  return lines;
+}
+
 export interface VirtualizedSyntaxHighlighterProps extends Omit<
   SyntaxHighlighterProps,
   'renderer' | 'PreTag' | 'CodeTag'
@@ -63,7 +78,7 @@ export const VirtualizedSyntaxHighlighter = ({
 }: VirtualizedSyntaxHighlighterProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const lineCount = useMemo(() => children.split('\n').length, [children]);
+  const lineCount = useMemo(() => countLines(children), [children]);
 
   const virtualizer = useVirtualizer({
     count: lineCount,

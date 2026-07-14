@@ -67,7 +67,11 @@ export const RunsChartsVirtualizedGroup = memo(
     });
 
     const groupRowCount = Math.ceil(cards.length / columns);
-    const groupHeight = groupRowCount * cardHeight + (groupRowCount - 1) * gap;
+    // The placeholder must occupy the same space as the visible group, which
+    // also includes the grid gap after the zero-height sentinel row. Counting
+    // one gap per row covers that and keeps the height non-negative when the
+    // group is empty.
+    const groupHeight = groupRowCount * (cardHeight + gap);
 
     // Render a placeholder that preserves the group's layout space.
     if (!isInViewport) {
