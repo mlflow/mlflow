@@ -7,7 +7,10 @@ import {
   InfoIcon,
   Popover,
   Tag,
+  Tooltip,
   Typography,
+  VisibleIcon,
+  VisibleOffIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -30,6 +33,7 @@ import {
   blockLabelStyles,
   monoFontStyles,
 } from '../styles';
+import { buildPackageConnectOptionKey } from '../utils';
 import { ViewDetailsDrawer, DetailField, ArgumentList } from './ViewDetailsDrawer';
 import { ConnectionInstructions } from './ConnectionInstructions';
 
@@ -38,10 +42,19 @@ const INITIAL_VISIBLE_PACKAGES = 5;
 export const PackagesSubsection = ({
   packages,
   derivedName,
+  isAdmin,
+  isAuthAvailable,
+  connectOptions,
+  onToggleConnectOption,
 }: {
   packages: NonNullable<ServerJSONPayload['packages']>;
   derivedName: string;
+  isAdmin?: boolean;
+  isAuthAvailable?: boolean;
+  connectOptions?: Record<string, { hidden?: boolean }>;
+  onToggleConnectOption?: (key: string, visible: boolean) => void;
 }) => {
+  const showVisibilityControls = isAuthAvailable && isAdmin;
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
@@ -85,6 +98,9 @@ export const PackagesSubsection = ({
             expanded={expandedIndex === index}
             onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
             showTopBorder={index > 0}
+            showVisibilityControls={showVisibilityControls}
+            isHidden={connectOptions?.[buildPackageConnectOptionKey(pkg)]?.hidden ?? false}
+            onToggleVisibility={(visible) => onToggleConnectOption?.(buildPackageConnectOptionKey(pkg), visible)}
           />
         ))}
         {hiddenCount > 0 && (
@@ -120,23 +136,34 @@ const PackageRow = ({
   expanded,
   onToggle,
   showTopBorder,
+  showVisibilityControls,
+  isHidden,
+  onToggleVisibility,
 }: {
   pkg: NonNullable<ServerJSONPayload['packages']>[number];
   derivedName: string;
   expanded: boolean;
   onToggle: () => void;
   showTopBorder: boolean;
+  showVisibilityControls?: boolean;
+  isHidden?: boolean;
+  onToggleVisibility?: (visible: boolean) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const isVisible = !isHidden;
   const allEnvVars = pkg.environmentVariables ?? [];
   const transportLabel = pkg.transport?.type ?? 'stdio';
   const { runner } = resolveRunner(pkg.runtimeHint, pkg.registryType);
+  const isDisabled = !isVisible;
+
+  if (isDisabled && !showVisibilityControls) return null;
 
   return (
     <div
       css={{
         borderTop: showTopBorder ? `1px solid ${theme.colors.border}` : 'none',
+        opacity: isDisabled ? 0.5 : 1,
       }}
     >
       <button
@@ -170,6 +197,46 @@ const PackageRow = ({
             }}
           />
         </Typography.Text>
+        {showVisibilityControls && isDisabled && (
+          <Tag componentId="mlflow.mcp_registry.detail.package.disabled_tag" color="charcoal" css={noShrinkStyles}>
+            <FormattedMessage defaultMessage="Disabled" description="Label for disabled package" />
+          </Tag>
+        )}
+        {showVisibilityControls && (
+          <div css={noShrinkStyles} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            <Tooltip
+              componentId="mlflow.mcp_registry.detail.package.visibility_tooltip"
+              content={
+                isVisible ? (
+                  <FormattedMessage
+                    defaultMessage="Visible to developers. Click to hide."
+                    description="Tooltip for visible package toggle"
+                  />
+                ) : (
+                  <FormattedMessage
+                    defaultMessage="Hidden from developers. Click to show."
+                    description="Tooltip for hidden package toggle"
+                  />
+                )
+              }
+            >
+              <Button
+                componentId="mlflow.mcp_registry.detail.package.visibility_row"
+                type="tertiary"
+                size="small"
+                icon={isVisible ? <VisibleIcon /> : <VisibleOffIcon />}
+                onClick={() => onToggleVisibility?.(!!isHidden)}
+                aria-label={intl.formatMessage(
+                  {
+                    defaultMessage: '{action} package {identifier}',
+                    description: 'Aria label for package visibility toggle',
+                  },
+                  { action: isVisible ? 'Hide' : 'Show', identifier: pkg.identifier },
+                )}
+              />
+            </Tooltip>
+          </div>
+        )}
       </button>
 
       {expanded && (
