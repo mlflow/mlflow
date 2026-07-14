@@ -4,6 +4,7 @@ import random
 import re
 import time
 import uuid
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
@@ -47,6 +48,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
+    TEMPORARILY_UNAVAILABLE,
     ErrorCode,
 )
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -55,6 +57,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlSpan,
     SqlSpanMetrics,
     SqlTraceInfo,
+    SqlTraceMetadata,
     SqlTraceMetrics,
     SqlTraceTag,
 )
@@ -4637,6 +4640,183 @@ def test_log_spans_cost_dedups_rollup_parent(store: SqlAlchemyStore, single_batc
     }
 
 
+def test_log_spans_token_usage_deep_trace(store: SqlAlchemyStore) -> None:
+    # A span chain deeper than Python's recursion limit (default 1000) must not blow up
+    # the tree-aware aggregation (see #24344 for the client-side counterpart).
+    experiment_id = store.create_experiment("test_log_spans_token_usage_deep_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    depth = 1200
+
+    spans = [create_test_span(trace_id, name="root", span_id=1, parent_id=None)]
+    spans.extend(
+        create_test_span(trace_id, name=f"level_{i}", span_id=i, parent_id=i - 1)
+        for i in range(2, depth + 1)
+    )
+    spans.append(
+        create_test_span(
+            trace_id,
+            name="leaf_llm",
+            span_id=depth + 1,
+            parent_id=depth,
+            span_type="LLM",
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "total_tokens": 15,
+                }
+            },
+        )
+    )
+    store.log_spans(experiment_id, spans)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 5,
+        "total_tokens": 15,
+    }
+
+
+def test_log_spans_token_usage_redelivered_span_not_double_counted(
+    store: SqlAlchemyStore,
+) -> None:
+    # A span re-sent in a later batch (same span_id, upserted content) must be counted
+    # from its batch version only — not once from the stored row and once from the batch.
+    experiment_id = store.create_experiment("test_log_spans_token_usage_redelivery")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    store.log_spans(
+        experiment_id,
+        [
+            create_test_span(
+                trace_id,
+                name="llm",
+                span_id=1,
+                parent_id=None,
+                attributes={
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 100,
+                        "output_tokens": 50,
+                        "total_tokens": 150,
+                    }
+                },
+            )
+        ],
+    )
+    assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 150
+
+    # Re-deliver the same span with updated usage alongside a new sibling span.
+    store.log_spans(
+        experiment_id,
+        [
+            create_test_span(
+                trace_id,
+                name="llm",
+                span_id=1,
+                parent_id=None,
+                attributes={
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 300,
+                        "output_tokens": 100,
+                        "total_tokens": 400,
+                    }
+                },
+            ),
+            create_test_span(
+                trace_id,
+                name="llm_2",
+                span_id=2,
+                parent_id=None,
+                attributes={
+                    SpanAttributeKey.CHAT_USAGE: {
+                        "input_tokens": 20,
+                        "output_tokens": 10,
+                        "total_tokens": 30,
+                    }
+                },
+            ),
+        ],
+    )
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 320,
+        "output_tokens": 110,
+        "total_tokens": 430,
+    }
+
+
+@pytest.mark.parametrize(
+    ("db_type", "expected_clause"),
+    [
+        (POSTGRES, "FOR UPDATE"),
+        (MYSQL, "FOR UPDATE"),
+        (MSSQL, "WITH (UPDLOCK, ROWLOCK)"),
+    ],
+)
+def test_trace_row_lock_query_locks_only_trace_rows(
+    store: SqlAlchemyStore, db_type: str, expected_clause: str
+) -> None:
+    # The lock log_spans() takes must compile to the backend's row-lock clause and must not
+    # join experiments — the workspace-aware _trace_query() does, and FOR UPDATE over that
+    # join would also lock the experiment row and serialize every trace in the experiment.
+    dialects = {POSTGRES: postgresql, MYSQL: mysql, MSSQL: mssql}
+    exp_id = store.create_experiment(f"trace-row-lock-{db_type}")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    _create_trace(store, trace_id, exp_id)
+
+    with store.ManagedSessionMaker() as session:
+        with mock.patch.object(store, "db_type", db_type):
+            sql = str(
+                store._trace_row_lock_query(session, [trace_id]).statement.compile(
+                    dialect=dialects[db_type].dialect(),
+                    compile_kwargs={"literal_binds": True},
+                )
+            )
+
+    assert expected_clause in sql
+    assert "JOIN" not in sql
+    assert "ORDER BY" in sql
+
+
+def test_log_spans_locks_preexisting_trace_rows_only(store: SqlAlchemyStore) -> None:
+    # Concurrent log_spans() calls for the same trace must serialize on the trace row, so the
+    # recompute-and-overwrite of the trace-level token usage cannot lose an update. Traces
+    # created by the same call are not visible to other transactions and need no lock.
+    experiment_id = store.create_experiment("test_log_spans_locks_preexisting_traces")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    def _span(span_id: int, total: int):
+        return create_test_span(
+            trace_id,
+            name=f"llm_{span_id}",
+            span_id=span_id,
+            parent_id=None,
+            attributes={
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": total,
+                    "output_tokens": 0,
+                    "total_tokens": total,
+                }
+            },
+        )
+
+    with mock.patch.object(
+        store, "_trace_row_lock_query", wraps=store._trace_row_lock_query
+    ) as mock_lock:
+        # The trace does not exist yet: it is created by this call, so no lock is taken.
+        store.log_spans(experiment_id, [_span(1, 100)])
+        mock_lock.assert_not_called()
+
+        # The trace now pre-exists: the next batch must lock its row before writing spans.
+        store.log_spans(experiment_id, [_span(2, 200)])
+        mock_lock.assert_called_once()
+        assert mock_lock.call_args.args[1] == [trace_id]
+
+    assert store.get_trace_info(trace_id).token_usage["total_tokens"] == 300
+
+
 def test_log_spans_does_not_overwrite_finalized_trace_info(store: SqlAlchemyStore) -> None:
     """start_trace() sets TRACE_INFO_FINALIZED; subsequent log_spans() must not overwrite
     request_time, execution_duration, session_id, token_usage, or cost.
@@ -5237,6 +5417,39 @@ def test_get_trace_basic(store: SqlAlchemyStore) -> None:
     assert child_span.parent_id == "000000000000006f"
     assert child_span.start_time_ns == 1_500_000_000
     assert child_span.end_time_ns == 1_800_000_000
+
+
+def test_get_trace_returns_lazy_spans_that_skip_materialization_on_to_dict(
+    store: SqlAlchemyStore,
+) -> None:
+    from mlflow.entities.span import LazySpan
+
+    experiment_id = store.create_experiment("test_get_trace_lazy")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="root_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            start_ns=1_000_000_000,
+            end_ns=2_000_000_000,
+            trace_num=12345,
+        ),
+    ]
+    store.log_spans(experiment_id, spans)
+
+    trace = store.get_trace(trace_id)
+    assert all(isinstance(span, LazySpan) for span in trace.data.spans)
+    assert all(span.__dict__["_materialized"] is False for span in trace.data.spans)
+
+    dumped = trace.data.to_dict()
+    assert dumped["spans"][0]["name"] == "root_span"
+    assert all(span.__dict__["_materialized"] is False for span in trace.data.spans)
+
+    # Property access still works and materializes only when needed.
+    assert trace.data.spans[0].name == "root_span"
+    assert trace.data.spans[0].__dict__["_materialized"] is True
 
 
 def test_get_trace_not_found(store: SqlAlchemyStore) -> None:
@@ -9787,3 +10000,406 @@ def test_archive_traces_rejects_unsupported_resolved_root_override(store: SqlAlc
                 default_retention="1d",
             )
     assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def _extract_metadata_write_pairs(statement, parameters):
+    """Extract (request_id, key) pairs written to trace_request_metadata, in order.
+
+    Handles both dict-bound params (named placeholders) and positional tuple params
+    (executemany), across dialects, by parsing the INSERT column list to locate the
+    `key` and `request_id` positions.
+    """
+    if not re.search(r"\btrace_request_metadata\b", statement, re.IGNORECASE):
+        return []
+    if not re.search(r"\b(insert|update)\b", statement, re.IGNORECASE):
+        return []
+
+    # Normalize params into a list of rows. SQLAlchemy passes either a single dict,
+    # a single positional tuple (one row), or a list of dicts/tuples (executemany).
+    if isinstance(parameters, dict):
+        param_rows = [parameters]
+    elif (
+        isinstance(parameters, (list, tuple))
+        and parameters
+        and isinstance(parameters[0], (dict, list, tuple))
+    ):
+        param_rows = list(parameters)
+    elif isinstance(parameters, (list, tuple)):
+        # A flat single row of scalar values, e.g. ("key", "value", "request_id").
+        param_rows = [parameters]
+    else:
+        param_rows = [parameters]
+
+    # Determine positional column order from the INSERT (…cols…) VALUES clause. The table
+    # name may be quoted or schema-qualified by the dialect (e.g. "trace_request_metadata",
+    # `trace_request_metadata`, [dbo].[trace_request_metadata]), so match the bare identifier
+    # via a word boundary and allow any quoting/qualifier around it.
+    col_order = None
+    if m := re.search(
+        r"insert\s+into\s+[^(]*\btrace_request_metadata\b[^(]*\(([^)]*)\)",
+        statement,
+        re.IGNORECASE,
+    ):
+        col_order = [c.strip().strip('"').strip("`").strip("[]") for c in m.group(1).split(",")]
+
+    pairs = []
+    for row in param_rows:
+        if isinstance(row, dict):
+            if "key" in row and "request_id" in row:
+                # Single-row named params: {"key": ..., "value": ..., "request_id": ...}
+                pairs.append((row["request_id"], row["key"]))
+            elif any(k.startswith("key__") for k in row):
+                # Multi-row cascade INSERT flattened into one dict with suffixed keys:
+                # {"key__0": ..., "request_id__0": ..., "key__1": ..., ...}. Preserve N order.
+                indices = sorted(
+                    int(k.split("__", 1)[1]) for k in row if re.fullmatch(r"key__\d+", k)
+                )
+                pairs.extend(
+                    (row[f"request_id__{i}"], row[f"key__{i}"])
+                    for i in indices
+                    if f"request_id__{i}" in row
+                )
+        elif isinstance(row, (list, tuple)) and col_order:
+            try:
+                key_idx = col_order.index("key")
+                rid_idx = col_order.index("request_id")
+            except ValueError:
+                continue
+            if len(row) > max(key_idx, rid_idx):
+                pairs.append((row[rid_idx], row[key_idx]))
+    return pairs
+
+
+def _capture_trace_metadata_write_keys(
+    store: SqlAlchemyStore,
+) -> tuple[list[str], Callable[[], None]]:
+    """Capture, in execution order, the `key` values written to trace_request_metadata."""
+    captured: list[str] = []
+
+    def _listener(_conn, _cursor, statement, parameters, _context, _executemany):
+        captured.extend(key for _rid, key in _extract_metadata_write_pairs(statement, parameters))
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", _listener)
+    return captured, lambda: sqlalchemy.event.remove(
+        store.engine, "before_cursor_execute", _listener
+    )
+
+
+def test_start_trace_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
+    """start_trace() must write trace_request_metadata rows in a deterministic, sorted
+    key order so that two concurrent transactions acquire the PK-index locks in the same
+    order and cannot deadlock (issue #24332).
+    """
+    experiment_id = store.create_experiment("sorted-order-start-trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    # Deliberately supply metadata whose natural dict order is NOT sorted.
+    trace_metadata = {
+        "mlflow.trace.tokenUsage": json.dumps({"input_tokens": 10}),
+        "mlflow.traceInputs": "in",
+        "mlflow.trace.cost": json.dumps({"total": 0.1}),
+        "mlflow.traceOutputs": "out",
+    }
+    captured, remove = _capture_trace_metadata_write_keys(store)
+    try:
+        _create_trace(store, trace_id, experiment_id, trace_metadata=trace_metadata)
+    finally:
+        remove()
+
+    metadata_keys = [k for k in captured if k in trace_metadata]
+    assert metadata_keys, "expected trace_request_metadata writes to be captured"
+    assert metadata_keys == sorted(metadata_keys)
+
+
+def test_deprecated_start_trace_v2_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
+    """The legacy V2 start-trace path must also write metadata in sorted key order, so it
+    keeps a consistent PK-index lock order with the other writers (issue #24332).
+    """
+    experiment_id = store.create_experiment("sorted-order-v2")
+    # Metadata whose natural dict order is NOT sorted.
+    request_metadata = {"rq_z": "z", "rq_a": "a", "rq_m": "m"}
+    captured, remove = _capture_trace_metadata_write_keys(store)
+    try:
+        store.deprecated_start_trace_v2(
+            experiment_id=experiment_id,
+            timestamp_ms=1234,
+            request_metadata=request_metadata,
+            tags={},
+        )
+    finally:
+        remove()
+
+    metadata_keys = [k for k in captured if k in request_metadata]
+    assert metadata_keys, "expected trace_request_metadata writes to be captured"
+    assert metadata_keys == sorted(metadata_keys)
+
+
+def test_log_spans_writes_metadata_in_sorted_key_order(store: SqlAlchemyStore):
+    """log_spans() must write trace_request_metadata rows in a deterministic, sorted
+    key order (both across trace_ids and across keys within a trace) so concurrent
+    log_spans/start_trace transactions cannot deadlock (issue #24332).
+    """
+    experiment_id = store.create_experiment("sorted-order-log-spans")
+    # Two trace_ids in a single batch, deliberately in non-sorted order, each carrying
+    # token-usage + session so multiple metadata keys are written per trace.
+    trace_id_b = "tr-bbbb" + uuid.uuid4().hex
+    trace_id_a = "tr-aaaa" + uuid.uuid4().hex
+
+    def _usage_span(trace_id, span_id_num, session_id):
+        otel_span = create_test_otel_span(
+            trace_id=trace_id,
+            name="llm_call",
+            trace_id_num=span_id_num,
+            span_id_num=span_id_num,
+        )
+        otel_span._attributes = {
+            "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+            SpanAttributeKey.SESSION_ID: json.dumps(session_id, cls=TraceJSONEncoder),
+            SpanAttributeKey.CHAT_USAGE: json.dumps({
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+            }),
+        }
+        return create_mlflow_span(otel_span, trace_id, "LLM")
+
+    # Pass trace_id_b's span first so the defaultdict order is [b, a] (not sorted).
+    spans = [
+        _usage_span(trace_id_b, 222, "sess-b"),
+        _usage_span(trace_id_a, 111, "sess-a"),
+    ]
+
+    captured_pairs: list[tuple[str, str]] = []
+
+    def _listener(_conn, _cursor, statement, parameters, _context, _executemany):
+        captured_pairs.extend(_extract_metadata_write_pairs(statement, parameters))
+
+    sqlalchemy.event.listen(store.engine, "before_cursor_execute", _listener)
+    try:
+        store.log_spans(experiment_id, spans)
+    finally:
+        sqlalchemy.event.remove(store.engine, "before_cursor_execute", _listener)
+
+    assert captured_pairs, "expected trace_request_metadata writes to be captured"
+    captured_request_ids = [rid for rid, _key in captured_pairs]
+
+    # Both traces must actually have been written, else the ordering assertions are vacuous.
+    assert {trace_id_a, trace_id_b} <= set(captured_request_ids)
+
+    # request_ids must be written in a deterministic (sorted) order across traces.
+    seen_request_ids = list(dict.fromkeys(captured_request_ids))
+    assert seen_request_ids == sorted(seen_request_ids)
+
+    # Within each trace_id, keys must be written in sorted order.
+    keys_by_request: dict[str, list[str]] = {}
+    for rid, key in captured_pairs:
+        keys_by_request.setdefault(rid, []).append(key)
+    for rid, keys in keys_by_request.items():
+        assert keys == sorted(keys), f"keys for {rid} not sorted: {keys}"
+
+
+def test_start_trace_conflict_path_merges_metadata_and_metrics_in_sorted_key_order(
+    store: SqlAlchemyStore,
+):
+    """The IntegrityError conflict path is where the reported start_trace()/log_spans()
+    race actually occurs (issue #24332): log_spans() creates the trace first, then
+    start_trace() hits IntegrityError and upserts metadata/metrics via per-row
+    session.merge(). This test forces that branch and asserts BOTH merge loops emit keys
+    in sorted order — the happy-path tests never execute these lines, so a regression
+    that dropped the sort there would otherwise pass CI silently.
+
+    We spy on Session.merge (the ORM operation the conflict branch actually uses) rather
+    than the SQL cursor, because the merges here emit UPDATE statements (the keys were
+    already inserted by log_spans) whose positional params carry no parseable column list.
+    """
+    experiment_id = store.create_experiment("sorted-order-conflict-path")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # 1. Create the trace via log_spans() first so start_trace() below collides on the PK
+    # and takes the IntegrityError conflict path.
+    otel_span = create_test_otel_span(
+        trace_id=trace_id, name="llm_call", trace_id_num=111, span_id_num=111
+    )
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
+    }
+    store.log_spans(experiment_id, [create_mlflow_span(otel_span, trace_id, "LLM")])
+
+    # 2. Record the key order of every metadata/metric row merged during start_trace().
+    merged_metadata_keys: list[str] = []
+    merged_metric_keys: list[str] = []
+    real_merge = sqlalchemy.orm.Session.merge
+
+    def _spy_merge(self, instance, *args, **kwargs):
+        if isinstance(instance, SqlTraceMetadata) and instance.request_id == trace_id:
+            merged_metadata_keys.append(instance.key)
+        elif isinstance(instance, SqlTraceMetrics) and instance.request_id == trace_id:
+            merged_metric_keys.append(instance.key)
+        return real_merge(self, instance, *args, **kwargs)
+
+    # Metadata whose natural dict order is NOT sorted; token usage yields several
+    # trace_metrics rows (input/output/total_tokens) so metric ordering is observable.
+    # Values differ from the log_spans write above so the metric merges are real upserts.
+    trace_metadata = {
+        "mlflow.traceOutputs": "out",
+        "mlflow.trace.tokenUsage": json.dumps({
+            "input_tokens": 200,
+            "output_tokens": 70,
+            "total_tokens": 270,
+        }),
+        "mlflow.traceInputs": "in",
+    }
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=0,
+        execution_duration=1,
+        state=TraceState.OK,
+        tags={},
+        trace_metadata=trace_metadata,
+    )
+
+    with mock.patch.object(sqlalchemy.orm.Session, "merge", _spy_merge):
+        store.start_trace(trace_info)
+
+    # Both loops must actually have merged multiple keys, else the ordering assertions
+    # are vacuous (e.g. if start_trace took the happy path instead of the conflict path).
+    assert len(merged_metadata_keys) >= 2, merged_metadata_keys
+    assert len(merged_metric_keys) >= 2, merged_metric_keys
+    assert merged_metadata_keys == sorted(merged_metadata_keys)
+    assert merged_metric_keys == sorted(merged_metric_keys)
+
+
+@pytest.mark.parametrize(
+    "table_ref",
+    [
+        "trace_request_metadata",
+        '"trace_request_metadata"',
+        "`trace_request_metadata`",
+        "[trace_request_metadata]",
+        "[dbo].[trace_request_metadata]",
+        'public."trace_request_metadata"',
+    ],
+)
+def test_extract_metadata_write_pairs_parses_quoted_and_qualified_table_names(table_ref):
+    """The INSERT column-list parser must recover positional (request_id, key) tuples
+    regardless of how the dialect quotes or schema-qualifies the table name. If the
+    column order can't be parsed, tuple-param writes are silently dropped and the
+    sorted-order assertions become vacuous across backends.
+    """
+    statement = f"INSERT INTO {table_ref} (request_id, key, value) VALUES (?, ?, ?)"
+    # Positional tuple params (executemany-style), two rows.
+    parameters = [("tr-1", "alpha", "v1"), ("tr-1", "beta", "v2")]
+
+    pairs = _extract_metadata_write_pairs(statement, parameters)
+
+    assert pairs == [("tr-1", "alpha"), ("tr-1", "beta")]
+
+
+def _make_deadlock_exception() -> MlflowException:
+    # Mirrors exactly what mlflow.store.db.utils re-raises a psycopg2 DeadlockDetected /
+    # sqlalchemy OperationalError as when a transaction is killed by the DB:
+    # MlflowException(message=..., error_code=TEMPORARILY_UNAVAILABLE) (int error code).
+    return MlflowException(
+        "(psycopg2.errors.DeadlockDetected) deadlock detected",
+        error_code=TEMPORARILY_UNAVAILABLE,
+    )
+
+
+def test_start_trace_retries_on_deadlock(store: SqlAlchemyStore):
+    """start_trace() must retry (not silently drop the trace) when the DB kills its
+    transaction with a deadlock, and ultimately persist the trace (#24332).
+
+    A genuine ``sqlalchemy.exc.OperationalError`` is raised from inside the managed
+    session (via ``Session.flush``) rather than a pre-built ``MlflowException``, so the
+    full production seam is exercised end-to-end: ``make_managed_session`` wraps it to
+    ``TEMPORARILY_UNAVAILABLE`` (`db/utils.py`), then ``_run_with_deadlock_retry`` matches
+    the error code + "deadlock" substring and retries. If either half of that seam drifts,
+    the safety net silently stops retrying and this test fails.
+    """
+    experiment_id = store.create_experiment("start-trace-deadlock-retry")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=0,
+        execution_duration=1,
+        state=TraceState.OK,
+        tags={},
+        trace_metadata={},
+    )
+
+    real_flush = sqlalchemy.orm.Session.flush
+    flush_calls = {"n": 0}
+
+    def _flaky_flush(self, *args, **kwargs):
+        flush_calls["n"] += 1
+        if flush_calls["n"] == 1:
+            raise sqlalchemy.exc.OperationalError(
+                "INSERT INTO trace_request_metadata ...",
+                {},
+                Exception("deadlock detected"),
+            )
+        return real_flush(self, *args, **kwargs)
+
+    with (
+        mock.patch.object(sqlalchemy.orm.Session, "flush", _flaky_flush),
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep"),
+    ):
+        result = store.start_trace(trace_info)
+
+    assert flush_calls["n"] >= 2  # first flush deadlocked, retry re-ran and succeeded
+    assert result.trace_id == trace_id
+    assert store.get_trace_info(trace_id).trace_id == trace_id
+
+
+def test_start_trace_gives_up_after_max_deadlock_retries(store: SqlAlchemyStore):
+    # A persistent deadlock must eventually surface (bounded retry), not loop forever.
+    experiment_id = store.create_experiment("start-trace-deadlock-giveup")
+    trace_info = TraceInfo(
+        trace_id=f"tr-{uuid.uuid4().hex}",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=0,
+        execution_duration=1,
+        state=TraceState.OK,
+        tags={},
+        trace_metadata={},
+    )
+
+    with (
+        mock.patch.object(
+            SqlAlchemyStore, "_start_trace_once", side_effect=_make_deadlock_exception()
+        ),
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep"),
+        pytest.raises(MlflowException, match="deadlock"),
+    ):
+        store.start_trace(trace_info)
+
+
+def test_log_spans_retries_on_deadlock(store: SqlAlchemyStore):
+    # log_spans() must retry when the DB kills its transaction with a deadlock (#24332).
+    experiment_id = store.create_experiment("log-spans-deadlock-retry")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    span = create_test_span(trace_id, name="llm_call", span_id=111, span_type="LLM")
+
+    real_log_spans = SqlAlchemyStore._log_spans_once
+    calls = {"n": 0}
+
+    def _flaky(self, *args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise _make_deadlock_exception()
+        return real_log_spans(self, *args, **kwargs)
+
+    with (
+        mock.patch.object(SqlAlchemyStore, "_log_spans_once", _flaky),
+        mock.patch("mlflow.store.tracking.sqlalchemy_store.time.sleep"),
+    ):
+        store.log_spans(experiment_id, [span])
+
+    assert calls["n"] == 2
+    assert store.get_trace_info(trace_id).trace_id == trace_id

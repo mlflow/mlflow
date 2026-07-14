@@ -669,4 +669,4 @@ class OpenAICompatibleProvider(AssistantProvider):
 
         except Exception as e:
             _logger.exception("Error communicating with %s", self._display_name)
-            yield Event.from_error(str(e))
+            yield Event.from_exception(e)
