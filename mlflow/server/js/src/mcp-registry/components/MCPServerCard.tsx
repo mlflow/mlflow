@@ -29,25 +29,16 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
       dangerouslyAppendEmotionCSS={{ height: '100%' }}
     >
       <div css={cardBodyStyles(theme)}>
-        <div css={{ ...cardHeaderRowStyles(theme), alignItems: 'flex-start' }}>
+        <div css={cardHeaderRowStyles(theme)}>
           <MCPServerIcon icons={server.icons} name={server.name} />
-          <div css={{ flex: 1, minWidth: 0 }}>
-            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-              <Typography.Text bold css={{ ...textEllipsisStyles, flex: 1 }}>
-                {resolveDisplayName(server)}
-              </Typography.Text>
-              {server.latest_version && (
-                <Typography.Text color="secondary" size="sm" css={noShrinkStyles}>
-                  v{server.latest_version}
-                </Typography.Text>
-              )}
-            </div>
-            {server.display_name && (
-              <Typography.Text color="secondary" size="sm" css={textEllipsisStyles}>
-                {server.name}
-              </Typography.Text>
-            )}
-          </div>
+          <Typography.Text bold css={{ ...textEllipsisStyles, flex: 1 }}>
+            {resolveDisplayName(server)}
+          </Typography.Text>
+          {server.latest_version && (
+            <Typography.Text color="secondary" size="sm" css={noShrinkStyles}>
+              v{server.latest_version}
+            </Typography.Text>
+          )}
         </div>
         {server.description && (
           <Typography.Text color="secondary" size="sm" css={textClampStyles(2)}>
