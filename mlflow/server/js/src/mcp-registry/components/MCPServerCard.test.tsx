@@ -67,7 +67,8 @@ describe('MCPServerCard', () => {
 
   it('renders tags when provided', () => {
     renderCard(createMockMCPServer({ tags: { env: 'production' } }));
-    expect(screen.getByText('env: production')).toBeInTheDocument();
+    expect(document.body.textContent).toContain('env');
+    expect(document.body.textContent).toContain('production');
   });
 
   it('does not render tags section when tags are empty', () => {

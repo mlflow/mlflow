@@ -15,6 +15,7 @@ import { STATUS_TRANSITIONS, LATEST_ALIAS, RESERVED_ALIASES, validateToolsJson }
 import { flexColumnGapStyles, blockLabelStyles, monoFontStyles } from '../styles';
 import { AliasSelect } from '../../common/components/AliasSelect';
 import { useUpdateMCPServerVersion } from '../hooks/useMCPServerVersionMutations';
+import { LazyJsonRecordEditor } from '../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor';
 
 export const EditVersionModal = ({
   visible,
@@ -179,18 +180,17 @@ export const EditVersionModal = ({
               css={{ marginBottom: theme.spacing.xs }}
             />
           )}
-          <Input.TextArea
-            componentId="mlflow.mcp_registry.detail.version.edit_tools_input"
+          <LazyJsonRecordEditor
             value={toolsText}
-            onChange={(e) => {
-              setToolsText(e.target.value);
+            onChange={(value) => {
+              setToolsText(value);
               setToolsValidationError(null);
             }}
-            autoSize={{ minRows: 4, maxRows: 12 }}
-            css={monoFontStyles}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'Enter tools JSON array',
-              description: 'Placeholder for version tools input',
+            height="120px"
+            maxHeight="360px"
+            ariaLabel={intl.formatMessage({
+              defaultMessage: 'Tools JSON editor',
+              description: 'Aria label for tools JSON editor in edit version modal',
             })}
           />
         </div>

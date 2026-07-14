@@ -296,7 +296,7 @@ export function buildRemoteInstruction(remote: ServerJSONTransport, serverName: 
   return {
     kind: 'remote',
     label,
-    claudeCodeCommand: cliParts.join(' '),
+    claudeCodeCommand: cliParts.length > 3 ? cliParts.join(' \\\n  ') : cliParts.join(' '),
     mcpJsonConfig: mcpConfig,
     notes,
     optionalSettings: optionalHeaders.map((h) => ({
@@ -513,7 +513,7 @@ function buildStdioPackage({
     const outerParts = ['claude mcp add', `--transport ${TransportType.STDIO}`];
     outerParts.push(...cliEnvFlags);
     outerParts.push(serverName, '--', ...innerParts);
-    claudeCodeCommand = outerParts.join(' ');
+    claudeCodeCommand = outerParts.length > 3 ? outerParts.join(' \\\n  ') : outerParts.join(' ');
   }
 
   const jsonArgs: string[] = [];

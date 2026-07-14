@@ -1,4 +1,5 @@
-import { Overflow, Tag, useDesignSystemTheme } from '@databricks/design-system';
+import { Overflow, useDesignSystemTheme } from '@databricks/design-system';
+import { KeyValueTag } from '../../common/components/KeyValueTag';
 import { inlineFlexRowStyles } from '../styles';
 
 export const MCPServerTags = ({ tags }: { tags: Record<string, string> }) => {
@@ -16,9 +17,7 @@ export const MCPServerTags = ({ tags }: { tags: Record<string, string> }) => {
     >
       <Overflow noMargin>
         {entries.map(([key, value]) => (
-          <Tag key={key} componentId="mlflow.mcp_registry.tag">
-            {value ? `${key}: ${value}` : key}
-          </Tag>
+          <KeyValueTag key={key} css={{ margin: 0 }} tag={{ key, value }} />
         ))}
       </Overflow>
     </div>

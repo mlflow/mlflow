@@ -1519,10 +1519,6 @@
     "defaultMessage": "Click to pin the run",
     "description": "A tooltip for the pin icon button in the runs chart tooltip next to the not pinned run"
   },
-  "59sogb": {
-    "defaultMessage": "Enter tools JSON array",
-    "description": "Placeholder for version tools input"
-  },
   "5AiU0Q": {
     "defaultMessage": "Create your first prompt",
     "description": "Title for the empty state on the prompts list page"
@@ -3879,6 +3875,10 @@
     "defaultMessage": "Identifier",
     "description": "Package identifier label"
   },
+  "GFtcTz": {
+    "defaultMessage": "server.json editor",
+    "description": "Aria label for server.json JSON editor"
+  },
   "GJWVBA": {
     "defaultMessage": "Inputs",
     "description": "Table subtitle for schema inputs in the model comparison page"
@@ -4190,6 +4190,10 @@
   "HrQbGZ": {
     "defaultMessage": "Format",
     "description": "Button that pretty-prints the tool parameters JSON in the playground"
+  },
+  "HstzaX": {
+    "defaultMessage": "Only the most recent 100 versions are shown.",
+    "description": "Warning shown when the MCP server has more versions than can be displayed"
   },
   "Hvznjh": {
     "defaultMessage": "Assistant",
@@ -6710,6 +6714,10 @@
   "U82iv6": {
     "defaultMessage": "Registered Models",
     "description": "Text for registered model link in the title for model comparison page"
+  },
+  "UAZsdW": {
+    "defaultMessage": "Tools JSON editor",
+    "description": "Aria label for tools JSON editor in edit version modal"
   },
   "UCQwvo": {
     "defaultMessage": "Registered prompts",
@@ -12003,6 +12011,10 @@
     "defaultMessage": "Created",
     "description": "Secret created label"
   },
+  "rfuLyA": {
+    "defaultMessage": "Tools JSON editor",
+    "description": "Aria label for tools JSON editor"
+  },
   "rgSaFx": {
     "defaultMessage": "Span type",
     "description": "Section label for span type filters in the trace explorer."
@@ -12670,10 +12682,6 @@
   "vBKFgp": {
     "defaultMessage": "X axis",
     "description": "Label for X axis in scatter chart configurator in compare runs chart config modal"
-  },
-  "vBUTRa": {
-    "defaultMessage": "Enter your MCP server definition",
-    "description": "Placeholder for server.json in create MCP server modal"
   },
   "vCUglz": {
     "defaultMessage": "Suggested actions",

@@ -6,6 +6,18 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { setupServer } from '../../common/utils/setup-msw';
+
+jest.mock('../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor', () => ({
+  LazyJsonRecordEditor: ({
+    ariaLabel,
+    value,
+    onChange,
+  }: {
+    ariaLabel: string;
+    value: string;
+    onChange: (next: string) => void;
+  }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
+}));
 import {
   getMockedSearchMCPServersResponse,
   getMockedCreateMCPServerVersionResponse,
@@ -95,7 +107,7 @@ describe('useCreateMCPServerVersionModal', () => {
     renderModal();
     await openModal();
 
-    const textarea = screen.getByPlaceholderText('Enter your MCP server definition');
+    const textarea = screen.getByLabelText('server.json editor');
     setTextareaValue(textarea, '{invalid json');
     await userEvent.click(screen.getByText('Create'));
 
@@ -108,7 +120,7 @@ describe('useCreateMCPServerVersionModal', () => {
     renderModal();
     await openModal();
 
-    const textarea = screen.getByPlaceholderText('Enter your MCP server definition');
+    const textarea = screen.getByLabelText('server.json editor');
     setTextareaValue(textarea, '{"version": "1.0.0"}');
     await userEvent.click(screen.getByText('Create'));
 
@@ -121,7 +133,7 @@ describe('useCreateMCPServerVersionModal', () => {
     renderModal();
     await openModal();
 
-    const textarea = screen.getByPlaceholderText('Enter your MCP server definition');
+    const textarea = screen.getByLabelText('server.json editor');
     setTextareaValue(textarea, '{"name": "test-server"}');
     await userEvent.click(screen.getByText('Create'));
 
@@ -141,7 +153,7 @@ describe('useCreateMCPServerVersionModal', () => {
     renderModal(onSuccess);
     await openModal();
 
-    const textarea = screen.getByPlaceholderText('Enter your MCP server definition');
+    const textarea = screen.getByLabelText('server.json editor');
     setTextareaValue(textarea, VALID_SERVER_JSON);
     await userEvent.click(screen.getByText('Create'));
 
@@ -159,7 +171,7 @@ describe('useCreateMCPServerVersionModal', () => {
     renderModal();
     await openModal();
 
-    const textarea = screen.getByPlaceholderText('Enter your MCP server definition');
+    const textarea = screen.getByLabelText('server.json editor');
     setTextareaValue(textarea, VALID_SERVER_JSON);
     await userEvent.click(screen.getByText('Create'));
 
@@ -184,7 +196,7 @@ describe('useCreateMCPServerVersionModal', () => {
     await openModal();
 
     // Enter invalid JSON and submit to trigger a validation error
-    const textarea = screen.getByPlaceholderText('Enter your MCP server definition');
+    const textarea = screen.getByLabelText('server.json editor');
     setTextareaValue(textarea, '{bad json');
     await userEvent.click(screen.getByRole('button', { name: 'Create' }));
     await waitFor(() => {

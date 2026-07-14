@@ -1875,13 +1875,11 @@ module.exports = {
   // -- mlflow.mcp_registry --
   "mlflow.mcp_registry.card": "",
   "mlflow.mcp_registry.create.display_name": "",
-  "mlflow.mcp_registry.create.server_json": "",
   "mlflow.mcp_registry.create.source": "",
   "mlflow.mcp_registry.create.status": "",
   "mlflow.mcp_registry.create.tag.add": "",
   "mlflow.mcp_registry.create.tag.add.tooltip": "",
   "mlflow.mcp_registry.create.tag.value": "",
-  "mlflow.mcp_registry.create.tools": "",
   "mlflow.mcp_registry.create_server_button": "",
   "mlflow.mcp_registry.create_server_version.error": "",
   "mlflow.mcp_registry.create_server_version.modal": "",
@@ -1940,7 +1938,6 @@ module.exports = {
   "mlflow.mcp_registry.detail.version.edit_display_name_input": "",
   "mlflow.mcp_registry.detail.version.edit_metadata": "",
   "mlflow.mcp_registry.detail.version.edit_status_select": "",
-  "mlflow.mcp_registry.detail.version.edit_tools_input": "",
   "mlflow.mcp_registry.detail.version.edit_version_error": "",
   "mlflow.mcp_registry.detail.version.edit_version_modal": "",
   "mlflow.mcp_registry.detail.version.tools_validation_error": "",
@@ -1963,7 +1960,6 @@ module.exports = {
   "mlflow.mcp_registry.table.header": "",
   "mlflow.mcp_registry.table.name_link": "",
   "mlflow.mcp_registry.table.pagination": "",
-  "mlflow.mcp_registry.tag": "",
   "mlflow.mcp_registry.view_toggle": "",
 
   // -- mlflow.model-registry --

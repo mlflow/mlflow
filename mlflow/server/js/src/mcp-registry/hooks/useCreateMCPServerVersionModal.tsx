@@ -18,6 +18,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import type { MCPServerVersion, MCPStatus } from '../types';
 import { useCreateMCPServerVersionMutation } from './useCreateMCPServerVersionMutation';
 import { validateServerJson, validateToolsJson } from '../utils';
+import { LazyJsonRecordEditor } from '../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor';
 import { KeyValueTag } from '../../common/components/KeyValueTag';
 import type { KeyValueEntity } from '../../common/types';
 import { TagKeySelectDropdown } from '../../common/components/TagSelectDropdown';
@@ -204,17 +205,15 @@ export const useCreateMCPServerVersionModal = ({
         />
         <span css={{ color: theme.colors.textValidationDanger, marginLeft: 2 }}>*</span>
       </FormUI.Label>
-      <Input.TextArea
-        componentId="mlflow.mcp_registry.create.server_json"
-        id="mlflow.mcp_registry.create.server_json"
+      <LazyJsonRecordEditor
         value={formState.serverJsonText}
-        onChange={(e) => handleFieldChange('serverJsonText', e.target.value)}
-        placeholder={intl.formatMessage({
-          defaultMessage: 'Enter your MCP server definition',
-          description: 'Placeholder for server.json in create MCP server modal',
+        onChange={(value) => handleFieldChange('serverJsonText', value)}
+        height="180px"
+        maxHeight="360px"
+        ariaLabel={intl.formatMessage({
+          defaultMessage: 'server.json editor',
+          description: 'Aria label for server.json JSON editor',
         })}
-        autoSize={{ minRows: 6, maxRows: 14 }}
-        css={monoFontStyles}
       />
       <Spacer />
       <FormUI.Label htmlFor="mlflow.mcp_registry.create.status">
@@ -258,14 +257,15 @@ export const useCreateMCPServerVersionModal = ({
       <FormUI.Label htmlFor="mlflow.mcp_registry.create.tools">
         <FormattedMessage defaultMessage="Tools:" description="Label for tools field in create MCP server modal" />
       </FormUI.Label>
-      <Input.TextArea
-        componentId="mlflow.mcp_registry.create.tools"
-        id="mlflow.mcp_registry.create.tools"
+      <LazyJsonRecordEditor
         value={formState.toolsText}
-        onChange={(e) => handleFieldChange('toolsText', e.target.value)}
-        placeholder='[{"name": "search", "description": "Search the web"}]'
-        autoSize={{ minRows: 3, maxRows: 8 }}
-        css={monoFontStyles}
+        onChange={(value) => handleFieldChange('toolsText', value)}
+        height="100px"
+        maxHeight="240px"
+        ariaLabel={intl.formatMessage({
+          defaultMessage: 'Tools JSON editor',
+          description: 'Aria label for tools JSON editor',
+        })}
       />
       <Spacer />
       <FormUI.Label>

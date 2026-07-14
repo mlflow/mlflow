@@ -5,6 +5,19 @@ import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { setupServer } from '../../common/utils/setup-msw';
+
+jest.mock('../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor', () => ({
+  LazyJsonRecordEditor: ({
+    ariaLabel,
+    value,
+    onChange,
+  }: {
+    ariaLabel: string;
+    value: string;
+    onChange: (next: string) => void;
+  }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
+}));
+
 import { EditVersionModal } from './EditVersionModal';
 import {
   createMockMCPServer,
@@ -59,17 +72,17 @@ describe('EditVersionModal', () => {
     expect(screen.getByText('Draft')).toBeInTheDocument();
   });
 
-  it('renders tools textarea with existing tools JSON', () => {
+  it('renders tools editor with existing tools JSON', () => {
     renderModal();
-    const textarea = screen.getByPlaceholderText('Enter tools JSON array');
-    expect(textarea).toHaveValue(JSON.stringify([{ name: 'test_tool', description: 'A test tool' }], null, 2));
+    const editor = screen.getByLabelText('Tools JSON editor');
+    expect(editor).toHaveValue(JSON.stringify([{ name: 'test_tool', description: 'A test tool' }], null, 2));
   });
 
   it('shows validation error for invalid tools JSON', async () => {
     renderModal();
-    const textarea = screen.getByPlaceholderText('Enter tools JSON array');
-    await userEvent.clear(textarea);
-    await userEvent.type(textarea, 'not valid json');
+    const editor = screen.getByLabelText('Tools JSON editor');
+    await userEvent.clear(editor);
+    await userEvent.type(editor, 'not valid json');
     await userEvent.click(screen.getByText('Save'));
     await waitFor(() => {
       expect(screen.getByText(/Invalid/i)).toBeInTheDocument();

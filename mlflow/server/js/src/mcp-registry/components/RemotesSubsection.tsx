@@ -127,6 +127,8 @@ const RemoteRow = ({
   const intl = useIntl();
   const isVisible = !isHidden;
   const isDisabled = !isVisible;
+  const hasAdvancedDetails =
+    (remote.headers && remote.headers.length > 0) || (remote.variables && Object.keys(remote.variables).length > 0);
 
   if (isDisabled && !showVisibilityControls) return null;
 
@@ -206,87 +208,89 @@ const RemoteRow = ({
             remote={remote}
             derivedName={derivedName}
             detailLink={
-              <ViewDetailsDrawer title={remote.url ?? remote.type}>
-                <DetailField
-                  label={intl.formatMessage({
-                    defaultMessage: 'Transport type',
-                    description: 'Remote transport type label',
-                  })}
-                  value={remote.type}
-                  tagColor="default"
-                />
-                {remote.url && (
+              hasAdvancedDetails ? (
+                <ViewDetailsDrawer title={remote.url ?? remote.type}>
                   <DetailField
-                    label={intl.formatMessage({ defaultMessage: 'URL', description: 'Remote URL label' })}
-                    value={remote.url}
-                    mono
-                    link
+                    label={intl.formatMessage({
+                      defaultMessage: 'Transport type',
+                      description: 'Remote transport type label',
+                    })}
+                    value={remote.type}
+                    tagColor="default"
                   />
-                )}
-                {remote.headers && remote.headers.length > 0 && (
-                  <div>
-                    <Typography.Text bold size="sm" css={blockLabelStyles(theme)}>
-                      <FormattedMessage
-                        defaultMessage="Headers ({count})"
-                        description="MCP server remote headers heading with count"
-                        values={{ count: remote.headers.length }}
-                      />
-                    </Typography.Text>
-                    <div css={borderedListContainerStyles(theme)}>
-                      {remote.headers.map((header, i) => (
-                        <div key={header.name} css={borderedListItemStyles(theme, i > 0)}>
-                          <div css={flexRowStyles(theme)}>
-                            <Typography.Text bold size="sm" css={monoFontStyles}>
-                              {header.name}
-                            </Typography.Text>
-                            {header.isRequired && (
-                              <Tag componentId="mlflow.mcp_registry.detail.header_required" color="lemon">
-                                <FormattedMessage defaultMessage="required" description="Header required badge" />
-                              </Tag>
-                            )}
-                            {header.isSecret && (
-                              <Tag componentId="mlflow.mcp_registry.detail.header_secret" color="coral">
-                                <FormattedMessage defaultMessage="secret" description="Header secret badge" />
-                              </Tag>
-                            )}
-                          </div>
-                          {header.description && (
-                            <Typography.Text color="secondary" size="sm">
-                              {header.description}
-                            </Typography.Text>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {remote.variables && Object.keys(remote.variables).length > 0 && (
-                  <div>
-                    <Typography.Text bold size="sm" css={blockLabelStyles(theme)}>
-                      <FormattedMessage
-                        defaultMessage="URL Variables"
-                        description="MCP server remote URL variables heading"
-                      />
-                    </Typography.Text>
-                    <div css={borderedListContainerStyles(theme)}>
-                      {Object.entries(remote.variables).map(([name, variable], i) => {
-                        return (
-                          <div key={name} css={borderedListItemStyles(theme, i > 0)}>
-                            <Typography.Text bold size="sm" css={monoFontStyles}>
-                              {`{${name}}`}
-                            </Typography.Text>
-                            {variable.description && (
-                              <Typography.Text color="secondary" size="sm" css={{ display: 'block' }}>
-                                {variable.description}
+                  {remote.url && (
+                    <DetailField
+                      label={intl.formatMessage({ defaultMessage: 'URL', description: 'Remote URL label' })}
+                      value={remote.url}
+                      mono
+                      link
+                    />
+                  )}
+                  {remote.headers && remote.headers.length > 0 && (
+                    <div>
+                      <Typography.Text bold size="sm" css={blockLabelStyles(theme)}>
+                        <FormattedMessage
+                          defaultMessage="Headers ({count})"
+                          description="MCP server remote headers heading with count"
+                          values={{ count: remote.headers.length }}
+                        />
+                      </Typography.Text>
+                      <div css={borderedListContainerStyles(theme)}>
+                        {remote.headers.map((header, i) => (
+                          <div key={header.name} css={borderedListItemStyles(theme, i > 0)}>
+                            <div css={flexRowStyles(theme)}>
+                              <Typography.Text bold size="sm" css={monoFontStyles}>
+                                {header.name}
+                              </Typography.Text>
+                              {header.isRequired && (
+                                <Tag componentId="mlflow.mcp_registry.detail.header_required" color="lemon">
+                                  <FormattedMessage defaultMessage="required" description="Header required badge" />
+                                </Tag>
+                              )}
+                              {header.isSecret && (
+                                <Tag componentId="mlflow.mcp_registry.detail.header_secret" color="coral">
+                                  <FormattedMessage defaultMessage="secret" description="Header secret badge" />
+                                </Tag>
+                              )}
+                            </div>
+                            {header.description && (
+                              <Typography.Text color="secondary" size="sm">
+                                {header.description}
                               </Typography.Text>
                             )}
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </ViewDetailsDrawer>
+                  )}
+                  {remote.variables && Object.keys(remote.variables).length > 0 && (
+                    <div>
+                      <Typography.Text bold size="sm" css={blockLabelStyles(theme)}>
+                        <FormattedMessage
+                          defaultMessage="URL Variables"
+                          description="MCP server remote URL variables heading"
+                        />
+                      </Typography.Text>
+                      <div css={borderedListContainerStyles(theme)}>
+                        {Object.entries(remote.variables).map(([name, variable], i) => {
+                          return (
+                            <div key={name} css={borderedListItemStyles(theme, i > 0)}>
+                              <Typography.Text bold size="sm" css={monoFontStyles}>
+                                {`{${name}}`}
+                              </Typography.Text>
+                              {variable.description && (
+                                <Typography.Text color="secondary" size="sm" css={{ display: 'block' }}>
+                                  {variable.description}
+                                </Typography.Text>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </ViewDetailsDrawer>
+              ) : undefined
             }
           />
         </div>
