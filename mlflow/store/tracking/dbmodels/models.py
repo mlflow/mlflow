@@ -58,7 +58,7 @@ from mlflow.entities import (
     IssueReference,
     IssueSeverity,
     IssueStatus,
-    MCPAccessBinding,
+    MCPAccessEndpoint,
     MCPRemoteTransportType,
     MCPServer,
     MCPServerVersion,
@@ -3902,26 +3902,24 @@ class SqlMCPServer(Base):
 
     def to_mlflow_entity(
         self,
-        resolved_versions_by_binding_id=None,
+        resolved_versions_by_endpoint_id=None,
         *,
         resolved_latest_version: str | None = None,
         resolved_status: str | None = None,
     ):
         tags = {t.key: t.value for t in self.tags}
         aliases = {a.alias: a.version for a in self.server_aliases}
-        binding_entities = []
-        for binding in self.access_bindings:
+        endpoint_entities = []
+        for ep in self.access_endpoints:
             if (
-                resolved_versions_by_binding_id is not None
-                and binding.binding_id not in resolved_versions_by_binding_id
+                resolved_versions_by_endpoint_id is not None
+                and ep.id not in resolved_versions_by_endpoint_id
             ):
                 continue
-            binding_entity = binding.to_mlflow_entity()
-            if resolved_versions_by_binding_id is not None:
-                binding_entity.resolved_version = resolved_versions_by_binding_id.get(
-                    binding.binding_id
-                )
-            binding_entities.append(binding_entity)
+            endpoint_entity = ep.to_mlflow_entity()
+            if resolved_versions_by_endpoint_id is not None:
+                endpoint_entity.resolved_version = resolved_versions_by_endpoint_id.get(ep.id)
+            endpoint_entities.append(endpoint_entity)
 
         resolved_latest_version = (
             self.resolved_latest_version
@@ -3946,7 +3944,7 @@ class SqlMCPServer(Base):
             status=status,
             tags=tags,
             aliases=aliases,
-            access_bindings=binding_entities,
+            access_endpoints=endpoint_entities,
             latest_version=resolved_latest_version,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
@@ -4161,10 +4159,10 @@ class SqlMCPServerAlias(Base):
         return f"<SqlMCPServerAlias ({self.name}, {self.alias} -> {self.version})>"
 
 
-class SqlMCPAccessBinding(Base):
-    __tablename__ = "mcp_access_bindings"
+class SqlMCPAccessEndpoint(Base):
+    __tablename__ = "mcp_access_endpoints"
 
-    binding_id = Column(Integer, autoincrement=True)
+    id = Column(Integer, autoincrement=True)
     workspace = Column(
         String(63),
         nullable=False,
@@ -4174,7 +4172,7 @@ class SqlMCPAccessBinding(Base):
     server_name = Column(String(256), nullable=False)
     server_version = Column(String(128), nullable=True)
     server_alias = Column(String(256), nullable=True)
-    endpoint_url = Column(String(2048), nullable=False)
+    url = Column(String(2048), nullable=False)
     transport_type = Column(
         String(32),
         nullable=False,
@@ -4189,22 +4187,22 @@ class SqlMCPAccessBinding(Base):
     server = relationship(
         "SqlMCPServer",
         backref=backref(
-            "access_bindings",
+            "access_endpoints",
             cascade="all, delete-orphan",
-            order_by="SqlMCPAccessBinding.binding_id",
+            order_by="SqlMCPAccessEndpoint.id",
         ),
         foreign_keys=[workspace, server_name],
     )
 
-    # Populated via contains_eager in _binding_query_with_version, which
+    # Populated via contains_eager in _endpoint_query_with_version, which
     # resolves through both direct server_version and alias paths.
     # Never auto-loaded (noload) — only filled by explicit JOIN.
     resolved_version_rel = relationship(
         "SqlMCPServerVersion",
         primaryjoin=lambda: sa.and_(
-            SqlMCPAccessBinding.workspace == SqlMCPServerVersion.workspace,
-            SqlMCPAccessBinding.server_name == SqlMCPServerVersion.name,
-            SqlMCPAccessBinding.server_version == SqlMCPServerVersion.version,
+            SqlMCPAccessEndpoint.workspace == SqlMCPServerVersion.workspace,
+            SqlMCPAccessEndpoint.server_name == SqlMCPServerVersion.name,
+            SqlMCPAccessEndpoint.server_version == SqlMCPServerVersion.version,
         ),
         foreign_keys=[workspace, server_name, server_version],
         viewonly=True,
@@ -4212,30 +4210,30 @@ class SqlMCPAccessBinding(Base):
     )
 
     __table_args__ = (
-        PrimaryKeyConstraint("binding_id", name="mcp_access_bindings_pk"),
+        PrimaryKeyConstraint("id", name="mcp_access_endpoints_pk"),
         ForeignKeyConstraint(
             ["workspace", "server_name"],
             ["mcp_servers.workspace", "mcp_servers.name"],
             ondelete="CASCADE",
             onupdate="CASCADE",
-            name="mcp_access_bindings_server_fkey",
+            name="mcp_access_endpoints_server_fkey",
         ),
-        Index("ix_mcp_access_bindings_server_name", "workspace", "server_name"),
-        Index("ix_mcp_access_bindings_version", "workspace", "server_name", "server_version"),
-        Index("ix_mcp_access_bindings_alias", "workspace", "server_name", "server_alias"),
+        Index("ix_mcp_access_endpoints_server_name", "workspace", "server_name"),
+        Index("ix_mcp_access_endpoints_version", "workspace", "server_name", "server_version"),
+        Index("ix_mcp_access_endpoints_alias", "workspace", "server_name", "server_alias"),
     )
 
     def __repr__(self):
-        return f"<SqlMCPAccessBinding ({self.binding_id}, {self.server_name})>"
+        return f"<SqlMCPAccessEndpoint ({self.id}, {self.server_name})>"
 
     def to_mlflow_entity(self):
         resolved = None
         if self.resolved_version_rel:
             resolved = self.resolved_version_rel.to_mlflow_entity()
-        return MCPAccessBinding(
-            binding_id=self.binding_id,
+        return MCPAccessEndpoint(
+            id=self.id,
             server_name=self.server_name,
-            endpoint_url=self.endpoint_url,
+            url=self.url,
             transport_type=MCPRemoteTransportType(self.transport_type),
             server_version=self.server_version,
             server_alias=self.server_alias,

@@ -21,7 +21,7 @@ from mlflow.utils.validation import _validate_mcp_initial_status
 if TYPE_CHECKING:
     from enum import Enum
 
-    from mlflow.entities.mcp_access_binding import MCPAccessBinding
+    from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
     from mlflow.entities.mcp_server import MCPServer
     from mlflow.entities.mcp_server_version import MCPServerVersion
 
@@ -38,7 +38,7 @@ def _parse_enum(value: Any, enum_cls: type[Enum], param_name: str) -> Any:
         ) from None
 
 
-def _validate_binding_remotes(
+def _validate_endpoint_remotes(
     server_json: dict[str, Any],
 ) -> list[tuple[str, MCPRemoteTransportType]]:
     remotes = server_json.get("remotes") or []
@@ -74,7 +74,7 @@ def register_mcp_server(
     source: str | None = None,
     status: Literal["draft", "active"] = "draft",
     tools: list[MCPTool] | None = None,
-    create_access_bindings_from_remotes: bool = False,
+    create_access_endpoints_from_remotes: bool = False,
 ) -> MCPServerVersion:
     """
     Register an MCP server from a ``server_json`` payload.
@@ -90,8 +90,8 @@ def register_mcp_server(
         status: Initial status. Only ``"draft"`` and ``"active"`` are supported
             during registration.
         tools: Declared tool definitions for this version.
-        create_access_bindings_from_remotes: When ``True``, create one direct-access
-            binding per ``remotes[]`` entry in ``server_json``. This requires
+        create_access_endpoints_from_remotes: When ``True``, create one direct-access
+            endpoint per ``remotes[]`` entry in ``server_json``. This requires
             ``status="active"``.
 
     Returns:
@@ -116,14 +116,14 @@ def register_mcp_server(
     parsed_status = _parse_enum(status, MCPStatus, "status")
     _validate_mcp_initial_status(parsed_status or MCPStatus.DRAFT)
 
-    if create_access_bindings_from_remotes and parsed_status != MCPStatus.ACTIVE:
+    if create_access_endpoints_from_remotes and parsed_status != MCPStatus.ACTIVE:
         raise MlflowException.invalid_parameter_value(
-            "create_access_bindings_from_remotes=True requires status='active'."
+            "create_access_endpoints_from_remotes=True requires status='active'."
         )
 
     validated_remotes: list[tuple[str, MCPRemoteTransportType]] = []
-    if create_access_bindings_from_remotes:
-        validated_remotes = _validate_binding_remotes(server_json)
+    if create_access_endpoints_from_remotes:
+        validated_remotes = _validate_endpoint_remotes(server_json)
 
     version = client.create_mcp_server_version(
         server_json=server_json,
@@ -134,9 +134,9 @@ def register_mcp_server(
     )
 
     for url, transport in validated_remotes:
-        client.create_mcp_access_binding(
+        client.create_mcp_access_endpoint(
             server_name=version.name,
-            endpoint_url=url,
+            url=url,
             transport_type=transport,
             server_version=version.version,
         )
@@ -207,7 +207,7 @@ def register_mcp_server_from_url(
     source: str | None = None,
     status: Literal["draft", "active"] = "draft",
     tools: list[MCPTool] | None = None,
-    create_access_bindings_from_remotes: bool = False,
+    create_access_endpoints_from_remotes: bool = False,
 ) -> MCPServerVersion:
     """
     Fetch a ``server.json`` from a URL or local file path and register the MCP server.
@@ -220,8 +220,8 @@ def register_mcp_server_from_url(
         status: Initial status. Only ``"draft"`` and ``"active"`` are supported
             during registration.
         tools: Declared tool definitions for this version.
-        create_access_bindings_from_remotes: When ``True``, create one direct-access
-            binding per ``remotes[]`` entry in ``server_json``. This requires
+        create_access_endpoints_from_remotes: When ``True``, create one direct-access
+            endpoint per ``remotes[]`` entry in ``server_json``. This requires
             ``status="active"``.
 
     Returns:
@@ -245,7 +245,7 @@ def register_mcp_server_from_url(
         source=source or _sanitize_url(url),
         status=status,
         tools=tools,
-        create_access_bindings_from_remotes=create_access_bindings_from_remotes,
+        create_access_endpoints_from_remotes=create_access_endpoints_from_remotes,
     )
 
 
@@ -262,7 +262,7 @@ def get_mcp_server(name: str) -> MCPServer:
 
     Returns:
         The :py:class:`MCPServer <mlflow.entities.MCPServer>` with tags, aliases, and
-        access bindings populated.
+        access endpoints populated.
     """
     return MlflowClient().get_mcp_server(name=name)
 
@@ -279,7 +279,7 @@ def search_mcp_servers(
 
     Args:
         filter_string: SQL-like filter expression (e.g., ``"status = 'active'"``,
-            ``"tags.team = 'platform'"``, ``"has_access_bindings = 'true'"``).
+            ``"tags.team = 'platform'"``, ``"has_access_endpoints = 'true'"``).
             See
             ``https://mlflow.org/docs/latest/ml/search/search-runs/#search-query-syntax-deep-dive``
             for the filter syntax guide.
@@ -466,31 +466,31 @@ def delete_mcp_server_version(name: str, version: str) -> None:
     MlflowClient().delete_mcp_server_version(name=name, version=version)
 
 
-# --- MCPAccessBinding CRUD ---
+# --- MCPAccessEndpoint CRUD ---
 
 
 @experimental(version="3.15.0")
-def create_mcp_access_binding(
+def create_mcp_access_endpoint(
     server_name: str,
-    endpoint_url: str,
+    url: str,
     transport_type: Literal["streamable-http", "sse"] = "streamable-http",
     server_version: str | None = None,
     server_alias: str | None = None,
-) -> MCPAccessBinding:
+) -> MCPAccessEndpoint:
     """
-    Record an approved direct-access binding for an MCP server.
+    Record an approved direct-access endpoint for an MCP server.
 
     Exactly one of ``server_version`` or ``server_alias`` must be provided.
 
     Args:
         server_name: Server name.
-        endpoint_url: URL of the remote MCP endpoint.
+        url: URL of the remote MCP endpoint.
         transport_type: Transport protocol — ``"streamable-http"`` (default) or ``"sse"``.
-        server_version: Pin the binding to a specific version string.
-        server_alias: Pin the binding to an alias.
+        server_version: Pin the endpoint to a specific version string.
+        server_alias: Pin the endpoint to an alias.
 
     Returns:
-        The created :py:class:`MCPAccessBinding <mlflow.entities.MCPAccessBinding>`.
+        The created :py:class:`MCPAccessEndpoint <mlflow.entities.MCPAccessEndpoint>`.
 
     Example:
 
@@ -498,16 +498,16 @@ def create_mcp_access_binding(
 
         import mlflow
 
-        binding = mlflow.genai.create_mcp_access_binding(
+        endpoint = mlflow.genai.create_mcp_access_endpoint(
             server_name="io.github.anthropic/brave-search",
-            endpoint_url="https://mcp.acme.internal/brave-search",
+            url="https://mcp.acme.internal/brave-search",
             transport_type="streamable-http",
             server_alias="production",
         )
     """
-    return MlflowClient().create_mcp_access_binding(
+    return MlflowClient().create_mcp_access_endpoint(
         server_name=server_name,
-        endpoint_url=endpoint_url,
+        url=url,
         transport_type=_parse_enum(transport_type, MCPRemoteTransportType, "transport_type"),
         server_version=server_version,
         server_alias=server_alias,
@@ -515,12 +515,12 @@ def create_mcp_access_binding(
 
 
 @experimental(version="3.15.0")
-def get_mcp_access_binding(server_name: str, binding_id: int) -> MCPAccessBinding:
-    return MlflowClient().get_mcp_access_binding(server_name=server_name, binding_id=binding_id)
+def get_mcp_access_endpoint(server_name: str, endpoint_id: int) -> MCPAccessEndpoint:
+    return MlflowClient().get_mcp_access_endpoint(server_name=server_name, endpoint_id=endpoint_id)
 
 
 @experimental(version="3.15.0")
-def search_mcp_access_bindings(
+def search_mcp_access_endpoints(
     server_name: str | None = None,
     server_version: str | None = None,
     server_alias: str | None = None,
@@ -528,14 +528,14 @@ def search_mcp_access_bindings(
     max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
     order_by: list[str] | None = None,
     page_token: str | None = None,
-) -> PagedList[MCPAccessBinding]:
+) -> PagedList[MCPAccessEndpoint]:
     """
-    Search access bindings across the workspace.
+    Search access endpoints across the workspace.
 
     Args:
         server_name: If provided, limit results to this server.
-        server_version: If provided, limit results to bindings targeting this version.
-        server_alias: If provided, limit results to bindings targeting this alias.
+        server_version: If provided, limit results to endpoints targeting this version.
+        server_alias: If provided, limit results to endpoints targeting this alias.
         filter_string: SQL-like filter. See
             ``https://mlflow.org/docs/latest/ml/search/search-runs/#search-query-syntax-deep-dive``
             for the filter syntax guide.
@@ -545,9 +545,9 @@ def search_mcp_access_bindings(
 
     Returns:
         A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
-        :py:class:`MCPAccessBinding <mlflow.entities.MCPAccessBinding>` objects.
+        :py:class:`MCPAccessEndpoint <mlflow.entities.MCPAccessEndpoint>` objects.
     """
-    return MlflowClient().search_mcp_access_bindings(
+    return MlflowClient().search_mcp_access_endpoints(
         server_name=server_name,
         server_version=server_version,
         server_alias=server_alias,
@@ -559,35 +559,35 @@ def search_mcp_access_bindings(
 
 
 @experimental(version="3.15.0")
-def update_mcp_access_binding(
+def update_mcp_access_endpoint(
     server_name: str,
-    binding_id: int,
-    endpoint_url: str | None = NOT_SET,
+    endpoint_id: int,
+    url: str | None = NOT_SET,
     transport_type: Literal["streamable-http", "sse"] | None = NOT_SET,
     server_version: str | None = NOT_SET,
     server_alias: str | None = NOT_SET,
-) -> MCPAccessBinding:
+) -> MCPAccessEndpoint:
     """
-    Update an existing access binding.
+    Update an existing access endpoint.
 
     Only fields that are explicitly passed are updated; omitted fields are left
     unchanged. Pass ``None`` to clear a field.
 
     Args:
         server_name: Server name.
-        binding_id: Binding ID.
-        endpoint_url: New endpoint URL. Pass ``None`` to clear.
+        endpoint_id: Endpoint ID.
+        url: New endpoint URL. Pass ``None`` to clear.
         transport_type: New transport type. Pass ``None`` to clear.
         server_version: New version target. Pass ``None`` to clear.
         server_alias: New alias target. Pass ``None`` to clear.
 
     Returns:
-        The updated :py:class:`MCPAccessBinding <mlflow.entities.MCPAccessBinding>`.
+        The updated :py:class:`MCPAccessEndpoint <mlflow.entities.MCPAccessEndpoint>`.
     """
-    return MlflowClient().update_mcp_access_binding(
+    return MlflowClient().update_mcp_access_endpoint(
         server_name=server_name,
-        binding_id=binding_id,
-        endpoint_url=endpoint_url,
+        endpoint_id=endpoint_id,
+        url=url,
         transport_type=_parse_enum(transport_type, MCPRemoteTransportType, "transport_type"),
         server_version=server_version,
         server_alias=server_alias,
@@ -595,8 +595,8 @@ def update_mcp_access_binding(
 
 
 @experimental(version="3.15.0")
-def delete_mcp_access_binding(server_name: str, binding_id: int) -> None:
-    MlflowClient().delete_mcp_access_binding(server_name=server_name, binding_id=binding_id)
+def delete_mcp_access_endpoint(server_name: str, endpoint_id: int) -> None:
+    MlflowClient().delete_mcp_access_endpoint(server_name=server_name, endpoint_id=endpoint_id)
 
 
 # --- Tag operations ---

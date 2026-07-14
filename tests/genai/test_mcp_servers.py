@@ -101,7 +101,7 @@ def test_register_mcp_server_with_status_active():
     assert version.status == MCPStatus.ACTIVE
 
 
-def test_register_mcp_server_creates_bindings_from_remotes():
+def test_register_mcp_server_creates_endpoints_from_remotes():
     sj = _server_json(
         "io.github.test/remote-server",
         "1.0.0",
@@ -110,43 +110,43 @@ def test_register_mcp_server_creates_bindings_from_remotes():
         ],
     )
     version = genai.register_mcp_server(
-        server_json=sj, status="active", create_access_bindings_from_remotes=True
+        server_json=sj, status="active", create_access_endpoints_from_remotes=True
     )
 
-    bindings = genai.search_mcp_access_bindings(server_name=version.name)
-    assert len(bindings) == 1
-    assert bindings[0].endpoint_url == "https://mcp.example.com/server"
-    assert bindings[0].server_version == version.version
+    endpoints = genai.search_mcp_access_endpoints(server_name=version.name)
+    assert len(endpoints) == 1
+    assert endpoints[0].url == "https://mcp.example.com/server"
+    assert endpoints[0].server_version == version.version
 
 
-def test_register_mcp_server_no_bindings_when_flag_false():
+def test_register_mcp_server_no_endpoints_when_flag_false():
     sj = _server_json(
-        "io.github.test/no-binding-server",
+        "io.github.test/no-endpoint-server",
         "1.0.0",
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/nb"}],
     )
     genai.register_mcp_server(
-        server_json=sj, status="active", create_access_bindings_from_remotes=False
+        server_json=sj, status="active", create_access_endpoints_from_remotes=False
     )
 
-    bindings = genai.search_mcp_access_bindings(server_name="io.github.test/no-binding-server")
-    assert len(bindings) == 0
+    endpoints = genai.search_mcp_access_endpoints(server_name="io.github.test/no-endpoint-server")
+    assert len(endpoints) == 0
 
 
 @pytest.mark.parametrize("status", ["draft", None])
-def test_register_mcp_server_rejects_auto_bindings_for_inactive_initial_status(status):
+def test_register_mcp_server_rejects_auto_endpoints_for_inactive_initial_status(status):
     kwargs = {
         "server_json": _server_json(
             f"io.github.test/draft-no-bind-{status}",
             "1.0.0",
             remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/draft"}],
         ),
-        "create_access_bindings_from_remotes": True,
+        "create_access_endpoints_from_remotes": True,
     }
     if status is not None:
         kwargs["status"] = status
     with pytest.raises(
-        MlflowException, match="create_access_bindings_from_remotes=True requires status='active'"
+        MlflowException, match="create_access_endpoints_from_remotes=True requires status='active'"
     ):
         genai.register_mcp_server(**kwargs)
 
@@ -154,18 +154,18 @@ def test_register_mcp_server_rejects_auto_bindings_for_inactive_initial_status(s
         genai.get_mcp_server(name=kwargs["server_json"]["name"])
 
 
-def test_register_mcp_server_creates_bindings_for_active_status():
+def test_register_mcp_server_creates_endpoints_for_active_status():
     sj = _server_json(
         "io.github.test/published-bind-active",
         "1.0.0",
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/pub"}],
     )
     version = genai.register_mcp_server(
-        server_json=sj, status="active", create_access_bindings_from_remotes=True
+        server_json=sj, status="active", create_access_endpoints_from_remotes=True
     )
 
-    bindings = genai.search_mcp_access_bindings(server_name=version.name)
-    assert len(bindings) == 1
+    endpoints = genai.search_mcp_access_endpoints(server_name=version.name)
+    assert len(endpoints) == 1
 
 
 @pytest.mark.parametrize("status", ["deprecated", "deleted"])
@@ -185,20 +185,20 @@ def test_register_mcp_server_skips_remotes_without_url():
         remotes=[{"type": "streamable-http"}],
     )
     version = genai.register_mcp_server(
-        server_json=sj, status="active", create_access_bindings_from_remotes=True
+        server_json=sj, status="active", create_access_endpoints_from_remotes=True
     )
-    bindings = genai.search_mcp_access_bindings(server_name=version.name)
-    assert len(bindings) == 0
+    endpoints = genai.search_mcp_access_endpoints(server_name=version.name)
+    assert len(endpoints) == 0
 
 
 def test_register_mcp_server_accepts_null_remotes():
     sj = _server_json("io.github.test/null-remotes", "1.0.0", remotes=None)
     version = genai.register_mcp_server(
-        server_json=sj, status="active", create_access_bindings_from_remotes=True
+        server_json=sj, status="active", create_access_endpoints_from_remotes=True
     )
 
-    bindings = genai.search_mcp_access_bindings(server_name=version.name)
-    assert len(bindings) == 0
+    endpoints = genai.search_mcp_access_endpoints(server_name=version.name)
+    assert len(endpoints) == 0
 
 
 @pytest.mark.parametrize("url", [123, True])
@@ -210,7 +210,7 @@ def test_register_mcp_server_rejects_remote_with_non_string_url(url):
     )
     with pytest.raises(MlflowException, match="remote.url"):
         genai.register_mcp_server(
-            server_json=sj, status="active", create_access_bindings_from_remotes=True
+            server_json=sj, status="active", create_access_endpoints_from_remotes=True
         )
 
 
@@ -222,7 +222,7 @@ def test_register_mcp_server_rejects_remote_with_blank_url():
     )
     with pytest.raises(MlflowException, match="remote.url"):
         genai.register_mcp_server(
-            server_json=sj, status="active", create_access_bindings_from_remotes=True
+            server_json=sj, status="active", create_access_endpoints_from_remotes=True
         )
 
 
@@ -233,19 +233,19 @@ def test_register_mcp_server_defaults_null_remote_type_to_streamable_http():
         remotes=[{"type": None, "url": "https://mcp.example.com/default-type"}],
     )
     version = genai.register_mcp_server(
-        server_json=sj, status="active", create_access_bindings_from_remotes=True
+        server_json=sj, status="active", create_access_endpoints_from_remotes=True
     )
 
-    bindings = genai.search_mcp_access_bindings(server_name=version.name)
-    assert len(bindings) == 1
-    assert bindings[0].transport_type == MCPRemoteTransportType.STREAMABLE_HTTP
+    endpoints = genai.search_mcp_access_endpoints(server_name=version.name)
+    assert len(endpoints) == 1
+    assert endpoints[0].transport_type == MCPRemoteTransportType.STREAMABLE_HTTP
 
 
 def test_register_mcp_server_rejects_non_list_remotes():
     sj = _server_json("io.github.test/bad-remotes-shape", "1.0.0", remotes="not-a-list")
     with pytest.raises(MlflowException, match="server_json.remotes"):
         genai.register_mcp_server(
-            server_json=sj, status="active", create_access_bindings_from_remotes=True
+            server_json=sj, status="active", create_access_endpoints_from_remotes=True
         )
 
     with pytest.raises(MlflowException, match="not found"):
@@ -256,7 +256,7 @@ def test_register_mcp_server_rejects_non_object_remote_entries():
     sj = _server_json("io.github.test/bad-remote-entry", "1.0.0", remotes=[None])
     with pytest.raises(MlflowException, match="server_json.remotes entry"):
         genai.register_mcp_server(
-            server_json=sj, status="active", create_access_bindings_from_remotes=True
+            server_json=sj, status="active", create_access_endpoints_from_remotes=True
         )
 
     with pytest.raises(MlflowException, match="not found"):
@@ -271,7 +271,7 @@ def test_register_mcp_server_rejects_unknown_transport():
     )
     with pytest.raises(MlflowException, match="Invalid transport_type"):
         genai.register_mcp_server(
-            server_json=sj, status="active", create_access_bindings_from_remotes=True
+            server_json=sj, status="active", create_access_endpoints_from_remotes=True
         )
 
     with pytest.raises(MlflowException, match="not found"):
@@ -289,7 +289,7 @@ def test_register_mcp_server_validates_all_remotes_before_creating():
     )
     with pytest.raises(MlflowException, match="Invalid transport_type"):
         genai.register_mcp_server(
-            server_json=sj, status="active", create_access_bindings_from_remotes=True
+            server_json=sj, status="active", create_access_endpoints_from_remotes=True
         )
 
     with pytest.raises(MlflowException, match="not found"):
@@ -471,7 +471,7 @@ def test_client_create_mcp_server_version():
     assert version.status == MCPStatus.DRAFT
 
 
-def test_client_create_mcp_server_version_does_not_create_bindings():
+def test_client_create_mcp_server_version_does_not_create_endpoints():
     client = MlflowClient()
     sj = _server_json(
         "io.github.test/ver-no-bind",
@@ -479,8 +479,8 @@ def test_client_create_mcp_server_version_does_not_create_bindings():
         remotes=[{"type": "streamable-http", "url": "https://mcp.example.com/x"}],
     )
     version = client.create_mcp_server_version(server_json=sj)
-    bindings = genai.search_mcp_access_bindings(server_name=version.name)
-    assert len(bindings) == 0
+    endpoints = genai.search_mcp_access_endpoints(server_name=version.name)
+    assert len(endpoints) == 0
 
 
 def test_get_mcp_server_version():
@@ -551,7 +551,7 @@ def test_delete_mcp_server_version():
         genai.get_mcp_server_version(name="io.github.test/del-ver", version="1.0.0")
 
 
-def test_delete_mcp_server_version_cascades_to_bindings():
+def test_delete_mcp_server_version_cascades_to_endpoints():
     sj = _server_json(
         "io.github.test/cascade-del",
         "1.0.0",
@@ -561,98 +561,98 @@ def test_delete_mcp_server_version_cascades_to_bindings():
         ],
     )
     genai.register_mcp_server(
-        server_json=sj, status="active", create_access_bindings_from_remotes=True
+        server_json=sj, status="active", create_access_endpoints_from_remotes=True
     )
-    bindings = genai.search_mcp_access_bindings(server_name="io.github.test/cascade-del")
-    assert len(bindings) == 2
+    endpoints = genai.search_mcp_access_endpoints(server_name="io.github.test/cascade-del")
+    assert len(endpoints) == 2
 
     genai.update_mcp_server_version(
         name="io.github.test/cascade-del", version="1.0.0", status="deprecated"
     )
     genai.delete_mcp_server_version(name="io.github.test/cascade-del", version="1.0.0")
 
-    bindings = genai.search_mcp_access_bindings(server_name="io.github.test/cascade-del")
-    assert len(bindings) == 0
+    endpoints = genai.search_mcp_access_endpoints(server_name="io.github.test/cascade-del")
+    assert len(endpoints) == 0
 
 
 # ---------------------------------------------------------------------------
-# MCPAccessBinding CRUD
+# MCPAccessEndpoint CRUD
 # ---------------------------------------------------------------------------
 
 
-def test_create_and_get_mcp_access_binding():
+def test_create_and_get_mcp_access_endpoint():
     sj = _server_json("io.github.test/bind-server", "1.0.0")
     version = genai.register_mcp_server(server_json=sj, status="active")
-    binding = genai.create_mcp_access_binding(
+    endpoint = genai.create_mcp_access_endpoint(
         server_name=version.name,
-        endpoint_url="https://mcp.example.com/server",
+        url="https://mcp.example.com/server",
         transport_type="streamable-http",
         server_version=version.version,
     )
-    assert binding.endpoint_url == "https://mcp.example.com/server"
-    assert binding.transport_type == MCPRemoteTransportType.STREAMABLE_HTTP
+    assert endpoint.url == "https://mcp.example.com/server"
+    assert endpoint.transport_type == MCPRemoteTransportType.STREAMABLE_HTTP
 
-    fetched = genai.get_mcp_access_binding(server_name=version.name, binding_id=binding.binding_id)
-    assert fetched.binding_id == binding.binding_id
+    fetched = genai.get_mcp_access_endpoint(server_name=version.name, endpoint_id=endpoint.id)
+    assert fetched.id == endpoint.id
 
 
-def test_create_mcp_access_binding_via_alias():
+def test_create_mcp_access_endpoint_via_alias():
     sj = _server_json("io.github.test/alias-bind", "1.0.0")
     genai.register_mcp_server(server_json=sj, status="active")
     genai.set_mcp_server_alias(name="io.github.test/alias-bind", alias="prod", version="1.0.0")
-    binding = genai.create_mcp_access_binding(
+    endpoint = genai.create_mcp_access_endpoint(
         server_name="io.github.test/alias-bind",
-        endpoint_url="https://mcp.example.com/ab",
+        url="https://mcp.example.com/ab",
         server_alias="prod",
     )
-    assert binding.server_alias == "prod"
-    assert binding.server_version is None
+    assert endpoint.server_alias == "prod"
+    assert endpoint.server_version is None
 
 
-def test_search_mcp_access_bindings():
+def test_search_mcp_access_endpoints():
     sj = _server_json("io.github.test/search-bind", "1.0.0")
     version = genai.register_mcp_server(server_json=sj, status="active")
-    genai.create_mcp_access_binding(
+    genai.create_mcp_access_endpoint(
         server_name=version.name,
-        endpoint_url="https://a.example.com",
+        url="https://a.example.com",
         server_version=version.version,
     )
-    genai.create_mcp_access_binding(
+    genai.create_mcp_access_endpoint(
         server_name=version.name,
-        endpoint_url="https://b.example.com",
+        url="https://b.example.com",
         server_version=version.version,
     )
-    bindings = genai.search_mcp_access_bindings(server_name=version.name)
-    assert len(bindings) == 2
+    endpoints = genai.search_mcp_access_endpoints(server_name=version.name)
+    assert len(endpoints) == 2
 
 
-def test_update_mcp_access_binding():
+def test_update_mcp_access_endpoint():
     sj = _server_json("io.github.test/upd-bind", "1.0.0")
     version = genai.register_mcp_server(server_json=sj, status="active")
-    binding = genai.create_mcp_access_binding(
+    endpoint = genai.create_mcp_access_endpoint(
         server_name=version.name,
-        endpoint_url="https://old.example.com",
+        url="https://old.example.com",
         server_version=version.version,
     )
-    updated = genai.update_mcp_access_binding(
+    updated = genai.update_mcp_access_endpoint(
         server_name=version.name,
-        binding_id=binding.binding_id,
-        endpoint_url="https://new.example.com",
+        endpoint_id=endpoint.id,
+        url="https://new.example.com",
     )
-    assert updated.endpoint_url == "https://new.example.com"
+    assert updated.url == "https://new.example.com"
 
 
-def test_delete_mcp_access_binding():
+def test_delete_mcp_access_endpoint():
     sj = _server_json("io.github.test/del-bind", "1.0.0")
     version = genai.register_mcp_server(server_json=sj, status="active")
-    binding = genai.create_mcp_access_binding(
+    endpoint = genai.create_mcp_access_endpoint(
         server_name=version.name,
-        endpoint_url="https://del.example.com",
+        url="https://del.example.com",
         server_version=version.version,
     )
-    genai.delete_mcp_access_binding(server_name=version.name, binding_id=binding.binding_id)
+    genai.delete_mcp_access_endpoint(server_name=version.name, endpoint_id=endpoint.id)
     with pytest.raises(MlflowException, match="not found"):
-        genai.get_mcp_access_binding(server_name=version.name, binding_id=binding.binding_id)
+        genai.get_mcp_access_endpoint(server_name=version.name, endpoint_id=endpoint.id)
 
 
 # ---------------------------------------------------------------------------
@@ -835,11 +835,11 @@ def test_mlflow_client_update_version_rejects_risky_tool_icons():
         "search_mcp_server_versions",
         "update_mcp_server_version",
         "delete_mcp_server_version",
-        "create_mcp_access_binding",
-        "get_mcp_access_binding",
-        "search_mcp_access_bindings",
-        "update_mcp_access_binding",
-        "delete_mcp_access_binding",
+        "create_mcp_access_endpoint",
+        "get_mcp_access_endpoint",
+        "search_mcp_access_endpoints",
+        "update_mcp_access_endpoint",
+        "delete_mcp_access_endpoint",
         "set_mcp_server_tag",
         "delete_mcp_server_tag",
         "set_mcp_server_version_tag",

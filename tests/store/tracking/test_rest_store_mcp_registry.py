@@ -98,13 +98,13 @@ def test_get_mcp_server_version_preserves_workspace(rest_store, mock_http_reques
     assert version.workspace == server_workspace
 
 
-def test_create_mcp_access_binding_preserves_workspace(rest_store, mock_http_request):
+def test_create_mcp_access_endpoint_preserves_workspace(rest_store, mock_http_request):
     server_workspace = "production"
     mock_http_request.return_value = _make_response(
         json_data={
-            "binding_id": 1,
+            "id": 1,
             "server_name": "com.example/test-server",
-            "endpoint_url": "http://example.com",
+            "url": "http://example.com",
             "transport_type": "streamable-http",
             "workspace": server_workspace,
             "created_by": "test-user",
@@ -112,39 +112,39 @@ def test_create_mcp_access_binding_preserves_workspace(rest_store, mock_http_req
         }
     )
 
-    binding = rest_store.create_mcp_access_binding(
+    endpoint = rest_store.create_mcp_access_endpoint(
         server_name="com.example/test-server",
-        endpoint_url="http://example.com",
+        url="http://example.com",
     )
-    assert binding.workspace == server_workspace
+    assert endpoint.workspace == server_workspace
 
 
-def test_get_mcp_access_binding_preserves_workspace(rest_store, mock_http_request):
+def test_get_mcp_access_endpoint_preserves_workspace(rest_store, mock_http_request):
     server_workspace = "production"
     mock_http_request.return_value = _make_response(
         json_data={
-            "binding_id": 1,
+            "id": 1,
             "server_name": "com.example/test-server",
-            "endpoint_url": "http://example.com",
+            "url": "http://example.com",
             "transport_type": "streamable-http",
             "workspace": server_workspace,
         }
     )
 
-    binding = rest_store.get_mcp_access_binding("com.example/test-server", 1)
-    assert binding.workspace == server_workspace
+    endpoint = rest_store.get_mcp_access_endpoint("com.example/test-server", 1)
+    assert endpoint.workspace == server_workspace
 
 
-def test_get_mcp_server_preserves_binding_metadata(rest_store, mock_http_request):
+def test_get_mcp_server_preserves_endpoint_metadata(rest_store, mock_http_request):
     mock_http_request.return_value = _make_response(
         json_data={
             "name": "com.example/test-server",
             "status": "active",
-            "access_bindings": [
+            "access_endpoints": [
                 {
-                    "binding_id": 1,
+                    "id": 1,
                     "server_name": "com.example/test-server",
-                    "endpoint_url": "http://example.com",
+                    "url": "http://example.com",
                     "transport_type": "streamable-http",
                     "workspace": "production",
                     "created_by": "admin",
@@ -157,28 +157,28 @@ def test_get_mcp_server_preserves_binding_metadata(rest_store, mock_http_request
     )
 
     server = rest_store.get_mcp_server("com.example/test-server")
-    assert len(server.access_bindings) == 1
+    assert len(server.access_endpoints) == 1
 
-    binding = server.access_bindings[0]
-    assert binding.workspace == "production"
-    assert binding.created_by == "admin"
-    assert binding.last_updated_by == "admin"
-    assert binding.creation_timestamp == 1234567890
-    assert binding.last_updated_timestamp == 1234567890
+    endpoint = server.access_endpoints[0]
+    assert endpoint.workspace == "production"
+    assert endpoint.created_by == "admin"
+    assert endpoint.last_updated_by == "admin"
+    assert endpoint.creation_timestamp == 1234567890
+    assert endpoint.last_updated_timestamp == 1234567890
 
 
-def test_search_mcp_servers_preserves_binding_metadata(rest_store, mock_http_request):
+def test_search_mcp_servers_preserves_endpoint_metadata(rest_store, mock_http_request):
     mock_http_request.return_value = _make_response(
         json_data={
             "mcp_servers": [
                 {
                     "name": "com.example/server1",
                     "status": "active",
-                    "access_bindings": [
+                    "access_endpoints": [
                         {
-                            "binding_id": 1,
+                            "id": 1,
                             "server_name": "com.example/server1",
-                            "endpoint_url": "http://example1.com",
+                            "url": "http://example1.com",
                             "transport_type": "streamable-http",
                             "workspace": "production",
                             "created_by": "user1",
@@ -197,14 +197,14 @@ def test_search_mcp_servers_preserves_binding_metadata(rest_store, mock_http_req
     assert len(results) == 1
 
     server = results[0]
-    assert len(server.access_bindings) == 1
+    assert len(server.access_endpoints) == 1
 
-    binding = server.access_bindings[0]
-    assert binding.workspace == "production"
-    assert binding.created_by == "user1"
-    assert binding.last_updated_by == "user1"
-    assert binding.creation_timestamp == 1111111111
-    assert binding.last_updated_timestamp == 1111111111
+    endpoint = server.access_endpoints[0]
+    assert endpoint.workspace == "production"
+    assert endpoint.created_by == "user1"
+    assert endpoint.last_updated_by == "user1"
+    assert endpoint.creation_timestamp == 1111111111
+    assert endpoint.last_updated_timestamp == 1111111111
 
 
 def test_missing_required_field_raises_mlflow_exception(rest_store, mock_http_request):
@@ -233,15 +233,15 @@ def test_invalid_status_enum_raises_mlflow_exception(rest_store, mock_http_reque
 def test_invalid_transport_type_raises_mlflow_exception(rest_store, mock_http_request):
     mock_http_request.return_value = _make_response(
         json_data={
-            "binding_id": 1,
+            "id": 1,
             "server_name": "com.example/test-server",
-            "endpoint_url": "http://example.com",
+            "url": "http://example.com",
             "transport_type": "invalid-transport",
         }
     )
 
     with pytest.raises(MlflowException, match="Failed to parse.*transport"):
-        rest_store.get_mcp_access_binding("com.example/test-server", 1)
+        rest_store.get_mcp_access_endpoint("com.example/test-server", 1)
 
 
 def test_non_dict_response_raises_mlflow_exception(rest_store, mock_http_request):

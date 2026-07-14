@@ -10,7 +10,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 if TYPE_CHECKING:
-    from mlflow.entities.mcp_access_binding import MCPAccessBinding
+    from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 
 
 class MCPStatus(str, Enum):
@@ -40,7 +40,7 @@ class MCPRemoteTransportType(str, Enum):
 
 _MCP_SERVER_NAME_NAMESPACE_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$")
 _MCP_SERVER_NAME_SLUG_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$")
-_MCP_SERVER_RESERVED_SLUGS = {"aliases", "bindings", "tags", "versions"}
+_MCP_SERVER_RESERVED_SLUGS = {"aliases", "endpoints", "tags", "versions"}
 
 
 def validate_mcp_server_name(name: str) -> None:
@@ -139,7 +139,7 @@ class MCPServer:
     status: MCPStatus | None = None
     tags: dict[str, str] = field(default_factory=dict)
     aliases: dict[str, str] = field(default_factory=dict)
-    access_bindings: list[MCPAccessBinding] = field(default_factory=list)
+    access_endpoints: list[MCPAccessEndpoint] = field(default_factory=list)
     latest_version: str | None = None
     created_by: str | None = None
     last_updated_by: str | None = None
@@ -157,7 +157,7 @@ class MCPServer:
             )
 
         try:
-            from mlflow.entities.mcp_access_binding import MCPAccessBinding
+            from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 
             aliases = data.get("aliases", [])
             if isinstance(aliases, dict):
@@ -174,9 +174,9 @@ class MCPServer:
                 status=MCPStatus(data["status"]) if data.get("status") else None,
                 tags=data.get("tags") or {},
                 aliases=parsed_aliases,
-                access_bindings=[
-                    MCPAccessBinding.from_dict(binding)
-                    for binding in data.get("access_bindings", [])
+                access_endpoints=[
+                    MCPAccessEndpoint.from_dict(endpoint)
+                    for endpoint in data.get("access_endpoints", [])
                 ],
                 latest_version=data.get("latest_version"),
                 created_by=data.get("created_by"),

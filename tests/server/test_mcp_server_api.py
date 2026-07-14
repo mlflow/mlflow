@@ -266,13 +266,13 @@ def test_create_duplicate_server(client):
     "invalid_name",
     [
         "my-server",
-        "bindings",
+        "endpoints",
         "com",
         "com/example/extra",
         "/server",
         "com.example/",
         "com.example/aliases",
-        "com.example/bindings",
+        "com.example/endpoints",
         "com.example/tags",
         "com.example/versions",
         "com.example/_server",
@@ -329,27 +329,27 @@ def test_search_servers(client):
     assert len(r2.json()["mcp_servers"]) == 1
 
 
-def test_server_responses_include_nested_binding_server_name(client):
+def test_server_responses_include_nested_endpoint_server_name(client):
     sj = _server_json("com.example/nested-bind-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/nested-bind-srv')}/versions",
         json={"server_json": sj, "status": "active"},
     )
     client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/nested-bind-srv')}/bindings",
+        f"{PREFIX}/{_encode_path_param('com.example/nested-bind-srv')}/endpoints",
         json={
-            "endpoint_url": "https://mcp.example.com/nested-bind-srv",
+            "url": "https://mcp.example.com/nested-bind-srv",
             "server_version": "1.0.0",
         },
     )
 
     get_r = client.get(f"{PREFIX}/{_encode_path_param('com.example/nested-bind-srv')}")
     assert get_r.status_code == 200
-    assert get_r.json()["access_bindings"][0]["server_name"] == "com.example/nested-bind-srv"
+    assert get_r.json()["access_endpoints"][0]["server_name"] == "com.example/nested-bind-srv"
 
     search_r = client.get(PREFIX, params={"filter_string": "name = 'com.example/nested-bind-srv'"})
     assert search_r.status_code == 200
-    assert search_r.json()["mcp_servers"][0]["access_bindings"][0]["server_name"] == (
+    assert search_r.json()["mcp_servers"][0]["access_endpoints"][0]["server_name"] == (
         "com.example/nested-bind-srv"
     )
 
@@ -601,7 +601,7 @@ def test_create_version_accepts_upstream_name_shapes(client, name):
     "invalid_name",
     [
         "com.example/aliases",
-        "com.example/bindings",
+        "com.example/endpoints",
         "com.example/tags",
         "com.example/versions",
         "com.example/_server",
@@ -1139,27 +1139,27 @@ def test_delete_version(client):
     assert r.status_code == 200
 
 
-def test_create_binding_with_version(client):
+def test_create_endpoint_with_version(client):
     sj = _server_json("com.example/bind-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/bind-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     r = client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/bind-srv')}" + "/bindings",
+        f"{PREFIX}/{_encode_path_param('com.example/bind-srv')}" + "/endpoints",
         json={
-            "endpoint_url": "https://mcp.example.com/bind-srv",
+            "url": "https://mcp.example.com/bind-srv",
             "server_version": "1.0.0",
         },
     )
     assert r.status_code == 200
     data = r.json()
     assert data["server_name"] == "com.example/bind-srv"
-    assert data["endpoint_url"] == "https://mcp.example.com/bind-srv"
+    assert data["url"] == "https://mcp.example.com/bind-srv"
     assert data["server_version"] == "1.0.0"
 
 
-def test_create_binding_with_alias(client):
+def test_create_endpoint_with_alias(client):
     sj = _server_json("com.example/alias-bind-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/alias-bind-srv')}" + "/versions",
@@ -1170,9 +1170,9 @@ def test_create_binding_with_alias(client):
         json={"alias": "prod", "version": "1.0.0"},
     )
     r = client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/alias-bind-srv')}" + "/bindings",
+        f"{PREFIX}/{_encode_path_param('com.example/alias-bind-srv')}" + "/endpoints",
         json={
-            "endpoint_url": "https://mcp.example.com/alias-bind-srv",
+            "url": "https://mcp.example.com/alias-bind-srv",
             "server_alias": "prod",
         },
     )
@@ -1180,7 +1180,7 @@ def test_create_binding_with_alias(client):
     assert r.json()["server_alias"] == "prod"
 
 
-def test_get_binding_with_tools(client):
+def test_get_endpoint_with_tools(client):
     sj = _server_json("com.example/bt-srv", "1.0.0")
     tools = [{"name": "tool1", "description": "A tool"}]
     client.post(
@@ -1188,52 +1188,52 @@ def test_get_binding_with_tools(client):
         json={"server_json": sj, "status": "active", "tools": tools},
     )
     client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/bt-srv')}" + "/bindings",
-        json={"endpoint_url": "https://mcp.example.com/bt-srv", "server_version": "1.0.0"},
+        f"{PREFIX}/{_encode_path_param('com.example/bt-srv')}" + "/endpoints",
+        json={"url": "https://mcp.example.com/bt-srv", "server_version": "1.0.0"},
     )
-    r = client.get(f"{PREFIX}/{_encode_path_param('com.example/bt-srv')}" + "/bindings")
+    r = client.get(f"{PREFIX}/{_encode_path_param('com.example/bt-srv')}" + "/endpoints")
     assert r.status_code == 200
-    bindings = r.json()["mcp_access_bindings"]
-    assert len(bindings) == 1
-    assert bindings[0]["tools"][0]["name"] == "tool1"
+    endpoints = r.json()["mcp_access_endpoints"]
+    assert len(endpoints) == 1
+    assert endpoints[0]["tools"][0]["name"] == "tool1"
 
 
-def test_get_binding_includes_resolved_version(client):
+def test_get_endpoint_includes_resolved_version(client):
     sj = _server_json("com.example/brv-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/brv-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     create_r = client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/brv-srv')}" + "/bindings",
-        json={"endpoint_url": "https://mcp.example.com/brv-srv", "server_version": "1.0.0"},
+        f"{PREFIX}/{_encode_path_param('com.example/brv-srv')}" + "/endpoints",
+        json={"url": "https://mcp.example.com/brv-srv", "server_version": "1.0.0"},
     )
-    bid = create_r.json()["binding_id"]
-    r = client.get(f"{PREFIX}/{_encode_path_param('com.example/brv-srv')}" + f"/bindings/{bid}")
+    bid = create_r.json()["id"]
+    r = client.get(f"{PREFIX}/{_encode_path_param('com.example/brv-srv')}" + f"/endpoints/{bid}")
     assert r.status_code == 200
     assert r.json()["resolved_version"]["name"] == "com.example/brv-srv"
     assert r.json()["resolved_version"]["version"] == "1.0.0"
     assert r.json()["resolved_version"]["tools"] == []
 
 
-def test_get_binding_preserves_empty_tools_list(client):
+def test_get_endpoint_preserves_empty_tools_list(client):
     sj = _server_json("com.example/bt-empty-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/bt-empty-srv')}" + "/versions",
         json={"server_json": sj, "status": "active", "tools": []},
     )
     client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/bt-empty-srv')}" + "/bindings",
-        json={"endpoint_url": "https://mcp.example.com/bt-empty-srv", "server_version": "1.0.0"},
+        f"{PREFIX}/{_encode_path_param('com.example/bt-empty-srv')}" + "/endpoints",
+        json={"url": "https://mcp.example.com/bt-empty-srv", "server_version": "1.0.0"},
     )
-    r = client.get(f"{PREFIX}/{_encode_path_param('com.example/bt-empty-srv')}" + "/bindings")
+    r = client.get(f"{PREFIX}/{_encode_path_param('com.example/bt-empty-srv')}" + "/endpoints")
     assert r.status_code == 200
-    bindings = r.json()["mcp_access_bindings"]
-    assert len(bindings) == 1
-    assert bindings[0]["tools"] == []
+    endpoints = r.json()["mcp_access_endpoints"]
+    assert len(endpoints) == 1
+    assert endpoints[0]["tools"] == []
 
 
-def test_search_bindings_workspace_wide(client):
+def test_search_endpoints_workspace_wide(client):
     for name in ["ws-a", "ws-b"]:
         sj = _server_json(f"com.example/{name}", "1.0.0")
         client.post(
@@ -1241,15 +1241,15 @@ def test_search_bindings_workspace_wide(client):
             json={"server_json": sj, "status": "active"},
         )
         client.post(
-            f"{PREFIX}/{_encode_path_param(f'com.example/{name}')}/bindings",
-            json={"endpoint_url": f"https://mcp.example.com/{name}", "server_version": "1.0.0"},
+            f"{PREFIX}/{_encode_path_param(f'com.example/{name}')}/endpoints",
+            json={"url": f"https://mcp.example.com/{name}", "server_version": "1.0.0"},
         )
-    r = client.get(PREFIX + "/bindings")
+    r = client.get(PREFIX + "/endpoints")
     assert r.status_code == 200
-    assert len(r.json()["mcp_access_bindings"]) == 2
+    assert len(r.json()["mcp_access_endpoints"]) == 2
 
 
-def test_search_bindings_server_scoped(client):
+def test_search_endpoints_server_scoped(client):
     for name in ["sc-a", "sc-b"]:
         sj = _server_json(f"com.example/{name}", "1.0.0")
         client.post(
@@ -1257,50 +1257,50 @@ def test_search_bindings_server_scoped(client):
             json={"server_json": sj, "status": "active"},
         )
         client.post(
-            f"{PREFIX}/{_encode_path_param(f'com.example/{name}')}/bindings",
-            json={"endpoint_url": f"https://mcp.example.com/{name}", "server_version": "1.0.0"},
+            f"{PREFIX}/{_encode_path_param(f'com.example/{name}')}/endpoints",
+            json={"url": f"https://mcp.example.com/{name}", "server_version": "1.0.0"},
         )
-    r = client.get(f"{PREFIX}/{_encode_path_param('com.example/sc-a')}/bindings")
+    r = client.get(f"{PREFIX}/{_encode_path_param('com.example/sc-a')}/endpoints")
     assert r.status_code == 200
-    assert len(r.json()["mcp_access_bindings"]) == 1
-    assert r.json()["mcp_access_bindings"][0]["server_name"] == "com.example/sc-a"
+    assert len(r.json()["mcp_access_endpoints"]) == 1
+    assert r.json()["mcp_access_endpoints"][0]["server_name"] == "com.example/sc-a"
 
 
-def test_update_binding(client):
+def test_update_endpoint(client):
     sj = _server_json("com.example/ub-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/ub-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     create_r = client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/ub-srv')}" + "/bindings",
-        json={"endpoint_url": "https://old.example.com", "server_version": "1.0.0"},
+        f"{PREFIX}/{_encode_path_param('com.example/ub-srv')}" + "/endpoints",
+        json={"url": "https://old.example.com", "server_version": "1.0.0"},
     )
-    bid = create_r.json()["binding_id"]
+    bid = create_r.json()["id"]
     r = client.patch(
-        f"{PREFIX}/{_encode_path_param('com.example/ub-srv')}" + f"/bindings/{bid}",
-        json={"endpoint_url": "https://new.example.com"},
+        f"{PREFIX}/{_encode_path_param('com.example/ub-srv')}" + f"/endpoints/{bid}",
+        json={"url": "https://new.example.com"},
     )
     assert r.status_code == 200
-    assert r.json()["endpoint_url"] == "https://new.example.com"
+    assert r.json()["url"] == "https://new.example.com"
 
 
-def test_delete_binding(client):
+def test_delete_endpoint(client):
     sj = _server_json("com.example/db-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/db-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     create_r = client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/db-srv')}" + "/bindings",
-        json={"endpoint_url": "https://mcp.example.com/db", "server_version": "1.0.0"},
+        f"{PREFIX}/{_encode_path_param('com.example/db-srv')}" + "/endpoints",
+        json={"url": "https://mcp.example.com/db", "server_version": "1.0.0"},
     )
-    bid = create_r.json()["binding_id"]
-    r = client.delete(f"{PREFIX}/{_encode_path_param('com.example/db-srv')}" + f"/bindings/{bid}")
+    bid = create_r.json()["id"]
+    r = client.delete(f"{PREFIX}/{_encode_path_param('com.example/db-srv')}" + f"/endpoints/{bid}")
     assert r.status_code == 200
     assert (
         client.get(
-            f"{PREFIX}/{_encode_path_param('com.example/db-srv')}" + f"/bindings/{bid}"
+            f"{PREFIX}/{_encode_path_param('com.example/db-srv')}" + f"/endpoints/{bid}"
         ).status_code
         == 404
     )
@@ -1499,9 +1499,9 @@ def test_invalid_transport_type(client):
         json={"server_json": sj, "status": "active"},
     )
     r = client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/bad-transport')}" + "/bindings",
+        f"{PREFIX}/{_encode_path_param('com.example/bad-transport')}" + "/endpoints",
         json={
-            "endpoint_url": "https://example.com",
+            "url": "https://example.com",
             "transport_type": "ftp",
             "server_version": "1.0.0",
         },
@@ -1527,34 +1527,34 @@ def test_server_response_has_aliases_as_list(client):
     assert server["aliases"][0]["version"] == "1.0.0"
 
 
-def test_server_response_includes_bindings(client):
+def test_server_response_includes_endpoints(client):
     sj = _server_json("com.example/sb-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/sb-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/sb-srv')}" + "/bindings",
-        json={"endpoint_url": "https://example.com/sb", "server_version": "1.0.0"},
+        f"{PREFIX}/{_encode_path_param('com.example/sb-srv')}" + "/endpoints",
+        json={"url": "https://example.com/sb", "server_version": "1.0.0"},
     )
     server = client.get(f"{PREFIX}/{_encode_path_param('com.example/sb-srv')}").json()
-    assert len(server["access_bindings"]) == 1
-    assert server["access_bindings"][0]["endpoint_url"] == "https://example.com/sb"
+    assert len(server["access_endpoints"]) == 1
+    assert server["access_endpoints"][0]["url"] == "https://example.com/sb"
 
 
-def test_server_response_includes_binding_resolved_version(client):
+def test_server_response_includes_endpoint_resolved_version(client):
     sj = _server_json("com.example/sbrv-srv", "1.0.0")
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/sbrv-srv')}" + "/versions",
         json={"server_json": sj, "status": "active"},
     )
     client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/sbrv-srv')}" + "/bindings",
-        json={"endpoint_url": "https://example.com/sbrv", "server_version": "1.0.0"},
+        f"{PREFIX}/{_encode_path_param('com.example/sbrv-srv')}" + "/endpoints",
+        json={"url": "https://example.com/sbrv", "server_version": "1.0.0"},
     )
     server = client.get(f"{PREFIX}/{_encode_path_param('com.example/sbrv-srv')}").json()
-    assert len(server["access_bindings"]) == 1
-    assert server["access_bindings"][0]["resolved_version"]["version"] == "1.0.0"
+    assert len(server["access_endpoints"]) == 1
+    assert server["access_endpoints"][0]["resolved_version"]["version"] == "1.0.0"
 
 
 def test_server_json_extra_fields_preserved(client):

@@ -60,7 +60,7 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
-from mlflow.entities.mcp_access_binding import MCPAccessBinding
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import (
     MCPRemoteTransportType,
     MCPServer,
@@ -201,7 +201,7 @@ __all__ = [
     "GatewayGuardrailConfig",
     "GuardrailAction",
     "GuardrailStage",
-    "MCPAccessBinding",
+    "MCPAccessEndpoint",
     "MCPRemoteTransportType",
     "MCPServer",
     "MCPServerVersion",

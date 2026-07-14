@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import quote
 
-from mlflow.entities.mcp_access_binding import MCPAccessBinding
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
 from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.exceptions import MlflowException
@@ -219,35 +219,35 @@ class RestMCPServerRegistryMixin:
     def delete_mcp_server_version(self, name: str, version: str) -> None:
         self._mcp_request("DELETE", f"{_server_path(name)}/versions/{_encode_path_param(version)}")
 
-    # --- MCPAccessBinding operations ---
+    # --- MCPAccessEndpoint operations ---
 
-    def create_mcp_access_binding(
+    def create_mcp_access_endpoint(
         self,
         server_name: str,
-        endpoint_url: str,
+        url: str,
         transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
         server_version: str | None = None,
         server_alias: str | None = None,
         created_by: str | None = None,
-    ) -> MCPAccessBinding:
+    ) -> MCPAccessEndpoint:
         body: dict[str, Any] = {
-            "endpoint_url": endpoint_url,
+            "url": url,
             "transport_type": str(transport_type),
         }
         if server_version is not None:
             body["server_version"] = server_version
         if server_alias is not None:
             body["server_alias"] = server_alias
-        data = self._mcp_request("POST", f"{_server_path(server_name)}/bindings", json=body)
-        return MCPAccessBinding.from_dict(data)
+        data = self._mcp_request("POST", f"{_server_path(server_name)}/endpoints", json=body)
+        return MCPAccessEndpoint.from_dict(data)
 
-    def get_mcp_access_binding(self, server_name: str, binding_id: int) -> MCPAccessBinding:
+    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: int) -> MCPAccessEndpoint:
         data = self._mcp_request(
-            "GET", f"{_server_path(server_name)}/bindings/{_encode_path_param(binding_id)}"
+            "GET", f"{_server_path(server_name)}/endpoints/{_encode_path_param(endpoint_id)}"
         )
-        return MCPAccessBinding.from_dict(data)
+        return MCPAccessEndpoint.from_dict(data)
 
-    def search_mcp_access_bindings(
+    def search_mcp_access_endpoints(
         self,
         server_name: str | None = None,
         server_version: str | None = None,
@@ -256,7 +256,7 @@ class RestMCPServerRegistryMixin:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
-    ) -> PagedList[MCPAccessBinding]:
+    ) -> PagedList[MCPAccessEndpoint]:
         params: dict[str, Any] = {"max_results": max_results}
         if filter_string is not None:
             params["filter_string"] = filter_string
@@ -268,53 +268,53 @@ class RestMCPServerRegistryMixin:
             params["server_version"] = server_version
         if server_alias is not None:
             params["server_alias"] = server_alias
-        path = f"{_server_path(server_name)}/bindings" if server_name else "/bindings"
+        path = f"{_server_path(server_name)}/endpoints" if server_name else "/endpoints"
         data = self._mcp_request("GET", path, params=params)
         try:
             if not isinstance(data, dict):
                 raise MlflowException.invalid_parameter_value(
                     "Failed to parse search response: expected a dictionary"
                 )
-            if data.get("mcp_access_bindings") is None:
+            if data.get("mcp_access_endpoints") is None:
                 raise MlflowException.invalid_parameter_value(
-                    "Failed to parse search response: mcp_access_bindings field is null"
+                    "Failed to parse search response: mcp_access_endpoints field is null"
                 )
-            bindings = [MCPAccessBinding.from_dict(b) for b in data["mcp_access_bindings"]]
-            return PagedList(bindings, data.get("next_page_token"))
+            endpoints = [MCPAccessEndpoint.from_dict(e) for e in data["mcp_access_endpoints"]]
+            return PagedList(endpoints, data.get("next_page_token"))
         except (KeyError, TypeError, ValueError) as e:
             raise MlflowException.invalid_parameter_value(
                 f"Failed to parse search response: {e}"
             ) from None
 
-    def update_mcp_access_binding(
+    def update_mcp_access_endpoint(
         self,
         server_name: str,
-        binding_id: int,
+        endpoint_id: int,
         server_version: str | None = NOT_SET,
         server_alias: str | None = NOT_SET,
-        endpoint_url: str | None = NOT_SET,
+        url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         last_updated_by: str | None = None,
-    ) -> MCPAccessBinding:
+    ) -> MCPAccessEndpoint:
         body: dict[str, Any] = {}
         if server_version is not NOT_SET:
             body["server_version"] = server_version
         if server_alias is not NOT_SET:
             body["server_alias"] = server_alias
-        if endpoint_url is not NOT_SET:
-            body["endpoint_url"] = endpoint_url
+        if url is not NOT_SET:
+            body["url"] = url
         if transport_type is not NOT_SET:
             body["transport_type"] = str(transport_type) if transport_type is not None else None
         data = self._mcp_request(
             "PATCH",
-            f"{_server_path(server_name)}/bindings/{_encode_path_param(binding_id)}",
+            f"{_server_path(server_name)}/endpoints/{_encode_path_param(endpoint_id)}",
             json=body,
         )
-        return MCPAccessBinding.from_dict(data)
+        return MCPAccessEndpoint.from_dict(data)
 
-    def delete_mcp_access_binding(self, server_name: str, binding_id: int) -> None:
+    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: int) -> None:
         self._mcp_request(
-            "DELETE", f"{_server_path(server_name)}/bindings/{_encode_path_param(binding_id)}"
+            "DELETE", f"{_server_path(server_name)}/endpoints/{_encode_path_param(endpoint_id)}"
         )
 
     # --- Tag operations ---

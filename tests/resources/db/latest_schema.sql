@@ -274,20 +274,20 @@ CREATE TABLE logged_models (
 )
 
 
-CREATE TABLE mcp_access_bindings (
-	binding_id INTEGER NOT NULL,
+CREATE TABLE mcp_access_endpoints (
+	id INTEGER NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default' NOT NULL,
 	server_name VARCHAR(256) NOT NULL,
 	server_version VARCHAR(128),
 	server_alias VARCHAR(256),
-	endpoint_url VARCHAR(2048) NOT NULL,
+	url VARCHAR(2048) NOT NULL,
 	transport_type VARCHAR(32) DEFAULT 'streamable-http' NOT NULL,
 	created_by VARCHAR(256),
 	last_updated_by VARCHAR(256),
 	created_at BIGINT NOT NULL,
 	last_updated_at BIGINT NOT NULL,
-	CONSTRAINT mcp_access_bindings_pk PRIMARY KEY (binding_id),
-	CONSTRAINT mcp_access_bindings_server_fkey FOREIGN KEY(workspace, server_name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
+	CONSTRAINT mcp_access_endpoints_pk PRIMARY KEY (id),
+	CONSTRAINT mcp_access_endpoints_server_fkey FOREIGN KEY(workspace, server_name) REFERENCES mcp_servers (workspace, name) ON DELETE CASCADE ON UPDATE CASCADE
 )
 
 
