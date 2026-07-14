@@ -44,6 +44,9 @@ Judges configured with direct model providers require credentials to be availabl
 
 For any models that are not supported natively, it is also possible to use LiteLLM. Since LiteLLM is not a dependency of MLflow, you'll need to install it separately by running `pip install litellm`. After this, simply specify the provider and model name in the same format as natively supported providers.
 
+You can also use OpenAI-compatible multi-model gateways with the OpenAI client path by setting `OPENAI_API_KEY` and `OPENAI_API_BASE` (or `OPENAI_BASE_URL`) to the gateway, then using `openai:/YOUR_MODEL_ID`. For example, [DaoXE](https://daoxe.com) is a multi-model multi-protocol API gateway at `https://daoxe.com/v1` (account-scoped model IDs; not available in mainland China).
+
+
 ## Databricks-Hosted Models
 
 When using MLflow in Databricks, you can use Databricks-hosted models using the following formats:
