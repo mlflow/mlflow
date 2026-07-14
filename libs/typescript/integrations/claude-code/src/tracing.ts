@@ -13,6 +13,13 @@ import {
 
 import type { SubagentGroup, TokenUsage, ToolResultInfo, TranscriptEntry } from './types.js';
 import {
+  LLM_COST_ATTRIBUTE,
+  TRACE_COST_METADATA,
+  calculateCost,
+  sumCosts,
+  type LlmCost,
+} from './pricing.js';
+import {
   extractTextContent,
   findFinalAssistantResponse,
   findLastUserMessageIndex,
@@ -385,6 +392,13 @@ function createLlmAndToolSpans(
 
       setTokenUsageAttribute(llmSpan, usage);
 
+      // Compute cost from model + usage. Databricks does not compute it server-side
+      // and the TS SDK has none, so the plugin must set it for the cost column to fill.
+      const cost = calculateCost(model, usage);
+      if (cost) {
+        llmSpan.setAttribute(LLM_COST_ATTRIBUTE, cost);
+      }
+
       llmSpan.setOutputs({
         type: 'message',
         role: 'assistant',
@@ -530,6 +544,17 @@ export async function processTranscript(transcriptPath: string, sessionId?: stri
         );
         if (claudeCodeVersion) {
           metadata[METADATA_KEY_CLAUDE_CODE_VERSION] = claudeCodeVersion;
+        }
+
+        // Aggregate per-call costs (including sub-agents, which share this trace)
+        // into a trace-level total so the trace's cost column is populated.
+        const traceCost = sumCosts(
+          Array.from(trace.spanDict.values())
+            .map((span) => span.attributes[LLM_COST_ATTRIBUTE] as LlmCost | undefined)
+            .filter((c): c is LlmCost => c != null),
+        );
+        if (traceCost) {
+          metadata[TRACE_COST_METADATA] = JSON.stringify(traceCost);
         }
 
         trace.info.traceMetadata = metadata;
