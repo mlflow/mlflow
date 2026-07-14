@@ -129,8 +129,9 @@ class GatewayBudgetPolicy(_MlflowObject):
         created_by: User ID who created the policy.
         last_updated_by: User ID who last updated the policy.
         workspace: Workspace that owns the policy.
-        endpoint_id: Gateway endpoint the policy applies to. Set only when
-            ``target_scope`` is ``ENDPOINT``.
+        target_value: Target the policy applies to, interpreted per ``target_scope``:
+            a gateway endpoint ID for ENDPOINT scope. ``None`` for GLOBAL and
+            WORKSPACE scopes.
     """
 
     budget_policy_id: str
@@ -144,7 +145,7 @@ class GatewayBudgetPolicy(_MlflowObject):
     created_by: str | None = None
     last_updated_by: str | None = None
     workspace: str | None = None
-    endpoint_id: str | None = None
+    target_value: str | None = None
 
     def __post_init__(self):
         self.workspace = resolve_entity_workspace_name(self.workspace)
@@ -167,8 +168,8 @@ class GatewayBudgetPolicy(_MlflowObject):
         proto.created_at = self.created_at
         proto.last_updated_by = self.last_updated_by or ""
         proto.last_updated_at = self.last_updated_at
-        if self.endpoint_id is not None:
-            proto.endpoint_id = self.endpoint_id
+        if self.target_value is not None:
+            proto.target_value = self.target_value
         return proto
 
     @classmethod
@@ -184,5 +185,5 @@ class GatewayBudgetPolicy(_MlflowObject):
             created_at=proto.created_at,
             last_updated_by=proto.last_updated_by or None,
             last_updated_at=proto.last_updated_at,
-            endpoint_id=proto.endpoint_id or None,
+            target_value=proto.target_value or None,
         )

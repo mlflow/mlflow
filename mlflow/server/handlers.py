@@ -6197,21 +6197,24 @@ def _delete_gateway_endpoint_tag():
 # =============================================================================
 
 
-def _validate_budget_endpoint_scope(target_scope, endpoint_id):
-    """Validate the endpoint_id / target_scope relationship for budget policies.
+_TARGETED_BUDGET_SCOPES = (BudgetTargetScope.ENDPOINT,)
 
-    ENDPOINT-scoped policies must carry an ``endpoint_id``; policies with any
-    other scope must not.
+
+def _validate_budget_target_scope(target_scope, target_value):
+    """Validate the target_value / target_scope relationship for budget policies.
+
+    ENDPOINT-scoped policies must carry a ``target_value`` (the ID of the endpoint
+    to match); policies with any other scope must not.
     """
-    if target_scope == BudgetTargetScope.ENDPOINT:
-        if not endpoint_id:
+    if target_scope in _TARGETED_BUDGET_SCOPES:
+        if not target_value:
             raise MlflowException(
-                message="endpoint_id is required when target_scope is ENDPOINT.",
+                message=f"target_value is required when target_scope is {target_scope.value}.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-    elif endpoint_id:
+    elif target_value:
         raise MlflowException(
-            message="endpoint_id can only be set when target_scope is ENDPOINT.",
+            message="target_value can only be set when target_scope is ENDPOINT.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
@@ -6228,7 +6231,7 @@ def _create_budget_policy():
             "target_scope": [_assert_required],
             "budget_action": [_assert_required],
             "created_by": [_assert_string],
-            "endpoint_id": [_assert_string],
+            "target_value": [_assert_string],
         },
     )
     budget_unit = BudgetUnit.from_proto(request_message.budget_unit)
@@ -6261,8 +6264,8 @@ def _create_budget_policy():
             message=f"Invalid budget_action: {request_message.budget_action}",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    endpoint_id = request_message.endpoint_id or None
-    _validate_budget_endpoint_scope(target_scope, endpoint_id)
+    target_value = request_message.target_value or None
+    _validate_budget_target_scope(target_scope, target_value)
     store = _get_tracking_store()
     policy = store.create_budget_policy(
         budget_unit=budget_unit,
@@ -6271,7 +6274,7 @@ def _create_budget_policy():
         target_scope=target_scope,
         budget_action=budget_action,
         created_by=request_message.created_by or None,
-        endpoint_id=endpoint_id,
+        target_value=target_value,
     )
     get_budget_tracker().invalidate()
     maybe_refresh_budget_policies(store)
@@ -6305,7 +6308,7 @@ def _update_budget_policy():
         schema={
             "budget_policy_id": [_assert_required, _assert_string],
             "updated_by": [_assert_string],
-            "endpoint_id": [_assert_string],
+            "target_value": [_assert_string],
         },
     )
     budget_unit = None
@@ -6347,27 +6350,23 @@ def _update_budget_policy():
                 message=f"Invalid budget_action: {request_message.budget_action}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-    endpoint_id_provided = request_message.HasField("endpoint_id")
-    endpoint_id = (request_message.endpoint_id or None) if endpoint_id_provided else None
+    target_value_provided = request_message.HasField("target_value")
+    target_value = (request_message.target_value or None) if target_value_provided else None
     store = _get_tracking_store()
-    # Validate the *effective* scope/endpoint_id after the partial update is applied,
-    # so clients that echo back the current scope (or update endpoint_id alone on an
+    # Validate the *effective* scope/target_value after the partial update is applied,
+    # so clients that echo back the current scope (or update target_value alone on an
     # ENDPOINT policy) are not rejected, while updates that would produce an ENDPOINT
-    # policy without an endpoint_id (a silently non-enforcing policy) still are.
-    if target_scope is not None or endpoint_id_provided:
+    # policy without a target_value (a silently non-enforcing policy) still are. A
+    # target only carries over within the same scope, so switching scope requires an
+    # explicit new target_value.
+    if target_scope is not None or target_value_provided:
         existing = store.get_budget_policy(budget_policy_id=request_message.budget_policy_id)
         effective_scope = target_scope if target_scope is not None else existing.target_scope
-        effective_endpoint_id = endpoint_id if endpoint_id_provided else existing.endpoint_id
-        if effective_scope == BudgetTargetScope.ENDPOINT and not effective_endpoint_id:
-            raise MlflowException(
-                message="endpoint_id is required when target_scope is ENDPOINT.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        if effective_scope != BudgetTargetScope.ENDPOINT and endpoint_id:
-            raise MlflowException(
-                message="endpoint_id can only be set when target_scope is ENDPOINT.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        inherited_target = (
+            existing.target_value if effective_scope == existing.target_scope else None
+        )
+        effective_target = target_value if target_value_provided else inherited_target
+        _validate_budget_target_scope(effective_scope, effective_target)
     policy = store.update_budget_policy(
         budget_policy_id=request_message.budget_policy_id,
         budget_unit=budget_unit,
@@ -6378,7 +6377,7 @@ def _update_budget_policy():
         target_scope=target_scope,
         budget_action=budget_action,
         updated_by=request_message.updated_by or None,
-        endpoint_id=endpoint_id,
+        target_value=target_value,
     )
     get_budget_tracker().invalidate()
     maybe_refresh_budget_policies(store)
@@ -6464,8 +6463,8 @@ def _list_budget_windows():
             window_end_ms=int(w.window_end.timestamp() * 1000),
             current_spend=w.cumulative_spend,
         )
-        if w.policy.endpoint_id is not None:
-            window_msg.endpoint_id = w.policy.endpoint_id
+        if w.policy.target_value is not None:
+            window_msg.target_value = w.policy.target_value
         response_message.windows.append(window_msg)
     return _wrap_response(response_message)
 

@@ -108,7 +108,7 @@ def _serialize_policy(policy: GatewayBudgetPolicy) -> str:
         "target_scope": policy.target_scope.value,
         "budget_action": policy.budget_action.value,
         "workspace": policy.workspace,
-        "endpoint_id": policy.endpoint_id,
+        "target_value": policy.target_value,
         "created_at": policy.created_at,
         "last_updated_at": policy.last_updated_at,
     })
@@ -127,7 +127,7 @@ def _deserialize_policy(data: str) -> GatewayBudgetPolicy:
         target_scope=BudgetTargetScope(d["target_scope"]),
         budget_action=BudgetAction(d["budget_action"]),
         workspace=d.get("workspace"),
-        endpoint_id=d.get("endpoint_id"),
+        target_value=d.get("target_value"),
         created_at=d.get("created_at", 0),
         last_updated_at=d.get("last_updated_at", 0),
     )

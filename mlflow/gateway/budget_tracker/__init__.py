@@ -245,11 +245,11 @@ def _policy_applies(
     - WORKSPACE policies only apply when the request workspace matches the
       policy's workspace.
     - ENDPOINT policies only apply when the request endpoint matches the
-      policy's ``endpoint_id``.
+      policy's ``target_value``.
     """
     if policy.target_scope == BudgetTargetScope.GLOBAL:
         return True
     if policy.target_scope == BudgetTargetScope.ENDPOINT:
-        return endpoint_id is not None and policy.endpoint_id == endpoint_id
+        return endpoint_id is not None and policy.target_value == endpoint_id
     effective_workspace = workspace or DEFAULT_WORKSPACE_NAME
     return policy.workspace == effective_workspace

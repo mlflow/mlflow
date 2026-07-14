@@ -23,7 +23,7 @@ def _make_policy(
     target_scope=BudgetTargetScope.GLOBAL,
     budget_action=BudgetAction.ALERT,
     workspace=None,
-    endpoint_id=None,
+    target_value=None,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
@@ -35,7 +35,7 @@ def _make_policy(
         created_at=0,
         last_updated_at=0,
         workspace=workspace,
-        endpoint_id=endpoint_id,
+        target_value=target_value,
     )
 
 
@@ -298,7 +298,7 @@ def test_endpoint_scoped_cost_recording():
     policy = _make_policy(
         budget_policy_id="bp-ep",
         target_scope=BudgetTargetScope.ENDPOINT,
-        endpoint_id="ep-1",
+        target_value="ep-1",
         budget_amount=100.0,
     )
     tracker.refresh_policies([policy])
@@ -315,7 +315,7 @@ def test_should_reject_request_endpoint_filtering():
     policy = _make_policy(
         budget_policy_id="bp-ep",
         target_scope=BudgetTargetScope.ENDPOINT,
-        endpoint_id="ep-1",
+        target_value="ep-1",
         budget_amount=100.0,
         budget_action=BudgetAction.REJECT,
     )
@@ -339,7 +339,7 @@ def test_endpoint_scoped_policy_reloaded_from_redis():
     policy = _make_policy(
         budget_policy_id="bp-ep",
         target_scope=BudgetTargetScope.ENDPOINT,
-        endpoint_id="ep-1",
+        target_value="ep-1",
         budget_amount=100.0,
         budget_action=BudgetAction.REJECT,
     )
@@ -350,7 +350,7 @@ def test_endpoint_scoped_policy_reloaded_from_redis():
 
     exceeded, window = tracker.should_reject_request(endpoint_id="ep-1")
     assert exceeded is True
-    assert window.policy.endpoint_id == "ep-1"
+    assert window.policy.target_value == "ep-1"
 
     exceeded_other, _ = tracker.should_reject_request(endpoint_id="ep-2")
     assert exceeded_other is False
@@ -423,3 +423,6 @@ def test_get_budget_tracker_returns_redis_when_configured():
         import mlflow.gateway.budget_tracker
 
         mlflow.gateway.budget_tracker._budget_tracker = None
+
+
+# --- USER-scope tests ---

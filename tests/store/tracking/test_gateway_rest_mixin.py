@@ -19,7 +19,7 @@ class _StubRestStore(RestGatewayStoreMixin):
         return api.Response()
 
 
-def test_create_budget_policy_passes_endpoint_id():
+def test_create_budget_policy_passes_endpoint_target():
     store = _StubRestStore()
     store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
@@ -27,14 +27,14 @@ def test_create_budget_policy_passes_endpoint_id():
         duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
         target_scope=BudgetTargetScope.ENDPOINT,
         budget_action=BudgetAction.REJECT,
-        endpoint_id="ep-1",
+        target_value="ep-1",
     )
     (_, body) = store.calls[0]
-    assert body["endpoint_id"] == "ep-1"
+    assert body["target_value"] == "ep-1"
     assert body["target_scope"] == "ENDPOINT"
 
 
-def test_create_budget_policy_omits_endpoint_id_when_unset():
+def test_create_budget_policy_omits_target_value_when_unset():
     store = _StubRestStore()
     store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
@@ -44,23 +44,23 @@ def test_create_budget_policy_omits_endpoint_id_when_unset():
         budget_action=BudgetAction.ALERT,
     )
     (_, body) = store.calls[0]
-    assert "endpoint_id" not in body
+    assert "target_value" not in body
 
 
-def test_update_budget_policy_passes_endpoint_id():
+def test_update_budget_policy_passes_endpoint_target():
     store = _StubRestStore()
     store.update_budget_policy(
         budget_policy_id="bp-1",
         target_scope=BudgetTargetScope.ENDPOINT,
-        endpoint_id="ep-2",
+        target_value="ep-2",
     )
     (_, body) = store.calls[0]
     assert body["budget_policy_id"] == "bp-1"
-    assert body["endpoint_id"] == "ep-2"
+    assert body["target_value"] == "ep-2"
 
 
-def test_update_budget_policy_omits_endpoint_id_when_unset():
+def test_update_budget_policy_omits_target_value_when_unset():
     store = _StubRestStore()
     store.update_budget_policy(budget_policy_id="bp-1", budget_amount=50.0)
     (_, body) = store.calls[0]
-    assert "endpoint_id" not in body
+    assert "target_value" not in body

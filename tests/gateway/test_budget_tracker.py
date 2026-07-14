@@ -27,7 +27,7 @@ def _make_policy(
     target_scope=BudgetTargetScope.GLOBAL,
     budget_action=BudgetAction.ALERT,
     workspace=None,
-    endpoint_id=None,
+    target_value=None,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
@@ -39,7 +39,7 @@ def _make_policy(
         created_at=0,
         last_updated_at=0,
         workspace=workspace,
-        endpoint_id=endpoint_id,
+        target_value=target_value,
     )
 
 
@@ -169,17 +169,17 @@ def test_policy_applies_workspace_none_matches_default():
 
 
 def test_policy_applies_endpoint_match():
-    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, endpoint_id="ep-1")
+    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, target_value="ep-1")
     assert _policy_applies(policy, workspace=None, endpoint_id="ep-1") is True
 
 
 def test_policy_applies_endpoint_no_match():
-    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, endpoint_id="ep-1")
+    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, target_value="ep-1")
     assert _policy_applies(policy, workspace=None, endpoint_id="ep-2") is False
 
 
 def test_policy_applies_endpoint_none_request():
-    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, endpoint_id="ep-1")
+    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, target_value="ep-1")
     # A request without an endpoint (e.g. the windows listing) never matches.
     assert _policy_applies(policy, workspace=None, endpoint_id=None) is False
 
@@ -187,7 +187,7 @@ def test_policy_applies_endpoint_none_request():
 def test_policy_applies_endpoint_ignores_workspace():
     # ENDPOINT scope matches purely on endpoint_id; workspace is irrelevant.
     policy = _make_policy(
-        target_scope=BudgetTargetScope.ENDPOINT, endpoint_id="ep-1", workspace="ws-a"
+        target_scope=BudgetTargetScope.ENDPOINT, target_value="ep-1", workspace="ws-a"
     )
     assert _policy_applies(policy, workspace="ws-b", endpoint_id="ep-1") is True
     assert _policy_applies(policy, workspace="ws-a", endpoint_id="ep-other") is False
@@ -543,7 +543,7 @@ def _endpoint_policy(budget_policy_id="bp-ep", endpoint_id="ep-1", **kwargs):
     return _make_policy(
         budget_policy_id=budget_policy_id,
         target_scope=BudgetTargetScope.ENDPOINT,
-        endpoint_id=endpoint_id,
+        target_value=endpoint_id,
         **kwargs,
     )
 
@@ -582,7 +582,7 @@ def test_endpoint_scoped_exceed_and_reject():
     # Only requests to the matching endpoint are rejected.
     exceeded, window = tracker.should_reject_request(endpoint_id="ep-1")
     assert exceeded is True
-    assert window.policy.endpoint_id == "ep-1"
+    assert window.policy.target_value == "ep-1"
 
     exceeded_other, window_other = tracker.should_reject_request(endpoint_id="ep-2")
     assert exceeded_other is False
@@ -645,3 +645,9 @@ def test_endpoint_and_workspace_policies_independent():
     tracker.record_cost(25.0, workspace="ws2", endpoint_id="ep-1")
     assert tracker._get_window_info("bp-ws").cumulative_spend == 25.0
     assert tracker._get_window_info("bp-ep").cumulative_spend == 50.0
+
+
+# --- _policy_applies USER scope tests ---
+
+
+# --- InMemoryBudgetTracker USER-scope tests ---

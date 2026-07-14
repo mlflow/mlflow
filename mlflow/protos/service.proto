@@ -5775,8 +5775,9 @@ message GatewayBudgetPolicy {
   optional string last_updated_by = 9;
   // Last update timestamp in milliseconds
   optional int64 last_updated_at = 10;
-  // Gateway endpoint this policy applies to. Required when target_scope is ENDPOINT.
-  optional string endpoint_id = 11;
+  // Target the policy applies to, interpreted per target_scope: a gateway endpoint ID
+  // for ENDPOINT scope. Required for that scope; unset for GLOBAL and WORKSPACE.
+  optional string target_value = 11;
 }
 
 message CreateGatewayBudgetPolicy {
@@ -5786,8 +5787,9 @@ message CreateGatewayBudgetPolicy {
   optional BudgetTargetScope target_scope = 4;
   optional BudgetAction budget_action = 5;
   optional string created_by = 6;
-  // Gateway endpoint this policy applies to. Required when target_scope is ENDPOINT.
-  optional string endpoint_id = 7;
+  // Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+  // scope.
+  optional string target_value = 7;
 
   message Response {
     optional GatewayBudgetPolicy budget_policy = 1;
@@ -5810,8 +5812,9 @@ message UpdateGatewayBudgetPolicy {
   optional BudgetTargetScope target_scope = 5;
   optional BudgetAction budget_action = 6;
   optional string updated_by = 7;
-  // Gateway endpoint this policy applies to. Required when target_scope is ENDPOINT.
-  optional string endpoint_id = 8;
+  // Target the policy applies to (endpoint ID for ENDPOINT scope). Required for that
+  // scope.
+  optional string target_value = 8;
 
   message Response {
     optional GatewayBudgetPolicy budget_policy = 1;
@@ -5846,8 +5849,9 @@ message ListGatewayBudgetWindows {
 
     optional double current_spend = 4;
 
-    // Gateway endpoint this window is scoped to (only set for ENDPOINT-scoped policies)
-    optional string endpoint_id = 5;
+    // Target of the window's policy (endpoint ID for ENDPOINT scope; unset for
+    // GLOBAL and WORKSPACE policies)
+    optional string target_value = 5;
   }
 
   message Response {

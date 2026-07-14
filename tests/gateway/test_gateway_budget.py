@@ -42,7 +42,7 @@ def _make_policy(
     budget_amount=100.0,
     budget_action=BudgetAction.ALERT,
     target_scope=BudgetTargetScope.GLOBAL,
-    endpoint_id=None,
+    target_value=None,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
@@ -53,7 +53,7 @@ def _make_policy(
         budget_action=budget_action,
         created_at=0,
         last_updated_at=0,
-        endpoint_id=endpoint_id,
+        target_value=target_value,
     )
 
 
@@ -557,7 +557,7 @@ def _make_endpoint_policy(
         budget_amount=budget_amount,
         budget_action=budget_action,
         target_scope=BudgetTargetScope.ENDPOINT,
-        endpoint_id=endpoint_id,
+        target_value=endpoint_id,
     )
 
 
@@ -644,7 +644,7 @@ def test_calculate_existing_cost_no_endpoint_id_for_global_policy():
     assert store.sum_gateway_trace_cost.call_args.kwargs["endpoint_id"] is None
 
 
-def test_fire_budget_exceeded_webhooks_includes_endpoint_id():
+def test_fire_budget_exceeded_webhooks_includes_target_value():
     with patch(_DELIVER_FUNC) as mock_deliver:
         tracker = get_budget_tracker()
         policy = _make_endpoint_policy(
@@ -658,10 +658,10 @@ def test_fire_budget_exceeded_webhooks_includes_endpoint_id():
         mock_deliver.assert_called_once()
         payload = mock_deliver.call_args.kwargs["payload"]
         assert payload["target_scope"] == "ENDPOINT"
-        assert payload["endpoint_id"] == "ep-1"
+        assert payload["target_value"] == "ep-1"
 
 
-def test_fire_budget_exceeded_webhooks_endpoint_id_none_for_global():
+def test_fire_budget_exceeded_webhooks_target_value_none_for_global():
     with patch(_DELIVER_FUNC) as mock_deliver:
         tracker = get_budget_tracker()
         policy = _make_policy(budget_amount=50.0, budget_action=BudgetAction.ALERT)
@@ -670,7 +670,7 @@ def test_fire_budget_exceeded_webhooks_endpoint_id_none_for_global():
 
         fire_budget_exceeded_webhooks(crossed, workspace=None, registry_store=MagicMock())
         payload = mock_deliver.call_args.kwargs["payload"]
-        assert payload["endpoint_id"] is None
+        assert payload["target_value"] is None
 
 
 # --- endpoint-scoped edge cases: zero budget, exact boundary, mid-way crossing, overuse ---
@@ -775,3 +775,6 @@ def test_endpoint_budget_overuse_fires_webhook_only_once():
 
         assert tracker._get_window_info("bp-ep").cumulative_spend == pytest.approx(170.0)
         mock_deliver.assert_called_once()
+
+
+# --- per-user (USER scope) tests ---
