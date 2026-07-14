@@ -2679,6 +2679,140 @@ def test_update_budget_policy_amount_only_preserves_endpoint_scope(store: SqlAlc
     assert updated.target_value == endpoint_id
 
 
+def test_create_budget_policy_user_scope(store: SqlAlchemyStore):
+    policy = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        target_value="alice@example.com",
+    )
+    assert policy.target_scope == BudgetTargetScope.USER
+    assert policy.target_value == "alice@example.com"
+
+    fetched = store.get_budget_policy(budget_policy_id=policy.budget_policy_id)
+    assert fetched.target_scope == BudgetTargetScope.USER
+    assert fetched.target_value == "alice@example.com"
+
+
+def test_update_scope_switch_never_adopts_previous_target(store: SqlAlchemyStore):
+    # A target only makes sense within the scope it was written for: an endpoint ID
+    # is meaningless as a principal and vice versa. Switching scope without an
+    # explicit new target must fail instead of silently reinterpreting the old one.
+    endpoint_id = _create_endpoint_for_budget(store, "budget-ep-adopt")
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.ENDPOINT,
+        budget_action=BudgetAction.REJECT,
+        target_value=endpoint_id,
+    )
+    with pytest.raises(MlflowException, match="target_value is required"):
+        store.update_budget_policy(
+            budget_policy_id=created.budget_policy_id,
+            target_scope=BudgetTargetScope.USER,
+        )
+    reloaded = store.get_budget_policy(created.budget_policy_id)
+    assert reloaded.target_scope == BudgetTargetScope.ENDPOINT
+    assert reloaded.target_value == endpoint_id
+
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_scope=BudgetTargetScope.USER,
+        target_value="alice@example.com",
+    )
+    assert updated.target_scope == BudgetTargetScope.USER
+    assert updated.target_value == "alice@example.com"
+
+
+def test_update_user_to_endpoint_switch_validates_endpoint_exists(store: SqlAlchemyStore):
+    # Switching a USER policy to ENDPOINT with a target that is not a real endpoint
+    # must fail the existence check rather than persist a principal as an endpoint ID.
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        target_value="alice@example.com",
+    )
+    with pytest.raises(MlflowException, match="not found"):
+        store.update_budget_policy(
+            budget_policy_id=created.budget_policy_id,
+            target_scope=BudgetTargetScope.ENDPOINT,
+            target_value="alice@example.com",
+        )
+
+
+def test_update_budget_policy_user_target(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        target_value="alice@example.com",
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_value="bob@example.com",
+    )
+    assert updated.target_value == "bob@example.com"
+    # Unchanged fields are preserved.
+    assert updated.target_scope == BudgetTargetScope.USER
+
+    # Omitting target_value on a subsequent update leaves it unchanged.
+    again = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        budget_amount=50.0,
+    )
+    assert again.target_value == "bob@example.com"
+    assert again.budget_amount == 50.0
+
+
+def test_update_budget_policy_switch_to_global_clears_target(store: SqlAlchemyStore):
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        target_value="alice@example.com",
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_scope=BudgetTargetScope.GLOBAL,
+    )
+    assert updated.target_scope == BudgetTargetScope.GLOBAL
+    # Switching away from USER clears the stale target.
+    assert updated.target_value is None
+
+
+def test_update_budget_policy_switch_to_untargeted_with_target_drops_target(
+    store: SqlAlchemyStore,
+):
+    # A single call that both switches to an untargeted scope and passes a target must
+    # not leave the policy with a stale target. The store enforces the invariant even
+    # for programmatic callers that bypass the REST-handler validation.
+    created = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=25.0,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+        target_scope=BudgetTargetScope.USER,
+        budget_action=BudgetAction.REJECT,
+        target_value="alice@example.com",
+    )
+    updated = store.update_budget_policy(
+        budget_policy_id=created.budget_policy_id,
+        target_scope=BudgetTargetScope.WORKSPACE,
+        target_value="alice@example.com",
+    )
+    assert updated.target_scope == BudgetTargetScope.WORKSPACE
+    assert updated.target_value is None
+
+
 def test_update_budget_policy_target_ignored_on_untargeted_policy(store: SqlAlchemyStore):
     # Setting a target on a policy that stays GLOBAL/WORKSPACE is a no-op: untargeted
     # policies can never carry a target_value.
@@ -2697,155 +2831,11 @@ def test_update_budget_policy_target_ignored_on_untargeted_policy(store: SqlAlch
     assert updated.target_value is None
 
 
-def test_create_budget_policy_user_scope(store: SqlAlchemyStore):
-    policy = store.create_budget_policy(
-        budget_unit=BudgetUnit.USD,
-        budget_amount=25.0,
-        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
-        target_scope=BudgetTargetScope.USER,
-        budget_action=BudgetAction.REJECT,
-        principal="alice@example.com",
-    )
-    assert policy.target_scope == BudgetTargetScope.USER
-    assert policy.principal == "alice@example.com"
-
-    fetched = store.get_budget_policy(budget_policy_id=policy.budget_policy_id)
-    assert fetched.target_scope == BudgetTargetScope.USER
-    assert fetched.principal == "alice@example.com"
-
-
-def test_create_budget_policy_non_user_scope_has_no_principal(store: SqlAlchemyStore):
-    policy = store.create_budget_policy(
-        budget_unit=BudgetUnit.USD,
-        budget_amount=25.0,
-        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
-        target_scope=BudgetTargetScope.GLOBAL,
-        budget_action=BudgetAction.ALERT,
-    )
-    assert policy.principal is None
-
-
-def test_create_budget_policy_non_user_drops_stray_principal(store: SqlAlchemyStore):
-    policy = store.create_budget_policy(
-        budget_unit=BudgetUnit.USD,
-        budget_amount=100.0,
-        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
-        target_scope=BudgetTargetScope.WORKSPACE,
-        budget_action=BudgetAction.ALERT,
-        principal="stray-user",
-    )
-    assert policy.principal is None
-    assert store.get_budget_policy(policy.budget_policy_id).principal is None
-
-
-def test_update_to_user_scope_cannot_adopt_stray_principal(store: SqlAlchemyStore):
-    # With the stray principal dropped at create time, switching a non-USER policy to
-    # USER without an explicit principal must fail instead of silently adopting one.
-    created = store.create_budget_policy(
-        budget_unit=BudgetUnit.USD,
-        budget_amount=100.0,
-        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
-        target_scope=BudgetTargetScope.WORKSPACE,
-        budget_action=BudgetAction.ALERT,
-        principal="stray-user",
-    )
-    with pytest.raises(MlflowException, match="principal is required"):
-        store.update_budget_policy(
-            budget_policy_id=created.budget_policy_id,
-            target_scope=BudgetTargetScope.USER,
-        )
-
-
-def test_update_budget_policy_principal(store: SqlAlchemyStore):
-    created = store.create_budget_policy(
-        budget_unit=BudgetUnit.USD,
-        budget_amount=25.0,
-        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
-        target_scope=BudgetTargetScope.USER,
-        budget_action=BudgetAction.REJECT,
-        principal="alice@example.com",
-    )
-    updated = store.update_budget_policy(
-        budget_policy_id=created.budget_policy_id,
-        principal="bob@example.com",
-    )
-    assert updated.principal == "bob@example.com"
-    # Unchanged fields are preserved.
-    assert updated.target_scope == BudgetTargetScope.USER
-
-    # Omitting principal on a subsequent update leaves it unchanged.
-    again = store.update_budget_policy(
-        budget_policy_id=created.budget_policy_id,
-        budget_amount=50.0,
-    )
-    assert again.principal == "bob@example.com"
-    assert again.budget_amount == 50.0
-
-
-def test_update_budget_policy_switch_to_non_user_clears_principal(store: SqlAlchemyStore):
-    created = store.create_budget_policy(
-        budget_unit=BudgetUnit.USD,
-        budget_amount=25.0,
-        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
-        target_scope=BudgetTargetScope.USER,
-        budget_action=BudgetAction.REJECT,
-        principal="alice@example.com",
-    )
-    updated = store.update_budget_policy(
-        budget_policy_id=created.budget_policy_id,
-        target_scope=BudgetTargetScope.GLOBAL,
-    )
-    assert updated.target_scope == BudgetTargetScope.GLOBAL
-    # Switching away from USER clears the stale principal.
-    assert updated.principal is None
-
-
-def test_update_budget_policy_switch_to_non_user_with_principal_drops_principal(
-    store: SqlAlchemyStore,
-):
-    # A single call that both switches away from USER and passes a principal must not
-    # leave the policy with a stale principal. The store enforces the invariant even
-    # for programmatic callers that bypass the REST-handler validation.
-    created = store.create_budget_policy(
-        budget_unit=BudgetUnit.USD,
-        budget_amount=25.0,
-        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
-        target_scope=BudgetTargetScope.USER,
-        budget_action=BudgetAction.REJECT,
-        principal="alice@example.com",
-    )
-    updated = store.update_budget_policy(
-        budget_policy_id=created.budget_policy_id,
-        target_scope=BudgetTargetScope.WORKSPACE,
-        principal="alice@example.com",
-    )
-    assert updated.target_scope == BudgetTargetScope.WORKSPACE
-    assert updated.principal is None
-
-
-def test_update_budget_policy_principal_ignored_on_non_user_policy(store: SqlAlchemyStore):
-    # Setting a principal on a policy that stays non-USER is a no-op: a GLOBAL/WORKSPACE
-    # policy can never carry a principal.
-    created = store.create_budget_policy(
-        budget_unit=BudgetUnit.USD,
-        budget_amount=25.0,
-        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
-        target_scope=BudgetTargetScope.GLOBAL,
-        budget_action=BudgetAction.ALERT,
-    )
-    updated = store.update_budget_policy(
-        budget_policy_id=created.budget_policy_id,
-        principal="alice@example.com",
-    )
-    assert updated.target_scope == BudgetTargetScope.GLOBAL
-    assert updated.principal is None
-
-
-def test_create_budget_policy_user_scope_without_principal_raises(store: SqlAlchemyStore):
-    # The store enforces the USER-requires-principal invariant directly, so a
+def test_create_budget_policy_user_scope_without_target_raises(store: SqlAlchemyStore):
+    # The store enforces the USER-requires-target invariant directly, so a
     # programmatic caller bypassing the REST handler still can't create an inert
     # (never-matching) USER policy.
-    with pytest.raises(MlflowException, match="principal is required when target_scope is USER"):
+    with pytest.raises(MlflowException, match="target_value is required when target_scope is USER"):
         store.create_budget_policy(
             budget_unit=BudgetUnit.USD,
             budget_amount=25.0,
@@ -2855,7 +2845,7 @@ def test_create_budget_policy_user_scope_without_principal_raises(store: SqlAlch
         )
 
 
-def test_update_budget_policy_switch_to_user_without_principal_raises(store: SqlAlchemyStore):
+def test_update_budget_policy_switch_to_user_without_target_raises(store: SqlAlchemyStore):
     created = store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
         budget_amount=25.0,
@@ -2863,15 +2853,15 @@ def test_update_budget_policy_switch_to_user_without_principal_raises(store: Sql
         target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
     )
-    with pytest.raises(MlflowException, match="principal is required when target_scope is USER"):
+    with pytest.raises(MlflowException, match="target_value is required when target_scope is USER"):
         store.update_budget_policy(
             budget_policy_id=created.budget_policy_id,
             target_scope=BudgetTargetScope.USER,
         )
-    # The failed update rolled back: the policy is unchanged (still GLOBAL, no principal).
+    # The failed update rolled back: the policy is unchanged (still GLOBAL, no target).
     fetched = store.get_budget_policy(budget_policy_id=created.budget_policy_id)
     assert fetched.target_scope == BudgetTargetScope.GLOBAL
-    assert fetched.principal is None
+    assert fetched.target_value is None
 
 
 # =============================================================================

@@ -1749,7 +1749,7 @@ def test_user_budget_policies_are_workspace_scoped_rows(gateway_workspace_store)
             duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
             target_scope=BudgetTargetScope.USER,
             budget_action=BudgetAction.REJECT,
-            principal="alice",
+            target_value="alice",
         )
 
     with WorkspaceContext("team-user-budget-b"):
@@ -1760,7 +1760,7 @@ def test_user_budget_policies_are_workspace_scoped_rows(gateway_workspace_store)
     with WorkspaceContext("team-user-budget-a"):
         policies = store.list_budget_policies()
         assert [p.budget_policy_id for p in policies] == [policy_a.budget_policy_id]
-        assert policies[0].principal == "alice"
+        assert policies[0].target_value == "alice"
 
 
 def test_model_definitions_are_workspace_scoped(gateway_workspace_store):
