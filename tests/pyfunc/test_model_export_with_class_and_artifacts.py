@@ -324,6 +324,22 @@ class DummyModel(mlflow.pyfunc.PythonModel):
         return model_input
 
 
+def test_artifact_paths_use_posix_separators(tmp_path):
+    artifact_path = tmp_path / "payload.txt"
+    artifact_path.write_text("payload")
+
+    model_path = tmp_path / "pyfunc_model"
+    mlflow.pyfunc.save_model(
+        path=model_path,
+        python_model=DummyModel(),
+        artifacts={"payload": str(artifact_path)},
+    )
+
+    config = Model.load(model_path)
+    saved_artifact_subpath = config.flavors["python_function"]["artifacts"]["payload"]["path"]
+    assert saved_artifact_subpath == "artifacts/payload.txt"
+
+
 def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_class):
     with mlflow.start_run():
         with mock.patch(
