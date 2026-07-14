@@ -17,7 +17,7 @@ from mlflow.utils.rest_utils import http_request, verify_rest_response
 _MCP_API_PREFIX = "/api/3.0/mlflow/mcp-servers"
 
 
-def _encode_path_param(value: str | int) -> str:
+def _encode_path_param(value: str) -> str:
     return quote(str(value), safe="")
 
 
@@ -241,7 +241,7 @@ class RestMCPServerRegistryMixin:
         data = self._mcp_request("POST", f"{_server_path(server_name)}/endpoints", json=body)
         return MCPAccessEndpoint.from_dict(data)
 
-    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: int) -> MCPAccessEndpoint:
+    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> MCPAccessEndpoint:
         data = self._mcp_request(
             "GET", f"{_server_path(server_name)}/endpoints/{_encode_path_param(endpoint_id)}"
         )
@@ -289,7 +289,7 @@ class RestMCPServerRegistryMixin:
     def update_mcp_access_endpoint(
         self,
         server_name: str,
-        endpoint_id: int,
+        endpoint_id: str,
         server_version: str | None = NOT_SET,
         server_alias: str | None = NOT_SET,
         url: str | None = NOT_SET,
@@ -312,7 +312,7 @@ class RestMCPServerRegistryMixin:
         )
         return MCPAccessEndpoint.from_dict(data)
 
-    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: int) -> None:
+    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> None:
         self._mcp_request(
             "DELETE", f"{_server_path(server_name)}/endpoints/{_encode_path_param(endpoint_id)}"
         )

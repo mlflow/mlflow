@@ -158,7 +158,7 @@ def upgrade():
 
     op.create_table(
         "mcp_access_endpoints",
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column(
             "workspace",
             sa.String(length=63),

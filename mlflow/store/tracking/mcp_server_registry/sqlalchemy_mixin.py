@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import uuid
 from typing import Any
 
 import sqlalchemy as sa
@@ -141,7 +142,7 @@ class SqlAlchemyMCPServerRegistryMixin:
 
     def _get_nested_endpoint_resolved_versions(
         self, session, servers
-    ) -> dict[int, MCPServerVersion | None]:
+    ) -> dict[str, MCPServerVersion | None]:
         endpoint_ids = [ep.id for server in servers for ep in server.access_endpoints]
         if not endpoint_ids:
             return {}
@@ -612,8 +613,10 @@ class SqlAlchemyMCPServerRegistryMixin:
                     )
             if server_alias is not None:
                 self._get_alias_target_version_or_raise(session, server_name, server_alias)
+            endpoint_id = f"ae-{uuid.uuid4().hex}"
             endpoint = self._with_workspace_field(
                 SqlMCPAccessEndpoint(
+                    id=endpoint_id,
                     server_name=server_name,
                     url=url,
                     transport_type=transport_type.value,
@@ -637,7 +640,7 @@ class SqlAlchemyMCPServerRegistryMixin:
     def _endpoint_query_with_version(
         self,
         session,
-        endpoint_ids: list[int] | None = None,
+        endpoint_ids: list[str] | None = None,
         server_name: str | None = None,
         server_version: str | None = None,
         server_alias: str | None = None,
@@ -667,7 +670,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             .options(contains_eager(SqlMCPAccessEndpoint.resolved_version_rel))
         )
 
-    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: int) -> MCPAccessEndpoint:
+    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> MCPAccessEndpoint:
         with self.ManagedSessionMaker() as session:
             endpoint = self._endpoint_query_with_version(
                 session, endpoint_ids=[endpoint_id]
@@ -716,7 +719,7 @@ class SqlAlchemyMCPServerRegistryMixin:
     def update_mcp_access_endpoint(
         self,
         server_name: str,
-        endpoint_id: int,
+        endpoint_id: str,
         server_version: str | None = NOT_SET,
         server_alias: str | None = NOT_SET,
         url: str | None = NOT_SET,
@@ -791,7 +794,7 @@ class SqlAlchemyMCPServerRegistryMixin:
                 .to_mlflow_entity()
             )
 
-    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: int) -> None:
+    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> None:
         with self.ManagedSessionMaker(read_only=False) as session:
             endpoint = self._get_entity_or_raise(
                 session,
@@ -1020,7 +1023,7 @@ def _validate_status_transition(current: MCPStatus, new: MCPStatus) -> None:
 
 
 def _resolved_endpoint_targets_subquery(
-    endpoint_ids: list[int] | None = None,
+    endpoint_ids: list[str] | None = None,
     server_name: str | None = None,
     server_version: str | None = None,
     server_alias: str | None = None,

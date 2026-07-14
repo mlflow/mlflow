@@ -515,7 +515,7 @@ def create_mcp_access_endpoint(
 
 
 @experimental(version="3.15.0")
-def get_mcp_access_endpoint(server_name: str, endpoint_id: int) -> MCPAccessEndpoint:
+def get_mcp_access_endpoint(server_name: str, endpoint_id: str) -> MCPAccessEndpoint:
     return MlflowClient().get_mcp_access_endpoint(server_name=server_name, endpoint_id=endpoint_id)
 
 
@@ -561,7 +561,7 @@ def search_mcp_access_endpoints(
 @experimental(version="3.15.0")
 def update_mcp_access_endpoint(
     server_name: str,
-    endpoint_id: int,
+    endpoint_id: str,
     url: str | None = NOT_SET,
     transport_type: Literal["streamable-http", "sse"] | None = NOT_SET,
     server_version: str | None = NOT_SET,
@@ -595,7 +595,7 @@ def update_mcp_access_endpoint(
 
 
 @experimental(version="3.15.0")
-def delete_mcp_access_endpoint(server_name: str, endpoint_id: int) -> None:
+def delete_mcp_access_endpoint(server_name: str, endpoint_id: str) -> None:
     MlflowClient().delete_mcp_access_endpoint(server_name=server_name, endpoint_id=endpoint_id)
 
 

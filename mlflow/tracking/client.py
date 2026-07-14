@@ -6893,7 +6893,7 @@ class MlflowClient:
             server_alias=server_alias,
         )
 
-    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: int) -> MCPAccessEndpoint:
+    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> MCPAccessEndpoint:
         return self._tracking_client.store.get_mcp_access_endpoint(
             server_name=server_name, endpoint_id=endpoint_id
         )
@@ -6921,7 +6921,7 @@ class MlflowClient:
     def update_mcp_access_endpoint(
         self,
         server_name: str,
-        endpoint_id: int,
+        endpoint_id: str,
         url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         server_version: str | None = NOT_SET,
@@ -6936,7 +6936,7 @@ class MlflowClient:
             server_alias=server_alias,
         )
 
-    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: int) -> None:
+    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> None:
         self._tracking_client.store.delete_mcp_access_endpoint(
             server_name=server_name, endpoint_id=endpoint_id
         )

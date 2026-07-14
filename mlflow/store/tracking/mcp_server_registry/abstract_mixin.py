@@ -273,7 +273,7 @@ class MCPServerRegistryMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: int) -> MCPAccessEndpoint:
+    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> MCPAccessEndpoint:
         """Retrieve a specific access endpoint.
 
         Args:
@@ -314,7 +314,7 @@ class MCPServerRegistryMixin:
     def update_mcp_access_endpoint(
         self,
         server_name: str,
-        endpoint_id: int,
+        endpoint_id: str,
         server_version: str | None = NOT_SET,
         server_alias: str | None = NOT_SET,
         url: str | None = NOT_SET,
@@ -340,7 +340,7 @@ class MCPServerRegistryMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: int) -> None:
+    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: str) -> None:
         """Delete an access endpoint.
 
         Args:

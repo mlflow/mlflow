@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 @experimental(version="3.15.0")
 @dataclass
 class MCPAccessEndpoint:
-    id: int
+    id: str
     server_name: str
     url: str
     transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP

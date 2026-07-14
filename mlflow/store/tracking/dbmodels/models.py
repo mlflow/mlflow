@@ -4162,7 +4162,7 @@ class SqlMCPServerAlias(Base):
 class SqlMCPAccessEndpoint(Base):
     __tablename__ = "mcp_access_endpoints"
 
-    id = Column(Integer, autoincrement=True)
+    id = Column(String(36))
     workspace = Column(
         String(63),
         nullable=False,

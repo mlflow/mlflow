@@ -246,7 +246,7 @@ class AliasResponse(BaseModel):
 
 
 class MCPAccessEndpointSummaryResponse(BaseModel):
-    id: int
+    id: str
     server_name: str
     url: str
     transport_type: str = "streamable-http"
@@ -357,7 +357,7 @@ class MCPServerVersionResponse(BaseModel):
 
 
 class MCPAccessEndpointResponse(BaseModel):
-    id: int
+    id: str
     server_name: str
     url: str
     transport_type: str = "streamable-http"
@@ -520,7 +520,7 @@ def _ensure_version_create_parent_access(
 
 
 def _update_mcp_access_endpoint_kwargs(
-    server_name: str, endpoint_id: int, body: UpdateMCPAccessEndpointRequest
+    server_name: str, endpoint_id: str, body: UpdateMCPAccessEndpointRequest
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"server_name": server_name, "endpoint_id": endpoint_id}
     provided_fields = body.model_fields_set
@@ -729,7 +729,7 @@ def create_mcp_access_endpoint(
     "/{name:path}/endpoints/{endpoint_id}",
     response_model=MCPAccessEndpointResponse,
 )
-def get_mcp_access_endpoint(name: str, endpoint_id: int) -> MCPAccessEndpointResponse:
+def get_mcp_access_endpoint(name: str, endpoint_id: str) -> MCPAccessEndpointResponse:
     from mlflow.server.handlers import _get_tracking_store
 
     store = _get_tracking_store()
@@ -742,7 +742,7 @@ def get_mcp_access_endpoint(name: str, endpoint_id: int) -> MCPAccessEndpointRes
     response_model=MCPAccessEndpointResponse,
 )
 def update_mcp_access_endpoint(
-    name: str, endpoint_id: int, body: UpdateMCPAccessEndpointRequest, request: Request
+    name: str, endpoint_id: str, body: UpdateMCPAccessEndpointRequest, request: Request
 ) -> MCPAccessEndpointResponse:
     from mlflow.server.handlers import _get_tracking_store
 
@@ -755,7 +755,7 @@ def update_mcp_access_endpoint(
 
 
 @mcp_server_router.delete("/{name:path}/endpoints/{endpoint_id}")
-def delete_mcp_access_endpoint(name: str, endpoint_id: int) -> dict[str, Any]:
+def delete_mcp_access_endpoint(name: str, endpoint_id: str) -> dict[str, Any]:
     from mlflow.server.handlers import _get_tracking_store
 
     _get_tracking_store().delete_mcp_access_endpoint(name, endpoint_id)

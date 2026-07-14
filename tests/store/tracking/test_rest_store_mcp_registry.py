@@ -102,7 +102,7 @@ def test_create_mcp_access_endpoint_preserves_workspace(rest_store, mock_http_re
     server_workspace = "production"
     mock_http_request.return_value = _make_response(
         json_data={
-            "id": 1,
+            "id": "ae-abc123",
             "server_name": "com.example/test-server",
             "url": "http://example.com",
             "transport_type": "streamable-http",
@@ -123,7 +123,7 @@ def test_get_mcp_access_endpoint_preserves_workspace(rest_store, mock_http_reque
     server_workspace = "production"
     mock_http_request.return_value = _make_response(
         json_data={
-            "id": 1,
+            "id": "ae-abc123",
             "server_name": "com.example/test-server",
             "url": "http://example.com",
             "transport_type": "streamable-http",
@@ -131,7 +131,7 @@ def test_get_mcp_access_endpoint_preserves_workspace(rest_store, mock_http_reque
         }
     )
 
-    endpoint = rest_store.get_mcp_access_endpoint("com.example/test-server", 1)
+    endpoint = rest_store.get_mcp_access_endpoint("com.example/test-server", "ae-abc123")
     assert endpoint.workspace == server_workspace
 
 
@@ -142,7 +142,7 @@ def test_get_mcp_server_preserves_endpoint_metadata(rest_store, mock_http_reques
             "status": "active",
             "access_endpoints": [
                 {
-                    "id": 1,
+                    "id": "ae-abc123",
                     "server_name": "com.example/test-server",
                     "url": "http://example.com",
                     "transport_type": "streamable-http",
@@ -176,7 +176,7 @@ def test_search_mcp_servers_preserves_endpoint_metadata(rest_store, mock_http_re
                     "status": "active",
                     "access_endpoints": [
                         {
-                            "id": 1,
+                            "id": "ae-abc123",
                             "server_name": "com.example/server1",
                             "url": "http://example1.com",
                             "transport_type": "streamable-http",
@@ -233,7 +233,7 @@ def test_invalid_status_enum_raises_mlflow_exception(rest_store, mock_http_reque
 def test_invalid_transport_type_raises_mlflow_exception(rest_store, mock_http_request):
     mock_http_request.return_value = _make_response(
         json_data={
-            "id": 1,
+            "id": "ae-abc123",
             "server_name": "com.example/test-server",
             "url": "http://example.com",
             "transport_type": "invalid-transport",
@@ -241,7 +241,7 @@ def test_invalid_transport_type_raises_mlflow_exception(rest_store, mock_http_re
     )
 
     with pytest.raises(MlflowException, match="Failed to parse.*transport"):
-        rest_store.get_mcp_access_endpoint("com.example/test-server", 1)
+        rest_store.get_mcp_access_endpoint("com.example/test-server", "ae-abc123")
 
 
 def test_non_dict_response_raises_mlflow_exception(rest_store, mock_http_request):
