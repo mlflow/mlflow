@@ -25,7 +25,7 @@ from typing import Any, Awaitable, Callable
 import sqlalchemy
 from cachetools import TTLCache
 from fastapi import FastAPI
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from flask import (
     Flask,
     Request,
@@ -333,7 +333,11 @@ from mlflow.server.handlers import (
     _disable_if_workspaces_disabled as _disable_if_workspaces_disabled,
 )
 from mlflow.server.jobs import get_job
-from mlflow.server.workspace_helpers import _get_workspace_store
+from mlflow.server.workspace_helpers import (
+    WORKSPACE_HEADER_NAME,
+    _get_workspace_store,
+    resolve_workspace_for_request_if_enabled,
+)
 from mlflow.store.entities import PagedList
 from mlflow.store.workspace.utils import get_default_workspace_optional
 from mlflow.utils import workspace_context
@@ -4542,6 +4546,24 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
         if user.is_admin:
             return await call_next(request)
 
+        # The workspace-context middleware registered in ``create_fastapi_app`` runs
+        # *inside* this middleware (Starlette runs the most recently added middleware
+        # first), so the request workspace is not resolved yet when validators execute.
+        # Workspace-scoped lookups inside validators (e.g. resolving a gateway endpoint
+        # by name for the USE check) would fail and deny every non-admin request when
+        # workspaces are enabled. Resolve and set the workspace for the validator run,
+        # mirroring ``workspace_context_middleware``.
+        try:
+            workspace = resolve_workspace_for_request_if_enabled(
+                path, request.headers.get(WORKSPACE_HEADER_NAME)
+            )
+        except MlflowException as e:
+            return JSONResponse(
+                status_code=e.get_http_status_code(),
+                content=json.loads(e.serialize_as_json()),
+            )
+        workspace_context.set_server_request_workspace(workspace.name if workspace else None)
+
         # Run the validator
         try:
             if not await validator(user.username, request):
@@ -4554,6 +4576,8 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
                 e.message,
                 status_code=e.get_http_status_code(),
             )
+        finally:
+            workspace_context.clear_server_request_workspace()
 
         return await call_next(request)
 
