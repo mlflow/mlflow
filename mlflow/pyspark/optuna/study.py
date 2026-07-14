@@ -195,6 +195,11 @@ class MlflowSparkStudy(Study):
     ):
         if direction is not None and directions is not None:
             raise ValueError("Specify only one of `direction` and `directions`.")
+        if isinstance(directions, str):
+            raise ValueError(
+                "`directions` must be a sequence (e.g. list or tuple) of direction values, "
+                "not a string. For single-objective optimization, use `direction=` instead."
+            )
         self.study_name = study_name
         self._storage = storages.get_storage(storage)
         self.sampler = sampler or samplers.TPESampler()
@@ -252,8 +257,8 @@ class MlflowSparkStudy(Study):
                 ]
             except KeyError as e:
                 raise ValueError(
-                    "Please set either 'minimize' or 'maximize' to direction. You can also set"
-                    " the corresponding `StudyDirection` member."
+                    "Invalid value for `direction`/`directions`: each direction must be "
+                    "'minimize', 'maximize', or an `optuna.study.StudyDirection` member."
                 ) from e
             if requested != self._directions:
                 raise ValueError(
@@ -291,12 +296,13 @@ class MlflowSparkStudy(Study):
         if not self._is_resumed:
             return ResumeInfo(is_resumed=False)
 
-        has_single_objective_best = len(self._directions) == 1 and self.completed_trials_count > 0
+        completed_trials = self.completed_trials_count
+        has_single_objective_best = len(self._directions) == 1 and completed_trials > 0
         return ResumeInfo(
             is_resumed=True,
             study_name=self.study_name,
             existing_trials=len(self._study.trials),
-            completed_trials=self.completed_trials_count,
+            completed_trials=completed_trials,
             best_value=self._study.best_value if has_single_objective_best else None,
             best_params=self._study.best_params if has_single_objective_best else None,
         )
@@ -314,10 +320,11 @@ class MlflowSparkStudy(Study):
         if self._is_resumed and self._study.trials:
             # `best_value` is undefined for multi-objective studies and for studies
             # without completed trials
-            if len(self._directions) == 1 and self.completed_trials_count > 0:
+            completed_trials = self.completed_trials_count
+            if len(self._directions) == 1 and completed_trials > 0:
                 best_summary = f"Current best value: {self._study.best_value}"
             else:
-                best_summary = f"Completed trials: {self.completed_trials_count}"
+                best_summary = f"Completed trials: {completed_trials}"
             _logger.info(f"""
             Continuing optimization with {len(self._study.trials)} existing trials.
             {best_summary}

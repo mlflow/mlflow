@@ -299,3 +299,9 @@ def test_direction_and_directions_mutually_exclusive(setup_storage):
     storage = setup_storage
     with pytest.raises(ValueError, match="Specify only one of"):
         MlflowSparkStudy("exclusive-study", storage, direction="minimize", directions=["minimize"])
+
+
+def test_directions_string_raises(setup_storage):
+    storage = setup_storage
+    with pytest.raises(ValueError, match="must be a sequence"):
+        MlflowSparkStudy("directions-string-study", storage, directions="maximize")
