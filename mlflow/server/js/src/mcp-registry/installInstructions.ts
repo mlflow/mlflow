@@ -58,20 +58,7 @@ export function getMcpJsonFooterNote(): string {
 }
 
 export function deriveClientName(registryName: string): string {
-  const slashIndex = registryName.lastIndexOf('/');
-  let raw: string;
-
-  if (slashIndex >= 0) {
-    const namespace = registryName.slice(0, slashIndex);
-    const slug = registryName.slice(slashIndex + 1);
-    const namespaceParts = namespace.split('.');
-    const prefix = namespaceParts[namespaceParts.length - 1];
-    raw = `${prefix}-${slug}`;
-  } else {
-    raw = registryName;
-  }
-
-  const derived = raw
+  const derived = registryName
     .replace(/[^A-Za-z0-9_-]/g, '-')
     .replace(/-{2,}/g, '-')
     .replace(/^-+|-+$/g, '')

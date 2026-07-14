@@ -115,12 +115,14 @@ describe('formatMcpJsonSnippet', () => {
 // ---------------------------------------------------------------------------
 
 describe('deriveClientName', () => {
-  it('handles standard reverse-DNS with slash', () => {
-    expect(deriveClientName('com.acme/full-mcp-server')).toBe('acme-full-mcp-server');
+  it('uses full registry name for uniqueness', () => {
+    expect(deriveClientName('com.acme/full-mcp-server')).toBe('com-acme-full-mcp-server');
   });
 
-  it('handles io.github namespace', () => {
-    expect(deriveClientName('io.github.user/my-server')).toBe('user-my-server');
+  it('distinguishes different namespaces with same slug', () => {
+    expect(deriveClientName('io.github.foo/server')).not.toBe(deriveClientName('com.foo/server'));
+    expect(deriveClientName('io.github.foo/server')).toBe('io-github-foo-server');
+    expect(deriveClientName('com.foo/server')).toBe('com-foo-server');
   });
 
   it('handles name without namespace', () => {
@@ -128,19 +130,19 @@ describe('deriveClientName', () => {
   });
 
   it('replaces dots and special chars with dashes', () => {
-    expect(deriveClientName('com.example/my.special@server')).toBe('example-my-special-server');
+    expect(deriveClientName('com.example/my.special@server')).toBe('com-example-my-special-server');
   });
 
   it('collapses consecutive dashes', () => {
-    expect(deriveClientName('com.test/a--b')).toBe('test-a-b');
+    expect(deriveClientName('com.test/a--b')).toBe('com-test-a-b');
   });
 
   it('trims leading and trailing dashes', () => {
-    expect(deriveClientName('com.test/-server-')).toBe('test-server');
+    expect(deriveClientName('com.test/-server-')).toBe('com-test-server');
   });
 
   it('lowercases everything', () => {
-    expect(deriveClientName('com.Acme/MyServer')).toBe('acme-myserver');
+    expect(deriveClientName('com.Acme/MyServer')).toBe('com-acme-myserver');
   });
 
   it('handles single-segment namespace', () => {
@@ -148,7 +150,7 @@ describe('deriveClientName', () => {
   });
 
   it('handles empty slug after slash', () => {
-    expect(deriveClientName('com.acme/')).toBe('acme');
+    expect(deriveClientName('com.acme/')).toBe('com-acme');
   });
 
   it('falls back when input collapses to empty', () => {
@@ -759,7 +761,7 @@ function makePayload(overrides: Partial<ServerJSONPayload> = {}): ServerJSONPayl
 describe('generateInstallInstructions', () => {
   it('derives server name from registry name', () => {
     const result = generateInstallInstructions(makePayload(), 'com.acme/test-server');
-    expect(result.serverName).toBe('acme-test-server');
+    expect(result.serverName).toBe('com-acme-test-server');
   });
 
   it('returns empty blocks for payload with no packages or remotes', () => {
