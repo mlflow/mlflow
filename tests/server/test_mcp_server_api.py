@@ -33,6 +33,25 @@ def _encode_path_param(value: str) -> str:
     return quote(value, safe="")
 
 
+def _create_version(client, name: str, version: str, status: str = "draft", **server_json_extra):
+    initial_status = "active" if status == "deprecated" else status
+    response = client.post(
+        f"{PREFIX}/{_encode_path_param(name)}/versions",
+        json={
+            "server_json": _server_json(name, version, **server_json_extra),
+            "status": initial_status,
+        },
+    )
+    assert response.status_code == 200, response.text
+    if status == "deprecated":
+        response = client.patch(
+            f"{PREFIX}/{_encode_path_param(name)}/versions/{version}",
+            json={"status": "deprecated"},
+        )
+        assert response.status_code == 200, response.text
+    return response
+
+
 def _create_registry_fastapi_app(route_prefixes=None):
     fastapi_app = FastAPI()
     add_mcp_exception_handlers(fastapi_app)
@@ -1048,27 +1067,19 @@ def test_server_response_recomputes_status_and_latest_after_transitions(client):
 
 
 def test_server_response_description_falls_back_to_parent_resolved_version(client):
-    client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/description-fallback')}" + "/versions",
-        json={
-            "server_json": _server_json(
-                "com.example/description-fallback",
-                "1.0.0",
-                description="active description",
-            ),
-            "status": "active",
-        },
+    _create_version(
+        client,
+        "com.example/description-fallback",
+        "1.0.0",
+        status="active",
+        description="active description",
     )
-    client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/description-fallback')}" + "/versions",
-        json={
-            "server_json": _server_json(
-                "com.example/description-fallback",
-                "2.0.0",
-                description="deprecated description",
-            ),
-            "status": "deprecated",
-        },
+    _create_version(
+        client,
+        "com.example/description-fallback",
+        "2.0.0",
+        status="deprecated",
+        description="deprecated description",
     )
 
     server = client.get(f"{PREFIX}/{_encode_path_param('com.example/description-fallback')}").json()
@@ -1089,20 +1100,8 @@ def test_server_response_description_falls_back_to_parent_resolved_version(clien
 
 
 def test_latest_alias_falls_back_to_non_active_version(client):
-    client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/latest-fallback')}" + "/versions",
-        json={
-            "server_json": _server_json("com.example/latest-fallback", "1.2.0"),
-            "status": "deprecated",
-        },
-    )
-    client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/latest-fallback')}" + "/versions",
-        json={
-            "server_json": _server_json("com.example/latest-fallback", "1.3.0"),
-            "status": "draft",
-        },
-    )
+    _create_version(client, "com.example/latest-fallback", "1.2.0", status="deprecated")
+    _create_version(client, "com.example/latest-fallback", "1.3.0", status="draft")
 
     alias_r = client.get(
         f"{PREFIX}/{_encode_path_param('com.example/latest-fallback')}" + "/aliases/latest"
