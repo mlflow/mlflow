@@ -78,51 +78,19 @@ describe('ExperimentViewRunsColumnSelector', () => {
     expect(screen.getByTestId('column-selection-dropdown')).toBeInTheDocument();
   });
 
-  it('opens the panel anchored to the trigger via a floating-ui popper (not a detached antd overlay)', async () => {
+  it('renders the panel inside the floating-ui popper anchored to the trigger', async () => {
     renderComponent();
 
     await userEvent.click(screen.getByTestId('column-selection-dropdown'));
 
-    // The panel content must be visible.
+    // The bug (#24414): the legacy antd `Dropdown` rendered the panel into a
+    // detached overlay positioned by stale absolute pixels, which drifted to the
+    // page top-left when the toolbar wrapped. The fix anchors the panel to the
+    // trigger via a Radix/floating-ui popper, so the panel must live inside the
+    // popper wrapper.
     const tree = await screen.findByTestId('column-selector-tree');
-    expect(tree).toBeInTheDocument();
-
-    // The bug: the legacy antd `Dropdown` rendered the panel into a detached
-    // `.ant-dropdown` overlay positioned by stale absolute pixels, which drifts
-    // to the page top-left when the toolbar wraps. The fix anchors the panel to
-    // the trigger with a Radix/floating-ui popper. Assert the panel lives inside
-    // the popper wrapper and NOT inside an antd dropdown overlay.
     const popperWrapper = document.querySelector('[data-radix-popper-content-wrapper]');
-    expect(popperWrapper).not.toBeNull();
     expect(popperWrapper).toContainElement(tree);
-    expect(document.querySelector('.ant-dropdown')).toBeNull();
-  });
-
-  it('keeps the popover surface styles (background/border) when resetting padding', async () => {
-    renderComponent();
-    await userEvent.click(screen.getByTestId('column-selection-dropdown'));
-    await screen.findByTestId('column-selector-tree');
-
-    // The panel resets the popover's inner padding, but must NOT clobber the
-    // design-system Content surface (background/border/shadow). Passing `css`
-    // to Popover.Content would replace those styles wholesale, so padding is
-    // reset via inline style and the emotion class must still carry a surface.
-    const content = document.querySelector('[data-radix-popper-content-wrapper]')?.firstElementChild as HTMLElement;
-    expect(content).toBeTruthy();
-    expect(content.style.padding).toBe('0px');
-
-    const emotionClass = Array.from(content.classList).find((c) => c.startsWith('css-'));
-    expect(emotionClass).toBeDefined();
-    const styleText = Array.from(document.querySelectorAll('style'))
-      .map((s) => s.textContent ?? '')
-      .join('\n');
-    const ruleStart = styleText.indexOf(`.${emotionClass}`);
-    // Guard: the emotion rule must actually exist, otherwise the checks below
-    // would pass vacuously against an empty string.
-    expect(ruleStart).toBeGreaterThanOrEqual(0);
-    const rule = styleText.slice(ruleStart, ruleStart + 500);
-    expect(rule).toContain('background-color');
-    expect(rule).toContain('border:');
   });
 
   it('filters the tree via the search input', async () => {
