@@ -334,13 +334,17 @@ export const RunsChartsDraggableCardsGridSection = memo(
     const shouldVirtualize = cardsToRender.length > VIRTUALIZATION_THRESHOLD && !draggedCardUuid && !resizePreview;
 
     // Group the flat cards list into rows for the virtualizer.
+    // Only perform the O(N) partitioning if virtualization is actually active.
     const rows = useMemo(() => {
+      if (!shouldVirtualize) {
+        return [];
+      }
       const result: RunsChartsCardConfig[][] = [];
       for (let i = 0; i < cardsToRender.length; i += columns) {
         result.push(cardsToRender.slice(i, i + columns));
       }
       return result;
-    }, [cardsToRender, columns]);
+    }, [cardsToRender, columns, shouldVirtualize]);
 
     const gapSize = theme.spacing.sm;
 
@@ -348,7 +352,7 @@ export const RunsChartsDraggableCardsGridSection = memo(
     const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
     const rowVirtualizer = useVirtualizer({
-      count: rows.length,
+      count: shouldVirtualize ? rows.length : 0,
       getScrollElement: () => scrollContainerRef.current,
       estimateSize: () => cardHeight + gapSize,
       overscan: 3,
@@ -424,24 +428,6 @@ export const RunsChartsDraggableCardsGridSection = memo(
               setPositionInSection(null);
             }}
           >
-            {cardsToRender.length === 0 && (
-              <div css={{ display: 'flex', justifyContent: 'center', minHeight: 160 }}>
-                <Empty
-                  title={
-                    <FormattedMessage
-                      defaultMessage="No charts in this section"
-                      description="Runs compare page > Charts tab > No charts placeholder title"
-                    />
-                  }
-                  description={
-                    <FormattedMessage
-                      defaultMessage="Click 'Add chart' or drag and drop to add charts here."
-                      description="Runs compare page > Charts tab > No charts placeholder description"
-                    />
-                  }
-                />
-              </div>
-            )}
             {rowVirtualizer.getVirtualItems().map((virtualRow) => {
               const rowCards = rows[virtualRow.index];
               const rowStartIndex = virtualRow.index * columns;
