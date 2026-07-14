@@ -14,7 +14,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPServer, MCPServerVersion } from '../types';
-import { STATUS_TAG_COLOR, resolveDisplayName } from '../utils';
+import { STATUS_TAG_COLOR, resolveDisplayName, sanitizeHref } from '../utils';
 import { ServerJSONSection, ToolsSection } from './ServerJSONSection';
 import { ConfirmationModal } from '../../admin/ConfirmationModal';
 import { MCPServerAliasesCell } from './MCPServerAliasesCell';
@@ -192,34 +192,34 @@ export const MCPServerVersionDetail = ({
           </Tag>
         </span>
 
-        {version.server_json?.websiteUrl && (
+        {sanitizeHref(version.server_json?.websiteUrl) && (
           <>
             <Typography.Text bold>
               <FormattedMessage defaultMessage="Website:" description="MCP server version detail website label" />
             </Typography.Text>
             <Typography.Link
               componentId="mlflow.mcp_registry.detail.website"
-              href={version.server_json.websiteUrl}
+              href={sanitizeHref(version.server_json?.websiteUrl)}
               target="_blank"
               rel="noopener noreferrer"
             >
-              {version.server_json.websiteUrl}
+              {version.server_json?.websiteUrl}
             </Typography.Link>
           </>
         )}
 
-        {version.server_json?.repository?.url && (
+        {sanitizeHref(version.server_json?.repository?.url) && (
           <>
             <Typography.Text bold>
               <FormattedMessage defaultMessage="Repository:" description="MCP server version detail repository label" />
             </Typography.Text>
             <Typography.Link
               componentId="mlflow.mcp_registry.detail.repository"
-              href={version.server_json.repository.url}
+              href={sanitizeHref(version.server_json?.repository?.url)}
               target="_blank"
               rel="noopener noreferrer"
             >
-              {version.server_json.repository.url}
+              {version.server_json?.repository?.url}
             </Typography.Link>
           </>
         )}

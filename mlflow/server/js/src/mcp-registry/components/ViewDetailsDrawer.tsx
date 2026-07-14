@@ -3,6 +3,7 @@ import { Button, Drawer, Tag, Typography, useDesignSystemTheme } from '@databric
 import { FormattedMessage } from 'react-intl';
 
 import type { ServerJSONArgument } from '../types';
+import { sanitizeHref } from '../utils';
 import {
   flexColumnGapStyles,
   flexRowStyles,
@@ -56,7 +57,7 @@ export const DetailField = ({
     content = (
       <Typography.Link
         componentId={componentId ?? 'mlflow.mcp_registry.detail.field_link'}
-        href={value}
+        href={sanitizeHref(value)}
         target="_blank"
         rel="noopener noreferrer"
         css={{ fontSize: theme.typography.fontSizeSm, ...(mono ? monoFontStyles : {}) }}

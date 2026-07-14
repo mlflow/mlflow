@@ -1,6 +1,19 @@
 import type { TagProps } from '@databricks/design-system';
 import type { MCPStatus, MCPTool, ServerJSONPayload } from './types';
 
+export const sanitizeHref = (url: string | undefined): string | undefined => {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return url;
+    }
+  } catch {
+    // malformed URL
+  }
+  return undefined;
+};
+
 export const STATUS_TAG_COLOR: Record<MCPStatus, TagProps['color']> = {
   draft: 'charcoal',
   active: 'lime',

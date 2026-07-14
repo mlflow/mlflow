@@ -1,5 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import {
+  sanitizeHref,
   resolveDisplayName,
   STATUS_TAG_COLOR,
   STATUS_TRANSITIONS,
@@ -206,5 +207,35 @@ describe('buildRemoteConnectOptionKey', () => {
 
   it('falls back to type when url is missing', () => {
     expect(buildRemoteConnectOptionKey({ type: 'sse' })).toBe('remote:sse');
+  });
+});
+
+describe('sanitizeHref', () => {
+  it('allows https URLs', () => {
+    expect(sanitizeHref('https://example.com')).toBe('https://example.com');
+  });
+
+  it('allows http URLs', () => {
+    expect(sanitizeHref('http://localhost:5000')).toBe('http://localhost:5000');
+  });
+
+  it('rejects javascript: URLs', () => {
+    expect(sanitizeHref('javascript:alert(1)')).toBeUndefined();
+  });
+
+  it('rejects data: URLs', () => {
+    expect(sanitizeHref('data:text/html,<script>alert(1)</script>')).toBeUndefined();
+  });
+
+  it('rejects ftp: URLs', () => {
+    expect(sanitizeHref('ftp://example.com')).toBeUndefined();
+  });
+
+  it('returns undefined for undefined input', () => {
+    expect(sanitizeHref(undefined)).toBeUndefined();
+  });
+
+  it('returns undefined for malformed URLs', () => {
+    expect(sanitizeHref('not a url')).toBeUndefined();
   });
 });
