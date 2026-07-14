@@ -786,6 +786,8 @@ def _create_sdk_child_spans(
                     "role": "assistant",
                     "content": [{"type": "text", "text": block.text} for block in text_blocks],
                 })
+                if usage := getattr(msg, "usage", None):
+                    _set_token_usage_attribute(llm_span, usage)
                 llm_span.end()
                 pending_messages = []
                 continue

@@ -479,6 +479,47 @@ def test_process_sdk_messages_simple_conversation():
     assert trace.info.response_preview == "The answer is 4."
 
 
+def test_process_sdk_messages_sets_usage_on_llm_span_for_cost():
+    # When an AssistantMessage carries per-turn usage, it must land on the LLM span
+    # alongside mlflow.llm.model. Client-side cost calculation (Databricks) reads both
+    # MODEL and CHAT_USAGE from the same span, so splitting them across spans yields no cost.
+    messages = [
+        UserMessage(content="What is 2 + 2?"),
+        AssistantMessage(
+            content=[TextBlock(text="The answer is 4.")],
+            model="claude-sonnet-4-20250514",
+            usage={"input_tokens": 150, "output_tokens": 25},
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=1000,
+            duration_api_ms=800,
+            is_error=False,
+            num_turns=1,
+            session_id="sdk-cost-session",
+            usage={"input_tokens": 150, "output_tokens": 25},
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "sdk-cost-session")
+
+    assert trace is not None
+    llm_spans = [s for s in trace.search_spans() if s.span_type == SpanType.LLM]
+    assert len(llm_spans) == 1
+    llm_span = llm_spans[0]
+
+    assert llm_span.get_attribute(SpanAttributeKey.MODEL) == "claude-sonnet-4-20250514"
+    usage = llm_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert usage["input_tokens"] == 150
+    assert usage["output_tokens"] == 25
+    assert usage["total_tokens"] == 175
+
+    # Trace-level usage must not double-count: DFS aggregation skips the LLM span
+    # because its ancestor (root) already carries the ResultMessage usage.
+    assert trace.info.token_usage["input_tokens"] == 150
+    assert trace.info.token_usage["output_tokens"] == 25
+
+
 def test_process_sdk_messages_multiple_tools():
     messages = [
         UserMessage(content="Read two files"),
