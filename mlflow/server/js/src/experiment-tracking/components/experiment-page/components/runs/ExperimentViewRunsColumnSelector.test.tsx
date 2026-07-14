@@ -112,13 +112,17 @@ describe('ExperimentViewRunsColumnSelector', () => {
     expect(content.style.padding).toBe('0px');
 
     const emotionClass = Array.from(content.classList).find((c) => c.startsWith('css-'));
+    expect(emotionClass).toBeDefined();
     const styleText = Array.from(document.querySelectorAll('style'))
       .map((s) => s.textContent ?? '')
       .join('\n');
     const ruleStart = styleText.indexOf(`.${emotionClass}`);
-    const rule = ruleStart >= 0 ? styleText.slice(ruleStart, ruleStart + 500) : '';
-    expect(rule).toContain('background');
-    expect(rule).toContain('border');
+    // Guard: the emotion rule must actually exist, otherwise the checks below
+    // would pass vacuously against an empty string.
+    expect(ruleStart).toBeGreaterThanOrEqual(0);
+    const rule = styleText.slice(ruleStart, ruleStart + 500);
+    expect(rule).toContain('background-color');
+    expect(rule).toContain('border:');
   });
 
   it('filters the tree via the search input', async () => {
