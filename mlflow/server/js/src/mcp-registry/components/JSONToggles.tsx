@@ -1,52 +1,14 @@
 import { useMemo, useState } from 'react';
-import {
-  Button,
-  ChevronDownIcon,
-  ChevronRightIcon,
-  CopyIcon,
-  Tooltip,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Button, ChevronDownIcon, ChevronRightIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 
 import type { MCPTool, ServerJSONPayload } from '../types';
-import { copyToClipboard } from '../../common/utils/copyToClipboard';
-import { jsonPreStyles, overlayButtonStyles } from '../styles';
+import { LazyJsonRecordEditor } from '../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor';
 
 const useJSONToggle = (data: unknown) => {
   const [show, setShow] = useState(false);
   const jsonString = useMemo(() => JSON.stringify(data, null, 2), [data]);
   return { show, toggle: () => setShow(!show), jsonString };
-};
-
-const JSONPreBlock = ({
-  jsonString,
-  copyTooltip,
-  smSpacing,
-  padding,
-}: {
-  jsonString: string;
-  copyTooltip: React.ReactNode;
-  smSpacing?: boolean;
-  padding?: number;
-}) => {
-  const { theme } = useDesignSystemTheme();
-  const intl = useIntl();
-
-  return (
-    <div css={{ position: 'relative', marginTop: smSpacing ? theme.spacing.sm : theme.spacing.xs }}>
-      {copyTooltip}
-      <pre
-        aria-label={intl.formatMessage({
-          defaultMessage: 'JSON content',
-          description: 'Aria label for JSON code block',
-        })}
-        css={jsonPreStyles(theme, padding)}
-      >
-        <code>{jsonString}</code>
-      </pre>
-    </div>
-  );
 };
 
 export const InputSchemaToggle = ({ data }: { data: unknown }) => {
@@ -66,23 +28,19 @@ export const InputSchemaToggle = ({ data }: { data: unknown }) => {
         <FormattedMessage defaultMessage="Input Schema" description="MCP tool input schema toggle" />
       </Button>
       {show && (
-        <JSONPreBlock
-          jsonString={jsonString}
-          copyTooltip={
-            <Tooltip
-              componentId="mlflow.mcp_registry.detail.tool_input_schema.copy"
-              content={intl.formatMessage({ defaultMessage: 'Copy JSON', description: 'Tooltip for copy JSON button' })}
-            >
-              <Button
-                componentId="mlflow.mcp_registry.detail.tool_input_schema.copy_button"
-                size="small"
-                icon={<CopyIcon />}
-                onClick={() => copyToClipboard(jsonString)}
-                css={overlayButtonStyles(theme)}
-              />
-            </Tooltip>
-          }
-        />
+        <div css={{ marginTop: theme.spacing.xs }}>
+          <LazyJsonRecordEditor
+            value={jsonString}
+            onChange={() => {}}
+            readOnly
+            height="120px"
+            maxHeight="400px"
+            ariaLabel={intl.formatMessage({
+              defaultMessage: 'Input schema JSON',
+              description: 'Aria label for input schema JSON viewer',
+            })}
+          />
+        </div>
       )}
     </div>
   );
@@ -105,23 +63,19 @@ export const OutputSchemaToggle = ({ data }: { data: unknown }) => {
         <FormattedMessage defaultMessage="Output Schema" description="MCP tool output schema toggle" />
       </Button>
       {show && (
-        <JSONPreBlock
-          jsonString={jsonString}
-          copyTooltip={
-            <Tooltip
-              componentId="mlflow.mcp_registry.detail.tool_output_schema.copy"
-              content={intl.formatMessage({ defaultMessage: 'Copy JSON', description: 'Tooltip for copy JSON button' })}
-            >
-              <Button
-                componentId="mlflow.mcp_registry.detail.tool_output_schema.copy_button"
-                size="small"
-                icon={<CopyIcon />}
-                onClick={() => copyToClipboard(jsonString)}
-                css={overlayButtonStyles(theme)}
-              />
-            </Tooltip>
-          }
-        />
+        <div css={{ marginTop: theme.spacing.xs }}>
+          <LazyJsonRecordEditor
+            value={jsonString}
+            onChange={() => {}}
+            readOnly
+            height="120px"
+            maxHeight="400px"
+            ariaLabel={intl.formatMessage({
+              defaultMessage: 'Output schema JSON',
+              description: 'Aria label for output schema JSON viewer',
+            })}
+          />
+        </div>
       )}
     </div>
   );
@@ -148,25 +102,19 @@ export const RawJSONToggle = ({ serverJson }: { serverJson: ServerJSONPayload })
         )}
       </Button>
       {show && (
-        <JSONPreBlock
-          jsonString={jsonString}
-          smSpacing
-          padding={16}
-          copyTooltip={
-            <Tooltip
-              componentId="mlflow.mcp_registry.detail.raw_json.copy"
-              content={intl.formatMessage({ defaultMessage: 'Copy JSON', description: 'Tooltip for copy JSON button' })}
-            >
-              <Button
-                componentId="mlflow.mcp_registry.detail.raw_json.copy_button"
-                size="small"
-                icon={<CopyIcon />}
-                onClick={() => copyToClipboard(jsonString)}
-                css={overlayButtonStyles(theme)}
-              />
-            </Tooltip>
-          }
-        />
+        <div css={{ marginTop: theme.spacing.sm }}>
+          <LazyJsonRecordEditor
+            value={jsonString}
+            onChange={() => {}}
+            readOnly
+            height="180px"
+            maxHeight="400px"
+            ariaLabel={intl.formatMessage({
+              defaultMessage: 'Raw server.json',
+              description: 'Aria label for raw server.json viewer',
+            })}
+          />
+        </div>
       )}
     </div>
   );
@@ -193,25 +141,19 @@ export const RawToolsJSONToggle = ({ tools }: { tools: MCPTool[] }) => {
         )}
       </Button>
       {show && (
-        <JSONPreBlock
-          jsonString={jsonString}
-          smSpacing
-          padding={16}
-          copyTooltip={
-            <Tooltip
-              componentId="mlflow.mcp_registry.detail.raw_tools_json.copy"
-              content={intl.formatMessage({ defaultMessage: 'Copy JSON', description: 'Tooltip for copy JSON button' })}
-            >
-              <Button
-                componentId="mlflow.mcp_registry.detail.raw_tools_json.copy_button"
-                size="small"
-                icon={<CopyIcon />}
-                onClick={() => copyToClipboard(jsonString)}
-                css={overlayButtonStyles(theme)}
-              />
-            </Tooltip>
-          }
-        />
+        <div css={{ marginTop: theme.spacing.sm }}>
+          <LazyJsonRecordEditor
+            value={jsonString}
+            onChange={() => {}}
+            readOnly
+            height="180px"
+            maxHeight="400px"
+            ariaLabel={intl.formatMessage({
+              defaultMessage: 'Raw tools JSON',
+              description: 'Aria label for raw tools JSON viewer',
+            })}
+          />
+        </div>
       )}
     </div>
   );
