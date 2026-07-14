@@ -128,13 +128,15 @@ def dump_span_attribute_value(value: Any) -> str:
     #   for the simplicity in deserialization process.
     try:
         return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
-    except ValueError:
+    except (ValueError, TypeError) as e:
         # `json.dumps` raises `ValueError: Circular reference detected` for self-referencing
-        # objects (e.g. pydantic_ai's `run_context`). Fall back to a repr-based dump so the
-        # span attribute is still set and tracing doesn't crash the user's workflow.
+        # objects (e.g. pydantic_ai's `run_context`) and `TypeError` for unsupported
+        # structures such as dictionaries with non-serializable keys (e.g. `frozenset`).
+        # Fall back to a repr-based dump so the span attribute is still set and tracing
+        # doesn't crash the user's workflow.
         _logger.debug(
-            "Failed to serialize span attribute value due to circular reference. "
-            "Falling back to repr.",
+            "Failed to serialize span attribute value due to %s. Falling back to repr. ",
+            type(e).__name__,
             exc_info=True,
         )
         return json.dumps(repr(value), ensure_ascii=False)

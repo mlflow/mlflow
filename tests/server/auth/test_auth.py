@@ -18,9 +18,11 @@ from mlflow.entities import Dataset, DatasetInput, InputTag, LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
     _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
+    MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_USERNAME,
+    MLFLOW_WORKSPACE_STORE_URI,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -36,6 +38,7 @@ from mlflow.server.auth.routes import (
 )
 from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _get_ajax_path
 from mlflow.utils.os import is_windows
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import kill_process_tree, random_str
 from tests.server.auth.auth_test_utils import (
@@ -44,6 +47,7 @@ from tests.server.auth.auth_test_utils import (
     User,
     create_user,
     grant_role_permission,
+    write_isolated_auth_config,
 )
 from tests.tracking.integration_test_utils import (
     _init_server,
@@ -121,6 +125,29 @@ def fastapi_client(request, tmp_path):
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         extra_env=extra_env,
+        app="mlflow.server.auth:create_app",
+        server_type="fastapi",
+    ) as url:
+        yield MlflowClient(url)
+
+
+@pytest.fixture
+def fastapi_workspace_client(tmp_path):
+    """FastAPI client fixture with workspaces enabled, for workspace-scoped gateway auth."""
+    auth_config_path = write_isolated_auth_config(tmp_path)
+    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+    backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
+
+    with _init_server(
+        backend_uri=backend_uri,
+        root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
+        extra_env={
+            MLFLOW_FLASK_SERVER_SECRET_KEY.name: "my-secret-key",
+            "MLFLOW_AUTH_CONFIG_PATH": str(auth_config_path),
+            MLFLOW_ENABLE_WORKSPACES.name: "true",
+            MLFLOW_WORKSPACE_STORE_URI.name: backend_uri,
+            "_MLFLOW_SGI_NAME": "uvicorn",
+        },
         app="mlflow.server.auth:create_app",
         server_type="fastapi",
     ) as url:
@@ -2243,6 +2270,79 @@ def test_gateway_endpoint_use_permission(fastapi_client, monkeypatch):
             json={"secret_id": secret_id},
             auth=(user1, password1),
         ).raise_for_status()
+
+
+def test_gateway_endpoint_use_permission_with_workspaces(fastapi_workspace_client):
+    tracking_uri = fastapi_workspace_client.tracking_uri
+    admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
+    workspace_headers = {"X-MLFLOW-WORKSPACE": DEFAULT_WORKSPACE_NAME}
+    user, password = create_user(tracking_uri)
+
+    response = requests.post(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/secrets/create",
+        json={
+            "secret_name": "test_secret",
+            "secret_value": {"api_key": "test-key"},
+            "provider": "openai",
+        },
+        auth=admin_auth,
+        headers=workspace_headers,
+    )
+    response.raise_for_status()
+    secret_id = response.json()["secret"]["secret_id"]
+
+    response = requests.post(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/model-definitions/create",
+        json={
+            "name": "test_model_def",
+            "secret_id": secret_id,
+            "provider": "openai",
+            "model_name": "gpt-4",
+        },
+        auth=admin_auth,
+        headers=workspace_headers,
+    )
+    response.raise_for_status()
+    model_definition_id = response.json()["model_definition"]["model_definition_id"]
+
+    response = requests.post(
+        url=tracking_uri + "/api/3.0/mlflow/gateway/endpoints/create",
+        json={
+            "name": "test_endpoint",
+            "model_configs": [
+                {
+                    "model_definition_id": model_definition_id,
+                    "linkage_type": "PRIMARY",
+                }
+            ],
+        },
+        auth=admin_auth,
+        headers=workspace_headers,
+    )
+    response.raise_for_status()
+    endpoint_id = response.json()["endpoint"]["endpoint_id"]
+    endpoint_name = response.json()["endpoint"]["name"]
+
+    # Without a grant the invocation is denied.
+    response = requests.post(
+        url=tracking_uri + f"/gateway/{endpoint_name}/mlflow/invocations",
+        json={"messages": [{"role": "user", "content": "test"}]},
+        auth=(user, password),
+        headers=workspace_headers,
+    )
+    assert response.status_code == 403
+
+    grant_role_permission(tracking_uri, user, "gateway_endpoint", endpoint_id, "USE")
+
+    # With USE granted the request must clear authorization. It then fails on the
+    # fake provider credentials, so anything but 403 means authorization passed.
+    response = requests.post(
+        url=tracking_uri + f"/gateway/{endpoint_name}/mlflow/invocations",
+        json={"messages": [{"role": "user", "content": "test"}]},
+        auth=(user, password),
+        headers=workspace_headers,
+    )
+    assert response.status_code != 403
 
 
 def test_gateway_proxy_authenticates_via_mlflow_auth_header(fastapi_client, monkeypatch):
