@@ -387,18 +387,21 @@ service UcModelRegistryService {
   }
 }
 
-// UC-native (governance + MLflow enrichment) model-registry endpoints. Served on the
-// /api/2.1/unity-catalog/* surface (the client resolves these with the /api/2.1 prefix and
-// substitutes the {full_name}/{version}/{alias}/{securable_*}/{subentity_name} path segments).
-// These replace the legacy /mlflow/unity-catalog/* model RPCs; the declared response types are
-// advisory (the client passes the concrete response proto to parse into at call time).
-service UnityCatalogModelRegistryService {
-  rpc getRegisteredModel(GetRegisteredModel) returns (RegisteredModelInfo) {
+// UC-native (governance + MLflow enrichment) model-registry endpoints. Mirrors the enriched
+// UcEnrichedModelRegistryService in universe (uc-model-registry/api/proto/uc_enriched_model_registry.proto)
+// plus the managed-catalog UnityCatalogService governance RPCs (delete / alias / temp-cred / tag),
+// combined here into one service for the OSS client. Served on the /api/2.1/unity-catalog/* surface
+// (the client resolves these with the /api/2.1 prefix and substitutes the
+// {full_name_arg}/{version_arg}/{alias_arg}/{securable_*}/{subentity_name} path segments). These
+// replace the legacy /mlflow/unity-catalog/* model RPCs; the declared response types are advisory
+// (the client passes the concrete response proto to parse into at call time).
+service UcEnrichedModelRegistryService {
+  rpc getRegisteredModel(UcGetRegisteredModel) returns (UcRegisteredModelInfo) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/unity-catalog/models/{full_name}"
+          path: "/unity-catalog/models/{full_name_arg}"
           since: {
             major: 2
             minor: 1
@@ -408,7 +411,7 @@ service UnityCatalogModelRegistryService {
       visibility: PUBLIC_UNDOCUMENTED
     };
   }
-  rpc listRegisteredModels(ListRegisteredModels) returns (ListRegisteredModels.Response) {
+  rpc listRegisteredModels(UcListRegisteredModels) returns (UcListRegisteredModelsResponse) {
     option (rpc) = {
       endpoints: [
         {
@@ -423,7 +426,7 @@ service UnityCatalogModelRegistryService {
       visibility: PUBLIC_UNDOCUMENTED
     };
   }
-  rpc createRegisteredModel(CreateRegisteredModel) returns (RegisteredModelInfo) {
+  rpc createRegisteredModel(UcCreateRegisteredModel) returns (UcRegisteredModelInfo) {
     option (rpc) = {
       endpoints: [
         {
@@ -438,12 +441,12 @@ service UnityCatalogModelRegistryService {
       visibility: PUBLIC_UNDOCUMENTED
     };
   }
-  rpc updateRegisteredModel(UpdateRegisteredModel) returns (RegisteredModelInfo) {
+  rpc updateRegisteredModel(UcUpdateRegisteredModel) returns (UcRegisteredModelInfo) {
     option (rpc) = {
       endpoints: [
         {
           method: "PATCH"
-          path: "/unity-catalog/models/{full_name}"
+          path: "/unity-catalog/models/{full_name_arg}"
           since: {
             major: 2
             minor: 1
@@ -458,7 +461,7 @@ service UnityCatalogModelRegistryService {
       endpoints: [
         {
           method: "DELETE"
-          path: "/unity-catalog/models/{full_name}"
+          path: "/unity-catalog/models/{full_name_arg}"
           since: {
             major: 2
             minor: 1
@@ -473,7 +476,7 @@ service UnityCatalogModelRegistryService {
       endpoints: [
         {
           method: "PUT"
-          path: "/unity-catalog/models/{full_name}/aliases/{alias}"
+          path: "/unity-catalog/models/{full_name_arg}/aliases/{alias_arg}"
           since: {
             major: 2
             minor: 1
@@ -488,7 +491,7 @@ service UnityCatalogModelRegistryService {
       endpoints: [
         {
           method: "DELETE"
-          path: "/unity-catalog/models/{full_name}/aliases/{alias}"
+          path: "/unity-catalog/models/{full_name_arg}/aliases/{alias_arg}"
           since: {
             major: 2
             minor: 1
@@ -498,12 +501,12 @@ service UnityCatalogModelRegistryService {
       visibility: PUBLIC_UNDOCUMENTED
     };
   }
-  rpc getModelVersionByAlias(GetModelVersionByAlias) returns (ModelVersionInfo) {
+  rpc getModelVersionByAlias(UcGetModelVersionByAlias) returns (UcModelVersionInfo) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/unity-catalog/models/{full_name}/aliases/{alias}"
+          path: "/unity-catalog/models/{full_name_arg}/aliases/{alias_arg}"
           since: {
             major: 2
             minor: 1
@@ -513,7 +516,7 @@ service UnityCatalogModelRegistryService {
       visibility: PUBLIC_UNDOCUMENTED
     };
   }
-  rpc createModelVersion(CreateModelVersion) returns (ModelVersionInfo) {
+  rpc createModelVersion(UcCreateModelVersion) returns (UcModelVersionInfo) {
     option (rpc) = {
       endpoints: [
         {
@@ -528,12 +531,12 @@ service UnityCatalogModelRegistryService {
       visibility: PUBLIC_UNDOCUMENTED
     };
   }
-  rpc updateModelVersion(UpdateModelVersion) returns (ModelVersionInfo) {
+  rpc updateModelVersion(UcUpdateModelVersion) returns (UcModelVersionInfo) {
     option (rpc) = {
       endpoints: [
         {
           method: "PATCH"
-          path: "/unity-catalog/models/{full_name}/versions/{version}"
+          path: "/unity-catalog/models/{full_name_arg}/versions/{version_arg}"
           since: {
             major: 2
             minor: 1
@@ -543,12 +546,12 @@ service UnityCatalogModelRegistryService {
       visibility: PUBLIC_UNDOCUMENTED
     };
   }
-  rpc getModelVersion(GetModelVersion) returns (ModelVersionInfo) {
+  rpc getModelVersion(UcGetModelVersion) returns (UcModelVersionInfo) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/unity-catalog/models/{full_name}/versions/{version}"
+          path: "/unity-catalog/models/{full_name_arg}/versions/{version_arg}"
           since: {
             major: 2
             minor: 1
@@ -558,12 +561,12 @@ service UnityCatalogModelRegistryService {
       visibility: PUBLIC_UNDOCUMENTED
     };
   }
-  rpc listModelVersions(ListModelVersions) returns (ListModelVersions.Response) {
+  rpc listModelVersions(UcListModelVersions) returns (UcListModelVersionsResponse) {
     option (rpc) = {
       endpoints: [
         {
           method: "GET"
-          path: "/unity-catalog/models/{full_name}/versions"
+          path: "/unity-catalog/models/{full_name_arg}/versions"
           since: {
             major: 2
             minor: 1
@@ -573,12 +576,12 @@ service UnityCatalogModelRegistryService {
       visibility: PUBLIC_UNDOCUMENTED
     };
   }
-  rpc finalizeModelVersion(FinalizeModelVersion) returns (ModelVersionInfo) {
+  rpc finalizeModelVersion(UcFinalizeModelVersion) returns (UcModelVersionInfo) {
     option (rpc) = {
       endpoints: [
         {
           method: "PATCH"
-          path: "/unity-catalog/models/{full_name}/versions/{version}/finalize"
+          path: "/unity-catalog/models/{full_name_arg}/versions/{version_arg}/finalize"
           since: {
             major: 2
             minor: 1
@@ -593,7 +596,7 @@ service UnityCatalogModelRegistryService {
       endpoints: [
         {
           method: "DELETE"
-          path: "/unity-catalog/models/{full_name}/versions/{version}"
+          path: "/unity-catalog/models/{full_name_arg}/versions/{version_arg}"
           since: {
             major: 2
             minor: 1

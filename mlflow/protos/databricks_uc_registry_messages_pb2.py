@@ -20,7 +20,7 @@ if Version(google.protobuf.__version__).major >= 5:
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%databricks_uc_registry_messages.proto\x12\x16mlflow.ucmodelregistry\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"\xea\x02\n\x0fRegisteredModel\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1a\n\x12\x63reation_timestamp\x18\x02 \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\x03 \x01(\x03\x12\x0f\n\x07user_id\x18\x04 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12=\n\x07\x61liases\x18\x06 \x03(\x0b\x32,.mlflow.ucmodelregistry.RegisteredModelAlias\x12\x38\n\x04tags\x18\x07 \x03(\x0b\x32*.mlflow.ucmodelregistry.RegisteredModelTag\x12\x19\n\x11\x64\x65ployment_job_id\x18\x08 \x01(\t\x12S\n\x14\x64\x65ployment_job_state\x18\t \x01(\x0e\x32\x35.mlflow.ucmodelregistry.DeploymentJobConnection.State\"6\n\x14RegisteredModelAlias\x12\r\n\x05\x61lias\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"0\n\x12RegisteredModelTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\")\n\nModelParam\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xb5\x01\n\x0bModelMetric\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\x12\x1a\n\x0c\x64\x61taset_name\x18\x05 \x01(\tB\x04\xf0\x86\x19\x03\x12\x1c\n\x0e\x64\x61taset_digest\x18\x06 \x01(\tB\x04\xf0\x86\x19\x03\x12\x16\n\x08model_id\x18\x07 \x01(\tB\x04\xf0\x86\x19\x03\x12\x14\n\x06run_id\x18\x08 \x01(\tB\x04\xf0\x86\x19\x03\"-\n\x0fModelVersionTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xac\x05\n\x0cModelVersion\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x1a\n\x12\x63reation_timestamp\x18\x03 \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\x04 \x01(\x03\x12\x0f\n\x07user_id\x18\x05 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x06 \x01(\t\x12\x0e\n\x06source\x18\x07 \x01(\t\x12\x0e\n\x06run_id\x18\x08 \x01(\t\x12\x19\n\x11run_experiment_id\x18\t \x01(\t\x12\x1e\n\x16run_tracking_server_id\x18\n \x01(\t\x12:\n\x06status\x18\x0b \x01(\x0e\x32*.mlflow.ucmodelregistry.ModelVersionStatus\x12\x16\n\x0estatus_message\x18\x0c \x01(\t\x12\x18\n\x10storage_location\x18\r \x01(\t\x12=\n\x07\x61liases\x18\x0e \x03(\x0b\x32,.mlflow.ucmodelregistry.RegisteredModelAlias\x12\x35\n\x04tags\x18\x0f \x03(\x0b\x32\'.mlflow.ucmodelregistry.ModelVersionTag\x12\x10\n\x08model_id\x18\x10 \x01(\t\x12\x38\n\x0cmodel_params\x18\x11 \x03(\x0b\x32\".mlflow.ucmodelregistry.ModelParam\x12:\n\rmodel_metrics\x18\x12 \x03(\x0b\x32#.mlflow.ucmodelregistry.ModelMetric\x12T\n\x14\x64\x65ployment_job_state\x18\x13 \x01(\x0b\x32\x36.mlflow.ucmodelregistry.ModelVersionDeploymentJobState\"\xa3\x01\n\x17\x44\x65ploymentJobConnection\"\x87\x01\n\x05State\x12/\n+DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED\x10\x00\x12\x0e\n\nNOT_SET_UP\x10\x01\x12\r\n\tCONNECTED\x10\x02\x12\r\n\tNOT_FOUND\x10\x03\x12\x1f\n\x1bREQUIRED_PARAMETERS_CHANGED\x10\x04\"\xb0\x03\n\x1eModelVersionDeploymentJobState\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12H\n\tjob_state\x18\x03 \x01(\x0e\x32\x35.mlflow.ucmodelregistry.DeploymentJobConnection.State\x12_\n\trun_state\x18\x04 \x01(\x0e\x32L.mlflow.ucmodelregistry.ModelVersionDeploymentJobState.DeploymentJobRunState\x12\x19\n\x11\x63urrent_task_name\x18\x05 \x01(\t\"\xa7\x01\n\x15\x44\x65ploymentJobRunState\x12(\n$DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED\x10\x00\x12!\n\x1dNO_VALID_DEPLOYMENT_JOB_FOUND\x10\x01\x12\x0b\n\x07RUNNING\x10\x02\x12\r\n\tSUCCEEDED\x10\x03\x12\n\n\x06\x46\x41ILED\x10\x04\x12\x0b\n\x07PENDING\x10\x05\x12\x0c\n\x08\x41PPROVAL\x10\x06\"\xe5\x03\n\x14TemporaryCredentials\x12\x46\n\x14\x61ws_temp_credentials\x18\x02 \x01(\x0b\x32&.mlflow.ucmodelregistry.AwsCredentialsH\x00\x12S\n\x19\x61zure_user_delegation_sas\x18\x03 \x01(\x0b\x32..mlflow.ucmodelregistry.AzureUserDelegationSASH\x00\x12@\n\x0fgcp_oauth_token\x18\x04 \x01(\x0b\x32%.mlflow.ucmodelregistry.GcpOauthTokenH\x00\x12\x44\n\x13r2_temp_credentials\x18\x05 \x01(\x0b\x32%.mlflow.ucmodelregistry.R2CredentialsH\x00\x12\x17\n\x0f\x65xpiration_time\x18\x01 \x01(\x03\x12\x39\n\x0cstorage_mode\x18\x06 \x01(\x0e\x32#.mlflow.ucmodelregistry.StorageMode\x12\x45\n\x12\x65ncryption_details\x18\x07 \x01(\x0b\x32).mlflow.ucmodelregistry.EncryptionDetailsB\r\n\x0b\x63redentials\"Y\n\x0e\x41wsCredentials\x12\x15\n\raccess_key_id\x18\x01 \x01(\t\x12\x19\n\x11secret_access_key\x18\x02 \x01(\t\x12\x15\n\rsession_token\x18\x03 \x01(\t\"+\n\x16\x41zureUserDelegationSAS\x12\x11\n\tsas_token\x18\x01 \x01(\t\"$\n\rGcpOauthToken\x12\x13\n\x0boauth_token\x18\x01 \x01(\t\"X\n\rR2Credentials\x12\x15\n\raccess_key_id\x18\x01 \x01(\t\x12\x19\n\x11secret_access_key\x18\x02 \x01(\t\x12\x15\n\rsession_token\x18\x03 \x01(\t\"~\n\x11\x45ncryptionDetails\x12N\n\x16sse_encryption_details\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.SseEncryptionDetailsH\x00\x42\x19\n\x17\x65ncryption_details_type\"r\n\x14SseEncryptionDetails\x12\x41\n\talgorithm\x18\x01 \x01(\x0e\x32..mlflow.ucmodelregistry.SseEncryptionAlgorithm\x12\x17\n\x0f\x61ws_kms_key_arn\x18\x02 \x01(\t\"\xd8\x01\n\x1c\x43reateRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x38\n\x04tags\x18\x02 \x03(\x0b\x32*.mlflow.ucmodelregistry.RegisteredModelTag\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x19\n\x11\x64\x65ployment_job_id\x18\x04 \x01(\t::\xe2?7\n5com.databricks.rpc.RPC[CreateRegisteredModelResponse]\"b\n\x1d\x43reateRegisteredModelResponse\x12\x41\n\x10registered_model\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\"\xb0\x01\n\x1cUpdateRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08new_name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x19\n\x11\x64\x65ployment_job_id\x18\x04 \x01(\t::\xe2?7\n5com.databricks.rpc.RPC[UpdateRegisteredModelResponse]\"b\n\x1dUpdateRegisteredModelResponse\x12\x41\n\x10registered_model\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\"n\n\x1c\x44\x65leteRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01::\xe2?7\n5com.databricks.rpc.RPC[DeleteRegisteredModelResponse]\"\x1f\n\x1d\x44\x65leteRegisteredModelResponse\"h\n\x19GetRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01:7\xe2?4\n2com.databricks.rpc.RPC[GetRegisteredModelResponse]\"_\n\x1aGetRegisteredModelResponse\x12\x41\n\x10registered_model\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\"\x8a\x01\n\x1dSearchRegisteredModelsRequest\x12\x18\n\x0bmax_results\x18\x01 \x01(\x03:\x03\x31\x30\x30\x12\x12\n\npage_token\x18\x02 \x01(\t:;\xe2?8\n6com.databricks.rpc.RPC[SearchRegisteredModelsResponse]\"}\n\x1eSearchRegisteredModelsResponse\x12\x42\n\x11registered_models\x18\x01 \x03(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"P\n\nDependency\x12\x34\n\x04type\x18\x01 \x01(\x0e\x32&.mlflow.ucmodelregistry.DependencyType\x12\x0c\n\x04name\x18\x02 \x01(\t\"\xea\x02\n\x19\x43reateModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06source\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x1e\n\x16run_tracking_server_id\x18\x05 \x01(\t\x12\x14\n\x0c\x66\x65\x61ture_deps\x18\x06 \x01(\t\x12\x35\n\x04tags\x18\x07 \x03(\x0b\x32\'.mlflow.ucmodelregistry.ModelVersionTag\x12\x46\n\x1amodel_version_dependencies\x18\x08 \x03(\x0b\x32\".mlflow.ucmodelregistry.Dependency\x12\x10\n\x08model_id\x18\t \x01(\t:7\xe2?4\n2com.databricks.rpc.RPC[CreateModelVersionResponse]\"Y\n\x1a\x43reateModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x94\x01\n\x19UpdateModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t:7\xe2?4\n2com.databricks.rpc.RPC[UpdateModelVersionResponse]\"Y\n\x1aUpdateModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x7f\n\x19\x44\x65leteModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:7\xe2?4\n2com.databricks.rpc.RPC[DeleteModelVersionResponse]\"\x1c\n\x1a\x44\x65leteModelVersionResponse\"y\n\x16GetModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:4\xe2?1\n/com.databricks.rpc.RPC[GetModelVersionResponse]\"V\n\x17GetModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x96\x01\n\x1aSearchModelVersionsRequest\x12\x0e\n\x06\x66ilter\x18\x01 \x01(\t\x12\x1a\n\x0bmax_results\x18\x02 \x01(\x03:\x05\x31\x30\x30\x30\x30\x12\x12\n\npage_token\x18\x03 \x01(\t:8\xe2?5\n3com.databricks.rpc.RPC[SearchModelVersionsResponse]\"t\n\x1bSearchModelVersionsResponse\x12<\n\x0emodel_versions\x18\x01 \x03(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\xf3\x01\n/GenerateTemporaryModelVersionCredentialsRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x46\n\toperation\x18\x03 \x01(\x0e\x32-.mlflow.ucmodelregistry.ModelVersionOperationB\x04\xf8\x86\x19\x01:M\xe2?J\nHcom.databricks.rpc.RPC[GenerateTemporaryModelVersionCredentialsResponse]\"u\n0GenerateTemporaryModelVersionCredentialsResponse\x12\x41\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.TemporaryCredentials\"\x8f\x01\n!GetModelVersionDownloadUriRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:?\xe2?<\n:com.databricks.rpc.RPC[GetModelVersionDownloadUriResponse]\":\n\"GetModelVersionDownloadUriResponse\x12\x14\n\x0c\x61rtifact_uri\x18\x01 \x01(\t\"\x83\x01\n\x1b\x46inalizeModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:9\xe2?6\n4com.databricks.rpc.RPC[FinalizeModelVersionResponse]\"[\n\x1c\x46inalizeModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x9e\x01\n\x1eSetRegisteredModelAliasRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01:<\xe2?9\n7com.databricks.rpc.RPC[SetRegisteredModelAliasResponse]\"!\n\x1fSetRegisteredModelAliasResponse\"\x8d\x01\n!DeleteRegisteredModelAliasRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:?\xe2?<\n:com.databricks.rpc.RPC[DeleteRegisteredModelAliasResponse]\"$\n\"DeleteRegisteredModelAliasResponse\"\x90\x01\n\x1cSetRegisteredModelTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05value\x18\x03 \x01(\t::\xe2?7\n5com.databricks.rpc.RPC[SetRegisteredModelTagResponse]\"\x1f\n\x1dSetRegisteredModelTagResponse\"\x87\x01\n\x1f\x44\x65leteRegisteredModelTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:=\xe2?:\n8com.databricks.rpc.RPC[DeleteRegisteredModelTagResponse]\"\"\n DeleteRegisteredModelTagResponse\"\xa1\x01\n\x19SetModelVersionTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05value\x18\x04 \x01(\t:7\xe2?4\n2com.databricks.rpc.RPC[SetModelVersionTagResponse]\"\x1c\n\x1aSetModelVersionTagResponse\"\x98\x01\n\x1c\x44\x65leteModelVersionTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01::\xe2?7\n5com.databricks.rpc.RPC[DeleteModelVersionTagResponse]\"\x1f\n\x1d\x44\x65leteModelVersionTagResponse\"\x85\x01\n\x1dGetModelVersionByAliasRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:;\xe2?8\n6com.databricks.rpc.RPC[GetModelVersionByAliasResponse]\"]\n\x1eGetModelVersionByAliasResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\xa9\x01\n\x06\x45ntity\x12*\n\x03job\x18\x01 \x01(\x0b\x32\x1b.mlflow.ucmodelregistry.JobH\x00\x12\x34\n\x08notebook\x18\x02 \x01(\x0b\x32 .mlflow.ucmodelregistry.NotebookH\x00\x12\x34\n\x08pipeline\x18\x03 \x01(\x0b\x32 .mlflow.ucmodelregistry.PipelineH\x00\x42\x07\n\x05value\";\n\x08Pipeline\x12\x13\n\x0bpipeline_id\x18\x01 \x01(\t\x12\x1a\n\x12pipeline_update_id\x18\x02 \x01(\t\"L\n\x03Job\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08task_key\x18\x02 \x01(\t\x12\x12\n\njob_run_id\x18\x03 \x01(\t\x12\x13\n\x0btask_run_id\x18\x04 \x01(\t\"C\n\x08Notebook\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\ncommand_id\x18\x02 \x01(\t\x12\x17\n\x0fnotebook_run_id\x18\x03 \x01(\t\"p\n\x05Table\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x35\n\ntable_type\x18\x02 \x01(\x0e\x32!.mlflow.ucmodelregistry.TableType\x12\x10\n\x08location\x18\x03 \x01(\t\x12\x10\n\x08table_id\x18\x04 \x01(\t\"D\n\tSecurable\x12.\n\x05table\x18\x01 \x01(\x0b\x32\x1d.mlflow.ucmodelregistry.TableH\x00\x42\x07\n\x05value\"\x84\x01\n\x07Lineage\x12;\n\x10target_securable\x18\x04 \x01(\x0b\x32!.mlflow.ucmodelregistry.Securable\x12<\n\x11source_securables\x18\x05 \x03(\x0b\x32!.mlflow.ucmodelregistry.Securable\"x\n\x11LineageHeaderInfo\x12\x30\n\x08\x65ntities\x18\x01 \x03(\x0b\x32\x1e.mlflow.ucmodelregistry.Entity\x12\x31\n\x08lineages\x18\x02 \x03(\x0b\x32\x1f.mlflow.ucmodelregistry.Lineage\"\x9a\x01\n\x17ModelVersionLineageInfo\x12\x30\n\x08\x65ntities\x18\x01 \x03(\x0b\x32\x1e.mlflow.ucmodelregistry.Entity\x12M\n\tdirection\x18\x02 \x01(\x0e\x32\x34.mlflow.ucmodelregistry.ModelVersionLineageDirectionB\x04\xf8\x86\x19\x01\"\x9a\x02\n\x1e\x45mitModelVersionLineageRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12Y\n\x1amodel_version_lineage_info\x18\x03 \x01(\x0b\x32/.mlflow.ucmodelregistry.ModelVersionLineageInfoB\x04\xf8\x86\x19\x01\x12\x34\n\tsecurable\x18\x04 \x01(\x0b\x32!.mlflow.ucmodelregistry.Securable:<\xe2?9\n7com.databricks.rpc.RPC[EmitModelVersionLineageResponse]\"!\n\x1f\x45mitModelVersionLineageResponse\"\x8c\x01\n5IsDatabricksSdkModelsArtifactRepositoryEnabledRequest:S\xe2?P\nNcom.databricks.rpc.RPC[IsDatabricksSdkModelsArtifactRepositoryEnabledResponse]\"|\n6IsDatabricksSdkModelsArtifactRepositoryEnabledResponse\x12\x42\n4is_databricks_sdk_models_artifact_repository_enabled\x18\x01 \x01(\x08\x42\x04\xf8\x86\x19\x01\")\n\x0bTagKeyValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x8e\x01\n\x18RegisteredModelAliasInfo\x12\x12\n\nalias_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_num\x18\x02 \x01(\x03\x12\n\n\x02id\x18\x03 \x01(\t\x12\x12\n\nmodel_name\x18\x04 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x05 \x01(\t\x12\x13\n\x0bschema_name\x18\x06 \x01(\t\"*\n\x0fTableDependency\x12\x17\n\x0ftable_full_name\x18\x01 \x01(\t\"0\n\x12\x46unctionDependency\x12\x1a\n\x12\x66unction_full_name\x18\x01 \x01(\t\"/\n\x14\x43onnectionDependency\x12\x17\n\x0f\x63onnection_name\x18\x01 \x01(\t\"\xdf\x01\n\x16ModelVersionDependency\x12\x38\n\x05table\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.TableDependencyH\x00\x12>\n\x08\x66unction\x18\x02 \x01(\x0b\x32*.mlflow.ucmodelregistry.FunctionDependencyH\x00\x12\x42\n\nconnection\x18\x03 \x01(\x0b\x32,.mlflow.ucmodelregistry.ConnectionDependencyH\x00\x42\x07\n\x05value\"V\n\x0e\x44\x65pendencyList\x12\x44\n\x0c\x64\x65pendencies\x18\x01 \x03(\x0b\x32..mlflow.ucmodelregistry.ModelVersionDependency\"\x88\x04\n\x13RegisteredModelInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\r\n\x05owner\x18\x04 \x01(\t\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12\x18\n\x10storage_location\x18\x06 \x01(\t\x12\x14\n\x0cmetastore_id\x18\x07 \x01(\t\x12\x11\n\tfull_name\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\x0b \x01(\x03\x12\x12\n\ncreated_by\x18\x0c \x01(\t\x12\x12\n\nupdated_at\x18\r \x01(\x03\x12\x12\n\nupdated_by\x18\x0e \x01(\t\x12\n\n\x02id\x18\x12 \x01(\t\x12\x41\n\x07\x61liases\x18\x13 \x03(\x0b\x32\x30.mlflow.ucmodelregistry.RegisteredModelAliasInfo\x12\x31\n\x04tags\x18\x14 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12\x13\n\x0b\x62rowse_only\x18\x15 \x01(\x08\x12\x19\n\x11\x64\x65ployment_job_id\x18\x1b \x01(\t\x12S\n\x14\x64\x65ployment_job_state\x18\x1c \x01(\x0e\x32\x35.mlflow.ucmodelregistry.DeploymentJobConnection.State\"\x95\x06\n\x10ModelVersionInfo\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x0e\n\x06source\x18\x05 \x01(\t\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x18\n\x10run_workspace_id\x18\x07 \x01(\x03\x12:\n\x06status\x18\x08 \x01(\x0e\x32*.mlflow.ucmodelregistry.ModelVersionStatus\x12\x0f\n\x07version\x18\t \x01(\x03\x12\x18\n\x10storage_location\x18\n \x01(\t\x12\x14\n\x0cmetastore_id\x18\x0b \x01(\t\x12\x12\n\ncreated_at\x18\x0c \x01(\x03\x12\x12\n\ncreated_by\x18\r \x01(\t\x12\x12\n\nupdated_at\x18\x0e \x01(\x03\x12\x12\n\nupdated_by\x18\x0f \x01(\t\x12\n\n\x02id\x18\x10 \x01(\t\x12\x41\n\x07\x61liases\x18\x11 \x03(\x0b\x32\x30.mlflow.ucmodelregistry.RegisteredModelAliasInfo\x12\x31\n\x04tags\x18\x12 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12J\n\x1amodel_version_dependencies\x18\x13 \x01(\x0b\x32&.mlflow.ucmodelregistry.DependencyList\x12\x10\n\x08model_id\x18\x15 \x01(\t\x12\x38\n\x0cmodel_params\x18\x16 \x03(\x0b\x32\".mlflow.ucmodelregistry.ModelParam\x12:\n\rmodel_metrics\x18\x17 \x03(\x0b\x32#.mlflow.ucmodelregistry.ModelMetric\x12T\n\x14\x64\x65ployment_job_state\x18\x18 \x01(\x0b\x32\x36.mlflow.ucmodelregistry.ModelVersionDeploymentJobState\"^\n\x12GetRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\x0finclude_aliases\x18\x02 \x01(\x08\x12\x16\n\x0einclude_browse\x18\x03 \x01(\x08\"\xef\x01\n\x14ListRegisteredModels\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x16\n\x0einclude_browse\x18\x03 \x01(\x08\x12\x13\n\x0bmax_results\x18\x05 \x01(\x03\x12\x12\n\npage_token\x18\x06 \x01(\t\x1ak\n\x08Response\x12\x46\n\x11registered_models\x18\x01 \x03(\x0b\x32+.mlflow.ucmodelregistry.RegisteredModelInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\xc1\x01\n\x15\x43reateRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1a\n\x0c\x63\x61talog_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bschema_name\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12\x31\n\x04tags\x18\x14 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12\x19\n\x11\x64\x65ployment_job_id\x18\x1e \x01(\t\"n\n\x15UpdateRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x02 \x01(\t\x12\x10\n\x08new_name\x18\x03 \x01(\t\x12\x19\n\x11\x64\x65ployment_job_id\x18\x1e \x01(\t\"r\n\x0fGetModelVersion\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x17\n\x0finclude_aliases\x18\x03 \x01(\x08\x12\x16\n\x0einclude_browse\x18\x04 \x01(\x08\"\xd4\x01\n\x11ListModelVersions\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0bmax_results\x18\x04 \x01(\x03\x12\x12\n\npage_token\x18\x05 \x01(\t\x12\x16\n\x0einclude_browse\x18\x06 \x01(\x08\x1a\x65\n\x08Response\x12@\n\x0emodel_versions\x18\x01 \x03(\x0b\x32(.mlflow.ucmodelregistry.ModelVersionInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"_\n\x16GetModelVersionByAlias\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\x0finclude_aliases\x18\x03 \x01(\x08\"\xe3\x02\n\x12\x43reateModelVersion\x12\x18\n\nmodel_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1a\n\x0c\x63\x61talog_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bschema_name\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x14\n\x06source\x18\x05 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x31\n\x04tags\x18\x12 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12J\n\x1amodel_version_dependencies\x18\x13 \x01(\x0b\x32&.mlflow.ucmodelregistry.DependencyList\x12\x10\n\x08model_id\x18\x1e \x01(\t\x12\x14\n\x0c\x66\x65\x61ture_deps\x18\x1f \x01(\t\x12\x1e\n\x16run_tracking_server_id\x18  \x01(\t\"U\n\x12UpdateModelVersion\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x03 \x01(\t\"F\n\x14\x46inalizeModelVersion\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\"K\n\x15\x44\x65leteRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05\x66orce\x18\x02 \x01(\x08\x1a\n\n\x08Response\"P\n\x12\x44\x65leteModelVersion\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"n\n\x17SetRegisteredModelAlias\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bversion_num\x18\x03 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"V\n\x1a\x44\x65leteRegisteredModelAlias\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"\xce\x01\n\'GenerateTemporaryModelVersionCredential\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x12\n\nmodel_name\x18\x03 \x01(\t\x12\x0f\n\x07version\x18\x04 \x01(\x03\x12G\n\toperation\x18\x05 \x01(\x0e\x32\x34.mlflow.ucmodelregistry.TemporaryCredentialOperation\x1a\n\n\x08Response\"]\n\x14TagAssignmentsChange\x12\x0e\n\x06remove\x18\x03 \x03(\t\x12\x35\n\x08\x61\x64\x64_tags\x18\x04 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\"j\n\x1dUpdateTagSecurableAssignments\x12=\n\x07\x63hanges\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.TagAssignmentsChange\x1a\n\n\x08Response\"j\n\x1dUpdateTagSubentityAssignments\x12=\n\x07\x63hanges\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.TagAssignmentsChange\x1a\n\n\x08Response*c\n\x12ModelVersionStatus\x12\x0f\n\x0bUNSPECIFIED\x10\x00\x12\x18\n\x14PENDING_REGISTRATION\x10\x01\x12\x17\n\x13\x46\x41ILED_REGISTRATION\x10\x02\x12\t\n\x05READY\x10\x03*\x8a\x01\n\x15ModelVersionOperation\x12\'\n#MODEL_VERSION_OPERATION_UNSPECIFIED\x10\x00\x12 \n\x1cMODEL_VERSION_OPERATION_READ\x10\x01\x12&\n\"MODEL_VERSION_OPERATION_READ_WRITE\x10\x02*U\n\x0bStorageMode\x12\x1c\n\x18STORAGE_MODE_UNSPECIFIED\x10\x00\x12\x13\n\x0f\x43USTOMER_HOSTED\x10\x01\x12\x13\n\x0f\x44\x45\x46\x41ULT_STORAGE\x10\x02*c\n\x16SseEncryptionAlgorithm\x12(\n$SSE_ENCRYPTION_ALGORITHM_UNSPECIFIED\x10\x00\x12\x0e\n\nAWS_SSE_S3\x10\x01\x12\x0f\n\x0b\x41WS_SSE_KMS\x10\x02*\xbd\x01\n\x0e\x44\x65pendencyType\x12\x1f\n\x1b\x44\x45PENDENCY_TYPE_UNSPECIFIED\x10\x00\x12\x1b\n\x17\x44\x41TABRICKS_VECTOR_INDEX\x10\x01\x12\x1d\n\x19\x44\x41TABRICKS_MODEL_ENDPOINT\x10\x02\x12\x1a\n\x16\x44\x41TABRICKS_UC_FUNCTION\x10\x03\x12\x1c\n\x18\x44\x41TABRICKS_UC_CONNECTION\x10\x04\x12\x14\n\x10\x44\x41TABRICKS_TABLE\x10\x05*t\n\tTableType\x12\t\n\x05TABLE\x10\x00\x12\x12\n\x0ePERSISTED_VIEW\x10\x01\x12\r\n\tTEMP_VIEW\x10\x02\x12\x15\n\x11MATERIALIZED_VIEW\x10\x03\x12\x18\n\x14STREAMING_LIVE_TABLE\x10\x04\x12\x08\n\x04PATH\x10\x05*<\n\x1cModelVersionLineageDirection\x12\x0c\n\x08UPSTREAM\x10\x00\x12\x0e\n\nDOWNSTREAM\x10\x01*y\n\x1cTemporaryCredentialOperation\x12#\n\x1fUNKNOWN_MODEL_VERSION_OPERATION\x10\x00\x12\x16\n\x12READ_MODEL_VERSION\x10\x01\x12\x1c\n\x18READ_WRITE_MODEL_VERSION\x10\x02\x42\x32\n(com.databricks.api.proto.ucmodelregistry\xa0\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%databricks_uc_registry_messages.proto\x12\x16mlflow.ucmodelregistry\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"\xea\x02\n\x0fRegisteredModel\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1a\n\x12\x63reation_timestamp\x18\x02 \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\x03 \x01(\x03\x12\x0f\n\x07user_id\x18\x04 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12=\n\x07\x61liases\x18\x06 \x03(\x0b\x32,.mlflow.ucmodelregistry.RegisteredModelAlias\x12\x38\n\x04tags\x18\x07 \x03(\x0b\x32*.mlflow.ucmodelregistry.RegisteredModelTag\x12\x19\n\x11\x64\x65ployment_job_id\x18\x08 \x01(\t\x12S\n\x14\x64\x65ployment_job_state\x18\t \x01(\x0e\x32\x35.mlflow.ucmodelregistry.DeploymentJobConnection.State\"6\n\x14RegisteredModelAlias\x12\r\n\x05\x61lias\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"0\n\x12RegisteredModelTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\")\n\nModelParam\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xb5\x01\n\x0bModelMetric\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\x12\x1a\n\x0c\x64\x61taset_name\x18\x05 \x01(\tB\x04\xf0\x86\x19\x03\x12\x1c\n\x0e\x64\x61taset_digest\x18\x06 \x01(\tB\x04\xf0\x86\x19\x03\x12\x16\n\x08model_id\x18\x07 \x01(\tB\x04\xf0\x86\x19\x03\x12\x14\n\x06run_id\x18\x08 \x01(\tB\x04\xf0\x86\x19\x03\"-\n\x0fModelVersionTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xac\x05\n\x0cModelVersion\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x1a\n\x12\x63reation_timestamp\x18\x03 \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\x04 \x01(\x03\x12\x0f\n\x07user_id\x18\x05 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x06 \x01(\t\x12\x0e\n\x06source\x18\x07 \x01(\t\x12\x0e\n\x06run_id\x18\x08 \x01(\t\x12\x19\n\x11run_experiment_id\x18\t \x01(\t\x12\x1e\n\x16run_tracking_server_id\x18\n \x01(\t\x12:\n\x06status\x18\x0b \x01(\x0e\x32*.mlflow.ucmodelregistry.ModelVersionStatus\x12\x16\n\x0estatus_message\x18\x0c \x01(\t\x12\x18\n\x10storage_location\x18\r \x01(\t\x12=\n\x07\x61liases\x18\x0e \x03(\x0b\x32,.mlflow.ucmodelregistry.RegisteredModelAlias\x12\x35\n\x04tags\x18\x0f \x03(\x0b\x32\'.mlflow.ucmodelregistry.ModelVersionTag\x12\x10\n\x08model_id\x18\x10 \x01(\t\x12\x38\n\x0cmodel_params\x18\x11 \x03(\x0b\x32\".mlflow.ucmodelregistry.ModelParam\x12:\n\rmodel_metrics\x18\x12 \x03(\x0b\x32#.mlflow.ucmodelregistry.ModelMetric\x12T\n\x14\x64\x65ployment_job_state\x18\x13 \x01(\x0b\x32\x36.mlflow.ucmodelregistry.ModelVersionDeploymentJobState\"\xa3\x01\n\x17\x44\x65ploymentJobConnection\"\x87\x01\n\x05State\x12/\n+DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED\x10\x00\x12\x0e\n\nNOT_SET_UP\x10\x01\x12\r\n\tCONNECTED\x10\x02\x12\r\n\tNOT_FOUND\x10\x03\x12\x1f\n\x1bREQUIRED_PARAMETERS_CHANGED\x10\x04\"\xb0\x03\n\x1eModelVersionDeploymentJobState\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12H\n\tjob_state\x18\x03 \x01(\x0e\x32\x35.mlflow.ucmodelregistry.DeploymentJobConnection.State\x12_\n\trun_state\x18\x04 \x01(\x0e\x32L.mlflow.ucmodelregistry.ModelVersionDeploymentJobState.DeploymentJobRunState\x12\x19\n\x11\x63urrent_task_name\x18\x05 \x01(\t\"\xa7\x01\n\x15\x44\x65ploymentJobRunState\x12(\n$DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED\x10\x00\x12!\n\x1dNO_VALID_DEPLOYMENT_JOB_FOUND\x10\x01\x12\x0b\n\x07RUNNING\x10\x02\x12\r\n\tSUCCEEDED\x10\x03\x12\n\n\x06\x46\x41ILED\x10\x04\x12\x0b\n\x07PENDING\x10\x05\x12\x0c\n\x08\x41PPROVAL\x10\x06\"\xe5\x03\n\x14TemporaryCredentials\x12\x46\n\x14\x61ws_temp_credentials\x18\x02 \x01(\x0b\x32&.mlflow.ucmodelregistry.AwsCredentialsH\x00\x12S\n\x19\x61zure_user_delegation_sas\x18\x03 \x01(\x0b\x32..mlflow.ucmodelregistry.AzureUserDelegationSASH\x00\x12@\n\x0fgcp_oauth_token\x18\x04 \x01(\x0b\x32%.mlflow.ucmodelregistry.GcpOauthTokenH\x00\x12\x44\n\x13r2_temp_credentials\x18\x05 \x01(\x0b\x32%.mlflow.ucmodelregistry.R2CredentialsH\x00\x12\x17\n\x0f\x65xpiration_time\x18\x01 \x01(\x03\x12\x39\n\x0cstorage_mode\x18\x06 \x01(\x0e\x32#.mlflow.ucmodelregistry.StorageMode\x12\x45\n\x12\x65ncryption_details\x18\x07 \x01(\x0b\x32).mlflow.ucmodelregistry.EncryptionDetailsB\r\n\x0b\x63redentials\"Y\n\x0e\x41wsCredentials\x12\x15\n\raccess_key_id\x18\x01 \x01(\t\x12\x19\n\x11secret_access_key\x18\x02 \x01(\t\x12\x15\n\rsession_token\x18\x03 \x01(\t\"+\n\x16\x41zureUserDelegationSAS\x12\x11\n\tsas_token\x18\x01 \x01(\t\"$\n\rGcpOauthToken\x12\x13\n\x0boauth_token\x18\x01 \x01(\t\"X\n\rR2Credentials\x12\x15\n\raccess_key_id\x18\x01 \x01(\t\x12\x19\n\x11secret_access_key\x18\x02 \x01(\t\x12\x15\n\rsession_token\x18\x03 \x01(\t\"~\n\x11\x45ncryptionDetails\x12N\n\x16sse_encryption_details\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.SseEncryptionDetailsH\x00\x42\x19\n\x17\x65ncryption_details_type\"r\n\x14SseEncryptionDetails\x12\x41\n\talgorithm\x18\x01 \x01(\x0e\x32..mlflow.ucmodelregistry.SseEncryptionAlgorithm\x12\x17\n\x0f\x61ws_kms_key_arn\x18\x02 \x01(\t\"\xd8\x01\n\x1c\x43reateRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x38\n\x04tags\x18\x02 \x03(\x0b\x32*.mlflow.ucmodelregistry.RegisteredModelTag\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x19\n\x11\x64\x65ployment_job_id\x18\x04 \x01(\t::\xe2?7\n5com.databricks.rpc.RPC[CreateRegisteredModelResponse]\"b\n\x1d\x43reateRegisteredModelResponse\x12\x41\n\x10registered_model\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\"\xb0\x01\n\x1cUpdateRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08new_name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x19\n\x11\x64\x65ployment_job_id\x18\x04 \x01(\t::\xe2?7\n5com.databricks.rpc.RPC[UpdateRegisteredModelResponse]\"b\n\x1dUpdateRegisteredModelResponse\x12\x41\n\x10registered_model\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\"n\n\x1c\x44\x65leteRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01::\xe2?7\n5com.databricks.rpc.RPC[DeleteRegisteredModelResponse]\"\x1f\n\x1d\x44\x65leteRegisteredModelResponse\"h\n\x19GetRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01:7\xe2?4\n2com.databricks.rpc.RPC[GetRegisteredModelResponse]\"_\n\x1aGetRegisteredModelResponse\x12\x41\n\x10registered_model\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\"\x8a\x01\n\x1dSearchRegisteredModelsRequest\x12\x18\n\x0bmax_results\x18\x01 \x01(\x03:\x03\x31\x30\x30\x12\x12\n\npage_token\x18\x02 \x01(\t:;\xe2?8\n6com.databricks.rpc.RPC[SearchRegisteredModelsResponse]\"}\n\x1eSearchRegisteredModelsResponse\x12\x42\n\x11registered_models\x18\x01 \x03(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"P\n\nDependency\x12\x34\n\x04type\x18\x01 \x01(\x0e\x32&.mlflow.ucmodelregistry.DependencyType\x12\x0c\n\x04name\x18\x02 \x01(\t\"\xea\x02\n\x19\x43reateModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06source\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x1e\n\x16run_tracking_server_id\x18\x05 \x01(\t\x12\x14\n\x0c\x66\x65\x61ture_deps\x18\x06 \x01(\t\x12\x35\n\x04tags\x18\x07 \x03(\x0b\x32\'.mlflow.ucmodelregistry.ModelVersionTag\x12\x46\n\x1amodel_version_dependencies\x18\x08 \x03(\x0b\x32\".mlflow.ucmodelregistry.Dependency\x12\x10\n\x08model_id\x18\t \x01(\t:7\xe2?4\n2com.databricks.rpc.RPC[CreateModelVersionResponse]\"Y\n\x1a\x43reateModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x94\x01\n\x19UpdateModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t:7\xe2?4\n2com.databricks.rpc.RPC[UpdateModelVersionResponse]\"Y\n\x1aUpdateModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x7f\n\x19\x44\x65leteModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:7\xe2?4\n2com.databricks.rpc.RPC[DeleteModelVersionResponse]\"\x1c\n\x1a\x44\x65leteModelVersionResponse\"y\n\x16GetModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:4\xe2?1\n/com.databricks.rpc.RPC[GetModelVersionResponse]\"V\n\x17GetModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x96\x01\n\x1aSearchModelVersionsRequest\x12\x0e\n\x06\x66ilter\x18\x01 \x01(\t\x12\x1a\n\x0bmax_results\x18\x02 \x01(\x03:\x05\x31\x30\x30\x30\x30\x12\x12\n\npage_token\x18\x03 \x01(\t:8\xe2?5\n3com.databricks.rpc.RPC[SearchModelVersionsResponse]\"t\n\x1bSearchModelVersionsResponse\x12<\n\x0emodel_versions\x18\x01 \x03(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\xf3\x01\n/GenerateTemporaryModelVersionCredentialsRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x46\n\toperation\x18\x03 \x01(\x0e\x32-.mlflow.ucmodelregistry.ModelVersionOperationB\x04\xf8\x86\x19\x01:M\xe2?J\nHcom.databricks.rpc.RPC[GenerateTemporaryModelVersionCredentialsResponse]\"u\n0GenerateTemporaryModelVersionCredentialsResponse\x12\x41\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.TemporaryCredentials\"\x8f\x01\n!GetModelVersionDownloadUriRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:?\xe2?<\n:com.databricks.rpc.RPC[GetModelVersionDownloadUriResponse]\":\n\"GetModelVersionDownloadUriResponse\x12\x14\n\x0c\x61rtifact_uri\x18\x01 \x01(\t\"\x83\x01\n\x1b\x46inalizeModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:9\xe2?6\n4com.databricks.rpc.RPC[FinalizeModelVersionResponse]\"[\n\x1c\x46inalizeModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x9e\x01\n\x1eSetRegisteredModelAliasRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01:<\xe2?9\n7com.databricks.rpc.RPC[SetRegisteredModelAliasResponse]\"!\n\x1fSetRegisteredModelAliasResponse\"\x8d\x01\n!DeleteRegisteredModelAliasRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:?\xe2?<\n:com.databricks.rpc.RPC[DeleteRegisteredModelAliasResponse]\"$\n\"DeleteRegisteredModelAliasResponse\"\x90\x01\n\x1cSetRegisteredModelTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05value\x18\x03 \x01(\t::\xe2?7\n5com.databricks.rpc.RPC[SetRegisteredModelTagResponse]\"\x1f\n\x1dSetRegisteredModelTagResponse\"\x87\x01\n\x1f\x44\x65leteRegisteredModelTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:=\xe2?:\n8com.databricks.rpc.RPC[DeleteRegisteredModelTagResponse]\"\"\n DeleteRegisteredModelTagResponse\"\xa1\x01\n\x19SetModelVersionTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05value\x18\x04 \x01(\t:7\xe2?4\n2com.databricks.rpc.RPC[SetModelVersionTagResponse]\"\x1c\n\x1aSetModelVersionTagResponse\"\x98\x01\n\x1c\x44\x65leteModelVersionTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01::\xe2?7\n5com.databricks.rpc.RPC[DeleteModelVersionTagResponse]\"\x1f\n\x1d\x44\x65leteModelVersionTagResponse\"\x85\x01\n\x1dGetModelVersionByAliasRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:;\xe2?8\n6com.databricks.rpc.RPC[GetModelVersionByAliasResponse]\"]\n\x1eGetModelVersionByAliasResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\xa9\x01\n\x06\x45ntity\x12*\n\x03job\x18\x01 \x01(\x0b\x32\x1b.mlflow.ucmodelregistry.JobH\x00\x12\x34\n\x08notebook\x18\x02 \x01(\x0b\x32 .mlflow.ucmodelregistry.NotebookH\x00\x12\x34\n\x08pipeline\x18\x03 \x01(\x0b\x32 .mlflow.ucmodelregistry.PipelineH\x00\x42\x07\n\x05value\";\n\x08Pipeline\x12\x13\n\x0bpipeline_id\x18\x01 \x01(\t\x12\x1a\n\x12pipeline_update_id\x18\x02 \x01(\t\"L\n\x03Job\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08task_key\x18\x02 \x01(\t\x12\x12\n\njob_run_id\x18\x03 \x01(\t\x12\x13\n\x0btask_run_id\x18\x04 \x01(\t\"C\n\x08Notebook\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\ncommand_id\x18\x02 \x01(\t\x12\x17\n\x0fnotebook_run_id\x18\x03 \x01(\t\"p\n\x05Table\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x35\n\ntable_type\x18\x02 \x01(\x0e\x32!.mlflow.ucmodelregistry.TableType\x12\x10\n\x08location\x18\x03 \x01(\t\x12\x10\n\x08table_id\x18\x04 \x01(\t\"D\n\tSecurable\x12.\n\x05table\x18\x01 \x01(\x0b\x32\x1d.mlflow.ucmodelregistry.TableH\x00\x42\x07\n\x05value\"\x84\x01\n\x07Lineage\x12;\n\x10target_securable\x18\x04 \x01(\x0b\x32!.mlflow.ucmodelregistry.Securable\x12<\n\x11source_securables\x18\x05 \x03(\x0b\x32!.mlflow.ucmodelregistry.Securable\"x\n\x11LineageHeaderInfo\x12\x30\n\x08\x65ntities\x18\x01 \x03(\x0b\x32\x1e.mlflow.ucmodelregistry.Entity\x12\x31\n\x08lineages\x18\x02 \x03(\x0b\x32\x1f.mlflow.ucmodelregistry.Lineage\"\x9a\x01\n\x17ModelVersionLineageInfo\x12\x30\n\x08\x65ntities\x18\x01 \x03(\x0b\x32\x1e.mlflow.ucmodelregistry.Entity\x12M\n\tdirection\x18\x02 \x01(\x0e\x32\x34.mlflow.ucmodelregistry.ModelVersionLineageDirectionB\x04\xf8\x86\x19\x01\"\x9a\x02\n\x1e\x45mitModelVersionLineageRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12Y\n\x1amodel_version_lineage_info\x18\x03 \x01(\x0b\x32/.mlflow.ucmodelregistry.ModelVersionLineageInfoB\x04\xf8\x86\x19\x01\x12\x34\n\tsecurable\x18\x04 \x01(\x0b\x32!.mlflow.ucmodelregistry.Securable:<\xe2?9\n7com.databricks.rpc.RPC[EmitModelVersionLineageResponse]\"!\n\x1f\x45mitModelVersionLineageResponse\"\x8c\x01\n5IsDatabricksSdkModelsArtifactRepositoryEnabledRequest:S\xe2?P\nNcom.databricks.rpc.RPC[IsDatabricksSdkModelsArtifactRepositoryEnabledResponse]\"|\n6IsDatabricksSdkModelsArtifactRepositoryEnabledResponse\x12\x42\n4is_databricks_sdk_models_artifact_repository_enabled\x18\x01 \x01(\x08\x42\x04\xf8\x86\x19\x01\")\n\x0bTagKeyValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x8e\x01\n\x18RegisteredModelAliasInfo\x12\x12\n\nalias_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_num\x18\x02 \x01(\x03\x12\n\n\x02id\x18\x03 \x01(\t\x12\x12\n\nmodel_name\x18\x04 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x05 \x01(\t\x12\x13\n\x0bschema_name\x18\x06 \x01(\t\"*\n\x0fTableDependency\x12\x17\n\x0ftable_full_name\x18\x01 \x01(\t\"0\n\x12\x46unctionDependency\x12\x1a\n\x12\x66unction_full_name\x18\x01 \x01(\t\"/\n\x14\x43onnectionDependency\x12\x17\n\x0f\x63onnection_name\x18\x01 \x01(\t\"\xdf\x01\n\x16ModelVersionDependency\x12\x38\n\x05table\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.TableDependencyH\x00\x12>\n\x08\x66unction\x18\x02 \x01(\x0b\x32*.mlflow.ucmodelregistry.FunctionDependencyH\x00\x12\x42\n\nconnection\x18\x03 \x01(\x0b\x32,.mlflow.ucmodelregistry.ConnectionDependencyH\x00\x42\x07\n\x05value\"V\n\x0e\x44\x65pendencyList\x12\x44\n\x0c\x64\x65pendencies\x18\x01 \x03(\x0b\x32..mlflow.ucmodelregistry.ModelVersionDependency\"\x8a\x04\n\x15UcRegisteredModelInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\r\n\x05owner\x18\x04 \x01(\t\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12\x18\n\x10storage_location\x18\x06 \x01(\t\x12\x14\n\x0cmetastore_id\x18\x07 \x01(\t\x12\x11\n\tfull_name\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\x0b \x01(\x03\x12\x12\n\ncreated_by\x18\x0c \x01(\t\x12\x12\n\nupdated_at\x18\r \x01(\x03\x12\x12\n\nupdated_by\x18\x0e \x01(\t\x12\n\n\x02id\x18\x12 \x01(\t\x12\x41\n\x07\x61liases\x18\x13 \x03(\x0b\x32\x30.mlflow.ucmodelregistry.RegisteredModelAliasInfo\x12\x31\n\x04tags\x18\x14 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12\x13\n\x0b\x62rowse_only\x18\x15 \x01(\x08\x12\x19\n\x11\x64\x65ployment_job_id\x18\x1b \x01(\t\x12S\n\x14\x64\x65ployment_job_state\x18\x1c \x01(\x0e\x32\x35.mlflow.ucmodelregistry.DeploymentJobConnection.State\"\x97\x06\n\x12UcModelVersionInfo\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x0e\n\x06source\x18\x05 \x01(\t\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x18\n\x10run_workspace_id\x18\x07 \x01(\x03\x12:\n\x06status\x18\x08 \x01(\x0e\x32*.mlflow.ucmodelregistry.ModelVersionStatus\x12\x0f\n\x07version\x18\t \x01(\x03\x12\x18\n\x10storage_location\x18\n \x01(\t\x12\x14\n\x0cmetastore_id\x18\x0b \x01(\t\x12\x12\n\ncreated_at\x18\x0c \x01(\x03\x12\x12\n\ncreated_by\x18\r \x01(\t\x12\x12\n\nupdated_at\x18\x0e \x01(\x03\x12\x12\n\nupdated_by\x18\x0f \x01(\t\x12\n\n\x02id\x18\x10 \x01(\t\x12\x41\n\x07\x61liases\x18\x11 \x03(\x0b\x32\x30.mlflow.ucmodelregistry.RegisteredModelAliasInfo\x12\x31\n\x04tags\x18\x12 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12J\n\x1amodel_version_dependencies\x18\x13 \x01(\x0b\x32&.mlflow.ucmodelregistry.DependencyList\x12\x10\n\x08model_id\x18\x15 \x01(\t\x12\x38\n\x0cmodel_params\x18\x16 \x03(\x0b\x32\".mlflow.ucmodelregistry.ModelParam\x12:\n\rmodel_metrics\x18\x17 \x03(\x0b\x32#.mlflow.ucmodelregistry.ModelMetric\x12T\n\x14\x64\x65ployment_job_state\x18\x18 \x01(\x0b\x32\x36.mlflow.ucmodelregistry.ModelVersionDeploymentJobState\"d\n\x14UcGetRegisteredModel\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\x0finclude_aliases\x18\x02 \x01(\x08\x12\x16\n\x0einclude_browse\x18\x03 \x01(\x08\"\x84\x01\n\x16UcListRegisteredModels\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x16\n\x0einclude_browse\x18\x03 \x01(\x08\x12\x13\n\x0bmax_results\x18\x05 \x01(\x03\x12\x12\n\npage_token\x18\x06 \x01(\t\"\x83\x01\n\x1eUcListRegisteredModelsResponse\x12H\n\x11registered_models\x18\x01 \x03(\x0b\x32-.mlflow.ucmodelregistry.UcRegisteredModelInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\xc3\x01\n\x17UcCreateRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1a\n\x0c\x63\x61talog_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bschema_name\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12\x31\n\x04tags\x18\x14 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12\x19\n\x11\x64\x65ployment_job_id\x18\x1e \x01(\t\"t\n\x17UcUpdateRegisteredModel\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x02 \x01(\t\x12\x10\n\x08new_name\x18\x03 \x01(\t\x12\x19\n\x11\x64\x65ployment_job_id\x18\x1e \x01(\t\"|\n\x11UcGetModelVersion\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bversion_arg\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x17\n\x0finclude_aliases\x18\x03 \x01(\x08\x12\x16\n\x0einclude_browse\x18\x04 \x01(\x08\"s\n\x13UcListModelVersions\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0bmax_results\x18\x04 \x01(\x03\x12\x12\n\npage_token\x18\x05 \x01(\t\x12\x16\n\x0einclude_browse\x18\x06 \x01(\x08\"z\n\x1bUcListModelVersionsResponse\x12\x42\n\x0emodel_versions\x18\x01 \x03(\x0b\x32*.mlflow.ucmodelregistry.UcModelVersionInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"i\n\x18UcGetModelVersionByAlias\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\talias_arg\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\x0finclude_aliases\x18\x03 \x01(\x08\"\xe5\x02\n\x14UcCreateModelVersion\x12\x18\n\nmodel_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1a\n\x0c\x63\x61talog_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bschema_name\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x14\n\x06source\x18\x05 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x31\n\x04tags\x18\x12 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12J\n\x1amodel_version_dependencies\x18\x13 \x01(\x0b\x32&.mlflow.ucmodelregistry.DependencyList\x12\x10\n\x08model_id\x18\x1e \x01(\t\x12\x14\n\x0c\x66\x65\x61ture_deps\x18\x1f \x01(\t\x12\x1e\n\x16run_tracking_server_id\x18  \x01(\t\"_\n\x14UcUpdateModelVersion\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bversion_arg\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x03 \x01(\t\"P\n\x16UcFinalizeModelVersion\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bversion_arg\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\"O\n\x15\x44\x65leteRegisteredModel\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05\x66orce\x18\x02 \x01(\x08\x1a\n\n\x08Response\"X\n\x12\x44\x65leteModelVersion\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bversion_arg\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"v\n\x17SetRegisteredModelAlias\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\talias_arg\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bversion_num\x18\x03 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"^\n\x1a\x44\x65leteRegisteredModelAlias\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\talias_arg\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"\xce\x01\n\'GenerateTemporaryModelVersionCredential\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x12\n\nmodel_name\x18\x03 \x01(\t\x12\x0f\n\x07version\x18\x04 \x01(\x03\x12G\n\toperation\x18\x05 \x01(\x0e\x32\x34.mlflow.ucmodelregistry.TemporaryCredentialOperation\x1a\n\n\x08Response\"]\n\x14TagAssignmentsChange\x12\x0e\n\x06remove\x18\x03 \x03(\t\x12\x35\n\x08\x61\x64\x64_tags\x18\x04 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\"j\n\x1dUpdateTagSecurableAssignments\x12=\n\x07\x63hanges\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.TagAssignmentsChange\x1a\n\n\x08Response\"j\n\x1dUpdateTagSubentityAssignments\x12=\n\x07\x63hanges\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.TagAssignmentsChange\x1a\n\n\x08Response*c\n\x12ModelVersionStatus\x12\x0f\n\x0bUNSPECIFIED\x10\x00\x12\x18\n\x14PENDING_REGISTRATION\x10\x01\x12\x17\n\x13\x46\x41ILED_REGISTRATION\x10\x02\x12\t\n\x05READY\x10\x03*\x8a\x01\n\x15ModelVersionOperation\x12\'\n#MODEL_VERSION_OPERATION_UNSPECIFIED\x10\x00\x12 \n\x1cMODEL_VERSION_OPERATION_READ\x10\x01\x12&\n\"MODEL_VERSION_OPERATION_READ_WRITE\x10\x02*U\n\x0bStorageMode\x12\x1c\n\x18STORAGE_MODE_UNSPECIFIED\x10\x00\x12\x13\n\x0f\x43USTOMER_HOSTED\x10\x01\x12\x13\n\x0f\x44\x45\x46\x41ULT_STORAGE\x10\x02*c\n\x16SseEncryptionAlgorithm\x12(\n$SSE_ENCRYPTION_ALGORITHM_UNSPECIFIED\x10\x00\x12\x0e\n\nAWS_SSE_S3\x10\x01\x12\x0f\n\x0b\x41WS_SSE_KMS\x10\x02*\xbd\x01\n\x0e\x44\x65pendencyType\x12\x1f\n\x1b\x44\x45PENDENCY_TYPE_UNSPECIFIED\x10\x00\x12\x1b\n\x17\x44\x41TABRICKS_VECTOR_INDEX\x10\x01\x12\x1d\n\x19\x44\x41TABRICKS_MODEL_ENDPOINT\x10\x02\x12\x1a\n\x16\x44\x41TABRICKS_UC_FUNCTION\x10\x03\x12\x1c\n\x18\x44\x41TABRICKS_UC_CONNECTION\x10\x04\x12\x14\n\x10\x44\x41TABRICKS_TABLE\x10\x05*t\n\tTableType\x12\t\n\x05TABLE\x10\x00\x12\x12\n\x0ePERSISTED_VIEW\x10\x01\x12\r\n\tTEMP_VIEW\x10\x02\x12\x15\n\x11MATERIALIZED_VIEW\x10\x03\x12\x18\n\x14STREAMING_LIVE_TABLE\x10\x04\x12\x08\n\x04PATH\x10\x05*<\n\x1cModelVersionLineageDirection\x12\x0c\n\x08UPSTREAM\x10\x00\x12\x0e\n\nDOWNSTREAM\x10\x01*y\n\x1cTemporaryCredentialOperation\x12#\n\x1fUNKNOWN_MODEL_VERSION_OPERATION\x10\x00\x12\x16\n\x12READ_MODEL_VERSION\x10\x01\x12\x1c\n\x18READ_WRITE_MODEL_VERSION\x10\x02\x42\x32\n(com.databricks.api.proto.ucmodelregistry\xa0\x01\x01\xe2?\x02\x10\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -162,74 +162,74 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_ISDATABRICKSSDKMODELSARTIFACTREPOSITORYENABLEDREQUEST']._serialized_options = b'\342?P\nNcom.databricks.rpc.RPC[IsDatabricksSdkModelsArtifactRepositoryEnabledResponse]'
     _globals['_ISDATABRICKSSDKMODELSARTIFACTREPOSITORYENABLEDRESPONSE'].fields_by_name['is_databricks_sdk_models_artifact_repository_enabled']._loaded_options = None
     _globals['_ISDATABRICKSSDKMODELSARTIFACTREPOSITORYENABLEDRESPONSE'].fields_by_name['is_databricks_sdk_models_artifact_repository_enabled']._serialized_options = b'\370\206\031\001'
-    _globals['_GETREGISTEREDMODEL'].fields_by_name['full_name']._loaded_options = None
-    _globals['_GETREGISTEREDMODEL'].fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _globals['_CREATEREGISTEREDMODEL'].fields_by_name['name']._loaded_options = None
-    _globals['_CREATEREGISTEREDMODEL'].fields_by_name['name']._serialized_options = b'\370\206\031\001'
-    _globals['_CREATEREGISTEREDMODEL'].fields_by_name['catalog_name']._loaded_options = None
-    _globals['_CREATEREGISTEREDMODEL'].fields_by_name['catalog_name']._serialized_options = b'\370\206\031\001'
-    _globals['_CREATEREGISTEREDMODEL'].fields_by_name['schema_name']._loaded_options = None
-    _globals['_CREATEREGISTEREDMODEL'].fields_by_name['schema_name']._serialized_options = b'\370\206\031\001'
-    _globals['_UPDATEREGISTEREDMODEL'].fields_by_name['full_name']._loaded_options = None
-    _globals['_UPDATEREGISTEREDMODEL'].fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _globals['_GETMODELVERSION'].fields_by_name['full_name']._loaded_options = None
-    _globals['_GETMODELVERSION'].fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _globals['_GETMODELVERSION'].fields_by_name['version']._loaded_options = None
-    _globals['_GETMODELVERSION'].fields_by_name['version']._serialized_options = b'\370\206\031\001'
-    _globals['_LISTMODELVERSIONS'].fields_by_name['full_name']._loaded_options = None
-    _globals['_LISTMODELVERSIONS'].fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _globals['_GETMODELVERSIONBYALIAS'].fields_by_name['full_name']._loaded_options = None
-    _globals['_GETMODELVERSIONBYALIAS'].fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _globals['_GETMODELVERSIONBYALIAS'].fields_by_name['alias']._loaded_options = None
-    _globals['_GETMODELVERSIONBYALIAS'].fields_by_name['alias']._serialized_options = b'\370\206\031\001'
-    _globals['_CREATEMODELVERSION'].fields_by_name['model_name']._loaded_options = None
-    _globals['_CREATEMODELVERSION'].fields_by_name['model_name']._serialized_options = b'\370\206\031\001'
-    _globals['_CREATEMODELVERSION'].fields_by_name['catalog_name']._loaded_options = None
-    _globals['_CREATEMODELVERSION'].fields_by_name['catalog_name']._serialized_options = b'\370\206\031\001'
-    _globals['_CREATEMODELVERSION'].fields_by_name['schema_name']._loaded_options = None
-    _globals['_CREATEMODELVERSION'].fields_by_name['schema_name']._serialized_options = b'\370\206\031\001'
-    _globals['_CREATEMODELVERSION'].fields_by_name['source']._loaded_options = None
-    _globals['_CREATEMODELVERSION'].fields_by_name['source']._serialized_options = b'\370\206\031\001'
-    _globals['_UPDATEMODELVERSION'].fields_by_name['full_name']._loaded_options = None
-    _globals['_UPDATEMODELVERSION'].fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _globals['_UPDATEMODELVERSION'].fields_by_name['version']._loaded_options = None
-    _globals['_UPDATEMODELVERSION'].fields_by_name['version']._serialized_options = b'\370\206\031\001'
-    _globals['_FINALIZEMODELVERSION'].fields_by_name['full_name']._loaded_options = None
-    _globals['_FINALIZEMODELVERSION'].fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _globals['_FINALIZEMODELVERSION'].fields_by_name['version']._loaded_options = None
-    _globals['_FINALIZEMODELVERSION'].fields_by_name['version']._serialized_options = b'\370\206\031\001'
-    _globals['_DELETEREGISTEREDMODEL'].fields_by_name['full_name']._loaded_options = None
-    _globals['_DELETEREGISTEREDMODEL'].fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _globals['_DELETEMODELVERSION'].fields_by_name['full_name']._loaded_options = None
-    _globals['_DELETEMODELVERSION'].fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _globals['_DELETEMODELVERSION'].fields_by_name['version']._loaded_options = None
-    _globals['_DELETEMODELVERSION'].fields_by_name['version']._serialized_options = b'\370\206\031\001'
-    _globals['_SETREGISTEREDMODELALIAS'].fields_by_name['full_name']._loaded_options = None
-    _globals['_SETREGISTEREDMODELALIAS'].fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _globals['_SETREGISTEREDMODELALIAS'].fields_by_name['alias']._loaded_options = None
-    _globals['_SETREGISTEREDMODELALIAS'].fields_by_name['alias']._serialized_options = b'\370\206\031\001'
+    _globals['_UCGETREGISTEREDMODEL'].fields_by_name['full_name_arg']._loaded_options = None
+    _globals['_UCGETREGISTEREDMODEL'].fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_UCCREATEREGISTEREDMODEL'].fields_by_name['name']._loaded_options = None
+    _globals['_UCCREATEREGISTEREDMODEL'].fields_by_name['name']._serialized_options = b'\370\206\031\001'
+    _globals['_UCCREATEREGISTEREDMODEL'].fields_by_name['catalog_name']._loaded_options = None
+    _globals['_UCCREATEREGISTEREDMODEL'].fields_by_name['catalog_name']._serialized_options = b'\370\206\031\001'
+    _globals['_UCCREATEREGISTEREDMODEL'].fields_by_name['schema_name']._loaded_options = None
+    _globals['_UCCREATEREGISTEREDMODEL'].fields_by_name['schema_name']._serialized_options = b'\370\206\031\001'
+    _globals['_UCUPDATEREGISTEREDMODEL'].fields_by_name['full_name_arg']._loaded_options = None
+    _globals['_UCUPDATEREGISTEREDMODEL'].fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_UCGETMODELVERSION'].fields_by_name['full_name_arg']._loaded_options = None
+    _globals['_UCGETMODELVERSION'].fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_UCGETMODELVERSION'].fields_by_name['version_arg']._loaded_options = None
+    _globals['_UCGETMODELVERSION'].fields_by_name['version_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_UCLISTMODELVERSIONS'].fields_by_name['full_name_arg']._loaded_options = None
+    _globals['_UCLISTMODELVERSIONS'].fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_UCGETMODELVERSIONBYALIAS'].fields_by_name['full_name_arg']._loaded_options = None
+    _globals['_UCGETMODELVERSIONBYALIAS'].fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_UCGETMODELVERSIONBYALIAS'].fields_by_name['alias_arg']._loaded_options = None
+    _globals['_UCGETMODELVERSIONBYALIAS'].fields_by_name['alias_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_UCCREATEMODELVERSION'].fields_by_name['model_name']._loaded_options = None
+    _globals['_UCCREATEMODELVERSION'].fields_by_name['model_name']._serialized_options = b'\370\206\031\001'
+    _globals['_UCCREATEMODELVERSION'].fields_by_name['catalog_name']._loaded_options = None
+    _globals['_UCCREATEMODELVERSION'].fields_by_name['catalog_name']._serialized_options = b'\370\206\031\001'
+    _globals['_UCCREATEMODELVERSION'].fields_by_name['schema_name']._loaded_options = None
+    _globals['_UCCREATEMODELVERSION'].fields_by_name['schema_name']._serialized_options = b'\370\206\031\001'
+    _globals['_UCCREATEMODELVERSION'].fields_by_name['source']._loaded_options = None
+    _globals['_UCCREATEMODELVERSION'].fields_by_name['source']._serialized_options = b'\370\206\031\001'
+    _globals['_UCUPDATEMODELVERSION'].fields_by_name['full_name_arg']._loaded_options = None
+    _globals['_UCUPDATEMODELVERSION'].fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_UCUPDATEMODELVERSION'].fields_by_name['version_arg']._loaded_options = None
+    _globals['_UCUPDATEMODELVERSION'].fields_by_name['version_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_UCFINALIZEMODELVERSION'].fields_by_name['full_name_arg']._loaded_options = None
+    _globals['_UCFINALIZEMODELVERSION'].fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_UCFINALIZEMODELVERSION'].fields_by_name['version_arg']._loaded_options = None
+    _globals['_UCFINALIZEMODELVERSION'].fields_by_name['version_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEREGISTEREDMODEL'].fields_by_name['full_name_arg']._loaded_options = None
+    _globals['_DELETEREGISTEREDMODEL'].fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEMODELVERSION'].fields_by_name['full_name_arg']._loaded_options = None
+    _globals['_DELETEMODELVERSION'].fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEMODELVERSION'].fields_by_name['version_arg']._loaded_options = None
+    _globals['_DELETEMODELVERSION'].fields_by_name['version_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_SETREGISTEREDMODELALIAS'].fields_by_name['full_name_arg']._loaded_options = None
+    _globals['_SETREGISTEREDMODELALIAS'].fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_SETREGISTEREDMODELALIAS'].fields_by_name['alias_arg']._loaded_options = None
+    _globals['_SETREGISTEREDMODELALIAS'].fields_by_name['alias_arg']._serialized_options = b'\370\206\031\001'
     _globals['_SETREGISTEREDMODELALIAS'].fields_by_name['version_num']._loaded_options = None
     _globals['_SETREGISTEREDMODELALIAS'].fields_by_name['version_num']._serialized_options = b'\370\206\031\001'
-    _globals['_DELETEREGISTEREDMODELALIAS'].fields_by_name['full_name']._loaded_options = None
-    _globals['_DELETEREGISTEREDMODELALIAS'].fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _globals['_DELETEREGISTEREDMODELALIAS'].fields_by_name['alias']._loaded_options = None
-    _globals['_DELETEREGISTEREDMODELALIAS'].fields_by_name['alias']._serialized_options = b'\370\206\031\001'
-    _globals['_MODELVERSIONSTATUS']._serialized_start=13910
-    _globals['_MODELVERSIONSTATUS']._serialized_end=14009
-    _globals['_MODELVERSIONOPERATION']._serialized_start=14012
-    _globals['_MODELVERSIONOPERATION']._serialized_end=14150
-    _globals['_STORAGEMODE']._serialized_start=14152
-    _globals['_STORAGEMODE']._serialized_end=14237
-    _globals['_SSEENCRYPTIONALGORITHM']._serialized_start=14239
-    _globals['_SSEENCRYPTIONALGORITHM']._serialized_end=14338
-    _globals['_DEPENDENCYTYPE']._serialized_start=14341
-    _globals['_DEPENDENCYTYPE']._serialized_end=14530
-    _globals['_TABLETYPE']._serialized_start=14532
-    _globals['_TABLETYPE']._serialized_end=14648
-    _globals['_MODELVERSIONLINEAGEDIRECTION']._serialized_start=14650
-    _globals['_MODELVERSIONLINEAGEDIRECTION']._serialized_end=14710
-    _globals['_TEMPORARYCREDENTIALOPERATION']._serialized_start=14712
-    _globals['_TEMPORARYCREDENTIALOPERATION']._serialized_end=14833
+    _globals['_DELETEREGISTEREDMODELALIAS'].fields_by_name['full_name_arg']._loaded_options = None
+    _globals['_DELETEREGISTEREDMODELALIAS'].fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEREGISTEREDMODELALIAS'].fields_by_name['alias_arg']._loaded_options = None
+    _globals['_DELETEREGISTEREDMODELALIAS'].fields_by_name['alias_arg']._serialized_options = b'\370\206\031\001'
+    _globals['_MODELVERSIONSTATUS']._serialized_start=14051
+    _globals['_MODELVERSIONSTATUS']._serialized_end=14150
+    _globals['_MODELVERSIONOPERATION']._serialized_start=14153
+    _globals['_MODELVERSIONOPERATION']._serialized_end=14291
+    _globals['_STORAGEMODE']._serialized_start=14293
+    _globals['_STORAGEMODE']._serialized_end=14378
+    _globals['_SSEENCRYPTIONALGORITHM']._serialized_start=14380
+    _globals['_SSEENCRYPTIONALGORITHM']._serialized_end=14479
+    _globals['_DEPENDENCYTYPE']._serialized_start=14482
+    _globals['_DEPENDENCYTYPE']._serialized_end=14671
+    _globals['_TABLETYPE']._serialized_start=14673
+    _globals['_TABLETYPE']._serialized_end=14789
+    _globals['_MODELVERSIONLINEAGEDIRECTION']._serialized_start=14791
+    _globals['_MODELVERSIONLINEAGEDIRECTION']._serialized_end=14851
+    _globals['_TEMPORARYCREDENTIALOPERATION']._serialized_start=14853
+    _globals['_TEMPORARYCREDENTIALOPERATION']._serialized_end=14974
     _globals['_REGISTEREDMODEL']._serialized_start=107
     _globals['_REGISTEREDMODEL']._serialized_end=469
     _globals['_REGISTEREDMODELALIAS']._serialized_start=471
@@ -388,64 +388,64 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_MODELVERSIONDEPENDENCY']._serialized_end=10035
     _globals['_DEPENDENCYLIST']._serialized_start=10037
     _globals['_DEPENDENCYLIST']._serialized_end=10123
-    _globals['_REGISTEREDMODELINFO']._serialized_start=10126
-    _globals['_REGISTEREDMODELINFO']._serialized_end=10646
-    _globals['_MODELVERSIONINFO']._serialized_start=10649
-    _globals['_MODELVERSIONINFO']._serialized_end=11438
-    _globals['_GETREGISTEREDMODEL']._serialized_start=11440
-    _globals['_GETREGISTEREDMODEL']._serialized_end=11534
-    _globals['_LISTREGISTEREDMODELS']._serialized_start=11537
-    _globals['_LISTREGISTEREDMODELS']._serialized_end=11776
-    _globals['_LISTREGISTEREDMODELS_RESPONSE']._serialized_start=11669
-    _globals['_LISTREGISTEREDMODELS_RESPONSE']._serialized_end=11776
-    _globals['_CREATEREGISTEREDMODEL']._serialized_start=11779
-    _globals['_CREATEREGISTEREDMODEL']._serialized_end=11972
-    _globals['_UPDATEREGISTEREDMODEL']._serialized_start=11974
-    _globals['_UPDATEREGISTEREDMODEL']._serialized_end=12084
-    _globals['_GETMODELVERSION']._serialized_start=12086
-    _globals['_GETMODELVERSION']._serialized_end=12200
-    _globals['_LISTMODELVERSIONS']._serialized_start=12203
-    _globals['_LISTMODELVERSIONS']._serialized_end=12415
-    _globals['_LISTMODELVERSIONS_RESPONSE']._serialized_start=12314
-    _globals['_LISTMODELVERSIONS_RESPONSE']._serialized_end=12415
-    _globals['_GETMODELVERSIONBYALIAS']._serialized_start=12417
-    _globals['_GETMODELVERSIONBYALIAS']._serialized_end=12512
-    _globals['_CREATEMODELVERSION']._serialized_start=12515
-    _globals['_CREATEMODELVERSION']._serialized_end=12870
-    _globals['_UPDATEMODELVERSION']._serialized_start=12872
-    _globals['_UPDATEMODELVERSION']._serialized_end=12957
-    _globals['_FINALIZEMODELVERSION']._serialized_start=12959
-    _globals['_FINALIZEMODELVERSION']._serialized_end=13029
-    _globals['_DELETEREGISTEREDMODEL']._serialized_start=13031
-    _globals['_DELETEREGISTEREDMODEL']._serialized_end=13106
-    _globals['_DELETEREGISTEREDMODEL_RESPONSE']._serialized_start=11669
-    _globals['_DELETEREGISTEREDMODEL_RESPONSE']._serialized_end=11679
-    _globals['_DELETEMODELVERSION']._serialized_start=13108
-    _globals['_DELETEMODELVERSION']._serialized_end=13188
-    _globals['_DELETEMODELVERSION_RESPONSE']._serialized_start=11669
-    _globals['_DELETEMODELVERSION_RESPONSE']._serialized_end=11679
-    _globals['_SETREGISTEREDMODELALIAS']._serialized_start=13190
-    _globals['_SETREGISTEREDMODELALIAS']._serialized_end=13300
-    _globals['_SETREGISTEREDMODELALIAS_RESPONSE']._serialized_start=11669
-    _globals['_SETREGISTEREDMODELALIAS_RESPONSE']._serialized_end=11679
-    _globals['_DELETEREGISTEREDMODELALIAS']._serialized_start=13302
-    _globals['_DELETEREGISTEREDMODELALIAS']._serialized_end=13388
-    _globals['_DELETEREGISTEREDMODELALIAS_RESPONSE']._serialized_start=11669
-    _globals['_DELETEREGISTEREDMODELALIAS_RESPONSE']._serialized_end=11679
-    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL']._serialized_start=13391
-    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL']._serialized_end=13597
-    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE']._serialized_start=11669
-    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE']._serialized_end=11679
-    _globals['_TAGASSIGNMENTSCHANGE']._serialized_start=13599
-    _globals['_TAGASSIGNMENTSCHANGE']._serialized_end=13692
-    _globals['_UPDATETAGSECURABLEASSIGNMENTS']._serialized_start=13694
-    _globals['_UPDATETAGSECURABLEASSIGNMENTS']._serialized_end=13800
-    _globals['_UPDATETAGSECURABLEASSIGNMENTS_RESPONSE']._serialized_start=11669
-    _globals['_UPDATETAGSECURABLEASSIGNMENTS_RESPONSE']._serialized_end=11679
-    _globals['_UPDATETAGSUBENTITYASSIGNMENTS']._serialized_start=13802
-    _globals['_UPDATETAGSUBENTITYASSIGNMENTS']._serialized_end=13908
-    _globals['_UPDATETAGSUBENTITYASSIGNMENTS_RESPONSE']._serialized_start=11669
-    _globals['_UPDATETAGSUBENTITYASSIGNMENTS_RESPONSE']._serialized_end=11679
+    _globals['_UCREGISTEREDMODELINFO']._serialized_start=10126
+    _globals['_UCREGISTEREDMODELINFO']._serialized_end=10648
+    _globals['_UCMODELVERSIONINFO']._serialized_start=10651
+    _globals['_UCMODELVERSIONINFO']._serialized_end=11442
+    _globals['_UCGETREGISTEREDMODEL']._serialized_start=11444
+    _globals['_UCGETREGISTEREDMODEL']._serialized_end=11544
+    _globals['_UCLISTREGISTEREDMODELS']._serialized_start=11547
+    _globals['_UCLISTREGISTEREDMODELS']._serialized_end=11679
+    _globals['_UCLISTREGISTEREDMODELSRESPONSE']._serialized_start=11682
+    _globals['_UCLISTREGISTEREDMODELSRESPONSE']._serialized_end=11813
+    _globals['_UCCREATEREGISTEREDMODEL']._serialized_start=11816
+    _globals['_UCCREATEREGISTEREDMODEL']._serialized_end=12011
+    _globals['_UCUPDATEREGISTEREDMODEL']._serialized_start=12013
+    _globals['_UCUPDATEREGISTEREDMODEL']._serialized_end=12129
+    _globals['_UCGETMODELVERSION']._serialized_start=12131
+    _globals['_UCGETMODELVERSION']._serialized_end=12255
+    _globals['_UCLISTMODELVERSIONS']._serialized_start=12257
+    _globals['_UCLISTMODELVERSIONS']._serialized_end=12372
+    _globals['_UCLISTMODELVERSIONSRESPONSE']._serialized_start=12374
+    _globals['_UCLISTMODELVERSIONSRESPONSE']._serialized_end=12496
+    _globals['_UCGETMODELVERSIONBYALIAS']._serialized_start=12498
+    _globals['_UCGETMODELVERSIONBYALIAS']._serialized_end=12603
+    _globals['_UCCREATEMODELVERSION']._serialized_start=12606
+    _globals['_UCCREATEMODELVERSION']._serialized_end=12963
+    _globals['_UCUPDATEMODELVERSION']._serialized_start=12965
+    _globals['_UCUPDATEMODELVERSION']._serialized_end=13060
+    _globals['_UCFINALIZEMODELVERSION']._serialized_start=13062
+    _globals['_UCFINALIZEMODELVERSION']._serialized_end=13142
+    _globals['_DELETEREGISTEREDMODEL']._serialized_start=13144
+    _globals['_DELETEREGISTEREDMODEL']._serialized_end=13223
+    _globals['_DELETEREGISTEREDMODEL_RESPONSE']._serialized_start=13213
+    _globals['_DELETEREGISTEREDMODEL_RESPONSE']._serialized_end=13223
+    _globals['_DELETEMODELVERSION']._serialized_start=13225
+    _globals['_DELETEMODELVERSION']._serialized_end=13313
+    _globals['_DELETEMODELVERSION_RESPONSE']._serialized_start=13213
+    _globals['_DELETEMODELVERSION_RESPONSE']._serialized_end=13223
+    _globals['_SETREGISTEREDMODELALIAS']._serialized_start=13315
+    _globals['_SETREGISTEREDMODELALIAS']._serialized_end=13433
+    _globals['_SETREGISTEREDMODELALIAS_RESPONSE']._serialized_start=13213
+    _globals['_SETREGISTEREDMODELALIAS_RESPONSE']._serialized_end=13223
+    _globals['_DELETEREGISTEREDMODELALIAS']._serialized_start=13435
+    _globals['_DELETEREGISTEREDMODELALIAS']._serialized_end=13529
+    _globals['_DELETEREGISTEREDMODELALIAS_RESPONSE']._serialized_start=13213
+    _globals['_DELETEREGISTEREDMODELALIAS_RESPONSE']._serialized_end=13223
+    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL']._serialized_start=13532
+    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL']._serialized_end=13738
+    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE']._serialized_start=13213
+    _globals['_GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE']._serialized_end=13223
+    _globals['_TAGASSIGNMENTSCHANGE']._serialized_start=13740
+    _globals['_TAGASSIGNMENTSCHANGE']._serialized_end=13833
+    _globals['_UPDATETAGSECURABLEASSIGNMENTS']._serialized_start=13835
+    _globals['_UPDATETAGSECURABLEASSIGNMENTS']._serialized_end=13941
+    _globals['_UPDATETAGSECURABLEASSIGNMENTS_RESPONSE']._serialized_start=13213
+    _globals['_UPDATETAGSECURABLEASSIGNMENTS_RESPONSE']._serialized_end=13223
+    _globals['_UPDATETAGSUBENTITYASSIGNMENTS']._serialized_start=13943
+    _globals['_UPDATETAGSUBENTITYASSIGNMENTS']._serialized_end=14049
+    _globals['_UPDATETAGSUBENTITYASSIGNMENTS_RESPONSE']._serialized_start=13213
+    _globals['_UPDATETAGSUBENTITYASSIGNMENTS_RESPONSE']._serialized_end=13223
   # @@protoc_insertion_point(module_scope)
 
 else:
@@ -468,7 +468,7 @@ else:
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%databricks_uc_registry_messages.proto\x12\x16mlflow.ucmodelregistry\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"\xea\x02\n\x0fRegisteredModel\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1a\n\x12\x63reation_timestamp\x18\x02 \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\x03 \x01(\x03\x12\x0f\n\x07user_id\x18\x04 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12=\n\x07\x61liases\x18\x06 \x03(\x0b\x32,.mlflow.ucmodelregistry.RegisteredModelAlias\x12\x38\n\x04tags\x18\x07 \x03(\x0b\x32*.mlflow.ucmodelregistry.RegisteredModelTag\x12\x19\n\x11\x64\x65ployment_job_id\x18\x08 \x01(\t\x12S\n\x14\x64\x65ployment_job_state\x18\t \x01(\x0e\x32\x35.mlflow.ucmodelregistry.DeploymentJobConnection.State\"6\n\x14RegisteredModelAlias\x12\r\n\x05\x61lias\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"0\n\x12RegisteredModelTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\")\n\nModelParam\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xb5\x01\n\x0bModelMetric\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\x12\x1a\n\x0c\x64\x61taset_name\x18\x05 \x01(\tB\x04\xf0\x86\x19\x03\x12\x1c\n\x0e\x64\x61taset_digest\x18\x06 \x01(\tB\x04\xf0\x86\x19\x03\x12\x16\n\x08model_id\x18\x07 \x01(\tB\x04\xf0\x86\x19\x03\x12\x14\n\x06run_id\x18\x08 \x01(\tB\x04\xf0\x86\x19\x03\"-\n\x0fModelVersionTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xac\x05\n\x0cModelVersion\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x1a\n\x12\x63reation_timestamp\x18\x03 \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\x04 \x01(\x03\x12\x0f\n\x07user_id\x18\x05 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x06 \x01(\t\x12\x0e\n\x06source\x18\x07 \x01(\t\x12\x0e\n\x06run_id\x18\x08 \x01(\t\x12\x19\n\x11run_experiment_id\x18\t \x01(\t\x12\x1e\n\x16run_tracking_server_id\x18\n \x01(\t\x12:\n\x06status\x18\x0b \x01(\x0e\x32*.mlflow.ucmodelregistry.ModelVersionStatus\x12\x16\n\x0estatus_message\x18\x0c \x01(\t\x12\x18\n\x10storage_location\x18\r \x01(\t\x12=\n\x07\x61liases\x18\x0e \x03(\x0b\x32,.mlflow.ucmodelregistry.RegisteredModelAlias\x12\x35\n\x04tags\x18\x0f \x03(\x0b\x32\'.mlflow.ucmodelregistry.ModelVersionTag\x12\x10\n\x08model_id\x18\x10 \x01(\t\x12\x38\n\x0cmodel_params\x18\x11 \x03(\x0b\x32\".mlflow.ucmodelregistry.ModelParam\x12:\n\rmodel_metrics\x18\x12 \x03(\x0b\x32#.mlflow.ucmodelregistry.ModelMetric\x12T\n\x14\x64\x65ployment_job_state\x18\x13 \x01(\x0b\x32\x36.mlflow.ucmodelregistry.ModelVersionDeploymentJobState\"\xa3\x01\n\x17\x44\x65ploymentJobConnection\"\x87\x01\n\x05State\x12/\n+DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED\x10\x00\x12\x0e\n\nNOT_SET_UP\x10\x01\x12\r\n\tCONNECTED\x10\x02\x12\r\n\tNOT_FOUND\x10\x03\x12\x1f\n\x1bREQUIRED_PARAMETERS_CHANGED\x10\x04\"\xb0\x03\n\x1eModelVersionDeploymentJobState\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12H\n\tjob_state\x18\x03 \x01(\x0e\x32\x35.mlflow.ucmodelregistry.DeploymentJobConnection.State\x12_\n\trun_state\x18\x04 \x01(\x0e\x32L.mlflow.ucmodelregistry.ModelVersionDeploymentJobState.DeploymentJobRunState\x12\x19\n\x11\x63urrent_task_name\x18\x05 \x01(\t\"\xa7\x01\n\x15\x44\x65ploymentJobRunState\x12(\n$DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED\x10\x00\x12!\n\x1dNO_VALID_DEPLOYMENT_JOB_FOUND\x10\x01\x12\x0b\n\x07RUNNING\x10\x02\x12\r\n\tSUCCEEDED\x10\x03\x12\n\n\x06\x46\x41ILED\x10\x04\x12\x0b\n\x07PENDING\x10\x05\x12\x0c\n\x08\x41PPROVAL\x10\x06\"\xe5\x03\n\x14TemporaryCredentials\x12\x46\n\x14\x61ws_temp_credentials\x18\x02 \x01(\x0b\x32&.mlflow.ucmodelregistry.AwsCredentialsH\x00\x12S\n\x19\x61zure_user_delegation_sas\x18\x03 \x01(\x0b\x32..mlflow.ucmodelregistry.AzureUserDelegationSASH\x00\x12@\n\x0fgcp_oauth_token\x18\x04 \x01(\x0b\x32%.mlflow.ucmodelregistry.GcpOauthTokenH\x00\x12\x44\n\x13r2_temp_credentials\x18\x05 \x01(\x0b\x32%.mlflow.ucmodelregistry.R2CredentialsH\x00\x12\x17\n\x0f\x65xpiration_time\x18\x01 \x01(\x03\x12\x39\n\x0cstorage_mode\x18\x06 \x01(\x0e\x32#.mlflow.ucmodelregistry.StorageMode\x12\x45\n\x12\x65ncryption_details\x18\x07 \x01(\x0b\x32).mlflow.ucmodelregistry.EncryptionDetailsB\r\n\x0b\x63redentials\"Y\n\x0e\x41wsCredentials\x12\x15\n\raccess_key_id\x18\x01 \x01(\t\x12\x19\n\x11secret_access_key\x18\x02 \x01(\t\x12\x15\n\rsession_token\x18\x03 \x01(\t\"+\n\x16\x41zureUserDelegationSAS\x12\x11\n\tsas_token\x18\x01 \x01(\t\"$\n\rGcpOauthToken\x12\x13\n\x0boauth_token\x18\x01 \x01(\t\"X\n\rR2Credentials\x12\x15\n\raccess_key_id\x18\x01 \x01(\t\x12\x19\n\x11secret_access_key\x18\x02 \x01(\t\x12\x15\n\rsession_token\x18\x03 \x01(\t\"~\n\x11\x45ncryptionDetails\x12N\n\x16sse_encryption_details\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.SseEncryptionDetailsH\x00\x42\x19\n\x17\x65ncryption_details_type\"r\n\x14SseEncryptionDetails\x12\x41\n\talgorithm\x18\x01 \x01(\x0e\x32..mlflow.ucmodelregistry.SseEncryptionAlgorithm\x12\x17\n\x0f\x61ws_kms_key_arn\x18\x02 \x01(\t\"\xd8\x01\n\x1c\x43reateRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x38\n\x04tags\x18\x02 \x03(\x0b\x32*.mlflow.ucmodelregistry.RegisteredModelTag\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x19\n\x11\x64\x65ployment_job_id\x18\x04 \x01(\t::\xe2?7\n5com.databricks.rpc.RPC[CreateRegisteredModelResponse]\"b\n\x1d\x43reateRegisteredModelResponse\x12\x41\n\x10registered_model\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\"\xb0\x01\n\x1cUpdateRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08new_name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x19\n\x11\x64\x65ployment_job_id\x18\x04 \x01(\t::\xe2?7\n5com.databricks.rpc.RPC[UpdateRegisteredModelResponse]\"b\n\x1dUpdateRegisteredModelResponse\x12\x41\n\x10registered_model\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\"n\n\x1c\x44\x65leteRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01::\xe2?7\n5com.databricks.rpc.RPC[DeleteRegisteredModelResponse]\"\x1f\n\x1d\x44\x65leteRegisteredModelResponse\"h\n\x19GetRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01:7\xe2?4\n2com.databricks.rpc.RPC[GetRegisteredModelResponse]\"_\n\x1aGetRegisteredModelResponse\x12\x41\n\x10registered_model\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\"\x8a\x01\n\x1dSearchRegisteredModelsRequest\x12\x18\n\x0bmax_results\x18\x01 \x01(\x03:\x03\x31\x30\x30\x12\x12\n\npage_token\x18\x02 \x01(\t:;\xe2?8\n6com.databricks.rpc.RPC[SearchRegisteredModelsResponse]\"}\n\x1eSearchRegisteredModelsResponse\x12\x42\n\x11registered_models\x18\x01 \x03(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"P\n\nDependency\x12\x34\n\x04type\x18\x01 \x01(\x0e\x32&.mlflow.ucmodelregistry.DependencyType\x12\x0c\n\x04name\x18\x02 \x01(\t\"\xea\x02\n\x19\x43reateModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06source\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x1e\n\x16run_tracking_server_id\x18\x05 \x01(\t\x12\x14\n\x0c\x66\x65\x61ture_deps\x18\x06 \x01(\t\x12\x35\n\x04tags\x18\x07 \x03(\x0b\x32\'.mlflow.ucmodelregistry.ModelVersionTag\x12\x46\n\x1amodel_version_dependencies\x18\x08 \x03(\x0b\x32\".mlflow.ucmodelregistry.Dependency\x12\x10\n\x08model_id\x18\t \x01(\t:7\xe2?4\n2com.databricks.rpc.RPC[CreateModelVersionResponse]\"Y\n\x1a\x43reateModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x94\x01\n\x19UpdateModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t:7\xe2?4\n2com.databricks.rpc.RPC[UpdateModelVersionResponse]\"Y\n\x1aUpdateModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x7f\n\x19\x44\x65leteModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:7\xe2?4\n2com.databricks.rpc.RPC[DeleteModelVersionResponse]\"\x1c\n\x1a\x44\x65leteModelVersionResponse\"y\n\x16GetModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:4\xe2?1\n/com.databricks.rpc.RPC[GetModelVersionResponse]\"V\n\x17GetModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x96\x01\n\x1aSearchModelVersionsRequest\x12\x0e\n\x06\x66ilter\x18\x01 \x01(\t\x12\x1a\n\x0bmax_results\x18\x02 \x01(\x03:\x05\x31\x30\x30\x30\x30\x12\x12\n\npage_token\x18\x03 \x01(\t:8\xe2?5\n3com.databricks.rpc.RPC[SearchModelVersionsResponse]\"t\n\x1bSearchModelVersionsResponse\x12<\n\x0emodel_versions\x18\x01 \x03(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\xf3\x01\n/GenerateTemporaryModelVersionCredentialsRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x46\n\toperation\x18\x03 \x01(\x0e\x32-.mlflow.ucmodelregistry.ModelVersionOperationB\x04\xf8\x86\x19\x01:M\xe2?J\nHcom.databricks.rpc.RPC[GenerateTemporaryModelVersionCredentialsResponse]\"u\n0GenerateTemporaryModelVersionCredentialsResponse\x12\x41\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.TemporaryCredentials\"\x8f\x01\n!GetModelVersionDownloadUriRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:?\xe2?<\n:com.databricks.rpc.RPC[GetModelVersionDownloadUriResponse]\":\n\"GetModelVersionDownloadUriResponse\x12\x14\n\x0c\x61rtifact_uri\x18\x01 \x01(\t\"\x83\x01\n\x1b\x46inalizeModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:9\xe2?6\n4com.databricks.rpc.RPC[FinalizeModelVersionResponse]\"[\n\x1c\x46inalizeModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x9e\x01\n\x1eSetRegisteredModelAliasRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01:<\xe2?9\n7com.databricks.rpc.RPC[SetRegisteredModelAliasResponse]\"!\n\x1fSetRegisteredModelAliasResponse\"\x8d\x01\n!DeleteRegisteredModelAliasRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:?\xe2?<\n:com.databricks.rpc.RPC[DeleteRegisteredModelAliasResponse]\"$\n\"DeleteRegisteredModelAliasResponse\"\x90\x01\n\x1cSetRegisteredModelTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05value\x18\x03 \x01(\t::\xe2?7\n5com.databricks.rpc.RPC[SetRegisteredModelTagResponse]\"\x1f\n\x1dSetRegisteredModelTagResponse\"\x87\x01\n\x1f\x44\x65leteRegisteredModelTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:=\xe2?:\n8com.databricks.rpc.RPC[DeleteRegisteredModelTagResponse]\"\"\n DeleteRegisteredModelTagResponse\"\xa1\x01\n\x19SetModelVersionTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05value\x18\x04 \x01(\t:7\xe2?4\n2com.databricks.rpc.RPC[SetModelVersionTagResponse]\"\x1c\n\x1aSetModelVersionTagResponse\"\x98\x01\n\x1c\x44\x65leteModelVersionTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01::\xe2?7\n5com.databricks.rpc.RPC[DeleteModelVersionTagResponse]\"\x1f\n\x1d\x44\x65leteModelVersionTagResponse\"\x85\x01\n\x1dGetModelVersionByAliasRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:;\xe2?8\n6com.databricks.rpc.RPC[GetModelVersionByAliasResponse]\"]\n\x1eGetModelVersionByAliasResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\xa9\x01\n\x06\x45ntity\x12*\n\x03job\x18\x01 \x01(\x0b\x32\x1b.mlflow.ucmodelregistry.JobH\x00\x12\x34\n\x08notebook\x18\x02 \x01(\x0b\x32 .mlflow.ucmodelregistry.NotebookH\x00\x12\x34\n\x08pipeline\x18\x03 \x01(\x0b\x32 .mlflow.ucmodelregistry.PipelineH\x00\x42\x07\n\x05value\";\n\x08Pipeline\x12\x13\n\x0bpipeline_id\x18\x01 \x01(\t\x12\x1a\n\x12pipeline_update_id\x18\x02 \x01(\t\"L\n\x03Job\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08task_key\x18\x02 \x01(\t\x12\x12\n\njob_run_id\x18\x03 \x01(\t\x12\x13\n\x0btask_run_id\x18\x04 \x01(\t\"C\n\x08Notebook\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\ncommand_id\x18\x02 \x01(\t\x12\x17\n\x0fnotebook_run_id\x18\x03 \x01(\t\"p\n\x05Table\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x35\n\ntable_type\x18\x02 \x01(\x0e\x32!.mlflow.ucmodelregistry.TableType\x12\x10\n\x08location\x18\x03 \x01(\t\x12\x10\n\x08table_id\x18\x04 \x01(\t\"D\n\tSecurable\x12.\n\x05table\x18\x01 \x01(\x0b\x32\x1d.mlflow.ucmodelregistry.TableH\x00\x42\x07\n\x05value\"\x84\x01\n\x07Lineage\x12;\n\x10target_securable\x18\x04 \x01(\x0b\x32!.mlflow.ucmodelregistry.Securable\x12<\n\x11source_securables\x18\x05 \x03(\x0b\x32!.mlflow.ucmodelregistry.Securable\"x\n\x11LineageHeaderInfo\x12\x30\n\x08\x65ntities\x18\x01 \x03(\x0b\x32\x1e.mlflow.ucmodelregistry.Entity\x12\x31\n\x08lineages\x18\x02 \x03(\x0b\x32\x1f.mlflow.ucmodelregistry.Lineage\"\x9a\x01\n\x17ModelVersionLineageInfo\x12\x30\n\x08\x65ntities\x18\x01 \x03(\x0b\x32\x1e.mlflow.ucmodelregistry.Entity\x12M\n\tdirection\x18\x02 \x01(\x0e\x32\x34.mlflow.ucmodelregistry.ModelVersionLineageDirectionB\x04\xf8\x86\x19\x01\"\x9a\x02\n\x1e\x45mitModelVersionLineageRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12Y\n\x1amodel_version_lineage_info\x18\x03 \x01(\x0b\x32/.mlflow.ucmodelregistry.ModelVersionLineageInfoB\x04\xf8\x86\x19\x01\x12\x34\n\tsecurable\x18\x04 \x01(\x0b\x32!.mlflow.ucmodelregistry.Securable:<\xe2?9\n7com.databricks.rpc.RPC[EmitModelVersionLineageResponse]\"!\n\x1f\x45mitModelVersionLineageResponse\"\x8c\x01\n5IsDatabricksSdkModelsArtifactRepositoryEnabledRequest:S\xe2?P\nNcom.databricks.rpc.RPC[IsDatabricksSdkModelsArtifactRepositoryEnabledResponse]\"|\n6IsDatabricksSdkModelsArtifactRepositoryEnabledResponse\x12\x42\n4is_databricks_sdk_models_artifact_repository_enabled\x18\x01 \x01(\x08\x42\x04\xf8\x86\x19\x01\")\n\x0bTagKeyValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x8e\x01\n\x18RegisteredModelAliasInfo\x12\x12\n\nalias_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_num\x18\x02 \x01(\x03\x12\n\n\x02id\x18\x03 \x01(\t\x12\x12\n\nmodel_name\x18\x04 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x05 \x01(\t\x12\x13\n\x0bschema_name\x18\x06 \x01(\t\"*\n\x0fTableDependency\x12\x17\n\x0ftable_full_name\x18\x01 \x01(\t\"0\n\x12\x46unctionDependency\x12\x1a\n\x12\x66unction_full_name\x18\x01 \x01(\t\"/\n\x14\x43onnectionDependency\x12\x17\n\x0f\x63onnection_name\x18\x01 \x01(\t\"\xdf\x01\n\x16ModelVersionDependency\x12\x38\n\x05table\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.TableDependencyH\x00\x12>\n\x08\x66unction\x18\x02 \x01(\x0b\x32*.mlflow.ucmodelregistry.FunctionDependencyH\x00\x12\x42\n\nconnection\x18\x03 \x01(\x0b\x32,.mlflow.ucmodelregistry.ConnectionDependencyH\x00\x42\x07\n\x05value\"V\n\x0e\x44\x65pendencyList\x12\x44\n\x0c\x64\x65pendencies\x18\x01 \x03(\x0b\x32..mlflow.ucmodelregistry.ModelVersionDependency\"\x88\x04\n\x13RegisteredModelInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\r\n\x05owner\x18\x04 \x01(\t\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12\x18\n\x10storage_location\x18\x06 \x01(\t\x12\x14\n\x0cmetastore_id\x18\x07 \x01(\t\x12\x11\n\tfull_name\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\x0b \x01(\x03\x12\x12\n\ncreated_by\x18\x0c \x01(\t\x12\x12\n\nupdated_at\x18\r \x01(\x03\x12\x12\n\nupdated_by\x18\x0e \x01(\t\x12\n\n\x02id\x18\x12 \x01(\t\x12\x41\n\x07\x61liases\x18\x13 \x03(\x0b\x32\x30.mlflow.ucmodelregistry.RegisteredModelAliasInfo\x12\x31\n\x04tags\x18\x14 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12\x13\n\x0b\x62rowse_only\x18\x15 \x01(\x08\x12\x19\n\x11\x64\x65ployment_job_id\x18\x1b \x01(\t\x12S\n\x14\x64\x65ployment_job_state\x18\x1c \x01(\x0e\x32\x35.mlflow.ucmodelregistry.DeploymentJobConnection.State\"\x95\x06\n\x10ModelVersionInfo\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x0e\n\x06source\x18\x05 \x01(\t\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x18\n\x10run_workspace_id\x18\x07 \x01(\x03\x12:\n\x06status\x18\x08 \x01(\x0e\x32*.mlflow.ucmodelregistry.ModelVersionStatus\x12\x0f\n\x07version\x18\t \x01(\x03\x12\x18\n\x10storage_location\x18\n \x01(\t\x12\x14\n\x0cmetastore_id\x18\x0b \x01(\t\x12\x12\n\ncreated_at\x18\x0c \x01(\x03\x12\x12\n\ncreated_by\x18\r \x01(\t\x12\x12\n\nupdated_at\x18\x0e \x01(\x03\x12\x12\n\nupdated_by\x18\x0f \x01(\t\x12\n\n\x02id\x18\x10 \x01(\t\x12\x41\n\x07\x61liases\x18\x11 \x03(\x0b\x32\x30.mlflow.ucmodelregistry.RegisteredModelAliasInfo\x12\x31\n\x04tags\x18\x12 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12J\n\x1amodel_version_dependencies\x18\x13 \x01(\x0b\x32&.mlflow.ucmodelregistry.DependencyList\x12\x10\n\x08model_id\x18\x15 \x01(\t\x12\x38\n\x0cmodel_params\x18\x16 \x03(\x0b\x32\".mlflow.ucmodelregistry.ModelParam\x12:\n\rmodel_metrics\x18\x17 \x03(\x0b\x32#.mlflow.ucmodelregistry.ModelMetric\x12T\n\x14\x64\x65ployment_job_state\x18\x18 \x01(\x0b\x32\x36.mlflow.ucmodelregistry.ModelVersionDeploymentJobState\"^\n\x12GetRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\x0finclude_aliases\x18\x02 \x01(\x08\x12\x16\n\x0einclude_browse\x18\x03 \x01(\x08\"\xef\x01\n\x14ListRegisteredModels\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x16\n\x0einclude_browse\x18\x03 \x01(\x08\x12\x13\n\x0bmax_results\x18\x05 \x01(\x03\x12\x12\n\npage_token\x18\x06 \x01(\t\x1ak\n\x08Response\x12\x46\n\x11registered_models\x18\x01 \x03(\x0b\x32+.mlflow.ucmodelregistry.RegisteredModelInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\xc1\x01\n\x15\x43reateRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1a\n\x0c\x63\x61talog_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bschema_name\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12\x31\n\x04tags\x18\x14 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12\x19\n\x11\x64\x65ployment_job_id\x18\x1e \x01(\t\"n\n\x15UpdateRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x02 \x01(\t\x12\x10\n\x08new_name\x18\x03 \x01(\t\x12\x19\n\x11\x64\x65ployment_job_id\x18\x1e \x01(\t\"r\n\x0fGetModelVersion\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x17\n\x0finclude_aliases\x18\x03 \x01(\x08\x12\x16\n\x0einclude_browse\x18\x04 \x01(\x08\"\xd4\x01\n\x11ListModelVersions\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0bmax_results\x18\x04 \x01(\x03\x12\x12\n\npage_token\x18\x05 \x01(\t\x12\x16\n\x0einclude_browse\x18\x06 \x01(\x08\x1a\x65\n\x08Response\x12@\n\x0emodel_versions\x18\x01 \x03(\x0b\x32(.mlflow.ucmodelregistry.ModelVersionInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"_\n\x16GetModelVersionByAlias\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\x0finclude_aliases\x18\x03 \x01(\x08\"\xe3\x02\n\x12\x43reateModelVersion\x12\x18\n\nmodel_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1a\n\x0c\x63\x61talog_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bschema_name\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x14\n\x06source\x18\x05 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x31\n\x04tags\x18\x12 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12J\n\x1amodel_version_dependencies\x18\x13 \x01(\x0b\x32&.mlflow.ucmodelregistry.DependencyList\x12\x10\n\x08model_id\x18\x1e \x01(\t\x12\x14\n\x0c\x66\x65\x61ture_deps\x18\x1f \x01(\t\x12\x1e\n\x16run_tracking_server_id\x18  \x01(\t\"U\n\x12UpdateModelVersion\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x03 \x01(\t\"F\n\x14\x46inalizeModelVersion\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\"K\n\x15\x44\x65leteRegisteredModel\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05\x66orce\x18\x02 \x01(\x08\x1a\n\n\x08Response\"P\n\x12\x44\x65leteModelVersion\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"n\n\x17SetRegisteredModelAlias\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bversion_num\x18\x03 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"V\n\x1a\x44\x65leteRegisteredModelAlias\x12\x17\n\tfull_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"\xce\x01\n\'GenerateTemporaryModelVersionCredential\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x12\n\nmodel_name\x18\x03 \x01(\t\x12\x0f\n\x07version\x18\x04 \x01(\x03\x12G\n\toperation\x18\x05 \x01(\x0e\x32\x34.mlflow.ucmodelregistry.TemporaryCredentialOperation\x1a\n\n\x08Response\"]\n\x14TagAssignmentsChange\x12\x0e\n\x06remove\x18\x03 \x03(\t\x12\x35\n\x08\x61\x64\x64_tags\x18\x04 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\"j\n\x1dUpdateTagSecurableAssignments\x12=\n\x07\x63hanges\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.TagAssignmentsChange\x1a\n\n\x08Response\"j\n\x1dUpdateTagSubentityAssignments\x12=\n\x07\x63hanges\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.TagAssignmentsChange\x1a\n\n\x08Response*c\n\x12ModelVersionStatus\x12\x0f\n\x0bUNSPECIFIED\x10\x00\x12\x18\n\x14PENDING_REGISTRATION\x10\x01\x12\x17\n\x13\x46\x41ILED_REGISTRATION\x10\x02\x12\t\n\x05READY\x10\x03*\x8a\x01\n\x15ModelVersionOperation\x12\'\n#MODEL_VERSION_OPERATION_UNSPECIFIED\x10\x00\x12 \n\x1cMODEL_VERSION_OPERATION_READ\x10\x01\x12&\n\"MODEL_VERSION_OPERATION_READ_WRITE\x10\x02*U\n\x0bStorageMode\x12\x1c\n\x18STORAGE_MODE_UNSPECIFIED\x10\x00\x12\x13\n\x0f\x43USTOMER_HOSTED\x10\x01\x12\x13\n\x0f\x44\x45\x46\x41ULT_STORAGE\x10\x02*c\n\x16SseEncryptionAlgorithm\x12(\n$SSE_ENCRYPTION_ALGORITHM_UNSPECIFIED\x10\x00\x12\x0e\n\nAWS_SSE_S3\x10\x01\x12\x0f\n\x0b\x41WS_SSE_KMS\x10\x02*\xbd\x01\n\x0e\x44\x65pendencyType\x12\x1f\n\x1b\x44\x45PENDENCY_TYPE_UNSPECIFIED\x10\x00\x12\x1b\n\x17\x44\x41TABRICKS_VECTOR_INDEX\x10\x01\x12\x1d\n\x19\x44\x41TABRICKS_MODEL_ENDPOINT\x10\x02\x12\x1a\n\x16\x44\x41TABRICKS_UC_FUNCTION\x10\x03\x12\x1c\n\x18\x44\x41TABRICKS_UC_CONNECTION\x10\x04\x12\x14\n\x10\x44\x41TABRICKS_TABLE\x10\x05*t\n\tTableType\x12\t\n\x05TABLE\x10\x00\x12\x12\n\x0ePERSISTED_VIEW\x10\x01\x12\r\n\tTEMP_VIEW\x10\x02\x12\x15\n\x11MATERIALIZED_VIEW\x10\x03\x12\x18\n\x14STREAMING_LIVE_TABLE\x10\x04\x12\x08\n\x04PATH\x10\x05*<\n\x1cModelVersionLineageDirection\x12\x0c\n\x08UPSTREAM\x10\x00\x12\x0e\n\nDOWNSTREAM\x10\x01*y\n\x1cTemporaryCredentialOperation\x12#\n\x1fUNKNOWN_MODEL_VERSION_OPERATION\x10\x00\x12\x16\n\x12READ_MODEL_VERSION\x10\x01\x12\x1c\n\x18READ_WRITE_MODEL_VERSION\x10\x02\x42\x32\n(com.databricks.api.proto.ucmodelregistry\xa0\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%databricks_uc_registry_messages.proto\x12\x16mlflow.ucmodelregistry\x1a\x10\x64\x61tabricks.proto\x1a\x15scalapb/scalapb.proto\"\xea\x02\n\x0fRegisteredModel\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x1a\n\x12\x63reation_timestamp\x18\x02 \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\x03 \x01(\x03\x12\x0f\n\x07user_id\x18\x04 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x05 \x01(\t\x12=\n\x07\x61liases\x18\x06 \x03(\x0b\x32,.mlflow.ucmodelregistry.RegisteredModelAlias\x12\x38\n\x04tags\x18\x07 \x03(\x0b\x32*.mlflow.ucmodelregistry.RegisteredModelTag\x12\x19\n\x11\x64\x65ployment_job_id\x18\x08 \x01(\t\x12S\n\x14\x64\x65ployment_job_state\x18\t \x01(\x0e\x32\x35.mlflow.ucmodelregistry.DeploymentJobConnection.State\"6\n\x14RegisteredModelAlias\x12\r\n\x05\x61lias\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"0\n\x12RegisteredModelTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\")\n\nModelParam\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xb5\x01\n\x0bModelMetric\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\x12\x1a\n\x0c\x64\x61taset_name\x18\x05 \x01(\tB\x04\xf0\x86\x19\x03\x12\x1c\n\x0e\x64\x61taset_digest\x18\x06 \x01(\tB\x04\xf0\x86\x19\x03\x12\x16\n\x08model_id\x18\x07 \x01(\tB\x04\xf0\x86\x19\x03\x12\x14\n\x06run_id\x18\x08 \x01(\tB\x04\xf0\x86\x19\x03\"-\n\x0fModelVersionTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xac\x05\n\x0cModelVersion\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\x12\x1a\n\x12\x63reation_timestamp\x18\x03 \x01(\x03\x12\x1e\n\x16last_updated_timestamp\x18\x04 \x01(\x03\x12\x0f\n\x07user_id\x18\x05 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x06 \x01(\t\x12\x0e\n\x06source\x18\x07 \x01(\t\x12\x0e\n\x06run_id\x18\x08 \x01(\t\x12\x19\n\x11run_experiment_id\x18\t \x01(\t\x12\x1e\n\x16run_tracking_server_id\x18\n \x01(\t\x12:\n\x06status\x18\x0b \x01(\x0e\x32*.mlflow.ucmodelregistry.ModelVersionStatus\x12\x16\n\x0estatus_message\x18\x0c \x01(\t\x12\x18\n\x10storage_location\x18\r \x01(\t\x12=\n\x07\x61liases\x18\x0e \x03(\x0b\x32,.mlflow.ucmodelregistry.RegisteredModelAlias\x12\x35\n\x04tags\x18\x0f \x03(\x0b\x32\'.mlflow.ucmodelregistry.ModelVersionTag\x12\x10\n\x08model_id\x18\x10 \x01(\t\x12\x38\n\x0cmodel_params\x18\x11 \x03(\x0b\x32\".mlflow.ucmodelregistry.ModelParam\x12:\n\rmodel_metrics\x18\x12 \x03(\x0b\x32#.mlflow.ucmodelregistry.ModelMetric\x12T\n\x14\x64\x65ployment_job_state\x18\x13 \x01(\x0b\x32\x36.mlflow.ucmodelregistry.ModelVersionDeploymentJobState\"\xa3\x01\n\x17\x44\x65ploymentJobConnection\"\x87\x01\n\x05State\x12/\n+DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED\x10\x00\x12\x0e\n\nNOT_SET_UP\x10\x01\x12\r\n\tCONNECTED\x10\x02\x12\r\n\tNOT_FOUND\x10\x03\x12\x1f\n\x1bREQUIRED_PARAMETERS_CHANGED\x10\x04\"\xb0\x03\n\x1eModelVersionDeploymentJobState\x12\x0e\n\x06job_id\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12H\n\tjob_state\x18\x03 \x01(\x0e\x32\x35.mlflow.ucmodelregistry.DeploymentJobConnection.State\x12_\n\trun_state\x18\x04 \x01(\x0e\x32L.mlflow.ucmodelregistry.ModelVersionDeploymentJobState.DeploymentJobRunState\x12\x19\n\x11\x63urrent_task_name\x18\x05 \x01(\t\"\xa7\x01\n\x15\x44\x65ploymentJobRunState\x12(\n$DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED\x10\x00\x12!\n\x1dNO_VALID_DEPLOYMENT_JOB_FOUND\x10\x01\x12\x0b\n\x07RUNNING\x10\x02\x12\r\n\tSUCCEEDED\x10\x03\x12\n\n\x06\x46\x41ILED\x10\x04\x12\x0b\n\x07PENDING\x10\x05\x12\x0c\n\x08\x41PPROVAL\x10\x06\"\xe5\x03\n\x14TemporaryCredentials\x12\x46\n\x14\x61ws_temp_credentials\x18\x02 \x01(\x0b\x32&.mlflow.ucmodelregistry.AwsCredentialsH\x00\x12S\n\x19\x61zure_user_delegation_sas\x18\x03 \x01(\x0b\x32..mlflow.ucmodelregistry.AzureUserDelegationSASH\x00\x12@\n\x0fgcp_oauth_token\x18\x04 \x01(\x0b\x32%.mlflow.ucmodelregistry.GcpOauthTokenH\x00\x12\x44\n\x13r2_temp_credentials\x18\x05 \x01(\x0b\x32%.mlflow.ucmodelregistry.R2CredentialsH\x00\x12\x17\n\x0f\x65xpiration_time\x18\x01 \x01(\x03\x12\x39\n\x0cstorage_mode\x18\x06 \x01(\x0e\x32#.mlflow.ucmodelregistry.StorageMode\x12\x45\n\x12\x65ncryption_details\x18\x07 \x01(\x0b\x32).mlflow.ucmodelregistry.EncryptionDetailsB\r\n\x0b\x63redentials\"Y\n\x0e\x41wsCredentials\x12\x15\n\raccess_key_id\x18\x01 \x01(\t\x12\x19\n\x11secret_access_key\x18\x02 \x01(\t\x12\x15\n\rsession_token\x18\x03 \x01(\t\"+\n\x16\x41zureUserDelegationSAS\x12\x11\n\tsas_token\x18\x01 \x01(\t\"$\n\rGcpOauthToken\x12\x13\n\x0boauth_token\x18\x01 \x01(\t\"X\n\rR2Credentials\x12\x15\n\raccess_key_id\x18\x01 \x01(\t\x12\x19\n\x11secret_access_key\x18\x02 \x01(\t\x12\x15\n\rsession_token\x18\x03 \x01(\t\"~\n\x11\x45ncryptionDetails\x12N\n\x16sse_encryption_details\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.SseEncryptionDetailsH\x00\x42\x19\n\x17\x65ncryption_details_type\"r\n\x14SseEncryptionDetails\x12\x41\n\talgorithm\x18\x01 \x01(\x0e\x32..mlflow.ucmodelregistry.SseEncryptionAlgorithm\x12\x17\n\x0f\x61ws_kms_key_arn\x18\x02 \x01(\t\"\xd8\x01\n\x1c\x43reateRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x38\n\x04tags\x18\x02 \x03(\x0b\x32*.mlflow.ucmodelregistry.RegisteredModelTag\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t\x12\x19\n\x11\x64\x65ployment_job_id\x18\x04 \x01(\t::\xe2?7\n5com.databricks.rpc.RPC[CreateRegisteredModelResponse]\"b\n\x1d\x43reateRegisteredModelResponse\x12\x41\n\x10registered_model\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\"\xb0\x01\n\x1cUpdateRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08new_name\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x02 \x01(\t\x12\x19\n\x11\x64\x65ployment_job_id\x18\x04 \x01(\t::\xe2?7\n5com.databricks.rpc.RPC[UpdateRegisteredModelResponse]\"b\n\x1dUpdateRegisteredModelResponse\x12\x41\n\x10registered_model\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\"n\n\x1c\x44\x65leteRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01::\xe2?7\n5com.databricks.rpc.RPC[DeleteRegisteredModelResponse]\"\x1f\n\x1d\x44\x65leteRegisteredModelResponse\"h\n\x19GetRegisteredModelRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01:7\xe2?4\n2com.databricks.rpc.RPC[GetRegisteredModelResponse]\"_\n\x1aGetRegisteredModelResponse\x12\x41\n\x10registered_model\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\"\x8a\x01\n\x1dSearchRegisteredModelsRequest\x12\x18\n\x0bmax_results\x18\x01 \x01(\x03:\x03\x31\x30\x30\x12\x12\n\npage_token\x18\x02 \x01(\t:;\xe2?8\n6com.databricks.rpc.RPC[SearchRegisteredModelsResponse]\"}\n\x1eSearchRegisteredModelsResponse\x12\x42\n\x11registered_models\x18\x01 \x03(\x0b\x32\'.mlflow.ucmodelregistry.RegisteredModel\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"P\n\nDependency\x12\x34\n\x04type\x18\x01 \x01(\x0e\x32&.mlflow.ucmodelregistry.DependencyType\x12\x0c\n\x04name\x18\x02 \x01(\t\"\xea\x02\n\x19\x43reateModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06source\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x13\n\x0b\x64\x65scription\x18\x04 \x01(\t\x12\x1e\n\x16run_tracking_server_id\x18\x05 \x01(\t\x12\x14\n\x0c\x66\x65\x61ture_deps\x18\x06 \x01(\t\x12\x35\n\x04tags\x18\x07 \x03(\x0b\x32\'.mlflow.ucmodelregistry.ModelVersionTag\x12\x46\n\x1amodel_version_dependencies\x18\x08 \x03(\x0b\x32\".mlflow.ucmodelregistry.Dependency\x12\x10\n\x08model_id\x18\t \x01(\t:7\xe2?4\n2com.databricks.rpc.RPC[CreateModelVersionResponse]\"Y\n\x1a\x43reateModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x94\x01\n\x19UpdateModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0b\x64\x65scription\x18\x03 \x01(\t:7\xe2?4\n2com.databricks.rpc.RPC[UpdateModelVersionResponse]\"Y\n\x1aUpdateModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x7f\n\x19\x44\x65leteModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:7\xe2?4\n2com.databricks.rpc.RPC[DeleteModelVersionResponse]\"\x1c\n\x1a\x44\x65leteModelVersionResponse\"y\n\x16GetModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:4\xe2?1\n/com.databricks.rpc.RPC[GetModelVersionResponse]\"V\n\x17GetModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x96\x01\n\x1aSearchModelVersionsRequest\x12\x0e\n\x06\x66ilter\x18\x01 \x01(\t\x12\x1a\n\x0bmax_results\x18\x02 \x01(\x03:\x05\x31\x30\x30\x30\x30\x12\x12\n\npage_token\x18\x03 \x01(\t:8\xe2?5\n3com.databricks.rpc.RPC[SearchModelVersionsResponse]\"t\n\x1bSearchModelVersionsResponse\x12<\n\x0emodel_versions\x18\x01 \x03(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\xf3\x01\n/GenerateTemporaryModelVersionCredentialsRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x46\n\toperation\x18\x03 \x01(\x0e\x32-.mlflow.ucmodelregistry.ModelVersionOperationB\x04\xf8\x86\x19\x01:M\xe2?J\nHcom.databricks.rpc.RPC[GenerateTemporaryModelVersionCredentialsResponse]\"u\n0GenerateTemporaryModelVersionCredentialsResponse\x12\x41\n\x0b\x63redentials\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.TemporaryCredentials\"\x8f\x01\n!GetModelVersionDownloadUriRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:?\xe2?<\n:com.databricks.rpc.RPC[GetModelVersionDownloadUriResponse]\":\n\"GetModelVersionDownloadUriResponse\x12\x14\n\x0c\x61rtifact_uri\x18\x01 \x01(\t\"\x83\x01\n\x1b\x46inalizeModelVersionRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:9\xe2?6\n4com.databricks.rpc.RPC[FinalizeModelVersionResponse]\"[\n\x1c\x46inalizeModelVersionResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\x9e\x01\n\x1eSetRegisteredModelAliasRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01:<\xe2?9\n7com.databricks.rpc.RPC[SetRegisteredModelAliasResponse]\"!\n\x1fSetRegisteredModelAliasResponse\"\x8d\x01\n!DeleteRegisteredModelAliasRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:?\xe2?<\n:com.databricks.rpc.RPC[DeleteRegisteredModelAliasResponse]\"$\n\"DeleteRegisteredModelAliasResponse\"\x90\x01\n\x1cSetRegisteredModelTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05value\x18\x03 \x01(\t::\xe2?7\n5com.databricks.rpc.RPC[SetRegisteredModelTagResponse]\"\x1f\n\x1dSetRegisteredModelTagResponse\"\x87\x01\n\x1f\x44\x65leteRegisteredModelTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:=\xe2?:\n8com.databricks.rpc.RPC[DeleteRegisteredModelTagResponse]\"\"\n DeleteRegisteredModelTagResponse\"\xa1\x01\n\x19SetModelVersionTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05value\x18\x04 \x01(\t:7\xe2?4\n2com.databricks.rpc.RPC[SetModelVersionTagResponse]\"\x1c\n\x1aSetModelVersionTagResponse\"\x98\x01\n\x1c\x44\x65leteModelVersionTagRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01::\xe2?7\n5com.databricks.rpc.RPC[DeleteModelVersionTagResponse]\"\x1f\n\x1d\x44\x65leteModelVersionTagResponse\"\x85\x01\n\x1dGetModelVersionByAliasRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05\x61lias\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01:;\xe2?8\n6com.databricks.rpc.RPC[GetModelVersionByAliasResponse]\"]\n\x1eGetModelVersionByAliasResponse\x12;\n\rmodel_version\x18\x01 \x01(\x0b\x32$.mlflow.ucmodelregistry.ModelVersion\"\xa9\x01\n\x06\x45ntity\x12*\n\x03job\x18\x01 \x01(\x0b\x32\x1b.mlflow.ucmodelregistry.JobH\x00\x12\x34\n\x08notebook\x18\x02 \x01(\x0b\x32 .mlflow.ucmodelregistry.NotebookH\x00\x12\x34\n\x08pipeline\x18\x03 \x01(\x0b\x32 .mlflow.ucmodelregistry.PipelineH\x00\x42\x07\n\x05value\";\n\x08Pipeline\x12\x13\n\x0bpipeline_id\x18\x01 \x01(\t\x12\x1a\n\x12pipeline_update_id\x18\x02 \x01(\t\"L\n\x03Job\x12\n\n\x02id\x18\x01 \x01(\t\x12\x10\n\x08task_key\x18\x02 \x01(\t\x12\x12\n\njob_run_id\x18\x03 \x01(\t\x12\x13\n\x0btask_run_id\x18\x04 \x01(\t\"C\n\x08Notebook\x12\n\n\x02id\x18\x01 \x01(\t\x12\x12\n\ncommand_id\x18\x02 \x01(\t\x12\x17\n\x0fnotebook_run_id\x18\x03 \x01(\t\"p\n\x05Table\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x35\n\ntable_type\x18\x02 \x01(\x0e\x32!.mlflow.ucmodelregistry.TableType\x12\x10\n\x08location\x18\x03 \x01(\t\x12\x10\n\x08table_id\x18\x04 \x01(\t\"D\n\tSecurable\x12.\n\x05table\x18\x01 \x01(\x0b\x32\x1d.mlflow.ucmodelregistry.TableH\x00\x42\x07\n\x05value\"\x84\x01\n\x07Lineage\x12;\n\x10target_securable\x18\x04 \x01(\x0b\x32!.mlflow.ucmodelregistry.Securable\x12<\n\x11source_securables\x18\x05 \x03(\x0b\x32!.mlflow.ucmodelregistry.Securable\"x\n\x11LineageHeaderInfo\x12\x30\n\x08\x65ntities\x18\x01 \x03(\x0b\x32\x1e.mlflow.ucmodelregistry.Entity\x12\x31\n\x08lineages\x18\x02 \x03(\x0b\x32\x1f.mlflow.ucmodelregistry.Lineage\"\x9a\x01\n\x17ModelVersionLineageInfo\x12\x30\n\x08\x65ntities\x18\x01 \x03(\x0b\x32\x1e.mlflow.ucmodelregistry.Entity\x12M\n\tdirection\x18\x02 \x01(\x0e\x32\x34.mlflow.ucmodelregistry.ModelVersionLineageDirectionB\x04\xf8\x86\x19\x01\"\x9a\x02\n\x1e\x45mitModelVersionLineageRequest\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07version\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12Y\n\x1amodel_version_lineage_info\x18\x03 \x01(\x0b\x32/.mlflow.ucmodelregistry.ModelVersionLineageInfoB\x04\xf8\x86\x19\x01\x12\x34\n\tsecurable\x18\x04 \x01(\x0b\x32!.mlflow.ucmodelregistry.Securable:<\xe2?9\n7com.databricks.rpc.RPC[EmitModelVersionLineageResponse]\"!\n\x1f\x45mitModelVersionLineageResponse\"\x8c\x01\n5IsDatabricksSdkModelsArtifactRepositoryEnabledRequest:S\xe2?P\nNcom.databricks.rpc.RPC[IsDatabricksSdkModelsArtifactRepositoryEnabledResponse]\"|\n6IsDatabricksSdkModelsArtifactRepositoryEnabledResponse\x12\x42\n4is_databricks_sdk_models_artifact_repository_enabled\x18\x01 \x01(\x08\x42\x04\xf8\x86\x19\x01\")\n\x0bTagKeyValue\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x8e\x01\n\x18RegisteredModelAliasInfo\x12\x12\n\nalias_name\x18\x01 \x01(\t\x12\x13\n\x0bversion_num\x18\x02 \x01(\x03\x12\n\n\x02id\x18\x03 \x01(\t\x12\x12\n\nmodel_name\x18\x04 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x05 \x01(\t\x12\x13\n\x0bschema_name\x18\x06 \x01(\t\"*\n\x0fTableDependency\x12\x17\n\x0ftable_full_name\x18\x01 \x01(\t\"0\n\x12\x46unctionDependency\x12\x1a\n\x12\x66unction_full_name\x18\x01 \x01(\t\"/\n\x14\x43onnectionDependency\x12\x17\n\x0f\x63onnection_name\x18\x01 \x01(\t\"\xdf\x01\n\x16ModelVersionDependency\x12\x38\n\x05table\x18\x01 \x01(\x0b\x32\'.mlflow.ucmodelregistry.TableDependencyH\x00\x12>\n\x08\x66unction\x18\x02 \x01(\x0b\x32*.mlflow.ucmodelregistry.FunctionDependencyH\x00\x12\x42\n\nconnection\x18\x03 \x01(\x0b\x32,.mlflow.ucmodelregistry.ConnectionDependencyH\x00\x42\x07\n\x05value\"V\n\x0e\x44\x65pendencyList\x12\x44\n\x0c\x64\x65pendencies\x18\x01 \x03(\x0b\x32..mlflow.ucmodelregistry.ModelVersionDependency\"\x8a\x04\n\x15UcRegisteredModelInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\r\n\x05owner\x18\x04 \x01(\t\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12\x18\n\x10storage_location\x18\x06 \x01(\t\x12\x14\n\x0cmetastore_id\x18\x07 \x01(\t\x12\x11\n\tfull_name\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\x0b \x01(\x03\x12\x12\n\ncreated_by\x18\x0c \x01(\t\x12\x12\n\nupdated_at\x18\r \x01(\x03\x12\x12\n\nupdated_by\x18\x0e \x01(\t\x12\n\n\x02id\x18\x12 \x01(\t\x12\x41\n\x07\x61liases\x18\x13 \x03(\x0b\x32\x30.mlflow.ucmodelregistry.RegisteredModelAliasInfo\x12\x31\n\x04tags\x18\x14 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12\x13\n\x0b\x62rowse_only\x18\x15 \x01(\x08\x12\x19\n\x11\x64\x65ployment_job_id\x18\x1b \x01(\t\x12S\n\x14\x64\x65ployment_job_state\x18\x1c \x01(\x0e\x32\x35.mlflow.ucmodelregistry.DeploymentJobConnection.State\"\x97\x06\n\x12UcModelVersionInfo\x12\x12\n\nmodel_name\x18\x01 \x01(\t\x12\x14\n\x0c\x63\x61talog_name\x18\x02 \x01(\t\x12\x13\n\x0bschema_name\x18\x03 \x01(\t\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x0e\n\x06source\x18\x05 \x01(\t\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x18\n\x10run_workspace_id\x18\x07 \x01(\x03\x12:\n\x06status\x18\x08 \x01(\x0e\x32*.mlflow.ucmodelregistry.ModelVersionStatus\x12\x0f\n\x07version\x18\t \x01(\x03\x12\x18\n\x10storage_location\x18\n \x01(\t\x12\x14\n\x0cmetastore_id\x18\x0b \x01(\t\x12\x12\n\ncreated_at\x18\x0c \x01(\x03\x12\x12\n\ncreated_by\x18\r \x01(\t\x12\x12\n\nupdated_at\x18\x0e \x01(\x03\x12\x12\n\nupdated_by\x18\x0f \x01(\t\x12\n\n\x02id\x18\x10 \x01(\t\x12\x41\n\x07\x61liases\x18\x11 \x03(\x0b\x32\x30.mlflow.ucmodelregistry.RegisteredModelAliasInfo\x12\x31\n\x04tags\x18\x12 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12J\n\x1amodel_version_dependencies\x18\x13 \x01(\x0b\x32&.mlflow.ucmodelregistry.DependencyList\x12\x10\n\x08model_id\x18\x15 \x01(\t\x12\x38\n\x0cmodel_params\x18\x16 \x03(\x0b\x32\".mlflow.ucmodelregistry.ModelParam\x12:\n\rmodel_metrics\x18\x17 \x03(\x0b\x32#.mlflow.ucmodelregistry.ModelMetric\x12T\n\x14\x64\x65ployment_job_state\x18\x18 \x01(\x0b\x32\x36.mlflow.ucmodelregistry.ModelVersionDeploymentJobState\"d\n\x14UcGetRegisteredModel\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\x0finclude_aliases\x18\x02 \x01(\x08\x12\x16\n\x0einclude_browse\x18\x03 \x01(\x08\"\x84\x01\n\x16UcListRegisteredModels\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x16\n\x0einclude_browse\x18\x03 \x01(\x08\x12\x13\n\x0bmax_results\x18\x05 \x01(\x03\x12\x12\n\npage_token\x18\x06 \x01(\t\"\x83\x01\n\x1eUcListRegisteredModelsResponse\x12H\n\x11registered_models\x18\x01 \x03(\x0b\x32-.mlflow.ucmodelregistry.UcRegisteredModelInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"\xc3\x01\n\x17UcCreateRegisteredModel\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1a\n\x0c\x63\x61talog_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bschema_name\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x05 \x01(\t\x12\x31\n\x04tags\x18\x14 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12\x19\n\x11\x64\x65ployment_job_id\x18\x1e \x01(\t\"t\n\x17UcUpdateRegisteredModel\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x02 \x01(\t\x12\x10\n\x08new_name\x18\x03 \x01(\t\x12\x19\n\x11\x64\x65ployment_job_id\x18\x1e \x01(\t\"|\n\x11UcGetModelVersion\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bversion_arg\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x17\n\x0finclude_aliases\x18\x03 \x01(\x08\x12\x16\n\x0einclude_browse\x18\x04 \x01(\x08\"s\n\x13UcListModelVersions\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x0bmax_results\x18\x04 \x01(\x03\x12\x12\n\npage_token\x18\x05 \x01(\t\x12\x16\n\x0einclude_browse\x18\x06 \x01(\x08\"z\n\x1bUcListModelVersionsResponse\x12\x42\n\x0emodel_versions\x18\x01 \x03(\x0b\x32*.mlflow.ucmodelregistry.UcModelVersionInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t\"i\n\x18UcGetModelVersionByAlias\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\talias_arg\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\x0finclude_aliases\x18\x03 \x01(\x08\"\xe5\x02\n\x14UcCreateModelVersion\x12\x18\n\nmodel_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1a\n\x0c\x63\x61talog_name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bschema_name\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x04 \x01(\t\x12\x14\n\x06source\x18\x05 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x31\n\x04tags\x18\x12 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\x12J\n\x1amodel_version_dependencies\x18\x13 \x01(\x0b\x32&.mlflow.ucmodelregistry.DependencyList\x12\x10\n\x08model_id\x18\x1e \x01(\t\x12\x14\n\x0c\x66\x65\x61ture_deps\x18\x1f \x01(\t\x12\x1e\n\x16run_tracking_server_id\x18  \x01(\t\"_\n\x14UcUpdateModelVersion\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bversion_arg\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63omment\x18\x03 \x01(\t\"P\n\x16UcFinalizeModelVersion\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bversion_arg\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\"O\n\x15\x44\x65leteRegisteredModel\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\r\n\x05\x66orce\x18\x02 \x01(\x08\x1a\n\n\x08Response\"X\n\x12\x44\x65leteModelVersion\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bversion_arg\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"v\n\x17SetRegisteredModelAlias\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\talias_arg\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bversion_num\x18\x03 \x01(\x03\x42\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"^\n\x1a\x44\x65leteRegisteredModelAlias\x12\x1b\n\rfull_name_arg\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\talias_arg\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"\xce\x01\n\'GenerateTemporaryModelVersionCredential\x12\x14\n\x0c\x63\x61talog_name\x18\x01 \x01(\t\x12\x13\n\x0bschema_name\x18\x02 \x01(\t\x12\x12\n\nmodel_name\x18\x03 \x01(\t\x12\x0f\n\x07version\x18\x04 \x01(\x03\x12G\n\toperation\x18\x05 \x01(\x0e\x32\x34.mlflow.ucmodelregistry.TemporaryCredentialOperation\x1a\n\n\x08Response\"]\n\x14TagAssignmentsChange\x12\x0e\n\x06remove\x18\x03 \x03(\t\x12\x35\n\x08\x61\x64\x64_tags\x18\x04 \x03(\x0b\x32#.mlflow.ucmodelregistry.TagKeyValue\"j\n\x1dUpdateTagSecurableAssignments\x12=\n\x07\x63hanges\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.TagAssignmentsChange\x1a\n\n\x08Response\"j\n\x1dUpdateTagSubentityAssignments\x12=\n\x07\x63hanges\x18\x01 \x01(\x0b\x32,.mlflow.ucmodelregistry.TagAssignmentsChange\x1a\n\n\x08Response*c\n\x12ModelVersionStatus\x12\x0f\n\x0bUNSPECIFIED\x10\x00\x12\x18\n\x14PENDING_REGISTRATION\x10\x01\x12\x17\n\x13\x46\x41ILED_REGISTRATION\x10\x02\x12\t\n\x05READY\x10\x03*\x8a\x01\n\x15ModelVersionOperation\x12\'\n#MODEL_VERSION_OPERATION_UNSPECIFIED\x10\x00\x12 \n\x1cMODEL_VERSION_OPERATION_READ\x10\x01\x12&\n\"MODEL_VERSION_OPERATION_READ_WRITE\x10\x02*U\n\x0bStorageMode\x12\x1c\n\x18STORAGE_MODE_UNSPECIFIED\x10\x00\x12\x13\n\x0f\x43USTOMER_HOSTED\x10\x01\x12\x13\n\x0f\x44\x45\x46\x41ULT_STORAGE\x10\x02*c\n\x16SseEncryptionAlgorithm\x12(\n$SSE_ENCRYPTION_ALGORITHM_UNSPECIFIED\x10\x00\x12\x0e\n\nAWS_SSE_S3\x10\x01\x12\x0f\n\x0b\x41WS_SSE_KMS\x10\x02*\xbd\x01\n\x0e\x44\x65pendencyType\x12\x1f\n\x1b\x44\x45PENDENCY_TYPE_UNSPECIFIED\x10\x00\x12\x1b\n\x17\x44\x41TABRICKS_VECTOR_INDEX\x10\x01\x12\x1d\n\x19\x44\x41TABRICKS_MODEL_ENDPOINT\x10\x02\x12\x1a\n\x16\x44\x41TABRICKS_UC_FUNCTION\x10\x03\x12\x1c\n\x18\x44\x41TABRICKS_UC_CONNECTION\x10\x04\x12\x14\n\x10\x44\x41TABRICKS_TABLE\x10\x05*t\n\tTableType\x12\t\n\x05TABLE\x10\x00\x12\x12\n\x0ePERSISTED_VIEW\x10\x01\x12\r\n\tTEMP_VIEW\x10\x02\x12\x15\n\x11MATERIALIZED_VIEW\x10\x03\x12\x18\n\x14STREAMING_LIVE_TABLE\x10\x04\x12\x08\n\x04PATH\x10\x05*<\n\x1cModelVersionLineageDirection\x12\x0c\n\x08UPSTREAM\x10\x00\x12\x0e\n\nDOWNSTREAM\x10\x01*y\n\x1cTemporaryCredentialOperation\x12#\n\x1fUNKNOWN_MODEL_VERSION_OPERATION\x10\x00\x12\x16\n\x12READ_MODEL_VERSION\x10\x01\x12\x1c\n\x18READ_WRITE_MODEL_VERSION\x10\x02\x42\x32\n(com.databricks.api.proto.ucmodelregistry\xa0\x01\x01\xe2?\x02\x10\x01')
 
   _MODELVERSIONSTATUS = DESCRIPTOR.enum_types_by_name['ModelVersionStatus']
   ModelVersionStatus = enum_type_wrapper.EnumTypeWrapper(_MODELVERSIONSTATUS)
@@ -595,20 +595,20 @@ else:
   _CONNECTIONDEPENDENCY = DESCRIPTOR.message_types_by_name['ConnectionDependency']
   _MODELVERSIONDEPENDENCY = DESCRIPTOR.message_types_by_name['ModelVersionDependency']
   _DEPENDENCYLIST = DESCRIPTOR.message_types_by_name['DependencyList']
-  _REGISTEREDMODELINFO = DESCRIPTOR.message_types_by_name['RegisteredModelInfo']
-  _MODELVERSIONINFO = DESCRIPTOR.message_types_by_name['ModelVersionInfo']
-  _GETREGISTEREDMODEL = DESCRIPTOR.message_types_by_name['GetRegisteredModel']
-  _LISTREGISTEREDMODELS = DESCRIPTOR.message_types_by_name['ListRegisteredModels']
-  _LISTREGISTEREDMODELS_RESPONSE = _LISTREGISTEREDMODELS.nested_types_by_name['Response']
-  _CREATEREGISTEREDMODEL = DESCRIPTOR.message_types_by_name['CreateRegisteredModel']
-  _UPDATEREGISTEREDMODEL = DESCRIPTOR.message_types_by_name['UpdateRegisteredModel']
-  _GETMODELVERSION = DESCRIPTOR.message_types_by_name['GetModelVersion']
-  _LISTMODELVERSIONS = DESCRIPTOR.message_types_by_name['ListModelVersions']
-  _LISTMODELVERSIONS_RESPONSE = _LISTMODELVERSIONS.nested_types_by_name['Response']
-  _GETMODELVERSIONBYALIAS = DESCRIPTOR.message_types_by_name['GetModelVersionByAlias']
-  _CREATEMODELVERSION = DESCRIPTOR.message_types_by_name['CreateModelVersion']
-  _UPDATEMODELVERSION = DESCRIPTOR.message_types_by_name['UpdateModelVersion']
-  _FINALIZEMODELVERSION = DESCRIPTOR.message_types_by_name['FinalizeModelVersion']
+  _UCREGISTEREDMODELINFO = DESCRIPTOR.message_types_by_name['UcRegisteredModelInfo']
+  _UCMODELVERSIONINFO = DESCRIPTOR.message_types_by_name['UcModelVersionInfo']
+  _UCGETREGISTEREDMODEL = DESCRIPTOR.message_types_by_name['UcGetRegisteredModel']
+  _UCLISTREGISTEREDMODELS = DESCRIPTOR.message_types_by_name['UcListRegisteredModels']
+  _UCLISTREGISTEREDMODELSRESPONSE = DESCRIPTOR.message_types_by_name['UcListRegisteredModelsResponse']
+  _UCCREATEREGISTEREDMODEL = DESCRIPTOR.message_types_by_name['UcCreateRegisteredModel']
+  _UCUPDATEREGISTEREDMODEL = DESCRIPTOR.message_types_by_name['UcUpdateRegisteredModel']
+  _UCGETMODELVERSION = DESCRIPTOR.message_types_by_name['UcGetModelVersion']
+  _UCLISTMODELVERSIONS = DESCRIPTOR.message_types_by_name['UcListModelVersions']
+  _UCLISTMODELVERSIONSRESPONSE = DESCRIPTOR.message_types_by_name['UcListModelVersionsResponse']
+  _UCGETMODELVERSIONBYALIAS = DESCRIPTOR.message_types_by_name['UcGetModelVersionByAlias']
+  _UCCREATEMODELVERSION = DESCRIPTOR.message_types_by_name['UcCreateModelVersion']
+  _UCUPDATEMODELVERSION = DESCRIPTOR.message_types_by_name['UcUpdateModelVersion']
+  _UCFINALIZEMODELVERSION = DESCRIPTOR.message_types_by_name['UcFinalizeModelVersion']
   _DELETEREGISTEREDMODEL = DESCRIPTOR.message_types_by_name['DeleteRegisteredModel']
   _DELETEREGISTEREDMODEL_RESPONSE = _DELETEREGISTEREDMODEL.nested_types_by_name['Response']
   _DELETEMODELVERSION = DESCRIPTOR.message_types_by_name['DeleteModelVersion']
@@ -1165,105 +1165,103 @@ else:
     })
   _sym_db.RegisterMessage(DependencyList)
 
-  RegisteredModelInfo = _reflection.GeneratedProtocolMessageType('RegisteredModelInfo', (_message.Message,), {
-    'DESCRIPTOR' : _REGISTEREDMODELINFO,
+  UcRegisteredModelInfo = _reflection.GeneratedProtocolMessageType('UcRegisteredModelInfo', (_message.Message,), {
+    'DESCRIPTOR' : _UCREGISTEREDMODELINFO,
     '__module__' : 'databricks_uc_registry_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.RegisteredModelInfo)
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcRegisteredModelInfo)
     })
-  _sym_db.RegisterMessage(RegisteredModelInfo)
+  _sym_db.RegisterMessage(UcRegisteredModelInfo)
 
-  ModelVersionInfo = _reflection.GeneratedProtocolMessageType('ModelVersionInfo', (_message.Message,), {
-    'DESCRIPTOR' : _MODELVERSIONINFO,
+  UcModelVersionInfo = _reflection.GeneratedProtocolMessageType('UcModelVersionInfo', (_message.Message,), {
+    'DESCRIPTOR' : _UCMODELVERSIONINFO,
     '__module__' : 'databricks_uc_registry_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.ModelVersionInfo)
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcModelVersionInfo)
     })
-  _sym_db.RegisterMessage(ModelVersionInfo)
+  _sym_db.RegisterMessage(UcModelVersionInfo)
 
-  GetRegisteredModel = _reflection.GeneratedProtocolMessageType('GetRegisteredModel', (_message.Message,), {
-    'DESCRIPTOR' : _GETREGISTEREDMODEL,
+  UcGetRegisteredModel = _reflection.GeneratedProtocolMessageType('UcGetRegisteredModel', (_message.Message,), {
+    'DESCRIPTOR' : _UCGETREGISTEREDMODEL,
     '__module__' : 'databricks_uc_registry_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.GetRegisteredModel)
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcGetRegisteredModel)
     })
-  _sym_db.RegisterMessage(GetRegisteredModel)
+  _sym_db.RegisterMessage(UcGetRegisteredModel)
 
-  ListRegisteredModels = _reflection.GeneratedProtocolMessageType('ListRegisteredModels', (_message.Message,), {
-
-    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
-      'DESCRIPTOR' : _LISTREGISTEREDMODELS_RESPONSE,
-      '__module__' : 'databricks_uc_registry_messages_pb2'
-      # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.ListRegisteredModels.Response)
-      })
-    ,
-    'DESCRIPTOR' : _LISTREGISTEREDMODELS,
+  UcListRegisteredModels = _reflection.GeneratedProtocolMessageType('UcListRegisteredModels', (_message.Message,), {
+    'DESCRIPTOR' : _UCLISTREGISTEREDMODELS,
     '__module__' : 'databricks_uc_registry_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.ListRegisteredModels)
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcListRegisteredModels)
     })
-  _sym_db.RegisterMessage(ListRegisteredModels)
-  _sym_db.RegisterMessage(ListRegisteredModels.Response)
+  _sym_db.RegisterMessage(UcListRegisteredModels)
 
-  CreateRegisteredModel = _reflection.GeneratedProtocolMessageType('CreateRegisteredModel', (_message.Message,), {
-    'DESCRIPTOR' : _CREATEREGISTEREDMODEL,
+  UcListRegisteredModelsResponse = _reflection.GeneratedProtocolMessageType('UcListRegisteredModelsResponse', (_message.Message,), {
+    'DESCRIPTOR' : _UCLISTREGISTEREDMODELSRESPONSE,
     '__module__' : 'databricks_uc_registry_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.CreateRegisteredModel)
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcListRegisteredModelsResponse)
     })
-  _sym_db.RegisterMessage(CreateRegisteredModel)
+  _sym_db.RegisterMessage(UcListRegisteredModelsResponse)
 
-  UpdateRegisteredModel = _reflection.GeneratedProtocolMessageType('UpdateRegisteredModel', (_message.Message,), {
-    'DESCRIPTOR' : _UPDATEREGISTEREDMODEL,
+  UcCreateRegisteredModel = _reflection.GeneratedProtocolMessageType('UcCreateRegisteredModel', (_message.Message,), {
+    'DESCRIPTOR' : _UCCREATEREGISTEREDMODEL,
     '__module__' : 'databricks_uc_registry_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UpdateRegisteredModel)
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcCreateRegisteredModel)
     })
-  _sym_db.RegisterMessage(UpdateRegisteredModel)
+  _sym_db.RegisterMessage(UcCreateRegisteredModel)
 
-  GetModelVersion = _reflection.GeneratedProtocolMessageType('GetModelVersion', (_message.Message,), {
-    'DESCRIPTOR' : _GETMODELVERSION,
+  UcUpdateRegisteredModel = _reflection.GeneratedProtocolMessageType('UcUpdateRegisteredModel', (_message.Message,), {
+    'DESCRIPTOR' : _UCUPDATEREGISTEREDMODEL,
     '__module__' : 'databricks_uc_registry_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.GetModelVersion)
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcUpdateRegisteredModel)
     })
-  _sym_db.RegisterMessage(GetModelVersion)
+  _sym_db.RegisterMessage(UcUpdateRegisteredModel)
 
-  ListModelVersions = _reflection.GeneratedProtocolMessageType('ListModelVersions', (_message.Message,), {
-
-    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
-      'DESCRIPTOR' : _LISTMODELVERSIONS_RESPONSE,
-      '__module__' : 'databricks_uc_registry_messages_pb2'
-      # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.ListModelVersions.Response)
-      })
-    ,
-    'DESCRIPTOR' : _LISTMODELVERSIONS,
+  UcGetModelVersion = _reflection.GeneratedProtocolMessageType('UcGetModelVersion', (_message.Message,), {
+    'DESCRIPTOR' : _UCGETMODELVERSION,
     '__module__' : 'databricks_uc_registry_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.ListModelVersions)
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcGetModelVersion)
     })
-  _sym_db.RegisterMessage(ListModelVersions)
-  _sym_db.RegisterMessage(ListModelVersions.Response)
+  _sym_db.RegisterMessage(UcGetModelVersion)
 
-  GetModelVersionByAlias = _reflection.GeneratedProtocolMessageType('GetModelVersionByAlias', (_message.Message,), {
-    'DESCRIPTOR' : _GETMODELVERSIONBYALIAS,
+  UcListModelVersions = _reflection.GeneratedProtocolMessageType('UcListModelVersions', (_message.Message,), {
+    'DESCRIPTOR' : _UCLISTMODELVERSIONS,
     '__module__' : 'databricks_uc_registry_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.GetModelVersionByAlias)
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcListModelVersions)
     })
-  _sym_db.RegisterMessage(GetModelVersionByAlias)
+  _sym_db.RegisterMessage(UcListModelVersions)
 
-  CreateModelVersion = _reflection.GeneratedProtocolMessageType('CreateModelVersion', (_message.Message,), {
-    'DESCRIPTOR' : _CREATEMODELVERSION,
+  UcListModelVersionsResponse = _reflection.GeneratedProtocolMessageType('UcListModelVersionsResponse', (_message.Message,), {
+    'DESCRIPTOR' : _UCLISTMODELVERSIONSRESPONSE,
     '__module__' : 'databricks_uc_registry_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.CreateModelVersion)
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcListModelVersionsResponse)
     })
-  _sym_db.RegisterMessage(CreateModelVersion)
+  _sym_db.RegisterMessage(UcListModelVersionsResponse)
 
-  UpdateModelVersion = _reflection.GeneratedProtocolMessageType('UpdateModelVersion', (_message.Message,), {
-    'DESCRIPTOR' : _UPDATEMODELVERSION,
+  UcGetModelVersionByAlias = _reflection.GeneratedProtocolMessageType('UcGetModelVersionByAlias', (_message.Message,), {
+    'DESCRIPTOR' : _UCGETMODELVERSIONBYALIAS,
     '__module__' : 'databricks_uc_registry_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UpdateModelVersion)
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcGetModelVersionByAlias)
     })
-  _sym_db.RegisterMessage(UpdateModelVersion)
+  _sym_db.RegisterMessage(UcGetModelVersionByAlias)
 
-  FinalizeModelVersion = _reflection.GeneratedProtocolMessageType('FinalizeModelVersion', (_message.Message,), {
-    'DESCRIPTOR' : _FINALIZEMODELVERSION,
+  UcCreateModelVersion = _reflection.GeneratedProtocolMessageType('UcCreateModelVersion', (_message.Message,), {
+    'DESCRIPTOR' : _UCCREATEMODELVERSION,
     '__module__' : 'databricks_uc_registry_messages_pb2'
-    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.FinalizeModelVersion)
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcCreateModelVersion)
     })
-  _sym_db.RegisterMessage(FinalizeModelVersion)
+  _sym_db.RegisterMessage(UcCreateModelVersion)
+
+  UcUpdateModelVersion = _reflection.GeneratedProtocolMessageType('UcUpdateModelVersion', (_message.Message,), {
+    'DESCRIPTOR' : _UCUPDATEMODELVERSION,
+    '__module__' : 'databricks_uc_registry_messages_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcUpdateModelVersion)
+    })
+  _sym_db.RegisterMessage(UcUpdateModelVersion)
+
+  UcFinalizeModelVersion = _reflection.GeneratedProtocolMessageType('UcFinalizeModelVersion', (_message.Message,), {
+    'DESCRIPTOR' : _UCFINALIZEMODELVERSION,
+    '__module__' : 'databricks_uc_registry_messages_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.ucmodelregistry.UcFinalizeModelVersion)
+    })
+  _sym_db.RegisterMessage(UcFinalizeModelVersion)
 
   DeleteRegisteredModel = _reflection.GeneratedProtocolMessageType('DeleteRegisteredModel', (_message.Message,), {
 
@@ -1515,74 +1513,74 @@ else:
     _ISDATABRICKSSDKMODELSARTIFACTREPOSITORYENABLEDREQUEST._serialized_options = b'\342?P\nNcom.databricks.rpc.RPC[IsDatabricksSdkModelsArtifactRepositoryEnabledResponse]'
     _ISDATABRICKSSDKMODELSARTIFACTREPOSITORYENABLEDRESPONSE.fields_by_name['is_databricks_sdk_models_artifact_repository_enabled']._options = None
     _ISDATABRICKSSDKMODELSARTIFACTREPOSITORYENABLEDRESPONSE.fields_by_name['is_databricks_sdk_models_artifact_repository_enabled']._serialized_options = b'\370\206\031\001'
-    _GETREGISTEREDMODEL.fields_by_name['full_name']._options = None
-    _GETREGISTEREDMODEL.fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _CREATEREGISTEREDMODEL.fields_by_name['name']._options = None
-    _CREATEREGISTEREDMODEL.fields_by_name['name']._serialized_options = b'\370\206\031\001'
-    _CREATEREGISTEREDMODEL.fields_by_name['catalog_name']._options = None
-    _CREATEREGISTEREDMODEL.fields_by_name['catalog_name']._serialized_options = b'\370\206\031\001'
-    _CREATEREGISTEREDMODEL.fields_by_name['schema_name']._options = None
-    _CREATEREGISTEREDMODEL.fields_by_name['schema_name']._serialized_options = b'\370\206\031\001'
-    _UPDATEREGISTEREDMODEL.fields_by_name['full_name']._options = None
-    _UPDATEREGISTEREDMODEL.fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _GETMODELVERSION.fields_by_name['full_name']._options = None
-    _GETMODELVERSION.fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _GETMODELVERSION.fields_by_name['version']._options = None
-    _GETMODELVERSION.fields_by_name['version']._serialized_options = b'\370\206\031\001'
-    _LISTMODELVERSIONS.fields_by_name['full_name']._options = None
-    _LISTMODELVERSIONS.fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _GETMODELVERSIONBYALIAS.fields_by_name['full_name']._options = None
-    _GETMODELVERSIONBYALIAS.fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _GETMODELVERSIONBYALIAS.fields_by_name['alias']._options = None
-    _GETMODELVERSIONBYALIAS.fields_by_name['alias']._serialized_options = b'\370\206\031\001'
-    _CREATEMODELVERSION.fields_by_name['model_name']._options = None
-    _CREATEMODELVERSION.fields_by_name['model_name']._serialized_options = b'\370\206\031\001'
-    _CREATEMODELVERSION.fields_by_name['catalog_name']._options = None
-    _CREATEMODELVERSION.fields_by_name['catalog_name']._serialized_options = b'\370\206\031\001'
-    _CREATEMODELVERSION.fields_by_name['schema_name']._options = None
-    _CREATEMODELVERSION.fields_by_name['schema_name']._serialized_options = b'\370\206\031\001'
-    _CREATEMODELVERSION.fields_by_name['source']._options = None
-    _CREATEMODELVERSION.fields_by_name['source']._serialized_options = b'\370\206\031\001'
-    _UPDATEMODELVERSION.fields_by_name['full_name']._options = None
-    _UPDATEMODELVERSION.fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _UPDATEMODELVERSION.fields_by_name['version']._options = None
-    _UPDATEMODELVERSION.fields_by_name['version']._serialized_options = b'\370\206\031\001'
-    _FINALIZEMODELVERSION.fields_by_name['full_name']._options = None
-    _FINALIZEMODELVERSION.fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _FINALIZEMODELVERSION.fields_by_name['version']._options = None
-    _FINALIZEMODELVERSION.fields_by_name['version']._serialized_options = b'\370\206\031\001'
-    _DELETEREGISTEREDMODEL.fields_by_name['full_name']._options = None
-    _DELETEREGISTEREDMODEL.fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _DELETEMODELVERSION.fields_by_name['full_name']._options = None
-    _DELETEMODELVERSION.fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _DELETEMODELVERSION.fields_by_name['version']._options = None
-    _DELETEMODELVERSION.fields_by_name['version']._serialized_options = b'\370\206\031\001'
-    _SETREGISTEREDMODELALIAS.fields_by_name['full_name']._options = None
-    _SETREGISTEREDMODELALIAS.fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _SETREGISTEREDMODELALIAS.fields_by_name['alias']._options = None
-    _SETREGISTEREDMODELALIAS.fields_by_name['alias']._serialized_options = b'\370\206\031\001'
+    _UCGETREGISTEREDMODEL.fields_by_name['full_name_arg']._options = None
+    _UCGETREGISTEREDMODEL.fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _UCCREATEREGISTEREDMODEL.fields_by_name['name']._options = None
+    _UCCREATEREGISTEREDMODEL.fields_by_name['name']._serialized_options = b'\370\206\031\001'
+    _UCCREATEREGISTEREDMODEL.fields_by_name['catalog_name']._options = None
+    _UCCREATEREGISTEREDMODEL.fields_by_name['catalog_name']._serialized_options = b'\370\206\031\001'
+    _UCCREATEREGISTEREDMODEL.fields_by_name['schema_name']._options = None
+    _UCCREATEREGISTEREDMODEL.fields_by_name['schema_name']._serialized_options = b'\370\206\031\001'
+    _UCUPDATEREGISTEREDMODEL.fields_by_name['full_name_arg']._options = None
+    _UCUPDATEREGISTEREDMODEL.fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _UCGETMODELVERSION.fields_by_name['full_name_arg']._options = None
+    _UCGETMODELVERSION.fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _UCGETMODELVERSION.fields_by_name['version_arg']._options = None
+    _UCGETMODELVERSION.fields_by_name['version_arg']._serialized_options = b'\370\206\031\001'
+    _UCLISTMODELVERSIONS.fields_by_name['full_name_arg']._options = None
+    _UCLISTMODELVERSIONS.fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _UCGETMODELVERSIONBYALIAS.fields_by_name['full_name_arg']._options = None
+    _UCGETMODELVERSIONBYALIAS.fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _UCGETMODELVERSIONBYALIAS.fields_by_name['alias_arg']._options = None
+    _UCGETMODELVERSIONBYALIAS.fields_by_name['alias_arg']._serialized_options = b'\370\206\031\001'
+    _UCCREATEMODELVERSION.fields_by_name['model_name']._options = None
+    _UCCREATEMODELVERSION.fields_by_name['model_name']._serialized_options = b'\370\206\031\001'
+    _UCCREATEMODELVERSION.fields_by_name['catalog_name']._options = None
+    _UCCREATEMODELVERSION.fields_by_name['catalog_name']._serialized_options = b'\370\206\031\001'
+    _UCCREATEMODELVERSION.fields_by_name['schema_name']._options = None
+    _UCCREATEMODELVERSION.fields_by_name['schema_name']._serialized_options = b'\370\206\031\001'
+    _UCCREATEMODELVERSION.fields_by_name['source']._options = None
+    _UCCREATEMODELVERSION.fields_by_name['source']._serialized_options = b'\370\206\031\001'
+    _UCUPDATEMODELVERSION.fields_by_name['full_name_arg']._options = None
+    _UCUPDATEMODELVERSION.fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _UCUPDATEMODELVERSION.fields_by_name['version_arg']._options = None
+    _UCUPDATEMODELVERSION.fields_by_name['version_arg']._serialized_options = b'\370\206\031\001'
+    _UCFINALIZEMODELVERSION.fields_by_name['full_name_arg']._options = None
+    _UCFINALIZEMODELVERSION.fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _UCFINALIZEMODELVERSION.fields_by_name['version_arg']._options = None
+    _UCFINALIZEMODELVERSION.fields_by_name['version_arg']._serialized_options = b'\370\206\031\001'
+    _DELETEREGISTEREDMODEL.fields_by_name['full_name_arg']._options = None
+    _DELETEREGISTEREDMODEL.fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _DELETEMODELVERSION.fields_by_name['full_name_arg']._options = None
+    _DELETEMODELVERSION.fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _DELETEMODELVERSION.fields_by_name['version_arg']._options = None
+    _DELETEMODELVERSION.fields_by_name['version_arg']._serialized_options = b'\370\206\031\001'
+    _SETREGISTEREDMODELALIAS.fields_by_name['full_name_arg']._options = None
+    _SETREGISTEREDMODELALIAS.fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _SETREGISTEREDMODELALIAS.fields_by_name['alias_arg']._options = None
+    _SETREGISTEREDMODELALIAS.fields_by_name['alias_arg']._serialized_options = b'\370\206\031\001'
     _SETREGISTEREDMODELALIAS.fields_by_name['version_num']._options = None
     _SETREGISTEREDMODELALIAS.fields_by_name['version_num']._serialized_options = b'\370\206\031\001'
-    _DELETEREGISTEREDMODELALIAS.fields_by_name['full_name']._options = None
-    _DELETEREGISTEREDMODELALIAS.fields_by_name['full_name']._serialized_options = b'\370\206\031\001'
-    _DELETEREGISTEREDMODELALIAS.fields_by_name['alias']._options = None
-    _DELETEREGISTEREDMODELALIAS.fields_by_name['alias']._serialized_options = b'\370\206\031\001'
-    _MODELVERSIONSTATUS._serialized_start=13910
-    _MODELVERSIONSTATUS._serialized_end=14009
-    _MODELVERSIONOPERATION._serialized_start=14012
-    _MODELVERSIONOPERATION._serialized_end=14150
-    _STORAGEMODE._serialized_start=14152
-    _STORAGEMODE._serialized_end=14237
-    _SSEENCRYPTIONALGORITHM._serialized_start=14239
-    _SSEENCRYPTIONALGORITHM._serialized_end=14338
-    _DEPENDENCYTYPE._serialized_start=14341
-    _DEPENDENCYTYPE._serialized_end=14530
-    _TABLETYPE._serialized_start=14532
-    _TABLETYPE._serialized_end=14648
-    _MODELVERSIONLINEAGEDIRECTION._serialized_start=14650
-    _MODELVERSIONLINEAGEDIRECTION._serialized_end=14710
-    _TEMPORARYCREDENTIALOPERATION._serialized_start=14712
-    _TEMPORARYCREDENTIALOPERATION._serialized_end=14833
+    _DELETEREGISTEREDMODELALIAS.fields_by_name['full_name_arg']._options = None
+    _DELETEREGISTEREDMODELALIAS.fields_by_name['full_name_arg']._serialized_options = b'\370\206\031\001'
+    _DELETEREGISTEREDMODELALIAS.fields_by_name['alias_arg']._options = None
+    _DELETEREGISTEREDMODELALIAS.fields_by_name['alias_arg']._serialized_options = b'\370\206\031\001'
+    _MODELVERSIONSTATUS._serialized_start=14051
+    _MODELVERSIONSTATUS._serialized_end=14150
+    _MODELVERSIONOPERATION._serialized_start=14153
+    _MODELVERSIONOPERATION._serialized_end=14291
+    _STORAGEMODE._serialized_start=14293
+    _STORAGEMODE._serialized_end=14378
+    _SSEENCRYPTIONALGORITHM._serialized_start=14380
+    _SSEENCRYPTIONALGORITHM._serialized_end=14479
+    _DEPENDENCYTYPE._serialized_start=14482
+    _DEPENDENCYTYPE._serialized_end=14671
+    _TABLETYPE._serialized_start=14673
+    _TABLETYPE._serialized_end=14789
+    _MODELVERSIONLINEAGEDIRECTION._serialized_start=14791
+    _MODELVERSIONLINEAGEDIRECTION._serialized_end=14851
+    _TEMPORARYCREDENTIALOPERATION._serialized_start=14853
+    _TEMPORARYCREDENTIALOPERATION._serialized_end=14974
     _REGISTEREDMODEL._serialized_start=107
     _REGISTEREDMODEL._serialized_end=469
     _REGISTEREDMODELALIAS._serialized_start=471
@@ -1741,63 +1739,63 @@ else:
     _MODELVERSIONDEPENDENCY._serialized_end=10035
     _DEPENDENCYLIST._serialized_start=10037
     _DEPENDENCYLIST._serialized_end=10123
-    _REGISTEREDMODELINFO._serialized_start=10126
-    _REGISTEREDMODELINFO._serialized_end=10646
-    _MODELVERSIONINFO._serialized_start=10649
-    _MODELVERSIONINFO._serialized_end=11438
-    _GETREGISTEREDMODEL._serialized_start=11440
-    _GETREGISTEREDMODEL._serialized_end=11534
-    _LISTREGISTEREDMODELS._serialized_start=11537
-    _LISTREGISTEREDMODELS._serialized_end=11776
-    _LISTREGISTEREDMODELS_RESPONSE._serialized_start=11669
-    _LISTREGISTEREDMODELS_RESPONSE._serialized_end=11776
-    _CREATEREGISTEREDMODEL._serialized_start=11779
-    _CREATEREGISTEREDMODEL._serialized_end=11972
-    _UPDATEREGISTEREDMODEL._serialized_start=11974
-    _UPDATEREGISTEREDMODEL._serialized_end=12084
-    _GETMODELVERSION._serialized_start=12086
-    _GETMODELVERSION._serialized_end=12200
-    _LISTMODELVERSIONS._serialized_start=12203
-    _LISTMODELVERSIONS._serialized_end=12415
-    _LISTMODELVERSIONS_RESPONSE._serialized_start=12314
-    _LISTMODELVERSIONS_RESPONSE._serialized_end=12415
-    _GETMODELVERSIONBYALIAS._serialized_start=12417
-    _GETMODELVERSIONBYALIAS._serialized_end=12512
-    _CREATEMODELVERSION._serialized_start=12515
-    _CREATEMODELVERSION._serialized_end=12870
-    _UPDATEMODELVERSION._serialized_start=12872
-    _UPDATEMODELVERSION._serialized_end=12957
-    _FINALIZEMODELVERSION._serialized_start=12959
-    _FINALIZEMODELVERSION._serialized_end=13029
-    _DELETEREGISTEREDMODEL._serialized_start=13031
-    _DELETEREGISTEREDMODEL._serialized_end=13106
-    _DELETEREGISTEREDMODEL_RESPONSE._serialized_start=11669
-    _DELETEREGISTEREDMODEL_RESPONSE._serialized_end=11679
-    _DELETEMODELVERSION._serialized_start=13108
-    _DELETEMODELVERSION._serialized_end=13188
-    _DELETEMODELVERSION_RESPONSE._serialized_start=11669
-    _DELETEMODELVERSION_RESPONSE._serialized_end=11679
-    _SETREGISTEREDMODELALIAS._serialized_start=13190
-    _SETREGISTEREDMODELALIAS._serialized_end=13300
-    _SETREGISTEREDMODELALIAS_RESPONSE._serialized_start=11669
-    _SETREGISTEREDMODELALIAS_RESPONSE._serialized_end=11679
-    _DELETEREGISTEREDMODELALIAS._serialized_start=13302
-    _DELETEREGISTEREDMODELALIAS._serialized_end=13388
-    _DELETEREGISTEREDMODELALIAS_RESPONSE._serialized_start=11669
-    _DELETEREGISTEREDMODELALIAS_RESPONSE._serialized_end=11679
-    _GENERATETEMPORARYMODELVERSIONCREDENTIAL._serialized_start=13391
-    _GENERATETEMPORARYMODELVERSIONCREDENTIAL._serialized_end=13597
-    _GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE._serialized_start=11669
-    _GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE._serialized_end=11679
-    _TAGASSIGNMENTSCHANGE._serialized_start=13599
-    _TAGASSIGNMENTSCHANGE._serialized_end=13692
-    _UPDATETAGSECURABLEASSIGNMENTS._serialized_start=13694
-    _UPDATETAGSECURABLEASSIGNMENTS._serialized_end=13800
-    _UPDATETAGSECURABLEASSIGNMENTS_RESPONSE._serialized_start=11669
-    _UPDATETAGSECURABLEASSIGNMENTS_RESPONSE._serialized_end=11679
-    _UPDATETAGSUBENTITYASSIGNMENTS._serialized_start=13802
-    _UPDATETAGSUBENTITYASSIGNMENTS._serialized_end=13908
-    _UPDATETAGSUBENTITYASSIGNMENTS_RESPONSE._serialized_start=11669
-    _UPDATETAGSUBENTITYASSIGNMENTS_RESPONSE._serialized_end=11679
+    _UCREGISTEREDMODELINFO._serialized_start=10126
+    _UCREGISTEREDMODELINFO._serialized_end=10648
+    _UCMODELVERSIONINFO._serialized_start=10651
+    _UCMODELVERSIONINFO._serialized_end=11442
+    _UCGETREGISTEREDMODEL._serialized_start=11444
+    _UCGETREGISTEREDMODEL._serialized_end=11544
+    _UCLISTREGISTEREDMODELS._serialized_start=11547
+    _UCLISTREGISTEREDMODELS._serialized_end=11679
+    _UCLISTREGISTEREDMODELSRESPONSE._serialized_start=11682
+    _UCLISTREGISTEREDMODELSRESPONSE._serialized_end=11813
+    _UCCREATEREGISTEREDMODEL._serialized_start=11816
+    _UCCREATEREGISTEREDMODEL._serialized_end=12011
+    _UCUPDATEREGISTEREDMODEL._serialized_start=12013
+    _UCUPDATEREGISTEREDMODEL._serialized_end=12129
+    _UCGETMODELVERSION._serialized_start=12131
+    _UCGETMODELVERSION._serialized_end=12255
+    _UCLISTMODELVERSIONS._serialized_start=12257
+    _UCLISTMODELVERSIONS._serialized_end=12372
+    _UCLISTMODELVERSIONSRESPONSE._serialized_start=12374
+    _UCLISTMODELVERSIONSRESPONSE._serialized_end=12496
+    _UCGETMODELVERSIONBYALIAS._serialized_start=12498
+    _UCGETMODELVERSIONBYALIAS._serialized_end=12603
+    _UCCREATEMODELVERSION._serialized_start=12606
+    _UCCREATEMODELVERSION._serialized_end=12963
+    _UCUPDATEMODELVERSION._serialized_start=12965
+    _UCUPDATEMODELVERSION._serialized_end=13060
+    _UCFINALIZEMODELVERSION._serialized_start=13062
+    _UCFINALIZEMODELVERSION._serialized_end=13142
+    _DELETEREGISTEREDMODEL._serialized_start=13144
+    _DELETEREGISTEREDMODEL._serialized_end=13223
+    _DELETEREGISTEREDMODEL_RESPONSE._serialized_start=13213
+    _DELETEREGISTEREDMODEL_RESPONSE._serialized_end=13223
+    _DELETEMODELVERSION._serialized_start=13225
+    _DELETEMODELVERSION._serialized_end=13313
+    _DELETEMODELVERSION_RESPONSE._serialized_start=13213
+    _DELETEMODELVERSION_RESPONSE._serialized_end=13223
+    _SETREGISTEREDMODELALIAS._serialized_start=13315
+    _SETREGISTEREDMODELALIAS._serialized_end=13433
+    _SETREGISTEREDMODELALIAS_RESPONSE._serialized_start=13213
+    _SETREGISTEREDMODELALIAS_RESPONSE._serialized_end=13223
+    _DELETEREGISTEREDMODELALIAS._serialized_start=13435
+    _DELETEREGISTEREDMODELALIAS._serialized_end=13529
+    _DELETEREGISTEREDMODELALIAS_RESPONSE._serialized_start=13213
+    _DELETEREGISTEREDMODELALIAS_RESPONSE._serialized_end=13223
+    _GENERATETEMPORARYMODELVERSIONCREDENTIAL._serialized_start=13532
+    _GENERATETEMPORARYMODELVERSIONCREDENTIAL._serialized_end=13738
+    _GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE._serialized_start=13213
+    _GENERATETEMPORARYMODELVERSIONCREDENTIAL_RESPONSE._serialized_end=13223
+    _TAGASSIGNMENTSCHANGE._serialized_start=13740
+    _TAGASSIGNMENTSCHANGE._serialized_end=13833
+    _UPDATETAGSECURABLEASSIGNMENTS._serialized_start=13835
+    _UPDATETAGSECURABLEASSIGNMENTS._serialized_end=13941
+    _UPDATETAGSECURABLEASSIGNMENTS_RESPONSE._serialized_start=13213
+    _UPDATETAGSECURABLEASSIGNMENTS_RESPONSE._serialized_end=13223
+    _UPDATETAGSUBENTITYASSIGNMENTS._serialized_start=13943
+    _UPDATETAGSUBENTITYASSIGNMENTS._serialized_end=14049
+    _UPDATETAGSUBENTITYASSIGNMENTS_RESPONSE._serialized_start=13213
+    _UPDATETAGSUBENTITYASSIGNMENTS_RESPONSE._serialized_end=13223
   # @@protoc_insertion_point(module_scope)
 

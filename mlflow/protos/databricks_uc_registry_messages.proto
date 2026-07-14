@@ -800,7 +800,7 @@ message DependencyList {
 
 // Registered model governance entity + MLflow enrichment (flattened response of
 // get / create / update and the element of list).
-message RegisteredModelInfo {
+message UcRegisteredModelInfo {
   optional string name = 1;
   optional string catalog_name = 2;
   optional string schema_name = 3;
@@ -824,7 +824,7 @@ message RegisteredModelInfo {
 
 // Model version governance entity + MLflow enrichment (flattened response of
 // get / create / update / finalize / by-alias and the element of list/by-runs).
-message ModelVersionInfo {
+message UcModelVersionInfo {
   optional string model_name = 1;
   optional string catalog_name = 2;
   optional string schema_name = 3;
@@ -851,27 +851,29 @@ message ModelVersionInfo {
   optional ModelVersionDeploymentJobState deployment_job_state = 24;
 }
 
-// ----- Enriched request messages (full_name/version/alias are URL path params) -----
-message GetRegisteredModel {
-  optional string full_name = 1 [(validate_required) = true];
+// ----- Enriched request messages (Uc-prefixed to mirror UcEnrichedModelRegistryService in
+// universe uc_enriched_model_registry.proto; full_name_arg/version_arg/alias_arg are URL path
+// params, matching the {full_name_arg}/{version_arg}/{alias_arg} segments in the service proto).
+message UcGetRegisteredModel {
+  optional string full_name_arg = 1 [(validate_required) = true];
   optional bool include_aliases = 2;
   optional bool include_browse = 3;
 }
 
-message ListRegisteredModels {
+message UcListRegisteredModels {
   optional string catalog_name = 1;
   optional string schema_name = 2;
   optional bool include_browse = 3;
   optional int64 max_results = 5;
   optional string page_token = 6;
-
-  message Response {
-    repeated RegisteredModelInfo registered_models = 1;
-    optional string next_page_token = 2;
-  }
 }
 
-message CreateRegisteredModel {
+message UcListRegisteredModelsResponse {
+  repeated UcRegisteredModelInfo registered_models = 1;
+  optional string next_page_token = 2;
+}
+
+message UcCreateRegisteredModel {
   optional string name = 1 [(validate_required) = true];
   optional string catalog_name = 2 [(validate_required) = true];
   optional string schema_name = 3 [(validate_required) = true];
@@ -880,39 +882,39 @@ message CreateRegisteredModel {
   optional string deployment_job_id = 30;
 }
 
-message UpdateRegisteredModel {
-  optional string full_name = 1 [(validate_required) = true];
+message UcUpdateRegisteredModel {
+  optional string full_name_arg = 1 [(validate_required) = true];
   optional string comment = 2;
   optional string new_name = 3;
   optional string deployment_job_id = 30;
 }
 
-message GetModelVersion {
-  optional string full_name = 1 [(validate_required) = true];
-  optional int64 version = 2 [(validate_required) = true];
+message UcGetModelVersion {
+  optional string full_name_arg = 1 [(validate_required) = true];
+  optional int64 version_arg = 2 [(validate_required) = true];
   optional bool include_aliases = 3;
   optional bool include_browse = 4;
 }
 
-message ListModelVersions {
-  optional string full_name = 1 [(validate_required) = true];
+message UcListModelVersions {
+  optional string full_name_arg = 1 [(validate_required) = true];
   optional int64 max_results = 4;
   optional string page_token = 5;
   optional bool include_browse = 6;
-
-  message Response {
-    repeated ModelVersionInfo model_versions = 1;
-    optional string next_page_token = 2;
-  }
 }
 
-message GetModelVersionByAlias {
-  optional string full_name = 1 [(validate_required) = true];
-  optional string alias = 2 [(validate_required) = true];
+message UcListModelVersionsResponse {
+  repeated UcModelVersionInfo model_versions = 1;
+  optional string next_page_token = 2;
+}
+
+message UcGetModelVersionByAlias {
+  optional string full_name_arg = 1 [(validate_required) = true];
+  optional string alias_arg = 2 [(validate_required) = true];
   optional bool include_aliases = 3;
 }
 
-message CreateModelVersion {
+message UcCreateModelVersion {
   optional string model_name = 1 [(validate_required) = true];
   optional string catalog_name = 2 [(validate_required) = true];
   optional string schema_name = 3 [(validate_required) = true];
@@ -926,43 +928,44 @@ message CreateModelVersion {
   optional string run_tracking_server_id = 32;
 }
 
-message UpdateModelVersion {
-  optional string full_name = 1 [(validate_required) = true];
-  optional int64 version = 2 [(validate_required) = true];
+message UcUpdateModelVersion {
+  optional string full_name_arg = 1 [(validate_required) = true];
+  optional int64 version_arg = 2 [(validate_required) = true];
   optional string comment = 3;
 }
 
-message FinalizeModelVersion {
-  optional string full_name = 1 [(validate_required) = true];
-  optional int64 version = 2 [(validate_required) = true];
+message UcFinalizeModelVersion {
+  optional string full_name_arg = 1 [(validate_required) = true];
+  optional int64 version_arg = 2 [(validate_required) = true];
 }
 
-// ----- Passthrough request messages (bare governance / empty responses) -----
+// ----- Passthrough request messages (bare governance / empty responses). Names mirror the
+// managed-catalog UnityCatalogService RPCs; path-param fields use the *_arg convention. -----
 message DeleteRegisteredModel {
-  optional string full_name = 1 [(validate_required) = true];
+  optional string full_name_arg = 1 [(validate_required) = true];
   optional bool force = 2;
 
   message Response {}
 }
 
 message DeleteModelVersion {
-  optional string full_name = 1 [(validate_required) = true];
-  optional int64 version = 2 [(validate_required) = true];
+  optional string full_name_arg = 1 [(validate_required) = true];
+  optional int64 version_arg = 2 [(validate_required) = true];
 
   message Response {}
 }
 
 message SetRegisteredModelAlias {
-  optional string full_name = 1 [(validate_required) = true];
-  optional string alias = 2 [(validate_required) = true];
+  optional string full_name_arg = 1 [(validate_required) = true];
+  optional string alias_arg = 2 [(validate_required) = true];
   optional int64 version_num = 3 [(validate_required) = true];
 
   message Response {}
 }
 
 message DeleteRegisteredModelAlias {
-  optional string full_name = 1 [(validate_required) = true];
-  optional string alias = 2 [(validate_required) = true];
+  optional string full_name_arg = 1 [(validate_required) = true];
+  optional string alias_arg = 2 [(validate_required) = true];
 
   message Response {}
 }

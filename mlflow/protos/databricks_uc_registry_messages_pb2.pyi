@@ -794,7 +794,7 @@ class DependencyList(_message.Message):
     dependencies: _containers.RepeatedCompositeFieldContainer[ModelVersionDependency]
     def __init__(self, dependencies: _Optional[_Iterable[_Union[ModelVersionDependency, _Mapping]]] = ...) -> None: ...
 
-class RegisteredModelInfo(_message.Message):
+class UcRegisteredModelInfo(_message.Message):
     __slots__ = ("name", "catalog_name", "schema_name", "owner", "comment", "storage_location", "metastore_id", "full_name", "created_at", "created_by", "updated_at", "updated_by", "id", "aliases", "tags", "browse_only", "deployment_job_id", "deployment_job_state")
     NAME_FIELD_NUMBER: _ClassVar[int]
     CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -834,7 +834,7 @@ class RegisteredModelInfo(_message.Message):
     deployment_job_state: DeploymentJobConnection.State
     def __init__(self, name: _Optional[str] = ..., catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., owner: _Optional[str] = ..., comment: _Optional[str] = ..., storage_location: _Optional[str] = ..., metastore_id: _Optional[str] = ..., full_name: _Optional[str] = ..., created_at: _Optional[int] = ..., created_by: _Optional[str] = ..., updated_at: _Optional[int] = ..., updated_by: _Optional[str] = ..., id: _Optional[str] = ..., aliases: _Optional[_Iterable[_Union[RegisteredModelAliasInfo, _Mapping]]] = ..., tags: _Optional[_Iterable[_Union[TagKeyValue, _Mapping]]] = ..., browse_only: bool = ..., deployment_job_id: _Optional[str] = ..., deployment_job_state: _Optional[_Union[DeploymentJobConnection.State, str]] = ...) -> None: ...
 
-class ModelVersionInfo(_message.Message):
+class UcModelVersionInfo(_message.Message):
     __slots__ = ("model_name", "catalog_name", "schema_name", "comment", "source", "run_id", "run_workspace_id", "status", "version", "storage_location", "metastore_id", "created_at", "created_by", "updated_at", "updated_by", "id", "aliases", "tags", "model_version_dependencies", "model_id", "model_params", "model_metrics", "deployment_job_state")
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -884,25 +884,18 @@ class ModelVersionInfo(_message.Message):
     deployment_job_state: ModelVersionDeploymentJobState
     def __init__(self, model_name: _Optional[str] = ..., catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., comment: _Optional[str] = ..., source: _Optional[str] = ..., run_id: _Optional[str] = ..., run_workspace_id: _Optional[int] = ..., status: _Optional[_Union[ModelVersionStatus, str]] = ..., version: _Optional[int] = ..., storage_location: _Optional[str] = ..., metastore_id: _Optional[str] = ..., created_at: _Optional[int] = ..., created_by: _Optional[str] = ..., updated_at: _Optional[int] = ..., updated_by: _Optional[str] = ..., id: _Optional[str] = ..., aliases: _Optional[_Iterable[_Union[RegisteredModelAliasInfo, _Mapping]]] = ..., tags: _Optional[_Iterable[_Union[TagKeyValue, _Mapping]]] = ..., model_version_dependencies: _Optional[_Union[DependencyList, _Mapping]] = ..., model_id: _Optional[str] = ..., model_params: _Optional[_Iterable[_Union[ModelParam, _Mapping]]] = ..., model_metrics: _Optional[_Iterable[_Union[ModelMetric, _Mapping]]] = ..., deployment_job_state: _Optional[_Union[ModelVersionDeploymentJobState, _Mapping]] = ...) -> None: ...
 
-class GetRegisteredModel(_message.Message):
-    __slots__ = ("full_name", "include_aliases", "include_browse")
-    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+class UcGetRegisteredModel(_message.Message):
+    __slots__ = ("full_name_arg", "include_aliases", "include_browse")
+    FULL_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_ALIASES_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_BROWSE_FIELD_NUMBER: _ClassVar[int]
-    full_name: str
+    full_name_arg: str
     include_aliases: bool
     include_browse: bool
-    def __init__(self, full_name: _Optional[str] = ..., include_aliases: bool = ..., include_browse: bool = ...) -> None: ...
+    def __init__(self, full_name_arg: _Optional[str] = ..., include_aliases: bool = ..., include_browse: bool = ...) -> None: ...
 
-class ListRegisteredModels(_message.Message):
+class UcListRegisteredModels(_message.Message):
     __slots__ = ("catalog_name", "schema_name", "include_browse", "max_results", "page_token")
-    class Response(_message.Message):
-        __slots__ = ("registered_models", "next_page_token")
-        REGISTERED_MODELS_FIELD_NUMBER: _ClassVar[int]
-        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
-        registered_models: _containers.RepeatedCompositeFieldContainer[RegisteredModelInfo]
-        next_page_token: str
-        def __init__(self, registered_models: _Optional[_Iterable[_Union[RegisteredModelInfo, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
     CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
     SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_BROWSE_FIELD_NUMBER: _ClassVar[int]
@@ -915,7 +908,15 @@ class ListRegisteredModels(_message.Message):
     page_token: str
     def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., include_browse: bool = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
 
-class CreateRegisteredModel(_message.Message):
+class UcListRegisteredModelsResponse(_message.Message):
+    __slots__ = ("registered_models", "next_page_token")
+    REGISTERED_MODELS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    registered_models: _containers.RepeatedCompositeFieldContainer[UcRegisteredModelInfo]
+    next_page_token: str
+    def __init__(self, registered_models: _Optional[_Iterable[_Union[UcRegisteredModelInfo, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+
+class UcCreateRegisteredModel(_message.Message):
     __slots__ = ("name", "catalog_name", "schema_name", "comment", "tags", "deployment_job_id")
     NAME_FIELD_NUMBER: _ClassVar[int]
     CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -931,60 +932,61 @@ class CreateRegisteredModel(_message.Message):
     deployment_job_id: str
     def __init__(self, name: _Optional[str] = ..., catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., comment: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[TagKeyValue, _Mapping]]] = ..., deployment_job_id: _Optional[str] = ...) -> None: ...
 
-class UpdateRegisteredModel(_message.Message):
-    __slots__ = ("full_name", "comment", "new_name", "deployment_job_id")
-    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+class UcUpdateRegisteredModel(_message.Message):
+    __slots__ = ("full_name_arg", "comment", "new_name", "deployment_job_id")
+    FULL_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
     COMMENT_FIELD_NUMBER: _ClassVar[int]
     NEW_NAME_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_JOB_ID_FIELD_NUMBER: _ClassVar[int]
-    full_name: str
+    full_name_arg: str
     comment: str
     new_name: str
     deployment_job_id: str
-    def __init__(self, full_name: _Optional[str] = ..., comment: _Optional[str] = ..., new_name: _Optional[str] = ..., deployment_job_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, full_name_arg: _Optional[str] = ..., comment: _Optional[str] = ..., new_name: _Optional[str] = ..., deployment_job_id: _Optional[str] = ...) -> None: ...
 
-class GetModelVersion(_message.Message):
-    __slots__ = ("full_name", "version", "include_aliases", "include_browse")
-    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
+class UcGetModelVersion(_message.Message):
+    __slots__ = ("full_name_arg", "version_arg", "include_aliases", "include_browse")
+    FULL_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
+    VERSION_ARG_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_ALIASES_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_BROWSE_FIELD_NUMBER: _ClassVar[int]
-    full_name: str
-    version: int
+    full_name_arg: str
+    version_arg: int
     include_aliases: bool
     include_browse: bool
-    def __init__(self, full_name: _Optional[str] = ..., version: _Optional[int] = ..., include_aliases: bool = ..., include_browse: bool = ...) -> None: ...
+    def __init__(self, full_name_arg: _Optional[str] = ..., version_arg: _Optional[int] = ..., include_aliases: bool = ..., include_browse: bool = ...) -> None: ...
 
-class ListModelVersions(_message.Message):
-    __slots__ = ("full_name", "max_results", "page_token", "include_browse")
-    class Response(_message.Message):
-        __slots__ = ("model_versions", "next_page_token")
-        MODEL_VERSIONS_FIELD_NUMBER: _ClassVar[int]
-        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
-        model_versions: _containers.RepeatedCompositeFieldContainer[ModelVersionInfo]
-        next_page_token: str
-        def __init__(self, model_versions: _Optional[_Iterable[_Union[ModelVersionInfo, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
-    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+class UcListModelVersions(_message.Message):
+    __slots__ = ("full_name_arg", "max_results", "page_token", "include_browse")
+    FULL_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
     MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
     PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_BROWSE_FIELD_NUMBER: _ClassVar[int]
-    full_name: str
+    full_name_arg: str
     max_results: int
     page_token: str
     include_browse: bool
-    def __init__(self, full_name: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ..., include_browse: bool = ...) -> None: ...
+    def __init__(self, full_name_arg: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ..., include_browse: bool = ...) -> None: ...
 
-class GetModelVersionByAlias(_message.Message):
-    __slots__ = ("full_name", "alias", "include_aliases")
-    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
-    ALIAS_FIELD_NUMBER: _ClassVar[int]
+class UcListModelVersionsResponse(_message.Message):
+    __slots__ = ("model_versions", "next_page_token")
+    MODEL_VERSIONS_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    model_versions: _containers.RepeatedCompositeFieldContainer[UcModelVersionInfo]
+    next_page_token: str
+    def __init__(self, model_versions: _Optional[_Iterable[_Union[UcModelVersionInfo, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+
+class UcGetModelVersionByAlias(_message.Message):
+    __slots__ = ("full_name_arg", "alias_arg", "include_aliases")
+    FULL_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
+    ALIAS_ARG_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_ALIASES_FIELD_NUMBER: _ClassVar[int]
-    full_name: str
-    alias: str
+    full_name_arg: str
+    alias_arg: str
     include_aliases: bool
-    def __init__(self, full_name: _Optional[str] = ..., alias: _Optional[str] = ..., include_aliases: bool = ...) -> None: ...
+    def __init__(self, full_name_arg: _Optional[str] = ..., alias_arg: _Optional[str] = ..., include_aliases: bool = ...) -> None: ...
 
-class CreateModelVersion(_message.Message):
+class UcCreateModelVersion(_message.Message):
     __slots__ = ("model_name", "catalog_name", "schema_name", "comment", "source", "run_id", "tags", "model_version_dependencies", "model_id", "feature_deps", "run_tracking_server_id")
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -1010,69 +1012,69 @@ class CreateModelVersion(_message.Message):
     run_tracking_server_id: str
     def __init__(self, model_name: _Optional[str] = ..., catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., comment: _Optional[str] = ..., source: _Optional[str] = ..., run_id: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[TagKeyValue, _Mapping]]] = ..., model_version_dependencies: _Optional[_Union[DependencyList, _Mapping]] = ..., model_id: _Optional[str] = ..., feature_deps: _Optional[str] = ..., run_tracking_server_id: _Optional[str] = ...) -> None: ...
 
-class UpdateModelVersion(_message.Message):
-    __slots__ = ("full_name", "version", "comment")
-    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
+class UcUpdateModelVersion(_message.Message):
+    __slots__ = ("full_name_arg", "version_arg", "comment")
+    FULL_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
+    VERSION_ARG_FIELD_NUMBER: _ClassVar[int]
     COMMENT_FIELD_NUMBER: _ClassVar[int]
-    full_name: str
-    version: int
+    full_name_arg: str
+    version_arg: int
     comment: str
-    def __init__(self, full_name: _Optional[str] = ..., version: _Optional[int] = ..., comment: _Optional[str] = ...) -> None: ...
+    def __init__(self, full_name_arg: _Optional[str] = ..., version_arg: _Optional[int] = ..., comment: _Optional[str] = ...) -> None: ...
 
-class FinalizeModelVersion(_message.Message):
-    __slots__ = ("full_name", "version")
-    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    full_name: str
-    version: int
-    def __init__(self, full_name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
+class UcFinalizeModelVersion(_message.Message):
+    __slots__ = ("full_name_arg", "version_arg")
+    FULL_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
+    VERSION_ARG_FIELD_NUMBER: _ClassVar[int]
+    full_name_arg: str
+    version_arg: int
+    def __init__(self, full_name_arg: _Optional[str] = ..., version_arg: _Optional[int] = ...) -> None: ...
 
 class DeleteRegisteredModel(_message.Message):
-    __slots__ = ("full_name", "force")
+    __slots__ = ("full_name_arg", "force")
     class Response(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
-    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
+    FULL_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
     FORCE_FIELD_NUMBER: _ClassVar[int]
-    full_name: str
+    full_name_arg: str
     force: bool
-    def __init__(self, full_name: _Optional[str] = ..., force: bool = ...) -> None: ...
+    def __init__(self, full_name_arg: _Optional[str] = ..., force: bool = ...) -> None: ...
 
 class DeleteModelVersion(_message.Message):
-    __slots__ = ("full_name", "version")
+    __slots__ = ("full_name_arg", "version_arg")
     class Response(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
-    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
-    VERSION_FIELD_NUMBER: _ClassVar[int]
-    full_name: str
-    version: int
-    def __init__(self, full_name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
+    FULL_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
+    VERSION_ARG_FIELD_NUMBER: _ClassVar[int]
+    full_name_arg: str
+    version_arg: int
+    def __init__(self, full_name_arg: _Optional[str] = ..., version_arg: _Optional[int] = ...) -> None: ...
 
 class SetRegisteredModelAlias(_message.Message):
-    __slots__ = ("full_name", "alias", "version_num")
+    __slots__ = ("full_name_arg", "alias_arg", "version_num")
     class Response(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
-    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
-    ALIAS_FIELD_NUMBER: _ClassVar[int]
+    FULL_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
+    ALIAS_ARG_FIELD_NUMBER: _ClassVar[int]
     VERSION_NUM_FIELD_NUMBER: _ClassVar[int]
-    full_name: str
-    alias: str
+    full_name_arg: str
+    alias_arg: str
     version_num: int
-    def __init__(self, full_name: _Optional[str] = ..., alias: _Optional[str] = ..., version_num: _Optional[int] = ...) -> None: ...
+    def __init__(self, full_name_arg: _Optional[str] = ..., alias_arg: _Optional[str] = ..., version_num: _Optional[int] = ...) -> None: ...
 
 class DeleteRegisteredModelAlias(_message.Message):
-    __slots__ = ("full_name", "alias")
+    __slots__ = ("full_name_arg", "alias_arg")
     class Response(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
-    FULL_NAME_FIELD_NUMBER: _ClassVar[int]
-    ALIAS_FIELD_NUMBER: _ClassVar[int]
-    full_name: str
-    alias: str
-    def __init__(self, full_name: _Optional[str] = ..., alias: _Optional[str] = ...) -> None: ...
+    FULL_NAME_ARG_FIELD_NUMBER: _ClassVar[int]
+    ALIAS_ARG_FIELD_NUMBER: _ClassVar[int]
+    full_name_arg: str
+    alias_arg: str
+    def __init__(self, full_name_arg: _Optional[str] = ..., alias_arg: _Optional[str] = ...) -> None: ...
 
 class GenerateTemporaryModelVersionCredential(_message.Message):
     __slots__ = ("catalog_name", "schema_name", "model_name", "version", "operation")
