@@ -647,6 +647,18 @@ def test_validate_public_https_url_rejects_resolution_timeout():
             _validate_public_https_url("https://example.com/icon.png", field_name="Icon URL")
 
 
+def test_validate_public_https_url_rejects_when_resolution_slots_are_exhausted():
+    with patch(
+        "mlflow.utils.validation._HOSTNAME_RESOLUTION_SEMAPHORE.acquire",
+        return_value=False,
+    ):
+        with pytest.raises(
+            MlflowException,
+            match="too many hostname resolutions are already in progress",
+        ):
+            _validate_public_https_url("https://example.com/icon.png", field_name="Icon URL")
+
+
 def test_validate_public_https_url_rejects_if_any_resolved_address_is_private():
     def multi_resolve(host, port, *a, **kw):
         return [
