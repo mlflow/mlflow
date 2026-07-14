@@ -381,7 +381,6 @@ export const ExperimentViewRunsColumnSelector = React.memo(
         </Popover.Trigger>
         <Popover.Content
           align="start"
-          minWidth={400}
           // The panel manages its own inner padding, so reset the popover's
           // default padding via inline style (using `css` here would replace the
           // design-system Content styles wholesale, dropping the surface/border).
