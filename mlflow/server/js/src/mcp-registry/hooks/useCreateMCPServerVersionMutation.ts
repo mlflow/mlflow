@@ -45,8 +45,9 @@ export const useCreateMCPServerVersionMutation = () => {
                 MCPRegistryApi.setMCPServerVersionTag(name, version.version, { key, value });
           await Promise.all(Object.entries(tags).map(([key, value]) => setTag(key, value)));
         }
-      } catch (e) {
-        console.warn('Version created but post-create metadata/tag update failed:', e);
+      } catch {
+        // Version was created successfully; metadata/tag writes are non-fatal.
+        // The user sees the version in the list and can retry edits manually.
       }
 
       return version;

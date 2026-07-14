@@ -6,19 +6,6 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { setupServer } from '../../common/utils/setup-msw';
-
-jest.mock('../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor', () => ({
-  LazyJsonRecordEditor: ({
-    ariaLabel,
-    value,
-    onChange,
-  }: {
-    ariaLabel: string;
-    value: string;
-    onChange: (next: string) => void;
-  }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
-}));
-
 import MCPServerDetailPage from './MCPServerDetailPage';
 import { TransportType } from '../types';
 import {
@@ -35,6 +22,19 @@ import {
   getMockedDeleteMCPServerTagResponse,
   getMockedCurrentUserResponse,
 } from '../test-utils';
+
+// Monaco does not render in jsdom; stand the editor in with a labelled textarea.
+jest.mock('../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor', () => ({
+  LazyJsonRecordEditor: ({
+    ariaLabel,
+    value,
+    onChange,
+  }: {
+    ariaLabel: string;
+    value: string;
+    onChange: (next: string) => void;
+  }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
+}));
 
 const mockServer = createMockMCPServer({
   name: 'dev.mainline/mcp',

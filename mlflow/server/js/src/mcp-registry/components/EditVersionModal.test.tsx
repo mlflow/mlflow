@@ -5,7 +5,14 @@ import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { setupServer } from '../../common/utils/setup-msw';
+import { EditVersionModal } from './EditVersionModal';
+import {
+  createMockMCPServer,
+  createMockMCPServerVersion,
+  getMockedUpdateMCPServerVersionResponse,
+} from '../test-utils';
 
+// Monaco does not render in jsdom; stand the editor in with a labelled textarea.
 jest.mock('../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor', () => ({
   LazyJsonRecordEditor: ({
     ariaLabel,
@@ -17,13 +24,6 @@ jest.mock('../../experiment-tracking/pages/experiment-evaluation-datasets-v2/com
     onChange: (next: string) => void;
   }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
 }));
-
-import { EditVersionModal } from './EditVersionModal';
-import {
-  createMockMCPServer,
-  createMockMCPServerVersion,
-  getMockedUpdateMCPServerVersionResponse,
-} from '../test-utils';
 
 const server = setupServer();
 beforeAll(() => server.listen());

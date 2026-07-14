@@ -6,7 +6,16 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import { setupServer } from '../../common/utils/setup-msw';
+import {
+  getMockedSearchMCPServersResponse,
+  getMockedCreateMCPServerVersionResponse,
+  getMockedCreateMCPServerVersionErrorResponse,
+  getMockedUpdateMCPServerResponse,
+  createMockMCPServerVersion,
+} from '../test-utils';
+import { useCreateMCPServerVersionModal } from './useCreateMCPServerVersionModal';
 
+// Monaco does not render in jsdom; stand the editor in with a labelled textarea.
 jest.mock('../../experiment-tracking/pages/experiment-evaluation-datasets-v2/components/LazyJsonRecordEditor', () => ({
   LazyJsonRecordEditor: ({
     ariaLabel,
@@ -18,14 +27,6 @@ jest.mock('../../experiment-tracking/pages/experiment-evaluation-datasets-v2/com
     onChange: (next: string) => void;
   }) => <textarea aria-label={ariaLabel} value={value} onChange={(e) => onChange(e.target.value)} />,
 }));
-import {
-  getMockedSearchMCPServersResponse,
-  getMockedCreateMCPServerVersionResponse,
-  getMockedCreateMCPServerVersionErrorResponse,
-  getMockedUpdateMCPServerResponse,
-  createMockMCPServerVersion,
-} from '../test-utils';
-import { useCreateMCPServerVersionModal } from './useCreateMCPServerVersionModal';
 
 const VALID_SERVER_JSON = JSON.stringify({
   name: 'io.github.test/server',
