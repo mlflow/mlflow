@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783951023703,
+  "lastUpdate": 1784014914867,
   "repoUrl": "https://github.com/mlflow/mlflow",
   "entries": {
     "MLflow Tracing Benchmark": [
@@ -13769,6 +13769,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
             "value": 6.513723200001209,
+            "unit": "ms"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "contact.rdudhat@gmail.com",
+            "name": "Rudra Dudhat",
+            "username": "RudraDudhat2509"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "43c1455e7f7b37348079842b81e98a0aa6253951",
+          "message": "fix: store OpenAI agent Generation span attributes under correct SpanAttributeKey constants (#24290)\n\nSigned-off-by: Rudra Dudhat <contact.rdudhat@gmail.com>\nCo-authored-by: Copilot Autofix powered by AI <175728472+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-14T07:38:39Z",
+          "tree_id": "cf36ce2a1412fedf6a931374c1711a9fbf010af3",
+          "url": "https://github.com/mlflow/mlflow/commit/43c1455e7f7b37348079842b81e98a0aa6253951"
+        },
+        "date": 1784014913362,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_ingest",
+            "value": 43.25672884998539,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_tag",
+            "value": 25.559479787875027,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_state",
+            "value": 23.869578000007298,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_name_like",
+            "value": 26.122889999998954,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_search_by_timestamp",
+            "value": 25.011318346153864,
+            "unit": "ms"
+          },
+          {
+            "name": "dev/benchmarks/tracing/test_trace_perf.py::test_e2e_agent",
+            "value": 9.791949600003136,
             "unit": "ms"
           }
         ]
