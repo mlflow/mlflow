@@ -78,7 +78,7 @@ class Event(BaseModel):
         return cls(type=EventType.ERROR, data={"error": error})
 
     @classmethod
-    def from_exception(cls, exc: BaseException) -> "Event":
+    def from_exception(cls, exc: Exception) -> "Event":
         # Some exceptions (e.g. NotImplementedError()) stringify to an empty
         # string, which would surface to the client as an undiagnosable
         # `{"error": ""}`. Fall back to the exception's repr so the error is
