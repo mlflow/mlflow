@@ -320,8 +320,8 @@ export interface BudgetPolicy {
   created_by?: string | null;
   last_updated_by?: string | null;
   workspace?: string | null;
-  endpoint_id?: string | null;
-  principal?: string | null;
+  // Endpoint ID for ENDPOINT scope, principal (username) for USER scope.
+  target_value?: string | null;
 }
 
 export interface CreateBudgetPolicyRequest {
@@ -330,8 +330,7 @@ export interface CreateBudgetPolicyRequest {
   duration: BudgetDuration;
   target_scope: TargetScope;
   budget_action: BudgetAction;
-  endpoint_id?: string;
-  principal?: string;
+  target_value?: string;
 }
 
 export interface CreateBudgetPolicyResponse {
@@ -349,8 +348,7 @@ export interface UpdateBudgetPolicyRequest {
   duration?: BudgetDuration;
   target_scope?: TargetScope;
   budget_action?: BudgetAction;
-  endpoint_id?: string;
-  principal?: string;
+  target_value?: string;
 }
 
 export interface UpdateBudgetPolicyResponse {
@@ -367,7 +365,7 @@ export interface BudgetPolicyWindow {
   window_start_ms: number;
   window_end_ms: number;
   current_spend: number;
-  endpoint_id?: string;
+  target_value?: string;
 }
 
 export interface ListBudgetWindowsResponse {

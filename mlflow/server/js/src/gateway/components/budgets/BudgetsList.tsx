@@ -51,10 +51,10 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
 
   const getScopeLabel = (policy: BudgetPolicy) => {
     if (policy.target_scope === 'ENDPOINT') {
-      return endpointNamesById.get(policy.endpoint_id ?? '') ?? policy.endpoint_id;
+      return endpointNamesById.get(policy.target_value ?? '') ?? policy.target_value;
     }
     if (policy.target_scope === 'USER') {
-      return policy.principal;
+      return policy.target_value;
     }
     return formatMessage({
       defaultMessage: 'All endpoints',

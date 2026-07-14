@@ -115,7 +115,7 @@ describe('CreateBudgetPolicyModal', () => {
     expect(screen.getByRole('button', { name: 'Create' })).not.toBeDisabled();
   });
 
-  test('submits ENDPOINT payload with endpoint_id', async () => {
+  test('submits ENDPOINT payload with target_value', async () => {
     const onClose = jest.fn();
     const onSuccess = jest.fn();
 
@@ -139,7 +139,7 @@ describe('CreateBudgetPolicyModal', () => {
       budget_amount: 25,
       duration: { unit: 'MONTHS', value: 1 },
       target_scope: 'ENDPOINT',
-      endpoint_id: 'e-2',
+      target_value: 'e-2',
       budget_action: 'REJECT',
     });
   });
@@ -163,7 +163,7 @@ describe('CreateBudgetPolicyModal', () => {
     expect(screen.getByRole('button', { name: 'Create' })).not.toBeDisabled();
   });
 
-  test('submits USER-scoped payload with principal', async () => {
+  test('submits USER-scoped payload with principal as target_value', async () => {
     const onClose = jest.fn();
     const onSuccess = jest.fn();
 
@@ -185,8 +185,8 @@ describe('CreateBudgetPolicyModal', () => {
       budget_amount: 25,
       duration: { unit: 'MONTHS', value: 1 },
       target_scope: 'USER',
+      target_value: 'alice',
       budget_action: 'REJECT',
-      principal: 'alice',
     });
   });
 

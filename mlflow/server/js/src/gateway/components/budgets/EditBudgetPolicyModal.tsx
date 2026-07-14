@@ -74,8 +74,8 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
         duration: toDurationPreset(policy.duration.unit, policy.duration.value),
         budgetAction: policy.budget_action,
         scope: policy.target_scope === 'ENDPOINT' ? 'ENDPOINT' : policy.target_scope === 'USER' ? 'USER' : 'ALL',
-        endpointId: policy.endpoint_id ?? '',
-        principal: policy.principal ?? '',
+        endpointId: policy.target_scope === 'ENDPOINT' ? (policy.target_value ?? '') : '',
+        principal: policy.target_scope === 'USER' ? (policy.target_value ?? '') : '',
       });
       resetMutation();
     }
@@ -115,12 +115,11 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
         budget_amount: parseFloat(formData.budgetAmount),
         duration: { unit, value },
         ...(formData.scope === 'ENDPOINT'
-          ? { target_scope: 'ENDPOINT' as const, endpoint_id: formData.endpointId }
+          ? { target_scope: 'ENDPOINT' as const, target_value: formData.endpointId }
           : isUserScope
-            ? { target_scope: 'USER' as const }
+            ? { target_scope: 'USER' as const, target_value: formData.principal.trim() }
             : { target_scope: getWorkspacesEnabledSync() ? ('WORKSPACE' as const) : ('GLOBAL' as const) }),
         budget_action: formData.budgetAction,
-        ...(isUserScope && { principal: formData.principal.trim() }),
       });
     } catch {
       // `mutationError` is populated by `useUpdateBudgetPolicy` and rendered

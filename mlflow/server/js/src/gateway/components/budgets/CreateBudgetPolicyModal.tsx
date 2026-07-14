@@ -96,12 +96,11 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
         budget_amount: parseFloat(formData.budgetAmount),
         duration: { unit, value },
         ...(formData.scope === 'ENDPOINT'
-          ? { target_scope: 'ENDPOINT' as const, endpoint_id: formData.endpointId }
+          ? { target_scope: 'ENDPOINT' as const, target_value: formData.endpointId }
           : isUserScope
-            ? { target_scope: 'USER' as const }
+            ? { target_scope: 'USER' as const, target_value: formData.principal.trim() }
             : { target_scope: getWorkspacesEnabledSync() ? ('WORKSPACE' as const) : ('GLOBAL' as const) }),
         budget_action: formData.budgetAction,
-        ...(isUserScope && { principal: formData.principal.trim() }),
       });
     } catch {
       // `mutationError` is populated by `useCreateBudgetPolicy` and rendered

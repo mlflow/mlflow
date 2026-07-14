@@ -29,7 +29,7 @@ const mockEndpointPolicy: BudgetPolicy = {
   ...mockPolicy,
   budget_policy_id: 'bp-ep',
   target_scope: 'ENDPOINT',
-  endpoint_id: 'e-1',
+  target_value: 'e-1',
 };
 
 const mockUserPolicy: BudgetPolicy = {
@@ -37,7 +37,7 @@ const mockUserPolicy: BudgetPolicy = {
   budget_policy_id: 'bp-user',
   target_scope: 'USER',
   budget_action: 'REJECT',
-  principal: 'alice',
+  target_value: 'alice',
 };
 
 describe('EditBudgetPolicyModal', () => {
@@ -102,7 +102,7 @@ describe('EditBudgetPolicyModal', () => {
     expect(screen.getByText('my-endpoint')).toBeInTheDocument();
   });
 
-  test('submits ENDPOINT payload preserving endpoint_id', async () => {
+  test('submits ENDPOINT payload preserving target_value', async () => {
     renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockEndpointPolicy} onClose={jest.fn()} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
@@ -113,12 +113,12 @@ describe('EditBudgetPolicyModal', () => {
       budget_amount: 200,
       duration: { unit: 'WEEKS', value: 1 },
       target_scope: 'ENDPOINT',
-      endpoint_id: 'e-1',
+      target_value: 'e-1',
       budget_action: 'ALERT',
     });
   });
 
-  test('switching an ENDPOINT policy back to all endpoints drops endpoint_id', async () => {
+  test('switching an ENDPOINT policy back to all endpoints drops target_value', async () => {
     renderWithDesignSystem(<EditBudgetPolicyModal open policy={mockEndpointPolicy} onClose={jest.fn()} />);
 
     const [scopeSelect] = screen.getAllByRole('combobox');
@@ -165,8 +165,8 @@ describe('EditBudgetPolicyModal', () => {
       budget_amount: 200,
       duration: { unit: 'WEEKS', value: 1 },
       target_scope: 'USER',
+      target_value: 'bob',
       budget_action: 'REJECT',
-      principal: 'bob',
     });
   });
 
