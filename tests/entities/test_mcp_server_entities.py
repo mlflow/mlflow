@@ -88,16 +88,16 @@ def test_mcp_server_from_dict():
         "aliases": [{"alias": "prod", "version": "1.0.0"}],
         "access_endpoints": [
             {
-                "endpoint_id": 1,
+                "id": 1,
                 "server_name": "test/server",
-                "endpoint_url": "https://example.com/mcp",
+                "url": "https://example.com/mcp",
             }
         ],
     })
     assert server.status == MCPStatus.ACTIVE
     assert server.tags == {"team": "platform"}
     assert server.aliases == {"prod": "1.0.0"}
-    assert server.access_endpoints[0].endpoint_id == 1
+    assert server.access_endpoints[0].id == 1
 
 
 def test_mcp_server_version_workspace_resolution():
@@ -123,18 +123,18 @@ def test_mcp_server_version_from_dict():
 
 def test_mcp_access_endpoint_workspace_resolution():
     endpoint = MCPAccessEndpoint(
-        endpoint_id=1,
+        id=1,
         server_name="test/server",
-        endpoint_url="https://example.com/mcp",
+        url="https://example.com/mcp",
     )
     assert endpoint.workspace == "default"
 
 
 def test_mcp_access_endpoint_from_dict():
     endpoint = MCPAccessEndpoint.from_dict({
-        "endpoint_id": 1,
+        "id": 1,
         "server_name": "test/server",
-        "endpoint_url": "https://example.com/mcp",
+        "url": "https://example.com/mcp",
         "resolved_version": {
             "name": "test/server",
             "version": "1.0.0",

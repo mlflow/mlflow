@@ -5108,7 +5108,7 @@ def test_mcp_server_endpoint_search_filters_by_parent(fastapi_client, monkeypatc
             url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
             json={
                 "server_version": version,
-                "endpoint_url": f"https://example.com/{name}",
+                "url": f"https://example.com/{name}",
             },
             auth=admin_auth,
         ).raise_for_status()
@@ -5122,7 +5122,7 @@ def test_mcp_server_endpoint_search_filters_by_parent(fastapi_client, monkeypatc
             auth=(reader, reader_pw),
         )
         assert resp.status_code == 200
-        endpoint_servers = {b["server_name"] for b in resp.json()["mcp_access_endpoints"]}
+        endpoint_servers = {e["server_name"] for e in resp.json()["mcp_access_endpoints"]}
         assert endpoint_servers == {visible}
         assert hidden not in endpoint_servers
 

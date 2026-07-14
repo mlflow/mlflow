@@ -445,10 +445,10 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "version": mcp_server_version,
         },
         "mcp_access_endpoints": {
-            "endpoint_id": seed,
+            "id": seed,
             "workspace": workspace,
             "server_name": f"mcp_server_{seed}",
-            "endpoint_url": f"http://localhost/{seed}",
+            "url": f"http://localhost/{seed}",
             "transport_type": "streamable-http",
             "created_at": seed,
             "last_updated_at": seed,

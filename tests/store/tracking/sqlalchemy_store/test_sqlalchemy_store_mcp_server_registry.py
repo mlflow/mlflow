@@ -185,7 +185,7 @@ def test_get_mcp_server_access_endpoints_include_resolved_versions(store):
         "io.github.test/server", "https://alias.example.com", server_alias="prod"
     )
     server = store.get_mcp_server("io.github.test/server")
-    endpoints = {b.endpoint_url: b for b in server.access_endpoints}
+    endpoints = {e.url: e for e in server.access_endpoints}
     assert endpoints["https://direct.example.com"].resolved_version is not None
     assert endpoints["https://direct.example.com"].resolved_version.version == "1.0.0"
     assert endpoints["https://alias.example.com"].resolved_version is not None
@@ -1055,7 +1055,7 @@ def test_create_mcp_access_endpoint_with_version(store):
         created_by="alice",
     )
     assert endpoint.server_name == "io.github.test/server"
-    assert endpoint.endpoint_url == "https://mcp.example.com"
+    assert endpoint.url == "https://mcp.example.com"
     assert endpoint.server_version == "1.0.0"
     assert endpoint.transport_type == MCPRemoteTransportType.STREAMABLE_HTTP
     assert endpoint.created_by == "alice"
@@ -1169,9 +1169,9 @@ def test_delete_mcp_access_endpoint(store):
     endpoint = store.create_mcp_access_endpoint(
         "io.github.test/server", "https://a.com", server_version="1.0.0"
     )
-    store.delete_mcp_access_endpoint("io.github.test/server", endpoint.endpoint_id)
+    store.delete_mcp_access_endpoint("io.github.test/server", endpoint.id)
     with pytest.raises(MlflowException, match="not found"):
-        store.get_mcp_access_endpoint("io.github.test/server", endpoint.endpoint_id)
+        store.get_mcp_access_endpoint("io.github.test/server", endpoint.id)
 
 
 # --- Tags ---
@@ -1299,7 +1299,7 @@ def test_delete_mcp_server_alias_cleans_up_alias_endpoints(store):
     )
     store.delete_mcp_server_alias("io.github.test/server", "stable")
     with pytest.raises(MlflowException, match="not found"):
-        store.get_mcp_access_endpoint("io.github.test/server", endpoint.endpoint_id)
+        store.get_mcp_access_endpoint("io.github.test/server", endpoint.id)
     assert len(store.search_mcp_access_endpoints(server_name="io.github.test/server")) == 0
     server = store.get_mcp_server("io.github.test/server")
     assert server.aliases == {}
@@ -1513,7 +1513,7 @@ def test_search_mcp_access_endpoints_filter_by_transport_type(store):
     )
     result = store.search_mcp_access_endpoints(filter_string="transport_type = 'streamable-http'")
     assert len(result) == 1
-    assert result[0].endpoint_url == "https://a.com"
+    assert result[0].url == "https://a.com"
 
 
 def test_search_mcp_servers_filter_by_status_in(store):
@@ -1593,10 +1593,10 @@ def test_get_mcp_access_endpoint(store):
     created = store.create_mcp_access_endpoint(
         "io.github.test/server", "https://a.com", server_version="1.0.0"
     )
-    fetched = store.get_mcp_access_endpoint("io.github.test/server", created.endpoint_id)
-    assert fetched.endpoint_id == created.endpoint_id
+    fetched = store.get_mcp_access_endpoint("io.github.test/server", created.id)
+    assert fetched.id == created.id
     assert fetched.server_name == "io.github.test/server"
-    assert fetched.endpoint_url == "https://a.com"
+    assert fetched.url == "https://a.com"
     assert fetched.server_version == "1.0.0"
     assert fetched.transport_type == MCPRemoteTransportType.STREAMABLE_HTTP
 
@@ -1614,7 +1614,7 @@ def test_update_mcp_access_endpoint_version_clears_alias(store):
     assert endpoint.server_alias == "stable"
     updated = store.update_mcp_access_endpoint(
         "io.github.test/server",
-        endpoint.endpoint_id,
+        endpoint.id,
         server_version="2.0.0",
         last_updated_by="bob",
     )
@@ -1630,7 +1630,7 @@ def test_update_mcp_access_endpoint_alias_clears_version(store):
     )
     assert endpoint.server_version == "1.0.0"
     updated = store.update_mcp_access_endpoint(
-        "io.github.test/server", endpoint.endpoint_id, server_alias="prod"
+        "io.github.test/server", endpoint.id, server_alias="prod"
     )
     assert updated.server_alias == "prod"
     assert updated.server_version is None
@@ -1643,23 +1643,21 @@ def test_update_mcp_access_endpoint_endpoint_and_transport(store):
     )
     updated = store.update_mcp_access_endpoint(
         "io.github.test/server",
-        endpoint.endpoint_id,
-        endpoint_url="https://b.com",
+        endpoint.id,
+        url="https://b.com",
         transport_type=MCPRemoteTransportType.SSE,
     )
-    assert updated.endpoint_url == "https://b.com"
+    assert updated.url == "https://b.com"
     assert updated.transport_type == MCPRemoteTransportType.SSE
 
 
-def test_update_mcp_access_endpoint_endpoint_url_none_raises(store):
+def test_update_mcp_access_endpoint_url_none_raises(store):
     _setup_server(store, "io.github.test/server")
     endpoint = store.create_mcp_access_endpoint(
         "io.github.test/server", "https://a.com", server_version="1.0.0"
     )
-    with pytest.raises(MlflowException, match="endpoint_url cannot be None") as exc:
-        store.update_mcp_access_endpoint(
-            "io.github.test/server", endpoint.endpoint_id, endpoint_url=None
-        )
+    with pytest.raises(MlflowException, match="url cannot be None") as exc:
+        store.update_mcp_access_endpoint("io.github.test/server", endpoint.id, url=None)
     assert exc.value.error_code == "INVALID_PARAMETER_VALUE"
 
 
@@ -1671,7 +1669,7 @@ def test_update_mcp_access_endpoint_both_version_and_alias_raises(store):
     with pytest.raises(MlflowException, match="Cannot set both"):
         store.update_mcp_access_endpoint(
             "io.github.test/server",
-            endpoint.endpoint_id,
+            endpoint.id,
             server_version="1.0.0",
             server_alias="stable",
         )
@@ -1684,7 +1682,7 @@ def test_update_mcp_access_endpoint_nonexistent_version_raises(store):
     )
     with pytest.raises(MlflowException, match="not found"):
         store.update_mcp_access_endpoint(
-            "io.github.test/server", endpoint.endpoint_id, server_version="9.9.0"
+            "io.github.test/server", endpoint.id, server_version="9.9.0"
         )
 
 
@@ -1696,7 +1694,7 @@ def test_update_mcp_access_endpoint_deleted_version_raises(store):
     store.delete_mcp_server_version("io.github.test/server", "2.0.0")
     with pytest.raises(MlflowException, match="deleted MCP server version"):
         store.update_mcp_access_endpoint(
-            "io.github.test/server", endpoint.endpoint_id, server_version="2.0.0"
+            "io.github.test/server", endpoint.id, server_version="2.0.0"
         )
 
 
@@ -1706,9 +1704,7 @@ def test_update_mcp_access_endpoint_nonexistent_alias_raises(store):
         "io.github.test/server", "https://a.com", server_version="1.0.0"
     )
     with pytest.raises(MlflowException, match="not found"):
-        store.update_mcp_access_endpoint(
-            "io.github.test/server", endpoint.endpoint_id, server_alias="fake"
-        )
+        store.update_mcp_access_endpoint("io.github.test/server", endpoint.id, server_alias="fake")
 
 
 def test_update_mcp_access_endpoint_wrong_server_raises(store):
@@ -1718,9 +1714,7 @@ def test_update_mcp_access_endpoint_wrong_server_raises(store):
         "io.github.test/server1", "https://a.com", server_version="1.0.0"
     )
     with pytest.raises(MlflowException, match="does not belong"):
-        store.update_mcp_access_endpoint(
-            "io.github.test/server2", endpoint.endpoint_id, endpoint_url="https://b.com"
-        )
+        store.update_mcp_access_endpoint("io.github.test/server2", endpoint.id, url="https://b.com")
 
 
 # --- search_mcp_server_versions pagination ---
@@ -1818,7 +1812,7 @@ def test_delete_mcp_access_endpoint_wrong_server_raises(store):
         "io.github.test/server1", "https://a.com", server_version="1.0.0"
     )
     with pytest.raises(MlflowException, match="does not belong"):
-        store.delete_mcp_access_endpoint("io.github.test/server2", endpoint.endpoint_id)
+        store.delete_mcp_access_endpoint("io.github.test/server2", endpoint.id)
 
 
 def test_delete_mcp_server_version_tag_not_found_raises(store):
@@ -1958,7 +1952,7 @@ def test_create_mcp_access_endpoint_with_latest_alias(store):
     )
 
     # Retrieve the endpoint again to check resolution
-    retrieved_endpoint = store.get_mcp_access_endpoint("io.github.test/server", endpoint.endpoint_id)
+    retrieved_endpoint = store.get_mcp_access_endpoint("io.github.test/server", endpoint.id)
     assert retrieved_endpoint.resolved_version.version == "2.0.0"
 
 
@@ -2014,7 +2008,7 @@ def test_search_endpoint_latest_alias_remains_resolvable_without_active_version(
 
     endpoints = store.search_mcp_access_endpoints(server_name="io.github.test/server")
     assert len(endpoints) == 1
-    assert endpoints[0].endpoint_id == endpoint.endpoint_id
+    assert endpoints[0].id == endpoint.id
     assert endpoints[0].resolved_version is not None
     assert endpoints[0].resolved_version.version == "1.0.0"
 
@@ -2035,7 +2029,7 @@ def test_update_last_eligible_version_to_draft_keeps_latest_alias_endpoints_when
     assert len(endpoints) == 1
     server = store.get_mcp_server("io.github.test/server")
     assert len(server.access_endpoints) == 1
-    persisted = store.get_mcp_access_endpoint("io.github.test/server", endpoint.endpoint_id)
+    persisted = store.get_mcp_access_endpoint("io.github.test/server", endpoint.id)
     assert persisted.resolved_version is not None
     assert persisted.resolved_version.version == "1.0.0"
 
@@ -2057,7 +2051,7 @@ def test_delete_last_eligible_version_cleans_up_latest_alias_endpoints(store):
     server = store.get_mcp_server("io.github.test/server")
     assert server.access_endpoints == []
     with pytest.raises(MlflowException, match="not found"):
-        store.get_mcp_access_endpoint("io.github.test/server", endpoint.endpoint_id)
+        store.get_mcp_access_endpoint("io.github.test/server", endpoint.id)
 
 
 def test_search_unfiltered_returns_all_endpoint_types(store):
@@ -2078,15 +2072,15 @@ def test_search_unfiltered_returns_all_endpoint_types(store):
 
     endpoints = store.search_mcp_access_endpoints(server_name="io.github.test/server")
     assert len(endpoints) == 3
-    urls = {b.endpoint_url for b in endpoints}
+    urls = {e.url for e in endpoints}
     assert urls == {
         "https://direct.example.com",
         "https://alias.example.com",
         "https://latest.example.com",
     }
-    for b in endpoints:
-        assert b.resolved_version is not None
-        assert b.resolved_version.version == "1.0.0"
+    for e in endpoints:
+        assert e.resolved_version is not None
+        assert e.resolved_version.version == "1.0.0"
 
 
 def test_update_endpoint_to_latest_alias(store):
@@ -2100,7 +2094,7 @@ def test_update_endpoint_to_latest_alias(store):
 
     updated = store.update_mcp_access_endpoint(
         "io.github.test/server",
-        endpoint.endpoint_id,
+        endpoint.id,
         server_alias="latest",
     )
     assert updated.server_alias == "latest"
@@ -2118,10 +2112,10 @@ def test_get_mcp_server_includes_latest_alias_endpoint(store):
     )
     server = store.get_mcp_server("io.github.test/server")
     assert len(server.access_endpoints) == 1
-    b = server.access_endpoints[0]
-    assert b.server_alias == "latest"
-    assert b.resolved_version is not None
-    assert b.resolved_version.version == "1.0.0"
+    e = server.access_endpoints[0]
+    assert e.server_alias == "latest"
+    assert e.resolved_version is not None
+    assert e.resolved_version.version == "1.0.0"
 
 
 def test_search_mcp_servers_has_access_endpoints_with_latest_alias(store):
@@ -2166,7 +2160,7 @@ def test_endpoint_resolved_version_direct(store):
     )
     store.create_mcp_access_endpoint(
         server_name="io.github.test/server",
-        endpoint_url="https://example.com",
+        url="https://example.com",
         server_version="1.0.0",
     )
     endpoint = store.search_mcp_access_endpoints(server_name="io.github.test/server")[0]
@@ -2181,7 +2175,7 @@ def test_endpoint_resolved_version_via_alias(store):
     )
     store.set_mcp_server_alias("io.github.test/server", "prod", "1.0.0")
     store.create_mcp_access_endpoint(
-        server_name="io.github.test/server", endpoint_url="https://example.com", server_alias="prod"
+        server_name="io.github.test/server", url="https://example.com", server_alias="prod"
     )
     endpoint = store.search_mcp_access_endpoints(server_name="io.github.test/server")[0]
     assert endpoint.resolved_version is not None
@@ -2194,10 +2188,10 @@ def test_endpoint_resolved_version_on_get(store):
     )
     endpoint = store.create_mcp_access_endpoint(
         server_name="io.github.test/server",
-        endpoint_url="https://example.com",
+        url="https://example.com",
         server_version="1.0.0",
     )
-    fetched = store.get_mcp_access_endpoint("io.github.test/server", endpoint.endpoint_id)
+    fetched = store.get_mcp_access_endpoint("io.github.test/server", endpoint.id)
     assert fetched.resolved_version is not None
     assert fetched.resolved_version.version == "1.0.0"
 
@@ -2208,9 +2202,9 @@ def test_endpoint_resolved_version_on_get_via_alias(store):
     )
     store.set_mcp_server_alias("io.github.test/server", "prod", "1.0.0")
     endpoint = store.create_mcp_access_endpoint(
-        server_name="io.github.test/server", endpoint_url="https://example.com", server_alias="prod"
+        server_name="io.github.test/server", url="https://example.com", server_alias="prod"
     )
-    fetched = store.get_mcp_access_endpoint("io.github.test/server", endpoint.endpoint_id)
+    fetched = store.get_mcp_access_endpoint("io.github.test/server", endpoint.id)
     assert fetched.resolved_version is not None
     assert fetched.resolved_version.version == "1.0.0"
 
@@ -2222,17 +2216,17 @@ def test_search_endpoints_filter_by_status(store):
     store.create_mcp_server_version(_server_json("io.github.test/server", "2.0.0"))
     store.create_mcp_access_endpoint(
         server_name="io.github.test/server",
-        endpoint_url="https://a.example.com",
+        url="https://a.example.com",
         server_version="1.0.0",
     )
     store.create_mcp_access_endpoint(
         server_name="io.github.test/server",
-        endpoint_url="https://b.example.com",
+        url="https://b.example.com",
         server_version="2.0.0",
     )
     result = store.search_mcp_access_endpoints(filter_string="status = 'active'")
     assert len(result) == 1
-    assert result[0].endpoint_url == "https://a.example.com"
+    assert result[0].url == "https://a.example.com"
 
 
 def test_search_endpoints_scoped_to_server_version_resolves_version(store):
@@ -2242,19 +2236,19 @@ def test_search_endpoints_scoped_to_server_version_resolves_version(store):
     store.set_mcp_server_alias("io.github.test/server", "prod", "1.0.0")
     store.create_mcp_access_endpoint(
         server_name="io.github.test/server",
-        endpoint_url="https://direct.example.com",
+        url="https://direct.example.com",
         server_version="1.0.0",
     )
     store.create_mcp_access_endpoint(
         server_name="io.github.test/server",
-        endpoint_url="https://alias.example.com",
+        url="https://alias.example.com",
         server_alias="prod",
     )
     result = store.search_mcp_access_endpoints(
         server_name="io.github.test/server", server_version="1.0.0"
     )
     assert len(result) == 1
-    assert result[0].endpoint_url == "https://direct.example.com"
+    assert result[0].url == "https://direct.example.com"
     assert result[0].resolved_version is not None
     assert result[0].resolved_version.version == "1.0.0"
 
@@ -2266,19 +2260,19 @@ def test_search_endpoints_scoped_to_server_alias_resolves_version(store):
     store.set_mcp_server_alias("io.github.test/server", "prod", "1.0.0")
     store.create_mcp_access_endpoint(
         server_name="io.github.test/server",
-        endpoint_url="https://direct.example.com",
+        url="https://direct.example.com",
         server_version="1.0.0",
     )
     store.create_mcp_access_endpoint(
         server_name="io.github.test/server",
-        endpoint_url="https://alias.example.com",
+        url="https://alias.example.com",
         server_alias="prod",
     )
     result = store.search_mcp_access_endpoints(
         server_name="io.github.test/server", server_alias="prod"
     )
     assert len(result) == 1
-    assert result[0].endpoint_url == "https://alias.example.com"
+    assert result[0].url == "https://alias.example.com"
     assert result[0].resolved_version is not None
     assert result[0].resolved_version.version == "1.0.0"
 
@@ -2295,7 +2289,7 @@ def test_create_endpoint_returns_resolved_version(store):
     )
     endpoint = store.create_mcp_access_endpoint(
         server_name="io.github.test/server",
-        endpoint_url="https://example.com",
+        url="https://example.com",
         server_version="1.0.0",
     )
     assert endpoint.resolved_version is not None
@@ -2308,13 +2302,13 @@ def test_update_endpoint_returns_resolved_version(store):
     )
     endpoint = store.create_mcp_access_endpoint(
         server_name="io.github.test/server",
-        endpoint_url="https://example.com",
+        url="https://example.com",
         server_version="1.0.0",
     )
     updated = store.update_mcp_access_endpoint(
         server_name="io.github.test/server",
-        endpoint_id=endpoint.endpoint_id,
-        endpoint_url="https://new.example.com",
+        endpoint_id=endpoint.id,
+        url="https://new.example.com",
     )
     assert updated.resolved_version is not None
     assert updated.resolved_version.version == "1.0.0"
@@ -2324,7 +2318,7 @@ def test_endpoint_to_deleted_version_hidden(store):
     store.create_mcp_server_version(_server_json("io.github.test/server", "1.0.0"))
     store.create_mcp_access_endpoint(
         server_name="io.github.test/server",
-        endpoint_url="https://example.com",
+        url="https://example.com",
         server_version="1.0.0",
     )
     store.delete_mcp_server_version("io.github.test/server", "1.0.0")
@@ -2336,7 +2330,7 @@ def test_has_access_endpoints_excludes_stale_endpoints(store):
     store.create_mcp_server_version(_server_json("io.github.test/server", "1.0.0"))
     store.create_mcp_access_endpoint(
         server_name="io.github.test/server",
-        endpoint_url="https://example.com",
+        url="https://example.com",
         server_version="1.0.0",
     )
     result = store.search_mcp_servers(filter_string="has_access_endpoints = 'true'")

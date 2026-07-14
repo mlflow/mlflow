@@ -115,7 +115,7 @@ def test_register_mcp_server_creates_endpoints_from_remotes():
 
     endpoints = genai.search_mcp_access_endpoints(server_name=version.name)
     assert len(endpoints) == 1
-    assert endpoints[0].endpoint_url == "https://mcp.example.com/server"
+    assert endpoints[0].url == "https://mcp.example.com/server"
     assert endpoints[0].server_version == version.version
 
 
@@ -585,17 +585,15 @@ def test_create_and_get_mcp_access_endpoint():
     version = genai.register_mcp_server(server_json=sj, status="active")
     endpoint = genai.create_mcp_access_endpoint(
         server_name=version.name,
-        endpoint_url="https://mcp.example.com/server",
+        url="https://mcp.example.com/server",
         transport_type="streamable-http",
         server_version=version.version,
     )
-    assert endpoint.endpoint_url == "https://mcp.example.com/server"
+    assert endpoint.url == "https://mcp.example.com/server"
     assert endpoint.transport_type == MCPRemoteTransportType.STREAMABLE_HTTP
 
-    fetched = genai.get_mcp_access_endpoint(
-        server_name=version.name, endpoint_id=endpoint.endpoint_id
-    )
-    assert fetched.endpoint_id == endpoint.endpoint_id
+    fetched = genai.get_mcp_access_endpoint(server_name=version.name, endpoint_id=endpoint.id)
+    assert fetched.id == endpoint.id
 
 
 def test_create_mcp_access_endpoint_via_alias():
@@ -604,7 +602,7 @@ def test_create_mcp_access_endpoint_via_alias():
     genai.set_mcp_server_alias(name="io.github.test/alias-bind", alias="prod", version="1.0.0")
     endpoint = genai.create_mcp_access_endpoint(
         server_name="io.github.test/alias-bind",
-        endpoint_url="https://mcp.example.com/ab",
+        url="https://mcp.example.com/ab",
         server_alias="prod",
     )
     assert endpoint.server_alias == "prod"
@@ -616,12 +614,12 @@ def test_search_mcp_access_endpoints():
     version = genai.register_mcp_server(server_json=sj, status="active")
     genai.create_mcp_access_endpoint(
         server_name=version.name,
-        endpoint_url="https://a.example.com",
+        url="https://a.example.com",
         server_version=version.version,
     )
     genai.create_mcp_access_endpoint(
         server_name=version.name,
-        endpoint_url="https://b.example.com",
+        url="https://b.example.com",
         server_version=version.version,
     )
     endpoints = genai.search_mcp_access_endpoints(server_name=version.name)
@@ -633,15 +631,15 @@ def test_update_mcp_access_endpoint():
     version = genai.register_mcp_server(server_json=sj, status="active")
     endpoint = genai.create_mcp_access_endpoint(
         server_name=version.name,
-        endpoint_url="https://old.example.com",
+        url="https://old.example.com",
         server_version=version.version,
     )
     updated = genai.update_mcp_access_endpoint(
         server_name=version.name,
-        endpoint_id=endpoint.endpoint_id,
-        endpoint_url="https://new.example.com",
+        endpoint_id=endpoint.id,
+        url="https://new.example.com",
     )
-    assert updated.endpoint_url == "https://new.example.com"
+    assert updated.url == "https://new.example.com"
 
 
 def test_delete_mcp_access_endpoint():
@@ -649,12 +647,12 @@ def test_delete_mcp_access_endpoint():
     version = genai.register_mcp_server(server_json=sj, status="active")
     endpoint = genai.create_mcp_access_endpoint(
         server_name=version.name,
-        endpoint_url="https://del.example.com",
+        url="https://del.example.com",
         server_version=version.version,
     )
-    genai.delete_mcp_access_endpoint(server_name=version.name, endpoint_id=endpoint.endpoint_id)
+    genai.delete_mcp_access_endpoint(server_name=version.name, endpoint_id=endpoint.id)
     with pytest.raises(MlflowException, match="not found"):
-        genai.get_mcp_access_endpoint(server_name=version.name, endpoint_id=endpoint.endpoint_id)
+        genai.get_mcp_access_endpoint(server_name=version.name, endpoint_id=endpoint.id)
 
 
 # ---------------------------------------------------------------------------

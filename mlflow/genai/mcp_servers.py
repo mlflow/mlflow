@@ -136,7 +136,7 @@ def register_mcp_server(
     for url, transport in validated_remotes:
         client.create_mcp_access_endpoint(
             server_name=version.name,
-            endpoint_url=url,
+            url=url,
             transport_type=transport,
             server_version=version.version,
         )
@@ -472,7 +472,7 @@ def delete_mcp_server_version(name: str, version: str) -> None:
 @experimental(version="3.15.0")
 def create_mcp_access_endpoint(
     server_name: str,
-    endpoint_url: str,
+    url: str,
     transport_type: Literal["streamable-http", "sse"] = "streamable-http",
     server_version: str | None = None,
     server_alias: str | None = None,
@@ -484,7 +484,7 @@ def create_mcp_access_endpoint(
 
     Args:
         server_name: Server name.
-        endpoint_url: URL of the remote MCP endpoint.
+        url: URL of the remote MCP endpoint.
         transport_type: Transport protocol — ``"streamable-http"`` (default) or ``"sse"``.
         server_version: Pin the endpoint to a specific version string.
         server_alias: Pin the endpoint to an alias.
@@ -500,14 +500,14 @@ def create_mcp_access_endpoint(
 
         endpoint = mlflow.genai.create_mcp_access_endpoint(
             server_name="io.github.anthropic/brave-search",
-            endpoint_url="https://mcp.acme.internal/brave-search",
+            url="https://mcp.acme.internal/brave-search",
             transport_type="streamable-http",
             server_alias="production",
         )
     """
     return MlflowClient().create_mcp_access_endpoint(
         server_name=server_name,
-        endpoint_url=endpoint_url,
+        url=url,
         transport_type=_parse_enum(transport_type, MCPRemoteTransportType, "transport_type"),
         server_version=server_version,
         server_alias=server_alias,
@@ -562,7 +562,7 @@ def search_mcp_access_endpoints(
 def update_mcp_access_endpoint(
     server_name: str,
     endpoint_id: int,
-    endpoint_url: str | None = NOT_SET,
+    url: str | None = NOT_SET,
     transport_type: Literal["streamable-http", "sse"] | None = NOT_SET,
     server_version: str | None = NOT_SET,
     server_alias: str | None = NOT_SET,
@@ -576,7 +576,7 @@ def update_mcp_access_endpoint(
     Args:
         server_name: Server name.
         endpoint_id: Endpoint ID.
-        endpoint_url: New endpoint URL. Pass ``None`` to clear.
+        url: New endpoint URL. Pass ``None`` to clear.
         transport_type: New transport type. Pass ``None`` to clear.
         server_version: New version target. Pass ``None`` to clear.
         server_alias: New alias target. Pass ``None`` to clear.
@@ -587,7 +587,7 @@ def update_mcp_access_endpoint(
     return MlflowClient().update_mcp_access_endpoint(
         server_name=server_name,
         endpoint_id=endpoint_id,
-        endpoint_url=endpoint_url,
+        url=url,
         transport_type=_parse_enum(transport_type, MCPRemoteTransportType, "transport_type"),
         server_version=server_version,
         server_alias=server_alias,

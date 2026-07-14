@@ -15,9 +15,9 @@ if TYPE_CHECKING:
 @experimental(version="3.15.0")
 @dataclass
 class MCPAccessEndpoint:
-    endpoint_id: int
+    id: int
     server_name: str
-    endpoint_url: str
+    url: str
     transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP
     server_version: str | None = None
     server_alias: str | None = None
@@ -42,9 +42,9 @@ class MCPAccessEndpoint:
             from mlflow.entities.mcp_server_version import MCPServerVersion
 
             return cls(
-                endpoint_id=data["endpoint_id"],
+                id=data["id"],
                 server_name=data["server_name"],
-                endpoint_url=data["endpoint_url"],
+                url=data["url"],
                 transport_type=MCPRemoteTransportType(
                     data.get("transport_type", "streamable-http")
                 ),

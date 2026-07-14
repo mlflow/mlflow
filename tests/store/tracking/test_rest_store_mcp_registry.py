@@ -102,9 +102,9 @@ def test_create_mcp_access_endpoint_preserves_workspace(rest_store, mock_http_re
     server_workspace = "production"
     mock_http_request.return_value = _make_response(
         json_data={
-            "endpoint_id": 1,
+            "id": 1,
             "server_name": "com.example/test-server",
-            "endpoint_url": "http://example.com",
+            "url": "http://example.com",
             "transport_type": "streamable-http",
             "workspace": server_workspace,
             "created_by": "test-user",
@@ -114,7 +114,7 @@ def test_create_mcp_access_endpoint_preserves_workspace(rest_store, mock_http_re
 
     endpoint = rest_store.create_mcp_access_endpoint(
         server_name="com.example/test-server",
-        endpoint_url="http://example.com",
+        url="http://example.com",
     )
     assert endpoint.workspace == server_workspace
 
@@ -123,9 +123,9 @@ def test_get_mcp_access_endpoint_preserves_workspace(rest_store, mock_http_reque
     server_workspace = "production"
     mock_http_request.return_value = _make_response(
         json_data={
-            "endpoint_id": 1,
+            "id": 1,
             "server_name": "com.example/test-server",
-            "endpoint_url": "http://example.com",
+            "url": "http://example.com",
             "transport_type": "streamable-http",
             "workspace": server_workspace,
         }
@@ -142,9 +142,9 @@ def test_get_mcp_server_preserves_endpoint_metadata(rest_store, mock_http_reques
             "status": "active",
             "access_endpoints": [
                 {
-                    "endpoint_id": 1,
+                    "id": 1,
                     "server_name": "com.example/test-server",
-                    "endpoint_url": "http://example.com",
+                    "url": "http://example.com",
                     "transport_type": "streamable-http",
                     "workspace": "production",
                     "created_by": "admin",
@@ -176,9 +176,9 @@ def test_search_mcp_servers_preserves_endpoint_metadata(rest_store, mock_http_re
                     "status": "active",
                     "access_endpoints": [
                         {
-                            "endpoint_id": 1,
+                            "id": 1,
                             "server_name": "com.example/server1",
-                            "endpoint_url": "http://example1.com",
+                            "url": "http://example1.com",
                             "transport_type": "streamable-http",
                             "workspace": "production",
                             "created_by": "user1",
@@ -233,9 +233,9 @@ def test_invalid_status_enum_raises_mlflow_exception(rest_store, mock_http_reque
 def test_invalid_transport_type_raises_mlflow_exception(rest_store, mock_http_request):
     mock_http_request.return_value = _make_response(
         json_data={
-            "endpoint_id": 1,
+            "id": 1,
             "server_name": "com.example/test-server",
-            "endpoint_url": "http://example.com",
+            "url": "http://example.com",
             "transport_type": "invalid-transport",
         }
     )

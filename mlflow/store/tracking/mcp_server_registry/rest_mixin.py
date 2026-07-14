@@ -224,14 +224,14 @@ class RestMCPServerRegistryMixin:
     def create_mcp_access_endpoint(
         self,
         server_name: str,
-        endpoint_url: str,
+        url: str,
         transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
         server_version: str | None = None,
         server_alias: str | None = None,
         created_by: str | None = None,
     ) -> MCPAccessEndpoint:
         body: dict[str, Any] = {
-            "endpoint_url": endpoint_url,
+            "url": url,
             "transport_type": str(transport_type),
         }
         if server_version is not None:
@@ -279,7 +279,7 @@ class RestMCPServerRegistryMixin:
                 raise MlflowException.invalid_parameter_value(
                     "Failed to parse search response: mcp_access_endpoints field is null"
                 )
-            endpoints = [MCPAccessEndpoint.from_dict(b) for b in data["mcp_access_endpoints"]]
+            endpoints = [MCPAccessEndpoint.from_dict(e) for e in data["mcp_access_endpoints"]]
             return PagedList(endpoints, data.get("next_page_token"))
         except (KeyError, TypeError, ValueError) as e:
             raise MlflowException.invalid_parameter_value(
@@ -292,7 +292,7 @@ class RestMCPServerRegistryMixin:
         endpoint_id: int,
         server_version: str | None = NOT_SET,
         server_alias: str | None = NOT_SET,
-        endpoint_url: str | None = NOT_SET,
+        url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         last_updated_by: str | None = None,
     ) -> MCPAccessEndpoint:
@@ -301,8 +301,8 @@ class RestMCPServerRegistryMixin:
             body["server_version"] = server_version
         if server_alias is not NOT_SET:
             body["server_alias"] = server_alias
-        if endpoint_url is not NOT_SET:
-            body["endpoint_url"] = endpoint_url
+        if url is not NOT_SET:
+            body["url"] = url
         if transport_type is not NOT_SET:
             body["transport_type"] = str(transport_type) if transport_type is not None else None
         data = self._mcp_request(

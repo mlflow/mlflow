@@ -3913,14 +3913,12 @@ class SqlMCPServer(Base):
         for ep in self.access_endpoints:
             if (
                 resolved_versions_by_endpoint_id is not None
-                and ep.endpoint_id not in resolved_versions_by_endpoint_id
+                and ep.id not in resolved_versions_by_endpoint_id
             ):
                 continue
             endpoint_entity = ep.to_mlflow_entity()
             if resolved_versions_by_endpoint_id is not None:
-                endpoint_entity.resolved_version = resolved_versions_by_endpoint_id.get(
-                    ep.endpoint_id
-                )
+                endpoint_entity.resolved_version = resolved_versions_by_endpoint_id.get(ep.id)
             endpoint_entities.append(endpoint_entity)
 
         resolved_latest_version = (
@@ -4164,7 +4162,7 @@ class SqlMCPServerAlias(Base):
 class SqlMCPAccessEndpoint(Base):
     __tablename__ = "mcp_access_endpoints"
 
-    endpoint_id = Column(Integer, autoincrement=True)
+    id = Column(Integer, autoincrement=True)
     workspace = Column(
         String(63),
         nullable=False,
@@ -4174,7 +4172,7 @@ class SqlMCPAccessEndpoint(Base):
     server_name = Column(String(256), nullable=False)
     server_version = Column(String(128), nullable=True)
     server_alias = Column(String(256), nullable=True)
-    endpoint_url = Column(String(2048), nullable=False)
+    url = Column(String(2048), nullable=False)
     transport_type = Column(
         String(32),
         nullable=False,
@@ -4191,7 +4189,7 @@ class SqlMCPAccessEndpoint(Base):
         backref=backref(
             "access_endpoints",
             cascade="all, delete-orphan",
-            order_by="SqlMCPAccessEndpoint.endpoint_id",
+            order_by="SqlMCPAccessEndpoint.id",
         ),
         foreign_keys=[workspace, server_name],
     )
@@ -4212,7 +4210,7 @@ class SqlMCPAccessEndpoint(Base):
     )
 
     __table_args__ = (
-        PrimaryKeyConstraint("endpoint_id", name="mcp_access_endpoints_pk"),
+        PrimaryKeyConstraint("id", name="mcp_access_endpoints_pk"),
         ForeignKeyConstraint(
             ["workspace", "server_name"],
             ["mcp_servers.workspace", "mcp_servers.name"],
@@ -4226,16 +4224,16 @@ class SqlMCPAccessEndpoint(Base):
     )
 
     def __repr__(self):
-        return f"<SqlMCPAccessEndpoint ({self.endpoint_id}, {self.server_name})>"
+        return f"<SqlMCPAccessEndpoint ({self.id}, {self.server_name})>"
 
     def to_mlflow_entity(self):
         resolved = None
         if self.resolved_version_rel:
             resolved = self.resolved_version_rel.to_mlflow_entity()
         return MCPAccessEndpoint(
-            endpoint_id=self.endpoint_id,
+            id=self.id,
             server_name=self.server_name,
-            endpoint_url=self.endpoint_url,
+            url=self.url,
             transport_type=MCPRemoteTransportType(self.transport_type),
             server_version=self.server_version,
             server_alias=self.server_alias,

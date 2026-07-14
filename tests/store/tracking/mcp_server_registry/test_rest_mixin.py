@@ -394,14 +394,14 @@ def test_create_and_get_endpoint(rest_client):
     )
     endpoint = rest_client.create_mcp_access_endpoint(
         server_name="io.github.test/b-srv",
-        endpoint_url="https://mcp.example.com",
+        url="https://mcp.example.com",
         server_version="1.0.0",
     )
     assert endpoint.server_name == "io.github.test/b-srv"
-    assert endpoint.endpoint_url == "https://mcp.example.com"
+    assert endpoint.url == "https://mcp.example.com"
 
-    fetched = rest_client.get_mcp_access_endpoint("io.github.test/b-srv", endpoint.endpoint_id)
-    assert fetched.endpoint_url == "https://mcp.example.com"
+    fetched = rest_client.get_mcp_access_endpoint("io.github.test/b-srv", endpoint.id)
+    assert fetched.url == "https://mcp.example.com"
 
 
 def test_get_endpoint_includes_resolved_version(rest_client):
@@ -410,10 +410,10 @@ def test_get_endpoint_includes_resolved_version(rest_client):
     )
     endpoint = rest_client.create_mcp_access_endpoint(
         server_name="io.github.test/brv",
-        endpoint_url="https://mcp.example.com/brv",
+        url="https://mcp.example.com/brv",
         server_version="1.0.0",
     )
-    fetched = rest_client.get_mcp_access_endpoint("io.github.test/brv", endpoint.endpoint_id)
+    fetched = rest_client.get_mcp_access_endpoint("io.github.test/brv", endpoint.id)
     assert fetched.resolved_version is not None
     assert fetched.resolved_version.name == "io.github.test/brv"
     assert fetched.resolved_version.version == "1.0.0"
@@ -425,7 +425,7 @@ def test_search_endpoints_workspace_wide(rest_client):
         rest_client.create_mcp_server_version(_server_json(name, "1.0.0"), status=MCPStatus.ACTIVE)
         rest_client.create_mcp_access_endpoint(
             server_name=name,
-            endpoint_url=f"https://mcp.example.com/{name}",
+            url=f"https://mcp.example.com/{name}",
             server_version="1.0.0",
         )
     results = rest_client.search_mcp_access_endpoints()
@@ -439,7 +439,7 @@ def test_search_endpoints_include_resolved_version_via_alias(rest_client):
     rest_client.set_mcp_server_alias("io.github.test/sbra", "prod", "1.0.0")
     rest_client.create_mcp_access_endpoint(
         server_name="io.github.test/sbra",
-        endpoint_url="https://mcp.example.com/sbra",
+        url="https://mcp.example.com/sbra",
         server_alias="prod",
     )
     results = rest_client.search_mcp_access_endpoints(server_name="io.github.test/sbra")
@@ -453,7 +453,7 @@ def test_search_endpoints_server_scoped(rest_client):
         rest_client.create_mcp_server_version(_server_json(name, "1.0.0"), status=MCPStatus.ACTIVE)
         rest_client.create_mcp_access_endpoint(
             server_name=name,
-            endpoint_url=f"https://mcp.example.com/{name}",
+            url=f"https://mcp.example.com/{name}",
             server_version="1.0.0",
         )
     results = rest_client.search_mcp_access_endpoints(server_name="io.github.test/sc-a")
@@ -467,15 +467,15 @@ def test_update_endpoint(rest_client):
     )
     endpoint = rest_client.create_mcp_access_endpoint(
         server_name="io.github.test/ub",
-        endpoint_url="https://old.example.com",
+        url="https://old.example.com",
         server_version="1.0.0",
     )
     updated = rest_client.update_mcp_access_endpoint(
         server_name="io.github.test/ub",
-        endpoint_id=endpoint.endpoint_id,
-        endpoint_url="https://new.example.com",
+        endpoint_id=endpoint.id,
+        url="https://new.example.com",
     )
-    assert updated.endpoint_url == "https://new.example.com"
+    assert updated.url == "https://new.example.com"
 
 
 def test_delete_endpoint(rest_client):
@@ -484,12 +484,12 @@ def test_delete_endpoint(rest_client):
     )
     endpoint = rest_client.create_mcp_access_endpoint(
         server_name="io.github.test/db",
-        endpoint_url="https://mcp.example.com",
+        url="https://mcp.example.com",
         server_version="1.0.0",
     )
-    rest_client.delete_mcp_access_endpoint("io.github.test/db", endpoint.endpoint_id)
+    rest_client.delete_mcp_access_endpoint("io.github.test/db", endpoint.id)
     with pytest.raises(MlflowException, match="not found"):
-        rest_client.get_mcp_access_endpoint("io.github.test/db", endpoint.endpoint_id)
+        rest_client.get_mcp_access_endpoint("io.github.test/db", endpoint.id)
 
 
 def test_server_tags(rest_client):
@@ -587,7 +587,7 @@ def test_server_access_endpoints_include_resolved_version(rest_client):
     )
     rest_client.create_mcp_access_endpoint(
         server_name="io.github.test/srv-bind",
-        endpoint_url="https://mcp.example.com/srv-bind",
+        url="https://mcp.example.com/srv-bind",
         server_version="1.0.0",
     )
     server = rest_client.get_mcp_server("io.github.test/srv-bind")

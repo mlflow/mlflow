@@ -135,25 +135,20 @@ class SqlAlchemyMCPServerRegistryMixin:
                 session, endpoint.server_name, endpoint.server_alias
             )
         raise MlflowException(
-            f"MCPAccessEndpoint {endpoint.endpoint_id} has no target version or alias",
+            f"MCPAccessEndpoint {endpoint.id} has no target version or alias",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
     def _get_nested_endpoint_resolved_versions(
         self, session, servers
     ) -> dict[int, MCPServerVersion | None]:
-        endpoint_ids = [
-            ep.endpoint_id for server in servers for ep in server.access_endpoints
-        ]
+        endpoint_ids = [ep.id for server in servers for ep in server.access_endpoints]
         if not endpoint_ids:
             return {}
         resolved_endpoints = self._endpoint_query_with_version(
             session, endpoint_ids=endpoint_ids
         ).all()
-        return {
-            ep.endpoint_id: ep.to_mlflow_entity().resolved_version
-            for ep in resolved_endpoints
-        }
+        return {ep.id: ep.to_mlflow_entity().resolved_version for ep in resolved_endpoints}
 
     def get_mcp_server(self, name: str) -> MCPServer:
         with self.ManagedSessionMaker() as session:
@@ -583,7 +578,7 @@ class SqlAlchemyMCPServerRegistryMixin:
     def create_mcp_access_endpoint(
         self,
         server_name: str,
-        endpoint_url: str,
+        url: str,
         transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
         server_version: str | None = None,
         server_alias: str | None = None,
@@ -620,7 +615,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             endpoint = self._with_workspace_field(
                 SqlMCPAccessEndpoint(
                     server_name=server_name,
-                    endpoint_url=endpoint_url,
+                    url=url,
                     transport_type=transport_type.value,
                     server_version=server_version,
                     server_alias=server_alias,
@@ -634,7 +629,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             session.flush()
             return (
                 self
-                ._endpoint_query_with_version(session, endpoint_ids=[endpoint.endpoint_id])
+                ._endpoint_query_with_version(session, endpoint_ids=[endpoint.id])
                 .one()
                 .to_mlflow_entity()
             )
@@ -659,7 +654,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             .populate_existing()
             .join(
                 resolved_targets,
-                SqlMCPAccessEndpoint.endpoint_id == resolved_targets.c.endpoint_id,
+                SqlMCPAccessEndpoint.id == resolved_targets.c.id,
             )
             .join(
                 SqlMCPServerVersion,
@@ -724,7 +719,7 @@ class SqlAlchemyMCPServerRegistryMixin:
         endpoint_id: int,
         server_version: str | None = NOT_SET,
         server_alias: str | None = NOT_SET,
-        endpoint_url: str | None = NOT_SET,
+        url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         last_updated_by: str | None = None,
     ) -> MCPAccessEndpoint:
@@ -738,7 +733,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             endpoint = self._get_entity_or_raise(
                 session,
                 SqlMCPAccessEndpoint,
-                {"endpoint_id": endpoint_id},
+                {"id": endpoint_id},
                 "MCPAccessEndpoint",
             )
             if endpoint.server_name != server_name:
@@ -773,13 +768,13 @@ class SqlAlchemyMCPServerRegistryMixin:
                 self._get_alias_target_version_or_raise(session, server_name, server_alias)
                 endpoint.server_alias = server_alias
                 endpoint.server_version = None
-            if endpoint_url is not NOT_SET:
-                if endpoint_url is None:
+            if url is not NOT_SET:
+                if url is None:
                     raise MlflowException(
-                        "MCP access endpoint endpoint_url cannot be None",
+                        "MCP access endpoint url cannot be None",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                endpoint.endpoint_url = endpoint_url
+                endpoint.url = url
             if transport_type is not NOT_SET and transport_type is not None:
                 endpoint.transport_type = transport_type.value
 
@@ -787,7 +782,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             endpoint.last_updated_at = get_current_time_millis()
             session.add(endpoint)
             session.flush()
-            eid = endpoint.endpoint_id
+            eid = endpoint.id
             session.expunge(endpoint)
             return (
                 self
@@ -801,7 +796,7 @@ class SqlAlchemyMCPServerRegistryMixin:
             endpoint = self._get_entity_or_raise(
                 session,
                 SqlMCPAccessEndpoint,
-                {"endpoint_id": endpoint_id},
+                {"id": endpoint_id},
                 "MCPAccessEndpoint",
             )
             if endpoint.server_name != server_name:
@@ -1037,7 +1032,7 @@ def _resolved_endpoint_targets_subquery(
             if not endpoint_ids:
                 stmt = stmt.where(sa.false())
             else:
-                stmt = stmt.where(SqlMCPAccessEndpoint.endpoint_id.in_(endpoint_ids))
+                stmt = stmt.where(SqlMCPAccessEndpoint.id.in_(endpoint_ids))
         if server_name is not None:
             stmt = stmt.where(SqlMCPAccessEndpoint.server_name == server_name)
         return stmt
@@ -1056,7 +1051,7 @@ def _resolved_endpoint_targets_subquery(
         direct_stmt = _apply_common_filters(
             sa
             .select(
-                SqlMCPAccessEndpoint.endpoint_id.label("endpoint_id"),
+                SqlMCPAccessEndpoint.id.label("id"),
                 SqlMCPAccessEndpoint.workspace.label("endpoint_workspace"),
                 SqlMCPAccessEndpoint.server_name.label("endpoint_server_name"),
                 SqlMCPServerVersion.workspace.label("resolved_workspace"),
@@ -1085,7 +1080,7 @@ def _resolved_endpoint_targets_subquery(
             stored_alias_stmt = _apply_common_filters(
                 sa
                 .select(
-                    SqlMCPAccessEndpoint.endpoint_id.label("endpoint_id"),
+                    SqlMCPAccessEndpoint.id.label("id"),
                     SqlMCPAccessEndpoint.workspace.label("endpoint_workspace"),
                     SqlMCPAccessEndpoint.server_name.label("endpoint_server_name"),
                     SqlMCPServerVersion.workspace.label("resolved_workspace"),
@@ -1129,7 +1124,7 @@ def _resolved_endpoint_targets_subquery(
             latest_alias_stmt = _apply_common_filters(
                 sa
                 .select(
-                    SqlMCPAccessEndpoint.endpoint_id.label("endpoint_id"),
+                    SqlMCPAccessEndpoint.id.label("id"),
                     SqlMCPAccessEndpoint.workspace.label("endpoint_workspace"),
                     SqlMCPAccessEndpoint.server_name.label("endpoint_server_name"),
                     SqlMCPServerVersion.workspace.label("resolved_workspace"),
@@ -1163,7 +1158,7 @@ def _resolved_endpoint_targets_subquery(
         empty_stmt = _apply_common_filters(
             sa
             .select(
-                SqlMCPAccessEndpoint.endpoint_id.label("endpoint_id"),
+                SqlMCPAccessEndpoint.id.label("id"),
                 SqlMCPAccessEndpoint.workspace.label("endpoint_workspace"),
                 SqlMCPAccessEndpoint.server_name.label("endpoint_server_name"),
                 SqlMCPServerVersion.workspace.label("resolved_workspace"),
@@ -1216,9 +1211,10 @@ def _apply_mcp_server_filter(query, filter_string, dialect):
                     )
                 resolved_endpoint_targets = _resolved_endpoint_targets_subquery()
                 live_endpoint_exists = sa.exists(
-                    sa.select(resolved_endpoint_targets.c.endpoint_id).where(
+                    sa.select(resolved_endpoint_targets.c.id).where(
                         sa.and_(
-                            resolved_endpoint_targets.c.endpoint_workspace == SqlMCPServer.workspace,
+                            resolved_endpoint_targets.c.endpoint_workspace
+                            == SqlMCPServer.workspace,
                             resolved_endpoint_targets.c.endpoint_server_name == SqlMCPServer.name,
                         )
                     )
@@ -1380,9 +1376,9 @@ def _semver_version_order_clauses(is_ascending: bool):
 
 
 def _parse_search_mcp_access_endpoints_order_by(order_by_list):
-    valid_keys = {"endpoint_id", "server_name", "created_at", "last_updated_at"}
+    valid_keys = {"id", "server_name", "created_at", "last_updated_at"}
     column_map = {
-        "endpoint_id": SqlMCPAccessEndpoint.endpoint_id,
+        "id": SqlMCPAccessEndpoint.id,
         "server_name": SqlMCPAccessEndpoint.server_name,
         "created_at": SqlMCPAccessEndpoint.created_at,
         "last_updated_at": SqlMCPAccessEndpoint.last_updated_at,
@@ -1405,8 +1401,8 @@ def _parse_search_mcp_access_endpoints_order_by(order_by_list):
                 )
             observed.add(key)
             clauses.append(column_map[key].asc() if is_ascending else column_map[key].desc())
-    if "endpoint_id" not in observed:
-        clauses.append(SqlMCPAccessEndpoint.endpoint_id.asc())
+    if "id" not in observed:
+        clauses.append(SqlMCPAccessEndpoint.id.asc())
     return clauses
 
 

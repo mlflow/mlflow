@@ -158,7 +158,7 @@ def upgrade():
 
     op.create_table(
         "mcp_access_endpoints",
-        sa.Column("endpoint_id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column(
             "workspace",
             sa.String(length=63),
@@ -168,7 +168,7 @@ def upgrade():
         sa.Column("server_name", sa.String(length=256), nullable=False),
         sa.Column("server_version", sa.String(length=128), nullable=True),
         sa.Column("server_alias", sa.String(length=256), nullable=True),
-        sa.Column("endpoint_url", sa.String(length=2048), nullable=False),
+        sa.Column("url", sa.String(length=2048), nullable=False),
         sa.Column(
             "transport_type",
             sa.String(length=32),
@@ -186,7 +186,7 @@ def upgrade():
             onupdate="CASCADE",
             name="mcp_access_endpoints_server_fkey",
         ),
-        sa.PrimaryKeyConstraint("endpoint_id", name="mcp_access_endpoints_pk"),
+        sa.PrimaryKeyConstraint("id", name="mcp_access_endpoints_pk"),
     )
 
     # Keep this support index narrow enough for MySQL's 3072-byte key limit.

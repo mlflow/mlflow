@@ -219,14 +219,14 @@ class UpdateMCPServerVersionRequest(BaseModel):
 class CreateMCPAccessEndpointRequest(BaseModel):
     server_version: str | None = None
     server_alias: str | None = None
-    endpoint_url: str
+    url: str
     transport_type: str = "streamable-http"
 
 
 class UpdateMCPAccessEndpointRequest(BaseModel):
     server_version: str | None = None
     server_alias: str | None = None
-    endpoint_url: str | None = None
+    url: str | None = None
     transport_type: str | None = None
 
 
@@ -246,9 +246,9 @@ class AliasResponse(BaseModel):
 
 
 class MCPAccessEndpointSummaryResponse(BaseModel):
-    endpoint_id: int
+    id: int
     server_name: str
-    endpoint_url: str
+    url: str
     transport_type: str = "streamable-http"
     workspace: str | None = None
     server_version: str | None = None
@@ -262,9 +262,9 @@ class MCPAccessEndpointSummaryResponse(BaseModel):
     @classmethod
     def from_entity(cls, entity: MCPAccessEndpoint) -> MCPAccessEndpointSummaryResponse:
         return cls(
-            endpoint_id=entity.endpoint_id,
+            id=entity.id,
             server_name=entity.server_name,
-            endpoint_url=entity.endpoint_url,
+            url=entity.url,
             transport_type=str(entity.transport_type),
             workspace=entity.workspace,
             server_version=entity.server_version,
@@ -307,7 +307,7 @@ class MCPServerResponse(BaseModel):
             workspace=entity.workspace,
             status=str(entity.status) if entity.status else None,
             access_endpoints=[
-                MCPAccessEndpointSummaryResponse.from_entity(b) for b in entity.access_endpoints
+                MCPAccessEndpointSummaryResponse.from_entity(e) for e in entity.access_endpoints
             ],
             latest_version=entity.latest_version,
             aliases=[AliasResponse(alias=k, version=v) for k, v in entity.aliases.items()],
@@ -357,9 +357,9 @@ class MCPServerVersionResponse(BaseModel):
 
 
 class MCPAccessEndpointResponse(BaseModel):
-    endpoint_id: int
+    id: int
     server_name: str
-    endpoint_url: str
+    url: str
     transport_type: str = "streamable-http"
     workspace: str | None = None
     tools: list[MCPToolResponsePayload] | None = None
@@ -377,9 +377,9 @@ class MCPAccessEndpointResponse(BaseModel):
         if entity.resolved_version is not None and entity.resolved_version.tools is not None:
             tools = [MCPToolResponsePayload(**t.to_dict()) for t in entity.resolved_version.tools]
         return cls(
-            endpoint_id=entity.endpoint_id,
+            id=entity.id,
             server_name=entity.server_name,
-            endpoint_url=entity.endpoint_url,
+            url=entity.url,
             transport_type=str(entity.transport_type),
             workspace=entity.workspace,
             tools=tools,
@@ -524,7 +524,7 @@ def _update_mcp_access_endpoint_kwargs(
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"server_name": server_name, "endpoint_id": endpoint_id}
     provided_fields = body.model_fields_set
-    for field_name in ("server_version", "server_alias", "endpoint_url"):
+    for field_name in ("server_version", "server_alias", "url"):
         if field_name in provided_fields:
             kwargs[field_name] = getattr(body, field_name)
     if "transport_type" in provided_fields:
@@ -594,7 +594,7 @@ def search_all_access_endpoints(
         server_version=server_version,
         server_alias=server_alias,
     )
-    endpoints = [MCPAccessEndpointResponse.from_entity(b) for b in results]
+    endpoints = [MCPAccessEndpointResponse.from_entity(e) for e in results]
     return SearchMCPAccessEndpointsResponse(
         mcp_access_endpoints=endpoints,
         next_page_token=results.token,
@@ -716,7 +716,7 @@ def create_mcp_access_endpoint(
     store = _get_tracking_store()
     endpoint = store.create_mcp_access_endpoint(
         server_name=name,
-        endpoint_url=body.endpoint_url,
+        url=body.url,
         transport_type=transport,
         server_version=body.server_version,
         server_alias=body.server_alias,
@@ -784,7 +784,7 @@ def search_server_access_endpoints(
         server_version=server_version,
         server_alias=server_alias,
     )
-    endpoints = [MCPAccessEndpointResponse.from_entity(b) for b in results]
+    endpoints = [MCPAccessEndpointResponse.from_entity(e) for e in results]
     return SearchMCPAccessEndpointsResponse(
         mcp_access_endpoints=endpoints,
         next_page_token=results.token,

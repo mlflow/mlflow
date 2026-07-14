@@ -6880,14 +6880,14 @@ class MlflowClient:
     def create_mcp_access_endpoint(
         self,
         server_name: str,
-        endpoint_url: str,
+        url: str,
         transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
         server_version: str | None = None,
         server_alias: str | None = None,
     ) -> MCPAccessEndpoint:
         return self._tracking_client.store.create_mcp_access_endpoint(
             server_name=server_name,
-            endpoint_url=endpoint_url,
+            url=url,
             transport_type=transport_type,
             server_version=server_version,
             server_alias=server_alias,
@@ -6922,7 +6922,7 @@ class MlflowClient:
         self,
         server_name: str,
         endpoint_id: int,
-        endpoint_url: str | None = NOT_SET,
+        url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         server_version: str | None = NOT_SET,
         server_alias: str | None = NOT_SET,
@@ -6930,7 +6930,7 @@ class MlflowClient:
         return self._tracking_client.store.update_mcp_access_endpoint(
             server_name=server_name,
             endpoint_id=endpoint_id,
-            endpoint_url=endpoint_url,
+            url=url,
             transport_type=transport_type,
             server_version=server_version,
             server_alias=server_alias,

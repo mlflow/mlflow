@@ -338,7 +338,7 @@ def test_server_responses_include_nested_endpoint_server_name(client):
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/nested-bind-srv')}/endpoints",
         json={
-            "endpoint_url": "https://mcp.example.com/nested-bind-srv",
+            "url": "https://mcp.example.com/nested-bind-srv",
             "server_version": "1.0.0",
         },
     )
@@ -1148,14 +1148,14 @@ def test_create_endpoint_with_version(client):
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/bind-srv')}" + "/endpoints",
         json={
-            "endpoint_url": "https://mcp.example.com/bind-srv",
+            "url": "https://mcp.example.com/bind-srv",
             "server_version": "1.0.0",
         },
     )
     assert r.status_code == 200
     data = r.json()
     assert data["server_name"] == "com.example/bind-srv"
-    assert data["endpoint_url"] == "https://mcp.example.com/bind-srv"
+    assert data["url"] == "https://mcp.example.com/bind-srv"
     assert data["server_version"] == "1.0.0"
 
 
@@ -1172,7 +1172,7 @@ def test_create_endpoint_with_alias(client):
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/alias-bind-srv')}" + "/endpoints",
         json={
-            "endpoint_url": "https://mcp.example.com/alias-bind-srv",
+            "url": "https://mcp.example.com/alias-bind-srv",
             "server_alias": "prod",
         },
     )
@@ -1189,7 +1189,7 @@ def test_get_endpoint_with_tools(client):
     )
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/bt-srv')}" + "/endpoints",
-        json={"endpoint_url": "https://mcp.example.com/bt-srv", "server_version": "1.0.0"},
+        json={"url": "https://mcp.example.com/bt-srv", "server_version": "1.0.0"},
     )
     r = client.get(f"{PREFIX}/{_encode_path_param('com.example/bt-srv')}" + "/endpoints")
     assert r.status_code == 200
@@ -1206,9 +1206,9 @@ def test_get_endpoint_includes_resolved_version(client):
     )
     create_r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/brv-srv')}" + "/endpoints",
-        json={"endpoint_url": "https://mcp.example.com/brv-srv", "server_version": "1.0.0"},
+        json={"url": "https://mcp.example.com/brv-srv", "server_version": "1.0.0"},
     )
-    bid = create_r.json()["endpoint_id"]
+    bid = create_r.json()["id"]
     r = client.get(f"{PREFIX}/{_encode_path_param('com.example/brv-srv')}" + f"/endpoints/{bid}")
     assert r.status_code == 200
     assert r.json()["resolved_version"]["name"] == "com.example/brv-srv"
@@ -1224,7 +1224,7 @@ def test_get_endpoint_preserves_empty_tools_list(client):
     )
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/bt-empty-srv')}" + "/endpoints",
-        json={"endpoint_url": "https://mcp.example.com/bt-empty-srv", "server_version": "1.0.0"},
+        json={"url": "https://mcp.example.com/bt-empty-srv", "server_version": "1.0.0"},
     )
     r = client.get(f"{PREFIX}/{_encode_path_param('com.example/bt-empty-srv')}" + "/endpoints")
     assert r.status_code == 200
@@ -1242,7 +1242,7 @@ def test_search_endpoints_workspace_wide(client):
         )
         client.post(
             f"{PREFIX}/{_encode_path_param(f'com.example/{name}')}/endpoints",
-            json={"endpoint_url": f"https://mcp.example.com/{name}", "server_version": "1.0.0"},
+            json={"url": f"https://mcp.example.com/{name}", "server_version": "1.0.0"},
         )
     r = client.get(PREFIX + "/endpoints")
     assert r.status_code == 200
@@ -1258,7 +1258,7 @@ def test_search_endpoints_server_scoped(client):
         )
         client.post(
             f"{PREFIX}/{_encode_path_param(f'com.example/{name}')}/endpoints",
-            json={"endpoint_url": f"https://mcp.example.com/{name}", "server_version": "1.0.0"},
+            json={"url": f"https://mcp.example.com/{name}", "server_version": "1.0.0"},
         )
     r = client.get(f"{PREFIX}/{_encode_path_param('com.example/sc-a')}/endpoints")
     assert r.status_code == 200
@@ -1274,15 +1274,15 @@ def test_update_endpoint(client):
     )
     create_r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/ub-srv')}" + "/endpoints",
-        json={"endpoint_url": "https://old.example.com", "server_version": "1.0.0"},
+        json={"url": "https://old.example.com", "server_version": "1.0.0"},
     )
-    bid = create_r.json()["endpoint_id"]
+    bid = create_r.json()["id"]
     r = client.patch(
         f"{PREFIX}/{_encode_path_param('com.example/ub-srv')}" + f"/endpoints/{bid}",
-        json={"endpoint_url": "https://new.example.com"},
+        json={"url": "https://new.example.com"},
     )
     assert r.status_code == 200
-    assert r.json()["endpoint_url"] == "https://new.example.com"
+    assert r.json()["url"] == "https://new.example.com"
 
 
 def test_delete_endpoint(client):
@@ -1293,9 +1293,9 @@ def test_delete_endpoint(client):
     )
     create_r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/db-srv')}" + "/endpoints",
-        json={"endpoint_url": "https://mcp.example.com/db", "server_version": "1.0.0"},
+        json={"url": "https://mcp.example.com/db", "server_version": "1.0.0"},
     )
-    bid = create_r.json()["endpoint_id"]
+    bid = create_r.json()["id"]
     r = client.delete(f"{PREFIX}/{_encode_path_param('com.example/db-srv')}" + f"/endpoints/{bid}")
     assert r.status_code == 200
     assert (
@@ -1501,7 +1501,7 @@ def test_invalid_transport_type(client):
     r = client.post(
         f"{PREFIX}/{_encode_path_param('com.example/bad-transport')}" + "/endpoints",
         json={
-            "endpoint_url": "https://example.com",
+            "url": "https://example.com",
             "transport_type": "ftp",
             "server_version": "1.0.0",
         },
@@ -1535,11 +1535,11 @@ def test_server_response_includes_endpoints(client):
     )
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/sb-srv')}" + "/endpoints",
-        json={"endpoint_url": "https://example.com/sb", "server_version": "1.0.0"},
+        json={"url": "https://example.com/sb", "server_version": "1.0.0"},
     )
     server = client.get(f"{PREFIX}/{_encode_path_param('com.example/sb-srv')}").json()
     assert len(server["access_endpoints"]) == 1
-    assert server["access_endpoints"][0]["endpoint_url"] == "https://example.com/sb"
+    assert server["access_endpoints"][0]["url"] == "https://example.com/sb"
 
 
 def test_server_response_includes_endpoint_resolved_version(client):
@@ -1550,7 +1550,7 @@ def test_server_response_includes_endpoint_resolved_version(client):
     )
     client.post(
         f"{PREFIX}/{_encode_path_param('com.example/sbrv-srv')}" + "/endpoints",
-        json={"endpoint_url": "https://example.com/sbrv", "server_version": "1.0.0"},
+        json={"url": "https://example.com/sbrv", "server_version": "1.0.0"},
     )
     server = client.get(f"{PREFIX}/{_encode_path_param('com.example/sbrv-srv')}").json()
     assert len(server["access_endpoints"]) == 1

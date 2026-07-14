@@ -4633,7 +4633,7 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
 def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
     can_read = _role_based_read_predicate(username, "mcp_server")
-    readable = [b for b in data.get("mcp_access_endpoints", []) if can_read(b["server_name"])]
+    readable = [e for e in data.get("mcp_access_endpoints", []) if can_read(e["server_name"])]
 
     params = request.query_params
     max_results = int(params.get("max_results", 100))
@@ -4655,8 +4655,8 @@ def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteR
             server_version=server_version,
             server_alias=server_alias,
         ),
-        get_name=lambda b: b.server_name,
-        to_dict=lambda b: MCPAccessEndpointResponse.from_entity(b).model_dump(mode="json"),
+        get_name=lambda e: e.server_name,
+        to_dict=lambda e: MCPAccessEndpointResponse.from_entity(e).model_dump(mode="json"),
     )
     data["mcp_access_endpoints"] = readable[:max_results]
     return json.dumps(data).encode()

@@ -250,7 +250,7 @@ class MCPServerRegistryMixin:
     def create_mcp_access_endpoint(
         self,
         server_name: str,
-        endpoint_url: str,
+        url: str,
         transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
         server_version: str | None = None,
         server_alias: str | None = None,
@@ -262,7 +262,7 @@ class MCPServerRegistryMixin:
 
         Args:
             server_name: Server name.
-            endpoint_url: URL of the remote MCP endpoint.
+            url: URL of the remote MCP endpoint.
             transport_type: Transport protocol.
             server_version: Pin to a specific version.
             server_alias: Pin to an alias.
@@ -317,7 +317,7 @@ class MCPServerRegistryMixin:
         endpoint_id: int,
         server_version: str | None = NOT_SET,
         server_alias: str | None = NOT_SET,
-        endpoint_url: str | None = NOT_SET,
+        url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         last_updated_by: str | None = None,
     ) -> MCPAccessEndpoint:
@@ -330,7 +330,7 @@ class MCPServerRegistryMixin:
                 the version target.
             server_alias: New alias target. Omit to leave unchanged; non-null values update the
                 alias target.
-            endpoint_url: New endpoint URL. Omit to leave unchanged; null is invalid.
+            url: New endpoint URL. Omit to leave unchanged; null is invalid.
             transport_type: New transport type. Omit to leave unchanged; non-null values update
                 the transport type.
             last_updated_by: Authenticated username of the updater.
