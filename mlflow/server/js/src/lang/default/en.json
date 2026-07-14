@@ -591,6 +591,10 @@
     "defaultMessage": "No tags found.",
     "description": "Text for no tags found in editable form table in MLflow"
   },
+  "0jvNkS": {
+    "defaultMessage": "+ Save current view...",
+    "description": "Menu item that opens the modal to save the current view"
+  },
   "0ktvTS": {
     "defaultMessage": "Trace archival retention unit",
     "description": "Label for trace archival retention unit selector"
@@ -710,10 +714,6 @@
   "1JiZwB": {
     "defaultMessage": "Did the conversation fully address the user's request?",
     "description": "Hint for ConversationCompleteness template"
-  },
-  "1LQIa7": {
-    "defaultMessage": "+ Save current view...",
-    "description": "Menu item that opens the modal to save the current experiment view"
   },
   "1NeHsz": {
     "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
@@ -2743,10 +2743,6 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > chunk relevancy assessment > positive value label. Displayed if evaluation result is considered as relevant to the query."
   },
-  "B5ECVe": {
-    "defaultMessage": "Delete saved view",
-    "description": "Accessible label for the button that deletes a saved experiment view"
-  },
   "B5K1Ix": {
     "defaultMessage": "No attributes found",
     "description": "Empty state for the attributes tab in the model trace explorer. Attributes are properties of a span that the user defines."
@@ -4539,6 +4535,10 @@
     "defaultMessage": "Disabled",
     "description": "Runs charts > line chart > ignore outliers > disabled label"
   },
+  "Kc9rYy": {
+    "defaultMessage": "Delete saved view",
+    "description": "Accessible label for the button that deletes a saved view"
+  },
   "KcGozs": {
     "defaultMessage": "Endpoint:",
     "description": "Endpoint selector label"
@@ -6150,6 +6150,10 @@
   "SZQjTs": {
     "defaultMessage": "Result",
     "description": "Result column header"
+  },
+  "SaJbyH": {
+    "defaultMessage": "Copy share link",
+    "description": "Label for the button that copies a saved view share link"
   },
   "Sb+wLa": {
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
@@ -9778,10 +9782,6 @@
   "j4vtTO": {
     "defaultMessage": "Save aliases",
     "description": "Alias editor > Confirm change of aliases"
-  },
-  "j5awQa": {
-    "defaultMessage": "Copy share link",
-    "description": "Label for the button that copies a saved experiment view share link"
   },
   "j77+aP": {
     "defaultMessage": "Fail",
