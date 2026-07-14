@@ -514,6 +514,7 @@ mlflow.entities.MCPRemoteTransportType
 mlflow.entities.MCPServer
 mlflow.entities.MCPServerAlias
 mlflow.entities.MCPServerTag
+mlflow.entities.ConnectOptionSettings
 mlflow.entities.MCPServerVersion
 mlflow.entities.MCPStatus
 mlflow.entities.MCPTool
@@ -728,6 +729,7 @@ mlflow.entities.mcp_server.MCPServerTag
 mlflow.entities.mcp_server.MCPStatus
 mlflow.entities.mcp_server.MCPTool
 mlflow.entities.mcp_server_alias.MCPServerAlias
+mlflow.entities.mcp_server_version.ConnectOptionSettings
 mlflow.entities.mcp_server_version.MCPServerVersion
 mlflow.entities.metric.Metric
 mlflow.entities.model_registry.ModelVersion
