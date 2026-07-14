@@ -42,8 +42,7 @@ def _make_policy(
     budget_amount=100.0,
     budget_action=BudgetAction.ALERT,
     target_scope=BudgetTargetScope.GLOBAL,
-    endpoint_id=None,
-    principal=None,
+    target_value=None,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
@@ -54,8 +53,7 @@ def _make_policy(
         budget_action=budget_action,
         created_at=0,
         last_updated_at=0,
-        endpoint_id=endpoint_id,
-        principal=principal,
+        target_value=target_value,
     )
 
 
@@ -559,7 +557,7 @@ def _make_endpoint_policy(
         budget_amount=budget_amount,
         budget_action=budget_action,
         target_scope=BudgetTargetScope.ENDPOINT,
-        endpoint_id=endpoint_id,
+        target_value=endpoint_id,
     )
 
 
@@ -646,7 +644,7 @@ def test_calculate_existing_cost_no_endpoint_id_for_global_policy():
     assert store.sum_gateway_trace_cost.call_args.kwargs["endpoint_id"] is None
 
 
-def test_fire_budget_exceeded_webhooks_includes_endpoint_id():
+def test_fire_budget_exceeded_webhooks_includes_target_value():
     with patch(_DELIVER_FUNC) as mock_deliver:
         tracker = get_budget_tracker()
         policy = _make_endpoint_policy(
@@ -660,10 +658,10 @@ def test_fire_budget_exceeded_webhooks_includes_endpoint_id():
         mock_deliver.assert_called_once()
         payload = mock_deliver.call_args.kwargs["payload"]
         assert payload["target_scope"] == "ENDPOINT"
-        assert payload["endpoint_id"] == "ep-1"
+        assert payload["target_value"] == "ep-1"
 
 
-def test_fire_budget_exceeded_webhooks_endpoint_id_none_for_global():
+def test_fire_budget_exceeded_webhooks_target_value_none_for_global():
     with patch(_DELIVER_FUNC) as mock_deliver:
         tracker = get_budget_tracker()
         policy = _make_policy(budget_amount=50.0, budget_action=BudgetAction.ALERT)
@@ -672,7 +670,7 @@ def test_fire_budget_exceeded_webhooks_endpoint_id_none_for_global():
 
         fire_budget_exceeded_webhooks(crossed, workspace=None, registry_store=MagicMock())
         payload = mock_deliver.call_args.kwargs["payload"]
-        assert payload["endpoint_id"] is None
+        assert payload["target_value"] is None
 
 
 # --- endpoint-scoped edge cases: zero budget, exact boundary, mid-way crossing, overuse ---
@@ -787,7 +785,7 @@ def test_check_budget_limit_user_scope():
         budget_amount=100.0,
         budget_action=BudgetAction.REJECT,
         target_scope=BudgetTargetScope.USER,
-        principal="alice",
+        target_value="alice",
     )
     store = _make_store(policies=[policy])
 
@@ -807,7 +805,7 @@ def test_check_budget_limit_user_scope():
 @pytest.mark.asyncio
 async def test_budget_on_complete_user_scope_records_for_matching_principal():
     policy = _make_policy(
-        budget_amount=100.0, target_scope=BudgetTargetScope.USER, principal="alice"
+        budget_amount=100.0, target_scope=BudgetTargetScope.USER, target_value="alice"
     )
     store = _make_store(policies=[policy])
 
@@ -821,7 +819,7 @@ async def test_budget_on_complete_user_scope_records_for_matching_principal():
 @pytest.mark.asyncio
 async def test_budget_on_complete_user_scope_ignores_other_principal():
     policy = _make_policy(
-        budget_amount=100.0, target_scope=BudgetTargetScope.USER, principal="alice"
+        budget_amount=100.0, target_scope=BudgetTargetScope.USER, target_value="alice"
     )
     store = _make_store(policies=[policy])
 
@@ -839,7 +837,7 @@ async def test_budget_on_complete_user_webhook_includes_principal():
             budget_amount=0.05,
             budget_action=BudgetAction.ALERT,
             target_scope=BudgetTargetScope.USER,
-            principal="alice",
+            target_value="alice",
         )
         store = _make_store(policies=[policy])
 
@@ -849,13 +847,13 @@ async def test_budget_on_complete_user_webhook_includes_principal():
         mock_deliver.assert_called_once()
         payload = mock_deliver.call_args.kwargs["payload"]
         assert payload["target_scope"] == "USER"
-        assert payload["principal"] == "alice"
+        assert payload["target_value"] == "alice"
 
 
 def test_calculate_existing_cost_user_scope_passes_principal():
     tracker = get_budget_tracker()
     windows = tracker.refresh_policies([
-        _make_policy(target_scope=BudgetTargetScope.USER, principal="alice", budget_amount=100.0)
+        _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice", budget_amount=100.0)
     ])
 
     store = MagicMock()
@@ -875,7 +873,7 @@ def test_check_budget_limit_user_scope_zero_budget_rejects_first_request():
         budget_amount=0.0,
         budget_action=BudgetAction.REJECT,
         target_scope=BudgetTargetScope.USER,
-        principal="alice",
+        target_value="alice",
     )
     store = _make_store(policies=[policy])
 
@@ -896,7 +894,7 @@ async def test_user_budget_overshoots_crossing_request_then_rejects_next():
         budget_amount=0.05,
         budget_action=BudgetAction.REJECT,
         target_scope=BudgetTargetScope.USER,
-        principal="alice",
+        target_value="alice",
     )
     store = _make_store(policies=[policy])
 

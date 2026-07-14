@@ -657,8 +657,7 @@ class RestGatewayStoreMixin:
         target_scope: BudgetTargetScope,
         budget_action: BudgetAction,
         created_by: str | None = None,
-        endpoint_id: str | None = None,
-        principal: str | None = None,
+        target_value: str | None = None,
     ) -> GatewayBudgetPolicy:
         req_body = message_to_json(
             CreateGatewayBudgetPolicy(
@@ -668,8 +667,7 @@ class RestGatewayStoreMixin:
                 target_scope=target_scope.to_proto(),
                 budget_action=budget_action.to_proto(),
                 created_by=created_by,
-                endpoint_id=endpoint_id,
-                principal=principal,
+                target_value=target_value,
             )
         )
         response_proto = self._call_endpoint(CreateGatewayBudgetPolicy, req_body)
@@ -692,8 +690,7 @@ class RestGatewayStoreMixin:
         target_scope: BudgetTargetScope | None = None,
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
-        endpoint_id: str | None = None,
-        principal: str | None = None,
+        target_value: str | None = None,
     ) -> GatewayBudgetPolicy:
         req_body = message_to_json(
             UpdateGatewayBudgetPolicy(
@@ -704,8 +701,7 @@ class RestGatewayStoreMixin:
                 target_scope=target_scope.to_proto() if target_scope else None,
                 budget_action=budget_action.to_proto() if budget_action else None,
                 updated_by=updated_by,
-                endpoint_id=endpoint_id,
-                principal=principal,
+                target_value=target_value,
             )
         )
         response_proto = self._call_endpoint(UpdateGatewayBudgetPolicy, req_body)

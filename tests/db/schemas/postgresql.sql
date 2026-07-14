@@ -18,8 +18,7 @@ CREATE TABLE budget_policies (
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
-	endpoint_id VARCHAR(36),
-	principal VARCHAR(255),
+	target_value VARCHAR(255),
 	CONSTRAINT budget_policies_pk PRIMARY KEY (budget_policy_id)
 )
 
