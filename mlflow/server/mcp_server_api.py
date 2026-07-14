@@ -213,7 +213,6 @@ class CreateMCPAccessBindingRequest(BaseModel):
     server_alias: str | None = None
     endpoint_url: str
     transport_type: str = "streamable-http"
-    visible: bool = True
 
 
 class UpdateMCPAccessBindingRequest(BaseModel):
@@ -221,7 +220,6 @@ class UpdateMCPAccessBindingRequest(BaseModel):
     server_alias: str | None = None
     endpoint_url: str | None = None
     transport_type: str | None = None
-    visible: bool | None = None
 
 
 class SetAliasRequest(BaseModel):
@@ -244,7 +242,6 @@ class MCPAccessBindingSummaryResponse(BaseModel):
     server_name: str
     endpoint_url: str
     transport_type: str = "streamable-http"
-    visible: bool = True
     workspace: str | None = None
     server_version: str | None = None
     server_alias: str | None = None
@@ -261,7 +258,6 @@ class MCPAccessBindingSummaryResponse(BaseModel):
             server_name=entity.server_name,
             endpoint_url=entity.endpoint_url,
             transport_type=str(entity.transport_type),
-            visible=entity.visible,
             workspace=entity.workspace,
             server_version=entity.server_version,
             server_alias=entity.server_alias,
@@ -364,7 +360,6 @@ class MCPAccessBindingResponse(BaseModel):
     server_name: str
     endpoint_url: str
     transport_type: str = "streamable-http"
-    visible: bool = True
     workspace: str | None = None
     tools: list[MCPToolResponsePayload] | None = None
     server_version: str | None = None
@@ -385,7 +380,6 @@ class MCPAccessBindingResponse(BaseModel):
             server_name=entity.server_name,
             endpoint_url=entity.endpoint_url,
             transport_type=str(entity.transport_type),
-            visible=entity.visible,
             workspace=entity.workspace,
             tools=tools,
             server_version=entity.server_version,
@@ -516,7 +510,7 @@ def _update_mcp_access_binding_kwargs(
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {"server_name": server_name, "binding_id": binding_id}
     provided_fields = body.model_fields_set
-    for field_name in ("server_version", "server_alias", "endpoint_url", "visible"):
+    for field_name in ("server_version", "server_alias", "endpoint_url"):
         if field_name in provided_fields:
             kwargs[field_name] = getattr(body, field_name)
     if "transport_type" in provided_fields:
@@ -716,7 +710,6 @@ def create_mcp_access_binding(
         server_version=body.server_version,
         server_alias=body.server_alias,
         created_by=username,
-        visible=body.visible,
     )
     return MCPAccessBindingResponse.from_entity(binding)
 

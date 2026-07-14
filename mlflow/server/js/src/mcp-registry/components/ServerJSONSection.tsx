@@ -12,17 +12,9 @@ import { RawJSONToggle, RawToolsJSONToggle } from './JSONToggles';
 export const ServerJSONSection = ({
   serverJson,
   serverName,
-  isAdmin,
-  isAuthAvailable,
-  connectOptions,
-  onToggleConnectOption,
 }: {
   serverJson: ServerJSONPayload;
   serverName: string;
-  isAdmin?: boolean;
-  isAuthAvailable?: boolean;
-  connectOptions?: Record<string, { hidden?: boolean }>;
-  onToggleConnectOption?: (key: string, visible: boolean) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const packages = serverJson.packages ?? [];
@@ -31,26 +23,8 @@ export const ServerJSONSection = ({
 
   return (
     <div css={flexColumnGapStyles(theme, theme.spacing.md)}>
-      {remotes.length > 0 && (
-        <RemotesSubsection
-          remotes={remotes}
-          derivedName={derivedName}
-          isAdmin={isAdmin}
-          isAuthAvailable={isAuthAvailable}
-          connectOptions={connectOptions}
-          onToggleConnectOption={onToggleConnectOption}
-        />
-      )}
-      {packages.length > 0 && (
-        <PackagesSubsection
-          packages={packages}
-          derivedName={derivedName}
-          isAdmin={isAdmin}
-          isAuthAvailable={isAuthAvailable}
-          connectOptions={connectOptions}
-          onToggleConnectOption={onToggleConnectOption}
-        />
-      )}
+      {remotes.length > 0 && <RemotesSubsection remotes={remotes} derivedName={derivedName} />}
+      {packages.length > 0 && <PackagesSubsection packages={packages} derivedName={derivedName} />}
       <RawJSONToggle serverJson={serverJson} />
     </div>
   );

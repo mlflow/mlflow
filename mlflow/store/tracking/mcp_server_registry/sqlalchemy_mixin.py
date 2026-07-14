@@ -557,7 +557,6 @@ class SqlAlchemyMCPServerRegistryMixin:
         server_version: str | None = None,
         server_alias: str | None = None,
         created_by: str | None = None,
-        visible: bool = True,
     ) -> MCPAccessBinding:
         _validate_exactly_one("server_version", server_version, "server_alias", server_alias)
 
@@ -596,7 +595,6 @@ class SqlAlchemyMCPServerRegistryMixin:
                     server_alias=server_alias,
                     created_by=created_by,
                     last_updated_by=created_by,
-                    visible=visible,
                     created_at=now,
                     last_updated_at=now,
                 )
@@ -698,7 +696,6 @@ class SqlAlchemyMCPServerRegistryMixin:
         endpoint_url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         last_updated_by: str | None = None,
-        visible: bool | None = NOT_SET,
     ) -> MCPAccessBinding:
         if server_version is not NOT_SET and server_alias is not NOT_SET:
             if server_version is not None and server_alias is not None:
@@ -754,8 +751,6 @@ class SqlAlchemyMCPServerRegistryMixin:
                 binding.endpoint_url = endpoint_url
             if transport_type is not NOT_SET and transport_type is not None:
                 binding.transport_type = transport_type.value
-            if visible is not NOT_SET and visible is not None:
-                binding.visible = visible
 
             binding.last_updated_by = last_updated_by
             binding.last_updated_at = get_current_time_millis()

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { tagListStyles, textEllipsisStyles, mcpIconStyles, noShrinkStyles } from '../styles';
 import {
   Button,
@@ -42,42 +42,11 @@ export const MCPServerVersionDetail = ({
   const isAuthAvailable = useIsAuthAvailable();
   const isUserAdmin = useCurrentUserIsAdmin();
   const canEdit = !isAuthAvailable || isUserAdmin;
-  const isAdmin = isAuthAvailable && isUserAdmin;
-
   const [editVersionModalVisible, setEditVersionModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [localConnectOptions, setLocalConnectOptions] = useState<Record<string, { hidden?: boolean }> | undefined>(
-    undefined,
-  );
-  const currentVersionRef = useRef(version?.version);
-  currentVersionRef.current = version?.version;
 
-  useEffect(() => {
-    setLocalConnectOptions(undefined);
-  }, [version?.version]);
   const updateVersionMutation = useUpdateMCPServerVersion(server.name);
   const deleteVersionMutation = useDeleteMCPServerVersion(server.name);
-
-  const handleToggleConnectOption = (key: string, visible: boolean) => {
-    if (!version) return;
-    const toggledVersion = version.version;
-    const current = localConnectOptions ?? version.connect_options ?? {};
-    const updated = { ...current, [key]: { hidden: !visible } };
-    setLocalConnectOptions(updated);
-    updateVersionMutation.mutate(
-      {
-        version: toggledVersion,
-        connectOptions: updated,
-      },
-      {
-        onError: () => {
-          if (currentVersionRef.current === toggledVersion) {
-            setLocalConnectOptions(current);
-          }
-        },
-      },
-    );
-  };
 
   if (!version) {
     return (
@@ -290,16 +259,7 @@ export const MCPServerVersionDetail = ({
         </Tabs.List>
 
         <Tabs.Content value="connect" css={{ paddingTop: theme.spacing.md }}>
-          {version.server_json && (
-            <ServerJSONSection
-              serverJson={version.server_json}
-              serverName={server.name}
-              isAdmin={isAdmin}
-              isAuthAvailable={isAuthAvailable}
-              connectOptions={localConnectOptions ?? version.connect_options ?? undefined}
-              onToggleConnectOption={handleToggleConnectOption}
-            />
-          )}
+          {version.server_json && <ServerJSONSection serverJson={version.server_json} serverName={server.name} />}
         </Tabs.Content>
 
         {version.tools && version.tools.length > 0 && (

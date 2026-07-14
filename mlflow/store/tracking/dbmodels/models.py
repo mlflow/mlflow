@@ -4197,7 +4197,6 @@ class SqlMCPAccessBinding(Base):
         default=MCPRemoteTransportType.STREAMABLE_HTTP.value,
         server_default=sa.text(f"'{MCPRemoteTransportType.STREAMABLE_HTTP.value}'"),
     )
-    visible = Column(Boolean, nullable=False, default=True, server_default="1")
     created_by = Column(String(256), nullable=True)
     last_updated_by = Column(String(256), nullable=True)
     created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
@@ -4257,7 +4256,6 @@ class SqlMCPAccessBinding(Base):
             server_version=self.server_version,
             server_alias=self.server_alias,
             resolved_version=resolved,
-            visible=self.visible,
             workspace=self.workspace,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,

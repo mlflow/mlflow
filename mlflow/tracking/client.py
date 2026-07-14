@@ -6888,7 +6888,6 @@ class MlflowClient:
         transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP,
         server_version: str | None = None,
         server_alias: str | None = None,
-        visible: bool = True,
     ) -> MCPAccessBinding:
         return self._tracking_client.store.create_mcp_access_binding(
             server_name=server_name,
@@ -6896,7 +6895,6 @@ class MlflowClient:
             transport_type=transport_type,
             server_version=server_version,
             server_alias=server_alias,
-            visible=visible,
         )
 
     def get_mcp_access_binding(self, server_name: str, binding_id: int) -> MCPAccessBinding:
@@ -6932,7 +6930,6 @@ class MlflowClient:
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         server_version: str | None = NOT_SET,
         server_alias: str | None = NOT_SET,
-        visible: bool | None = NOT_SET,
     ) -> MCPAccessBinding:
         return self._tracking_client.store.update_mcp_access_binding(
             server_name=server_name,
@@ -6941,7 +6938,6 @@ class MlflowClient:
             transport_type=transport_type,
             server_version=server_version,
             server_alias=server_alias,
-            visible=visible,
         )
 
     def delete_mcp_access_binding(self, server_name: str, binding_id: int) -> None:

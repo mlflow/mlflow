@@ -449,7 +449,6 @@ def create_mcp_access_binding(
     transport_type: Literal["streamable-http", "sse"] = "streamable-http",
     server_version: str | None = None,
     server_alias: str | None = None,
-    visible: bool = True,
 ) -> MCPAccessBinding:
     """
     Record an approved direct-access binding for an MCP server.
@@ -462,7 +461,6 @@ def create_mcp_access_binding(
         transport_type: Transport protocol — ``"streamable-http"`` (default) or ``"sse"``.
         server_version: Pin the binding to a specific version string.
         server_alias: Pin the binding to an alias.
-        visible: Whether the binding is visible in the UI (default ``True``).
 
     Returns:
         The created :py:class:`MCPAccessBinding <mlflow.entities.MCPAccessBinding>`.
@@ -486,7 +484,6 @@ def create_mcp_access_binding(
         transport_type=_parse_enum(transport_type, MCPRemoteTransportType, "transport_type"),
         server_version=server_version,
         server_alias=server_alias,
-        visible=visible,
     )
 
 
@@ -540,7 +537,6 @@ def update_mcp_access_binding(
     transport_type: Literal["streamable-http", "sse"] | None = NOT_SET,
     server_version: str | None = NOT_SET,
     server_alias: str | None = NOT_SET,
-    visible: bool | None = NOT_SET,
 ) -> MCPAccessBinding:
     """
     Update an existing access binding.
@@ -555,7 +551,6 @@ def update_mcp_access_binding(
         transport_type: New transport type. Pass ``None`` to clear.
         server_version: New version target. Pass ``None`` to clear.
         server_alias: New alias target. Pass ``None`` to clear.
-        visible: Whether the binding is visible in the UI.
 
     Returns:
         The updated :py:class:`MCPAccessBinding <mlflow.entities.MCPAccessBinding>`.
@@ -567,7 +562,6 @@ def update_mcp_access_binding(
         transport_type=_parse_enum(transport_type, MCPRemoteTransportType, "transport_type"),
         server_version=server_version,
         server_alias=server_alias,
-        visible=visible,
     )
 
 

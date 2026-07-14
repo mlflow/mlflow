@@ -260,7 +260,6 @@ class MCPServerRegistryMixin:
         server_version: str | None = None,
         server_alias: str | None = None,
         created_by: str | None = None,
-        visible: bool = True,
     ) -> MCPAccessBinding:
         """Create a direct-access binding for an MCP server.
 
@@ -273,7 +272,6 @@ class MCPServerRegistryMixin:
             server_version: Pin to a specific version.
             server_alias: Pin to an alias.
             created_by: Authenticated username of the creator.
-            visible: Whether the binding is visible to non-admin users.
 
         Returns:
             The created MCPAccessBinding entity.
@@ -327,7 +325,6 @@ class MCPServerRegistryMixin:
         endpoint_url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         last_updated_by: str | None = None,
-        visible: bool | None = NOT_SET,
     ) -> MCPAccessBinding:
         """Update an existing access binding.
 
@@ -342,8 +339,6 @@ class MCPServerRegistryMixin:
             transport_type: New transport type. Omit to leave unchanged; non-null values update
                 the transport type.
             last_updated_by: Authenticated username of the updater.
-            visible: Whether the binding is visible to non-admin users.
-                Omit to leave unchanged.
 
         Returns:
             The updated MCPAccessBinding entity.

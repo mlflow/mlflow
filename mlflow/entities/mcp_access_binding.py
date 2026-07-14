@@ -19,7 +19,6 @@ class MCPAccessBinding:
     server_version: str | None = None
     server_alias: str | None = None
     resolved_version: MCPServerVersion | None = field(default=None, repr=False)
-    visible: bool = True
     workspace: str | None = None
     created_by: str | None = None
     last_updated_by: str | None = None

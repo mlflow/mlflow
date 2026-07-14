@@ -176,7 +176,6 @@ def upgrade():
             nullable=False,
             server_default=sa.text("'streamable-http'"),
         ),
-        sa.Column("visible", sa.Boolean(), nullable=False, server_default=sa.text("1")),
         sa.Column("created_by", sa.String(length=256), nullable=True),
         sa.Column("last_updated_by", sa.String(length=256), nullable=True),
         sa.Column("created_at", sa.BigInteger(), nullable=False),
