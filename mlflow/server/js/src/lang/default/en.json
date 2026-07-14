@@ -2267,10 +2267,6 @@
     "defaultMessage": "Clear filters",
     "description": "Usage overview > clear metrics filters button"
   },
-  "8olJvw": {
-    "defaultMessage": "Visible to developers. Click to hide.",
-    "description": "Tooltip for visible package toggle"
-  },
   "8qJt7/": {
     "defaultMessage": "Experimental",
     "description": "Experimental badge shown for features which are experimental"
@@ -2963,6 +2959,10 @@
     "defaultMessage": "Attributes",
     "description": "Section header for the attributes in a 'group by' selector"
   },
+  "BfmA8L": {
+    "defaultMessage": "Shown in Connect tab. Click to hide.",
+    "description": "Tooltip for visible package toggle"
+  },
   "Bg/LgH": {
     "defaultMessage": "Instructions",
     "description": "Label for guardrail judge instructions"
@@ -3123,6 +3123,10 @@
     "defaultMessage": "Move to Todo",
     "description": "Review focused view: send a completed/declined trace back to the to-do list"
   },
+  "CLOwLw": {
+    "defaultMessage": "Raw tools JSON",
+    "description": "Aria label for raw tools JSON viewer"
+  },
   "CO81il": {
     "defaultMessage": "No usage data available",
     "description": "Empty state title"
@@ -3162,6 +3166,10 @@
   "CX8ytv": {
     "defaultMessage": "Expected output",
     "description": "Evaluation review > Response section > expected output > title"
+  },
+  "CXtsWk": {
+    "defaultMessage": "Raw server.json",
+    "description": "Aria label for raw server.json viewer"
   },
   "CZW5JY": {
     "defaultMessage": "Messages",
@@ -3630,10 +3638,6 @@
   "EwAZgg": {
     "defaultMessage": "Edit tags",
     "description": "Run page > Overview > Tags cell > 'Edit' button label"
-  },
-  "ExDKON": {
-    "defaultMessage": "Hidden from developers. Click to show.",
-    "description": "Tooltip for hidden endpoint toggle"
   },
   "Ey+oLI": {
     "defaultMessage": "Request",
@@ -4214,6 +4218,10 @@
   "HzGYm5": {
     "defaultMessage": "Aliases",
     "description": "Aliases section in the metadata on model version page"
+  },
+  "HzNUhS": {
+    "defaultMessage": "Hidden from Connect tab. Click to show.",
+    "description": "Tooltip for hidden package toggle"
   },
   "I1mNex": {
     "defaultMessage": "Select the events that will trigger this webhook.",
@@ -6627,10 +6635,6 @@
     "defaultMessage": "Inputs",
     "description": "Table section name for schema inputs in the model comparison page"
   },
-  "Tj7qTS": {
-    "defaultMessage": "Copy JSON",
-    "description": "Tooltip for copy JSON button"
-  },
   "Tl63jz": {
     "defaultMessage": "All runs are filtered",
     "description": "Empty state title text for experiment runs page when all runs have been filtered out"
@@ -7274,6 +7278,10 @@
   "Wd8Tga": {
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
+  },
+  "We46uF": {
+    "defaultMessage": "Input schema JSON",
+    "description": "Aria label for input schema JSON viewer"
   },
   "WeAgwI": {
     "defaultMessage": "Digest: {digest}",
@@ -8443,10 +8451,6 @@
     "defaultMessage": "Type",
     "description": "Run page > Overview > Experiment ID section label"
   },
-  "by0DzI": {
-    "defaultMessage": "JSON content",
-    "description": "Aria label for JSON code block"
-  },
   "byhyEj": {
     "defaultMessage": "Re-Run judge",
     "description": "Button text for re-running judge"
@@ -9255,6 +9259,10 @@
     "defaultMessage": "Timestamp",
     "description": "Run page > Charts tab > Chart tooltip > Timestamp label"
   },
+  "fbtFxp": {
+    "defaultMessage": "Hidden from Connect tab. Click to show.",
+    "description": "Tooltip for hidden endpoint toggle"
+  },
   "fcIHyN": {
     "defaultMessage": "Medium",
     "description": "Medium row size"
@@ -9430,6 +9438,10 @@
   "gFYM0j": {
     "defaultMessage": "Cancel",
     "description": "Delete assessment modal cancel button text"
+  },
+  "gFsq/N": {
+    "defaultMessage": "Shown in Connect tab. Click to hide.",
+    "description": "Tooltip for visible endpoint toggle"
   },
   "gH6GGr": {
     "defaultMessage": "Function name",
@@ -10159,10 +10171,6 @@
     "defaultMessage": "Enter issue description",
     "description": "Placeholder text for issue description field"
   },
-  "j9EXy+": {
-    "defaultMessage": "Hidden from developers. Click to show.",
-    "description": "Tooltip for hidden package toggle"
-  },
   "jClVwe": {
     "defaultMessage": "Point the OTLP exporter at this MLflow server by setting these environment variables. See the <a>OpenTelemetry export docs</a> for the full reference.",
     "description": "Step 1 description for OpenTelemetry traces onboarding"
@@ -10206,10 +10214,6 @@
   "jNFx/n": {
     "defaultMessage": "Fill in every message",
     "description": "Reason shown when the playground Submit button is disabled because a message is empty"
-  },
-  "jNxx2O": {
-    "defaultMessage": "Visible to developers. Click to hide.",
-    "description": "Tooltip for visible endpoint toggle"
   },
   "jOyo3+": {
     "defaultMessage": "Step",
@@ -10682,6 +10686,10 @@
   "lfe8zE": {
     "defaultMessage": "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
     "description": "Example placeholder text for instructions textarea"
+  },
+  "lfsyCQ": {
+    "defaultMessage": "Output schema JSON",
+    "description": "Aria label for output schema JSON viewer"
   },
   "lhFnAG": {
     "defaultMessage": "Insufficient",

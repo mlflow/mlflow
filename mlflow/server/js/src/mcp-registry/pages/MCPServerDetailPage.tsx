@@ -75,11 +75,14 @@ const MCPServerDetailPage = () => {
   } = useMCPServerVersionsQuery(serverName);
   const { data: latestVersion, refetch: refetchLatestVersion } = useLatestMCPServerVersionQuery(serverName);
 
+  const versionFoundInList = versionFromUrl && versions?.some((v) => v.version === versionFromUrl);
+
   const selectedVersion = useMemo(() => {
     if (!versions?.length) return undefined;
-    if (versionFromUrl && versions.some((v) => v.version === versionFromUrl)) return versionFromUrl;
-    return versions[0].version;
-  }, [versions, versionFromUrl]);
+    if (versionFoundInList) return versionFromUrl;
+    if (!versionFromUrl) return versions[0].version;
+    return undefined;
+  }, [versions, versionFromUrl, versionFoundInList]);
 
   const setSelectedVersion = useCallback(
     (version: string | undefined) => {
@@ -100,7 +103,7 @@ const MCPServerDetailPage = () => {
   );
 
   useEffect(() => {
-    if (selectedVersion && selectedVersion !== versionFromUrl) {
+    if (selectedVersion && selectedVersion !== versionFromUrl && !versionFromUrl) {
       setSelectedVersion(selectedVersion);
     }
   }, [selectedVersion, versionFromUrl, setSelectedVersion]);

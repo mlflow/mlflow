@@ -8,6 +8,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { sanitizeHref } from '../utils';
 
 import { ConnectionFormat, ConnectionSource } from '../types';
 import type { ServerJSONPayload } from '../types';
@@ -77,9 +78,9 @@ export const ConnectionInstructions = (props: ConnectionInstructionsProps) => {
           <Typography.Text color="secondary" size="sm">
             {block.fallbackReason}
           </Typography.Text>
-          {block.fallbackUrl && (
+          {sanitizeHref(block.fallbackUrl) && (
             <div css={{ marginTop: theme.spacing.xs }}>
-              <a href={block.fallbackUrl} target="_blank" rel="noopener noreferrer">
+              <a href={sanitizeHref(block.fallbackUrl)} target="_blank" rel="noopener noreferrer">
                 <FormattedMessage
                   defaultMessage="View setup instructions"
                   description="Link to publisher documentation for manual install"

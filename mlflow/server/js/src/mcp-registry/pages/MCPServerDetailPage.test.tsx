@@ -303,10 +303,10 @@ describe('MCPServerDetailPage', () => {
     });
   });
 
-  it('falls back to first version when URL version param is invalid', async () => {
+  it('does not rewrite URL when version param is not in loaded page', async () => {
     renderPage(['/mcp-registry/dev.mainline%2Fmcp?version=nonexistent']);
     await waitFor(() => {
-      expect(screen.getByText('Viewing version 1')).toBeInTheDocument();
+      expect(screen.getByText('Select a version to view details.')).toBeInTheDocument();
     });
   });
 

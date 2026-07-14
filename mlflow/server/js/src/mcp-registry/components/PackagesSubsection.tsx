@@ -209,12 +209,12 @@ const PackageRow = ({
               content={
                 isVisible ? (
                   <FormattedMessage
-                    defaultMessage="Visible to developers. Click to hide."
+                    defaultMessage="Shown in Connect tab. Click to hide."
                     description="Tooltip for visible package toggle"
                   />
                 ) : (
                   <FormattedMessage
-                    defaultMessage="Hidden from developers. Click to show."
+                    defaultMessage="Hidden from Connect tab. Click to show."
                     description="Tooltip for hidden package toggle"
                   />
                 )
