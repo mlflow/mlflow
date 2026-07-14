@@ -81,3 +81,8 @@ export const getMockedSetMCPServerTagResponse = () =>
 
 export const getMockedDeleteMCPServerTagResponse = () =>
   rest.delete(getAjaxUrl(`${BASE_URL}/:name/tags/:key`), (_req, res, ctx) => res(ctx.json({})));
+
+export const getMockedCurrentUserResponse = ({ isAdmin = false }: { isAdmin?: boolean } = {}) =>
+  rest.get(getAjaxUrl('ajax-api/2.0/mlflow/users/current'), (_req, res, ctx) =>
+    res(ctx.json({ user: { username: 'testuser', is_admin: isAdmin } })),
+  );

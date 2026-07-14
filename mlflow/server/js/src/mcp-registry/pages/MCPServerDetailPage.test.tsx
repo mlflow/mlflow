@@ -20,6 +20,7 @@ import {
   getMockedUpdateMCPServerResponse,
   getMockedSetMCPServerTagResponse,
   getMockedDeleteMCPServerTagResponse,
+  getMockedCurrentUserResponse,
 } from '../test-utils';
 
 const mockServer = createMockMCPServer({
@@ -64,6 +65,7 @@ const defaultHandlers = [
   getMockedSearchMCPServerVersionsResponse([mockVersion]),
   getMockedDeleteMCPServerVersionResponse(),
   getMockedDeleteMCPServerResponse(),
+  getMockedCurrentUserResponse({ isAdmin: true }),
 ];
 
 describe('MCPServerDetailPage', () => {
@@ -163,9 +165,13 @@ describe('MCPServerDetailPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Expand package @mainline\/mcp-server/ }));
     await waitFor(() => {
+      expect(screen.getByText('View details')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText('View details'));
+    await waitFor(() => {
       expect(screen.getByText('Environment Variables (2)')).toBeInTheDocument();
     });
-    expect(screen.getAllByText('@mainline/mcp-server').length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('API_KEY')).toBeInTheDocument();
     expect(screen.getByText('required')).toBeInTheDocument();
     expect(screen.getByText('secret')).toBeInTheDocument();

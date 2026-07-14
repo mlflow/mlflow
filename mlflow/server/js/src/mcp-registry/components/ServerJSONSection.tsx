@@ -51,7 +51,7 @@ export const ServerJSONSection = ({
           onToggleConnectOption={onToggleConnectOption}
         />
       )}
-      {isAdmin && <RawJSONToggle serverJson={serverJson} />}
+      <RawJSONToggle serverJson={serverJson} />
     </div>
   );
 };

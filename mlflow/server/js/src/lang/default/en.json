@@ -1263,6 +1263,10 @@
     "defaultMessage": "Save",
     "description": "MCP server update version display name modal confirm button"
   },
+  "44CqAo": {
+    "defaultMessage": "Claude Code",
+    "description": "Claude Code install format label"
+  },
   "44IiTX": {
     "defaultMessage": "Version",
     "description": "Package version label"
@@ -1426,10 +1430,6 @@
   "4e1JWO": {
     "defaultMessage": "Delete question?",
     "description": "Manage review questions: delete confirmation title"
-  },
-  "4eVj/Q": {
-    "defaultMessage": "Update version status",
-    "description": "MCP server update version status modal title"
   },
   "4g2H7S": {
     "defaultMessage": "Prompt content is required",
@@ -1874,6 +1874,10 @@
   "70Oj6o": {
     "defaultMessage": "Share review link",
     "description": "Review queue share dropdown: copies a link that opens the first pending trace for review"
+  },
+  "71XxYR": {
+    "defaultMessage": "Edit aliases",
+    "description": "Aria label for edit aliases button"
   },
   "71dHIO": {
     "defaultMessage": "Classical ML",
@@ -2354,6 +2358,10 @@
   "9Bj7oS": {
     "defaultMessage": "A network error occurred.",
     "description": "Error message for generic network error"
+  },
+  "9Bpb9c": {
+    "defaultMessage": "{action} package {identifier}",
+    "description": "Aria label for package visibility toggle"
   },
   "9CqEWy": {
     "defaultMessage": "Load more",
@@ -3130,10 +3138,6 @@
   "CPO2ro": {
     "defaultMessage": "GenAI apps & agents",
     "description": "A short label for custom experiments automatically identified as being focused on generative AI app and agent development"
-  },
-  "CPq0qA": {
-    "defaultMessage": "This version is in a terminal state and cannot be transitioned.",
-    "description": "MCP server terminal status warning"
   },
   "CRr6Tx": {
     "defaultMessage": "Create and manage judges",
@@ -4563,10 +4567,6 @@
     "defaultMessage": "Delete",
     "description": "Bulk-delete button on the users table (no rows selected)"
   },
-  "JqEZzt": {
-    "defaultMessage": "New status:",
-    "description": "MCP server new status label in update modal"
-  },
   "Jr4PZf": {
     "defaultMessage": "server.json:",
     "description": "Label for server.json field in create MCP server modal"
@@ -5090,6 +5090,10 @@
   "MQlFT0": {
     "defaultMessage": "Inputs",
     "description": "Section title for inputs in the V2 dataset record side panel"
+  },
+  "MR9ltZ": {
+    "defaultMessage": "About official endpoints",
+    "description": "Aria label for remotes subsection help popover"
   },
   "MS5PhU": {
     "defaultMessage": "Model training",
@@ -5687,6 +5691,10 @@
     "defaultMessage": "Deleted dataset \"{name}\" (may take a moment to refresh)",
     "description": "Success toast after deleting a V2 evaluation dataset when UC propagation has not been observed within the polling window"
   },
+  "PHTzk8": {
+    "defaultMessage": "About run locally",
+    "description": "Aria label for packages subsection help popover"
+  },
   "PIPzZY": {
     "defaultMessage": "General",
     "description": "Sidebar link: Settings > General"
@@ -5786,10 +5794,6 @@
   "Pgxfhl": {
     "defaultMessage": "Role",
     "description": "Roles table column header for the role name"
-  },
-  "PitYnw": {
-    "defaultMessage": "Current status:",
-    "description": "MCP server current status label in update modal"
   },
   "PlP56F": {
     "defaultMessage": "Enter value",
@@ -7774,10 +7778,6 @@
   "YzemxC": {
     "defaultMessage": "Create",
     "description": "Create budget policy button text"
-  },
-  "Z+69vv": {
-    "defaultMessage": "Update",
-    "description": "MCP server update version status modal confirm button"
   },
   "Z+tEhr": {
     "defaultMessage": "Compare selected runs",
@@ -11771,6 +11771,10 @@
     "defaultMessage": "Endpoints",
     "description": "Sidebar link for gateway endpoints"
   },
+  "qhgn2K": {
+    "defaultMessage": ".mcp.json",
+    "description": "mcp.json install format label"
+  },
   "qkRBUr": {
     "defaultMessage": "Line smoothing",
     "description": "Runs charts > line chart > configuration > label for line smoothing slider control. The control allows changing data trace line smoothness from 1 to 100, where 1 is the original data trace and 100 is the smoothest trace. Line smoothing helps eliminate noise in the data."
@@ -13574,6 +13578,10 @@
   "zRxidQ": {
     "defaultMessage": "No users",
     "description": "Empty state title for users table"
+  },
+  "zS0BLb": {
+    "defaultMessage": "{action} endpoint {url}",
+    "description": "Aria label for remote endpoint visibility toggle"
   },
   "zUePVd": {
     "defaultMessage": "Inputs of the trace, derived from the root span's inputs",

@@ -12,8 +12,6 @@ import {
   getMockedUpdateMCPServerVersionResponse,
 } from '../test-utils';
 
-jest.setTimeout(30000);
-
 const server = setupServer();
 beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());

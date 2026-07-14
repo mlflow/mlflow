@@ -41,7 +41,9 @@ export const MCPServerVersionDetail = ({
   const intl = useIntl();
   const isAuthAvailable = useIsAuthAvailable();
   const isUserAdmin = useCurrentUserIsAdmin();
-  const isAdmin = !isAuthAvailable || isUserAdmin;
+  const canEdit = !isAuthAvailable || isUserAdmin;
+  const isAdmin = isAuthAvailable && isUserAdmin;
+
   const [editVersionModalVisible, setEditVersionModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [localHiddenOptions, setLocalHiddenOptions] = useState<string[] | undefined>(undefined);
@@ -120,7 +122,7 @@ export const MCPServerVersionDetail = ({
             <Typography.Hint css={{ marginTop: theme.spacing.xs }}>{version.server_json.description}</Typography.Hint>
           )}
         </div>
-        {isAdmin && (
+        {canEdit && (
           <div css={{ display: 'flex', gap: theme.spacing.sm, ...noShrinkStyles }}>
             <Button
               componentId="mlflow.mcp_registry.detail.edit_version"
@@ -173,10 +175,10 @@ export const MCPServerVersionDetail = ({
           <FormattedMessage defaultMessage="Aliases:" description="MCP server version detail aliases label" />
         </Typography.Text>
         <div>
-          {(aliasesByVersion[version.version] ?? []).length > 0 || isAdmin ? (
+          {(aliasesByVersion[version.version] ?? []).length > 0 || canEdit ? (
             <MCPServerAliasesCell
               aliases={aliasesByVersion[version.version] ?? []}
-              onEdit={isAdmin ? () => showEditAliasesModal?.(version.version) : undefined}
+              onEdit={canEdit ? () => showEditAliasesModal?.(version.version) : undefined}
             />
           ) : (
             <Typography.Hint>—</Typography.Hint>

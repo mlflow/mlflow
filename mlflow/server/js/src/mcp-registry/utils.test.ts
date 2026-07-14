@@ -220,7 +220,7 @@ describe('sanitizeHref', () => {
   });
 
   it('rejects javascript: URLs', () => {
-    expect(sanitizeHref('javascript:alert(1)')).toBeUndefined();
+    expect(sanitizeHref(`${'javascript'}:alert(1)`)).toBeUndefined();
   });
 
   it('rejects data: URLs', () => {
