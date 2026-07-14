@@ -476,8 +476,7 @@ class BudgetPolicyExceededPayload(TypedDict):
             "duration_value": 1,
             "target_scope": "ENDPOINT",
             "workspace": "default",
-            "endpoint_id": "ep-abc123",
-            "principal": None,
+            "target_value": "ep-abc123",
             "window_start": 1704067200000,
         }
 
@@ -499,10 +498,10 @@ class BudgetPolicyExceededPayload(TypedDict):
     """The target scope (GLOBAL, WORKSPACE, ENDPOINT, or USER)."""
     workspace: str
     """The workspace this budget applies to."""
-    endpoint_id: str | None
-    """The gateway endpoint this budget applies to (set only for ENDPOINT-scoped policies)."""
-    principal: str | None
-    """The user identity this budget applies to (set for USER-scoped budgets)."""
+    target_value: str | None
+    """The target this budget applies to, interpreted per target_scope: a gateway
+    endpoint ID for ENDPOINT scope, a principal (user identity) for USER scope.
+    None for GLOBAL and WORKSPACE scopes."""
     window_start: int
     """The start timestamp (milliseconds) of the current budget window."""
 
@@ -517,8 +516,7 @@ class BudgetPolicyExceededPayload(TypedDict):
             duration_value=1,
             target_scope="ENDPOINT",
             workspace="default",
-            endpoint_id="ep-abc123",
-            principal=None,
+            target_value="ep-abc123",
             window_start=1704067200000,
         )
 

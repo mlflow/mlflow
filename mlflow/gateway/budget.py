@@ -54,13 +54,16 @@ def calculate_existing_cost_for_windows(
                 if window.policy.target_scope == BudgetTargetScope.WORKSPACE
                 else None
             )
+            # The policy's target_value is interpreted per scope: it filters trace
+            # history by gateway endpoint for ENDPOINT policies and by recorded auth
+            # username for USER policies.
             endpoint_id = (
-                window.policy.endpoint_id
+                window.policy.target_value
                 if window.policy.target_scope == BudgetTargetScope.ENDPOINT
                 else None
             )
             principal = (
-                window.policy.principal
+                window.policy.target_value
                 if window.policy.target_scope == BudgetTargetScope.USER
                 else None
             )
@@ -138,8 +141,7 @@ def fire_budget_exceeded_webhooks(
             duration_value=policy.duration.value,
             target_scope=policy.target_scope.value,
             workspace=workspace or (policy.workspace or DEFAULT_WORKSPACE_NAME),
-            endpoint_id=policy.endpoint_id,
-            principal=policy.principal,
+            target_value=policy.target_value,
             window_start=int(window.window_start.timestamp() * 1000),
         )
         deliver_webhook(event=event, payload=payload, store=registry_store)

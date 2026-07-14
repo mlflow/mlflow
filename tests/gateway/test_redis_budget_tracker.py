@@ -23,8 +23,7 @@ def _make_policy(
     target_scope=BudgetTargetScope.GLOBAL,
     budget_action=BudgetAction.ALERT,
     workspace=None,
-    endpoint_id=None,
-    principal=None,
+    target_value=None,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
@@ -36,8 +35,7 @@ def _make_policy(
         created_at=0,
         last_updated_at=0,
         workspace=workspace,
-        endpoint_id=endpoint_id,
-        principal=principal,
+        target_value=target_value,
     )
 
 
@@ -300,7 +298,7 @@ def test_endpoint_scoped_cost_recording():
     policy = _make_policy(
         budget_policy_id="bp-ep",
         target_scope=BudgetTargetScope.ENDPOINT,
-        endpoint_id="ep-1",
+        target_value="ep-1",
         budget_amount=100.0,
     )
     tracker.refresh_policies([policy])
@@ -317,7 +315,7 @@ def test_should_reject_request_endpoint_filtering():
     policy = _make_policy(
         budget_policy_id="bp-ep",
         target_scope=BudgetTargetScope.ENDPOINT,
-        endpoint_id="ep-1",
+        target_value="ep-1",
         budget_amount=100.0,
         budget_action=BudgetAction.REJECT,
     )
@@ -341,7 +339,7 @@ def test_endpoint_scoped_policy_reloaded_from_redis():
     policy = _make_policy(
         budget_policy_id="bp-ep",
         target_scope=BudgetTargetScope.ENDPOINT,
-        endpoint_id="ep-1",
+        target_value="ep-1",
         budget_amount=100.0,
         budget_action=BudgetAction.REJECT,
     )
@@ -352,7 +350,7 @@ def test_endpoint_scoped_policy_reloaded_from_redis():
 
     exceeded, window = tracker.should_reject_request(endpoint_id="ep-1")
     assert exceeded is True
-    assert window.policy.endpoint_id == "ep-1"
+    assert window.policy.target_value == "ep-1"
 
     exceeded_other, _ = tracker.should_reject_request(endpoint_id="ep-2")
     assert exceeded_other is False
@@ -430,19 +428,19 @@ def test_get_budget_tracker_returns_redis_when_configured():
 # --- USER-scope tests ---
 
 
-def test_serialize_roundtrip_preserves_principal():
+def test_serialize_roundtrip_preserves_target_value():
     from mlflow.gateway.budget_tracker.redis import _deserialize_policy, _serialize_policy
 
-    policy = _make_policy(target_scope=BudgetTargetScope.USER, principal="alice")
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice")
     restored = _deserialize_policy(_serialize_policy(policy))
     assert restored.target_scope == BudgetTargetScope.USER
-    assert restored.principal == "alice"
+    assert restored.target_value == "alice"
 
 
 def test_user_scoped_cost_recording_matches_principal():
     tracker = _make_tracker()
     tracker.refresh_policies([
-        _make_policy(target_scope=BudgetTargetScope.USER, principal="alice", budget_amount=100.0)
+        _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice", budget_amount=100.0)
     ])
 
     tracker.record_cost(200.0, principal="bob")
@@ -457,7 +455,7 @@ def test_user_scoped_should_reject_only_for_matching_principal():
     tracker.refresh_policies([
         _make_policy(
             target_scope=BudgetTargetScope.USER,
-            principal="alice",
+            target_value="alice",
             budget_amount=100.0,
             budget_action=BudgetAction.REJECT,
         )
@@ -479,13 +477,13 @@ def test_multiple_user_policies_are_independent():
         _make_policy(
             budget_policy_id="bp-alice",
             target_scope=BudgetTargetScope.USER,
-            principal="alice",
+            target_value="alice",
             budget_amount=100.0,
         ),
         _make_policy(
             budget_policy_id="bp-bob",
             target_scope=BudgetTargetScope.USER,
-            principal="bob",
+            target_value="bob",
             budget_amount=100.0,
         ),
     ])

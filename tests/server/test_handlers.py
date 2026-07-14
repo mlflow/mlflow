@@ -5374,7 +5374,7 @@ def test_list_budget_windows_no_workspace_returns_all():
 
 def _make_endpoint_budget_policy(
     budget_policy_id="bp-ep",
-    endpoint_id="ep-1",
+    target_value="ep-1",
     budget_amount=100.0,
     workspace=None,
 ):
@@ -5387,43 +5387,43 @@ def _make_endpoint_budget_policy(
         budget_action=BudgetAction.REJECT,
         created_at=0,
         last_updated_at=0,
-        endpoint_id=endpoint_id,
+        target_value=target_value,
         workspace=workspace,
     )
 
 
 @pytest.mark.parametrize(
-    ("target_scope", "endpoint_id"),
+    ("target_scope", "target_value"),
     [
         (BudgetTargetScope.ENDPOINT, "ep-1"),
         (BudgetTargetScope.GLOBAL, None),
         (BudgetTargetScope.WORKSPACE, None),
     ],
 )
-def test_validate_budget_endpoint_scope_valid(target_scope, endpoint_id):
-    from mlflow.server.handlers import _validate_budget_endpoint_scope
+def test_validate_budget_target_scope_valid(target_scope, target_value):
+    from mlflow.server.handlers import _validate_budget_target_scope
 
     # Should not raise.
-    _validate_budget_endpoint_scope(target_scope, endpoint_id)
+    _validate_budget_target_scope(target_scope, target_value)
 
 
 @pytest.mark.parametrize(
-    ("target_scope", "endpoint_id", "match"),
+    ("target_scope", "target_value", "match"),
     [
-        (BudgetTargetScope.ENDPOINT, None, "endpoint_id is required"),
-        (BudgetTargetScope.GLOBAL, "ep-1", "endpoint_id can only be set"),
-        (BudgetTargetScope.WORKSPACE, "ep-1", "endpoint_id can only be set"),
+        (BudgetTargetScope.ENDPOINT, None, "target_value is required"),
+        (BudgetTargetScope.GLOBAL, "ep-1", "target_value can only be set"),
+        (BudgetTargetScope.WORKSPACE, "ep-1", "target_value can only be set"),
     ],
 )
-def test_validate_budget_endpoint_scope_invalid(target_scope, endpoint_id, match):
-    from mlflow.server.handlers import _validate_budget_endpoint_scope
+def test_validate_budget_target_scope_invalid(target_scope, target_value, match):
+    from mlflow.server.handlers import _validate_budget_target_scope
 
     with pytest.raises(MlflowException, match=match):
-        _validate_budget_endpoint_scope(target_scope, endpoint_id)
+        _validate_budget_target_scope(target_scope, target_value)
 
 
 def test_create_budget_policy_endpoint_scope():
-    created = _make_endpoint_budget_policy(endpoint_id="ep-1")
+    created = _make_endpoint_budget_policy(target_value="ep-1")
     store = mock.MagicMock()
     store.create_budget_policy.return_value = created
 
@@ -5441,18 +5441,18 @@ def test_create_budget_policy_endpoint_scope():
                 "duration": {"unit": "DAYS", "value": 1},
                 "target_scope": "ENDPOINT",
                 "budget_action": "REJECT",
-                "endpoint_id": "ep-1",
+                "target_value": "ep-1",
             },
         )
 
     assert response.status_code == 200
     store.create_budget_policy.assert_called_once()
-    assert store.create_budget_policy.call_args.kwargs["endpoint_id"] == "ep-1"
+    assert store.create_budget_policy.call_args.kwargs["target_value"] == "ep-1"
     assert response.json["budget_policy"]["target_scope"] == "ENDPOINT"
-    assert response.json["budget_policy"]["endpoint_id"] == "ep-1"
+    assert response.json["budget_policy"]["target_value"] == "ep-1"
 
 
-def test_create_budget_policy_endpoint_scope_missing_endpoint_id_returns_400():
+def test_create_budget_policy_endpoint_scope_missing_target_value_returns_400():
     store = mock.MagicMock()
     with (
         app.test_client() as c,
@@ -5472,11 +5472,11 @@ def test_create_budget_policy_endpoint_scope_missing_endpoint_id_returns_400():
         )
 
     assert response.status_code == 400
-    assert "endpoint_id is required" in response.json["message"]
+    assert "target_value is required" in response.json["message"]
     store.create_budget_policy.assert_not_called()
 
 
-def test_create_budget_policy_non_endpoint_with_endpoint_id_returns_400():
+def test_create_budget_policy_untargeted_with_target_value_returns_400():
     store = mock.MagicMock()
     with (
         app.test_client() as c,
@@ -5492,19 +5492,19 @@ def test_create_budget_policy_non_endpoint_with_endpoint_id_returns_400():
                 "duration": {"unit": "DAYS", "value": 1},
                 "target_scope": "GLOBAL",
                 "budget_action": "REJECT",
-                "endpoint_id": "ep-1",
+                "target_value": "ep-1",
             },
         )
 
     assert response.status_code == 400
-    assert "endpoint_id can only be set" in response.json["message"]
+    assert "target_value can only be set" in response.json["message"]
     store.create_budget_policy.assert_not_called()
 
 
 def test_update_budget_policy_endpoint_scope():
-    updated = _make_endpoint_budget_policy(endpoint_id="ep-2")
+    updated = _make_endpoint_budget_policy(target_value="ep-2")
     store = mock.MagicMock()
-    store.get_budget_policy.return_value = _make_endpoint_budget_policy(endpoint_id="ep-1")
+    store.get_budget_policy.return_value = _make_endpoint_budget_policy(target_value="ep-1")
     store.update_budget_policy.return_value = updated
 
     with (
@@ -5518,21 +5518,21 @@ def test_update_budget_policy_endpoint_scope():
             json={
                 "budget_policy_id": "bp-ep",
                 "target_scope": "ENDPOINT",
-                "endpoint_id": "ep-2",
+                "target_value": "ep-2",
             },
         )
 
     assert response.status_code == 200
     store.update_budget_policy.assert_called_once()
-    assert store.update_budget_policy.call_args.kwargs["endpoint_id"] == "ep-2"
+    assert store.update_budget_policy.call_args.kwargs["target_value"] == "ep-2"
 
 
-def test_update_budget_policy_endpoint_id_alone_on_endpoint_policy():
-    # Updating just the endpoint of an ENDPOINT policy must not require echoing
+def test_update_budget_policy_target_value_alone_on_endpoint_policy():
+    # Updating just the target of an ENDPOINT policy must not require echoing
     # the scope back.
     store = mock.MagicMock()
-    store.get_budget_policy.return_value = _make_endpoint_budget_policy(endpoint_id="ep-1")
-    store.update_budget_policy.return_value = _make_endpoint_budget_policy(endpoint_id="ep-2")
+    store.get_budget_policy.return_value = _make_endpoint_budget_policy(target_value="ep-1")
+    store.update_budget_policy.return_value = _make_endpoint_budget_policy(target_value="ep-2")
 
     with (
         app.test_client() as c,
@@ -5542,14 +5542,14 @@ def test_update_budget_policy_endpoint_id_alone_on_endpoint_policy():
     ):
         response = c.post(
             "/ajax-api/3.0/mlflow/gateway/budgets/update",
-            json={"budget_policy_id": "bp-ep", "endpoint_id": "ep-2"},
+            json={"budget_policy_id": "bp-ep", "target_value": "ep-2"},
         )
 
     assert response.status_code == 200
-    assert store.update_budget_policy.call_args.kwargs["endpoint_id"] == "ep-2"
+    assert store.update_budget_policy.call_args.kwargs["target_value"] == "ep-2"
 
 
-def test_update_budget_policy_endpoint_id_on_global_policy_returns_400():
+def test_update_budget_policy_target_value_on_global_policy_returns_400():
     store = mock.MagicMock()
     store.get_budget_policy.return_value = _make_budget_policy(budget_policy_id="bp-1")
 
@@ -5561,20 +5561,20 @@ def test_update_budget_policy_endpoint_id_on_global_policy_returns_400():
     ):
         response = c.post(
             "/ajax-api/3.0/mlflow/gateway/budgets/update",
-            json={"budget_policy_id": "bp-1", "endpoint_id": "ep-2"},
+            json={"budget_policy_id": "bp-1", "target_value": "ep-2"},
         )
 
     assert response.status_code == 400
-    assert "endpoint_id can only be set" in response.json["message"]
+    assert "target_value can only be set" in response.json["message"]
     store.update_budget_policy.assert_not_called()
 
 
-def test_update_budget_policy_scope_echo_keeps_existing_endpoint_id():
+def test_update_budget_policy_scope_echo_keeps_existing_target_value():
     # Clients that round-trip the current scope (GET -> tweak amount -> UPDATE)
-    # must not be forced to also echo endpoint_id: the existing one counts.
+    # must not be forced to also echo target_value: the existing one counts.
     store = mock.MagicMock()
-    store.get_budget_policy.return_value = _make_endpoint_budget_policy(endpoint_id="ep-1")
-    store.update_budget_policy.return_value = _make_endpoint_budget_policy(endpoint_id="ep-1")
+    store.get_budget_policy.return_value = _make_endpoint_budget_policy(target_value="ep-1")
+    store.update_budget_policy.return_value = _make_endpoint_budget_policy(target_value="ep-1")
 
     with (
         app.test_client() as c,
@@ -5591,7 +5591,7 @@ def test_update_budget_policy_scope_echo_keeps_existing_endpoint_id():
     store.update_budget_policy.assert_called_once()
 
 
-def test_update_budget_policy_switch_to_endpoint_requires_endpoint_id():
+def test_update_budget_policy_switch_to_endpoint_requires_target_value():
     store = mock.MagicMock()
     store.get_budget_policy.return_value = _make_budget_policy(budget_policy_id="bp-1")
 
@@ -5607,13 +5607,13 @@ def test_update_budget_policy_switch_to_endpoint_requires_endpoint_id():
         )
 
     assert response.status_code == 400
-    assert "endpoint_id is required" in response.json["message"]
+    assert "target_value is required" in response.json["message"]
     store.update_budget_policy.assert_not_called()
 
 
-def test_list_budget_windows_includes_endpoint_id():
+def test_list_budget_windows_includes_target_value():
     tracker = InMemoryBudgetTracker()
-    policy = _make_endpoint_budget_policy(budget_policy_id="bp-ep", endpoint_id="ep-1")
+    policy = _make_endpoint_budget_policy(budget_policy_id="bp-ep", target_value="ep-1")
     tracker.refresh_policies([policy])
 
     with (
@@ -5626,16 +5626,16 @@ def test_list_budget_windows_includes_endpoint_id():
     assert response.status_code == 200
     window = response.json["windows"][0]
     assert window["budget_policy_id"] == "bp-ep"
-    assert window["endpoint_id"] == "ep-1"
+    assert window["target_value"] == "ep-1"
 
 
 def test_list_budget_windows_workspace_scoped_filters_endpoint_policies():
     tracker = InMemoryBudgetTracker()
     ep_team_a = _make_endpoint_budget_policy(
-        budget_policy_id="bp-ep-a", endpoint_id="ep-a", workspace="team-a"
+        budget_policy_id="bp-ep-a", target_value="ep-a", workspace="team-a"
     )
     ep_team_b = _make_endpoint_budget_policy(
-        budget_policy_id="bp-ep-b", endpoint_id="ep-b", workspace="team-b"
+        budget_policy_id="bp-ep-b", target_value="ep-b", workspace="team-b"
     )
     tracker.refresh_policies([ep_team_a, ep_team_b])
 

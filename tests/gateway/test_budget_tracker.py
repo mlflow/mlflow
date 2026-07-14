@@ -27,8 +27,7 @@ def _make_policy(
     target_scope=BudgetTargetScope.GLOBAL,
     budget_action=BudgetAction.ALERT,
     workspace=None,
-    endpoint_id=None,
-    principal=None,
+    target_value=None,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
@@ -40,8 +39,7 @@ def _make_policy(
         created_at=0,
         last_updated_at=0,
         workspace=workspace,
-        endpoint_id=endpoint_id,
-        principal=principal,
+        target_value=target_value,
     )
 
 
@@ -171,17 +169,17 @@ def test_policy_applies_workspace_none_matches_default():
 
 
 def test_policy_applies_endpoint_match():
-    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, endpoint_id="ep-1")
+    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, target_value="ep-1")
     assert _policy_applies(policy, workspace=None, endpoint_id="ep-1") is True
 
 
 def test_policy_applies_endpoint_no_match():
-    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, endpoint_id="ep-1")
+    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, target_value="ep-1")
     assert _policy_applies(policy, workspace=None, endpoint_id="ep-2") is False
 
 
 def test_policy_applies_endpoint_none_request():
-    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, endpoint_id="ep-1")
+    policy = _make_policy(target_scope=BudgetTargetScope.ENDPOINT, target_value="ep-1")
     # A request without an endpoint (e.g. the windows listing) never matches.
     assert _policy_applies(policy, workspace=None, endpoint_id=None) is False
 
@@ -189,7 +187,7 @@ def test_policy_applies_endpoint_none_request():
 def test_policy_applies_endpoint_ignores_workspace():
     # ENDPOINT scope matches purely on endpoint_id; workspace is irrelevant.
     policy = _make_policy(
-        target_scope=BudgetTargetScope.ENDPOINT, endpoint_id="ep-1", workspace="ws-a"
+        target_scope=BudgetTargetScope.ENDPOINT, target_value="ep-1", workspace="ws-a"
     )
     assert _policy_applies(policy, workspace="ws-b", endpoint_id="ep-1") is True
     assert _policy_applies(policy, workspace="ws-a", endpoint_id="ep-other") is False
@@ -545,7 +543,7 @@ def _endpoint_policy(budget_policy_id="bp-ep", endpoint_id="ep-1", **kwargs):
     return _make_policy(
         budget_policy_id=budget_policy_id,
         target_scope=BudgetTargetScope.ENDPOINT,
-        endpoint_id=endpoint_id,
+        target_value=endpoint_id,
         **kwargs,
     )
 
@@ -584,7 +582,7 @@ def test_endpoint_scoped_exceed_and_reject():
     # Only requests to the matching endpoint are rejected.
     exceeded, window = tracker.should_reject_request(endpoint_id="ep-1")
     assert exceeded is True
-    assert window.policy.endpoint_id == "ep-1"
+    assert window.policy.target_value == "ep-1"
 
     exceeded_other, window_other = tracker.should_reject_request(endpoint_id="ep-2")
     assert exceeded_other is False
@@ -653,25 +651,25 @@ def test_endpoint_and_workspace_policies_independent():
 
 
 def test_policy_applies_user_match():
-    policy = _make_policy(target_scope=BudgetTargetScope.USER, principal="alice")
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice")
     assert _policy_applies(policy, None, principal="alice") is True
     # workspace is irrelevant for a USER-scoped policy
     assert _policy_applies(policy, "ws1", principal="alice") is True
 
 
 def test_policy_applies_user_no_match():
-    policy = _make_policy(target_scope=BudgetTargetScope.USER, principal="alice")
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice")
     assert _policy_applies(policy, None, principal="bob") is False
 
 
 def test_policy_applies_user_principal_none_request():
-    policy = _make_policy(target_scope=BudgetTargetScope.USER, principal="alice")
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice")
     # An unauthenticated request (principal=None) never matches a USER policy.
     assert _policy_applies(policy, None, principal=None) is False
 
 
 def test_policy_applies_user_policy_without_principal_never_matches():
-    policy = _make_policy(target_scope=BudgetTargetScope.USER, principal=None)
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value=None)
     assert _policy_applies(policy, None, principal=None) is False
     assert _policy_applies(policy, None, principal="alice") is False
 
@@ -694,7 +692,7 @@ def test_policy_applies_workspace_ignores_principal():
 def test_user_scoped_cost_recording_matches_principal():
     tracker = InMemoryBudgetTracker()
     policy = _make_policy(
-        target_scope=BudgetTargetScope.USER, principal="alice", budget_amount=100.0
+        target_scope=BudgetTargetScope.USER, target_value="alice", budget_amount=100.0
     )
     tracker.refresh_policies([policy])
 
@@ -710,7 +708,7 @@ def test_user_scoped_cost_recording_matches_principal():
 
 def test_user_scoped_cost_recording_ignores_unauthenticated_request():
     tracker = InMemoryBudgetTracker()
-    policy = _make_policy(target_scope=BudgetTargetScope.USER, principal="alice")
+    policy = _make_policy(target_scope=BudgetTargetScope.USER, target_value="alice")
     tracker.refresh_policies([policy])
 
     tracker.record_cost(50.0, principal=None)
@@ -721,7 +719,7 @@ def test_user_scoped_should_reject_only_for_matching_principal():
     tracker = InMemoryBudgetTracker()
     policy = _make_policy(
         target_scope=BudgetTargetScope.USER,
-        principal="alice",
+        target_value="alice",
         budget_amount=100.0,
         budget_action=BudgetAction.REJECT,
     )
@@ -743,14 +741,14 @@ def test_multiple_user_policies_are_independent():
     alice = _make_policy(
         budget_policy_id="bp-alice",
         target_scope=BudgetTargetScope.USER,
-        principal="alice",
+        target_value="alice",
         budget_amount=100.0,
         budget_action=BudgetAction.REJECT,
     )
     bob = _make_policy(
         budget_policy_id="bp-bob",
         target_scope=BudgetTargetScope.USER,
-        principal="bob",
+        target_value="bob",
         budget_amount=100.0,
         budget_action=BudgetAction.REJECT,
     )
@@ -772,7 +770,7 @@ def test_user_and_global_policies_stack():
     user_policy = _make_policy(
         budget_policy_id="bp-user",
         target_scope=BudgetTargetScope.USER,
-        principal="alice",
+        target_value="alice",
         budget_amount=100.0,
     )
     tracker.refresh_policies([global_policy, user_policy])
@@ -789,7 +787,7 @@ def test_user_scoped_zero_budget_rejects_immediately():
     tracker.refresh_policies([
         _make_policy(
             target_scope=BudgetTargetScope.USER,
-            principal="alice",
+            target_value="alice",
             budget_amount=0.0,
             budget_action=BudgetAction.REJECT,
         )
@@ -808,7 +806,7 @@ def test_user_scoped_rejects_at_exact_limit():
     tracker.refresh_policies([
         _make_policy(
             target_scope=BudgetTargetScope.USER,
-            principal="alice",
+            target_value="alice",
             budget_amount=100.0,
             budget_action=BudgetAction.REJECT,
         )
@@ -825,7 +823,7 @@ def test_user_scoped_exceeded_flips_once_then_keeps_accumulating():
     tracker.refresh_policies([
         _make_policy(
             target_scope=BudgetTargetScope.USER,
-            principal="alice",
+            target_value="alice",
             budget_amount=100.0,
             budget_action=BudgetAction.ALERT,
         )

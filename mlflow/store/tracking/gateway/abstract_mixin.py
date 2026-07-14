@@ -452,8 +452,7 @@ class GatewayStoreMixin:
         target_scope: BudgetTargetScope,
         budget_action: BudgetAction,
         created_by: str | None = None,
-        endpoint_id: str | None = None,
-        principal: str | None = None,
+        target_value: str | None = None,
     ) -> GatewayBudgetPolicy:
         """
         Create a new budget policy.
@@ -465,10 +464,9 @@ class GatewayStoreMixin:
             target_scope: Scope of the budget (GLOBAL, WORKSPACE, ENDPOINT, or USER).
             budget_action: Action when budget is exceeded.
             created_by: Username of the creator.
-            endpoint_id: Gateway endpoint the policy applies to. Required when
-                ``target_scope`` is ENDPOINT.
-            principal: User identity the budget applies to. Required for USER scope,
-                ignored otherwise.
+            target_value: Target the policy applies to, interpreted per
+                ``target_scope``: a gateway endpoint ID for ENDPOINT scope, a
+                principal (user identity) for USER scope. Required for those scopes.
 
         Returns:
             GatewayBudgetPolicy entity.
@@ -499,8 +497,7 @@ class GatewayStoreMixin:
         target_scope: BudgetTargetScope | None = None,
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
-        endpoint_id: str | None = None,
-        principal: str | None = None,
+        target_value: str | None = None,
     ) -> GatewayBudgetPolicy:
         """
         Update a budget policy.
@@ -513,9 +510,9 @@ class GatewayStoreMixin:
             target_scope: Optional new target type.
             budget_action: Optional new budget action.
             updated_by: Username of the updater.
-            endpoint_id: Optional new gateway endpoint the policy applies to.
-                Cleared automatically when ``target_scope`` becomes non-ENDPOINT.
-            principal: Optional new user identity the budget applies to (USER scope).
+            target_value: Optional new target the policy applies to (endpoint ID for
+                ENDPOINT scope, principal for USER scope). Required when switching to
+                a targeted scope; cleared automatically for GLOBAL/WORKSPACE.
 
         Returns:
             Updated GatewayBudgetPolicy entity.

@@ -18,8 +18,7 @@ CREATE TABLE budget_policies (
 	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_at BIGINT NOT NULL,
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
-	endpoint_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	principal VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	target_value VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT budget_policies_pk PRIMARY KEY (budget_policy_id)
 )
 
