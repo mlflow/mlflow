@@ -9,6 +9,7 @@ import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMuta
 import { useUpdateModelDefinitionMutation } from './useUpdateModelDefinitionMutation';
 import { useCreateSecret } from './useCreateSecret';
 import { getReadableErrorMessage } from '../utils/errorUtils';
+import type { UsageTrackingMode } from '../components/edit-endpoint/UsageTrackingConfigurator';
 import GatewayRoutes from '../routes';
 import type { Endpoint } from '../types';
 
@@ -51,6 +52,7 @@ export interface EditEndpointFormData {
   trafficSplitModels: TrafficSplitModel[];
   fallbackModels: FallbackModel[];
   usageTracking: boolean;
+  excludeContent: boolean;
   experimentId: string;
 }
 
@@ -67,7 +69,7 @@ export interface UseEditEndpointFormResult {
   handleSubmit: (values: EditEndpointFormData) => Promise<void>;
   handleCancel: () => void;
   handleNameUpdate: (newName: string) => Promise<void>;
-  handleUsageTrackingUpdate: (enabled: boolean) => Promise<void>;
+  handleTracingModeUpdate: (mode: UsageTrackingMode) => Promise<void>;
 }
 
 export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResult {
@@ -83,6 +85,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
       trafficSplitModels: [],
       fallbackModels: [],
       usageTracking: false,
+      excludeContent: false,
       experimentId: '',
     },
   });
@@ -129,6 +132,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
               fallbackOrder: idx + 1,
             })),
           usageTracking: endpoint.usage_tracking ?? false,
+          excludeContent: endpoint.exclude_content ?? false,
           experimentId: endpoint.experiment_id ?? '',
         },
         {
@@ -267,6 +271,7 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
           routing_strategy: routingStrategy,
           fallback_config: fallbackConfig,
           usage_tracking: values.usageTracking,
+          exclude_content: values.excludeContent,
         });
 
         navigate(GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id));
@@ -297,22 +302,30 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     [endpoint, updateEndpoint, queryClient, endpointId],
   );
 
-  const handleUsageTrackingUpdate = useCallback(
-    async (enabled: boolean) => {
+  const handleTracingModeUpdate = useCallback(
+    async (mode: UsageTrackingMode) => {
       if (!endpoint) return;
 
-      const previousValue = form.getValues('usageTracking');
-      if (previousValue === enabled) return;
+      const previousTracking = form.getValues('usageTracking');
+      const previousExclude = form.getValues('excludeContent');
+      const usageTracking = mode !== 'off';
+      // When turning tracing off, keep the stored exclude_content preference
+      // so re-enabling metadata-only mode doesn't require reconfiguration.
+      const excludeContent = mode === 'off' ? previousExclude : mode === 'metadata_only';
+      if (previousTracking === usageTracking && previousExclude === excludeContent) return;
 
-      form.setValue('usageTracking', enabled);
+      form.setValue('usageTracking', usageTracking);
+      form.setValue('excludeContent', excludeContent);
 
       try {
         await updateEndpoint({
           endpointId: endpoint.endpoint_id,
-          usage_tracking: enabled,
+          usage_tracking: usageTracking,
+          ...(mode !== 'off' && { exclude_content: excludeContent }),
         });
       } catch {
-        form.setValue('usageTracking', previousValue);
+        form.setValue('usageTracking', previousTracking);
+        form.setValue('excludeContent', previousExclude);
       }
     },
     [endpoint, form, updateEndpoint],
@@ -439,6 +452,6 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
     handleSubmit,
     handleCancel,
     handleNameUpdate,
-    handleUsageTrackingUpdate,
+    handleTracingModeUpdate,
   };
 }

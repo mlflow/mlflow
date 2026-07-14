@@ -5,7 +5,6 @@ import {
   Button,
   InfoTooltip,
   Spinner,
-  Switch,
   Tabs,
   Tooltip,
   Typography,
@@ -27,6 +26,7 @@ import { CodingAgentStarterCard, StarterCodeCard } from './StarterCodeCard';
 import { CODING_AGENT_TAG_KEY, VALID_CODING_AGENTS } from '../../hooks/useCreateEndpointForm';
 import type { CodingAgentType } from '../../types';
 import { EditableEndpointName } from './EditableEndpointName';
+import { UsageTrackingConfigurator, getUsageTrackingMode, type UsageTrackingMode } from './UsageTrackingConfigurator';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint, EndpointModelMapping } from '../../types';
 import { GuardrailsTabContent } from '../guardrails/GuardrailsTabContent';
@@ -109,7 +109,7 @@ export interface EditEndpointFormRendererProps {
   onSubmit: (values: EditEndpointFormData) => Promise<void>;
   onCancel: () => void;
   onNameUpdate: (newName: string) => Promise<void>;
-  onUsageTrackingUpdate: (enabled: boolean) => Promise<void>;
+  onTracingModeUpdate: (mode: UsageTrackingMode) => Promise<void>;
 }
 
 export const EditEndpointFormRenderer = ({
@@ -126,7 +126,7 @@ export const EditEndpointFormRenderer = ({
   onSubmit,
   onCancel,
   onNameUpdate,
-  onUsageTrackingUpdate,
+  onTracingModeUpdate,
 }: EditEndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -540,15 +540,15 @@ export const EditEndpointFormRenderer = ({
                       <Typography.Text bold color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
                         <FormattedMessage
                           defaultMessage="Usage tracking"
-                          description="Label for usage tracking toggle in sidebar"
+                          description="Label for usage tracking control in sidebar"
                         />
                       </Typography.Text>
                       <InfoTooltip
                         componentId="mlflow.gateway.edit-endpoint.usage-tracking-info"
                         content={intl.formatMessage({
                           defaultMessage:
-                            'When enabled, all requests to this endpoint will be logged as traces. This allows you to monitor usage, debug issues, and analyze performance.',
-                          description: 'Tooltip explaining what usage tracking does',
+                            'Controls how requests to this endpoint are logged as traces. "Redact message content" keeps usage metadata such as token consumption, latency, and status, but redacts prompts, messages, and model responses. "Full" also logs complete request and response content.',
+                          description: 'Tooltip explaining the usage tracking modes',
                         })}
                       />
                     </div>
@@ -556,22 +556,19 @@ export const EditEndpointFormRenderer = ({
                       control={form.control}
                       name="usageTracking"
                       render={({ field }) => (
-                        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
-                          <Switch
-                            componentId="mlflow.gateway.edit-endpoint.usage-tracking.toggle"
-                            checked={field.value}
-                            onChange={(checked) => void onUsageTrackingUpdate(checked)}
-                            disabled={isSubmitting}
-                            aria-label="Enable usage tracking"
-                          />
-                          <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
-                            {field.value ? (
-                              <FormattedMessage defaultMessage="On" description="Usage tracking enabled state" />
-                            ) : (
-                              <FormattedMessage defaultMessage="Off" description="Usage tracking disabled state" />
-                            )}
-                          </Typography.Text>
-                        </div>
+                        <Controller
+                          control={form.control}
+                          name="excludeContent"
+                          render={({ field: excludeContentField }) => (
+                            <UsageTrackingConfigurator
+                              mode={getUsageTrackingMode(field.value, excludeContentField.value)}
+                              onChange={(mode) => void onTracingModeUpdate(mode)}
+                              disabled={isSubmitting}
+                              compact
+                              componentId="mlflow.gateway.edit-endpoint.usage-tracking"
+                            />
+                          )}
+                        />
                       )}
                     />
                   </div>

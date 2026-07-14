@@ -5,7 +5,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, useFormContext } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
-import { UsageTrackingConfigurator } from '../edit-endpoint/UsageTrackingConfigurator';
+import { UsageTrackingConfigurator, getUsageTrackingMode } from '../edit-endpoint/UsageTrackingConfigurator';
 import { ApiKeyConfigurator } from '../model-configuration/components/ApiKeyConfigurator';
 import { useApiKeyConfiguration } from '../model-configuration/hooks/useApiKeyConfiguration';
 import type { ApiKeyConfiguration, SecretMode } from '../model-configuration/types';
@@ -219,10 +219,19 @@ export const EndpointFormRenderer = ({
                 control={form.control}
                 name="usageTracking"
                 render={({ field }) => (
-                  <UsageTrackingConfigurator
-                    value={field.value}
-                    onChange={field.onChange}
-                    componentId="mlflow.gateway.create-endpoint.usage-tracking"
+                  <Controller
+                    control={form.control}
+                    name="excludeContent"
+                    render={({ field: excludeContentField }) => (
+                      <UsageTrackingConfigurator
+                        mode={getUsageTrackingMode(field.value, excludeContentField.value)}
+                        onChange={(mode) => {
+                          field.onChange(mode !== 'off');
+                          excludeContentField.onChange(mode === 'metadata_only');
+                        }}
+                        componentId="mlflow.gateway.create-endpoint.usage-tracking"
+                      />
+                    )}
                   />
                 )}
               />

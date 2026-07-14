@@ -2,40 +2,58 @@ import { describe, test, expect, jest } from '@jest/globals';
 import React from 'react';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { UsageTrackingConfigurator } from './UsageTrackingConfigurator';
+import { UsageTrackingConfigurator, getUsageTrackingMode } from './UsageTrackingConfigurator';
+
+describe('getUsageTrackingMode', () => {
+  test.each([
+    [false, false, 'off'],
+    [false, true, 'off'],
+    [true, true, 'metadata_only'],
+    [true, false, 'full'],
+  ] as const)('usageTracking=%s excludeContent=%s -> %s', (usageTracking, excludeContent, expected) => {
+    expect(getUsageTrackingMode(usageTracking, excludeContent)).toBe(expected);
+  });
+});
 
 describe('UsageTrackingConfigurator', () => {
-  test('renders toggle in off state by default', () => {
+  test('renders all three mode options with descriptions', () => {
     const onChange = jest.fn();
 
-    renderWithDesignSystem(<UsageTrackingConfigurator value={false} onChange={onChange} />);
+    renderWithDesignSystem(<UsageTrackingConfigurator mode="off" onChange={onChange} />);
 
-    expect(screen.getByText('Enable usage tracking')).toBeInTheDocument();
-    expect(screen.getByRole('switch')).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Tracing off' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Redact message content' })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Full tracing' })).not.toBeChecked();
+    expect(screen.getByText(/prompts, messages, and model responses are redacted/i)).toBeInTheDocument();
+    expect(screen.getByText(/complete request and response content/i)).toBeInTheDocument();
   });
 
-  test('renders toggle in on state when value is true', () => {
+  test('reflects the selected mode', () => {
     const onChange = jest.fn();
 
-    renderWithDesignSystem(<UsageTrackingConfigurator value onChange={onChange} />);
+    renderWithDesignSystem(<UsageTrackingConfigurator mode="metadata_only" onChange={onChange} />);
 
-    expect(screen.getByRole('switch')).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Redact message content' })).toBeChecked();
   });
 
-  test('calls onChange when toggle is clicked', async () => {
+  test('calls onChange with the selected mode', async () => {
     const onChange = jest.fn();
 
-    renderWithDesignSystem(<UsageTrackingConfigurator value={false} onChange={onChange} />);
+    renderWithDesignSystem(<UsageTrackingConfigurator mode="off" onChange={onChange} />);
 
-    await userEvent.click(screen.getByRole('switch'));
-    expect(onChange).toHaveBeenCalledWith(true);
+    await userEvent.click(screen.getByRole('radio', { name: 'Redact message content' }));
+    expect(onChange).toHaveBeenCalledWith('metadata_only');
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Full tracing' }));
+    expect(onChange).toHaveBeenCalledWith('full');
   });
 
-  test('displays description text', () => {
+  test('hides descriptions in compact mode', () => {
     const onChange = jest.fn();
 
-    renderWithDesignSystem(<UsageTrackingConfigurator value={false} onChange={onChange} />);
+    renderWithDesignSystem(<UsageTrackingConfigurator mode="full" onChange={onChange} compact />);
 
-    expect(screen.getByText(/all requests to this endpoint will be logged as traces/)).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Full tracing' })).toBeChecked();
+    expect(screen.queryByText(/complete request and response content/i)).not.toBeInTheDocument();
   });
 });
