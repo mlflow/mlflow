@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPStatus, MCPTool
+from mlflow.entities.mcp_server_version import ConnectOptionSettings
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -44,7 +45,7 @@ def register_mcp_server(
     source: str | None = None,
     status: Literal["draft", "active", "deprecated", "deleted"] = "draft",
     tools: list[MCPTool] | None = None,
-    hidden_connect_options: list[str] | None = None,
+    connect_options: dict[str, ConnectOptionSettings] | None = None,
     create_access_bindings_from_remotes: bool = False,
 ) -> MCPServerVersion:
     """
@@ -60,7 +61,7 @@ def register_mcp_server(
         source: Provenance URI (e.g., a git repository URL).
         status: Initial status (default ``"draft"``).
         tools: Declared tool definitions for this version.
-        hidden_connect_options: List of connect-option keys to hide from the UI.
+        connect_options: Per-key settings for connect options (e.g. visibility).
         create_access_bindings_from_remotes: When ``True``, create one direct-access
             binding per ``remotes[]`` entry in ``server_json``.
 
@@ -106,7 +107,7 @@ def register_mcp_server(
         source=source,
         status=parsed_status,
         tools=tools,
-        hidden_connect_options=hidden_connect_options,
+        connect_options=connect_options,
     )
 
     for url, transport in validated_remotes:
@@ -181,7 +182,7 @@ def register_mcp_server_from_url(
     source: str | None = None,
     status: Literal["draft", "active", "deprecated", "deleted"] = "draft",
     tools: list[MCPTool] | None = None,
-    hidden_connect_options: list[str] | None = None,
+    connect_options: dict[str, ConnectOptionSettings] | None = None,
     create_access_bindings_from_remotes: bool = False,
 ) -> MCPServerVersion:
     """
@@ -194,7 +195,7 @@ def register_mcp_server_from_url(
         source: Provenance URI; defaults to ``url`` when not provided.
         status: Initial status (default ``"draft"``).
         tools: Declared tool definitions for this version.
-        hidden_connect_options: List of connect-option keys to hide from the UI.
+        connect_options: Per-key settings for connect options (e.g. visibility).
         create_access_bindings_from_remotes: When ``True``, create one direct-access
             binding per ``remotes[]`` entry in ``server_json``.
 
@@ -219,7 +220,7 @@ def register_mcp_server_from_url(
         source=source or _sanitize_url(url),
         status=status,
         tools=tools,
-        hidden_connect_options=hidden_connect_options,
+        connect_options=connect_options,
         create_access_bindings_from_remotes=create_access_bindings_from_remotes,
     )
 
@@ -402,7 +403,7 @@ def update_mcp_server_version(
     display_name: str | None = NOT_SET,
     status: Literal["draft", "active", "deprecated", "deleted"] | None = NOT_SET,
     tools: list[MCPTool] | None = NOT_SET,
-    hidden_connect_options: list[str] | None = NOT_SET,
+    connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
 ) -> MCPServerVersion:
     """
     Update mutable fields of an MCP server version.
@@ -417,8 +418,8 @@ def update_mcp_server_version(
         status: New status (``"draft"``, ``"active"``, ``"deprecated"``,
             ``"deleted"``). Transition rules are enforced.
         tools: New tool definitions. Pass ``None`` to clear.
-        hidden_connect_options: List of connect-option keys to hide from the
-            UI. Pass ``None`` to clear.
+        connect_options: Per-key settings for connect options (e.g. visibility).
+            Pass ``None`` to clear.
 
     Returns:
         The updated :py:class:`MCPServerVersion <mlflow.entities.MCPServerVersion>`.
@@ -429,7 +430,7 @@ def update_mcp_server_version(
         display_name=display_name,
         status=_parse_enum(status, MCPStatus, "status"),
         tools=tools,
-        hidden_connect_options=hidden_connect_options,
+        connect_options=connect_options,
     )
 
 

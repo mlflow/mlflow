@@ -29,10 +29,10 @@ describe('MCPServerCard', () => {
     expect(screen.getByText('io.github.test/my-server')).toBeInTheDocument();
   });
 
-  it('renders name even when display_name is set', () => {
+  it('renders display_name as title with name as secondary text', () => {
     renderCard(createMockMCPServer({ name: 'io.github.test/raw', display_name: 'Pretty Name' }));
+    expect(screen.getByText('Pretty Name')).toBeInTheDocument();
     expect(screen.getByText('io.github.test/raw')).toBeInTheDocument();
-    expect(screen.queryByText('Pretty Name')).not.toBeInTheDocument();
   });
 
   it('renders description when provided', () => {

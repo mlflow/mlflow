@@ -40,14 +40,14 @@ export const RemotesSubsection = ({
   derivedName,
   isAdmin,
   isAuthAvailable,
-  hiddenConnectOptions,
+  connectOptions,
   onToggleConnectOption,
 }: {
   remotes: NonNullable<ServerJSONPayload['remotes']>;
   derivedName: string;
   isAdmin?: boolean;
   isAuthAvailable?: boolean;
-  hiddenConnectOptions?: string[];
+  connectOptions?: Record<string, { hidden?: boolean }>;
   onToggleConnectOption?: (key: string, visible: boolean) => void;
 }) => {
   const showVisibilityControls = isAuthAvailable && isAdmin;
@@ -95,7 +95,7 @@ export const RemotesSubsection = ({
             onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
             showTopBorder={index > 0}
             showVisibilityControls={showVisibilityControls}
-            isHidden={hiddenConnectOptions?.includes(buildRemoteConnectOptionKey(remote)) ?? false}
+            isHidden={connectOptions?.[buildRemoteConnectOptionKey(remote)]?.hidden ?? false}
             onToggleVisibility={(visible) => onToggleConnectOption?.(buildRemoteConnectOptionKey(remote), visible)}
           />
         ))}

@@ -65,7 +65,7 @@ export interface MCPServerVersion {
   tools?: MCPTool[];
   aliases: string[];
   tags: Record<string, string>;
-  hidden_connect_options?: string[] | null;
+  connect_options?: Record<string, { hidden?: boolean }> | null;
   source?: string;
   created_by?: string;
   last_updated_by?: string;
@@ -171,7 +171,7 @@ export interface UpdateMCPServerVersionRequest {
   display_name?: string | null;
   status?: MCPStatus | null;
   tools?: MCPTool[] | null;
-  hidden_connect_options?: string[] | null;
+  connect_options?: Record<string, { hidden?: boolean }> | null;
 }
 
 export interface SetMCPServerTagRequest {

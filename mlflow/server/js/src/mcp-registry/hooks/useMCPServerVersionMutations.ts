@@ -18,7 +18,7 @@ type UpdateMCPServerVersionPayload = {
   displayName?: string;
   status?: MCPStatus;
   tools?: MCPTool[] | null;
-  hiddenConnectOptions?: string[] | null;
+  connectOptions?: Record<string, { hidden?: boolean }> | null;
   aliases?: { add: string[]; remove: string[] };
 };
 
@@ -26,12 +26,12 @@ export const useUpdateMCPServerVersion = (serverName: string) => {
   const invalidate = useInvalidateServerQueries();
 
   return useMutation<unknown, Error, UpdateMCPServerVersionPayload>({
-    mutationFn: async ({ version, displayName, status, tools, hiddenConnectOptions, aliases }) => {
+    mutationFn: async ({ version, displayName, status, tools, connectOptions, aliases }) => {
       const versionUpdate: Partial<{
         display_name: string | null;
         status: MCPStatus;
         tools: MCPTool[] | null;
-        hidden_connect_options: string[] | null;
+        connect_options: Record<string, { hidden?: boolean }> | null;
       }> = {};
       if (displayName !== undefined) {
         versionUpdate['display_name'] = displayName || null;
@@ -42,8 +42,8 @@ export const useUpdateMCPServerVersion = (serverName: string) => {
       if (tools !== undefined) {
         versionUpdate['tools'] = tools;
       }
-      if (hiddenConnectOptions !== undefined) {
-        versionUpdate['hidden_connect_options'] = hiddenConnectOptions;
+      if (connectOptions !== undefined) {
+        versionUpdate['connect_options'] = connectOptions;
       }
 
       const promises: Promise<unknown>[] = [];

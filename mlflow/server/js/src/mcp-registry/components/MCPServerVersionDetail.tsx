@@ -46,12 +46,14 @@ export const MCPServerVersionDetail = ({
 
   const [editVersionModalVisible, setEditVersionModalVisible] = useState(false);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
-  const [localHiddenOptions, setLocalHiddenOptions] = useState<string[] | undefined>(undefined);
+  const [localConnectOptions, setLocalConnectOptions] = useState<Record<string, { hidden?: boolean }> | undefined>(
+    undefined,
+  );
   const currentVersionRef = useRef(version?.version);
   currentVersionRef.current = version?.version;
 
   useEffect(() => {
-    setLocalHiddenOptions(undefined);
+    setLocalConnectOptions(undefined);
   }, [version?.version]);
   const updateVersionMutation = useUpdateMCPServerVersion(server.name);
   const deleteVersionMutation = useDeleteMCPServerVersion(server.name);
@@ -59,18 +61,18 @@ export const MCPServerVersionDetail = ({
   const handleToggleConnectOption = (key: string, visible: boolean) => {
     if (!version) return;
     const toggledVersion = version.version;
-    const current = localHiddenOptions ?? version.hidden_connect_options ?? [];
-    const updated = visible ? current.filter((k) => k !== key) : [...current.filter((k) => k !== key), key];
-    setLocalHiddenOptions(updated);
+    const current = localConnectOptions ?? version.connect_options ?? {};
+    const updated = { ...current, [key]: { hidden: !visible } };
+    setLocalConnectOptions(updated);
     updateVersionMutation.mutate(
       {
         version: toggledVersion,
-        hiddenConnectOptions: updated.length > 0 ? updated : null,
+        connectOptions: updated,
       },
       {
         onError: () => {
           if (currentVersionRef.current === toggledVersion) {
-            setLocalHiddenOptions(current);
+            setLocalConnectOptions(current);
           }
         },
       },
@@ -294,7 +296,7 @@ export const MCPServerVersionDetail = ({
               serverName={server.name}
               isAdmin={isAdmin}
               isAuthAvailable={isAuthAvailable}
-              hiddenConnectOptions={localHiddenOptions ?? version.hidden_connect_options ?? undefined}
+              connectOptions={localConnectOptions ?? version.connect_options ?? undefined}
               onToggleConnectOption={handleToggleConnectOption}
             />
           )}

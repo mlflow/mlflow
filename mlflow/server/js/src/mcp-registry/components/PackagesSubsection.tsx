@@ -44,14 +44,14 @@ export const PackagesSubsection = ({
   derivedName,
   isAdmin,
   isAuthAvailable,
-  hiddenConnectOptions,
+  connectOptions,
   onToggleConnectOption,
 }: {
   packages: NonNullable<ServerJSONPayload['packages']>;
   derivedName: string;
   isAdmin?: boolean;
   isAuthAvailable?: boolean;
-  hiddenConnectOptions?: string[];
+  connectOptions?: Record<string, { hidden?: boolean }>;
   onToggleConnectOption?: (key: string, visible: boolean) => void;
 }) => {
   const showVisibilityControls = isAuthAvailable && isAdmin;
@@ -99,7 +99,7 @@ export const PackagesSubsection = ({
             onToggle={() => setExpandedIndex(expandedIndex === index ? null : index)}
             showTopBorder={index > 0}
             showVisibilityControls={showVisibilityControls}
-            isHidden={hiddenConnectOptions?.includes(buildPackageConnectOptionKey(pkg)) ?? false}
+            isHidden={connectOptions?.[buildPackageConnectOptionKey(pkg)]?.hidden ?? false}
             onToggleVisibility={(visible) => onToggleConnectOption?.(buildPackageConnectOptionKey(pkg), visible)}
           />
         ))}

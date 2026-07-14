@@ -9,6 +9,7 @@ import {
   OverflowIcon,
   Spacer,
   TableSkeleton,
+  Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -274,6 +275,11 @@ const MCPServerDetailPage = () => {
           ) : undefined
         }
       />
+      {server.display_name && (
+        <Typography.Text color="secondary" css={{ marginTop: -theme.spacing.sm }}>
+          {server.name}
+        </Typography.Text>
+      )}
       <MCPServerTagsBox server={server} onTagsUpdated={refetchAll} />
       <Spacer shrinks={false} />
       <div css={{ flex: 1, display: 'flex', overflow: 'hidden' }}>

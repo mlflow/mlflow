@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any
 from urllib.parse import quote
 
 from mlflow.entities.mcp_access_binding import MCPAccessBinding
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -81,7 +82,10 @@ def _version_from_response(data: dict[str, Any]) -> MCPServerVersion:
             tools=tools,
             aliases=data.get("aliases", []),
             tags=data.get("tags", {}),
-            hidden_connect_options=data.get("hidden_connect_options"),
+            connect_options={
+                k: ConnectOptionSettings(**v)
+                for k, v in (data.get("connect_options") or {}).items()
+            },
             source=data.get("source"),
             created_by=data.get("created_by"),
             last_updated_by=data.get("last_updated_by"),
@@ -239,7 +243,7 @@ class RestMCPServerRegistryMixin:
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = None,
         created_by: str | None = None,
-        hidden_connect_options: list[str] | None = None,
+        connect_options: dict[str, ConnectOptionSettings] | None = None,
     ) -> MCPServerVersion:
         name = server_json.get("name")
         version = server_json.get("version")
@@ -256,8 +260,8 @@ class RestMCPServerRegistryMixin:
             body["status"] = str(status)
         if tools is not None:
             body["tools"] = [t.to_dict() for t in tools]
-        if hidden_connect_options is not None:
-            body["hidden_connect_options"] = hidden_connect_options
+        if connect_options is not None:
+            body["connect_options"] = {k: asdict(v) for k, v in connect_options.items()}
         data = self._mcp_request("POST", f"{_server_path(name)}/versions", json=body)
         return _version_from_response(data)
 
@@ -314,7 +318,7 @@ class RestMCPServerRegistryMixin:
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
-        hidden_connect_options: list[str] | None = NOT_SET,
+        connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
     ) -> MCPServerVersion:
         body: dict[str, Any] = {}
         if display_name is not NOT_SET:
@@ -323,8 +327,12 @@ class RestMCPServerRegistryMixin:
             body["status"] = str(status) if status is not None else None
         if tools is not NOT_SET:
             body["tools"] = None if tools is None else [t.to_dict() for t in tools]
-        if hidden_connect_options is not NOT_SET:
-            body["hidden_connect_options"] = hidden_connect_options
+        if connect_options is not NOT_SET:
+            body["connect_options"] = (
+                {k: asdict(v) for k, v in connect_options.items()}
+                if connect_options is not None
+                else None
+            )
         data = self._mcp_request(
             "PATCH", f"{_server_path(name)}/versions/{_encode_path_param(version)}", json=body
         )

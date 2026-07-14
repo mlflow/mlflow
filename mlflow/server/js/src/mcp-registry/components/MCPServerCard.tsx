@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import type { MCPServer } from '../types';
 import MCPRegistryRoutes from '../routes';
 import { textClampStyles, textEllipsisStyles, cardBodyStyles, cardHeaderRowStyles, noShrinkStyles } from '../styles';
+import { resolveDisplayName } from '../utils';
 import { MCPServerIcon } from './MCPServerIcon';
 import { MCPServerTags } from './MCPServerTags';
 import Utils from '../../common/utils/Utils';
@@ -30,9 +31,16 @@ export const MCPServerCard = ({ server }: { server: MCPServer }) => {
       <div css={cardBodyStyles(theme)}>
         <div css={cardHeaderRowStyles(theme)}>
           <MCPServerIcon icons={server.icons} name={server.name} />
-          <Typography.Text bold css={{ ...textEllipsisStyles, flex: 1 }}>
-            {server.name}
-          </Typography.Text>
+          <div css={{ flex: 1, minWidth: 0 }}>
+            <Typography.Text bold css={textEllipsisStyles}>
+              {resolveDisplayName(server)}
+            </Typography.Text>
+            {server.display_name && (
+              <Typography.Text color="secondary" size="sm" css={textEllipsisStyles}>
+                {server.name}
+              </Typography.Text>
+            )}
+          </div>
           {server.latest_version && (
             <Typography.Text color="secondary" size="sm" css={noShrinkStyles}>
               v{server.latest_version}

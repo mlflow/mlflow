@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, Query, Request
@@ -23,7 +24,7 @@ from mlflow.entities.mcp_server import (
     MCPTool,
     validate_mcp_server_name,
 )
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.exceptions import MlflowException
 from mlflow.utils.validation import _validate_mcp_icon_url
 
@@ -197,14 +198,14 @@ class CreateMCPServerVersionRequest(BaseModel):
     status: str = "draft"
     source: str | None = None
     tools: list[MCPToolRequestPayload] | None = None
-    hidden_connect_options: list[str] | None = None
+    connect_options: dict[str, dict[str, bool]] | None = None
 
 
 class UpdateMCPServerVersionRequest(BaseModel):
     display_name: str | None = None
     status: str | None = None
     tools: list[MCPToolRequestPayload] | None = None
-    hidden_connect_options: list[str] | None = None
+    connect_options: dict[str, dict[str, bool]] | None = None
 
 
 class CreateMCPAccessBindingRequest(BaseModel):
@@ -324,7 +325,7 @@ class MCPServerVersionResponse(BaseModel):
     tools: list[MCPToolResponsePayload] = Field(default_factory=list)
     aliases: list[str] = Field(default_factory=list)
     tags: dict[str, str] = Field(default_factory=dict)
-    hidden_connect_options: list[str] | None = None
+    connect_options: dict[str, dict[str, bool]] | None = None
     source: str | None = None
     created_by: str | None = None
     last_updated_by: str | None = None
@@ -333,6 +334,7 @@ class MCPServerVersionResponse(BaseModel):
 
     @classmethod
     def from_entity(cls, entity: MCPServerVersion) -> MCPServerVersionResponse:
+
         return cls(
             name=entity.name,
             version=entity.version,
@@ -344,7 +346,11 @@ class MCPServerVersionResponse(BaseModel):
             tools=[MCPToolResponsePayload(**t.to_dict()) for t in (entity.tools or [])],
             aliases=entity.aliases,
             tags=entity.tags,
-            hidden_connect_options=entity.hidden_connect_options,
+            connect_options=(
+                {k: asdict(v) for k, v in entity.connect_options.items()}
+                if entity.connect_options
+                else None
+            ),
             source=entity.source,
             created_by=entity.created_by,
             last_updated_by=entity.last_updated_by,
@@ -496,8 +502,12 @@ def _update_mcp_server_version_kwargs(
         kwargs["status"] = _parse_status(body.status)
     if "tools" in provided_fields:
         kwargs["tools"] = _tool_payloads_to_entities(body.tools)
-    if "hidden_connect_options" in provided_fields:
-        kwargs["hidden_connect_options"] = body.hidden_connect_options
+    if "connect_options" in provided_fields:
+        kwargs["connect_options"] = (
+            {k: ConnectOptionSettings(**v) for k, v in body.connect_options.items()}
+            if body.connect_options is not None
+            else None
+        )
     return kwargs
 
 
@@ -658,7 +668,11 @@ def create_mcp_server_version(
         status=status,
         tools=tools,
         created_by=username,
-        hidden_connect_options=body.hidden_connect_options,
+        connect_options=(
+            {k: ConnectOptionSettings(**v) for k, v in body.connect_options.items()}
+            if body.connect_options is not None
+            else None
+        ),
     )
     return MCPServerVersionResponse.from_entity(ver)
 

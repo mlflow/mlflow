@@ -14,14 +14,14 @@ export const ServerJSONSection = ({
   serverName,
   isAdmin,
   isAuthAvailable,
-  hiddenConnectOptions,
+  connectOptions,
   onToggleConnectOption,
 }: {
   serverJson: ServerJSONPayload;
   serverName: string;
   isAdmin?: boolean;
   isAuthAvailable?: boolean;
-  hiddenConnectOptions?: string[];
+  connectOptions?: Record<string, { hidden?: boolean }>;
   onToggleConnectOption?: (key: string, visible: boolean) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
@@ -37,7 +37,7 @@ export const ServerJSONSection = ({
           derivedName={derivedName}
           isAdmin={isAdmin}
           isAuthAvailable={isAuthAvailable}
-          hiddenConnectOptions={hiddenConnectOptions}
+          connectOptions={connectOptions}
           onToggleConnectOption={onToggleConnectOption}
         />
       )}
@@ -47,7 +47,7 @@ export const ServerJSONSection = ({
           derivedName={derivedName}
           isAdmin={isAdmin}
           isAuthAvailable={isAuthAvailable}
-          hiddenConnectOptions={hiddenConnectOptions}
+          connectOptions={connectOptions}
           onToggleConnectOption={onToggleConnectOption}
         />
       )}

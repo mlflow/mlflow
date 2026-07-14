@@ -6,7 +6,7 @@ from typing_extensions import NotRequired
 
 from mlflow.entities.mcp_access_binding import MCPAccessBinding
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
@@ -127,7 +127,7 @@ class MCPServerRegistryMixin:
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = None,
         created_by: str | None = None,
-        hidden_connect_options: list[str] | None = None,
+        connect_options: dict[str, ConnectOptionSettings] | None = None,
     ) -> MCPServerVersion:
         """Create a new version of an MCP server.
 
@@ -141,7 +141,7 @@ class MCPServerRegistryMixin:
             status: Initial status (defaults to DRAFT).
             tools: List of MCPTool definitions.
             created_by: Authenticated username of the creator.
-            hidden_connect_options: List of connect-option keys to hide from the UI.
+            connect_options: Per-key settings for connect options (e.g. visibility).
 
         Returns:
             The created MCPServerVersion entity.
@@ -221,7 +221,7 @@ class MCPServerRegistryMixin:
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
         last_updated_by: str | None = None,
-        hidden_connect_options: list[str] | None = NOT_SET,
+        connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
     ) -> MCPServerVersion:
         """Update a version's metadata or status.
 
@@ -233,8 +233,8 @@ class MCPServerRegistryMixin:
                 Non-null values are validated against transition rules.
             tools: New tool definitions. Omit to leave unchanged; pass None to set null.
             last_updated_by: Authenticated username of the updater.
-            hidden_connect_options: List of connect-option keys to hide from the
-                UI. Omit to leave unchanged; pass None to clear.
+            connect_options: Per-key settings for connect options (e.g. visibility).
+                Omit to leave unchanged; pass None to clear.
 
         Returns:
             The updated MCPServerVersion entity.

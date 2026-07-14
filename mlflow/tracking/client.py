@@ -49,7 +49,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.mcp_access_binding import MCPAccessBinding
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
-from mlflow.entities.mcp_server_version import MCPServerVersion
+from mlflow.entities.mcp_server_version import ConnectOptionSettings, MCPServerVersion
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.prompt_version import PromptModelConfig
@@ -6824,7 +6824,7 @@ class MlflowClient:
         source: str | None = None,
         status: MCPStatus | None = None,
         tools: list[MCPTool] | None = None,
-        hidden_connect_options: list[str] | None = None,
+        connect_options: dict[str, ConnectOptionSettings] | None = None,
     ) -> MCPServerVersion:
         return self._tracking_client.store.create_mcp_server_version(
             server_json=server_json,
@@ -6832,7 +6832,7 @@ class MlflowClient:
             source=source,
             status=status,
             tools=tools,
-            hidden_connect_options=hidden_connect_options,
+            connect_options=connect_options,
         )
 
     def get_mcp_server_version(self, name: str, version: str) -> MCPServerVersion:
@@ -6867,7 +6867,7 @@ class MlflowClient:
         display_name: str | None = NOT_SET,
         status: MCPStatus | None = NOT_SET,
         tools: list[MCPTool] | None = NOT_SET,
-        hidden_connect_options: list[str] | None = NOT_SET,
+        connect_options: dict[str, ConnectOptionSettings] | None = NOT_SET,
     ) -> MCPServerVersion:
         return self._tracking_client.store.update_mcp_server_version(
             name=name,
@@ -6875,7 +6875,7 @@ class MlflowClient:
             display_name=display_name,
             status=status,
             tools=tools,
-            hidden_connect_options=hidden_connect_options,
+            connect_options=connect_options,
         )
 
     def delete_mcp_server_version(self, name: str, version: str) -> None:
