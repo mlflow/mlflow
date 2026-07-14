@@ -21,7 +21,6 @@ from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
-
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
 _EXPERIMENT_ID = "dummy-experiment-id"

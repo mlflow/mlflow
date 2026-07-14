@@ -1,7 +1,7 @@
 import logging
-from contextlib import nullcontext
 import threading
 from collections import defaultdict
+from contextlib import nullcontext
 from typing import Sequence
 
 from opentelemetry.sdk.trace import ReadableSpan
@@ -89,7 +89,10 @@ class MlflowV3SpanExporter(SpanExporter):
             return
 
         mlflow_spans_by_experiment_and_workspace = self._collect_mlflow_spans_for_export(spans)
-        for (experiment_id, workspace), spans_to_log in mlflow_spans_by_experiment_and_workspace.items():
+        for (
+            (experiment_id, workspace),
+            spans_to_log,
+        ) in mlflow_spans_by_experiment_and_workspace.items():
             if self._should_log_async():
                 self._async_queue.put(
                     task=Task(
@@ -217,7 +220,9 @@ class MlflowV3SpanExporter(SpanExporter):
         else:
             self._log_trace(trace, prompts=manager_trace.prompts, workspace=workspace)
 
-    def _log_spans(self, experiment_id: str, spans: list[Span], workspace: str | None = None) -> None:
+    def _log_spans(
+        self, experiment_id: str, spans: list[Span], workspace: str | None = None
+    ) -> None:
         """
         Helper method to log spans with error handling.
 
