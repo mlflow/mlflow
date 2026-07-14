@@ -215,6 +215,7 @@ from mlflow.tracing.utils import (
     aggregate_cost_from_span_nodes,
     aggregate_usage_from_span_nodes,
     generate_request_id_v2,
+    try_json_loads,
 )
 from mlflow.tracing.utils.artifact_utils import (
     get_archive_uri_for_trace,
@@ -1025,19 +1026,20 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         Build a locking SELECT over the given trace_info rows, held until the transaction ends.
 
-        log_spans() recomputes the trace-level token usage/cost from the trace's stored spans and
-        overwrites the metadata, so it is a read-modify-write on trace_info's metadata. Without
-        this lock, two log_spans() calls for the same trace would each miss the other's uncommitted
-        spans and the last writer would drop the other batch's usage.
+        log_spans() recomputes the trace-level token usage and cost from the trace's stored spans
+        and overwrites the metadata, which makes it a read-modify-write. Without this lock, two
+        log_spans() calls for the same trace would each miss the other's uncommitted spans, and the
+        last writer would drop the other batch's usage.
 
-        Rows are locked in request_id order so concurrent transactions acquire them consistently,
-        and callers must lock before writing any span rows so that the trace-row -> span-row order
-        matches the archival paths' and the two cannot deadlock.
+        Rows are locked in request_id order so that concurrent transactions acquire them in the
+        same order, and callers must lock before writing any span rows so that the trace row is
+        always locked ahead of span rows, matching the order the archival paths use. Together
+        these keep overlapping transactions from deadlocking.
 
-        NB: this queries SqlTraceInfo directly rather than going through `_trace_query()`, whose
-        workspace-aware override joins experiments — the row lock would then also cover the
+        NB: this queries SqlTraceInfo directly instead of going through `_trace_query()`, whose
+        workspace-aware override joins experiments. Locking through that join would also lock the
         experiment row and serialize every trace in the experiment. Workspace scoping stays
-        enforced by the `_trace_query()` fetch that resolved these trace IDs; only rows it already
+        enforced by the `_trace_query()` fetch that resolved these trace IDs, and only rows it
         resolved are locked here.
         """
         query = (
@@ -5048,24 +5050,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 span_dict = translate_span_when_storing(span)
                 span_cost = None
                 span_attributes = span_dict.get("attributes", {})
-                # Collect a node for every span (even without usage/cost data) so the
-                # tree-aware aggregation can traverse parent chains through them.
+                # Collect a node for every span, including spans without usage or cost, so that
+                # the tree-aware aggregation can traverse parent chains through them.
                 usage_nodes.append(
-                    SpanAggregationNode(
-                        span_id=span.span_id,
-                        parent_id=span.parent_id,
-                        data=_parse_span_aggregation_data(
-                            span_attributes.get(SpanAttributeKey.CHAT_USAGE)
-                        ),
+                    _span_aggregation_node(
+                        span.span_id, span.parent_id, span_attributes, SpanAttributeKey.CHAT_USAGE
                     )
                 )
                 cost_nodes.append(
-                    SpanAggregationNode(
-                        span_id=span.span_id,
-                        parent_id=span.parent_id,
-                        data=_parse_span_aggregation_data(
-                            span_attributes.get(SpanAttributeKey.LLM_COST)
-                        ),
+                    _span_aggregation_node(
+                        span.span_id, span.parent_id, span_attributes, SpanAttributeKey.LLM_COST
                     )
                 )
                 if span_attributes:
@@ -5212,8 +5206,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         existing_traces[trace_id] = sql_trace_info
                         created_trace_ids.add(trace_id)
                     if conflict is not None:
-                        # The rollback undid every trace this attempt created; traces
-                        # found by the re-fetch below were created by another process.
+                        # The rollback undid every trace this attempt created. Traces found by
+                        # the re-fetch below were created by another process.
                         created_trace_ids.clear()
                         # Re-fetch whatever now exists in DB (created by start_trace or us)
                         existing_traces = {
@@ -5344,30 +5338,30 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     .all()
                 )
                 for row_trace_id, row_span_id, row_parent_span_id, row_content in stored_span_rows:
-                    # Spans upserted by this batch are already covered by the in-memory
-                    # nodes in trace_aggregates.
+                    # Phase 3 already upserted this batch's spans, so a span re-sent in this batch
+                    # is read back here as well. Skip it, otherwise it would be counted twice: once
+                    # from its stored row and once from the batch node in trace_aggregates.
                     if (row_trace_id, row_span_id) in batch_span_keys:
                         continue
                     try:
                         row_attributes = json.loads(row_content).get("attributes") or {}
                     except (json.JSONDecodeError, AttributeError):
+                        _logger.debug("Skipping malformed span content for span %s", row_span_id)
                         continue
                     stored_usage_nodes[row_trace_id].append(
-                        SpanAggregationNode(
-                            span_id=row_span_id,
-                            parent_id=row_parent_span_id,
-                            data=_parse_span_aggregation_data(
-                                row_attributes.get(SpanAttributeKey.CHAT_USAGE)
-                            ),
+                        _span_aggregation_node(
+                            row_span_id,
+                            row_parent_span_id,
+                            row_attributes,
+                            SpanAttributeKey.CHAT_USAGE,
                         )
                     )
                     stored_cost_nodes[row_trace_id].append(
-                        SpanAggregationNode(
-                            span_id=row_span_id,
-                            parent_id=row_parent_span_id,
-                            data=_parse_span_aggregation_data(
-                                row_attributes.get(SpanAttributeKey.LLM_COST)
-                            ),
+                        _span_aggregation_node(
+                            row_span_id,
+                            row_parent_span_id,
+                            row_attributes,
+                            SpanAttributeKey.LLM_COST,
                         )
                     )
 
@@ -5433,9 +5427,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # record exists yet (start_trace() lost the race or didn't include token
                 # usage), log_spans() must still write it to avoid data loss.
                 if aggregated_token_usage := agg.aggregated_token_usage:
-                    if trace_id not in finalized_trace_ids or not existing_token_usage.get(
-                        trace_id
-                    ):
+                    existing_record = existing_token_usage.get(trace_id)
+                    if trace_id not in finalized_trace_ids or not existing_record:
                         if trace_id in created_trace_ids:
                             trace_token_usage = aggregated_token_usage
                         else:
@@ -5459,7 +5452,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # authoritative value (flag set AND existing record present). If the flag
                 # is set but no record exists, still write to avoid data loss.
                 if aggregated_cost := agg.aggregated_cost:
-                    if trace_id not in finalized_trace_ids or not existing_cost.get(trace_id):
+                    existing_record = existing_cost.get(trace_id)
+                    if trace_id not in finalized_trace_ids or not existing_record:
                         if trace_id in created_trace_ids:
                             recorded_cost = aggregated_cost
                         else:
@@ -9892,14 +9886,22 @@ def _try_parse_json_string(value: str) -> str:
     return parsed if isinstance(parsed, str) else value
 
 
-def _parse_span_aggregation_data(value: Any) -> dict[str, Any] | None:
-    """Parse a (possibly JSON-encoded) usage/cost span attribute into a dict."""
+def _span_aggregation_node(
+    span_id: str, parent_span_id: str | None, attributes: dict[str, Any], attribute_key: str
+) -> SpanAggregationNode:
+    """
+    Build the aggregation node for a span, whether it comes from the incoming batch or a
+    stored span row. Span attributes may hold the usage/cost payload either as a dict or as
+    a JSON string, depending on how the span reached the store.
+    """
+    value = attributes.get(attribute_key)
     if isinstance(value, str):
-        try:
-            value = json.loads(value)
-        except (json.JSONDecodeError, TypeError):
-            return None
-    return value if isinstance(value, dict) else None
+        value = try_json_loads(value)
+    return SpanAggregationNode(
+        span_id=span_id,
+        parent_id=parent_span_id,
+        data=value if isinstance(value, dict) else None,
+    )
 
 
 @dataclass

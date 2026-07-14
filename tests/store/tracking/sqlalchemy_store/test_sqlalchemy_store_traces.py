@@ -4562,8 +4562,8 @@ def test_log_spans_token_usage_dedups_rollup_parent_across_batches(
 
 
 def test_log_spans_token_usage_dedups_nested_rollup_chain(store: SqlAlchemyStore) -> None:
-    # pydantic_ai emits Agent.run_sync -> Agent.run, both carrying the same cumulative
-    # usage as the LLM leaf; only the topmost value must be counted.
+    # pydantic_ai emits Agent.run_sync wrapping Agent.run, both carrying the same cumulative
+    # usage as the LLM leaf. Only the topmost value must be counted.
     experiment_id = store.create_experiment("test_log_spans_token_usage_dedup_chain")
     trace_id = f"tr-{uuid.uuid4().hex}"
     usage = {"input_tokens": 150, "output_tokens": 27, "total_tokens": 177}
@@ -4681,8 +4681,8 @@ def test_log_spans_token_usage_deep_trace(store: SqlAlchemyStore) -> None:
 def test_log_spans_token_usage_redelivered_span_not_double_counted(
     store: SqlAlchemyStore,
 ) -> None:
-    # A span re-sent in a later batch (same span_id, upserted content) must be counted
-    # from its batch version only — not once from the stored row and once from the batch.
+    # A span re-sent in a later batch (same span_id, upserted content) must be counted from its
+    # batch version only, not once from the stored row and once from the batch.
     experiment_id = store.create_experiment("test_log_spans_token_usage_redelivery")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
@@ -4758,8 +4758,8 @@ def test_log_spans_token_usage_redelivered_span_not_double_counted(
 def test_trace_row_lock_query_locks_only_trace_rows(
     store: SqlAlchemyStore, db_type: str, expected_clause: str
 ) -> None:
-    # The lock log_spans() takes must compile to the backend's row-lock clause and must not
-    # join experiments — the workspace-aware _trace_query() does, and FOR UPDATE over that
+    # The lock log_spans() takes must compile to the backend's row-lock clause. It must not join
+    # experiments the way the workspace-aware _trace_query() does, because locking through that
     # join would also lock the experiment row and serialize every trace in the experiment.
     dialects = {POSTGRES: postgresql, MYSQL: mysql, MSSQL: mssql}
     exp_id = store.create_experiment(f"trace-row-lock-{db_type}")

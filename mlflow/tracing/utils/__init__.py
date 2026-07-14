@@ -281,14 +281,8 @@ def _aggregate_from_nodes(
     return totals
 
 
-def _aggregate_from_spans(
-    spans: list[LiveSpan],
-    attribute_key: str,
-    keys: list[str],
-    default: int | float,
-    optional_keys: list[str] | None = None,
-) -> dict[str, int | float] | None:
-    nodes = [
+def _to_span_nodes(spans: list[LiveSpan], attribute_key: str) -> list[SpanAggregationNode]:
+    return [
         SpanAggregationNode(
             span_id=span.span_id,
             parent_id=span.parent_id,
@@ -296,22 +290,19 @@ def _aggregate_from_spans(
         )
         for span in spans
     ]
-    return _aggregate_from_nodes(nodes, keys, default, optional_keys)
 
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     """Aggregate token usage information from all spans in the trace."""
-    return _aggregate_from_spans(
-        spans,
-        SpanAttributeKey.CHAT_USAGE,
-        keys=[TokenUsageKey.INPUT_TOKENS, TokenUsageKey.OUTPUT_TOKENS, TokenUsageKey.TOTAL_TOKENS],
-        default=0,
-        optional_keys=TokenUsageKey.cache_keys(),
-    )
+    return aggregate_usage_from_span_nodes(_to_span_nodes(spans, SpanAttributeKey.CHAT_USAGE))
 
 
 def aggregate_usage_from_span_nodes(nodes: list[SpanAggregationNode]) -> dict[str, int] | None:
-    """Aggregate token usage information from span nodes, de-duplicating rollup parents."""
+    """Aggregate token usage information from span nodes.
+
+    Used by the tracking store, which rebuilds the span tree from stored rows instead of
+    holding live spans in memory.
+    """
     return _aggregate_from_nodes(
         nodes,
         keys=[TokenUsageKey.INPUT_TOKENS, TokenUsageKey.OUTPUT_TOKENS, TokenUsageKey.TOTAL_TOKENS],
@@ -322,16 +313,15 @@ def aggregate_usage_from_span_nodes(nodes: list[SpanAggregationNode]) -> dict[st
 
 def aggregate_cost_from_spans(spans: list[LiveSpan]) -> dict[str, float] | None:
     """Aggregate cost information from all spans in the trace."""
-    return _aggregate_from_spans(
-        spans,
-        SpanAttributeKey.LLM_COST,
-        keys=[CostKey.INPUT_COST, CostKey.OUTPUT_COST, CostKey.TOTAL_COST],
-        default=0.0,
-    )
+    return aggregate_cost_from_span_nodes(_to_span_nodes(spans, SpanAttributeKey.LLM_COST))
 
 
 def aggregate_cost_from_span_nodes(nodes: list[SpanAggregationNode]) -> dict[str, float] | None:
-    """Aggregate cost information from span nodes, de-duplicating rollup parents."""
+    """Aggregate cost information from span nodes.
+
+    Used by the tracking store, which rebuilds the span tree from stored rows instead of
+    holding live spans in memory.
+    """
     return _aggregate_from_nodes(
         nodes,
         keys=[CostKey.INPUT_COST, CostKey.OUTPUT_COST, CostKey.TOTAL_COST],
