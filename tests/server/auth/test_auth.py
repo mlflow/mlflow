@@ -4243,9 +4243,9 @@ _MCP_SUBPATHS = [
     "/my-server/versions/1",
     "/my-server/versions/1/tags",
     "/my-server/versions/1/tags/k",
-    "/bindings",
-    "/my-server/bindings",
-    "/my-server/bindings/123",
+    "/endpoints",
+    "/my-server/endpoints",
+    "/my-server/endpoints/123",
     "/my-server/tags",
     "/my-server/tags/k",
     "/my-server/aliases",
@@ -4631,14 +4631,14 @@ def test_read_predicate_honors_grant_default_workspace_access(
 @pytest.mark.parametrize(
     "path",
     [f"{prefix}/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)]
-    + [f"{prefix}/bindings/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)],
+    + [f"{prefix}/endpoints/" for prefix in (_MCP_AJAX_PREFIX, _MCP_REST_PREFIX)],
 )
 def test_response_filter_matches_trailing_slash(path):
     assert _find_fastapi_response_filter(path, "GET") is not None
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-@pytest.mark.parametrize("path_suffix", ["/com.test/server", "/bindings/123"])
+@pytest.mark.parametrize("path_suffix", ["/com.test/server", "/endpoints/123"])
 def test_response_filter_requires_exact_collection_route_match(prefix, path_suffix):
     assert _find_fastapi_response_filter(f"{prefix}{path_suffix}", "GET") is None
 
@@ -4667,7 +4667,7 @@ def test_apply_fastapi_response_filter_fails_closed():
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-@pytest.mark.parametrize("sub", ["bindings", "tags", "aliases"])
+@pytest.mark.parametrize("sub", ["endpoints", "tags", "aliases"])
 def test_non_version_nested_post_requires_can_update(fastapi_client, monkeypatch, prefix, sub):
     user, pw = create_user(fastapi_client.tracking_uri)
 
@@ -5084,7 +5084,7 @@ def test_mcp_server_search_filters_unreadable(fastapi_client, monkeypatch, prefi
     indirect=True,
 )
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
-def test_mcp_server_binding_search_filters_by_parent(fastapi_client, monkeypatch, prefix):
+def test_mcp_server_endpoint_search_filters_by_parent(fastapi_client, monkeypatch, prefix):
     reader, reader_pw = create_user(fastapi_client.tracking_uri)
     admin_auth = (ADMIN_USERNAME, ADMIN_PASSWORD)
 
@@ -5105,7 +5105,7 @@ def test_mcp_server_binding_search_filters_by_parent(fastapi_client, monkeypatch
         ver_resp.raise_for_status()
         version = ver_resp.json()["version"]
         requests.post(
-            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/bindings",
+            url=f"{fastapi_client.tracking_uri}{prefix}/{name}/endpoints",
             json={
                 "server_version": version,
                 "endpoint_url": f"https://example.com/{name}",
@@ -5115,16 +5115,16 @@ def test_mcp_server_binding_search_filters_by_parent(fastapi_client, monkeypatch
 
     grant_role_permission(fastapi_client.tracking_uri, reader, "mcp_server", visible, "READ")
 
-    # Reader sees only bindings whose parent server is readable.
+    # Reader sees only endpoints whose parent server is readable.
     with User(reader, reader_pw, monkeypatch):
         resp = requests.get(
-            url=f"{fastapi_client.tracking_uri}{prefix}/bindings",
+            url=f"{fastapi_client.tracking_uri}{prefix}/endpoints",
             auth=(reader, reader_pw),
         )
         assert resp.status_code == 200
-        binding_servers = {b["server_name"] for b in resp.json()["mcp_access_bindings"]}
-        assert binding_servers == {visible}
-        assert hidden not in binding_servers
+        endpoint_servers = {b["server_name"] for b in resp.json()["mcp_access_endpoints"]}
+        assert endpoint_servers == {visible}
+        assert hidden not in endpoint_servers
 
 
 @pytest.mark.parametrize(

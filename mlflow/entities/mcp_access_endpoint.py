@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 
 @experimental(version="3.15.0")
 @dataclass
-class MCPAccessBinding:
-    binding_id: int
+class MCPAccessEndpoint:
+    endpoint_id: int
     server_name: str
     endpoint_url: str
     transport_type: MCPRemoteTransportType = MCPRemoteTransportType.STREAMABLE_HTTP
@@ -32,17 +32,17 @@ class MCPAccessBinding:
         self.workspace = resolve_entity_workspace_name(self.workspace)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> MCPAccessBinding:
+    def from_dict(cls, data: dict[str, Any]) -> MCPAccessEndpoint:
         if not isinstance(data, dict):
             raise MlflowException.invalid_parameter_value(
-                "Failed to parse MCP access binding response: expected a dictionary"
+                "Failed to parse MCP access endpoint response: expected a dictionary"
             )
 
         try:
             from mlflow.entities.mcp_server_version import MCPServerVersion
 
             return cls(
-                binding_id=data["binding_id"],
+                endpoint_id=data["endpoint_id"],
                 server_name=data["server_name"],
                 endpoint_url=data["endpoint_url"],
                 transport_type=MCPRemoteTransportType(
@@ -63,9 +63,9 @@ class MCPAccessBinding:
             )
         except KeyError as e:
             raise MlflowException.invalid_parameter_value(
-                f"Failed to parse MCP access binding response: missing required field {e}"
+                f"Failed to parse MCP access endpoint response: missing required field {e}"
             ) from None
         except (ValueError, TypeError) as e:
             raise MlflowException.invalid_parameter_value(
-                f"Failed to parse MCP access binding response: {e}"
+                f"Failed to parse MCP access endpoint response: {e}"
             ) from None

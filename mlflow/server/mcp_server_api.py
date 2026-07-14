@@ -15,7 +15,7 @@ from pydantic import (
     model_validator,
 )
 
-from mlflow.entities.mcp_access_binding import MCPAccessBinding
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import (
     MCPRemoteTransportType,
     MCPServer,
@@ -216,14 +216,14 @@ class UpdateMCPServerVersionRequest(BaseModel):
     )
 
 
-class CreateMCPAccessBindingRequest(BaseModel):
+class CreateMCPAccessEndpointRequest(BaseModel):
     server_version: str | None = None
     server_alias: str | None = None
     endpoint_url: str
     transport_type: str = "streamable-http"
 
 
-class UpdateMCPAccessBindingRequest(BaseModel):
+class UpdateMCPAccessEndpointRequest(BaseModel):
     server_version: str | None = None
     server_alias: str | None = None
     endpoint_url: str | None = None
@@ -245,8 +245,8 @@ class AliasResponse(BaseModel):
     version: str
 
 
-class MCPAccessBindingSummaryResponse(BaseModel):
-    binding_id: int
+class MCPAccessEndpointSummaryResponse(BaseModel):
+    endpoint_id: int
     server_name: str
     endpoint_url: str
     transport_type: str = "streamable-http"
@@ -260,9 +260,9 @@ class MCPAccessBindingSummaryResponse(BaseModel):
     last_updated_timestamp: int | None = None
 
     @classmethod
-    def from_entity(cls, entity: MCPAccessBinding) -> MCPAccessBindingSummaryResponse:
+    def from_entity(cls, entity: MCPAccessEndpoint) -> MCPAccessEndpointSummaryResponse:
         return cls(
-            binding_id=entity.binding_id,
+            endpoint_id=entity.endpoint_id,
             server_name=entity.server_name,
             endpoint_url=entity.endpoint_url,
             transport_type=str(entity.transport_type),
@@ -288,7 +288,7 @@ class MCPServerResponse(BaseModel):
     icons: list[MCPIconResponsePayload] | None = None
     workspace: str | None = None
     status: str | None = None
-    access_bindings: list[MCPAccessBindingSummaryResponse] = Field(default_factory=list)
+    access_endpoints: list[MCPAccessEndpointSummaryResponse] = Field(default_factory=list)
     latest_version: str | None = None
     aliases: list[AliasResponse] = Field(default_factory=list)
     tags: dict[str, str] = Field(default_factory=dict)
@@ -306,8 +306,8 @@ class MCPServerResponse(BaseModel):
             icons=entity.icons,
             workspace=entity.workspace,
             status=str(entity.status) if entity.status else None,
-            access_bindings=[
-                MCPAccessBindingSummaryResponse.from_entity(b) for b in entity.access_bindings
+            access_endpoints=[
+                MCPAccessEndpointSummaryResponse.from_entity(b) for b in entity.access_endpoints
             ],
             latest_version=entity.latest_version,
             aliases=[AliasResponse(alias=k, version=v) for k, v in entity.aliases.items()],
@@ -356,8 +356,8 @@ class MCPServerVersionResponse(BaseModel):
         )
 
 
-class MCPAccessBindingResponse(BaseModel):
-    binding_id: int
+class MCPAccessEndpointResponse(BaseModel):
+    endpoint_id: int
     server_name: str
     endpoint_url: str
     transport_type: str = "streamable-http"
@@ -372,12 +372,12 @@ class MCPAccessBindingResponse(BaseModel):
     last_updated_timestamp: int | None = None
 
     @classmethod
-    def from_entity(cls, entity: MCPAccessBinding) -> MCPAccessBindingResponse:
+    def from_entity(cls, entity: MCPAccessEndpoint) -> MCPAccessEndpointResponse:
         tools = None
         if entity.resolved_version is not None and entity.resolved_version.tools is not None:
             tools = [MCPToolResponsePayload(**t.to_dict()) for t in entity.resolved_version.tools]
         return cls(
-            binding_id=entity.binding_id,
+            endpoint_id=entity.endpoint_id,
             server_name=entity.server_name,
             endpoint_url=entity.endpoint_url,
             transport_type=str(entity.transport_type),
@@ -407,8 +407,8 @@ class SearchMCPServerVersionsResponse(BaseModel):
     next_page_token: str | None = None
 
 
-class SearchMCPAccessBindingsResponse(BaseModel):
-    mcp_access_bindings: list[MCPAccessBindingResponse]
+class SearchMCPAccessEndpointsResponse(BaseModel):
+    mcp_access_endpoints: list[MCPAccessEndpointResponse]
     next_page_token: str | None = None
 
 
@@ -519,10 +519,10 @@ def _ensure_version_create_parent_access(
             raise MlflowException("Permission denied.", error_code=PERMISSION_DENIED)
 
 
-def _update_mcp_access_binding_kwargs(
-    server_name: str, binding_id: int, body: UpdateMCPAccessBindingRequest
+def _update_mcp_access_endpoint_kwargs(
+    server_name: str, endpoint_id: int, body: UpdateMCPAccessEndpointRequest
 ) -> dict[str, Any]:
-    kwargs: dict[str, Any] = {"server_name": server_name, "binding_id": binding_id}
+    kwargs: dict[str, Any] = {"server_name": server_name, "endpoint_id": endpoint_id}
     provided_fields = body.model_fields_set
     for field_name in ("server_version", "server_alias", "endpoint_url"):
         if field_name in provided_fields:
@@ -574,19 +574,19 @@ def search_mcp_servers(
 
 
 # Static route — must be registered before /{name:path} routes
-@mcp_server_router.get("/bindings", response_model=SearchMCPAccessBindingsResponse)
-def search_all_access_bindings(
+@mcp_server_router.get("/endpoints", response_model=SearchMCPAccessEndpointsResponse)
+def search_all_access_endpoints(
     filter_string: str | None = Query(None),
     max_results: int = Query(100),
     order_by: list[str] | None = Query(None),
     page_token: str | None = Query(None),
     server_version: str | None = Query(None),
     server_alias: str | None = Query(None),
-) -> SearchMCPAccessBindingsResponse:
+) -> SearchMCPAccessEndpointsResponse:
     from mlflow.server.handlers import _get_tracking_store
 
     store = _get_tracking_store()
-    results = store.search_mcp_access_bindings(
+    results = store.search_mcp_access_endpoints(
         filter_string=filter_string,
         max_results=max_results,
         order_by=order_by,
@@ -594,9 +594,9 @@ def search_all_access_bindings(
         server_version=server_version,
         server_alias=server_alias,
     )
-    bindings = [MCPAccessBindingResponse.from_entity(b) for b in results]
-    return SearchMCPAccessBindingsResponse(
-        mcp_access_bindings=bindings,
+    endpoints = [MCPAccessEndpointResponse.from_entity(b) for b in results]
+    return SearchMCPAccessEndpointsResponse(
+        mcp_access_endpoints=endpoints,
         next_page_token=results.token,
     )
 
@@ -705,16 +705,16 @@ def search_mcp_server_versions(
     )
 
 
-@mcp_server_router.post("/{name:path}/bindings", response_model=MCPAccessBindingResponse)
-def create_mcp_access_binding(
-    name: str, body: CreateMCPAccessBindingRequest, request: Request
-) -> MCPAccessBindingResponse:
+@mcp_server_router.post("/{name:path}/endpoints", response_model=MCPAccessEndpointResponse)
+def create_mcp_access_endpoint(
+    name: str, body: CreateMCPAccessEndpointRequest, request: Request
+) -> MCPAccessEndpointResponse:
     from mlflow.server.handlers import _get_tracking_store
 
     username = getattr(request.state, "username", None)
     transport = _parse_transport_type(body.transport_type)
     store = _get_tracking_store()
-    binding = store.create_mcp_access_binding(
+    endpoint = store.create_mcp_access_endpoint(
         server_name=name,
         endpoint_url=body.endpoint_url,
         transport_type=transport,
@@ -722,48 +722,48 @@ def create_mcp_access_binding(
         server_alias=body.server_alias,
         created_by=username,
     )
-    return MCPAccessBindingResponse.from_entity(binding)
+    return MCPAccessEndpointResponse.from_entity(endpoint)
 
 
 @mcp_server_router.get(
-    "/{name:path}/bindings/{binding_id}",
-    response_model=MCPAccessBindingResponse,
+    "/{name:path}/endpoints/{endpoint_id}",
+    response_model=MCPAccessEndpointResponse,
 )
-def get_mcp_access_binding(name: str, binding_id: int) -> MCPAccessBindingResponse:
+def get_mcp_access_endpoint(name: str, endpoint_id: int) -> MCPAccessEndpointResponse:
     from mlflow.server.handlers import _get_tracking_store
 
     store = _get_tracking_store()
-    binding = store.get_mcp_access_binding(name, binding_id)
-    return MCPAccessBindingResponse.from_entity(binding)
+    endpoint = store.get_mcp_access_endpoint(name, endpoint_id)
+    return MCPAccessEndpointResponse.from_entity(endpoint)
 
 
 @mcp_server_router.patch(
-    "/{name:path}/bindings/{binding_id}",
-    response_model=MCPAccessBindingResponse,
+    "/{name:path}/endpoints/{endpoint_id}",
+    response_model=MCPAccessEndpointResponse,
 )
-def update_mcp_access_binding(
-    name: str, binding_id: int, body: UpdateMCPAccessBindingRequest, request: Request
-) -> MCPAccessBindingResponse:
+def update_mcp_access_endpoint(
+    name: str, endpoint_id: int, body: UpdateMCPAccessEndpointRequest, request: Request
+) -> MCPAccessEndpointResponse:
     from mlflow.server.handlers import _get_tracking_store
 
     username = getattr(request.state, "username", None)
     store = _get_tracking_store()
-    binding = store.update_mcp_access_binding(
-        **_update_mcp_access_binding_kwargs(name, binding_id, body), last_updated_by=username
+    endpoint = store.update_mcp_access_endpoint(
+        **_update_mcp_access_endpoint_kwargs(name, endpoint_id, body), last_updated_by=username
     )
-    return MCPAccessBindingResponse.from_entity(binding)
+    return MCPAccessEndpointResponse.from_entity(endpoint)
 
 
-@mcp_server_router.delete("/{name:path}/bindings/{binding_id}")
-def delete_mcp_access_binding(name: str, binding_id: int) -> dict[str, Any]:
+@mcp_server_router.delete("/{name:path}/endpoints/{endpoint_id}")
+def delete_mcp_access_endpoint(name: str, endpoint_id: int) -> dict[str, Any]:
     from mlflow.server.handlers import _get_tracking_store
 
-    _get_tracking_store().delete_mcp_access_binding(name, binding_id)
+    _get_tracking_store().delete_mcp_access_endpoint(name, endpoint_id)
     return {}
 
 
-@mcp_server_router.get("/{name:path}/bindings", response_model=SearchMCPAccessBindingsResponse)
-def search_server_access_bindings(
+@mcp_server_router.get("/{name:path}/endpoints", response_model=SearchMCPAccessEndpointsResponse)
+def search_server_access_endpoints(
     name: str,
     filter_string: str | None = Query(None),
     max_results: int = Query(100),
@@ -771,11 +771,11 @@ def search_server_access_bindings(
     page_token: str | None = Query(None),
     server_version: str | None = Query(None),
     server_alias: str | None = Query(None),
-) -> SearchMCPAccessBindingsResponse:
+) -> SearchMCPAccessEndpointsResponse:
     from mlflow.server.handlers import _get_tracking_store
 
     store = _get_tracking_store()
-    results = store.search_mcp_access_bindings(
+    results = store.search_mcp_access_endpoints(
         server_name=name,
         filter_string=filter_string,
         max_results=max_results,
@@ -784,9 +784,9 @@ def search_server_access_bindings(
         server_version=server_version,
         server_alias=server_alias,
     )
-    bindings = [MCPAccessBindingResponse.from_entity(b) for b in results]
-    return SearchMCPAccessBindingsResponse(
-        mcp_access_bindings=bindings,
+    endpoints = [MCPAccessEndpointResponse.from_entity(b) for b in results]
+    return SearchMCPAccessEndpointsResponse(
+        mcp_access_endpoints=endpoints,
         next_page_token=results.token,
     )
 

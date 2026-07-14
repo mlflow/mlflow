@@ -337,7 +337,7 @@ from mlflow.server.handlers import (
 )
 from mlflow.server.jobs import get_job
 from mlflow.server.mcp_server_api import (
-    MCPAccessBindingResponse,
+    MCPAccessEndpointResponse,
     MCPServerResponse,
     get_mcp_server_api_route_prefixes,
     is_mcp_server_api_path,
@@ -4630,10 +4630,10 @@ def _filter_search_mcp_servers(username: str, body: bytes, request: StarletteReq
     return json.dumps(data).encode()
 
 
-def _filter_search_mcp_bindings(username: str, body: bytes, request: StarletteRequest) -> bytes:
+def _filter_search_mcp_endpoints(username: str, body: bytes, request: StarletteRequest) -> bytes:
     data = json.loads(body)
     can_read = _role_based_read_predicate(username, "mcp_server")
-    readable = [b for b in data.get("mcp_access_bindings", []) if can_read(b["server_name"])]
+    readable = [b for b in data.get("mcp_access_endpoints", []) if can_read(b["server_name"])]
 
     params = request.query_params
     max_results = int(params.get("max_results", 100))
@@ -4647,7 +4647,7 @@ def _filter_search_mcp_bindings(username: str, body: bytes, request: StarletteRe
         readable=readable,
         max_results=max_results,
         next_token=data.get("next_page_token"),
-        fetch_page=lambda token: _get_tracking_store().search_mcp_access_bindings(
+        fetch_page=lambda token: _get_tracking_store().search_mcp_access_endpoints(
             filter_string=filter_string,
             max_results=max_results,
             order_by=order_by,
@@ -4656,9 +4656,9 @@ def _filter_search_mcp_bindings(username: str, body: bytes, request: StarletteRe
             server_alias=server_alias,
         ),
         get_name=lambda b: b.server_name,
-        to_dict=lambda b: MCPAccessBindingResponse.from_entity(b).model_dump(mode="json"),
+        to_dict=lambda b: MCPAccessEndpointResponse.from_entity(b).model_dump(mode="json"),
     )
-    data["mcp_access_bindings"] = readable[:max_results]
+    data["mcp_access_endpoints"] = readable[:max_results]
     return json.dumps(data).encode()
 
 
@@ -4758,7 +4758,7 @@ FASTAPI_RESPONSE_FILTERS: dict[
 ] = {
     (prefix, "GET"): _filter_search_mcp_servers for prefix in get_mcp_server_api_route_prefixes()
 } | {
-    (f"{prefix}/bindings", "GET"): _filter_search_mcp_bindings
+    (f"{prefix}/endpoints", "GET"): _filter_search_mcp_endpoints
     for prefix in get_mcp_server_api_route_prefixes()
 }
 

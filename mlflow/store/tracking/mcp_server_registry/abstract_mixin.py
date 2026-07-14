@@ -4,7 +4,7 @@ from typing import Any, TypedDict
 
 from typing_extensions import NotRequired
 
-from mlflow.entities.mcp_access_binding import MCPAccessBinding
+from mlflow.entities.mcp_access_endpoint import MCPAccessEndpoint
 from mlflow.entities.mcp_server import MCPRemoteTransportType, MCPServer, MCPStatus, MCPTool
 from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.store.entities.paged_list import PagedList
@@ -26,7 +26,7 @@ class MCPServerRegistryMixin:
     """Mixin class providing MCP Server Registry interface for tracking stores.
 
     This mixin adds MCP server management to tracking stores, enabling
-    registration, versioning, aliasing, tagging, and access binding
+    registration, versioning, aliasing, tagging, and access endpoint
     management for MCP servers.
 
     All methods raise NotImplementedError rather than using @abstractmethod,
@@ -63,7 +63,7 @@ class MCPServerRegistryMixin:
             name: Server name.
 
         Returns:
-            The MCPServer entity with tags, aliases, and bindings populated.
+            The MCPServer entity with tags, aliases, and endpoints populated.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -245,9 +245,9 @@ class MCPServerRegistryMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    # --- MCPAccessBinding operations ---
+    # --- MCPAccessEndpoint operations ---
 
-    def create_mcp_access_binding(
+    def create_mcp_access_endpoint(
         self,
         server_name: str,
         endpoint_url: str,
@@ -255,8 +255,8 @@ class MCPServerRegistryMixin:
         server_version: str | None = None,
         server_alias: str | None = None,
         created_by: str | None = None,
-    ) -> MCPAccessBinding:
-        """Create a direct-access binding for an MCP server.
+    ) -> MCPAccessEndpoint:
+        """Create a direct-access endpoint for an MCP server.
 
         Exactly one of server_version or server_alias must be set.
 
@@ -269,23 +269,23 @@ class MCPServerRegistryMixin:
             created_by: Authenticated username of the creator.
 
         Returns:
-            The created MCPAccessBinding entity.
+            The created MCPAccessEndpoint entity.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_mcp_access_binding(self, server_name: str, binding_id: int) -> MCPAccessBinding:
-        """Retrieve a specific access binding.
+    def get_mcp_access_endpoint(self, server_name: str, endpoint_id: int) -> MCPAccessEndpoint:
+        """Retrieve a specific access endpoint.
 
         Args:
             server_name: Server name.
-            binding_id: Binding ID.
+            endpoint_id: Endpoint ID.
 
         Returns:
-            The MCPAccessBinding entity.
+            The MCPAccessEndpoint entity.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def search_mcp_access_bindings(
+    def search_mcp_access_endpoints(
         self,
         server_name: str | None = None,
         server_version: str | None = None,
@@ -294,38 +294,38 @@ class MCPServerRegistryMixin:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
-    ) -> PagedList[MCPAccessBinding]:
-        """Search access bindings, optionally scoped to a server.
+    ) -> PagedList[MCPAccessEndpoint]:
+        """Search access endpoints, optionally scoped to a server.
 
         Args:
-            server_name: If set, only return bindings for this server.
-            server_version: If set, only return bindings targeting this version.
-            server_alias: If set, only return bindings targeting this alias.
+            server_name: If set, only return endpoints for this server.
+            server_version: If set, only return endpoints targeting this version.
+            server_alias: If set, only return endpoints targeting this alias.
             filter_string: SQL-like filter.
             max_results: Maximum number of results to return.
             order_by: List of columns to order by.
             page_token: Token for pagination.
 
         Returns:
-            A PagedList of MCPAccessBinding entities.
+            A PagedList of MCPAccessEndpoint entities.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def update_mcp_access_binding(
+    def update_mcp_access_endpoint(
         self,
         server_name: str,
-        binding_id: int,
+        endpoint_id: int,
         server_version: str | None = NOT_SET,
         server_alias: str | None = NOT_SET,
         endpoint_url: str | None = NOT_SET,
         transport_type: MCPRemoteTransportType | None = NOT_SET,
         last_updated_by: str | None = None,
-    ) -> MCPAccessBinding:
-        """Update an existing access binding.
+    ) -> MCPAccessEndpoint:
+        """Update an existing access endpoint.
 
         Args:
             server_name: Server name.
-            binding_id: Binding ID.
+            endpoint_id: Endpoint ID.
             server_version: New version target. Omit to leave unchanged; non-null values update
                 the version target.
             server_alias: New alias target. Omit to leave unchanged; non-null values update the
@@ -336,16 +336,16 @@ class MCPServerRegistryMixin:
             last_updated_by: Authenticated username of the updater.
 
         Returns:
-            The updated MCPAccessBinding entity.
+            The updated MCPAccessEndpoint entity.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_mcp_access_binding(self, server_name: str, binding_id: int) -> None:
-        """Delete an access binding.
+    def delete_mcp_access_endpoint(self, server_name: str, endpoint_id: int) -> None:
+        """Delete an access endpoint.
 
         Args:
             server_name: Server name.
-            binding_id: Binding ID.
+            endpoint_id: Endpoint ID.
         """
         raise NotImplementedError(self.__class__.__name__)
 

@@ -157,8 +157,8 @@ def upgrade():
     )
 
     op.create_table(
-        "mcp_access_bindings",
-        sa.Column("binding_id", sa.Integer(), autoincrement=True, nullable=False),
+        "mcp_access_endpoints",
+        sa.Column("endpoint_id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column(
             "workspace",
             sa.String(length=63),
@@ -184,9 +184,9 @@ def upgrade():
             ["mcp_servers.workspace", "mcp_servers.name"],
             ondelete="CASCADE",
             onupdate="CASCADE",
-            name="mcp_access_bindings_server_fkey",
+            name="mcp_access_endpoints_server_fkey",
         ),
-        sa.PrimaryKeyConstraint("binding_id", name="mcp_access_bindings_pk"),
+        sa.PrimaryKeyConstraint("endpoint_id", name="mcp_access_endpoints_pk"),
     )
 
     # Keep this support index narrow enough for MySQL's 3072-byte key limit.
@@ -207,28 +207,28 @@ def upgrade():
     )
 
     op.create_index(
-        "ix_mcp_access_bindings_server_name",
-        "mcp_access_bindings",
+        "ix_mcp_access_endpoints_server_name",
+        "mcp_access_endpoints",
         ["workspace", "server_name"],
     )
     op.create_index(
-        "ix_mcp_access_bindings_version",
-        "mcp_access_bindings",
+        "ix_mcp_access_endpoints_version",
+        "mcp_access_endpoints",
         ["workspace", "server_name", "server_version"],
     )
     op.create_index(
-        "ix_mcp_access_bindings_alias",
-        "mcp_access_bindings",
+        "ix_mcp_access_endpoints_alias",
+        "mcp_access_endpoints",
         ["workspace", "server_name", "server_alias"],
     )
 
 
 def downgrade():
-    op.drop_index("ix_mcp_access_bindings_alias", table_name="mcp_access_bindings")
-    op.drop_index("ix_mcp_access_bindings_version", table_name="mcp_access_bindings")
-    op.drop_index("ix_mcp_access_bindings_server_name", table_name="mcp_access_bindings")
+    op.drop_index("ix_mcp_access_endpoints_alias", table_name="mcp_access_endpoints")
+    op.drop_index("ix_mcp_access_endpoints_version", table_name="mcp_access_endpoints")
+    op.drop_index("ix_mcp_access_endpoints_server_name", table_name="mcp_access_endpoints")
     op.drop_index("idx_mcp_server_versions_latest", table_name="mcp_server_versions")
-    op.drop_table("mcp_access_bindings")
+    op.drop_table("mcp_access_endpoints")
     op.drop_table("mcp_server_aliases")
     op.drop_table("mcp_server_version_tags")
     op.drop_table("mcp_server_tags")
