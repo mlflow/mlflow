@@ -133,7 +133,7 @@ const MCPServerDetailPage = () => {
 
   const { CreateMCPServerVersionModal, openModal: openCreateVersionModal } = useCreateMCPServerVersionModal({
     serverName: serverName,
-    latestVersion: versions?.[0],
+    latestVersion,
     onSuccess: async ({ version }) => {
       await refetchAll();
       setSelectedVersion(version);
