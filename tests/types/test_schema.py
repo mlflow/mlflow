@@ -1821,6 +1821,31 @@ def test_convert_dataclass_to_schema_float_maps_to_double():
     ]
 
 
+def test_convert_dataclass_to_schema_nested_float_maps_to_double():
+    # The float -> double mapping must also hold on the nested object/property path
+    # (_convert_field_to_property), which builds the properties of nested dataclass fields.
+    @dataclass
+    class Inner:
+        score: float = 0.0
+        scores: list[float] = field(default_factory=lambda: [0.0])
+
+    @dataclass
+    class Outer:
+        inner: Inner = field(default_factory=Inner)
+
+    assert convert_dataclass_to_schema(Outer).to_dict() == [
+        {
+            "type": "object",
+            "properties": {
+                "score": {"type": "double", "required": True},
+                "scores": {"type": "array", "items": {"type": "double"}, "required": True},
+            },
+            "name": "inner",
+            "required": True,
+        }
+    ]
+
+
 def test_convert_dataclass_to_schema_invalid():
     # Invalid dataclass with Union
     @dataclass
