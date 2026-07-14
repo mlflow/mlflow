@@ -61,8 +61,6 @@ from mlflow.entities import (
     MCPAccessBinding,
     MCPRemoteTransportType,
     MCPServer,
-    MCPServerAlias,
-    MCPServerTag,
     MCPServerVersion,
     MCPStatus,
     MCPTool,
@@ -4083,9 +4081,6 @@ class SqlMCPServerTag(Base):
     def __repr__(self):
         return f"<SqlMCPServerTag ({self.name}, {self.key}={self.value})>"
 
-    def to_mlflow_entity(self):
-        return MCPServerTag(key=self.key, value=self.value)
-
 
 class SqlMCPServerVersionTag(Base):
     __tablename__ = "mcp_server_version_tags"
@@ -4127,9 +4122,6 @@ class SqlMCPServerVersionTag(Base):
     def __repr__(self):
         return f"<SqlMCPServerVersionTag ({self.name}, {self.version}, {self.key}={self.value})>"
 
-    def to_mlflow_entity(self):
-        return MCPServerTag(key=self.key, value=self.value)
-
 
 class SqlMCPServerAlias(Base):
     __tablename__ = "mcp_server_aliases"
@@ -4167,9 +4159,6 @@ class SqlMCPServerAlias(Base):
 
     def __repr__(self):
         return f"<SqlMCPServerAlias ({self.name}, {self.alias} -> {self.version})>"
-
-    def to_mlflow_entity(self):
-        return MCPServerAlias(name=self.name, alias=self.alias, version=self.version)
 
 
 class SqlMCPAccessBinding(Base):

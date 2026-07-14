@@ -349,3 +349,29 @@ def test_compare_semver_matches_reference_comparator_for_generated_corpus():
     compare_semver_sorted = sorted(versions, key=cmp_to_key(compare_semver))
 
     assert compare_semver_sorted == reference_sorted
+
+
+@pytest.mark.parametrize(
+    ("left", "right"),
+    [
+        ("1.0.0-alpha", "1.0.0-alpha.1"),
+        ("1.0.0-alpha.1", "1.0.0-alpha.beta"),
+        ("1.0.0-alpha.beta", "1.0.0-beta"),
+        ("1.0.0-beta", "1.0.0-beta.2"),
+        ("1.0.0-beta.2", "1.0.0-beta.11"),
+        ("1.0.0-beta.11", "1.0.0-rc.1"),
+        ("1.0.0-1", "1.0.0-alpha"),
+        ("1.0.0-rc.1", "1.0.0"),
+        ("1.2.3", "2.0.0"),
+    ],
+)
+def test_compare_semver_pairwise_spot_checks(left, right):
+    left_semver = parse_semver(left)
+    right_semver = parse_semver(right)
+
+    assert compare_semver(left_semver, right_semver) == _compare_semver_precedence(
+        left_semver, right_semver
+    )
+    assert compare_semver(right_semver, left_semver) == _compare_semver_precedence(
+        right_semver, left_semver
+    )

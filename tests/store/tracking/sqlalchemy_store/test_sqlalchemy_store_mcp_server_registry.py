@@ -36,6 +36,24 @@ def _setup_server(store, name, versions=("1.0.0",), aliases=None):
         store.set_mcp_server_alias(name, alias, ver)
 
 
+def _create_version(
+    store,
+    name="io.github.test/servererver",
+    version="1.0.0",
+    description=None,
+    status=MCPStatus.DRAFT,
+    **extra,
+):
+    initial_status = MCPStatus.ACTIVE if status == MCPStatus.DEPRECATED else status
+    created = store.create_mcp_server_version(
+        _server_json(name, version, description=description, **extra),
+        status=initial_status,
+    )
+    if status == MCPStatus.DEPRECATED:
+        return store.update_mcp_server_version(name, version, status=MCPStatus.DEPRECATED)
+    return created
+
+
 # --- MCPServer CRUD ---
 
 
@@ -115,6 +133,14 @@ def test_create_mcp_server_rejects_risky_icons(store):
         store.create_mcp_server(
             "io.github.test/risky-icons",
             icons=[{"src": "https://127.0.0.1/icon.png"}],
+        )
+
+
+def test_create_mcp_server_rejects_too_many_icons(store):
+    with pytest.raises(MlflowException, match="at most 100 items"):
+        store.create_mcp_server(
+            "io.github.test/too-many-icons",
+            icons=[{"src": f"https://example.com/icon-{i}.png"} for i in range(101)],
         )
 
 
@@ -222,6 +248,15 @@ def test_update_mcp_server_rejects_risky_icons(store):
         )
 
 
+def test_update_mcp_server_rejects_too_many_icons(store):
+    store.create_mcp_server("io.github.test/update-too-many-icons")
+    with pytest.raises(MlflowException, match="at most 100 items"):
+        store.update_mcp_server(
+            "io.github.test/update-too-many-icons",
+            icons=[{"src": f"https://example.com/icon-{i}.png"} for i in range(101)],
+        )
+
+
 def test_update_mcp_server_display_name(store):
     store.create_mcp_server("io.github.test/servererver")
     updated = store.update_mcp_server("io.github.test/servererver", display_name="My Server")
@@ -262,6 +297,18 @@ def test_create_mcp_server_version_rejects_semver_component_exceeding_db_integer
         )
 
 
+@pytest.mark.parametrize("status", [MCPStatus.DEPRECATED, MCPStatus.DELETED])
+def test_create_mcp_server_version_rejects_non_initial_statuses(store, status):
+    with pytest.raises(
+        MlflowException,
+        match="Initial MCP server registration status must be 'draft' or 'active'",
+    ):
+        store.create_mcp_server_version(
+            _server_json(f"io.github.test/non-initial-{status.value}", "1.0.0"),
+            status=status,
+        )
+
+
 def test_get_mcp_server_latest_version_uses_highest_active_semver(store):
     store.create_mcp_server_version(
         _server_json("io.github.test/servererver", "1.2.0"), status=MCPStatus.ACTIVE
@@ -279,9 +326,7 @@ def test_resolved_parent_query_prefers_active_over_higher_deprecated_version(sto
     store.create_mcp_server_version(
         _server_json("io.github.test/servererver", "1.0.0"), status=MCPStatus.ACTIVE
     )
-    store.create_mcp_server_version(
-        _server_json("io.github.test/servererver", "2.0.0"), status=MCPStatus.DEPRECATED
-    )
+    _create_version(store, "io.github.test/servererver", "2.0.0", status=MCPStatus.DEPRECATED)
 
     with store.ManagedSessionMaker() as session:
         query = store._get_query(session, SqlMCPServer).filter(
@@ -295,9 +340,7 @@ def test_resolved_parent_query_prefers_active_over_higher_deprecated_version(sto
 def test_resolved_parent_query_fallback_uses_highest_semver_without_active(store):
     from mlflow.store.tracking.dbmodels.models import SqlMCPServer
 
-    store.create_mcp_server_version(
-        _server_json("io.github.test/servererver", "1.0.0"), status=MCPStatus.DEPRECATED
-    )
+    _create_version(store, "io.github.test/servererver", "1.0.0", status=MCPStatus.DEPRECATED)
     store.create_mcp_server_version(
         _server_json("io.github.test/servererver", "2.0.0"), status=MCPStatus.DRAFT
     )
@@ -323,9 +366,7 @@ def test_get_mcp_server_resolved_status(store):
 
 
 def test_get_mcp_server_resolved_status_fallback(store):
-    store.create_mcp_server_version(
-        _server_json("io.github.test/server", "2.0.0"), status=MCPStatus.DEPRECATED
-    )
+    _create_version(store, "io.github.test/server", "2.0.0", status=MCPStatus.DEPRECATED)
     server = store.get_mcp_server("io.github.test/server")
     assert server.status == MCPStatus.DEPRECATED
     assert server.latest_version == "2.0.0"
@@ -336,8 +377,11 @@ def test_get_mcp_server_description_falls_back_to_highest_active_semver(store):
         _server_json("io.github.test/server", "1.0.0", description="active description"),
         status=MCPStatus.ACTIVE,
     )
-    store.create_mcp_server_version(
-        _server_json("io.github.test/server", "2.0.0", description="deprecated description"),
+    _create_version(
+        store,
+        "io.github.test/server",
+        "2.0.0",
+        description="deprecated description",
         status=MCPStatus.DEPRECATED,
     )
     server = store.get_mcp_server("io.github.test/server")
@@ -345,8 +389,11 @@ def test_get_mcp_server_description_falls_back_to_highest_active_semver(store):
 
 
 def test_get_mcp_server_description_falls_back_to_highest_non_deleted_version(store):
-    store.create_mcp_server_version(
-        _server_json("io.github.test/server", "2.0.0", description="deprecated description"),
+    _create_version(
+        store,
+        "io.github.test/server",
+        "2.0.0",
+        description="deprecated description",
         status=MCPStatus.DEPRECATED,
     )
     server = store.get_mcp_server("io.github.test/server")
@@ -562,6 +609,14 @@ def test_create_mcp_server_version_rejects_risky_tool_icons(store):
         store.create_mcp_server_version(
             _server_json(),
             tools=[MCPTool(name="search", icons=[{"src": "https://127.0.0.1/icon.png"}])],
+        )
+
+
+def test_create_mcp_server_version_rejects_too_many_tools(store):
+    with pytest.raises(MlflowException, match="at most 1000 items"):
+        store.create_mcp_server_version(
+            _server_json("io.github.test/too-many-tools", "1.0.0"),
+            tools=[MCPTool(name=f"tool-{i}") for i in range(1001)],
         )
 
 
@@ -846,9 +901,7 @@ def test_update_mcp_server_version_to_draft_recomputes_latest_version(store):
 
 
 def test_latest_resolution_falls_back_to_highest_non_active_semver(store):
-    store.create_mcp_server_version(
-        _server_json("io.github.test/server", "1.2.0"), status=MCPStatus.DEPRECATED
-    )
+    _create_version(store, "io.github.test/server", "1.2.0", status=MCPStatus.DEPRECATED)
     store.create_mcp_server_version(
         _server_json("io.github.test/server", "1.3.0"), status=MCPStatus.DRAFT
     )
@@ -893,6 +946,16 @@ def test_update_mcp_server_version_rejects_risky_tool_icons(store):
             "io.github.test/servererver",
             "1.0.0",
             tools=[MCPTool(name="search", icons=[{"src": "https://127.0.0.1/icon.png"}])],
+        )
+
+
+def test_update_mcp_server_version_rejects_too_many_tools(store):
+    store.create_mcp_server_version(_server_json())
+    with pytest.raises(MlflowException, match="at most 1000 items"):
+        store.update_mcp_server_version(
+            "io.github.test/servererver",
+            "1.0.0",
+            tools=[MCPTool(name=f"tool-{i}") for i in range(1001)],
         )
 
 
@@ -947,9 +1010,7 @@ def test_delete_mcp_server_version_clears_latest_pin(store):
     store.create_mcp_server_version(
         _server_json("io.github.test/server", "1.0.0"), status=MCPStatus.ACTIVE
     )
-    store.create_mcp_server_version(
-        _server_json("io.github.test/server", "2.0.0"), status=MCPStatus.DEPRECATED
-    )
+    _create_version(store, "io.github.test/server", "2.0.0", status=MCPStatus.DEPRECATED)
     store.delete_mcp_server_version("io.github.test/server", "2.0.0")
     server = store.get_mcp_server("io.github.test/server")
     assert server.latest_version == "1.0.0"
@@ -1280,7 +1341,7 @@ def test_aliases_appear_on_server(store):
     ],
 )
 def test_valid_status_transitions(store, from_status, to_status):
-    store.create_mcp_server_version(_server_json(), status=from_status)
+    _create_version(store, status=from_status)
     updated = store.update_mcp_server_version(
         "io.github.test/servererver", "1.0.0", status=to_status
     )
@@ -1385,9 +1446,7 @@ def test_search_mcp_servers_filter_by_status_uses_resolved_latest(store):
     store.create_mcp_server_version(
         _server_json("io.github.test/server1", "1.0.0"), status=MCPStatus.ACTIVE
     )
-    store.create_mcp_server_version(
-        _server_json("io.github.test/server1", "2.0.0"), status=MCPStatus.DEPRECATED
-    )
+    _create_version(store, "io.github.test/server1", "2.0.0", status=MCPStatus.DEPRECATED)
     store.create_mcp_server_version(
         _server_json("io.github.test/server2", "1.0.0"), status=MCPStatus.ACTIVE
     )
@@ -1400,9 +1459,7 @@ def test_search_mcp_servers_filter_by_status_with_active_version(store):
     store.create_mcp_server_version(
         _server_json("io.github.test/server", "1.0.0"), status=MCPStatus.ACTIVE
     )
-    store.create_mcp_server_version(
-        _server_json("io.github.test/server", "2.0.0"), status=MCPStatus.DEPRECATED
-    )
+    _create_version(store, "io.github.test/server", "2.0.0", status=MCPStatus.DEPRECATED)
     result = store.search_mcp_servers(filter_string="status = 'active'")
     assert len(result) == 1
     assert result[0].name == "io.github.test/server"
@@ -1466,9 +1523,7 @@ def test_search_mcp_servers_filter_by_status_in(store):
     store.create_mcp_server_version(
         _server_json("io.github.test/server2", "1.0.0"), status=MCPStatus.DRAFT
     )
-    store.create_mcp_server_version(
-        _server_json("io.github.test/server3", "1.0.0"), status=MCPStatus.DEPRECATED
-    )
+    _create_version(store, "io.github.test/server3", "1.0.0", status=MCPStatus.DEPRECATED)
     result = store.search_mcp_servers(filter_string="status IN ('active', 'deprecated')")
     assert len(result) == 2
     names = {s.name for s in result}
@@ -1482,9 +1537,7 @@ def test_search_mcp_server_versions_filter_by_status_in(store):
     store.create_mcp_server_version(
         _server_json("io.github.test/server", "2.0.0"), status=MCPStatus.DRAFT
     )
-    store.create_mcp_server_version(
-        _server_json("io.github.test/server", "3.0.0"), status=MCPStatus.DEPRECATED
-    )
+    _create_version(store, "io.github.test/server", "3.0.0", status=MCPStatus.DEPRECATED)
     result = store.search_mcp_server_versions(
         "io.github.test/server", filter_string="status IN ('active', 'deprecated')"
     )
@@ -1930,17 +1983,13 @@ def test_search_mcp_access_bindings_with_latest_alias(store):
 
 
 def test_get_latest_version_without_active_version_falls_back_to_non_active(store):
-    store.create_mcp_server_version(
-        _server_json("io.github.test/server", "1.0.0"), status=MCPStatus.DEPRECATED
-    )
+    _create_version(store, "io.github.test/server", "1.0.0", status=MCPStatus.DEPRECATED)
     latest = store.get_latest_mcp_server_version("io.github.test/server")
     assert latest.version == "1.0.0"
 
 
 def test_create_binding_latest_alias_uses_non_active_fallback(store):
-    store.create_mcp_server_version(
-        _server_json("io.github.test/server", "1.0.0"), status=MCPStatus.DEPRECATED
-    )
+    _create_version(store, "io.github.test/server", "1.0.0", status=MCPStatus.DEPRECATED)
     binding = store.create_mcp_access_binding(
         "io.github.test/server",
         "https://latest.example.com",

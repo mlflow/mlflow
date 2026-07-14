@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import json
 import re
@@ -28,6 +29,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
+    RESOURCE_DOES_NOT_EXIST,
     UNAUTHENTICATED,
     ErrorCode,
 )
@@ -4713,6 +4715,41 @@ def test_implicit_parent_create_grants_manage_despite_wildcard(fastapi_client, m
     )
     assert resp.status_code == 200
     assert resp.json()["permission"] == "MANAGE"
+
+
+@pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])
+def test_version_create_validator_stores_live_update_recheck(monkeypatch, prefix):
+    validator = _find_fastapi_validator(f"{prefix}/com.test/race-server/versions")
+    assert validator is not None
+
+    class _Store:
+        exists = False
+
+        def get_mcp_server(self, name):
+            if self.exists:
+                return SimpleNamespace(name=name)
+            raise MlflowException("not found", error_code=RESOURCE_DOES_NOT_EXIST)
+
+    store = _Store()
+    permission_helper = mock.Mock(
+        side_effect=lambda name, username: SimpleNamespace(
+            can_read=False,
+            can_update=store.exists,
+            can_delete=False,
+        )
+    )
+    monkeypatch.setattr(auth_module, "_get_tracking_store", lambda: store)
+    monkeypatch.setattr(auth_module, "_get_mcp_server_permission", permission_helper)
+    monkeypatch.setattr(auth_module, "validate_can_create_mcp_server", lambda username: True)
+
+    request = SimpleNamespace(method="POST", state=SimpleNamespace())
+    assert asyncio.run(validator("alice", request)) is True
+    assert request.state.mcp_server_parent_auto_created is True
+    assert permission_helper.call_count == 0
+
+    store.exists = True
+    assert request.state.mcp_server_can_update_existing_recheck() is True
+    permission_helper.assert_called_once_with("com.test/race-server", "alice")
 
 
 @pytest.mark.parametrize("prefix", [_MCP_AJAX_PREFIX, _MCP_REST_PREFIX])

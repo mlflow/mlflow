@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest import mock
 from urllib.parse import quote
@@ -9,8 +10,14 @@ import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import PERMISSION_DENIED, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.server.fastapi_app import add_mcp_exception_handlers
-from mlflow.server.mcp_server_api import get_mcp_server_api_route_prefixes, mcp_server_router
+from mlflow.server.mcp_server_api import (
+    _ensure_version_create_parent_access,
+    get_mcp_server_api_route_prefixes,
+    mcp_server_router,
+)
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 PREFIX = "/ajax-api/3.0/mlflow/mcp-servers"
@@ -24,6 +31,25 @@ def _server_json(name: str, version: str, **extra) -> dict[str, Any]:
 
 def _encode_path_param(value: str) -> str:
     return quote(value, safe="")
+
+
+def _create_version(client, name: str, version: str, status: str = "draft", **server_json_extra):
+    initial_status = "active" if status == "deprecated" else status
+    response = client.post(
+        f"{PREFIX}/{_encode_path_param(name)}/versions",
+        json={
+            "server_json": _server_json(name, version, **server_json_extra),
+            "status": initial_status,
+        },
+    )
+    assert response.status_code == 200, response.text
+    if status == "deprecated":
+        response = client.patch(
+            f"{PREFIX}/{_encode_path_param(name)}/versions/{version}",
+            json={"status": "deprecated"},
+        )
+        assert response.status_code == 200, response.text
+    return response
 
 
 def _create_registry_fastapi_app(route_prefixes=None):
@@ -429,6 +455,59 @@ def test_create_version(client):
     assert data["status"] == "active"
     assert data["server_json"]["title"] == "Test"
     assert data["tools"] == []
+
+
+@pytest.mark.parametrize("status", ["deprecated", "deleted"])
+def test_create_version_rejects_non_initial_statuses(client, status):
+    sj = _server_json(f"com.example/{status}-create", "1.0.0")
+    r = client.post(
+        f"{PREFIX}/{_encode_path_param(f'com.example/{status}-create')}" + "/versions",
+        json={"server_json": sj, "status": status},
+    )
+    assert r.status_code == 400
+    assert "Initial MCP server registration status must be 'draft' or 'active'" in r.text
+
+
+def test_ensure_version_create_parent_access_rejects_raced_existing_parent_without_update():
+    can_update_existing = mock.Mock(return_value=False)
+    request = SimpleNamespace(
+        state=SimpleNamespace(
+            mcp_server_parent_auto_created=True,
+            mcp_server_can_update_existing_recheck=can_update_existing,
+        )
+    )
+    store = mock.Mock()
+    store.create_mcp_server.side_effect = MlflowException(
+        "server exists",
+        error_code=RESOURCE_ALREADY_EXISTS,
+    )
+
+    with pytest.raises(MlflowException, match="Permission denied") as exc:
+        _ensure_version_create_parent_access(store, "com.example/race", "alice", request)
+
+    assert exc.value.error_code == ErrorCode.Name(PERMISSION_DENIED)
+    assert request.state.mcp_server_parent_auto_created is False
+    can_update_existing.assert_called_once_with()
+
+
+def test_ensure_version_create_parent_access_allows_raced_existing_parent_with_update():
+    can_update_existing = mock.Mock(return_value=True)
+    request = SimpleNamespace(
+        state=SimpleNamespace(
+            mcp_server_parent_auto_created=True,
+            mcp_server_can_update_existing_recheck=can_update_existing,
+        )
+    )
+    store = mock.Mock()
+    store.create_mcp_server.side_effect = MlflowException(
+        "server exists",
+        error_code=RESOURCE_ALREADY_EXISTS,
+    )
+
+    _ensure_version_create_parent_access(store, "com.example/race", "alice", request)
+
+    assert request.state.mcp_server_parent_auto_created is False
+    can_update_existing.assert_called_once_with()
 
 
 def test_create_version_name_mismatch(client):
@@ -988,27 +1067,19 @@ def test_server_response_recomputes_status_and_latest_after_transitions(client):
 
 
 def test_server_response_description_falls_back_to_parent_resolved_version(client):
-    client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/description-fallback')}" + "/versions",
-        json={
-            "server_json": _server_json(
-                "com.example/description-fallback",
-                "1.0.0",
-                description="active description",
-            ),
-            "status": "active",
-        },
+    _create_version(
+        client,
+        "com.example/description-fallback",
+        "1.0.0",
+        status="active",
+        description="active description",
     )
-    client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/description-fallback')}" + "/versions",
-        json={
-            "server_json": _server_json(
-                "com.example/description-fallback",
-                "2.0.0",
-                description="deprecated description",
-            ),
-            "status": "deprecated",
-        },
+    _create_version(
+        client,
+        "com.example/description-fallback",
+        "2.0.0",
+        status="deprecated",
+        description="deprecated description",
     )
 
     server = client.get(f"{PREFIX}/{_encode_path_param('com.example/description-fallback')}").json()
@@ -1029,20 +1100,8 @@ def test_server_response_description_falls_back_to_parent_resolved_version(clien
 
 
 def test_latest_alias_falls_back_to_non_active_version(client):
-    client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/latest-fallback')}" + "/versions",
-        json={
-            "server_json": _server_json("com.example/latest-fallback", "1.2.0"),
-            "status": "deprecated",
-        },
-    )
-    client.post(
-        f"{PREFIX}/{_encode_path_param('com.example/latest-fallback')}" + "/versions",
-        json={
-            "server_json": _server_json("com.example/latest-fallback", "1.3.0"),
-            "status": "draft",
-        },
-    )
+    _create_version(client, "com.example/latest-fallback", "1.2.0", status="deprecated")
+    _create_version(client, "com.example/latest-fallback", "1.3.0", status="draft")
 
     alias_r = client.get(
         f"{PREFIX}/{_encode_path_param('com.example/latest-fallback')}" + "/aliases/latest"

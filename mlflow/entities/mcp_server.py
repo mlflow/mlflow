@@ -129,13 +129,6 @@ class MCPTool:
 
 
 @experimental(version="3.15.0")
-@dataclass(frozen=True)
-class MCPServerTag:
-    key: str
-    value: str
-
-
-@experimental(version="3.15.0")
 @dataclass
 class MCPServer:
     name: str
@@ -155,3 +148,47 @@ class MCPServer:
 
     def __post_init__(self):
         self.workspace = resolve_entity_workspace_name(self.workspace)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MCPServer:
+        if not isinstance(data, dict):
+            raise MlflowException.invalid_parameter_value(
+                "Failed to parse MCP server response: expected a dictionary"
+            )
+
+        try:
+            from mlflow.entities.mcp_access_binding import MCPAccessBinding
+
+            aliases = data.get("aliases", [])
+            if isinstance(aliases, dict):
+                parsed_aliases = aliases
+            else:
+                parsed_aliases = {a["alias"]: a["version"] for a in aliases}
+
+            return cls(
+                name=data["name"],
+                display_name=data.get("display_name"),
+                description=data.get("description"),
+                icons=data.get("icons"),
+                workspace=data.get("workspace"),
+                status=MCPStatus(data["status"]) if data.get("status") else None,
+                tags=data.get("tags") or {},
+                aliases=parsed_aliases,
+                access_bindings=[
+                    MCPAccessBinding.from_dict(binding)
+                    for binding in data.get("access_bindings", [])
+                ],
+                latest_version=data.get("latest_version"),
+                created_by=data.get("created_by"),
+                last_updated_by=data.get("last_updated_by"),
+                creation_timestamp=data.get("creation_timestamp"),
+                last_updated_timestamp=data.get("last_updated_timestamp"),
+            )
+        except KeyError as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to parse MCP server response: missing required field {e}"
+            ) from None
+        except (ValueError, TypeError) as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to parse MCP server response: {e}"
+            ) from None

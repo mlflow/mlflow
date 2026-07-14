@@ -265,6 +265,18 @@ def test_create_version_with_tools(rest_client):
     assert ver.tools[0].name == "search"
 
 
+@pytest.mark.parametrize("status", [MCPStatus.DEPRECATED, MCPStatus.DELETED])
+def test_create_version_rejects_non_initial_statuses(rest_client, status):
+    with pytest.raises(
+        MlflowException,
+        match="Initial MCP server registration status must be 'draft' or 'active'",
+    ):
+        rest_client.create_mcp_server_version(
+            _server_json(f"io.github.test/rest-status-{status.value}", "1.0.0"),
+            status=status,
+        )
+
+
 def test_create_version_accepts_remote_with_null_type(rest_client):
     ver = rest_client.create_mcp_server_version(
         _server_json(

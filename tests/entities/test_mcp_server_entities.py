@@ -5,11 +5,9 @@ from mlflow.entities.mcp_server import (
     VALID_STATUS_TRANSITIONS,
     MCPRemoteTransportType,
     MCPServer,
-    MCPServerTag,
     MCPStatus,
     MCPTool,
 )
-from mlflow.entities.mcp_server_alias import MCPServerAlias
 from mlflow.entities.mcp_server_version import MCPServerVersion
 from mlflow.exceptions import MlflowException
 
@@ -82,6 +80,26 @@ def test_mcp_server_workspace_resolution():
     assert server2.workspace == "custom"
 
 
+def test_mcp_server_from_dict():
+    server = MCPServer.from_dict({
+        "name": "test/server",
+        "status": "active",
+        "tags": {"team": "platform"},
+        "aliases": [{"alias": "prod", "version": "1.0.0"}],
+        "access_bindings": [
+            {
+                "binding_id": 1,
+                "server_name": "test/server",
+                "endpoint_url": "https://example.com/mcp",
+            }
+        ],
+    })
+    assert server.status == MCPStatus.ACTIVE
+    assert server.tags == {"team": "platform"}
+    assert server.aliases == {"prod": "1.0.0"}
+    assert server.access_bindings[0].binding_id == 1
+
+
 def test_mcp_server_version_workspace_resolution():
     version = MCPServerVersion(
         name="test/server",
@@ -89,6 +107,18 @@ def test_mcp_server_version_workspace_resolution():
         server_json={"name": "test/server", "version": "1.0.0"},
     )
     assert version.workspace == "default"
+
+
+def test_mcp_server_version_from_dict():
+    version = MCPServerVersion.from_dict({
+        "name": "test/server",
+        "version": "1.0.0",
+        "server_json": {"name": "test/server", "version": "1.0.0"},
+        "status": "active",
+        "tools": [{"name": "search"}],
+    })
+    assert version.status == MCPStatus.ACTIVE
+    assert version.tools[0].name == "search"
 
 
 def test_mcp_access_binding_workspace_resolution():
@@ -100,9 +130,24 @@ def test_mcp_access_binding_workspace_resolution():
     assert binding.workspace == "default"
 
 
+def test_mcp_access_binding_from_dict():
+    binding = MCPAccessBinding.from_dict({
+        "binding_id": 1,
+        "server_name": "test/server",
+        "endpoint_url": "https://example.com/mcp",
+        "resolved_version": {
+            "name": "test/server",
+            "version": "1.0.0",
+            "server_json": {"name": "test/server", "version": "1.0.0"},
+        },
+    })
+    assert binding.transport_type == MCPRemoteTransportType.STREAMABLE_HTTP
+    assert binding.resolved_version.version == "1.0.0"
+
+
 @pytest.mark.parametrize(
     "cls",
-    [MCPAccessBinding, MCPServer, MCPServerAlias, MCPServerTag, MCPServerVersion, MCPTool],
+    [MCPAccessBinding, MCPServer, MCPServerVersion, MCPTool],
 )
 def test_mcp_entities_are_marked_experimental(cls):
     assert cls.__doc__ is not None
