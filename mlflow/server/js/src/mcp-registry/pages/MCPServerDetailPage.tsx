@@ -279,7 +279,7 @@ const MCPServerDetailPage = () => {
         }
       />
       {server.display_name && (
-        <Typography.Text color="secondary" css={{ marginTop: -theme.spacing.sm }}>
+        <Typography.Text color="secondary" css={{ marginTop: theme.spacing.xs }}>
           {server.name}
         </Typography.Text>
       )}
