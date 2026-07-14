@@ -3032,6 +3032,70 @@ Response Structure
 
 
 
+.. _mlflowMlflowServicecreatePresignedDownloadUrl:
+
+Create Presigned Download URL
+=============================
+
+
++-------------------------------------------------+-------------+
+|                    Endpoint                     | HTTP Method |
++=================================================+=============+
+| ``2.0/mlflow/artifacts/presigned-download-url`` | ``POST``    |
++-------------------------------------------------+-------------+
+
+Generate a presigned URL for downloading an artifact directly from cloud storage.
+The server uses its own credentials to sign the URL, enabling clients (including the
+MLflow UI) to download artifacts without needing direct cloud storage read permissions
+and without streaming bytes through the tracking server.
+
+
+
+
+.. _mlflowCreatePresignedDownloadUrl:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+------------------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                          Description                                           |
++============+============+================================================================================================+
+| run_id     | ``STRING`` | Run ID that owns the artifact. Must be provided.                                               |
++------------+------------+------------------------------------------------------------------------------------------------+
+| path       | ``STRING`` | Relative path within the run's artifact directory (e.g. "models/model.pkl"). Must be provided. |
++------------+------------+------------------------------------------------------------------------------------------------+
+| expiration | ``INT64``  | URL expiration time in seconds (default: 300).                                                 |
++------------+------------+------------------------------------------------------------------------------------------------+
+
+.. _mlflowCreatePresignedDownloadUrlResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++---------------+-------------------------------------------------------------------------+------------------------------------------------------------------------+
+|  Field Name   |                                  Type                                   |                              Description                               |
++===============+=========================================================================+========================================================================+
+| presigned_url | ``STRING``                                                              | Presigned URL for direct artifact download.                            |
++---------------+-------------------------------------------------------------------------+------------------------------------------------------------------------+
+| headers       | An array of :ref:`mlflowcreatepresigneddownloadurlresponseheadersentry` | Optional headers for the download request (empty for standard S3 GET). |
++---------------+-------------------------------------------------------------------------+------------------------------------------------------------------------+
+| file_size     | ``INT64``                                                               | Size of the artifact in bytes, when available.                         |
++---------------+-------------------------------------------------------------------------+------------------------------------------------------------------------+
+
+===========================
+
+
+
 .. _mlflowMlflowServicecreateBudgetPolicy:
 
 Create Budget Policy
@@ -6933,6 +6997,24 @@ Retrieve workspace metadata.
 +----------------+------------+---------------------------------------------------------+
 
 .. _mlflowCreatePresignedUploadUrlResponseHeadersEntry:
+
+HeadersEntry
+------------
+
+
+
+
+
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| key        | ``STRING`` |             |
++------------+------------+-------------+
+| value      | ``STRING`` |             |
++------------+------------+-------------+
+
+.. _mlflowCreatePresignedDownloadUrlResponseHeadersEntry:
 
 HeadersEntry
 ------------

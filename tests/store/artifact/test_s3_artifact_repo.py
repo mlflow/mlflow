@@ -2,6 +2,7 @@ import json
 import os
 import posixpath
 import tarfile
+import urllib.parse
 from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import ANY
@@ -1011,3 +1012,56 @@ def test_get_download_presigned_url_returns_file_size(s3_artifact_root, tmp_path
 
     # Verify file size matches
     assert presigned_response.file_size == len(file_content)
+
+
+def test_get_download_presigned_url_with_bucket_owner_signs_query(
+    s3_artifact_root, tmp_path, monkeypatch
+):
+    # When an expected bucket owner is configured, botocore would normally serialize it as a
+    # required `x-amz-expected-bucket-owner` request header and sign it, leaving the owner value
+    # out of the URL. A top-level browser navigation cannot attach that header, so the URL would
+    # be unusable. The `before-sign.s3.GetObject` hook moves the owner into the signed query
+    # instead. This test verifies the resulting URL shape.
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+
+    file_name = "owner_test.txt"
+    file_path = tmp_path / file_name
+    file_text = "owner-scoped download"
+    file_path.write_text(file_text)
+    repo.log_artifact(file_path)
+
+    presigned_response = repo.get_download_presigned_url(file_name)
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(presigned_response.url).query)
+
+    # The owner is carried in the SigV4-signed query, not a header the browser cannot send.
+    assert query.get("x-amz-expected-bucket-owner") == ["123456789012"]
+    # `host` is the only signed header, so a plain browser navigation matches the signature.
+    assert query.get("X-Amz-SignedHeaders") == ["host"]
+    # The response carries no headers for the client to attach.
+    assert presigned_response.headers == {}
+
+    # The URL remains usable end to end.
+    response = requests.get(presigned_response.url)
+    assert response.status_code == 200
+    assert response.text == file_text
+
+
+def test_get_download_presigned_url_head_object_pins_owner(s3_artifact_root, monkeypatch):
+    # The owner-hoisting hook must not weaken the existing owner check: the metadata lookup must
+    # still send `ExpectedBucketOwner` to `head_object`, and the presign call must still pass it.
+    monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
+    repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, "some/path"))
+
+    mock_s3 = mock.Mock()
+    mock_s3.head_object.return_value = {"ContentLength": 42}
+    mock_s3.generate_presigned_url.return_value = "https://example.com/presigned"
+
+    with mock.patch.object(repo, "_get_s3_client", return_value=mock_s3):
+        repo.get_download_presigned_url("model.pkl")
+
+    head_kwargs = mock_s3.head_object.call_args[1]
+    assert head_kwargs["ExpectedBucketOwner"] == "123456789012"
+
+    presign_params = mock_s3.generate_presigned_url.call_args[1]["Params"]
+    assert presign_params["ExpectedBucketOwner"] == "123456789012"

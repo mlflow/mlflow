@@ -82,6 +82,25 @@ def _get_utcnow_timestamp():
     return datetime.now(timezone.utc).timestamp()
 
 
+def _hoist_expected_bucket_owner(request, **kwargs):
+    """Make ``ExpectedBucketOwner`` usable from a top-level browser navigation.
+
+    For a presigned GET, botocore serializes ``ExpectedBucketOwner`` as the
+    ``x-amz-expected-bucket-owner`` request header and signs it, leaving the owner value out
+    of the URL (``X-Amz-SignedHeaders=host;x-amz-expected-bucket-owner``). A browser
+    navigating directly to the URL cannot attach that header, so S3 rejects it with
+    ``SignatureDoesNotMatch``. Moving the value into the signed query before signing keeps the
+    owner enforced (it is covered by the SigV4 signature and cannot be tampered with) while the
+    browser needs no custom header (``X-Amz-SignedHeaders=host``). Presign-only, so regular S3
+    calls are unaffected.
+    """
+    if not request.context.get("is_presign_request"):
+        return
+    if owner := request.headers.get("x-amz-expected-bucket-owner"):
+        del request.headers["x-amz-expected-bucket-owner"]
+        request.params["x-amz-expected-bucket-owner"] = owner
+
+
 @lru_cache(maxsize=64)
 def _cached_get_s3_client(
     signature_version,
@@ -117,7 +136,7 @@ def _cached_get_s3_client(
 
         signature_version = UNSIGNED
 
-    return boto3.client(
+    s3_client = boto3.client(
         "s3",
         config=Config(
             signature_version=signature_version, s3={"addressing_style": addressing_style}
@@ -129,6 +148,14 @@ def _cached_get_s3_client(
         aws_session_token=session_token,
         region_name=region_name,
     )
+    # Move a signed ``ExpectedBucketOwner`` from a request header into the presigned query so
+    # presigned GET URLs are usable from a top-level browser navigation. See
+    # _hoist_expected_bucket_owner for details.
+    s3_client.meta.events.register(
+        "before-sign.s3.GetObject",
+        _hoist_expected_bucket_owner,
+    )
+    return s3_client
 
 
 def _get_s3_client(
