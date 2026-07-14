@@ -206,8 +206,9 @@ export const ExperimentListView = () => {
                 type={tagsFilter.length > 0 ? 'primary' : undefined}
               >
                 <FormattedMessage
-                  defaultMessage="Tag"
-                  description="Button to open the tags filter popover in the experiments page"
+                  defaultMessage="Tag{count, plural, =0 {} other { · #}}"
+                  description="Button to open the tags filter popover in the experiments page. Shows an interpunct (·) followed by the count of active tag filters when any are applied."
+                  values={{ count: tagsFilter.length }}
                 />
               </Button>
             </Popover.Trigger>
@@ -219,7 +220,7 @@ export const ExperimentListView = () => {
         <ExperimentListTable
           experiments={experiments}
           isLoading={isLoading}
-          isFiltered={Boolean(searchFilter)}
+          isFiltered={Boolean(searchFilter) || tagsFilter.length > 0}
           rowSelection={rowSelection}
           setRowSelection={setRowSelection}
           cursorPaginationProps={{

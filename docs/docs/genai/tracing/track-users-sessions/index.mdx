@@ -69,7 +69,7 @@ To record user and session information within a function you control, use the <A
         mlflow.update_current_trace(session_id=session_id, user=user_id)
 
         # Your chat logic here
-        return generate_response(message)
+        return f"Echo: {message[-1]['content'] if message else ''}"
     ```
 
   </TabItem>

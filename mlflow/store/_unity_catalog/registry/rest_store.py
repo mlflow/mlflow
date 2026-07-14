@@ -372,6 +372,7 @@ class UcModelRegistryStore(BaseRestStore):
 
     def __init__(self, store_uri, tracking_uri):
         super().__init__(get_host_creds=functools.partial(get_databricks_host_creds, store_uri))
+        self.store_uri = store_uri
         self.tracking_uri = tracking_uri
         self.get_tracking_host_creds = functools.partial(get_databricks_host_creds, tracking_uri)
         try:
@@ -1073,7 +1074,9 @@ class UcModelRegistryStore(BaseRestStore):
             )
 
         if is_databricks_sdk_models_artifact_repository_enabled(self.get_host_creds()):
-            return DatabricksSDKModelsArtifactRepository(model_name, model_version.version)
+            return DatabricksSDKModelsArtifactRepository(
+                model_name, model_version.version, registry_uri=self.store_uri
+            )
 
         scoped_token = base_credential_refresh_def()
         if scoped_token.storage_mode == StorageMode.DEFAULT_STORAGE:

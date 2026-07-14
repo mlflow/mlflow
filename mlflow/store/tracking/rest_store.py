@@ -66,6 +66,19 @@ from mlflow.protos.label_schemas_pb2 import (
     ListLabelSchemas,
     UpdateLabelSchema,
 )
+from mlflow.protos.review_queues_pb2 import (
+    AddItemsToReviewQueue,
+    CreateReviewQueue,
+    DeleteReviewQueue,
+    GetOrCreateUserQueue,
+    GetReviewQueue,
+    GetReviewQueueByName,
+    ListReviewQueueItems,
+    ListReviewQueues,
+    RemoveItemsFromReviewQueue,
+    SetReviewQueueItemStatus,
+    UpdateReviewQueue,
+)
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     BatchGetTraceInfos,
@@ -159,6 +172,7 @@ from mlflow.utils.rest_utils import (
     _V3_ISSUES_REST_API_PATH_PREFIX,
     _V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX,
     _V3_REST_API_PATH_PREFIX,
+    _V3_REVIEW_QUEUES_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
     call_endpoint,
@@ -1087,6 +1101,187 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             message_to_json(req),
             endpoint=f"{_V3_LABEL_SCHEMAS_REST_API_PATH_PREFIX}/delete",
         )
+
+    # ------------------------------------------------------------------
+    # Review queues. See mlflow/genai/review_queues/. Lazy entity imports
+    # avoid the mlflow.genai -> artifact-repo-registry -> RestStore cycle.
+    # ------------------------------------------------------------------
+
+    def create_review_queue(
+        self,
+        experiment_id,
+        *,
+        name,
+        queue_type,
+        created_by=None,
+        users=None,
+        schema_ids=None,
+    ):
+        from mlflow.genai.review_queues import ReviewQueue
+        from mlflow.genai.review_queues.validation import coerce_queue_type
+
+        req = CreateReviewQueue(
+            experiment_id=str(experiment_id),
+            name=name,
+            queue_type=coerce_queue_type(queue_type).to_proto(),
+            users=list(users) if users is not None else [],
+            schema_ids=list(schema_ids) if schema_ids is not None else [],
+        )
+        if created_by is not None:
+            req.created_by = created_by
+        response_proto = self._call_endpoint(
+            CreateReviewQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/create",
+        )
+        return ReviewQueue.from_proto(response_proto.review_queue)
+
+    def get_or_create_user_queue(self, experiment_id, *, user):
+        from mlflow.genai.review_queues import ReviewQueue
+
+        req = GetOrCreateUserQueue(experiment_id=str(experiment_id), user=user)
+        response_proto = self._call_endpoint(
+            GetOrCreateUserQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/get-or-create-user",
+        )
+        return ReviewQueue.from_proto(response_proto.review_queue)
+
+    def get_review_queue(self, queue_id):
+        from mlflow.genai.review_queues import ReviewQueue
+
+        req = GetReviewQueue(queue_id=queue_id)
+        response_proto = self._call_endpoint(
+            GetReviewQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/get",
+        )
+        return ReviewQueue.from_proto(response_proto.review_queue)
+
+    def get_review_queue_by_name(self, experiment_id, *, name):
+        from mlflow.genai.review_queues import ReviewQueue
+
+        req = GetReviewQueueByName(experiment_id=str(experiment_id), name=name)
+        response_proto = self._call_endpoint(
+            GetReviewQueueByName,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/get-by-name",
+        )
+        return ReviewQueue.from_proto(response_proto.review_queue)
+
+    def list_review_queues(
+        self, experiment_id, *, user=None, item_id=None, max_results=None, page_token=None
+    ):
+        from mlflow.genai.review_queues import ReviewQueue
+
+        req = ListReviewQueues(experiment_id=str(experiment_id))
+        if user is not None:
+            req.user = user
+        if item_id is not None:
+            req.item_id = item_id
+        if max_results is not None:
+            req.max_results = max_results
+        if page_token is not None:
+            req.page_token = page_token
+        response_proto = self._call_endpoint(
+            ListReviewQueues,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/list",
+        )
+        queues = [ReviewQueue.from_proto(q) for q in response_proto.review_queues]
+        return PagedList(queues, response_proto.next_page_token or None)
+
+    def update_review_queue(
+        self, queue_id, *, name=None, new_owner=None, users=None, schema_ids=None
+    ):
+        from mlflow.genai.review_queues import ReviewQueue
+
+        req = UpdateReviewQueue(queue_id=queue_id)
+        if name is not None:
+            req.name = name
+        if new_owner is not None:
+            req.new_owner = new_owner
+        if users is not None:
+            req.update_users = True
+            req.users.extend(users)
+        if schema_ids is not None:
+            req.update_schema_ids = True
+            req.schema_ids.extend(schema_ids)
+        response_proto = self._call_endpoint(
+            UpdateReviewQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/update",
+        )
+        return ReviewQueue.from_proto(response_proto.review_queue)
+
+    def delete_review_queue(self, queue_id):
+        req = DeleteReviewQueue(queue_id=queue_id)
+        self._call_endpoint(
+            DeleteReviewQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/delete",
+        )
+
+    def add_items_to_review_queue(self, queue_id, *, item_ids, item_type="trace"):
+        from mlflow.genai.review_queues import ReviewQueueItem
+        from mlflow.genai.review_queues.validation import coerce_item_type
+
+        req = AddItemsToReviewQueue(
+            queue_id=queue_id,
+            item_type=coerce_item_type(item_type).to_proto(),
+            item_ids=list(item_ids),
+        )
+        response_proto = self._call_endpoint(
+            AddItemsToReviewQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/items/add",
+        )
+        return [ReviewQueueItem.from_proto(i) for i in response_proto.items]
+
+    def remove_items_from_review_queue(self, queue_id, *, item_ids):
+        req = RemoveItemsFromReviewQueue(queue_id=queue_id, item_ids=list(item_ids))
+        self._call_endpoint(
+            RemoveItemsFromReviewQueue,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/items/remove",
+        )
+
+    def list_review_queue_items(self, queue_id, *, status=None, max_results=None, page_token=None):
+        from mlflow.genai.review_queues import ReviewQueueItem
+        from mlflow.genai.review_queues.validation import coerce_status
+
+        req = ListReviewQueueItems(queue_id=queue_id)
+        if status is not None:
+            req.status = coerce_status(status).to_proto()
+        if max_results is not None:
+            req.max_results = max_results
+        if page_token is not None:
+            req.page_token = page_token
+        response_proto = self._call_endpoint(
+            ListReviewQueueItems,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/items/list",
+        )
+        items = [ReviewQueueItem.from_proto(i) for i in response_proto.items]
+        return PagedList(items, response_proto.next_page_token or None)
+
+    def set_review_queue_item_status(self, queue_id, *, item_id, status, completed_by=None):
+        from mlflow.genai.review_queues import ReviewQueueItem
+        from mlflow.genai.review_queues.validation import coerce_status
+
+        req = SetReviewQueueItemStatus(
+            queue_id=queue_id,
+            item_id=item_id,
+            status=coerce_status(status).to_proto(),
+        )
+        if completed_by is not None:
+            req.completed_by = completed_by
+        response_proto = self._call_endpoint(
+            SetReviewQueueItemStatus,
+            message_to_json(req),
+            endpoint=f"{_V3_REVIEW_QUEUES_REST_API_PATH_PREFIX}/items/set-status",
+        )
+        return ReviewQueueItem.from_proto(response_proto.item)
 
     def log_metric(self, run_id: str, metric: Metric):
         """

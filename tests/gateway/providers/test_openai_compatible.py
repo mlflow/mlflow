@@ -336,7 +336,7 @@ async def test_proxy_propagates_headers():
     mock_client = mock_http_client(MockAsyncResponse(_chat_response()))
     captured_headers = {}
 
-    def mock_client_session(headers=None):
+    def mock_client_session(headers=None, **kwargs):
         captured_headers.update(headers or {})
         return mock_client
 

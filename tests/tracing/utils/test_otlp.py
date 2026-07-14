@@ -13,6 +13,7 @@ from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.tracing.provider import provider as mlflow_provider
+from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 from mlflow.tracking import MlflowClient
 from mlflow.utils.os import is_windows
 
@@ -26,6 +27,7 @@ try:
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
         OTLPSpanExporter as HttpExporter,
     )
+    from opentelemetry.proto.common.v1.common_pb2 import AnyValue
 except ImportError:
     pytest.skip("OTLP exporters are not installed", allow_module_level=True)
 
@@ -291,3 +293,35 @@ def test_decompress_otlp_body_valid(
 def test_decompress_otlp_body_invalid(encoding: str, invalid_data: bytes, expected_error: str):
     with pytest.raises(HTTPException, match=expected_error, check=lambda e: e.status_code == 400):
         decompress_otlp_body(invalid_data, encoding)
+
+
+def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_string():
+    value = AnyValue()
+    _set_otel_proto_anyvalue(value, "x" * 149 + "\ud83e")
+    assert value.string_value == "x" * 149 + "?"
+
+
+def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_fallback():
+    class BadStr:
+        def __str__(self):
+            return "bad\ud83e"
+
+    value = AnyValue()
+    _set_otel_proto_anyvalue(value, BadStr())
+    assert value.string_value == "bad?"
+
+
+def test_set_otel_proto_anyvalue_sanitizes_nested_lone_surrogate():
+    value = AnyValue()
+    _set_otel_proto_anyvalue(value, {"items": ["ok", {"bad": "x\ud83e"}]})
+    nested = value.kvlist_value.values[0].value.array_value.values[1]
+    assert nested.kvlist_value.values[0].value.string_value == "x?"
+
+
+def test_set_otel_proto_anyvalue_sanitizes_lone_surrogate_dict_key():
+    value = AnyValue()
+
+    _set_otel_proto_anyvalue(value, {"bad\ud83e": "ok"})
+
+    assert value.kvlist_value.values[0].key == "bad?"
+    assert value.kvlist_value.values[0].value.string_value == "ok"

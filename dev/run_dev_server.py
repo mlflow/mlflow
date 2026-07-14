@@ -20,6 +20,10 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import dev_stubs
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 JS_DIR = REPO_ROOT / "mlflow" / "server" / "js"
 
@@ -125,7 +129,18 @@ def main() -> None:
     # Line-buffer prints so progress shows up live when stdout is redirected to a file.
     sys.stdout.reconfigure(line_buffering=True)  # type: ignore[union-attr]
 
-    argparse.ArgumentParser(description=__doc__).parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--stub-providers",
+        default="",
+        help=(
+            "Comma-separated credential-free stubs to install before launch so "
+            "provider-gated UI renders without real keys (for CI review / local dev). "
+            f"Available: {', '.join(dev_stubs.AVAILABLE_STUBS)}."
+        ),
+    )
+    args = parser.parse_args()
+    stub_names = [s.strip() for s in args.stub_providers.split(",") if s.strip()]
 
     subprocess.check_call(["yarn", "install"], cwd=JS_DIR)
 
@@ -140,6 +155,15 @@ def main() -> None:
     atexit.register(cleanup, children, tmp_paths)
     for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig, on_signal)
+
+    if stub_names:
+        # Install before the backend launches so PATH changes propagate to it, and
+        # register temp dirs with the same cleanup as the other children.
+        stubs = dev_stubs.install_stubs(stub_names)
+        dev_stubs.apply_to_environ(stubs)
+        tmp_paths.extend(stubs.cleanup_paths)
+        for message in stubs.messages:
+            print(message)
 
     backend_proc, backend_tmp = start_backend(backend_port)
     children.append(backend_proc)

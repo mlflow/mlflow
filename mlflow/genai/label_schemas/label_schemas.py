@@ -341,6 +341,10 @@ class LabelSchema:
     updated_at: int | None = None
     """Last update timestamp in milliseconds. ``None`` for Databricks-routed schemas."""
 
+    is_default: bool = False
+    """Whether this is the experiment's protected default question (server-seeded,
+    undeletable, uneditable). Read-only; ignored on create/update."""
+
     @classmethod
     def _convert_databricks_input(cls, input_obj):
         """Convert a Databricks input type to the corresponding MLflow input type."""
@@ -394,6 +398,7 @@ class LabelSchema:
             # (matches Databricks RPC convention); SQL column is
             # `last_update_time` (matches existing SqlExperiment / SqlRun).
             proto.last_updated_at = self.updated_at
+        proto.is_default = self.is_default
         return proto
 
     @classmethod
@@ -409,6 +414,7 @@ class LabelSchema:
             created_by=proto.created_by if proto.HasField("created_by") else None,
             created_at=proto.created_at if proto.HasField("created_at") else None,
             updated_at=proto.last_updated_at if proto.HasField("last_updated_at") else None,
+            is_default=proto.is_default,
         )
 
 

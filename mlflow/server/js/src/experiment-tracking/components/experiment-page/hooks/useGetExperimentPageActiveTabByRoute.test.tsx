@@ -39,6 +39,12 @@ describe('useGetExperimentPageActiveTabByRoute', () => {
       expectedTopLevelTabName: ExperimentPageTabName.Models,
     },
     {
+      name: 'should return ReviewQueue tab when on review-queue route',
+      pathname: '/experiments/123/review-queue',
+      expectedTabName: ExperimentPageTabName.ReviewQueue,
+      expectedTopLevelTabName: ExperimentPageTabName.ReviewQueue,
+    },
+    {
       name: 'should return undefined when on unknown route',
       pathname: '/experiments/123/unknown',
       expectedTabName: undefined,

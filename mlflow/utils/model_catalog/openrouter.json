@@ -597,7 +597,6 @@
         "cache_read_per_million_tokens": 0.025,
         "modality": {
           "audio": {
-            "cache_read_per_million_tokens": 0.05,
             "input_per_million_tokens": 0.5
           }
         }
@@ -609,7 +608,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-05-27"
+      "last_updated_at": "2026-06-29"
     },
     "google/gemini-3.1-flash-lite-preview": {
       "mode": "chat",
@@ -624,7 +623,6 @@
         "cache_read_per_million_tokens": 0.025,
         "modality": {
           "audio": {
-            "cache_read_per_million_tokens": 0.05,
             "input_per_million_tokens": 0.5
           }
         }
@@ -636,7 +634,7 @@
         "prompt_caching": true,
         "response_schema": true
       },
-      "last_updated_at": "2026-04-24"
+      "last_updated_at": "2026-06-29"
     },
     "google/gemini-3.1-pro-preview": {
       "mode": "chat",
@@ -2036,6 +2034,28 @@
         "response_schema": false
       },
       "last_updated_at": "2026-04-24"
+    },
+    "z-ai/glm-5.1": {
+      "mode": "chat",
+      "context_window": {
+        "max_input": 202752,
+        "max_output": 65535,
+        "max_tokens": 65535
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.05,
+        "output_per_million_tokens": 3.5,
+        "cache_read_per_million_tokens": 0.525,
+        "cache_write_per_million_tokens": 0.0
+      },
+      "capabilities": {
+        "function_calling": true,
+        "vision": false,
+        "reasoning": true,
+        "prompt_caching": true,
+        "response_schema": false
+      },
+      "last_updated_at": "2026-06-29"
     }
   }
 }

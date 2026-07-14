@@ -13,7 +13,7 @@ fi
 DOWNLOAD_URL="https://downloads.claude.ai/claude-code-releases"
 PLATFORM="linux-x64"
 
-VERSION="$(curl -fsSL --retry 3 --retry-delay 2 "$DOWNLOAD_URL/stable")"
+VERSION="$(curl -fsSL --retry 3 --retry-delay 2 "$DOWNLOAD_URL/latest")"
 CHECKSUM="$(curl -fsSL --retry 3 --retry-delay 2 "$DOWNLOAD_URL/$VERSION/manifest.json" \
   | jq -r ".platforms[\"$PLATFORM\"].checksum")"
 

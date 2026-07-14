@@ -200,7 +200,7 @@ def infer_python_version(package: Package, version: str, repo_url: str | None = 
     """
     Infer the minimum Python version required by the package.
     """
-    candidates = ("3.10", "3.11")
+    candidates = ("3.10", "3.11", "3.12")
 
     if version == DEV_VERSION:
         # `Version("dev")` would raise InvalidVersion, so resolve dev separately

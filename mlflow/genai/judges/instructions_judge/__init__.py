@@ -636,7 +636,7 @@ class InstructionsJudge(Judge):
 
         response_format = self._create_response_format_model()
 
-        return invoke_judge_model(
+        feedback = invoke_judge_model(
             model_uri=self._model,
             prompt=messages,
             assessment_name=self.name,
@@ -647,6 +647,10 @@ class InstructionsJudge(Judge):
             base_url=self._base_url,
             extra_headers=self._extra_headers,
         )
+        # Surface the judge instructions in assessment metadata so the UI can
+        # show the criterion that was evaluated alongside each result.
+        feedback.metadata = {**(feedback.metadata or {}), "guideline": self._instructions}
+        return feedback
 
     def _create_response_format_model(self) -> type[pydantic.BaseModel]:
         output_fields = self.get_output_fields()

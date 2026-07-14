@@ -12,6 +12,13 @@ import { getLockSocketPath } from './paths';
 const PROBE_TIMEOUT_MS = 1000;
 
 /**
+ * Upper bound on how long {@link ensureDaemon} waits for a freshly
+ * spawned daemon to bind its lock socket.
+ */
+const SPAWN_BIND_WAIT_TIMEOUT_MS = 2000;
+const SPAWN_BIND_WAIT_POLL_MS = 50;
+
+/**
  * Probe the daemon's liveness lock with a short timeout.
  *
  * Returns:
@@ -108,6 +115,34 @@ export function spawnDaemon(): void {
 let spawnInFlight: Promise<void> | null = null;
 
 /**
+ * Poll {@link isDaemonAlive} until it returns true or `timeoutMs`
+ * elapses. Does not throw on timeout — the IPC client's own retry
+ * loop will surface any persistent connection failure.
+ */
+async function waitForDaemonBind(timeoutMs: number, pollIntervalMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const remainingMs = deadline - Date.now();
+
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const result = await Promise.race<boolean | 'timeout'>([
+      isDaemonAlive(),
+      new Promise((resolve) => {
+        timeoutHandle = setTimeout(() => resolve('timeout'), remainingMs);
+      }),
+    ]);
+    clearTimeout(timeoutHandle);
+    if (result === true || result === 'timeout') {
+      return;
+    }
+    const sleepMs = Math.min(pollIntervalMs, deadline - Date.now());
+    if (sleepMs > 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, sleepMs));
+    }
+  }
+}
+
+/**
  * Ensure a daemon is alive; spawn one if not.
  */
 export function ensureDaemon(): Promise<void> {
@@ -120,6 +155,7 @@ export function ensureDaemon(): Promise<void> {
         return;
       }
       spawnDaemon();
+      await waitForDaemonBind(SPAWN_BIND_WAIT_TIMEOUT_MS, SPAWN_BIND_WAIT_POLL_MS);
     } catch (err) {
       console.error('[mlflow][wal] ensureDaemon failed:', err);
     } finally {

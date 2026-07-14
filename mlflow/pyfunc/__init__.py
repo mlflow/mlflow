@@ -551,6 +551,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_runtime,
     is_in_databricks_serverless_runtime,
     is_in_databricks_shared_cluster_runtime,
+    parse_dbr_runtime_major_minor,
 )
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -2285,15 +2286,17 @@ def spark_udf(
                 "Databricks Connect requires UDF sandbox image installed with MLflow "
                 "of version >= 2.18.0"
             )
-        # `udf_sandbox_info.runtime_version` format is like '<major_version>.<minor_version>'.
-        # It's safe to apply `Version`.
-        dbr_runtime_version = Version(udf_sandbox_info.runtime_version)
-        if dbr_runtime_version < Version("15.4"):
+        # Compare on the leading (major, minor) components instead of constructing a `Version`,
+        # which crashes with `InvalidVersion` on newer image strings whose minor is non-numeric
+        # (e.g. "18.x-aarch64-photon-scala2"). A `.x` minor denotes the latest uncut minor of that
+        # major, always ahead of any released minor, so it sorts above every concrete minor.
+        dbr_runtime_version = parse_dbr_runtime_major_minor(udf_sandbox_info.runtime_version)
+        if dbr_runtime_version < (15, 4):
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
                 "Databricks Connect requires Databricks runtime version >= 15.4."
             )
-        if dbr_runtime_version == Version("15.4"):
+        if dbr_runtime_version == (15, 4):
             if spark.conf.get("spark.databricks.pyspark.udf.isolation.enabled").lower() == "true":
                 # The connected cluster is standard (shared) mode.
                 if (

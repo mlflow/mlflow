@@ -1,4 +1,5 @@
 import { jest, describe, beforeEach, it, expect } from '@jest/globals';
+import { useEffect } from 'react';
 import { ExperimentViewHeader, ExperimentViewHeaderSkeleton } from './ExperimentViewHeader';
 import { renderWithIntl, act, screen, waitFor, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import type { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
@@ -13,6 +14,10 @@ import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-c
 import { TestRouter, setupTestRouter, testRoute } from '../../../../../common/utils/RoutingTestUtils';
 import { ExperimentKind } from '../../../../constants';
 import { EXPERIMENT_KIND_TAG_KEY } from '../../../../utils/ExperimentKindUtils';
+import {
+  HeaderVisibilityProvider,
+  useHeaderVisibility,
+} from '../../../../pages/experiment-page-tabs/ExperimentPageHeaderVisibilityContext';
 
 const mockNavigate = jest.fn();
 
@@ -194,6 +199,53 @@ describe('ExperimentViewHeader', () => {
       await userEvent.click(screen.getByTestId('experiment-view-header-back-button'));
 
       expect(mockNavigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments'));
+    });
+  });
+
+  describe('headerActionsHidden', () => {
+    const HideHeaderActions = () => {
+      const { setHeaderActionsHidden } = useHeaderVisibility();
+      useEffect(() => {
+        setHeaderActionsHidden(true);
+      }, [setHeaderActionsHidden]);
+      return null;
+    };
+
+    const renderWithHiddenActions = (experiment = defaultExperiment, initialPath = '/') => {
+      const mockStore = configureStore([thunk, promiseMiddleware()]);
+      const queryClient = new QueryClient();
+
+      return renderWithIntl(
+        <QueryClientProvider client={queryClient}>
+          <DesignSystemProvider>
+            <Provider
+              store={mockStore({
+                entities: {
+                  experimentsById: {},
+                },
+              })}
+            >
+              <HeaderVisibilityProvider>
+                <HideHeaderActions />
+                <TestRouter
+                  routes={[testRoute(<ExperimentViewHeader experiment={experiment} setEditing={setEditing} />, '*')]}
+                  initialEntries={[initialPath]}
+                  history={history}
+                />
+              </HeaderVisibilityProvider>
+            </Provider>
+          </DesignSystemProvider>
+        </QueryClientProvider>,
+      );
+    };
+
+    it('hides the share button and management menu when headerActionsHidden is true', async () => {
+      await act(async () => {
+        renderWithHiddenActions();
+      });
+
+      expect(screen.queryByRole('button', { name: /share/i })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('overflow-menu-trigger')).not.toBeInTheDocument();
     });
   });
 });
