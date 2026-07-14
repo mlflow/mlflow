@@ -203,6 +203,27 @@ async def test_astream_yields_error_on_nonzero_exit():
 
 
 @pytest.mark.asyncio
+async def test_astream_surfaces_non_empty_error_for_empty_exception():
+    # On Windows with >1 server worker, the subprocess spawn raises a bare
+    # NotImplementedError() whose str() is "". The error must still be
+    # diagnosable rather than an empty `{"error": ""}`.
+    with (
+        patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
+        patch(
+            "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
+            side_effect=NotImplementedError(),
+        ) as mock_exec,
+    ):
+        provider = CodexProvider()
+        events = [e async for e in provider.astream("hi", "http://localhost:5000")]
+
+    mock_exec.assert_called_once()
+    error_events = [e for e in events if e.type == EventType.ERROR]
+    assert len(error_events) == 1
+    assert error_events[0].data["error"] == "NotImplementedError()"
+
+
+@pytest.mark.asyncio
 async def test_astream_yields_interrupted_on_sigkill():
     mock_proc = _mock_process(returncode=-9)
 
